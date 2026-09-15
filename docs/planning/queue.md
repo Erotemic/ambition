@@ -17,12 +17,37 @@ it.
 [construction and reconstitution](engine/construction-and-reconstitution.md), and
 the construction/session owners.
 
-**Current state — the ROOM scope is closed for the WORLD, with two named gaps
-that are not about the world (2026-09-14).** ⚠ A review rejected an earlier,
-flatter "completely closed" here and it was right to: what is closed is that no
-road can change the authoritative world without a verdict. The transition state
-machine still advances to `playing` on a refusal, and the custody-deferred
-supersession is Model B rather than Model A. Both are named below. Every room lifecycle
+**CURRENT INVARIANT.** A failed candidate world leaves the currently playable
+world N intact, at BOTH scopes. A candidate N+1 is prepared and verified off to
+the side; only a validated candidate becomes authoritative; N is retired only
+after that publication succeeds.
+
+**CURRENT HEAD BEHAVIOUR (2026-09-15).** The acceptance criterion is MET in the
+PRODUCTION composition at both scopes, and every road that can change the
+authoritative world now crosses its own publication's verdict — the room
+transition, the reset, the death reconstruction, the shell handoff and the dev
+LDtk reload, each with a refusal arm and an admission control in `app_it`. There
+is ONE road into a live session (A10.5's fallback is deleted) and ONE publication
+authority per level.
+
+**NEXT IMPLEMENTATION STEP.** Custody supersession Model B → Model A, which needs
+`restore_custody_to_checkpoint` split so publication can despawn the predecessor
+while the custodian still finds its key. ⚠ Model A was ATTEMPTED and MEASURED to
+fail as a straight inversion (`death_restores_the_checkpoint` 1/11,
+`two_persistence_authorities_for_one_item` with `still_owned=1`); it is a custody
+-domain restructuring, not an A10 ordering change.
+
+**ACCEPTANCE CRITERIA.** A production composition demonstrating (a) failed
+candidate construction/publication leaves the last-good world playable, and (b)
+successful replacement validates N+1 before retiring N. ⇒ **MET at room scope and
+at session scope.**
+
+**ACTUAL BLOCKER.** None for the criterion. What remains is listed under
+*Remaining work* in the owner document and is narrower in kind: custody Model B (a
+declared two-holder window on the SUCCESS path, admitted by the verifier as
+exactly two), and a refused door telling the player nothing.
+
+Every room lifecycle
 path (transition, reset, dev reload) runs through `replace_live_world`, which
 stages the whole replacement in `PendingWorldReplacement`, builds every root
 hidden under `ROOM_CANDIDATE_BRACKET = true`, declares what publication would do
@@ -328,71 +353,10 @@ it while hiding nothing) and
 `discarding_a_candidate_session_takes_its_whole_population_and_nothing_else`
 (a live session standing beside the discarded candidate survives it).
 
-⚠ **THE REFUSAL HALF HAS NO PRODUCTION WITNESS.** The shipped app cannot be made
-to refuse its first room the way the transition arm is: the first room's
-`ActiveContentBinding` is written by setup from that room's own plan, so it
-always matches. The PUBLISH half is exercised by every `app_it` test that boots.
-The vocabulary the design rests on is witnessed at unit level by
-`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`,
-which asserts the premise (an ordinary root IS visible) first so an unregistered
-filter cannot fake it. ⇒ **A10 IS NOT CLOSED**: the acceptance criterion is a
-PRODUCTION composition demonstrating that a failed candidate leaves the last-good
-world playable, and at session scope that demonstration does not exist yet.
-
-**ACTUAL BLOCKER — WORLD N IS DESTROYED BEFORE CANDIDATE N+1 IS BEGUN, AND IT IS
-AN ORDERING FACT, NOT A MISSING TEST (MEASURED 2026-09-14 from source).**
-`translate_shell_session_lifecycle` emits `RouteDeactivated` and `RouteActivated`
-from ONE run, so a handoff retires and activates in the same frame; and
-`SessionScopePlugin` chains `RetireAuthority -> Cleanup -> Activate ->
-Presentation`, with `despawn_retired_session_entities` in `Cleanup`. ⇒ By the
-time the provider builds the incoming session's candidate, the outgoing session's
-entities are ALREADY DESPAWNED, unconditionally.
-
-⚠ **THAT ORDER IS NOT AN ACCIDENT AND MUST NOT SIMPLY BE REVERSED.** It was
-changed to retire-first on 2026-09-13 for a measured reason recorded in the
-plugin: with `Cleanup` last, the incoming session's provider built its room while
-the outgoing scope's placements were still live and the whole room was refused —
-`room-refused central_hub_complex :: 18x Duplicated` — and
-`reset_session_scoped_resources_on_retire` removed `SessionMechanics` after the
-activation that installed it.
-
-⇒ **THE SESSION-SCOPE ACCEPTANCE CRITERION IS THEREFORE UNREACHABLE TODAY**: a
-refused candidate session leaves NO session at all, because N was already gone.
-This is why A10 is not closed, and it is a larger statement than "the refusal
-half has no witness".
-
-⚠ **AND THE FIX IS NOT TO REORDER THE RETIREMENT — CORRECTED 2026-09-14, THE
-SAME DAY THE ROW ABOVE WAS WRITTEN.** My first reading said the outgoing
-session's retirement had to become a declared effect of the incoming
-publication, the room packet's shape lifted one level. It does not: the
-retirement is fine where it is, because **a candidate verified BEFORE the route
-activates is already known-good by the time `RouteDeactivated(A)` is written**.
-A refused candidate never activates, so A is never retired. That also leaves the
-measured 2026-09-13 reason for the current order untouched.
-
-⛔⛤ **A10.5 WAS ATTEMPTED AND REVERTED — 2026-09-14, AND THE MEASUREMENT IS THE
-ROW.** The full change compiled (shell reservation ledger + `adopt_world`,
-`build_candidate` spawning its own hidden root, a pending-phase preparer holding
-the route, a registered `ShellActivationGates` evaluator, adoption on
-`Activated`) and then failed 17+ `app_it` arms with *"reached no session world"*.
-The working tree was reverted to the green HEAD; the patch is kept out of tree.
-
-⇒ **THE CAUSE IS SHAPE, NOT DETAIL: I REPLACED AN UNCONDITIONAL CONSTRUCTOR WITH
-A CONDITIONAL ONE.** The activation system built a world for
-EVERY activation of an authored-catalog experience. The candidate road only fires
-when a pending route has already published its prepared session, so every
-activation that does not pass through that exact state — and there are several
-roads that do not, plus an ordering question about whether preparation has
-published by the time the pending-phase system looks within the same frame — got
-no world at all.
-
-⇒ **THE NEXT ATTEMPT MUST BE ADDITIVE.** Activation keeps a constructor for the
-case where no candidate was prepared for it; the candidate road is an
-OPTIMISATION of the ordinary road, not a replacement for it, and only the routes
-that actually prepared a candidate get the strong guarantee. Ship it behind that
-fallback, measure which activations take which road, and only then consider
-removing the fallback. (⚠ REASONED, not measured: the two causes above were not
-separated before the revert — the next attempt should instrument which one fires.)
+⭐ **THE ROAD TO A10.5, AND WHY THE ROW ABOVE ONCE SAID A10 COULD NOT BE CLOSED,
+IS IN THE OWNER DOCUMENT** — the session-scope blocker as it was measured, the
+reverted first attempt, and the ordering fact that made the acceptance criterion
+unreachable. All of it is resolved; none of it is current state.
 
 **A10.5 LANDED (2026-09-15, on the second attempt): the candidate session is
 prepared and VERIFIED before the route activates.**

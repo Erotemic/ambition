@@ -414,6 +414,78 @@ the gaps that remain beside it, none of which falsifies it.
   predecessor. Declared rather than hidden, and not to be widened; Model A
   remains the better end state, particularly for replication.
 
+## How the session scope got closed — the investigation, kept out of the queue row
+
+⚠ **HISTORY, NOT CURRENT STATE.** Every blocker below is resolved; A10.5 landed
+on 2026-09-15 and its fallback was deleted the same day. This is here because the
+measurements are worth keeping and the queue row is not a diary.
+
+⚠ **THE REFUSAL HALF HAS NO PRODUCTION WITNESS.** The shipped app cannot be made
+to refuse its first room the way the transition arm is: the first room's
+`ActiveContentBinding` is written by setup from that room's own plan, so it
+always matches. The PUBLISH half is exercised by every `app_it` test that boots.
+The vocabulary the design rests on is witnessed at unit level by
+`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`,
+which asserts the premise (an ordinary root IS visible) first so an unregistered
+filter cannot fake it. ⇒ **A10 IS NOT CLOSED**: the acceptance criterion is a
+PRODUCTION composition demonstrating that a failed candidate leaves the last-good
+world playable, and at session scope that demonstration does not exist yet.
+
+**ACTUAL BLOCKER — WORLD N IS DESTROYED BEFORE CANDIDATE N+1 IS BEGUN, AND IT IS
+AN ORDERING FACT, NOT A MISSING TEST (MEASURED 2026-09-14 from source).**
+`translate_shell_session_lifecycle` emits `RouteDeactivated` and `RouteActivated`
+from ONE run, so a handoff retires and activates in the same frame; and
+`SessionScopePlugin` chains `RetireAuthority -> Cleanup -> Activate ->
+Presentation`, with `despawn_retired_session_entities` in `Cleanup`. ⇒ By the
+time the provider builds the incoming session's candidate, the outgoing session's
+entities are ALREADY DESPAWNED, unconditionally.
+
+⚠ **THAT ORDER IS NOT AN ACCIDENT AND MUST NOT SIMPLY BE REVERSED.** It was
+changed to retire-first on 2026-09-13 for a measured reason recorded in the
+plugin: with `Cleanup` last, the incoming session's provider built its room while
+the outgoing scope's placements were still live and the whole room was refused —
+`room-refused central_hub_complex :: 18x Duplicated` — and
+`reset_session_scoped_resources_on_retire` removed `SessionMechanics` after the
+activation that installed it.
+
+⇒ **THE SESSION-SCOPE ACCEPTANCE CRITERION IS THEREFORE UNREACHABLE TODAY**: a
+refused candidate session leaves NO session at all, because N was already gone.
+This is why A10 is not closed, and it is a larger statement than "the refusal
+half has no witness".
+
+⚠ **AND THE FIX IS NOT TO REORDER THE RETIREMENT — CORRECTED 2026-09-14, THE
+SAME DAY THE ROW ABOVE WAS WRITTEN.** My first reading said the outgoing
+session's retirement had to become a declared effect of the incoming
+publication, the room packet's shape lifted one level. It does not: the
+retirement is fine where it is, because **a candidate verified BEFORE the route
+activates is already known-good by the time `RouteDeactivated(A)` is written**.
+A refused candidate never activates, so A is never retired. That also leaves the
+measured 2026-09-13 reason for the current order untouched.
+
+⛔⛤ **A10.5 WAS ATTEMPTED AND REVERTED — 2026-09-14, AND THE MEASUREMENT IS THE
+ROW.** The full change compiled (shell reservation ledger + `adopt_world`,
+`build_candidate` spawning its own hidden root, a pending-phase preparer holding
+the route, a registered `ShellActivationGates` evaluator, adoption on
+`Activated`) and then failed 17+ `app_it` arms with *"reached no session world"*.
+The working tree was reverted to the green HEAD; the patch is kept out of tree.
+
+⇒ **THE CAUSE IS SHAPE, NOT DETAIL: I REPLACED AN UNCONDITIONAL CONSTRUCTOR WITH
+A CONDITIONAL ONE.** The activation system built a world for
+EVERY activation of an authored-catalog experience. The candidate road only fires
+when a pending route has already published its prepared session, so every
+activation that does not pass through that exact state — and there are several
+roads that do not, plus an ordering question about whether preparation has
+published by the time the pending-phase system looks within the same frame — got
+no world at all.
+
+⇒ **THE NEXT ATTEMPT MUST BE ADDITIVE.** Activation keeps a constructor for the
+case where no candidate was prepared for it; the candidate road is an
+OPTIMISATION of the ordinary road, not a replacement for it, and only the routes
+that actually prepared a candidate get the strong guarantee. Ship it behind that
+fallback, measure which activations take which road, and only then consider
+removing the fallback. (⚠ REASONED, not measured: the two causes above were not
+separated before the revert — the next attempt should instrument which one fires.)
+
 ## Rollback, persistence and multiple rooms
 
 The existing confirmed room transition starts a new baseline; snapshots do not

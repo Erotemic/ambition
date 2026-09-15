@@ -1370,6 +1370,90 @@ mod tests {
         );
     }
 
+    /// ⛔⛤ **A ROOM PUBLISHES INTO A SESSION THAT IS ITSELF STILL A CANDIDATE.**
+    ///
+    /// The session root carries a canonical `SimId` and no room `TransactionId`,
+    /// because the transaction that owns it is the SESSION's publication. While
+    /// that root is a hidden candidate, the room's own verifiers see an identity
+    /// that is in no plan, in no baseline (the baseline is the LIVE world) and
+    /// stamped by nobody — and call the room's own session a stray.
+    ///
+    /// ⚠ **THE SHIPPED ORDER AVOIDS THIS BY ACCIDENT, WHICH IS WHY THIS ARM
+    /// EXISTS.** Session activation hides its root only after the room's
+    /// transaction has opened, so the baseline sees it published and nothing
+    /// complains. Nothing states that ordering as a rule, and the moment a
+    /// candidate session is prepared off to the side — hidden at spawn, which is
+    /// the whole point — the accident stops holding. MEASURED 2026-09-15:
+    /// without the exemption this arm defends, the room refuses with
+    /// `UnownedIdentity { sim_id: SimId("session:...") }`.
+    #[test]
+    fn a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate() {
+        let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(30.0, 8.0),
+            40.0,
+            5.0,
+        ));
+        // The fixture's root, given the canonical identity a real session root
+        // carries and then HIDDEN — the shape a candidate session's root has
+        // while its first room is being verified.
+        let root = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+            .expect("the fixture carries a session root");
+        app.world_mut().entity_mut(root).insert(
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "7"),
+        );
+        bevy::ecs::system::RunSystemOnce::run_system_once(
+            app.world_mut(),
+            move |mut commands: Commands| {
+                ambition_platformer2d_shared_tangle::construction::hide_candidate_session_root(
+                    &mut commands,
+                    root,
+                );
+            },
+        )
+        .expect("the hiding system runs");
+
+        stage_the_candidate(&mut app, candidate_plan(), outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        let about_the_session = |violations: &[String]| -> Vec<String> {
+            violations
+                .iter()
+                .filter(|violation| violation.contains("session:7"))
+                .cloned()
+                .collect()
+        };
+        let roster: Vec<String> = verification
+            .violations
+            .iter()
+            .map(|violation| format!("{violation:?}"))
+            .collect();
+        let projected: Vec<String> = verification
+            .projection_violations
+            .iter()
+            .map(|violation| format!("{violation:?}"))
+            .collect();
+        assert!(
+            about_the_session(&roster).is_empty() && about_the_session(&projected).is_empty(),
+            "⛔ THE ROOM CALLED ITS OWN SESSION A STRAY. A session root is not a \
+             room-constructed identity, published or hidden: roster {:?}, projected {:?}",
+            about_the_session(&roster),
+            about_the_session(&projected)
+        );
+
+        // ⚠ **AND THE STAGED-WORLD CHECK IS A SEPARATE, STILL-OPEN GAP**, named
+        // rather than asserted away: `verify_staged_world` asks
+        // `session_world_entity` — *"which root is LIVE"* — so a staged
+        // replacement into a candidate session refuses with
+        // `NoSessionRootToPublishInto`. This fixture's plan is `UNSCOPED`, so it
+        // cannot even ask the scoped question. Recorded in the A10 row; it is the
+        // same lesson as `verify_and_publish`'s own root precondition, one layer
+        // further in.
+    }
+
     /// ⛔⛤ **A REFUSED CANDIDATE LEAVES WORLD N EXACTLY AS IT WAS.**
     ///
     /// The refusal is a REAL production one: the room transaction compares the

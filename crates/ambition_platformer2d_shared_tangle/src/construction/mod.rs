@@ -2118,6 +2118,23 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         if planned_ids.contains(&member.sim_id) || baseline.contains(&member.sim_id) {
             continue;
         }
+        // ⛔⛤ **A SESSION ROOT IS NOT A ROOM-CONSTRUCTED IDENTITY.** A PUBLISHED
+        // root is in the baseline and skipped above; a root that is still a
+        // hidden CANDIDATE is not, because the baseline is the live world by
+        // definition — and a room would then call its own session a stray.
+        //
+        // ⚠ **THE CURRENT ORDER AVOIDS THIS BY ACCIDENT AND THAT IS WHY THE RULE
+        // IS WRITTEN DOWN.** Session activation hides the root only AFTER the
+        // room's transaction has opened, so the baseline sees it published.
+        // MEASURED 2026-09-15: hiding it at spawn instead — which is what a
+        // candidate session prepared off to the side must do — refuses the room
+        // with `UnownedIdentity { sim_id: SimId("session:2") }`.
+        if world
+            .get::<crate::lifecycle::SessionRoot>(member.entity)
+            .is_some()
+        {
+            continue;
+        }
         violations.push(match &member.classification {
             // Stamped by THIS transaction's executor, yet no plan row named it.
             ScopeClassification::TransactionAuthoritative => RosterViolation::Unplanned {
@@ -3611,6 +3628,17 @@ pub fn verify_projected_roster(
     // hidden forever and invisible to every ordinary query.
     for member in scope.members() {
         if member.visibility != ScopeVisibility::HiddenCandidate {
+            continue;
+        }
+        // ⛔⛤ **AND A CANDIDATE SESSION ROOT IS NOT AN UNOWNED ROOM CANDIDATE.**
+        // It carries a canonical `SimId` and no room `TransactionId`, because the
+        // transaction that owns it is the SESSION's publication, not any room's.
+        // Same rule, same reason, as the roster check above — see
+        // `verify_committed_roster`.
+        if world
+            .get::<crate::lifecycle::SessionRoot>(member.entity)
+            .is_some()
+        {
             continue;
         }
         if world.get::<TransactionId>(member.entity).is_none() {

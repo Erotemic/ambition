@@ -375,6 +375,25 @@ published behind its first room's verdict. The three defects above were real and
 their fixes are described here rather than in the tree; the patches are kept out
 of tree.
 
+**Kept from the reverted packet (2026-09-15): a room does not call its own
+session a stray.** A session root carries a canonical `SimId` and no room
+`TransactionId` — the transaction that owns it is the SESSION's publication — so
+while it is a hidden candidate the room's own verifiers see an identity in no
+plan, in no baseline (the baseline is the LIVE world) and stamped by nobody.
+`verify_committed_roster` and `verify_projected_roster` both skip a `SessionRoot`
+now. The shipped order avoided this by ACCIDENT, hiding the root only after the
+room's transaction had opened; nothing stated that as a rule.
+`a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate` states it,
+and poison-verified: disabling the two exemptions refuses the room with
+`UnownedIdentity` AND `CandidateUnowned` about `session:7`.
+
+⚠ **AND IT NAMED A THIRD PLACE THE SAME RULE IS MISSING**, recorded rather than
+asserted away: `verify_staged_world` asks `session_world_entity` — *"which root is
+LIVE"* — so a staged world replacement into a candidate session refuses with
+`NoSessionRootToPublishInto`. `verify_and_publish`'s own root precondition already
+asks the scoped question (`session_root_for_scope`); the staged-world check has
+not been taught it, and it cannot be until it is handed the transaction's session.
+
 **Next implementation — session-scoped construction verification, then A10.5 again.**
 
  Prepare and

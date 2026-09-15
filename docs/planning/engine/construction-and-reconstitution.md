@@ -652,6 +652,14 @@ the gaps that remain beside it, none of which falsifies it.
   `room_commit_refused` world-log line: **the player is given no signal, and the
   door simply never opens.** That is a presentation gap, not a world-integrity
   one.
+  ⇒ **FIRST STEP: it is a design question, not an implementation one, and it
+  should be asked before anything is built.** *What should a player see when a
+  door refuses?* — nothing (it reads as a locked door), a diegetic refusal, or a
+  developer-only overlay because it can only happen to a broken build. The last
+  answer is the cheapest and may well be the right one: this is reachable in
+  production only when construction verification fails, which across `app_it` is
+  **zero refusals in 686 publications** on the roads a player takes. ⛔ Do not
+  invent a player-facing treatment for it unasked.
 - **Custody supersession is Model B, and the window is now MEASURED rather than
   declared.** Publication leaves the predecessor standing when it declared
   `DepartureAuthority::Custodian`, because `restore_custody_to_checkpoint`

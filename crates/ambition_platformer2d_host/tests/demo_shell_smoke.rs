@@ -92,6 +92,12 @@ impl Plugin for FixtureContentPlugin {
 /// (and any other "after the world exists" startup work) orders correctly.
 fn fixture_setup(
     mut commands: Commands,
+    // The root the fixture's world hangs off: setup publishes the session's
+    // content generation ON it.
+    session_root: bevy::prelude::Single<
+        bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
@@ -113,6 +119,7 @@ fn fixture_setup(
         &mut commands,
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
+            session_root: *session_root,
             world: &world,
             room_set: &room_set,
             tuning: &tuning,

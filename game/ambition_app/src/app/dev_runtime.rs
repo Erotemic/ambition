@@ -540,7 +540,10 @@ pub(super) fn reload_ldtk_world_from_disk(
         if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
             return;
         }
-        world.insert_resource(
+        // ⛔ ON THE SESSION ROOT. The reload's own generation belongs to the
+        // session it reloaded, not to the process — see `ActiveContentBinding`.
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            world,
             ambition_platformer2d::actors::rooms::ActiveContentBinding::content(committed_epoch),
         );
         if let Some(mut index) =

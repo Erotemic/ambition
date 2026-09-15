@@ -19,6 +19,23 @@ use bevy::prelude::*;
 /// harmful, plus the reason. This list is the part of the test that can lie —
 /// keep it short and justified.
 const WAIVED: &[(&str, &str)] = &[
+    // ⛔⛤ THE SESSION'S CONTENT GENERATION, WHICH MOVED ONTO ITS ROOT ON
+    // 2026-09-14 (A10.4) AND SO ENTERED THIS CENSUS. It was a process-global
+    // `Resource`; it is a component on the session root now, because two
+    // sessions — a live one and a candidate — must be able to hold two
+    // generations at once.
+    //
+    // ⭐ ITS WRITERS ARE CONTENT AUTHORITIES IN `Update`, NEVER THE SIMULATION:
+    // session activation inserts it, and the LDtk hot reload updates it behind
+    // that room's verdict. A rewind therefore restores the value it already
+    // holds. The one road that changes it mid-session is the hot reload, which
+    // STOPS and restarts the local rollback session
+    // (`local_ggrs_restart_policy`) and REFUSES outright on an external/P2P
+    // session — so no rewind crosses a change to it.
+    (
+        "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding",
+        "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
+    ),
     // Presentation / observation: derived from sim facts, never authoritative.
     (
         "ambition_sim_view::",

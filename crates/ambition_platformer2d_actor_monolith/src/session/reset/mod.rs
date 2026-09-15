@@ -191,7 +191,7 @@ use ambition_platformer2d_world::rooms::RoomSet;
 /// Bundles sim-state resources so `process_new_game_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
-pub struct ResetPlayState<'w> {
+pub struct ResetPlayState<'w, 's> {
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     /// ⛔⛤ **THE APP'S REGISTRIES ARE THE FALLBACK NOW, NOT THE ANSWER.** A reset
     /// rebuilds the start room of the generation this session is RUNNING, so it
@@ -226,7 +226,17 @@ pub struct ResetPlayState<'w> {
     /// The session's live content binding, so a reset's plan states the SAME
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
-    active_binding: Option<Res<'w, crate::world::rooms::transaction::ActiveContentBinding>>,
+    /// ⛔ ON THE SESSION ROOT, not a process global — see `ActiveContentBinding`.
+    /// `Option<Single<..>>` rather than a bare `Single`, because a bare one would
+    /// SKIP this whole system in a composition that has no session root, and a
+    /// reset in a direct-entry fixture is legitimate.
+    active_binding: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            'w,
+            's,
+            crate::world::rooms::transaction::ActiveContentBinding,
+        >,
+    >,
     /// **The published controller policies**, so a placement that names a
     /// `brain_profile` still resolves it after a reset. Reset was the one road
     /// that carried the cast and not these — a room came IN with its authored
@@ -284,7 +294,7 @@ pub fn process_new_game_reset_request(
     // access, so nothing is lost to parallelism and the SIGNATURE no longer
     // claims a reset that has not been verified.
     mut request: ResMut<NewGameResetRequested>,
-    play_state: ResetPlayState<'_>,
+    play_state: ResetPlayState<'_, '_>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomSet>,
     // ⛔ A GUARD, NOT A WRITE TARGET — and `Single` is what makes it one: this
     // system does not run unless the live session root carries room geometry. The
@@ -365,7 +375,10 @@ pub fn process_new_game_reset_request(
             &play_state.character_catalog,
             &mechanics,
             ambition_platformer2d_core::ContentEpoch::default(),
-            play_state.active_binding.as_deref(),
+            play_state
+                .active_binding
+                .as_deref()
+                .map(|binding| &**binding),
             play_state.brain_profiles.as_deref(),
             // **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
             // OF A RESET.** The ledger says which authored occurrences are

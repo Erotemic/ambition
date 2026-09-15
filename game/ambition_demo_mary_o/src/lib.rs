@@ -1533,6 +1533,12 @@ impl Plugin for MaryODemoContentPlugin {
 #[allow(clippy::too_many_arguments)]
 fn mary_o_setup(
     mut commands: bevy::prelude::Commands,
+    // The root this demo's world hangs off: setup publishes the session's
+    // content generation ON it rather than into a process global.
+    session_root: bevy::prelude::Single<
+        bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+    >,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::RoomSet,
@@ -1563,6 +1569,7 @@ fn mary_o_setup(
         &mut commands,
         ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
+            session_root: *session_root,
             world: &world,
             room_set: &room_set,
             // The CALLER converts: who edits the set is a developer

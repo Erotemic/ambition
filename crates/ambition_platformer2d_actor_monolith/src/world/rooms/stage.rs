@@ -1402,9 +1402,12 @@ mod tests {
 
         // ⛔ THE INJECTED FAILURE: the session runs under a content generation
         // this plan was not prepared against.
-        app.insert_resource(super::transaction::ActiveContentBinding::content(
-            ambition_platformer2d_core::ContentEpoch(7),
-        ));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            super::transaction::ActiveContentBinding::content(
+                ambition_platformer2d_core::ContentEpoch(7),
+            ),
+        );
 
         stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
 

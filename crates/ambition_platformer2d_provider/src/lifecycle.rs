@@ -1768,6 +1768,10 @@ impl PlatformerSessionBuilder<'_, '_> {
             &mut self.commands,
             SessionSpawnScope::scoped(scope),
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
+                // ⛔ THE ROOT THIS ACTIVATION JUST SPAWNED. Setup publishes the
+                // session's content generation ON it — not into a process global
+                // that a second session would have to overwrite.
+                session_root: world,
                 world: &geometry,
                 room_set: &room_set,
                 tuning: &self.tuning,

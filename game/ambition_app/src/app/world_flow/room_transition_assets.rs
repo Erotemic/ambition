@@ -1387,7 +1387,12 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         mut plan_prefetch,
     ): (
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
-        Option<Res<ambition_platformer2d::actors::rooms::ActiveContentBinding>>,
+        // ⛔ ON THE SESSION ROOT — see `ActiveContentBinding`.
+        Option<
+            ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+                ambition_platformer2d::actors::rooms::ActiveContentBinding,
+            >,
+        >,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
         >,
@@ -1579,7 +1584,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     &character_catalog,
                     &mechanics,
                     ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
-                    active_binding.as_deref(),
+                    active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE PREFETCH DELIBERATELY REMEMBERS NOTHING, and
                     // the promotion check is what makes that safe: a plan

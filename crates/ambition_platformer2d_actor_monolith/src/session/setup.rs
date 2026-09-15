@@ -32,6 +32,11 @@ pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
 /// past 16 params again. The struct also documents what the simulation
 /// half of setup actually needs.
 pub struct SimulationSetup<'a> {
+    /// ⛔ THE SESSION ROOT THIS SETUP IS BUILDING INTO. Setup publishes the
+    /// session's content generation ON it (see `ActiveContentBinding`), so it
+    /// must be handed the entity rather than looking up *"the live root"* — at
+    /// activation the live root is the OUTGOING session's, or none at all.
+    pub session_root: bevy::prelude::Entity,
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,
@@ -97,6 +102,7 @@ pub fn simulation_world(
     params: SimulationSetup<'_>,
 ) -> Option<Entity> {
     let SimulationSetup {
+        session_root,
         world,
         room_set,
         tuning,
@@ -139,9 +145,11 @@ pub fn simulation_world(
     // The session's content generation, published for the commit boundary:
     // every later room transaction (transition, reset, reconstruction) must be
     // prepared against THIS binding or be refused publication as stale.
-    commands.insert_resource(crate::world::rooms::transaction::ActiveContentBinding(
-        construction.binding,
-    ));
+    commands
+        .entity(session_root)
+        .insert(crate::world::rooms::transaction::ActiveContentBinding(
+            construction.binding,
+        ));
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         room_set,
         room_set.active,

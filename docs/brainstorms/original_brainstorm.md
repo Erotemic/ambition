@@ -762,3 +762,16 @@ injective or surjective.
 
 We could have you conjugate by turning on your side and changing or negating
 color palette.
+
+----
+
+Maybe the group that parodies the cultural "ludite" is a group that is defined
+by being quick to judge. We can use Judy here.
+
+Perhaps we can explore problems with how we treat wistleblowers in the game.
+
+I do want characters in the game to cause harm via ways that seem locally
+innocuous. I want some cases to be consequences that would have been
+preventable, and some where they are just a drop in a larger system, and
+individual change does not impact the harm. Likewise I want to show cases where
+an individual change seeds a chain reaction to systemic reform.

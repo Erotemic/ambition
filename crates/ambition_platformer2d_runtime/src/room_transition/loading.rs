@@ -540,7 +540,14 @@ pub fn begin_room_transition_load_system(
     mut pending: ConfirmedRoomTransitionIntent,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
-    active_binding: Option<Res<ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding>>,
+    // ⛔ ON THE SESSION ROOT, beside the `RoomSet` below — see
+    // `ActiveContentBinding`. `Option<Single<..>>`, because a bare `Single` would
+    // skip this system where the binding is legitimately absent.
+    active_binding: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding,
+        >,
+    >,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     construction_services: (
         Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
@@ -1204,7 +1211,7 @@ pub fn begin_room_transition_load_system(
                     &construction_services.2,
                     mechanics,
                     ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
-                    active_binding.as_deref(),
+                    active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.
                     // This is the only construction road that can meet an

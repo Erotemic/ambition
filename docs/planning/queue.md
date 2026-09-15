@@ -209,8 +209,23 @@ composition, as for the content binding — a direct-entry fixture legitimately 
 no session). That is the prerequisite for a first room that can be built INTO a
 candidate session.
 
-**Next implementation:** stage the session authorities as VALUES published at a
-verdict, as the room packet does. They do not need to become components on the
+**A10.4 second step: the content generation is SESSION-OWNED, not a process
+global.** `ActiveContentBinding` was a `Resource` — one mirror of a per-session
+fact — and the commit boundary compared every room plan against it. A candidate
+session cannot use that: its first room must verify against the CANDIDATE's
+generation while the outgoing session is still live under its own, and a global
+could only be overwritten before the candidate's room verified, which destroys
+the live session's answer. It is a component on the session root now. A room
+transaction reads it off the root it is publishing INTO (`session_root_for_scope`
+by the plan's scope; an `UNSCOPED` plan falls back to the composition's single
+root, which is what a direct-entry host or headless fixture has). MEASURED:
+asking by scope unconditionally made four refusal fixtures PUBLISH, because a
+`None` scope matches no root and the comparison then had nothing to compare
+against. It is waived in the component rollback census with its writers named —
+activation and the hot reload, both in `Update`, never the simulation.
+
+**Next implementation:** stage the remaining session authorities as VALUES
+published at a verdict, as the room packet does. They do not need to become components on the
 candidate root — that framing would have charged `MovingPlatformSet` a
 rollback-wire-format change it does not have to pay. First concrete step is an
 ordering fact, not a type change: activation queues its room build before it

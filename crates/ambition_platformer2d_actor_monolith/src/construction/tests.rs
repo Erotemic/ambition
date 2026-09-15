@@ -1432,7 +1432,9 @@ fn a_room_that_fails_verification_is_not_published() {
     let plan = prepare(&room, &staging, &engine_construction_registry())
         .expect("the room plans: the defect is in the world, not in the plan");
     let mut app = commit_over(plan, |world| {
-        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            world,
+            crate::world::rooms::ActiveContentBinding::content(
             ambition_platformer2d_core::ContentEpoch(7),
         ));
     });
@@ -3456,7 +3458,9 @@ fn a_stale_plans_room_is_refused_publication() {
     )
     .expect("the room plans (epoch 4)");
     let app = commit_over(plan, |world| {
-        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            world,
+            crate::world::rooms::ActiveContentBinding::content(
             ae::ContentEpoch(9),
         ));
     });
@@ -3485,7 +3489,9 @@ fn a_plan_matching_the_live_binding_publishes() {
     )
     .expect("the room plans (epoch 4)");
     let app = commit_over(plan, |world| {
-        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            world,
+            crate::world::rooms::ActiveContentBinding::content(
             ae::ContentEpoch(4),
         ));
     });
@@ -4021,7 +4027,9 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
 
     // The world moved to 9 while this replacement was in flight.
     let app = commit_over(replacement(&expected_live), |world| {
-        world.insert_resource(crate::rooms::ActiveContentBinding::content(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            world,
+            crate::rooms::ActiveContentBinding::content(
             ae::ContentEpoch(9),
         ));
     });
@@ -4055,7 +4063,9 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     // publishes. Staleness discriminates; it does not blanket-refuse a plan for
     // carrying two generations.
     let app = commit_over(replacement(&expected_live), |world| {
-        world.insert_resource(crate::rooms::ActiveContentBinding::content(
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            world,
+            crate::rooms::ActiveContentBinding::content(
             ae::ContentEpoch(4),
         ));
     });

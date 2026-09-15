@@ -337,7 +337,11 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         // baked into the plan by `prepare` and match itself at the commit
         // boundary, and this arm would be measuring a room that published.
         epoch += 1;
-        sim.world_mut().insert_resource(
+        // ⛔ ON THE SESSION ROOT, where the transaction reads it — see
+        // `ActiveContentBinding`. The shipped app is shell-routed, so this
+        // targets the live session's own root.
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            sim.world_mut(),
             ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
                 ambition_platformer2d::engine_core::ContentEpoch(epoch),
             ),

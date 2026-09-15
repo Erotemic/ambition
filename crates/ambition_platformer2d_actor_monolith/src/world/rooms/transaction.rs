@@ -784,17 +784,29 @@ pub(crate) fn close(
     });
 }
 
-/// The content generation the SESSION is live under — the commit boundary's
+/// The content generation ONE SESSION is live under — the commit boundary's
 /// comparison value for [`RosterViolation::ContentBindingMismatch`].
 ///
-/// Written by the content activation authorities: session setup inserts it from
-/// the construction context it was handed, and a hot-reload commit that
-/// allocates a new epoch updates it. Room transitions and resets do not change
-/// content, so they never write it. Absent (headless fixtures, unit tests
+/// ⛔⛤ **IT LIVES ON THE SESSION ROOT, NOT IN A PROCESS-GLOBAL RESOURCE —
+/// MOVED 2026-09-14 FOR A10.4.** It was a `Resource`, which is one mirror of a
+/// per-session fact, and A10.4 needs two sessions to hold their own at once: a
+/// candidate session's first room must verify against the CANDIDATE's generation
+/// while the outgoing session is still live under its own. A global could only be
+/// overwritten before the candidate's room verified, which destroys the live
+/// session's answer — the retire-then-overwrite shape A10 exists to remove.
+///
+/// ⇒ A room transaction reads it off the root it is publishing INTO
+/// (`session_root_for_scope`), so "which generation is this room being committed
+/// into" is a question about a session rather than about the process.
+///
+/// Written by the content activation authorities: session setup inserts it on the
+/// root it just spawned, and a hot-reload commit that allocates a new epoch
+/// updates it behind that room's verdict. Room transitions and resets do not
+/// change content, so they never write it. Absent (headless fixtures, unit tests
 /// without a session) the boundary check is vacuous — an honest gap, not a
 /// waiver: a fixture with no content authority has nothing to be stale
 /// against.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveContentBinding(pub ambition_platformer2d_shared_tangle::construction::ContentBinding);
 
 impl ActiveContentBinding {
@@ -916,35 +928,6 @@ fn verify_and_publish(
     // headless harnesses"* — two other sites in `lifecycle/session.rs` already
     // branch on exactly it. ⇒ Composition mode is asked, rather than inferred
     // from whether a resource happens to be there.
-    match world.get_resource::<ActiveContentBinding>().copied() {
-        Some(live) => {
-            let planned = plan.construction_binding();
-            if planned != live.0 {
-                violations.push(
-                    ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
-                        planned,
-                        live: live.0,
-                    },
-                );
-            }
-        }
-        None if world.contains_resource::<
-            ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
-        >() => {
-            // A shell-routed composition owes this resource. Publishing here
-            // would admit a room whose staleness nothing checked.
-            bevy::log::error!(
-                target: "ambition_platformer2d::construction",
-                "room `{room_id}` cannot be verified: this composition routes \
-                 gameplay through a shell session, so `ActiveContentBinding` is a \
-                 canonical authority it must hold, and it is absent"
-            );
-            refuse(world, room_id);
-            return;
-        }
-        // A direct-entry fixture states no binding and means it.
-        None => {}
-    }
 
     // ⛔⛤ **AND A ROOM PUBLISHES INTO A SESSION. IN A SHELL-ROUTED COMPOSITION
     // THERE IS NO SUCH THING AS A ROOM WITHOUT ONE — ADDED 2026-09-14 WITH
@@ -971,15 +954,23 @@ fn verify_and_publish(
     // `session_root_for_scope` asks by the scope the plan was prepared under and
     // sees hidden candidate roots, which is what makes a first room buildable
     // INTO a candidate session. See A10.4.
-    if world.contains_resource::<
+    let shell_routed = world.contains_resource::<
         ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
-    >() && session
-        .id()
-        .and_then(|scope| {
+    >();
+    // ⚠ **AN UNSCOPED TRANSACTION BELONGS TO WHATEVER SINGLE ROOT THE
+    // COMPOSITION HAS.** Direct-entry hosts, demos and headless fixtures build
+    // with `SessionSpawnScope::UNSCOPED` and still carry a root; there is no
+    // candidate session there to disambiguate from, so the live-root question IS
+    // the right one. MEASURED: asking `session_root_for_scope` unconditionally
+    // made four refusal fixtures PUBLISH, because a `None` scope can match no
+    // root and the binding comparison then had nothing to compare against.
+    let publishing_into = match session.id() {
+        Some(scope) => {
             ambition_platformer2d_shared_tangle::lifecycle::session_root_for_scope(world, scope)
-        })
-        .is_none()
-    {
+        }
+        None => ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world),
+    };
+    if shell_routed && publishing_into.is_none() {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
             "room `{room_id}` cannot be published: this composition routes gameplay \
@@ -989,6 +980,52 @@ fn verify_and_publish(
         );
         refuse(world, room_id);
         return;
+    }
+
+    // ⛔⛤ **AN ABSENT BINDING USED TO MEAN "NO COMPARISON", WHICH IS FAIL-OPEN —
+    // AND A 2026-09-13 REVIEW NAMED WHY THAT IS NOT A GAP BUT A HOLE.** The
+    // binding's own doc said the vacuous branch was *"an honest gap, not a
+    // waiver: a fixture with no content authority has nothing to be stale
+    // against."* True of a fixture. The `Option` could not tell that fixture from
+    // **a live shell session that lost its canonical content authority**, and in
+    // the second case a room publishes into a generation nobody can name.
+    //
+    // ⭐ **THE DISCRIMINATOR ALREADY EXISTED AND IS NOT A NEW CONCEPT.**
+    // `SessionGatedSimulation` is installed by `ambition_game_shell`'s session
+    // plugin and, in its own words, *"never inserted by direct-entry apps or
+    // headless harnesses"* — two other sites in `lifecycle/session.rs` already
+    // branch on exactly it. ⇒ Composition mode is asked, rather than inferred
+    // from whether the state happens to be there.
+    //
+    // ⛔ **AND IT IS READ OFF THE ROOT THIS PUBLICATION IS GOING INTO**, which is
+    // the same root the precondition above just found. Two sessions may hold two
+    // generations at once; the one that answers here is this room's own.
+    match publishing_into.and_then(|root| world.get::<ActiveContentBinding>(root).copied()) {
+        Some(live) => {
+            let planned = plan.construction_binding();
+            if planned != live.0 {
+                violations.push(
+                    ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
+                        planned,
+                        live: live.0,
+                    },
+                );
+            }
+        }
+        None if shell_routed => {
+            // A shell-routed composition owes this state on its root. Publishing
+            // here would admit a room whose staleness nothing checked.
+            bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "room `{room_id}` cannot be verified: this composition routes \
+                 gameplay through a shell session, so `ActiveContentBinding` is a \
+                 canonical authority its session root must hold, and it is absent"
+            );
+            refuse(world, room_id);
+            return;
+        }
+        // A direct-entry fixture states no binding and means it.
+        None => {}
     }
     violations.sort_by_key(|violation| format!("{violation:?}"));
     violations.dedup();

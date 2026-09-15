@@ -40,9 +40,10 @@ other campaigns:
 Each is a rename or an arm that was described and never written, and deciding
 which is which is the owning campaign's call rather than a mechanical fix -- a
 name pointing at nothing may mean the EVIDENCE is missing, not just the label.
-⇒ Add this to `run_tests.py --maintenance` once those eight are resolved; until
-then run it by hand. (`a_possible_morning` is the likeliest false positive of the
-pattern: prose in backticks long enough to look like a test name.)
+⇒ Add this to `run_tests.py --maintenance` once those SEVEN are resolved; until
+then run it by hand. (`a_possible_morning` was the eighth and is gone: it is a
+music score name, and `MIN_WORDS` below is the measured cutoff that excludes it
+without excluding any of the 136 citations that do resolve.)
 """
 
 from __future__ import annotations
@@ -54,13 +55,30 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs" / "planning"
-# Long enough that ordinary prose in backticks does not qualify, and anchored on
-# the two prefixes this repository's test names actually use.
+# Anchored on the prefixes this repository's test names actually use.
 CITED = re.compile(r"`((?:a|an|the)_[a-z0-9_]{12,})`")
+
+# ⛔⛤ **A MEASURED THRESHOLD, NOT A GUESSED ONE.** The prefix and length alone
+# also match backticked CONTENT names — `a_possible_morning` is a music score, in
+# a list of scores, and no rename will ever make it resolve. A checker with a
+# permanent false positive can never be wired into a gate, so the cutoff was
+# derived from the corpus rather than chosen: across `docs/planning`, **136
+# citations resolve to a `fn` and the shortest is SIX underscore-separated
+# words**; the false positive is three. Every genuinely broken name found is six
+# or more, so this separates them exactly.
+#
+# ⚠ It is a heuristic and it has a cost: a real test named in four or five words
+# is invisible to this checker. That is the trade for being gateable, and the
+# number to revisit if the convention changes.
+MIN_WORDS = 6
 
 
 def cited_names(path: Path) -> set[str]:
-    return set(CITED.findall(path.read_text(encoding="utf-8")))
+    return {
+        name
+        for name in CITED.findall(path.read_text(encoding="utf-8"))
+        if len(name.split("_")) >= MIN_WORDS
+    }
 
 
 def exists(name: str) -> bool:

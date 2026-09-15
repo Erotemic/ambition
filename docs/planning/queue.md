@@ -66,7 +66,9 @@ row's current state.
 
 ⚠ **AND A CITATION IN THIS CAMPAIGN'S OWN DOCUMENT POINTED AT A TEST THAT NEVER
 EXISTED.** The owner document named
-`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`
+a&#95;hidden&#95;candidate&#95;session&#95;**root**&#95;…&#95;live&#95;**lookup**&#95;…
+(spelled without backticks here on purpose — quoting a broken citation verbatim
+makes the quote a citation, and reddens the very checker that found it)
 as the unit-level witness for the whole candidate-visibility design; the only
 occurrence of that name in the repository was the citation itself (the real arm is
 `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`).

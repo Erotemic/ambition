@@ -40,6 +40,20 @@ def test_it_reads_backticked_names_out_of_prose(tmp_path: Path):
     }
 
 
+def test_a_short_backticked_name_is_not_a_citation(tmp_path: Path):
+    # ⛔ THE MEASURED CUTOFF. `a_possible_morning` is a MUSIC SCORE, listed among
+    # other score names, and no rename will ever make it resolve -- a checker with
+    # a permanent false positive can never be wired into a gate. Across
+    # `docs/planning`, 136 citations resolve and the shortest is SIX
+    # underscore-separated words; this one is three.
+    doc = tmp_path / "row.md"
+    doc.write_text(
+        "`scores/active` — `a_possible_morning`, `aether_severance`,\n",
+        encoding="utf-8",
+    )
+    assert cited_names(doc) == set()
+
+
 def test_it_ignores_ordinary_backticked_prose(tmp_path: Path):
     # ⚠ THE PATTERN'S COST. It keys on a prefix and a length, so short names and
     # anything not starting a/an/the are invisible to it -- deliberately, because

@@ -132,7 +132,7 @@ pub use ecs::{
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
     snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
-    spawn_room_feature_entities_from_plan, sync_actor_poses_from_feature_aabbs,
+    sync_actor_poses_from_feature_aabbs,
     sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase,
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
@@ -144,8 +144,10 @@ pub use ecs::{
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, CHALLENGE_GRACE_S,
+    CHALLENGE_GRACE_S,
 };
+// ⛔ Crate-internal: see `features::ecs`.
+pub(crate) use ecs::{spawn_room_feature_entities_from_plan, RoomFeatureConstructionReceipt};
 
 /// The actor read model has been rebuilt for this tick.
 ///

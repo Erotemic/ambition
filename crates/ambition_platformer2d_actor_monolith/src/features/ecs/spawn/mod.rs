@@ -374,8 +374,12 @@ impl<'a> ActorConstructionContext<'a> {
 }
 
 /// Inspectable receipt for the authoritative roots scheduled by one feature plan.
+///
+/// ⛔ `pub(crate)`: it is produced by the room construction boundary and consumed
+/// by the verdict, both inside this crate. MEASURED 2026-09-15 — no consumer
+/// outside it, in production or test.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RoomFeatureConstructionReceipt {
+pub(crate) struct RoomFeatureConstructionReceipt {
     authoritative_ids: BTreeSet<String>,
     construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
     capability_lanes: capability_lanes::CapabilityReceipts,
@@ -1155,7 +1159,7 @@ impl RoomFeatureConstructionPlan {
     }
 }
 
-pub fn spawn_room_feature_entities_from_plan(
+pub(crate) fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,

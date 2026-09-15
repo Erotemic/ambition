@@ -897,6 +897,24 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
             .adopt(remembered);
     }
 
+    // A's MECHANICAL state as it stands while A is the only session. The
+    // candidate carries its own `SessionMechanics` and `MovingPlatformSet` and
+    // installs them at adoption; a refused candidate must leave A's alone.
+    let mechanics_before = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+        .map(|mechanics| format!("{mechanics:?}"));
+    let platforms_before = app
+        .world()
+        .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+        .0
+        .len();
+    assert!(
+        mechanics_before.is_some(),
+        "A has no `SessionMechanics`, so the assertion below about a refused \
+         candidate not changing them says nothing"
+    );
+
     // A's durable horizon as it stands while A is the only session.
     let durable_before = (
         app.world()
@@ -978,6 +996,22 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         live_room(&mut app),
         before_room,
         "⛔ A REFUSED CANDIDATE SESSION CHANGED THE ROOM THE PLAYER IS IN"
+    );
+
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .map(|mechanics| format!("{mechanics:?}")),
+        mechanics_before,
+        "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S MECHANICS"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+            .0
+            .len(),
+        platforms_before,
+        "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S MOVING-PLATFORM STATE"
     );
 
     // ⛔⛤ **AND A'S DURABLE STATE IS UNCHANGED — REVIEW FINDING 1, 2026-09-15.**

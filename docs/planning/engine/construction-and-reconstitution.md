@@ -646,6 +646,41 @@ count above comes from an uncapped probe whose positive control is the same
 strong-road bucket. ⇒ **A diagnostic log with a line cap is not a census
 instrument**, however precisely it labels what it does print.
 
+### The decisive acceptance statement — MET 2026-09-15, after review findings 1-3
+
+```text
+while candidate B is pending:
+    A's entities unchanged              a_candidate_session_does_not_retire_… (every frame)
+    A's session mechanics unchanged     a_candidate_session_the_transaction_refuses_… (finding 1 packet)
+    A's checkpoint/durable state        …the same arm: AuthoredOccurrences,
+      unchanged                           OccurrenceBaseline, CustodyBaseline (FINDING 1)
+    no B entity visible to ordinary     a_published_room_inside_a_pending_candidate_session_…
+      gameplay                            every frame from the inner verdict to the outer (FINDING 2)
+
+if B refuses:
+    all B candidate/control-plane       …the refusal arm: zero outstanding reservations,
+      state disappears                    candidates, receipts, evaluators, route holds (FINDING 3)
+    A continues unchanged               the four assertions above
+
+if B admits:
+    shell activation publishes B        a_shell_handoff_publishes_the_incoming_sessions_room
+    all B population becomes visible    …and the world it publishes is describable
+    B's projections install             mechanics, platforms, durable horizon, at ADOPTION
+    A retires                           TransactionBaseline::capture is Ok afterwards
+```
+
+⛔ **EVERY ROW IS POISON-VERIFIED against the defect it describes**, and two of the
+poisons found a defect in the WITNESS first rather than in the fix:
+- finding 1's poison PASSED until the arm's premise moved to the checkpoint
+  BASELINE. A fresh session's ledger and the save's are equal, and a row written
+  into `AuthoredOccurrences` is persisted into the save within a frame by
+  `persist_occurrence_horizon_to_save` — so no test can make those two differ. The
+  baseline is the state that legitimately differs, which is what the finding was
+  about.
+- finding 2's poison put **18 session-owned entities into ordinary queries at
+  frame 1** with the session starting at frame 15. The window was fourteen frames,
+  not the schedule-adjacent instant it had been assumed to be.
+
 **7. Remaining work.** The acceptance criterion is MET at both scopes; these are
 the gaps that remain beside it, none of which falsifies it. ⚠ **NEITHER IS AN A10
 IMPLEMENTATION TASK ANY MORE, and that is why each names an owner and a first
@@ -674,8 +709,17 @@ person least placed to decide it.
   production only when construction verification fails, which across `app_it` is
   **zero refusals in 686 publications** on the roads a player takes. ⛔ Do not
   invent a player-facing treatment for it unasked.
-- **Custody supersession is Model B, and the window is now MEASURED rather than
-  declared.** Publication leaves the predecessor standing when it declared
+- ~~**Custody supersession is Model B.**~~ **CLOSED 2026-09-15: it is MODEL A.**
+  Publication despawns a predecessor in custody and hands the custodian the two
+  facts it needed from the live entity — whose hand, and which item — recorded when
+  the supersession is DECLARED. The ledger drains in the publication tail, which
+  runs on every publication rather than only on the ones carrying a checkpoint
+  operation, and clears on both refusal paths. `Custodian` survives only as the
+  fallback for a hand the world cannot resolve. The history below is kept because
+  the measurements in it are what made the design findable.
+
+- **(history) Model B, and the window as it was MEASURED before Model A closed
+  it.** Publication leaves the predecessor standing when it declared
   `DepartureAuthority::Custodian`, because `restore_custody_to_checkpoint`
   unequips AND despawns as one operation keyed on that entity. MEASURED
   2026-09-15: **5 of 838 publications in `app_it` open such a window**

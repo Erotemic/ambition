@@ -30,14 +30,14 @@ LDtk reload, each with a refusal arm and an admission control in `app_it`. There
 is ONE road into a live session (A10.5's fallback is deleted) and ONE publication
 authority per level.
 
-**NEXT IMPLEMENTATION STEP.** Custody supersession Model B → Model A, which needs
-`restore_custody_to_checkpoint` split so publication can despawn the predecessor
-while the custodian still finds its key. ⚠ Model A was ATTEMPTED and MEASURED to
-fail as a straight inversion (`death_restores_the_checkpoint` 1/11,
-`two_persistence_authorities_for_one_item` with `still_owned=1`); it is a
-custody-domain restructuring, not an A10 ordering change. ⇒ **Its first step is
-the ledger DRAIN, not the record** — see the owner document: an undrained ledger
-leaves a permanently stale hand, which is worse than the window it replaces.
+**NEXT IMPLEMENTATION STEP.** None named. A GPT review of 2026-09-15 raised three
+findings and all three are closed and poison-verified — candidate preparation no
+longer writes the live session's checkpoint state (1), an inner room publication
+no longer releases the outer session's invisibility (2), and the refusal exit
+releases its reserved scope through the one shared cleanup (3). Custody
+supersession is **Model A** as of the same day. What remains is the refused-door
+signal, which is a design question for the maintainer rather than an
+implementation task.
 
 ⭐ **AND ITS PRIORITY IS LOWER THAN IT LOOKED — MEASURED 2026-09-15.** The window
 is real (5 of 838 `app_it` publications declare one) but it is NOT OBSERVABLE:
@@ -55,10 +55,11 @@ candidate construction/publication leaves the last-good world playable, and (b)
 successful replacement validates N+1 before retiring N. ⇒ **MET at room scope and
 at session scope.**
 
-**ACTUAL BLOCKER.** None for the criterion. What remains is listed under
-*Remaining work* in the owner document and is narrower in kind: custody Model B (a
-declared two-holder window on the SUCCESS path, admitted by the verifier as
-exactly two), and a refused door telling the player nothing.
+**ACTUAL BLOCKER.** None. The decisive acceptance statement — *while B is pending
+A's entities, mechanics and durable state are unchanged and no B entity is visible
+to ordinary gameplay; a refusal leaves no B state behind; an admission publishes B
+and retires A* — is demonstrated in the shipped composition, row by row, each row
+poison-verified. The table is in the owner document.
 
 **RECEIPTS — WHAT LANDED, AND THE MEASUREMENT BEHIND EACH.** Everything below
 this line is a receipt rather than a field; the five statements above are the

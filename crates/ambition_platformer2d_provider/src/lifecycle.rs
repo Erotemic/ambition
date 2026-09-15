@@ -1754,6 +1754,7 @@ fn prepare_candidate_platformer_session(
         prepared.content.clone(),
         &prepared.mechanical,
         default_character.as_str(),
+        pending.route_id.clone(),
     );
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
@@ -1777,6 +1778,18 @@ fn prepare_candidate_platformer_session(
             superseded.activation_id,
         );
         reserved.release(activation);
+        // ⛔⛤ **THE HOLD FIRST, THEN THE EVALUATOR — MEASURED, THE OTHER ORDER
+        // WEDGES THE ROUTE.** Forgetting the evaluator while the hold is still
+        // registered leaves the router a hold it cannot evaluate: the route stays
+        // held forever, never activates, and its reservation is never adopted.
+        // (`held=[ShellHoldId("session-publication:2")]` with one outstanding
+        // reservation, and the SUPERSEDING session never started either.)
+        holds.release(&superseded.route, &candidate_session_hold(activation));
+        // ⛔ AND THE GATE REGISTRATION GOES WITH IT. `register` has no matching
+        // `forget` anywhere in A10's road, so every candidate ever prepared left
+        // an evaluator entry behind for the life of the process — see the three
+        // exits below.
+        gates.forget(&candidate_session_hold(activation));
         builder
             .commands
             .queue(move |world: &mut bevy::prelude::World| {
@@ -1826,7 +1839,12 @@ fn candidate_session_gate(
         return ShellGateVerdict::Refuse;
     };
     let publication = candidate.publication;
-    let (root, scope, experience) = (candidate.root, candidate.scope, candidate.experience.clone());
+    let (root, scope, experience, activation_id) = (
+        candidate.root,
+        candidate.scope,
+        candidate.experience.clone(),
+        candidate.activation_id,
+    );
     match world
         .get::<ambition_platformer2d_actor_monolith::rooms::PublicationVerdict>(publication.0)
     {
@@ -1846,6 +1864,13 @@ fn candidate_session_gate(
             ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
             if let Some(mut slot) = world.get_resource_mut::<CandidateSessionSlot>() {
                 slot.0 = None;
+            }
+            // ⛔ THE REFUSAL EXIT FORGETS ITS OWN REGISTRATION. See the note at
+            // the supersession exit: this hold id can never be held again
+            // (activation ids are monotonic), so a kept entry is pure growth.
+            if let Some(mut gates) = world.get_resource_mut::<ambition_game_shell::ShellActivationGates>()
+            {
+                gates.forget(&candidate_session_hold(activation_id));
             }
             ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
                 "session-refused experience={experience} ({discarded} entities discarded; \
@@ -1892,6 +1917,7 @@ fn adopt_candidate_platformer_session(
     mut registry: ResMut<PreparedSessionRegistry>,
     mut slot: ResMut<CandidateSessionSlot>,
     mut active_session: ResMut<ActiveGameplaySession>,
+    mut gates: ResMut<ambition_game_shell::ShellActivationGates>,
     mut builder: PlatformerSessionBuilder,
 ) {
     for event in events.read() {
@@ -1939,6 +1965,10 @@ fn adopt_candidate_platformer_session(
             continue;
         };
         builder.commands.entity(candidate.root).insert(root);
+        // ⛔ AND THE ADOPTION EXIT FORGETS TOO — this is the COMMON case, so
+        // without it the registry grew by one entry per activation for the life
+        // of the process, superseded or not.
+        gates.forget(&candidate_session_hold(activation.activation_id));
         builder
             .commands
             .queue(move |world: &mut bevy::prelude::World| candidate.adopt(world));
@@ -2032,6 +2062,9 @@ impl PlatformerSessionBuilder<'_, '_> {
         // not something this function can express. See `SessionMechanics`.
         mechanical: &SessionMechanics,
         default_character_id: &str,
+        // The route this candidate holds, carried on the candidate so any exit
+        // can release that hold. See `PreparedCandidateSession::route`.
+        route: ambition_game_shell::ShellRouteId,
     ) -> PreparedCandidateSession {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         // The authoring format's own session state, installed beside the
@@ -2204,6 +2237,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             root: world,
             activation_id,
             experience: experience_id.as_str().to_owned(),
+            route,
             publication: built.publication,
             mechanics: mechanical.clone(),
             moving_platforms: built.moving_platforms,
@@ -2232,6 +2266,11 @@ pub struct PreparedCandidateSession {
     experience: String,
     /// The first room's receipt. The activation decision IS this verdict.
     publication: ambition_platformer2d_actor_monolith::rooms::PublicationHandle,
+    /// The route this candidate is HOLDING, so its hold can be released when it
+    /// leaves by any exit. ⛔ Recorded rather than re-derived: a candidate
+    /// superseded by a route of a DIFFERENT name cannot be cleaned up from the
+    /// superseding route's id, and releasing the wrong route's hold wedges it.
+    route: ambition_game_shell::ShellRouteId,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
     /// The first room's moving platforms, installed at adoption.

@@ -1095,6 +1095,45 @@ fn a_candidate_session_replaced_while_pending_is_discarded() {
 
     use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
 
+    // ⛔⛤ **AND NOTHING A CANDIDATE REGISTERED OUTLIVES IT.** `gates.register` had
+    // no matching `forget` anywhere on A10's road, so EVERY candidate ever
+    // prepared — adopted, refused or superseded — left an evaluator entry behind
+    // for the life of the process. MEASURED before the fix: entries for
+    // activation 2 (superseded) AND 3 (adopted) both still registered.
+    //
+    // ⚠ AND THE ORDER IS LOAD-BEARING: releasing the hold must come BEFORE
+    // forgetting its evaluator. Forgetting first leaves the router a hold it
+    // cannot evaluate, and MEASURED, that wedges the route permanently — the
+    // superseding session never started either.
+    {
+        let gates = app
+            .world()
+            .resource::<ambition_platformer2d::game_shell::ShellActivationGates>();
+        let leaked: Vec<u32> = (1..=6)
+            .filter(|n| {
+                let id = ambition_platformer2d::game_shell::ShellHoldId::new(format!(
+                    "session-publication:{n}"
+                ));
+                gates.evaluator(&id).is_some()
+            })
+            .collect();
+        assert!(
+            leaked.is_empty(),
+            "⛔ CANDIDATE GATE REGISTRATIONS OUTLIVED THEIR CANDIDATES: {leaked:?}. \
+             These hold ids can never be held again — activation ids are \
+             monotonic — so every entry is permanent growth"
+        );
+        let held = app
+            .world()
+            .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+            .held(&ShellRouteId::new("ambition_gameplay"));
+        assert!(
+            held.is_empty(),
+            "the gameplay route is still held after both activations settled: \
+             {held:?}"
+        );
+    }
+
     // ⭐ THE PREMISE, AND IT IS OBSERVABLE BECAUSE THE ALLOCATOR IS SEQUENTIAL.
     // `ActiveSessionScope::reserve` hands out ids in order and only on a
     // reservation, so a LIVE session at scope 1 means scope 0 was reserved by an

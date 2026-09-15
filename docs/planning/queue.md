@@ -74,6 +74,21 @@ lookup deliberately sees THROUGH the disabling marker, so a merely-hidden root
 cannot pass it. Its premise is the sequential allocator: a live session at scope 1
 means scope 0 was reserved by an activation that never became live.
 
+⛔⛤ **AND NOTHING A CANDIDATE REGISTERS OUTLIVES IT ANY MORE (2026-09-15).**
+`ShellActivationGates::register` had NO matching `forget` anywhere on A10's road,
+so every candidate ever prepared — adopted, refused or superseded — left an
+evaluator entry behind for the life of the process. MEASURED: after one superseded
+handoff, entries for activation 2 (superseded) AND 3 (adopted) were both still
+registered. All three exits forget now.
+
+⚠ **AND THE ORDER IS LOAD-BEARING, MEASURED THE HARD WAY.** Forgetting the
+evaluator while the hold is still registered leaves the router a hold it cannot
+evaluate: `held=[ShellHoldId("session-publication:2")]`, the route stays held
+forever, its reservation is never adopted, **and the superseding session never
+starts either** — a worse failure than the leak. The hold is released FIRST, using
+a route id recorded ON the candidate, because a candidate superseded by a route of
+a different name cannot be cleaned up from the superseding route's id.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

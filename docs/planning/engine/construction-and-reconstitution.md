@@ -271,6 +271,28 @@ published nor discarded is the state this lifecycle exists to make impossible,
 and it was one `=` away.** MEASURED: it fires 0 times in `app_it`, so it was
 unwitnessed as well as broken; the arm that reaches it discards 20 entities.
 
+⛔⛤ **AND THERE IS A FOURTH EXIT THAT IS NOT IMPLEMENTED — FOUND 2026-09-15 BY
+ENUMERATING THE WRITES TO `CandidateSessionSlot` (exactly three) AND ASKING WHAT
+ELSE CAN END A PENDING ROUTE.** `ShellCommand::CancelPending { request }` ends the
+pending transaction a correlated requester issued — `Q118`'s "breaking the
+authorization early cancels both halves". It clears the router's pending
+transaction and NOTHING tells the provider. The candidate then sits in the slot
+forever: its entities hidden in the world, its publication receipt unretired, its
+scope reserved, its hold and evaluator registered. **A cancelled route leaks
+exactly what a superseded one used to.**
+
+⇒ The fix is the same cleanup at a fourth site, and the hard part is the
+DISCRIMINATOR, not the cleanup. "The router is no longer pending on this
+candidate's activation" is also true for one system-ordering window on the
+ACTIVATION path — `prepare` runs `.before(AmbitionGameShellSet::Pending)` and
+adoption in `GameplaySessionSet::Providers`, so within a frame it is safe, but a
+`GameplaySessionEvent::Activated` that is read a frame late would make the
+preparer discard the candidate adoption is about to demand, and adoption PANICS
+on a missing candidate by design. ⇒ **Measure whether adoption can slip a frame
+before writing that condition**; the safe form keys on something adoption itself
+consumes (`ReservedGameplayScopes::take`) rather than on the router's pending
+state.
+
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,
 its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of

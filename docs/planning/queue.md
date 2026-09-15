@@ -89,6 +89,16 @@ starts either** — a worse failure than the leak. The hold is released FIRST, u
 a route id recorded ON the candidate, because a candidate superseded by a route of
 a different name cannot be cleaned up from the superseding route's id.
 
+⚠ **AND A FOURTH EXIT IS OPEN: `ShellCommand::CancelPending`.** Found by
+enumerating the writes to `CandidateSessionSlot` — exactly three — and asking what
+else can end a pending route. Cancellation clears the router's pending transaction
+and tells the provider nothing, so the candidate sits in the slot forever with its
+entities hidden, its receipt unretired, its scope reserved and its hold and
+evaluator registered: **a cancelled route leaks exactly what a superseded one used
+to.** The cleanup is the same four releases at a fourth site; the hard part is the
+discriminator, which must not fire in the activation window. See the owner
+document.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

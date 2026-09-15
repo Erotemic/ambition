@@ -495,6 +495,23 @@ does not mean. For the handoff it says something a roster COUNT cannot: the
 retired session's world is genuinely gone rather than standing beside the one that
 replaced it.
 
+⚠ **AND THE CANCEL ARM DELIBERATELY STARTS FROM A COLD APP, NOT A LIVE SESSION —
+MEASURED 2026-09-15, AND THE MEASUREMENT IS THE REASON.** The stronger arm to want
+is *cancel while a session is PLAYING, and watch the playing world survive*. It
+cannot be written this way: from a live session, with the experience's content
+already prepared, the second route is **fully activated within three frames** —
+
+```text
+[probe] candidates=0 scope0=None scope1=Some(1490v34) activation=None
+```
+
+— the incoming session is already live at scope 1, the outgoing one at scope 0 is
+already retired, and NOTHING IS PENDING to cancel. ⇒ **The pending window a
+correlated requester could cancel in is a cold-start phenomenon**, because what
+makes the window is content preparation, and a warm app has already done it. An
+arm that cancels a route which has already activated measures nothing, and would
+have read as a passing cancel witness. The cold-start shape is the honest one.
+
 ⛔⛤ **AND THE SUPERSESSION CASE HAS A PRODUCTION WITNESS (2026-09-15) — "old A
 remains live while hidden B is verified".** The brief asks for one explicitly, and
 the property is provable from two facts rather than by observing the world

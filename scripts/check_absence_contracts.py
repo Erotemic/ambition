@@ -45,6 +45,55 @@ class SentinelLockfileStale(RuntimeError):
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "only-the-publication-authority-publishes-a-candidate",
+        # Everything EXCEPT the three files that legitimately own these words:
+        # the two publication authorities and the module that defines them.
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+            ":(exclude)crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        ],
+        "patterns": [
+            # QUALIFIED calls. `game/ambition_content` defines an unrelated
+            # `publish_candidate` of its own, which is why this asks for the
+            # module path rather than the bare name -- a name-only pattern reds
+            # on a function that has nothing to do with A10.
+            r"construction::(publish_candidate|publish_candidate_session"
+            r"|retire_superseded|retire_candidate|discard_candidate_session)\(",
+            # And the IMPORT, because an imported name is then called bare and a
+            # qualified-call pattern cannot see it. Measured before writing this:
+            # no production file imports any of them, and nothing globs
+            # `construction::*`.
+            r"use .*construction::.*(publish_candidate|publish_candidate_session"
+            r"|retire_superseded|retire_candidate|discard_candidate_session)",
+        ],
+        "reason": (
+            "A10: ONE BOUNDED PUBLICATION AUTHORITY PER LEVEL, AND A SECOND "
+            "CALLER IS A SECOND AUTHORITY. A candidate world is only allowed to "
+            "become authoritative through the exact sequence the level owns -- "
+            "for a ROOM `publish_candidate` then `apply_world_replacement` then "
+            "`retire_superseded`, in `world/rooms/transaction.rs`; for a SESSION "
+            "`publish_candidate_session` in the provider's adoption, with "
+            "`discard_candidate_session` as its refusal half. Each of those "
+            "primitives is `pub` because it crosses a crate boundary, not because "
+            "anyone else may call it, and the property that A10 rests on is "
+            "currently held by there being exactly one production call site each "
+            "(MEASURED 2026-09-15). "
+            "The failure this prevents is the one A10 exists to remove and the "
+            "hardest to see in review: a new road that publishes a candidate "
+            "WITHOUT projecting and verifying the world publication would produce, "
+            "or that retires N before N+1 is authoritative. Both are one function "
+            "call away and neither looks wrong locally. "
+            "\u26a0 `apply_world_replacement` is absent from the patterns because "
+            "it is private to its own file -- unexpressible rather than "
+            "forbidden, which is the stronger form and the one to prefer whenever "
+            "a primitive does not have to cross a crate boundary."
+        ),
+    },
+    {
         "id": "a-production-condition-states-why-it-said-no",
         "paths": ["crates/", "game/", "examples/"],
         "patterns": [

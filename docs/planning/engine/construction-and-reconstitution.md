@@ -320,6 +320,27 @@ CALLERS   every effect that MEANS the operation happened is queued behind
           body transit and presentation, the reset's whole sandbox wipe
 ```
 
+⛔⛤ **AND A SECOND CALLER WOULD BE A SECOND AUTHORITY, WHICH IS NOW A CONTRACT
+RATHER THAN A HABIT (2026-09-15).** MEASURED: each publication primitive has
+EXACTLY ONE production call site — `publish_candidate`, `retire_superseded` and
+`retire_candidate` in `world/rooms/transaction.rs`, `publish_candidate_session`
+and `discard_candidate_session` in the provider's adoption and its gate. They are
+`pub` because they cross a crate boundary, not because anyone else may call them,
+and until now nothing said so. `check_absence_contracts.py` carries
+`only-the-publication-authority-publishes-a-candidate`, POISON-VERIFIED (a call
+added to `room_transition/commit.rs` reds it) and with its own fire test, so it is
+not one of the contracts that sit skipped for want of a fixture.
+
+⚠ The patterns ask for the MODULE PATH, not the bare name: `game/ambition_content`
+defines an unrelated `publish_candidate` of its own, and a name-only contract
+would red on a function with nothing to do with A10. A second pattern catches the
+IMPORT, because an imported name is then called bare and a qualified-call pattern
+cannot see it.
+
+⭐ `apply_world_replacement` is absent from the contract because it is PRIVATE to
+its own file — unexpressible rather than forbidden, which is the stronger form and
+the one to prefer whenever a primitive does not have to cross a crate boundary.
+
 ⛔⛤ **AND "EVERY EFFECT" MEANS EVERY EFFECT — TWO ESCAPED THE FIRST PASS, BOTH ON
 THE DEV RELOAD, AND BOTH OUTSIDE THE CLOSURE THAT PASS MOVED (closed 2026-09-15).**
 One was AFTER the bracket: `mark_applied` on the `Ok` of

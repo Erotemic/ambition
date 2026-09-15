@@ -59,93 +59,36 @@ pub fn adopt_occurrence_checkpoint_from_save(
     );
 }
 
-/// Put the file's occurrence ledger in place BEFORE the session builds its
-/// first room.
+/// ⛔⛤ **THE LEDGER HAS ONE ADOPTION ROAD FOR A SESSION BEING BUILT, AND IT IS
+/// THE CANDIDATE'S HORIZON.** There used to be a second:
+/// `adopt_the_occurrence_ledger_at_activation`, a system on
+/// `SessionScopeActivated` that re-read `AmbitionGameSave` into
+/// `AuthoredOccurrences`, `OccurrenceBaseline` and `CustodyBaseline` process-wide.
+/// It was the A10.5-era answer to a load that constructed its first room knowing
+/// nothing; preparing the candidate before the route activates moved that moment
+/// EARLIER still, and left the system writing the same three resources from the
+/// same file one system before [`CandidateDurableHorizon::install`] wrote them
+/// again.
 ///
-/// ⛔⛔ A LOAD USED TO CONSTRUCT ITS FIRST ROOM KNOWING NOTHING, AND CORRECT IT
-/// AFTERWARDS. Activation passed `continuity: None`, so a room whose object the
-/// file says is lying next door authored it anyway; the durable chain then ran
-/// in `Update`, latched, asked for a checkpoint resume, and the room-transition
-/// road rebuilt the room several ticks later with the ledger in hand. For that
-/// window there were two live things behind one identity, in a world where
-/// combat, pickups and encounters all run ungated — and the population that
-/// picked one of them up wrote its custody over the very row the correction was
-/// about to read.
+/// ⚠ MEASURED 2026-09-15 over the shipped `app_it` composition: **639 gameplay
+/// activations, 639 of them ran both writers, and the values agreed in every
+/// one** (`save_rows` equalled the installed row count, 637 x 0 and 2 x 1). They
+/// agreed because both read the same resource in the same frame — which is how a
+/// second authority hides. The order was `reset_session_scoped_resources_on_activation`
+/// -> the system -> `install`, uniformly, so the candidate's value won by
+/// SCHEDULE ACCIDENT rather than by any edge. A save swapped between preparing
+/// the candidate and publishing it, or a schedule that ever put those two the
+/// other way round, would have silently made the live file authoritative over
+/// the horizon the candidate was validated against.
 ///
-/// ⭐ THE LEDGER LEG NEEDS NO BODY. That is the whole reason this can move: only
-/// the item/wallet leg of the durable chain requires a primary body to exist,
-/// and it is `restore_inventory_from_save`'s, not this one's. Running the ledger
-/// adoption at [`SessionScopeSet::Activate`](ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
-/// — the seam whose whole promise is "before any provider constructs the world
-/// these values describe" — means the temporary population is never built at
-/// all, rather than built and repaired.
+/// ⭐ THE SAME MEASUREMENT FOUND ZERO UNPREPARED ACTIVATIONS — the shell's
+/// `None => active_scope.begin()` branch, the road for an activation nobody
+/// prepared a candidate for, was taken 0 times in 639 while the other two probes
+/// fired 639 times each, so the zero is the instrument working rather than a
+/// build that never ran. A mid-session load still has
+/// [`adopt_occurrence_checkpoint_from_save`] above, which is a different trigger
+/// (the `SaveRestored` latch) rather than a second answer to this question.
 ///
-/// ⚠ THE `Update` ADOPTER STAYS. A file can also arrive after activation (a
-/// mid-session load), and adoption is idempotent: the same rows adopted twice
-/// are the same rows.
-/// Adopt the save's ledger for a session that is about to be CONSTRUCTED, before
-/// its first room is planned.
-///
-/// ⛔⛤ **A10.5 MOVED THE MOMENT THIS HAS TO HAPPEN.** The system below fires on
-/// `SessionScopeActivated`, whose promise was *"before any provider constructs
-/// the world these values describe"*. With the candidate session prepared BEFORE
-/// the route activates, that message arrives too late: MEASURED, the shipped load
-/// authored `placement:ground_beam` into the start room on 2 frames after the
-/// file said it was lying somewhere else.
-///
-/// ⭐ **ADOPTING EARLY IS SAFE BECAUSE THE LEDGER IS A PROJECTION OF THE SAVE,
-/// NOT OF THE SESSION.** A candidate that is then REFUSED changed nothing the
-/// ledger describes, and adoption is idempotent — the same rows adopted twice are
-/// the same rows. This is not candidate-owned state pretending to be live state;
-/// it is the file, read at the first moment anything needs it.
-pub fn adopt_the_occurrence_ledger_for_a_candidate(
-    save: &AmbitionGameSave,
-    occurrences: Option<ResMut<AuthoredOccurrences>>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
-) {
-    let Some(occurrences) = occurrences else {
-        return;
-    };
-    adopt_the_ledger(
-        save.data(),
-        occurrences,
-        occurrence_baseline,
-        custody_baseline,
-    );
-}
-
-pub fn adopt_the_occurrence_ledger_at_activation(
-    // `Option`: a narrow fixture that never installs the session-scope plugin
-    // registers no such message, and "there is no activation channel here" is an
-    // ordinary composition rather than a reason to panic the app.
-    activated: Option<
-        MessageReader<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>,
-    >,
-    save: Res<AmbitionGameSave>,
-    occurrences: Option<ResMut<AuthoredOccurrences>>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
-) {
-    let Some(mut activated) = activated else {
-        return;
-    };
-    if activated.read().count() == 0 {
-        return;
-    }
-    let Some(occurrences) = occurrences else {
-        return;
-    };
-    adopt_the_ledger(
-        save.data(),
-        occurrences,
-        occurrence_baseline,
-        custody_baseline,
-    );
-}
-
-/// The adoption itself, so the activation edge and the `Update` chain cannot
-/// drift into reading the file two different ways.
 /// A candidate session's durable horizon, held as a VALUE.
 ///
 /// ⛔⛤ **REVIEW FINDING 1, 2026-09-15: PREPARING A CANDIDATE MUST NOT WRITE THE
@@ -322,15 +265,6 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // does not.
     app.add_message::<crate::session::reset::NewGameResetCommitted>();
     app.init_resource::<SaveRestored>()
-        .add_systems(
-            Update,
-            adopt_the_occurrence_ledger_at_activation
-                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
-                // AFTER the session-scoped reset, which clears `SaveRestored`.
-                // Adopting first would be adopting into a world about to have
-                // its latches wiped.
-                .after(crate::session::teardown::reset_session_scoped_resources_on_activation),
-        )
         .add_systems(
             Update,
             (

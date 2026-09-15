@@ -199,10 +199,10 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
 ///
 /// ⭐ AND IT BUYS ONE THING BEYOND HYGIENE: the correctness no longer rests on
 /// the SAVE road running. A composition with no durable horizon re-runs no
-/// restore, so nothing would have rewritten these; and
-/// `adopt_the_occurrence_ledger_at_activation` — which now seeds the ledger
-/// BEFORE the first room is built — runs `.after` this reset, so the two are one
-/// ordered pair rather than two opinions.
+/// restore, so nothing would have rewritten these; and the incoming candidate's
+/// `CandidateDurableHorizon::install` — which seeds the ledger BEFORE the first
+/// room is built — runs after this reset, so the two are one ordered pair rather
+/// than two opinions.
 ///
 /// ⚠ THE POST-RELAUNCH ASSERTION IS NOT ATTRIBUTABLE to these resets. It is kept
 /// because it states the contract a reader cares about, not because it covers

@@ -398,8 +398,8 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
          A's world. A row saying an object is lying in one of A's rooms \
          SUPPRESSES that object where B authors it — the inherited ledger \
          deletes things from B's world. ⭐ This is the edge that matters: \
-         `adopt_the_occurrence_ledger_at_activation` runs AFTER this reset, so a \
-         LOAD re-seeds the cleared ledger from its own file on this same edge"
+         `CandidateDurableHorizon::install` runs AFTER this reset, so a LOAD \
+         re-seeds the cleared ledger from its own file on this same edge"
     );
     assert!(
         !app.world()

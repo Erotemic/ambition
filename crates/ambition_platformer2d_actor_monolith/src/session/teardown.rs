@@ -93,8 +93,11 @@ pub struct SessionScopedResources<'w> {
     /// inherited ledger deletes things from the next session's world.
     ///
     /// ⭐ The activation edge is what makes this safe, and the order matters:
-    /// `adopt_the_occurrence_ledger_at_activation` runs AFTER this reset, so a
-    /// LOAD re-seeds the cleared ledger from its own file on the same edge.
+    /// `CandidateDurableHorizon::install` — the incoming candidate's own file,
+    /// read into a value before it was validated — runs AFTER this reset, so a
+    /// LOAD re-seeds the cleared ledger on the same edge. MEASURED uniformly
+    /// over 639 shipped activations: reset, then install, then the world is
+    /// promoted.
     occurrences: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     /// The checkpoint copies of the same three facts. They describe the same one
     /// world, so they carry the same defect and get the same answer — a

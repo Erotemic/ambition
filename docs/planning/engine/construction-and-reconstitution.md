@@ -333,6 +333,21 @@ POISON-VERIFIED (dropping the reload's own retire leaves 1). ⚠ A COUNT, not a
 list — the receipts stay `pub(crate)`, because a reader outside that crate has no
 business holding one.
 
+⛔⛤ **AND A10'S INVARIANT IS ASSERTED AS A NUMBER NOW.**
+`construction::outstanding_candidates` counts the hidden candidate entities
+standing at a settled moment, and it is **0** after a cancelled candidate and
+after a committed dev reload. ⇒ *No candidate outlived its transaction.* That is
+the statement the whole campaign is about, and until now nothing could ask it: a
+candidate that outlives its transaction is hidden by a DISABLING marker from every
+ordinary query in the game, so it is invisible to exactly the systems that would
+otherwise trip over it.
+
+⭐ **IT CARRIES ITS OWN POSITIVE CONTROL, and it needs one.** A census that
+reports 0 because its query is wrong reads exactly like a world with no orphans.
+The cancel arm asserts the count is **> 0** three frames in, while the candidate
+is supposed to be standing — so the zero at the end is a claim about the WORLD
+rather than about the query.
+
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,
 its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of

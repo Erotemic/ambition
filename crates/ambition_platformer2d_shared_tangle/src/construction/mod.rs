@@ -3005,6 +3005,30 @@ pub struct SupersessionRetirement {
 /// dropping it needs no recovery and makes no claim about the running world —
 /// which is the whole difference from destroying N and then discovering N+1 is
 /// invalid.
+/// How many hidden candidate entities are standing.
+///
+/// ⛔⛤ **A10'S INVARIANT AS A NUMBER.** A candidate legitimately exists between
+/// construction and its verdict; what must never exist is one that OUTLIVED its
+/// transaction — neither published nor discarded, hidden by a disabling marker
+/// from every ordinary query in the game, and therefore invisible to exactly the
+/// systems that would otherwise notice it.
+///
+/// ⚠ **ONLY MEANINGFUL AT A SETTLED MOMENT.** Asked mid-bracket it counts the
+/// candidate the bracket is about, which is the design working. A test that uses
+/// this asserts it where nothing is in flight.
+///
+/// ⭐ A COUNT, not a list: `InactiveCandidate` stays `pub(crate)` so that no
+/// outside crate can name the marker or attach a hook to it, and that containment
+/// is worth more than a richer accessor.
+pub fn outstanding_candidates(world: &mut World) -> usize {
+    world
+        .try_query_filtered::<(), (
+            bevy::ecs::query::With<InactiveCandidate>,
+            bevy::ecs::query::Allow<InactiveCandidate>,
+        )>()
+        .map_or(0, |mut query| query.iter(world).count())
+}
+
 pub fn retire_candidate(world: &mut World, transaction: &TransactionId) -> usize {
     let roots = candidate_roots(world, transaction);
     for entity in &roots {

@@ -659,6 +659,12 @@ fn a_committed_world_reload_applies_its_effects() {
         0,
         "a publication receipt is still standing after a committed reload settled"
     );
+    assert_eq!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        0,
+        "⛔ A HIDDEN CANDIDATE OUTLIVED ITS TRANSACTION after a committed reload \
+         settled: neither published nor discarded"
+    );
     assert!(
         reload.last_status.contains("applied") && reload.last_errors.is_empty(),
         "the status a developer reads does not say a committed reload applied: \
@@ -1212,8 +1218,18 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     }
     assert!(
         session_root_for_scope(app.world_mut(), SessionScopeId(0)).is_some(),
-        "no candidate session root was prepared at scope 0, so cancelling has \\
+        "no candidate session root was prepared at scope 0, so cancelling has \
          nothing to abandon and this arm says nothing"
+    );
+    // ⭐ THE POSITIVE CONTROL FOR THE COUNT ASSERTED AT THE END. A census that
+    // reports 0 because its query is wrong reads exactly like a world with no
+    // orphans; this is the moment a candidate is SUPPOSED to be standing, so a
+    // count of 0 here would mean the instrument is blind rather than the world
+    // clean.
+    assert!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut())
+            > 0,
+        "the candidate census counts nothing while a candidate session is prepared and hidden, so the zero it reports at the end of this arm would be a claim about the QUERY"
     );
 
     app.world_mut()
@@ -1225,8 +1241,8 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     assert_eq!(
         session_root_for_scope(app.world_mut(), SessionScopeId(0)),
         None,
-        "⛔ A CANDIDATE SESSION WHOSE ROUTE WAS CANCELLED IS STILL IN THE WORLD. \\
-         It was never published and never discarded, so its root, its first room \\
+        "⛔ A CANDIDATE SESSION WHOSE ROUTE WAS CANCELLED IS STILL IN THE WORLD. \
+         It was never published and never discarded, so its root, its first room \
          and its publication receipt are alive and unreachable forever"
     );
     assert_eq!(
@@ -1250,5 +1266,17 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
         "⛔ A PUBLICATION RECEIPT OUTLIVED ITS OPERATION. An `UntilOwnerRetires` \
          receipt is an entity that stands until its owner retires it, and a \
          cancelled candidate's owner is the discard"
+    );
+    // ⛔⛤ **A10'S INVARIANT AS A NUMBER, at a moment when nothing is in flight.**
+    // A candidate that outlived its transaction is hidden by a DISABLING marker
+    // from every ordinary query in the game, so it is invisible to exactly the
+    // systems that would otherwise trip over it. This is the only thing that
+    // looks.
+    assert_eq!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        0,
+        "⛔ A HIDDEN CANDIDATE OUTLIVED ITS TRANSACTION after a cancelled route \
+         settled: neither published nor discarded, and invisible to everything \
+         but this count"
     );
 }

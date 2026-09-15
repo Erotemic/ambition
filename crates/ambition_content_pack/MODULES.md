@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`artifact`](src/artifact.rs) | The loadable content envelope — fast-iteration packet I2, step 1. |
+| [`artifact`](src/artifact.rs) | Versioned envelope for loadable content. |
 | [`candidate`](src/candidate.rs) | A prepared-but-unpublished content generation — fast-iteration I3's complete-candidate transaction. |
 | [`diagnostic`](src/diagnostic.rs) | Structured diagnostics — the compiler's output when it refuses. |
 | [`draft`](src/draft.rs) | `ContentPackDraft` — the authored side, read but not yet meaningful. |

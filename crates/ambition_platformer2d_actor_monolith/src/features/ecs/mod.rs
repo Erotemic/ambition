@@ -149,13 +149,16 @@ pub use save_sync::{
     sync_ecs_switches_from_save,
 };
 pub use spawn::{
-    serve_encounter_spawn_commands, spawn_encounter_mob, spawn_room_feature_entities_from_plan,
+    serve_encounter_spawn_commands, spawn_encounter_mob,
     ActorConstructionContext,
     OccurrenceContinuity, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt,
 };
-pub(crate) use spawn::spawn_runtime_minion;
+// ⛔ The room construction boundary and the receipt it produces are consumed by
+// the room verdict, both inside this crate. No consumer outside it.
+pub(crate) use spawn::{
+    spawn_room_feature_entities_from_plan, spawn_runtime_minion, RoomFeatureConstructionReceipt,
+};
 // ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
 // is unchanged (`features::apply_summon_effects`) — the schedule in
 // `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both

@@ -834,6 +834,120 @@ person least placed to decide it.
   assertable — a custody-window test that never opens one passes while measuring
   nothing, which is exactly what the first version of that arm did.
 
+## The 2026-09-15 holistic audit — five ownership contracts, all closed
+
+⚠ **CURRENT STATE, NOT HISTORY.** The audit's verdict was that A10 had nested
+entity VISIBILITY without nesting non-entity publication EFFECTS, so preparing or
+internally publishing candidate B could still mutate state belonging to live
+session A. Five contracts were named; all five are closed and poison-witnessed.
+
+| # | Contract | Where it lives now |
+| --- | --- | --- |
+| 1 | Nested non-entity/effect ownership | `FrozenPublicationEffects` on the `RoomPublication`; `finalize_room_publication` is the one consumer |
+| 2 | Exact per-publication custody ownership | `CustodyHandoffs` on the same entity, drained by the same finalization |
+| 3 | Candidate-owned minted reconstruction input | `CandidateDurableHorizon::minted`; `PlatformerSessionBuilder` holds no live durable resource at all |
+| 4 | True pre-construction refusal | `stage::construct_room_candidate` — one exclusive-world command that consults `opening_refused` and builds nothing if it refused |
+| 5 | One exact verification-and-application target | `apply_world_replacement` takes the entity `verify_staged_world` validated; every sink preflighted on it |
+
+### Finding 1: `RoomLoaded` was enough on its own
+
+A room published INSIDE a still-hidden candidate session lowered its own barrier
+(correct, and kept) and then did everything it owed the world OUTSIDE its
+population: `retire_superseded`, `apply_custody_handoffs`,
+`apply_world_replacement`, and a `RoomLoaded` carrying nothing but a room id.
+
+⛔ `FreshAttempt` treats any `RoomLoaded` as a fresh attempt and
+`void_pending_player_hits_at_lifecycle_boundaries` answers it by clearing
+`PendingPlayerHitEvents`, which is rollback-registered and checksummed. **MEASURED
+on the shipped handoff: with the deferral reverted, ONE `RoomLoaded` escapes into
+the live session across a 2-frame window.** So a candidate that later refused left
+A playable but not UNCHANGED, and unchanged is the promise.
+
+⇒ A verified publication FREEZES those effects. An ordinary live-room transition
+finalizes on the spot; a room whose target root is still an `InactiveCandidate`
+leaves the bundle standing and `PreparedCandidateSession::adopt` finalizes it at
+the session's own boundary. A discarded candidate despawns the publication and
+the bundle goes with it, having done nothing.
+
+⚠ **THE INSTRUMENT HAD TO MOVE FROM `Update` TO `Last`.** The room publishes from
+a command flush inside the frame, so an `Update`-registered reader counted ZERO
+escapes under a fully present defect — reporting its own cursor position.
+
+### Finding 1's second manifestation: `FactionRelations`
+
+`RoomFeatureConstructionPlan::spawn` inserted `FactionRelations::default()` on
+every room spawn, a hidden candidate's included — an App-global resource that is
+rollback-registered and checksummed. MEASURED: every `set_hostile` /
+`set_mutual_hostile` in the workspace outside `Default` is in a TEST, so no
+production road makes the shipped table non-default and the reset was latent.
+Deleted anyway; `init_targeting_resources` initializes it once, by its owner.
+
+### Finding 3: the witness took three versions, and the first two passed
+
+A candidate needs two describers to rebuild a runtime mint: the ledger row saying
+WHERE, the minted description saying WHAT.
+
+1. Set only `minted_items`, no ledger row ⇒ nothing was ever owed.
+2. Added the row, asserted the mint existed in the SETTLED world ⇒ **passed under
+   poison.** `complete_durable_restore` asks for a checkpoint resume whenever the
+   save carries rows, and that road rebuilds the room frames later from the LIVE
+   baseline. ⇒ The settled world is the UNION of both reconstruction roads and
+   can attribute to neither.
+3. Asks `candidate_carries_identity` of the population behind the barrier — the
+   one question whose answer belongs to exactly one road.
+
+⚠ Two fixture facts the mechanism demanded: `outlook_for` turns only a
+`Placed { room: <the room being built> }` row into `Reinstated`, and the declared
+parent must be a placement that room authors — an invented id panics construction
+with *"neither planned nor live"*.
+
+### Finding 4: a refusal that has to be repaired is not a refusal
+
+`spawn_contents_for` queued `open`, then the construction commands, then `close`.
+An opening refusal could not stop the commands already behind it, so the roots
+were built — VISIBLY in the filter-missing case, because the refusal IS that
+nothing here is hidden — and removed afterwards.
+
+⛔ A settled-world assertion can never say otherwise: `commit_inactive`'s own note
+records that component hooks and lifecycle observers run during `queue.apply`
+even though no scheduled system does.
+
+⇒ `construct_room_candidate` is one exclusive-world command consulting
+`opening_refused` — the decision `transaction::open` already made, so it also
+covers a refusal on a DUPLICATE IDENTITY and not only on a missing filter.
+Witnessed by a `TransactionId` INSERTION HOOK, not by inspecting the settled
+world; poisoned, it fails on the count (3 built, 0 expected), with the same plan
+in a hideable world as the positive control in the same arm.
+
+⛔⛔ **AND THE GUARD THE PREREQUISITE RESTED ON DID NOT EXIST.**
+`ambition_platformer2d_runtime` named
+`the_shipped_app_hides_candidates_before_they_are_verified` beside its
+`register_inactive_candidate_filter` call. A repo-wide grep found that name in
+exactly ONE place — that comment. A test cited by a `//` comment is not a test,
+and the citation gate does not scan `//` comments.
+
+### Finding 5: verification and application must name one entity
+
+`verify_staged_world` received the target resolved by the transaction's own
+scope; `apply_world_replacement` then re-asked `session_world_component_mut`
+*"which root is live right now"*, so a publication could be validated for hidden
+B and applied to live A. It also accepted a staged room set as evidence that a
+room set EXISTED — a question about the value, not the place — and never asked
+about `RoomGeometry` at all, while application wrote through `if let Some(..)`
+and published SUCCESS having skipped whatever was missing.
+
+⇒ One target through both ends, every sink preflighted on it. Two unit arms
+against a world holding a live root AND a candidate root at once, which is the
+only shape in which "which root did you consult" has two answers.
+
+### What the audit ruled is NOT unfinished A10
+
+Peer-stable identity (ID-PEER, a separate campaign), the defensive
+`DepartureAuthority::Custodian` fallback (a fail-safe for an abnormal hand; the
+production witness asserts `left_to_custodian == 0` in the known case), and the
+refused-door player feedback (presentation policy, not last-good-world
+correctness).
+
 ## How the session scope got closed — the investigation, kept out of the queue row
 
 ⚠ **HISTORY, NOT CURRENT STATE.** Every blocker below is resolved; A10.5 landed

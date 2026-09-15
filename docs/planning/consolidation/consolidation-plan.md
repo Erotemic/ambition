@@ -11,14 +11,14 @@ A candidate can move down if a new source inspection shows that two values have 
 
 | Rank | ID | Opportunity | State | Campaign size | Do not start before |
 | --- | --- | --- | --- | --- | --- |
-| 1 | C01 | Finish A10 as the one live room/session replacement transaction | ACTIVE — do not start a parallel implementation | large | A10 is already the current architecture milestone. This row is observation only. |
+| 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | ACTIVE separate identity campaign | large | Do not start before the active identity campaign checkpoint. |
-| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | RECOMMENDED first new campaign after current milestone | large | A10 checkpoint + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing. |
+| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | RECOMMENDED first new campaign; A10 half of its gate is met | large | ID-PEER checkpoint — C03 touches `SessionRoot`, activation and provenance, the neighbourhood ID-PEER is changing. Plus the shell/content A-supersedes-B race witness. |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | candidate after A10 and shell/content supersession closure | large | A10 complete + shell/content A-supersedes-B witness + identity checkpoint. |
-| 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate after C01/C05 | large | C01 + C05. |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | candidate; A10 is complete, so the remaining gates are the other two | large | Shell/content A-supersedes-B witness + identity checkpoint. |
+| 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
-| 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup | medium | Do not run during A10 or another large ownership migration. |
+| 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | later structural review | medium-large | After owner consolidation, not before. |
 | 10 | C10 | Restore planning control-plane separation between current state and history | **COMPLETED 2026-09-14** | small-medium | Closed by semantic-preservation documentation cleanup. |
 

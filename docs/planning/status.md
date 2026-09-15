@@ -24,15 +24,18 @@ for implementation details.
 
 ### Candidate world / last-good-world
 
-A10 is the main active architecture campaign. The projected post-publication
-roster verifier exists and can distinguish published members from hidden
-candidates. The remaining work is not another verifier helper: room/session state
-must be candidate-owned so validation precedes one publication switch and outgoing
-state retires only afterward.
+**A10 is CLOSED (2026-09-15).** Room and session state are candidate-owned:
+validation precedes one publication switch at both scopes, and outgoing state
+retires only afterward. A verified publication also freezes the effects it owes
+the world OUTSIDE its own population, so a room published inside a pending
+candidate session announces nothing to the live one until that session is
+admitted.
 
-The executable packet is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
-The strong last-good-world guarantee is a settled requirement, not a pending
-product decision.
+Post-A10 demolition is the active lane: deleting the mechanisms A10's replacement
+made dead. The next architecture campaign is peer-stable identity (ID-PEER),
+which owns a separate campaign and a separate agent.
+
+The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
 
 ### Deterministic identity
 

@@ -830,8 +830,72 @@ impl Default for ConstructionLane {
 /// was `pub`, so any crate could add the first one. ⇒ Nobody outside this crate
 /// can name it, and therefore nobody outside this crate can hook it. See
 /// [`publish_candidate`] for the guarantee this narrows.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub(crate) struct InactiveCandidate;
+/// ⛔⛤ **IT COUNTS OUTSTANDING PUBLICATION BARRIERS — REVIEW FINDING 2,
+/// 2026-09-15.** A candidate ROOM inside a candidate SESSION is hidden for two
+/// independent reasons, and with a unit marker those two reasons were the same
+/// component: the room's own publication called `remove::<InactiveCandidate>()`
+/// and cleared the SESSION's barrier with it. The session had not been admitted;
+/// its room roots simply became visible to ordinary queries because an INNER
+/// transaction succeeded.
+///
+/// ⇒ **AN INNER TRANSACTION MUST NEVER RELEASE AN OUTER TRANSACTION'S
+/// INVISIBILITY.** Each publication level raises one barrier and lowers its own;
+/// the component — and therefore the disabling — goes only when the count reaches
+/// zero. That is the smallest representation that makes the nesting explicit, and
+/// it is what the future `session -> region -> room` shape needs.
+///
+/// ⚠ Correctness does NOT depend on the schedule keeping the two verdicts close
+/// together. That was the previous state of affairs and it is not an invariant.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct InactiveCandidate {
+    barriers: u8,
+}
+
+impl Default for InactiveCandidate {
+    fn default() -> Self {
+        Self { barriers: 1 }
+    }
+}
+
+/// Raise one publication barrier on `entity`, keeping any already outstanding.
+///
+/// ⛔ INCREMENT, NOT INSERT. `insert` REPLACES, so a room barrier written over a
+/// session barrier left one — which is the defect this exists to make
+/// unexpressible.
+pub(crate) fn raise_candidate_barrier(world: &mut World, entity: Entity) {
+    let raised = world
+        .get::<InactiveCandidate>(entity)
+        .map_or(1, |marker| marker.barriers.saturating_add(1));
+    world
+        .entity_mut(entity)
+        .insert(InactiveCandidate { barriers: raised });
+}
+
+/// The `Commands` form of [`raise_candidate_barrier`].
+pub(crate) fn raise_candidate_barrier_deferred(commands: &mut Commands, entity: Entity) {
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(entity).is_ok() {
+            raise_candidate_barrier(world, entity);
+        }
+    });
+}
+
+/// Lower ONE barrier. The entity becomes visible only when the last one goes.
+///
+/// Returns `true` when this call is the one that published it.
+pub(crate) fn lower_candidate_barrier(world: &mut World, entity: Entity) -> bool {
+    let Some(marker) = world.get::<InactiveCandidate>(entity).copied() else {
+        return false;
+    };
+    if marker.barriers <= 1 {
+        world.entity_mut(entity).remove::<InactiveCandidate>();
+        return true;
+    }
+    world.entity_mut(entity).insert(InactiveCandidate {
+        barriers: marker.barriers - 1,
+    });
+    false
+}
 
 /// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
 /// queries.
@@ -1799,7 +1863,9 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         // so the root is never briefly a visible member of the live world. See
         // `execute`'s `hidden`.
         if hidden {
-            ctx.commands.entity(root).insert(InactiveCandidate);
+            // ⛔ RAISE, NEVER INSERT: this root may already carry the enclosing
+            // candidate SESSION's barrier, and an `insert` would replace it.
+            raise_candidate_barrier_deferred(&mut ctx.commands, root);
         }
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
@@ -2822,7 +2888,7 @@ pub enum InactiveCommitRefused {
 /// world-defining state the root carries becomes readable the moment
 /// [`publish_candidate_session_root`] runs.
 pub fn hide_candidate_session_root(commands: &mut bevy::prelude::Commands, root: Entity) {
-    commands.entity(root).insert(InactiveCandidate);
+    raise_candidate_barrier_deferred(commands, root);
 }
 
 /// Hide one entity being spawned as part of a candidate session.
@@ -2833,7 +2899,17 @@ pub fn hide_candidate_session_root(commands: &mut bevy::prelude::Commands, root:
 /// This exists so the marker can stay `pub(crate)` while the lifecycle module
 /// applies it.
 pub(crate) fn hide_candidate_session_entity(entity: &mut bevy::ecs::system::EntityCommands<'_>) {
-    entity.insert(InactiveCandidate);
+    // ⚠ `EntityCommands` cannot READ, so the increment is deferred: the raise
+    // happens against the world at flush, where the entity's existing barrier
+    // count is knowable. See `raise_candidate_barrier`.
+    let target = entity.id();
+    entity.queue(move |mut entity: bevy::ecs::world::EntityWorldMut| {
+        let raised = entity
+            .get::<InactiveCandidate>()
+            .map_or(1, |marker| marker.barriers.saturating_add(1));
+        entity.insert(InactiveCandidate { barriers: raised });
+    });
+    let _ = target;
 }
 
 /// Make a hidden candidate session authoritative: its root AND every entity it
@@ -2872,10 +2948,15 @@ pub fn publish_candidate_session(
     }
     let mut count = 0;
     for entity in promoted {
-        if let Ok(mut entity) = world.get_entity_mut(entity) {
-            entity.remove::<InactiveCandidate>();
-            count += 1;
+        if world.get_entity(entity).is_err() {
+            continue;
         }
+        // ⛔ ONE BARRIER — THE SESSION'S. A room inside this candidate session
+        // may already have published and lowered ITS barrier; this lowers the
+        // outer one, and only the entity whose last barrier goes becomes visible.
+        // See `InactiveCandidate`.
+        lower_candidate_barrier(world, entity);
+        count += 1;
     }
     count
 }
@@ -2912,7 +2993,10 @@ pub fn discard_candidate_session(
 pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usize {
     let roots = candidate_roots(world, transaction);
     for entity in &roots {
-        world.entity_mut(*entity).remove::<InactiveCandidate>();
+        // ⛔ ONE BARRIER, NOT THE COMPONENT. A room root inside a candidate
+        // SESSION carries the session's barrier too, and this publication has no
+        // authority over that one. See `InactiveCandidate`.
+        lower_candidate_barrier(world, *entity);
     }
     roots.len()
 }
@@ -3076,7 +3160,7 @@ pub fn spawn_candidate_state<B: bevy::prelude::Bundle>(
     commands
         .spawn((
             transaction.clone(),
-            InactiveCandidate,
+            InactiveCandidate::default(),
             CandidateState,
             state,
         ))

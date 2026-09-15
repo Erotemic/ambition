@@ -2837,7 +2837,7 @@ fn a_hook_on_the_marker_observes_publication_one_entity_at_a_time() {
 
     let transaction = scope().transaction(SessionSpawnScope::UNSCOPED);
     let roots: Vec<Entity> = (0..3)
-        .map(|_| world.spawn((super::InactiveCandidate, transaction.clone())).id())
+        .map(|_| world.spawn((super::InactiveCandidate::default(), transaction.clone())).id())
         .collect();
     *ROOTS.lock().expect("roots") = roots;
 
@@ -2894,7 +2894,7 @@ fn a_candidate_is_hidden_from_queries_and_from_nothing_else() {
     let mut world = World::new();
     super::register_inactive_candidate_filter(&mut world);
     let live = world.spawn(Gathered).id();
-    let candidate = world.spawn((Gathered, super::InactiveCandidate)).id();
+    let candidate = world.spawn((Gathered, super::InactiveCandidate::default())).id();
 
     // ⭐ THE PREMISE: an ordinary query hides it. Without this the arm below is
     // about a filter that was never installed.
@@ -2954,7 +2954,7 @@ fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
 
     let live = world.spawn((RollbackIdLike, SnapshotTarget)).id();
     let candidate = world
-        .spawn((RollbackIdLike, SnapshotTarget, super::InactiveCandidate))
+        .spawn((RollbackIdLike, SnapshotTarget, super::InactiveCandidate::default()))
         .id();
 
     // ⛔ THE PREMISE: the live body IS collected. Without it, "the candidate is
@@ -3110,7 +3110,7 @@ fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
 
     let live = world.spawn(SessionRoot(SessionScopeId(0))).id();
     let candidate = world
-        .spawn((SessionRoot(SessionScopeId(1)), super::InactiveCandidate))
+        .spawn((SessionRoot(SessionScopeId(1)), super::InactiveCandidate::default()))
         .id();
 
     // ⚠ THE PREMISE: both entities exist and both carry the marker the query
@@ -3195,7 +3195,7 @@ fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may
     let identity = SimId::singleton("session", "7");
     let live = world.spawn(identity.clone()).id();
     let candidate = world
-        .spawn((identity.clone(), super::InactiveCandidate))
+        .spawn((identity.clone(), super::InactiveCandidate::default()))
         .id();
 
     // ⚠ THE PREMISE: two entities really do hold one identity, or "capture
@@ -3263,7 +3263,7 @@ fn a_candidate_supersedes_a_live_identity_without_destroying_it_first() {
         .spawn((
             identity.clone(),
             transaction.clone(),
-            super::InactiveCandidate,
+            super::InactiveCandidate::default(),
         ))
         .id();
 
@@ -3329,7 +3329,7 @@ fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
     world.spawn((
         identity.clone(),
         transaction.clone(),
-        super::InactiveCandidate,
+        super::InactiveCandidate::default(),
     ));
 
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
@@ -3456,7 +3456,7 @@ fn a_deferred_departure_stays_in_the_projection_and_a_third_holder_still_refuses
 
     let carried = world.spawn(held.clone()).id();
     let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
-    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate));
+    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate::default()));
 
     let effects = PublicationEffects::new()
         .owned_by(transaction.clone())
@@ -3482,7 +3482,7 @@ fn a_deferred_departure_stays_in_the_projection_and_a_third_holder_still_refuses
     );
 
     // ── and the exception is exactly two ────────────────────────────────────
-    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate));
+    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate::default()));
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
     let projection = project_post_publication_roster(&scope, &effects);
     assert_eq!(
@@ -3537,11 +3537,11 @@ fn two_independent_candidate_publications_do_not_invalidate_each_other() {
 
     // Two candidates, prepared offside, with DISJOINT effects.
     let west_body = world
-        .spawn((shared.clone(), west.clone(), super::InactiveCandidate))
+        .spawn((shared.clone(), west.clone(), super::InactiveCandidate::default()))
         .id();
     let east_only = SimId::placement("east_only");
     let east_body = world
-        .spawn((east_only.clone(), east.clone(), super::InactiveCandidate))
+        .spawn((east_only.clone(), east.clone(), super::InactiveCandidate::default()))
         .id();
 
     let west_effects = PublicationEffects::new()

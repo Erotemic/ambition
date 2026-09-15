@@ -374,12 +374,26 @@ live scope. POISON-VERIFIED: making the two scoped primitives ignore their sessi
 reproduces the defect and the arm fires with `163` against `181` — the same 18
 bodies the world log named. Restores checked by md5.
 
-⚠ **STILL NOT WITNESSED: THE REFUSAL HALF.** A first room cannot be made to refuse
-from outside — the plan's generation and the binding on the candidate's root come
-from one frozen value, and the root is a queued spawn inside the same flush that
-verifies its room. It needs authored content that fails verification (a registered
-test experience whose start room authors two placements with the same id). Until
-that exists the refusal path is REASONED, and A10 is not closed.
+⭐⭐ **AND THE REFUSAL HALF IS WITNESSED TOO (2026-09-15), WHICH MEETS A10'S
+ACCEPTANCE CRITERION AT SESSION SCOPE.**
+`a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`
+drives a real handoff in the shipped app with TWO process-resident holders of one
+identity standing in the world. An entity carrying a canonical `SimId` and NO
+session owner is in every session's world by definition — including the
+candidate's — and `TransactionBaseline::capture` refuses a duplicated identity
+outright, so the candidate's first room cannot be verified at all. Nothing
+test-only is wired into construction.
+
+⇒ It asserts the PREMISE first (a room transaction ran and was REFUSED, so the
+arm is not satisfied by an app that did nothing), and then that the live session
+keeps its activation id, its scope, its population and its room. Its control is
+`a_shell_handoff_publishes_the_incoming_sessions_room`, which drives the same two
+commands with no corruption standing and lands the incoming session.
+
+⚠ **TWO HOLDERS, NOT ONE, AND THE DIFFERENCE IS THE MECHANISM.** A single extra
+holder of an id the room PLANS is a predecessor: the candidate declares it
+superseded and publication retires it, which is ordinary A10 and was measured
+doing exactly that. A pair is a world that cannot be described.
 
 ⚠ **A known order-dependent `app_it` failure remains**
 (`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`),

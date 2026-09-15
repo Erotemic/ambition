@@ -577,6 +577,135 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
     census(&mut app, "after a handoff");
 }
 
+/// ⛔⛤ **A10'S ACCEPTANCE CRITERION AT SESSION SCOPE: A CANDIDATE SESSION THE
+/// TRANSACTION REFUSES LEAVES THE SESSION YOU ARE PLAYING PLAYABLE.**
+///
+/// ⚠ **THE REFUSAL IS A PRODUCTION ONE AND NOTHING TEST-ONLY IS WIRED INTO
+/// CONSTRUCTION.** An entity carrying a canonical `SimId` and NO session owner is
+/// process-resident by definition, so it is in every session's world — including
+/// the candidate's. Give it an identity the start room authors and the candidate's
+/// first room finds two holders of one identity and refuses, through
+/// `verify_committed_roster`, exactly as it would for any real duplicate.
+///
+/// ⭐ **THE CONTROL IS `a_shell_handoff_publishes_the_incoming_sessions_room`**,
+/// which drives the same two `ReplaceWith` commands with no duplicate standing
+/// and lands the incoming session. Without it, "the handoff did not happen" would
+/// be satisfied by a handoff that never worked.
+#[test]
+fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable() {
+    use ambition_platformer2d::platformer::lifecycle::{
+        ActiveSessionScope, SessionScopeId, SessionScopedEntity,
+    };
+
+    fn scope(app: &bevy::prelude::App) -> Option<SessionScopeId> {
+        app.world()
+            .get_resource::<ActiveSessionScope>()
+            .and_then(ActiveSessionScope::current)
+    }
+    fn population(app: &mut bevy::prelude::App, owner: SessionScopeId) -> usize {
+        let world = app.world_mut();
+        world
+            .query::<&SessionScopedEntity>()
+            .iter(world)
+            .filter(|scoped| scoped.0 == owner)
+            .count()
+    }
+    fn live_room(app: &mut bevy::prelude::App) -> Option<String> {
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .map(|rooms| rooms.active_spec().id.clone())
+    }
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+
+    // ── world N, playable ────────────────────────────────────────────────────
+    let live_activation = activation_id(&app).expect("the first session activated");
+    let live = scope(&app).expect("the live session owns a scope");
+    let before_population = population(&mut app, live);
+    let before_room = live_room(&mut app);
+    assert!(
+        before_population > 0 && before_room.is_some(),
+        "the premise: world N is a real, populated, roomed session"
+    );
+
+    // ── two holders of one identity, in every session's world ───────────────
+    // ⛔ TWO, NOT ONE, AND THE DIFFERENCE IS THE WHOLE MECHANISM. A single extra
+    // holder of an id the room PLANS is a predecessor: the candidate declares it
+    // superseded and publication retires it, which is ordinary A10. A pair is a
+    // world that cannot be described — `TransactionBaseline::capture` refuses a
+    // duplicated identity outright — so the candidate's first room cannot be
+    // verified at all.
+    //
+    // ⚠ Process-resident on purpose: an entity carrying a canonical `SimId` and
+    // NO session owner is in every session's world by definition, including the
+    // candidate's, which is what puts the corruption in front of the candidate
+    // rather than in front of the session that is playing.
+    for _ in 0..2 {
+        app.world_mut()
+            .spawn(ambition_platformer2d::platformer::sim_id::SimId::placement(
+                "corrupt_twin",
+            ));
+    }
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+
+    // ⛔ THE PREMISE, BEFORE ANY CONCLUSION: a room transaction actually RAN and
+    // was REFUSED. Without this, "the handoff did not happen" is equally true of
+    // a route that never became ready, and every assertion below would be
+    // satisfied by an app that simply did nothing.
+    let verdict = app
+        .world()
+        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        !verdict.published,
+        "no room transaction was refused, so the candidate session was never the \
+         thing that failed and this arm is about nothing: {verdict:?}"
+    );
+
+    // ── the candidate was refused, and N is still the session you are in ─────
+    assert_eq!(
+        activation_id(&app),
+        Some(live_activation),
+        "⛔ A CANDIDATE SESSION WHOSE FIRST ROOM COULD NOT BE BUILT ACTIVATED \
+         ANYWAY: the shell retired the session that was playing for one that does \
+         not exist"
+    );
+    assert_eq!(
+        scope(&app),
+        Some(live),
+        "the live session scope moved even though no candidate was admitted"
+    );
+    assert_eq!(
+        population(&mut app, live),
+        before_population,
+        "⛔ A REFUSED CANDIDATE SESSION COST WORLD N ENTITIES"
+    );
+    assert_eq!(
+        live_room(&mut app),
+        before_room,
+        "⛔ A REFUSED CANDIDATE SESSION CHANGED THE ROOM THE PLAYER IS IN"
+    );
+}
+
 /// ⛔⛤ **A10 AT SESSION SCOPE, IN THE SHIPPED APP: THE CANDIDATE DOES NOT TOUCH
 /// THE WORLD THAT IS PLAYING.**
 ///

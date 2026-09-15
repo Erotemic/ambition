@@ -579,6 +579,39 @@ fn a_crossing_that_publishes_does_every_transition_effect() {
 ///
 /// ⭐ It also names WHICH room, so a verdict left over from some other transaction
 /// cannot stand in for the start room's.
+
+#[test]
+#[ignore = "probe: census of canonical identities with no session owner"]
+fn probe_process_resident_canonical_identities() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..60 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::platformer::sim_id::SimId,
+        Option<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>,
+    )>();
+    let mut unscoped: Vec<String> = q
+        .iter(world)
+        .filter(|(_, owner)| owner.is_none())
+        .map(|(id, _)| id.as_str().to_string())
+        .collect();
+    unscoped.sort();
+    let total = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::platformer::sim_id::SimId>();
+        q.iter(world).count()
+    };
+    eprintln!(
+        "[probe] {} of {total} canonical identities carry NO SessionScopedEntity:",
+        unscoped.len()
+    );
+    for id in &unscoped {
+        eprintln!("[probe]   {id}");
+    }
+}
+
 #[test]
 fn the_shipped_apps_own_first_room_publishes() {
     let mut sim = fixed_60hz_sim();

@@ -365,10 +365,18 @@ watches the live session's population across a handoff.
 PACKET.** Scoping the baseline (`TransactionBaseline::capture_for_session` <!-- cite-ok: NAMED BECAUSE IT WAS REVERTED; the row records the shape the next attempt needs, not a symbol at HEAD -->) and
 the scope gather (`AuthoritativeScope::gather_for_session` <!-- cite-ok: same, reverted with the packet -->) stopped the
 retirement and turned it into a REFUSAL instead: 18 `Duplicated` plus
-`UnownedIdentity` for `encounter:*` and `slot:0` — process-resident identities
-with no `SessionScopedEntity` that belong to the outgoing session. Every layer
-that asks *"is this identity already taken"* has to learn *"by whom"* before two
-sessions can coexist, and that reaches beyond A10's room packet.
+`UnownedIdentity` for `encounter:goblin_encounter`,
+`encounter:symmetry_attunement` and `slot:0`. Every layer that asks *"is this
+identity already taken"* has to learn *"by whom"* before two sessions can coexist,
+and that reaches beyond A10's room packet.
+
+⚠ **AND THE OBVIOUS EXPLANATION FOR THOSE THREE IS MEASURED FALSE.** I wrote that
+they were process-resident identities with no `SessionScopedEntity`.
+`probe_process_resident_canonical_identities` (an `#[ignore]`d diagnostic in
+`walking_into_a_loading_zone`) says **0 of 22 canonical identities in the shipped
+app carry no session owner** — every one is scoped. So the three were owned by
+SOME session and the scoped gather still admitted them; which session, and why, is
+the first thing the next attempt must measure rather than assume.
 
 **Reverted to the A10.4 shape**: the candidate session is built at activation and
 published behind its first room's verdict. The three defects above were real and

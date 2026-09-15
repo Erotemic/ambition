@@ -1167,3 +1167,71 @@ fn a_candidate_session_replaced_while_pending_is_discarded() {
          never happen"
     );
 }
+
+/// ⛔⛤ **AND A CANCELLED ROUTE DISCARDS ITS CANDIDATE TOO — THE FOURTH EXIT.**
+///
+/// `ShellCommand::CancelPending` is `Q118`'s "breaking the authorization early
+/// cancels both halves": a correlated requester whose own half became illegal
+/// ends the pending transaction it issued. The router clears its pending
+/// transaction and used to tell this provider nothing at all, so the prepared
+/// candidate sat in its slot forever — entities hidden in the world, publication
+/// receipt unretired, scope reserved, hold and evaluator registered. **A
+/// cancelled route leaked exactly what a superseded one did.**
+///
+/// ⭐ Its control is `a_candidate_session_replaced_while_pending_is_discarded`,
+/// which proves the same cleanup runs on the supersession road; the two share one
+/// site, and this arm is what says the site's condition reaches the cancel.
+#[test]
+fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
+    use ambition_platformer2d::game_shell::ShellRequestId;
+    use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let request = ShellRequestId::new("a10-cancel-witness");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: Some(request.clone()),
+    });
+    // Long enough for the candidate to be prepared and to HOLD the route, short
+    // enough that the gate has not admitted it.
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(
+        session_root_for_scope(app.world_mut(), SessionScopeId(0)).is_some(),
+        "no candidate session root was prepared at scope 0, so cancelling has \\
+         nothing to abandon and this arm says nothing"
+    );
+
+    app.world_mut()
+        .write_message(ShellCommand::CancelPending { request });
+    for _ in 0..120 {
+        app.update();
+    }
+
+    assert_eq!(
+        session_root_for_scope(app.world_mut(), SessionScopeId(0)),
+        None,
+        "⛔ A CANDIDATE SESSION WHOSE ROUTE WAS CANCELLED IS STILL IN THE WORLD. \\
+         It was never published and never discarded, so its root, its first room \\
+         and its publication receipt are alive and unreachable forever"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ReservedGameplayScopes>()
+            .outstanding(),
+        0,
+        "the reservation ledger still holds a scope for a cancelled activation"
+    );
+    let held = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+        .held(&ShellRouteId::new("ambition_gameplay"));
+    assert!(
+        held.is_empty(),
+        "the cancelled route is still held by its candidate's gate: {held:?}"
+    );
+}

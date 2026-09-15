@@ -1628,6 +1628,74 @@ fn cleanup_prepared_platformer_sessions(
 }
 
 /// Hold id for the candidate session a pending route is waiting on.
+/// Discard a prepared candidate session the shell is no longer pursuing.
+///
+/// ⛔⛤ **THE FOURTH EXIT, AND IT SUBSUMES THE THIRD.** A candidate leaves by one
+/// of four doors: ADOPTED (the gate admitted it), REFUSED (the gate refused it),
+/// SUPERSEDED (a later pending route replaced it) or ABANDONED
+/// (`ShellCommand::CancelPending` ended the pending transaction). The last two are
+/// the same question — *is the router still pursuing this candidate's
+/// activation?* — so they are one site rather than two that must be kept in step.
+///
+/// ⛔ **IT ASKS THE RESERVATION AS WELL AS THE ROUTER, and that is what makes it
+/// safe.** "The router is not pending on this activation" is ALSO true for the
+/// window between activation and adoption, and discarding there would destroy the
+/// candidate adoption is about to demand — which now PANICS by design, the
+/// fallback having been deleted. `ReservedGameplayScopes` is the ledger adoption
+/// consumes (`take`), so an outstanding reservation means adoption has not
+/// happened yet and the candidate is genuinely abandoned rather than in flight.
+///
+/// ⭐ MEASURED 2026-09-15 across the whole `app_it` suite before this was written:
+/// the condition fires EXACTLY ONCE in 663 arms, and that once is the supersession
+/// case. Zero false positives on the healthy activation path.
+///
+/// ⚠ THE ORDER OF THE FOUR RELEASES IS LOAD-BEARING: entities and receipt
+/// (queued, because discarding needs `&mut World`), the scope RESERVATION, then
+/// the route HOLD, then its EVALUATOR. Forgetting the evaluator while the hold
+/// still stands leaves the router a hold it cannot evaluate — measured, the route
+/// is then wedged forever and the SUPERSEDING session never starts either.
+fn discard_abandoned_candidate(
+    router: &ambition_game_shell::ShellRouter,
+    reserved: &mut ambition_game_shell::ReservedGameplayScopes,
+    holds: &mut ambition_game_shell::ShellRouteHolds,
+    gates: &mut ambition_game_shell::ShellActivationGates,
+    slot: &mut CandidateSessionSlot,
+    commands: &mut Commands,
+) {
+    let abandoned = slot.0.as_ref().is_some_and(|candidate| {
+        router.pending_activation() != Some(candidate.activation_id)
+            && reserved.get(candidate.activation_id).is_some()
+    });
+    if !abandoned {
+        return;
+    }
+    let Some(candidate) = slot.0.take() else {
+        return;
+    };
+    let (root, scope, experience, publication, activation, route) = (
+        candidate.root,
+        candidate.scope,
+        candidate.experience.clone(),
+        candidate.publication,
+        candidate.activation_id,
+        candidate.route.clone(),
+    );
+    reserved.release(activation);
+    holds.release(&route, &candidate_session_hold(activation));
+    gates.forget(&candidate_session_hold(activation));
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        let discarded = ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
+            world, root, scope,
+        );
+        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "session-abandoned experience={experience} activation={activation:?} \
+             ({discarded} entities discarded; the shell is no longer pursuing this \
+             candidate's activation)"
+        ));
+    });
+}
+
 fn candidate_session_hold(
     activation: ambition_game_shell::ShellActivationId,
 ) -> ambition_game_shell::ShellHoldId {
@@ -1710,6 +1778,26 @@ fn prepare_candidate_platformer_session(
     mut slot: ResMut<CandidateSessionSlot>,
     mut builder: PlatformerSessionBuilder,
 ) {
+    // ⛔⛤ **EVERY WAY A PENDING ROUTE CAN END, IN ONE PLACE — 2026-09-15.** A
+    // candidate that is neither PUBLISHED nor DISCARDED is the state A10's
+    // lifecycle exists to make impossible, and two roads produced one: a second
+    // pending route SUPERSEDING the first (which used to be a bare
+    // `slot.0 = Some(..)`, dropping a whole prepared session), and
+    // `ShellCommand::CancelPending`, which ends the pending transaction and tells
+    // this provider nothing at all.
+    //
+    // ⭐ ONE CONDITION COVERS BOTH, and any future third: the slot holds a
+    // candidate THIS ROUTER IS NOT PENDING ON. See `discard_abandoned_candidate`
+    // for why it also asks about the reservation.
+    discard_abandoned_candidate(
+        &router,
+        &mut reserved,
+        &mut holds,
+        &mut gates,
+        &mut slot,
+        &mut builder.commands,
+    );
+
     let Some(pending) = router.pending.as_ref() else {
         return;
     };
@@ -1759,55 +1847,11 @@ fn prepare_candidate_platformer_session(
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
     holds.hold(pending.route_id.clone(), hold);
-    // ⛔⛤ **A SUPERSEDED CANDIDATE IS DISCARDED, NOT DROPPED — 2026-09-15.** The
-    // slot is one deep and a second pending route supersedes the first, so this
-    // assignment used to overwrite a whole prepared session: its hidden root, its
-    // hidden first room, its publication receipt and its reserved scope, all of
-    // them alive and none of them reachable by anything ever again. A candidate
-    // that is neither PUBLISHED nor DISCARDED is exactly the state A10's
-    // lifecycle exists to make impossible, and it was one `=` away.
-    //
-    // ⚠ Queued, because discarding needs `&mut World` and this is an ordinary
-    // system; it runs at this frame's flush, before any gate is evaluated.
-    if let Some(superseded) = slot.0.replace(candidate) {
-        let (root, scope, experience, publication, activation) = (
-            superseded.root,
-            superseded.scope,
-            superseded.experience.clone(),
-            superseded.publication,
-            superseded.activation_id,
-        );
-        reserved.release(activation);
-        // ⛔⛤ **THE HOLD FIRST, THEN THE EVALUATOR — MEASURED, THE OTHER ORDER
-        // WEDGES THE ROUTE.** Forgetting the evaluator while the hold is still
-        // registered leaves the router a hold it cannot evaluate: the route stays
-        // held forever, never activates, and its reservation is never adopted.
-        // (`held=[ShellHoldId("session-publication:2")]` with one outstanding
-        // reservation, and the SUPERSEDING session never started either.)
-        holds.release(&superseded.route, &candidate_session_hold(activation));
-        // ⛔ AND THE GATE REGISTRATION GOES WITH IT. `register` has no matching
-        // `forget` anywhere in A10's road, so every candidate ever prepared left
-        // an evaluator entry behind for the life of the process — see the three
-        // exits below.
-        gates.forget(&candidate_session_hold(activation));
-        builder
-            .commands
-            .queue(move |world: &mut bevy::prelude::World| {
-                let discarded =
-                    ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
-                        world, root, scope,
-                    );
-                ambition_platformer2d_actor_monolith::rooms::retire_publication(
-                    world,
-                    publication,
-                );
-                ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                    "session-superseded experience={experience} activation={activation:?} \
-                     ({discarded} entities discarded; a later pending route replaced this \
-                     candidate before it was ever adopted)"
-                ));
-            });
-    }
+    // ⛔ THE SLOT IS EMPTY BY NOW WHATEVER HAPPENED: anything it held that this
+    // activation is not about was discarded at the head of this system. See
+    // `discard_abandoned_candidate`.
+    debug_assert!(slot.0.is_none(), "the head of this system empties the slot");
+    slot.0 = Some(candidate);
 }
 
 /// The activation gate: did this candidate session's first room publish?

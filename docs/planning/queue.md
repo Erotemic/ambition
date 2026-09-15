@@ -89,15 +89,21 @@ starts either** — a worse failure than the leak. The hold is released FIRST, u
 a route id recorded ON the candidate, because a candidate superseded by a route of
 a different name cannot be cleaned up from the superseding route's id.
 
-⚠ **AND A FOURTH EXIT IS OPEN: `ShellCommand::CancelPending`.** Found by
+⛔⛤ **AND THE FOURTH EXIT IS CLOSED TOO: `ShellCommand::CancelPending`.** Found by
 enumerating the writes to `CandidateSessionSlot` — exactly three — and asking what
 else can end a pending route. Cancellation clears the router's pending transaction
-and tells the provider nothing, so the candidate sits in the slot forever with its
-entities hidden, its receipt unretired, its scope reserved and its hold and
-evaluator registered: **a cancelled route leaks exactly what a superseded one used
-to.** The cleanup is the same four releases at a fourth site; the hard part is the
-discriminator, which must not fire in the activation window. See the owner
-document.
+and told the provider nothing, so the candidate sat in the slot forever: **a
+cancelled route leaked exactly what a superseded one did.**
+
+⭐ **THE THIRD AND FOURTH EXITS ARE NOW ONE SITE**, because they are one question —
+*is the router still pursuing this candidate's activation?* —
+`discard_abandoned_candidate`, at the head of the preparer. A fifth way for a
+pending route to end needs no fifth copy of the four releases. The discriminator
+also asks the RESERVATION (the ledger adoption consumes), which is what keeps it
+out of the activation window: MEASURED, it fires exactly once in 663 arms and that
+once is the supersession case. `a_candidate_session_whose_route_is_cancelled_is_discarded`
+witnesses it, with the supersession arm as its control; poisoning the one site
+reddens both.
 
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a

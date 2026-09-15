@@ -255,62 +255,56 @@ Visibility is `InactiveCandidate`, a registered disabling component that stays
 and was a real defect: Bevy's disabling components do not inherit through
 ownership, and the gameplay queries that find a body find it by its own markers.
 
-⛔⛤ **AND A CANDIDATE SESSION HAS EXACTLY THREE EXITS — closed 2026-09-15, when
-one of them turned out not to exist.**
+⛔⛤ **AND A CANDIDATE SESSION HAS EXACTLY FOUR EXITS — closed 2026-09-15, when
+TWO of them turned out not to exist.**
 
 ```text
 ADOPTED      publish_candidate_session   (the gate said Admit)
 REFUSED      discard_candidate_session   (the gate said Refuse)
 SUPERSEDED   discard_candidate_session   (a later pending route replaced it)
+ABANDONED    discard_candidate_session   (ShellCommand::CancelPending ended it)
 ```
+
+⭐ **THE LAST TWO ARE ONE SITE, because they are one question**: *is the router
+still pursuing this candidate's activation?* `discard_abandoned_candidate` runs at
+the HEAD of the preparer and answers it, so a future fifth way for a pending route
+to end needs no fifth copy of the cleanup.
 
 The third was `slot.0 = Some(candidate)` — a whole prepared session going out of
 scope in silence, its hidden root, hidden first room, publication receipt and
 reserved scope all alive and unreachable. ⇒ **A candidate that is neither
 published nor discarded is the state this lifecycle exists to make impossible,
 and it was one `=` away.** MEASURED: it fires 0 times in `app_it`, so it was
-unwitnessed as well as broken; the arm that reaches it discards 20 entities.
+unwitnessed as well as broken; the arm that reaches it discards 20 entities. The
+fourth did not exist at all, and leaked the same four things.
 
-⛔⛤ **AND THERE IS A FOURTH EXIT THAT IS NOT IMPLEMENTED — FOUND 2026-09-15 BY
-ENUMERATING THE WRITES TO `CandidateSessionSlot` (exactly three) AND ASKING WHAT
-ELSE CAN END A PENDING ROUTE.** `ShellCommand::CancelPending { request }` ends the
-pending transaction a correlated requester issued — `Q118`'s "breaking the
+Both are witnessed on the shipped composition, and each is the other's control:
+`a_candidate_session_replaced_while_pending_is_discarded` and
+`a_candidate_session_whose_route_is_cancelled_is_discarded`. POISON-VERIFIED
+together — disabling the one cleanup site leaves
+`session_root_for_scope(SessionScopeId(0))` returning `Some(1489v0)` for the
+cancel and trips the preparer's own `debug_assert` for the supersession.
+
+⛔⛤ **THE FOURTH EXIT WAS FOUND BY ENUMERATING THE WRITES TO
+`CandidateSessionSlot` (exactly three) AND ASKING WHAT ELSE CAN END A PENDING
+ROUTE.** `ShellCommand::CancelPending { request }` can — `Q118`'s "breaking the
 authorization early cancels both halves". It clears the router's pending
-transaction and NOTHING tells the provider. The candidate then sits in the slot
-forever: its entities hidden in the world, its publication receipt unretired, its
-scope reserved, its hold and evaluator registered. **A cancelled route leaks
-exactly what a superseded one used to.**
+transaction and told this provider nothing.
 
-⇒ The fix is the same cleanup at a fourth site, and the hard part is the
-DISCRIMINATOR, not the cleanup. "The router is no longer pending on this
-candidate's activation" is also true for one system-ordering window on the
-ACTIVATION path — `prepare` runs `.before(AmbitionGameShellSet::Pending)` and
-adoption in `GameplaySessionSet::Providers`, so within a frame it is safe, but a
-`GameplaySessionEvent::Activated` that is read a frame late would make the
-preparer discard the candidate adoption is about to demand, and adoption PANICS
-on a missing candidate by design.
-
-⇒ **MEASURED, AND THE CONDITION IS SAFE.** The proposed discriminator — *the slot
-holds a candidate the router is not pending on, AND adoption has not consumed its
-reservation* — was probed across the entire `app_it` suite. It fires **exactly
-once in 663 arms**, and that once is the supersession case itself:
+⇒ The hard part was the DISCRIMINATOR, not the cleanup. "The router is no longer
+pending on this candidate's activation" is ALSO true for the window between
+activation and adoption, and discarding there would destroy the candidate adoption
+is about to demand — which PANICS by design, the fallback having been deleted.
+MEASURED across the whole `app_it` suite before the condition was written: asking
+the RESERVATION as well (the ledger adoption consumes with `take`) fires **exactly
+once in 663 arms**, and that once is the supersession case —
 
 ```text
 [probe] stale-slot activation=ShellActivationId(2) pending=Some(ShellActivationId(3))
 ```
 
-⇒ **Zero false positives on the healthy activation path**, so no
-`Activated`-read-a-frame-late window was observed. Keying on the RESERVATION —
-which adoption consumes with `take` — rather than on the router's pending state
-alone is what makes it safe. ⭐ It also SUBSUMES the supersession branch: one
-cleanup site at the head of the preparer would serve supersession, cancellation
-and any future way a pending route can end, instead of two sites that must be
-kept in step.
-
-⚠ **STILL UNWITNESSED EITHER WAY: nothing in the suite issues `CancelPending`.**
-The measurement says the condition is safe to WRITE; it does not say the
-cancellation path works. An arm that issues a correlated `ReplaceWith` and then
-cancels it is what that owes.
+— so there are **zero false positives on the healthy activation path**, and no
+`Activated`-read-a-frame-late window exists to race.
 
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,

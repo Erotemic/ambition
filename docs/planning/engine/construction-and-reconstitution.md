@@ -275,6 +275,27 @@ the roster invariants `verify_committed_roster` already enforces. Beside it,
 install is coherent, and the commit boundary compares the plan's generation
 against the `ActiveContentBinding` on the root it is publishing into.
 
+⚠ **ONE ITEM ON THE BRIEF'S LIST IS ABSENT, AND BY CONSTRUCTION RATHER THAN BY
+OMISSION: *valid relation endpoints in the projected world*.** The hazard it names
+is a RETAINED live entity holding a relation whose endpoint publication would
+retire. MEASURED by source 2026-09-15: that state is not expressible here.
+`ConstructionPlan::commit` resolves both endpoints of every planned relation out
+of the RECEIPT — the identities this commit itself built — and a relation naming
+anything else is an `unreachable!`, not a skipped row:
+
+```text
+planned relation {from} -> {to} names an identity this commit did not build
+```
+
+⇒ **Every relation this system can express has both endpoints inside one
+transaction**, so publication cannot orphan one: either both ends go or both ends
+stay. A projected endpoint check would be a guard on a state no plan can reach,
+and it would need a live-relation enumerator the domain does not expose
+(`ConstructionRegistry` holds relation IDENTITY only; there is no inverse of
+`dispatch_relation`). ⇒ **If relations ever gain a live endpoint, this check stops
+being vacuous and becomes required** — that is the trigger to write it, and the
+`unreachable!` above is what will announce it.
+
 **4. What remains OUTSIDE candidate ownership.** Nothing named in the A10 brief.
 A candidate session owns its room state, geometry, moving-platform state, content
 binding, prepared content, session mechanics, the player's mechanical transition
@@ -299,6 +320,21 @@ CALLERS   every effect that MEANS the operation happened is queued behind
           body transit and presentation, the reset's whole sandbox wipe
 ```
 
+⛔⛤ **AND "EVERY EFFECT" MEANS EVERY EFFECT — TWO ESCAPED THE FIRST PASS, BOTH ON
+THE DEV RELOAD, AND BOTH OUTSIDE THE CLOSURE THAT PASS MOVED (closed 2026-09-15).**
+One was AFTER the bracket: `mark_applied` on the `Ok` of
+`reload_ldtk_world_from_disk`, where `Ok` means STAGED — a refused reload told the
+developer *"world reload applied to 'X' (#1)"*. One was BEFORE it:
+`stop_session_deferred` plus the local-GGRS restart marker, issued at the top of
+`handle_ldtk_hot_reload` before the function that owns the publication was called
+at all — MEASURED, a refused reload took `session_is_active` from `true` to
+`false`, tearing down the rollback timeline of the world it left standing.
+
+⇒ **A ROAD'S EFFECTS ARE NOT ONLY THE WRITES INSIDE ITS TRANSACTION, and the
+effect a human READS is an effect.** When auditing a road against this boundary,
+read the whole SYSTEM — everything from its first statement to its last queued
+closure — not the transaction function.
+
 **6. The production tests proving failure leaves N untouched.** At SESSION scope,
 in the shipped app:
 `a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`
@@ -322,6 +358,15 @@ with `a_crossing_that_publishes_does_every_transition_effect` as the control tha
 makes those assertions falsifiable. `the_shipped_apps_own_first_room_publishes`
 and `a_shell_handoff_publishes_the_incoming_sessions_room` are the admission
 controls.
+
+At the DEV RELOAD road, in the shipped app (2026-09-15, the last road to get one):
+`a_refused_world_reload_leaves_the_running_game_untouched` presses Apply Reload
+with two process-resident holders of one `SimId::placement` standing and asserts
+the preset flash, the applied count, the active room and the live rollback
+timeline are all unmoved; `a_committed_world_reload_applies_its_effects` is its
+control and asserts each of those DOES move on a reload that commits. No file is
+written — re-reading the same project runs the whole candidate bracket, so the
+refusal is induced in the world rather than on a shared tree's disk.
 
 **A10.5's fallback is DELETED, 2026-09-15 — there is one activation road.** An
 activation nobody prepared a candidate for used to build its own world INSIDE the
@@ -353,9 +398,17 @@ instrument**, however precisely it labels what it does print.
 **7. Remaining work.** The acceptance criterion is MET at both scopes; these are
 the gaps that remain beside it, none of which falsifies it.
 
-- **The transition state machine advances to `playing` on a refusal** as well as
-  on success, so a persistently refused door is a livelock rather than a
-  corrupted world.
+- **A persistently refused door is un-passable, and silently so.** Re-read
+  2026-09-15: the earlier wording here (*"the state machine advances to `playing`
+  on a refusal"*) made this sound like an unhandled case. It is not — both hosts
+  CANCEL. The eager host calls `cancel_eager_room_transition_transaction` (load
+  cancelled, `transition_state.active` cleared, the rollback intent spent) and the
+  confirmed host returns `CommitOutcome::Cancelled`; returning to `Playing` is the
+  correct terminal policy, because the player is standing in a room that was never
+  touched. What actually remains is that the refusal reaches only a `warn!` and a
+  `room_commit_refused` world-log line: **the player is given no signal, and the
+  door simply never opens.** That is a presentation gap, not a world-integrity
+  one.
 - **Custody supersession is Model B**: publication may leave the predecessor and
   the candidate both standing for the window in which custody removes the
   predecessor. Declared rather than hidden, and not to be widened; Model A

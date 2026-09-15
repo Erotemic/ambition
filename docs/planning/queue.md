@@ -105,6 +105,19 @@ once is the supersession case. `a_candidate_session_whose_route_is_cancelled_is_
 witnesses it, with the supersession arm as its control; poisoning the one site
 reddens both.
 
+⛔⛤ **AND THE TWO PROPERTIES THAT WERE HELD BY READING CALL SITES ARE COUNTED NOW
+(2026-09-15).** `rooms::outstanding_publications` and
+`construction::outstanding_candidates` are both asserted **0** after a committed
+dev reload and after a cancelled candidate — *no publication receipt outlives its
+operation* and *no candidate outlives its transaction*, which is A10's invariant
+stated as a number. Both poison-verified (dropping the reload's own
+`retire_publication` leaves 1; disabling the abandoned-cleanup leaves a candidate
+root). ⭐ The candidate census carries a POSITIVE CONTROL — the cancel arm asserts
+it counts **> 0** three frames in, while a candidate is supposed to be standing —
+because a census reporting 0 from a wrong query reads exactly like a clean world.
+⚠ Both return a COUNT, never a list: `RoomPublication` and `InactiveCandidate` stay
+`pub(crate)`, and that containment is worth more than a richer accessor.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

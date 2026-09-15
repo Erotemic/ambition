@@ -483,6 +483,18 @@ effect a human READS is an effect.** When auditing a road against this boundary,
 read the whole SYSTEM — everything from its first statement to its last queued
 closure — not the transaction function.
 
+⛔⛤ **AND THE SUCCESS ARM'S HALF IS ASKED OF THE SAME AUTHORITY (2026-09-15).**
+"No duplicate authoritative identity in the published world" is now asserted after
+a committed dev reload AND after a shell handoff, and it is asked with
+`TransactionBaseline::capture` rather than with a census written for the test:
+that call is precisely the operation which cannot describe a world holding one
+identity twice, and `BaselineCaptureError::DuplicateIdentity` is the refusal these
+same arms induce ON PURPOSE elsewhere. ⇒ **The success arm and the refusal arm now
+turn on one mechanism**, so neither can drift into certifying something the other
+does not mean. For the handoff it says something a roster COUNT cannot: the
+retired session's world is genuinely gone rather than standing beside the one that
+replaced it.
+
 **6. The production tests proving failure leaves N untouched.** At SESSION scope,
 in the shipped app:
 `a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`

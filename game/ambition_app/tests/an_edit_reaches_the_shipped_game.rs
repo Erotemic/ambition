@@ -665,6 +665,24 @@ fn a_committed_world_reload_applies_its_effects() {
         "⛔ A HIDDEN CANDIDATE OUTLIVED ITS TRANSACTION after a committed reload \
          settled: neither published nor discarded"
     );
+    // ⛔⛤ **AND NO DUPLICATE AUTHORITATIVE IDENTITY IN THE PUBLISHED WORLD — the
+    // success arm's half of A10's acceptance scenario.** Asked of the SAME
+    // authority publication is verified against rather than of a census written
+    // for the test: `TransactionBaseline::capture` is precisely the operation
+    // that cannot describe a world holding one identity twice, and
+    // `BaselineCaptureError::DuplicateIdentity` is the refusal these arms induce
+    // ON PURPOSE elsewhere. ⇒ Its control is
+    // `a_refused_world_reload_leaves_the_running_game_untouched`, whose two
+    // process-resident twins make this exact call fail.
+    assert!(
+        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(
+            app.world_mut()
+        )
+        .is_ok(),
+        "⛔ THE WORLD A COMMITTED RELOAD PUBLISHED CANNOT BE DESCRIBED: some \
+         identity has two authoritative holders, which is the one thing \
+         publication must never produce"
+    );
     assert!(
         reload.last_status.contains("applied") && reload.last_errors.is_empty(),
         "the status a developer reads does not say a committed reload applied: \
@@ -1074,6 +1092,33 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
         roster > 0,
         "the handoff published a room and the world holds no authoritative \
          identities at all: {verification:?}"
+    );
+    // ⛔⛤ **AND N+1 IS DESCRIBABLE: no duplicate authoritative identity after the
+    // replacement.** The other half of A10's success arm, asked of the SAME
+    // authority publication is verified against rather than of a census written
+    // for the test — `TransactionBaseline::capture` is exactly the operation that
+    // cannot describe a world holding one identity twice. ⇒ The retired session's
+    // world is genuinely gone rather than coexisting with the one that replaced
+    // it, which a roster COUNT alone cannot tell you.
+    assert!(
+        ambition_platformer2d::platformer::construction::TransactionBaseline::capture(
+            app.world_mut()
+        )
+        .is_ok(),
+        "⛔ THE WORLD THE HANDOFF PUBLISHED CANNOT BE DESCRIBED: some identity has \
+         two authoritative holders, so the outgoing session's world is still \
+         standing beside the incoming one"
+    );
+    assert_eq!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        0,
+        "⛔ A HIDDEN CANDIDATE OUTLIVED THE HANDOFF: neither published nor \
+         discarded"
+    );
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "a publication receipt is still standing after the handoff settled"
     );
 }
 

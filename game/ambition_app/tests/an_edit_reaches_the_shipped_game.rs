@@ -656,6 +656,16 @@ fn a_committed_world_reload_applies_its_effects() {
         reload.last_status,
         reload.last_errors
     );
+    // ⭐ THE CONTROL FOR THE REFUSAL ARM'S ROLLBACK ASSERTION. A committed reload
+    // DOES release the local baseline — `restart_local_ggrs_after_hot_reload`
+    // stops the session in the same frame's `PostUpdate` and the session owner
+    // rebases it. Without this, "a refused reload left the timeline alone" would
+    // be equally true of a build where nothing ever touches it.
+    assert!(
+        !ambition_platformer2d::rollback::session_is_active(&app.world()),
+        "a committed world reload did not release the local rollback baseline, \
+         so the refusal arm's rollback assertion has no discriminating power"
+    );
 }
 
 /// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**
@@ -689,6 +699,12 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
                 "corrupt_twin",
             ));
     }
+
+    assert!(
+        ambition_platformer2d::rollback::session_is_active(app.world()),
+        "the running session has no rollback timeline, so the assertion below \
+         about a refused reload not tearing one down says nothing"
+    );
 
     press_apply_reload(&mut app);
 
@@ -736,6 +752,16 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
         .map(|rooms| rooms.active_spec().id.clone()),
         Some(before_room),
         "⛔ A REFUSED WORLD RELOAD CHANGED THE ROOM THE PLAYER IS IN"
+    );
+    // ⛔⛤ MEASURED 2026-09-15, AND IT WAS FALSE: a refused reload stopped the
+    // live GGRS session, because the restart was requested before a single root
+    // was built. The world it was playing was intact and its rollback timeline
+    // was torn down for a room that does not exist. Its control is the arm above,
+    // which shows a COMMITTED reload does rebase the baseline.
+    assert!(
+        ambition_platformer2d::rollback::session_is_active(app.world()),
+        "⛔ A REFUSED WORLD RELOAD TORE DOWN THE ROLLBACK TIMELINE OF THE WORLD \
+         IT LEFT STANDING"
     );
 }
 

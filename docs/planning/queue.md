@@ -136,9 +136,26 @@ MEASURED — a refused reload reported `applied_count 0 -> 1` and
 `reload_ldtk_world_from_disk`, and that `Ok` means STAGED: the verdict is decided
 later in the same command flush. It is a verdict-gated queued effect now, like
 every other effect on this road, and a refusal records the verification's own
-violations. This was the last effect of the reload that did not cross the receipt,
-and it is the one a human reads to decide whether the world in front of them is
-the world on disk.
+violations.
+
+⛔ **AND THE WITNESS IMMEDIATELY FOUND A SECOND ONE: the local rollback restart.**
+MEASURED — across a REFUSED reload, `session_is_active` went `true -> false`.
+`stop_session_deferred` and the `RestartLocalGgrsAfterLdtkReload` marker were both
+issued at the top of `handle_ldtk_hot_reload`, before a single root was built, so a
+refusal left the running game with the world it was playing intact and its rollback
+timeline torn down for a room that does not exist. The marker is inserted behind
+the publication's verdict now (`true -> true` across a refusal), and the deferred
+stop is GONE rather than moved: the `PostUpdate` owner already stops a live session
+before releasing ownership, and nothing simulates between the two — `FixedUpdate`
+runs before `Update`, not between `Update` and `PostUpdate`. The committed arm
+asserts the baseline IS released, which is what gives the refusal assertion its
+discriminating power.
+
+⇒ **TWO UNCONDITIONAL EFFECTS SURVIVED A CHANGE WHOSE WHOLE SUBJECT WAS
+UNCONDITIONAL EFFECTS, and both were outside the closure A10.3 moved.** One was
+the status a human READS; the other was issued BEFORE the function that owns the
+bracket was even called. A road's effects are not only the writes inside its
+transaction.
 
 ⇒ **And `close` no longer takes the room name.** `verify_and_publish` read the
 room id from a parameter and re-derived the owning lane transactions from the plan

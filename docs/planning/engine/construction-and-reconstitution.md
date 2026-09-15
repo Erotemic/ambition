@@ -199,6 +199,20 @@ verification's violations. ⇒ **The effect a human READS is an effect.** A road
 have every mechanical write correctly bracketed and still tell the developer the
 world in front of them is the world on disk when it is not.
 
+⛔ **AND A SECOND ONE: the local rollback restart.** MEASURED — across a refused
+reload `session_is_active` went `true -> false`. Both `stop_session_deferred` and
+the restart marker were issued at the TOP of `handle_ldtk_hot_reload`, before the
+function that owns the bracket was called at all. The marker is verdict-gated now
+(`true -> true` across a refusal) and the deferred stop is deleted rather than
+moved — the `PostUpdate` owner already stops a live session before releasing
+ownership, and nothing simulates between them.
+
+⇒ **A ROAD'S EFFECTS ARE NOT ONLY THE WRITES INSIDE ITS TRANSACTION.** Two
+unconditional effects survived a change whose entire subject was unconditional
+effects, because both sat outside the closure that change moved: one after the
+bracket (the status) and one before it (the restart). When auditing a road for
+A10, read the whole SYSTEM, not the transaction function.
+
 **What a refusal costs.** No `RoomLoaded`, so no fresh attempt anywhere: staged
 victim hits are not voided and per-attempt state is not re-armed, both correct
 because no attempt began. `RoomLoaded` has three production readers through

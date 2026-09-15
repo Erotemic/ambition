@@ -185,10 +185,21 @@ pub(super) fn handle_ldtk_hot_reload(
 
     // the SETTINGS are no longer carried across the reload: the session owner holds the policy,
     // and a content reload does not change it.
-    if restart_local_ggrs.is_some() {
-        ambition_platformer2d::rollback::stop_session_deferred(&mut commands);
-        commands.insert_resource(RestartLocalGgrsAfterLdtkReload);
-    }
+    //
+    // ⛔⛤ **AND THE RESTART IS THE RELOAD'S LAST UNCONDITIONAL EFFECT, CLOSED
+    // 2026-09-15.** This used to call `stop_session_deferred` and insert the
+    // marker HERE, before a single root was built. MEASURED: a REFUSED reload
+    // left the running game with `session_is_active == false` — the world it was
+    // playing intact, and its rollback timeline torn down for a room that does
+    // not exist. It travels into the reload as a request now and is inserted
+    // behind the publication's verdict with the rest of the effects.
+    //
+    // ⭐ The deferred stop went with it rather than moving: the `PostUpdate`
+    // owner ALREADY stops a live session before releasing ownership, and nothing
+    // simulates between this system and that one — `FixedUpdate` runs before
+    // `Update`, not between `Update` and `PostUpdate`. Two stops were one
+    // authority too many.
+    let restart_local_ggrs = restart_local_ggrs.is_some();
     if let Ok(mut cluster_item) = player_q.single_mut() {
         let Some(session_scope) = commands.spawn_scope() else {
             return;
@@ -231,6 +242,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut content_identity.2,
             snapshot_schema,
             session_scope,
+            restart_local_ggrs,
         );
         match result {
             Ok(active_room) => {
@@ -385,6 +397,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
+    // ⛔ A REQUEST, NOT A DONE DEED. The local rollback baseline is rebased only
+    // if the candidate room publishes; see the caller.
+    restart_local_ggrs: bool,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;
@@ -546,6 +561,14 @@ pub(super) fn reload_ldtk_world_from_disk(
         // whether the session's content generation could advance.
         if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
             return;
+        }
+        // ⛔ THE LOCAL ROLLBACK BASELINE IS REBASED ONLY BY A RELOAD THAT
+        // HAPPENED. The `PostUpdate` owner stops the live session and releases
+        // ownership; the session owner then starts a new one with the same policy
+        // and the same frozen seating, because neither is what a content reload
+        // changed.
+        if restart_local_ggrs {
+            world.insert_resource(RestartLocalGgrsAfterLdtkReload);
         }
         // ⛔ ON THE SESSION ROOT. The reload's own generation belongs to the
         // session it reloaded, not to the process — see `ActiveContentBinding`.

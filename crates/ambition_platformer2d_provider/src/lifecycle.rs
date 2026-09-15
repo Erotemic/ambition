@@ -1614,16 +1614,20 @@ fn activate_prepared_platformer_sessions(
             )
         });
         let default_character = prepared.report.starting_character.clone();
-        // ⛔⛤ **PROMOTED, NOT JUST CONSUMED.** `take` removes the prepared record
-        // and `build` borrows the frozen values for one construction call; every
-        // LATER road that rebuilds a room — a door, a death, a reset — used to go
-        // back to whatever registries the App held by then. Installing the
-        // generation's mechanics as a resource is what makes "this session runs
-        // under generation N" a statement about its CONTENT and not only about
-        // its stamp. Session-scoped teardown removes it with the rest.
-        builder
-            .commands
-            .insert_resource(prepared.mechanical.clone());
+        // ⛔⛤ **PROMOTED AT PUBLICATION, NOT HERE — MOVED 2026-09-14 (A10.4).**
+        // `take` removes the prepared record and `build` borrows the frozen
+        // values for one construction call; every LATER road that rebuilds a room
+        // — a door, a death, a reset — used to go back to whatever registries the
+        // App held by then. Installing the generation's mechanics is what makes
+        // "this session runs under generation N" a statement about its CONTENT
+        // and not only about its stamp. Session-scoped teardown removes it with
+        // the rest.
+        //
+        // ⚠ It was installed HERE, before a single root was built. A candidate
+        // session prepared beside a live one would have replaced the playable
+        // session's frozen mechanics with the candidate's before anything had
+        // verified the candidate. It rides in the candidate aggregate now and is
+        // installed by the publication — see `CandidateSessionPublication`.
         builder.build(
             activation,
             *scope,
@@ -1766,7 +1770,15 @@ impl PlatformerSessionBuilder<'_, '_> {
 
         let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,
-            SessionSpawnScope::scoped(scope),
+            // ⛔⛤ **`candidate`, NOT `scoped` — AND THIS ONE WORD IS WHAT HIDES
+            // THE WHOLE SESSION.** `SessionSpawnScope::apply_to` is the single
+            // point every session-owned spawn passes through, so the initial
+            // player, the room roots and anything else built under this context
+            // are hidden together. Hiding only the ROOT left a fully visible
+            // player: Bevy's disabling components do not inherit through
+            // ownership, and the gameplay queries that find a body find it by its
+            // own markers.
+            SessionSpawnScope::candidate(scope),
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
                 // ⛔ THE ROOT THIS ACTIVATION JUST SPAWNED. Setup publishes the
                 // session's content generation ON it — not into a process global
@@ -1852,58 +1864,116 @@ impl PlatformerSessionBuilder<'_, '_> {
         }
 
         // ⛔⛤ **AND THE SESSION ITSELF IS A CANDIDATE UNTIL ITS FIRST ROOM
-        // PUBLISHES — A10.4, 2026-09-14.** The root is spawned hidden, so nothing
-        // that reads the session world can see a session whose world does not
-        // exist yet; the room lanes are hidden by their own bracket. If the room
-        // publishes, the root is published in the same command flush and the
-        // session is live. If the room is REFUSED, the candidate session is
-        // discarded whole — root, world bundle, content binding and all — and the
-        // shell is told the experience failed, rather than being left with a live
-        // session holding an empty world.
+        // PUBLISHES — A10.4, 2026-09-14.** The whole session-owned population is
+        // spawned hidden (`SessionSpawnScope::candidate` carries the policy, so
+        // the root, the initial player and every room root are covered by one
+        // statement), and ONE aggregate holds what admission owes the world.
         //
-        // ⚠ The activation's process-level state (`ActiveSessionScope`,
-        // `ActiveGameplaySession`) is still written by the bridge before this
-        // runs; making THAT part of the candidate is the rest of A10.4.
+        // ⚠ The activation's process-level pointers (`ActiveSessionScope`,
+        // `ActiveGameplaySession`) are still written by the bridge before this
+        // runs; moving them behind the same verdict is the rest of A10.4, and it
+        // needs the shell activation boundary (A10.5) rather than another
+        // resource.
         ambition_platformer2d_shared_tangle::construction::hide_candidate_session_root(
             &mut self.commands,
             world,
         );
-        let activation_id = activation.activation_id;
-        let experience = activation.experience_id.as_str().to_owned();
-        let publication = built.publication;
-        self.commands.queue(move |ecs: &mut bevy::prelude::World| {
-            let published =
-                ambition_platformer2d_actor_monolith::rooms::publication_succeeded(ecs, publication);
-            // ⛔ THE OWNER CONSUMES ITS RECEIPT WHATEVER IT SAID.
-            ambition_platformer2d_actor_monolith::rooms::retire_publication(ecs, publication);
-            if published {
-                ambition_platformer2d_shared_tangle::construction::publish_candidate_session_root(
-                    ecs, world,
-                );
-                return;
-            }
-            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                "session-refused experience={experience} activation={activation_id:?} \
-                 (the first room was not published; the candidate session is discarded)"
-            ));
-            bevy::log::error!(
-                target: "ambition_platformer2d::construction",
-                "the first room of experience `{experience}` was REFUSED, so its \
-                 candidate session is discarded rather than published with no world"
-            );
-            if let Ok(root) = ecs.get_entity_mut(world) {
-                root.despawn();
-            }
-            ecs.write_message(ambition_game_shell::ShellCommand::ExperienceFailed {
-                activation_id,
-                message: "the session's first room failed construction verification".to_owned(),
-            });
-        });
+        let candidate = CandidateSessionPublication {
+            scope,
+            root: world,
+            activation_id: activation.activation_id,
+            experience: activation.experience_id.as_str().to_owned(),
+            publication: built.publication,
+            mechanics: mechanical.clone(),
+            moving_platforms: built.moving_platforms,
+        };
+        self.commands
+            .queue(move |ecs: &mut bevy::prelude::World| candidate.settle(ecs));
 
         SessionBuildResult {
             player: built.player,
             world,
         }
+    }
+}
+
+/// ⛔⛤ **ONE AGGREGATE, NOT FOUR `PendingFoo` GLOBALS.** Everything a prepared
+/// candidate session owes the world if it is admitted, held together and
+/// installed by ONE publication.
+///
+/// ⚠ **IT IS A VALUE, CAPTURED BY THE PUBLICATION CLOSURE — NOT A RESOURCE.** A
+/// process-global `PendingSessionMechanics` / `PendingMovingPlatformSet` pair
+/// would be the retire-then-overwrite shape again, one level up, and a second
+/// candidate would overwrite the first's. The candidate's ECS half lives under
+/// its own scope, hidden; its process-level projections live here until the
+/// verdict says they may be installed.
+///
+/// ⚠ **`scope` AND `activation_id` ARE HOST-LOCAL CONTROL-PLANE IDENTITY.**
+/// Nothing here is canonical simulation identity and none of it may become any:
+/// the peer-stable identity campaign owns that question. See `ID-PEER`.
+struct CandidateSessionPublication {
+    scope: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId,
+    root: bevy::prelude::Entity,
+    activation_id: ambition_game_shell::ShellActivationId,
+    experience: String,
+    /// The first room's receipt. The activation decision IS this verdict.
+    publication: ambition_platformer2d_actor_monolith::rooms::PublicationHandle,
+    /// The generation's frozen registries, installed at publication.
+    mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
+    /// The first room's moving platforms, installed at publication.
+    moving_platforms: ambition_platformer2d_world::collision::MovingPlatformSet,
+}
+
+impl CandidateSessionPublication {
+    /// Ask the first room's verdict and either adopt the candidate session or
+    /// discard it whole.
+    ///
+    /// ⛔ THE ORDER IS THE INVARIANT, the same one `publish_candidate` then
+    /// `retire_superseded` keep for a room: the candidate's process-level
+    /// projections are installed and its population promoted, and only a
+    /// candidate that got that far is the live session.
+    fn settle(self, world: &mut bevy::prelude::World) {
+        let published =
+            ambition_platformer2d_actor_monolith::rooms::publication_succeeded(world, self.publication);
+        // ⛔ THE OWNER CONSUMES ITS RECEIPT WHATEVER IT SAID.
+        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, self.publication);
+        let Self {
+            scope,
+            root,
+            activation_id,
+            experience,
+            mechanics,
+            moving_platforms,
+            ..
+        } = self;
+        if published {
+            world.insert_resource(mechanics);
+            world.insert_resource(moving_platforms);
+            let promoted = ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
+                world, root, scope,
+            );
+            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                "session-published experience={experience} activation={activation_id:?} \
+                 ({promoted} entities promoted)"
+            ));
+            return;
+        }
+        let discarded = ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
+            world, root, scope,
+        );
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "session-refused experience={experience} activation={activation_id:?} \
+             ({discarded} entities discarded; the first room was not published)"
+        ));
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "the first room of experience `{experience}` was REFUSED, so its \
+             candidate session is discarded rather than published with no world"
+        );
+        world.write_message(ambition_game_shell::ShellCommand::ExperienceFailed {
+            activation_id,
+            message: "the session's first room failed construction verification".to_owned(),
+        });
     }
 }
 

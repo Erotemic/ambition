@@ -2766,18 +2766,88 @@ pub fn hide_candidate_session_root(commands: &mut bevy::prelude::Commands, root:
     commands.entity(root).insert(InactiveCandidate);
 }
 
-/// Make a hidden candidate session root authoritative.
+/// Hide one entity being spawned as part of a candidate session.
 ///
-/// Returns whether a root was there to publish, so a caller can tell *"I
-/// published my candidate"* from *"my candidate was already gone"*.
-pub fn publish_candidate_session_root(world: &mut World, root: Entity) -> bool {
-    match world.get_entity_mut(root) {
-        Ok(mut entity) => {
-            entity.remove::<InactiveCandidate>();
-            true
-        }
-        Err(_) => false,
+/// ⛔ **THE CALLER IS `SessionSpawnScope::apply_to`, AND IT SHOULD STAY THAT
+/// WAY.** Hiding a candidate session is a policy on the ownership context every
+/// session-owned spawn already captures, not a thing each spawn site remembers.
+/// This exists so the marker can stay `pub(crate)` while the lifecycle module
+/// applies it.
+pub(crate) fn hide_candidate_session_entity(entity: &mut bevy::ecs::system::EntityCommands<'_>) {
+    entity.insert(InactiveCandidate);
+}
+
+/// Make a hidden candidate session authoritative: its root AND every entity it
+/// owns.
+///
+/// ⛔⛤ **THE WHOLE POPULATION, BECAUSE HIDING THE ROOT IS NOT HIDING THE
+/// SESSION.** Bevy's disabling components do not inherit through ownership. A
+/// candidate session's initial player, its room roots and everything else spawned
+/// under `SessionSpawnScope::candidate` carry the marker individually, so
+/// publication removes it individually.
+///
+/// ⚠ **IT IS IDEMPOTENT PER ENTITY BY CONSTRUCTION.** A room inside the candidate
+/// has its own bracket and its own verdict; when that room publishes,
+/// [`publish_candidate`] has already taken the marker off its roots, and removing
+/// an absent component is a no-op. The two authorities do not need to know about
+/// each other.
+///
+/// ⭐ Atomic to SCHEDULED SYSTEMS, with the same argument and the same limits as
+/// [`publish_candidate`]: nothing is scheduled inside an exclusive-world call.
+///
+/// Returns how many entities were promoted, so a caller can assert it published a
+/// population rather than an empty set.
+pub fn publish_candidate_session(
+    world: &mut World,
+    root: Entity,
+    scope: crate::lifecycle::SessionScopeId,
+) -> usize {
+    let mut promoted: Vec<Entity> = world
+        .query_filtered::<(Entity, &crate::lifecycle::SessionScopedEntity), bevy::ecs::query::Allow<InactiveCandidate>>()
+        .iter(world)
+        .filter(|(_, owner)| owner.0 == scope)
+        .map(|(entity, _)| entity)
+        .collect();
+    if !promoted.contains(&root) {
+        promoted.push(root);
     }
+    let mut count = 0;
+    for entity in promoted {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.remove::<InactiveCandidate>();
+            count += 1;
+        }
+    }
+    count
+}
+
+/// Discard a candidate session that was not admitted: its root and every entity
+/// it owns, hidden or not.
+///
+/// ⛔ The live session, if there is one, is untouched: this despawns by the
+/// candidate's OWN scope, which no other session shares.
+pub fn discard_candidate_session(
+    world: &mut World,
+    root: Entity,
+    scope: crate::lifecycle::SessionScopeId,
+) -> usize {
+    let mut doomed: Vec<Entity> = world
+        .query_filtered::<(Entity, &crate::lifecycle::SessionScopedEntity), bevy::ecs::query::Allow<InactiveCandidate>>()
+        .iter(world)
+        .filter(|(_, owner)| owner.0 == scope)
+        .map(|(entity, _)| entity)
+        .collect();
+    if !doomed.contains(&root) {
+        doomed.push(root);
+    }
+    let mut count = 0;
+    for entity in doomed {
+        if let Ok(entity) = world.get_entity_mut(entity) {
+            entity.despawn();
+            count += 1;
+        }
+    }
+    count
 }
 
 pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usize {

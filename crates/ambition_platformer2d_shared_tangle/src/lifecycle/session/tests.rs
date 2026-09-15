@@ -326,68 +326,183 @@ fn cleanup_leaves_unscoped_frontend_entities_intact() {
 }
 
 /// ⛔⛤ **A10.4's CANDIDATE SESSION: HIDDEN FROM THE LIVE LOOKUP, FOUND BY THE
-/// PUBLICATION LOOKUP.**
+/// PUBLICATION LOOKUP — AND THE WHOLE POPULATION, NOT JUST THE ROOT.**
 ///
-/// The whole candidate-session design rests on those two answers differing for
-/// the same entity, and on nothing else changing. `session_world_entity` is what
-/// every system reading *"the session world"* goes through, and it must not see a
-/// session whose world is still being built. `session_root_for_scope` is what a
-/// room TRANSACTION goes through, and it must see the root it is building into —
-/// otherwise the candidate's first room can never publish and the session can
-/// never become live.
+/// The design rests on three facts, and each one is a separate way to get it
+/// wrong:
 ///
-/// ⚠ **THE PREMISE IS CHECKED FIRST**: the root is visible before it is hidden.
-/// Without that, a filter that was never registered — in which case hiding does
-/// nothing — would satisfy the "published" half and the arm would certify the
-/// design while testing none of it.
+/// 1. `session_world_entity` — what every system reading *"the session world"*
+///    goes through — must NOT see a candidate.
+/// 2. `session_root_for_scope` — what a room TRANSACTION goes through — MUST see
+///    it, or the candidate's first room can never publish.
+/// 3. Everything the candidate OWNS must be hidden too. Bevy's disabling
+///    components do not inherit through ownership, so a body spawned under the
+///    candidate's scope is found by the gameplay queries that look for bodies,
+///    root or no root. Hiding only the root is how a candidate session prepared
+///    beside a live one produces two visible players.
+///
+/// ⚠ **THE PREMISES ARE CHECKED FIRST** — the root IS the live world, and the
+/// body IS visible — before anything is hidden. Without that, a composition that
+/// never registered the disabling filter would satisfy every "published"
+/// assertion while hiding nothing at all.
 #[test]
-fn a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction() {
+fn a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction() {
     use crate::construction::{
-        hide_candidate_session_root, publish_candidate_session_root,
-        register_inactive_candidate_filter,
+        publish_candidate_session, register_inactive_candidate_filter,
     };
     use crate::lifecycle::{session_root_for_scope, session_world_entity};
+
+    #[derive(bevy::prelude::Component)]
+    struct CandidateBody;
+
+    fn visible_bodies(app: &mut bevy::prelude::App) -> usize {
+        let world = app.world_mut();
+        world.query::<&CandidateBody>().iter(world).count()
+    }
 
     let mut app = bevy::prelude::App::new();
     register_inactive_candidate_filter(app.world_mut());
     let scope = SessionScopeId(7);
-    let root = app
+
+    // ── the premises, on an ORDINARY session ─────────────────────────────────
+    let live = app
         .world_mut()
-        .spawn((Name::new("candidate session world"), SessionRoot(scope)))
+        .spawn((Name::new("live session world"), SessionRoot(scope)))
         .id();
-
-    assert_eq!(
-        session_world_entity(app.world()),
-        Some(root),
-        "the premise: an ordinary root IS the live session world. If this fails \
-         the arm below proves nothing about hiding"
-    );
-
     app.world_mut()
         .run_system_once(move |mut commands: Commands| {
-            hide_candidate_session_root(&mut commands, root);
+            commands.spawn_session_scoped(
+                SessionSpawnScope::scoped(scope),
+                (Name::new("live body"), CandidateBody),
+            );
         })
-        .expect("the hiding system runs");
+        .expect("the spawn system runs");
+    assert_eq!(
+        session_world_entity(app.world()),
+        Some(live),
+        "the premise: an ordinary root IS the live session world"
+    );
+    assert_eq!(
+        visible_bodies(&mut app),
+        1,
+        "the premise: a body spawned under an ordinary scope IS visible. Without          this the hiding assertions below could be satisfied by a filter that was          never registered"
+    );
+    app.world_mut().entity_mut(live).despawn();
+    app.world_mut()
+        .run_system_once(|mut commands: Commands, doomed: Query<Entity, With<CandidateBody>>| {
+            for entity in &doomed {
+                commands.entity(entity).despawn();
+            }
+        })
+        .expect("the teardown system runs");
+
+    // ── the candidate ────────────────────────────────────────────────────────
+    let candidate_scope = SessionScopeId(8);
+    let root = app
+        .world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            let root = commands
+                .spawn((Name::new("candidate session world"), SessionRoot(candidate_scope)))
+                .id();
+            crate::construction::hide_candidate_session_root(&mut commands, root);
+            // The candidate's own body, spawned through the ownership context
+            // exactly as session setup spawns the initial player.
+            commands.spawn_session_scoped(
+                SessionSpawnScope::candidate(candidate_scope),
+                (Name::new("candidate body"), CandidateBody),
+            );
+            root
+        })
+        .expect("the candidate system runs");
 
     assert_eq!(
         session_world_entity(app.world()),
         None,
-        "⛔ A CANDIDATE SESSION IS LIVE. Every reader of the session world would \
-         see a session whose world is still under construction"
+        "⛔ A CANDIDATE SESSION IS LIVE. Every reader of the session world would          see a session whose world is still under construction"
     );
     assert_eq!(
-        session_root_for_scope(app.world_mut(), scope),
+        visible_bodies(&mut app),
+        0,
+        "⛔ A CANDIDATE SESSION'S BODY IS VISIBLE WHILE ITS SESSION IS NOT.          Hiding the root does not hide what the session owns — this is the hole          a candidate prepared beside a live session falls into"
+    );
+    assert_eq!(
+        session_root_for_scope(app.world_mut(), candidate_scope),
         Some(root),
-        "⛔ A CANDIDATE'S OWN TRANSACTION CANNOT FIND THE ROOT IT IS BUILDING \
-         INTO, so its first room can never publish and the session can never \
-         become live"
+        "⛔ A CANDIDATE'S OWN TRANSACTION CANNOT FIND THE ROOT IT IS BUILDING          INTO, so its first room can never publish and the session can never          become live"
     );
 
-    assert!(publish_candidate_session_root(app.world_mut(), root));
+    // ── admission promotes the POPULATION ────────────────────────────────────
     assert_eq!(
-        session_world_entity(app.world()),
-        Some(root),
-        "a published candidate session is the live session world"
+        publish_candidate_session(app.world_mut(), root, candidate_scope),
+        2,
+        "publication promotes the root and the body it owns"
     );
-    assert_eq!(session_root_for_scope(app.world_mut(), scope), Some(root));
+    assert_eq!(session_world_entity(app.world()), Some(root));
+    assert_eq!(
+        visible_bodies(&mut app),
+        1,
+        "a published candidate session's body is part of the live world"
+    );
+}
+
+/// ⛔⛤ **AND A REFUSED CANDIDATE SESSION LEAVES NOTHING BEHIND.**
+///
+/// The discard is by the candidate's OWN scope, which no other session shares —
+/// so this also witnesses that it cannot reach the live session standing beside
+/// it.
+#[test]
+fn discarding_a_candidate_session_takes_its_whole_population_and_nothing_else() {
+    use crate::construction::{discard_candidate_session, register_inactive_candidate_filter};
+
+    #[derive(bevy::prelude::Component)]
+    struct Body;
+
+    let mut app = bevy::prelude::App::new();
+    register_inactive_candidate_filter(app.world_mut());
+    let live = SessionScopeId(1);
+    let candidate = SessionScopeId(2);
+
+    let (live_root, candidate_root) = app
+        .world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            let live_root = commands
+                .spawn((Name::new("live world"), SessionRoot(live)))
+                .id();
+            commands.spawn_session_scoped(
+                SessionSpawnScope::scoped(live),
+                (Name::new("live body"), Body),
+            );
+            let candidate_root = commands
+                .spawn((Name::new("candidate world"), SessionRoot(candidate)))
+                .id();
+            crate::construction::hide_candidate_session_root(&mut commands, candidate_root);
+            commands.spawn_session_scoped(
+                SessionSpawnScope::candidate(candidate),
+                (Name::new("candidate body"), Body),
+            );
+            (live_root, candidate_root)
+        })
+        .expect("the setup system runs");
+
+    assert_eq!(
+        discard_candidate_session(app.world_mut(), candidate_root, candidate),
+        2,
+        "the candidate's root and the body it owns"
+    );
+    assert!(
+        app.world().get_entity(candidate_root).is_err(),
+        "the candidate root survived its own discard"
+    );
+    assert!(
+        app.world().get_entity(live_root).is_ok(),
+        "⛔ DISCARDING A CANDIDATE SESSION DESTROYED THE LIVE ONE STANDING BESIDE          IT — the exact thing A10 exists to make impossible"
+    );
+    let bodies = {
+        let world = app.world_mut();
+        world.query::<&Body>().iter(world).count()
+    };
+    assert_eq!(
+        bodies, 1,
+        "the live session's body must be the one that remains"
+    );
 }

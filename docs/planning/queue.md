@@ -236,6 +236,45 @@ left with a live session holding an empty world. `simulation_world` returns a
 `SimulationWorld { player, publication }` and its caller declares the receipt's
 retention, so the activation decision owns the receipt.
 
+**A10.4 fourth step: the candidate session is ONE AGGREGATE and its WHOLE
+POPULATION is hidden.** Two holes in the third step, both found by review and
+both confirmed in source before fixing:
+
+- **Hiding the root is not hiding the session.** Bevy's disabling components do
+  not inherit through ownership, so the initial player — spawned through
+  `spawn_session_scoped`, like every other session-owned entity — was fully
+  visible while its root was hidden, and the gameplay queries that find a body
+  find it by its own markers. A candidate prepared beside a live session would
+  have produced two visible players. The fix is a visibility POLICY on the
+  ownership context every session-owned spawn already captures:
+  `SessionSpawnScope::candidate(scope)` vs `scoped(scope)`, applied in
+  `apply_to`, which is the single point all six `spawn_*`/`insert_*` helpers pass
+  through. `PartialEq` is hand-written on `id` alone — visibility is a spawn
+  policy, not part of the ownership identity, and `TransactionId` reads
+  `session.id()` and nothing else, so no construction identity changed.
+  `publish_candidate_session` / `discard_candidate_session` act on the whole
+  population.
+- **A candidate may not write the live session's process state.**
+  `simulation_world` installed `MovingPlatformSet` the instant the first room was
+  STAGED, and activation installed `SessionMechanics` before a single root was
+  built. Both now ride in the aggregate and are installed by the publication.
+
+⇒ `CandidateSessionPublication` holds scope, root, activation, the first room's
+receipt, the frozen mechanics and the platform state, and settles them in one
+operation. **It is a VALUE captured by the publication closure, not a resource** —
+a `PendingSessionMechanics`/`PendingMovingPlatformSet` pair would be the
+retire-then-overwrite shape one level up, and a second candidate would overwrite
+the first's.
+
+Witnessed by
+`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
+(three facts: invisible to `session_world_entity`, visible to
+`session_root_for_scope`, and the OWNED BODY hidden too — with both premises
+asserted on an ordinary session first, so an unregistered filter cannot satisfy
+it while hiding nothing) and
+`discarding_a_candidate_session_takes_its_whole_population_and_nothing_else`
+(a live session standing beside the discarded candidate survives it).
+
 ⚠ **THE REFUSAL HALF HAS NO PRODUCTION WITNESS.** The shipped app cannot be made
 to refuse its first room the way the transition arm is: the first room's
 `ActiveContentBinding` is written by setup from that room's own plan, so it
@@ -247,11 +286,39 @@ filter cannot fake it. ⇒ **A10 IS NOT CLOSED**: the acceptance criterion is a
 PRODUCTION composition demonstrating that a failed candidate leaves the last-good
 world playable, and at session scope that demonstration does not exist yet.
 
-**Next implementation:** a production handle for inducing a first-room refusal
-(the session-scope analogue of the transition arm's stale binding), then the
-remaining session authorities — `ActiveSessionScope`, `ActiveGameplaySession`,
-`SessionMechanics` — staged as values published at the same verdict rather than
-written by the bridge before the world exists. They do not need to become components on the
+**ACTUAL BLOCKER — WORLD N IS DESTROYED BEFORE CANDIDATE N+1 IS BEGUN, AND IT IS
+AN ORDERING FACT, NOT A MISSING TEST (MEASURED 2026-09-14 from source).**
+`translate_shell_session_lifecycle` emits `RouteDeactivated` and `RouteActivated`
+from ONE run, so a handoff retires and activates in the same frame; and
+`SessionScopePlugin` chains `RetireAuthority -> Cleanup -> Activate ->
+Presentation`, with `despawn_retired_session_entities` in `Cleanup`. ⇒ By the
+time the provider builds the incoming session's candidate, the outgoing session's
+entities are ALREADY DESPAWNED, unconditionally.
+
+⚠ **THAT ORDER IS NOT AN ACCIDENT AND MUST NOT SIMPLY BE REVERSED.** It was
+changed to retire-first on 2026-09-13 for a measured reason recorded in the
+plugin: with `Cleanup` last, the incoming session's provider built its room while
+the outgoing scope's placements were still live and the whole room was refused —
+`room-refused central_hub_complex :: 18x Duplicated` — and
+`reset_session_scoped_resources_on_retire` removed `SessionMechanics` after the
+activation that installed it.
+
+⇒ **THE SESSION-SCOPE ACCEPTANCE CRITERION IS THEREFORE UNREACHABLE TODAY**: a
+refused candidate session leaves NO session at all, because N was already gone.
+This is why A10 is not closed, and it is a larger statement than "the refusal
+half has no witness".
+
+**Next implementation — the room packet's shape lifted to session scope.** The
+outgoing session's retirement must become a DECLARED effect of the incoming
+candidate session's publication, performed by the publication authority in the
+order `publish candidate root -> retire declared superseded session`, exactly as
+`publish_candidate` then `retire_superseded` do for a room. The duplicate-roster
+defect the current order exists to prevent is then prevented by the same
+mechanism rooms already use — the outgoing bodies are DECLARED superseded rather
+than swept early — instead of by a schedule edge. Only after that does a
+production refusal witness at session scope become writable, and only then are
+`ActiveSessionScope`, `ActiveGameplaySession` and `SessionMechanics` worth moving
+behind the same verdict. They do not need to become components on the
 candidate root — that framing would have charged `MovingPlatformSet` a
 rollback-wire-format change it does not have to pay. First concrete step is an
 ordering fact, not a type change: activation queues its room build before it

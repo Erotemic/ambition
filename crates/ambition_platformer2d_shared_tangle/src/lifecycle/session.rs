@@ -149,23 +149,91 @@ pub fn simulation_authorized(
 /// The value is copied into spawn commands when work is requested. It never
 /// consults [`ActiveSessionScope`] during command application, so deferred work
 /// remains attached to the activation that authored it.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct SessionSpawnScope {
     id: Option<SessionScopeId>,
+    visibility: SessionSpawnVisibility,
+}
+
+/// ⛔⛤ **THE VISIBILITY IS A SPAWN POLICY, NOT PART OF THE OWNERSHIP IDENTITY.**
+/// Two scopes naming the same session ARE the same session, whether one of them
+/// is currently spawning hidden or not — and `SessionSpawnScope` is compared for
+/// exactly that question all over the tree (a plan's scope against a
+/// transaction's, a root's owner against the active one). Deriving `PartialEq`
+/// with the new field would have made `candidate(7) != scoped(7)`, which is a
+/// different claim entirely.
+///
+/// ⚠ There is no `Hash` here to keep in step; if one is ever added it must hash
+/// `id` alone, for the same reason. `TransactionId` already reads `session.id()`
+/// and nothing else, so no construction identity changes.
+impl PartialEq for SessionSpawnScope {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for SessionSpawnScope {}
+
+/// Whether work captured under a session scope is spawned PUBLISHED or as part
+/// of a hidden candidate session.
+///
+/// ⛔⛤ **A10.4: HIDING THE ROOT IS NOT HIDING THE SESSION.** Bevy's disabling
+/// components do not inherit through ownership, so a candidate session whose
+/// ROOT carries `InactiveCandidate` still spawned a fully visible initial player
+/// — and the gameplay queries that find a body find it by its own markers, not
+/// through the root. A candidate session prepared beside a live one would have
+/// produced a published player A and a visible player B at once.
+///
+/// ⇒ The policy rides on the ownership context every session-owned spawn already
+/// captures, so EVERY `spawn_*_scoped` / `insert_*_scoped` site is covered by one
+/// statement rather than by teaching each site to ask which session is active.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SessionSpawnVisibility {
+    /// Ordinary session-owned work: visible the moment it is spawned.
+    #[default]
+    Published,
+    /// Part of a candidate session that has not been admitted. Hidden until
+    /// [`crate::construction::publish_candidate_session`] promotes the whole
+    /// population.
+    HiddenCandidate,
 }
 
 impl SessionSpawnScope {
     /// Process-/frontend-resident work with no gameplay-session owner.
-    pub const UNSCOPED: Self = Self { id: None };
+    pub const UNSCOPED: Self = Self {
+        id: None,
+        visibility: SessionSpawnVisibility::Published,
+    };
 
     /// Capture an explicit gameplay-session owner.
     pub const fn scoped(id: SessionScopeId) -> Self {
-        Self { id: Some(id) }
+        Self {
+            id: Some(id),
+            visibility: SessionSpawnVisibility::Published,
+        }
+    }
+
+    /// Capture an explicit gameplay-session owner whose work is being prepared
+    /// OFF TO THE SIDE: every entity spawned under it is hidden until the
+    /// candidate session is admitted.
+    pub const fn candidate(id: SessionScopeId) -> Self {
+        Self {
+            id: Some(id),
+            visibility: SessionSpawnVisibility::HiddenCandidate,
+        }
     }
 
     /// Construct from an optional scope.
     pub const fn new(id: Option<SessionScopeId>) -> Self {
-        Self { id }
+        Self {
+            id,
+            visibility: SessionSpawnVisibility::Published,
+        }
+    }
+
+    /// Whether work captured under this scope spawns hidden.
+    pub const fn visibility(self) -> SessionSpawnVisibility {
+        self.visibility
     }
 
     /// The captured owner.
@@ -188,9 +256,17 @@ impl SessionSpawnScope {
     }
 
     /// Attach this ownership context to an already-created entity command.
+    ///
+    /// ⛔ **AND ITS VISIBILITY POLICY WITH IT.** This is the one place every
+    /// session-owned spawn passes through, which is why the candidate policy
+    /// lives on the scope rather than at each spawn site — see
+    /// [`SessionSpawnVisibility`].
     pub fn apply_to(self, entity: &mut EntityCommands<'_>) {
         if let Some(id) = self.id {
             entity.insert(SessionScopedEntity(id));
+        }
+        if self.visibility == SessionSpawnVisibility::HiddenCandidate {
+            crate::construction::hide_candidate_session_entity(entity);
         }
     }
 }

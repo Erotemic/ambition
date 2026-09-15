@@ -44,7 +44,8 @@ pub use session::{
     SessionCommands, SessionGatedSimulation,
     SessionRoot, SessionScopeActivated, SessionScopeId, SessionScopePlugin, SessionScopeRetired,
     SessionScopeSet,
-    SessionScopedEntity, SessionSpawnScope, SessionWorldMut, SessionWorldRef,
+    SessionScopedEntity, SessionSpawnScope, SessionSpawnVisibility, SessionWorldMut,
+    SessionWorldRef,
     SpawnSessionScopedExt, SESSION_SETTLE_FRAMES,
 };
 pub use spawn_ext::SpawnScopedExt;

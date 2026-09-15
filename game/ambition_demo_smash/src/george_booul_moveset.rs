@@ -60,6 +60,8 @@ const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
 
 /// See the module doc. Sixteen moves, the genre's standard verb map plus four
 /// specials.
+// `knockback_growth: 6.28` is a tuned launch value, not an attempt at TAU.
+#[allow(clippy::approx_constant)]
 pub fn george_booul_moveset() -> MovesetContract {
     // ── the three pokes ──────────────────────────────────────────────────────
     //

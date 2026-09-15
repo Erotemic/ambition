@@ -387,7 +387,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// AUTHORED (`None`=0, `Super`=1, `Damage`=2, and 3 RESERVED for the knockback
 /// threshold that `ArmorPolicy` explains it does not have yet) so that adding
 /// the reserved one later does not renumber anything already written.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 183;
+/// ⭐ 183 -> 184: `SessionScopedEntity` moved from `component-canonical` to a
+/// probed clone snapshot. Its value is a host-local activation count, so
+/// including it in the peer checksum made two peers with different session
+/// histories disagree about a mechanically identical world. The value is still
+/// snapshotted — `construction`'s scope gather reads it to filter another
+/// session's entities — it is only out of the checksum.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 184;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

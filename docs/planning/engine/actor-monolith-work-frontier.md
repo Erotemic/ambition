@@ -959,14 +959,26 @@ commits is exactly whether a detector's findings are actionable.** Guarded by
 
 ⛔⛤ **AND THE ISOLATION IS NOT COMPLETE — MEASURED, GUARDED, AND STATED HERE
 RATHER THAN DISCOVERED LATER.** `commit_inactive` stamps the roots the EXECUTOR
-minted, which is every PLAN ROW. A recipe also holds raw `Commands` and may spawn
-authoritative entities of its own — the giant hand's limbs do — and those are not
-in the receipt, so nothing stamps them and **they stay visible while the rest of
-the candidate is hidden.** That is a HALF-VISIBLE candidate, and it is precisely
-the *"complete visibility/transfer proof"* this packet demands of a same-World
-strategy. Pinned by
-`a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`, written so
-that the day the isolation becomes complete the arm inverts rather than rots.
+minted, which is every PLAN ROW.
+
+⛔⛤ **THIS PARAGRAPH DESCRIBED A HAZARD THAT NO LONGER EXISTS — CORRECTED
+2026-09-15.** It said a recipe "also holds raw `Commands` and may spawn
+authoritative entities of its own", which would leave those entities unstamped and
+so VISIBLE while the rest of the candidate is hidden — a half-visible candidate,
+exactly what the *"complete visibility/transfer proof"* forbids. **`ConstructionRootCtx`
+has no `Commands` in it.** The type was narrowed to what recipes measurably do
+(`entity(root).insert(..)` and `insert_room_in_session(..)`, across all four files
+that implement a recipe), so a recipe cannot spawn anything at all: the gap is not
+guarded, it is UNEXPRESSIBLE. Relation wiring still reaches `Commands` through
+`ConstructionExecCtx`, which legitimately touches two arbitrary entities — a
+different job with a different surface.
+
+⚠ The arm this cited,
+a&#95;recipe&#95;that&#95;spawns&#95;its&#95;own&#95;entity&#95;… (spelled
+without backticks: quoting a dead citation verbatim makes the quote a citation),
+does not exist and by the look of it never did — the isolation was closed by
+construction rather than pinned by a test, and the sentence promising the arm
+would "invert rather than rot" outlived the hazard it was about.
 ⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE SPAWNS ITS OWN AUTHORITATIVE ROOT
 (measured 2026-09-12).** Every `ctx.commands.spawn` in the tree is TEST code, and
 the single case the verifier's own doc named — *"the giant hand limbs already do

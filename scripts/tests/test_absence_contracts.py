@@ -63,6 +63,8 @@ from check_absence_contracts import (  # noqa: E402
 # is exactly what makes a never-fired pattern indistinguishable from a working
 # one.
 VIOLATING_LINE = {
+    "only-the-candidate-builder-hides-a-root":
+        "    ambition_platformer2d_shared_tangle::construction::hide_candidate_session_root(&mut commands, root);",
     "only-the-publication-authority-publishes-a-candidate":
         "    ambition_platformer2d_shared_tangle::construction::publish_candidate(world, &t);",
     "the-two-move-drivers-do-not-author-their-own-presses":

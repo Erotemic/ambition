@@ -352,6 +352,18 @@ cannot see it.
 its own file — unexpressible rather than forbidden, which is the stronger form and
 the one to prefer whenever a primitive does not have to cross a crate boundary.
 
+⛔⛤ **AND THE SAME RULE FOR HIDING, which is the other half of the bracket.**
+`InactiveCandidate` is `pub(crate)`, so no outside crate can name the marker or
+hook it; `hide_candidate_session_root` and `hide_candidate_session_entity` are the
+only doors through that wall, and each has exactly ONE production caller (MEASURED
+2026-09-15) — the room builder hiding the candidate session root it just minted,
+and `SessionSpawnScope::apply_to` applying the hiding policy to what a candidate
+spawns. `only-the-candidate-builder-hides-a-root` keeps it that way,
+poison-verified the same way. The failure it prevents is the least debuggable this
+machinery can produce: a DISABLING marker applied to something that is not a
+candidate removes that entity from every ordinary query in the game while leaving
+it alive.
+
 ⛔⛤ **AND "EVERY EFFECT" MEANS EVERY EFFECT — TWO ESCAPED THE FIRST PASS, BOTH ON
 THE DEV RELOAD, AND BOTH OUTSIDE THE CLOSURE THAT PASS MOVED (closed 2026-09-15).**
 One was AFTER the bracket: `mark_applied` on the `Ok` of

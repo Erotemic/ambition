@@ -45,6 +45,38 @@ class SentinelLockfileStale(RuntimeError):
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "only-the-candidate-builder-hides-a-root",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+            ":(exclude)crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
+        ],
+        "patterns": [
+            r"construction::(hide_candidate_session_root|hide_candidate_session_entity)\(",
+            r"use .*construction::.*(hide_candidate_session_root"
+            r"|hide_candidate_session_entity)",
+        ],
+        "reason": (
+            "A10: HIDING IS HOW A CANDIDATE STAYS OFF TO THE SIDE, AND IT IS A "
+            "DISABLING MARKER -- applying it to something that is NOT a candidate "
+            "removes that entity from every ordinary query in the game while "
+            "leaving it alive, which is the least debuggable failure this "
+            "machinery can produce. `InactiveCandidate` itself is `pub(crate)` so "
+            "no outside crate can name it or hook it; these two helpers are the "
+            "only doors through the crate wall, and each has exactly ONE "
+            "production caller (MEASURED 2026-09-15): the room builder hides the "
+            "candidate session root it just minted, and `SessionSpawnScope::apply_to` "
+            "applies the hiding POLICY to what a candidate session spawns. "
+            "\u26a0 The paths exclude those two owners and the defining module. A "
+            "third caller is a third opinion about what belongs to a candidate, "
+            "and the marker's whole safety argument is that the set is decided in "
+            "one place."
+        ),
+    },
+    {
         "id": "only-the-publication-authority-publishes-a-candidate",
         # Everything EXCEPT the three files that legitimately own these words:
         # the two publication authorities and the module that defines them.

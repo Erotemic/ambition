@@ -1621,6 +1621,223 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
     );
 }
 
+/// How many `RoomLoaded` messages this composition has published since the arm
+/// installed the counter.
+#[derive(bevy::prelude::Resource, Default)]
+struct RoomLoadsSeen(usize);
+
+fn count_room_loads(
+    mut loads: bevy::ecs::message::MessageReader<
+        ambition_platformer2d::world::rooms::RoomLoaded,
+    >,
+    mut seen: bevy::prelude::ResMut<RoomLoadsSeen>,
+) {
+    seen.0 += loads.read().count();
+}
+
+fn live_scope(
+    app: &bevy::prelude::App,
+) -> Option<ambition_platformer2d::platformer::lifecycle::SessionScopeId> {
+    app.world()
+        .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+        .and_then(ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::current)
+}
+
+/// ⛔⛤ **A10 NESTED ENTITY VISIBILITY WITHOUT NESTING PUBLICATION EFFECTS —
+/// 2026-09-15 HOLISTIC AUDIT, FINDING 1.**
+///
+/// A candidate session's first room reaches its own verdict and admits its own
+/// population while the session around it is still hidden and still refusable.
+/// That is correct. What was not correct is that the same success arm then did
+/// everything the room owed the world OUTSIDE its population — retired declared
+/// predecessors, applied custody handoffs, replaced the world-defining state,
+/// and wrote a `RoomLoaded` carrying nothing but a room id.
+///
+/// ⚠ **`RoomLoaded` ALONE BREAKS THE INVARIANT, ON THE SHIPPED HANDOFF.**
+/// `FreshAttempt` treats any `RoomLoaded` as a fresh attempt, and production's
+/// `void_pending_player_hits_at_lifecycle_boundaries` answers it by clearing
+/// `PendingPlayerHitEvents` — rollback-registered and checksummed. MEASURED in
+/// the world log before the fix: on a route handoff B's room published at frame
+/// 242 while A was still the live session, which activated at 243. A candidate
+/// that then refused would have left A playable but NOT unchanged, and unchanged
+/// is exactly what the last-good-world invariant promises.
+///
+/// ⭐ **THE SUBJECT IS ASSERTED TO EXIST BEFORE ITS ABSENCE IS.**
+/// `publications_holding_frozen_effects` counts the state the fix creates, so
+/// this arm fails loudly rather than passing vacuously if the candidate never
+/// reached its inner verdict inside the window.
+#[test]
+fn a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session() {
+    use ambition_platformer2d::game_shell::ShellRequestId;
+
+    let mut app = a_running_shipped_session();
+    app.insert_resource(RoomLoadsSeen::default());
+    // ⛔⛤ **`Last`, NOT `Update` — THE POISON SAID SO.** With the counter in
+    // `Update` the reverted fix still measured ZERO escaped loads: the room
+    // publishes from a command flush inside the frame, and an `Update` reader
+    // registered afterwards does not see the message until the NEXT frame — by
+    // which time the session has been admitted and the window has closed. The
+    // instrument was reporting the absence of its own cursor position.
+    app.add_systems(bevy::prelude::Last, count_room_loads);
+    app.update();
+
+    let live_before = live_scope(&app);
+    assert!(
+        live_before.is_some(),
+        "no session is live, so there is no last-good world for a candidate to \
+         disturb and this arm says nothing"
+    );
+    let loads_before = app.world().resource::<RoomLoadsSeen>().0;
+
+    let request = ShellRequestId::new("a10-nested-effects-witness");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: Some(request),
+    });
+
+    // The window: B prepared and hidden, A still the live session.
+    let mut window_frames = 0usize;
+    let mut frozen_high_water = 0usize;
+    let mut loads_in_window = 0usize;
+    for _ in 0..60 {
+        app.update();
+        if live_scope(&app) != live_before {
+            break;
+        }
+        window_frames += 1;
+        frozen_high_water = frozen_high_water.max(
+            ambition_platformer2d::actors::rooms::publications_holding_frozen_effects(
+                app.world_mut(),
+            ),
+        );
+        loads_in_window = app.world().resource::<RoomLoadsSeen>().0 - loads_before;
+    }
+
+    assert!(
+        window_frames > 0,
+        "the route activated on the very first frame, so there is no interval in \
+         which a candidate is pending and this arm says nothing"
+    );
+    assert_eq!(
+        loads_in_window, 0,
+        "⛔ A ROOM PUBLISHED INSIDE A PENDING CANDIDATE SESSION ANNOUNCED ITSELF \
+         TO THE LIVE ONE. {loads_in_window} `RoomLoaded` message(s) reached the \
+         world across {window_frames} frames while session {live_before:?} was \
+         still the one being played. `FreshAttempt` reads exactly this and \
+         production clears rollback-authoritative staged hits on it, so a \
+         candidate that later refused would have changed the world it promised \
+         to leave alone"
+    );
+    // ⛔⛤ **THE PREMISE COMES SECOND, AND THE ORDER IS THE POINT.** Asserting it
+    // FIRST made the poison run fire on the premise rather than on the subject:
+    // reverting the deferral removes the frozen state, so *"no publication held
+    // frozen effects"* masked the `RoomLoaded` that was escaping one line below.
+    // A poison that fires on a vacuity guard proves the guard works and says
+    // nothing about the assertion it guards. MEASURED with `deferred = false`:
+    // this order fails on the count above.
+    assert!(
+        frozen_high_water > 0,
+        "⛔ PREMISE: no publication ever held frozen effects while the candidate \
+         session was pending across {window_frames} frames, so the zero asserted \
+         above is a claim about the WINDOW rather than about the deferral"
+    );
+
+    // ⭐ THE OTHER HALF: the notification is not LOST, it is OWED. Admission is
+    // what pays it.
+    for _ in 0..120 {
+        app.update();
+    }
+    assert_ne!(
+        live_scope(&app),
+        live_before,
+        "the candidate never became the live session, so the admission half of \
+         this arm says nothing"
+    );
+    assert!(
+        app.world().resource::<RoomLoadsSeen>().0 > loads_before,
+        "⛔ THE DEFERRED ROOM LIFECYCLE WAS NEVER PAID. The candidate session was \
+         admitted and its first room's `RoomLoaded` never reached the world, so \
+         every per-attempt reader still believes it is in the previous room"
+    );
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::publications_holding_frozen_effects(
+            app.world_mut()
+        ),
+        0,
+        "a publication is still holding frozen effects after its session was \
+         admitted, so something the room owes the world is owed forever"
+    );
+}
+
+/// ⛔⛤ **FINDING 1's SECOND MANIFESTATION: A ROOM RESET `FactionRelations`.**
+///
+/// `RoomFeatureConstructionPlan::spawn` inserted
+/// `FactionRelations::default()` on every room spawn, a hidden candidate's
+/// included — an App-global resource that is rollback-registered and
+/// checksummed. So preparing candidate B rewrote live session A's combat
+/// relations before B had a verdict, let alone an admission.
+///
+/// ⚠ **IT WAS LATENT, MEASURED: every `set_hostile`/`set_mutual_hostile` in the
+/// workspace outside `Default` is in a test, so no production road makes the
+/// shipped table non-default.** This arm makes it non-default ON PURPOSE, which
+/// is the only way the reset is observable at all — and the audit's rule is that
+/// the effect must be unexpressible rather than merely unobserved.
+#[test]
+fn preparing_a_candidate_does_not_reset_the_live_sessions_faction_relations() {
+    use ambition_platformer2d::actor::ActorFaction;
+    use ambition_platformer2d::actors::features::FactionRelations;
+    use ambition_platformer2d::game_shell::ShellRequestId;
+
+    let mut app = a_running_shipped_session();
+    app.world_mut()
+        .resource_mut::<FactionRelations>()
+        .set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    app.update();
+    // ⭐ THE PREMISE: the value this arm watches really is not the default one.
+    assert!(
+        app.world()
+            .resource::<FactionRelations>()
+            .is_hostile(ActorFaction::Enemy, ActorFaction::Boss),
+        "the stance this arm watches did not take, so a later equality against \
+         the default would pass for the wrong reason"
+    );
+
+    let request = ShellRequestId::new("a10-faction-relations-witness");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: Some(request.clone()),
+    });
+    let mut window_frames = 0usize;
+    let mut survived_every_frame = true;
+    for _ in 0..30 {
+        app.update();
+        if ambition_platformer2d::platformer::construction::outstanding_candidates(
+            app.world_mut(),
+        ) == 0
+        {
+            continue;
+        }
+        window_frames += 1;
+        survived_every_frame &= app
+            .world()
+            .resource::<FactionRelations>()
+            .is_hostile(ActorFaction::Enemy, ActorFaction::Boss);
+    }
+
+    assert!(
+        window_frames > 0,
+        "no candidate was ever outstanding, so nothing was constructed off to the \
+         side and this arm says nothing"
+    );
+    assert!(
+        survived_every_frame,
+        "⛔ CONSTRUCTING A CANDIDATE ROOM RESET THE LIVE SESSION'S \
+         `FactionRelations`. The stance this arm set on the session that was \
+         PLAYING was gone while a candidate nobody had admitted was being built, \
+         and the table is rollback-registered and checksummed"
+    );
+}
+
 /// ⛔⛤ **REVIEW FINDING 2: THE CANDIDATE'S MINTED DESCRIPTIONS ARE ITS OWN.**
 ///
 /// `OccurrenceContinuity` needs two descriptors to rebuild a runtime-minted

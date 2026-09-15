@@ -1099,9 +1099,28 @@ impl RoomFeatureConstructionPlan {
         session_scope: SessionSpawnScope,
         hidden: bool,
     ) -> RoomFeatureConstructionReceipt {
-        // Every actor-owned authoritative family is a plan row, committed below
-        // with its relations. Capability-owned families use sibling lanes.
-        commands.insert_resource(ambition_combat::targeting::FactionRelations::default());
+        // ⛔⛤ **A ROOM NO LONGER RESETS `FactionRelations` — 2026-09-15 AUDIT,
+        // FINDING 1's SECOND MANIFESTATION.** This line ran on EVERY room spawn,
+        // a hidden candidate's included, so candidate B reset an App-global
+        // resource that is rollback-registered and checksummed
+        // (`ambition_combat::rollback_registration`) before B's own room verdict
+        // and long before its session was admitted. A candidate that then refused
+        // left A playable with combat relations it did not have a moment earlier.
+        //
+        // ⚠ **MEASURED, IT WAS LATENT — AND THAT IS NOT A REASON TO KEEP IT.**
+        // Every `set_hostile`/`set_mutual_hostile` call in the workspace outside
+        // `Default` is in a TEST: no production road makes the shipped game's
+        // faction table non-default, so the reset could not be observed to change
+        // anything. It was still unequivocally on the wrong side of the candidate
+        // boundary, and the audit's rule is that such an effect must be
+        // unexpressible rather than harmless.
+        //
+        // ⇒ **INITIALIZED ONCE, BY ITS OWNER.**
+        // `ambition_combat::targeting::init_targeting_resources` already does
+        // exactly that, and this crate's own feature plugin is what calls it — so
+        // every composition that can build a room feature plan already has the
+        // resource before the first room is planned. Saving and restoring it
+        // around candidate construction would have been the wrong repair.
 
         let construction = {
             let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {

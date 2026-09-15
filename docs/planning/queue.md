@@ -22,27 +22,56 @@ world N intact, at BOTH scopes. A candidate N+1 is prepared and verified off to
 the side; only a validated candidate becomes authoritative; N is retired only
 after that publication succeeds.
 
-**CURRENT HEAD BEHAVIOUR (2026-09-15).** The acceptance criterion is MET in the
-PRODUCTION composition at both scopes, and every road that can change the
-authoritative world now crosses its own publication's verdict — the room
-transition, the reset, the death reconstruction, the shell handoff and the dev
-LDtk reload, each with a refusal arm and an admission control in `app_it`. There
-is ONE road into a live session (A10.5's fallback is deleted) and ONE publication
-authority per level.
+**CURRENT HEAD BEHAVIOUR (2026-09-15).** Every road that can change the
+authoritative world crosses its own publication's verdict — the room transition,
+the reset, the death reconstruction, the shell handoff and the dev LDtk reload,
+each with a refusal arm and an admission control in `app_it`. There is ONE road
+into a live session (A10.5's fallback is deleted) and ONE publication authority
+per level.
 
-**NEXT IMPLEMENTATION STEP.** None named. A second review round (2026-09-15)
-found two ownership leaks at the edges — Model A's custody handoffs were a
-process-global bag rather than publication-owned, and candidate construction read
-the LIVE `MintedItemBaseline` for the half of the durable horizon its own save
-should have supplied. Both are closed; the second is closed STRUCTURALLY, by
-deleting the builder's live durable fields so the leak is unexpressible. A GPT review of 2026-09-15 raised three
-findings and all three are closed and poison-verified — candidate preparation no
-longer writes the live session's checkpoint state (1), an inner room publication
-no longer releases the outer session's invisibility (2), and the refusal exit
-releases its reserved scope through the one shared cleanup (3). Custody
-supersession is **Model A** as of the same day. What remains is the refused-door
-signal, which is a design question for the maintainer rather than an
-implementation task.
+⛔ **AND THE ACCEPTANCE CRITERION BELOW IS NOT YET THE WHOLE CLAIM — 2026-09-15.**
+It asks that a failed candidate leave the last-good world PLAYABLE, and that is
+met. The invariant this campaign is actually for is stronger, and the decisive
+acceptance statement already says so: while B is pending, A's entities,
+mechanics and durable authorities are UNCHANGED. A holistic audit found that a
+candidate's non-entity effects could still reach A — measured, one escaped
+`RoomLoaded` per shipped handoff — so *playable* held while *unchanged* did not.
+See the step below.
+
+**NEXT IMPLEMENTATION STEP.** Two of the five ownership contracts a holistic
+audit named on 2026-09-15 remain. The audit's verdict — *"A10 is not yet safe to
+declare closed; the campaign does not need redesigning"* — is that A10 nested
+entity VISIBILITY without nesting non-entity publication EFFECTS, so preparing or
+internally publishing candidate B could still mutate state belonging to live
+session A. The five contracts, and where each stands:
+
+| # | Contract | State |
+|---|---|---|
+| 1 | Nested non-entity/effect ownership | **CLOSED** — a verified publication freezes what it owes the world outside its own population; a nested room's bundle is consumed at the SESSION's boundary |
+| 2 | Exact per-publication custody ownership | **CLOSED** 2026-09-15 (`CustodyHandoffs` on the exact `RoomPublication`), and now consumed by the same deferred finalization as everything else in the bundle |
+| 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally — `PlatformerSessionBuilder` no longer holds a live durable resource at all. ⚠ The BEHAVIOURAL witness is still owed: a save whose ledger, custody and minted rows together describe a mint the start room reinstates |
+| 4 | True pre-construction refusal / complete early cleanup | **PARTIAL** — the early refusal now retires what the road already queued. The primary fix (refuse BEFORE any candidate spawn can be queued) is NOT done |
+| 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, and every sink it writes is preflighted on that exact entity |
+
+⛔ **WHAT THE AUDIT RULED IS *NOT* UNFINISHED A10**, and I am not reopening any of
+it: peer-stable identity (ID-PEER, another owner's), the defensive
+`DepartureAuthority::Custodian` fallback (a fail-safe for an abnormal hand, and
+the production witness already asserts `left_to_custodian == 0` in the known
+case), and the refused-door player feedback (presentation/product policy, not
+last-good-world correctness). Stale A10 passages in `status.md` and
+`actor-monolith-work-frontier.md` are documentation debt for the debloat owner,
+not an implementation reopening.
+
+⭐ **FINDING 1 IS REPRODUCED IN PRODUCTION, NOT ARGUED.**
+`a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session`
+drives the shipped shell handoff and counts `RoomLoaded` while B is prepared and
+A is still live. With the deferral reverted it measures **1 escaped message
+across a 2-frame window**, which `FreshAttempt` reads and production answers by
+clearing the rollback-registered `PendingPlayerHitEvents`. ⚠ The instrument had
+to move from `Update` to `Last` to see it: the room publishes from a command
+flush inside the frame, so an `Update` reader counted ZERO under the defect and
+was reporting its own cursor position.
+
 
 ⭐ **AND ITS PRIORITY IS LOWER THAN IT LOOKED — MEASURED 2026-09-15.** The window
 is real (5 of 838 `app_it` publications declare one) but it is NOT OBSERVABLE:

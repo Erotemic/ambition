@@ -2417,9 +2417,6 @@ impl PreparedCandidateSession {
             horizon,
             ..
         } = self;
-        // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published; the receipt has
-        // done its work.
-        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
         world.insert_resource(mechanics);
         world.insert_resource(moving_platforms);
         // ⛔⛤ AND THE DURABLE HORIZON, HERE AND NOWHERE ELSE. Preparing this
@@ -2427,15 +2424,36 @@ impl PreparedCandidateSession {
         // the world's. A refused candidate never reaches it, so the session that
         // was playing keeps the checkpoint semantics it had.
         horizon.install(world);
+        // ⛔⛤ **THE FIRST ROOM'S EFFECTS ON THE WORLD OUTSIDE IT HAPPEN HERE, AND
+        // NOWHERE EARLIER — 2026-09-15 REVIEW, FINDING 1.** That room verified
+        // and admitted its own population frames ago, while this session was
+        // still hidden; everything it owed the world BEYOND its own population
+        // has been frozen on its publication since. This is the outer boundary,
+        // so this is where it is consumed. A candidate discarded instead of
+        // adopted despawns the publication and the bundle goes with it, having
+        // done nothing.
+        //
+        // ⛔ BEFORE THE PROMOTION, so the world-defining state is in place at the
+        // instant the population becomes visible. `RoomLoaded` is a MESSAGE — no
+        // reader runs inside this exclusive call — so it is not observed until
+        // after B is live and A is retired either way.
+        let left_to_custodian =
+            ambition_platformer2d_actor_monolith::rooms::finalize_room_publication(
+                world,
+                publication,
+            );
         let promoted =
             ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
                 world, root, scope,
             );
+        // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published and its effects
+        // are the world's; the receipt has done its work.
+        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
         // ⚠ NO `road=` ANY MORE: there is one road. The label existed to say
         // which of two guarantees a session got, and the weaker one is deleted.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "session-published experience={experience} activation={activation_id:?} \
-             ({promoted} entities promoted)"
+             ({promoted} entities promoted, {left_to_custodian} left to their custodian)"
         ));
     }
 }

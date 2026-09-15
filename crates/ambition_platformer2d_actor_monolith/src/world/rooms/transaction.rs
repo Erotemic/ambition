@@ -104,6 +104,44 @@ pub fn retire_publication(world: &mut World, publication: PublicationHandle) {
     }
 }
 
+/// Everything a VERIFIED room publication owes the world outside its own
+/// candidate population, frozen at the verdict and consumed at finalization.
+///
+/// ⛔⛤ **A10 NESTED ENTITY VISIBILITY WITHOUT NESTING PUBLICATION EFFECTS —
+/// 2026-09-15 REVIEW, FINDING 1.** The barrier count made a room publishable
+/// INSIDE a still-hidden candidate session: the room lowers its own barrier and
+/// the session's keeps the population invisible, which is correct and stays.
+/// What did not nest is everything the same success arm did NEXT —
+/// `retire_superseded` despawning live bodies, `apply_custody_handoffs`
+/// stripping items off live hands, `apply_world_replacement` writing the
+/// world-defining state, and a `RoomLoaded` message that carries only a room id.
+///
+/// ⚠ **`RoomLoaded` ALONE IS ENOUGH TO BREAK THE INVARIANT, AND NOT
+/// HYPOTHETICALLY.** `FreshAttempt` treats any `RoomLoaded` as a fresh attempt;
+/// production's `void_pending_player_hits_at_lifecycle_boundaries` answers by
+/// clearing `PendingPlayerHitEvents`, which is rollback-registered and
+/// checksummed. So a candidate B that later REFUSES could still have cleared
+/// live session A's staged hits on its way past — A survives, but A is not
+/// UNCHANGED, and unchanged is what the last-good-world invariant promises.
+/// `a_published_room_inside_a_pending_candidate_session_stays_invisible` already
+/// shows that window is multiple frames wide.
+///
+/// ⇒ **THE RULE, STATED ONCE:** nothing constructed or internally published
+/// under candidate B may produce an externally authoritative effect outside B's
+/// ownership before B's own publication boundary. The bundle is how that rule is
+/// represented rather than remembered — an ordinary live-room transition
+/// finalizes it on the spot, and a candidate session's first room hands it to
+/// the session, which finalizes it at admission.
+#[derive(Component)]
+pub(crate) struct FrozenPublicationEffects {
+    room_id: String,
+    /// ⛔ THE EXACT TARGET, RESOLVED ONCE. See [`apply_world_replacement`].
+    target: Option<bevy::ecs::entity::Entity>,
+    effects: ambition_platformer2d_shared_tangle::construction::PublicationEffects,
+    baseline: ambition_platformer2d_shared_tangle::construction::TransactionBaseline,
+    admitted: usize,
+}
+
 /// The verdict of one exact publication.
 ///
 /// ⛔⛤ **PRODUCTION AUTHORIZES FROM THIS, NOT FROM `LastConstructionVerification`.**
@@ -408,6 +446,16 @@ pub enum StagedWorldViolation {
     /// silently left where it was, which is a session colliding against one room
     /// while believing it is in another.
     NoRoomSetToPublishInto,
+    /// The exact publication target carries no [`RoomGeometry`] to publish the
+    /// staged room's geometry into.
+    ///
+    /// ⛔⛤ **THE SINK NOTHING PREFLIGHTED — 2026-09-15 REVIEW, FINDING 5.**
+    /// `apply_world_replacement` wrote the geometry through an `if let Some(..)`
+    /// and carried on, so a publication could validate a coherent staged world,
+    /// report success, and leave the session colliding against the geometry of
+    /// the room it just left. The room set and the platform state were checked;
+    /// this one was not asked about at all.
+    NoRoomGeometryToPublishInto,
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -438,9 +486,15 @@ impl std::fmt::Display for StagedWorldViolation {
             ),
             Self::NoRoomSetToPublishInto => write!(
                 f,
-                "this room staged a world and the live session root carries no \
-                 `RoomSet`, so publishing would write the geometry and leave the \
-                 active room where it was"
+                "this room staged a world and the session root it publishes into \
+                 carries no `RoomSet`, so publishing would write the geometry and \
+                 leave the active room where it was"
+            ),
+            Self::NoRoomGeometryToPublishInto => write!(
+                f,
+                "this room staged a world and the session root it publishes into \
+                 carries no `RoomGeometry`, so publishing would seat the session \
+                 in a room whose geometry is still the old one"
             ),
         }
     }
@@ -493,8 +547,28 @@ fn verify_staged_world(
     {
         violations.push(StagedWorldViolation::NoPlatformStateToPublishInto);
     }
-    if rooms.is_none() {
-        violations.push(StagedWorldViolation::NoRoomSetToPublishInto);
+    // ⛔⛤ **THE SINKS ARE ASKED ABOUT ON THE EXACT TARGET — 2026-09-15 REVIEW,
+    // FINDING 5.** This used to accept a staged `next_rooms` as evidence that a
+    // room set existed, which answers a question about the VALUE rather than
+    // about the place it is going. `apply_world_replacement` then wrote through
+    // `if let Some(..)` and published a success verdict having skipped whatever
+    // was missing. A publication may not validate a value without proving the
+    // exact authoritative sink for it exists.
+    match publishing_into {
+        Some(root) => {
+            if world.get::<RoomSet>(root).is_none() {
+                violations.push(StagedWorldViolation::NoRoomSetToPublishInto);
+            }
+            if world
+                .get::<ambition_platformer2d_core::RoomGeometry>(root)
+                .is_none()
+            {
+                violations.push(StagedWorldViolation::NoRoomGeometryToPublishInto);
+            }
+        }
+        // `NoSessionRootToPublishInto` above already says this, and naming the
+        // sinks of a root that does not exist would say it twice.
+        None => {}
     }
     if let Some(rooms) = rooms {
         match rooms.get(pending.target_index) {
@@ -526,7 +600,25 @@ fn verify_staged_world(
 /// retire, then commit — and it is safe to read as atomic because nothing is
 /// SCHEDULED inside an exclusive-world call. It is not atomic to hooks or
 /// observers; see `publish_candidate` for the measurement behind that wording.
-fn apply_world_replacement(world: &mut World, pending: PendingWorldReplacement) {
+/// ⛔⛤ **THE TARGET IS HANDED IN — 2026-09-15 REVIEW, FINDING 5.** Every write
+/// below used `session_world_component_mut`, which asks *"which root is LIVE
+/// right now"* — a different question from *"which root did this publication
+/// verify against"* the moment a hidden candidate session exists.
+/// `verify_and_publish` resolves the target by the transaction's own scope and
+/// `verify_staged_world` validates against THAT entity; re-asking here meant a
+/// publication could be validated for hidden B and applied to live A.
+///
+/// ⚠ **AND A MISSING SINK IS NO LONGER SILENT.** These were `if let Some(..)`
+/// branches that published a success verdict having skipped part of the
+/// application. `verify_staged_world` now preflights every sink on this exact
+/// entity, so reaching one of the error arms below means the world changed
+/// between verification and application — an invariant violation, and it says so
+/// rather than writing nothing.
+fn apply_world_replacement(
+    world: &mut World,
+    pending: PendingWorldReplacement,
+    target: Option<bevy::ecs::entity::Entity>,
+) {
     {
         let mut queue = bevy::ecs::world::CommandQueue::default();
         let mut commands = bevy::prelude::Commands::new(&mut queue, world);
@@ -544,22 +636,37 @@ fn apply_world_replacement(world: &mut World, pending: PendingWorldReplacement) 
         }
         queue.apply(world);
     }
+    let Some(root) = target else {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "a staged world reached application with no publication target.              `verify_staged_world` refuses that with `NoSessionRootToPublishInto`,              so the world-defining state has silently gone nowhere"
+        );
+        return;
+    };
     if let Some(next) = pending.next_rooms {
-        if let Some(mut rooms) = ambition_platformer2d_shared_tangle::lifecycle::
-            session_world_component_mut::<ambition_platformer2d_world::rooms::RoomSet>(world)
-        {
-            *rooms = next;
+        match world.get_mut::<ambition_platformer2d_world::rooms::RoomSet>(root) {
+            Some(mut rooms) => *rooms = next,
+            None => bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "publication target {root:?} carries no `RoomSet` at application,                  though its preflight found one"
+            ),
         }
     }
-    if let Some(mut rooms) = ambition_platformer2d_shared_tangle::lifecycle::
-        session_world_component_mut::<ambition_platformer2d_world::rooms::RoomSet>(world)
-    {
-        rooms.set_active(pending.target_index);
+    match world.get_mut::<ambition_platformer2d_world::rooms::RoomSet>(root) {
+        Some(mut rooms) => {
+            rooms.set_active(pending.target_index);
+        }
+        None => bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "publication target {root:?} carries no `RoomSet` at application,              so the active room stays where it was"
+        ),
     }
-    if let Some(mut geometry) = ambition_platformer2d_shared_tangle::lifecycle::
-        session_world_component_mut::<ambition_platformer2d_core::RoomGeometry>(world)
-    {
-        geometry.0 = pending.geometry;
+    match world.get_mut::<ambition_platformer2d_core::RoomGeometry>(root) {
+        Some(mut geometry) => geometry.0 = pending.geometry,
+        None => bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "publication target {root:?} carries no `RoomGeometry` at application,              so the published room set names a world whose geometry is the old one"
+        ),
     }
     if let Some(mut platforms) = world
         .get_resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>()
@@ -903,6 +1010,104 @@ impl ActiveContentBinding {
     }
 }
 
+/// Consume a verified publication's frozen effects: make them the world's.
+///
+/// ⛔⛤ **THE OTHER HALF OF [`FrozenPublicationEffects`] — 2026-09-15 REVIEW,
+/// FINDING 1.** An ordinary live-room transition calls this on the spot, inside
+/// the same verdict, so nothing about that road changes. A room built into a
+/// candidate session that is still hidden leaves the bundle standing, and the
+/// SESSION calls this at its own publication boundary — after
+/// `publish_candidate_session` has made the population authoritative, so
+/// `RoomLoaded` means what its name says: the room became authoritative to its
+/// owning LIVE session.
+///
+/// ⛔ **THERE IS NO SECOND VERDICT HERE, DELIBERATELY.** Everything below was
+/// already validated against the projected world at the inner publication; this
+/// is consumption of validated state, not another chance to say no. A candidate
+/// session that is DISCARDED instead despawns the publication entity
+/// (`retire_publication`), which drops the bundle — and since nothing in it had
+/// run, there is nothing to undo.
+///
+/// Returns how many declared departures were left to their custodian.
+/// How many publications are holding verified effects they have not been
+/// allowed to apply yet.
+///
+/// ⛔⛤ **THE PREMISE A NESTED-EFFECTS WITNESS NEEDS.** *"No `RoomLoaded`
+/// escaped while B was pending"* is worth nothing unless B's first room actually
+/// REACHED its verdict inside that window — an arm that measures a candidate
+/// which had not published yet cannot tell the fix from the defect. This counts
+/// exactly the state the fix creates, so a witness can assert its own subject
+/// exists before asserting what did not happen.
+pub fn publications_holding_frozen_effects(world: &mut World) -> usize {
+    world
+        .query::<&FrozenPublicationEffects>()
+        .iter(world)
+        .count()
+}
+
+pub fn finalize_room_publication(world: &mut World, publication: PublicationHandle) -> usize {
+    let Some(frozen) = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<FrozenPublicationEffects>())
+    else {
+        // Nothing frozen: this publication was refused, already finalized, or
+        // never verified. All three are ordinary.
+        return 0;
+    };
+    let FrozenPublicationEffects {
+        room_id,
+        target,
+        effects,
+        baseline,
+        admitted,
+    } = frozen;
+    // ⛔ TAKEN OFF THE PUBLICATION: adopting the staged world means the
+    // publication no longer carries a replacement that has already been applied.
+    // The publication itself survives until its verdict has been read — see
+    // `begin_publication`.
+    if let Some(pending) = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<PendingWorldReplacement>())
+    {
+        apply_world_replacement(world, pending, target);
+    }
+    let superseded =
+        ambition_platformer2d_shared_tangle::construction::retire_superseded(
+            world, &effects, &baseline,
+        );
+    // ⛔⛤ **THE DRAIN, AND IT RUNS ON EVERY FINALIZATION — WHICH IS THE WHOLE
+    // DESIGN.** `retire_superseded` above has just despawned predecessors that
+    // were in a hand (Model A), so those hands are holding a `HeldItem` naming a
+    // dead entity until this line. The obvious home for this is inside
+    // `restore_custody_to_checkpoint`, and it is WRONG: that runs only when the
+    // commit carries a checkpoint operation, while an ordinary room transition
+    // can declare a custody supersession too. An undrained ledger is strictly
+    // worse than the Model B window it replaces — a permanently stale hand
+    // rather than a duplicate that closes itself inside the frame.
+    let stripped = crate::items::pickup::apply_custody_handoffs(world, publication);
+    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+        "room-loaded {room_id} ({admitted} roots admitted, \
+         {} declared departures retired, {} left to their custodian, \
+         {stripped} hands released)",
+        superseded.retired, superseded.left_to_custodian
+    ));
+    world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
+        room_id: room_id.clone(),
+    });
+    // ⚠ DIAGNOSTICS, AND ONLY WHEN THEY ARE STILL THIS ROOM'S. A deferred
+    // finalization happens frames after the verdict, by which time another room
+    // may own this last-writer-wins record. Correcting a row that is not ours
+    // would make the diagnostic lie in a new way.
+    if let Some(mut record) = world.get_resource_mut::<LastConstructionVerification>() {
+        if record.room_id == room_id {
+            record.left_to_custodian = superseded.left_to_custodian;
+        }
+    }
+    superseded.left_to_custodian
+}
+
 fn verify_and_publish(
     world: &mut World,
     publication: PublicationHandle,
@@ -951,15 +1156,42 @@ fn verify_and_publish(
     };
     let refuse = |world: &mut World, room_id: String| {
         record(world, false);
+        // ⛔⛤ **AN EARLY REFUSAL RETIRES WHAT THE ROAD ALREADY QUEUED —
+        // 2026-09-15 REVIEW, FINDING 4.** `spawn_contents_for` queues
+        // `open`, then the candidate construction commands, then `close`. A
+        // refusal discovered inside `open` cannot unqueue the commands behind it,
+        // so by the time this closure runs the candidate roots EXIST. This road
+        // used to record a failed verdict and walk away, leaving them standing —
+        // and in the `CandidateFilterNotInstalled` case they are not hidden at
+        // all, because the whole refusal is that this world cannot hide them.
+        //
+        // ⚠ **THIS IS THE DEFENSIVE HALF, NOT THE FIX.** Cleaning up after
+        // constructing a candidate cannot prove the candidate was never visible
+        // when the very fault is that the hiding mechanism is absent. The fix for
+        // that case is a composition that registers the filter, which
+        // `ambition_platformer2d_runtime` does; this makes the refusal settle its
+        // own state either way.
+        let dropped: usize = transactions
+            .iter()
+            .map(|transaction| {
+                ambition_platformer2d_shared_tangle::construction::retire_candidate(
+                    world,
+                    transaction,
+                )
+            })
+            .sum();
+        if dropped > 0 {
+            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                "room-refused {room_id} (early refusal, {dropped} roots dropped)"
+            ));
+        }
         // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
         // handoffs describe are still correct — draining them would strip an item
         // off a body for a world that was never built.
         crate::items::pickup::discard_custody_handoffs(world, publication);
         // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
         // remembered here: it is candidate-owned state stamped with this room's
-        // transaction, so `retire_candidate` takes it. This early road refuses
-        // BEFORE the transactions are known, and a staged world left standing
-        // here carries a dead stamp that no later room can find.
+        // transaction, so `retire_candidate` takes it.
         world.insert_resource(LastConstructionVerification {
             room_id,
             violations: Vec::new(),
@@ -967,8 +1199,13 @@ fn verify_and_publish(
             staged_violations: Vec::new(),
             published: false,
             left_to_custodian: 0,
-            // This early road refuses BEFORE the transactions are known, so
-            // nothing has been declared yet.
+            // ⛔ NOTHING WAS DECLARED. A refusal on this road happens before the
+            // opening baseline yielded its `PublicationEffects`, so there is no
+            // supersession count to report — which is a different statement from
+            // the one this comment used to make, that *"the transactions are not
+            // known"*. They are: `transactions` is read off the publication at
+            // the top of this function, which is what lets the refusal above
+            // retire them.
             supersessions: 0,
         });
     };
@@ -1262,39 +1499,41 @@ fn verify_and_publish(
         // candidate became authoritative — never before it, which is the order
         // `replace_live_world` used to name as a destructive window it could only
         // give one address to.
-        if let Some(entity) = staged_entity {
-            // ⛔ TAKEN OFF THE PUBLICATION: adopting the staged world means the
-            // publication no longer carries a replacement that has already been
-            // applied. The publication itself survives until its verdict has
-            // been read — see `begin_publication`.
-            if let Some(pending) = world.entity_mut(entity).take::<PendingWorldReplacement>() {
-                apply_world_replacement(world, pending);
-            }
-        }
-        let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
-            world, &effects, &baseline,
-        );
-        left_to_custodian = superseded.left_to_custodian;
-        // ⛔⛤ **THE DRAIN, AND IT RUNS ON EVERY PUBLICATION — WHICH IS THE WHOLE
-        // DESIGN.** `retire_superseded` above has just despawned predecessors
-        // that were in a hand (Model A), so those hands are holding a `HeldItem`
-        // naming a dead entity until this line. The obvious home for this is
-        // inside `restore_custody_to_checkpoint`, and it is WRONG: that runs only
-        // when the commit carries a checkpoint operation, while an ordinary room
-        // transition can declare a custody supersession too. An undrained ledger
-        // is strictly worse than the Model B window it replaces — a permanently
-        // stale hand rather than a duplicate that closes itself inside the frame.
-        let stripped = crate::items::pickup::apply_custody_handoffs(world, publication);
-        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "room-loaded {room_id} ({admitted} roots admitted, \
-             {} declared departures retired, {} left to their custodian, \
-             {stripped} hands released)",
-            superseded.retired, superseded.left_to_custodian
-        ));
-        world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
-            room_id: room_id.clone(),
+        // ⛔⛤ **AND HERE THE ROOM STOPS DOING THINGS TO THE WORLD AND STATES
+        // WHAT IT OWES IT — 2026-09-15 REVIEW, FINDING 1.** Everything that
+        // follows the line above reaches OUTSIDE this room's own candidate
+        // population: predecessors despawned, hands stripped, the world-defining
+        // state replaced, and a `RoomLoaded` the live session's combat reads. A
+        // room built into a candidate session that has not been admitted yet may
+        // not do any of it. See [`FrozenPublicationEffects`].
+        let deferred = publishing_into.is_some_and(|root| {
+            ambition_platformer2d_shared_tangle::construction::entity_is_still_a_candidate(
+                world, root,
+            )
         });
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.insert(FrozenPublicationEffects {
+                room_id: room_id.clone(),
+                target: publishing_into,
+                effects,
+                baseline,
+                admitted,
+            });
+        }
+        if deferred {
+            // ⭐ THE ROOM IS REAL INSIDE ITS SESSION AND INVISIBLE OUTSIDE IT.
+            // Said on the same channel as `room-loaded` so the two are readable
+            // as the two halves of one lifecycle rather than a missing event.
+            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                "room-materialized {room_id} ({admitted} roots admitted inside a \
+                 pending candidate session; its effects wait for the session's \
+                 publication)"
+            ));
+        } else {
+            left_to_custodian = finalize_room_publication(world, publication);
+        }
     } else {
+
         // ⛔ AND THE SAME ON THE LATE REFUSAL. Handoffs were recorded when this
         // transaction DECLARED its supersessions; nothing was despawned, so the
         // hands they describe are still holding the right things.

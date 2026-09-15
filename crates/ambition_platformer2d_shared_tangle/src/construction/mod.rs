@@ -897,6 +897,24 @@ pub(crate) fn lower_candidate_barrier(world: &mut World, entity: Entity) -> bool
     false
 }
 
+/// Is `entity` still behind a publication barrier?
+///
+/// ⛔⛤ **THE QUESTION A NESTED PUBLICATION HAS TO ASK — 2026-09-15 REVIEW,
+/// FINDING 1.** A room published INTO a candidate session's root is internally
+/// admitted while that root is still hidden. Everything the room owes the world
+/// OUTSIDE its own population — a `RoomLoaded` the live session's combat reads,
+/// a supersession that despawns a live body, a custody handoff that strips an
+/// item off a live hand — belongs to the OUTER boundary. This is how the room
+/// asks whether it is in that case, and the answer is the barrier ITSELF rather
+/// than a flag somebody has to remember to set.
+///
+/// ⚠ NOT *"is this entity a candidate of mine"*. It is a claim about
+/// VISIBILITY, which is the property the deferral is about: a root nothing can
+/// see is not yet the session an externally authoritative effect belongs to.
+pub fn entity_is_still_a_candidate(world: &World, entity: Entity) -> bool {
+    world.get::<InactiveCandidate>(entity).is_some()
+}
+
 /// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
 /// queries.
 ///

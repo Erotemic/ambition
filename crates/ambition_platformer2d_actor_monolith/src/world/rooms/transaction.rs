@@ -510,7 +510,7 @@ impl std::error::Error for StagedWorldViolation {}
 /// — so an in-bounds assertion could not fail on any road that exists. A check
 /// that cannot fail reads as coverage. If an arrival ever comes from somewhere
 /// other than the staged plan, it becomes checkable and belongs here.
-fn verify_staged_world(
+pub(crate) fn verify_staged_world(
     world: &World,
     pending: &PendingWorldReplacement,
     // ⛔⛤ **THE ROOT THIS TRANSACTION IS PUBLISHING INTO, RESOLVED BY ITS

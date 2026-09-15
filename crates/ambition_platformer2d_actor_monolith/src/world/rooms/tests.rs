@@ -1120,3 +1120,139 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
          on the phase the confirmed timeline had at frame 16"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A10 AUDIT FINDING 5: ONE EXACT VERIFICATION-AND-APPLICATION TARGET
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A root that holds a world: `rooms` plus the geometry a session collides
+/// against.
+fn a_root_holding(world: &mut bevy::prelude::World, room: &str) -> bevy::prelude::Entity {
+    let set = RoomSet::from_parts(room, vec![spec_with(RoomMetadata::default(), room)], Vec::new());
+    world
+        .spawn((
+            set,
+            ambition_platformer2d_core::RoomGeometry(empty_world(room)),
+        ))
+        .id()
+}
+
+fn a_replacement_naming(room: &str) -> super::transaction::PendingWorldReplacement {
+    super::transaction::PendingWorldReplacement::new(
+        Vec::new(),
+        // `None`: this transaction walks within the set the target already has,
+        // which is what makes the target's OWN `RoomSet` the thing consulted.
+        None,
+        0,
+        empty_world(room),
+        Vec::new(),
+    )
+}
+
+/// ⛔⛤ **VERIFICATION ANSWERS ABOUT THE ROOT IT WAS GIVEN, NOT THE LIVE ONE —
+/// 2026-09-15 AUDIT, FINDING 5.**
+///
+/// `verify_and_publish` resolves its target by the transaction's own session
+/// scope, precisely so a hidden candidate session B can be validated while A is
+/// live. `apply_world_replacement` then threw that identity away and re-asked
+/// `session_world_component_mut` — *"which root is live right now"* — so a
+/// publication could be validated for B and applied to A. The fix threads one
+/// target through both ends; this arm is what says verification's end of it is
+/// really about the entity handed in.
+///
+/// ⭐ TWO ROOTS, ONE CALL EACH, AND THE ONLY DIFFERENCE IS THE TARGET. A world
+/// with one root cannot fail this assertion for the right reason.
+#[test]
+fn a_staged_world_is_verified_against_the_exact_target_it_was_given() {
+    let mut app = bevy::prelude::App::new();
+    let world = app.world_mut();
+    let live = a_root_holding(world, "the_live_room");
+    let candidate = a_root_holding(world, "the_candidate_room");
+
+    let staged = a_replacement_naming("the_candidate_room");
+
+    // ⭐ THE CONTROL, FIRST: this staged world is genuinely wrong for the OTHER
+    // root, so an `Ok` below is a statement about which root was consulted
+    // rather than about a check that accepts everything.
+    let against_live = super::transaction::verify_staged_world(world, &staged, Some(live));
+    assert!(
+        against_live.as_ref().err().is_some_and(|violations| {
+            violations.iter().any(|violation| {
+                matches!(
+                    violation,
+                    super::transaction::StagedWorldViolation::GeometryIsNotTheTargetRoom { .. }
+                )
+            })
+        }),
+        "the staged world was ACCEPTED against the live root too, so it is not \
+         discriminating between the two and the assertion below would pass for \
+         any implementation: {against_live:?}"
+    );
+
+    // ⛔ THE SUBJECT. Poisoned — `verify_staged_world` reading the first `RoomSet`
+    // in the world instead of the target's — this is the line that fails, and the
+    // control above still passes. (The first version of this arm had the two the
+    // other way round, and the poison fired on the control.)
+    let against_candidate =
+        super::transaction::verify_staged_world(world, &staged, Some(candidate));
+    assert!(
+        against_candidate.is_ok(),
+        "⛔ VERIFICATION DID NOT CONSULT THE ROOT IT WAS GIVEN. A staged world \
+         naming the CANDIDATE's own room was refused against the CANDIDATE's own \
+         root, so `publishing_into` decides nothing and the verifier is answering \
+         about some other session: {against_candidate:?}"
+    );
+}
+
+/// ⛔⛤ **EVERY SINK IS PREFLIGHTED ON THE EXACT TARGET — FINDING 5's OTHER
+/// HALF.** `verify_staged_world` accepted a staged room set as evidence that a
+/// room set EXISTED, which answers a question about the value rather than about
+/// the place it is going; `RoomGeometry` was not asked about at all. Application
+/// then wrote through `if let Some(..)` and published a SUCCESS verdict having
+/// silently skipped whatever was missing — a session seated in one room while
+/// colliding against another.
+#[test]
+fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
+    use super::transaction::StagedWorldViolation;
+
+    let mut app = bevy::prelude::App::new();
+    let world = app.world_mut();
+
+    // A root with the geometry and no room set.
+    let no_rooms = world
+        .spawn(ambition_platformer2d_core::RoomGeometry(empty_world("r")))
+        .id();
+    // A root with the room set and no geometry.
+    let no_geometry = world
+        .spawn(RoomSet::from_parts(
+            "r",
+            vec![spec_with(RoomMetadata::default(), "r")],
+            Vec::new(),
+        ))
+        .id();
+
+    let staged = a_replacement_naming("r");
+
+    let missing_rooms =
+        super::transaction::verify_staged_world(world, &staged, Some(no_rooms)).unwrap_err();
+    assert!(
+        missing_rooms
+            .iter()
+            .any(|violation| matches!(violation, StagedWorldViolation::NoRoomSetToPublishInto)),
+        "⛔ A STAGED WORLD PASSED PREFLIGHT INTO A TARGET WITH NO `RoomSet`. \
+         Publishing would write the geometry and leave the active room where it \
+         was: {missing_rooms:?}"
+    );
+
+    let missing_geometry =
+        super::transaction::verify_staged_world(world, &staged, Some(no_geometry)).unwrap_err();
+    assert!(
+        missing_geometry.iter().any(|violation| matches!(
+            violation,
+            StagedWorldViolation::NoRoomGeometryToPublishInto
+        )),
+        "⛔ A STAGED WORLD PASSED PREFLIGHT INTO A TARGET WITH NO `RoomGeometry`. \
+         Publishing would seat the session in the new room while it collides \
+         against the old one: {missing_geometry:?}"
+    );
+}

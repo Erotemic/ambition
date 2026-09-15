@@ -51,7 +51,7 @@ session A. The five contracts, and where each stands:
 | 2 | Exact per-publication custody ownership | **CLOSED** 2026-09-15 (`CustodyHandoffs` on the exact `RoomPublication`), and now consumed by the same deferred finalization as everything else in the bundle |
 | 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally (`PlatformerSessionBuilder` holds no live durable resource at all) **and behaviourally** — `a_candidate_reconstructs_a_mint_only_its_own_save_describes`, poison-verified |
 | 4 | True pre-construction refusal / complete early cleanup | **CLOSED** — the prerequisite is preflighted at APP BUILD, which is strictly before any command a room queues, and the guard for it now exists; the transaction-level refusal is the backstop and now retires the roots `open` could not unqueue |
-| 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, and every sink it writes is preflighted on that exact entity |
+| 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, every sink it writes is preflighted on that exact entity, and two unit arms poison-verify both halves against a world holding a live root AND a candidate root |
 
 ⛔ **WHAT THE AUDIT RULED IS *NOT* UNFINISHED A10**, and I am not reopening any of
 it: peer-stable identity (ID-PEER, another owner's), the defensive
@@ -85,6 +85,14 @@ demanded and I had to measure rather than guess: the ledger row must name THE
 ROOM BEING BUILT (`outlook_for` turns only that into `Reinstated`), and the
 declared parent must be a placement the room actually authors — an invented one
 panics construction with *"neither planned nor live"*.
+
+⭐ **TERMINAL SETTLEMENT IS COVERED AT ALL FOUR EXITS, and the new deferred
+bundle needs no assertion of its own**: it is a component on the `RoomPublication`
+entity, so `outstanding_publications == 0` — already asserted on the cancelled and
+superseded arms — settles it. The one exit that needed a new statement is
+ADOPTED, where the publication is retired by its owner; the finding 1 arm asserts
+`publications_holding_frozen_effects == 0` after admission, which is what says the
+effects were PAID rather than dropped.
 
 ⭐ **FINDING 1 IS REPRODUCED IN PRODUCTION, NOT ARGUED.**
 `a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session`

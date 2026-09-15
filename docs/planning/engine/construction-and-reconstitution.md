@@ -288,10 +288,29 @@ ACTIVATION path — `prepare` runs `.before(AmbitionGameShellSet::Pending)` and
 adoption in `GameplaySessionSet::Providers`, so within a frame it is safe, but a
 `GameplaySessionEvent::Activated` that is read a frame late would make the
 preparer discard the candidate adoption is about to demand, and adoption PANICS
-on a missing candidate by design. ⇒ **Measure whether adoption can slip a frame
-before writing that condition**; the safe form keys on something adoption itself
-consumes (`ReservedGameplayScopes::take`) rather than on the router's pending
-state.
+on a missing candidate by design.
+
+⇒ **MEASURED, AND THE CONDITION IS SAFE.** The proposed discriminator — *the slot
+holds a candidate the router is not pending on, AND adoption has not consumed its
+reservation* — was probed across the entire `app_it` suite. It fires **exactly
+once in 663 arms**, and that once is the supersession case itself:
+
+```text
+[probe] stale-slot activation=ShellActivationId(2) pending=Some(ShellActivationId(3))
+```
+
+⇒ **Zero false positives on the healthy activation path**, so no
+`Activated`-read-a-frame-late window was observed. Keying on the RESERVATION —
+which adoption consumes with `take` — rather than on the router's pending state
+alone is what makes it safe. ⭐ It also SUBSUMES the supersession branch: one
+cleanup site at the head of the preparer would serve supersession, cancellation
+and any future way a pending route can end, instead of two sites that must be
+kept in step.
+
+⚠ **STILL UNWITNESSED EITHER WAY: nothing in the suite issues `CancelPending`.**
+The measurement says the condition is safe to WRITE; it does not say the
+cancellation path works. An arm that issues a correlated `ReplaceWith` and then
+cancels it is what that owes.
 
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,

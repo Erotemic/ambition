@@ -408,9 +408,14 @@ write during preparation, and the review that flagged them said so in as many
 words. They belong to the candidate aggregate and are installed by ADOPTION, so
 `a_candidate_session_whose_route_is_cancelled_is_discarded` — where a candidate is
 fully prepared and then abandoned, with no session ever live — asserts
-`SessionMechanics` is ABSENT afterwards. ⭐ Its control is the handoff arm, which
-asserts an adopted session HAS one; without it the absence would be equally true
-of a composition that never installs it at all.
+BOTH are absent afterwards — no `SessionMechanics` resource at all, and an EMPTY
+`MovingPlatformSet`. ⭐ Its control is the handoff arm, which asserts an adopted
+session HAS a `SessionMechanics` and a NON-EMPTY platform set; MEASURED, that
+handoff installs **1** moving platform against the cancel's **0**, so the pair
+discriminates rather than being two readings of an always-empty resource. Without
+the control, both claims would be equally true of a composition that never
+installs either.
+
 A candidate session owns its room state, geometry, moving-platform state, content
 binding, prepared content, session mechanics, the player's mechanical transition
 state and its construction roots; and as of A10.5 it owns its SCOPE IDENTITY

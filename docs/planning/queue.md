@@ -144,9 +144,11 @@ ARGUED.** `SessionMechanics` and `MovingPlatformSet` are the two process-global
 RESOURCES a candidate builder could most easily write during preparation — the
 review that flagged this said so by name. They belong to the candidate aggregate
 and are installed by ADOPTION, so the cancel arm (a candidate fully prepared and
-then abandoned, with no session ever live) asserts `SessionMechanics` is ABSENT
-afterwards, with the handoff arm asserting an adopted session HAS one as its
-control.
+then abandoned, with no session ever live) asserts BOTH are absent afterwards — no
+`SessionMechanics` at all and an EMPTY `MovingPlatformSet` — with the handoff arm
+as its control. MEASURED: that handoff installs **1** moving platform against the
+cancel's **0**, so the pair discriminates rather than being two readings of an
+always-empty resource.
 
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a

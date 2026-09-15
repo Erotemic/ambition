@@ -1130,6 +1130,16 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
             .is_some(),
         "an adopted session has no `SessionMechanics`, so the cancel arm's claim          that preparation installs none is a claim about nothing"
     );
+    // ⭐ AND THE SAME CONTROL FOR THE PLATFORM STATE. MEASURED: this handoff
+    // installs 1 moving platform and the cancel arm ends with 0, so the pair is
+    // a real discriminator rather than two readings of an always-empty resource.
+    assert!(
+        !app.world()
+            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+            .0
+            .is_empty(),
+        "an adopted session installed no moving platforms, so the cancel arm's          claim that preparation installs none is a claim about nothing"
+    );
 }
 
 /// ⛔⛤ **A SUPERSEDED CANDIDATE SESSION IS DISCARDED, NOT DROPPED.**
@@ -1330,6 +1340,13 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
             .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
             .is_none(),
         "⛔ PREPARING A CANDIDATE SESSION INSTALLED `SessionMechanics` PROCESS-WIDE.          The candidate was cancelled and never adopted, so the generation's frozen          registries belong to no session at all"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::world::collision::MovingPlatformSet>()
+            .0
+            .is_empty(),
+        "⛔ PREPARING A CANDIDATE SESSION PUBLISHED ITS FIRST ROOM'S MOVING          PLATFORMS PROCESS-WIDE. The candidate was cancelled and never adopted,          so this is the mechanical state of a world nothing is playing"
     );
     assert_eq!(
         ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),

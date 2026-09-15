@@ -749,22 +749,47 @@ pub(crate) fn open(
                     // destroys the key the other half is found by. Publication
                     // used to promise it gone and then skip it because of a
                     // component it noticed; now the promise matches what it does.
+                    // ⛔⛤ **MODEL A, LANDED 2026-09-15: PUBLICATION DESPAWNS A
+                    // PREDECESSOR IN CUSTODY AND TELLS THE CUSTODIAN WHAT IT
+                    // NEEDED FROM IT.** The two facts `restore_custody_to_checkpoint`
+                    // required from the live entity — WHOSE hand, and WHICH item,
+                    // so it strips the right one — are knowable right here, while
+                    // the predecessor is still standing. Recorded, this row
+                    // departs under `Publication` like any other.
+                    //
+                    // ⚠ **AND `Custodian` SURVIVES AS AN HONEST FALLBACK.** A
+                    // hand this world cannot resolve is one the drain could not
+                    // strip either, so a row whose handoff will not record keeps
+                    // Model B rather than being despawned into a stale hand.
+                    let in_custody: Vec<_> = superseding
+                        .iter()
+                        .filter_map(|sim_id| {
+                            let entry = baseline.entries().get(sim_id)?;
+                            world
+                                .get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(
+                                    entry.entity,
+                                )
+                                .map(|_| (sim_id.clone(), entry.entity))
+                        })
+                        .collect();
+                    let mut handed_off = std::collections::BTreeSet::new();
+                    let mut left_to_custodian = std::collections::BTreeSet::new();
+                    for (sim_id, entity) in in_custody {
+                        if crate::items::pickup::record_custody_handoff(world, &sim_id, entity) {
+                            handed_off.insert(sim_id);
+                        } else {
+                            left_to_custodian.insert(sim_id);
+                        }
+                    }
+                    let _ = &handed_off;
                     let mut effects = superseding.iter().fold(
                         PublicationEffects::new(),
                         |effects, sim_id| {
-                            let departs = baseline
-                                .entries()
-                                .get(sim_id)
-                                .filter(|entry| {
-                                    world.get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(
-                                        entry.entity,
-                                    )
-                                    .is_some()
-                                })
-                                .map_or(
-                                    ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Publication,
-                                    |_| ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Custodian,
-                                );
+                            let departs = if left_to_custodian.contains(sim_id) {
+                                ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Custodian
+                            } else {
+                                ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Publication
+                            };
                             effects.superseding_under(sim_id.clone(), sim_id.clone(), departs)
                         },
                     );
@@ -913,6 +938,10 @@ fn verify_and_publish(
     };
     let refuse = |world: &mut World, room_id: String| {
         record(world, false);
+        // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
+        // handoffs describe are still correct — draining them would strip an item
+        // off a body for a world that was never built.
+        crate::items::pickup::discard_custody_handoffs(world);
         // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
         // remembered here: it is candidate-owned state stamped with this room's
         // transaction, so `retire_candidate` takes it. This early road refuses
@@ -1233,15 +1262,30 @@ fn verify_and_publish(
             world, &effects, &baseline,
         );
         left_to_custodian = superseded.left_to_custodian;
+        // ⛔⛤ **THE DRAIN, AND IT RUNS ON EVERY PUBLICATION — WHICH IS THE WHOLE
+        // DESIGN.** `retire_superseded` above has just despawned predecessors
+        // that were in a hand (Model A), so those hands are holding a `HeldItem`
+        // naming a dead entity until this line. The obvious home for this is
+        // inside `restore_custody_to_checkpoint`, and it is WRONG: that runs only
+        // when the commit carries a checkpoint operation, while an ordinary room
+        // transition can declare a custody supersession too. An undrained ledger
+        // is strictly worse than the Model B window it replaces — a permanently
+        // stale hand rather than a duplicate that closes itself inside the frame.
+        let stripped = crate::items::pickup::apply_custody_handoffs(world);
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id} ({admitted} roots admitted, \
-             {} declared departures retired, {} left to their custodian)",
+             {} declared departures retired, {} left to their custodian, \
+             {stripped} hands released)",
             superseded.retired, superseded.left_to_custodian
         ));
         world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
             room_id: room_id.clone(),
         });
     } else {
+        // ⛔ AND THE SAME ON THE LATE REFUSAL. Handoffs were recorded when this
+        // transaction DECLARED its supersessions; nothing was despawned, so the
+        // hands they describe are still holding the right things.
+        crate::items::pickup::discard_custody_handoffs(world);
         let failure_count =
             violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the

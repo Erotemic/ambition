@@ -1485,10 +1485,18 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
          nothing here witnesses a candidate verified while its predecessor was \
          still live"
     );
-    assert!(
-        custody_windows > 0,
-        "no publication in this reset declared a custody-deferred departure, so \
-         this arm says nothing about the window Model B opens"
+    // ⛔⛤ **MODEL A: PUBLICATION TAKES THE PREDECESSOR ITSELF.** This asserted
+    // `custody_windows > 0` while Model B was live -- publication left a
+    // predecessor standing in a hand for the custodian to remove. Model A records
+    // `(holder, spec_id)` when the supersession is DECLARED, so publication can
+    // despawn it and the drain strips the hand from that record; there is no
+    // window left to count. `Custodian` survives only as the fallback for a hand
+    // the world cannot resolve, so a NON-zero here means a handoff failed to
+    // record and Model B took the row.
+    assert_eq!(
+        custody_windows, 0,
+        "a supersession in custody was left to its custodian, so its handoff did \
+         not record"
     );
     // ⛔⛤ AND THE WINDOW IS NARROWER THAN A FRAME BOUNDARY. MEASURED: peak 1.
     // Publication leaves the predecessor standing and the custodian removes it

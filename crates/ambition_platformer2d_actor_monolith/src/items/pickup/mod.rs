@@ -632,3 +632,148 @@ mod held_item_steps {
         });
     }
 }
+
+// ── A10 MODEL A: custody handoffs ────────────────────────────────────────────
+
+/// What publication must tell the custodian once it has despawned a predecessor
+/// that was in a hand.
+///
+/// ⛔⛤ **THE TWO FACTS THE CUSTODIAN NEEDED FROM THE LIVE ENTITY.**
+/// `restore_custody_to_checkpoint` strips a hand by comparing the held item's
+/// SPEC ID before removing it — because an equip-swap can leave the body holding
+/// something else entirely, and stripping THAT hand would take away an item the
+/// reset has no claim on. Both facts are knowable at DECLARATION time, while the
+/// predecessor is still standing, which is the whole of why publication can now
+/// despawn it (Model A) instead of leaving it for the custodian (Model B).
+///
+/// ⚠ THE CUSTODIAN IS RECORDED BY `SimId`, NOT BY `Entity`. A death
+/// reconstruction can rebuild the body between the declaration and the drain,
+/// and an `Entity` recorded across that is a dangling answer of the kind this
+/// campaign spent the day removing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CustodyHandoff {
+    /// The occurrence publication despawned.
+    pub occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    /// Whose hand it was in.
+    pub custodian: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    /// Which item, so the drain strips the right hand.
+    pub spec_id: String,
+}
+
+/// Handoffs a publication owes the custodian, between its despawn and the drain.
+///
+/// ⛔⛤ **IT MUST BE DRAINED ON EVERY PATH THAT CAN FILL IT, AND THAT IS THE
+/// WHOLE DIFFICULTY OF MODEL A.** The moment publication despawns a predecessor,
+/// the hand holds a `HeldItem` naming a dead entity; under Model B that could not
+/// happen because the despawn and the strip were ONE operation. So an undrained
+/// ledger is strictly worse than the window it replaces — a permanently stale
+/// hand rather than a duplicate that closes itself inside the frame. It is
+/// drained in the publication tail, beside `retire_superseded`, which runs on
+/// every publication rather than only on the ones carrying a checkpoint
+/// operation.
+///
+/// ⚠ **AND CLEARED ON REFUSAL.** A refused publication despawned nothing, so its
+/// recorded handoffs describe hands that are still correct; draining them would
+/// strip an item off a body for a world that was never built.
+#[derive(Resource, Default, Clone, Debug, PartialEq)]
+pub struct PendingCustodyHandoffs(Vec<CustodyHandoff>);
+
+/// Record what the custodian will need, if this occurrence is in a hand.
+///
+/// Returns `true` when the handoff is recorded, which is the caller's licence to
+/// declare `DepartureAuthority::Publication` instead of `Custodian`. `false`
+/// keeps Model B for that row — an honest fallback rather than a guess, because a
+/// hand this world cannot resolve is one the drain could not strip either.
+pub fn record_custody_handoff(
+    world: &mut World,
+    occurrence: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    entity: Entity,
+) -> bool {
+    let Some(custody) =
+        world.get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(entity)
+    else {
+        return false;
+    };
+    let custodian_entity = custody.custodian;
+    let Some(custodian) = world
+        .get::<ambition_platformer2d_shared_tangle::sim_id::SimId>(custodian_entity)
+        .cloned()
+    else {
+        return false;
+    };
+    let Some(spec_id) = world
+        .get::<GroundItem>(entity)
+        .map(|ground| ground.spec.id.clone())
+    else {
+        return false;
+    };
+    world
+        .get_resource_or_insert_with(PendingCustodyHandoffs::default)
+        .0
+        .push(CustodyHandoff {
+            occurrence: occurrence.clone(),
+            custodian,
+            spec_id,
+        });
+    true
+}
+
+/// Strip every hand a published despawn left holding a dead entity.
+///
+/// ⭐ THE SAME SPEC-ID COMPARISON `restore_custody_to_checkpoint` MAKES, and for
+/// the same reason: an equip-swap can leave the body holding something else, and
+/// stripping that hand would take away an item this publication has no claim on.
+pub fn apply_custody_handoffs(world: &mut World) -> usize {
+    let Some(mut pending) = world.get_resource_mut::<PendingCustodyHandoffs>() else {
+        return 0;
+    };
+    let handoffs = std::mem::take(&mut pending.0);
+    if handoffs.is_empty() {
+        return 0;
+    }
+    let mut bodies: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Entity,
+    > = std::collections::BTreeMap::new();
+    let mut query = world.query::<(
+        Entity,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &ActionSet,
+    )>();
+    for (entity, sim_id, _) in query.iter(world) {
+        bodies.insert(sim_id.clone(), entity);
+    }
+    let mut stripped = 0;
+    for handoff in handoffs {
+        let Some(holder) = bodies.get(&handoff.custodian).copied() else {
+            // The hand is gone with its body; nothing to strip, and the
+            // occurrence it held is already despawned.
+            continue;
+        };
+        let holds_it = world
+            .get::<HeldItem>(holder)
+            .is_some_and(|held| held.id() == handoff.spec_id);
+        if !holds_it {
+            continue;
+        }
+        let stashed = world.get::<StashedActionSet>(holder).cloned();
+        let Some(mut action_set) = world.get_mut::<ActionSet>(holder) else {
+            continue;
+        };
+        if let Some(stash) = stashed {
+            *action_set = stash.0.clone();
+        }
+        world.entity_mut(holder).remove::<HeldItem>();
+        world.entity_mut(holder).remove::<StashedActionSet>();
+        stripped += 1;
+    }
+    stripped
+}
+
+/// Forget handoffs a refused publication recorded: it despawned nothing, so the
+/// hands they describe are still correct.
+pub fn discard_custody_handoffs(world: &mut World) {
+    if let Some(mut pending) = world.get_resource_mut::<PendingCustodyHandoffs>() {
+        pending.0.clear();
+    }
+}

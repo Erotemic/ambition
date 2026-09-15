@@ -975,10 +975,33 @@ pass. An order-dependent `app_it` failure remains unresolved, and the A10 work
 also observed one non-reproducing session-root handoff failure whose assertion
 message was not captured.
 
+⛔⛤ **THE ORDER-DEPENDENT FAILURE HAS A NAME AND A MECHANISM NOW, AND MY FIRST
+CLASSIFICATION OF IT WAS WRONG.** The arm is
+`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`.
+I first recorded it as machine CONTENTION, because it appeared while two or three
+full suites were running concurrently — then it reproduced **serially, on a quiet
+machine, with one rust process and a load average of 2**. A coherent measured
+story that fits the first observation is still the wrong one if it was never
+tested against a second.
+
+MEASURED at `770ac4bff`:
+- Intermittent across runs of the FULL suite: 674/1 and 675/0 on the same tree.
+- **12 of 12 green running that test file ALONE**, so it needs the whole process.
+- The failure is a PANIC inside `FixedMain`, not a timeout and not a kill —
+  `Encountered a panic in system bevy_app::main_schedule::FixedMain::run_fixed_main`.
+- ⚠ The panic's own message is SWALLOWED: the arm has no assertion (it builds the
+  engine with and without one plugin and steps 8 frames), and libtest's capture
+  shows only bevy's three "Encountered a panic in system" lines. That is why this
+  has read as a silent flake for so long.
+
+⇒ **It needs other tests in the same PROCESS, which makes the suspect population
+process-global state** — a static, an env var, or a shared registry — not test
+ordering within one app.
+
 **Next implementation:** on the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct
-from behavioral flakes.
+from behavioral flakes, and from CONTENTION.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

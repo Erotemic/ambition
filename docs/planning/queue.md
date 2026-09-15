@@ -30,7 +30,12 @@ LDtk reload, each with a refusal arm and an admission control in `app_it`. There
 is ONE road into a live session (A10.5's fallback is deleted) and ONE publication
 authority per level.
 
-**NEXT IMPLEMENTATION STEP.** None named. A GPT review of 2026-09-15 raised three
+**NEXT IMPLEMENTATION STEP.** None named. A second review round (2026-09-15)
+found two ownership leaks at the edges — Model A's custody handoffs were a
+process-global bag rather than publication-owned, and candidate construction read
+the LIVE `MintedItemBaseline` for the half of the durable horizon its own save
+should have supplied. Both are closed; the second is closed STRUCTURALLY, by
+deleting the builder's live durable fields so the leak is unexpressible. A GPT review of 2026-09-15 raised three
 findings and all three are closed and poison-verified — candidate preparation no
 longer writes the live session's checkpoint state (1), an inner room publication
 no longer releases the outer session's invisibility (2), and the refusal exit

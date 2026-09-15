@@ -1620,3 +1620,81 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
          at {started_at})"
     );
 }
+
+/// ⛔⛤ **REVIEW FINDING 2: THE CANDIDATE'S MINTED DESCRIPTIONS ARE ITS OWN.**
+///
+/// `OccurrenceContinuity` needs two descriptors to rebuild a runtime-minted
+/// occurrence: the ledger row saying WHERE it is, and the minted description
+/// saying WHAT it is. The candidate carried its own ledger and then read the LIVE
+/// `MintedItemBaseline` for the second half — B's whereabouts against A's
+/// descriptions, a mixed-session durable horizon.
+///
+/// ⛔⛤ **THE POSITIVE HALF IS GUARANTEED STRUCTURALLY, NOT BY THIS ARM, AND THAT
+/// IS DELIBERATE.** `PlatformerSessionBuilder` no longer HOLDS the live
+/// `AuthoredOccurrences` or `MintedItemBaseline` — both fields are deleted, and
+/// the compiler reported them dead the moment candidate construction stopped
+/// reading them. "Candidate construction reads a live durable resource" is not a
+/// mistake that type can express any more, which is stronger than a test.
+///
+/// ⚠ **AND I TRIED TO WITNESS IT BEHAVIOURALLY AND WITHDREW THE ARM.** A save
+/// fixture that names a runtime mint and expects the candidate's hidden first
+/// room to rebuild it did not reach its subject: the mint was reconstructed under
+/// NEITHER baseline, so the arm could not tell the fix from the defect. Making it
+/// real needs a save whose ledger, custody and minted rows together describe a
+/// mint the start room actually reinstates — a fixture job, not an assertion. An
+/// arm that passes without reaching its subject is worse than no arm.
+///
+/// ⇒ What this DOES witness is the half that is observable: preparing a candidate
+/// installs nothing over the playing session's minted baseline.
+#[test]
+fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one() {
+    use ambition_platformer2d::persistence::save_data::PersistedMintedItem;
+
+    let mut app = a_running_shipped_session();
+    let minted_id = "minted:a10_candidate_horizon_mint";
+    let id =
+        ambition_platformer2d::platformer::sim_id::SimId::from_snapshot(minted_id.to_string());
+
+    // A's baseline cannot describe M; B's save can. If preparing B installs B's
+    // horizon process-wide — which is what finding 1 was about, in the resource
+    // finding 2 added — A's baseline learns about M.
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+        .adopt(Default::default());
+    {
+        let mut save = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        save.0.set_minted_items(vec![PersistedMintedItem {
+            occurrence: minted_id.to_string(),
+            parent: "placement:ground_gun_sword".to_string(),
+            sequence: 1,
+            held_item: "ground_gun_sword".to_string(),
+        }]);
+    }
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .description_of(&id)
+            .is_none(),
+        "the premise: A's live baseline does not describe this mint"
+    );
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: None,
+    });
+    for _ in 0..3 {
+        app.update();
+    }
+
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .description_of(&id)
+            .is_none(),
+        "⛔ PREPARING A CANDIDATE INSTALLED ITS MINTED BASELINE OVER THE PLAYING \
+         SESSION'S. The candidate is not admitted; its durable horizon belongs to \
+         it until adoption"
+    );
+}

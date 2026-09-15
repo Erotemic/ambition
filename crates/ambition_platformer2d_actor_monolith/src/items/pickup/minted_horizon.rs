@@ -299,6 +299,23 @@ impl Plugin for ItemCheckpointHorizonPlugin {
 /// restore and rollback but silently missed durable adoption; keeping the item
 /// baselines together here makes that omission local to the domain rather than a
 /// fifth cross-crate census.
+/// The minted descriptions a candidate's construction needs, as a VALUE.
+///
+/// ⛔⛤ **REVIEW FINDING 2, 2026-09-15: CANDIDATE CONSTRUCTION WAS READING THE
+/// LIVE SESSION'S MINTED BASELINE.** `OccurrenceContinuity` needs two descriptors
+/// to rebuild a runtime-minted occurrence — the ledger row saying WHERE it is,
+/// and the minted description saying WHAT it is. The candidate carried its own
+/// ledger and then read A's `MintedItemBaseline` for the second half, so it
+/// planned from a MIXED durable horizon: B's whereabouts with A's descriptions.
+/// A row of B's that A has never seen cannot be described, so B's first room
+/// verifies against a world that is not B's saved world — and the correction
+/// arrives after A has been retired, which is post-publication recovery.
+pub fn minted_baseline_from_save(data: &AmbitionGameSaveData) -> MintedItemBaseline {
+    let mut baseline = MintedItemBaseline::default();
+    adopt_checkpoint_baselines_from_save(data, &ambition_items::OwnedItems::default(), Some(&mut baseline), None);
+    baseline
+}
+
 pub fn adopt_checkpoint_baselines_from_save(
     data: &AmbitionGameSaveData,
     owned: &ambition_items::OwnedItems,

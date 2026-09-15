@@ -165,6 +165,16 @@ pub fn adopt_the_occurrence_ledger_at_activation(
 pub struct CandidateDurableHorizon {
     occurrences: AuthoredOccurrences,
     custody: BTreeMap<SimId, SimId>,
+    /// ⛔⛤ **THE SECOND DESCRIPTOR CANDIDATE CONSTRUCTION NEEDS — REVIEW FINDING
+    /// 2.** A ledger row says WHERE a runtime-minted occurrence is; only this
+    /// says WHAT it is. Carrying the first without the second made the candidate
+    /// plan from B's whereabouts and A's descriptions.
+    ///
+    /// ⚠ **THE RULE IS NARROW, deliberately**: every durable value consumed in
+    /// deciding whether candidate B's world can be CONSTRUCTED comes from B's
+    /// horizon. `OwnedItemsBaseline`, the wallet and the rest do not participate
+    /// in candidate room construction and are not pulled in here.
+    minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
 }
 
 impl CandidateDurableHorizon {
@@ -176,7 +186,13 @@ impl CandidateDurableHorizon {
         Self {
             occurrences,
             custody,
+            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save.data()),
         }
+    }
+
+    /// What the candidate's construction reads to rebuild a runtime mint.
+    pub fn minted(&self) -> &crate::items::pickup::minted_horizon::MintedItemBaseline {
+        &self.minted
     }
 
     /// What the candidate's construction reads for `OccurrenceContinuity` —
@@ -190,6 +206,7 @@ impl CandidateDurableHorizon {
         let Self {
             occurrences,
             custody,
+            minted,
         } = self;
         if let Some(mut live) = world.get_resource_mut::<AuthoredOccurrences>() {
             *live = occurrences.clone();
@@ -199,6 +216,11 @@ impl CandidateDurableHorizon {
         }
         if let Some(mut baseline) = world.get_resource_mut::<CustodyBaseline>() {
             baseline.adopt(custody);
+        }
+        if let Some(mut baseline) = world
+            .get_resource_mut::<crate::items::pickup::minted_horizon::MintedItemBaseline>()
+        {
+            *baseline = minted;
         }
     }
 }

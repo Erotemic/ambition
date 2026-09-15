@@ -3104,6 +3104,28 @@ pub struct SupersessionRetirement {
 /// ⭐ A COUNT, not a list: `InactiveCandidate` stays `pub(crate)` so that no
 /// outside crate can name the marker or attach a hook to it, and that containment
 /// is worth more than a richer accessor.
+/// Does any HIDDEN candidate entity carry `sim_id`?
+///
+/// ⛔⛤ **THE ONLY WAY TO ASK WHAT A CANDIDATE BUILT BEFORE IT IS ADMITTED.** A
+/// candidate's population is behind a registered disabling component, so every
+/// ordinary query answers "no" about it — which is the design, and which also
+/// means a test cannot check that a candidate reconstructed what its OWN durable
+/// horizon says it should without this. Asserting the same thing after adoption
+/// cannot distinguish "the candidate built it" from "something corrected the
+/// world afterwards", and post-publication correction is the shape A10 exists to
+/// remove.
+///
+/// ⚠ Membership, never the entity: a caller outside this crate has no business
+/// holding a handle to something that is not authoritative yet.
+pub fn candidate_carries_identity(world: &mut World, sim_id: &SimId) -> bool {
+    world
+        .try_query_filtered::<&SimId, (
+            bevy::ecs::query::With<InactiveCandidate>,
+            bevy::ecs::query::Allow<InactiveCandidate>,
+        )>()
+        .is_some_and(|mut query| query.iter(world).any(|held| held == sim_id))
+}
+
 pub fn outstanding_candidates(world: &mut World) -> usize {
     world
         .try_query_filtered::<(), (

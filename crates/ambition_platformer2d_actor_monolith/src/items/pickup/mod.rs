@@ -662,30 +662,38 @@ pub struct CustodyHandoff {
 
 /// Handoffs a publication owes the custodian, between its despawn and the drain.
 ///
-/// ⛔⛤ **IT MUST BE DRAINED ON EVERY PATH THAT CAN FILL IT, AND THAT IS THE
-/// WHOLE DIFFICULTY OF MODEL A.** The moment publication despawns a predecessor,
-/// the hand holds a `HeldItem` naming a dead entity; under Model B that could not
-/// happen because the despawn and the strip were ONE operation. So an undrained
-/// ledger is strictly worse than the window it replaces — a permanently stale
-/// hand rather than a duplicate that closes itself inside the frame. It is
-/// drained in the publication tail, beside `retire_superseded`, which runs on
-/// every publication rather than only on the ones carrying a checkpoint
-/// operation.
+/// ⛔⛤ **A COMPONENT ON THE EXACT `RoomPublication`, NEVER A RESOURCE — REVIEW
+/// FINDING 1, 2026-09-15.** This was a process-global `Vec` for about an hour,
+/// and that is incompatible with A10.1/A10.2: two independent publications can
+/// coexist, so `P`'s drain consumed `Q`'s handoffs and `P`'s refusal erased them.
+/// The bad interleaving is concrete —
 ///
-/// ⚠ **AND CLEARED ON REFUSAL.** A refused publication despawned nothing, so its
-/// recorded handoffs describe hands that are still correct; draining them would
-/// strip an item off a body for a world that was never built.
-#[derive(Resource, Default, Clone, Debug, PartialEq)]
-pub struct PendingCustodyHandoffs(Vec<CustodyHandoff>);
+/// ```text
+/// P records HP;  Q records HQ
+/// P refuses   -> a global discard clears HP and HQ
+/// Q publishes -> Q despawns its predecessor, no HQ remains
+///             -> the holder keeps a HeldItem naming a dead entity
+/// ```
+///
+/// — and the reverse ordering drains a hand before its own publication has even
+/// happened. It may be unreachable in a one-active-room runtime; A10.2 exists
+/// precisely so that assumption is not load-bearing.
+///
+/// ⇒ Handoffs sit beside the baseline, the staged world, the effects and the
+/// verdict: **only P can create, drain or discard P's.**
+#[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
+pub struct CustodyHandoffs(Vec<CustodyHandoff>);
 
 /// Record what the custodian will need, if this occurrence is in a hand.
 ///
-/// Returns `true` when the handoff is recorded, which is the caller's licence to
-/// declare `DepartureAuthority::Publication` instead of `Custodian`. `false`
-/// keeps Model B for that row — an honest fallback rather than a guess, because a
-/// hand this world cannot resolve is one the drain could not strip either.
+/// Returns `true` when the handoff is recorded ON `publication`, which is the
+/// caller's licence to declare `DepartureAuthority::Publication` instead of
+/// `Custodian`. `false` keeps Model B for that row — an honest fallback rather
+/// than a guess, because a hand this world cannot resolve is one the drain could
+/// not strip either.
 pub fn record_custody_handoff(
     world: &mut World,
+    publication: crate::rooms::PublicationHandle,
     occurrence: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     entity: Entity,
 ) -> bool {
@@ -707,27 +715,39 @@ pub fn record_custody_handoff(
     else {
         return false;
     };
-    world
-        .get_resource_or_insert_with(PendingCustodyHandoffs::default)
-        .0
-        .push(CustodyHandoff {
-            occurrence: occurrence.clone(),
-            custodian,
-            spec_id,
-        });
+    let Ok(mut receipt) = world.get_entity_mut(publication.entity()) else {
+        // No receipt, no owner for the handoff: keep Model B for this row.
+        return false;
+    };
+    let mut handoffs = receipt
+        .get::<CustodyHandoffs>()
+        .cloned()
+        .unwrap_or_default();
+    handoffs.0.push(CustodyHandoff {
+        occurrence: occurrence.clone(),
+        custodian,
+        spec_id,
+    });
+    receipt.insert(handoffs);
     true
 }
 
-/// Strip every hand a published despawn left holding a dead entity.
+/// Strip every hand THIS publication's despawns left holding a dead entity.
 ///
 /// ⭐ THE SAME SPEC-ID COMPARISON `restore_custody_to_checkpoint` MAKES, and for
 /// the same reason: an equip-swap can leave the body holding something else, and
 /// stripping that hand would take away an item this publication has no claim on.
-pub fn apply_custody_handoffs(world: &mut World) -> usize {
-    let Some(mut pending) = world.get_resource_mut::<PendingCustodyHandoffs>() else {
+pub fn apply_custody_handoffs(
+    world: &mut World,
+    publication: crate::rooms::PublicationHandle,
+) -> usize {
+    let Ok(mut receipt) = world.get_entity_mut(publication.entity()) else {
         return 0;
     };
-    let handoffs = std::mem::take(&mut pending.0);
+    let Some(handoffs) = receipt.take::<CustodyHandoffs>() else {
+        return 0;
+    };
+    let handoffs = handoffs.0;
     if handoffs.is_empty() {
         return 0;
     }
@@ -746,8 +766,8 @@ pub fn apply_custody_handoffs(world: &mut World) -> usize {
     let mut stripped = 0;
     for handoff in handoffs {
         let Some(holder) = bodies.get(&handoff.custodian).copied() else {
-            // The hand is gone with its body; nothing to strip, and the
-            // occurrence it held is already despawned.
+            // The hand is gone with its body; the occurrence it held is already
+            // despawned.
             continue;
         };
         let holds_it = world
@@ -770,10 +790,152 @@ pub fn apply_custody_handoffs(world: &mut World) -> usize {
     stripped
 }
 
-/// Forget handoffs a refused publication recorded: it despawned nothing, so the
+/// Forget the handoffs THIS publication recorded: it despawned nothing, so the
 /// hands they describe are still correct.
-pub fn discard_custody_handoffs(world: &mut World) {
-    if let Some(mut pending) = world.get_resource_mut::<PendingCustodyHandoffs>() {
-        pending.0.clear();
+///
+/// ⛔ Another publication's handoffs are untouched — the defect this shape exists
+/// to make unexpressible.
+pub fn discard_custody_handoffs(
+    world: &mut World,
+    publication: crate::rooms::PublicationHandle,
+) {
+    if let Ok(mut receipt) = world.get_entity_mut(publication.entity()) {
+        receipt.remove::<CustodyHandoffs>();
+    }
+}
+
+#[cfg(test)]
+mod custody_handoff_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{CustodyDurability, InCustodyOf};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// A body that can hold something, and the thing it holds.
+    fn a_hand_holding(world: &mut World, body: &str, item: &str) -> (Entity, Entity) {
+        let holder = world
+            .spawn((
+                SimId::placement(body),
+                ActionSet::default(),
+                HeldItem::new(HeldItemSpec {
+                    id: item.to_string(),
+                    ..HeldItemSpec::default()
+                }),
+            ))
+            .id();
+        let occurrence = world
+            .spawn((
+                SimId::placement(item),
+                GroundItem::at_rest(
+                    HeldItemSpec {
+                        id: item.to_string(),
+                        ..HeldItemSpec::default()
+                    },
+                    Vec2::ZERO,
+                    Vec2::ONE,
+                ),
+                ItemCustody::Held { holder },
+                InCustodyOf {
+                    custodian: holder,
+                    durability: CustodyDurability::Restored,
+                },
+            ))
+            .id();
+        (holder, occurrence)
+    }
+
+    fn a_publication(world: &mut World) -> crate::rooms::PublicationHandle {
+        crate::rooms::PublicationHandle(world.spawn_empty().id())
+    }
+
+    /// ⛔⛤ **REVIEW FINDING 1: ONE PUBLICATION'S HANDOFFS ARE ITS OWN.**
+    ///
+    /// These lived in a process-global `Vec` for about an hour, which is
+    /// incompatible with A10.2 — two independent publications can coexist, so
+    /// `P`'s drain consumed `Q`'s handoffs and `P`'s refusal erased them. The
+    /// interleaving below is the one that loses a hand: P refuses, Q publishes,
+    /// and Q's holder is left with a `HeldItem` naming an entity Q despawned.
+    #[test]
+    fn a_refused_publication_does_not_erase_another_publications_handoffs() {
+        let mut world = World::new();
+        let (p_holder, p_item) = a_hand_holding(&mut world, "p_body", "p_item");
+        let (q_holder, q_item) = a_hand_holding(&mut world, "q_body", "q_item");
+        let p = a_publication(&mut world);
+        let q = a_publication(&mut world);
+
+        assert!(record_custody_handoff(
+            &mut world,
+            p,
+            &SimId::placement("p_item"),
+            p_item
+        ));
+        assert!(record_custody_handoff(
+            &mut world,
+            q,
+            &SimId::placement("q_item"),
+            q_item
+        ));
+
+        // P refuses. Only P's handoff goes.
+        discard_custody_handoffs(&mut world, p);
+        assert_eq!(
+            world.get::<CustodyHandoffs>(p.entity()),
+            None,
+            "P's refusal did not discard P's own handoffs"
+        );
+        assert!(
+            world.get::<CustodyHandoffs>(q.entity()).is_some(),
+            "⛔ P'S REFUSAL ERASED Q'S HANDOFFS. Q will despawn its predecessor \
+             and nothing will strip the hand that was holding it"
+        );
+
+        // Q publishes: its predecessor is gone and its hand is reconciled.
+        world.entity_mut(q_item).despawn();
+        assert_eq!(apply_custody_handoffs(&mut world, q), 1);
+        assert!(
+            world.get::<HeldItem>(q_holder).is_none(),
+            "Q's holder kept a `HeldItem` naming the entity Q despawned"
+        );
+        // ⭐ AND P'S HAND IS UNTOUCHED: P published nothing, so its holder is
+        // still correctly holding its item.
+        assert!(
+            world.get::<HeldItem>(p_holder).is_some(),
+            "⛔ Q'S DRAIN STRIPPED P'S HAND"
+        );
+    }
+
+    /// The inverse ordering: P publishes while Q is still pending.
+    #[test]
+    fn a_publication_drains_only_its_own_handoffs() {
+        let mut world = World::new();
+        let (p_holder, p_item) = a_hand_holding(&mut world, "p_body", "p_item");
+        let (q_holder, q_item) = a_hand_holding(&mut world, "q_body", "q_item");
+        let p = a_publication(&mut world);
+        let q = a_publication(&mut world);
+        assert!(record_custody_handoff(
+            &mut world,
+            p,
+            &SimId::placement("p_item"),
+            p_item
+        ));
+        assert!(record_custody_handoff(
+            &mut world,
+            q,
+            &SimId::placement("q_item"),
+            q_item
+        ));
+
+        world.entity_mut(p_item).despawn();
+        assert_eq!(apply_custody_handoffs(&mut world, p), 1);
+        assert!(world.get::<HeldItem>(p_holder).is_none());
+        // Q is still pending: its handoff and its hand are both intact.
+        assert!(
+            world.get::<CustodyHandoffs>(q.entity()).is_some(),
+            "⛔ P'S DRAIN CONSUMED Q'S HANDOFFS"
+        );
+        assert!(
+            world.get::<HeldItem>(q_holder).is_some(),
+            "⛔ P'S DRAIN STRIPPED Q'S HAND BEFORE Q PUBLISHED"
+        );
+        let _ = q_item;
     }
 }

@@ -48,6 +48,14 @@ pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefu
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicationHandle(pub bevy::ecs::entity::Entity);
 
+impl PublicationHandle {
+    /// The receipt entity this publication's own state hangs off — its verdict,
+    /// its staged world, and its custody handoffs.
+    pub fn entity(self) -> bevy::ecs::entity::Entity {
+        self.0
+    }
+}
+
 /// What a room publication is ABOUT: which room, and which construction lanes
 /// it owns.
 #[derive(Component)]
@@ -775,7 +783,12 @@ pub(crate) fn open(
                     let mut handed_off = std::collections::BTreeSet::new();
                     let mut left_to_custodian = std::collections::BTreeSet::new();
                     for (sim_id, entity) in in_custody {
-                        if crate::items::pickup::record_custody_handoff(world, &sim_id, entity) {
+                        if crate::items::pickup::record_custody_handoff(
+                            world,
+                            publication,
+                            &sim_id,
+                            entity,
+                        ) {
                             handed_off.insert(sim_id);
                         } else {
                             left_to_custodian.insert(sim_id);
@@ -941,7 +954,7 @@ fn verify_and_publish(
         // ⛔ A REFUSED PUBLICATION DESPAWNED NOTHING, so the hands its recorded
         // handoffs describe are still correct — draining them would strip an item
         // off a body for a world that was never built.
-        crate::items::pickup::discard_custody_handoffs(world);
+        crate::items::pickup::discard_custody_handoffs(world, publication);
         // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
         // remembered here: it is candidate-owned state stamped with this room's
         // transaction, so `retire_candidate` takes it. This early road refuses
@@ -1271,7 +1284,7 @@ fn verify_and_publish(
         // transition can declare a custody supersession too. An undrained ledger
         // is strictly worse than the Model B window it replaces — a permanently
         // stale hand rather than a duplicate that closes itself inside the frame.
-        let stripped = crate::items::pickup::apply_custody_handoffs(world);
+        let stripped = crate::items::pickup::apply_custody_handoffs(world, publication);
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id} ({admitted} roots admitted, \
              {} declared departures retired, {} left to their custodian, \
@@ -1285,7 +1298,7 @@ fn verify_and_publish(
         // ⛔ AND THE SAME ON THE LATE REFUSAL. Handoffs were recorded when this
         // transaction DECLARED its supersessions; nothing was despawned, so the
         // hands they describe are still holding the right things.
-        crate::items::pickup::discard_custody_handoffs(world);
+        crate::items::pickup::discard_custody_handoffs(world, publication);
         let failure_count =
             violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the

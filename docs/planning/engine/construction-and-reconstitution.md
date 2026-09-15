@@ -646,6 +646,52 @@ count above comes from an uncapped probe whose positive control is the same
 strong-road bucket. ⇒ **A diagnostic log with a line cap is not a census
 instrument**, however precisely it labels what it does print.
 
+### Two ownership leaks at the edges — review round 2, closed 2026-09-15
+
+Both were the same mistake in newly introduced values: state that had not yet
+obeyed the exact-transaction / candidate-owned rules the rest of A10 follows.
+
+⛔ **1. Model A's custody handoffs were a PROCESS-GLOBAL bag.**
+`PendingCustodyHandoffs(Vec<_>)` for about an hour. A10.2 exists precisely so
+independent publications can coexist, and with one bag `P`'s drain consumed `Q`'s
+handoffs and `P`'s refusal erased them:
+
+```text
+P records HP;  Q records HQ
+P refuses   -> a global discard clears HP and HQ
+Q publishes -> Q despawns its predecessor, no HQ remains
+            -> the holder keeps a HeldItem naming a dead entity
+```
+
+They are a `CustodyHandoffs` COMPONENT on the exact `RoomPublication` now, beside
+the baseline, the staged world, the effects and the verdict. Two unit arms witness
+both interleavings, and the poison — restoring the global clear — fires on the
+first.
+
+⛔ **2. The candidate planned from B's whereabouts and A's MINTED DESCRIPTIONS.**
+`OccurrenceContinuity` needs two descriptors to rebuild a runtime mint: the ledger
+row saying WHERE, and the minted description saying WHAT. `CandidateDurableHorizon`
+carried the first and candidate construction read the LIVE `MintedItemBaseline`
+for the second — a mixed-session durable horizon, in which a mint B's save knows
+and A has never seen cannot be described at all.
+
+⇒ The horizon carries `minted` now, built from B's save, and adoption installs it.
+⭐ **The guarantee is STRUCTURAL: `PlatformerSessionBuilder` no longer HOLDS the
+live `AuthoredOccurrences` or `MintedItemBaseline`** — the compiler reported both
+fields dead the moment construction stopped reading them, and they are deleted.
+"Candidate construction reads a live durable resource" is not a mistake that type
+can express. ⚠ The rule is deliberately narrow: only values consumed in deciding
+whether B's world can be CONSTRUCTED. `OwnedItemsBaseline`, the wallet and the
+rest do not participate and are not pulled in.
+
+⚠ **AND ONE WITNESS WAS WITHDRAWN RATHER THAN SHIPPED.** An arm expecting the
+candidate's hidden first room to rebuild a save-described mint did not reach its
+subject — the mint was reconstructed under NEITHER baseline, so it could not tell
+the fix from the defect. What ships is the half that is observable (preparing a
+candidate installs nothing over the live baseline) plus the structural guarantee
+above. Making the positive half real needs a save whose ledger, custody and minted
+rows together describe a mint the start room actually reinstates: a fixture job.
+
 ### The decisive acceptance statement — MET 2026-09-15, after review findings 1-3
 
 ```text

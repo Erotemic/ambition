@@ -2099,30 +2099,22 @@ pub struct PlatformerSessionBuilder<'w, 's> {
         Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes:
         Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
-    /// ⭐⭐ WHERE THE FILE SAYS THINGS ARE, AT THE MOMENT THE WORLD IS BUILT.
-    /// Activation used to pass no continuity at all, so a load authored an
-    /// object the save says is lying next door and a later checkpoint resume
-    /// rebuilt the room to take it back out. The ledger is adopted at
-    /// `SessionScopeSet::Activate` now, which is before this runs.
+    /// ⛔⛤ **THE ONLY DURABLE INPUT THIS BUILDER HAS, AND THAT IS THE POINT —
+    /// REVIEW FINDINGS 1 AND 2, 2026-09-15.** It used to hold `AuthoredOccurrences`
+    /// AND `MintedItemBaseline`, both of which are the OUTGOING session's live
+    /// resources, and candidate construction read them: B planned from B's
+    /// whereabouts and A's minted descriptions, a mixed-session durable horizon.
     ///
-    /// `Option` because a composition with no durable horizon registers neither
-    /// resource, and an empty ledger is the honest answer there — not a reason
-    /// to refuse to build a world.
-    occurrences:
-        Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    /// ⛔⛤ **THE CANDIDATE'S OWN DURABLE HORIZON COMES FROM HERE, NOT FROM THE
-    /// LIVE LEDGER — REVIEW FINDING 1.** Reading `occurrences` above would read
-    /// the OUTGOING session's projection, and WRITING it during preparation (which
-    /// a separate system used to do) changed the playing session's checkpoint
-    /// semantics before anyone knew the candidate could be built.
+    /// ⇒ Both fields are DELETED rather than left unread. Everything the
+    /// candidate's construction needs comes from `CandidateDurableHorizon`, built
+    /// from the save here and installed only at adoption, so "candidate
+    /// construction reads a live resource" is not a mistake this type can make.
+    ///
+    /// `Option` because a composition with no durable horizon registers no save,
+    /// and an empty horizon is the honest answer there — not a reason to refuse
+    /// to build a world.
     save: Option<
         Res<'w, ambition_platformer2d_actor_monolith::session::durable_horizon::AmbitionGameSave>,
-    >,
-    minted: Option<
-        Res<
-            'w,
-            ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
-        >,
     >,
 }
 
@@ -2305,7 +2297,12 @@ impl PlatformerSessionBuilder<'_, '_> {
                             ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
                                 remembered: horizon.occurrences(),
                                 world: &room_set.rooms,
-                                minted: self.minted.as_deref(),
+                                // ⛔⛤ B'S DESCRIPTIONS, NOT A'S — REVIEW FINDING
+                                // 2. A ledger row says WHERE a runtime mint is;
+                                // this says WHAT it is, and reading the live
+                                // resource here planned B's whereabouts against
+                                // A's descriptions.
+                                minted: Some(horizon.minted()),
                             },
                         ),
                     ),

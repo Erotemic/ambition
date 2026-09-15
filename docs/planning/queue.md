@@ -224,8 +224,34 @@ asking by scope unconditionally made four refusal fixtures PUBLISH, because a
 against. It is waived in the component rollback census with its writers named —
 activation and the hot reload, both in `Update`, never the simulation.
 
-**Next implementation:** stage the remaining session authorities as VALUES
-published at a verdict, as the room packet does. They do not need to become components on the
+**A10.4 third step: THE SESSION ITSELF IS A CANDIDATE UNTIL ITS FIRST ROOM
+PUBLISHES.** `PlatformerSessionBuilder::build` spawns the session root hidden
+(`construction::hide_candidate_session_root`, the `SessionRoot +
+InactiveCandidate` shape), builds the first room into it, and queues ONE closure
+on that room's exact publication: published → `publish_candidate_session_root`
+in the same command flush, so no system observes a half-published session;
+refused → the candidate session is discarded whole (root, world bundle, content
+binding) and the shell is told `ShellCommand::ExperienceFailed`, instead of being
+left with a live session holding an empty world. `simulation_world` returns a
+`SimulationWorld { player, publication }` and its caller declares the receipt's
+retention, so the activation decision owns the receipt.
+
+⚠ **THE REFUSAL HALF HAS NO PRODUCTION WITNESS.** The shipped app cannot be made
+to refuse its first room the way the transition arm is: the first room's
+`ActiveContentBinding` is written by setup from that room's own plan, so it
+always matches. The PUBLISH half is exercised by every `app_it` test that boots.
+The vocabulary the design rests on is witnessed at unit level by
+`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`,
+which asserts the premise (an ordinary root IS visible) first so an unregistered
+filter cannot fake it. ⇒ **A10 IS NOT CLOSED**: the acceptance criterion is a
+PRODUCTION composition demonstrating that a failed candidate leaves the last-good
+world playable, and at session scope that demonstration does not exist yet.
+
+**Next implementation:** a production handle for inducing a first-room refusal
+(the session-scope analogue of the transition arm's stale binding), then the
+remaining session authorities — `ActiveSessionScope`, `ActiveGameplaySession`,
+`SessionMechanics` — staged as values published at the same verdict rather than
+written by the bridge before the world exists. They do not need to become components on the
 candidate root — that framing would have charged `MovingPlatformSet` a
 rollback-wire-format change it does not have to pay. First concrete step is an
 ordering fact, not a type change: activation queues its room build before it

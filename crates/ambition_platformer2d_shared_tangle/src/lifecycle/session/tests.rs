@@ -324,3 +324,70 @@ fn cleanup_leaves_unscoped_frontend_entities_intact() {
     assert!(app.world().get_entity(frontend).is_ok());
     assert_eq!(count_scoped(&mut app, a), 0);
 }
+
+/// ⛔⛤ **A10.4's CANDIDATE SESSION: HIDDEN FROM THE LIVE LOOKUP, FOUND BY THE
+/// PUBLICATION LOOKUP.**
+///
+/// The whole candidate-session design rests on those two answers differing for
+/// the same entity, and on nothing else changing. `session_world_entity` is what
+/// every system reading *"the session world"* goes through, and it must not see a
+/// session whose world is still being built. `session_root_for_scope` is what a
+/// room TRANSACTION goes through, and it must see the root it is building into —
+/// otherwise the candidate's first room can never publish and the session can
+/// never become live.
+///
+/// ⚠ **THE PREMISE IS CHECKED FIRST**: the root is visible before it is hidden.
+/// Without that, a filter that was never registered — in which case hiding does
+/// nothing — would satisfy the "published" half and the arm would certify the
+/// design while testing none of it.
+#[test]
+fn a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction() {
+    use crate::construction::{
+        hide_candidate_session_root, publish_candidate_session_root,
+        register_inactive_candidate_filter,
+    };
+    use crate::lifecycle::{session_root_for_scope, session_world_entity};
+
+    let mut app = bevy::prelude::App::new();
+    register_inactive_candidate_filter(app.world_mut());
+    let scope = SessionScopeId(7);
+    let root = app
+        .world_mut()
+        .spawn((Name::new("candidate session world"), SessionRoot(scope)))
+        .id();
+
+    assert_eq!(
+        session_world_entity(app.world()),
+        Some(root),
+        "the premise: an ordinary root IS the live session world. If this fails \
+         the arm below proves nothing about hiding"
+    );
+
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            hide_candidate_session_root(&mut commands, root);
+        })
+        .expect("the hiding system runs");
+
+    assert_eq!(
+        session_world_entity(app.world()),
+        None,
+        "⛔ A CANDIDATE SESSION IS LIVE. Every reader of the session world would \
+         see a session whose world is still under construction"
+    );
+    assert_eq!(
+        session_root_for_scope(app.world_mut(), scope),
+        Some(root),
+        "⛔ A CANDIDATE'S OWN TRANSACTION CANNOT FIND THE ROOT IT IS BUILDING \
+         INTO, so its first room can never publish and the session can never \
+         become live"
+    );
+
+    assert!(publish_candidate_session_root(app.world_mut(), root));
+    assert_eq!(
+        session_world_entity(app.world()),
+        Some(root),
+        "a published candidate session is the live session world"
+    );
+    assert_eq!(session_root_for_scope(app.world_mut(), scope), Some(root));
+}

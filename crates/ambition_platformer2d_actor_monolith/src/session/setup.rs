@@ -37,6 +37,13 @@ pub struct SimulationSetup<'a> {
     /// must be handed the entity rather than looking up *"the live root"* — at
     /// activation the live root is the OUTGOING session's, or none at all.
     pub session_root: bevy::prelude::Entity,
+    /// What happens to the first room's PUBLICATION RECEIPT.
+    ///
+    /// ⛔ A caller that will ask `publication_succeeded` — the shell provider,
+    /// whose candidate session becomes authoritative only if this room published
+    /// — says `UntilOwnerRetires` and owes a `retire_publication`. A direct-entry
+    /// demo drops the handle and says `UntilTheVerdictIsRecorded`.
+    pub publication_retention: crate::world::rooms::transaction::PublicationRetention,
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,
@@ -96,13 +103,24 @@ pub struct SimulationSetup<'a> {
 ///   `InputParticipant` entity (spawned once at boot by the host input
 ///   plugin), NEVER on the player/actor entities; sim-only builds stay
 ///   leafwing-free per the ADR 0012 input seam.
+/// What one simulation setup produced: the session's home body, if it built one,
+/// and the receipt of the first room it built.
+pub struct SimulationWorld {
+    /// The session's home body, when the experience declared one.
+    pub player: Option<Entity>,
+    /// The first room's publication. A caller that asked to retain it decides
+    /// what happens to the session from this verdict.
+    pub publication: crate::world::rooms::transaction::PublicationHandle,
+}
+
 pub fn simulation_world(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     params: SimulationSetup<'_>,
-) -> Option<Entity> {
+) -> SimulationWorld {
     let SimulationSetup {
         session_root,
+        publication_retention,
         world,
         room_set,
         tuning,
@@ -160,20 +178,20 @@ pub fn simulation_world(
         construction,
     )
     .unwrap_or_else(|error| panic!("initial room construction failed: {error}"));
-    // ⚠ NOBODY HOLDS THIS RECEIPT — YET. Session activation drops the handle,
-    // so the publication ends with its verdict. A10.4's candidate session is the
-    // owner this will grow: the activation decision is exactly a reader of this
-    // room's verdict, and it will say `UntilOwnerRetires` here.
-    room_plan.spawn_contents(
-        commands,
-        crate::world::rooms::transaction::PublicationRetention::UntilTheVerdictIsRecorded,
-    );
+    // ⛔⛤ **THE FIRST ROOM'S RECEIPT IS THE ACTIVATION DECISION.** A candidate
+    // session becomes authoritative only if the room it was built around
+    // published, so the caller that owns that decision retains this handle. See
+    // `SimulationSetup::publication_retention`.
+    let publication = room_plan.spawn_contents(commands, publication_retention);
     commands.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
         room_plan.platform_states().to_vec(),
     ));
 
     let crate::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
-        return None;
+        return SimulationWorld {
+            player: None,
+            publication,
+        };
     };
 
     // Capability set travels WITH the worn character when the row authors one
@@ -342,5 +360,8 @@ pub fn simulation_world(
     //
     // `Option`: "there is always exactly one primary player"
     // was an engine-wide assumption, and a match experience is the counterexample.
-    Some(player)
+    SimulationWorld {
+        player: Some(player),
+        publication,
+    }
 }

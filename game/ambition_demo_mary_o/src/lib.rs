@@ -1570,6 +1570,9 @@ fn mary_o_setup(
         ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
             session_root: *session_root,
+            // A direct-entry demo drops the first room's receipt.
+            publication_retention:
+                ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
             world: &world,
             room_set: &room_set,
             // The CALLER converts: who edits the set is a developer

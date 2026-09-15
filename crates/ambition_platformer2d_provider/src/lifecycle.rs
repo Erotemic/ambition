@@ -1764,7 +1764,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             .expect("provider activation still owns the session it is constructing");
 
 
-        let player = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
+        let built = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,
             SessionSpawnScope::scoped(scope),
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
@@ -1772,6 +1772,11 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // session's content generation ON it — not into a process global
                 // that a second session would have to overwrite.
                 session_root: world,
+                // ⛔ THE ACTIVATION DECISION READS THIS RECEIPT. See the closure
+                // below: the candidate session becomes authoritative only if the
+                // room it was built around published.
+                publication_retention:
+                    ambition_platformer2d_actor_monolith::rooms::PublicationRetention::UntilOwnerRetires,
                 world: &geometry,
                 room_set: &room_set,
                 tuning: &self.tuning,
@@ -1846,7 +1851,59 @@ impl PlatformerSessionBuilder<'_, '_> {
             self.commands.entity(world).insert(index);
         }
 
-        SessionBuildResult { player, world }
+        // ⛔⛤ **AND THE SESSION ITSELF IS A CANDIDATE UNTIL ITS FIRST ROOM
+        // PUBLISHES — A10.4, 2026-09-14.** The root is spawned hidden, so nothing
+        // that reads the session world can see a session whose world does not
+        // exist yet; the room lanes are hidden by their own bracket. If the room
+        // publishes, the root is published in the same command flush and the
+        // session is live. If the room is REFUSED, the candidate session is
+        // discarded whole — root, world bundle, content binding and all — and the
+        // shell is told the experience failed, rather than being left with a live
+        // session holding an empty world.
+        //
+        // ⚠ The activation's process-level state (`ActiveSessionScope`,
+        // `ActiveGameplaySession`) is still written by the bridge before this
+        // runs; making THAT part of the candidate is the rest of A10.4.
+        ambition_platformer2d_shared_tangle::construction::hide_candidate_session_root(
+            &mut self.commands,
+            world,
+        );
+        let activation_id = activation.activation_id;
+        let experience = activation.experience_id.as_str().to_owned();
+        let publication = built.publication;
+        self.commands.queue(move |ecs: &mut bevy::prelude::World| {
+            let published =
+                ambition_platformer2d_actor_monolith::rooms::publication_succeeded(ecs, publication);
+            // ⛔ THE OWNER CONSUMES ITS RECEIPT WHATEVER IT SAID.
+            ambition_platformer2d_actor_monolith::rooms::retire_publication(ecs, publication);
+            if published {
+                ambition_platformer2d_shared_tangle::construction::publish_candidate_session_root(
+                    ecs, world,
+                );
+                return;
+            }
+            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                "session-refused experience={experience} activation={activation_id:?} \
+                 (the first room was not published; the candidate session is discarded)"
+            ));
+            bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "the first room of experience `{experience}` was REFUSED, so its \
+                 candidate session is discarded rather than published with no world"
+            );
+            if let Ok(root) = ecs.get_entity_mut(world) {
+                root.despawn();
+            }
+            ecs.write_message(ambition_game_shell::ShellCommand::ExperienceFailed {
+                activation_id,
+                message: "the session's first room failed construction verification".to_owned(),
+            });
+        });
+
+        SessionBuildResult {
+            player: built.player,
+            world,
+        }
     }
 }
 

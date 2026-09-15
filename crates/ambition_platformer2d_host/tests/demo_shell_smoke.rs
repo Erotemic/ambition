@@ -120,6 +120,9 @@ fn fixture_setup(
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
             session_root: *session_root,
+            // A smoke fixture drops the first room's receipt.
+            publication_retention:
+                ambition_platformer2d_runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
             world: &world,
             room_set: &room_set,
             tuning: &tuning,

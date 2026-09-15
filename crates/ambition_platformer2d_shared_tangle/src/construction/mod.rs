@@ -2745,6 +2745,41 @@ pub enum InactiveCommitRefused {
 ///
 /// Returns how many roots were admitted, so a caller can assert it published the
 /// transaction it built rather than an empty set.
+/// Hide a candidate SESSION root, so the session it names is prepared off to the
+/// side of the one that is playable.
+///
+/// ⛔⛤ **A SESSION ROOT IS NOT STAMPED WITH A ROOM'S `TransactionId`, so
+/// [`publish_candidate`] cannot find it.** The room lanes hide and publish by
+/// transaction; a session root is the thing the rooms are built INTO, and its
+/// own publication is the activation decision. These two functions are that
+/// decision's only vocabulary.
+///
+/// ⚠ **THE MARKER STAYS `pub(crate)`.** These take an entity rather than handing
+/// the type out, so no crate outside this one can name `InactiveCandidate` or
+/// attach a hook to it — the boundary `publish_candidate` documents at length.
+///
+/// ⭐ It hides the ROOT ONLY, which is exactly what visibility means here: the
+/// candidate's room roots are hidden by their own transaction's bracket, and the
+/// world-defining state the root carries becomes readable the moment
+/// [`publish_candidate_session_root`] runs.
+pub fn hide_candidate_session_root(commands: &mut bevy::prelude::Commands, root: Entity) {
+    commands.entity(root).insert(InactiveCandidate);
+}
+
+/// Make a hidden candidate session root authoritative.
+///
+/// Returns whether a root was there to publish, so a caller can tell *"I
+/// published my candidate"* from *"my candidate was already gone"*.
+pub fn publish_candidate_session_root(world: &mut World, root: Entity) -> bool {
+    match world.get_entity_mut(root) {
+        Ok(mut entity) => {
+            entity.remove::<InactiveCandidate>();
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usize {
     let roots = candidate_roots(world, transaction);
     for entity in &roots {

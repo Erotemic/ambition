@@ -302,7 +302,7 @@ always-empty resource.
 **THE ROOM SCOPE, IN ONE PARAGRAPH.** Every room lifecycle
 path (transition, reset, dev reload) runs through `replace_live_world`, which
 stages the whole replacement in `PendingWorldReplacement`, builds every root
-hidden under `ROOM_CANDIDATE_BRACKET = true`, declares what publication would do
+hidden — unconditionally; the selector is deleted — declares what publication would do
 (`superseding` / `retiring` / `owned_by`), and only then verifies. `transaction::open`
 makes that split against the baseline it captures, never against the
 post-construction world. Refusal drops the candidate roots and the staged world

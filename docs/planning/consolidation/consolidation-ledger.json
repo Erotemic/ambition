@@ -1684,7 +1684,7 @@
       "owner": "shared_tangle construction + actor_monolith room transaction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "InactiveCandidate, commit_inactive, publish_candidate, and retire_candidate exist. The room road has a single ROOM_CANDIDATE_BRACKET constant that is false at this snapshot, so candidate isolation is not the normal room road yet.",
+      "current_truth": "InactiveCandidate, publish_candidate and retire_candidate exist, and candidate isolation IS the normal room road as of 2026-09-15: the ROOM_CANDIDATE_BRACKET selector is deleted, so there is no alternate lifecycle to choose. commit_inactive remains as a construction-layer primitive with no room caller.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -1693,7 +1693,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "InactiveCandidate, commit_inactive, publish_candidate, and retire_candidate exist. The room road has a single ROOM_CANDIDATE_BRACKET constant that is false at this snapshot, so candidate isolation is not the normal room road yet.",
+          "claim": "InactiveCandidate, publish_candidate and retire_candidate exist, and candidate isolation IS the normal room road as of 2026-09-15: the ROOM_CANDIDATE_BRACKET selector is deleted, so there is no alternate lifecycle to choose. commit_inactive remains as a construction-layer primitive with no room caller.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -2881,97 +2881,6 @@
       ]
     },
     {
-      "id": "TRANS-ROOM-DESTRUCTIVE",
-      "category": "transitional",
-      "name": "Destructive replace_live_world road",
-      "owner": "actor_monolith room stage",
-      "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "replace_live_world retires N before N+1 verification and commits non-entity state before verification. Source marks this as the destructive window A10 must replace.",
-      "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
-      ],
-      "evidence": [
-        {
-          "status": "SOURCE_CONFIRMED",
-          "claim": "replace_live_world retires N before N+1 verification and commits non-entity state before verification. Source marks this as the destructive window A10 must replace.",
-          "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
-          ]
-        }
-      ],
-      "classification": "known transitional architecture",
-      "consolidation_hypothesis": "Delete after candidate world/session publication becomes the normal replacement road.",
-      "blocked_by": [
-        "A10 candidate-world/session publication"
-      ],
-      "metric_tags": [
-        "known_transitional"
-      ]
-    },
-    {
-      "id": "TRANS-CANDIDATE-FLAG",
-      "category": "transitional",
-      "name": "ROOM_CANDIDATE_BRACKET disabled normal-path switch",
-      "owner": "actor_monolith room transaction",
-      "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "ROOM_CANDIDATE_BRACKET is false at this snapshot. Candidate support exists but is held off on the normal room path.",
-      "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
-      ],
-      "evidence": [
-        {
-          "status": "SOURCE_CONFIRMED",
-          "claim": "ROOM_CANDIDATE_BRACKET is false at this snapshot. Candidate support exists but is held off on the normal room path.",
-          "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
-          ]
-        }
-      ],
-      "classification": "known transitional architecture",
-      "consolidation_hypothesis": "A10 should remove the dual road rather than leave a permanent mode flag.",
-      "blocked_by": [
-        "A10 candidate-world/session publication"
-      ],
-      "metric_tags": [
-        "known_transitional"
-      ]
-    },
-    {
-      "id": "TRANS-HOT-RELOAD-SPLIT",
-      "category": "transitional",
-      "name": "Hot reload publishes room/content/session values on separate queued writes",
-      "owner": "ambition_app dev_runtime",
-      "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "The reload road calls replace_live_world and then queues ActiveContentBinding plus other prepared/session values. The room verifier cannot control all of those writes.",
-      "source_paths": [
-        "game/ambition_app/src/app/dev_runtime.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
-      ],
-      "evidence": [
-        {
-          "status": "SOURCE_CONFIRMED",
-          "claim": "The reload road calls replace_live_world and then queues ActiveContentBinding plus other prepared/session values. The room verifier cannot control all of those writes.",
-          "sources": [
-            "game/ambition_app/src/app/dev_runtime.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
-          ]
-        }
-      ],
-      "classification": "known transitional architecture",
-      "consolidation_hypothesis": "Replace with one A10 candidate session/world publication record.",
-      "blocked_by": [
-        "A10 candidate-world/session publication"
-      ],
-      "metric_tags": [
-        "known_transitional"
-      ]
-    },
-    {
       "id": "TRANS-FACADE-MIRRORS",
       "category": "transitional",
       "name": "Umbrella facade and compatibility re-export mirrors",
@@ -3802,7 +3711,7 @@
       "public_items_heuristic": 68,
       "public_root_reexports_or_modules_heuristic": 5,
       "raw_rust_loc": 5257,
-      "responsibility_clue": "The WIELDED ability kit: ranged (beam, meteor, shockwave, volley, vortex, sentry, bomb), thrown gravity grenades, the traversal verbs a held item fires (blink, dive, grapple, mark/recall), and the cooldown they share. Carved from the actor kernel (D33, 2026-09-03). \u26d4 NOT possession/teleport/trapdoor/flyline \u2014 those are control authority and runtime-registered, and actor-monolith-decomposition.md records why they stay.",
+      "responsibility_clue": "The WIELDED ability kit: ranged (beam, meteor, shockwave, volley, vortex, sentry, bomb), thrown gravity grenades, the traversal verbs a held item fires (blink, dive, grapple, mark/recall), and the cooldown they share. Carved from the actor kernel (D33, 2026-09-03). ⛔ NOT possession/teleport/trapdoor/flyline — those are control authority and runtime-registered, and actor-monolith-decomposition.md records why they stay.",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
@@ -4037,7 +3946,7 @@
       "public_items_heuristic": 29,
       "public_root_reexports_or_modules_heuristic": 3,
       "raw_rust_loc": 3263,
-      "responsibility_clue": "Reusable, content-free derivations FROM a character sheet: the animation-row picker over body state, the sheet-authored collision/quad geometry (and the sim pass that keeps a body equal to the pose it shows), and the manifest attack hitbox in world space. Extracted from ambition_platformer2d_actor_monolith, which does NOT depend on it \u2014 everything here answers upward.",
+      "responsibility_clue": "Reusable, content-free derivations FROM a character sheet: the animation-row picker over body state, the sheet-authored collision/quad geometry (and the sim pass that keeps a body equal to the pose it shows), and the manifest attack hitbox in world space. Extracted from ambition_platformer2d_actor_monolith, which does NOT depend on it — everything here answers upward.",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d",
         "ambition_platformer2d_runtime",
@@ -4261,7 +4170,7 @@
       "public_items_heuristic": 72,
       "public_root_reexports_or_modules_heuristic": 2,
       "raw_rust_loc": 3331,
-      "responsibility_clue": "Conversation continuity: the rollback-owned ActiveConversation authority, the hold projected from it, the break rule and its cast port, the narrative-input ledger, and the dialogue-opening seam. Carved out of ambition_platformer2d_actor_monolith (D33 step 2); content-free \u2014 it decides WHO is talking and for how long, never what anyone says.",
+      "responsibility_clue": "Conversation continuity: the rollback-owned ActiveConversation authority, the hold projected from it, the break rule and its cast port, the narrative-input ledger, and the dialogue-opening seam. Carved out of ambition_platformer2d_actor_monolith (D33 step 2); content-free — it decides WHO is talking and for how long, never what anyone says.",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_platformer2d",
@@ -4317,7 +4226,7 @@
       "public_items_heuristic": 13,
       "public_root_reexports_or_modules_heuristic": 0,
       "raw_rust_loc": 3928,
-      "responsibility_clue": "\u26d4 AND IT RE-EXPORTS NOTHING. Three `pub use` lines forwarded `ambition_combat::util` and `_core::hit_response` items from here, which is the same facade shape that hid this module's real coupling for months. Callers name the owner. Victim-side combat damage resolution: shield blocks, knockback, hitstun, safe-respawn, and death-respawn for the controlled body, plus the `apply_player_hit_events` system that drives them off the victim-side `HitEvent` channel. This is runtime (sim) logic \u2014 it emits `SfxMessage`/`VfxMessage` *facts* but holds no render dependency (`VfxMessage` is `ambition_vfx`, not `ambition_render`). It lived in `ambition_app` only because it was authored beside the room/attack glue; it belongs here in the combat runtime, where the state it mutates already lives. Player-centrism note: the bodies still name the controlled actor \"player\" because the component vocabulary (`BodyCombat`, `ae::BodyClustersMut`) does. The relativity-principle fix is the actor-unification rename of those types, tracked separately; this drain only relocates and de-render-couples. \u26d4\u26d4 WHAT THIS CRATE REFUSES. - **The ATTACK side.** This resolves what happens TO a body: what a swing is, when it is active and who it reaches are the attacker's, and they live in `ambition_combat`. A `HitEvent` arriving here has already been adjudicated. - **Whether two bodies are ENEMIES.** Hostility, teams and friendly fire are the disposition layer's answer; this crate applies a hit somebody else decided was legal. - **Drawing.** Enforced rather than promised: `ambition_vfx` supplies the cue vocabulary and `ambition_render` is absent from this crate's manifest, so a thing that must DRAW cannot compile here. \u26a0 AND ONE EDGE THAT IS BORDERLINE RATHER THAN REFUSED: `ambition_persistence`, for the assist-mode damage scale. A damage resolver reading a settings store is worth somebody's judgement; it is named here so the next arrival is weighed against a stated boundary rather than against this one precedent.",
+      "responsibility_clue": "⛔ AND IT RE-EXPORTS NOTHING. Three `pub use` lines forwarded `ambition_combat::util` and `_core::hit_response` items from here, which is the same facade shape that hid this module's real coupling for months. Callers name the owner. Victim-side combat damage resolution: shield blocks, knockback, hitstun, safe-respawn, and death-respawn for the controlled body, plus the `apply_player_hit_events` system that drives them off the victim-side `HitEvent` channel. This is runtime (sim) logic — it emits `SfxMessage`/`VfxMessage` *facts* but holds no render dependency (`VfxMessage` is `ambition_vfx`, not `ambition_render`). It lived in `ambition_app` only because it was authored beside the room/attack glue; it belongs here in the combat runtime, where the state it mutates already lives. Player-centrism note: the bodies still name the controlled actor \"player\" because the component vocabulary (`BodyCombat`, `ae::BodyClustersMut`) does. The relativity-principle fix is the actor-unification rename of those types, tracked separately; this drain only relocates and de-render-couples. ⛔⛔ WHAT THIS CRATE REFUSES. - **The ATTACK side.** This resolves what happens TO a body: what a swing is, when it is active and who it reaches are the attacker's, and they live in `ambition_combat`. A `HitEvent` arriving here has already been adjudicated. - **Whether two bodies are ENEMIES.** Hostility, teams and friendly fire are the disposition layer's answer; this crate applies a hit somebody else decided was legal. - **Drawing.** Enforced rather than promised: `ambition_vfx` supplies the cue vocabulary and `ambition_render` is absent from this crate's manifest, so a thing that must DRAW cannot compile here. ⚠ AND ONE EDGE THAT IS BORDERLINE RATHER THAN REFUSED: `ambition_persistence`, for the assist-mode damage scale. A damage resolver reading a settings store is worth somebody's judgement; it is named here so the next arrival is weighed against a stated boundary rather than against this one precedent.",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d",
         "ambition_platformer2d_actor_monolith",
@@ -4516,7 +4425,7 @@
       "public_items_heuristic": 170,
       "public_root_reexports_or_modules_heuristic": 12,
       "raw_rust_loc": 6823,
-      "responsibility_clue": "Reusable developer-tooling STATE + logic (E1d): the DeveloperTools debug/gizmo toggle resource, keyboard-preset index, reflected editable player-tuning / ability / stats resources and their engine conversions, the movement/debug profile enums, the startup profiler marks, DeveloperTools disk persistence, and the live-edit sync systems that push inspector edits onto the authoritative player body. Content-free \u2014 it names only the foundational body/marker/health vocabulary, so any platformer can wire an inspector against it. The egui overlay UI (DevToolsPlugin) stays app-side; input preset interpretation stays in input-owning callers; the sim trace recorder stays sim-side.",
+      "responsibility_clue": "Reusable developer-tooling STATE + logic (E1d): the DeveloperTools debug/gizmo toggle resource, keyboard-preset index, reflected editable player-tuning / ability / stats resources and their engine conversions, the movement/debug profile enums, the startup profiler marks, DeveloperTools disk persistence, and the live-edit sync systems that push inspector edits onto the authoritative player body. Content-free — it names only the foundational body/marker/health vocabulary, so any platformer can wire an inspector against it. The egui overlay UI (DevToolsPlugin) stays app-side; input preset interpretation stays in input-owning callers; the sim trace recorder stays sim-side.",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d",
         "ambition_platformer2d_runtime",
@@ -4541,7 +4450,7 @@
       "public_items_heuristic": 76,
       "public_root_reexports_or_modules_heuristic": 9,
       "raw_rust_loc": 2901,
-      "responsibility_clue": "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner\u2194DialogState bridge plus the generic Yarn binding-installer seam. Content-free \u2014 a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_platformer2d_actor_monolith (E1c).",
+      "responsibility_clue": "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner↔DialogState bridge plus the generic Yarn binding-installer seam. Content-free — a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_platformer2d_actor_monolith (E1c).",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_conversation",
@@ -4609,7 +4518,7 @@
       "public_items_heuristic": 18,
       "public_root_reexports_or_modules_heuristic": 9,
       "raw_rust_loc": 2454,
-      "responsibility_clue": "Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) \u2014 distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases. An \"encounter\" is a sequence of mob waves with explicit lock / unlock semantics: entering the trigger zone starts it, exits seal until all waves are defeated, player death resets/unlocks, all-defeated \u2192 cleared + exits unlock. Any number of encounters coexist via `EncounterRegistry`. ADAPTER module \u2014 it re-exports nothing it does not define. Authored data, registry resources, event vocabulary, music request resources, reward math, and the headless state machine live in `ambition_encounter`, and every consumer names that crate directly (`ambition_platformer2d::encounter` is the same crate under the facade's short name). Gameplay-core keeps only the adapters that still touch LDtk, ECS spawning, player/body queries, feature overlays, banners, save/quest plumbing, switch state, and schedule sets.",
+      "responsibility_clue": "Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases. An \"encounter\" is a sequence of mob waves with explicit lock / unlock semantics: entering the trigger zone starts it, exits seal until all waves are defeated, player death resets/unlocks, all-defeated → cleared + exits unlock. Any number of encounters coexist via `EncounterRegistry`. ADAPTER module — it re-exports nothing it does not define. Authored data, registry resources, event vocabulary, music request resources, reward math, and the headless state machine live in `ambition_encounter`, and every consumer names that crate directly (`ambition_platformer2d::encounter` is the same crate under the facade's short name). Gameplay-core keeps only the adapters that still touch LDtk, ECS spawning, player/body queries, feature overlays, banners, save/quest plumbing, switch state, and schedule sets.",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_platformer2d",
@@ -4636,7 +4545,7 @@
       "public_items_heuristic": 1,
       "public_root_reexports_or_modules_heuristic": 1,
       "raw_rust_loc": 74,
-      "responsibility_clue": "The schemas the ENGINE itself owns \u2014 the one list, in one place. \u26d4\u26d4 THERE WERE TWO HAND-KEPT COPIES AND A TEST HOLDING THEM EQUAL. `ambition_platformer2d::content::engine_schemas()` and `ambition_content_cli::default_registry()` each spelled the same twelve registrations, in different orders, in different crates, and `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set` asserted they matched. The CLI's own comment stated the rule that test enforced \u2014 *\"A schema added to one belongs in the other in the same commit\"* \u2014 which is a rule about a list that should not have been two lists. \u2b50 THE OBVIOUS COLLAPSE WAS THE WRONG ONE. The CLI cannot call `engine_schemas()` where it lived, because that is the `ambition_platformer2d` facade and the CLI is a lightweight validator that deliberately does not link it. MEASURED 2026-09-11: the facade is absent from the CLI's 324-crate closure, and this crate's six dependencies were ALL already in it \u2014 so the one list moved DOWN to a crate both sides can reach. Measured by member: the CLI goes 324 -> 325 crates and the only addition is this one. \u26a0 WHAT WOULD HAVE MADE THIS NOT WORTH DOING, checked first: a schema owned by a crate the CLI does not link. None is. All twelve belong to the six capability crates the CLI already declared by name in its own manifest, and none of those six is an optional edge of the facade \u2014 so the two lists were the same fact in every configuration, not merely in the default one.",
+      "responsibility_clue": "The schemas the ENGINE itself owns — the one list, in one place. ⛔⛔ THERE WERE TWO HAND-KEPT COPIES AND A TEST HOLDING THEM EQUAL. `ambition_platformer2d::content::engine_schemas()` and `ambition_content_cli::default_registry()` each spelled the same twelve registrations, in different orders, in different crates, and `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set` asserted they matched. The CLI's own comment stated the rule that test enforced — *\"A schema added to one belongs in the other in the same commit\"* — which is a rule about a list that should not have been two lists. ⭐ THE OBVIOUS COLLAPSE WAS THE WRONG ONE. The CLI cannot call `engine_schemas()` where it lived, because that is the `ambition_platformer2d` facade and the CLI is a lightweight validator that deliberately does not link it. MEASURED 2026-09-11: the facade is absent from the CLI's 324-crate closure, and this crate's six dependencies were ALL already in it — so the one list moved DOWN to a crate both sides can reach. Measured by member: the CLI goes 324 -> 325 crates and the only addition is this one. ⚠ WHAT WOULD HAVE MADE THIS NOT WORTH DOING, checked first: a schema owned by a crate the CLI does not link. None is. All twelve belong to the six capability crates the CLI already declared by name in its own manifest, and none of those six is an optional edge of the facade — so the two lists were the same fact in every configuration, not merely in the default one.",
       "reverse_workspace_dependencies": [
         "ambition_content_cli",
         "ambition_platformer2d"
@@ -5020,7 +4929,7 @@
       "public_items_heuristic": 22,
       "public_root_reexports_or_modules_heuristic": 0,
       "raw_rust_loc": 2919,
-      "responsibility_clue": "The bevy_lunex 3D OoT-style cube renderer for the ambition_menu page model \u2014 the FIRST engine extension crate (E1e). Optional for any game: a host installs KaleidoscopeMenuPlugin to render the same backend-agnostic MenuPageModel as a rotating cube instead of the flat bevy_ui grid. Engine-only deps (ambition_menu + bevy + bevy_lunex); names no game content.",
+      "responsibility_clue": "The bevy_lunex 3D OoT-style cube renderer for the ambition_menu page model — the FIRST engine extension crate (E1e). Optional for any game: a host installs KaleidoscopeMenuPlugin to render the same backend-agnostic MenuPageModel as a rotating cube instead of the flat bevy_ui grid. Engine-only deps (ambition_menu + bevy + bevy_lunex); names no game content.",
       "reverse_workspace_dependencies": [
         "ambition_app"
       ],
@@ -5359,7 +5268,7 @@
       "public_items_heuristic": 30,
       "public_root_reexports_or_modules_heuristic": 2,
       "raw_rust_loc": 3659,
-      "responsibility_clue": "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` \u2014 the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content \u2014 that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_platformer2d_actor_monolith dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_platformer2d_runtime, so do not cite it as settled \u2014 see docs/planning/engine/actor-monolith-decomposition.md. The shared per-frame SIM wiring lives in `ambition_platformer2d_runtime` (headless/RL runs it too).",
+      "responsibility_clue": "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing. Must NOT dep ambition_content — that one IS boundary-tested (engine.host-names-no-content). Avoiding a DIRECT ambition_platformer2d_actor_monolith dep is a goal, not a ratchet: no guard has ever enforced it, and actors already arrives transitively via ambition_platformer2d_runtime, so do not cite it as settled — see docs/planning/engine/actor-monolith-decomposition.md. The shared per-frame SIM wiring lives in `ambition_platformer2d_runtime` (headless/RL runs it too).",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d"
       ],
@@ -5502,7 +5411,7 @@
       "public_items_heuristic": 227,
       "public_root_reexports_or_modules_heuristic": 5,
       "raw_rust_loc": 12670,
-      "responsibility_clue": "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate \u2014 S5/M-track apps depend on this, not on ambition_app.",
+      "responsibility_clue": "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app.",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_platformer2d",
@@ -5673,7 +5582,7 @@
       "public_items_heuristic": 1,
       "public_root_reexports_or_modules_heuristic": 0,
       "raw_rust_loc": 50,
-      "responsibility_clue": "Authored projectile intent \u2014 content-free spawn data, and nothing else. Lower authored-intent vocabulary consumed by the projectile domain and re-exported by the shared projectile primitive. It intentionally has no platformer/runtime dependency. `ProjectileSpec` and `WorldHitPolicy` remain with the shared projectile primitive and its snapshot codecs. This crate owns only authored spawn intent.",
+      "responsibility_clue": "Authored projectile intent — content-free spawn data, and nothing else. Lower authored-intent vocabulary consumed by the projectile domain and re-exported by the shared projectile primitive. It intentionally has no platformer/runtime dependency. `ProjectileSpec` and `WorldHitPolicy` remain with the shared projectile primitive and its snapshot codecs. This crate owns only authored spawn intent.",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d_shared_tangle",
         "ambition_projectiles"
@@ -5828,7 +5737,7 @@
       "public_items_heuristic": 53,
       "public_root_reexports_or_modules_heuristic": 2,
       "raw_rust_loc": 2566,
-      "responsibility_clue": "The renderer-agnostic settings + system menu IR (E1e): SettingsMenuModel / SettingsOption / apply_settings_option built from ambition_persistence::settings::UserSettings, and the System-menu layer (Radio / Video / Audio / Controls / Gameplay / Language / Reset / Quit / Developer) on top of it. Pure logic \u2014 no bevy, no renderer \u2014 so both the bevy-UI grid and the lunex cube render the same model. Depends only on the persistence settings vocabulary. Carved out of ambition_platformer2d_actor_monolith (dissolves the settings-IR god-dep).",
+      "responsibility_clue": "The renderer-agnostic settings + system menu IR (E1e): SettingsMenuModel / SettingsOption / apply_settings_option built from ambition_persistence::settings::UserSettings, and the System-menu layer (Radio / Video / Audio / Controls / Gameplay / Language / Reset / Quit / Developer) on top of it. Pure logic — no bevy, no renderer — so both the bevy-UI grid and the lunex cube render the same model. Depends only on the persistence settings vocabulary. Carved out of ambition_platformer2d_actor_monolith (dissolves the settings-IR god-dep).",
       "reverse_workspace_dependencies": [
         "ambition_platformer2d"
       ],
@@ -5937,7 +5846,7 @@
       "public_items_heuristic": 210,
       "public_root_reexports_or_modules_heuristic": 18,
       "raw_rust_loc": 12091,
-      "responsibility_clue": "[the observation boundary] (E4): the SimView read-model \u2014 per-body pose + velocity views, the feature/actor/boss/nameplate indexes, the item/hud/prop fact resources, and the follow-camera snapshot resolve. Rebuilt once per sim tick as pure functions of sim state; render, RL observation, netcode confirmation, and slower-light shaders are all the SAME KIND of consumer.",
+      "responsibility_clue": "[the observation boundary] (E4): the SimView read-model — per-body pose + velocity views, the feature/actor/boss/nameplate indexes, the item/hud/prop fact resources, and the follow-camera snapshot resolve. Rebuilt once per sim tick as pure functions of sim state; render, RL observation, netcode confirmation, and slower-light shaders are all the SAME KIND of consumer.",
       "reverse_workspace_dependencies": [
         "ambition_content",
         "ambition_platformer2d",

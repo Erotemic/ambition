@@ -311,14 +311,26 @@ Do not replace clear Bevy set ordering with a custom scheduler abstraction.
 | --- | --- | --- | --- | --- | --- | --- |
 | TRANS-DIRECT-SESSION-FALLBACK | Unscoped direct/headless session spawning | real supported composition today | Missing ActiveSessionScope means process-resident direct/legacy spawning; shell frontend with a present but inactive scope sleeps. | Remove only if direct/headless hosts adopt the canonical SessionRoot/session lifecycle. | — | SOURCE_CONFIRMED |
 | TRANS-DIRECT-GENERATION-FALLBACK | App registry fallback for construction with no activated generation | real supported compatibility composition | GenerationMechanics can read App registries when no content generation was activated. Shell-routed live rebuilds refuse this fallback. | Candidate deletion road after provider/session generation activation is universal or direct compositions get an explicit prepared generation. | — | SOURCE_CONFIRMED |
-| TRANS-DIRECT-CONTENT-BINDING | Missing content-binding allowance in direct fixtures | test/direct composition convenience with production discriminator | Direct fixtures can verify rooms without ActiveContentBinding; shell-routed sessions cannot. | Delete the special absence once the canonical session world always owns a content binding. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
-| TRANS-ROOM-DESTRUCTIVE | Destructive replace_live_world road | known transitional architecture | replace_live_world retires N before N+1 verification and commits non-entity state before verification. Source marks this as the destructive window A10 must replace. | Delete after candidate world/session publication becomes the normal replacement road. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
-| TRANS-CANDIDATE-FLAG | ROOM_CANDIDATE_BRACKET disabled normal-path switch | known transitional architecture | ROOM_CANDIDATE_BRACKET is false at this snapshot. Candidate support exists but is held off on the normal room path. | A10 should remove the dual road rather than leave a permanent mode flag. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
-| TRANS-HOT-RELOAD-SPLIT | Hot reload publishes room/content/session values on separate queued writes | known transitional architecture | The reload road calls replace_live_world and then queues ActiveContentBinding plus other prepared/session values. The room verifier cannot control all of those writes. | Replace with one A10 candidate session/world publication record. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
+| TRANS-DIRECT-CONTENT-BINDING | Missing content-binding allowance in direct fixtures | supported composition answer, not a gap | `verify_and_publish` discriminates on `SessionGatedSimulation`: a shell-routed session missing `ActiveContentBinding` REFUSES the room; a direct-entry fixture states no binding and means it. | Delete only if direct-entry compositions are required to own a content binding — a composition decision, not a correctness one. | — | SOURCE_CONFIRMED 2026-09-15 |
 | TRANS-FACADE-MIRRORS | Umbrella facade and compatibility re-export mirrors | migration/compatibility layer | The responsibility map records facade re-export and legacy module mirrors as compatibility surface, while ownership remains in lower crates. | Remove internal mirror paths as consumers move to the canonical public surface. Keep useful external facade ergonomics. | — | DOC_CLAIM |
 | TRANS-PLANNING-HISTORY | Historical closure prose in live queue | resolved documentation debt | The semantic-preservation cleanup at source snapshot `2dbd81abc50f` returned `queue.md`, `status.md`, and the decision ledger to current-state roles. Closed/retracted case-file prose now lives in Git history instead of the live queue. | Keep the queue role structural: open executable rows only, with owner/current state/next action/blocker/acceptance. | — | SOURCE_CONFIRMED |
 
-The baseline snapshot contained **8** transitional roads/families. `TRANS-PLANNING-HISTORY` was closed by the documentation consolidation at `2dbd81abc50f`; the remaining architecture/compatibility rows still require their replacement conditions. Some are supported direct-composition behavior today. Do not delete them until the replacement composition exists.
+The baseline snapshot contained **8** transitional roads/families. **Four are now
+closed** and their rows are deleted rather than annotated: `TRANS-PLANNING-HISTORY`
+(documentation consolidation at `2dbd81abc50f`), and three closed by A10 and
+verified against source at `4a243c8ec`:
+
+- `TRANS-ROOM-DESTRUCTIVE` — `apply_world_replacement` has exactly ONE call site,
+  inside `finalize_room_publication`, reachable only from a successful verdict.
+  Nothing retires N before N+1 is verified.
+- `TRANS-CANDIDATE-FLAG` — `ROOM_CANDIDATE_BRACKET` is DELETED, not `true`. Every
+  caller passed `true`; the alternate road had no selector.
+- `TRANS-HOT-RELOAD-SPLIT` — the reload publishes `ActiveContentBinding` behind
+  `publication_succeeded` on its exact publication (`dev_runtime.rs`).
+
+The remaining rows still require their replacement conditions. Some are supported
+direct-composition behaviour today. Do not delete them until the replacement
+composition exists.
 
 ## 11. Crate and package architecture
 
@@ -540,9 +552,6 @@ The strongest current cases are:
 
 ### Transitional complexity
 
-- `ROOM_CANDIDATE_BRACKET = false` while inactive candidate support waits to become the normal room path;
-- destructive `replace_live_world`;
-- development reload split scene/content/session publication;
 - direct-session and direct-generation fallbacks;
 - direct-fixture missing-content-binding allowance;
 - compatibility/facade mirrors.

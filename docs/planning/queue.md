@@ -139,6 +139,15 @@ assertion would have passed on an arm that no longer reached its subject. The
 without a COUNT of the thing an arm is about, *"the property held"* and *"the
 situation never occurred"* are the same green.
 
+⛔⛤ **AND "NOTHING REMAINS OUTSIDE CANDIDATE OWNERSHIP" IS ASSERTED NOW, NOT
+ARGUED.** `SessionMechanics` and `MovingPlatformSet` are the two process-global
+RESOURCES a candidate builder could most easily write during preparation — the
+review that flagged this said so by name. They belong to the candidate aggregate
+and are installed by ADOPTION, so the cancel arm (a candidate fully prepared and
+then abandoned, with no session ever live) asserts `SessionMechanics` is ABSENT
+afterwards, with the handoff arm asserting an adopted session HAS one as its
+control.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

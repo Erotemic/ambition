@@ -1120,6 +1120,16 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
         0,
         "a publication receipt is still standing after the handoff settled"
     );
+    // ⭐ THE CONTROL FOR THE CANCEL ARM'S ITEM-4 ASSERTION. `SessionMechanics` is
+    // installed by ADOPTION, so a live session has one; without this, "a
+    // cancelled candidate left no `SessionMechanics` behind" would be equally
+    // true of a composition that never installs it at all.
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .is_some(),
+        "an adopted session has no `SessionMechanics`, so the cancel arm's claim          that preparation installs none is a claim about nothing"
+    );
 }
 
 /// ⛔⛤ **A SUPERSEDED CANDIDATE SESSION IS DISCARDED, NOT DROPPED.**
@@ -1304,6 +1314,22 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     assert!(
         held.is_empty(),
         "the cancelled route is still held by its candidate's gate: {held:?}"
+    );
+    // ⛔⛤ **AND NOTHING PROCESS-GLOBAL WAS INSTALLED BY PREPARING A CANDIDATE.**
+    // This is report item 4 — "what remains OUTSIDE candidate ownership" —
+    // asserted rather than argued. `SessionMechanics` is the generation's frozen
+    // registries and `MovingPlatformSet` the first room's platform state; both
+    // are process-global RESOURCES, and a candidate builder that wrote them
+    // during preparation would have changed live mechanical state for a session
+    // that was never admitted. They belong to the candidate aggregate and are
+    // installed by ADOPTION, so a candidate prepared and then abandoned must
+    // leave neither behind. No session has ever been live in this arm, which is
+    // what makes their ABSENCE meaningful.
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .is_none(),
+        "⛔ PREPARING A CANDIDATE SESSION INSTALLED `SessionMechanics` PROCESS-WIDE.          The candidate was cancelled and never adopted, so the generation's frozen          registries belong to no session at all"
     );
     assert_eq!(
         ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),

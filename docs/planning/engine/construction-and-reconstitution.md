@@ -400,7 +400,17 @@ and it would need a live-relation enumerator the domain does not expose
 being vacuous and becomes required** — that is the trigger to write it, and the
 `unreachable!` above is what will announce it.
 
-**4. What remains OUTSIDE candidate ownership.** Nothing named in the A10 brief.
+**4. What remains OUTSIDE candidate ownership.** Nothing named in the A10 brief —
+and that is ASSERTED now rather than argued (2026-09-15). `SessionMechanics` (the
+generation's frozen registries) and `MovingPlatformSet` (the first room's platform
+state) are the two process-global RESOURCES a candidate builder could most easily
+write during preparation, and the review that flagged them said so in as many
+words. They belong to the candidate aggregate and are installed by ADOPTION, so
+`a_candidate_session_whose_route_is_cancelled_is_discarded` — where a candidate is
+fully prepared and then abandoned, with no session ever live — asserts
+`SessionMechanics` is ABSENT afterwards. ⭐ Its control is the handoff arm, which
+asserts an adopted session HAS one; without it the absence would be equally true
+of a composition that never installs it at all.
 A candidate session owns its room state, geometry, moving-platform state, content
 binding, prepared content, session mechanics, the player's mechanical transition
 state and its construction roots; and as of A10.5 it owns its SCOPE IDENTITY

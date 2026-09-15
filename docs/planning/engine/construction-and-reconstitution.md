@@ -173,18 +173,31 @@ visible and there is no *beside*.
 | what does a refused transition cost the player? | nothing measurable: displacement across the verdict frame is `Vec2(0.0, 0.0)` guaranteed against `Vec2(-1782.7, -188.0)` with the arrival applied anyway |
 | is the session handoff multi-frame? | no — retire A, activate B and publish B's room are all frame 243 on the shipped app. One frame, but not one command flush |
 
-**The dev LDtk hot reload has NO end-to-end coverage, in either direction.**
-MEASURED 2026-09-14 by reading the suite: nothing drives
-`handle_ldtk_hot_reload` to a published reload, and nothing drives it to a
-refused one. Every other room road (transition, death reconstruction, reset,
-first-room publication, shell handoff) has at least one app-level arm. This is
-why A10.3 — moving the reload's body transit, mechanical resets and presentation
-spawns behind `publication_succeeded` — is labelled REASONED rather than
-MEASURED: the closure is compile-verified and its gate is the same function the
-covered roads use, but no arm fires it. The harness owed is a `dev_tools` app
-that writes a broken LDtk project over the watch path, presses the reload, and
-asserts the player has not moved and the old room's visuals are still standing.
-It is NOT part of the A10 packet and belongs to whoever owns dev-tool coverage.
+**The dev LDtk hot reload IS covered now, in both directions — A10.3 is MEASURED
+as of 2026-09-15.** Until then it was the one room road with no app-level arm
+(transition, death reconstruction, reset, first-room publication and shell handoff
+all had one), which is why A10.3 was labelled REASONED. Two arms in
+`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs` close it on the
+shipped `build_visible_app`: press `ApplyLdtkReload` with the world intact and the
+effects run; press it with two process-resident holders of one
+`SimId::placement` standing — a world the baseline cannot describe — and the
+candidate room is refused, the preset flash stays `0.0`, `applied_count` does not
+move and the player is in the same room.
+
+⭐ **NO FILE IS WRITTEN.** The harness this document previously asked for wrote a
+broken LDtk project over the watch path; that is a shared tree and an unnecessary
+one. Re-reading the SAME project is an equivalent reload — it prepares a candidate,
+builds the room as hidden candidates and publishes it, the whole bracket — and the
+refusal is induced in the WORLD instead of on disk.
+
+⛔ **AND WITNESSING IT FOUND A REAL DEFECT.** The developer-facing status was the
+last effect on this road still running ahead of the verdict: `mark_applied` was
+called on the `Ok` of `reload_ldtk_world_from_disk`, and that `Ok` means STAGED.
+MEASURED: a refused reload reported `applied_count 0 -> 1` and `"world reload
+applied to 'X' (#1)"`. It is verdict-gated now, and a refusal records the
+verification's violations. ⇒ **The effect a human READS is an effect.** A road can
+have every mechanical write correctly bracketed and still tell the developer the
+world in front of them is the world on disk when it is not.
 
 **What a refusal costs.** No `RoomLoaded`, so no fresh attempt anywhere: staged
 victim hits are not voided and per-attempt state is not re-armed, both correct
@@ -299,10 +312,6 @@ controls.
 **7. Remaining work.** The acceptance criterion is MET at both scopes; these are
 the gaps that remain beside it, none of which falsifies it.
 
-- **The dev LDtk hot reload has no end-to-end coverage in either direction.** Its
-  effects cross the publication receipt (A10.3) by construction and by reading,
-  not by measurement. Whoever owns dev-tool coverage owes the harness described
-  above.
 - **The transition state machine advances to `playing` on a refusal** as well as
   on success, so a persistently refused door is a livelock rather than a
   corrupted world.

@@ -577,6 +577,168 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
     census(&mut app, "after a handoff");
 }
 
+/// The shipped app, gameplay activated, ready to be told to reload its world.
+fn a_running_shipped_session() -> bevy::prelude::App {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    app
+}
+
+/// The developer overlay's transition flash: `1.0` is written by a committed
+/// world reload and by nothing else in an idle frame.
+fn dev_preset_flash(app: &bevy::prelude::App) -> f32 {
+    app.world()
+        .resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>()
+        .preset_flash
+}
+
+fn press_apply_reload(app: &mut bevy::prelude::App) {
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>()
+        .preset_flash = 0.0;
+    app.world_mut()
+        .write_message(ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction::ApplyLdtkReload);
+    app.update();
+}
+
+/// ⛔⛤ **THE DEV WORLD RELOAD, AT LAST WITNESSED — AND IN BOTH DIRECTIONS.**
+///
+/// A10.3 moved every effect of the LDtk hot reload behind its publication's
+/// exact verdict: the body transit, the dialog close, the combat and cooldown
+/// resets, the developer flash and the presentation spawns. That landed
+/// compile-verified and REASONED, because this road had no end-to-end coverage in
+/// either direction and the queue row said so for a day.
+///
+/// ⭐ **NO FILE IS WRITTEN.** Pressing Apply re-reads the same project, which is
+/// an equivalent reload: it still prepares a candidate, still builds the room as
+/// hidden candidates, and still publishes it — the whole A10 bracket, without
+/// touching a shared tree's content.
+#[test]
+fn a_committed_world_reload_applies_its_effects() {
+    let mut app = a_running_shipped_session();
+    let before = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .applied_count;
+
+    press_apply_reload(&mut app);
+
+    let reload = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .clone();
+    assert!(
+        reload.applied_count > before,
+        "the reload did not apply, so this arm says nothing about what a \
+         COMMITTED reload does: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert_eq!(
+        dev_preset_flash(&app),
+        1.0,
+        "a committed world reload did not flash the developer overlay — either \
+         its effects no longer run behind the verdict at all, or this \
+         discriminator is dead and the refusal arm below certifies nothing"
+    );
+    assert!(
+        reload.last_status.contains("applied") && reload.last_errors.is_empty(),
+        "the status a developer reads does not say a committed reload applied: \
+         {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+}
+
+/// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**
+///
+/// The refusal is a production one: two process-resident holders of one identity
+/// make a world `TransactionBaseline::capture` cannot describe, so the reload's
+/// candidate room cannot be verified. Nothing test-only is wired into
+/// construction, and nothing is written to disk.
+///
+/// ⭐ Its control is the arm above, which proves the flash moves on a reload that
+/// DOES commit — without it, "the flash did not move" would also be true of a
+/// reload that never happened.
+#[test]
+fn a_refused_world_reload_leaves_the_running_game_untouched() {
+    let mut app = a_running_shipped_session();
+    let before_room = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(app.world())
+    .map(|rooms| rooms.active_spec().id.clone())
+    .expect("the running session carries a room set");
+    let before_applied = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .applied_count;
+
+    // A world that cannot be described: two holders of one canonical identity,
+    // process-resident so they are in the candidate's world too.
+    for _ in 0..2 {
+        app.world_mut()
+            .spawn(ambition_platformer2d::platformer::sim_id::SimId::placement(
+                "corrupt_twin",
+            ));
+    }
+
+    press_apply_reload(&mut app);
+
+    let verdict = app
+        .world()
+        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        !verdict.published,
+        "the reload's room was not refused, so this arm is about a committed \
+         reload rather than a refused one: {verdict:?}"
+    );
+    // ⭐ THE PREMISE, ASSERTED: the reload ROAD ran and recorded a refusal of its
+    // own. Without this the arm below is equally true of a reload that never
+    // happened — a missing player, an unset watch path, a silent early return.
+    let reload = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .clone();
+    assert!(
+        !reload.last_errors.is_empty() && reload.last_status.contains("rejected"),
+        "the hot reload did not record a refusal, so nothing here is a statement \
+         about a REFUSED reload: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert_eq!(
+        dev_preset_flash(&app),
+        0.0,
+        "⛔ A REFUSED WORLD RELOAD RAN ITS EFFECTS. The flash is the cheapest of \
+         them; the same verdict gates the body transit, the dialogue close, the \
+         combat and cooldown resets and the presentation spawns"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+            .applied_count,
+        before_applied,
+        "a refused reload counted itself as applied"
+    );
+    assert_eq!(
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .map(|rooms| rooms.active_spec().id.clone()),
+        Some(before_room),
+        "⛔ A REFUSED WORLD RELOAD CHANGED THE ROOM THE PLAYER IS IN"
+    );
+}
+
 /// ⛔⛤ **A10'S ACCEPTANCE CRITERION AT SESSION SCOPE: A CANDIDATE SESSION THE
 /// TRANSACTION REFUSES LEAVES THE SESSION YOU ARE PLAYING PLAYABLE.**
 ///

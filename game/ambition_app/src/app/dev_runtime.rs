@@ -234,8 +234,15 @@ pub(super) fn handle_ldtk_hot_reload(
         );
         match result {
             Ok(active_room) => {
-                ldtk_reload.mark_applied(&active_room);
-                eprintln!("LDtk hot reload applied to active room '{active_room}'");
+                // ⛔⛤ **STAGED IS NOT APPLIED.** `Ok` here means the reload
+                // DECLARED its candidate room and queued its effects; whether
+                // that room published is decided later in this same flush. The
+                // status the developer reads is written by the reload's own
+                // verdict-gated effect, alongside every other effect — marking it
+                // applied here reported a REFUSED reload as a successful one, and
+                // that is the one message a developer uses to decide whether the
+                // world in front of them is the world on disk.
+                eprintln!("LDtk hot reload staged for active room '{active_room}'");
             }
             Err(errors) => {
                 for error in &errors {
@@ -663,6 +670,57 @@ pub(super) fn reload_ldtk_world_from_disk(
     // on whether an unrelated room had begun publishing. Queued LAST, after both
     // readers above, and unconditionally — a refused receipt is as consumed as an
     // admitted one.
+    // ⛔⛤ **AND THE DEVELOPER-FACING STATUS IS AN EFFECT LIKE ANY OTHER.** It is
+    // the only one a human reads, so a reload that was refused and still said
+    // *"world reload applied to 'X' (#3)"* is the failure mode that makes every
+    // other guarantee on this road unobservable. Queued behind THIS publication's
+    // verdict, before the receipt is retired.
+    let status_room = active_room.clone();
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        let published = ambition_platformer2d::actors::rooms::publication_succeeded(world, publication);
+        // The REASONS are cosmetic and come from the last verification record;
+        // the DECISION above comes from this publication's own verdict. If that
+        // record is about some other room, the message says only what is certain.
+        let reasons = world
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .filter(|verification| verification.room_id == status_room)
+            .map(|verification| {
+                let mut reasons: Vec<String> = Vec::new();
+                reasons.extend(verification.violations.iter().map(|v| format!("{v:?}")));
+                reasons.extend(
+                    verification
+                        .projection_violations
+                        .iter()
+                        .map(|v| format!("{v:?}")),
+                );
+                reasons.extend(
+                    verification
+                        .staged_violations
+                        .iter()
+                        .map(|v| format!("{v:?}")),
+                );
+                reasons
+            })
+            .unwrap_or_default();
+        let Some(mut ldtk_reload) = world
+            .get_resource_mut::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        else {
+            return;
+        };
+        if published {
+            ldtk_reload.mark_applied(&status_room);
+        } else {
+            let reasons = if reasons.is_empty() {
+                vec![format!(
+                    "the reload's room '{status_room}' was refused; the running world is unchanged"
+                )]
+            } else {
+                reasons
+            };
+            ldtk_reload.mark_failed(reasons);
+        }
+    });
+
     commands.queue(move |world: &mut bevy::prelude::World| {
         ambition_platformer2d::actors::rooms::retire_publication(world, publication);
     });

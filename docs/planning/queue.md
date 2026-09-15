@@ -115,10 +115,30 @@ room that does not exist. `reload_ldtk_world_from_disk` lost eight parameters an
 `handle_ldtk_hot_reload` lost four system params to the change, which is the
 visible shape of it.
 
-⚠ **UNWITNESSED, and that is a REAL gap, not a formality.** The LDtk hot-reload
-road has no end-to-end coverage in either direction, so this is compile-verified
-and reasoned, not measured. A harness for it is recorded in the owner document and
-is not part of this packet.
+**A10.3d landed (2026-09-15): A10.3 IS MEASURED NOW, IN BOTH DIRECTIONS — and
+witnessing it found the one effect still running ahead of the verdict.** Two arms
+in `game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs` drive the shipped
+`build_visible_app`, activate gameplay and press `ApplyLdtkReload`. No file is
+written: re-reading the same project is an equivalent reload and still runs the
+whole candidate bracket.
+- `a_committed_world_reload_applies_its_effects` — `applied_count` rises, the
+  preset flash reads `1.0`, the status says applied with no errors.
+- `a_refused_world_reload_leaves_the_running_game_untouched` — two
+  process-resident holders of one `SimId::placement` make a world
+  `TransactionBaseline::capture` cannot describe, so the reload's candidate room is
+  refused. The flash stays `0.0`, `applied_count` is unchanged, and the player is
+  in the same room. Its control is the arm above; its PREMISE is asserted, because
+  "the flash did not move" is equally true of a reload that never ran.
+
+⛔ **THE DEFECT IT FOUND: the developer-facing status was still unconditional.**
+MEASURED — a refused reload reported `applied_count 0 -> 1` and
+`"world reload applied to 'X' (#1)"`. `mark_applied` was called on the `Ok` of
+`reload_ldtk_world_from_disk`, and that `Ok` means STAGED: the verdict is decided
+later in the same command flush. It is a verdict-gated queued effect now, like
+every other effect on this road, and a refusal records the verification's own
+violations. This was the last effect of the reload that did not cross the receipt,
+and it is the one a human reads to decide whether the world in front of them is
+the world on disk.
 
 ⇒ **And `close` no longer takes the room name.** `verify_and_publish` read the
 room id from a parameter and re-derived the owning lane transactions from the plan

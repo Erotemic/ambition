@@ -62,6 +62,19 @@ exactly two), and a refused door telling the player nothing.
 this line is a receipt rather than a field; the five statements above are the
 row's current state.
 
+⛔⛤ **A `debug_assert` IS NO GUARD WHERE RELEASE PICKS AN ANSWER (2026-09-15).**
+Found twice in an hour, once in my own fresh code. The candidate slot's backstop
+was a `debug_assert!(slot.0.is_none())` guarding the bare `slot.0 = Some(..)` that
+had leaked a whole prepared session that morning — so in the build players run,
+the assert is gone and the bare assignment is back. And `session_root_for_scope`
+asserted *"a scope owns at most one `SessionRoot`"* and then returned the first
+one regardless: two roots on one scope is the duplicate-authority condition A10
+forbids, in the ONE lookup every session-owned authority is read through, decided
+arbitrarily and in silence. ⇒ **The distinction is not how likely, but what
+happens INSTEAD**: unreachable → `debug_assert`; control continues into an
+arbitrary choice → log it as well; continues into data loss → handle it. Both
+repairs left behaviour unchanged and only added a voice.
+
 **A CANDIDATE REPLACED WHILE PENDING IS DISCARDED (2026-09-15).**
 `CandidateSessionSlot` is one deep and `slot.0 = Some(candidate)` overwrote it, so
 a second pending route dropped a whole prepared session — hidden root, hidden

@@ -646,7 +646,17 @@ request: three DIFFERENT tools, each green, each beside a claim that was false.
 
 - **`check_planning_citations.py --strict` read 1,222 citations all-resolved
   BEFORE AND AFTER five flatly false sentences were fixed.** It resolves cited
-  SYMBOLS; a claim about where code LIVES is prose. Six crates left the actor
+  SYMBOLS; a claim about where code LIVES is prose.
+  ⇒ **A THIRD GAP IN THE SAME TOOL, FOUND 2026-09-15: it does not see TEST NAMES
+  either.** A backticked `a_something_something` in prose is neither a path nor a
+  resolvable symbol, so a doc can name an arm that was renamed — or never written
+  — indefinitely. `scripts/check_planning_test_citations.py` asks `git grep` for a
+  matching `fn`; its first run found eight, one of which was A10's own
+  unit-level witness for the whole candidate-visibility design. ⛔ **And the
+  repair is not to fix the name**: of the two chased to the end, one was a rename
+  and one was a paragraph describing a hazard that had been closed BY
+  CONSTRUCTION, where renaming would have preserved the prose instead of the
+  fact. Six crates left the actor
   monolith that day, every citation the tooling could see was updated, and every
   sentence that merely *described* a location survived — *"…is
   `actor_monolith::items::pickup`, which stayed in the kernel"* reads as settled

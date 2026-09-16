@@ -148,16 +148,32 @@ App/process
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **25** process resources whose source says one gameplay session owns them:
+`SessionScopedResources` names **29** process resources whose source says one gameplay session owns them:
 
-`MovingPlatformSet, PossessionState, ControlledSubject, EncounterRegistry, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneAdvanceRequest, CutsceneSkipHold`.
+`MovingPlatformSet, PossessionState, ControlledSubject, EncounterRegistry, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneAdvanceRequest, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal`.
+
+⚠ **THIS SECTION CARRIED THE OLD COUNT AND THE OLD 25-NAME LIST WHILE THE
+EXECUTIVE MAP ABOVE HAD ALREADY BEEN CORRECTED TO 36.** One document, two
+numbers, for a day. The guard that exists to find exactly that —
+`check_session_owner_census_matches_source.py` — could not see it: its pattern
+required the bundle name and the verb to be adjacent, and this prose puts a
+CLOSING BACKTICK between them. ⇒ **A rule keyed on a phrase is keyed on its
+punctuation too**, and the copy it misses is the one nobody re-reads. The pattern
+now tolerates the backtick.
+
+⛔ **AND FIXING IT IMMEDIATELY PRODUCED A FALSE RED ON THIS VERY PARAGRAPH**, when
+the explanation restated the stale figure in the matched form. A historical quote
+is not a claim. Teaching the rule to recognise the difference would be
+prose-recognition, which is the rule backwards, so the paragraph is written to
+describe the old number instead of spelling it — the cheaper side of the trade,
+and the one that leaves the guard blunt rather than clever.
 
 `SessionOwnedCheckpointState` adds **6** checkpoint-coordinator resources:
 
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated content generation.
-The unique total is **32**.
+The unique total is **36**.
 
 The current compensation mechanisms are explicit activation reset, retirement cleanup, current-scope checks, generation presence checks, and direct-composition fallback.
 These are not automatically defects. They are evidence that storage owner and semantic owner differ.

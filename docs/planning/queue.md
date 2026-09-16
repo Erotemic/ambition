@@ -1061,38 +1061,141 @@ rollback-registered resource (`OwnedItems`, `rollback_resource_clone`,
 road, which desyncs the sync test — and the desync then presents as a stopped
 clock rather than as a failure.
 
-**THE EXPOSED POPULATION IS SIX ARMS, counted not estimated.** Of the 21 files
-that build on `with_sync_test_rollback_settings`, thirteen call `rollback_health()`
-or `session_health` at least once. These six step a sync-test session and never
-ask whether it is still alive:
+**THE EXPOSED POPULATION IS ZERO, AND THE FIRST COUNT SAID SIX.** Of the 21
+files built on `with_sync_test_rollback_settings`, thirteen call
+`rollback_health()` or `session_health`. I filed the other eight as exposed. Then
+I read them, and every one of them already refuses a frozen world — not with a
+health check, but with an assertion a stopped clock cannot satisfy:
 
-- `game/ambition_app/tests/canonical_state_is_finite.rs`
-- `game/ambition_app/tests/carried_item_crosses_rooms.rs`
-- `game/ambition_app/tests/d71_transaction_census.rs`
-- `game/ambition_app/tests/door_entry.rs`
-- `game/ambition_app/tests/input_stream_under_rollback.rs`
-- `game/ambition_app/tests/rollback_provoked_actor.rs`
+| arm | what a dead session breaks |
+|---|---|
+| `canonical_state_is_finite.rs` | population floor: `finite_seen >= ENCODED_FLOAT_FLOOR` against a measured 116,280 |
+| `input_stream_under_rollback.rs` | recorded stream length compared against the tick count |
+| `rollback_provoked_actor.rs` | `load_runs` must move; `assert_rolled_back` |
+| `d71_transaction_census.rs` | explicit preconditions `room_changes > 0` and `transactions > 0` |
+| `carried_item_crosses_rooms.rs` | `walk_through_the_door_to` panics after 60 frames with no room change |
+| `door_entry.rs` | asserts the room changed after the authored hold |
 
-⚠ **THIS IS AN EXPOSURE COUNT, NOT A DEFECT COUNT.** None of the six is known to
-be running over a dead session today; what is known is that none of them WOULD
-SAY SO. Do not convert this row into "six broken tests" without running the
-measurement — that is the same conversion this repository's evidence discipline
-exists to stop.
+⭐ **THE TRANSFERABLE PART IS THAT `grep` FOR THE HEALTH CALL MEASURED THE WRONG
+THING.** "Does this arm ask whether the session is alive" and "can this arm pass
+over a dead session" are different questions, and only the second one matters. An
+arm that demands a room change has a better liveness check than one that reads
+`rollback_health()` once at the end, because its check is load-bearing for what
+the arm is actually about. ⇒ Counting calls to a safety API measures vigilance;
+counting assertions that a broken world fails measures safety.
 
-⚠ A health check is also not a progress check. An arm that reads
-`rollback_health()` once at the end catches an invalidation; an arm that asserts
-over a window still has no statement about how many ticks that window contained.
-`SimTick` is the column that answers it, and no arm samples it.
+⚠ So there is no cleanup here and NOTHING SHOULD BE EDITED IN THOSE SIX FILES.
+Adding `rollback_health()` to them would add a redundant check and would trade a
+strong guarantee for a visible one.
 
-⇒ NEXT, in order, and the first step is cheap:
-1. Add `rollback_health()` to the six arms above and run the `app_it` lane. Green
-   is a strict improvement; red is a defect that was already there.
-2. Decide whether the harness should refuse to step an invalidated session at
-   all, rather than leaving every caller to remember. ⭐ That is the real fix:
-   the current contract makes silence the default and vigilance the opt-in.
-   It touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
-   maintainer ruling before it lands — a harness that panics on a dead session
-   will red any arm that is quietly relying on one.
+⇒ WHAT REMAINS IS THE CONTRACT, NOT A CLEANUP. The tree is currently safe by
+accumulated good taste in individual arms, and nothing holds that property in
+place: the next rollback arm written is exposed the moment its assertions happen
+to be satisfiable by a frozen world, and its author gets no warning.
+
+0. ⚠ **THE CENSUS ABOVE ROTS.** It proves the CURRENT 21 arms are safe; it says
+   nothing about the twenty-second. The cost of not fixing the contract is that
+   every future rollback arm inherits the exposure and its author gets no
+   warning — which is the same argument that turns "the only production
+   registrar is this one" into an absence contract rather than a note.
+   (ToothbrushAmbition's point, and it is the reason this row stays open after
+   the exposure count went to zero.)
+1. Decide whether `Platformer2dSimHarness::step` should refuse to step an
+   invalidated session rather than leaving every caller to notice on their own.
+   ⭐ That is the real fix: the current contract makes silence the default. It
+   touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
+   maintainer ruling — a harness that panics on a dead session will red any arm
+   that turns out to be relying on one, and the census above says none is.
+2. ⚠ A guard script is the WRONG shape here and the table above is why. The
+   property is "this arm's assertions are unsatisfiable by a frozen world", which
+   is not decidable by reading the source — six different mechanisms produced it
+   and a seventh would too. ⇒ If the contract moves into `step`, no guard is
+   needed; if it does not, no guard can be written.
+
+### ROLLBACK-BAG-DESYNC — a per-tick change to an UNHASHED resource desyncs the sync test
+
+⛔ **CHANGING `OwnedItems` ONCE PER TICK DESYNCS A GGRS SYNC TEST WITHIN SIX
+TICKS, BY EITHER ROAD.** The mismatch repeats at frames `[2, 3, 4]` forever and
+presents as a frozen clock (see
+[ROLLBACK-DEAD-SESSION](#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
+
+MEASURED 2026-09-16, `probe_how_far_each_harness_ticks_over_the_same_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, `SimTick`
+over 240 `sim.step()` calls:
+
+| system added to the sim schedule | tick at 0 / 40 / … / 240 | `session_health` |
+|---|---|---|
+| none (`new_with_options`) | 1, 41, …, 241 | `Ok` |
+| none, no rollback session | 0, 40, …, 240 | `Ok` |
+| empty system through `compose` | 1, 41, …, 241 | `Ok` |
+| `ResMut<OwnedItems>`, **grants ZERO** | 1, 41, …, 241 | `Ok` |
+| `ResMut<OwnedItems>`, grants 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
+| `MessageWriter<ItemGrantRequested>`, 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
+
+⇒ **THE TRIGGER IS THE VALUE MOVING, NOT THE WRITER.** The zero-grant row is the
+control that settles it: same `ResMut<OwnedItems>`, same unordered position in the
+schedule, same change detection, bag value unchanged — and it ticks 1:1. And the
+sanctioned road desyncs identically to the direct write, so this is not a case of
+writing rollback state from the wrong place. `ItemGrantRequested` →
+`apply_item_grants` is the engine's own road and the message is
+`clear_message_on_rollback`.
+
+⛔ **AND `OwnedItems` IS NOT HASHED**, which is what makes this sharp rather than
+routine. It is registered `rollback_resource_clone`
+(`crates/ambition_items/src/rollback_registration.rs:11`), and
+`RollbackEntryKind::feeds_peer_checksum` returns FALSE for `ResourceClone`
+(`crates/ambition_platformer2d_core/src/rollback_kind.rs:87`): the bag is
+snapshotted and restored, never compared. It cannot itself be the value the two
+passes disagree about. Something hashed is deriving from it.
+
+**THREE CANDIDATES ELIMINATED, each by measurement rather than by reading:**
+
+1. ⚠ **NOT the save mirror, which is the one I expected and wrote up before
+   checking.** `AmbitionGameSave` is `rollback_resource_clone_checksum` and
+   `persist_inventory_to_save` really does write it from `Update` — the exact
+   per-frame-vs-per-tick shape DURABLE-HORIZON-CHECKSUM predicts. But sampled
+   frame by frame the mirror holds `HealthCell = 0` for the whole window while
+   the live bag climbs 5 → 10: the latch never opened in this harness, so the
+   save is not changing and cannot be disagreeing. The mechanism was right in
+   shape and wrong in fact.
+2. **NOT a drained-message edge.** `capture_owned_items_baseline` writes the
+   checksummed `OwnedItemsBaseline` from the sim schedule gated on
+   `MessageReader<CheckpointCommitted>` — the "drained in the original pass,
+   empty in the replay" shape — but that channel IS `clear_message_on_rollback`
+   (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs:172`).
+3. **NOT the system's presence.** The zero-grant control above.
+4. **NOT change detection, and the zero-grant control already settles this too.**
+   `owned.grant(item, 0)` takes `ResMut` and calls a `&mut self` method, so it
+   derefs mutably and marks `OwnedItems` changed on EVERY tick exactly as the
+   granting version does. A `Changed<OwnedItems>` filter — a real candidate,
+   since a change tick that is not itself restored makes a filtered system run a
+   different number of times across a rewind — would therefore fire identically
+   in both rows, and only the row whose VALUE moves desyncs. ⇒ Whatever is
+   hashed reads the bag's VALUE, not its change flag.
+
+⚠ **THE ELIMINATIONS ARE READ INSIDE THE LIVE WINDOW, WHICH IS FRAMES 0–5 AND
+NOT 240.** The mismatch is reported at frames `[2, 3, 4]` and the freeze is
+downstream of it, so anything measured after the invalidation is a frozen world
+agreeing with itself and proves nothing. `session_health` is clean at steps 0
+through 5 and first reports at step 6; the mirror reads `HealthCell = 0` across
+those live steps while the live bag climbs 5 → 10, so elimination 1 is measured
+where it counts. ⇒ Any further hypothesis must be tested in that same window.
+
+⇒ NEXT. The reproduction is committed and costs one `cargo test` to re-run, so
+the next owner does not have to rebuild any of it:
+`cargo test -p ambition_app --test app_it probe_how_far_each_harness -- --include-ignored --nocapture`.
+What is owed is the identity of the hashed entry that moves. ⭐ The registry
+already knows every entry that feeds the peer checksum, so the direct route is a
+per-entry checksum dump at the mismatching frames rather than another hypothesis
+— the three above were each cheap and each wrong, which is the argument for
+instrumenting instead of guessing a fourth time.
+
+⚠ **SCOPE, because it decides whether this is urgent.** A sync test is one
+machine rewinding itself. If a single App disagrees with its own replay, no peer
+is needed for the divergence, and every road that changes a bag during play —
+pickups, shops, drops — crosses it. ⇒ But this is measured only for
+`OwnedItems`; whether other `ResourceClone` entries behave the same way is
+unmeasured, and the same probe answers it for any of them by swapping the system.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 
@@ -1544,6 +1647,29 @@ tells them apart.** Sample `ambition_platformer2d::time::SimTick` before
 attributing a frozen value to the schedule. ⚠ Scope: the fixed-tick harness. A
 rollback composition is a different host in a different schedule, so re-measure
 there rather than quoting this.
+
+⭐ **AND `check_headless_arms_can_fail`'s 17 ARMS WERE AUDITED FOR THE INFLATION
+THIS ROW'S OWN LOGIC INVITES — 0 EXPOSED (2026-09-16).** The check's rule is
+"pins `ManualDuration` OR asserts something", which counts what an arm CONTAINS.
+A peer warned that counting by what an arm CALLS rather than by what would FAIL
+had inflated their own census six-to-zero. ⇒ Measured here instead of assumed:
+10 of the 17 pass on asserts alone, and every one of them asserts something a
+non-stepping engine cannot satisfy — a tick going 0 → 1, a counter reaching 60,
+a life spent, a level clock advancing.
+
+⚠ The two that looked like composition-only assertions (`a_fixed_aspect_profile_
+reaches_the_camera_and_the_surround`, `an_undeclared_profile_leaves_the_host_
+full_bleed`) POISON RED: removing the two `app.update()` calls from their shared
+`presentation_shell` helper fails both, because `ResolvedGameplayPresentation` is
+produced by those updates. ⚠ My first poison at those two removed zero calls —
+they step through a helper, and `reachable()` expands it. A poison that edits the
+wrong scope is a finding about the poison.
+
+⭐⭐ **THE DISTINCTION IS WORTH MORE THAN THE RESULT: counting calls to a safety
+API measures VIGILANCE; counting assertions a broken world fails measures
+SAFETY.** An arm demanding a room change has a stronger liveness guarantee than
+one reading a health API once at the end, because its check is load-bearing for
+its own subject rather than bolted on beside it.
 
 **Still open.** One non-reproducing session-root handoff failure whose assertion
 message was never captured. On the next reproduction, capture the full failing

@@ -107,6 +107,24 @@ def reachable(text: str, body: str) -> str:
     return out
 
 
+def tracked_rust_files() -> list[str]:
+    """Every `.rs` file THIS checkout tracks, repo-relative.
+
+    ⛔⛤ **ONE KEEPER, BECAUSE THE TEST BESIDE THIS GUARD SPELLED THE
+    ENUMERATION A SECOND TIME.** Its anti-vacuity floor counted files with its
+    own `ROOT.glob("**/*.rs")`, which sweeps `.worktrees/` — so the floor was
+    inflated by other agents' checkouts and would have stayed green while the
+    real scan lost reach. A guard and its own vacuity test disagreeing about the
+    corpus is the vacuity test measuring something else.
+    """
+    return subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files", "*.rs"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+
+
 def main() -> int:
     offenders, checked = [], 0
     # ⛔⛤ **TRACKED FILES ONLY — A `**/*.rs` GLOB SWEEPS OTHER AGENTS'
@@ -116,12 +134,7 @@ def main() -> int:
     # EIGHT offenders and every one was a stale worktree — arms already fixed in
     # the live tree, which nobody could act on and which would train a reader to
     # ignore the whole report. `git ls-files` answers about THIS checkout.
-    tracked = subprocess.run(
-        ["git", "-C", str(ROOT), "ls-files", "*.rs"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
+    tracked = tracked_rust_files()
     # ⛔ ANTI-VACUITY. An empty listing would make every verdict below trivially
     # clean, and a scan root a move silently emptied looks exactly like a
     # repository with no defects.

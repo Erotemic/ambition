@@ -252,6 +252,16 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource<Mutability = Mutable> + SnapshotState;
 
+    fn rollback_component_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + SnapshotState;
+
     fn rollback_resource_canonical_checksum<T>(
         &mut self,
         owner: &'static str,
@@ -447,6 +457,39 @@ impl AmbitionRollbackApp for App {
         ) {
             self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
             RollbackApp::checksum_component(self, state_checksum::<T>);
+            record_probe(
+                self,
+                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_state::<T>),
+            );
+        }
+        self
+    }
+
+    fn rollback_component_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + SnapshotState,
+    {
+        if should_install_backend(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                // ⛔ THE KIND IS SPELLED TWICE PER REGISTRAR — here and in
+                // `ambition_platformer2d_runtime`'s recorder. Changing only one
+                // makes the two disagree and the registry panics on conflict,
+                // which is how ROLLBACK-KIND-SPELLING was filed.
+                RollbackEntryKind::ComponentCanonicalCustomChecksum,
+                detail,
+            ),
+        ) {
+            self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
+            RollbackApp::checksum_component(self, projection);
             record_probe(
                 self,
                 crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_state::<T>),

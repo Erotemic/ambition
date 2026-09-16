@@ -503,6 +503,17 @@ pub enum RollbackEntryKind {
     ComponentClone,
     ComponentCloneCanonicalChecksum,
     ComponentCloneCustomChecksum,
+    /// Canonical snapshot, but the CHECKSUM is a stated projection of the value
+    /// rather than the whole value — the component half of
+    /// `ResourceCanonicalCustomChecksum`.
+    ///
+    /// ⛔⛤ THE FAMILY WAS ASYMMETRIC AND NOBODY DECIDED IT. Resources had both
+    /// canonical-with-projection kinds; components had only the clone-strategy
+    /// one, so a component snapshotting through its own canonical codec could
+    /// not state a projection at all. `TransactionId` and `SimId` are both in
+    /// that position, and `SimId` is the type both provenance defects in this
+    /// campaign travelled through.
+    ComponentCanonicalCustomChecksum,
     ResourceCanonical,
     /// Canonical snapshot, but the CHECKSUM is a stated projection of the
     /// value rather than the whole value. The kind is what tells a guard
@@ -543,6 +554,7 @@ impl RollbackEntryKind {
             | Self::ComponentCloneResolved
             | Self::ComponentCloneCanonicalChecksum
             | Self::ComponentCloneCustomChecksum
+            | Self::ComponentCanonicalCustomChecksum
             | Self::ResourceCanonical
             | Self::ResourceCanonicalCustomChecksum
             | Self::ResourceCloneCursor
@@ -572,6 +584,7 @@ impl RollbackEntryKind {
             | Self::ComponentClone
             | Self::ComponentCloneCanonicalChecksum
             | Self::ComponentCloneCustomChecksum
+            | Self::ComponentCanonicalCustomChecksum
             | Self::ResourceCanonical
             | Self::ResourceCanonicalCustomChecksum
             | Self::ResourceCloneCursor
@@ -594,6 +607,7 @@ impl RollbackEntryKind {
             Self::ComponentClone => "component-clone",
             Self::ComponentCloneCanonicalChecksum => "component-clone-canonical-checksum",
             Self::ComponentCloneCustomChecksum => "component-clone-custom-checksum",
+            Self::ComponentCanonicalCustomChecksum => "component-canonical-custom-checksum",
             Self::ResourceCanonical => "resource-canonical",
             Self::ResourceCanonicalCustomChecksum => "resource-canonical-custom-checksum",
             Self::ResourceCloneCursor => "resource-clone-cursor",

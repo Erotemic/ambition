@@ -211,6 +211,21 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
+    fn rollback_component_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + SnapshotState,
+    {
+        self.app
+            .rollback_component_canonical_checksum::<T>(owner, name, detail, projection);
+        self
+    }
+
     fn rollback_resource_canonical_checksum<T>(
         &mut self,
         owner: &'static str,

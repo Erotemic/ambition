@@ -210,6 +210,23 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         self
     }
 
+    fn rollback_component_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component + SnapshotState,
+    {
+        // ⛔ SECOND SPELLING OF THE SAME KIND. The backend registrar in
+        // `ambition_platformer2d_rollback_ggrs` spells it too, and the registry
+        // panics if the two disagree — see ROLLBACK-KIND-SPELLING.
+        self.record::<T>(owner, name, RollbackEntryKind::ComponentCanonicalCustomChecksum, detail);
+        self
+    }
+
     fn rollback_resource_canonical_checksum<T>(
         &mut self,
         owner: &'static str,

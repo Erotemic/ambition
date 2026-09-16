@@ -570,6 +570,38 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support rollback_component_canonical for {name}")
     }
 
+    /// Canonical snapshot whose CHECKSUM is a stated projection of the value.
+    ///
+    /// ⛔⛤ **THE COMPONENT HALF OF A FAMILY THAT WAS ASYMMETRIC.** Resources had
+    /// `rollback_resource_canonical_checksum` and
+    /// `rollback_resource_optional_canonical_checksum`; components had only the
+    /// CLONE-strategy `rollback_component_clone_checksum`. So a component that
+    /// snapshots through its own canonical codec had no way to state a
+    /// projection at all, and the peer/local split was simply unavailable for
+    /// it — which is not a decision anybody made, it is a gap. Measured
+    /// 2026-09-15 while looking for the registrar `TransactionId` would need:
+    /// its `{epoch}\t{room}\t{session}` string is `component-canonical`, two of
+    /// its three terms are per-App counts, and there was no mechanism to compare
+    /// less than all of it.
+    ///
+    /// ⚠ `SimId` is in the same position, and it is the type both provenance
+    /// defects in this campaign travelled through.
+    fn rollback_component_canonical_checksum<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _detail: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + SnapshotState,
+    {
+        panic!(
+            "RollbackRegistrar does not support rollback_component_canonical_checksum for {name}"
+        )
+    }
+
     fn rollback_component_cursor<T>(
         &mut self,
         _owner: &'static str,

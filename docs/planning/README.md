@@ -25,6 +25,13 @@ Neither is an execution diary.
 live control-plane documents exist, are non-trivial, and still carry the headings
 that make them what they claim to be. It runs in `--maintenance`.
 
+⭐ **ITS POPULATION IS TEN DOCUMENTS, AND THE FOUR CONSOLIDATION ONES WERE
+ADDED 2026-09-16** — `consolidation/README.md`, `consolidation-plan.md`,
+`architecture-census.md`, `campaign-metrics.md`. They are where the
+architecture campaigns' state actually lives, they get rewritten far more often
+than this page does, and every argument for guarding `status.md` applied to them
+unchanged while they sat outside the check.
+
 ⛔⛤ **IT EXISTS BECAUSE `status.md` WAS EMPTIED TO ZERO BYTES, COMMITTED AND
 PUSHED, AND THE LANE REPORTED 7/7.** That is not a hole in the other gates — a
 citation checker over a file with no citations has nothing to report, and a hold
@@ -37,6 +44,31 @@ sizes, because compressing a closed row to a receipt is this contract WORKING �
 `queue.md` fell 1063 → 908 lines the day it was written and must not red. And it
 cannot see a document that goes wrong while staying big; stale claims, discharged
 holds and broken citations have their own checks.
+
+## What else is mechanically enforced over this tree
+
+⛔ **DO NOT LIST THEM HERE. RUN THE LANE AND READ ITS JOB NAMES** —
+`./run_tests.sh --maintenance` — because a hand-written list of checks is a
+second authority that rots exactly like the claims these checks exist to catch.
+The lane is the list.
+
+⭐ What is worth saying in prose is the SHAPE of what they cover, because three
+of these classes are ones a careful reader would not think to look for:
+
+- a **gate sentence** naming a campaign `queue.md` marks finished — including the
+  prose spelling (*"X should finish before…"*), which is a third spelling of the
+  hold convention and was invisible to the first two rules;
+- a **number** restated away from its source: the session-owner census is
+  compared to `teardown.rs`, and any line in this tree stating that bundle's count
+  is swept for a stale copy — a third copy of it survived in a table cell after
+  the first two were corrected;
+- a **pointer into a heading** — a heading rename breaks every link to it while
+  the compiler, the citation checkers and the doc-link job all stay green.
+
+⚠ **AND THE LANE'S OWN BOUNDARY IS PRINTED BY THE LANE.** `--maintenance` does
+NOT run `pytest scripts/tests`, which holds the tests of the scripts it runs; its
+closing notice derives and names everything it skipped. A green here is a claim
+about this lane.
 
 ## Where the open work is
 

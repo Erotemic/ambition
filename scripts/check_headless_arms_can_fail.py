@@ -96,6 +96,35 @@ def reachable(text: str, body: str) -> str:
     ANOTHER crate reads here as if it had neither, so this guard is scoped to
     `add_headless_foundation` callers — where the composition is built inline —
     rather than to every stepping arm in the workspace.
+
+    ⛔⛤ **THE OBVIOUS WIDENING WAS MEASURED ON 2026-09-16 AND IS NOT WORTH
+    TAKING.** The axis that respects the paragraph above is "arms that reach an
+    inline `App::new()`", since those have their composition in this file by
+    construction. Measured with THIS function's reachability rule: **17 arms reach
+    `add_headless_foundation` (the number `main` prints) and 1803 reach an inline
+    `App::new()` instead — and the wider sweep finds TWO gaps**, both in
+    `ambition_render` and both the same legitimate style:
+    `portal_capture_parallax_system_params_are_disjoint` relies on Bevy panicking
+    on conflicting system params, and `a_tolerant_insert_survives_the_same_teardown`
+    is the negative control for the arm above it and says so in its own doc. In
+    both, NOT PANICKING is the assertion.
+
+    ⇒ The reason is not the corpus, it is the PREDICATE. "Pins or asserts" bites
+    on print-only probes, which is what `add_headless_foundation` builds; an
+    ordinary test asserts something by construction, and where it does not, it
+    asserts by surviving. Over 1803 arms the condition is satisfied trivially and
+    certifies nothing. A guard whose satisfaction condition is universal in its
+    population is not a guard. ⚠ Do not re-take this measurement to widen the
+    scan — take it only if the PREDICATE changes to something an ordinary test can
+    fail.
+
+    ⚠ **AND THE FIRST PAIR OF NUMBERS WAS WRONG IN THE WAY THIS FILE ALREADY
+    WARNS ABOUT.** The sweep initially counted arms in FILES that mention the
+    foundation and reported 57 against `main`'s 17, because `main` requires the
+    composition to be in the arm's REACH, not merely in its file. A measurement
+    of a guard's population that does not reuse the guard's own predicate is a
+    measurement of something else — the same defect `tracked_rust_files` records
+    about this guard's own vacuity test.
     """
     out = body
     for helper in FN_DEF.finditer(text):

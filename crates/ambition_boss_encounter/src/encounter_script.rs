@@ -153,15 +153,27 @@ pub fn tick_encounter_scripts(
                     impact_gate,
                 } => {
                     if let Some(target) = member_entity(*target_member) {
-                        let sim_id = match (encounter_id, counter.as_deref_mut()) {
-                            (Some(encounter), Some(counter)) => {
-                                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
-                                    encounter,
-                                    counter.next(),
-                                ))
-                            }
-                            _ => None,
+                        // ⛔ REFUSE RATHER THAN DROP AN UNNAMEABLE HAZARD — ADR
+                        // 0030, the same closure the sentry, vortex and grenade
+                        // roads took. A hazard the sim cannot name is state a
+                        // rewind cannot reconstruct, and this one DECIDES WHEN A
+                        // BOSS TAKES AN IMPACT.
+                        let (Some(encounter), Some(counter)) =
+                            (encounter_id, counter.as_deref_mut())
+                        else {
+                            bevy::prelude::warn!(
+                                "an encounter hazard drop was refused: the \
+                                 encounter carries no SimId or no SimIdCounter, \
+                                 so the hazard could not be named"
+                            );
+                            continue;
                         };
+                        let sim_id = Some(
+                            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+                                encounter,
+                                counter.next(),
+                            ),
+                        );
                         drop_hazard(
                             &mut commands,
                             SessionSpawnScope::new(

@@ -96,6 +96,13 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             // `resolve_portal_fire_intent` spends the Attack press on it when
             // the gun accepts a fire.
             ambition_characters::control::ActorControl::default(),
+            // ⛔ AND AN IDENTITY AND ITS MINT STREAM. A portal shot mints under
+            // the FIRER, and `resolve_portal_fire_intent` refuses a firer it
+            // cannot name (ADR 0030). A production body has both from
+            // `ensure_sim_id`; a fixture without them tested the road that no
+            // longer exists.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_portal_player"),
+            ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             // Opt the player into the generic transit core with the player
             // policy (re-orient + carry velocity), as the Ambition tagging
             // adapter does in the real app.

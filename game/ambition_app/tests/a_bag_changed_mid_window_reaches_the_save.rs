@@ -86,8 +86,13 @@ fn feature_roster(sim: &mut Platformer2dSimHarness) -> std::collections::HashSet
 /// The LIVE bag, which is what separates the two ways this arm can fail: a
 /// mirror that did not write, and a write the rewind took back before the
 /// mirror ever saw it.
-fn live_axes(sim: &Platformer2dSimHarness) -> u32 {
-    sim.world().resource::<OwnedItems>().count(Item::Axe)
+///
+/// ⚠ A CONSUMABLE ON PURPOSE. `OwnedItems::grant` clamps every non-`Consumable`
+/// category to 1, so a held tool cannot be granted twice and cannot be granted
+/// at all if the starter bag already holds one — which would make these arms
+/// report "the rewind no longer takes it back", i.e. read as FIXED.
+fn live_cells(sim: &Platformer2dSimHarness) -> u32 {
+    sim.world().resource::<OwnedItems>().count(Item::HealthCell)
 }
 
 #[test]
@@ -121,16 +126,21 @@ fn a_bag_changed_from_update_is_silently_taken_back_by_the_rewind() {
         sim.step(AgentAction::default());
     }
     let before = mirrored_items(&sim);
+    let baseline = live_cells(&sim);
 
     // ── THE WRITE, in the shape the menu makes it: `OwnedItems` mutated from
     // outside the rewinding schedule, mid-window.
     {
         let world = sim.world_mut();
         let mut owned = world.resource_mut::<OwnedItems>();
-        owned.grant(Item::Axe, 1);
+        owned.grant(Item::HealthCell, 1);
     }
-    let granted = live_axes(&sim);
-    assert!(granted > 0, "the grant did not reach the live bag at all");
+    let granted = live_cells(&sim);
+    assert_eq!(
+        granted,
+        baseline + 1,
+        "the grant did not reach the live bag, so nothing below is measuring a change"
+    );
 
     // ── PREMISE 2, MID-ARM: the mirror has to actually write, and it has to have
     // written by the time the window has run. A value that is right at frame 0
@@ -149,7 +159,7 @@ fn a_bag_changed_from_update_is_silently_taken_back_by_the_rewind() {
                 mirrored_items(&sim)
             )
         });
-        if live_lost_at.is_none() && live_axes(&sim) < granted {
+        if live_lost_at.is_none() && live_cells(&sim) < granted {
             live_lost_at = Some(frame);
         }
         let now = mirrored_items(&sim);
@@ -221,15 +231,15 @@ fn the_control_keeps_the_same_grant_when_nothing_rewinds() {
     }
     {
         let world = sim.world_mut();
-        world.resource_mut::<OwnedItems>().grant(Item::Axe, 1);
+        world.resource_mut::<OwnedItems>().grant(Item::HealthCell, 1);
     }
-    let granted = live_axes(&sim);
+    let granted = live_cells(&sim);
     assert!(granted > 0, "the grant did not reach the live bag at all");
 
     for frame in 0..240 {
         sim.step(AgentAction::default());
         assert!(
-            live_axes(&sim) >= granted,
+            live_cells(&sim) >= granted,
             "the control lost the grant at frame {frame} with NO rollback session \
              running, so the repro arm's loss is not evidence about the rewind — \
              find what else clears `OwnedItems` before reading it that way"
@@ -334,5 +344,101 @@ fn a_reset_requested_from_update_mid_window() {
         roster_before.len(),
         "the roster partially changed, which is neither outcome this arm knows \
          how to read — re-measure before trusting either assertion above"
+    );
+}
+
+/// DURABLE-HORIZON-CHECKSUM's own question, which is the OPPOSITE of the two
+/// arms above: what happens when the mirrored value changes LEGITIMATELY, inside
+/// the rewinding schedule, so the `Update` mirror has a real change to carry?
+///
+/// `persist_inventory_to_save` derives `AmbitionGameSave` from simulation state
+/// once per FRAME, while the value is snapshotted and compared once per TICK. A
+/// peer that rewound and re-simulated three ticks ran the sim three extra times
+/// and `Update` zero extra times.
+///
+/// ⚠ The grant is unconditional rather than one-shot ON PURPOSE. A "fire once"
+/// flag would itself have to be rollback state for the one-shot to replay
+/// correctly, and a flag that survives the rewind would suppress the replayed
+/// grant and manufacture the divergence this arm is looking for.
+/// ⛔ INCONCLUSIVE, AND KEPT AS A PROBE RATHER THAN DELETED because the
+/// scaffolding is the expensive part and the measurement is worth starting from.
+///
+/// MEASURED 2026-09-16: the in-sim grant accumulates to 8 over the first ~60
+/// steps and then FREEZES — `[(0, 8), (40, 8), (80, 8), (120, 8), (160, 8),
+/// (200, 8), (240, 8)]` — so the simulation stops advancing ticks while
+/// `sim.step()` keeps returning. That is a question about this harness, not
+/// about the mirror, and until it is answered a clean `session_health` over
+/// those 240 frames would be a pass over a world that was not simulating.
+///
+/// ⇒ What is still owed is a window in which the mirrored value genuinely
+/// CHANGES tick over tick. Adding the system through
+/// `Platformer2dSimHarness::build`'s `compose` callback, BEFORE the first
+/// update, is the next thing to try: this one is added after the harness has
+/// already built and started its GGRS session.
+#[test]
+#[ignore = "PROBE, print-only: the in-sim grant freezes after ~60 steps; harness mechanics unresolved"]
+fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    use bevy::prelude::ResMut;
+
+    fn grant_each_tick(mut owned: ResMut<OwnedItems>) {
+        owned.grant(Item::HealthCell, 1);
+    }
+
+    let mut sim = repro_sim();
+    let label = sim.app_mut().sim_schedule();
+    sim.app_mut().add_systems(label, grant_each_tick);
+
+    // ⚠ THE PREMISE IS "MY SYSTEM RAN", AND `count > 0` DOES NOT SAY THAT — the
+    // starter bag may already hold cells. Two samples, and the SECOND must exceed
+    // the first.
+    let at_start = live_cells(&sim);
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    let settled = live_cells(&sim);
+    assert!(
+        settled > at_start,
+        "the in-sim grant did not accumulate over 60 steps ({at_start} -> \
+         {settled}), so the system was never reached and nothing below measures \
+         the mirror"
+    );
+
+    let mut desync: Option<(usize, String)> = None;
+    let mut mirror_moved = false;
+    let mut trajectory: Vec<(usize, u32)> = Vec::new();
+    let before = mirrored_items(&sim);
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        if desync.is_none() {
+            if let Err(error) = health(&sim) {
+                desync = Some((frame, error));
+            }
+        }
+        if mirrored_items(&sim) != before {
+            mirror_moved = true;
+        }
+        if frame % 40 == 0 {
+            trajectory.push((frame, live_cells(&sim)));
+        }
+    }
+    trajectory.push((240, live_cells(&sim)));
+
+    assert!(
+        live_cells(&sim) > settled,
+        "the in-sim grant stopped accumulating (settled={settled}, \
+         trajectory={trajectory:?}), so the window ran over a value that was not \
+         changing and a clean result says nothing"
+    );
+    assert!(
+        mirror_moved,
+        "`persist_inventory_to_save` never mirrored the changing bag, so this \
+         arm measured a mirror that was not writing"
+    );
+    assert!(
+        desync.is_none(),
+        "⛔ mirroring a value that changes INSIDE the sim from a system that runs \
+         once per FRAME desynced at {desync:?} — that is DURABLE-HORIZON-CHECKSUM's \
+         per-frame-versus-per-tick question answered in the affirmative"
     );
 }

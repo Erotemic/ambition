@@ -420,12 +420,43 @@ Every clone and custom-checksum registration is outside its population —
 snapshotted and restored on every rewind exactly like the canonical ones, so an
 outside mutation drifts identically.
 
-⛔ **MEASURED 2026-09-15.** Widening the population to all rollback registrations
-takes the systems it can see from 555 to 564 and surfaces **65 unwaived
-offenders**. ⚠ That number is not a defect count: many are `Transform` writes
-from camera, sprite and inspection systems, which are PRESENTATION reading a
-component that happens to be rollback-registered. The widening is not landable
-until sim writes and presentation writes can be told apart.
+⭐⭐ **THE WIDENING LANDED 2026-09-16, AND WHAT UNBLOCKED IT WAS COUNTING THE
+OBJECTION.** The blocker read: widening surfaces 65 offenders, many of them
+`Transform` writes from camera, sprite and inspection systems — presentation
+acting on a component that happens to be rollback-registered — so it is not
+landable until sim writes and presentation writes can be told apart. ⇒ Counted by
+TYPE: **52 of the 64 are `Transform` and twelve are not.** The undecidable part
+was one type, not the population. `Transform` is now excluded by NAME with that
+count beside it, and the other 338 types are in.
+
+Population 139 → 338; findings 8 → 12. The four it bought:
+
+| system | type | why it matters |
+|---|---|---|
+| `sync_ldtk_level_set` | `LdtkRuntimeIndex` | the reason `handle_ldtk_hot_reload`'s waiver read stale |
+| `portal_dev_toggle_system` | `PortalGun` | |
+| `reconcile_roster_with_frozen_topology` | `ActiveMatch` | |
+| `compute_music_intent` | `EncounterMusicRequest` | |
+
+⭐ **AND THE WIDENED GUARD INDEPENDENTLY FINDS BOTH DEFECTS FILED TONIGHT BY
+MEASUREMENT** — `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`
+and `persist_occurrence_horizon_to_save` ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)),
+and `grid_menu_action_activated` / `kaleidoscope_menu_action_activated`
+([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
+Two defects found by running a harness, and a static guard that would have named
+them both. ⇒ The argument for reach over cleverness: neither needed a new idea,
+only a population that was not quietly narrowed.
+
+⚠ **`Transform` IS NOW A STATED BLIND SPOT, NOT A RESOLVED QUESTION.** A genuine
+simulation write to `Transform` outside the rewind is invisible to this guard and
+stays invisible until a sim-versus-presentation distinction exists. A green here
+says nothing about `Transform`, and the exclusion is written where the guard
+defines its population so the next reader meets it before the verdict.
+
+⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is EMPTY as a result, and it emptied by being cured
+rather than tidied: its only entry was `handle_ldtk_hot_reload`, unseen because
+`RoomSet` and `LdtkRuntimeIndex` register through component clone. The mechanism
+stays — an empty dict still asserts, because a newly stale waiver reddens the arm.
 
 ⚠ A second, independent hole in the same guard was closed on 2026-09-15: its
 param pattern matched only `&mut T` and `ResMut<T>`, so `SessionWorldMut<T>` was

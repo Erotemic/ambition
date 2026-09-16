@@ -85,21 +85,36 @@ NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
 # identically — the distinction was never about rollback semantics, only about
 # which spelling the first version of this file happened to grep for.
 #
-# ⛔ THE COMPONENT HALF STAYS OUT, AND NOT FOR LACK OF NERVE. MEASURED: widening
-# to ALL registrations surfaces 65 unwaived offenders, and most are `Transform`
-# writes from camera, sprite and inspection systems — PRESENTATION reading a
-# component that happens to be rollback-registered. That needs a way to tell a
-# simulation write from a presentation write, which does not exist yet.
-# Resources carry no `Transform`, so this half costs 9 findings instead of 65
-# and is separable. See `ROLLBACK-MUTATOR-POPULATION` in `docs/planning/queue.md`.
+# ⭐⭐ THE COMPONENT HALF IS IN SINCE 2026-09-16, and what unblocked it was
+# MEASURING the objection instead of restating it. The blocker was "most of the
+# 65 offenders are `Transform` writes from camera, sprite and inspection systems
+# — presentation reading a component that happens to be rollback-registered, and
+# telling a simulation write from a presentation write does not exist yet".
+# Counted by type: **52 of the 64 are `Transform` and twelve are not.** The
+# undecidable part is one type, not the population, so it is excluded by NAME
+# with the count beside it rather than holding the other 338 types out.
 #
-# ⚠ SO `RoomSet` AND `LdtkRuntimeIndex` ARE STILL INVISIBLE: both are
-# `rollback_component_clone_checksum`. That is why `handle_ldtk_hot_reload`'s
-# waiver reads stale and why widening the RESOURCE half does not cure it.
+# ⇒ And the twelve it buys are the interesting ones. Widening surfaced
+# `sync_ldtk_level_set` (`LdtkRuntimeIndex`) — which is why
+# `handle_ldtk_hot_reload`'s waiver read stale and why widening the RESOURCE
+# half alone could not cure it — plus `portal_dev_toggle_system`,
+# `reconcile_roster_with_frozen_topology` and `compute_music_intent`.
 _ROLLBACK_REGISTRATION = re.compile(
-    r"rollback_(?:component|resource)_canonical::<([^>]+)>"
-    r"|rollback_resource_clone(?:_checksum)?::<([^>]+)>"
+    r"rollback_(?:component|resource)_[a-z_]*::<([^>]+)>"
 )
+
+#: ⛔ EXCLUDED BY NAME, WITH THE MEASUREMENT THAT JUSTIFIES IT. A `Transform`
+#: write from a camera, a sprite placer or an inspector is presentation acting on
+#: a component that happens to be rollback-registered, and this guard cannot tell
+#: that from a simulation write. Excluding the TYPE keeps the other 338 in the
+#: population; excluding the population to avoid this one type is what kept
+#: `LdtkRuntimeIndex` invisible for a fortnight.
+#:
+#: ⚠ THIS IS A REAL BLIND SPOT, NOT A RESOLVED QUESTION. A genuine simulation
+#: write to `Transform` outside the rewind is invisible here and will stay
+#: invisible until a sim-versus-presentation distinction exists. Do not read a
+#: green from this guard as a statement about `Transform`.
+PRESENTATION_SHARED = frozenset({"Transform"})
 _PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")
 _CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
 # ⛔⛤ `SessionWorldMut<T>` IS A MUTABLE PARAM AND WAS INVISIBLE UNTIL
@@ -416,11 +431,12 @@ def rollback_types(repo: Path = REPO) -> set[str]:
     Scanning the same production sources the mutator scan uses keeps the two
     halves over one population by construction.
     """
-    return {
-        (m.group(1) or m.group(2)).strip().split("::")[-1]
+    found = {
+        m.group(1).strip().split("::")[-1]
         for _path, text in _production_sources(repo)
         for m in _ROLLBACK_REGISTRATION.finditer(text)
     }
+    return found - PRESENTATION_SHARED
 
 
 #: What the scan must still be able to SEE. ⛔⛔ EVERY HOLE THIS GUARD HAS EVER
@@ -435,7 +451,10 @@ def rollback_types(repo: Path = REPO) -> set[str]:
 #: Raise a floor when the tree genuinely grows; a DROP is the signature of the
 #: next hole and must fail loudly rather than pass quietly.
 POPULATION_FLOOR = {
-    "rollback types": 139,
+    # ⭐ RAISED 139 -> 300 WHEN THE COMPONENT HALF LANDED (2026-09-16): the
+    # population went 139 -> 338, and a floor left at the old value would have
+    # let the whole widening silently revert while still reading green.
+    "rollback types": 300,
     "system param bundles": 55,
 }
 

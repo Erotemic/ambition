@@ -282,10 +282,6 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource<Mutability = Mutable> + SnapshotState;
 
-    fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
-    where
-        T: Resource<Mutability = Mutable> + Clone + SnapshotCursor;
-
     fn rollback_resource_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Resource<Mutability = Mutable> + Clone;
@@ -918,32 +914,6 @@ impl AmbitionRollbackApp for App {
                 crate::ChecksumProbe::new(
                     std::any::type_name::<T>(),
                     crate::census_resource_state::<T>,
-                ),
-            );
-        }
-        self
-    }
-
-    fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
-    where
-        T: Resource<Mutability = Mutable> + Clone + SnapshotCursor,
-    {
-        if should_install_backend(
-            self,
-            descriptor::<T>(
-                owner,
-                name,
-                RollbackEntryKind::ResourceCloneCursor,
-                "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection",
-            ),
-        ) {
-            RollbackApp::rollback_resource_with_clone::<T>(self);
-            RollbackApp::checksum_resource(self, cursor_checksum::<T>);
-            record_probe(
-                self,
-                crate::ChecksumProbe::new(
-                    std::any::type_name::<T>(),
-                    crate::census_resource_cursor::<T>,
                 ),
             );
         }

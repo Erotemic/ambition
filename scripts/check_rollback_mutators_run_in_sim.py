@@ -148,6 +148,39 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # here. An entry is a claim that a value's drift across a rewind does not matter,
 # which is a strong claim and should read like one — so both entries below cite
 # the code that makes them true rather than asserting it.
+# ⛔⛤ ACKNOWLEDGED IS NOT A WAIVER, AND THE DIFFERENCE IS THE WHOLE POINT OF
+# HAVING TWO TABLES. A `WAIVERS` entry asserts *this system's drift across a
+# rewind does not matter*, and each one carries the argument for why. An entry
+# here asserts the OPPOSITE — the drift is real, it is owed, and it is owed to a
+# named row — so waiving these would be writing down something false while
+# Q129 and MENU-RESET-MIDSESSION are open.
+#
+# ⚠ WHY THE LIST EXISTS AT ALL: while the guard cannot go green, a THIRTEENTH
+# offender cannot change its verdict. A check that reports FAILED before and
+# after a regression has stopped being a check, and a reader uses the exit code
+# whatever the row says. Banking the known set restores the only property that
+# matters here — red means SOMETHING CHANGED. (YardratAmbition's catch.)
+#
+# ⛔ AND AN ENTRY THAT STOPS BEING A FINDING IS ALSO FATAL, which is what keeps
+# this from rotting into a second waiver table: a name here that the scan no
+# longer reports has been FIXED, and leaving it banked would silently absorb the
+# next system to take its place.
+ACKNOWLEDGED: dict[str, str] = {
+    "adopt_occurrence_checkpoint_from_save": "ROLLBACK-MUTATOR-POPULATION",
+    "complete_durable_restore": "ROLLBACK-MUTATOR-POPULATION",
+    "compute_music_intent": "ROLLBACK-MUTATOR-POPULATION",
+    "dispatch_pending_dialog_requests": "DURABLE-HORIZON-CHECKSUM",
+    "grid_menu_action_activated": "MENU-RESET-MIDSESSION",
+    "kaleidoscope_menu_action_activated": "MENU-RESET-MIDSESSION",
+    "persist_inventory_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
+    "persist_minted_item_horizon_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
+    "persist_occurrence_horizon_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
+    "portal_dev_toggle_system": "ROLLBACK-MUTATOR-POPULATION",
+    "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
+    "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",
+}
+
+
 WAIVERS: dict[str, str] = {
     # ── added 2026-09-16, ID-PEER ────────────────────────────────────────────
     # The two session-scoped resource resets. They answer this guard in two
@@ -636,13 +669,44 @@ def main() -> int:
         )
         return 1
 
+    banked = {name for name, *_ in findings if name in ACKNOWLEDGED}
+    # ⛔ A BANKED NAME THE SCAN NO LONGER REPORTS WAS FIXED. Leaving it here
+    # would absorb the next system to take its place, which is the failure this
+    # whole file exists to refuse.
+    stale = sorted(set(ACKNOWLEDGED) - banked)
+    if stale:
+        print(
+            "ACKNOWLEDGED names systems this scan no longer reports:\n\n  "
+            + "\n  ".join(f"{name}  (owed to {ACKNOWLEDGED[name]})" for name in stale)
+            + "\n\nEither it was moved into the rewinding schedule — delete the "
+            "entry in the same commit, and say so — or the scan stopped seeing "
+            "it, which is the more likely reading and the more dangerous one. "
+            "⛔ Do not delete an entry to make this pass without checking which "
+            "of the two happened.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if banked:
+        print(
+            f"{len(banked)} acknowledged offender(s), each owed to an open row "
+            "and NOT waived — the drift is real:\n\n  "
+            + "\n  ".join(
+                f"{name}  → {ACKNOWLEDGED[name]}" for name in sorted(banked)
+            ),
+            file=sys.stderr,
+        )
+
+    findings = [f for f in findings if f[0] not in ACKNOWLEDGED]
+
     if findings:
         lines = [
             f"  {name}  ({', '.join(hits)})\n    registered into {schedule} at {file}"
             for name, file, schedule, hits in findings
         ]
         print(
-            "rollback state is mutated from a schedule that never rewinds:\n\n"
+            "rollback state is mutated from a schedule that never rewinds, and "
+            "this system is NOT in the acknowledged set:\n\n"
             + "\n".join(lines)
             + "\n\nThe value is restored on every rewind and this mutation is not "
             "replayed with it, so it drifts from the peer's a little further each "
@@ -656,8 +720,8 @@ def main() -> int:
         return 1
 
     print(
-        f"OK: {len(mutators)} systems mutate rollback state, none registered into "
-        f"a non-rewinding schedule."
+        f"OK: {len(mutators)} systems mutate rollback state; "
+        f"{len(banked)} acknowledged and owed, no NEW offender."
     )
     return 0
 

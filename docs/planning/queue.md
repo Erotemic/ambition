@@ -1916,10 +1916,11 @@ message before starting a step that takes hours.
 **Owner:** test runner / app integration lane.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**688 passed / 0 failed / 35 ignored**, 233.95 s at `65d85f3bc`+1 on the
-ToothbrushAmbition box (2026-09-16, tree frozen for the run). Earlier the same
-night: 683/0/31 at `c78cc725e` and 677/0/25 at `582186bff`, same box. The growth
-is new arms and print-only probes three agents added; no arm has changed state. Missing prerequisites are reported as incomplete rather
+**690 passed / 0 failed / 41 ignored**, 255.14 s at `a5cf06306` on the
+ToothbrushAmbition box (2026-09-16). Earlier the same night, same box: 688/0/35,
+683/0/31 at `c78cc725e`, 677/0/25 at `582186bff`. The growth is new arms and
+print-only probes three agents added; **no arm has changed state across any of
+the four runs.** Missing prerequisites are reported as incomplete rather
 than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
 disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
 publish output was ~90 files short. Name the box beside the number.

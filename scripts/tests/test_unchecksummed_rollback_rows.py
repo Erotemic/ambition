@@ -188,3 +188,50 @@ def test_local_player_is_registered_for_rollback_and_read_by_nothing():
         "filtered on in production now — this row has a reader"
     )
     assert not module.resource_read_sites("LocalPlayer"), "LocalPlayer is not a resource"
+
+
+def test_the_sharpest_list_is_an_intersection_and_excludes_each_operand_alone():
+    """The three-way join selects only rows satisfying ALL THREE conditions.
+
+    ⛔⛤ The point is the two NEGATIVE cases. A join written as a filter over the
+    wrong key — say `per_tick_read` holding type names while `unprobed` holds row
+    names — returns an empty list, and an empty list of risks reads as good news.
+    `sharp_rows` raises instead of returning `[]`, and this arm pins both that
+    refusal and the fact that each operand alone is not enough to be selected.
+    """
+    m = _module()
+    unprobed = [
+        ("floats.per.tick", "Transform"),  # float-bearing AND per-tick: selected
+        ("floats.not.per.tick", "Transform"),  # float-bearing only: excluded
+        ("no.floats.per.tick", "Name"),  # per-tick only: excluded
+    ]
+    rows = m.sharp_rows(unprobed, ["floats.per.tick", "no.floats.per.tick"])
+    assert [n for n, _, _ in rows] == ["floats.per.tick"], rows
+    assert rows[0][2] == "Quat,Vec3", "the float column must be carried, not recomputed"
+
+    # An empty intersection over non-empty operands must REFUSE, not return [].
+    try:
+        m.sharp_rows(unprobed, ["a.row.name.that.is.not.in.unprobed"])
+    except AssertionError as exc:
+        assert "EMPTY" in str(exc) and "JOIN" in str(exc), str(exc)
+    else:
+        raise AssertionError(
+            "sharp_rows returned an empty intersection without refusing — a list "
+            "of zero risks is indistinguishable from a broken join"
+        )
+
+
+def test_an_unresolved_type_is_not_promoted_into_the_sharpest_list():
+    """`?` means the instrument could not find the type, not that it has floats.
+
+    ⚠ This is the direction that inflates a risk list with the instrument's own
+    blind spots, which then reads as a finding about the code.
+    """
+    m = _module()
+    assert m.definition("ATypeThisRepositoryDoesNotDefine")[1] == "?"
+    try:
+        m.sharp_rows([("row.name", "ATypeThisRepositoryDoesNotDefine")], ["row.name"])
+    except AssertionError as exc:
+        assert "EMPTY" in str(exc)
+    else:
+        raise AssertionError("an unresolved type was counted as float-bearing")

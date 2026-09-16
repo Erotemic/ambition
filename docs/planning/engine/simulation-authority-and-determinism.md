@@ -419,10 +419,15 @@ Two worked examples, to show the classification is not uniform:
   `ActiveMatch::peer_stable_checksum`, which hashes the seat COUNT, and whether
   that constrains per-body slot assignment has not been measured.
 
-⇒ The next step is not a sweep of 175, and it is not a demotion pass either —
-that population looks close to zero, measured above. It is to stop the KIND
-asserting coverage it cannot know, then classify the payloads that can change
-mechanical behaviour.
+⇒ **BOTH HALVES OF WHAT THIS PARAGRAPH ONCE CALLED "NEXT" ARE DONE.** It is not a
+sweep of 175 and not a demotion pass — that population looks close to zero,
+measured above. It was to stop the KIND asserting coverage it cannot know, which
+landed at schema **v194** (the `detail` column now says *"bevy_ggrs clone
+snapshot; not in the session checksum"* and claims nothing about a coverer), and
+then to classify the payloads that can change mechanical behaviour, which is the
+triage table above and the 25-row intersection below. What remains after those is
+a DECISION, not a measurement: `Q122` on where a registration's justification
+lives, and the 25.
 
 ⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT — AND IT
 WAS WRONG TWICE.** The first version of this section said "93 unverified claims"
@@ -445,6 +450,80 @@ the sentence 93 times. Both halves failed:
 its **good value** — here, the baseline has 494 rows and 99 is a subset of them,
 so `grep -c` against the committed file is the check, and it takes one command.
 A peer ran it and corrected the number; nothing in my own output would have.
+
+⛔⛤ **AND THE 78 NARROW TO 25 WHEN THE THREE CONDITIONS ARE INTERSECTED.** "Read
+every tick" and "outside the checksum" are two thirds of a desync; the third is a
+value that can drift without anybody making a mistake. Measured 2026-09-16 over
+the no-value-projection rows:
+
+> **no value projection × read by an unfiltered per-tick query × carries a
+> float-bearing field = 25 rows.**
+
+`actor.animation_facts`, `actor.interaction`, `actor.render_size`,
+`actor.spawn_baseline`, `actor.sprite_offset`, `actor.sprite_posed_body`,
+`boss.capability`, `boss.config`, `boss.death_animation`, `boss.overrides`,
+`combat.tuning`, `encounter.camera_zoom`, `entity.transform`, `feature.hazard`,
+`gravity.flip_switch`, `item.ground_item`, `lifecycle.room_visual`,
+`mount.authored_size`, `mount.mass`, `mount.mountable`,
+`player.blink_camera_state`, `portal.emission`, `portal.gun_pickup`,
+`portal.placed`, `portal.shot`.
+
+⇒ A float drifts by rounding rather than by a logic error, the drift compounds,
+the reader sees it on the next frame, and no checksum two peers compare can see
+any of it. That is the whole shape in one row, twenty-five times.
+
+⚠ **THIS IS A RANKING, NOT A DEFECT LIST, AND THE DISCRIMINATOR IS WHETHER
+ANYTHING MUTATES THE VALUE AFTER SPAWN.** A value nobody writes cannot diverge
+between two peers who authored it from the same content, so the 25 split on that
+question and not on how alarming the name sounds. Measured 2026-09-16 by
+`git grep -E '(&mut +T\b|ResMut<T>|Mut<T>)'` over `crates/`, `game/` and
+`examples/`, excluding tests — **12 of the 25 are mutably borrowed in
+production**:
+
+| row | mut sites | row | mut sites |
+|---|---|---|---|
+| `item.ground_item` | 7 | `gravity.flip_switch` | 1 |
+| `actor.animation_facts` | 6 | `player.blink_camera_state` | 1 |
+| `portal.placed` | 4 | `portal.emission` | 1 |
+| `boss.death_animation` | 2 | `portal.gun_pickup` | 1 |
+| `actor.render_size` | 1 | `portal.shot` | 1 |
+| `feature.hazard` | 1 | `entity.transform` | republished every frame |
+
+The other 13 — `actor.interaction`, `actor.spawn_baseline`,
+`actor.sprite_offset`, `actor.sprite_posed_body`, `boss.capability`,
+`boss.config`, `boss.overrides`, `combat.tuning`, `encounter.camera_zoom`,
+`lifecycle.room_visual`, `mount.authored_size`, `mount.mass`, `mount.mountable` —
+have no mutable borrow anywhere in production. For those, a float field is not a
+drift risk; it is authored data that two peers read from the same content, and
+being outside the checksum costs nothing.
+
+⛔⛤ **MY FIRST VERSION OF THIS PARAGRAPH NAMED FIVE ROWS FROM INTUITION AND WAS
+WRONG ON TWO, IN BOTH DIRECTIONS.** It called `actor.spawn_baseline` and
+`mount.mass` sim-written — both have **zero** mutable borrows — while missing
+`item.ground_item` (7) and `actor.animation_facts` (6), the two largest writers in
+the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
+authored constants and the ones that sound like inventory bookkeeping are the
+mutated ones. A row's NAME is not a reading of its write set.
+
+⚠ **AND THE CENSUS'S OWN LIMIT, STATED BECAUSE THE NUMBER LOOKS DECISIVE.** A
+`&mut` census cannot see a component REPLACED by re-insertion, which is also a
+write. I probed for that and my `insert(T…)` pattern returned 0 or 1 for every
+one of the 13 — including components that must be inserted somewhere to exist at
+all, since bevy inserts them inside tuples. So that probe measured its own
+regex, not the code, and the 13 are "no mutable borrow", not "never written".
+Closing that gap wants the same runtime instrument as S8: **is there a frame at
+which this value differs between two saves of it?** `RollbackRestoreAudit`
+answers that and no static scan can.
+
+⛔ **THE FLOOR IS ON THE INTERSECTION, NOT ON ITS OPERANDS.** `sharp_rows` in
+`scripts/measure_unchecksummed_rollback_rows.py` RAISES rather than returning an
+empty list, because a join written against the wrong key — row names on one side,
+type names on the other — returns zero rows, and a list of zero risks reads as
+good news. An unresolved type (`?`) is also NOT promoted into the list, which
+would inflate it with the instrument's own blind spots. Both are pinned by
+`test_the_sharpest_list_is_an_intersection_and_excludes_each_operand_alone` and
+`test_an_unresolved_type_is_not_promoted_into_the_sharpest_list`, each with its
+negative case, and both were poisoned: each poison fires on its own arm only.
 
 ### S8 — the hashed entries written from a schedule that never rewinds
 

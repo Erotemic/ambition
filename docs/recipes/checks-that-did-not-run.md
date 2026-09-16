@@ -1289,6 +1289,75 @@ naming a symbol that no longer exists was false. A guard whose subject is gone
 asserts nothing, and keeping it green by restoring its subject is how an empty
 seam survives its own deletion.
 
+## ⛔⛔ THE CLOCK NOBODY PINNED, and the arm that reported the number it was given
+
+`add_headless_foundation` brings `MinimalPlugins`, which leaves
+`TimeUpdateStrategy::Automatic`. So `app.update()` steps the fixed schedule a
+number of times derived from **elapsed wall time**, not from the number of
+`update()` calls. MEASURED 2026-09-16 on the no-GPU box, ten unpinned calls:
+
+| after update # | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| fixed steps | 0 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 5 |
+
+⇒ Ten frames bought FIVE ticks, seven of them consecutively stepping zero times,
+and the non-zero 4 at update 2 is the STARTUP frame's banked wall time rather
+than the loop working. **A number that is non-zero for the wrong reason is the
+shape that makes a defect survive review.**
+
+⛔ **THE PUREST INSTANCE OF THE SIBLING FAMILY CAME OUT OF THIS.** Two headless
+runners built a report ending `ticks_run: max_ticks` — the number the CALLER
+asked for, echoed back as though it had been observed — and three arms asserted
+on that field, so `assert_eq!(report.ticks_run, 8)` against `run_headless(8)` was
+`8 == 8`, in a test named `run_headless_runs_multiple_ticks`. ⇒ The general form
+is **an assertion whose subject is a value the system under test never computed**,
+and the test NAME is where it hides, because the name asserts what the assertion
+does not.
+
+⭐⭐ **THE CHEAP CLASSIFIER: THE SESSION WORLD ARRIVES ON FRAMES, NOT ON TICKS.**
+Pin a fixture to `ManualDuration(Duration::ZERO)` — a clock that never advances,
+so the fixed schedule can never step — and `settle_until_session_world` STILL
+returns `Ok(2)`, with zero fixed steps in it and zero in every following frame.
+Session activation, room preparation and the canonical `RoomSet` are driven from
+`Update`. ⇒ **A headless arm can hold a fully built session world, name its
+active room, and have simulated nothing.** So after a settle loop:
+
+- an assertion about STRUCTURE (an entity exists, a component is absent, a route
+  is active, a visual was spawned) is honest unpinned;
+- an assertion about a value the FIXED schedule computes (a position, a counter,
+  a message the sim emits) is the defect, and the settle returning `Ok` is not
+  evidence about it.
+
+✅ **WHAT TO DO INSTEAD, and all three parts are separate fixes.**
+
+1. **Pin the clock at the FIXTURE**, not at each arm:
+   `app.insert_resource(TimeUpdateStrategy::ManualDuration(timestep))` where
+   `timestep` is `Time<Fixed>`'s own. One frame is then one tick.
+2. **Deliver TICKS, not frames.** The first `update()` runs `Startup` and steps
+   nothing, so an honest count off an `0..n` frame loop is one short — measured,
+   800 against a requested 801. Loop until the tick budget is met, with a bounded
+   frame budget so a fixed loop that stops advancing ends SHORT instead of
+   hanging; a short count is then the visible failure.
+3. **Count what ran.** A `FixedUpdate` system incrementing a resource is four
+   lines and turns `ticks_run` into an observation.
+
+⚠ **AND A PASSING ARM IN THIS FAMILY IS OFTEN PASSING ON WALL TIME THE STARTUP
+BANKED.** One fixture spent **15 fixed steps in 2 frames** settling — plugin
+build and asset load, clamped by the max-delta — and then bought seven ticks in
+the next twenty frames. Every arm downstream of it was green because the box was
+slow enough. ⇒ **Do not read "it passes here" as "it will pass on a faster box",
+in this family specifically and in that direction specifically.**
+
+⭐ **THE POPULATION TO WORRY ABOUT IS NOT WHAT IT LOOKS LIKE.** The census that
+found this was "files that call `add_headless_foundation` and also call
+`update()`" — nine of them, and it was the wrong set in both directions. Seven
+were clean, because demo fixtures already insert `WorldTime { scaled_dt }` BY
+HAND and assert exact values that go red if the execution count changes. And it
+MISSED a real instance, because `run_shared_host_headless` builds the shared host
+without calling the foundation at all. ⇒ The risky population is **code that runs
+the PRODUCTION loop in a test process** — a much smaller set, and it contained
+every defect found.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

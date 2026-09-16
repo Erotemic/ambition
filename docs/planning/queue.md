@@ -623,32 +623,61 @@ Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
 repair. Read it as observations or it sends the next reader hunting 49 bodies
 that never existed.
 
-**Remaining — the unnamed SPAWNER, one level above the projectile.**
-`materialize_matching` (`ambition_projectiles/src/materialize.rs`) inserts no
-identity and defers to `mint_spawned_sim_ids`; that is the designated late mint
-for dynamic entities and is correct as a road. The hole is its input:
-`deploy_sentry`, `open_vortex_well` and `open_temporary_gravity_well` each take
-`id: Option<SimId>`, and each production caller computes it through a `match`
-whose fallback arm is `_ => None`. An unnamed turret therefore spawns, and
-`mint_spawned_sim_ids` then skips every bolt it fires — `sentry.rs` documents
-exactly that chain break. ⚠ Reachable BY CONSTRUCTION; not observed in a shipped
-run. ADR 0030 says such a site refuses rather than degrades.
+✅ **THE UNNAMED SPAWNER IS CLOSED, 2026-09-16.** `materialize_matching`
+(`ambition_projectiles/src/materialize.rs`) inserts no identity and defers to
+`mint_spawned_sim_ids`, which is the designated late mint and was never the hole.
+The hole was its input: `fire_sentry_system`, the vortex cast and
+`tick_gravity_grenade_fuses` each computed the spawned id through a `match` whose
+fallback arm was `_ => None`, so an unnamed turret deployed and
+`mint_spawned_sim_ids` then skipped every bolt it fired — a bolt mints under the
+turret. All three are `let (Some(..), Some(..)) = .. else { warn!(..); .. }` now,
+the same shape the clone road uses.
 
-**Next implementation:** turn that `_ => None` fallback into a refusal at those
-three spawn owners, as the clone road now does. Do not add a fallback ID that
-invents canonical identity from query order.
+⛔⛤ **THE ORDER WAS HALF THE FIX AND IT IS NOT OBVIOUS FROM THE ROW ABOVE.** In
+the sentry and vortex systems `mana.meter.try_spend(..)` runs in the same loop
+body, ABOVE where the id was computed. A refusal written where the `match` was
+takes the caster's mana and spawns nothing — strictly worse than the defect. Both
+refusals sit above `try_spend` now, and the guard asserts the METER as well as the
+turret count:
+`a_deployer_with_no_identity_deploys_no_turret_and_keeps_its_mana`
+(`ambition_abilities::ranged::sentry::tests`). ⚠ Poisoned by moving `try_spend`
+back above the refusal — the mana assertion fails with the message naming that
+exact edit. Its control is `the_same_deployer_with_its_identity_does_deploy`,
+because "no turret" is otherwise satisfied by a dozen unrelated gates in that
+loop.
+
+⚠ **THE GRENADE REFUSES BUT STILL DESPAWNS.** Its fuse has already expired when
+the id is needed; skipping the whole arm would leave a spent grenade retrying
+every tick forever. The refusal costs the EFFECT, not the cleanup.
+
+⭐ **THE SEAM SIGNATURES KEEP `Option<SimId>` DELIBERATELY, and that is a decision
+already recorded at `open_vortex_well`:** *"`id` IS `Option` AND THAT IS NOT A
+HEDGE. A well minted under a caster the sim can name gets `SimId::spawned`; a
+fixture well has no caster to mint under."* The row's target was the production
+CALLERS' fallback, not the seams — tightening the seams would have deleted a
+documented fixture road to close a caller's hole.
+
+⇒ **AND THREE FIXTURES WERE EXERCISING THE ROAD THAT NO LONGER EXISTS.** Four
+tests reddened, all because `spawn_primary_player_holding` built a body with no
+`SimId` and no `SimIdCounter` while `ensure_sim_id` gives every production body
+both before `CoreSimulation`. The fixture carries them now, so those tests take
+the production path; the grenade fixture likewise. That is the fix, not a
+workaround: a fixture that can only reach the degraded road cannot witness the
+real one.
 
 **Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
 — cannot reach the simulation unnameable; the witness names the construction road
 and the body rather than reporting a population count.
 
-⚠ **THE CLONE-ROAD RECEIPT ABOVE WAS MEASURED AT THE PRE-MERGE TREE `b9f2ece18`.**
-At `ecbdf2297` no `app_it` test that steps the simulation terminates — the lane
-ran in 3.53s before the merge and does not finish in 300s after it — so the
-receipt stands on that tree and awaits re-measurement, rather than being a claim
-about `main` today. Attribution is settled by matched probes (with and without
-this work stashed, both hang identically), so the regression is in committed
-`main`, not in the A2 repair.
+✔ **THE CLONE-ROAD RECEIPT IS RE-MEASURED ON TODAY'S TREE AND THE HANG IS GONE.**
+It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`
+test that steps the simulation terminated — 3.53s before the merge, not finishing
+in 300s after it. Re-run 2026-09-16 at `dae0fc44a`:
+`the_player_clone_road_builds_an_identified_body` passes in **1.60s** and prints
+`209 body-observations judged, 0 skipped`, the same numbers the original receipt
+claimed. The whole `-p ambition_app` suite finishes: 213 + 678 + 1 passed, 25
+ignored, 375s. ⇒ The receipt is now a claim about `main`, and the deferral above
+it is discharged rather than restated.
 
 ### A12 — finish move-contact attribution and reflection identity
 
@@ -914,8 +943,19 @@ pre-increment value and `Update` does not re-run, so the visit is lost; if the
 dialogue start is instead replayed through the sim, it is counted twice. ⚠ And
 `AmbitionGameSave` feeds the peer checksum, so the two peers need not even
 disagree about the dialogue to disagree about the number. ⇒ Answer this one
-FIRST: it is the case where "derived from sim state, so it converges" — the
-argument that makes the other five plausible — is simply not available.
+FIRST on the argument, but NOT first with a test: it is the case where "derived
+from sim state, so it converges" — the argument that makes the other five
+plausible — is simply not available.
+
+⚠ **THE TEST FOR IT IS THE EXPENSIVE ONE, MEASURED BEFORE ATTEMPTING IT.**
+`dispatch_pending_dialog_requests` early-returns unless a `DialogueRunnerEntity`
+exists, and `spawn_dialogue_runner` is itself
+`.run_if(resource_exists::<YarnProject>)` — so reaching the increment needs a
+compiled Yarn project in the harness, not just a stepped world. ⇒ The bag arm in
+`a_bag_changed_mid_window_reaches_the_save.rs` is the cheap member of this class
+and was done first for that reason; it is also the template, since the shape is
+identical: change the value from outside the rewinding schedule mid-window, and
+keep a no-rollback control beside it.
 
 ⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
 WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
@@ -937,17 +977,32 @@ THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
 | system | its own guard | so it runs |
 | --- | --- | --- |
 | `adopt_occurrence_checkpoint_from_save` | `if restored.0 \|\| bodies.is_empty() { return }` | ONCE, before the latch, and only with a live body |
-| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE — it IS the latch |
+| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE, as soon as a PRIMARY PLAYER BODY exists — it IS the latch, and it asks for a body, NOT for a save file |
 | the three `persist_*_to_save` | `if !restored.0 { return }` | every frame AFTER the latch, value-compared |
 
-⛔ **SO THE MIRRORS WRITE NOTHING AT ALL UNTIL A SAVE HAS BEEN RESTORED, and
-any test that forgets that measures nothing.** `SaveRestored` starts false and
-only `complete_durable_restore` sets it. A harness booted with no save file
-never flips the latch, so all three `persist_*` early-return forever and the
-lane is green for a reason that has nothing to do with rollback. ⇒ The
-experiment below MUST boot with a save (`Platformer2dSimHarnessOptions::with_save`)
-and must assert the mirrored value actually changed, or it is the vacuous pass
-this queue keeps finding.
+⛔✦ **A CLAIM I PUT IN THIS ROW AND WITHDREW WITHIN THE HOUR, kept because the
+wrong version is the one a reader would reach for.** I wrote that the mirrors
+write nothing until a save has been RESTORED, so a harness booted with no save
+file never flips the latch and any such test measures nothing. **Wrong.**
+`complete_durable_restore` asks `ready_body.single().is_err()` and nothing else:
+the latch flips as soon as a primary player body carries a `BodyWallet`, save
+file or not. `AmbitionGameSave` is a plain `Res`, not an `Option<Res>`, so the
+resource is always there to mirror INTO.
+
+⇒ I inferred "needs a save" from the system's NAME and from the `save` field in
+its signature, and never read its guard clause. The three `persist_*` really are
+gated on the latch — that half held — but the latch is about a body.
+
+⭐ **WHICH MOVES THE EXPERIMENT, AND MAKES IT SHARPER.** The mirrors run in
+every harness that has a player, so `rollback_full_reset.rs` and
+`rollback_lifecycle_reset.rs` already drive them for 180 and 240 frames and are
+GREEN. That is not evidence they are safe: the mirror is value-compared, so in a
+world where the bag never changes it writes once and then returns early forever.
+⇒ The experiment is therefore NOT "boot with a save". It is **change the
+mirrored value in the middle of the rollback window**, which nothing in the tree
+does today, and assert the mirror actually wrote — before, during AND after the
+window, since a value that is right at frame 0 and right at frame N may have
+been lost and re-established in between.
 
 ⚠ **AND THE ONE-SHOT PAIR IS A NARROWER QUESTION THAN THE MIRRORS.** Both fire
 in the window between a live body existing and the latch flipping — and a live
@@ -974,18 +1029,57 @@ waived to make a count go down.
 
   * `NewGameResetRequested` (`rollback_resource_canonical`) via
     `dispatch_menu_action` → `SystemMenuParams::request_reset`.
-  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm`, which is
-    what an equip or a consumable use goes through.
+  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm` →
+    `apply_menu_action`, which spells the write `owned.take(Item::HealthCell, 1)`
+    — an equip or a consumable USE.
+
+⛔ **AND THE REAL PATH DECREMENTS, SO THE REWIND HANDS THE ITEM BACK.** The arm
+below grants, because an increment is the easier thing to observe; the shipped
+menu `take`s. A rewind restores the pre-use count, so the health cell the player
+just drank returns to the bag.
+
+⚠ **I FIRST WROTE THAT THIS MAKES ITEM DUPLICATION THE LIKELY SYMPTOM. CHECKED,
+AND IT IS NOT.** Duplication needs the HEAL to survive while the ITEM comes
+back, and the heal does not: `apply_menu_action` writes `PlayerHealRequested`,
+which
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:622`
+registers `clear_message_on_rollback`, so
+the rewind clears the message as it restores the count. Both halves are undone
+together. ⇒ The symptom is the quieter one — **the menu action silently does
+nothing**, occasionally, only in netplay, and the state stays self-consistent
+throughout. That is harder to notice and much harder to report, which is the
+argument for fixing it rather than for relaxing about it.
+
+⭐ **AND THAT MESSAGE IS THE FIX ALREADY BUILT.** Somebody made
+`PlayerHealRequested` rollback-aware on this exact road. The item count beside it
+was left as a direct write, so half of one action is rollback-correct and half is
+not.
 
 ⭐ **THE TWO TYPES FAIL DIFFERENTLY, AND THE LOUDER ONE IS THE LUCKIER ONE.**
 Both are written from a LOCAL menu, so only one peer makes the write; what
 happens next depends on the registration kind, which
 `RollbackEntryKind::feeds_peer_checksum` decides.
 
-| type | kind | feeds the peer checksum | so a local menu write |
+| type | kind | feeds the peer checksum | measured behaviour |
 | --- | --- | --- | --- |
-| `NewGameResetRequested` | `ResourceCanonical` | **yes** | makes A's and B's checksums differ — a DETECTED desync |
-| `OwnedItems` | `ResourceClone` | **no** | is restored away on the next rewind, silently |
+| `NewGameResetRequested` | `ResourceCanonical` | **yes** | taken back by the rewind, SILENTLY — the room is never rebuilt |
+| `OwnedItems` | `ResourceClone` | **no** | taken back by the rewind, SILENTLY — the item returns |
+
+⛔✦ **I PREDICTED THE HASHED ONE WOULD BE THE LOUD ONE, AND IT IS NOT.** The
+table above originally read "makes A's and B's checksums differ — a DETECTED
+desync" for `NewGameResetRequested`, reasoning that a hashed type must produce a
+disagreement. MEASURED: it behaves exactly like the unhashed one. The write is
+erased before it can reach a snapshot that anyone compares, so being hashed buys
+nothing — **a checksum cannot disagree about a value that was put back before it
+was taken.** ⇒ Registration kind predicts whether a SURVIVING divergence is
+caught; it says nothing about a write that does not survive.
+
+⚠⚠ **AND ONE THING THESE ARMS CANNOT SHOW, so the row must not claim it.** The
+sync-test harness is ONE peer replaying itself. A write erased identically on
+every replay produces no mismatch to detect, so whether TWO peers would disagree
+in the window before the erase is a question no single-peer harness can answer.
+The LOCAL LOSS is measured for both types. The cross-peer divergence is NOT
+measured, and the earlier version of this row asserted it.
 
 ⛔ **SO `OwnedItems` IS THE ONE TO WORRY ABOUT.** Its kind is documented as
 "snapshotted but not hashed: a rewind restores them, no peer reads them", and
@@ -994,7 +1088,10 @@ rollback restores the pre-equip value, and the item is simply back in the bag
 with no error anywhere. ⚠ `OwnedItemsBaseline` IS registered
 `rollback_resource_clone_checksum`, so a projection of this state is hashed —
 whether that projection would catch this write is the question to settle, not an
-assumption to inherit from the kind's reassuring detail string.
+assumption to inherit from the kind's reassuring detail string. ⇒ **ANSWERED
+BELOW: it does not.** `session_health` was clean on every one of the 240 frames
+in which the grant was being taken back, so the hashed baseline does not stand in
+for the unhashed value here.
 
 ⚠ **AND THE EXISTING TEST DOES NOT COVER IT, DELIBERATELY.**
 `game/ambition_app/tests/rollback_full_reset.rs` asks whether the reset
@@ -1004,8 +1101,61 @@ re-simulation of it. That is the safe shape by construction: a flag already true
 before the sync-test window opens is identical on every peer and on every
 replay. The mid-window menu write is the case nobody has asked about.
 
-**Next implementation:** answer the narrow question first — can a menu that
-writes these be open while a GGRS session is live? If it cannot, this is two
+⭐⭐ **MEASURED 2026-09-16 — THE `OwnedItems` HALF IS REPRODUCED, WITH A
+CONTROL.** `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`
+grants an item from outside the rewinding schedule, which is the shape
+`dispatch_menu_action` makes when it equips, and drives the GGRS sync-test
+window:
+
+| harness | what happens to the grant |
+| --- | --- |
+| `with_sync_test_rollback_settings(4, 10)` | **GONE AT FRAME 0.** The live `OwnedItems` is back below the granted count on the very next step |
+| same world, no rollback session | **KEPT for 240 frames** |
+
+⛔ **SO THE REWIND TAKES IT BACK, AND NOTHING ANYWHERE SAYS SO.** No desync, no
+error, no log line: `OwnedItems` is `rollback_resource_clone` — snapshotted and
+restored, NOT hashed — so there is no checksum to disagree. The item is simply
+back in the bag.
+
+⚠ **AND THE SAVE MIRROR NEVER EVEN SAW IT.** `persist_inventory_to_save` is
+value-compared, and the restore lands before it next runs, so it finds nothing
+changed and early-returns. The autosave is therefore CONSISTENT with a world in
+which the equip never happened — which is why no existing arm could have caught
+this. `rollback_full_reset.rs` and `rollback_lifecycle_reset.rs` drive the same
+mirror for 180 and 240 frames and are green, because in those worlds the bag
+never changes.
+
+⇒ The control is the load-bearing half of the arm. "The bag lost an item" and
+"the REWIND took the item back" are indistinguishable from inside one harness.
+
+⚠ **THIS IS NOT A GGRS BUG AND IT IS INVISIBLE IN SINGLE-PLAYER**, which is
+between them why it survived. Restoring a snapshotted resource is exactly what a
+rewind is for; the defect is that a player-visible ACTION is expressed as a
+direct write to rollback state from outside the rewinding schedule. With no
+session there is nothing to rewind and the control keeps the item forever — so
+every hour of single-player play is evidence of nothing here.
+
+**Next implementation:** the `OwnedItems` half no longer needs investigating,
+only fixing — route the equip through a message the sim consumes, the way
+`AmbientGravityRequest` already does for `BaseGravity`, three lines away in the
+same bundle. ⚠ The repro arm ASSERTS THE DEFECT so the lane stays green; when it
+goes RED the defect is fixed, and the arm says so in place. Delete it and close
+this row together.
+
+⛔ **AND THE ESCAPE HATCH IS SHUT: THE RUN CONDITION GUARANTEES THE DANGEROUS
+WINDOW RATHER THAN EXCLUDING IT.** The obvious hope is that a menu writing these
+cannot be open while a session is live. These systems carry
+`.run_if(simulation_authorized)`, and that predicate returns
+`live_scope_of(..).is_some()` — it is TRUE exactly when a live session scope
+exists. So they are gated to run only in the window that matters. ⚠ A live scope
+is not by itself a live GGRS session (single-player has one too), but nothing
+here narrows them to the single-player case.
+
+**Still open:** only the cross-peer question, and it needs a TWO-PEER harness
+rather than the sync test. Both local halves are now measured and both are
+silent. ⇒ The fix does not wait on that answer: a local action that vanishes
+some of the time is already a defect, and routing both writes through a message
+the sim consumes fixes it whatever the answer turns out to be. If it cannot, this is two
 waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
 the menu's own state machine; answer it from what gates the menu, because "you
 would not do that" is not a property of the code. If it CAN, the write belongs

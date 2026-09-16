@@ -18,6 +18,7 @@ mod app_it_sync;
 mod an_edit_reaches_the_shipped_game;
 mod the_session_owns_its_generation;
 
+mod a_bag_changed_mid_window_reaches_the_save;
 mod a_dropped_item_falls;
 mod one_body_two_tickers;
 mod installed_techniques_are_declared;

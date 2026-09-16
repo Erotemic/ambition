@@ -143,15 +143,24 @@ pub fn tick_gravity_grenade_fuses(
         if fuse.timer > 0.0 {
             continue;
         }
-        let well_id = match (grenade_id, counter.as_deref_mut()) {
-            (Some(grenade), Some(counter)) => {
-                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
-                    grenade,
-                    counter.next(),
-                ))
-            }
-            _ => None,
+        // ⛔ REFUSE RATHER THAN OPEN AN UNNAMEABLE WELL — ADR 0030. This was
+        // `_ => None`.
+        //
+        // ⚠ AND IT STILL DESPAWNS. The fuse has already expired; skipping the
+        // whole arm would leave a spent grenade retrying every tick forever, so
+        // the refusal costs the EFFECT, not the cleanup.
+        let (Some(grenade), Some(counter)) = (grenade_id, counter.as_deref_mut()) else {
+            warn!(
+                "a gravity grenade's well was refused: the grenade carries no \
+                 SimId or no SimIdCounter, so the well could not be named"
+            );
+            commands.entity(entity).despawn();
+            continue;
         };
+        let well_id = Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+            grenade,
+            counter.next(),
+        ));
         open_temporary_gravity_well(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
@@ -257,6 +266,12 @@ mod tests {
                 GravityGrenadeFuse {
                     timer: GRAVITY_GRENADE_FUSE_SECS,
                 },
+                // ⛔ THE WELL MINTS UNDER THE GRENADE, so a grenade with no
+                // identity now opens nothing (ADR 0030). A production grenade
+                // always carries one; a fixture that omitted it was testing the
+                // `_ => None` road this refusal replaced.
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_grenade"),
+                ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             ))
             .id();
         app.update();

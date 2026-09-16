@@ -177,14 +177,20 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "presentation.body_source_derived",
         )
-        // ⚠ NO RECORDED REASON, AND THE COMMENT THAT USED TO SIT HERE WAS NOT
-        // ABOUT THEM. It described portal-gun cooldown/in-flight/pickup timers,
-        // which left for `ambition_portal2d::register_rollback_state`; the carve
-        // moved the code and left the reason, which then read as these two lines'
-        // justification. Both are bevy engine types, both are `component-clone`,
-        // so neither is in the peer checksum — see
-        // `scripts/measure_unchecksummed_rollback_rows.py`, where they are the
-        // only two rows of 175 this repository does not define.
+        // ⛔⛤ THEIR REASONS ARE RECORDED IN ANOTHER CRATE'S TEST, NOT HERE.
+        // `rollback_exit_oracle.rs`'s `PRESENCE_ONLY` allowlist carries them —
+        // `Name` is *"authored debug name; immutable at runtime"* and `Transform`
+        // is *"presentation transform, republished from BodyKinematics every
+        // frame"* — and that allowlist is what makes them decided placements
+        // rather than accidents. A reader at the registration site cannot see it.
+        //
+        // ⚠ AND THE COMMENT THAT USED TO SIT HERE WAS ABOUT NEITHER OF THEM. It
+        // described portal-gun cooldown/in-flight/pickup timers, which left for
+        // `ambition_portal2d::register_rollback_state`; the carve moved the code
+        // and left the reason, which then read as these two lines' justification.
+        // Both are bevy engine types, so they are also the only two rows of 175 in
+        // `scripts/measure_unchecksummed_rollback_rows.py` that this repository
+        // does not define — its type index cannot see them either.
         .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
         .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");
 

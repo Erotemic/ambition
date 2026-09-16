@@ -2217,3 +2217,91 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
     // whole arbiter exists for: a rewind across the death frame leaves the
     // effective authority equal to the winner of the surviving claims.
 }
+
+/// A NEW GAME RESET REACHES THE WALLET AND THE BAG ON THE PRODUCTION ROAD.
+///
+/// ⛔⛤ **THIS ARM EXISTS BECAUSE THE ONLY OTHER COVERAGE HAND-WIRES THE ORDERING
+/// IT TESTS.** `items::persist::tests` registers
+/// `reset_inventory_on_new_game.before(restore_inventory_from_save)` itself, so
+/// it pins the FUNCTION and says nothing about the WIRING — it would stay green
+/// with the system registered into a schedule that never runs, or ordered so it
+/// never sees the message.
+///
+/// ⚠ **WHAT IT PINS, AND WHAT IT DOES NOT — the poison decided this, not me.**
+/// POISONED two ways: dropping the registration fails it; changing the
+/// registration's `.after(clear_transient_on_sandbox_reset)` to a `.before` the
+/// producer **left it GREEN**. So this arm pins that the system is REGISTERED ON
+/// A SCHEDULE THE PRODUCTION RESET REACHES and that the values actually change.
+/// It does NOT pin the ordering edge.
+///
+/// ⇒ The reason is worth knowing before anyone trusts that edge: `NewGameResetCommitted`
+/// stays readable for two frames, and `request_sandbox_reset` steps two. So the
+/// consumer sees the message on the second frame whichever side of the producer
+/// it runs on, and correctness here rests on Bevy's message double-buffering
+/// rather than on the `.after`. The edge stays because depending on
+/// double-buffering across a frame is fragile — but it is DEFENSIVE, and no test
+/// in this repository would notice its removal.
+///
+/// ⚠ **THE PREMISES ARE ASSERTED FIRST.** A wallet that was already zero, or a
+/// bag already equal to the starter set, would satisfy the post-conditions
+/// without the reset running at all.
+#[test]
+fn a_new_game_reset_reaches_the_wallet_and_the_bag() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+
+    let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
+
+    // ── the premises ─────────────────────────────────────────────────────────
+    let spent = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<&mut BodyWallet, With<PrimaryPlayer>>();
+        let mut wallet = query
+            .single_mut(world)
+            .expect("the primary player carries a wallet");
+        wallet.balance = 137;
+        wallet.balance
+    };
+    assert_eq!(
+        spent, 137,
+        "the premise: the wallet holds a non-default balance before the reset, so \
+         `BodyWallet::default()` afterwards cannot be the value it already had"
+    );
+
+    let starter = OwnedItems::starter();
+    {
+        let world = sim.world_mut();
+        let mut owned = world.resource_mut::<OwnedItems>();
+        *owned = OwnedItems::default();
+        assert_ne!(
+            *owned, starter,
+            "the premise: the bag differs from the starter set before the reset, so \
+             matching it afterwards cannot be the value it already had"
+        );
+    }
+
+    // ── the production road ──────────────────────────────────────────────────
+    request_sandbox_reset(&mut sim);
+
+    // ── the values, not the schedule ─────────────────────────────────────────
+    let balance = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<&BodyWallet, With<PrimaryPlayer>>();
+        query
+            .single(world)
+            .expect("the primary player still carries a wallet after the reset")
+            .balance
+    };
+    assert_eq!(
+        balance, 0,
+        "a committed New Game must reset the primary player's wallet. It did not, \
+         so `reset_inventory_on_new_game` did not run with the message present — \
+         check that its `.after` orders the EFFECT and not just the system"
+    );
+    assert_eq!(
+        *sim.world().resource::<OwnedItems>(),
+        starter,
+        "a committed New Game must restore the starter bag on the production road"
+    );
+}

@@ -335,7 +335,41 @@ say it had never looked.
 generalise to a signature CHANGE (these are additions), to a trait or generic
 edit, or to a codegen lane.
 
-### ⚠ A `warm_noop` that is not warm has been a GIT OPERATION both times
+### `*_units_rebuilt` — the control that made the rule enforceable
+
+⛔ **A `warm_noop` THAT IS NOT WARM HAS BEEN A GIT OPERATION EVERY TIME — THREE
+TIMES ON 2026-09-16.** 346 s, 47 s, 7.25 s, against a 0.73 s floor; in each case
+a merge landed between building the subject and measuring it.
+
+⛔⛤ **AND THE PARAGRAPH BELOW USED TO END WITH "so check the control column
+first", WHICH DID NOT WORK.** It was written here in the morning and the 7.25 s
+row was produced that afternoon by its own author. Once `after_edit_seconds` has
+been read, an odd baseline gets EXPLAINED rather than discarded — the
+explanation is always available and always plausible. ⇒ `compile_cost.py` now
+REFUSES to emit a row whose warm no-op rebuilt anything, so the interesting term
+never reaches a reader who could rationalise the control.
+
+⭐ **ZERO REBUILT UNITS IS THE TEST, NOT A DURATION THRESHOLD.** A threshold is
+per-machine and per-lane; "the warm no-op compiled nothing" is exact on any
+host, and cargo already reports it through the same `fresh` field the link
+counter reads.
+
+⚠ **AND IT COVERS THE LANE THE LINK COUNT CANNOT.** That is why it exists as a
+separate column rather than as a rule about `host_link_invocations`:
+
+| run | `warm_noop_seconds` | `warm_noop_host_link_invocations` | caught? |
+| --- | ---: | --- | --- |
+| `relink` | 346.07 s | **2** | yes — the lane links |
+| `check` | 47.33 s | 0 | **no** — `cargo check` never links |
+| `check` | 7.25 s | 0 | **no**, same reason |
+
+`warm_noop_units_rebuilt` is 0 in every row that can now exist, and is recorded
+so a reader can see the control was applied rather than assume it.
+`after_edit_units_rebuilt` is structural rather than a second spelling of the
+duration: the `check` scenario's edit rebuilds **16** units, which is a fact
+about the dependency graph to set beside the wall clock.
+
+### ⚠ What that control caught, and the hypothesis it refuted
 
 Twice on 2026-09-16 a run recorded a baseline that was not a baseline, and in
 both cases the cause was a merge landing between building the subject and

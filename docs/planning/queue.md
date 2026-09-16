@@ -971,6 +971,15 @@ require a live primary player body, which is exactly the condition
 `maintain_local_session` starts GGRS on. These run when a session can already be
 live; the session-scope resets do not.
 
+⭐ **AND THIS CLASS WAS PREDICTED IN WRITING, IN THE REGISTRATION THAT MAKES IT
+CHECKABLE.** `crates/ambition_persistence/src/rollback_registration.rs` explains
+why `AmbitionGameSave` was given a real content projection
+(`AmbitionGameSave::checksum`) rather than a presence-only probe: *"the ~6
+systems that pair a non-rewinding `Local` edge-detector with these very
+resources would have failed SILENTLY once rollback went live."* ⇒ So the
+instrument for this row already exists and is pointed at the right resource —
+what was missing is an arm that makes the value CHANGE while the window runs.
+
 ⭐⭐ **THE FIVE ARE TWO PHASES AROUND A ONE-SHOT LATCH, AND ONLY ONE PHASE IS
 THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
 

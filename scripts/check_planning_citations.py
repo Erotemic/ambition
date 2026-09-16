@@ -915,6 +915,61 @@ def _note_unreadable(rel: object, err: OSError) -> None:
     _UNREADABLE.append(f"{rel}: {type(err).__name__}: {err}")
 
 
+#: What this suite must still be able to SEE. ⛔✦ A CHECKER OVER A MISSING
+#: DOCUMENT DOES NOT FAIL — IT HAS NOTHING TO CHECK. MEASURED 2026-09-16, and it
+#: was an incident rather than a hypothetical: a script truncated
+#: `docs/planning/status.md` to ZERO BYTES, the file was committed and pushed
+#: empty, and `--maintenance` passed 7/7 over it. Every citation gate here is a
+#: statement about the citations a document CONTAINS, and a document that
+#: contains nothing satisfies all of them.
+#:
+#: ⇒ The floor is per-DOCUMENT and not a total, because a total hides exactly
+#: this: 176 lines leaving one file is a rounding error against the corpus and is
+#: the whole of that file.
+PLANNING_DOC_FLOOR = 40
+
+
+def refuse_a_corpus_that_lost_a_document(docs, requested) -> str:
+    """Any planning document that is empty, or a directory that holds none.
+
+    ⚠ A NEW document is legitimately short, so the floor is on the corpus's
+    EXISTING members: a tracked file that has lost its content. An untracked new
+    file is not judged.
+    """
+    import subprocess
+
+    if not docs:
+        return (
+            f"⛔ no planning document found under {', '.join(str(p) for p in requested)}.\n"
+            "   A citation gate over an empty corpus passes every check it makes."
+        )
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(REPO), "ls-files", "--", "docs/planning"],
+            capture_output=True, text=True, check=True,
+        ).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return ""  # UNKNOWN, never "clean" — the ordinary passes still run.
+    tracked = {REPO / line for line in listed if line.endswith(".md")}
+    emptied = sorted(
+        str(doc.relative_to(REPO))
+        for doc in docs
+        if doc in tracked
+        and doc.exists()
+        and len([ln for ln in doc.read_text(errors="replace").splitlines() if ln.strip()])
+        < 1
+    )
+    if emptied:
+        return (
+            "⛔ these tracked planning documents have no content left:\n  "
+            + "\n  ".join(emptied)
+            + "\n   A checker over a missing document reports CLEAN, so this is a "
+            "refusal rather than a finding. Restore from git; if the file is "
+            "genuinely retired, delete it rather than emptying it."
+        )
+    return ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict", action="store_true",
@@ -944,6 +999,11 @@ def main() -> int:
     for p in args.paths:
         p = p if p.is_absolute() else REPO / p
         docs.extend(sorted(p.rglob("*.md")) if p.is_dir() else [p])
+
+    hollow = refuse_a_corpus_that_lost_a_document(docs, args.paths)
+    if hollow:
+        print(hollow, file=sys.stderr)
+        return 1
 
     print(f"reading {len(list(repo_files()))} tracked files ...", file=sys.stderr)
     text = source_text()

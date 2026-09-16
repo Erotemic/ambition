@@ -432,7 +432,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// different items) and `SimId::match_spawn`, which embedded that tick in a
 /// `component-canonical` identity string — so two peers minted DIFFERENT
 /// canonical identities for the same spawned item.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 187;
+/// ⭐⭐ 187 -> 188: `CheckpointOperationKey` stopped writing the raw
+/// `SessionScopeId` into the checksum three resources compare —
+/// `SessionStartupResume`, `AcceptedCheckpointRestore`,
+/// `SessionCheckpointOutcomes`. A scope id counts THIS App's session
+/// activations, so two peers in one agreed session hold different ones and would
+/// have disagreed from the first compared frame. The peer projection is now the
+/// ADMISSION SEQUENCE plus whether a scope owns the operation at all; admission
+/// is simulated, so two timelines that admitted the same operations are on the
+/// same number, and the presence tag is a composition fact both peers share.
+/// ⚠ THE SCOPE IS NOT GONE — it still decides stale-operation rejection and
+/// still round-trips, because all three are `rollback_resource_clone_checksum`:
+/// the SNAPSHOT is a `Clone` of the whole struct and never goes through the
+/// projection. This is the peer/local split, not a deletion.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 188;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

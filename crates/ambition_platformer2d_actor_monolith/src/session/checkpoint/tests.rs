@@ -2232,7 +2232,7 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
 /// ⇒ When the split lands, this arm flips to `assert_eq!` and the four entries
 /// leave `RECORDED_DIVERGENCE` in `game/ambition_app/tests/id_peer_audit.rs`.
 #[test]
-fn a_checkpoint_operation_key_still_projects_the_host_local_session_scope() {
+fn a_checkpoint_operation_key_projects_the_sequence_and_not_the_session_scope() {
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
     let scoped = |scope: u64| {
@@ -2241,16 +2241,16 @@ fn a_checkpoint_operation_key_still_projects_the_host_local_session_scope() {
             scope: Some(SessionScopeId(scope)),
             sequence: 0,
         }
-        .write_into(&mut bytes);
+        .write_peer_stable_into(&mut bytes);
         bytes
     };
-    assert_ne!(
+    assert_eq!(
         scoped(3),
         scoped(12),
-        "the checkpoint operation key no longer projects the host-local session \
-         scope — if that is deliberate, flip this arm to assert_eq and delete \
-         the four checkpoint entries from RECORDED_DIVERGENCE in \
-         game/ambition_app/tests/id_peer_audit.rs"
+        "the checkpoint operation key projects the host-local session scope \
+         again. A `SessionScopeId` counts THIS App's session activations, so two \
+         peers in one agreed session hold different ones and the four resources \
+         that checksum this key would disagree from the first compared frame."
     );
     // ⛔ AND THE SEQUENCE MUST STILL SEPARATE, or the arm above would be
     // satisfied by a projection that hashed the scope and nothing else.
@@ -2260,12 +2260,30 @@ fn a_checkpoint_operation_key_still_projects_the_host_local_session_scope() {
             scope: None,
             sequence,
         }
-        .write_into(&mut bytes);
+        .write_peer_stable_into(&mut bytes);
         bytes
     };
     assert_ne!(
         sequenced(0),
         sequenced(1),
         "two different operation sequences project identically"
+    );
+    // ⛔ AND "A SCOPE OWNS THIS" MUST STILL SEPARATE FROM "NOTHING DOES". The
+    // presence tag is a composition fact both peers agree on, and without it a
+    // standalone key and a scoped one at the same sequence compare equal.
+    let unscoped = {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: None,
+            sequence: 0,
+        }
+        .write_peer_stable_into(&mut bytes);
+        bytes
+    };
+    assert_ne!(
+        unscoped,
+        scoped(3),
+        "a standalone operation key and a session-owned one at the same \
+         sequence project identically"
     );
 }

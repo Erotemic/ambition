@@ -104,7 +104,7 @@ impl SessionStartupResume {
                 // ⭐ THE KEY'S OWN PROJECTION, not a second spelling of it.
                 StartupResume::Routed(key) => {
                     let mut bytes = Vec::new();
-                    key.write_into(&mut bytes);
+                    key.write_peer_stable_into(&mut bytes);
                     ambition_platformer2d_core::snapshot::checksum_bytes(&bytes).rotate_left(5)
                 }
             };
@@ -556,29 +556,49 @@ pub struct CheckpointOperationKey {
     ///
     /// ⛔ AN ABSENT SCOPE IS NOT A WILDCARD. Two keys with `None` match only each
     /// other, never a scoped one.
+    ///
+    /// ⛔⛤ LOCAL ONLY. It decides stale-operation rejection and is restored by a
+    /// rewind; it is deliberately absent from
+    /// [`CheckpointOperationKey::write_peer_stable_into`], which explains why.
     pub scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
     /// Advances only when the lifecycle slot ADMITS a restore.
     pub sequence: u64,
 }
 
 impl CheckpointOperationKey {
-    /// The ONE projection of this key, reused by every value that stores it.
+    /// The ONE peer projection of this key, reused by every value that stores it.
     ///
     /// ⛔⛔ IT EXISTS BECAUSE THERE WERE THREE. Two callers folded an optional
     /// scope as `scope.0 | 1 << 63` while a third wrote an explicit presence tag
     /// and the full `u64`, so the same key projected differently depending on
     /// which resource held it — and the bit-or spelling silently collides a
-    /// scope whose top bit is set with the absent case. One routine, tagged, so
-    /// "absent" and "scope 0" are different answers everywhere.
-    pub fn write_into(&self, bytes: &mut Vec<u8>) {
+    /// scope whose top bit is set with the absent case. One routine, so a key
+    /// cannot hash differently depending on which resource is holding it.
+    ///
+    /// ⛔⛤ **THE SCOPE'S VALUE IS NOT WRITTEN, AND THAT IS THE POINT.** A
+    /// `SessionScopeId` counts THIS App's session activations. Two peers in one
+    /// agreed session hold different ones by construction, so writing it put a
+    /// guaranteed disagreement into the checksum four resources compare — the
+    /// campaign's ID-PEER defect, found by review after the standing guard had
+    /// twice reported clean.
+    ///
+    /// ⭐ THE SEQUENCE IS WHAT A PEER CAN AGREE ABOUT. It advances only when the
+    /// lifecycle slot ADMITS a restore, and admission is simulated, so two
+    /// timelines that admitted the same operations are on the same number.
+    ///
+    /// ⚠ THE PRESENCE TAG STAYS. Whether a scope owns the operation is a
+    /// composition fact — a standalone profile has no `ActiveSessionScope` and a
+    /// session profile always does — not a count, so peers agree on it; and
+    /// dropping it would make a scoped key and a standalone one with the same
+    /// sequence compare equal.
+    ///
+    /// ⚠ THE SCOPE ITSELF IS UNAFFECTED. It still decides stale-operation
+    /// rejection through `PartialEq`, and the whole value still round-trips: all
+    /// four carriers are registered `rollback_resource_clone_checksum`, so the
+    /// SNAPSHOT is a `Clone` of the struct and never goes through here.
+    pub fn write_peer_stable_into(&self, bytes: &mut Vec<u8>) {
         use ambition_platformer2d_core::snapshot::{put_u64, put_u8};
-        match self.scope {
-            None => put_u8(bytes, 0),
-            Some(scope) => {
-                put_u8(bytes, 1);
-                put_u64(bytes, scope.0);
-            }
-        }
+        put_u8(bytes, u8::from(self.scope.is_some()));
         put_u64(bytes, self.sequence);
     }
 }
@@ -767,10 +787,9 @@ impl AcceptedRestore {
             item,
         } = self;
         let mut bytes = Vec::new();
-        // ⚠ AN ABSENT SCOPE IS NOT SCOPE ZERO, and the key owns that rule: one
-        // projection, reused, so the same key cannot hash differently depending
-        // on which resource is holding it.
-        key.write_into(&mut bytes);
+        // ⚠ THE KEY OWNS WHAT OF ITSELF A PEER COMPARES — the sequence and
+        // whether a scope owns it, never the scope's per-App value.
+        key.write_peer_stable_into(&mut bytes);
         put_i32(&mut bytes, *frame);
         put_u64(&mut bytes, intent.checksum());
         put_u64(&mut bytes, occurrences.checksum());
@@ -1509,21 +1528,21 @@ impl CheckpointRestoreOutcome {
 
     /// ⛔ EXHAUSTIVE BY DESTRUCTURE. A new field, or a new variant, stops this
     /// compiling rather than falling outside the projection two peers compare.
-    fn write_into(&self, bytes: &mut Vec<u8>) {
+    fn write_peer_stable_into(&self, bytes: &mut Vec<u8>) {
         use ambition_platformer2d_core::snapshot::put_u8;
         match self {
             Self::Committed { key } => {
                 put_u8(bytes, 0);
-                key.write_into(bytes);
+                key.write_peer_stable_into(bytes);
             }
             Self::Failed { key, failure } => {
                 put_u8(bytes, 1);
-                key.write_into(bytes);
+                key.write_peer_stable_into(bytes);
                 put_u8(bytes, failure.code());
             }
             Self::Cancelled { key, reason } => {
                 put_u8(bytes, 2);
-                key.write_into(bytes);
+                key.write_peer_stable_into(bytes);
                 put_u8(bytes, reason.code());
             }
         }
@@ -1601,7 +1620,7 @@ impl SessionCheckpointOutcomes {
             None => put_u8(&mut bytes, 0),
             Some(outcome) => {
                 put_u8(&mut bytes, 1);
-                outcome.write_into(&mut bytes);
+                outcome.write_peer_stable_into(&mut bytes);
             }
         }
         checksum_bytes(&bytes)

@@ -126,7 +126,9 @@ impl SessionMatchOrdinal {
     /// owner tag. That is the review's recommendation and the right shape; it is
     /// a carve, not a checksum change.
     pub fn peer_stable_checksum(&self) -> u64 {
-        self.next
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.ordinal_mint")
+            .u64(self.next)
+            .finish()
     }
 
     /// The two facts, for the wire format.
@@ -247,12 +249,9 @@ impl MatchInstance {
     /// answers. Folding them would make a bare fixture agree with the first
     /// match of a real session.
     pub fn peer_match_digest(&self) -> u64 {
-        match self.ordinal {
-            None => 0,
-            Some(ordinal) => ordinal
-                .wrapping_add(1)
-                .wrapping_mul(0x9E37_79B9_7F4A_7C15),
-        }
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.instance")
+            .opt_u64(self.ordinal)
+            .finish()
     }
 
     /// ⛔⛔ **THIS IS NOT A PEER-STABLE TERM, AND CALLING IT ONE WAS THE
@@ -735,10 +734,10 @@ impl ActiveMatch {
     /// the same seating compared equal, so a peer that had advanced a match
     /// agreed with one that had not.
     pub fn peer_stable_checksum(&self) -> u64 {
-        let mut bytes = Vec::with_capacity(16);
-        bytes.extend_from_slice(&(self.seats as u64).to_le_bytes());
-        bytes.extend_from_slice(&self.instance().peer_match_digest().to_le_bytes());
-        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.active_receipt")
+            .u64(self.seats as u64)
+            .u64(self.instance().peer_match_digest())
+            .finish()
     }
 
     /// Which frozen topology decided this match's seating, if a session had

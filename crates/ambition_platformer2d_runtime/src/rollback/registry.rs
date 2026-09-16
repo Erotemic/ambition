@@ -478,7 +478,22 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// encodes a `MatchInstance`, so a rewind restores which match a value is for.
 /// Found by the GPT architecture review of 2026-09-15, which named this a
 /// false-NEGATIVE checksum bug beside the false-POSITIVE one at 188 -> 189.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 190;
+/// ⭐⭐ 190 -> 191: the six hand-rolled peer-checksum projections collapsed onto
+/// one owner, `ambition_platformer2d_core::snapshot::PeerDigest`. No projection
+/// changed WHICH fields it compares; all of them changed how those fields are
+/// encoded, so the values differ and peers on two versions would disagree.
+/// ⛔ WHAT WAS THERE: a raw field returned unhashed, a `Vec` plus
+/// `extend_from_slice`, a wrapping-multiply by a constant, a byte-writer, and two
+/// variants of a local `peer_stable_digest` — three hashing strategies for one
+/// job, and only ONE of the six carrying a domain tag. Every projection defect
+/// this campaign found was a projection encoding something almost the same way as
+/// its neighbour, `CheckpointOperationKey`'s three spellings worst of all.
+/// ⚠ Two rules are now structural instead of remembered: a domain is required,
+/// and an optional writes a presence tag so absent never equals zero. The second
+/// one caught a live defect in the same pass — `LiveMatchTicks` folded an absent
+/// match through `unwrap_or(0)`, so a clock belonging to NO match agreed with one
+/// belonging to a match whose digest happened to be zero.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 191;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

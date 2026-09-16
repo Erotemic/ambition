@@ -82,6 +82,89 @@ pub fn checksum_bytes(bytes: &[u8]) -> u64 {
     hasher.finish()
 }
 
+/// ⭐⭐ **THE ONE WAY TO BUILD A PEER CHECKSUM PROJECTION.**
+///
+/// A rollback checksum registered through a `*_checksum` registrar compares only
+/// what its projection hashes. That is the mechanism the whole peer-identity
+/// campaign runs on, and it was spelled SIX different ways across three crates —
+/// a raw field returned unhashed, a `Vec` plus `extend_from_slice`, a
+/// wrapping-multiply by a constant, a byte-writer, and two variants of a local
+/// `peer_stable_digest` helper. Three different hashing strategies for one job.
+///
+/// ⛔⛤ THAT IS NOT A TIDINESS COMPLAINT; IT IS WHERE THE BUGS CAME FROM.
+/// `CheckpointOperationKey` had THREE spellings of one projection, two folding an
+/// optional scope as `scope.0 | 1 << 63` and one writing a tagged value, so the
+/// same key hashed differently depending on which resource held it — and the
+/// bit-or spelling silently collided a scope whose top bit was set with the
+/// absent case. Every such defect found in this campaign has been a projection
+/// that encoded something ALMOST the same way as its neighbour.
+///
+/// ⇒ Two rules are structural here rather than remembered:
+///
+/// 1. **A DOMAIN IS REQUIRED.** [`Self::in_domain`] takes the name of what is
+///    being compared, so two projections cannot produce the same digest from the
+///    same numbers. Four of the six old spellings carried no domain at all.
+/// 2. **ABSENT IS NEVER ZERO.** [`Self::opt_u64`] writes a presence tag, so "no
+///    ordinal authority" and "ordinal 0" stay different answers. This rule was
+///    written out longhand at seven call sites and violated at one.
+///
+/// ⚠ WHAT IT DELIBERATELY DOES NOT DO is decide WHICH fields go in. That is the
+/// peer/local judgement and it belongs to the type that owns the state, beside
+/// the comment explaining why — a helper that chose for you would move that
+/// judgement somewhere nobody reviews it.
+#[derive(Clone, Debug)]
+pub struct PeerDigest {
+    hasher: StateHasher,
+}
+
+impl PeerDigest {
+    /// Start a projection for a named domain.
+    ///
+    /// ⭐ THE DOMAIN IS A STRING, NOT A MAGIC NUMBER. The two older tags were
+    /// `0x5700_0000_0000_0001` and `0x5D00_0000_0000_0002`, which are unreadable
+    /// and give no hint whether a third would collide. A name says what is being
+    /// compared and reads the way this repo's stable schema names read.
+    pub fn in_domain(domain: &str) -> Self {
+        let mut hasher = StateHasher::default();
+        hasher.write(&(domain.len() as u64).to_le_bytes());
+        hasher.write(domain.as_bytes());
+        Self { hasher }
+    }
+
+    pub fn u64(mut self, value: u64) -> Self {
+        self.hasher.write(&value.to_le_bytes());
+        self
+    }
+
+    pub fn bool(mut self, value: bool) -> Self {
+        self.hasher.write(&[u8::from(value)]);
+        self
+    }
+
+    /// An optional count, with a PRESENCE TAG so absent and zero differ.
+    pub fn opt_u64(mut self, value: Option<u64>) -> Self {
+        match value {
+            None => self.hasher.write(&[0]),
+            Some(value) => {
+                self.hasher.write(&[1]);
+                self.hasher.write(&value.to_le_bytes());
+            }
+        }
+        self
+    }
+
+    /// Length-prefixed bytes, so two adjacent fields cannot be re-split.
+    pub fn bytes(mut self, value: &[u8]) -> Self {
+        self.hasher.write(&(value.len() as u64).to_le_bytes());
+        self.hasher.write(value);
+        self
+    }
+
+    pub fn finish(self) -> u64 {
+        self.hasher.finish()
+    }
+}
+
 pub fn put_opt_str(out: &mut Vec<u8>, value: Option<&str>) {
     match value {
         None => put_bool(out, false),
@@ -888,5 +971,85 @@ mod rollback_registrar_default_method_tests {
             dummy_checksum,
         );
         assert!(registrar.called);
+    }
+}
+
+#[cfg(test)]
+mod peer_digest_tests {
+    use super::PeerDigest;
+
+    /// ⛔⛔ **THE TWO RULES THE TYPE EXISTS TO MAKE STRUCTURAL.**
+    ///
+    /// Both were previously written longhand at every call site, which is why
+    /// one site got each of them wrong.
+    #[test]
+    fn a_domain_separates_identical_payloads_and_absent_is_not_zero() {
+        // RULE 1: the same numbers in two domains are two digests. Four of the
+        // six spellings this replaced carried no domain, so a verdict digest and
+        // a seat-count digest over the same integer were the same value.
+        assert_ne!(
+            PeerDigest::in_domain("match.verdict").u64(7).finish(),
+            PeerDigest::in_domain("match.seats").u64(7).finish(),
+            "the domain does not reach the digest, so two projections over the \
+             same numbers collide"
+        );
+        // ⚠ AND A DOMAIN THAT IS A PREFIX OF ANOTHER MUST STILL SEPARATE. A
+        // bare concatenation would make domain "ab" + field 1 collide with
+        // domain "a" + field b1; the length prefix is what prevents it.
+        assert_ne!(
+            PeerDigest::in_domain("match").u64(1).finish(),
+            PeerDigest::in_domain("match.a").u64(1).finish(),
+            "a domain that is a prefix of another collides with it"
+        );
+
+        // RULE 2: absent is not zero. `SessionMatchOrdinal` returned a bare
+        // `next`, so an unclaimed mint and a session with zero matches were the
+        // same answer.
+        assert_ne!(
+            PeerDigest::in_domain("d").opt_u64(None).finish(),
+            PeerDigest::in_domain("d").opt_u64(Some(0)).finish(),
+            "an absent optional projects as zero"
+        );
+        assert_ne!(
+            PeerDigest::in_domain("d").opt_u64(Some(0)).finish(),
+            PeerDigest::in_domain("d").opt_u64(Some(1)).finish(),
+            "the optional's VALUE does not reach the digest"
+        );
+    }
+
+    /// ⛔ FIELD ORDER AND FIELD BOUNDARIES BOTH MATTER, or a projection that
+    /// added a field would silently agree with one that reordered two.
+    #[test]
+    fn two_fields_cannot_be_re_split_or_reordered() {
+        assert_ne!(
+            PeerDigest::in_domain("d").u64(1).u64(2).finish(),
+            PeerDigest::in_domain("d").u64(2).u64(1).finish(),
+            "field order does not reach the digest"
+        );
+        // ⚠ THE LENGTH PREFIX ON `bytes` IS LOAD-BEARING. Without it "ab" then
+        // "c" and "a" then "bc" are the same byte stream — which is exactly how
+        // an `escape_segment`-free identity string collides.
+        assert_ne!(
+            PeerDigest::in_domain("d").bytes(b"ab").bytes(b"c").finish(),
+            PeerDigest::in_domain("d").bytes(b"a").bytes(b"bc").finish(),
+            "adjacent byte fields can be re-split, so two different pairs agree"
+        );
+    }
+
+    /// ⚠ AND IT MUST BE DETERMINISTIC ACROSS CALLS, since two peers compute it
+    /// in separate processes. `StateHasher` is a fixed-seed FNV-1a, not
+    /// `DefaultHasher`, whose seed is randomised per process — a projection built
+    /// on that would desync every pair of peers and pass every single-process
+    /// test.
+    #[test]
+    fn the_same_projection_twice_is_the_same_digest() {
+        let build = || {
+            PeerDigest::in_domain("match.clock")
+                .opt_u64(Some(3))
+                .u64(50_000)
+                .bool(true)
+                .finish()
+        };
+        assert_eq!(build(), build());
     }
 }

@@ -124,14 +124,10 @@ impl LiveMatchTicks {
         // equal, so a peer whose clock belonged to a finished match agreed with
         // one whose clock belonged to the live one.
         let (of, micros) = self.parts();
-        let mut bytes = Vec::with_capacity(16);
-        bytes.extend_from_slice(
-            &of.map(|instance| instance.peer_match_digest())
-                .unwrap_or(0)
-                .to_le_bytes(),
-        );
-        bytes.extend_from_slice(&micros.to_le_bytes());
-        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.live_clock")
+            .opt_u64(of.map(|instance| instance.peer_match_digest()))
+            .u64(micros)
+            .finish()
     }
 
     pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
@@ -301,6 +297,51 @@ mod tests {
             LiveMatchTicks::from_snapshot(None, 50_000).peer_stable_checksum(),
             "a clock belonging to no match agrees with one belonging to match 3"
         );
+        // ⛔⛤ **AND THE REACHABLE VERSION OF THAT COLLISION, WHICH THE ARM ABOVE
+        // CANNOT SEE.** It compares "no match" against match 3, whose digest is
+        // nonzero, so it passes whether or not the encoding distinguishes absence
+        // — I poisoned the presence tag out of `PeerDigest` and this arm stayed
+        // green, which is how I learned it was testing something easier than I
+        // thought.
+        //
+        // ⚠ THE CASE THAT IS ACTUALLY REACHABLE is a stamp whose ORDINAL is
+        // `None` — a composition with no ordinal authority, which every bare
+        // fixture is. The projection folded the whole option through
+        // `unwrap_or(0)`, and `MatchInstance::peer_match_digest` answered 0 for an
+        // absent ordinal, so "this clock belongs to NO match" and "this clock
+        // belongs to a match nobody can name" were one value. Those are different
+        // worlds: `LiveMatchTicks::of` is what the ruleset reads to decide whether
+        // the clock applies at all.
+        assert_ne!(
+            LiveMatchTicks::from_snapshot(
+                Some(MatchInstance::from_snapshot(
+                    Some(SessionScopeId(1)),
+                    Some(4_200),
+                    None,
+                )),
+                50_000,
+            )
+            .peer_stable_checksum(),
+            LiveMatchTicks::from_snapshot(None, 50_000).peer_stable_checksum(),
+            "a clock stamped for an UNNAMEABLE match agrees with a clock stamped \
+             for no match at all"
+        );
+        // ⛔⛤ **THIS ARM HAS TWO INDEPENDENT PROTECTIONS AND FIRES ONLY UNDER
+        // BOTH, which matters to whoever poisons it next.** Measured, all four
+        // combinations:
+        //
+        // | `PeerDigest::opt_u64` presence tag | `peer_match_digest` absent case | arm |
+        // |---|---|---|
+        // | tagged      | domained (nonzero) | green |
+        // | UNTAGGED    | domained (nonzero) | green |
+        // | tagged      | returns 0          | green |
+        // | UNTAGGED    | returns 0          | **RED** |
+        //
+        // The outer presence tag distinguishes `None` from `Some(0)`, and
+        // `peer_match_digest` independently never answers 0 for an absent
+        // ordinal. Either alone closes the collision. ⚠ So poisoning ONE of them
+        // leaves this arm green and would read as "the arm is vacuous" — it is
+        // not; it is defended twice. Poison the conjunction.
     }
 
     use super::*;

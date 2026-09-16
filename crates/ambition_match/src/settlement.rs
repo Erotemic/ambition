@@ -46,12 +46,11 @@ pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 /// for a different match checksummed identically while `settled(active)`
 /// disagreed. A projection has to say WHICH match it describes, in the peer's
 /// vocabulary.
-fn peer_stable_digest(which: u64, tag: u64, extra: u64) -> u64 {
-    let mut bytes = Vec::with_capacity(24);
-    bytes.extend_from_slice(&which.to_le_bytes());
-    bytes.extend_from_slice(&tag.to_le_bytes());
-    bytes.extend_from_slice(&extra.to_le_bytes());
-    ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+fn peer_stable_digest(domain: &str, which: u64, extra: u64) -> u64 {
+    ambition_platformer2d_core::snapshot::PeerDigest::in_domain(domain)
+        .u64(which)
+        .u64(extra)
+        .finish()
 }
 
 impl StocksMatchSettled {
@@ -81,7 +80,7 @@ impl StocksMatchSettled {
                 }
             }
         };
-        peer_stable_digest(which, 0x5700_0000_0000_0001, verdict)
+        peer_stable_digest("match.stocks_verdict", which, verdict)
     }
 
     /// Has THIS match been decided? A verdict for a different match is not
@@ -181,7 +180,7 @@ impl SuddenDeathEntered {
             None => 0,
             Some(instance) => instance.peer_match_digest(),
         };
-        peer_stable_digest(which, 0x5D00_0000_0000_0002, u64::from(self.0.is_some()))
+        peer_stable_digest("match.sudden_death", which, u64::from(self.0.is_some()))
     }
 
     /// Is THIS match in sudden death?

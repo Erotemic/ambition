@@ -207,8 +207,9 @@ roots every frame across a real shell handoff.
 used widely, which is already the consolidated form. It is deciding whether the
 `Single` semantics or the scope semantics is the one this engine means, and the
 answer changes what a handoff frame is allowed to look like. That is a ruling,
-not a refactor, and it belongs in front of the maintainer before C03 moves
-storage.
+not a refactor, and it is FILED as `Q132` in
+[`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) with the
+three options costed. C03 should not move storage before it is answered.
 
 ### DEPENDENCIES / BLOCKERS
 

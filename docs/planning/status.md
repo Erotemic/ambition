@@ -48,6 +48,15 @@ queue row — and `consolidation-plan.md` points at them rather than restating
 them, because this file has been the second copy that rots before. ⛔ One re-arm
 condition is named there and not repeated here.
 
+⚠ **STARTABLE IS NOT UNBLOCKED-ALL-THE-WAY, and the distinction is one measured
+day old.** C03's three advertised cheap wins were measured on 2026-09-16 and two
+are EMPTY — no session-scoped resource is reset-only, and the two reset lists are
+a disjoint partition rather than two copies. The third turned into a maintainer
+ruling: `Q132` asks whether a handoff frame holding two session roots should make
+~206 `Single<.., With<SessionRoot>>` sites run or skip. ⇒ **C03 can start; it
+should not MOVE STORAGE before Q132 is answered**, because that ruling decides
+whether a two-root frame may exist at all.
+
 The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
 
 ### Deterministic identity

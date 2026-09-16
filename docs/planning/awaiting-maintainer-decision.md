@@ -754,6 +754,34 @@ produced above and a seventh would too. It is not decidable by reading source. I
 the contract moves into `step`, no guard is needed; if it does not, no guard can
 be written.
 
+⭐ **THE CODEBASE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST
+DIRECTION, which is evidence whichever way this is decided.** For a two-root
+world the headless path does not return an uninterpretable reading — it ABORTS.
+`lifecycle/session.rs::unique_session_world_root` carries a plain
+`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`,
+ungated and live in release, and `live_session_world_root` falls through to it
+whenever `SessionGatedSimulation` is absent — direct entry and headless, which is
+every harness this row is about. The shell-routed branch instead resolves the
+same condition by scope, silently. ⇒ So "the harness refuses rather than hands
+back a reading nobody can interpret" is already precedent here, and it is
+stronger than anything this Q proposes. (ToothbrushAmbition's find, filed on
+their side as part of Q132.)
+
+⚠ **ONE NUMBER FROM THAT REPORT DOES NOT REPRODUCE AND IS NOT USED ABOVE.** It
+described "~206 `Single<.., With<SessionRoot>>` sites" treating the same
+condition as *skip this system*. Counted here with a multi-line-aware scan over
+`crates/` and `game/`: **11** `Single<..SessionRoot..>` occurrences across 9
+files, out of **16** `Single<` parameter sites in the whole workspace — so no
+reading of that phrase reaches 206, and the widest related populations are 32
+`With<SessionRoot>` and 33 `Query<..SessionRoot..>`. The three-contracts SHAPE is
+verified at the source and stands; only its third population was overstated, and
+the shape does not need the number. ⇒ Recorded because a count that travels
+between agents in a message is the kind that gets quoted later.
+
+⚠ A practical note for anyone reading a failure here: that `assert!` fires
+inside a helper, so the arm named in the output is the last one that ran, not
+necessarily the one at fault.
+
 The choice: (a) `Platformer2dSimHarness::step` panics when the session has
 invalidated, making silence impossible — the census above is the evidence that
 nothing currently relies on stepping a dead session, so this should redden

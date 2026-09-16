@@ -93,6 +93,25 @@ closed 2026-09-02, S2).
 
 Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md).
 
+⛔ **AND ONE PIECE OF N1 IS NETCODE'S OWN AND CANNOT BE FINISHED WITHOUT A
+RULING — [`Q128`](../awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).**
+`ambition_time::SimTick` is registered `resource-canonical`, so its ABSOLUTE
+value is inside the checksum two peers compare, and it counts every sim step this
+App has run including menu frames. Two Apps running for different lengths of time
+disagree from the first compared frame, before anything else matters. It is the
+last open road of the ID-PEER campaign and the only one engineering cannot close
+alone: a projection excluding the tick would exclude the TIMELINE, so what is
+needed is a session-relative tick rebased when peers agree to start — and where
+that agreement comes from is N2's transport, not a refactor.
+
+⚠ **THE ORDERING BETWEEN N1 AND N2 IS THEREFORE NOT STRICT HERE.** This section's
+premise is that transport should not hide local deterministic defects, and that
+still holds for the other nine roads. But this one defect cannot be observed
+locally at all: the only sessions in use are `SyncTestSession`, one machine
+rewinding itself, and a canary comparing a machine against its own past is
+structurally incapable of catching a two-peer disagreement. So it will not
+announce itself before N2, and N2 is what supplies the agreement it needs.
+
 ### N2 — first real external/P2P session
 
 When Smash or Ambition has an actual online slice, install a real transport
@@ -164,6 +183,35 @@ advance.
 
 Do not use one of these as a substitute for another because all happen to be
 stable integers.
+
+⛔⛤ **AND THE RULE ABOVE IS NOT ENOUGH, BECAUSE THE SUBSTITUTIONS THAT ACTUALLY
+HAPPENED WERE NOT SUBSTITUTIONS OF THE TYPE — THEY WERE OF ITS VALUE.** Nobody
+wrote `SessionScopeId` where `SimId` belonged. What happened ten times is that a
+host-local COUNT was read out of one of these and used to derive a canonical
+identity: the session root was minted `SimId::singleton("session",
+activation_id)`, a match item was `SimId::match_spawn(activation_tick, ..)`, and
+a settlement verdict was checksummed with the whole `MatchInstance` in it. Each
+one type-checks, reads correctly, and makes two hosts that agree completely about
+a session disagree about the world.
+
+⇒ **THE RULE THAT CATCHES THOSE:** a value that counts something THIS PROCESS did
+— activations, sessions, sim steps, load transactions, content epochs — may name
+a thing for cleanup, staleness rejection and correlation, and may never be an
+input to authoritative RNG, deterministic construction provenance, rollback
+identity, contact/projectile identity, or a peer checksum. The acceptance test
+is: two Apps with arbitrary different prior local history, entering the same
+peer-agreed session, must reach the same canonical mechanical identities and the
+same rollback-visible state.
+
+⚠ **NO TYPE CENSUS CAN SEE THIS CLASS**, which is why it is stated here rather
+than left to a guard. `game/ambition_app/tests/id_peer_audit.rs` reads the live
+rollback registry and asks whether a host-local TYPE is registered; the two
+worst instances were a canonical type whose PROVENANCE was local — a counter
+inside a constructor argument, and a counter inside a singleton's key. Those are
+held by value-level arms in the crate that MINTS each identity.
+
+⇒ Nine of the ten named roads are closed; the table and the arm holding each one
+are the ID-PEER row in [`../queue.md`](../queue.md). The tenth is netcode's, below.
 
 ## Confirmed effects
 

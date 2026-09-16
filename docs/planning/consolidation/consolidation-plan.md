@@ -328,6 +328,52 @@ would go red on these four the moment it landed, which is a fail-closed check
 pausing a working repository over a question nobody has answered. ⇒ Answer the
 four first, then widen the rule; that ordering is the point.
 
+### STEP 2, ANSWERED FOR THE WHOLE AGGREGATE: THE RESET RUNS BEFORE THE ROOT EXISTS
+
+MEASURED 2026-09-16 from `SessionScopeSet`'s own declaration and
+`reset_session_scoped_resources_on_activation`'s doc: `Activate` is *"a newly live
+scope re-establishes the process-global state that mirrors one session, BEFORE any
+provider builds that session's world"*, and the ordering is held across three
+crates — `ambition_game_shell` chains
+`(GameplaySessionSet::Bridge, SessionScopeSet::Activate, GameplaySessionSet::Providers)`
+in `Update`, `adopt_candidate_platformer_session` is in `Providers`, and
+`maintain_local_session` starts GGRS only when `session_world_entity(world).is_some()`.
+
+⇒ **SO THE ANSWER TO STEP 2 IS THE SAME FOR ALL 35 VALUES, AND IT IS NOT ONE OF
+THE THREE OPTIONS THE STEP OFFERS.** They are not "needed before `SessionRoot`
+exists" in the sense of being READ there; they are WRITTEN there, and only because
+the storage outlives the session. ⭐⭐ **A value stored on `SessionRoot` needs no
+activation reset at all: a freshly built root carries fresh components BY
+CONSTRUCTION.** The reset edge is not a thing to relocate — **it is a thing the
+migration DELETES**, and it exists purely as compensation for process-global
+storage.
+
+⇒ That reframes C03's step 6. *"Remove the old reset/retirement compensation only
+after the new owner is the sole authority"* reads like cleanup; it is the campaign's
+actual deliverable, and the size of the prize is two systems plus the correctness
+argument that holds them: 29 + 6 exhaustively destructured fields whose only job is
+to undo the previous session.
+
+⛔ **TWO CONSTRAINTS THE MIGRATION INHERITS, both already written beside the code.**
+
+1. **The rollback-mutator answer would change.** 22 of the 29 are rollback-registered
+   and the reset is an ordinary `Update` system; it is currently legal because *"these
+   writes land before there is a frame zero to rewind to"*. Storage on a root built
+   inside the provider step sits on the OTHER side of that boundary. ⇒ Re-derive the
+   guard's answer per value; do not assume the current one travels.
+2. **It rests on the A10 candidate staying HIDDEN.** A10.5 prepares the session world
+   while the route is still pending, so a root for the incoming scope EXISTS before the
+   reset runs — it carries `InactiveCandidate`, a Bevy disabling component, so
+   `session_world_entity`'s default query cannot see it. That is HELD by
+   `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`,
+   not assumed. ⚠ **And this is the same frame Q132 is about** — two roots exist, one
+   hidden. A ruling that makes a two-root frame legal to OBSERVE changes what "before
+   the root exists" means for every value here.
+
+⇒ **THIS IS THE STRONGEST ARGUMENT YET THAT Q132 MUST BE ANSWERED FIRST**, and it is
+a different argument from the one the row already carries: not "185 sites silently
+skip", but "the correctness edge for 35 values is defined by which root is visible".
+
 ### DEPENDENCIES / BLOCKERS
 
 ~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.

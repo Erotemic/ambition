@@ -310,11 +310,25 @@ CONTENT BINDING ALL LAND ON ONE ENTITY, DERIVED FROM ONE PREPARED SOURCE,
 BEFORE PUBLICATION.** The row's premise — six values that "do not all change
 under one current verdict" — is substantially stale.
 
-⚠ **WHAT IS GENUINELY LEFT, and it is one item plus one unmeasured edge.**
-`SessionMechanics` is the only App global of the six. And the `ActiveContentBinding`
-insert lives in `actor_monolith/src/session/setup.rs` while the bundle is built in
-`provider/src/lifecycle.rs` — same root, TWO SITES, and whether they are on the
-same edge is NOT measured here.
+⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2241`
+calls `actor_monolith::session::setup::simulation_world(..)` — the function that
+inserts `ActiveContentBinding` — from the SAME function that built the bundle at
+`:2166`, passing `session_root: world`, the root that activation just spawned.
+The comment at the call site states the design in the row's own words: *"Setup
+publishes the session's content generation ON it — not into a process global that
+a second session would have to overwrite."*
+
+⚠ **WHAT IS GENUINELY LEFT IS `SessionMechanics`, AND EVEN IT IS NOT A LOOSE
+WRITE.** It is a FIELD of the prepared content (`pub mechanical: SessionMechanics`,
+`provider/src/lifecycle.rs:1526`), so its VALUE comes from the same frozen
+generation — the doc there records why: a generation used to be prepared against
+cast N and have its world built from N+1 with the identity still claiming N.
+⛔ It is nonetheless a real App Resource: `Res`/`ResMut<SessionMechanics>` appears
+in FOUR production files and `teardown.rs` reads it through `world.resource`. ⚠ I
+did NOT locate its production install site — `insert_resource(..SessionMechanics)`
+matches only a test — and after three name-matching scans produced confident zeros
+tonight I am not reporting that absence as a finding. It is an open question for
+whoever starts C05, not evidence.
 
 ⚠ Two caveats on the table. `PreparedContent` also names a non-ECS struct in
 `ambition_content_pack`, so the Component is the runtime projection rather than

@@ -718,3 +718,129 @@ fn two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road()
          lobby, so a random seat's fighter is drawn from host-local lineage"
     );
 }
+
+/// ⭐⭐ **THE ACCEPTANCE ON THE CONSTRUCTION AXIS, WHICH `queue.md` RECORDED AS
+/// UNWRITTEN.** The existing two-App witness ages its hosts along the SHELL
+/// ACTIVATION axis only; this is the other one the campaign's review asked for:
+///
+/// ```text
+/// A burns a candidate content epoch, B does not
+/// both construct identical content
+/// ⇒ the canonical construction provenance must agree
+/// ```
+///
+/// ⛔ THE BURN IS THE SHIPPED ROAD, NOT A POKED RESOURCE. Content is prepared
+/// per LOAD TRANSACTION and `prepare_platformer_content` ends
+/// `builder.finish(epochs.allocate(), ..)`, so a host that enters a game, quits
+/// to the title and enters again has allocated a second `ContentEpoch` for
+/// byte-identical content. That is a real player's history — quit and restart —
+/// and it is exactly the local lineage a peer does not share.
+///
+/// ⚠ **WHAT IS COMPARED IS THE PROJECTION, NOT THE STAMP, AND THE DIFFERENCE IS
+/// THE WHOLE POINT.** `TransactionId` renders `{binding}\t{room}\t{session}` and
+/// MUST keep doing so — the construction scope's gather filter and A10's
+/// candidate-vs-live separation both read the local terms, and
+/// `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
+/// holds that. `peer_stable_checksum` is the half two peers compare, and it is
+/// what this arm asserts agreement on.
+#[test]
+fn two_hosts_at_different_content_epochs_share_one_construction_provenance() {
+    use ambition_platformer2d::game_shell::ShellCommand;
+
+    /// Every construction provenance in the live world, as a peer sees it,
+    /// beside the local content epoch that produced it.
+    fn provenance(restarts: usize) -> (u64, Vec<u64>) {
+        let mut app = ambition_app::app::build_visible_app(
+            ambition_app::app::VisibleRenderMode::NoWindow,
+            true,
+        );
+        let settle = |app: &mut bevy::prelude::App| {
+            for _ in 0..80 {
+                app.update();
+            }
+        };
+        settle(&mut app);
+
+        // ⚠ ADDRESSED BY LABEL, then routed by the id the CATALOG gives —
+        // never a route literal. A label is what the walk means and it survives
+        // a reordering; a literal would make this arm quietly stop entering a
+        // game the day a route is renamed, and an arm that never reaches a
+        // session still has two empty worlds to compare.
+        let enter = |app: &mut bevy::prelude::App| {
+            let route = app
+                .world()
+                .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
+                .entries
+                .iter()
+                .find(|entry| entry.label == "Ambition")
+                .expect("the Ambition row exists in the shipped launcher")
+                .route_id
+                .clone();
+            app.world_mut().write_message(ShellCommand::GoTo(route));
+            settle(app);
+        };
+
+        // ⛔ THE BURN. Each completed entry prepares content once and allocates
+        // one epoch; quitting to the title discards the session but NOT the
+        // sequence, which is deliberate — `ContentEpochSequence`'s gaps are
+        // legal and a refused reload already leaves them.
+        for _ in 0..restarts {
+            enter(&mut app);
+            app.world_mut().write_message(ShellCommand::QuitToHome);
+            settle(&mut app);
+        }
+        enter(&mut app);
+
+        let epoch = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::actors::rooms::ActiveContentBinding,
+        >(app.world())
+        .expect("a live session publishes its content binding on its root")
+        .0
+        .content_epoch()
+        .expect("the live session is content-derived")
+        .0;
+
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::platformer::construction::TransactionId>();
+        // ⚠ **DEDUPED, AND THE REASON IS THAT THE RAW COUNT MISLEADS.** The
+        // projection is `binding ⊗ room`, so every entity constructed into ONE
+        // room shares one value — an undeduped comparison prints eighteen
+        // identical numbers and reads like an eighteen-wide population. It is
+        // one. Deduping makes the arm state the size of what it actually
+        // compares, and the floor below is written against that.
+        let mut seen: Vec<u64> = query
+            .iter(app.world())
+            .map(|id| id.peer_stable_checksum())
+            .collect();
+        seen.sort_unstable();
+        seen.dedup();
+        (epoch, seen)
+    }
+
+    let (epoch_a, peer_a) = provenance(2);
+    let (epoch_b, peer_b) = provenance(0);
+
+    // ⛔ THE PREMISE, FIRST. If the restarts did not burn epochs, everything
+    // below compares two hosts with the same history and says nothing.
+    assert_ne!(
+        epoch_a, epoch_b,
+        "both hosts reached content epoch {epoch_a}, so entering and quitting no \
+         longer burns one and this arm is not about local content lineage"
+    );
+    // ⛔ AND THE ANTI-VACUITY FLOOR. Two empty vectors are equal, and an arm
+    // that never reached a session has two of them.
+    assert!(
+        !peer_b.is_empty(),
+        "the live world holds no TransactionId at all, so the comparison below \
+         is over an empty population -- the hosts never reached a constructed \
+         room"
+    );
+    assert_eq!(
+        peer_a, peer_b,
+        "two hosts holding the SAME content at DIFFERENT local epochs ({epoch_a} \
+         vs {epoch_b}) project different construction provenance, so the app-local \
+         activation generation is inside the peer comparison — which is the \
+         defect `TransactionId::peer_stable_checksum` exists to prevent"
+    );
+}

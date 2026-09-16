@@ -172,25 +172,40 @@ def main() -> int:
     # says this check cannot see — one narrow slice of it now IS checkable.
     by_file = dict(zip(tracked, blob))
     wrong = []
-    claimed = 0
+    claimed = checked = skipped = 0
     for item in items:
-        if str(item.get("representation")) != RESOURCE_REPRESENTATION:
+        rep = str(item.get("representation"))
+        # ⭐ WIDENED 2026-09-16 from an exact "Resource" to a LEADING word, which
+        # takes the population from 9 to 23: "Resource plus body-component
+        # projection", "Component on SessionRoot", "Component string key" all
+        # state a storage kind first and qualify it after. MEASURED: the 14 extra
+        # items all AGREE with source, so this widening buys coverage rather than
+        # findings — and it was poisoned against a real mismatch before being
+        # believed, because a wider population is not a wider REACH.
+        lead = (
+            "Resource" if rep.startswith("Resource")
+            else "Component" if rep.startswith("Component")
+            else None
+        )
+        if lead is None:
             continue
         claimed += 1
         match = SUBJECT.match(item.get("current_truth", ""))
-        if not match:
-            wrong.append(f"    {item['id']}: no subject type in `current_truth`")
-            continue
-        ty = match.group(1)
-        kinds = declaration_kinds(by_file, ty)
+        kinds = declaration_kinds(by_file, match.group(1)) if match else []
         if not kinds:
-            # ⚠ A type this scan cannot FIND is a claim about the scan, not a
-            # finding — the name-resolution rule above already reports those.
+            # ⚠ A subject this scan cannot resolve is a claim about the SCAN, not
+            # a finding — `current_truth` often opens with an ordinary word
+            # ("The", "Developer", "Player"), and the first CamelCase token is
+            # then not a type at all. Counted and REPORTED rather than silently
+            # dropped: "it ran and found nothing" and "it never ran" must be
+            # different strings.
+            skipped += 1
             continue
-        if not any("Resource" in kind for kind in kinds):
+        checked += 1
+        if not any(lead in kind for kind in kinds):
             wrong.append(
-                f"    {item['id']}: says `representation: Resource`, but {ty} is "
-                f"declared {kinds}"
+                f"    {item['id']}: says `representation: {rep}`, but "
+                f"{match.group(1)} is declared {kinds}"
             )
     # ⛔ ANTI-VACUITY: if no item claims "Resource" any more, this rule checked
     # nothing and its silence would mean nothing.
@@ -256,7 +271,9 @@ def main() -> int:
     print(
         f"ok: {len(items)} ledger items, {paths_seen} cited source path(s) all exist, "
         f"{len(cited_names)} name(s) in `current_truth` all resolve, "
-        f"{len(recorded)} workspace crate(s) match cargo exactly "
+        f"{len(recorded)} workspace crate(s) match cargo exactly, "
+        f"{checked} of {claimed} storage-kind claim(s) verified against source "
+        f"({skipped} skipped: subject not a resolvable type), "
         f"({len(tracked)} tracked .rs files, {len(source)//1024} KiB)"
     )
     print(

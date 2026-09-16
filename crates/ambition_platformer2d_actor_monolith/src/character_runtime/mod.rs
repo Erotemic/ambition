@@ -961,6 +961,11 @@ impl Plugin for CharacterRuntimePlugin {
             // otherwise.
             .init_resource::<live_match_clock::LiveMatchTicks>()
             .init_resource::<audit::LateMatchCriticalArt>()
+            // ⭐ THE ORDINAL MINT, beside the systems that consume it. It is not
+            // optional: `activate_the_prepared_match` takes it as `ResMut`,
+            // because a composition that activates matches without an ordinal
+            // authority would silently draw every match's items identically.
+            .init_resource::<ambition_match::seating::SessionMatchOrdinal>()
             .add_systems(
                 // The SIM schedule, not `Update`. (§4.11)
                 //

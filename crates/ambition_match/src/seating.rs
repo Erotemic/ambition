@@ -60,6 +60,67 @@ pub struct ActiveMatch {
     /// Simulation tick of activation, used to derive opening-ceremony phase without mutable timer state.
     /// `None` means the composition has no simulation clock.
     activated_on: Option<u64>,
+    /// ⭐⭐ **WHICH MATCH OF THIS SESSION THIS IS — THE ONE ACTIVATION FACT TWO
+    /// PEERS AGREE ON.** It starts at zero for everyone who joins a session
+    /// together and counts up as they activate matches together, so it is
+    /// insensitive to how long either App has been running, how many menus it
+    /// sat in, and how many sessions it played before. `session` and
+    /// `activated_on` are both per-App counts and cannot do this job; see
+    /// `MatchInstance::activation_tick`.
+    ///
+    /// `None` in a composition with no ordinal authority, which answers
+    /// `CONTEXT_UNSEEDED` — honest for a bare fixture with no identity to draw
+    /// against.
+    ordinal: Option<u64>,
+}
+
+/// Mints the peer-agreed ordinal above, one per match activation, restarting at
+/// zero whenever the session changes.
+///
+/// ⭐ RESETTING ON THE SESSION IS WHAT MAKES IT PEER-AGREED. Two Apps that join
+/// one session both begin at zero regardless of what they did before, and both
+/// increment on the same activations. ⛔ It is NOT a global match counter: a
+/// host that played five matches alone and then joins you must start at zero,
+/// or its ordinals are its own history again.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionMatchOrdinal {
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    next: u64,
+}
+
+impl SessionMatchOrdinal {
+    /// The ordinal for a match activating now in `session`, consuming it.
+    pub fn take(
+        &mut self,
+        session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) -> u64 {
+        if self.session != session {
+            self.session = session;
+            self.next = 0;
+        }
+        let ordinal = self.next;
+        self.next += 1;
+        ordinal
+    }
+
+    /// The two facts, for the wire format.
+    #[doc(hidden)]
+    pub fn parts(
+        &self,
+    ) -> (
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        u64,
+    ) {
+        (self.session, self.next)
+    }
+
+    #[doc(hidden)]
+    pub fn from_snapshot(
+        session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        next: u64,
+    ) -> Self {
+        Self { session, next }
+    }
 }
 
 /// **This entity belongs to the match that created it, and dies with it.**
@@ -124,83 +185,6 @@ impl MatchInstance {
         (self.session, self.activated_on)
     }
 
-    /// WHICH RUN OF THE WORLD this is, for `sim_random`.
-    ///
-    /// ⭐⭐ WITHOUT IT EVERY MATCH IS THE SAME MATCH. A draw is a pure function
-    /// of its inputs and the match clock restarts at zero, so two matches that
-    /// reach the same tick in one domain drew IDENTICALLY — the second match
-    /// replayed the first's items, in order, from its first drop.
-    ///
-    /// ⛔⛔⛔ **THE SESSION TERM WAS REMOVED 2026-09-14, AND IT WAS A DESYNC.**
-    /// This mixed in the raw `SessionScopeId.0` — a PER-APP MONOTONIC COUNTER
-    /// minted by `ActiveSessionScope::begin` once per local activation. The draws
-    /// it seeds choose **which item appears and which spawn point receives it**
-    /// (`items/match_spawn.rs`), so two peers whose Apps had activated a
-    /// different number of sessions built DIFFERENT AUTHORITATIVE WORLDS from the
-    /// same match state. Found by the GPT architecture review of 2026-09-14.
-    ///
-    /// ⛔⛤ **AND THE PARAGRAPH THAT DEFENDED IT NAMED THE RULE IT BROKE.** It
-    /// said *"both halves are already canonical simulation state that a rewind
-    /// restores … anything a peer could disagree about would desync the draws."*
-    /// Rollback-restored establishes that ONE MACHINE REWINDING ITSELF agrees
-    /// with itself. It says nothing about TWO PEERS agreeing, and those are
-    /// different properties that need different words. The bark draw three files
-    /// away rejects `Entity::to_bits()` as a salt for exactly this reason, in
-    /// exactly these words — a defence applied to one argument of a call is not
-    /// applied to the call.
-    ///
-    /// ⇒ **THE CONTEXT IS THE ACTIVATION TICK, WHICH BOTH PEERS SIMULATE.**
-    /// Within one deterministic run consecutive matches activate on different
-    /// ticks, so they still draw differently — which is the property the first
-    /// paragraph is about.
-    ///
-    /// ⛔⛔ **AND THE REPLACEMENT TERM IS ALSO HOST-LOCAL — RECORDED, NOT
-    /// FIXED, 2026-09-15.** `activated_on` is a `SimTick`, and `SimTick` is an
-    /// absolute count of every sim step this App has run, MENUS INCLUDED (one
-    /// writer, `advance_sim_tick`, unconditional at the head of the schedule,
-    /// never rebased — measured). Two peers who reached the same lobby by
-    /// different routes therefore draw DIFFERENT ITEMS from the same match
-    /// state. This is the same defect as the session term, one layer down, and
-    /// the paragraph below understated it.
-    ///
-    /// ⚠ It stays for now because the alternative available today is no
-    /// distinguishing term at all, which makes every match in a run replay the
-    /// first match's drops — a visible gameplay regression, pinned by
-    /// `two_activations_are_two_draw_contexts`. ⇒ **THE FIX IS THE MATCH'S
-    /// ORDINAL WITHIN THE AGREED SESSION**: it starts at zero for everyone who
-    /// joins together, is insensitive to menu time and prior sessions, and still
-    /// separates consecutive matches. That is the next ID-PEER step.
-    ///
-    /// ⚠ **The CHECKSUM projections no longer read this term** — see
-    /// `ActiveMatch::peer_stable_checksum` and the settlement/clock projections.
-    /// A checksum is compared every frame, so a false desync there is fatal,
-    /// while a repeated item table is not.
-    ///
-    /// ⚠ **WHAT THIS COSTS, STATED**: two runs of the world whose matches
-    /// activate on the same tick now draw the SAME items. That is a repeat across
-    /// a restart, not a divergence — both peers still agree — and it is the
-    /// honest trade for removing a desync. Restoring cross-run variety needs a
-    /// peer-NEGOTIATED nonce (a lobby-supplied match seed), which is netcode this
-    /// repository does not have yet. ⛔ **`seat_topology` IS NOT THAT NONCE**:
-    /// measured at HEAD, the one production caller of `activate_if_seatable`
-    /// passes `None`.
-    ///
-    /// ⚠ **`SessionScopeId` STAYS ON THIS TYPE** and still decides EQUALITY, so
-    /// `MatchScoped::belongs_to` and the settlement resources' staleness checks
-    /// are unchanged. Local ownership is what it is for; a random seed is not.
-    ///
-    /// A match with no stamp — a bare fixture — answers
-    /// [`CONTEXT_UNSEEDED`](ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED),
-    /// which is honest: it has no identity to draw against.
-    pub fn random_context(&self) -> ambition_platformer2d_core::sim_random::RandomContext {
-        match (self.session, self.activation_tick()) {
-            (None, None) => ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
-            (_, activated_on) => activated_on
-                .unwrap_or(0)
-                .wrapping_mul(0xD6E8_FEB8_6659_FD93),
-        }
-    }
-
     /// ⛔⛔ **THIS IS NOT A PEER-STABLE TERM, AND CALLING IT ONE WAS THE
     /// MISTAKE.** It was `peer_stable()` for a day, documented as "the
     /// activation tick, which both peers simulate".
@@ -245,7 +229,7 @@ mod match_context_tests {
         use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
         let receipt = |session: u64, topology: Option<u64>| {
-            ActiveMatch::activated(2, topology, Some(SessionScopeId(session)), Some(4_200))
+            ActiveMatch::activated(2, topology, Some(SessionScopeId(session)), Some(4_200), None)
         };
         // Two hosts: different prior session counts, different local device
         // topology generations, same match.
@@ -260,7 +244,7 @@ mod match_context_tests {
         // ones would be satisfied by a constant.
         assert_ne!(
             receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200))
+            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200), None)
                 .peer_stable_checksum(),
             "a two-seat and a three-seat match share one checksum, so the seat \
              count is not reaching the projection"
@@ -271,7 +255,7 @@ mod match_context_tests {
         // by different routes stamp one match differently.
         assert_eq!(
             receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900))
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900), None)
                 .peer_stable_checksum(),
             "the receipt's checksum moves with the ABSOLUTE sim tick the match \
              activated on"
@@ -295,14 +279,68 @@ mod match_context_tests {
     /// activations yield different contexts and that those contexts separate the
     /// draws — the same limit, and the same reason, as the match clock's
     /// ceremony half.
+    /// ⭐⭐ **THE ORDINAL IS PEER-AGREED BECAUSE IT RESTARTS ON THE SESSION.**
+    ///
+    /// This is the property the whole ID-PEER substitution rests on, so it is
+    /// asserted rather than argued: a host that has already played matches must
+    /// produce the SAME ordinals as a fresh host once they are in one session
+    /// together.
+    #[test]
+    fn a_host_with_prior_matches_still_starts_a_new_session_at_zero() {
+        let agreed = Some(SessionScopeId(9));
+
+        // Host A: played three matches in an earlier session, then joins.
+        let mut veteran = SessionMatchOrdinal::default();
+        let earlier = Some(SessionScopeId(2));
+        for _ in 0..3 {
+            veteran.take(earlier);
+        }
+        let veteran_draws: Vec<u64> = (0..3).map(|_| veteran.take(agreed)).collect();
+
+        // Host B: fresh App, joins the same session.
+        let mut fresh = SessionMatchOrdinal::default();
+        let fresh_draws: Vec<u64> = (0..3).map(|_| fresh.take(agreed)).collect();
+
+        assert_eq!(
+            veteran_draws, fresh_draws,
+            "a host with prior matches mints different ordinals in an agreed \
+             session, so the two peers draw different items from the same match"
+        );
+        // ⛔ AND THEY MUST STILL COUNT, or the equality above is satisfied by a
+        // constant — which is the defect this replaced, one layer over.
+        assert_eq!(
+            fresh_draws,
+            vec![0, 1, 2],
+            "consecutive matches in one session share an ordinal, so the second \
+             replays the first's items"
+        );
+    }
+
+    /// ⛔ AND THE RESET IS ON THE SESSION, NOT ON EVERY CALL.
+    #[test]
+    fn the_ordinal_only_restarts_when_the_session_changes() {
+        let mut mint = SessionMatchOrdinal::default();
+        let one = Some(SessionScopeId(1));
+        assert_eq!(mint.take(one), 0);
+        assert_eq!(mint.take(one), 1);
+        assert_eq!(mint.take(Some(SessionScopeId(2))), 0, "a new session restarts");
+        assert_eq!(mint.take(Some(SessionScopeId(2))), 1);
+        assert_eq!(mint.take(one), 0, "returning to an earlier session restarts too");
+        // A composition with no session lifecycle still counts its matches.
+        let mut sessionless = SessionMatchOrdinal::default();
+        assert_eq!(sessionless.take(None), 0);
+        assert_eq!(sessionless.take(None), 1);
+    }
+
     #[test]
     fn two_activations_are_two_draw_contexts() {
-        // Built the way activation builds them, not by hand.
-        let first = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100));
-        let second = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900));
+        // Built the way activation builds them, not by hand: consecutive matches
+        // in one session take consecutive ordinals.
+        let first = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), Some(0));
+        let second = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900), Some(1));
 
-        let a = first.instance().random_context();
-        let b = second.instance().random_context();
+        let a = first.random_context();
+        let b = second.random_context();
         assert_ne!(
             a, b,
             "two matches in one session share a draw context, so the second \
@@ -344,10 +382,11 @@ mod match_context_tests {
         //
         // ⚠ A requirement can be falsified by a RULING rather than by an edit,
         // and the honest response is to say which requirement died.
-        let next_session = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100));
+        let next_session =
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100), Some(0));
         assert_eq!(
             a,
-            next_session.instance().random_context(),
+            next_session.random_context(),
             "the LOCAL session scope changed the draw context. It is minted by a \
              per-App counter, so two peers whose Apps have activated a different \
              number of sessions would spawn different items at different points \
@@ -359,7 +398,7 @@ mod match_context_tests {
         // constant, which is a different defect wearing the same green.
         assert_eq!(
             drew(a),
-            drew(next_session.instance().random_context()),
+            drew(next_session.random_context()),
             "the contexts compare equal and the draws do not, so the comparison \
              is not measuring what the item spawner actually consumes"
         );
@@ -373,8 +412,26 @@ mod match_context_tests {
 
         // A match with no identity at all has no context to draw against, and
         // says so rather than inventing one.
-        let bare = ActiveMatch::activated(2, None, None, None);
-        assert_eq!(bare.instance().random_context(), CONTEXT_UNSEEDED);
+        let bare = ActiveMatch::activated(2, None, None, None, None);
+        assert_eq!(bare.random_context(), CONTEXT_UNSEEDED);
+
+        // ⛔⛤ AND THE ACTIVATION TICK MUST NOT REACH THE DRAW AT ALL. It counts
+        // this App's sim steps, menus included, so two peers who reached one
+        // lobby by different routes would draw different items from the same
+        // match. This assertion FAILED before 2026-09-15.
+        let same_match_later_host =
+            ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(999_999), Some(0));
+        assert_eq!(
+            a,
+            same_match_later_host.random_context(),
+            "the draw context moves with the ABSOLUTE activation tick, so a host \
+             that sat longer in menus spawns a different item table"
+        );
+        assert_eq!(
+            drew(a),
+            drew(same_match_later_host.random_context()),
+            "the contexts compare equal and the draws do not"
+        );
     }
     /// ⛔⛔ A NEW SESSION IS A NEW MATCH EVEN AT THE SAME ACTIVATION TICK.
     ///
@@ -385,21 +442,21 @@ mod match_context_tests {
     /// both facts.
     #[test]
     fn match_scoped_identity_is_session_and_tick_together() {
-        let here = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100));
+        let here = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), None);
         let same = MatchScoped(here.instance());
         assert!(
             same.belongs_to(Some(&here)),
             "an object stamped by the running match did not belong to it"
         );
 
-        let elsewhere = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100));
+        let elsewhere = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100), None);
         assert!(
             !same.belongs_to(Some(&elsewhere)),
             "an object from another SESSION belonged to this match because the \
              activation ticks matched"
         );
 
-        let later = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900));
+        let later = ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(900), None);
         assert!(
             !same.belongs_to(Some(&later)),
             "an object from an earlier match in the SAME session belonged to the \
@@ -422,12 +479,39 @@ impl ActiveMatch {
         seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         activated_on: Option<u64>,
+        ordinal: Option<u64>,
     ) -> Self {
         Self {
             seats,
             seat_topology,
             session,
             activated_on,
+            ordinal,
+        }
+    }
+
+    /// Which match of this session this is. See the field.
+    pub fn ordinal(&self) -> Option<u64> {
+        self.ordinal
+    }
+
+    /// ⭐⭐ THE DRAW CONTEXT FOR THIS MATCH, and the reason the ordinal exists.
+    ///
+    /// ⛔⛤ IT USED TO BE THE ACTIVATION TICK, AND THAT WAS A DESYNC. `SimTick`
+    /// counts every sim step the App has run, menus included, and is never
+    /// rebased — so two peers who reached one lobby by different routes drew
+    /// DIFFERENT ITEMS from the same match state. Before that it was the raw
+    /// `SessionScopeId`, which was the same defect one layer up. The ordinal is
+    /// the first term here that both peers actually agree on.
+    ///
+    /// ⚠ Consecutive matches in a session still draw differently, which is the
+    /// property the tick was there for: the ordinal increments.
+    pub fn random_context(&self) -> ambition_platformer2d_core::sim_random::RandomContext {
+        match self.ordinal {
+            None => ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
+            Some(ordinal) => ordinal
+                .wrapping_add(1)
+                .wrapping_mul(0xD6E8_FEB8_6659_FD93),
         }
     }
 
@@ -489,6 +573,8 @@ impl ActiveMatch {
             session: None,
             // No clock means no opening-ceremony hold.
             activated_on: None,
+            // No ordinal authority: a bare fixture draws from CONTEXT_UNSEEDED.
+            ordinal: None,
         }
     }
 
@@ -509,13 +595,14 @@ impl ActiveMatch {
         seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         activated_on: Option<u64>,
+        ordinal: Option<u64>,
     ) -> Self {
         Self {
             seats,
             seat_topology,
             session,
             activated_on,
+            ordinal,
         }
     }
-
 }

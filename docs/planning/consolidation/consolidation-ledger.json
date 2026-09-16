@@ -2801,19 +2801,19 @@
     },
     {
       "id": "TRANS-DIRECT-SESSION-FALLBACK",
-      "category": "transitional",
+      "category": "composition",
       "name": "Unscoped direct/headless session spawning",
       "owner": "shared_tangle lifecycle",
       "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "Missing ActiveSessionScope means process-resident direct/legacy spawning; shell frontend with a present but inactive scope sleeps.",
+      "complexity": "ESSENTIAL_COMPLEXITY",
+      "current_truth": "`live_scope_of` / `live_session_world_root` BRANCH on `SessionGatedSimulation`: shell-routed selects the root the activation names and answers None when no scope is active, so a lingering retired root is not a candidate; direct-entry has no activation and its single root IS the authority. A composition discriminator, not a fallback.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Missing ActiveSessionScope means process-resident direct/legacy spawning; shell frontend with a present but inactive scope sleeps.",
+          "claim": "`live_scope_of` / `live_session_world_root` BRANCH on `SessionGatedSimulation`: shell-routed selects the root the activation names and answers None when no scope is active, so a lingering retired root is not a candidate; direct-entry has no activation and its single root IS the authority. A composition discriminator, not a fallback.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
           ]
@@ -2827,19 +2827,19 @@
     },
     {
       "id": "TRANS-DIRECT-GENERATION-FALLBACK",
-      "category": "transitional",
+      "category": "composition",
       "name": "App registry fallback for construction with no activated generation",
       "owner": "actor_monolith session mechanics",
       "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "GenerationMechanics can read App registries when no content generation was activated. Shell-routed live rebuilds refuse this fallback.",
+      "complexity": "ESSENTIAL_COMPLEXITY",
+      "current_truth": "`GenerationMechanics` is a three-state contract asserted per state: shell + generation takes the generation and the App loses; direct-entry + no generation takes the App override and is the one composition entitled to supply it; shell + no generation REFUSES rather than falling back. A composition discriminator, not a fallback.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "GenerationMechanics can read App registries when no content generation was activated. Shell-routed live rebuilds refuse this fallback.",
+          "claim": "`GenerationMechanics` is a three-state contract asserted per state: shell + generation takes the generation and the App loses; direct-entry + no generation takes the App override and is the one composition entitled to supply it; shell + no generation REFUSES rather than falling back. A composition discriminator, not a fallback.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
           ]

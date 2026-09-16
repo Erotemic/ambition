@@ -276,7 +276,7 @@ fn a_stop_request_ends_the_match_it_names_and_no_other() {
     let live = app.world().resource::<ActiveMatch>().clone();
     // A DIFFERENT match: same seats, a different activation tick. The identity
     // is `(session, activated_on)`, so that is what has to differ.
-    let other = ActiveMatch::activated(2, None, None, Some(999));
+    let other = ActiveMatch::activated(2, None, None, Some(999), None);
     assert_ne!(
         other.instance(),
         live.instance(),

@@ -79,6 +79,11 @@ fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainPro
 fn seating_app() -> App {
     let mut app = App::new();
     app.init_resource::<PreparedCharacterRegistry>();
+    // The ordinal mint, which `activate_the_prepared_match` takes as `ResMut`
+    // rather than `Option<ResMut>`: a composition that activates matches with
+    // no ordinal authority would draw every match's items from the same
+    // context, and a loud panic here is better than that answer arriving quietly.
+    app.init_resource::<ambition_match::seating::SessionMatchOrdinal>();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // Seating sizes each body from its sheet (U1 stage B), so the authored

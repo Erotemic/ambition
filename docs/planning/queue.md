@@ -140,14 +140,56 @@ only. The construction poison the review asked for — A burns a candidate conte
 epoch, B does not, both construct identical content, canonical snapshots must
 agree — is a different axis and is still unwritten.
 
-**Next implementation, in order.** (1) The peer-agreed match ordinal, which
-closes `random_context` without the gameplay regression. (2) The peer/local split
-on `CheckpointOperationKey` — the scope's stale-operation job is local and real
-and must NOT simply be deleted; `SessionCheckpointOperations` already advances
-its sequence only on ADMISSION for exactly this reason. (3) `TransactionId`:
-drop the session term and replace `ContentEpoch` with a peer-stable content
-fingerprint. (4) The timeline itself — a session-relative tick, which is netcode
-work and wants a maintainer decision before anyone starts.
+**Next implementation, in order.** (1) ✔ **DONE** — the peer-agreed match
+ordinal; `ActiveMatch` carries which match of its session it is, minted by a
+rollback-registered `SessionMatchOrdinal` that restarts at zero on a session
+change. It closed `random_context` AND `SimId::match_spawn`, which was embedding
+the absolute tick in a `component-canonical` identity string. Schema 187.
+(2) The peer/local split on `CheckpointOperationKey` — the scope's
+stale-operation job is local and real and must NOT simply be deleted;
+`SessionCheckpointOperations` already advances its sequence only on ADMISSION for
+exactly this reason. (3) `TransactionId` — see the measured shape below.
+(4) The timeline itself — a session-relative tick, which is netcode work and
+wants a maintainer decision before anyone starts.
+
+⛔ **STEP 3 IS BLOCKED ON A VOCABULARY-PLACEMENT DECISION, MEASURED 2026-09-15 —
+and it is NOT "drop the session term", which was this row's previous
+instruction.** `TransactionId` is
+`{epoch}\t{room}\t{session}` (`ConstructionScope::transaction`,
+`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:716`) and is registered `component-canonical`, so the whole
+string is compared between peers.
+
+- **The session term must STAY.** Measured: the construction scope's gather
+  filter is what isolates one session's entities from another's, so removing it
+  would break A10's candidate-vs-live separation. This is the split the campaign
+  header warns about — A10 needs exact LOCAL ownership, ID-PEER needs the token
+  out of the peer COMPARISON. ⇒ The shape is `ActiveMatch`'s: keep the whole
+  string, and give `TransactionId` a projected checksum that excludes the local
+  terms.
+- **A projection alone is not enough**, which is why the epoch has to move too.
+  The only peer-stable term in the string today is `{room}`, and projecting to
+  that would give every entity in a room one identity — a worse defect than the
+  one being fixed. The projection needs a peer-stable CONTENT term to survive.
+- ⛔ **And that term is not reachable.** `ContentFingerprint` is the value
+  wanted; it lives in `ambition_content_pack`, which `shared_tangle` does not
+  depend on. `content_pack` depends on neither `shared_tangle` nor
+  `platformer2d_core`, so the edge is legal — but the better question is
+  PLACEMENT, and `platformer2d_core`'s `content_epoch.rs` already owns the LOCAL
+  half of the pair and explains the epoch-vs-fingerprint distinction in its
+  module doc. ⚠ Recorded as the decision to make, not made: it is a vocabulary
+  call and should be deliberate rather than a side effect of this campaign.
+- ⚠ The plumbing is also real: the production binding site
+  (`session/setup.rs`) receives `construction.binding` already built and never
+  sees `PreparedContent`, so a fingerprint has to travel with the epoch from
+  wherever content is prepared. 19 `ContentBinding::Content(` sites, against 45
+  `.transaction(` callers — so the change belongs in what the BINDING renders,
+  not in the transaction signature.
+
+⭐ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15.** It
+said *"an epoch is not rollback-registered. Two peers never compare sequences, so
+a gap on one host is invisible"* — the stated justification for letting a refused
+reload BURN a number. The chain above is the refutation: not registered, compared
+anyway, through whatever embeds it. Corrected at the definition.
 
 ⛔ Do NOT continue by mechanically replacing each raw `SessionScopeId` with the
 nearest canonical-looking value. `SimTick` is why: it looks canonical, it

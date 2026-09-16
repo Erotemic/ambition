@@ -85,7 +85,7 @@ pub fn spawn_match_items(
     // clock above restarts at zero, so match two drew match one's items, in
     // order, from its first drop. The stamp is already canonical simulation
     // state, so a resimulated tick draws with the context it drew with before.
-    let context = active.instance().random_context();
+    let context = active.random_context();
     let weights: Vec<u32> = rules.table.iter().map(|(_, weight)| *weight).collect();
     let Some(chosen) = ae::sim_random::sim_random_weighted(
         ae::sim_random::DOMAIN_ITEM_SPAWN,
@@ -120,8 +120,13 @@ pub fn spawn_match_items(
         );
         return;
     };
-    let sim_id = active.instance().parts().1.map(|activated_on| {
-        ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(activated_on, ordinal)
+    // ⛔⛤ THIS USED TO NAME THE ACTIVATION TICK, AND THE ID IS CANONICAL.
+    // `entity.sim_id` is `component-canonical`, so the whole string is in the
+    // peer checksum, and the tick counts every sim step the App has run —
+    // menus included. Two peers minted DIFFERENT identities for the same item.
+    // The match's ordinal within its session is the term they agree on.
+    let sim_id = active.ordinal().map(|match_ordinal| {
+        ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(match_ordinal, ordinal)
     });
     let mut spawned = commands.spawn_room_scoped((
         // AT REST, and the constructor is now what says so. A dropped item falls

@@ -32,8 +32,42 @@
 //! remain, because *"is this the generation I was planned against"* is the only
 //! question an epoch answers.
 //!
-//! ⚠ The fact that lets this be cheap: an epoch is **not rollback-registered**.
-//! Two peers never compare sequences, so a gap on one host is invisible.
+//! ⛔⛔ **"TWO PEERS NEVER COMPARE SEQUENCES" WAS FALSE, AND IT WAS THE
+//! JUSTIFICATION FOR BURNING NUMBERS.** This said: *"The fact that lets this be
+//! cheap: an epoch is not rollback-registered. Two peers never compare
+//! sequences, so a gap on one host is invisible."* The first clause is true and
+//! the second does not follow from it. **Traced 2026-09-15, every link read:**
+//!
+//! ```text
+//! ContentEpoch(7)  --Display-->  "epoch:7"
+//!   ContentBinding::canonical_summary   (construction/mod.rs:689)
+//!   ConstructionScope::transaction      (construction/mod.rs:716)
+//!     TransactionId("epoch:7\t<room>\t<session>")
+//!       component.construction_transaction_id, COMPONENT-CANONICAL
+//!       (rollback_schema_baseline.txt:122)
+//! ```
+//!
+//! ⇒ The epoch is not registered; its VALUE is compared anyway, character for
+//! character, inside a canonical checksum. So a burned number is NOT invisible
+//! to a peer: an App that refused one reload carries epoch 8 where a fresh App
+//! carries 7, and the two stamp DIFFERENT canonical provenance on a
+//! mechanically identical world. `a_transaction_identity_still_depends_on_host_local_lineage_counters`
+//! (`shared_tangle::construction::tests`) is the arm that records exactly this,
+//! and it has been green — as a recorded divergence — the whole time.
+//!
+//! ⚠ **THE RULING ABOVE MAY STILL BE RIGHT; ONLY ITS REASON WAS WRONG.** Gaps
+//! being legal also rests on reservation semantics being a second lifetime to
+//! get right, which is an argument this does not touch. What changed is the
+//! COST: a gap is a peer-visible divergence, not a free local convenience, so
+//! the trade is "cheaper allocation for a recorded desync" rather than
+//! "cheaper allocation for nothing". ⇒ The fix is not to stop burning numbers.
+//! It is to stop the epoch reaching canonical identity at all — ID-PEER step 3,
+//! which needs a peer-stable content identity that `shared_tangle` can name.
+//! ⛔ `ContentFingerprint` is that value and it is NOT reachable: it lives in
+//! `ambition_content_pack`, which `shared_tangle` does not depend on. Deciding
+//! where it belongs is a vocabulary-placement call, and this file — which
+//! already owns the LOCAL half of the pair and explains the distinction two
+//! paragraphs up — is the obvious candidate.
 //!
 //! [`ControlFrame`]: crate::ControlFrame
 //! [`ConfirmedFrameBoundary`]: crate::ConfirmedFrameBoundary

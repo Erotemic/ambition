@@ -1212,9 +1212,17 @@ fn verify_and_publish(
         // handoffs describe are still correct — draining them would strip an item
         // off a body for a world that was never built.
         crate::items::pickup::discard_custody_handoffs(world, publication);
-        // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
-        // remembered here: it is candidate-owned state stamped with this room's
-        // transaction, so `retire_candidate` takes it.
+        // ⛔⛤ **THE STAGED WORLD IS DROPPED HERE, EXPLICITLY.** This comment used
+        // to say `retire_candidate` took it because the staged world was
+        // "candidate-owned state stamped with this room's transaction". MEASURED
+        // and FALSE: `begin_publication` spawns the publication entity carrying
+        // `RoomPublication` and no `TransactionId` component, so the candidate
+        // sweep cannot reach it. A refusal on an `UntilOwnerRetires` publication
+        // left the whole replacement standing -- outgoing roster, room set,
+        // geometry, platform state -- on an entity that survives its verdict.
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.remove::<PendingWorldReplacement>();
+        }
         world.insert_resource(LastConstructionVerification {
             room_id,
             violations: Vec::new(),
@@ -1582,7 +1590,19 @@ fn verify_and_publish(
             violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the
         // session is playing was never touched, so there is nothing to recover.
+        //
+        // ⛔⛤ **AND THE STAGED WORLD IS DROPPED HERE RATHER THAN LEFT TO THE
+        // CANDIDATE SWEEP.** `retire_candidate` below takes everything stamped
+        // with this room's transaction; the staged world is NOT among it. It is a
+        // component on the publication entity, which `begin_publication` spawns
+        // carrying `RoomPublication` and no `TransactionId`. MEASURED: a refused
+        // candidate left the whole replacement standing -- outgoing roster, room
+        // set, geometry, platform state -- on an entity that outlives its verdict
+        // whenever the caller declared `UntilOwnerRetires`.
         let staged = staged_entity.is_some();
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.remove::<PendingWorldReplacement>();
+        }
         let dropped: usize = transactions
             .iter()
             .map(|transaction| {

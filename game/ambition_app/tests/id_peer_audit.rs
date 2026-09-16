@@ -13,19 +13,24 @@
 //! become canonical", which is the question that matters for a campaign that
 //! will take more than one sitting.
 //!
-//! ⚠ AUDIT RESULT, MEASURED 2026-09-15 against the LIVE `RollbackRegistry` (492
-//! descriptors) rather than by grepping source:
+//! ⚠ AUDIT RESULT, MEASURED 2026-09-15 against the LIVE `RollbackRegistry`
+//! rather than by grepping source. The population is what the guard prints, not
+//! a number copied into this comment — a descriptor count written here is stale
+//! the next time anything registers.
 //!
 //! | sink | verdict |
 //! |---|---|
-//! | authoritative RNG | boss `PatternRng` CLEAN (`encounter_id` + rollback-visible `step_index`); `seed_from_id` CLEAN (FNV over an authored id); **the smash match roster seed is NOT** — see the second arm |
-//! | contact / projectile identity | CLEAN — `MoveOccurrence` is body-local and starts at 0; `SimId`/`SimIdCounter` are per-entity and derive from parent + construction order |
-//! | rollback identity / peer checksum | the local tokens are NOT registered; exactly one DERIVED value carries them in — `TransactionId` |
-//! | construction provenance | `TransactionId`, already recorded by `a_transaction_identity_still_depends_on_host_local_lineage_counters` |
+//! | authoritative RNG | boss `PatternRng` CLEAN (`encounter_id` + rollback-visible `step_index`); `seed_from_id` CLEAN (FNV over an authored id); the smash match roster seed was NOT and now draws from a peer-agreed match ordinal |
+//! | contact / projectile identity | `MoveOccurrence` is body-local and starts at 0; `SimId`/`SimIdCounter` derive from parent + construction order — but `SimId::match_spawn` embedded the absolute activation tick in a `component-canonical` identity STRING, which no carrier-type list could see |
+//! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
+//! | construction provenance | `TransactionId`, recorded by `a_transaction_identity_still_depends_on_host_local_lineage_counters` |
 //!
-//! ⇒ So the leak is narrow and precisely two things, by two different
-//! mechanisms: one derived canonical component, and one RNG seed that reads a
-//! host counter directly.
+//! ⛔⛤ THIS TABLE HAS SAID "NARROW AND PRECISELY TWO THINGS" AND BEEN WRONG
+//! TWICE. Both times the missed leaks were real, canonical and older than the
+//! guard: the checkpoint family, because the kind that carried it was not in a
+//! hand-written list of kind names; and `SimTick`, because an absolute tick does
+//! not read as a lifecycle counter. Read `RECORDED_DIVERGENCE` for the state;
+//! a completeness word here is a hostage to the next review.
 use crate::common;
 
 /// Types whose VALUE is, or carries, a host-local lifecycle count. None may be
@@ -53,12 +58,21 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "TransactionId",
     // Carry `session`, `activated_on` and/or the local seat-topology generation.
     "ActiveMatch",
-    // ⛔ CARRIERS OF `CheckpointOperationKey`, whose ONE projection writes the
-    // raw `SessionScopeId`. Found by the GPT review of 2026-09-15, after this
-    // guard had reported the campaign complete twice: every one of them is a
-    // `*CustomChecksum` kind, which the old string list did not name.
+    // ⛔ CARRIERS OF `CheckpointOperationKey`. Found by the GPT review of
+    // 2026-09-15, after this guard had reported the campaign complete twice:
+    // every one of them is a `*CustomChecksum` kind, which the old string list
+    // did not name. All three now project through
+    // `CheckpointOperationKey::write_peer_stable_into`, so they are listed in
+    // `PEER_STABLE_PROJECTION` below and stay here to be CHECKED against it.
+    //
+    // ⚠ `OutstandingCheckpointRequest` was in this list and does not belong:
+    // it is a bare `bool` and holds no key at all. It was added by reading the
+    // four registrations beside each other instead of reading the four TYPES,
+    // and the "recorded exception is still checksummed" arm could not see the
+    // error, because being registered is all it asks. A wrong member of a
+    // four-member list survives a count of four.
     "CheckpointOperationKey", "SessionStartupResume", "AcceptedCheckpointRestore",
-    "SessionCheckpointOutcomes", "OutstandingCheckpointRequest",
+    "SessionCheckpointOutcomes",
     "MatchInstance",
     "StocksMatchSettled",
     "SuddenDeathEntered",
@@ -102,6 +116,18 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     "ambition_match::settlement::StocksMatchSettled",
     "ambition_match::settlement::SuddenDeathEntered",
     "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
+    // ⛔ ONE ROOT CAUSE, THREE CARRIERS. Each stores a `CheckpointOperationKey`
+    // and projects it through the key's own
+    // `write_peer_stable_into` — the admission sequence plus whether a scope
+    // owns the operation, never the scope's per-App value. The whole key still
+    // lives in the snapshot, which for these three is a `Clone` of the resource,
+    // so a rewind restores the local half.
+    //
+    // `a_checkpoint_operation_key_projects_the_sequence_and_not_the_session_scope`
+    // (`actor_monolith::session::checkpoint::tests`) holds the function body.
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
 ];
 
 /// Values that ARE canonical while still being a function of host-local
@@ -128,20 +154,6 @@ const RECORDED_DIVERGENCE: &[&str] = &[
     // SESSION-RELATIVE tick, rebased when peers agree to start, which is netcode
     // work. Recorded so this is held by a test rather than by prose.
     "ambition_time::SimTick",
-    // ⛔⛤ ONE ROOT CAUSE, FOUR CARRIERS — found by the GPT review of 2026-09-15,
-    // after this guard had twice reported the campaign complete. Every value
-    // holding a `CheckpointOperationKey` reuses its ONE projection, and that
-    // projection writes the raw `SessionScopeId`; all four are
-    // `resource-clone-custom-checksum`, a kind the guard's old string list did
-    // not name, so none of them was ever examined.
-    //
-    // `a_checkpoint_operation_key_still_projects_the_host_local_session_scope`
-    // (`actor_monolith::session::checkpoint::tests`) holds the detail and flips
-    // when the peer/local split lands.
-    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
-    "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
-    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
-    "ambition_platformer2d_actor_monolith::session::checkpoint::OutstandingCheckpointRequest",
 ];
 
 /// ⭐⭐ **THE CAMPAIGN'S STANDING GUARD: NO HOST-LOCAL IDENTITY IS CANONICAL.**

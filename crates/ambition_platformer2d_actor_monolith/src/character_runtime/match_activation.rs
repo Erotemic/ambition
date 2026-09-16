@@ -353,6 +353,7 @@ pub fn prepare_the_match(
 /// the same plan waiting, or the cast it rebuilds is not the cast it built.
 pub fn activate_the_prepared_match(
     mut commands: Commands,
+    mut ordinals: ResMut<ambition_match::seating::SessionMatchOrdinal>,
     prepared: Option<Res<PreparedMatch>>,
     active: Option<Res<ActiveMatch>>,
     active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
@@ -545,6 +546,10 @@ pub fn activate_the_prepared_match(
         // WHEN, so the opening ceremony is a function of the clock rather than
         // a timer somebody has to remember to rewind.
         now,
+        // ⭐ AND WHICH MATCH OF THIS SESSION, which is what the draws key on.
+        // Taken here rather than derived from `now`, because `now` counts this
+        // App's whole life and two peers disagree about it.
+        Some(ordinals.take(prepared.session())),
     ));
 }
 

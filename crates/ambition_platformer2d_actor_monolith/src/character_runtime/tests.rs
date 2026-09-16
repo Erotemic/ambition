@@ -1592,6 +1592,7 @@ fn live_match_with_roster_outcome(outcome: Option<super::CharacterLoadOutcome>) 
         None,
         None,
         Some(0),
+        None,
     ));
     app.insert_resource(ambition_match::prepared::PreparedMatch::for_test_published_by(None));
     app.insert_resource(ambition_time::SimTick::default());

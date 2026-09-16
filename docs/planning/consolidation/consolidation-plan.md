@@ -90,9 +90,9 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**STATE:** RECOMMENDED first new campaign after current milestone
+**STATE:** RECOMMENDED first new campaign; the A10 half of its gate is met
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** A10 checkpoint + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing.
+**DO NOT START BEFORE:** ~~A10 checkpoint~~ (discharged 2026-09-15) + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing.
 
 ### CURRENT STATE
 
@@ -158,9 +158,9 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** candidate after A10 and shell/content supersession closure
+**STATE:** candidate; A10 is COMPLETE, so two gates remain
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** A10 complete + shell/content A-supersedes-B witness + identity checkpoint.
+**DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + shell/content A-supersedes-B witness + identity checkpoint.
 
 ### CURRENT STATE
 
@@ -192,9 +192,9 @@ One publication decision selects the candidate session/world. Content binding an
 
 ## 6. C06 — Converge reconstruction entry roads on one materialization/publication engine
 
-**STATE:** candidate after C01/C05
+**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** C01 + C05.
+**DO NOT START BEFORE:** ~~C01~~ (discharged 2026-09-15) + C05.
 
 ### CURRENT STATE
 
@@ -260,9 +260,9 @@ Each optional canonical authority has one explicit reason for absence, and produ
 
 ## 8. C08 — Prune compatibility facades and forwarding mirrors after canonical owners settle
 
-**STATE:** later cleanup
+**STATE:** later cleanup; A10 no longer blocks it
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** Do not run during A10 or another large ownership migration.
+**DO NOT START BEFORE:** ~~A10~~ (discharged 2026-09-15) — but do not run during another large ownership migration. ID-PEER is one: stay off session/canonical identity.
 
 ### CURRENT STATE
 

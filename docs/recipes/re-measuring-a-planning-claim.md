@@ -1130,3 +1130,37 @@ keep its own commit wrapper) was recorded as loudly as the ones that did not.
 
 ⇒ **Write down the row that survived re-measurement.** A page that only records
 drift teaches the next reader that drift is the answer.
+
+### The shell answering a NARROWER question than the one you asked
+
+⛔ **Four costumes of one object, all four hit in a single night (2026-09-16).**
+None is a mistake about the repository; every one is a pipeline reporting
+something adjacent to what was asked, in a way that reads as a result.
+
+1. **`| grep` voids the exit code.** `cmd | grep pattern` exits with GREP's
+   status. A command that failed reads as success whenever the pattern happens to
+   match, and a command that SUCCEEDED reads as failure when it does not — a
+   background job was reported "failed with exit code 1" while the lane it ran
+   was green, because the trailing `grep FAILED` matched nothing.
+2. **A score-shaped grep is not a pass check.** Gating a commit on
+   `grep -oE "[0-9]+/[0-9]+ jobs passed" && git commit` accepts **`9/10`**
+   perfectly well. It tests that a score LINE EXISTS, not that the score is
+   passing. Twenty greens through that pattern were true; the twenty-first was a
+   red that got pushed. ⇒ Grep the LITERAL passing value.
+3. **`head -N` on a sorted list is a sampling decision.** Deciding whether a
+   function had any production callers, the caller list went through
+   `sort | head -20`; every `crates/…` path sorted first and the single
+   `game/…` caller fell off the end. Sorting before truncating makes the loss
+   SYSTEMATIC rather than random — it always drops the same corner of the tree.
+4. **A parse that finds nothing reads as a tree that is clean.** A regex that
+   cannot match the source's actual spelling returns zero, and zero is the same
+   string a healthy repository produces.
+
+⇒ **The defence is the same in all four: make the predicate name the value it
+accepts, and make an empty result REFUSE rather than report.** ⚠ And a predicate
+that accepts the failure it exists to catch is worse than no predicate, because
+it produces the CONFIDENCE of a check without its content.
+
+⭐ What found three of the four was not care, it was a SECOND instrument
+disagreeing — a compiler naming the caller a grep had dropped, a peer's scan
+disagreeing by an order of magnitude, a test suite red where a lane was green.

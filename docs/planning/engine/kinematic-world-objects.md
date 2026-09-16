@@ -339,8 +339,13 @@ catch-all. Co-locate each object's transition state with its accepted writers;
 share the existing spatial/body-motion substrate where the semantics match.
 
 A falling chest may use path motion, receive an accepted hit and expose an
-interaction. None makes its entire lifecycle combat-owned. A5 waits for A2's
-contact handoff before moving breakable state/behavior/respawn. Preserve stable
+interaction. None makes its entire lifecycle combat-owned. ⚠ **A5 NO LONGER WAITS FOR A2's
+CONTACT HANDOFF** — it closed at `0157476ba` and both halves of A5's hold are
+satisfied; see
+[`destructible-writer-inventory.md`](destructible-writer-inventory.md), which is
+the ONE place that records it. ⛔ And the move this sentence gated is not one A5
+earned: measured, breakables, chests and falling chests demonstrably do NOT share
+a transition authority, so there is nothing duplicated to consolidate. Preserve stable
 geometry identity, moving-host portal behavior and phase visibility when moving
 any object out of combat/features. An animation effect must not become a second
 motion authority.

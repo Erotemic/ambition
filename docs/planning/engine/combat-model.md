@@ -227,7 +227,12 @@ owners, not another shared tuning bag.
 A destructible's intact/broken state, accepted damage, loot/spawn transition,
 collision presence and replay policy should close over one destructible-object
 authority. Combat supplies an accepted hit; it need not own every interactive
-object that can receive damage. Packet A5 waits for A2's contact contract.
+object that can receive damage. ⚠ **A5 NO LONGER WAITS FOR A2's CONTACT
+CONTRACT** — it closed at `0157476ba`, and the other half of A5's hold (the
+writer inventory) is delivered in
+[`destructible-writer-inventory.md`](destructible-writer-inventory.md), which
+is the ONE place that records the discharge. This line said A5 was still
+waiting; a gate restated away from its keeper is the copy that rots.
 
 [A2](actor-monolith-work-frontier.md) first aligns boss/projectile contact with
 published authored geometry and world obstruction. It then removes historical

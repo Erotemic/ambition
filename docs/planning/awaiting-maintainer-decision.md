@@ -1006,12 +1006,18 @@ that it must then be written down where the next reader of
 architecture"* (Jon, 2026-07-06).** That rule says pick a reasonable value and
 ship it blind, and escalate only when the KNOB ITSELF is missing. This is not a
 knob value: nothing here is unset, and option (a) is not "choose a number" — it
-turns a shipped guard red, and the guard that goes red is one this same
-measurement found to be broken at a rung nobody runs. Shipping blind would mean
-landing main red against a scalar that means six different things at six
-different rungs. ⇒ If the answer is (a), DUEL-GUARD-RUNG is a prerequisite, not a
-follow-up; if it is (b), the knob is the missing-knob case the rule names
-explicitly.
+turns a shipped guard red, and it turns it red at the two rungs where
+throws actually land. Shipping blind would mean landing main red on a shipped
+lane. ⇒ If the answer is (a), the re-baseline is the decision, and it should be
+taken against the five-rung sweep rather than against rung 9 alone; if it is (b),
+the knob is the missing-knob case the rule names explicitly.
+
+⚠ A related row, [DUEL-GUARD-RUNG](queue.md#duel-guard-rung--the-cpu-duel-guard-fails-at-rung-5-on-main-today),
+records that the same guard already fails at rung 5 at HEAD. That is NOT a reason
+to discount the table above: rung 5's failure is a brain-selection defect
+(its CPUs land 15% of their damage on an opponent and the rest on summons), the
+metric itself is sound, and rungs 6 and 9 above are clean pass-to-fail
+transitions caused by this change alone.
 
 ⛔ **What is NOT in scope here:** the staleness half of the same row. That one is
 not a balance question at all — a throw never records its own use, so the

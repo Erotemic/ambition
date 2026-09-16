@@ -31,6 +31,45 @@
 
 The value **8** is intentionally retained as the `662a9b...` baseline. The later documentation cleanup at `2dbd81abc50f` closed `TRANS-PLANNING-HISTORY`; a refreshed current-snapshot metric should therefore recompute the ledger instead of editing this baseline in place.
 
+## A SECOND READING, `531f02e22`, 2026-09-16
+
+⭐ **THIS IS THE "later campaign" COMPARISON THIS PAGE ASKS FOR AT THE BOTTOM,
+not an edit of the baseline.** Same helper, same counting rules, a later commit —
+`python3 scripts/architecture_census.py`.
+
+| Metric | Baseline `662a9b5` | This reading | Δ |
+| --- | ---: | ---: | ---: |
+| Workspace packages | 80 | 80 | — |
+| Workspace Rust files | 1,882 | 1,889 | +7 |
+| Repository tracked Rust files | 1,908 | 1,915 | +7 |
+| Workspace raw Rust LOC | 825,759 | 840,947 | +15,188 |
+| Workspace nonblank Rust LOC | 777,646 | 792,058 | +14,412 |
+| Test Rust LOC (heuristic) | 265,099 | 272,507 | +7,408 |
+| Large Rust modules (≥1000 nonblank) | 182 | 185 | +3 |
+| Optional Res/ResMut occurrences | 732 | **726** | −6 |
+| Optional Res/ResMut unique spellings | 196 | 196 | — |
+| Mechanical editor domains | 6 | 6 | — |
+| Explicit App resources with session/generation semantics | 32 | **36** | **+4** |
+
+⛔⛤ **ONE ROW MOVED FOR A REASON AND THE REST MOVED WITH THE TREE.** The +4 is
+`SessionScopedResources` going 25 → 29: `StocksMatchSettled`,
+`SuddenDeathEntered`, `LiveMatchTicks` and `SessionMatchOrdinal`, which the
+peer-identity campaign made MEMBERS of that grouping rather than moving them.
+That is C03's starting population, and it is now guarded —
+`scripts/check_session_owner_census_matches_source.py` compares a marker in
+`consolidation-plan.md` against `teardown.rs` on every `--maintenance` run.
+
+⚠ **AND THE OPTIONAL-RESOURCE ROW IS THE ONE TO READ CAREFULLY**, because it is
+where a hand-written scan and this instrument disagree by 16%. 726 is FLAT
+against the baseline. A scan of mine that swept all tracked `.rs` and kept inline
+`#[cfg(test)]` modules reported 850 and read as growth; the census strips each
+file from its first `#[cfg(test)]` and scans only `crates/`, `game/`, `tools/`.
+⇒ Both numbers are real; only one answers this row. Use the helper.
+
+⚠ Note ~51% of the added nonblank LOC since the baseline is TEST code
+(+7,408 of +14,412), which is worth knowing before reading the growth as
+production sprawl.
+
 ## Generated `.agent` navigation inventory
 
 The commit-matched generated inventory is useful for breadth. It is not the semantic authority.

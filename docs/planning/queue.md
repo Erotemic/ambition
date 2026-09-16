@@ -940,28 +940,58 @@ how that claim is checked against the composed app"*. Swept, at HEAD, with
 nothing modified: **rung 5 FAILS**, `0.13 + 0.08 = 0.21` against a floor of
 `1.0`. Rungs 1, 3, 6 and 9 pass (1.99, 1.99, 2.32, 1.36).
 
-⚠ **AND RUNG 5 IS NOT AN INERT FIGHT — it deals MORE raw damage than the rung
-that passes.** Rung 5: 105 damage (46 + 59) across six distinct moves, 4
-knockouts, decided on tick 2812. Rung 9: 95 damage, 4 knockouts. The guard calls
-the livelier of the two "the CPUs are not fighting".
+⛔⛤ **THE GUARD IS RIGHT AND THE DIAGNOSTIC BESIDE IT IS WRONG — CORRECTED
+2026-09-16, SAME DAY, AND THE FIRST VERSION OF THIS ROW IS THE ERROR WORTH
+KEEPING.** It read rung 5's printed *"105 damage across six moves, 4 knockouts,
+MORE than rung 9's passing 95"* and concluded the metric was pool-normalised and
+not comparable across rungs, estimating rung 5's pool at ~6× rung 9's by dividing
+damage by percent. ⇒ **That is refuted at the source:**
+`smash_roster_at_levels` sets `brain_profile` and NOTHING ELSE per level, both
+rungs seat the same `npc_pirate_admiral`, and the pool is therefore identical
+(~100, back-computed consistently once the real cause below is accounted for).
+The division looked like a measurement and was an inference over a quantity that
+does not vary.
 
-⇒ **The metric is pool-normalised and therefore not comparable across rungs.**
-`taken[]` sums rises in `BodyHealth::damage_percent()`, which is
-`damage_taken / max_pool` (unclamped — `damage_percent_is_unclamped_so_a_hud_can_print_188`).
-Back-computing the pool from the two runs: rung 9's fighters carry ~95–117, rung
-5's ~590–767, about 6×. `A_REAL_FIGHT` is a single scalar calibrated against
-rung 9's pool, so the same fight reads six times smaller one rung down.
+⇒ **MEASURED instead, by splitting each hit on whether its victim is a seat:**
 
-**Next implementation:** decide what the floor is a floor ON. Either normalise
-the metric by something rung-invariant (raw damage per duel tick, or knockouts),
-or make the threshold a per-rung table with each entry measured. ⛔ Not "lower
-the floor until rung 5 passes": the floor's stated job is *"a fight happened, not
-the tuning"*, and a scalar that means different things at different rungs cannot
-do that job at any value.
+| rung | dealt to a SEAT | dealt to a NON-SEAT body |
+|------|-----------------|--------------------------|
+| 5 | 16 (15%) | 89 |
+| 9 | 51 (54%) | 44 |
 
-**Acceptance:** the guard passes at all five published rungs at HEAD, and an
-inert pair still fails it at every one of them — the second half is what stops
-the fix from being "divide until green".
+Rung 5's fighters spend the duel hitting **summoned bodies**, not each other. It
+is the rung that spams the summon: 71–84% of its move starts are `grapeshot` and
+`call_the_shark` (27+9 of 51, 30+12 of 50), against 13–21% `grapeshot` at every
+other rung, and its seat 1 uses only 7 distinct moves where rungs 3, 6 and 9 use
+13–16. `A_REAL_FIGHT` is measuring exactly what it claims to and its verdict is
+correct: the CPUs are not fighting *each other*.
+
+⚠ **WHAT MISLED THE FIRST READING IS A REAL DEFECT, just not the metric's.**
+`damage_by_move[slot] += hit.damage` keys on `hit.attacker` being a seat and
+never looks at `hit.victim`, so the `[dealt]` line prints damage into summons as
+damage dealt. It reported `105` for a duel in which `16` reached an opponent.
+⇒ A reader takes that line as "how hard this seat is fighting" — the first
+version of this row did — and at rung 5 it overstates by 6.6×.
+
+**Next implementation:** two separable pieces, and the second is the row's real
+subject.
+1. Make `[dealt]` say what it counts — split seat-directed from summon-directed
+   damage at the print, so the diagnostic cannot be read as the guard's input
+   when it is not.
+2. Rung 5's move selection is a [BRAIN](#brain--finish-truthful-fighter-attack-selection)
+   defect, not a guard defect: a duelist policy that answers 71–84% of its
+   decisions with two moves and lands 15% of its damage on the opponent is the
+   "representative CPUs select from their authored menu across the intended
+   difficulty ladder" acceptance failing at one rung. ⇒ Re-file the failure
+   there; what stays here is the diagnostic.
+
+⛔ **Do not fix this by lowering the floor or by normalising the metric.** Both
+were the first version's instinct and both would have hidden a real brain defect
+behind a guard change.
+
+**Acceptance:** `[dealt]` distinguishes the two victim classes, and the guard
+passes at all five published rungs at HEAD — by rung 5's CPUs fighting each
+other, not by a threshold that moved.
 
 ### A2 — close the remaining projectile construction-identity hole
 
@@ -1304,6 +1334,48 @@ a fighter-specific exception.
 **Acceptance:** representative CPUs select movement-compatible and
 movement-transition attacks from their authored menu across the intended
 difficulty ladder, with no regression to the press/move identity contract.
+
+⚠ **MEASURED 2026-09-16 — THE LADDER HALF OF THAT ACCEPTANCE FAILS AT RUNG 5,
+AND THE FAILURE IS NOT MONOTONE IN DIFFICULTY.** Sweeping `AMBITION_DUEL_RUNG`
+over the five published rungs at HEAD, `npc_pirate_admiral` mirror, counting move
+STARTS:
+
+| rung | distinct moves (seat 0 / 1) | share that is `grapeshot` + `call_the_shark` |
+|------|------------------------------|-----------------------------------------------|
+| 1 | 11 / 12 | 48% / 49% |
+| 3 | 13 / 16 | 40% / 40% |
+| 5 | 11 / **7** | **70% / 84%** |
+| 6 | 14 / 15 | 25% / 31% |
+| 9 | 13 / 13 | 35% / 44% |
+
+And it shows up in where the damage goes, splitting each `ResolvedBodyHit` on
+whether its victim is a seat: rung 5 lands **16 of 105** damage on an opponent
+(15%) against rung 9's 51 of 95 (54%). A rung answering 70–84% of its decisions
+with two moves and putting 85% of its damage into summons is this acceptance
+failing — it is also why
+[DUEL-GUARD-RUNG](#duel-guard-rung--the-cpu-duel-guard-fails-at-rung-5-on-main-today)
+sees the shipped duel guard go red there, and that row's investigation is what
+produced these numbers.
+
+⛔ **NO MECHANISM IS CLAIMED HERE, and one plausible one was checked and
+refuted.** `FighterBrainProfile::for_level` switches rollouts on at `level >= 6`,
+which would have explained rungs 6 and 9 being the varied ones — but that
+fallback does not apply: `ambition_content` ships an `AuthoredFighterLadder`, and
+`assets/data/fighter_brain_ladder.ron` authors `rollout_depth: 0, rollout_k: 0`
+at **all nine rungs**. ⇒ Rollouts never run in the shipped game, so difficulty is
+entirely `reaction_ms`, `apm_cap`, `execution_noise`, `read_weight` and the
+utility weights — every one of which the file's own validation requires to be
+MONOTONE in level. A monotone ladder producing a non-monotone outcome with a
+large outlier at one rung is the finding, and the F6 menu/utility term is where
+it belongs.
+
+⚠ **BOUNDS, because this is one sample and cannot be resampled.**
+`fighter_cognition_seed` mixes the character id and the level with no clock and
+no external seed, so each rung is ONE deterministic stream — rung 5 returned
+bit-identical figures across three unrelated code states, which confirms the
+determinism but does not widen the sample. These rows are `npc_pirate_admiral`
+only. ⇒ Before acting, re-run across the other duel fighters; a defect at one
+(character, level) pair is not yet a defect in the rung.
 
 ### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 

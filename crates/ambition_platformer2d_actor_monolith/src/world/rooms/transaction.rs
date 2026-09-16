@@ -318,7 +318,7 @@ impl std::fmt::Display for OpenRefused {
 /// A10 exists to delete, reached by the candidate machinery WORKING.
 ///
 /// ⇒ Every one of those four is now staged here and applied by the ONE
-/// publication authority in [`verify_and_publish`], after the candidate has been
+/// publication authority in `verify_and_publish` (private to this module), after the candidate has been
 /// admitted. A refusal drops this resource and the live world never learns the
 /// room was attempted.
 ///
@@ -472,7 +472,8 @@ pub enum StagedWorldViolation {
     /// silently left where it was, which is a session colliding against one room
     /// while believing it is in another.
     NoRoomSetToPublishInto,
-    /// The exact publication target carries no [`RoomGeometry`] to publish the
+    /// The exact publication target carries no `RoomGeometry` (in
+    /// `ambition_platformer2d_core::world`) to publish the
     /// staged room's geometry into.
     ///
     /// ⛔⛤ **THE SINK NOTHING PREFLIGHTED — 2026-09-15 REVIEW, FINDING 5.**
@@ -1050,7 +1051,7 @@ impl ActiveContentBinding {
 
 /// Consume a verified publication's frozen effects: make them the world's.
 ///
-/// ⛔⛤ **THE OTHER HALF OF [`FrozenPublicationEffects`] — 2026-09-15 REVIEW,
+/// ⛔⛤ **THE OTHER HALF OF `FrozenPublicationEffects` (`pub(crate)`) — 2026-09-15 REVIEW,
 /// FINDING 1.** An ordinary live-room transition calls this on the spot, inside
 /// the same verdict, so nothing about that road changes. A room built into a
 /// candidate session that is still hidden leaves the bundle standing, and the

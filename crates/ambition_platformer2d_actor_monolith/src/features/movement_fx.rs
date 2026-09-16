@@ -231,7 +231,8 @@ pub fn arm_ground_contact_anim_overlay(
 /// op-armed overlays (slash / shoot) are armed at their own effect sites — attack
 /// (`combat::attack`) and projectile fire (`brain_effects` / `projectile::systems`)
 /// — because those aren't movement ops; this covers the movement ops only, and
-/// [`advance_body_anim_overlays`] decays every op-armed timer afterward.
+/// `ambition_characters::actor::advance_body_anim_overlays` decays every
+/// op-armed timer afterward — it moved to live beside the component it ticks.
 pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEvents) {
     for op in &events.operations {
         if matches!(op, ae::MovementOp::WallJump) {

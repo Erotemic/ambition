@@ -446,6 +446,12 @@ content edit measured through it cannot be hiding a host relink. The `relink`
 lane's 1 is the same instrument reporting the opposite, which is what makes the
 zero credible.
 
+⇒ REPLICATED at `b3eb4cb82`, ~250 commits later, same machine and linker:
+`relink` reads 0 / **1** / 1 again, with `after_edit_units_rebuilt: 1` beside it
+— one unit rebuilt, one link, which is the whole of what a test-binary relink
+should be. Worth re-running when the counter's inputs move, because `fresh` and
+`executable` are cargo's fields and not ours.
+
 ⭐ **AND THE CONTROL FIRED ON ITS FIRST PRODUCTION USE.** The first `relink`
 attempt reported `warm_noop_host_link_invocations: 2` with a 346-second "warm
 no-op", so the baseline build was doing real work. Nothing in the DURATIONS says

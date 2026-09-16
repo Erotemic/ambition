@@ -32,8 +32,8 @@ candidate session announces nothing to the live one until that session is
 admitted.
 
 Post-A10 demolition is the active lane: deleting the mechanisms A10's replacement
-made dead. The next architecture campaign is peer-stable identity (ID-PEER),
-which owns a separate campaign and a separate agent.
+made dead. Peer-stable identity (ID-PEER) runs beside it as a separate campaign
+with a separate agent, and is no longer "next" — see below.
 
 The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
 
@@ -44,18 +44,33 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-⛔ **AND THE LARGEST INSTANCE IS NOT A SESSION COUNT — MEASURED 2026-09-15.**
+**NINE OF THE TEN NAMED ROADS ARE CLOSED (2026-09-16).** The per-road table and
+the arm that holds each one are in
+[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
+A count rather than a completeness word: a tenth road found tomorrow makes this
+"nine closed, a tenth found" instead of making it false.
+
+⛔ **THE ONE THAT IS OPEN IS NOT A SESSION COUNT, AND IT IS BLOCKED ON A RULING —
+[Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).**
 `SimTick` is registered `resource-canonical`, so its whole value is compared
 between peers, and it is an absolute count of every sim step an App has run
 (one writer, unconditional at the head of the schedule, never rebased, menu
 frames included). Two Apps running for different lengths of time therefore
-disagree from the first compared frame. ⚠ Nothing in the repository can observe
-this: the only sessions in use are `SyncTestSession`, one machine rewinding
-itself.
+disagree from the first compared frame. It cannot be closed the way the other
+nine were: a projection excluding the tick would exclude the TIMELINE, which is
+what a rollback comparison is about.
 
-The current engineering packet is
-[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity),
-whose row now carries the per-road table and the order of the remaining work.
+⚠ Nothing in the repository can observe any of this: the only sessions in use are
+`SyncTestSession`, one machine rewinding itself, and a canary comparing a machine
+against its own past cannot catch a two-peer disagreement. Every road in that
+table had to be found by reading, and two of the three GPT reviews found a fix
+that had replaced one host-local term with another.
+
+⭐ **THE TWO THAT CLOSED LAST NEEDED NO NEW AUTHORITY**, which is the transferable
+part: the stale cross-session match stamp needed to be impossible rather than
+checksummed harder, and the session root's identity needed no peer-stable session
+term at all — its local count was disambiguating nothing. Ask who ORDERS and who
+OWNS a thing before designing a type to carry it.
 
 ### Rollback-safe mechanical editing
 
@@ -90,9 +105,14 @@ that shape the profile are Q97, Q100, Q106 and Q108 in the decision ledger.
 
 The queue is intentionally compact. Its current groups are:
 
-- **P0:** A10 publication, peer-stable identity, settings/rollback policy, throw
-  modifier consistency, A2 projectile identity, A12 move-contact attribution and
-  A4 control/body execution.
+- **P0:** A10 publication (CLOSED), peer-stable identity (nine of ten roads
+  closed; the tenth is `Q128`), settings/rollback policy, throw modifier
+  consistency, A2 projectile identity, A12 move-contact attribution and A4
+  control/body execution.
+
+⚠ That list is a SUMMARY OF `queue.md`, which means it is a copy corrections do
+not reach. Read the rows, not this line, before picking work up: a group closing
+here is a two-edit change and only one of the edits is anybody's job.
 - **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
   selection, low-tier sprite policy, Smash parity, character authoring, scenario
   identity and test-lane reliability.

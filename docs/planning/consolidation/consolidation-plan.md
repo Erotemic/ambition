@@ -225,9 +225,9 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 ## 4. C04 — Make activated generation mechanics the only live-session construction source
 
-**STATE:** candidate after session ownership stabilizes
+**STATE:** candidate after session ownership stabilizes. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16); what remains is the composition-contract ruling.** Re-scope before costing.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** C03 owner decision + supported-composition decision.
+**DO NOT START BEFORE:** C03 owner decision + supported-composition decision. `hold-ok` — this row genuinely delivers ONE half of its own scope (the declared-profile half, MEASURED 2026-09-16) and is STILL HELD on the other: the supported direct/headless composition contract is a ruling nobody has made, and C03's owner decision now depends on `Q132`.
 
 ### CURRENT STATE
 
@@ -243,7 +243,26 @@ Direct-entry compositions predate universal prepared-generation activation and s
 
 ### WHAT COULD DISAPPEAR
 
-The second live-construction source when the product moves to a universal generation path. Keep explicit fixture construction if still useful, but make it a declared profile instead of an accidental missing-resource branch.
+⛔⛤ **MEASURED 2026-09-16: THE "ACCIDENTAL MISSING-RESOURCE BRANCH" IS ALREADY A
+DECLARED DECISION.** `GenerationMechanics::for_live_session(shell_routed, ..)`
+REFUSES — returns `None` — when a shell-routed session has no activated
+generation, and the discriminator is `SessionGatedSimulation`, which the source
+describes as *"installed only by `ambition_game_shell`'s session plugin, never
+inserted by direct-entry apps or headless harnesses"*. Composition MODE is asked,
+not inferred. Every live-rebuild road (`session/reset/mod.rs`,
+`room_transition/loading.rs`, `world/rooms/stage.rs`) goes through it; the
+preparation road uses `GenerationMechanics::of`.
+
+⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` IS CORRECT.**
+`game/ambition_app/src/app/dev_runtime.rs:491` — the HOT RELOAD, which passes
+`None` on purpose because it is BUILDING the generation that replaces the live
+one, and says so at the call site. Narrowing `new` to `pub(crate)` was tried and
+fails to compile for exactly that caller.
+
+⇒ **WHAT IS LEFT FOR C04 IS THE RULING, NOT A REFACTOR** — *"decide supported
+direct/headless composition contract"*, already its own DO-NOT-START-BEFORE. The
+same shape C03's third candidate turned out to have. Keep explicit fixture
+construction if still useful; the declared-profile half is delivered.
 
 ### DEPENDENCIES / BLOCKERS
 

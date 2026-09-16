@@ -42,7 +42,21 @@ from pathlib import Path
 
 #: A file compiled out in its entirety. Anchored to the line start so a
 #: `#![cfg(test)]` quoted inside a doc comment or a string is not matched.
-INNER_CFG_TEST = re.compile(r"^#!\[cfg\(test\)\]", re.MULTILINE)
+INNER_CFG_TEST = re.compile(r"^[ \t]*#!\[cfg\(test\)\]", re.MULTILINE)
+
+
+def file_is_test_only(source: str) -> bool:
+    """Does `#![cfg(test)]` compile away this WHOLE file?
+
+    ⚠ The attribute must sit at brace depth 0. The same spelling inside a `mod`
+    block compiles out only that block, and reading it as the file drops
+    production code out of a consumer's corpus with nothing to show for it.
+    """
+    for match in INNER_CFG_TEST.finditer(source):
+        before = source[: match.start()]
+        if before.count("{") == before.count("}"):
+            return True
+    return False
 
 #: Names that mean "this whole file is tests", unioned across the five copies.
 TEST_FILE_NAMES = frozenset({"tests.rs", "test.rs", "test_support.rs"})
@@ -69,4 +83,4 @@ def is_test_path(path: Path, source: str | None = None) -> bool:
             source = path.read_text(encoding="utf-8")
         except OSError:
             return False
-    return INNER_CFG_TEST.search(source) is not None
+    return file_is_test_only(source)

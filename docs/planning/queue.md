@@ -780,40 +780,101 @@ in the cache key at the owner boundary.
 **Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
 cached result accidentally.
 
+### ORPHAN-ARMS — 36 test arms that no `mod` line compiles
+
+**Owner:** `ambition_boss_encounter`.
+
+**Current state:** `crates/ambition_boss_encounter/src/pattern/tests.rs` holds 36
+`#[test]` arms and is declared by nothing. `pattern/mod.rs` names six child
+modules and `tests` is not among them; the three sibling `mod tests;` lines in
+that directory (`control_flow.rs`, `content_schema.rs`, `validator.rs`) each
+pull in their OWN `tests` subdirectory. So the file has never compiled and its
+arms have never run.
+
+⛔ **THIS IS THE GREEN-REPORT FAILURE IN ITS PUREST FORM.** The arms exist, they
+are written, they are named after real claims, and `cargo test` reports every
+one of them as neither passed nor failed because it has never heard of them. A
+reader counting test files sees coverage that does not exist.
+
+Found 2026-09-16 while resolving every name-excluded file to its declaration
+(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_test_paths.py` so the
+count cannot grow quietly, which is NOT the same as fixed.
+
+**Next implementation:** decide whether the arms still state something true of
+`pattern/`, then either declare the module (`#[cfg(test)] mod tests;` in
+`pattern/mod.rs`) and fix whatever fails, or delete the file. ⚠ Do not declare
+it and then waive the failures — arms that never ran have never been green, so
+a first run is evidence, not a regression. Drop the entry from the arm's
+`orphans` list in the same commit.
+
 ### GUARD-CORPUS — five copies of "what is a test file", drifted
 
 **Owner:** repo tooling (`scripts/check_*.py`).
 
-**Current state:** five scripts each carry their own `_is_test_path`, and they
-have drifted into five different answers. MEASURED 2026-09-16:
+**State: CLOSED 2026-09-16.** `scripts/lib/test_paths.py` owns the rule and all
+five call sites use it. Floors landed first, in `993fdef58`; the consolidation
+followed in `e660c2fc4`.
 
-| script | `tests/` in path | `tests.rs` | `test.rs` | `*_tests.rs` | `test_support.rs` |
-| --- | --- | --- | --- | --- | --- |
-| `check_rollback_mutators_run_in_sim.py` | ✅ | ✅ | ✅ | ✅ | — |
-| `ecs_inventory.py` | ✅ | ✅ | ✅ | ✅ | — |
-| `check_set_pins_have_engine_members.py` | ✅ | ✅ | ✅ | ⛔ | — |
-| `check_capability_ships.py` | ✅ | ✅ | ⛔ | ⛔ | ✅ |
-| `tests/test_every_smash_technique_has_a_translator.py` | ✅ | ✅ | ⛔ | ⛔ | — |
+⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
+work was done twice, independently, down to the same four measurements — one as
+`lib/test_paths.py`, one as `lib/rust_sources.py`. The duplicate was deleted and
+its two non-overlapping pieces folded in: a brace-depth guard on the
+`#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
+with an owner and a "next implementation" still says nothing about whether
+somebody is in it RIGHT NOW. Say so in the row, or in a message, before starting
+a step that takes hours.
 
-⛔ **THE `*_tests.rs` RULE REACHED TWO OF FIVE.** Its own docstring records that
-it "used to miss all 51 of them", so a known defect was fixed once and three
-copies still have it. ⚠ The population of copies was never enumerated — only the
-one somebody was looking at — which is why the fix stopped where it did.
+The five copies had drifted into five answers. `*_tests.rs` reached two of five
+even though the docstring that added it records missing "all 51 of them", and
+the population of copies was never enumerated — only the one somebody was
+looking at — which is why that fix stopped where it did.
 
-⛔ **AND THE NAME IS A PROXY FOR A FACT NONE OF THEM CHECKED.** An inner
-`#![cfg(test)]` compiles a whole file out whatever it is called;
-`features/ecs/fighter_harness.rs` is a test harness that every name rule passed.
-4 files carry that attribute and ALL FOUR were missed. Closed for the rollback
-guard in `c6715b84e`; still open in the other four.
+⭐ **WHAT THE CONSOLIDATION ACTUALLY BOUGHT, which was not the deduplication.**
+Every copy tested a NAME. What removes a file from a build is `#[cfg(test)]` on
+its `mod` line — which lives in the PARENT, not the file — or `#![cfg(test)]`
+at the top of the file. Resolving all 284 name-excluded files to their
+declaration found 281 genuinely gated, **two that shipped**, and one declared by
+nothing at all:
 
-**Next implementation — and the ORDER is the load-bearing part.** Broadening an
-exclusion makes a check see LESS, and a check that sees less reports CLEANER, so
-consolidating first would hide defects in the direction nobody inspects. ⇒ Give
-each check a population floor FIRST (the shape in
-`check_rollback_mutators_run_in_sim.py`'s `POPULATION_FLOOR`), then move the one
-rule into `scripts/lib/`, then delete the copies. A consolidation that lands
-before the floors cannot be reviewed, because every reviewer sees a shorter
-report and no way to tell a correct exclusion from a lost one.
+| finding | file | disposition |
+| --- | --- | --- |
+| `mod tests;` and `pub(crate) mod test_support;`, both ungated | `enemy_projectile/mod.rs` | gated in `7301157d0`; the module doc comment already called it "test-only" |
+| declared by no `mod` line in its crate | `boss_encounter/src/pattern/tests.rs` | **open** — 36 arms that never compile and never run |
+
+⛔ **SO FOUR GATES HAD BEEN DROPPING SHIPPING CODE FROM THEIR CORPORA BY NAME,
+AND EVERY ONE OF THEM REPORTED CLEANER FOR IT.** That is the failure this row
+predicted, found in the direction it predicted. `scripts/tests/test_test_paths.py`
+re-runs the comparison, so a name is trusted only for as long as it stays true;
+a second arm pins `feature = "test-support"` to `[dev-dependencies]`, since
+`#[cfg(any(test, feature = ...))]` is the one predicate the file rule cannot
+settle alone.
+
+**The ordering held up under measurement.** Each adoption was run before and
+after:
+
+| check | effect of adopting the owner | floor |
+| --- | --- | --- |
+| `check_rollback_mutators_run_in_sim.py` | verdict identical; already the widest of the five | untouched |
+| `check_set_pins_have_engine_members.py` | 1367 → 1293 files, 225 → 222 pins | **CAUGHT IT**; lowered in the same commit |
+| `check_capability_ships.py` | 1334 → 1264 production files, 414 → 408 writer types | held |
+| `test_every_smash_technique_has_a_translator.py` | 282 → 257 ruleset files | **CAUGHT IT**; lowered |
+| `ecs_inventory.py` | 3 module summaries, 7 fixture spawn sites | held |
+
+⇒ Two of five floors fired on a change their author believed was safe, and both
+times the drop was legitimate and had to be argued for in writing before the
+floor moved. ⛔ **A FLOOR MAY GO DOWN ONLY IN THE COMMIT THAT CAUSES THE DROP,
+AND ONLY WITH THE FILES THAT LEFT NAMED.**
+
+⚠ **A claim made here and withdrawn.** I first recorded that all four
+`test_support.rs` files carry `#![cfg(test)]`, so the name half was subsumed by
+the attribute half — from misreading my own bucketed output. NONE carries it,
+and two had no gate anywhere. The arm exists because that is exactly what a
+comment cannot hold.
+
+⚠ **Still one rule per reader, not one rule.** About 25 further inline copies
+(`"/tests/" in path`, `endswith("tests.rs")`) live in reporting scripts that
+gate nothing. They were left alone: a wrong exclusion in a report is visible to
+its reader, and giving them a floor first is the same ordering all over again.
 
 ⛔⛤ **AND THE FLOOR HAS TO LIVE INSIDE EACH SCRIPT — AN EXTERNAL SWEEP CANNOT
 SUBSTITUTE FOR IT. MEASURED 2026-09-16 BY FAILING TO DO EXACTLY THAT.** I tried

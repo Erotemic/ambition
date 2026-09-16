@@ -2958,8 +2958,8 @@ prerequisites are reported as incomplete rather than pass.
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
 
-**OPEN 1 — intermittent arms that fail only in company. Three instances; the
-third is closed with a measured cause, and it does NOT explain the other two.**
+**OPEN 1 — intermittent arms that fail only in company. Three instances; TWO are
+now closed with measured causes, and the two causes are the SAME SHAPE.**
 `does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`
 failed once in a full lane at `041b07158` on its own third anti-vacuity
 assertion: *"the probe took 1 distinct census(es) at the frames the audit
@@ -2995,9 +2995,54 @@ repeat of the same binary did not reproduce it. Different arm, different subject
 identical signature — **fails in company, passes alone, intermittent rather than
 deterministic-in-company.**
 
-⇒ **TWO INSTANCES MADE IT A CLASS; THE THIRD BELOW IS THE ONE THAT NAMED A
-CAUSE, and it was not shared with these two — so the class is a SIGNATURE, not
-yet a mechanism.** OPEN 2 below may be a fourth. ⚠ That
+⇒ **AND THE CLASS NOW HAS A MECHANISM, FOUND BY APPLYING THE THIRD INSTANCE'S
+CAUSE TO THE FIRST: A PER-ARM MEASUREMENT READING PROCESS-GLOBAL STATE.** The
+`hall_transition_cover` census classified images through a `static` ledger keyed by
+a per-App asset id; this arm's INPUT came from a `static AtomicUsize`. `app_it`
+runs its arms as threads of ONE process, so both were reading state a sibling
+writes.
+
+⛔⛤ **ROOT CAUSE, 2026-09-16.** `landing_repeatedly` — the cadence this arm feeds
+the simulation — kept its step counter in a `static AtomicUsize`, because
+`measure` took a bare `fn() -> AgentAction`, which cannot carry state. TWO arms
+draw that cadence (this one and
+`a_constant_projection_over_actors_folds_to_one_value_and_reports_nothing`), so in
+company they interleave one counter and each receives an arbitrary subsequence of
+the phases. `jump: n % 8 == 0` is how the body leaves the ground ⇒ an arm drawing
+no multiple of 8 never lands, nothing arms `land_anim_timer`, and the subject holds
+one value for the whole window — which is *precisely* the captured failure,
+*"the probe took 1 distinct census(es) at the frames the audit COMPARED"*.
+
+⭐ Fixed by making the cadence a per-call closure (`measure` takes `impl FnMut()`
+now) and held by `two_arms_drawing_the_same_cadence_receive_the_same_input_sequence`,
+which draws two sequences INTERLEAVED and floors the jump count on BOTH. Poisoned
+by restoring the `static`: *"the second sequence drew 0 jump(s) in 120 steps"*.
+⛔⛤ **The first version of that arm drew the sequences one after the other and
+PASSED with the defect restored** — a shared counter offsets the second window by
+`DECAY_STEPS`, which is 120, a whole number of the cadence's 8-step periods, so the
+two came out identical. An arm satisfied by an offset that happens to be a multiple
+of the period is measuring the arithmetic, not the sharing.
+
+⚠ **WHAT IS STILL OPEN: the 2026-09-10 instance**
+(`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`),
+whose assertion was never captured — **and the mechanism above does NOT explain
+it.** Checked the same day the mechanism was found, three candidates and all three
+refuted: the arm's own file holds no `static`, `ambition_platformer2d_runtime` does
+not depend on `ambition_render` so the engine group cannot reach the image-stage
+ledger, and the disabled plugin's crate holds exactly two globals — a warn-once
+dedup `BTreeSet` and a read-only `LazyLock` catalog — neither of which can zero a
+fixed-step count or panic a plugin build.
+
+⭐ **THE MAP FOR WHOEVER LOOKS NEXT, MEASURED:** production code outside tests
+holds roughly **fifty `static`s with interior mutability** (`Mutex`, `RwLock`,
+`OnceLock`, `Atomic`, `LazyLock`), concentrated in `ambition_sprite_sheet` (12),
+`ambition_characters` (7), `shared_tangle` (4) and `ambition_causal` (4). That is
+the footprint of the mechanism in a binary that runs its arms as threads of one
+process. ⇒ The next step for this instance is still its ASSERTION, not another
+sweep: it has never been captured, and `step_the_fixed_schedule` has two ways to
+fail that the exit code does not distinguish.
+
+OPEN 2 below may be a fourth. ⚠ That
 page has sat open, unattributed and LINKED FROM NOTHING for six days — it was one
 of two orphans in the whole planning tree — so its named next step was never
 taken. It says: *"a repeat run with `--test-threads=1` and a fixed seed order,

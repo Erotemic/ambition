@@ -145,7 +145,12 @@ fn measure<T: bevy::prelude::Component>(
     room: &str,
     steps: usize,
     prepare: impl FnOnce(&mut Platformer2dSimHarness),
-    action: fn() -> AgentAction,
+    // ⛔⛤ `FnMut`, NOT `fn`, AND THAT IS THE FIX FOR A MEASURED FLAKE. A bare
+    // `fn` pointer cannot carry state, so a generator with a cadence had to keep
+    // its step counter in a `static` — one counter for the whole PROCESS, shared
+    // by every arm calling it in `app_it`'s single test binary. See
+    // [`landing_repeatedly`].
+    mut action: impl FnMut() -> AgentAction,
     projection: fn(&T) -> u64,
 ) -> Reading {
     let mut sim = sim_in(room);
@@ -394,16 +399,41 @@ fn a_constant_per_actor(_anim: &BodyAnimFacts) -> u64 {
 /// distinct census. Read as a result that is *"`BodyAnimFacts` reproduces across
 /// 36 comparisons"*. It is "nothing moved", and only the compared-frames floor
 /// says which.
-fn landing_repeatedly() -> AgentAction {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static N: AtomicUsize = AtomicUsize::new(0);
-    let n = N.fetch_add(1, Ordering::SeqCst);
-    AgentAction {
-        move_x: 1.0,
-        right_pressed: true,
-        jump: n % 8 == 0,
-        jump_held: n % 8 < 3,
-        ..AgentAction::default()
+/// ⛔⛤ **ITS COUNTER WAS A PROCESS-GLOBAL `static`, WHICH IS WHY THE ARM THAT
+/// USES IT FAILED ONLY IN COMPANY — ROOT-CAUSED 2026-09-16.** A `fn() -> AgentAction`
+/// cannot carry state, so the cadence kept its step count in a `static
+/// AtomicUsize`: ONE counter for the whole process, and `app_it` runs its arms as
+/// threads of ONE process. Two arms call this cadence —
+/// `decaying_animation_timers_reproduce_across_every_resimulation` and
+/// `a_constant_projection_over_actors_folds_to_one_value_and_reports_nothing` —
+/// so in company they INTERLEAVE the same counter and each receives an arbitrary
+/// subsequence of the phases.
+///
+/// ⇒ `jump: n % 8 == 0` is how the body leaves the ground, so an arm that draws
+/// no multiple of 8 never lands, nothing arms `land_anim_timer`, and the subject
+/// holds one value for the whole window. That is exactly the failure that was
+/// captured: *"the probe took 1 distinct census(es) at the frames the audit
+/// COMPARED"*. Alone, the counter starts at 0 and the body lands every eighth
+/// step.
+///
+/// ⚠ The counter is per-CALL now, so two concurrent arms cannot share a phase,
+/// and `measure` takes `impl FnMut()` to make that expressible. Two things this
+/// does NOT claim: it is not a verdict on the OTHER unexplained instance of the
+/// fails-in-company signature (`composes_through_the_sdk`, 2026-09-10, a
+/// different subject), and a `static` is not wrong in general — it is wrong for
+/// the INPUT to a determinism measurement.
+fn landing_repeatedly() -> impl FnMut() -> AgentAction {
+    let mut n = 0usize;
+    move || {
+        let phase = n;
+        n += 1;
+        AgentAction {
+            move_x: 1.0,
+            right_pressed: true,
+            jump: phase % 8 == 0,
+            jump_held: phase % 8 < 3,
+            ..AgentAction::default()
+        }
     }
 }
 
@@ -423,12 +453,19 @@ fn attacking() -> AgentAction {
 #[test]
 #[ignore = "PROBE, print-only: what the animation facts actually do under an input"]
 fn probe_what_the_animation_facts_do() {
-    for (label, action) in [
-        ("attack held", attacking as fn() -> AgentAction),
-        ("attack pressed 1-in-12, the cadence that starts moves", edged_attack as fn() -> AgentAction),
-        ("jump and land", jumping as fn() -> AgentAction),
-        ("move and jump", running_and_jumping as fn() -> AgentAction),
-    ] {
+    // ⛔ EACH CADENCE IS BUILT FRESH, so every label's window starts at phase 0.
+    // They shared one process-global counter until 2026-09-16, which made the four
+    // printed windows incomparable: each began wherever the previous one left off.
+    let cadences: Vec<(&str, Box<dyn FnMut() -> AgentAction>)> = vec![
+        ("attack held", Box::new(attacking)),
+        (
+            "attack pressed 1-in-12, the cadence that starts moves",
+            Box::new(edged_attack()),
+        ),
+        ("jump and land", Box::new(jumping())),
+        ("move and jump", Box::new(running_and_jumping())),
+    ];
+    for (label, mut action) in cadences {
         let mut sim = sim_in(ACTOR_ROOM);
         println!("── {label}");
         for step in 0..60 {
@@ -458,44 +495,99 @@ fn probe_what_the_animation_facts_do() {
 /// The cadence `a_move_keeps_its_occurrence_across_a_rewind` uses to start
 /// several moves: a press EDGE every twelfth frame, because a held button starts
 /// one move and not several.
-fn edged_attack() -> AgentAction {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static N: AtomicUsize = AtomicUsize::new(0);
-    let n = N.fetch_add(1, Ordering::SeqCst);
-    if n % 12 == 0 {
-        AgentAction {
-            attack: true,
-            ..AgentAction::default()
+fn edged_attack() -> impl FnMut() -> AgentAction {
+    let mut n = 0usize;
+    move || {
+        let phase = n;
+        n += 1;
+        if phase % 12 == 0 {
+            AgentAction {
+                attack: true,
+                ..AgentAction::default()
+            }
+        } else {
+            AgentAction::default()
         }
-    } else {
-        AgentAction::default()
     }
 }
 
 /// `land_anim_timer` is armed by ground contact, so a jump is the verb that
 /// moves it — a different field of the same component, reached by a different road.
-fn jumping() -> AgentAction {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static N: AtomicUsize = AtomicUsize::new(0);
-    let n = N.fetch_add(1, Ordering::SeqCst);
-    AgentAction {
-        jump: n % 20 == 0,
-        jump_held: n % 20 < 4,
-        ..AgentAction::default()
+fn jumping() -> impl FnMut() -> AgentAction {
+    let mut n = 0usize;
+    move || {
+        let phase = n;
+        n += 1;
+        AgentAction {
+            jump: phase % 20 == 0,
+            jump_held: phase % 20 < 4,
+            ..AgentAction::default()
+        }
     }
 }
 
-fn running_and_jumping() -> AgentAction {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static N: AtomicUsize = AtomicUsize::new(0);
-    let n = N.fetch_add(1, Ordering::SeqCst);
-    AgentAction {
-        move_x: 1.0,
-        right_pressed: true,
-        jump: n % 20 == 0,
-        jump_held: n % 20 < 4,
-        ..AgentAction::default()
+fn running_and_jumping() -> impl FnMut() -> AgentAction {
+    let mut n = 0usize;
+    move || {
+        let phase = n;
+        n += 1;
+        AgentAction {
+            move_x: 1.0,
+            right_pressed: true,
+            jump: phase % 20 == 0,
+            jump_held: phase % 20 < 4,
+            ..AgentAction::default()
+        }
     }
+}
+
+/// ⭐⭐ **TWO ARMS DRAWING THE SAME CADENCE GET THE SAME INPUTS, WHICH IS WHAT A
+/// PROCESS-GLOBAL COUNTER TOOK AWAY.**
+///
+/// The flake this holds against is a race, so it cannot be reproduced on demand.
+/// This is the deterministic half of the same claim, and it draws the two
+/// sequences INTERLEAVED because that is what two concurrent arms do to a shared
+/// counter: restore the `static` and the first sequence sees only even phases
+/// while the second sees only odd ones, so the second never draws a multiple of
+/// eight and its body never leaves the ground.
+///
+/// ⛔⛤ **DRAWING THEM ONE AFTER THE OTHER DID NOT WORK, AND THE POISON SAID SO.**
+/// Sequentially, a shared counter offsets the second window by `DECAY_STEPS`, and
+/// `DECAY_STEPS` is 120 — a multiple of the cadence's period of 8 — so the two
+/// sequences came out IDENTICAL and the arm passed with the defect restored. An
+/// arm whose comparison is satisfied by an offset that happens to be a whole
+/// number of periods is measuring the arithmetic, not the sharing.
+///
+/// ⚠ The jump phases are what matter — `land_anim_timer` is armed by ground
+/// contact — so this compares the JUMP EDGES rather than the whole action.
+#[test]
+fn two_arms_drawing_the_same_cadence_receive_the_same_input_sequence() {
+    let mut one = landing_repeatedly();
+    let mut other = landing_repeatedly();
+    let mut first = Vec::new();
+    let mut second = Vec::new();
+    for _ in 0..DECAY_STEPS {
+        first.push(one().jump);
+        second.push(other().jump);
+    }
+
+    // ⛔ THE FLOOR FIRST, ON BOTH: two sequences of `false` are equal, and would
+    // satisfy the comparison below while neither body ever left the ground.
+    for (which, drawn) in [("first", &first), ("second", &second)] {
+        let leaps = drawn.iter().filter(|jump| **jump).count();
+        assert!(
+            leaps >= 2,
+            "the {which} sequence drew {leaps} jump(s) in {DECAY_STEPS} steps, so \
+             the body barely lands and `land_anim_timer` is never armed — an arm \
+             on this cadence would be measuring a subject that does not move"
+        );
+    }
+    assert_eq!(
+        first, second,
+        "two arms drawing this cadence receive different inputs, so whichever \
+         runs second measures a different simulation than the one its assertion \
+         describes"
+    );
 }
 
 #[test]
@@ -504,7 +596,7 @@ fn decaying_animation_timers_reproduce_across_every_resimulation() {
         ACTOR_ROOM,
         DECAY_STEPS,
         |_| {},
-        landing_repeatedly,
+        landing_repeatedly(),
         whole_anim_facts,
     );
     the_reading_is_about_the_subject(&reading, "decaying animation timers");
@@ -525,7 +617,7 @@ fn a_constant_projection_over_actors_folds_to_one_value_and_reports_nothing() {
         ACTOR_ROOM,
         DECAY_STEPS,
         |_| {},
-        landing_repeatedly,
+        landing_repeatedly(),
         a_constant_per_actor,
     );
     assert!(reading.smallest_carriers >= 1, "the control ran over no carriers");

@@ -114,17 +114,21 @@ impl SessionMatchOrdinal {
     /// in the peer checksum. Found by the GPT architecture review of 2026-09-15,
     /// in the same commit that introduced the type.
     ///
-    /// ⚠ ONE DIVERGENCE WINDOW SURVIVES THIS PROJECTION, and it is recorded
-    /// rather than papered over: the mint resets LAZILY, inside `take`, so
-    /// between joining a session and activating that session's first match it
-    /// still holds the PREVIOUS session's `next`. Two peers with different prior
-    /// match counts disagree for exactly that window.
+    /// ⚠ **THE MINT RESETS LAZILY, INSIDE `take`, AND THAT IS NO LONGER THE ONLY
+    /// AUTHORITY.** On its own the lazy reset leaves a divergence window: between
+    /// joining a session and activating that session's first match the mint still
+    /// holds the PREVIOUS session's `next`, so two peers with different prior
+    /// match counts disagree for exactly that window. The arm
     /// `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
-    /// holds it. Closing it means making the mint session-OWNED state — a
-    /// `MatchOrdinalMint` under the session root, which starts at zero because a
-    /// new session's state is new — instead of an App-global resource carrying an
-    /// owner tag. That is the review's recommendation and the right shape; it is
-    /// a carve, not a checksum change.
+    /// still holds that, because it is still true OF THIS TYPE ALONE.
+    ///
+    /// ⭐ The window is closed by the COMPOSITION, at the activation edge, where
+    /// this resource is reset eagerly alongside the three match-stamped mirrors.
+    /// A composition that can have a previous session is a shell host, and a
+    /// shell host installs that reset; a composition that cannot is one session
+    /// long and has no previous count to hold. So the arm below is not a recorded
+    /// hole any more — it is what makes the eager reset load-bearing rather than
+    /// hygiene.
     pub fn peer_stable_checksum(&self) -> u64 {
         ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.ordinal_mint")
             .u64(self.next)
@@ -489,9 +493,9 @@ mod match_context_tests {
         assert_ne!(
             veteran.peer_stable_checksum(),
             fresh.peer_stable_checksum(),
-            "the lazy-reset window has closed — if that is deliberate, flip this \
-             arm to assert_eq and drop SessionMatchOrdinal from \
-             the standing ID-PEER audit's RECORDED_DIVERGENCE list"
+            "this type's lazy reset no longer leaves a window, so the eager \
+             reset at the session activation edge is no longer load-bearing and \
+             the composition may stop performing it"
         );
     }
 

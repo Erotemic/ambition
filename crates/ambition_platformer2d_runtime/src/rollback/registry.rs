@@ -600,6 +600,47 @@ impl RollbackEntryKind {
         }
     }
 
+    /// Does this registration compare a REVIEWED PROJECTION rather than the
+    /// whole value?
+    ///
+    /// ⛔⛤ **THE THIRD STRING LIST THIS ENUM HAS ABSORBED, AND IT HID A GREEN
+    /// EXEMPTION.** `id_peer_audit.rs` kept `PROJECTED_CHECKSUM_KINDS` — and it
+    /// omitted `ComponentCanonicalCustomChecksum` from the day that variant was
+    /// added. Worse, the audit's staleness rule asked only whether a recorded
+    /// divergence still FEEDS the checksum: a type correctly migrated from a
+    /// whole-value comparison to a reviewed projection still feeds it, so its
+    /// exemption stayed green after the leak it recorded was closed. An
+    /// exception outliving its defect is a hole with a comment over it.
+    ///
+    /// ⇒ The question belongs where the variant is written, beside
+    /// [`Self::feeds_peer_checksum`]. Answering TRUE is a claim that a projection
+    /// EXISTS, never a claim about what it compares — the kind cannot know that,
+    /// and the projection's own value-level arm is what holds it.
+    pub fn uses_peer_projection(self) -> bool {
+        match self {
+            Self::ComponentCloneCustomChecksum
+            | Self::ComponentCanonicalCustomChecksum
+            | Self::ResourceCanonicalCustomChecksum
+            | Self::ResourceCloneCustomChecksum => true,
+            // Compared WHOLE: every field reaches the peer checksum.
+            Self::ComponentCanonical
+            | Self::ComponentCloneCursor
+            | Self::ComponentCloneResolved
+            | Self::ComponentCloneCanonicalChecksum
+            | Self::ResourceCanonical
+            | Self::ResourceCloneCursor
+            // Not compared at all.
+            | Self::ComponentClone
+            | Self::ResourceClone
+            | Self::MessageClear
+            | Self::EntityMapping
+            | Self::ResourceEntityMapping
+            | Self::RequiredRollback
+            | Self::Derived
+            | Self::DynamicAnchor => false,
+        }
+    }
+
     /// Whether this registration carries or reconstructs a value that rollback
     /// localization must observe. `Derived` counts because its reconstruction
     /// contract must also be checked across a resimulation boundary; message-clear,

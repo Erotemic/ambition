@@ -57,55 +57,54 @@ Use this census to find roads whose replacement now exists, not as an
 implementation plan.
 
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.
-The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B
-hold race is **HALF WITNESSED**, MEASURED 2026-09-16 — and this paragraph is a
-CORRECTION of one written earlier the same day, which said the gate was entirely
-open. It was not. See the ⛔ at the end for how that happened, because the method
-error matters more than the verdict.
+The shell/content activation gate is atomic at this snapshot, and its
+A-supersedes-B hold race is **WITNESSED IN PRODUCTION — the gate is CLOSED as of
+2026-09-16.** ⚠ This paragraph has been wrong twice today in opposite directions;
+the ⛔ at the end keeps both, because the method errors are the transferable part.
 
-⭐ **THE SHELL/SESSION HALF HAS ITS NAMED PRODUCTION WITNESS, AND IT PASSES.**
-`a_candidate_session_replaced_while_pending_is_discarded`
+⭐ **THE SESSION HALF.** `a_candidate_session_replaced_while_pending_is_discarded`
 (`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1320`) boots
-`build_visible_app` — the shipped visible composition, not a hand-built router —
-issues `ShellCommand::ReplaceWith` for `ambition_gameplay`, waits THREE frames so
-the second request arrives while the first is still PENDING, and asserts the
-superseded candidate is DISCARDED: no candidate gate registration outlives its
-candidate, the route holds are released, and
-`session_root_for_scope(SessionScopeId(1))` finds the live session — which is
-itself the premise that the two requests actually overlapped, because the scope
-allocator is sequential. `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`:435`) drives the same road and counts roots every frame. MEASURED at `c78cc725e` on
-this box: both pass.
+`build_visible_app`, issues `ShellCommand::ReplaceWith` for `ambition_gameplay`,
+waits THREE frames so the second request arrives while the first is still
+PENDING, and asserts the superseded candidate is DISCARDED: no candidate gate
+registration outlives its candidate, the route holds are released, and
+`session_root_for_scope(SessionScopeId(1))` finds the live session — itself the
+premise that the two requests overlapped, because the scope allocator is
+sequential. `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+(`:435`) drives the same road counting roots every frame.
 
-⛔ **THE CONTENT/TRANSACTION HALF DOES NOT.** What the three unit witnesses pin
-is the TRANSACTION: that a retry supersedes the failed transaction and the stale
-one cannot publish
-(`provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
-`crates/ambition_game_shell/src/tests.rs:918`), that the superseded transaction
-NAMES the request it cancelled (`:1350`), and that a superseded load cannot
-authorize a commit (`superseded_load_cannot_authorize_commit`,
-`crates/ambition_load/src/tests.rs:131`). All three build a
-`ShellRouter::default()` by hand and register their own catalog. MEASURED: NO
-`app_it` arm reads `ShellEvent::PreparationRequested` or a transaction's
-`barrier.load_id` at all — the three `ShellEvent::` mentions in the whole
-integration suite are in comments. ⇒ The composed host is never asked whether a
-superseded transaction can still publish.
+⭐ **THE TRANSACTION HALF, ADDED 2026-09-16.**
+`a_superseded_transaction_cannot_publish_in_the_shipped_app` drives the same
+overlap and asserts what the three unit witnesses assert, against the composed
+host: a SECOND and DIFFERENT transaction is minted (the premise — "cannot
+publish" is otherwise satisfied by "never existed"), the first is ended and NAMED
+with `TransactionEnd::Superseded`, and asking the production
+`PreparedSessionRegistry` to publish it returns `None`.
 
-⇒ **SO THE REMAINING GAP IS ONE ARM AND IT IS SMALLER THAN THE ROW SAID.** The
-session lifecycle under supersession is covered in production; the transaction
-identity under supersession is covered only in a unit fixture. The missing arm
-re-requests the live route in `build_visible_app` and asserts the FIRST
-transaction cannot publish afterwards — the unit witnesses say exactly what to
-assert.
+⛔ **AND THE REFUSAL IS SPECIFIC, WHICH IS THE ONLY VERSION OF THAT CLAIM WORTH
+ANYTHING.** POISONED: asking the SAME registry to publish the SUPERSEDING
+transaction returns `Some(PreparedSessionIdentity { publication_id: 1, .. })`. So
+the `None` is a refusal of supersession, not a registry that refuses everything —
+which is exactly the failure mode an assertion on a lookup would have hidden. The
+arm calls `publish`, not `prepared`, for that reason.
 
-⛔⛤ **HOW THE EARLIER PARAGRAPH GOT IT WRONG, because the method is the
-transferable part.** I listed the `app_it` files matching `supersed` and
-`ShellActivationId`, listed the arms issuing `ShellCommand::GoTo`, and concluded
-"no `app_it` arm launches the same route twice without quitting" WITHOUT OPENING
-THEM. The arm that does it uses `ReplaceWith`, not `GoTo`, and its file matched
-my grep the whole time. ⚠ I had written the rule that same afternoon — a number
-counting mentions is VIGILANCE, not safety, so do not report one you have not
-opened — and then reported a NEGATIVE from the same kind of scan. A negative grep
+⚠ **WHAT IS STILL UNIT-ONLY, stated so nobody reads more into this than it
+says:** the three router witnesses in `crates/ambition_game_shell/src/tests.rs`
+and `crates/ambition_load/src/tests.rs` also pin the FAILED-retry road and the
+load-commit authorization, and those two roads have no composed-host arm. The
+gate this campaign named — an A superseded by a B while pending — does.
+
+⛔⛤ **TWO METHOD ERRORS, BOTH MINE, BOTH ON THIS PARAGRAPH, IN ONE DAY.** First
+it said the gate was entirely open: I listed the `app_it` files matching
+`supersed` and `ShellActivationId`, listed the arms issuing `ShellCommand::GoTo`,
+and concluded absence WITHOUT OPENING THEM — the arm that does it uses
+`ReplaceWith`, and its file had matched my grep all along. Then it said only the
+transaction half was missing, which was true and was fixable in one arm rather
+than a campaign. ⚠ I had written the rule that same afternoon — a number counting
+MENTIONS is vigilance, not safety, so do not report one you have not opened — and
+then reported a NEGATIVE from the same kind of scan. **The rule about counts
+applies to ABSENCES too, and absences are where it is hardest to notice: a
+positive claim invites "which ones?", a negative one does not.** A negative grep
 is a claim about the QUERY.
 Mechanical edit admission is established as an implementation foundation: six production domains use the shared proposal, admission, and publication protocol.
 

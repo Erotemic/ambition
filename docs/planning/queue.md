@@ -448,12 +448,62 @@ Every clone and custom-checksum registration is outside its population —
 snapshotted and restored on every rewind exactly like the canonical ones, so an
 outside mutation drifts identically.
 
-⛔ **MEASURED 2026-09-15.** Widening the population to all rollback registrations
-takes the systems it can see from 555 to 564 and surfaces **65 unwaived
-offenders**. ⚠ That number is not a defect count: many are `Transform` writes
-from camera, sprite and inspection systems, which are PRESENTATION reading a
-component that happens to be rollback-registered. The widening is not landable
-until sim writes and presentation writes can be told apart.
+⭐⭐ **THE WIDENING LANDED 2026-09-16, AND WHAT UNBLOCKED IT WAS COUNTING THE
+OBJECTION.** The blocker read: widening surfaces 65 offenders, many of them
+`Transform` writes from camera, sprite and inspection systems — presentation
+acting on a component that happens to be rollback-registered — so it is not
+landable until sim writes and presentation writes can be told apart. ⇒ Counted by
+TYPE: **52 of the 64 are `Transform` and twelve are not.** The undecidable part
+was one type, not the population. `Transform` is now excluded by NAME with that
+count beside it, and the other 338 types are in.
+
+Population 139 → 338; findings 8 → 12. The four it bought:
+
+| system | type | why it matters |
+|---|---|---|
+| `sync_ldtk_level_set` | `LdtkRuntimeIndex` | the reason `handle_ldtk_hot_reload`'s waiver read stale |
+| `portal_dev_toggle_system` | `PortalGun` | |
+| `reconcile_roster_with_frozen_topology` | `ActiveMatch` | |
+| `compute_music_intent` | `EncounterMusicRequest` | |
+
+⭐ **AND THE WIDENED GUARD INDEPENDENTLY FINDS BOTH DEFECTS FILED TONIGHT BY
+MEASUREMENT** — `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`
+and `persist_occurrence_horizon_to_save` ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)),
+and `grid_menu_action_activated` / `kaleidoscope_menu_action_activated`
+([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
+Two defects found by running a harness, and a static guard that would have named
+them both. ⇒ The argument for reach over cleverness: neither needed a new idea,
+only a population that was not quietly narrowed.
+
+⚠ **`Transform` IS NOW A STATED BLIND SPOT, NOT A RESOLVED QUESTION.** A genuine
+simulation write to `Transform` outside the rewind is invisible to this guard and
+stays invisible until a sim-versus-presentation distinction exists. A green here
+says nothing about `Transform`, and the exclusion is written where the guard
+defines its population so the next reader meets it before the verdict.
+
+⛔ **AND THE OBVIOUS RULE FOR LIFTING IT DOES NOT WORK — MEASURED, so the next
+person does not re-derive it.** The natural repair is to key on a PROPERTY the
+system states rather than on where it lives: if the signature queries `Camera`,
+`Sprite`, `Text`, `Mesh`, `Light`, `Node` or a projection, it is presentation.
+Counted against the 52: **23 declare such a marker and 29 do not.** The 29 are
+plainly presentation by NAME — `camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`, `sync_morph_ball_visual`, `draw_unauthored_attack_volumes`
+— and classifying them would mean matching names. ⚠ A row's NAME is not a reading
+of its write set; that classifier was wrong in both directions twice on
+2026-09-16 alone, in this guard's own neighbourhood and in the S7 census.
+
+⇒ **SO THE REPAIR IS NOT A CLEVERER SCANNER, IT IS A DECLARATION.** Presentation
+systems that write `Transform` should say so — a set they join, or a marker on
+the entities they move — which turns an undecidable read of source into a fact
+the code states. That is "make it impossible, not checked" applied to the guard's
+population, it is a change to ~52 systems rather than to this script, and it
+wants a maintainer's view on the shape before anybody starts. Until then the
+exclusion stands and the blind spot is written down.
+
+⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is EMPTY as a result, and it emptied by being cured
+rather than tidied: its only entry was `handle_ldtk_hot_reload`, unseen because
+`RoomSet` and `LdtkRuntimeIndex` register through component clone. The mechanism
+stays — an empty dict still asserts, because a newly stale waiver reddens the arm.
 
 ⚠ A second, independent hole in the same guard was closed on 2026-09-15: its
 param pattern matched only `&mut T` and `ResMut<T>`, so `SessionWorldMut<T>` was
@@ -1518,6 +1568,15 @@ waived to make a count go down.
 
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
 
+⭐ **A STATIC GUARD NAMES THIS ROW SINCE 2026-09-16.** `grid_menu_action_activated`
+and `kaleidoscope_menu_action_activated` appear in
+`check_rollback_mutators_run_in_sim.py`'s findings, carrying `OwnedItems` and
+`NewGameResetRequested`, once the component half of its population landed. ⇒ The
+row was filed off a harness that demonstrated the defect; the guard would have
+named it from source. Neither is redundant — the harness says what the player
+loses, the guard says it cannot be reintroduced quietly — but the guard is the
+cheaper of the two to keep.
+
 **Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
 
 **Current state:** `grid_menu_action_activated` and
@@ -1740,10 +1799,10 @@ message before starting a step that takes hours.
 **Owner:** test runner / app integration lane.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**683 passed / 0 failed / 31 ignored**, 241.04 s at `c78cc725e` on the
-ToothbrushAmbition box (2026-09-16, tree frozen for the run). Previously
-677/0/25 at `582186bff` on the same box; the +6/+6 is the new arms and
-print-only probes three agents added, and no arm changed state. Missing prerequisites are reported as incomplete rather
+**688 passed / 0 failed / 35 ignored**, 233.95 s at `65d85f3bc`+1 on the
+ToothbrushAmbition box (2026-09-16, tree frozen for the run). Earlier the same
+night: 683/0/31 at `c78cc725e` and 677/0/25 at `582186bff`, same box. The growth
+is new arms and print-only probes three agents added; no arm has changed state. Missing prerequisites are reported as incomplete rather
 than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
 disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
 publish output was ~90 files short. Name the box beside the number.

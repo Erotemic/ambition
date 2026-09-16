@@ -481,18 +481,25 @@ with these very resources would have failed SILENTLY once rollback went live"*,
 and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
 re-hide the thing that comment warned about.
 
-**Next implementation — triage the 14, which is owner work rather than guard
-work.** Two are answered: the `reset_session_scoped_resources_on_*` pair took
-explicit waivers in `869e3ee81`. My reading of the rest, offered so an owner
-starts from a verdict rather than a list:
+**The 14 are triaged — DONE 2026-09-16.** Six took waivers with citations; the
+other eight are filed as `MENU-RESET-MIDSESSION` and `DURABLE-HORIZON-CHECKSUM`,
+each with a named experiment. The guard stays RED on those eight, which is
+correct: waiving them would move a count and answer nothing.
+
+⛔ **ONE OF MY OWN READINGS BELOW WAS WRONG AND IS CORRECTED IN PLACE.** I
+recorded all 7 menu systems as REAL because they carry
+`.run_if(simulation_authorized)` — an argument about WHEN they run, which says
+nothing about WHETHER they write. Five of the seven cannot reach the write at
+all. ⇒ A run condition is not a reachability proof, and I reached for it because
+it was the fact I already had.
 
 | finding | reading |
 | --- | --- |
 | `reset_inventory_on_new_game` | **REAL.** Producer `process_new_game_reset_request` runs in `sim_schedule()` under `ResetProcessing`; consumer runs in `Update`; `NewGameResetCommitted` is `clear_message_on_rollback`. Being moved onto its sibling `clear_transient_on_sandbox_reset`'s chain. |
-| 7 menu systems → `NewGameResetRequested` | **REAL.** They carry `.run_if(simulation_authorized)`, so they write a `rollback_resource_canonical` resource with a live session. Reached through `MenuDispatchParams`, which is why they were invisible before `4f442eb11`. |
-| 4 `AmbitionGameSave` writers | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
-| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
-| `track_versus_roster` | **UNTRIAGED.** Writes `VersusMatch` from the shell's versus setup. |
+| 7 menu systems → `NewGameResetRequested` | **TWO REAL, FIVE WAIVED — corrected from "all 7 REAL".** The flag is set only by `SystemMenuParams::request_reset`, whose one caller is `dispatch_menu_action`, whose only two callers are `grid_menu_action_activated` and `kaleidoscope_menu_action_activated`. The other five take the same bundle and never reach the field: the bundle over-grants. The two real ones are `MENU-RESET-MIDSESSION`. |
+| 4 `AmbitionGameSave` writers → `DURABLE-HORIZON-CHECKSUM` | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
+| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` → `DURABLE-HORIZON-CHECKSUM` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
+| `track_versus_roster` | **WAIVED.** One write, in the `(on_versus, mine) == (true, false)` arm alone; every other combination falls through `_ => {}`, so it cannot write once the route has published its own roster. ⚠ `VersusMatch` feeds the peer checksum, so the waiver rests entirely on the write preceding the timeline — at route entry the roster is `Proposed` with nobody seated, and `maintain_local_session` starts GGRS only once a live body exists. |
 
 ⚠ **The discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is

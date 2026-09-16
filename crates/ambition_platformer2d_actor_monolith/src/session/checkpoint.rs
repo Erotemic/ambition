@@ -1640,8 +1640,27 @@ pub struct SessionCheckpointHorizonPlugin;
 /// 2026-09-13 review found `OutstandingCheckpointRequest` crossing sessions and it
 /// was added to the central `SessionScopedResources`. A second review found the
 /// REST OF THE FAMILY still process-global — the same omission the central
-/// aggregate exists to prevent, one domain over. ⇒ Four of these are canonical
-/// ROLLBACK state, so their residue is inside B's checksum:
+/// aggregate exists to prevent, one domain over.
+///
+/// ⇒ **FIVE OF THE SIX ARE CANONICAL ROLLBACK STATE, so their residue is inside
+/// B's checksum — MEASURED 2026-09-16 in `rollback_registration.rs`, not counted
+/// off the list below.** All five register as `resource-clone-custom-checksum`
+/// under the monolith's `OWNER`:
+/// `resource.session_checkpoint_operations`, `resource.session_checkpoint_outcomes`,
+/// `resource.accepted_checkpoint_restore`, `resource.outstanding_checkpoint_request`,
+/// `resource.session_startup_resume`.
+///
+/// ⛔ **THE SIXTH, `AbandonedCheckpointOperation`, IS DELIBERATELY NOT REGISTERED
+/// ON EITHER ROAD, AND ITS ABSENCE IS THE DESIGN.** It is written from `Update`,
+/// which never rewinds, and it carries a VALUE-COMPLETE note — key, admitted
+/// frame and the accepted operation's checksum — precisely so a world that
+/// rewound past its branch DISCARDS it (`AbandonmentVerdict::Stale`) instead of
+/// cancelling a healthy replacement. Registering it would make a host-side
+/// preparation failure, which two peers need not agree about, into shared
+/// state. ⚠ So a reader auditing this family must not read "six session-owned
+/// values" as "six rollback values": the partition is 5 + 1, the 1 is reasoned,
+/// and `scripts/check_session_owner_census_matches_source.py` now checks it.
+///
 ///
 /// - `SessionCheckpointOperations` documents itself as *the session's*
 ///   admitted-operation counter, and its `next_sequence` survived. Two otherwise
@@ -1651,7 +1670,8 @@ pub struct SessionCheckpointHorizonPlugin;
 ///   an identity — and its comment about not resetting at a room REBASE is about
 ///   a different boundary, which this reducer does not touch.
 /// - `SessionCheckpointOutcomes` retained the previous session's terminal result.
-/// - `AcceptedCheckpointRestore` + `AbandonedCheckpointOperation` together let
+/// - `AcceptedCheckpointRestore` (registered) + `AbandonedCheckpointOperation`
+///   (host-side, per the partition above) together let
 ///   `terminalize_abandoned_checkpoint_restore` recognise **A's** abandoned
 ///   operation after B began and publish an A-scoped cancellation into B's
 ///   outcomes. Scope keys stop it masquerading as B's, but it is still A's

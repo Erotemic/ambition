@@ -219,6 +219,45 @@ not a refactor, and it is FILED as `Q132` in
 [`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) with the
 three options costed. C03 should not move storage before it is answered.
 
+### STEP 3 IS DONE FOR ONE FAMILY: THE CHECKPOINT COORDINATOR'S ROLLBACK PARTITION
+
+The sequence's step 3 says *"for rollback-registered values, record the current
+registration and restore boundary before changing storage."* MEASURED 2026-09-16
+across every `.rs` in `crates/` and `game/` — 23 `rollback_resource_clone_checksum`
+call sites, all classified — for `SessionOwnedCheckpointState`'s six members:
+
+| member | rollback key | boundary |
+| --- | --- | --- |
+| `SessionCheckpointOperations` | `resource.session_checkpoint_operations` | rewinds; must NOT reset at a room rebase |
+| `SessionCheckpointOutcomes` | `resource.session_checkpoint_outcomes` | rewinds; read frames later by the startup road |
+| `AcceptedCheckpointRestore` | `resource.accepted_checkpoint_restore` | rewinds; spans frames by design |
+| `OutstandingCheckpointRequest` | `resource.outstanding_checkpoint_request` | rewinds; kept until the slot admits it |
+| `SessionStartupResume` | `resource.session_startup_resume` | rewinds; key renamed when the VALUE changed |
+| `AbandonedCheckpointOperation` | **none, deliberately** | written from `Update`, which never rewinds |
+
+⛔ **THE PARTITION IS 5 + 1, AND SOURCE'S OWN DOC BLOCK SAID FOUR.** The four was
+a count of the BULLETS above it, one of which pairs a registered value
+(`AcceptedCheckpointRestore`) with an unregistered one
+(`AbandonedCheckpointOperation`) because they cooperate. ⇒ A prose list grouped by
+COLLABORATION reads as a count of the MECHANISM, and an auditor who took the
+number would have carried one host-side value into a rollback migration. Source is
+corrected and states the five keys.
+
+⭐ **THE SIXTH'S ABSENCE IS THE DESIGN, NOT AN OMISSION.**
+`AbandonedCheckpointOperation` carries a VALUE-COMPLETE note — key, admitted
+frame and the accepted operation's checksum — precisely so a world that rewound
+past its branch DISCARDS it (`AbandonmentVerdict::Stale`) rather than cancelling a
+healthy replacement that reused the rewound sequence number. Registering it would
+make a local preparation failure, which two peers need not agree about, into
+shared state. ⇒ **C03 must not "finish the family" by registering it.**
+
+⭐ `scripts/check_session_owner_census_matches_source.py` RULE 3 now holds this:
+every member registers under a key the doc block NAMES, or source declares the
+absence with the words `DELIBERATELY NOT REGISTERED` beside it. The exemption is
+derived from source rather than listed in the guard, so the review that adds a
+member is where the decision gets recorded. Poison-verified three ways in the
+shipped files, restored by md5.
+
 ### DEPENDENCIES / BLOCKERS
 
 ~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.

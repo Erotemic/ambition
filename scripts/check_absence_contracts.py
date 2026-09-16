@@ -1474,7 +1474,10 @@ ROLLBACK_SCHEMA_BASELINE = (
 
 @functools.cache
 def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
-    """Return stable schema names and all types in the rollback wire format.
+    """Return every type encoded into the rollback wire format.
+
+    The stable NAMES were also censused here until 2026-09-16; see the note
+    above this function's return for why a source scan cannot own them.
 
     Cache the read-only census because several invariants query the same tree.
     The wire format is distributed across central and domain-owned impls, so the
@@ -1542,7 +1545,15 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     )
 
     encoded: set[str] = set()
-    for source in sorted(root.glob("crates/*/src/**/*.rs")):
+    # ⛔ `game/` ENCODES TOO, and globbing `crates/` alone missed nine
+    # `SnapshotState` sites in `ambition_content`'s boss specials. Unlike the
+    # name census this widening is safe to make: the pattern is a plain `impl`
+    # in the file that owns the type, not a registration road with four
+    # spellings, so a new game crate is picked up without editing this script.
+    sources = sorted(root.glob("crates/*/src/**/*.rs")) + sorted(
+        root.glob("game/*/src/**/*.rs")
+    )
+    for source in sources:
         if is_test_path(str(source)):
             continue
         text = source.read_text(errors="replace")
@@ -1567,12 +1578,139 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         ):
             encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
 
-    return {
-        "stable_schema_names": sorted(
-            set(re.findall(r'"([a-z_]+\.[a-z_.]+)"', registration))
-        ),
-        "encoded_types": sorted(encoded),
+    # ⛔⛤ THE NAME CENSUS LIVED HERE AND WAS 15% BLIND ABOUT THE ONLY ROWS
+    # PEERS COMPARE. Measured 2026-09-16 against the runtime dump: of its 493
+    # rows, 73 were invisible to this scan and 21 of those feed the peer
+    # checksum — a seventh of the 144 that do. Three causes, and only one was
+    # the root glob: 47 registrations live under `game/`, 26 are colon-form
+    # (`entity:*`) which a dot-requiring pattern cannot match however well the
+    # file is reached, and the marker followed above is one of FOUR spellings
+    # of "this file registers" (`R: RollbackRegistrar`, `&mut impl
+    # RollbackRegistrar`, an inline `SchemaRollbackRegistrar::new(app)`, and the
+    # `AmbitionRollbackApp` extension trait on `&mut App`, which names no
+    # registrar at all).
+    #
+    # ⇒ The lesson is not "widen it once more" — the comments above record that
+    # chase being lost three times. A SOURCE SCAN CANNOT OWN THIS FACT, because
+    # a registration is a runtime call and nothing stops a fifth spelling. The
+    # runtime registry enumerates itself; `rollback_schema_baseline.txt` is that
+    # enumeration, checked in, and guarded byte-for-byte by the Rust lane. A
+    # second frozen copy of its name column here was a duplicate authority whose
+    # only unique behaviour was being wrong.
+    #
+    # `encoded_types` stays: which Rust types implement `SnapshotState` is a
+    # fact the name dump does not record, and it is read off a plain `impl`
+    # pattern rather than by following a registration road.
+    return {"encoded_types": sorted(encoded)}
+
+
+ROLLBACK_SCHEMA_DUMP = "game/ambition_app/tests/rollback_schema_baseline.txt"
+
+
+def peer_checksum_schema(root: Path) -> tuple[str, list[str]]:
+    """`version, rows` — the peer-visible slice of the checked-in schema dump.
+
+    The dump's first line is the schema version (`ggrs-rollback-schema-v194`)
+    and every later line is `name\tkind\ttype\tdetail`. Only rows whose kind
+    answers `RollbackEntryKind::feeds_peer_checksum()` are returned.
+
+    ⛔⛤ `detail` IS KEPT EXACTLY WHERE IT DISTINGUISHES ROWS OF THE SAME KIND,
+    and dropped where it does not. Dropping it wholesale was the first version of
+    this function and it was blind to 48 of the 144 rows: a
+    `resource-clone-custom-checksum` row records what its `fn(&T) -> u64`
+    actually covers, and 22 of them say 22 different things, so narrowing a
+    projection moves no name, no kind and no type. Keeping it wholesale is the
+    opposite error — 85 `component-canonical` rows share ONE sentence, so a
+    reworded word would redden 85 rows and teach people to re-freeze without
+    reading, which is the tax `Q122` measured at 83 rows for one pluralised word.
+
+    ⇒ The rule is the artifact's own: a kind whose rows all carry the same
+    sentence has a `detail` the `kind` column already implies, and a kind whose
+    rows differ is using it to say something `kind` cannot. That covers both
+    reviewed projections (`uses_peer_projection`) and the optional/required
+    split under `resource-canonical`, where `rollback_resource_optional_canonical`
+    adds a presence term to the checksum without changing name, kind or type.
+    """
+    lines = (root / ROLLBACK_SCHEMA_DUMP).read_text().splitlines()
+    feeding = checksum_feeding_kinds(root)
+    fields = [
+        line.split("\t")
+        for line in lines[1:]
+        if line.count("\t") >= 2 and line.split("\t")[1] in feeding
+    ]
+    detail_says_something = {
+        kind
+        for kind in feeding
+        if len({row[3] for row in fields if row[1] == kind and len(row) > 3}) > 1
     }
+    rows = [
+        "\t".join(row[:4] if row[1] in detail_says_something else row[:3])
+        for row in fields
+    ]
+    return lines[0].strip(), sorted(rows)
+
+
+@functools.cache
+def checksum_feeding_kinds(root: Path) -> frozenset[str]:
+    """The dump labels of every kind that feeds the peer checksum.
+
+    Read from the TRUE arm of `RollbackEntryKind::feeds_peer_checksum` and its
+    `as_str` table, never hand-listed here. A hand-kept copy of this set is the
+    documented cause of `id_peer_audit.rs` hiding 25 of 29 registrations: every
+    `*CustomChecksum` kind was missing from its list, so the three checkpoint
+    resources that write a raw `SessionScopeId` into their projection went
+    unexamined by the guard whose whole subject they are.
+    """
+    text = (
+        root / "crates/ambition_platformer2d_core/src/rollback_kind.rs"
+    ).read_text()
+    true_arm = text.split("pub fn feeds_peer_checksum")[1].split("=> true")[0]
+    labels = dict(re.findall(r'Self::(\w+)\s*=>\s*"([a-z-]+)"', text))
+    feeding = {
+        labels[variant]
+        for variant in re.findall(r"Self::(\w+)", true_arm)
+        if variant in labels
+    }
+    # A kind whose label is missing from `as_str` would silently drop its rows,
+    # and a filter that matches nothing reports the success condition.
+    if len(feeding) != len(set(re.findall(r"Self::(\w+)", true_arm))):
+        raise AssertionError(
+            "a kind in feeds_peer_checksum's TRUE arm has no `as_str` label; "
+            "the dump filter would drop its rows and read green"
+        )
+    return frozenset(feeding)
+
+
+def peer_checksum_schema_violations(root: Path) -> list[str]:
+    """Breaches of: the peer-visible schema may not move without the version.
+
+    ⭐ THE REPOSITORY ALREADY OBEYED THIS AND NEVER SAID SO. Across every commit
+    that touched the dump, 14 changed the checksum-feeding row set and all 14
+    moved the version; two changed the wider row set and held the version, and
+    both added a single row of a kind that feeds no checksum
+    (`derived.attacker_move_instance`, `smash.body_mark`) — which
+    `ambition_mount`'s own registration documents as the deliberate case. So
+    this is not a new rule, it is the rule the repo has been following written
+    down where it can fail.
+
+    ⚠ WHY THIS NEEDS A FROZEN PRIOR AT ALL, when the dump is already checked in
+    and guarded: the dump has no memory of its previous self. "Did the version
+    move WHEN the peer-visible set moved" is the one question about it that the
+    tree cannot answer alone, which is exactly why this baseline earns its
+    place and a second copy of the name column did not.
+    """
+    baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
+    frozen = baseline["peer_checksum_schema"]
+    version, rows = peer_checksum_schema(root)
+    breaches: list[str] = []
+    if sorted(frozen["rows"]) != rows and frozen["version"] == version:
+        added = sorted(set(rows) - set(frozen["rows"]))
+        removed = sorted(set(frozen["rows"]) - set(rows))
+        for row in added:
+            breaches.append(f"ENTERED the peer checksum at {version}: {row}")
+        for row in removed:
+            breaches.append(f"LEFT the peer checksum at {version}: {row}")
+    return breaches
 
 
 def rollback_schema_violations(root: Path) -> tuple[list[str], list[str]]:
@@ -1581,7 +1719,7 @@ def rollback_schema_violations(root: Path) -> tuple[list[str], list[str]]:
     current = rollback_schema_usage(root)
     new: list[str] = []
     stale: list[str] = []
-    for key in ("stable_schema_names", "encoded_types"):
+    for key in ("encoded_types",):
         frozen = set(baseline[key])
         live = set(current[key])
         new.extend(f"{key}: {item}" for item in sorted(live - frozen))
@@ -2077,8 +2215,7 @@ def main() -> int:
         baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
         print(
             f"  ok   rollback-wire-format-changes-are-declared  "
-            f"({len(baseline['stable_schema_names'])} stable names, "
-            f"{len(baseline['encoded_types'])} encoded types across "
+            f"({len(baseline['encoded_types'])} encoded types across "
             f"{len({t.split('::')[0] for t in baseline['encoded_types']})} crates)"
         )
     else:
@@ -2108,6 +2245,39 @@ def main() -> int:
                 f"       NEW    {item} entered the rollback wire format — "
                 "declare it (baseline + schema version) or drop it"
             )
+
+    peer_moves = peer_checksum_schema_violations(root)
+    version, feeding_rows = peer_checksum_schema(root)
+    if not peer_moves:
+        print(
+            f"  ok   the-peer-visible-schema-may-not-move-without-the-version  "
+            f"({len(feeding_rows)} rows feed the peer checksum at {version})"
+        )
+    else:
+        broken += 1
+        print("  RED  the-peer-visible-schema-may-not-move-without-the-version")
+        print(
+            "       The set of registrations that FEED THE PEER CHECKSUM "
+            "changed while the schema version held.\n"
+            "       These are the only rows two peers compare, so a peer on the "
+            "old build and a peer on the new one\n"
+            "       now checksum different state under the SAME advertised "
+            "identity — they will not refuse each\n"
+            "       other before play, they will diverge during it."
+        )
+        print(
+            "       ⇒ Bump GGRS_ROLLBACK_SCHEMA_VERSION in "
+            "crates/ambition_platformer2d_runtime/src/rollback/registry.rs, "
+            "re-dump\n"
+            "         game/ambition_app/tests/rollback_schema_baseline.txt, and "
+            "re-freeze this baseline — all in ONE commit.\n"
+            "       ⚠ A row of a kind that feeds NO checksum may land without a "
+            "bump, and this invariant lets it:\n"
+            "         two such additions are in the history and "
+            "`ambition_mount`'s registration documents why."
+        )
+        for item in peer_moves:
+            print(f"       {item}")
         for item in stale:
             print(
                 f"       STALE  {item} left the rollback registration but is "

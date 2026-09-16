@@ -477,6 +477,68 @@ AUTHORITATIVE even when its value is derived. The demotion population looks clos
 to zero and nothing should be demoted on a keyword match.
 
 
+### SCHEMA-IDENTITY-OWNER — the rollback schema had two recordings — ✅ DONE 2026-09-16
+
+**Owner:** peer schema identity (`scripts/check_absence_contracts.py`, netcode
+[`N3`](engine/netcode.md)). Filed and closed in one pass; the measurement is on
+N3 and is not repeated here.
+
+**What was wrong.** `rollback_schema_baseline.txt` (the runtime dump, 493 rows)
+and `rollback-schema-baseline.json` (a source scan, 423 names) both claimed the
+schema, in different lanes. They disagreed about **73 rows, 21 of which feed the
+peer checksum — 15% of the 144 rows peers actually compare.** Not drift: three
+structural causes, of which only one was the root glob. 26 names are colon-form
+and the scan's pattern requires a dot; 47 live under `game/`; and the marker the
+scan follows is one of FOUR spellings of "this file registers rollback state".
+
+⭐ **THE FIX WAS A COLLAPSE, NOT A WIDER REGEX** — the scanner's own comments
+record that chase being lost three times. A source scan cannot own this fact,
+because a registration is a runtime call and the spellings are not a closed set.
+`stable_schema_names` is deleted; the runtime dump owns the names and the Rust
+lane guards it byte-for-byte.
+
+⭐ **WHAT THE BASELINE HOLDS INSTEAD IS THE ONE QUESTION THE TREE CANNOT ANSWER
+ALONE.** A dump has no memory of its previous self, so "did the version move WHEN
+the peer-visible set moved" needs a frozen prior — which is exactly why that
+earns a baseline and a second copy of the name column did not.
+`the-peer-visible-schema-may-not-move-without-the-version`, 144 rows at
+`ggrs-rollback-schema-v194`.
+
+⭐ **LANDED GREEN AGAINST HISTORY RATHER THAN IMPOSED ON IT.** 14 commits changed
+the checksum-feeding set and all 14 moved the version; the 2 that held it each
+added one row of a kind nothing hashes, which `ambition_mount`'s registration
+already documents as deliberate — so the guard permits that road, and a version
+nobody is forced to bump meaninglessly keeps meaning something.
+
+⛔⛤ **THE SLICE DROPPED `detail` AT FIRST AND WAS BLIND TO 48 OF THE 144 ROWS** —
+found by reading `Q122`'s own measurement rather than by any arm here. A
+`resource-clone-custom-checksum` row's sentence says what its `fn(&T) -> u64`
+covers, 22 of them say 22 different things, and narrowing a projection moves no
+name, no kind and no type. The rule now keeps `detail` exactly where it
+DISTINGUISHES rows of its kind and drops it where it does not — which is `Q122`'s
+proposed split applied at the granularity the dump already has.
+
+⚠ **THIS STILL IS NOT `Q122`.** `compute_schema_fingerprint` hashes the whole
+dump, `detail` included, and that is untouched. The repository now answers the
+prose question two opposite ways in two places, which is a second witness for the
+ruling, not the ruling.
+
+Also fixed in the pass: `encoded_types` had the same `crates/`-only root and was
+blind to nine `SnapshotState` sites in `ambition_content` (129 → 137 types). That
+widening is safe where the name census's was not — it matches a plain `impl`
+beside the type, not a registration road. The poison that proves it: removing a
+GAME-side impl now reddens the ratchet, and before the widening it changed
+nothing at all.
+
+**Arms:** five in `scripts/tests/test_absence_contracts.py`
+(`test_a_checksum_feeding_row_that_lands_without_a_version_bump_is_caught`,
+`test_the_same_row_with_the_version_moved_is_allowed`,
+`test_a_row_feeding_no_checksum_may_land_without_a_version_bump`,
+`test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list`,
+`test_the_peer_visible_schema_ratchet_holds_against_the_live_tree`). Each poisoned
+from the production side and each fired on its own arm.
+
+
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).

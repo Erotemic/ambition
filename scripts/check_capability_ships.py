@@ -46,8 +46,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
+from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -176,7 +178,7 @@ def _without_comments(source: str) -> str:
 
 
 def _is_test(path: Path) -> bool:
-    return "tests" in path.parts or path.name in {"tests.rs", "test_support.rs"}
+    return is_test_path(path) or file_is_test_only(_source(path))
 
 
 #: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A

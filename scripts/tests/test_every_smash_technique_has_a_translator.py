@@ -27,9 +27,13 @@ of the road being connected.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
+
+from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
 # Where the authored vocabulary is DECLARED.
 VOCABULARY = REPO / "crates" / "ambition_entity_catalog" / "src"
 # Where a ruleset may recognise it. A key named in any of these is connected.
@@ -62,7 +66,7 @@ def _is_test_file(path: Path) -> bool:
     that passes when the feature is dead, which is the only failure mode that
     matters here.
     """
-    return path.name == "tests.rs" or "tests" in path.parts
+    return is_test_path(path)
 
 
 def _ruleset_text() -> str:
@@ -71,7 +75,10 @@ def _ruleset_text() -> str:
         for path in sorted(root.rglob("*.rs")):
             if _is_test_file(path):
                 continue
-            parts.append(path.read_text(encoding="utf-8"))
+            text = path.read_text(encoding="utf-8")
+            if file_is_test_only(text):
+                continue
+            parts.append(text)
     return "\n".join(parts)
 
 

@@ -443,13 +443,32 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ## 7. C07 — Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required
 
-**STATE:** candidate after composition decision
+**STATE:** candidate after composition decision. ⚠ **Its census was re-derived 2026-09-16 and GREW ~16%** (732 → at least 850). Re-scope before costing.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **DO NOT START BEFORE:** Supported composition profiles must be named first.
 
 ### CURRENT STATE
 
-Static source contains 732 optional Res/ResMut accesses over 196 type spellings. Most are not defects. Three high-authority cases already use composition discriminators: session scope, generation mechanics, and content binding.
+Static source contains **at least 850** optional Res/ResMut accesses in
+production files. Most are not defects. Three high-authority cases already use
+composition discriminators: session scope, generation mechanics, and content
+binding.
+
+⚠ **RE-DERIVED 2026-09-16; THIS LINE READ "732 accesses over 196 type
+spellings".** Counting `Option<Res<` / `Option<ResMut<` OPENINGS — which nesting
+cannot hide — gives **850 in production, 859 across all tracked `.rs`**. A
+stricter pattern that also extracts the TYPE resolves 771 of them over 202
+spellings; the ~79 it drops are nested generics like `Option<Res<Assets<T>>>`, so
+**202 spellings is a floor and 850 is the honest total**. ⇒ Both numbers moved
+UP, by about 16%. The population C07 exists to shrink has grown while the row
+waited on its composition decision.
+
+⭐ **AND THE HEAVIEST SPELLING IS ONE OF THE THREE THIS ROW CALLS ALREADY
+DISCRIMINATED:** `ActiveSessionScope`, 60 optional accesses — more than double
+the next (`GameAssets` 33, `PreparedCharacterRegistry` 24, `UserSettings` 20,
+`ActiveMatch` 18). Having a composition discriminator has not reduced how often
+the authority itself is reached for optionally, which is worth knowing before
+costing "replace optional fallbacks with explicit contracts".
 
 ### INDEPENDENT TRUTHS INVOLVED
 

@@ -638,12 +638,28 @@ rollback state, so the replay re-enters the same branch on the same tick.
 ⇒ So a pickup during play — one change — does not desync on this evidence, and
 what the reproduction demonstrates is the sustained case. ⛔ WHY the sustained
 case differs from the single case is NOT explained, and nobody should read
-"single changes are safe" out of one measurement at one tick. ⚠ **TICK 20 IS
-ITSELF AN UNVARIED PARAMETER.** It was chosen to sit well inside the window and
-clear of the tick-6 invalidation, and nobody has tried a grant landing ON a
-rollback boundary, which is the case most likely to behave differently.
-(ToothbrushAmbition's point; it costs one more run of the same probe with the
-constant changed.) What is established
+"single changes are safe" out of one measurement at one tick. ⚠ **AND THE CLEAN RESULT WAS ITSELF SUSPECT UNTIL THE SAVE WAS SAMPLED.** A run
+can be clean because nothing disagreed or because the compared frames had nothing
+to disagree ABOUT — a floor on the instrument's activity cannot tell those apart,
+which is the failure mode YardratAmbition hit from the other side, with an audit
+that would have called a stationary ground item reproducible. ⇒ Measured, the
+save's own census across the grant:
+
+```
+tick=15..20  bag=3  save_xor=0x8f605a278dac557d
+tick=21..28  bag=4  save_xor=0x0d500710d37b048a     health clean throughout
+```
+
+The hashed value moves exactly ONCE, at tick 21, and `check_distance` is 4 — so
+the transition sits inside the band of frames the sync test keeps re-comparing,
+and the run stayed clean for 220 further steps. ⇒ **"One change is clean" is a
+result, not an artefact of looking where nothing was moving.**
+
+⛔ WHICH MAKES THE SUSTAINED-VERSUS-SINGLE DIFFERENCE SHARPER AND STILL
+UNEXPLAINED, and it is the one thing this row would most like answered: a save
+that moves once inside the compared band is fine, and a save that moves every
+tick is not. Whatever the mechanism, it is not simply "the hashed value changed
+while a rewind was in flight". What is established
 is that the defect is not triggered by every inventory change, which is why it has
 gone unnoticed.
 

@@ -1181,6 +1181,50 @@ in this file.
 nothing to rewind, so every hour of local play exercises the working path. The
 witnesses need `with_sync_test_rollback_settings`.
 
+⭐⛤ **AND THE SANCTIONED CROSSING ALREADY EXISTS IN THIS CODEBASE, WHICH IS THE
+MOST USEFUL THING FOUND FOR THIS RULING.** `SlotControls` is written by
+`publish_seat_controls_when_nobody_else_does` in `Update` **and** by
+`publish_latched_slot_controls` in the sim — and it is correct, because the
+`Update` writer opens with
+`another_authority_publishes(latches.as_deref(), rollback.as_deref())` and
+RETURNS. Under a rollback host the sim-side publisher owns the value and the
+outside writer stands down.
+
+⇒ **That is option 1's shape, already shipped for input.** The outside producer
+does not write authoritative state; it asks whether it is still the authority,
+and the timeline's own publisher is the one that writes. Any answer to this
+question should look like that rather than inventing a fourth channel.
+
+⛔ **HOW MUCH RIDES ON THE RULING, MEASURED.**
+`scripts/resources_crossing_the_rewind_boundary.py` (new, 2026-09-16) censuses
+every `Resource` written on BOTH sides of the boundary — the complementary
+question to `check_rollback_mutators_run_in_sim.py`, whose population is the
+canonical registry and which therefore **cannot see an unregistered request at
+all**:
+
+```text
+52  Resource types written on both sides
+28  rollback-registered
+16  adjudicated harmless, each with its argument (presentation, dev tools, catalogs)
+ 3  crossing only at a SESSION EDGE (teardown, not a per-frame producer)
+ 5  UNCLASSIFIED with a per-frame `Update` writer
+```
+
+The five: `CutsceneAdvanceRequest` (measured defect), `LoadCoordinator` and
+`RoomTransitionLoadState` (room-transition plumbing), `SeatRawFrames` and
+`SlotControlLatches` (input pipeline — likely the same `another_authority_publishes`
+argument as `SlotControls`, NOT yet verified per type).
+
+⚠ **THE CENSUS REPORTS, IT DOES NOT GATE, AND THE AXIS IS WHY.** Crossing the
+boundary is necessary for the defect and nowhere near sufficient. What separates
+the three measured defects is **destructive consumption inside the sim** —
+`mem::take`, a drain, a bool reset — which is what makes the outside write
+unrecoverable rather than merely late. Detecting that statically is not
+attempted; it is named so the residue can be read. The first version of the
+sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
+`Sprite` are not resources, and requiring the `Resource` derive removed them by
+construction.
+
 ## Q135 — should GGRS start before the durable restore has finished?
 
 ✅ **ANSWERED AND LANDED 2026-09-16: NO, AND IT NO LONGER CAN.** (The heading

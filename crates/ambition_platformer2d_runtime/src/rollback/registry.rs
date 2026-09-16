@@ -534,7 +534,26 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// protocol: English wording is inside a peer-visible identity, so removing a
 /// false claim costs a version. Asked as `Q122`; measured by poison — pluralising
 /// one word in `detail::MESSAGE_CLEAR` moves 83 rows.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 194;
+/// ⛔⛤ 194 -> 195: `AuthoredOccurrences` STOPPED CLAIMING TO BE DERIVED. It was
+/// `declare_rollback_derived_resource` justified as *"republished from live state
+/// while its room is loaded"*, and that assertion was false on a shipped road:
+/// `process_new_game_reset_request` calls `forget_everything()` from INSIDE the
+/// rewinding schedule, and a `Placed` row for a room that is not resident has no
+/// live producer to republish it. Measured: ONE `adopt_rows` call inside the
+/// schedule desyncs the sync test at frames 3, 4 and 5 for a write at tick 5 —
+/// no save file, no load, no New Game.
+/// ⭐ THE TYPE ASKED FOR THIS ITSELF. `AuthoredOccurrences::rewind_argument` said
+/// *"if a non-rederived whereabouts state gains a producer, this ledger must
+/// become registered value state with a value-sensitive probe"* — and
+/// `adopt_rows`, 100 lines above it in the same file, was already that producer.
+/// The contract named its own trigger and missed the one it had.
+/// ⚠ THIS ONE IS REAL MECHANICAL GROWTH, unlike 193 -> 194. A row enters the peer
+/// checksum: `resource.placement_continuity`, `resource-clone-custom-checksum`,
+/// projected by `census_projection` (an ordered fold over
+/// `(SimId, whereabouts)`; the `BTreeMap` order is what makes it deterministic).
+/// The `derived.placement_continuity` row leaves. Entity-free, so a clone
+/// snapshot is the whole story and no `MapEntities` is owed.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 195;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

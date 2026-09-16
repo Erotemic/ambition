@@ -444,6 +444,20 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         self
     }
 
+    fn declare_rollback_derived_resource_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource,
+    {
+        self.record::<T>(owner, name, RollbackEntryKind::Derived, reason);
+        self
+    }
+
     fn declare_dynamic_anchor<T>(
         &mut self,
         owner: &'static str,

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v194
+ggrs-rollback-schema-v195
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -183,7 +183,6 @@ derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recordi
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
-derived.placement_continuity	derived	AuthoredOccurrences	authored-occurrence whereabouts; republished from live state while its room is loaded
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
 derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
@@ -448,6 +447,7 @@ resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; not in 
 resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity checksum projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection
+resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; ordered fold over (SimId, whereabouts)
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

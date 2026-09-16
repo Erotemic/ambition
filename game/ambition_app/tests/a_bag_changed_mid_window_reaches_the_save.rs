@@ -1291,6 +1291,12 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
         .remembered()
         .rows()
         .count();
+    // ⭐ AND THE OUTSIDE SET HAS A THIRD MEMBER SINCE SCHEMA v195:
+    // `AuthoredOccurrences`. It is not a new defect — it is the same `Update`
+    // write it always was, newly VISIBLE, because this detector's population is
+    // REGISTERED types and a `declare_rollback_derived_*` type was never in it.
+    // ⇒ A false derived declaration removes its own subject from the guard named
+    // after the problem.
     // ⭐ THE SECOND BASELINE, UNDER THE SAME PRESSURE FOR THE FIRST TIME.
     let custody_rows = sim
         .world()
@@ -1855,10 +1861,12 @@ fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
         .map(|(name, census)| (name, (census.count, census.xor)))
         .collect();
     world.insert_resource(probes);
-    // ⛔ AND THE ONE RESOURCE THE CENSUS CANNOT SEE, recorded beside it.
-    // `AuthoredOccurrences` is `declare_rollback_derived_resource`, so it carries
-    // no probe and is absent from all 364 entries — a stated blind spot rather
-    // than a clean reading.
+    // ⭐ AND THE ROWS, RECORDED BESIDE THE CENSUS. These two are different KINDS
+    // of evidence about the same resource — a COUNT here, a digest there — so a
+    // disagreement between them is informative rather than redundant. (Until the
+    // probe was strengthened this read was the only witness, because a
+    // presence-only probe on a singleton resource reports `count: 1, xor: 0`
+    // however many rows it holds.)
     let authored = world
         .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
         .map_or(usize::MAX, |authored| authored.rows().count());
@@ -1871,9 +1879,13 @@ fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
     world.insert_resource(by_pass);
 }
 
-/// ⛔⛤ A DERIVED RESOURCE CARRIES THE LOAD BACKWARDS IN TIME, AND THE HASHED
-/// SAVE MIRRORS IT — WHICH IS WHY MOVING THE RESTORE CHAIN DOES NOT CLOSE
-/// [Q135].
+/// ✔⛤ THE MID-SESSION LOAD NO LONGER REACHES BACKWARDS ACROSS THE REWIND — AND
+/// THE LOAD'S LEDGER WRITE IS NOW DETERMINISTICALLY LOST INSTEAD, WHICH IS THE
+/// REMAINING HALF OF [Q135].
+///
+/// ⚠ THIS ARM WAS INVERTED WHEN THE DEFECT CLOSED, and the history matters
+/// because the numbers below used to be the other way round. What follows is what
+/// it measured while `AuthoredOccurrences` was declared `Derived`:
 ///
 /// Of 364 probed entries, exactly one disagrees between two passes of the same
 /// frame outside world construction: `AmbitionGameSave`, at frames 38 and 39 —
@@ -1924,12 +1936,33 @@ fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
 /// reason is declared at the registration site — so the promise is checked for
 /// EXISTENCE and never for TRUTH.
 ///
-/// ⇒ WHEN THIS ARM GOES RED the family is repaired: delete it and close
-/// [Q135]'s second cause.
+/// ✅ **AND THAT IS CLOSED.** `AuthoredOccurrences` is
+/// `rollback_resource_clone_checksum` now, so the snapshot restores its rows and
+/// the leak has nowhere to come from. Measured after: **no entry of the 364
+/// disagrees between two passes of one frame outside world construction**, and
+/// ticks 37-39 read `(0,0)` on every pass where they used to read `(1,1)` on the
+/// later ones.
+///
+/// ⛔⛤ **WHAT REPLACED IT IS A LOST WRITE, NOT A CLEAN LOAD.**
+/// `adopt_occurrence_checkpoint_from_save` runs in top-level `Update`, so now
+/// that the ledger rewinds, its write is restored away exactly like any other
+/// `Update` write to rollback state: the save holds the row from tick 40 on
+/// (`saved = 1`, consistently, in every pass) and the ledger holds none
+/// (`authored = 0`, in every pass). ⇒ **A divergence became a deterministic
+/// loss.** That is the honest trade and it is an improvement — two peers now
+/// agree — but the durable restore does not reach the ledger under a rollback
+/// host, and that is [Q135]'s lifecycle half rather than its checksum half.
+///
+/// ⚠ NO BEHAVIOUR THAT WORKED WAS TAKEN AWAY. This road previously desynced the
+/// sync test at the frames of the load, so there was no run in which it worked.
+/// A fixed-tick host has no restore and is unaffected.
+///
+/// ⇒ WHEN THE `authored = 0` HALF CHANGES the lifecycle repair has landed:
+/// re-read [Q135] rather than editing the number.
 ///
 /// [Q135]: ../../../docs/planning/awaiting-maintainer-decision.md
 #[test]
-fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
+fn a_mid_session_load_does_not_reach_back_across_the_rewind() {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
@@ -2013,10 +2046,11 @@ fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
              this defect' is now true for a different reason than the one stated"
         );
         assert!(
-            probes.presence_only_type_names().contains(&SUBJECT),
-            "the subject's probe is no longer presence-only. If it was \
-             STRENGTHENED, the census can now see these rows: make it the \
-             witness and delete the direct read"
+            !probes.presence_only_type_names().contains(&SUBJECT),
+            "the subject's probe went back to presence-only, which on a \
+             singleton resource reports `count: 1, xor: 0` however many rows it \
+             holds — so the census below can no longer see the cause and this \
+             arm is reporting on its own blindness"
         );
     }
 
@@ -2032,11 +2066,19 @@ fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
          reports few suspects for a reason that is not agreement"
     );
 
-    // ── THE SUBJECT: the row reaches back past the tick that loaded it.
-    // ⚠ THE CLAIM IS THAT THE PASSES OF ONE FRAME DISAGREE, not that a row
-    // exists. "A row is present" is also true of a world that loaded before the
-    // window opened, and that world has no defect — so the test is an EMPTY pass
-    // and a NON-EMPTY pass of the same tick.
+    // ── PREMISE: the load actually happened. `saved` must reach the row, or
+    // the agreement below is agreement about a load that never ran.
+    let load_landed = by_pass
+        .1
+        .iter()
+        .any(|(tick, passes)| *tick >= 40 && passes.iter().any(|(_, saved)| *saved > 0));
+    assert!(
+        load_landed,
+        "the staged load never reached the save, so this arm is reporting on a \
+         world where nothing loaded"
+    );
+
+    // ── SUBJECT ONE: no frame's passes disagree about the ledger any more.
     let carried_back: Vec<u64> = [37u64, 38, 39]
         .into_iter()
         .filter(|tick| {
@@ -2046,33 +2088,183 @@ fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
             })
         })
         .collect();
-    assert_eq!(
-        carried_back,
-        vec![37, 38, 39],
-        "`AuthoredOccurrences` no longer holds the adopted row while the \
-         timeline re-simulates frames from before the load. If the resource now \
-         rewinds, or the adoption stopped writing it, THIS ARM IS THE FIX \
-         LANDING — delete it and close Q135's second cause."
+    assert!(
+        carried_back.is_empty(),
+        "`AuthoredOccurrences` disagrees between passes of ticks \
+         {carried_back:?}, which are frames from BEFORE the load — so the row is \
+         reaching backwards across the rewind again. The registration is what \
+         stops that: `rollback_resource_clone_checksum`, not \
+         `declare_rollback_derived_*`."
     );
 
-    // ── AND THE CONSEQUENCE: the hashed save is the entry that disagrees.
-    let outside_construction: Vec<&&str> = disagreed
+    // ── SUBJECT TWO: and the load's ledger write is LOST, which is the state
+    // this arm now documents rather than the divergence.
+    let ledger_after_the_load: Vec<usize> = by_pass
+        .1
+        .iter()
+        .filter(|(tick, _)| **tick >= 40)
+        .flat_map(|(_, passes)| passes.iter().map(|(authored, _)| *authored))
+        .collect();
+    assert!(
+        ledger_after_the_load.iter().all(|rows| *rows == 0),
+        "the ledger now holds rows after the load ({}). If \
+         `adopt_occurrence_checkpoint_from_save` moved inside the rewinding \
+         schedule, or session admission now hydrates before GGRS starts, that is \
+         Q135's lifecycle half LANDING — re-read it and invert this half rather \
+         than editing the number.",
+        ledger_after_the_load
+            .iter()
+            .filter(|rows| **rows > 0)
+            .count()
+    );
+
+    // ── SUBJECT THREE, AND THE WIDEST: NOTHING at all disagrees between two
+    // passes of one frame, over the whole probed set, outside world
+    // construction. This is the assertion the repair earns; while the ledger was
+    // `Derived` the set was exactly `{AmbitionGameSave, AuthoredOccurrences}`,
+    // with the ledger's first disagreement one frame AHEAD of the save's because
+    // the chain is ledger -> mirror -> hashed save.
+    //
+    // ⚠ TICK 0 IS EXCLUDED because the world is being built during its passes,
+    // which is not a replay disagreement about simulation.
+    let outside_construction: Vec<(&&str, &Vec<u64>)> = disagreed
         .iter()
         .filter(|(_, ticks)| ticks.iter().any(|tick| *tick > 0))
-        .map(|(name, _)| name)
+        .map(|(name, ticks)| (name, ticks))
         .collect();
-    assert_eq!(
-        outside_construction,
-        vec![&"ambition_persistence::save::AmbitionGameSave"],
-        "the set of entries disagreeing between two passes of one frame is no \
-         longer exactly {{AmbitionGameSave}}. A NEW member is a new defect of \
-         this shape; an EMPTY set means the mirror no longer carries the \
-         unrewound row into hashed state"
-    );
     assert!(
-        health(&sim).is_err(),
-        "the sync test agrees now. If the entries above still disagree, the \
-         checksum stopped covering the save; if they agree, this arm is the fix \
-         landing"
+        outside_construction.is_empty(),
+        "{} probed entr(ies) disagree between two passes of one frame: {:?}. A \
+         member here is a value two passes of the same simulated frame computed \
+         differently, which is what a peer checksum mismatch IS.",
+        outside_construction.len(),
+        &outside_construction[..outside_construction.len().min(6)]
+    );
+    // ── AND THE SYNC TEST ITSELF, which is a different KIND of evidence than
+    // the per-pass census: GGRS's own comparison rather than this arm's.
+    health(&sim).unwrap_or_else(|error| {
+        panic!(
+            "the per-pass census found no disagreement and the sync test \
+             disagrees anyway, so something diverges that no probe covers. The \
+             probed set is a FLOOR on what is compared, not the whole of \
+             it.\n{error}"
+        )
+    });
+}
+
+
+const LEDGER_ROW_AT: u64 = 5;
+const LEDGER_OCCURRENCE: &str = "probe:an_object_the_world_remembers";
+
+/// Write ONE row into the occurrence ledger, once, from inside the rewinding
+/// schedule — the minimal shape of what New Game already does.
+///
+/// ⚠ ONCE, NOT EVERY TICK. A system that rewrites the row each tick IS the live
+/// producer `AuthoredOccurrences`'s derived declaration describes, and it would
+/// re-establish the row on every replay and hide the defect.
+fn leave_one_row_in_the_occurrence_ledger(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut occurrences: bevy::prelude::ResMut<
+        ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences,
+    >,
+) {
+    use ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts;
+    if tick.0 != LEDGER_ROW_AT {
+        return;
+    }
+    let mut rows = std::collections::BTreeMap::new();
+    rows.insert(
+        ambition_platformer2d::platformer::sim_id::SimId::from_snapshot(
+            LEDGER_OCCURRENCE.to_string(),
+        ),
+        OccurrenceWhereabouts::Placed {
+            room: ROOM.to_string(),
+            at: bevy::prelude::Vec2::new(32.0, 48.0),
+        },
+    );
+    occurrences.adopt_rows(rows);
+}
+
+/// ⛔⛤ ONE WRITE TO THE OCCURRENCE LEDGER FROM INSIDE THE SIMULATION DESYNCS THE
+/// SYNC TEST WITHIN TWO TICKS. `AuthoredOccurrences` IS AUTHORITATIVE MUTABLE
+/// SIMULATION STATE AND ITS `Derived` DECLARATION IS FALSE.
+///
+/// ⭐ THIS NEEDS NO SAVE FILE, NO LOAD AND NO NEW GAME, which is what makes it
+/// the right witness. The mid-session-load arm above reaches the same defect
+/// through `adopt_occurrence_checkpoint_from_save`, a road whose production
+/// customer is not established, and that invited the reading that the defect is
+/// a property of an unsupported feature. It is not: a single `adopt_rows` call
+/// in the rewinding schedule is enough.
+///
+/// ⛔ AND THE SHIPPED INSTANCE OF EXACTLY THIS WRITE IS NEW GAME.
+/// `process_new_game_reset_request` is registered in this same schedule
+/// (`Platformer2dSimulationPhaseMonolith::ResetProcessing`,
+/// `crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs`) and
+/// calls `occurrences.forget_everything()`. A rewind across that clear cannot
+/// restore what it cleared, and for a row naming an unloaded room there is no
+/// live producer that could republish it — so the *"republished from live state
+/// while its room is loaded"* justification has nothing to offer.
+///
+/// ⚠ MEASURED BEHAVIOUR OF THE DEFECT, 2026-09-16: with the row seeded the
+/// timeline stalls at `SimTick` 7 with a checksum mismatch; with the identical
+/// fixture and no row it reaches 31. **A row in this ledger is not inert.**
+///
+/// ⚠ THIS ARM ASSERTS THE REPAIRED BEHAVIOUR AND FAILS UNTIL
+/// `AuthoredOccurrences` BECOMES REAL ROLLBACK STATE. The defect already has a
+/// witness; what this owes is the acceptance.
+#[test]
+fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.add_systems(label, leave_one_row_in_the_occurrence_ledger);
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with one ledger write");
+    for _ in 0..140 {
+        sim.step(AgentAction::default());
+    }
+
+    let rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .rows()
+        .count();
+    let reached = sim_tick(&sim);
+    eprintln!("LEDGER rows={rows} SimTick={reached} health={:?}", health(&sim));
+
+    // ── PREMISE: the write happened. Without it a clean window says nothing.
+    assert_eq!(
+        rows, 1,
+        "the seeded row is not in the ledger, so this arm is measuring a world \
+         where nothing wrote to it"
+    );
+
+    // ── THE SUBJECT.
+    health(&sim).unwrap_or_else(|error| {
+        panic!(
+            "one `adopt_rows` call inside the rewinding schedule desynced the \
+             sync test. `AuthoredOccurrences` is `declare_rollback_derived_*`, so \
+             no snapshot restores it: the row survives a rewind into frames from \
+             before the write, `persist_occurrence_horizon_to_save` mirrors it \
+             into the hashed save, and two passes of one frame disagree. New \
+             Game does this same write on a shipped road via \
+             `forget_everything()`.\n\
+             SimTick reached {reached} (an unseeded run of this fixture reaches \
+             31)\n{error}"
+        )
+    });
+    assert!(
+        reached > 25,
+        "the timeline stalled at tick {reached}; an unseeded run of this fixture \
+         reaches 31, so the write is holding the session back even if the \
+         checksum happens to agree"
     );
 }

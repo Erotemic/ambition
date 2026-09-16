@@ -1167,102 +1167,33 @@ unavailable here; **the reverse is what happens.**
    ⚠ It needs a decision about what else belongs behind the same gate, or the next
    loader to appear reopens this.
 2. **The restore chain must move inside the rewinding schedule**, so a rewind
-   re-derives what it wrote. ⛔⛤ **THE PREREQUISITE THIS OPTION USED TO NAME IS
-   ALREADY MET, AND THE OPTION IS STILL NOT SUFFICIENT — BOTH MEASURED
-   2026-09-16.** It said this *"needs `SaveRestored` to become rollback state and
-   the 'one-shot at boot' shape to survive being replayed"*. Read against the
-   tree:
+   re-derives what it wrote. ✅⛤ **ITS PREREQUISITES WERE ALREADY MET AND ITS
+   BLOCKING DEFECT IS NOW FIXED, BUT IT WAS NEVER THE WHOLE ANSWER — all
+   measured 2026-09-16.** This option used to say it *"needs `SaveRestored` to
+   become rollback state and the 'one-shot at boot' shape to survive being
+   replayed"*. Against the tree: `SaveRestored` **is** `rollback_resource_clone`,
+   `ResetToCheckpoint` **is** `clear_message_on_rollback` (so the one-shot's
+   effect already takes the `ItemGrantRequested` road), and `adopt_the_ledger`
+   is a pure function of `AmbitionGameSave`. Nothing had to be built first.
 
-   - `SaveRestored` **is** rollback state — `rollback_resource_clone` at
-     `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs`,
-     whose comment says why: *"a rollback-relevant latch because the state it
-     guards rewinds even though the literal `Update` systems that set it do not
-     resimulate."* A rewind clears the latch, so a replay re-latches.
-   - `ResetToCheckpoint` is `clear_message_on_rollback`
-     (`shared_tangle/src/lifecycle/horizon.rs`), so the one-shot's EFFECT already
-     takes the sanctioned road: a rewind drops the request and the replay
-     re-issues it — the same shape `ItemGrantRequested` uses.
-   - `adopt_the_ledger` is a **pure function of `AmbitionGameSave`**:
-     `ledger_from_save(data)` then `adopt_rows`/`adopt`, reading no prior baseline
-     value. Running it twice with the same save writes the same values.
+   ⛔ Moving the three systems was tried and was **necessary without being
+   sufficient**: the outside set emptied and the checksum mismatch stood. The
+   real cause was that `AuthoredOccurrences` was not a derived resource — see
+   the [DURABLE-HORIZON-CHECKSUM row](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
+   for the measurement and the repair (`rollback_resource_clone_checksum`,
+   schema v195). After it, **no entry of the 364 probed disagrees between two
+   passes of one frame** outside world construction.
 
-   ⇒ So nothing has to be built first. ⛔ **AND THE MOVE WAS TRIED AND IS
-   NECESSARY BUT NOT SUFFICIENT.** With the three `Update` systems registered in
-   the sim schedule instead, `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
-   reports `outside_after=[]` — both baselines leave the set — and
-   `session_health()` is **still** `Err("checksum mismatch at frames [38, 39,
-   40]")`. The placement was not the only cause.
-
-   ✅⛤ **AND THE SECOND CAUSE IS NOW MEASURED AND ATTRIBUTED — right resource,
-   wrong road from the first reading.** Held by
-   `a_derived_resource_carries_a_mid_session_load_back_across_the_rewind`
-   (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`),
-   which records every probed entry's census per PASS of each frame. Of 364
-   entries, exactly one disagrees between two passes of the same frame outside
-   world construction: **`AmbitionGameSave`, at frames 38 and 39** — the frames
-   the sync test names. ⛔ **Neither baseline disagrees, so the
-   `OccurrenceBaseline` road this was first attributed to is not the road.**
-
-   The road is `AuthoredOccurrences`, `declare_rollback_derived_resource` —
-   carried in no snapshot, restored by no rewind — on the stated grounds that it
-   is *"republished from live state while its room is loaded"*.
-   `adopt_the_ledger` fills it from the SAVE, nothing republishes it during a
-   rewind, and `persist_occurrence_horizon_to_save` then mirrors its rows into
-   the save's hashed occurrence slice. Measured `(AuthoredOccurrences rows, save
-   occurrence rows)` per pass, load staged at tick 40:
-
-   ```text
-   tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)
-   tick 38   (0,0) (0,0) (0,0) (1,1)
-   tick 39   (0,0) (0,0) (1,1)
-   tick 40   (0,1) (1,1)
-   ```
-
-   ⇒ **The load reaches BACKWARDS across the rewind**: passes of frames 37-39
-   disagree with each other about whether the row exists, because the resource
-   holding it does not rewind. ⚠ And it reaches one frame further back than the
-   checksum reports — tick 37's last pass already holds the row, and the mismatch
-   only appears once the mirror has copied it into the save.
-
-   ⇒ **SO THE DEFECT IS NOT A PLACEMENT, AND MOVING THE CHAIN CANNOT FIX IT.** A
-   hashed value is derived, inside the rewinding schedule, from a value declared
-   exempt from the snapshot. Either `AuthoredOccurrences` must rewind, or the
-   adoption must stop being the thing that fills it — and the declaration's own
-   justification is what has to change, because *"republished from live state"*
-   is not true of the load path.
-
-   ⛔⛤ **AND THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT, FOR A SHARPER REASON
-   THAN THE FIRST READING GAVE.** `AuthoredOccurrences` **is** probed and **is**
-   one of the 364 entries — its probe is PRESENCE-ONLY, and a presence probe on a
-   RESOURCE reports `count: 1, xor: 0` however many rows it holds. So the census
-   can see the type and can never see this defect. That is the weakness
-   `declare_rollback_derived_component`'s own doc names: *"for a singleton
-   derived resource 'present' is nearly a constant."*
-
-   ⛔ **AND THE DECLARED REASON IS FALSE, WHICH THAT SAME DOC PREDICTED:** *"a
-   derived declaration that lies is worse than no declaration, because it
-   satisfies the coverage sweep."* It records one such lie already —
-   `ProjectileOwner`, which cost a day of bisection. This is a second.
-   ⇒ `every_presence_only_probe_is_named_with_its_reason` deliberately excludes
-   derived registrations, because their reason is declared at the registration
-   site rather than copied into a list — so **the promise is checked for
-   EXISTENCE and never for TRUTH**, and that is the gap this defect came
-   through.
-
-   ⭐ **THE CHEAPEST FIRST MOVE, WHICHEVER WAY THE RULING GOES:** make the defect
-   visible. `declare_rollback_derived_resource_state` is the value-sensitive twin
-   and needs `AuthoredOccurrences: SnapshotState` (it holds one
-   `BTreeMap<SimId, OccurrenceWhereabouts>`). With a value probe the per-pass
-   census names the culprit directly instead of naming only its hashed
-   consumer.
 3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
    two-way ruling and not a three-way one.** A mid-session load staged at tick 40
    inside the rewinding schedule makes
    `written_outside_the_rewinding_schedule()` return BOTH
    `["...continuity::OccurrenceBaseline", "...custody_horizon::CustodyBaseline"]`
-   and makes the sync test report
+   and made the sync test report
    `Err("checksum mismatch at frames [38, 39, 40]")` — a real desync at the frames
-   of the load. The staging system's own writes to `AmbitionGameSave` and
+   of the load. ⚠ THE DESYNC IS FIXED NOW (schema v195; the ledger is registered),
+   and the refutation stands on what replaced it: the write is not harmless, it is
+   **discarded**, so the durable restore silently does not reach the ledger. The staging system's own writes to `AmbitionGameSave` and
    `SaveRestored` are inside the schedule and do NOT appear in the outside set;
    what appears is the pair of baselines, whose only writer is
    `adopt_occurrence_checkpoint_from_save` in `Update`. ⇒ **Two hashed resources,
@@ -1281,6 +1212,33 @@ between two identical censuses. Do not quote that arm's green against this quest
 staging from OUTSIDE the timeline does nothing, because both the save and the
 latch are rollback-registered and the next rollback restores them. The staging
 must live in the rewinding schedule.
+
+⭐ **AND THE DETECTOR NOW NAMES THREE WRITERS, NOT TWO, WHICH IS THE v195
+PROMOTION WORKING.** `outside_after` reads
+`[AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline]`. The ledger joined
+the set because the detector's population is REGISTERED types, and a
+`declare_rollback_derived_*` type was never in it — so the `Update` write that
+caused everything was invisible to the one instrument named after it. ⇒ A
+detector whose population is "registered" cannot see a write to something that
+declared itself derived, and a false derived declaration therefore removes its
+own subject from the guard. Same shape as the presence-probe blindness, one layer
+out.
+
+⛔⛤ **AND ONE DEPENDENT INVARIANT THIS RULING OWES, FOUND BY REVIEW RATHER THAN
+BY MEASUREMENT.** `count_the_dialogue_visit_when_a_conversation_opens` (Q134's
+repair) early-returns on `!restored.0`, and the table above shows a real interval
+where the session world exists, a primary body exists, GGRS is running and
+`SaveRestored` is still false. `interact_ecs_actors_and_switches` is NOT gated on
+the latch. ⇒ A conversation opened in that interval is counted by nobody: the
+counter declines while `opened_at == tick` is true, and by the time the latch
+rises that equality is permanently false. ⚠ **The edge must not be relaxed to
+`opened_at <= tick` to paper over this** — that is poison-verified to overcount
+(6 visits for 5 openings). Option 1's gate removes the interval and with it the
+hole, which is why this belongs here rather than in Q134.
+
+**Acceptance this ruling owes, beyond the ordering itself:** the first possible
+conversation opening after session activation produces exactly one visit, and
+still exactly one after a rewind across it.
 
 ## Q134 — is a dialog visit count something two peers must agree on?
 

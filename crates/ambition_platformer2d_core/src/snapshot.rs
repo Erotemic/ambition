@@ -967,6 +967,30 @@ pub trait RollbackRegistrar {
         )
     }
 
+    /// Resource twin of [`Self::declare_rollback_derived_resource_state`] whose
+    /// probe comes from a PROJECTION rather than an encoding.
+    ///
+    /// ⚠ For a derived value that needs a value-sensitive census and is not part
+    /// of any wire format. `SnapshotState` would buy the same census and would
+    /// put the type in the encoded set, which
+    /// `rollback-wire-format-changes-are-declared` reads as a declared schema
+    /// change — correctly, since an encoding is a promise to a peer and a census
+    /// fold is not.
+    fn declare_rollback_derived_resource_probed<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _reason: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource,
+    {
+        panic!(
+            "RollbackRegistrar does not support declare_rollback_derived_resource_probed for {name}"
+        )
+    }
+
     fn declare_dynamic_anchor<T>(
         &mut self,
         _owner: &'static str,

@@ -432,6 +432,21 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
+    fn declare_rollback_derived_resource_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource,
+    {
+        self.app
+            .declare_rollback_derived_resource_probed::<T>(owner, name, reason, projection);
+        self
+    }
+
     fn declare_dynamic_anchor<T>(
         &mut self,
         owner: &'static str,

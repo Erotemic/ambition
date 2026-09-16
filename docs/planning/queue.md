@@ -2287,6 +2287,164 @@ schedule; not enough to say a save write is harmless on its own.
 Those two ask what belongs in the peer checksum; this asks whether a synchronised
 timeline may begin before the world it synchronises has finished loading.
 
+✅⛤ **AND THE MEASURED DESYNC IS CLOSED, 2026-09-16, BY A CAUSE THAT WAS NOT A
+PLACEMENT: `AuthoredOccurrences` WAS NOT A DERIVED RESOURCE.** The row's earlier
+chronology — moving the three `Update` systems into the sim schedule, which
+emptied the outside set and left the checksum mismatch standing — is in git; what
+it established is that the placement was never the whole cause.
+
+The cause, found by censusing all 364 probed entries per PASS of each frame: the
+ledger was `declare_rollback_derived_resource`, justified as *"republished from
+live state while its room is loaded"*, and that assertion was false. Two shipped
+writers make it false, neither of them a save load:
+
+- `process_new_game_reset_request` calls `forget_everything()` from INSIDE the
+  rewinding schedule (`ResetProcessing`), so New Game mutates the ledger
+  authoritatively and a rewind across the clear cannot undo it;
+- a `Placed` row for a room that is not resident has **no live producer**, so
+  there is nothing the republish argument could call on to rebuild it.
+
+⇒ **Measured minimally: ONE `adopt_rows` call inside the schedule desyncs the
+sync test at frames 3, 4 and 5 for a write at tick 5** — no save file, no load,
+no New Game — and the timeline stalls at `SimTick` 7 where an unseeded run
+reaches 31. Held by
+`one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test`.
+
+⭐ **AND THE TYPE HAD ASKED FOR THIS ITSELF.**
+`AuthoredOccurrences::rewind_argument` said *"if a non-rederived whereabouts
+state gains a producer, this ledger must become registered value state with a
+value-sensitive probe"* — and `adopt_rows`, 100 lines above it in the same file,
+was already that producer. The contract named its own trigger and missed the one
+it had.
+
+✅ **THE REPAIR:** `rollback_resource_clone_checksum::<AuthoredOccurrences>`,
+projected by `census_projection` (an ordered fold over `(SimId, whereabouts)`;
+the `BTreeMap` order is what makes it deterministic). Entity-free, so a clone
+snapshot is the whole story. A declared wire-format change:
+`GGRS_ROLLBACK_SCHEMA_VERSION` 194 → 195, baseline rewritten, and it is real
+mechanical growth rather than 193 → 194's prose-only bump. Poison-verified —
+reverting to `Derived` restores the desync and the tick-7 stall.
+
+✅ **AND IT CLOSED THE SEEDED-LOAD DESYNC TOO:** after it, **no entry of the 364
+disagrees between two passes of one frame** outside world construction. The
+seeded-save arm is inverted and kept as
+`a_mid_session_load_does_not_reach_back_across_the_rewind`.
+
+⛔⛤ **WHAT REPLACED THE DIVERGENCE IS A LOST WRITE, AND THAT IS THE HALF STILL
+OPEN.** `adopt_occurrence_checkpoint_from_save` runs in top-level `Update`, so a
+rewinding ledger now discards its write like any other `Update` write to rollback
+state: after the load the save holds the row (`saved = 1` in every pass) and the
+ledger holds none (`authored = 0` in every pass). **A divergence became a
+deterministic loss** — two peers agree, and the durable restore does not reach
+the ledger under a rollback host. ⚠ No behaviour that worked was removed: this
+road desynced before, so there was no run in which it worked, and a fixed-tick
+host has no restore and is unaffected.
+
+⇒ **THE REMAINING QUESTION IS LIFECYCLE, NOT CHECKSUM:**
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
+— may a synchronised timeline begin before the world it synchronises has finished
+loading? The preferred direction is to gate the local GGRS start on durable
+hydration rather than to teach the mid-session road to survive a rewind, and the
+first thing that owes an answer is whether
+`adopt_occurrence_checkpoint_from_save` has any production customer at all.
+
+⛔⛤ **THE ONE-SHOT PAIR IS MEASURED AND THE ANSWER IS THE UNFAVOURABLE ONE —
+2026-09-16, `probe_when_the_durable_restore_latch_flips_against_ggrs_start` in
+`a_bag_changed_mid_window_reaches_the_save.rs`.** Recording, per frame, whether a
+session world exists, whether a primary body exists, whether `AmbitionGgrsSession`
+is live and whether `SaveRestored` is set:
+
+| | session world | primary body | GGRS live | latch set |
+|---|--:|--:|--:|--:|
+| first frame true | 1 | 1 | **1 or 2** | **2** |
+
+⇒ **The timeline PRECEDES the write.** A within-frame sampler carrying an explicit
+`.after(complete_durable_restore)` edge finds the GGRS session ALREADY LIVE at the
+instant the latch has just been set, and **`RollbackFrameCount` reads 1 there** —
+timeline frame one, not "before frame zero". The sync-test check distance is four,
+so a resimulation reaches back past it, and all three restored resources
+(`OccurrenceBaseline`, `CustodyBaseline` and the save itself) are
+`rollback_resource_clone_checksum` registrations: a rewind across frame 1 restores
+them to their pre-write snapshot and `Update` does not re-run. ⛔ So the session-scope waivers' *"the write
+precedes the timeline"* does not merely fail to transfer — **the opposite is what
+happens**, and the row's earlier reading ("gated on the same fact, order stated
+nowhere") was too generous in one respect and wrong in another: the two are NOT
+gated on the same fact. `maintain_local_session` starts GGRS on
+`session_world_entity(world).is_some()`; the restore chain waits for a primary
+player BODY. The body is the later fact, not the shared one.
+
+⚠ **AND THE GAP IS NOT STABLE AGAINST UNRELATED COMPOSITION CHANGES, which is the
+part that makes this a defect rather than a description.** `maintain_local_session`
+is in `Update` in `LocalSessionSet::Maintain`, ordered only
+`.after(InputSet::Collect)`; the restore chain is in top-level `Update` with NO
+edge to it. Adding ONE exclusive system to `Update` — the probe's own sampler —
+moved the session start from frame 2 to frame 1 and shortened the boot by a frame:
+
+    without the within-frame sampler   ggrs@2 restored@2, 35 frames, 3/3 runs
+    with it                            ggrs@1 restored@2, 34 frames, 6/6 runs
+
+⇒ Each configuration is perfectly repeatable and they disagree, so **the order
+these two land in is a property of the whole `Update` set, not of either system.**
+The probe perturbs its own subject, and says so in its doc; the exact frame numbers
+are not the fact, "nothing orders them" is.
+
+⚠ **AND THE DETECTOR THAT SHOULD SEE THIS IS GREEN FOR A REASON THAT IS NOT
+SAFETY — do not read its green as a clean bill.** `OccurrenceBaseline` and
+`CustodyBaseline` are value-probed, so
+`written_outside_the_rewinding_schedule()` CAN see them, and
+`no_registered_type_is_written_outside_the_rewinding_schedule` passes anyway. The
+harness boots with no save file, so `adopt_the_ledger` writes the SAME EMPTY VALUE
+it found and the comparison is between two identical censuses. ⇒ That is the third
+time tonight a control has died of success — the same shape as the repaired
+`AmbitionGameSave` positive control and as the presence-probe finding. **The arm
+that would demonstrate this needed a SEEDED save — ✅ it is built, and it
+desyncs.**
+
+✅⛤ **THE POSITIVE CONTROL EXISTS NOW, and it is the strongest evidence this row
+has.** `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
+stages a mid-session load at tick 40 on the sync-test harness:
+
+    baseline_rows / custody_rows              1 / 1
+    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline",
+                                               "...custody_horizon::CustodyBaseline"]
+    session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
+
+⇒ A REAL DESYNC, at the frames of the load. ⭐ And the attribution is clean: the
+staging system writes `AmbitionGameSave` and `SaveRestored` from INSIDE the
+rewinding schedule and neither appears in the outside set. What appears is BOTH
+baselines, whose only writer here is `adopt_occurrence_checkpoint_from_save`, in
+`Update`.
+
+⛔⛤ **AND THE SECOND MEMBER TOOK A SECOND FIXTURE CORRECTION, WHICH IS THE SAME
+ERROR ONE LAYER IN.** The first seeded probe passed `Vec::new()` for the custody
+half, so that half of `adopt_the_ledger` wrote back what it read and
+`CustodyBaseline` stayed out of the set — reported as one defect and one clean.
+⇒ **Curing "the harness has no save file" does not cure "the save says nothing
+about this field".** The probe now ASSERTS both halves landed, poison-verified to
+fail with `(occurrence=1, custody=0)`, so the narrowing cannot recur silently.
+
+⛔ **AND THE FIXTURE SHAPE IS THE PART THAT COST THE HOUR: YOU CANNOT STAGE A
+MID-SESSION LOAD FROM OUTSIDE THE TIMELINE.** Writing the save and clearing the
+latch between two `step()` calls does nothing at all — measured, the latch never
+went false and the save's occurrence count never left zero — because
+`AmbitionGameSave` is `rollback_resource_clone_checksum` and `SaveRestored` is
+`rollback_resource_clone`, so the next rollback restores both. The staging has to
+live in the rewinding schedule, where a resimulation re-applies it. ⇒ That is the
+same property the writer under investigation LACKS, which is why the failed
+fixture is worth recording beside the working one.
+
+⚠ CONTROL, with its confound stated: the same staging system with the latch left
+alone — so the restore chain never fires — reports `Ok(())` and an empty outside
+set. Leaving the latch true also lets the in-schedule mirror re-derive the save on
+the next tick, so the control differs in two ways rather than one. Enough to
+attribute the desync to the chain rather than to a system's presence in the
+schedule; not enough to say a save write is harmless on its own.
+
+⇒ **WHAT IS LEFT IS A RULING, and it is not Q129's or Q134's:**
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
+Those two ask what belongs in the peer checksum; this asks whether a synchronised
+timeline may begin before the world it synchronises has finished loading.
+
 ⛔⛤ **AND THE RULING'S OPTION 2 WAS TRIED, 2026-09-16: IT IS NECESSARY AND NOT
 SUFFICIENT.** Registering the three `Update` systems in the sim schedule instead
 empties the outside set — `outside_after=[]`, both baselines gone — and leaves
@@ -2335,10 +2493,25 @@ that has cost this repo a bisection — the registration doc records the first
 (`ProjectileOwner`) and predicts this one: *"a derived declaration that lies is
 worse than no declaration, because it satisfies the coverage sweep."*
 
-⭐ **NEXT, AND CHEAP, WHICHEVER WAY THE RULING GOES:** strengthen the probe to
-`declare_rollback_derived_resource_state` so the census names the culprit rather
-than only its hashed consumer. It needs `AuthoredOccurrences: SnapshotState`
-over one `BTreeMap<SimId, OccurrenceWhereabouts>`.
+✅ **AND THAT HALF IS LANDED:** the declaration is now
+`declare_rollback_derived_resource_probed`, a new registrar variant whose value
+probe comes from a PROJECTION rather than a snapshot encoding, so the census
+names the cause at ticks `[37, 38, 39, 40]` beside the save's `[0, 38, 39]` —
+**the cause leading the effect by a frame**, which no single entry could show.
+
+⛔ The obvious route (`..._resource_state`, whose probe is built from
+`SnapshotState`) reddened `rollback-wire-format-changes-are-declared`, correctly:
+its population is every type that HAS an encoding, and a new encoder is a
+declared schema change. ⇒ **An encoding is a promise to a peer; a census fold is
+not** — so the variant takes a projection, the ledger gains no encoder, and the
+schema baseline is untouched at 46 of 46 contracts.
+
+⇒ **WHAT IS STILL OWED IS THE REGISTRATION, AND IT BELONGS TO THE RULING.**
+`AuthoredOccurrences::rewind_argument` sets its own trigger — *"if a non-rederived
+whereabouts state gains a producer, this ledger must become registered value
+state"* — and ⛔ **that condition is already met by `adopt_rows`, 100 lines above
+it in the same file.** The contract named the trigger and missed the producer it
+already had.
 
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION

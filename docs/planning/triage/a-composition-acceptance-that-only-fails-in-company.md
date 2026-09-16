@@ -162,3 +162,21 @@ a single pass is not.
 ⚠ Nobody should take this row expecting a quick answer. What it now has that it
 did not have on 2026-09-10 is a 16-second reproduction and a known rate to size
 the runs against.
+
+## A fourth instance, 2026-09-16 (schema v195 lane)
+
+`shipping_shared_host_executes_the_full_multi_provider_acceptance_cycle` failed
+once in a full `--test app_it --no-fail-fast` run —
+`completed=false, zero-state-stops=4` — and passed **5 of 5** runs alone
+immediately after, on the same tree.
+
+⚠ **THE 5/5 IS NOT A NEGATIVE AND MUST NOT BE READ AS ONE.** It is a different
+POPULATION: the fault is defined by running in company, so a solo run cannot
+observe it. Recorded here as a non-negative, per this page's own rule.
+
+⛔ **AND IT IS NOT EVIDENCE ABOUT THE CHANGE IT LANDED BESIDE.** The immediately
+preceding full run of the same tree had this arm GREEN, with the only failure
+being the arm the same change deliberately inverted. One red in one full run sits
+inside this page's measured ~25% rate. ⇒ Neither "my change caused it" nor "my
+change did not cause it" is supported; what is supported is that the rate needs
+the LOOP this page already asks for, not another single run.

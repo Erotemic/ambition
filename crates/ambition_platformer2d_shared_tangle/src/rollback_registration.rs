@@ -193,12 +193,37 @@ where
     // Loaded authored occurrences are republished from live state. Unloaded
     // placement rows only disappear at confirmed room transitions, which a
     // rewind cannot cross.
-    registrar.declare_rollback_derived_resource::<crate::lifecycle::AuthoredOccurrences>(
+    // ⛔⛤ **REGISTERED, NOT DERIVED, AND THE OLD DECLARATION WAS FALSE.** This
+    // was `declare_rollback_derived_resource` with the justification
+    // *"republished from live state while its room is loaded"*. Two shipped
+    // facts contradict it:
+    //
+    //   - `process_new_game_reset_request` calls `forget_everything()` from
+    //     INSIDE this schedule (`ResetProcessing`), so New Game mutates the
+    //     ledger authoritatively and a rewind across that clear cannot undo it;
+    //   - a `Placed` row for a room that is not resident has NO live producer,
+    //     so there is nothing the republish argument could call on to rebuild it.
+    //
+    // ⇒ Measured: one `adopt_rows` call inside the schedule desyncs the sync
+    // test at frames 3, 4 and 5 for a write at tick 5 — no save file, no load,
+    // no New Game. Held by
+    // `one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test`.
+    //
+    // ⭐ AND THE TYPE ASKED FOR THIS ITSELF. `AuthoredOccurrences::rewind_argument`
+    // said *"if a non-rederived whereabouts state gains a producer, this ledger
+    // must become registered value state with a value-sensitive probe"* — and
+    // `adopt_rows`, 100 lines above it in the same file, was already that
+    // producer. The contract named its own trigger and missed the one it had.
+    //
+    // ⚠ ENTITY-FREE, so a plain clone snapshot is the whole story: the rows are
+    // `BTreeMap<SimId, OccurrenceWhereabouts>` and `SimId` is a stable identity
+    // that `LoadWorld` does not remap. No `MapEntities`, no entity-set probe.
+    registrar.rollback_resource_clone_checksum::<crate::lifecycle::AuthoredOccurrences>(
         OWNER,
-        "derived.placement_continuity",
-        "authored-occurrence whereabouts; republished from live state while its room is loaded",
-    );
-    // Checkpoint-baseline values and their message cursors are declared beside the lifecycle
+        "resource.placement_continuity",
+        "authoritative occurrence whereabouts; ordered fold over (SimId, whereabouts)",
+        crate::lifecycle::AuthoredOccurrences::census_projection,
+    );    // Checkpoint-baseline values and their message cursors are declared beside the lifecycle
     // horizon that owns them.
     crate::lifecycle::horizon::register_checkpoint_rollback_state(registrar);
     registrar.rollback_component_canonical::<crate::projectile::ProjectileGameplay>(

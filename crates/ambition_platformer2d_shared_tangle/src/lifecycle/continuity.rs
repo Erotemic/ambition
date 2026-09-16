@@ -348,12 +348,68 @@ impl AuthoredOccurrences {
         self.rows.is_empty()
     }
 
-    /// Rollback contract for this derived ledger. Live custody and placement
-    /// producers republish their rows every tick, while room transitions commit
-    /// beyond the frame-rollback boundary. If a non-rederived whereabouts state
-    /// (such as `Consumed`) gains a producer, this ledger must become registered
-    /// value state with a value-sensitive probe.
+    /// ⛔⛤ THIS CONDITION FIRED, AND THE ANSWER IS NOW THE REGISTRATION.
+    ///
+    /// It used to read: *"Live custody and placement producers republish their
+    /// rows every tick, while room transitions commit beyond the frame-rollback
+    /// boundary. If a non-rederived whereabouts state (such as `Consumed`) gains
+    /// a producer, this ledger must become registered value state with a
+    /// value-sensitive probe."*
+    ///
+    /// ⇒ It named its own trigger and missed the producer it already had.
+    /// [`Self::adopt_rows`] writes rows from a SAVE, and
+    /// `process_new_game_reset_request` calls [`Self::forget_everything`] from
+    /// inside the rewinding schedule — both authoritative, neither republished.
+    /// Measured: one `adopt_rows` call desyncs the sync test within two ticks.
+    /// ⇒ So this ledger IS registered value state now
+    /// (`rollback_resource_clone_checksum`, with
+    /// [`Self::census_projection`] as the peer projection), and what is left of
+    /// this function is the record of why.
+    ///
+    /// ⚠ The republish argument was never wrong about the LIVE producers — it
+    /// was wrong that they were the only ones.
     pub const fn rewind_argument() {}
+
+    /// A deterministic fold over the whole ledger: THE PEER CHECKSUM PROJECTION.
+    ///
+    /// ⛔⛤ IT BEGAN AS A DIAGNOSTIC, BECAUSE THE PRESENCE PROBE THIS LEDGER
+    /// CARRIED COULD NOT SEE A ROW — and it is the peer projection now that the
+    /// ledger is registered rather than derived. A presence probe on a singleton resource reports
+    /// `count: 1, xor: 0` however many rows it holds, so a census could see the
+    /// type and never its contents — and a mid-session load fills this from a
+    /// SAVE (`adopt_rows`) with nothing to republish it, so the rows survive a
+    /// rewind into frames from BEFORE the load and reach the hashed save through
+    /// `persist_occurrence_horizon_to_save`. That was measurable only in the
+    /// save, one frame late, until this existed. Held by
+    /// `a_mid_session_load_does_not_reach_back_across_the_rewind`.
+    ///
+    /// ⚠ A PROJECTION, NOT A `SnapshotState` ENCODING, AND THE DISTINCTION IS
+    /// ENFORCED. `bevy_ggrs` stores this value by CLONE, so no encoding is
+    /// needed for the snapshot; implementing `SnapshotState` to reach the same
+    /// fold would put the type in the encoded set that
+    /// `rollback-wire-format-changes-are-declared` watches, for nothing.
+    ///
+    /// ⚠ The `BTreeMap` order is what makes it deterministic: two worlds holding
+    /// the same rows fold to the same value, and an unordered collection here
+    /// would report iteration order as a divergence.
+    pub fn census_projection(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::StateHasher;
+        let mut hasher = StateHasher::default();
+        for (id, whereabouts) in self.rows() {
+            hasher.write(id.as_str().as_bytes());
+            match whereabouts {
+                OccurrenceWhereabouts::InCustody => hasher.write(&[1]),
+                OccurrenceWhereabouts::Placed { room, at } => {
+                    hasher.write(&[2]);
+                    hasher.write(room.as_bytes());
+                    hasher.write(&at.x.to_bits().to_le_bytes());
+                    hasher.write(&at.y.to_bits().to_le_bytes());
+                }
+                OccurrenceWhereabouts::Consumed => hasher.write(&[3]),
+            }
+        }
+        hasher.finish()
+    }
 
     /// Checkpoint baselines copy the entire occurrence ledger. Restoring that copy
     /// makes post-checkpoint custody/placement changes disappear regardless of item

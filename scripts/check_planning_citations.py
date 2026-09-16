@@ -13,7 +13,7 @@ row was never true".
 
 ⛔⛤ **A KNOWN BLIND SPOT, DIAGNOSED AND DELIBERATELY NOT GATED: THIS SEES
 SYMBOLS, NOT THE DIRECTORY A SENTENCE NAMES.** A doc comment reading
-`/// \`abilities/traversal/{blink,dive,mark_recall}.rs\`` resolves nothing, gates
+a doc comment naming `abilities/traversal/{blink,dive,mark_recall}.rs` resolves nothing, gates
 nothing, and reddens nothing when those files move -- and they did, to
 `crates/ambition_abilities/src/traversal/`, while the tree stayed green. ⇒ A
 carve breaks prose paths silently and IN BULK, because the prose describing

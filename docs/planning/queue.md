@@ -342,133 +342,62 @@ activations can enter the same deterministic match and produce the same canonica
 mechanical identity/checksum. The witness must first assert that their local
 counters differ.
 
-### ROLLBACK-KIND-SPELLING — one registration, one kind, spelled once
+### ROLLBACK-KIND-SPELLING — one registration, one kind, spelled once — ✅ DONE 2026-09-16
 
-**Owner:** rollback registration (`platformer2d_runtime/src/rollback/registrar.rs`
-and `platformer2d_rollback_ggrs/src/registration.rs`).
+**Receipt:** `ambition_platformer2d_core::rollback_kind::spelling` holds all
+**18** (kind, sentence) pairs; both roads reference the const and neither spells
+a kind literal beside a sentence any more. Guarded by
+`scripts/check_rollback_kind_spelled_once.py`, wired into `--maintenance`
+(9 jobs) with `scripts/tests/test_rollback_kind_spelled_once.py` beside it so it
+also runs under `pytest scripts/tests`.
 
-**Current state:** every registrar method spells its `RollbackEntryKind` TWICE —
-once on the RECORDING road (`runtime`'s registrar, which writes the descriptor
-the schema baseline and every census read) and once on the INSTALLING road
-(`rollback_ggrs`, which adds the snapshot plugin and checksum system). Nothing
-derives one from the other.
+⭐ **BYTE-EXACT: the collapse changed NOTHING.**
+`the_rollback_schema_matches_its_recorded_baseline` passed unchanged, and
+`compute_schema_fingerprint` hashes the whole `schema_dump()` including `detail`,
+so that is proof rather than corroboration. POISONED: setting
+`spelling::MESSAGE_CLEAR.kind` to `ComponentClone` REDDENS the baseline — and
+raises NO conflicting-registration error, which is the acceptance itself. There
+is no longer one road to change.
 
-⛔ **MEASURED 2026-09-15, BY MAKING THE MISTAKE.** Splitting
-`resource-canonical-custom-checksum` out of `resource-canonical`, I changed the
-recording road only. The result was one registration arriving under two
-different kinds, caught at app build by `RollbackRegistry`'s
-conflicting-registration check — which is accidental cross-evidence, not a
-designed guard, and **covers only names BOTH roads reach**. A kind spelled
-wrongly on a registration that only one road installs has nothing checking it.
+⭐⭐ **THE MEASUREMENT THAT MADE IT SMALL: KEY ON THE PAIR, NOT THE METHOD.**
+Across both roads there are exactly 18 distinct literal (kind, detail) pairs and
+each occurs EXACTLY TWICE — a perfect 1:1, zero disagreements. Two of my own
+parsers got the METHOD attribution wrong (one invented four recording-only
+methods; another swallowed the file tail into the last method and reported three
+disagreements that did not exist). The pair needs no attribution at all, so the
+edit is 36 mechanical substitutions rather than a trait redesign.
 
-⭐⭐ **MEASURED 2026-09-16: THE TWO ROADS AGREE TODAY, AND THE DUPLICATION IS
-STRUCTURAL RATHER THAN A DRIFT.** Every method name present on both roads spells
-the SAME kind — zero disagreements. The roads are two SEPARATE TRAITS with
-matching method names: `RollbackRegistrar` (declared in
-`ambition_platformer2d_core::snapshot`, 24 methods, implemented by
-`SchemaRollbackRegistrar` in `runtime` — 24, an exact match) and
-`AmbitionRollbackApp` (declared and implemented for `App` in
-`rollback_ggrs/src/registration.rs`). ⇒ There is no shared declaration to hang a
-kind on, which is why "name it where the method is declared" needs the two
-vocabularies collapsed first. That is the real shape of this row.
+⛔⛤ **AND THE COSTED DESIGN THIS ROW CARRIED DOES NOT TYPECHECK. MEASURED
+AGAINST `rustc`, NOT ARGUED.** The row proposed ONE required
+`install<T>(owner, name, kind, detail, ops)` primitive with 24 default bodies.
+The methods' `T` bounds are DISJOINT — `SnapshotState` vs `SnapshotCursor` vs
+`SnapshotResolve` vs `MapEntities`, and `Component` vs `Resource` — so
+`install`'s own bound list must be their UNION and every default body fails
+`E0277` at the call. A 30-line probe compiled that shape and got exactly that.
+The shapes that DO typecheck either reintroduce ~21 op types (the cost this row
+already rejected) or require `core` to name the host's `App`, which is the
+dependency the two-road split exists to prevent.
 
-⚠ **AND A FIRST PASS OF MINE REPORTED FOUR RECORDING-ONLY METHODS THAT DO NOT
-EXIST.** My script took the first `RollbackEntryKind::` after each `fn` and the
-installing road nests differently, so it mis-grouped
-`rollback_component_clone_checksum` and `rollback_resource_clone_checksum` and
-their `_with_schema_detail` siblings. They are on both roads. The asymmetry is
-ONE method, not five — see below. A parser's grouping is a finding about the
-parser until it is checked by hand.
+⇒ **A COSTED DESIGN IS STILL A REASONED ONE.** This row priced a shape carefully,
+rejected the alternatives on size, and never compiled it. The 30-line probe that
+refuted it was cheaper than the paragraph that proposed it.
 
-⇒ **ONE ASYMMETRY WAS REAL AND IS DELETED.** `rollback_resource_cursor` was
-<!-- cite-ok: the deleted method is this paragraph's subject; a resolvable citation would mean the deletion did not happen -->
-declared and implemented on the INSTALLING road only, with no counterpart in
-`RollbackRegistrar` and ZERO callers in the workspace. A registration expressible
-on one road and not the other is worse than a kind spelled twice: it installs
-snapshot machinery the schema baseline has no row for, and the
-conflicting-registration check cannot see a name only one road reaches.
+⚠ **WHAT IS DELIBERATELY NOT COLLAPSED.** The `*_custom_checksum` family takes a
+caller-supplied `detail`, so it names a kind with no literal sentence beside it
+and has nothing to share. The guard does not flag those, and demanding a const
+for each would be a table of one-element rows.
 
-⇒ **THE BLOCKER IS CLEARED (2026-09-16).** `RollbackEntryKind` and the 15
-`detail` sentences now live in `ambition_platformer2d_core::rollback_kind`,
-beside the `RollbackRegistrar` trait that `core::snapshot` declares, and are
-re-exported from their old paths so all 94 references resolve unchanged. A
-default trait body can now name both.
+⚠ **DEMOTING THE GENUINELY-`derived` REGISTRATIONS IS NOT PART OF THIS AND WAS
+NOT DONE.** Of 212 types registered through a `*_clone` method, 21 have a
+declaration doc matching `derived|recomputed|never authored|never persisted`, and
+reading them, most say "derived" about something ELSE — `ActorRenderSize`'s
+COLLISION BOX, `CapturedBy`'s INVERSE. The ones that really do describe
+themselves that way are deliberate, and the reason is written at
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`.
+⭐ THE RULE: a component whose PRESENCE is read by a query filter is
+AUTHORITATIVE even when its value is derived. The demotion population looks close
+to zero and nothing should be demoted on a keyword match.
 
-⭐ **THE RELOCATION HAS A BYTE-EXACT ORACLE AND IT PASSED WITH A 0-LINE DIFF.**
-`compute_schema_fingerprint` hashes the whole `schema_dump()`, `detail` column
-included, so `the_rollback_schema_matches_its_recorded_baseline` is proof rather
-than corroboration. POISONED THROUGH THE RE-EXPORT — altering one word of
-`detail::MESSAGE_CLEAR` in its NEW location reddens the baseline, which is what
-shows the oracle reads the moved definition and not a stale copy.
-
-⚠ **THE SENTENCES HAD TO MOVE IN THE SAME STEP**, flagged by the ID-PEER owner
-before I started: a default body naming the KIND but not the `detail` would close
-half this row and reopen the other half one crate away.
-
-**Next implementation:** collapse the two vocabularies. This is design, not
-relocation, and it is COSTED now so the next engineer does not re-derive it.
-
-MEASURED 2026-09-16: **24 trait methods, 14 distinct kinds, but ~21 distinct
-(kind, detail) PAIRS.** Where a kind is shared the details are not —
-`ComponentClone` covers 5 methods with 5 distinct sentences, `ResourceClone` 3
-with 3. Only three pairs cover two methods each. ⇒ **The pair is effectively a
-per-method constant**, so any scheme that groups methods by KIND saves nothing.
-
-⛔ **AND THAT KILLS THE OBVIOUS SHAPE.** A default body per method calling a
-per-method required primitive is ~21 defaults plus ~21 primitives — more code
-than the 24×2 call-site spellings it replaces, with an extra hop. That is the
-"third table with an extra hop" this row already forbids, wearing trait syntax.
-
-⭐ **THE SHAPE THAT DOES PAY: ONE required primitive, an action discriminant, and
-24 default bodies.** `RollbackRegistrar` gains `fn install<T>(&mut self, owner,
-name, kind, detail, ops)` as its ONLY required method; each
-`rollback_*` becomes a default body whose whole content is the (kind, detail)
-pair plus an `ops` variant naming the work. The recording impl matches `ops` and
-ignores most of it; `rollback_ggrs` matches `ops` and installs. ⇒ The kind and
-the sentence are then spelled ONCE, at the declaration, which is this row's
-acceptance — and the ggrs impl stops naming either.
-
-⚠ Cost: 24 default bodies, one `ops` enum, and two 24-arm matches replacing two
-sets of 24 bodies. Roughly size-neutral; the win is the single spelling, not
-fewer lines. ⭐ And it is cheap to VERIFY: `compute_schema_fingerprint` hashes
-the whole `schema_dump()` including `detail`, so `the_rollback_schema_matches_
-its_recorded_baseline` is a byte-exact oracle for the whole refactor.
-Give each registrar method ONE kind, named where the method is declared rather
-than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
-mapping method names to kinds; that is the same duplication with an extra hop.
-⚠ `RollbackEntryKind` lives in `runtime::rollback::registry` and the shared trait
-lives in `core::snapshot`, so the enum has to move before a default method body
-can name it.
-
-⛔⛤ **AND "DEMOTE THE GENUINELY-`derived` REGISTRATIONS" IS NOT A MECHANICAL
-SUB-TASK — ITS FIRST NAMED EXAMPLE IS WRONG.** MEASURED 2026-09-16: of 212
-distinct types registered through a `*_clone` method, 21 have a declaration doc
-matching `derived|recomputed|never authored|never persisted`. Reading them, most
-say "derived" about something ELSE — `ActorRenderSize`'s COLLISION BOX,
-`CapturedBy`'s INVERSE, `AuthoredHurtboxes`' absence selecting a sprite-derived
-box. ⚠ 21 is a floor of CANDIDATES, not a count of defects.
-
-The ones that really do describe themselves that way are deliberate, and the
-reason is written at the registration site
-(`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`):
-*"'Re-derived next tick' is not a reason to omit it: `ITEM 0` of this project's
-own record is a component declared derived, dropped by a restore, and read before
-its writer ran again. Presence is authoritative because a query FILTERS on it."*
-`Dormant` and `SensesUndecided` are both registered for that reason;
-`StrikeVolume` for a sibling one (without it "a rollback that rebuilds
-`MovePlayback` from a blob would strand every live box forever").
-
-⭐ **THE RULE: a component whose PRESENCE is read by a query filter is
-AUTHORITATIVE even when its value is derived.** *"Derived"* describes how it is
-COMPUTED; rollback cares whether anything READS it before its writer runs again.
-The doc sentence that reads like a demotion candidate is usually answering the
-first question. ⇒ The demotion population looks close to zero and nothing should
-be demoted on a keyword match.
-
-**Acceptance:** changing a method's kind in one place changes both roads, and a
-poison that changes only one side fails to compile rather than relying on a
-runtime conflict check. The existing conflict check stays — it covers a
-different failure (two different registrations claiming one name).
 
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
 

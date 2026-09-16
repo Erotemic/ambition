@@ -296,6 +296,53 @@ pub fn complete_durable_restore(
     }
 }
 
+/// Establish the occurrence domain's fresh-run state when a New Game commits.
+///
+/// ⛔⛤ **THIS IS THE OCCURRENCE DOMAIN REDUCING `NewGameResetCommitted` FOR
+/// ITSELF, AND FOR ONE COMMIT IT WAS THE INVENTORY SUBSYSTEM DOING IT INSTEAD.**
+/// `items::persist::reset_inventory_on_new_game` briefly reset
+/// [`OccurrenceBaseline`] and [`CustodyBaseline`] alongside the bag, the wallet
+/// and the two item baselines — six domains' reset details known to one
+/// subsystem, which is the exact shape *"each durable domain reduces the
+/// lifecycle fact"* exists to prevent. One lifecycle event, one reducer per
+/// mechanical domain.
+///
+/// ⚠ **`AuthoredOccurrences` IS DELIBERATELY NOT RESET HERE, AND IT IS NOT AN
+/// OVERSIGHT TO FIX LATER.** `process_new_game_reset_request` clears the ledger
+/// with `forget_everything()` from INSIDE its staged command flush, and the
+/// safety argument written there depends on that: a command flush is exclusive
+/// world access, so no system can author a row between the room rebuild and the
+/// clear. A message-driven reducer runs after the flush and cannot reproduce
+/// that property — it would erase rows the rebuilt room may legitimately have
+/// authored, or leave stale ones live for a window. Moving it would trade a
+/// stated ordering guarantee for an ownership diagram.
+///
+/// ⚠ BOTH BASELINES ARE `Option`, because a composition may install the
+/// durable horizon without the checkpoint baselines.
+pub fn reset_occurrence_horizon_on_new_game(
+    mut committed: MessageReader<crate::session::reset::NewGameResetCommitted>,
+    occurrence_baseline: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
+    >,
+    custody_baseline: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
+    >,
+) {
+    if committed.read().next().is_none() {
+        return;
+    }
+    // ⇒ Reset directly rather than re-adopting from the wiped save file. Going
+    // back through the load road is what used to require lowering
+    // `SaveRestored` mid-session, and that lowering was the only one in the
+    // codebase.
+    if let Some(mut baseline) = occurrence_baseline {
+        *baseline = Default::default();
+    }
+    if let Some(mut baseline) = custody_baseline {
+        *baseline = Default::default();
+    }
+}
+
 /// Install the complete durable-save application/mirroring chain owned by the
 /// actor integration layer.
 ///
@@ -331,9 +378,16 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // the edge that stops the OLD run's bag reaching the freshly wiped save has
     // to be an explicit `.after`.
     let sim = app.sim_schedule();
+    // ⭐ TWO REDUCERS OF ONE FACT, each owning its own domain's fresh-run state.
+    // They are unordered against each other on purpose: they write disjoint
+    // resources, so an edge between them would assert a dependency that does not
+    // exist. Both take the same `.after` edge to the producer's flush.
     app.add_systems(
         sim,
-        crate::items::persist::reset_inventory_on_new_game
+        (
+            crate::items::persist::reset_inventory_on_new_game,
+            reset_occurrence_horizon_on_new_game,
+        )
             .after(crate::session::reset::clear_transient_on_sandbox_reset),
     );
     // ⛔⛤ **THE LIVE→SAVE MIRRORS CROSS THE SAME ROLLBACK BOUNDARY AS THE STATE

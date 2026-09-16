@@ -363,52 +363,81 @@ impl AuthoredOccurrences {
     /// Measured: one `adopt_rows` call desyncs the sync test within two ticks.
     /// ⇒ So this ledger IS registered value state now
     /// (`rollback_resource_clone_checksum`, with
-    /// [`Self::census_projection`] as the peer projection), and what is left of
+    /// [`Self::peer_stable_checksum`] as the peer projection), and what is left of
     /// this function is the record of why.
     ///
     /// ⚠ The republish argument was never wrong about the LIVE producers — it
     /// was wrong that they were the only ones.
     pub const fn rewind_argument() {}
 
-    /// A deterministic fold over the whole ledger: THE PEER CHECKSUM PROJECTION.
+    /// THE ONE CANONICAL BYTE ENCODING OF OCCURRENCE ROWS.
     ///
-    /// ⛔⛤ IT BEGAN AS A DIAGNOSTIC, BECAUSE THE PRESENCE PROBE THIS LEDGER
-    /// CARRIED COULD NOT SEE A ROW — and it is the peer projection now that the
-    /// ledger is registered rather than derived. A presence probe on a singleton resource reports
-    /// `count: 1, xor: 0` however many rows it holds, so a census could see the
-    /// type and never its contents — and a mid-session load fills this from a
-    /// SAVE (`adopt_rows`) with nothing to republish it, so the rows survive a
-    /// rewind into frames from BEFORE the load and reach the hashed save through
-    /// `persist_occurrence_horizon_to_save`. That was measurable only in the
-    /// save, one frame late, until this existed. Held by
-    /// `a_mid_session_load_does_not_reach_back_across_the_rewind`.
+    /// ⛔⛤ **TWO INDEPENDENT ENCODINGS OF THIS STATE EXISTED AND ONE OF THEM WAS
+    /// AMBIGUOUS.** The ledger's first peer projection wrote a bare `StateHasher`
+    /// fold with no domain and no length prefixes — raw id bytes, then a variant
+    /// byte — while [`OccurrenceBaseline::checksum`] was already length-prefixing
+    /// the same enum one screen below. Unprefixed concatenation is structurally
+    /// ambiguous, not merely untidy: two `InCustody` rows `"a"` and `"b"` write
+    /// `a 01 b 01`, and a single row whose id contains those bytes writes the
+    /// same stream. `SimId` wraps a `String`, so nothing in the type system
+    /// forbids it.
     ///
-    /// ⚠ A PROJECTION, NOT A `SnapshotState` ENCODING, AND THE DISTINCTION IS
-    /// ENFORCED. `bevy_ggrs` stores this value by CLONE, so no encoding is
-    /// needed for the snapshot; implementing `SnapshotState` to reach the same
-    /// fold would put the type in the encoded set that
-    /// `rollback-wire-format-changes-are-declared` watches, for nothing.
-    ///
-    /// ⚠ The `BTreeMap` order is what makes it deterministic: two worlds holding
-    /// the same rows fold to the same value, and an unordered collection here
-    /// would report iteration order as a divergence.
-    pub fn census_projection(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::StateHasher;
-        let mut hasher = StateHasher::default();
-        for (id, whereabouts) in self.rows() {
-            hasher.write(id.as_str().as_bytes());
+    /// ⇒ So both projections fold THIS, and a serialization decision about
+    /// occurrence rows is made once. A new [`OccurrenceWhereabouts`] variant is a
+    /// compile error here rather than a field that quietly stopped being hashed.
+    fn encode_rows(&self, out: &mut Vec<u8>) {
+        use ambition_platformer2d_core::snapshot::{put_str, put_u64, put_u8, put_vec2};
+        put_u64(out, self.rows.len() as u64);
+        // `BTreeMap`, so this walk is ordered by identity on every peer. An
+        // unordered collection here would report iteration order as divergence.
+        for (sim_id, whereabouts) in &self.rows {
+            put_str(out, sim_id.as_str());
             match whereabouts {
-                OccurrenceWhereabouts::InCustody => hasher.write(&[1]),
+                OccurrenceWhereabouts::InCustody => put_u8(out, 0),
                 OccurrenceWhereabouts::Placed { room, at } => {
-                    hasher.write(&[2]);
-                    hasher.write(room.as_bytes());
-                    hasher.write(&at.x.to_bits().to_le_bytes());
-                    hasher.write(&at.y.to_bits().to_le_bytes());
+                    put_u8(out, 1);
+                    put_str(out, room);
+                    put_vec2(out, *at);
                 }
-                OccurrenceWhereabouts::Consumed => hasher.write(&[3]),
+                OccurrenceWhereabouts::Consumed => put_u8(out, 2),
             }
         }
-        hasher.finish()
+    }
+
+    /// The ledger's peer checksum projection.
+    ///
+    /// ⛔⛤ **IT BEGAN AS A DIAGNOSTIC AND IS PEER-MECHANICAL AUTHORITY NOW, WHICH
+    /// IS WHY IT IS NO LONGER CALLED `census_projection`.** It existed because
+    /// the presence probe this ledger carried could not see a row — a presence
+    /// probe on a singleton resource reports `count: 1, xor: 0` however many rows
+    /// it holds — and a mid-session load fills the ledger from a SAVE
+    /// ([`Self::adopt_rows`]) with nothing to republish it, so the rows survive a
+    /// rewind into frames from before the load and reach the hashed save through
+    /// `persist_occurrence_horizon_to_save`. Held by
+    /// `a_mid_session_load_does_not_reach_back_across_the_rewind`.
+    ///
+    /// ⭐ **THE DOMAIN IS LOAD-BEARING, NOT HYGIENIC.** `bevy_ggrs` combines every
+    /// `ChecksumPart` by XOR and warns in its own source that *"if ... the same
+    /// value appears an even number of times, they cancel out (`a ^ a == 0`) and
+    /// the desync goes undetected."* [`OccurrenceBaseline::adopt`] copies this
+    /// ledger, so EQUAL CONTENTS IS THE STEADY STATE — folding both through one
+    /// undomained projection would cancel both entries out of the frame checksum
+    /// exactly when they agree, hiding any divergence that moved the two
+    /// together. Held by
+    /// `the_baseline_and_the_ledger_do_not_cancel_each_other_out`.
+    ///
+    /// ⚠ A PROJECTION, NOT A `SnapshotState` ENCODING, AND THE DISTINCTION IS
+    /// ENFORCED. `bevy_ggrs` stores this value by CLONE, so no encoding is needed
+    /// for the snapshot; implementing `SnapshotState` to reach the same fold would
+    /// put the type in the encoded set that
+    /// `rollback-wire-format-changes-are-declared` watches, for nothing.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::PeerDigest;
+        let mut bytes = Vec::new();
+        self.encode_rows(&mut bytes);
+        PeerDigest::in_domain("lifecycle.authored_occurrences")
+            .bytes(&bytes)
+            .finish()
     }
 
     /// Checkpoint baselines copy the entire occurrence ledger. Restoring that copy
@@ -440,11 +469,18 @@ impl AuthoredOccurrences {
 /// every tick. The ledger is a few dozen rows of two small variants; the copy is
 /// the cheap side of that trade by a wide margin.
 ///
-/// UNLIKE the ledger it copies, this is NOT derived and MUST be declared to rollback with a
-/// real VALUE projection. Every row of `AuthoredOccurrences` is republished from live state,
-/// which is what lets it be declared derived; nothing republishes a baseline. That is the same
-/// trap [`AuthoredOccurrences::rewind_argument`] names for [`OccurrenceWhereabouts::Consumed`],
-/// reached by a different route.
+/// ⛔⛤ THIS AND THE LEDGER IT COPIES ARE BOTH REGISTERED VALUE STATE, AND THIS
+/// COMMENT USED TO SAY OTHERWISE. It read *"UNLIKE the ledger it copies, this is
+/// NOT derived ... every row of `AuthoredOccurrences` is republished from live
+/// state, which is what lets it be declared derived"* — and that justification
+/// was measured false: [`AuthoredOccurrences::adopt_rows`] writes rows from a
+/// SAVE and `process_new_game_reset_request` calls
+/// [`AuthoredOccurrences::forget_everything`] from inside the rewinding
+/// schedule, neither republished by anything. The ledger is now
+/// `rollback_resource_clone_checksum` like this baseline, and both fold
+/// [`AuthoredOccurrences::encode_rows`] under their own domain. See
+/// [`AuthoredOccurrences::rewind_argument`] for the record of the refuted
+/// argument.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct OccurrenceBaseline(AuthoredOccurrences);
 
@@ -476,35 +512,23 @@ impl OccurrenceBaseline {
         }
     }
 
-    /// The desync checksum for this baseline — entity-free, and covering
-    /// every field a peer could disagree about.
+    /// The desync checksum for this baseline — entity-free, and covering every
+    /// field a peer could disagree about.
     ///
-    /// the projection lives with the value, not with the registration.
-    /// A checksum written beside the registry has to reach through the value's
-    /// privacy to do its job, and then silently stops covering whatever a later
-    /// field adds. Here the match below is exhaustive, so a new
-    /// [`OccurrenceWhereabouts`] variant is a compile error rather than a fact
-    /// that quietly stopped being checked.
+    /// ⭐ IT FOLDS THE LEDGER'S OWN ENCODING
+    /// ([`AuthoredOccurrences::encode_rows`]) UNDER A DIFFERENT DOMAIN. The rows
+    /// are the same shape, so deciding their byte layout twice is how the two
+    /// copies drift; the domain is what stops the two `ChecksumPart`s from being
+    /// EQUAL, which matters because `bevy_ggrs` XORs them and [`Self::adopt`]
+    /// makes equal contents the steady state. See
+    /// [`AuthoredOccurrences::peer_stable_checksum`] for the measurement.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{
-            checksum_bytes, put_str, put_u64, put_u8, put_vec2,
-        };
+        use ambition_platformer2d_core::snapshot::PeerDigest;
         let mut bytes = Vec::new();
-        put_u64(&mut bytes, self.0.rows.len() as u64);
-        // `BTreeMap`, so this walk is ordered by identity on every peer.
-        for (sim_id, whereabouts) in &self.0.rows {
-            put_str(&mut bytes, sim_id.as_str());
-            match whereabouts {
-                OccurrenceWhereabouts::InCustody => put_u8(&mut bytes, 0),
-                OccurrenceWhereabouts::Placed { room, at } => {
-                    put_u8(&mut bytes, 1);
-                    put_str(&mut bytes, room);
-                    put_vec2(&mut bytes, *at);
-                }
-                OccurrenceWhereabouts::Consumed => put_u8(&mut bytes, 2),
-            }
-        }
-        checksum_bytes(&bytes)
+        self.0.encode_rows(&mut bytes);
+        PeerDigest::in_domain("lifecycle.occurrence_baseline")
+            .bytes(&bytes)
+            .finish()
     }
 }
 
@@ -806,6 +830,145 @@ mod tests {
                 room: "portal_bridge".to_string(),
                 at: Vec2::new(50.0, 96.0),
             }),
+        );
+    }
+
+    /// One `InCustody` row per id, from raw ids.
+    fn ledger_of(ids: &[&str]) -> AuthoredOccurrences {
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            ids.iter()
+                .map(|id| {
+                    (
+                        SimId::from_snapshot((*id).to_string()),
+                        OccurrenceWhereabouts::InCustody,
+                    )
+                })
+                .collect(),
+        );
+        ledger
+    }
+
+    /// The projection the ledger shipped with before it was domain-separated:
+    /// raw id bytes, then a variant byte, with no count and no length prefixes.
+    fn the_ambiguous_encoding(ledger: &AuthoredOccurrences) -> u64 {
+        use ambition_platformer2d_core::snapshot::StateHasher;
+        let mut hasher = StateHasher::default();
+        for (id, whereabouts) in ledger.rows() {
+            hasher.write(id.as_str().as_bytes());
+            match whereabouts {
+                OccurrenceWhereabouts::InCustody => hasher.write(&[1]),
+                OccurrenceWhereabouts::Placed { room, at } => {
+                    hasher.write(&[2]);
+                    hasher.write(room.as_bytes());
+                    hasher.write(&at.x.to_bits().to_le_bytes());
+                    hasher.write(&at.y.to_bits().to_le_bytes());
+                }
+                OccurrenceWhereabouts::Consumed => hasher.write(&[3]),
+            }
+        }
+        hasher.finish()
+    }
+
+    /// ⛔⛤ TWO LEDGERS THAT ARE NOT THE SAME WORLD MUST NOT HASH THE SAME, AND
+    /// THE FIRST ENCODING MADE THEM.
+    ///
+    /// Unprefixed concatenation lets a row boundary be re-read as content. Two
+    /// `InCustody` rows `"a"` and `"b"` wrote `a 01 b 01`; ONE row whose id is
+    /// `"a\x01b"` wrote the same four bytes. `SimId::from_snapshot` takes a
+    /// `String`, so nothing forbids the id.
+    ///
+    /// ⭐ THE OLD ENCODING IS REBUILT HERE AND ASSERTED TO COLLIDE. Without that
+    /// half, this test would pass against any encoding at all — including one
+    /// that is ambiguous somewhere else — and would say nothing about what was
+    /// fixed.
+    #[test]
+    fn a_row_boundary_cannot_be_re_read_as_part_of_an_id() {
+        let two = ledger_of(&["a", "b"]);
+        let one = ledger_of(&["a\u{1}b"]);
+        assert_eq!(two.rows().count(), 2, "the two-row ledger lost a row");
+        assert_eq!(one.rows().count(), 1, "the one-row ledger gained a row");
+
+        // The premise: these two really did collide, so the fix has a subject.
+        assert_eq!(
+            the_ambiguous_encoding(&two),
+            the_ambiguous_encoding(&one),
+            "the encoding this test was written against does NOT collide on \
+             these inputs, so it is no longer the encoding that shipped and \
+             this arm is measuring nothing"
+        );
+
+        assert_ne!(
+            two.peer_stable_checksum(),
+            one.peer_stable_checksum(),
+            "a two-row ledger and a one-row ledger hash the same, so a row \
+             boundary is still being re-read as id content"
+        );
+    }
+
+    /// ⛔⛤ THE BASELINE AND THE LEDGER MUST NOT PRODUCE THE SAME CHECKSUM WHEN
+    /// THEY AGREE, BECAUSE `bevy_ggrs` XORS THE PARTS.
+    ///
+    /// Its own source says so: *"if ... the same value appears an even number of
+    /// times, they cancel out (`a ^ a == 0`) and the desync goes undetected."*
+    /// [`OccurrenceBaseline::adopt`] copies the ledger, so agreement is the
+    /// STEADY STATE rather than a corner case — one shared undomained projection
+    /// would remove both entries from the frame checksum for as long as they
+    /// match, and hide exactly the divergence that moves the two together.
+    ///
+    /// ⚠ THE ROWS ARE DELIBERATELY IDENTICAL. Any difference in contents would
+    /// make the digests differ for the wrong reason and the arm would pass
+    /// against a single shared domain.
+    #[test]
+    fn the_baseline_and_the_ledger_do_not_cancel_each_other_out() {
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            [(
+                SimId::placement("vault_key"),
+                OccurrenceWhereabouts::Placed {
+                    room: "vault".to_string(),
+                    at: Vec2::new(12.0, 34.0),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        );
+        let mut baseline = OccurrenceBaseline::default();
+        baseline.adopt(ledger.clone());
+
+        let ledger_part = ledger.peer_stable_checksum();
+        let baseline_part = baseline.checksum();
+        assert_ne!(
+            ledger_part, baseline_part,
+            "the baseline and the ledger it copied fold to the same value, so \
+             their two ChecksumParts XOR to zero and neither reaches the frame \
+             checksum while they agree"
+        );
+        assert_ne!(
+            ledger_part ^ baseline_part,
+            0,
+            "the two parts cancel under XOR, which is how bevy_ggrs combines them"
+        );
+
+        // AND THE ENCODING IS STILL SHARED: a change in the rows must move both.
+        let mut moved = ledger.clone();
+        moved.adopt_rows(
+            [(SimId::placement("vault_key"), OccurrenceWhereabouts::Consumed)]
+                .into_iter()
+                .collect(),
+        );
+        let mut moved_baseline = OccurrenceBaseline::default();
+        moved_baseline.adopt(moved.clone());
+        assert_ne!(
+            moved.peer_stable_checksum(),
+            ledger_part,
+            "changing a row did not move the ledger's checksum"
+        );
+        assert_ne!(
+            moved_baseline.checksum(),
+            baseline_part,
+            "changing a row did not move the baseline's checksum, so the two are \
+             no longer folding the same encoding"
         );
     }
 }

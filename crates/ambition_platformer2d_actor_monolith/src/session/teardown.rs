@@ -234,15 +234,19 @@ pub struct SessionScopedResources<'w> {
 /// ⭐ THE CORRECTNESS EDGE. Runs in [`SessionScopeSet::Activate`], before any
 /// provider constructs the world these values describe.
 ///
-/// ⛔⛤ **TWENTY-TWO OF THESE RESOURCES ARE ROLLBACK-REGISTERED AND THIS IS AN
+/// ⛔⛤ **TWENTY-THREE OF THESE RESOURCES ARE ROLLBACK-REGISTERED AND THIS IS AN
 /// ORDINARY `Update` SYSTEM, WHICH THE ROLLBACK-MUTATOR GUARD ASKS ABOUT.**
 /// (MEASURED 2026-09-16 across every `.rs` in `crates/` and `game/`, over all ten
-/// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN;
-/// ⚠ the count is load-bearing for the argument below, so it is stated with the
-/// method that produced it. Three more — `ControlledSubject`, `EncounterView`,
-/// `AuthoredOccurrences` — call `declare_rollback_derived_resource`, which is a
-/// recorded decision that they are recomputed, and four carry no rollback
-/// decision at all; see `docs/planning/queue.md`'s CUTSCENE-ROLLBACK-DECISION.) Its
+/// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN,
+/// then TWENTY-TWO; ⚠ the count is load-bearing for the argument below, so it is
+/// stated with the method that produced it. The 22 -> 23 step is re-derived
+/// rather than decremented by hand: `AuthoredOccurrences` moved from
+/// `declare_rollback_derived_resource` to `rollback_resource_clone_checksum` in
+/// schema v195, which `rollback_schema_baseline.txt` records as exactly one row
+/// added and one removed. Two remain derived — `ControlledSubject` and
+/// `EncounterView` — which is a recorded decision that they are recomputed, and
+/// four carry no rollback decision at all; see `docs/planning/queue.md`'s
+/// CUTSCENE-ROLLBACK-DECISION.) Its
 /// question is whether a write is replayed with the value it mutates, and two
 /// things can answer it: the write is inside the rewind window, or the write is
 /// at a point no rewind crosses. This is the second, and the ordering that

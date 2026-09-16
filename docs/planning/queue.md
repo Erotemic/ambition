@@ -2318,7 +2318,7 @@ was already that producer. The contract named its own trigger and missed the one
 it had.
 
 ✅ **THE REPAIR:** `rollback_resource_clone_checksum::<AuthoredOccurrences>`,
-projected by `census_projection` (an ordered fold over `(SimId, whereabouts)`;
+projected by `peer_stable_checksum` (a domain-separated fold over `(SimId, whereabouts)`;
 the `BTreeMap` order is what makes it deterministic). Entity-free, so a clone
 snapshot is the whole story. A declared wire-format change:
 `GGRS_ROLLBACK_SCHEMA_VERSION` 194 → 195, baseline rewritten, and it is real
@@ -2493,25 +2493,27 @@ that has cost this repo a bisection — the registration doc records the first
 (`ProjectileOwner`) and predicts this one: *"a derived declaration that lies is
 worse than no declaration, because it satisfies the coverage sweep."*
 
-✅ **AND THAT HALF IS LANDED:** the declaration is now
-`declare_rollback_derived_resource_probed`, a new registrar variant whose value
-probe comes from a PROJECTION rather than a snapshot encoding, so the census
-names the cause at ticks `[37, 38, 39, 40]` beside the save's `[0, 38, 39]` —
-**the cause leading the effect by a frame**, which no single entry could show.
+✅ **AND THE REGISTRATION IS LANDED — SCHEMA v195 — WHICH IS THE ANSWER, NOT A
+STRONGER PROBE.** `AuthoredOccurrences::rewind_argument` set its own trigger —
+*"if a non-rederived whereabouts state gains a producer, this ledger must become
+registered value state"* — and ⛔ **that condition was already met by
+`adopt_rows`, 100 lines above it in the same file.** The contract named the
+trigger and missed the producer it already had. The ledger is now
+`rollback_resource_clone_checksum`; the census that first named it at ticks
+`[37, 38, 39, 40]` beside the save's `[0, 38, 39]` — **the cause leading the
+effect by a frame** — is what pointed at it.
 
-⛔ The obvious route (`..._resource_state`, whose probe is built from
-`SnapshotState`) reddened `rollback-wire-format-changes-are-declared`, correctly:
-its population is every type that HAS an encoding, and a new encoder is a
+⛔⛤ **AND THE INTERMEDIATE INSTRUMENT IS GONE, DELIBERATELY.** Strengthening the
+probe while keeping the type `Derived` was tried first and required a new
+registrar variant, `declare_rollback_derived_resource_probed`, across four <!-- cite-ok: deliberately names the API this row records DELETING -->
+layers: the obvious route (`..._resource_state`, whose probe is built from
+`SnapshotState`) reddened `rollback-wire-format-changes-are-declared` correctly,
+because its population is every type that HAS an encoding and a new encoder is a
 declared schema change. ⇒ **An encoding is a promise to a peer; a census fold is
-not** — so the variant takes a projection, the ledger gains no encoder, and the
-schema baseline is untouched at 46 of 46 contracts.
-
-⇒ **WHAT IS STILL OWED IS THE REGISTRATION, AND IT BELONGS TO THE RULING.**
-`AuthoredOccurrences::rewind_argument` sets its own trigger — *"if a non-rederived
-whereabouts state gains a producer, this ledger must become registered value
-state"* — and ⛔ **that condition is already met by `adopt_rows`, 100 lines above
-it in the same file.** The contract named the trigger and missed the producer it
-already had.
+not.** But the real answer promoted the resource instead, which left that variant
+with zero callers, so it was deleted from all four layers rather than kept as
+scaffolding that reads like architecture. ⚠ The rule it was built to respect is
+the durable part and still holds.
 
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION

@@ -549,11 +549,31 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// The contract named its own trigger and missed the one it had.
 /// ⚠ THIS ONE IS REAL MECHANICAL GROWTH, unlike 193 -> 194. A row enters the peer
 /// checksum: `resource.placement_continuity`, `resource-clone-custom-checksum`,
-/// projected by `census_projection` (an ordered fold over
+/// projected by `peer_stable_checksum` (a domain-separated fold over
 /// `(SimId, whereabouts)`; the `BTreeMap` order is what makes it deterministic).
 /// The `derived.placement_continuity` row leaves. Entity-free, so a clone
 /// snapshot is the whole story and no `MapEntities` is owed.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 195;
+/// ⛔⛤ 195 -> 196: TWO PEER PROJECTIONS OF OCCURRENCE ROWS BECAME ONE ENCODING
+/// UNDER TWO DOMAINS, AND THE BYTES MOVED FOR BOTH. 195's projection was a bare
+/// `StateHasher` fold with no domain and no length prefixes, which
+/// `PeerDigest`'s own doc calls the one way NOT to build a peer checksum. It was
+/// structurally ambiguous, not merely untidy: two `InCustody` rows `"a"` and
+/// `"b"` wrote `a 01 b 01`, and one row with id `"a\x01b"` wrote the same
+/// stream. `AuthoredOccurrences::encode_rows` is now the single byte encoding,
+/// folded by `PeerDigest::in_domain` as `lifecycle.authored_occurrences` and, for
+/// the baseline that copies it, `lifecycle.occurrence_baseline`.
+/// ⭐ THE TWO DOMAINS ARE LOAD-BEARING AND A SINGLE SHARED VALUE WOULD HAVE BEEN
+/// A NEW DEFECT. `bevy_ggrs` combines `ChecksumPart`s by XOR and warns in its own
+/// source that a value appearing an even number of times cancels; `OccurrenceBaseline::adopt`
+/// copies the ledger, so EQUAL CONTENTS IS THE STEADY STATE. Collapsing both to
+/// one digest would have removed both entries from the frame checksum for as long
+/// as they agree. Held by `the_baseline_and_the_ledger_do_not_cancel_each_other_out`
+/// and `a_row_boundary_cannot_be_re_read_as_part_of_an_id`, the second of which
+/// rebuilds 195's fold and asserts it collides.
+/// ⚠ `OccurrenceBaseline::checksum` ALSO MOVES, though nothing about the baseline
+/// itself changed: it gained a domain. A projection's bytes are peer-visible
+/// whether or not the value behind them did anything.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 196;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

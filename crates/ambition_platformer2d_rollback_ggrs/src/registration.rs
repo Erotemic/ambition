@@ -438,29 +438,6 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource + SnapshotState;
 
-    /// Declare derived state that is a RESOURCE, with a VALUE probe built from a
-    /// projection rather than from a snapshot encoding.
-    ///
-    /// ⛔⛤ THIS EXISTS BECAUSE `_state` MAKES A DIAGNOSTIC LOOK LIKE A WIRE
-    /// FORMAT. Strengthening `AuthoredOccurrences`'s probe through
-    /// [`Self::declare_rollback_derived_resource_state`] meant implementing
-    /// `SnapshotState` for it, and `rollback-wire-format-changes-are-declared`
-    /// correctly reddened: its population is every type that HAS an encoding,
-    /// wherever it is encoded, and a new encoder is a declared schema change
-    /// needing a version bump. Nothing peer-visible had changed, though — the
-    /// value is still `Derived`, in no snapshot and in no peer checksum. ⇒ A fold
-    /// used only to compare a run against its own replay is spelled as a
-    /// projection, which says exactly that and adds nothing to the wire.
-    fn declare_rollback_derived_resource_probed<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-        reason: &'static str,
-        projection: fn(&T) -> u64,
-    ) -> &mut Self
-    where
-        T: Resource;
-
     fn declare_dynamic_anchor<T>(
         &mut self,
         owner: &'static str,
@@ -1277,26 +1254,6 @@ impl AmbitionRollbackApp for App {
                 std::any::type_name::<T>(),
                 crate::census_state::<T>,
             ),
-        );
-        self
-    }
-
-    fn declare_rollback_derived_resource_probed<T>(
-        &mut self,
-        owner: &'static str,
-        name: &'static str,
-        reason: &'static str,
-        projection: fn(&T) -> u64,
-    ) -> &mut Self
-    where
-        T: Resource,
-    {
-        self.declare_rollback_derived::<T>(owner, name, reason);
-        record_probe(
-            self,
-            crate::ChecksumProbe::derived_value(std::any::type_name::<T>(), move |world| {
-                crate::census_resource_with::<T>(world, projection)
-            }),
         );
         self
     }

@@ -57,7 +57,7 @@ Use this census to find roads whose replacement now exists, not as an
 implementation plan.
 
 ⛔⛤ **RE-DERIVE A ROW BEFORE COSTING IT. THIS IS NOT ADVICE — IT IS THE RESULT OF
-RE-DERIVING SIX OF THEM ON 2026-09-16 — FIVE CAME BACK DIFFERENT AND ONE HELD.**
+RE-DERIVING SEVEN OF THEM ON 2026-09-16 — SIX CAME BACK DIFFERENT AND ONE HELD.**
 
 | what the row said | what source said |
 | --- | --- |
@@ -65,6 +65,7 @@ RE-DERIVING SIX OF THEM ON 2026-09-16 — FIVE CAME BACK DIFFERENT AND ONE HELD.
 | C03 can lift out "reset-only process storage" | **no such member exists**; all 29 have a reader outside their reset |
 | C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
 | C04: a live-construction fallback is an "accidental missing-resource branch" | it is a **DECLARED** decision — `for_live_session` REFUSES a shell-routed session with no generation, discriminated by `SessionGatedSimulation` |
+| C09: the largest package has 104,962 nonblank Rust lines | **108,646** — and it is 60,228 SRC + 48,418 TESTS; second place is 76% tests |
 | C07 counts 732 optional Res/ResMut accesses over 196 spellings | **at least 850** in production (859 all-tracked); 202 spellings is a FLOOR — it GREW ~16% |
 | C05: six values are separate queued writes | **five of six are Components on ONE entity from ONE lowering** (`PlatformerSessionWorld`, a Bundle on the session root); only `SessionMechanics` is an App global |
 

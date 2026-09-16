@@ -536,7 +536,29 @@ Imports name the owner internally; public facade surface is deliberate and small
 
 ### CURRENT STATE
 
-The workspace has 80 packages. The largest package has 104,962 nonblank Rust lines, but durable architecture explicitly rejects a size-only carve of `actor_monolith`.
+The workspace has 80 packages (verified against `cargo metadata` 2026-09-16, and
+now guarded — see the ledger check). The largest package has **108,646** nonblank
+Rust lines, but durable architecture explicitly rejects a size-only carve of
+`actor_monolith`.
+
+⛔⛤ **AND RE-DERIVING THAT NUMBER 2026-09-16 FOUND SOMETHING THE HEADLINE HIDES:
+IT MIXES SOURCE AND TESTS, AND FOR A CRATE-BOUNDARY CAMPAIGN THAT IS THE WHOLE
+QUESTION.**
+
+| package | src | tests | total |
+| --- | ---: | ---: | ---: |
+| `crates/ambition_platformer2d_actor_monolith` | 60,228 | 48,418 | 108,646 |
+| `game/ambition_app` | 25,581 | 79,942 | 105,523 |
+| `game/ambition_content` | 41,594 | 10,895 | 52,489 |
+| `crates/ambition_combat` | 30,842 | 21,270 | 52,112 |
+| `crates/ambition_platformer2d_core` | 28,054 | 18,151 | 46,205 |
+
+⇒ `actor_monolith`'s PRODUCTION source is 60,228 lines — 55% of the headline —
+and `game/ambition_app` is the second-largest package almost entirely because of
+its test suite (76% tests; it holds the `app_it` integration arms). **You do not
+carve a package because its integration tests are large**, and a size-ordered
+list that mixes the two puts a test crate second. ⚠ The row already rejects a
+size-only carve; this says the size itself was not the size anyone meant.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

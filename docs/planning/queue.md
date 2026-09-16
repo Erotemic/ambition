@@ -679,6 +679,36 @@ count beside it, and the other 338 types are in.
 
 Population 139 → 338; findings 8 → 12. The four it bought:
 
+⛔⛤ **AND THE WIDENING COST THE GUARD ITS VERDICT UNTIL 2026-09-16, WHICH THE
+ROW DID NOT SAY.** Twelve unwaived findings meant `exit 1` — so a THIRTEENTH
+offender could not change the answer, and `--maintenance` does not run this
+script. A check that reports FAILED before and after a regression has stopped
+being a check, whatever its row says, because a reader uses the exit code.
+(YardratAmbition's catch, measured against a clean tree at their HEAD.)
+
+⇒ **FIXED BY BANKING THE KNOWN SET, NOT BY WAIVING IT.** `ACKNOWLEDGED` is a
+SECOND table making the OPPOSITE claim to `WAIVERS`: a waiver says this drift
+does not matter, an acknowledgement says it is real and names the row that owes
+it. Waiving these twelve would have written down something false while Q129 and
+MENU-RESET-MIDSESSION are open. The exit code now means *no NEW offender*; the
+twelve still print, to stderr, each with its row.
+
+⛔ **AND A BANKED NAME THE SCAN STOPS REPORTING IS ALSO FATAL** — otherwise the
+list rots into a second waiver table and silently absorbs the next system to
+take a fixed one's place. POISONED, both branches, each on its own message and
+the file restored byte-identical: deleting `portal_dev_toggle_system` from the
+bank reddens as a new offender; adding a name that is not a finding reddens as
+stale. ⚠ The first attempt at the test edit asserted its anchor and wrote
+NOTHING — 8 spaces of indent against the file's 4 — and would have read as a
+clean pass had the pytest count not moved; every anchor is now counted before
+the write.
+
+The two standing expected failures in `test_rollback_mutators_run_in_sim.py` are
+gone with it: 22 passed, where the file previously carried 2 permanent reds. Two
+of the three new arms guard the bank's exactness, and the third refuses an
+overlap between the tables, since an entry in both would be one of the two claims
+being false.
+
 | system | type | why it matters |
 |---|---|---|
 | `sync_ldtk_level_set` | `LdtkRuntimeIndex` | the reason `handle_ldtk_hot_reload`'s waiver read stale |

@@ -2313,6 +2313,23 @@ assertion says what it saw — one distinct census at the compared frames — so
 question is what the full lane does to the compared-frame window, which is a
 question about the harness and not about the arm.
 
+⛔⛤ **AND THE OBVIOUS MECHANISM IS REFUTED: CPU CONTENTION ALONE DOES NOT
+REPRODUCE IT.** The hypothesis was this repository's own recorded flake shape —
+*a fixed update budget after an async readiness point* — since the arm steps a
+flat `for _ in 0..120` with a no-op `prepare`, so a slower box could spend the
+window in a different phase. TESTED: twelve busy-loop processes on a 12-vCPU box,
+then the arm three times. **3 of 3 PASS.** ⇒ Wall-clock starvation is not the
+variable. What remains that a 731-arm run has and a loaded single arm does not:
+many Bevy apps alive at once, shared target-dir and asset I/O, and libtest's own
+thread scheduling. ⚠ None of those is measured; they are the remaining
+candidates, not a finding.
+
+⚠ **AND A PRACTICAL NOTE FOR WHOEVER TAKES IT:** `measure` PRINTS the distinct
+census count on every run, and libtest swallows stdout for a PASSING test — so
+the diagnostic that would show the window drifting before it fails needs
+`--nocapture`. A probe that prints its population only when it is already too
+late to compare is half an instrument.
+
 ⚠ **AND IT FALSIFIES A SENTENCE THIS ROW CARRIED FOR AN HOUR.** It read *"no arm
 has changed state across any of the four runs"*, which was true when written and
 is not now. A lane total is a measurement with a commit; the sentence ABOUT a

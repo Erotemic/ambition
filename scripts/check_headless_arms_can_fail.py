@@ -48,16 +48,7 @@ FN_DEF = re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)", re.M)
 #: Arms that do not satisfy the guard yet. ⛔ THIS LIST MAY ONLY SHRINK.
 #: Each entry is a real gap, verified by reading the arm — not a parser
 #: artifact. Fix one by pinning the timestep or asserting what it produced.
-KNOWN_GAPS = {
-    ("game/ambition_app/tests/composes_through_the_sdk.rs",
-     "a_host_that_omits_cutscenes_still_builds_and_steps"),
-    ("game/ambition_app/tests/composes_through_the_sdk.rs",
-     "a_host_that_omits_portals_still_builds_and_steps"),
-    ("game/ambition_app/tests/composes_through_the_sdk.rs",
-     "a_host_that_omits_boss_encounters_still_builds_and_steps"),
-    ("crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs",
-     "demo_shell_boots_and_ticks"),
-}
+KNOWN_GAPS: set[tuple[str, str]] = set()
 
 
 def braced_body(text: str, brace: int) -> str:

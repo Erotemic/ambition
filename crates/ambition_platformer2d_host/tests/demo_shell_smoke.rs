@@ -155,10 +155,28 @@ fn demo_shell_boots_and_ticks() {
     app.add_plugins(ambition_platformer2d_host::PlatformerHostPlugins);
     app.add_plugins(FixtureContentPlugin);
 
+    // `add_headless_foundation` brings `MinimalPlugins`, which leaves
+    // `TimeUpdateStrategy::Automatic`. Then the fixed schedule runs zero or more
+    // times, related to the elapsed wall time, and a quick arm steps nothing.
+    // Pin the frame to the tick, then show that the fixed schedule did run:
+    // without the count, silence and success look the same.
+    #[derive(Resource, Default)]
+    struct FixedStepsTaken(u32);
+    let timestep = app.world().resource::<bevy::time::Time<bevy::time::Fixed>>().timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    app.init_resource::<FixedStepsTaken>();
+    app.add_systems(FixedUpdate, |mut taken: ResMut<FixedStepsTaken>| taken.0 += 1);
+
     // First update runs Startup; a couple more prove the sim loop holds.
     app.update();
     app.update();
     app.update();
+
+    assert!(
+        app.world().resource::<FixedStepsTaken>().0 > 0,
+        "the shell booted but the fixed schedule never ran, so this arm shows \
+         only that the demo assembly BUILDS"
+    );
 }
 
 // The exit check has two halves. Here: the demo assembly boots in `FixedUpdate`

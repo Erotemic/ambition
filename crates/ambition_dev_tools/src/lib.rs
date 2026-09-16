@@ -33,7 +33,7 @@ pub mod sim_plugin;
 
 pub use hot_reload::{poll_world_source_changes, WorldSourceHotReload};
 pub use persistence::DeveloperPersistenceSchedulePlugin;
-pub use sim_plugin::{DevEditApplySet, DevInspectorMirrorSet, DevToolsSimPlugin};
+pub use sim_plugin::{DevInspectorMirrorSet, DevToolsSimPlugin};
 
 use bevy::prelude::*;
 

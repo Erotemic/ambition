@@ -68,11 +68,57 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state:** `SessionScopeId` is an App-local lifetime/correlation identity.
-The remaining campaign is to ensure local activation counts cannot influence a
-canonical checksum, peer-stable seed or rollback-visible identity. Keep the local
-session term where it is useful for ownership; do not make local lifetime and
-peer identity the same type by accident.
+**Current state (2026-09-15):** the roads by which host-local identity reached
+peer-compared state are being closed one at a time. ⛔ **A GPT architecture
+review on 2026-09-15 found that the first attempt replaced one host-local term
+with another**, and the table below is written to be re-checkable rather than
+reassuring.
+
+| road | state |
+|---|---|
+| smash random-roster seed | **CLOSED** — `agreed_match_seed` hashes the agreed lobby. Its first version still hashed the local input device INDEX; that is fixed and asserted |
+| `SessionScopedEntity` in the peer checksum | **CLOSED** (schema 184) — probed clone; still snapshotted, because the construction scope gather reads it |
+| the four `MatchInstance`-stamped resources | **CLOSED** (schema 186) — `ActiveMatch`, `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks` compare MECHANICAL FACTS ONLY (agreed seat count, verdict, latched-or-not, micros elapsed from the match's own start). All four still snapshot whole |
+| `MatchInstance::random_context` | **OPEN, RECORDED** — still mixes the activation tick; see below |
+| checkpoint operation keys | **OPEN, newly found** — `CheckpointOperationKey::write_into` writes the raw `SessionScopeId`, and four carriers put it in a peer checksum |
+| `TransactionId` provenance | **OPEN** — `ContentEpoch` + `SessionScopeId` |
+| the canonical timeline itself | **OPEN, and the largest** — see below |
+
+⛔⛔ **`SimTick` IS AN ABSOLUTE PER-APP COUNTER AND IT IS ALREADY A WHOLE-VALUE
+PEER CHECKSUM INPUT.** Measured 2026-09-15: one writer
+(`ambition_time::advance_sim_tick`, `+1` per step), `init_resource`'d once at
+App build, never rebased anywhere in the workspace, and registered
+`resource-canonical`. It sits UNCONDITIONALLY at the head of the sim schedule,
+so it counts menu frames. ⇒ **Two Apps that have been running for different
+lengths of time disagree about `sim_tick` from the first compared frame**, before
+anything else in this campaign matters. Everything keyed on it inherits that:
+the first fix here moved four resources onto the activation tick and called it
+peer-stable, which was the same error one layer down.
+
+⚠ **`random_context` KEEPS the tick deliberately**, recorded rather than fixed.
+Removing it with no replacement makes every match in a run replay the first
+match's item drops — a visible regression pinned by
+`two_activations_are_two_draw_contexts`. A checksum is compared every frame, so a
+false desync there is fatal; a repeated item table is not. ⇒ **The replacement is
+the match's ORDINAL WITHIN THE AGREED SESSION**: zero for everyone who joins
+together, insensitive to menu time and prior sessions, and it still separates
+consecutive matches.
+
+⚠ **AND NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE ANY OF THIS.** The only
+sessions in use are `SyncTestSession` — one machine rewinding itself, zero
+distance. A desync canary that compares a machine against its own past is
+structurally incapable of catching a two-peer disagreement, which is why every
+leak in the table above had to be found by reading.
+
+**The standing guard, and what it could not see.** `id_peer_audit.rs` reads the
+LIVE registry. ⛔ Until 2026-09-15 its population was a list of variant names
+kept in the test, which omitted every `*CustomChecksum` kind. Measured against
+the schema baseline: **143 registrations feed a peer checksum, the list named
+114, and the 29 `*custom-checksum` rows were invisible** — the checkpoint family
+among them. The question now lives on `RollbackEntryKind` itself as
+`feeds_peer_checksum()`, where a new variant cannot be added without answering
+it. Poison-verified in both directions: claiming a custom-checksum kind does not
+feed the checksum reddens the guard and names what it stopped covering.
 
 ⚠ The review asked for this to be settled *before* A10 made transaction provenance
 more central. That did not happen: A10's room scope landed first, and a publication
@@ -80,19 +126,99 @@ now declares the lane `TransactionId`s it owns (`PublicationEffects::owned_by`),
 with `CandidateNotOwned` refusing anything stamped outside them. A10 deliberately
 used the existing interfaces rather than hardening host-local lineage into a new
 provenance contract, so the dependency stayed narrow — but it is wider than it was.
-`a_transaction_identity_still_depends_on_host_local_lineage_counters` records the
-divergence and flips the day the identities are split. The two-App poison (A burns
-a candidate epoch, B does not, both construct identical content, canonical
-snapshots must agree) is still unwritten.
+`a_transaction_identity_still_depends_on_host_local_lineage_counters`
+(`shared_tangle/src/construction/tests.rs`) records the divergence and flips the
+day the identities are split.
 
-**Next implementation:** define the peer-agreed session/match term explicitly and
-migrate canonical provenance to it. Keep `SessionScopeId` for local lifetime only
-where that is its real job.
+**What the acceptance has, and what it lacks.** A two-App witness exists:
+`two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road`
+(`game/ambition_app/tests/id_peer_audit.rs`) builds two real Apps with
+`build_visible_app`, ages one by extra select-route visits, asserts their
+activation counters DIFFER, and asserts the shipped match-start road publishes
+the same roster from both. ⚠ It ages the host along the SHELL ACTIVATION axis
+only. The construction poison the review asked for — A burns a candidate content
+epoch, B does not, both construct identical content, canonical snapshots must
+agree — is a different axis and is still unwritten.
+
+**Next implementation, in order.** (1) The peer-agreed match ordinal, which
+closes `random_context` without the gameplay regression. (2) The peer/local split
+on `CheckpointOperationKey` — the scope's stale-operation job is local and real
+and must NOT simply be deleted; `SessionCheckpointOperations` already advances
+its sequence only on ADMISSION for exactly this reason. (3) `TransactionId`:
+drop the session term and replace `ContentEpoch` with a peer-stable content
+fingerprint. (4) The timeline itself — a session-relative tick, which is netcode
+work and wants a maintainer decision before anyone starts.
+
+⛔ Do NOT continue by mechanically replacing each raw `SessionScopeId` with the
+nearest canonical-looking value. `SimTick` is why: it looks canonical, it
+rewinds, it is already checksummed, and it is host-local.
 
 **Acceptance:** two Apps that have burned different numbers of local session
 activations can enter the same deterministic match and produce the same canonical
 mechanical identity/checksum. The witness must first assert that their local
 counters differ.
+
+### ROLLBACK-KIND-SPELLING — one registration, one kind, spelled once
+
+**Owner:** rollback registration (`platformer2d_runtime/src/rollback/registrar.rs`
+and `platformer2d_rollback_ggrs/src/registration.rs`).
+
+**Current state:** every registrar method spells its `RollbackEntryKind` TWICE —
+once on the RECORDING road (`runtime`'s registrar, which writes the descriptor
+the schema baseline and every census read) and once on the INSTALLING road
+(`rollback_ggrs`, which adds the snapshot plugin and checksum system). Nothing
+derives one from the other.
+
+⛔ **MEASURED 2026-09-15, BY MAKING THE MISTAKE.** Splitting
+`resource-canonical-custom-checksum` out of `resource-canonical`, I changed the
+recording road only. The result was one registration arriving under two
+different kinds, caught at app build by `RollbackRegistry`'s
+conflicting-registration check — which is accidental cross-evidence, not a
+designed guard, and **covers only names BOTH roads reach**. A kind spelled
+wrongly on a registration that only one road installs has nothing checking it.
+
+**Next implementation:** give each registrar method ONE kind, named where the
+method is declared rather than at each call of `descriptor::<T>` /
+`record::<T>`. Do not add a third table mapping method names to kinds; that is
+the same duplication with an extra hop.
+
+**Acceptance:** changing a method's kind in one place changes both roads, and a
+poison that changes only one side fails to compile rather than relying on a
+runtime conflict check. The existing conflict check stays — it covers a
+different failure (two different registrations claiming one name).
+
+### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
+
+**Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
+
+**Current state:** the guard that keeps rollback state from being mutated outside
+the rewinding schedule defines that state as `rollback_*_canonical::<T>` only.
+Every clone and custom-checksum registration is outside its population —
+`RoomSet` and `LdtkRuntimeIndex` among them — although those values are
+snapshotted and restored on every rewind exactly like the canonical ones, so an
+outside mutation drifts identically.
+
+⛔ **MEASURED 2026-09-15.** Widening the population to all rollback registrations
+takes the systems it can see from 555 to 564 and surfaces **65 unwaived
+offenders**. ⚠ That number is not a defect count: many are `Transform` writes
+from camera, sprite and inspection systems, which are PRESENTATION reading a
+component that happens to be rollback-registered. The widening is not landable
+until sim writes and presentation writes can be told apart.
+
+⚠ A second, independent hole in the same guard was closed on 2026-09-15: its
+param pattern matched only `&mut T` and `ResMut<T>`, so `SessionWorldMut<T>` was
+invisible and a refactor that respelled one write made the guard report a live
+mutation as gone. All six types reached through that param are rollback-registered.
+
+**Next implementation:** give the guard a way to distinguish a simulation write
+from a presentation write — most likely by schedule rather than by type, since
+`Transform` is legitimately written in both. Then widen the population and triage
+what remains.
+
+**Acceptance:** the population is every rollback registration, not one
+registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
+being deleted; and a poison that respells a write in any supported param form
+still reddens the guard.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

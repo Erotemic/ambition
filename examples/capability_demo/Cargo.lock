@@ -707,7 +707,6 @@ dependencies = [
  "ambition_audio",
  "ambition_boss_encounter",
  "ambition_characters",
- "ambition_dev_tools",
  "ambition_game_shell",
  "ambition_load",
  "ambition_load_presentation",

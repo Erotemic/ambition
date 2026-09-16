@@ -37,6 +37,12 @@ use crate::common;
 /// holds. New registrations are caught by `rollback_schema_baseline.txt`, which
 /// member-diffs every row; this list is what that baseline cannot know.
 const HOST_LOCAL_IDENTITIES: &[&str] = &[
+    // ⛔⛔ THE LARGEST ONE, AND IT DOES NOT LOOK LIKE A LIFECYCLE COUNTER.
+    // `SimTick` is the canonical timeline — but it is `init_resource`'d once at
+    // App build, advances UNCONDITIONALLY at the head of the sim schedule
+    // (menus and suspended gameplay included), has exactly one writer, and is
+    // never rebased. So it counts this App's whole life.
+    "SimTick",
     "SessionScopeId",
     "SessionScopedEntity",
     "ShellActivationId",
@@ -47,6 +53,12 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "TransactionId",
     // Carry `session`, `activated_on` and/or the local seat-topology generation.
     "ActiveMatch",
+    // ⛔ CARRIERS OF `CheckpointOperationKey`, whose ONE projection writes the
+    // raw `SessionScopeId`. Found by the GPT review of 2026-09-15, after this
+    // guard had reported the campaign complete twice: every one of them is a
+    // `*CustomChecksum` kind, which the old string list did not name.
+    "CheckpointOperationKey", "SessionStartupResume", "AcceptedCheckpointRestore",
+    "SessionCheckpointOutcomes", "OutstandingCheckpointRequest",
     "MatchInstance",
     "StocksMatchSettled",
     "SuddenDeathEntered",
@@ -56,32 +68,43 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
 /// Kinds that checksum the WHOLE value. Measured from the registrars: each of
 /// these calls `checksum_component`/`checksum_resource` with the type's own
 /// encoding, so a host-local field inside one is in the peer comparison.
-const CHECKSUMMED_KINDS: &[&str] = &[
-    "ComponentCanonical",
-    "ComponentCloneCursor",
-    "ComponentCloneResolved",
-    "ComponentCloneCanonicalChecksum",
-    "ResourceCanonical",
-    "ResourceCloneCursor",
-];
 
 /// Carriers whose checksum is a stated PROJECTION that excludes the host-local
 /// part, read and confirmed by a human.
 ///
-/// ⛔ A KIND CANNOT SETTLE THIS, which is why the list exists. A projected
-/// checksum keeps the canonical snapshot — so the registration still reports
-/// `ResourceCanonical` — while comparing only some fields. Each entry is a
-/// claim someone checked; the guard cannot read a function body. What backs an
-/// entry is a VALUE-level arm in the owning crate, e.g.
-/// `the_peer_stable_checksum_ignores_session_and_seat_topology`.
+/// ⛔ THE KIND SAYS A PROJECTION EXISTS; IT CANNOT SAY WHAT THE PROJECTION
+/// COMPARES. `resource-canonical-custom-checksum` is asserted below for every
+/// entry here, so reverting one to a whole-value checksum reddens this guard.
+/// But a projection that hashed the session anyway would wear the same kind —
+/// so each entry is also a claim someone checked, backed by a VALUE-level arm
+/// in the owning crate (`the_verdict_checksum_ignores_the_session_count`,
+/// `the_peer_stable_checksum_ignores_session_and_seat_topology`, …). The guard
+/// holds the registration; the arms hold the function body.
+/// Kinds whose checksum is a stated projection rather than the whole value.
+const PROJECTED_CHECKSUM_KINDS: &[&str] = &[
+    "ResourceCanonicalCustomChecksum",
+    "ResourceCloneCustomChecksum",
+    "ComponentCloneCustomChecksum",
+];
+
 const PEER_STABLE_PROJECTION: &[&str] = &[
     // `ActiveMatch::peer_stable_checksum` projects the seat count and the
     // activation tick, excluding `session` and the local seat-topology
     // generation. Both still snapshot, so a rewind restores them.
     "ambition_match::seating::ActiveMatch",
+    // ⛔ ONE SEAM, FOUR REGISTRATIONS. All four stamp a `MatchInstance`, whose
+    // `session` is a per-App activation count. Each projects through
+    // `MatchInstance::peer_stable()` — the activation tick, which both peers
+    // simulate — and keeps the whole value in the snapshot so a rewind still
+    // restores the local half. The `peer_stable_checksum` arm in each owning
+    // crate is what holds the projection honest; this list only records that a
+    // reviewer checked it.
+    "ambition_match::settlement::StocksMatchSettled",
+    "ambition_match::settlement::SuddenDeathEntered",
+    "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
 ];
 
-/// The one value that IS canonical while still being a function of host-local
+/// Values that ARE canonical while still being a function of host-local
 /// lineage, recorded so the guard reports a CHANGE rather than the known state.
 ///
 /// ⛔ `a_transaction_identity_still_depends_on_host_local_lineage_counters`
@@ -93,14 +116,32 @@ const RECORDED_DIVERGENCE: &[&str] = &[
     // `a_transaction_identity_still_depends_on_host_local_lineage_counters`
     // (shared_tangle::construction::tests) holds the detail.
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
-    // ⛔ ONE ROOT CAUSE, FOUR REGISTRATIONS. Each encodes
-    // `MatchInstance::parts()` and writes the raw `SessionScopeId` into a
-    // checksummed snapshot; `ActiveMatch` also writes the local seat-topology
-    // generation, which moves when a host re-captures an IDENTICAL set of seats.
-    // Closing `MatchInstance`'s contribution closes all four.
-    "ambition_match::settlement::StocksMatchSettled",
-    "ambition_match::settlement::SuddenDeathEntered",
-    "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
+    // ⛔⛤ THE CAMPAIGN'S LARGEST OPEN ITEM, and the one that makes every other
+    // absolute-tick value suspect. `sim_tick` is `resource-canonical`, so its
+    // ABSOLUTE value is compared: two Apps that have been running for different
+    // lengths of time disagree from the FIRST compared frame, and nothing
+    // derived from it can be peer-stable either — which is exactly the mistake
+    // `MatchInstance::activation_tick` records.
+    //
+    // ⚠ It cannot be closed the way the others were. A projection excluding the
+    // tick would exclude the timeline itself; what is needed is a
+    // SESSION-RELATIVE tick, rebased when peers agree to start, which is netcode
+    // work. Recorded so this is held by a test rather than by prose.
+    "ambition_time::SimTick",
+    // ⛔⛤ ONE ROOT CAUSE, FOUR CARRIERS — found by the GPT review of 2026-09-15,
+    // after this guard had twice reported the campaign complete. Every value
+    // holding a `CheckpointOperationKey` reuses its ONE projection, and that
+    // projection writes the raw `SessionScopeId`; all four are
+    // `resource-clone-custom-checksum`, a kind the guard's old string list did
+    // not name, so none of them was ever examined.
+    //
+    // `a_checkpoint_operation_key_still_projects_the_host_local_session_scope`
+    // (`actor_monolith::session::checkpoint::tests`) holds the detail and flips
+    // when the peer/local split lands.
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::OutstandingCheckpointRequest",
 ];
 
 /// ⭐⭐ **THE CAMPAIGN'S STANDING GUARD: NO HOST-LOCAL IDENTITY IS CANONICAL.**
@@ -110,7 +151,7 @@ const RECORDED_DIVERGENCE: &[&str] = &[
 /// actually installed.
 #[test]
 fn no_host_local_lifecycle_identity_is_rollback_registered() {
-    use ambition_platformer2d::rollback::RollbackRegistry;
+    use ambition_platformer2d::rollback::{RollbackEntryKind, RollbackRegistry};
 
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..10 {
@@ -120,9 +161,13 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .world()
         .get_resource::<RollbackRegistry>()
         .expect("the rollback registry is installed by the engine plugins");
-    let registered: Vec<(String, String)> = registry
+    // ⛔ THE KIND IS KEPT AS THE ENUM, NOT AS A STRING. Reproducing the
+    // registry's semantics here as a list of variant names is what hid the
+    // checkpoint family; `RollbackEntryKind::feeds_peer_checksum` owns the
+    // question and a new variant cannot be added without answering it.
+    let registered: Vec<(String, RollbackEntryKind)> = registry
         .descriptors()
-        .map(|d| (d.type_name.clone(), format!("{:?}", d.kind)))
+        .map(|d| (d.type_name.clone(), d.kind))
         .collect();
 
     // ⛔ THE ANTI-VACUITY FLOOR. An empty or tiny registry makes every
@@ -151,13 +196,13 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
             if PEER_STABLE_PROJECTION.contains(&type_name.as_str()) {
                 continue;
             }
-            if !CHECKSUMMED_KINDS.contains(&kind.as_str()) {
+            if !kind.feeds_peer_checksum() {
                 continue;
             }
             if RECORDED_DIVERGENCE.contains(&type_name.as_str()) {
                 continue;
             }
-            offenders.push(format!("{type_name} as {kind}"));
+            offenders.push(format!("{type_name} as {kind:?}"));
         }
     }
     assert!(
@@ -181,7 +226,7 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .copied()
         .filter(|recorded| {
             !registered.iter().any(|(type_name, kind)| {
-                type_name == recorded && CHECKSUMMED_KINDS.contains(&kind.as_str())
+                type_name == recorded && kind.feeds_peer_checksum()
             })
         })
         .collect();
@@ -192,6 +237,43 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
          this guard covers the type again. An exception for a value that no \
          longer needs one is a hole with a comment over it.",
         stale.join("\n  ")
+    );
+
+    // ⛔ AND EVERY REVIEWED PROJECTION MUST STILL BE A PROJECTION. Reverting one
+    // of these to `rollback_resource_canonical` puts its host-local fields back
+    // into the peer checksum while leaving its `peer_stable_checksum` compiling,
+    // correct and unused — so the value-level arms cannot see it. The KIND can.
+    let unprojected: Vec<String> = PEER_STABLE_PROJECTION
+        .iter()
+        .copied()
+        .filter_map(|reviewed| {
+            let kinds: Vec<String> = registered
+                .iter()
+                .filter(|(type_name, _)| type_name == reviewed)
+                .map(|(_, kind)| format!("{kind:?}"))
+                .collect();
+            match kinds.as_slice() {
+                [] => Some(format!("{reviewed}: not registered at all")),
+                kinds if kinds
+                    .iter()
+                    .all(|kind| PROJECTED_CHECKSUM_KINDS.contains(&kind.as_str())) =>
+                {
+                    None
+                }
+                kinds => Some(format!("{reviewed}: registered as {}", kinds.join(", "))),
+            }
+        })
+        .collect();
+    assert!(
+        unprojected.is_empty(),
+        "these types are listed as having a peer-stable checksum PROJECTION, \
+         but are not registered under a projected-checksum kind:\n  {}\n\n\
+         A whole-value checksum over one of these puts a per-App session count \
+         back inside the comparison two peers make. Either register it through \
+         a `*_checksum` registrar again, or — if the type no longer holds a \
+         host-local field at all — delete its line here so the guard covers it \
+         directly.",
+        unprojected.join("\n  ")
     );
 }
 

@@ -2213,3 +2213,59 @@ fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
         "B's first admitted operation did not get sequence zero under B's scope"
     );
 }
+
+/// ⛔⛤ **RECORDED DIVERGENCE, NOT A PASSING PROPERTY — ID-PEER, 2026-09-15.**
+///
+/// `CheckpointOperationKey::write_into` is the ONE projection every value
+/// holding a key reuses, and it writes the raw `SessionScopeId`. Four resources
+/// carry it into a peer checksum — `SessionStartupResume`,
+/// `AcceptedCheckpointRestore`, `SessionCheckpointOutcomes` and
+/// `OutstandingCheckpointRequest`, all `resource-clone-custom-checksum` — so two
+/// peers performing the SAME logical first checkpoint operation hash differently
+/// purely because their Apps have begun different numbers of sessions.
+///
+/// ⚠ The scope is not the defect and must not simply be deleted: its
+/// stale-operation and load-correlation job is local and real. What is missing
+/// is a peer-side term, and `SessionCheckpointOperations` already advances its
+/// sequence only on ADMISSION for exactly this reason.
+///
+/// ⇒ When the split lands, this arm flips to `assert_eq!` and the four entries
+/// leave `RECORDED_DIVERGENCE` in `game/ambition_app/tests/id_peer_audit.rs`.
+#[test]
+fn a_checkpoint_operation_key_still_projects_the_host_local_session_scope() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+    let scoped = |scope: u64| {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: Some(SessionScopeId(scope)),
+            sequence: 0,
+        }
+        .write_into(&mut bytes);
+        bytes
+    };
+    assert_ne!(
+        scoped(3),
+        scoped(12),
+        "the checkpoint operation key no longer projects the host-local session \
+         scope — if that is deliberate, flip this arm to assert_eq and delete \
+         the four checkpoint entries from RECORDED_DIVERGENCE in \
+         game/ambition_app/tests/id_peer_audit.rs"
+    );
+    // ⛔ AND THE SEQUENCE MUST STILL SEPARATE, or the arm above would be
+    // satisfied by a projection that hashed the scope and nothing else.
+    let sequenced = |sequence: u64| {
+        let mut bytes = Vec::new();
+        CheckpointOperationKey {
+            scope: None,
+            sequence,
+        }
+        .write_into(&mut bytes);
+        bytes
+    };
+    assert_ne!(
+        sequenced(0),
+        sequenced(1),
+        "two different operation sequences project identically"
+    );
+}

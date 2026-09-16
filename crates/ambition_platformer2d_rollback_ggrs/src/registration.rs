@@ -252,6 +252,16 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource<Mutability = Mutable> + SnapshotState;
 
+    fn rollback_resource_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource<Mutability = Mutable> + SnapshotState;
+
     fn rollback_resource_optional_canonical_checksum<T>(
         &mut self,
         owner: &'static str,
@@ -729,6 +739,38 @@ impl AmbitionRollbackApp for App {
         self
     }
 
+    fn rollback_resource_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource<Mutability = Mutable> + SnapshotState,
+    {
+        if should_install_backend(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ResourceCanonicalCustomChecksum,
+                detail,
+            ),
+        ) {
+            self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
+            RollbackApp::checksum_resource(self, projection);
+            record_probe(
+                self,
+                crate::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::census_resource_state::<T>,
+                ),
+            );
+        }
+        self
+    }
+
     fn rollback_resource_optional_canonical<T>(
         &mut self,
         owner: &'static str,
@@ -798,7 +840,7 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceCanonical,
+                RollbackEntryKind::ResourceCanonicalCustomChecksum,
                 detail,
             ),
         ) {

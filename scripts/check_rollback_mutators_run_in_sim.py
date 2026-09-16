@@ -79,8 +79,16 @@ NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
 _CANONICAL = re.compile(r"rollback_(?:component|resource)_canonical::<([^>]+)>")
 _PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")
 _CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
+# ⛔⛤ `SessionWorldMut<T>` IS A MUTABLE PARAM AND WAS INVISIBLE UNTIL
+# 2026-09-15. A10.3d rewrote `handle_ldtk_hot_reload`'s `ResMut<RoomSet>` as
+# `SessionWorldMut<RoomSet>`, and this scanner stopped seeing the system at all —
+# its waiver went "stale" while the mutation was untouched. Measured when the
+# hole was found: SIX distinct types are reached through this param and ALL SIX
+# are rollback-registered. A guard keyed on how a write is SPELLED goes blind
+# when a refactor respells it, and the direction is the dangerous one — it
+# reports no offenders.
 _MUTABLE_PARAM_TYPE = re.compile(
-    r"(?:&mut\s+|ResMut\s*<\s*)(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
 )
 
 # ── Waivers ──

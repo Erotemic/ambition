@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_engine_schemas** — The schemas the ENGINE itself owns — the one list, in one place.
+**ambition_engine_schemas** — Canonical registry of schemas owned by the engine.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

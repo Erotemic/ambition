@@ -154,6 +154,28 @@ impl MatchInstance {
     /// ticks, so they still draw differently — which is the property the first
     /// paragraph is about.
     ///
+    /// ⛔⛔ **AND THE REPLACEMENT TERM IS ALSO HOST-LOCAL — RECORDED, NOT
+    /// FIXED, 2026-09-15.** `activated_on` is a `SimTick`, and `SimTick` is an
+    /// absolute count of every sim step this App has run, MENUS INCLUDED (one
+    /// writer, `advance_sim_tick`, unconditional at the head of the schedule,
+    /// never rebased — measured). Two peers who reached the same lobby by
+    /// different routes therefore draw DIFFERENT ITEMS from the same match
+    /// state. This is the same defect as the session term, one layer down, and
+    /// the paragraph below understated it.
+    ///
+    /// ⚠ It stays for now because the alternative available today is no
+    /// distinguishing term at all, which makes every match in a run replay the
+    /// first match's drops — a visible gameplay regression, pinned by
+    /// `two_activations_are_two_draw_contexts`. ⇒ **THE FIX IS THE MATCH'S
+    /// ORDINAL WITHIN THE AGREED SESSION**: it starts at zero for everyone who
+    /// joins together, is insensitive to menu time and prior sessions, and still
+    /// separates consecutive matches. That is the next ID-PEER step.
+    ///
+    /// ⚠ **The CHECKSUM projections no longer read this term** — see
+    /// `ActiveMatch::peer_stable_checksum` and the settlement/clock projections.
+    /// A checksum is compared every frame, so a false desync there is fatal,
+    /// while a repeated item table is not.
+    ///
     /// ⚠ **WHAT THIS COSTS, STATED**: two runs of the world whose matches
     /// activate on the same tick now draw the SAME items. That is a repeat across
     /// a restart, not a divergence — both peers still agree — and it is the
@@ -171,7 +193,7 @@ impl MatchInstance {
     /// [`CONTEXT_UNSEEDED`](ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED),
     /// which is honest: it has no identity to draw against.
     pub fn random_context(&self) -> ambition_platformer2d_core::sim_random::RandomContext {
-        match (self.session, self.peer_stable()) {
+        match (self.session, self.activation_tick()) {
             (None, None) => ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
             (_, activated_on) => activated_on
                 .unwrap_or(0)
@@ -179,14 +201,22 @@ impl MatchInstance {
         }
     }
 
-    /// The part of this identity two PEERS can agree on.
+    /// ⛔⛔ **THIS IS NOT A PEER-STABLE TERM, AND CALLING IT ONE WAS THE
+    /// MISTAKE.** It was `peer_stable()` for a day, documented as "the
+    /// activation tick, which both peers simulate".
     ///
-    /// `session` is a per-App activation count and is deliberately absent: two
-    /// peers running the same match disagree about it, so anything compared
-    /// between peers — an RNG context, a canonical checksum — must project
-    /// through here rather than read the fields directly. The tick is peer-stable
-    /// and is what distinguishes one match from another.
-    pub fn peer_stable(&self) -> Option<u64> {
+    /// **Measured 2026-09-15:** `SimTick` has exactly one writer
+    /// (`ambition_time::advance_sim_tick`, `+1` per step), is `init_resource`'d
+    /// once at App build, and NOTHING in the workspace rebases it — and it sits
+    /// unconditionally at the head of the sim schedule, so it advances in menus
+    /// and while gameplay is suspended. `activated_on` is therefore *the total
+    /// number of sim steps this App has ever run*. Two hosts that sat on the
+    /// select screen for different numbers of frames disagree about it.
+    ///
+    /// ⇒ Keep it for what it is: a LOCAL stamp that distinguishes one match from
+    /// the next on one machine, which is what `belongs_to` and the settlement
+    /// staleness checks need. Nothing compared between peers may read it.
+    pub fn activation_tick(&self) -> Option<u64> {
         self.activated_on
     }
 
@@ -235,12 +265,16 @@ mod match_context_tests {
             "a two-seat and a three-seat match share one checksum, so the seat \
              count is not reaching the projection"
         );
-        assert_ne!(
+        // ⛔⛤ AND THE ACTIVATION TICK IS THE SAME KIND OF TERM, which this arm
+        // asserted the OPPOSITE of until 2026-09-15. It counts this App's sim
+        // steps including menu frames, so two hosts that reached the same lobby
+        // by different routes stamp one match differently.
+        assert_eq!(
             receipt(1, None).peer_stable_checksum(),
             ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900))
                 .peer_stable_checksum(),
-            "two matches activated on different ticks share one checksum, so the \
-             activation tick is not reaching the projection"
+            "the receipt's checksum moves with the ABSOLUTE sim tick the match \
+             activated on"
         );
     }
     use super::*;
@@ -432,15 +466,8 @@ impl ActiveMatch {
     /// identical set of seats — neither is mechanical identity, so neither may
     /// enter a checksum. The seat COUNT and the activation tick are peer-stable.
     pub fn peer_stable_checksum(&self) -> u64 {
-        let mut bytes = Vec::with_capacity(24);
+        let mut bytes = Vec::with_capacity(8);
         bytes.extend_from_slice(&(self.seats as u64).to_le_bytes());
-        match self.instance().peer_stable() {
-            None => bytes.push(0),
-            Some(tick) => {
-                bytes.push(1);
-                bytes.extend_from_slice(&tick.to_le_bytes());
-            }
-        }
         ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
     }
 

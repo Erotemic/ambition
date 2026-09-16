@@ -89,14 +89,16 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): NINE CLOSED, FOUR OPEN, THIRTEEN LIVE — and the
-road found today is the FOURTEENTH FILED, because the thirteenth was withdrawn
-the day it was filed and the numbering does not reuse it.** The
+**Current state (2026-09-16): TEN CLOSED, THREE OPEN, THIRTEEN LIVE — the road
+found today is the FOURTEENTH FILED (the thirteenth was withdrawn the day it was
+filed and the numbering does not reuse it), and it is the one that closed,
+within the hour, because it was the only one not blocked outside the campaign.**
+The
 count is written this way deliberately, and this is the sentence earning it: the
 row used to say "nine of the ten", predicting that "a tenth road found tomorrow
 makes this row 'nine closed, a tenth found' instead of making it false". It has
 now absorbed a twelfth, a withdrawn thirteenth and a fourteenth without ever
-being wrong. **TWO of the four open roads want a maintainer decision** before
+being wrong. **TWO of the three open roads want a maintainer decision** before
 anyone starts — the
 absolute `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing
 English prose (`Q122`, found 2026-09-16). ⚠ This sentence said *"BOTH open roads"*
@@ -106,7 +108,7 @@ is a copy, and the copy nearest the correction is the one that survives it.**
 ⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
 IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
 all; they are simply never compared between peers, so no projection can fix them
-and no local session can measure them. Nine closed, four open.
+and no local session can measure them. Ten closed, three open.
 
 ⛔⛤ **A FOURTEENTH, FOUND 2026-09-16 AND MEASURED THE SAME HOUR: A LOCAL
 DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY.** Building the same
@@ -119,10 +121,20 @@ same checksums, then refuse to play each other. ⭐ THE REPOSITORY ALREADY MADE
 THIS DECISION AND PUT IT IN THE WRONG PLACE — `rollback_schema_baseline.rs`
 filters those rows with the reason stated outright, and
 `compute_schema_fingerprint` never learned it; the filter is also what keeps the
-disagreement invisible, by making the lane green in both configurations. The fix
-states it once where the kind is written and costs no version bump, because with
-the feature off no such row exists. Routed to netcode's
-[`N3`](engine/netcode.md), which holds the measurement.
+disagreement invisible, by making the lane green in both configurations.
+
+✔ **CLOSED THE SAME DAY.** `RollbackEntryKind::MessageClearInstrument` answers
+`in_peer_schema_identity() == false`, `schema_dump()` filters on that predicate,
+the three registrations go through `clear_instrument_message_on_rollback`, and
+the test's name-prefix filter is DELETED as redundant. Both builds now
+fingerprint `ssp1:7bc3233fdd0e73d8…` — identical to each other and to the value
+before the change, so no version bump was owed and the baseline did not move.
+The instrument is still registered (`deterministic_dump` 497 vs 494) and still
+cleared on rewind; the exclusion is about peer IDENTITY, never about whether the
+rewind happens. ⭐ THE DURABLE POINT IS NOT THAT A FEATURE LEAKED — it is that
+the fingerprint and the dump filter DISAGREED ABOUT WHAT COUNTS AS SCHEMA, both
+deliberately, with nothing comparing them. Measurement and the arm's built-in
+positive control on netcode's [`N3`](engine/netcode.md).
 
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
@@ -174,18 +186,17 @@ already committed in code to not changing the thing C03 depends on, and
 ToothbrushAmbition's `a_superseded_transaction_cannot_publish_in_the_shipped_app`
 now asserts that identity survives a supersession in the shipped composition.
 
-⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** Three of the four
-open roads are blocked on something outside this campaign — the fourteenth is
-not, and is the only one that could start today — but one of them would enter
-C03's neighbourhood if it ever started. **`Q128` rebases the
+⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All three open
+roads are blocked on something outside this campaign, so none is in flight — but
+one of them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
 simulation tick "when peers agree to start", which is an ACTIVATION moment.** ⇒ If
 `Q128` is ruled and started while a C03 or C05 migration is in flight, this
 checkpoint re-arms and the two campaigns must coordinate rather than assume. The
 other two (`Q122`'s schema-fingerprint prose, the 25 unchecksummed float rows)
 cannot touch session ownership at all.
 
-⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — nine of
-thirteen roads, four open — and it is not a review of C03's or C05's own plans. It
+⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — ten of
+thirteen roads, three open — and it is not a review of C03's or C05's own plans. It
 says the identity neighbourhood they were told to wait for has stopped moving and
 is pinned by arms.
 
@@ -964,9 +975,17 @@ version of this row did — and at rung 5 it overstates by 6.6×.
 
 **Next implementation:** two separable pieces, and the second is the row's real
 subject.
-1. Make `[dealt]` say what it counts — split seat-directed from summon-directed
-   damage at the print, so the diagnostic cannot be read as the guard's input
-   when it is not.
+1. ✅ **DONE.** `[dealt]` now prints both victim classes, and the `dealt > 0`
+   PASSENGER ASSERTION beside it — not just the print — counted summon damage
+   too, so a seat that never touched the opponent satisfied the half whose
+   stated job is *"the exchange floor above can be carried by one seat alone,
+   and that is exactly the state this half exists to refuse"*. It now counts
+   seat-directed damage only. Measured across the five rungs, dealt-to-seat vs
+   dealt-to-another-body per seat: rung 1 `83/24, 97/8`; rung 3 `69/60, 54/60`;
+   rung 5 `6/40, 10/49`; rung 6 `46/0, 60/0`; rung 9 `35/34, 16/10`. ⛔ The
+   predicate is not constant in either direction — rung 6 spends nothing on
+   other bodies and rung 5 spends 89 of 105 — which is what makes the split a
+   measurement rather than a relabelling. No rung changed verdict.
 2. Rung 5's move selection is a [BRAIN](#brain--finish-truthful-fighter-attack-selection)
    defect, not a guard defect: a duelist policy that answers 71–84% of its
    decisions with two moves and lands 15% of its damage on the opponent is the

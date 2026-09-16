@@ -15,17 +15,25 @@ where
 {
     // Causal readers keep non-rollback `Local` cursors, so their message
     // channels must be cleared rather than replay rows from an abandoned future.
+    //
+    // ⛔⛤ REGISTERED AS INSTRUMENT CHANNELS, WHICH IS WHAT KEEPS THIS FEATURE
+    // OUT OF THE PEER IDENTITY. Until 2026-09-16 these were ordinary
+    // `clear_message_on_rollback` rows, so compiling the recorder moved
+    // `schema_fingerprint()` — 494 schema rows became 497 — for a simulation
+    // that is mechanically identical to the one without it. Two such peers
+    // would have computed the same snapshots and the same checksums and then
+    // refused to play each other.
     #[cfg(feature = "causal")]
     {
-        registrar.clear_message_on_rollback::<crate::causal::BodyMovementOps>(
+        registrar.clear_instrument_message_on_rollback::<crate::causal::BodyMovementOps>(
             OWNER,
             "message.causal_body_movement_ops",
         );
-        registrar.clear_message_on_rollback::<ambition_damage::BodyHitResolved>(
+        registrar.clear_instrument_message_on_rollback::<ambition_damage::BodyHitResolved>(
             OWNER,
             "message.causal_body_hit_resolved",
         );
-        registrar.clear_message_on_rollback::<ambition_damage::BodyReactionApplied>(
+        registrar.clear_instrument_message_on_rollback::<ambition_damage::BodyReactionApplied>(
             OWNER,
             "message.causal_body_reaction_applied",
         );

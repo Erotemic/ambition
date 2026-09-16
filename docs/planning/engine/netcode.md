@@ -274,12 +274,41 @@ change the state-schema baseline."* `compute_schema_fingerprint` hashes
 and the test's filter is what keeps the disagreement invisible, because it makes
 the lane green in both configurations.
 
-⇒ The fix is to state it once, where the kind is written: an instrument-only
-channel is a `RollbackEntryKind` that answers FALSE to being part of the peer
-schema, `schema_dump()` excludes it, and the test's name-prefix filter is deleted
-as redundant. ⭐ It costs no version bump and moves no baseline, because with the
-feature OFF — every shipping build — no such row exists and the dump is
-byte-identical. Filed as the thirteenth ID-PEER road.
+⛔⛤ **THE DURABLE POINT IS NOT "A FEATURE LEAKED" — IT IS THAT THE TWO OWNERS
+DISAGREED ABOUT WHAT COUNTS AS SCHEMA.** The fingerprint's answer was "every row
+in the dump"; the test's answer was "every row except these three, by name
+prefix". Both were written deliberately, neither was wrong on its own, and
+nothing compared them — so the disagreement could only surface as a build
+refusing a peer for no mechanical reason. And the test's filter is what kept it
+under the floorboards, because it made the lane green in BOTH configurations:
+the instrument could not be seen precisely where it could be present.
+
+✔ **FIXED 2026-09-16.** `RollbackEntryKind::MessageClearInstrument` answers
+`in_peer_schema_identity() == false`, `schema_dump()` filters on that predicate,
+the three causal registrations go through
+`clear_instrument_message_on_rollback`, and the test's name-prefix filter is
+DELETED as redundant — the comparison now needs no exception. Measured after,
+both configurations:
+
+| build | `schema_dump` | `deterministic_dump` | fingerprint |
+|---|---|---|---|
+| default | 494 | 494 | `ssp1:7bc3233fdd0e73d8…` |
+| `--features causal` | 494 | **497** | `ssp1:7bc3233fdd0e73d8…` |
+
+⭐ Identical to each other AND to the fingerprint before the change, so no
+version bump was owed and the baseline did not move — with the feature off no
+such row exists, and with it on the rows are recorded in `deterministic_dump`
+and excluded from the peer view. The instrument is still registered and still
+cleared on rewind: the exclusion is about peer IDENTITY, never about whether the
+rewind happens.
+
+⭐ **THE ARM CARRIES ITS OWN POSITIVE CONTROL**, which is the only reason it is
+worth running: `the_causal_instrument_is_registered_and_outside_the_peer_schema`
+is `#[cfg(feature = "causal")]` and first REQUIRES all three channels to be
+present in `deterministic_dump`. An arm asserting only "no causal row in
+`schema_dump`" would pass just as well if the feature had registered nothing, or
+if the `cfg` had been misspelled — the absence it checks is the same absence a
+broken feature produces.
 
 What this does NOT settle, and N3 still owes: **no peer handshake reads the dump
 or its version.** The invariant makes the identity honest, the arm makes it the

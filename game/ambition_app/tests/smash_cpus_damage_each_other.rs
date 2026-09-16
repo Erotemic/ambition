@@ -230,6 +230,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut instance_move: [std::collections::BTreeMap<u32, String>; 2] = Default::default();
     let mut damage_by_move: [std::collections::BTreeMap<String, i32>; 2] = Default::default();
     let mut unclaimed_damage = [0i32; 2];
+    // ⛔ DAMAGE INTO A SUMMON IS NOT DAMAGE INTO THE OTHER FIGHTER, and this
+    // pair is what tells them apart. `ResolvedBodyHit` names a victim, so a
+    // seat beating on a called shark is separable from a seat fighting.
+    let mut dealt_to_seat = [0i32; 2];
+    let mut dealt_to_other_body = [0i32; 2];
     let mut seat_of: std::collections::HashMap<Entity, usize> = Default::default();
     // ⭐ DO THEY EVER GET CLOSE? Separates "the CPUs never approach" from "they
     // stand next to each other and decline to press" — two different bugs with
@@ -494,6 +499,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                         let Some(&slot) = seat_of.get(&attacker) else {
                             continue;
                         };
+                        if seat_of.contains_key(&hit.victim) {
+                            dealt_to_seat[slot] += hit.damage;
+                        } else {
+                            dealt_to_other_body[slot] += hit.damage;
+                        }
                         match hit
                             .attacker_move_instance
                             .and_then(|n| instance_move[slot].get(&n).cloned())
@@ -774,9 +784,13 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         dmg.sort_by(|a, b| b.1.cmp(a.1));
         let dealt: i32 = damage_by_move[seat].values().sum();
         println!(
-            "[dealt] seat {seat}: {dealt} damage across {} moves (+{} unclaimed) -> {:?}",
+            "[dealt] seat {seat}: {dealt} damage across {} moves (+{} unclaimed), \
+             of which {} reached the OTHER SEAT and {} went into another body \
+             -> {:?}",
             damage_by_move[seat].len(),
             unclaimed_damage[seat],
+            dealt_to_seat[seat],
+            dealt_to_other_body[seat],
             dmg.iter().take(30).collect::<Vec<_>>()
         );
         println!(
@@ -821,12 +835,18 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         exchanged * 100.0,
     );
     for seat in 0..2 {
-        let dealt: i32 = damage_by_move[seat].values().sum();
+        // ⛔⛤ THE OTHER SEAT, NOT ANY BODY. This summed `damage_by_move`, which
+        // keys on the ATTACKER being a seat and never looks at the victim, so a
+        // seat that spent the duel hitting its own summons satisfied the
+        // no-passenger half without ever touching the opponent. MEASURED at rung
+        // 5: seat 0 dealt 46, of which 6 reached the other fighter.
         assert!(
-            dealt > 0,
-            "seat {seat} dealt NO damage in {both_seated_ticks} ticks — the \
-             exchange floor above can be carried by one seat alone, and that is \
-             exactly the state this half exists to refuse"
+            dealt_to_seat[seat] > 0,
+            "seat {seat} dealt NO damage TO THE OTHER SEAT in {both_seated_ticks} \
+             ticks ({} into other bodies) — the exchange floor above can be \
+             carried by one seat alone, and that is exactly the state this half \
+             exists to refuse",
+            dealt_to_other_body[seat]
         );
         assert!(
             hitstun_ticks[seat] > 0,

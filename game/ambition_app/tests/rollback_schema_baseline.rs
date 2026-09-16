@@ -23,13 +23,16 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
         .expect("rollback registry is installed by the engine plugins")
         .schema_dump();
 
-    // Causal recorder channels carry no snapshot bytes, so compiling the instrument must not
-    // change the state-schema baseline.
-    let dump: String = dump
-        .lines()
-        .filter(|line| !line.starts_with("message.causal_"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    // ⭐ THE FILTER THAT USED TO BE HERE IS GONE, AND ITS ABSENCE IS THE FIX.
+    // It dropped `message.causal_*` by name prefix, for the right reason —
+    // causal recorder channels carry no snapshot bytes, so compiling the
+    // instrument must not change the state-schema baseline. But a decision
+    // stated in a test is a decision the authority does not make:
+    // `compute_schema_fingerprint` hashes `schema_dump()` whole, so the
+    // instrument moved the peer identity while this filter kept the lane green
+    // in BOTH configurations — which is precisely what made it invisible.
+    // The rule now lives at the kind (`MessageClearInstrument`), `schema_dump`
+    // excludes it, and this comparison needs no exception.
 
     if dump.trim() != BASELINE.trim() {
         let recorded: Vec<&str> = BASELINE.trim().lines().collect();
@@ -166,4 +169,62 @@ fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
                 .join("\n"),
         );
     }
+}
+
+/// ⛔⛤ THE INSTRUMENT MUST NOT BE VISIBLE TO A PEER, AND THIS ONLY RUNS WHERE IT
+/// COULD BE.
+///
+/// Until 2026-09-16 the causal recorder's three channels were ordinary
+/// `clear_message_on_rollback` registrations, so `--features causal` produced
+/// 497 schema rows against the default build's 494 and a different
+/// `schema_fingerprint()` — for a simulation that is mechanically identical,
+/// because `message-clear` rows carry no value of their own and those channels
+/// feed a recorder. Two such peers would compute the same snapshots and the same
+/// checksums and then refuse to play each other.
+///
+/// ⭐ THE POSITIVE CONTROL IS BUILT IN, and it is the whole reason this arm is
+/// worth running: a test that only asserted "no causal row in `schema_dump`"
+/// would pass just as well if the feature had silently failed to register
+/// anything, or if the `#[cfg]` had been spelled wrong. So it first requires the
+/// channels to be PRESENT in `deterministic_dump`, which keeps every entry
+/// because it describes what this build registered rather than what a peer can
+/// observe. Present there, absent here: that pair is the claim.
+#[cfg(feature = "causal")]
+#[test]
+fn the_causal_instrument_is_registered_and_outside_the_peer_schema() {
+    let sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz()),
+    )
+    .expect("sandbox sim builds");
+    let registry = sim
+        .world()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins");
+
+    let registered = registry
+        .deterministic_dump()
+        .lines()
+        .filter(|line| line.contains("message.causal_"))
+        .count();
+    assert_eq!(
+        registered, 3,
+        "the causal feature is compiled in but registered {registered} of its 3 \
+         channels. Without them this test's real assertion is vacuous — it would \
+         report success for a feature that registered nothing at all."
+    );
+
+    let peer_dump = registry.schema_dump();
+    let leaked: Vec<&str> = peer_dump
+        .lines()
+        .filter(|line| line.contains("message.causal_"))
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "the causal recorder is inside the peer schema identity, so compiling a \
+         local debugging instrument changes what two peers negotiate:\n  {}\n\n\
+         These must register through `clear_instrument_message_on_rollback`, \
+         whose kind answers `in_peer_schema_identity() == false`.",
+        leaked.join("\n  "),
+    );
 }

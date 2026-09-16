@@ -775,6 +775,15 @@ impl RollbackRegistry {
         let rows: Vec<String> = self
             .entries
             .values()
+            // ⛔⛤ THE ONLY FILTER IN THIS DUMP, AND IT IS THE PEER QUESTION.
+            // `deterministic_dump` keeps every entry because it describes what
+            // this build registered; this one describes what a peer can observe,
+            // and a registration outside the schema identity is not part of
+            // that. Measured 2026-09-16: without this, `--features causal` moved
+            // the fingerprint (494 -> 497 rows) for a simulation that is
+            // mechanically identical, so two such peers would refuse each other
+            // for no mechanical reason.
+            .filter(|entry| entry.kind.in_peer_schema_identity())
             .map(|entry| {
                 ambition_registry_core::canonical_row(&[
                     &entry.name,

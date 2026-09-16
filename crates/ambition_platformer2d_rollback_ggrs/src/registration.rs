@@ -358,6 +358,17 @@ pub trait AmbitionRollbackApp {
     where
         T: Message;
 
+    /// As [`Self::clear_message_on_rollback`], for a channel that feeds an
+    /// INSTRUMENT rather than the simulation — same rewind behaviour, outside
+    /// the schema identity two peers negotiate.
+    fn clear_instrument_message_on_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Message;
+
     fn declare_rollback_derived<T>(
         &mut self,
         owner: &'static str,
@@ -1115,6 +1126,37 @@ impl AmbitionRollbackApp for App {
                 name,
                 spelling::MESSAGE_CLEAR.kind,
                 spelling::MESSAGE_CLEAR.detail,
+            ),
+        ) {
+            self.add_systems(
+                LoadWorld,
+                clear_message_channel::<T>.in_set(LoadWorldSystems::Mapping),
+            );
+        }
+        self
+    }
+
+    fn clear_instrument_message_on_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Message,
+    {
+        // ⚠ THE BACKEND BEHAVIOUR IS DELIBERATELY IDENTICAL. Only the recorded
+        // KIND differs, and the only thing that reads the difference is
+        // `schema_dump()`. An instrument channel that failed to clear on rewind
+        // would leak an abandoned branch into the recording, which is a broken
+        // instrument — the exclusion is about peer IDENTITY, never about
+        // whether the rewind happens.
+        if should_install_backend(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                spelling::MESSAGE_CLEAR_INSTRUMENT.kind,
+                spelling::MESSAGE_CLEAR_INSTRUMENT.detail,
             ),
         ) {
             self.add_systems(

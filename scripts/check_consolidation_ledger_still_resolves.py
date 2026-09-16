@@ -47,6 +47,32 @@ IDENT = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b")
 MIN_CORPUS_KIB = 20_000
 
 
+#: An item whose `representation` is exactly this claims a Bevy Resource.
+RESOURCE_REPRESENTATION = "Resource"
+#: The subject type is the first CamelCase token of `current_truth`.
+SUBJECT = re.compile(r"\s*`?([A-Z][A-Za-z0-9]+)")
+
+
+def declaration_kinds(source_by_file: dict[str, str], ty: str) -> list[str]:
+    """`Resource`/`Component` as DECLARED on each `pub struct|enum <ty>`."""
+    # ⚠ THE ATTRIBUTE BLOCK IS OPTIONAL ON PURPOSE. Requiring one made a type
+    # with NO derives invisible — and a type with no derives cannot be a
+    # Resource, so it is exactly a case the rule must be able to flag. Found by
+    # the control arm, which asked for `neither` and got nothing at all.
+    pat = re.compile(rf"((?:#\[[^\]]*\]\s*)*)pub (?:struct|enum) {re.escape(ty)}\b")
+    kinds = []
+    for text in source_by_file.values():
+        for match in pat.finditer(text):
+            attrs = match.group(1)
+            kind = []
+            if re.search(r"\bResource\b", attrs):
+                kind.append("Resource")
+            if re.search(r"\bComponent\b", attrs):
+                kind.append("Component")
+            kinds.append("+".join(kind) or "neither")
+    return kinds
+
+
 def workspace_packages() -> set[str]:
     """Ask cargo which crates the workspace HAS. Do not model it from globs.
 
@@ -132,6 +158,66 @@ def main() -> int:
                 "invisible here and is not a defect — add it to EXTERNAL. A name "
                 "that genuinely went is a ledger item describing a road that is gone."
             )
+        return 1
+
+    # ⛔⛤ RULE 4: AN ITEM THAT SAYS "Resource" MUST NAME A `#[derive(Resource)]`.
+    # MEASURED 2026-09-16: of nine items whose `representation` is exactly
+    # "Resource", EIGHT were right and one was not. `AUTH-CONTENT-BINDING` --
+    # marked SOURCE_CONFIRMED -- recorded `ActiveContentBinding` as a Resource; it
+    # is a Component, one declaration, `world/rooms/transaction.rs`. ⇒ The
+    # distinction is load-bearing: a Resource is PROCESS-GLOBAL and a Component is
+    # carried by an ENTITY, which for C05 is the difference between "another
+    # App-global write at the generation boundary" and "a value the admitted
+    # candidate already owns". This is the "expensive failure" the docstring above
+    # says this check cannot see — one narrow slice of it now IS checkable.
+    by_file = dict(zip(tracked, blob))
+    wrong = []
+    claimed = 0
+    for item in items:
+        if str(item.get("representation")) != RESOURCE_REPRESENTATION:
+            continue
+        claimed += 1
+        match = SUBJECT.match(item.get("current_truth", ""))
+        if not match:
+            wrong.append(f"    {item['id']}: no subject type in `current_truth`")
+            continue
+        ty = match.group(1)
+        kinds = declaration_kinds(by_file, ty)
+        if not kinds:
+            # ⚠ A type this scan cannot FIND is a claim about the scan, not a
+            # finding — the name-resolution rule above already reports those.
+            continue
+        if not any("Resource" in kind for kind in kinds):
+            wrong.append(
+                f"    {item['id']}: says `representation: Resource`, but {ty} is "
+                f"declared {kinds}"
+            )
+    # ⛔ ANTI-VACUITY: if no item claims "Resource" any more, this rule checked
+    # nothing and its silence would mean nothing.
+    # ⛔ ANTI-VACUITY, SCALED TO THE CORPUS. On the real ledger a rule that
+    # checked fewer than three items has effectively checked nothing and its
+    # silence would mean nothing. ⚠ But the arms beside this guard plant
+    # three-line ledgers to test ONE rule each, and a flat floor made them fail
+    # on this rule instead of on their own subject — the same ordering mistake
+    # the workspace rule made an hour earlier. The floor applies where the
+    # population exists.
+    if len(items) >= 50 and claimed < 3:
+        print(
+            f"⛔⛔ only {claimed} item(s) claim `representation: Resource` across "
+            f"{len(items)} ledger items; this rule checked almost nothing"
+        )
+        return 1
+    if wrong:
+        print(
+            f"⛔ {len(wrong)} ledger item(s) record a representation source "
+            "disagrees with:\n"
+        )
+        print("\n".join(wrong))
+        print(
+            "\n⇒ A Resource is PROCESS-GLOBAL and a Component is carried by an\n"
+            "  ENTITY. An item that gets this wrong describes a different\n"
+            "  consolidation problem from the one the tree has."
+        )
         return 1
 
     # RULE 3: the ledger's copy of the workspace must still BE the workspace.

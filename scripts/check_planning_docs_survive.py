@@ -46,6 +46,10 @@ LIVE_CONTROL_PLANE: dict[str, tuple[int, tuple[str, ...]]] = {
     "docs/planning/README.md": (60, ("# ",)),
     # 281 lines. The standing reservoir.
     "docs/planning/tracks.md": (80, ("# ",)),
+    # 279 lines. The product/engine direction the campaigns are cut from. It is
+    # named as a peer of `status.md`, `queue.md` and `tracks.md` by their own
+    # headers, and was the only one of the four outside this population.
+    "docs/planning/roadmap.md": (80, ("# Roadmap", "## North star")),
     # ⛔⛤ **THE CONSOLIDATION CONTROL PLANE WAS OUTSIDE THIS POPULATION UNTIL
     # 2026-09-16, and it is the half that gets EDITED.** `status.md` is what this
     # check was built for; these four are where the architecture campaigns' state

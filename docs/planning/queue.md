@@ -997,44 +997,24 @@ admitted prepared value. Prefer deleting the second truth to synchronizing it.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
-### D-SCENARIO-IDENTITY — CLOSED 2026-09-16, the collision is already closed
+### D-SCENARIO-IDENTITY — CLOSED 2026-09-16
 
-**Owner:** performance/scenario tooling. **CLOSED** by measurement; nothing was
-implemented.
+**Owner:** performance/scenario tooling. Closed by measurement; nothing was
+implemented. Detail in git.
 
-⚠ **THE ROW SAID THE SUBJECT WAS NOT IN THE TREE. IT IS — IN A SUBMODULE.**
-`CombatScenario.cache_name()` and `scenario_key()` are in
-`tools/ambition_moveset_inspector/ambition_moveset_inspector/server.py`. A
-source inspection confined to `crates/` and `game/` cannot see them. ⇒ That was a
-finding about the earlier search's REACH, recorded here so the next "not located
-in the tree" row is checked against `tools/` before it is believed.
+⚠ **THE ROW SAID THE SUBJECT WAS NOT IN THE TREE. IT WAS — IN A SUBMODULE.**
+`CombatScenario.cache_name()` and `scenario_key()` live in
+`tools/ambition_moveset_inspector/`, which a source inspection confined to
+`crates/` and `game/` cannot see. ⇒ Check `tools/` before believing the next
+"not located in the tree".
 
-**THE ACCEPTANCE IS MET, by a stronger mechanism than the row proposed.** It asked
-for geometry identity IN the cache key. The cache instead refuses to serve an
-entry whose repository content differs at all: `_evidence_is_current` requires
-`source_identity == _repository_identity()`, which is `HEAD` plus
-`sha256(git diff HEAD + git status --porcelain -uall)`, and additionally requires
-the generator binary to be no newer than the cached stamp.
-
-MEASURED 2026-09-16 by moving content and reading the identity back:
-```
-before                          292d216bc…:9edae5b32418a4cd
-after editing a crate source    292d216bc…:8ef610bac33f066b
-after restore                   292d216bc…:9edae5b32418a4cd
-after editing the SUBMODULE     292d216bc…:2f7f7f5b920fc890
-after restore                   292d216bc…:9edae5b32418a4cd
-```
-⇒ Two scenario geometries cannot share a cached result, because differing content
-is differing `source_identity`. The submodule row is the one worth keeping: a
-change inside `tools/` moves the identity too, through
-`status --porcelain`'s dirty-submodule line.
-
-⭐ The cache key ALSO already hashes the whole request —
-`cache_name()` is `scenario_key(...)` plus `sha256(document())[:12]`, and
-`scenario_key`'s own docstring records two collisions it was widened to fix
-(caching by character alone, and `int(spacing)` putting 40.1 and 40.9 in one
-directory). The remaining question this row asked was about CONTENT, and content
-is covered by `source_identity` rather than by the key.
+The acceptance is met by a stronger mechanism than the row proposed: the cache
+refuses any entry whose repository content differs at all, because
+`_evidence_is_current` requires `source_identity == _repository_identity()` —
+`HEAD` plus `sha256(git diff HEAD + git status --porcelain -uall)`. MEASURED by
+moving content and reading it back: editing a crate source moves it, editing the
+SUBMODULE moves it too (through the dirty-submodule line), and restoring returns
+the original digest exactly.
 
 ### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence
 

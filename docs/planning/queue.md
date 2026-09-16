@@ -2062,11 +2062,28 @@ to be satisfiable by a frozen world, and its author gets no warning.
    touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
    maintainer ruling — a harness that panics on a dead session will red any arm
    that turns out to be relying on one, and the census above says none is.
-2. ⚠ A guard script is the WRONG shape here and the table above is why. The
-   property is "this arm's assertions are unsatisfiable by a frozen world", which
-   is not decidable by reading the source — six different mechanisms produced it
-   and a seventh would too. ⇒ If the contract moves into `step`, no guard is
-   needed; if it does not, no guard can be written.
+2. ⚠ A guard cannot DECIDE the property, and that stands: "this arm's assertions
+   are unsatisfiable by a frozen world" is not readable from source — six
+   mechanisms produced it in the table above and a seventh turned up when the
+   three unlisted arms were read (`a_move_keeps_its_occurrence_across_a_rewind`
+   compares the rollback reading for EQUALITY against a fixed-tick control whose
+   own floor is `reached > 0`).
+   ✔ **BUT A GUARD CAN STOP THE CENSUS ROTTING, WHICH IS ITEM 0'S WHOLE
+   COMPLAINT, AND ONE IS LANDED:**
+   `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`. It routes the decision
+   instead of making it — a sync-test arm either reads the health API or arrives
+   with a sentence naming what a frozen world breaks in it. Census today: **26
+   fixtures, 15 reading a health API, 9 adjudicated, 2 not arms.**
+   ⛔⛤ **THE POPULATION WAS ALREADY FIVE PAST THE 21 THIS ROW CERTIFIED, AND ONE
+   OF THEM WAS INVISIBLE TO THE SWEEP.** Four new arms arrived in `game/`, and the
+   26th is `examples/capability_demo/tests/rollback_round_trip.rs` — outside
+   `crates/` and `game/`, which is where the census looked. It reads the health API
+   and is safe, but *"21 arms, all safe"* was measured over a population that never
+   contained it. Same defect this row records one section up about `tools/`: a scan
+   root is a citation, and a member outside it reads as absent. The guard
+   enumerates `git ls-files`.
+   ⇒ Item 1 is still the real fix and still wants a maintainer. This only means
+   the twenty-seventh arm's author gets the warning item 0 says they do not.
 
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay
 

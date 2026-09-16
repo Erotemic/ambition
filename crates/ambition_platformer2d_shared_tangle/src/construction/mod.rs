@@ -1029,6 +1029,53 @@ impl TransactionId {
     pub fn from_raw(raw: String) -> Self {
         Self(raw)
     }
+
+    /// ⭐⭐ **WHAT TWO PEERS MAY COMPARE ABOUT A TRANSACTION IDENTITY: WHICH
+    /// CONTENT AND WHICH ROOM.**
+    ///
+    /// The stamp renders as `{binding}\t{room}\t{session}`. The session term is
+    /// a per-App activation count and the binding's epoch is a per-App
+    /// activation generation, so neither may be compared; the room is authored
+    /// and the content identity is a digest of the prepared definition, so both
+    /// may.
+    ///
+    /// ⛔⛤ **IT READS THE STAMP RATHER THAN THE PARTS, AND THAT IS A DELIBERATE
+    /// TRADE.** A checksum registrar hands the projection only `&TransactionId`,
+    /// which is a bare `String` — so the alternative is restructuring this type
+    /// into its parts across 61 uses plus the codec. The string is already the
+    /// canonical serialized form (`from_raw` is the codec's decode half), so
+    /// reading it is what the codec does too. ⚠ The cost is that the formatter in
+    /// [`ConstructionScope::transaction`] and the reader here can drift; the
+    /// round-trip arm in this module's tests mints a real stamp and projects it,
+    /// which is what holds them together.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        let mut fields = self.0.split('\t');
+        let binding = fields.next().unwrap_or("");
+        let room = fields.next().unwrap_or("");
+        // ⛔ THE SESSION FIELD IS DROPPED ON THE FLOOR, which is the point.
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("construction.transaction")
+            .bytes(Self::peer_binding_term(binding).as_bytes())
+            .bytes(room.as_bytes())
+            .finish()
+    }
+
+    /// The peer-stable part of a rendered binding, by its three shapes.
+    ///
+    /// ⚠ THE ORDER MATTERS AND IS WHAT MAKES IT UNAMBIGUOUS. `runtime-dynamic`
+    /// and an epoch with no content both lack the `|content:` segment while
+    /// meaning different things, so the constant is matched FIRST. Anything else
+    /// without the segment is content-derived with nobody stating which — which
+    /// is also what a synthetic `from_raw` value in a fixture lands on, and that
+    /// is the honest answer for one.
+    fn peer_binding_term(binding: &str) -> &str {
+        if binding == "runtime-dynamic" {
+            return "runtime-dynamic";
+        }
+        match binding.split_once('|') {
+            Some((_app_local_epoch, content)) => content,
+            None => "content-unstated",
+        }
+    }
 }
 
 impl std::fmt::Display for TransactionId {

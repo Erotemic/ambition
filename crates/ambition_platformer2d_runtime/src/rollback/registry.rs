@@ -508,7 +508,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// room but not epoch and session" needs it restructured into parts — a 61-use
 /// change, and the next reviewable step. `ContentBinding::peer_stable_summary`
 /// is the term it will project.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 192;
+/// ⭐⭐ 192 -> 193: `TransactionId` — the campaign's ORIGINAL finding — stopped
+/// comparing its whole string. It renders as `{binding}\t{room}\t{session}` and
+/// two of those three terms are per-App counts: the binding's content epoch and
+/// the owning session's activation stamp. The projection keeps the CONTENT
+/// IDENTITY and the ROOM and drops both.
+/// ⚠ THE STRING IS UNCHANGED AND MUST BE. It carries local ownership that the
+/// construction scope's gather filter and A10's candidate-vs-live separation both
+/// read; two sessions committing one room at one epoch once minted the same token
+/// and each classified the other's roots as its own. This is the split the
+/// campaign exists for, not a substitution — the snapshot is still the whole
+/// value, only the COMPARISON narrows.
+/// ⭐ It is the first COMPONENT to state a projection, which is why
+/// `rollback_component_canonical_checksum` had to exist first.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 193;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

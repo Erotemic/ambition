@@ -103,9 +103,18 @@ where
     registrar.rollback_component_canonical::<crate::body::BodyKinematics>(OWNER, "body.kinematics");
     registrar
         .rollback_component_canonical::<crate::sim_id::SimIdCounter>(OWNER, "body.sim_id_counter");
-    registrar.rollback_component_canonical::<crate::construction::TransactionId>(
+    // ⛔⛤ THE FIRST COMPONENT TO STATE A PEER PROJECTION. Its whole string was
+    // compared between peers while two of its three terms — the binding's
+    // app-local epoch and the owning session's activation count — are per-App.
+    // It snapshots WHOLE, so a rewind restores the local ownership the
+    // construction scope's gather filter and A10's candidate-vs-live separation
+    // both depend on; only the COMPARISON narrows.
+    registrar.rollback_component_canonical_checksum::<crate::construction::TransactionId>(
         OWNER,
         "component.construction_transaction_id",
+        "bevy_ggrs canonical codec snapshot + checksum over the content identity and the room \
+         only, excluding the host-local content epoch and session stamps",
+        crate::construction::TransactionId::peer_stable_checksum,
     );
     registrar.rollback_component_canonical::<crate::construction::SpawnOrigin>(
         OWNER,

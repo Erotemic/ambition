@@ -3708,7 +3708,7 @@ fn a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances()
 /// content FINGERPRINT, the schema fingerprint, stable room identity, canonical
 /// `SimId`s.
 #[test]
-fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
+fn a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so() {
     use crate::lifecycle::{SessionScopeId, SessionSpawnScope};
     use ambition_platformer2d_core::ContentEpoch;
 
@@ -3737,10 +3737,13 @@ fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
     let app_b = scope_of(7).transaction(session);
     assert_ne!(
         app_a, app_b,
-        "MEASURED GAP CLOSED? This arm records that a burned candidate epoch \
-         changes canonical transaction provenance for a mechanically identical \
-         world. If these now AGREE, canonical identity has been split from the \
-         host-local lineage token — delete this arm and assert the equality."
+        "a burned candidate epoch no longer changes the transaction STAMP. \
+         That is not the fix this campaign wants: the stamp carries local \
+         ownership and the construction scope's gather filter and A10's \
+         candidate-vs-live separation both read it. The peer/local split belongs \
+         in the PROJECTION, which \
+         `two_hosts_with_different_local_history_project_one_transaction_identity` \
+         holds."
     );
 
     // ⛔ PRIOR SESSIONS. Same content, same room; App A has played more
@@ -3749,10 +3752,12 @@ fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
     let none_prior = scope_of(7).transaction(SessionSpawnScope::scoped(SessionScopeId(1)));
     assert_ne!(
         many_prior, none_prior,
-        "MEASURED GAP CLOSED? This arm records that the number of PRIOR LOCAL \
-         GAMEPLAY SESSIONS changes canonical transaction provenance for a \
-         mechanically identical world. If these now AGREE, the same split has \
-         happened for `SessionScopeId` — delete this arm and assert the equality."
+        "the number of prior local gameplay sessions no longer changes the \
+         transaction STAMP. The stamp is supposed to depend on it — that is the \
+         defect this key exists to prevent, where two sessions committing one \
+         room at one epoch minted the same token and each classified the \
+         other's roots as its own. What must not depend on it is the PEER \
+         PROJECTION, which is held separately."
     );
 
     // ⚠ AND THE ROOM, WHICH IS THE FIELD THAT SHOULD DECIDE IT. Recorded beside
@@ -3862,4 +3867,119 @@ fn a_content_binding_states_which_content_as_well_as_which_generation() {
         .peer_stable_summary(),
         "the peer summary moves with the app-local activation generation"
     );
+}
+
+/// ⭐⭐ **THE ID-PEER ACCEPTANCE SHAPE, ON A REAL MINTED STAMP.**
+///
+/// Two Apps with different prior local history enter the same agreed session and
+/// commit the same room at the same content: their transaction identities differ
+/// as STRINGS — they must, the strings carry local ownership — and their peer
+/// projections agree.
+///
+/// ⛔ IT MINTS THROUGH `ConstructionScope::transaction` RATHER THAN BUILDING A
+/// STRING. The projection reads the rendered stamp, so the formatter and the
+/// reader are two halves that can drift; minting here is what holds them
+/// together. A hand-written string would test the reader against itself.
+#[test]
+fn two_hosts_with_different_local_history_project_one_transaction_identity() {
+    use ambition_platformer2d_core::{ContentEpoch, PeerContentIdentity};
+
+    let content = PeerContentIdentity::from_bytes([3u8; 32]);
+    let stamp = |epoch: u64, session: u64| {
+        ConstructionScope::in_generation(
+            ContentBinding::Content {
+                epoch: ContentEpoch(epoch),
+                content,
+            },
+            Some("hub".to_string()),
+        )
+        .transaction(crate::lifecycle::SessionSpawnScope::scoped(
+            crate::lifecycle::SessionScopeId(session),
+        ))
+    };
+
+    // Host A reloaded content 4 times and is on its 2nd session; host B reloaded
+    // 11 times and is on its 37th. Same agreed session, same room, same content.
+    let a = stamp(4, 2);
+    let b = stamp(11, 37);
+
+    // ⚠ THE PREMISE FIRST, or the agreement below is vacuous: the two hosts
+    // really did mint DIFFERENT identity strings.
+    assert_ne!(
+        a.as_str(),
+        b.as_str(),
+        "the two hosts minted the same stamp, so this arm proves nothing about \
+         a projection"
+    );
+    assert_eq!(
+        a.peer_stable_checksum(),
+        b.peer_stable_checksum(),
+        "two hosts that agree about the content and the room still disagree \
+         about the transaction identity's peer projection, so they would desync \
+         on construction provenance"
+    );
+
+    // ⛔ AND IT MUST STILL SEE THE TERMS IT KEEPS, or excluding the local ones
+    // would be satisfied by a constant.
+    let other_room = ConstructionScope::in_generation(
+        ContentBinding::Content {
+            epoch: ContentEpoch(4),
+            content,
+        },
+        Some("cellar".to_string()),
+    )
+    .transaction(crate::lifecycle::SessionSpawnScope::scoped(
+        crate::lifecycle::SessionScopeId(2),
+    ));
+    assert_ne!(
+        a.peer_stable_checksum(),
+        other_room.peer_stable_checksum(),
+        "two rooms share one projection, so the room is not reaching it"
+    );
+
+    let other_content = ConstructionScope::in_generation(
+        ContentBinding::Content {
+            epoch: ContentEpoch(4),
+            content: PeerContentIdentity::from_bytes([9u8; 32]),
+        },
+        Some("hub".to_string()),
+    )
+    .transaction(crate::lifecycle::SessionSpawnScope::scoped(
+        crate::lifecycle::SessionScopeId(2),
+    ));
+    assert_ne!(
+        a.peer_stable_checksum(),
+        other_content.peer_stable_checksum(),
+        "two different prepared contents share one projection, so the content \
+         identity is not reaching it"
+    );
+
+    // ⚠ AND THE THREE BINDING SHAPES MUST STAY APART. `runtime-dynamic` and an
+    // epoch with no stated content both lack the `|content:` segment; folding
+    // them together would let a summon agree with a room entity built outside a
+    // prepared session.
+    let unstated = ConstructionScope::in_generation(
+        ContentBinding::Content {
+            epoch: ContentEpoch(4),
+            content: PeerContentIdentity::default(),
+        },
+        Some("hub".to_string()),
+    )
+    .transaction(crate::lifecycle::SessionSpawnScope::scoped(
+        crate::lifecycle::SessionScopeId(2),
+    ));
+    let dynamic = ConstructionScope::in_generation(
+        ContentBinding::RuntimeDynamic,
+        Some("hub".to_string()),
+    )
+    .transaction(crate::lifecycle::SessionSpawnScope::scoped(
+        crate::lifecycle::SessionScopeId(2),
+    ));
+    assert_ne!(
+        unstated.peer_stable_checksum(),
+        dynamic.peer_stable_checksum(),
+        "a content-derived plan with no stated content agrees with a \
+         runtime-dynamic one"
+    );
+    assert_ne!(a.peer_stable_checksum(), unstated.peer_stable_checksum());
 }

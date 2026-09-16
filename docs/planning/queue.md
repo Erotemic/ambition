@@ -1125,18 +1125,35 @@ unpinned. The defect is an arm that asserts about SIMULATION state after N
 happened to run. ⇒ Separating the two needs each arm read, which this census does
 not do — it reports the population and the step count, which nobody had.
 
-⭐ **A CANDIDATE FOR THE "FAILS ONLY IN COMPANY" CLASS, offered as a mechanism to
-test rather than a conclusion.** The step count rises with wall time per
-`update()`, so a contended box takes MORE fixed steps than an idle one for the
-same arm — which is a machine-load-dependent world, the shape
-`triage/a-composition-acceptance-that-only-fails-in-company.md` and the
-intermittent `app_it` arm are both chasing. ⛔ Not asserted: neither of those has
-been shown to sit in this population, and checking is the next step rather than
-the finding.
+⭐ **THE MECHANISM HAS ALREADY COST THIS REPOSITORY WEEKS, WHICH IS THE
+ARGUMENT FOR THE ROW.** `composes_through_the_sdk.rs`'s `step_the_fixed_schedule`
+helper records it: *"MEASURED before this was pinned: 13 MB peak, 0.47s, ZERO
+fixed steps — the arms certified that the engine BUILDS and nothing else, and a
+deterministic capability panic read as a 50/50 flake for weeks."* ⇒ So an
+unpinned clock has already produced the exact symptom the fails-in-company class
+is chasing, and was already diagnosed once.
 
-**Next implementation:** give the nine the pattern `demo_shell_smoke` already
-ships — pin `TimeUpdateStrategy::ManualDuration(timestep)` and COUNT the fixed
-steps, so the arm fails when it steps nothing. ⛔ Pinning alone is half the fix:
+⛔ **AND THE OBVIOUS CONNECTION IS MEASURED AND DOES NOT HOLD — recorded so
+nobody spends the hour.** The natural next thought is that
+`triage/a-composition-acceptance-that-only-fails-in-company.md`'s subject,
+`a_host_that_omits_boss_encounters_still_builds_and_steps`, is in this
+population. It is NOT: it lives in `composes_through_the_sdk.rs`, which goes
+through `step_the_fixed_schedule` and therefore pins its clock and floors its own
+step count. Whatever makes that arm fail in company, it is not this. The same
+goes for the intermittent `app_it` arm, which drives the sim harness
+(`runtime.rs` pins with `ManualDuration`).
+
+⇒ What survives is narrower and still worth having: the step count rises with
+wall time per `update()`, so any UNPINNED arm sees a different number of ticks on
+a contended box than on an idle one. That is a real load-dependence, in the nine
+files below, and it is not yet tied to any observed flake.
+
+**Next implementation:** the repair already exists as a SHARED HELPER and should
+be reused rather than re-inlined — `step_the_fixed_schedule` in
+`game/ambition_app/tests/composes_through_the_sdk.rs` pins
+`TimeUpdateStrategy::ManualDuration` and asserts the steps happened. Its own doc
+states the rule this row needs: *"Pin the step, and then ASSERT THE STEP
+HAPPENED. The pin alone is not enough."* ⛔ Pinning alone is half the fix:
 a pinned arm that still never asserts a step ran is the same silent pass with a
 deterministic clock.
 

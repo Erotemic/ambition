@@ -1250,6 +1250,16 @@ about what peers must agree on — so it belongs to the maintainer rather than t
 patch. ⚠ It settles three systems, not one: the other two `persist_*` mirrors
 write the same resource from the same `Update` chain.
 
+⭐ **AND IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE.** A `SimTick`-gated grant
+that fires once at tick 20 runs the full 240 steps clean — tick 241, health `Ok`
+— with the bag column proving the grant fired (3 → 4 at step 40) rather than the
+row passing for the wrong reason. ⚠ The gate is `SimTick` and not a `Local`
+precisely because a `Local` is not restored by a rewind: the replay would skip a
+grant the original pass performed and manufacture its own divergence. ⇒ So one
+pickup does not desync on this evidence and the reproduction demonstrates the
+sustained case. WHY they differ is unexplained and nobody should read "single
+changes are safe" out of one measurement at one tick.
+
 ⚠ The dialog increment below is still costed and still unmeasured; nothing here
 touches it.
 

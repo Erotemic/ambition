@@ -780,32 +780,38 @@ in the cache key at the owner boundary.
 **Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
 cached result accidentally.
 
-### ORPHAN-ARMS — 36 test arms that no `mod` line compiles
+### ORPHAN-ARMS — CLOSED 2026-09-16, and the coverage was real
 
-**Owner:** `ambition_boss_encounter`.
+**Owner:** `ambition_boss_encounter`. **CLOSED.** `pattern/tests.rs` is declared
+(`#[cfg(test)] mod tests;` in `pattern/mod.rs`) and its 36 arms run:
+`cargo test -p ambition_boss_encounter --lib pattern::tests::` → **36 passed, 0
+failed**, and the crate's lib lane went 157 → 193.
 
-**Current state:** `crates/ambition_boss_encounter/src/pattern/tests.rs` holds 36
-`#[test]` arms and is declared by nothing. `pattern/mod.rs` names six child
-modules and `tests` is not among them; the three sibling `mod tests;` lines in
-that directory (`control_flow.rs`, `content_schema.rs`, `validator.rs`) each
-pull in their OWN `tests` subdirectory. So the file has never compiled and its
-arms have never run.
+⛔⛤ **IT WAS A CARVE, NOT NEGLECT, AND THAT IS WHY NOTHING NOTICED.** The pattern
+TYPES (`BossPattern`, `BossPatternStep`, `BossAttackPattern`, …) moved to
+`ambition_characters::brain::boss_pattern`; the tick FUNCTIONS stayed in
+`ambition_boss_encounter::pattern`. The test file was left in the crate where the
+functions are, and its `use super::*` reached only that half — so it would not
+have compiled anyway. Nothing said so, because a file no `mod` line declares is
+not a build error: the compiler never hears of it.
 
-⛔ **THIS IS THE GREEN-REPORT FAILURE IN ITS PUREST FORM.** The arms exist, they
-are written, they are named after real claims, and `cargo test` reports every
-one of them as neither passed nor failed because it has never heard of them. A
-reader counting test files sees coverage that does not exist.
+⚠ **AND THE COVERAGE HAD GENUINELY VANISHED, MEASURED BEFORE DECIDING.**
+`ambition_characters::brain::boss_pattern` had **ZERO** test arms and none of the
+36 arm names. So this was not a duplicate to delete — it was the only test of
+that behaviour, silent for three weeks. ⇒ The file stays where the functions are
+and gains two imports it never needed while uncompiled:
+`ambition_characters::brain::boss_pattern::*` for the moved types, and
+`ambition_platformer2d_core as ae`, this crate's per-file engine alias.
 
-Found 2026-09-16 while resolving every name-excluded file to its declaration
-(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_test_paths.py` so the
-count cannot grow quietly, which is NOT the same as fixed.
+⭐ **ALL 36 PASSED ON THEIR FIRST EVER RUN**, so there was no latent defect to
+report — but that is a fact about this file, not a reason to trust the next one.
+The entry is dropped from `scripts/tests/test_test_paths.py`, whose `orphans`
+list now asserts EMPTY rather than pinning a known one.
 
-**Next implementation:** decide whether the arms still state something true of
-`pattern/`, then either declare the module (`#[cfg(test)] mod tests;` in
-`pattern/mod.rs`) and fix whatever fails, or delete the file. ⚠ Do not declare
-it and then waive the failures — arms that never ran have never been green, so
-a first run is evidence, not a regression. Drop the entry from the arm's
-`orphans` list in the same commit.
+⚠ **THE CLASS IS NOT CLOSED BY THIS.** A name rule cannot see it: what removes a
+file from a build is the `#[cfg(test)]` on its `mod` line, which lives in the
+PARENT. The guard that finds these resolves every name-excluded file to its
+declaration, and it is the reason this one surfaced at all.
 
 ### GUARD-CORPUS — five copies of "what is a test file", drifted
 
@@ -817,7 +823,8 @@ followed in `e660c2fc4`.
 
 ⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
 work was done twice, independently, down to the same four measurements — one as
-`lib/test_paths.py`, one as `lib/rust_sources.py`. The duplicate was deleted and
+`lib/test_paths.py`, one as `lib/rust_sources.py`. <!-- cite-ok: the duplicate is named because it was DELETED; a resolvable citation would mean it still existed -->
+The duplicate was deleted and
 its two non-overlapping pieces folded in: a brace-depth guard on the
 `#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
 with an owner and a "next implementation" still says nothing about whether

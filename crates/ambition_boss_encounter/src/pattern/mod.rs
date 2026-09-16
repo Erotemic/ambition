@@ -32,3 +32,18 @@ pub mod tick;
 pub mod validator;
 
 pub use tick::{tick_boss_pattern, tick_boss_pattern_via_state_machine};
+
+// ⛔⛤ **`tests.rs` SAT BESIDE THIS FILE FOR THREE WEEKS WITH NO `mod` LINE
+// NAMING IT, SO ITS 36 ARMS HAD NEVER RUN.** Every sibling declares its own
+// (`control_flow.rs` declares `control_flow/tests.rs`, and so on); this one was
+// declared by nobody. A file nothing declares is not a build error — the
+// compiler never hears of it — so `cargo test` reported those arms as neither
+// passed nor failed, and `ambition_characters::brain::boss_pattern`, where the
+// types they exercise now live, has zero test arms of its own.
+//
+// ⚠ A NAME RULE CANNOT SEE THIS. What removes a file from a build is the
+// `#[cfg(test)]` on its `mod` line, which lives in the PARENT — so a scanner
+// that classifies `tests.rs` by its name calls it test-only either way, whether
+// or not anything compiles it.
+#[cfg(test)]
+mod tests;

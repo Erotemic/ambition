@@ -165,7 +165,13 @@ def test_no_file_excluded_by_name_is_compiled_into_a_release_build() -> None:
         "every gate that skips them is skipping shipping code:\n  "
         + "\n  ".join(shipping)
     )
-    assert orphans == ["crates/ambition_boss_encounter/src/pattern/tests.rs"], (
+    # ⛔⛤ **THE LIST IS EMPTY AND MUST STAY EMPTY.** Its one entry,
+    # `ambition_boss_encounter/src/pattern/tests.rs`, was declared on 2026-09-16
+    # and its 36 arms passed on their first ever run. An entry here is a file
+    # whose arms `cargo test` reports as neither passed nor failed, because it
+    # has never heard of them — so a reader counting test files sees coverage
+    # that does not exist.
+    assert orphans == [], (
         "a test file no `mod` line declares never compiles, so its arms never "
         f"run and nothing says so: {orphans}"
     )

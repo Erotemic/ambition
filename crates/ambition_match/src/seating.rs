@@ -126,7 +126,9 @@ impl SessionMatchOrdinal {
     /// owner tag. That is the review's recommendation and the right shape; it is
     /// a carve, not a checksum change.
     pub fn peer_stable_checksum(&self) -> u64 {
-        self.next
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.ordinal_mint")
+            .u64(self.next)
+            .finish()
     }
 
     /// The two facts, for the wire format.
@@ -190,25 +192,66 @@ impl MatchScoped {
 }
 
 /// Stable activation identity used by ruleset-local per-match state.
-/// It derives from rollback-restored session and activation tick, so stale state fails identity match.
+///
+/// ⭐⭐ **IT HAS TWO HALVES AND THEY ANSWER DIFFERENT QUESTIONS.** The LOCAL half
+/// (`session`, `activated_on`) distinguishes one match from the next on one
+/// machine, which is what `belongs_to` and the settlement staleness checks need.
+/// The PEER half (`ordinal`) is which match of the agreed session this is, which
+/// is what a checksum may compare.
+///
+/// ⛔⛤ IT HELD ONLY THE LOCAL HALF UNTIL 2026-09-15, and that made the four
+/// projections over it FALSE-NEGATIVE. Removing the local stamp from a checksum
+/// was correct and left nothing identifying WHICH match the value described, so
+/// two peers could hold the same verdict stamped for DIFFERENT matches and
+/// checksum identically — while `settled(active)` answered `true` on one and
+/// `false` on the other. Identical checksums over state that simulates
+/// differently is the worst kind of agreement. Found by the GPT architecture
+/// review of 2026-09-15.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MatchInstance {
-    /// The gameplay session the cast was built in.
+    /// The gameplay session the cast was built in. LOCAL.
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
-    /// The sim tick it was built on.
+    /// The sim tick it was built on. LOCAL — see [`MatchInstance::activation_tick`].
     activated_on: Option<u64>,
+    /// ⭐ WHICH MATCH OF THE AGREED SESSION — the one term two peers share. It
+    /// comes from `SessionMatchOrdinal`, which restarts at zero for everyone who
+    /// joins a session together.
+    ///
+    /// `None` in a composition with no ordinal authority. ⚠ Two `None`s compare
+    /// equal to each other, which is honest: a fixture with no identity to name
+    /// cannot distinguish its matches, and that is a property of the fixture.
+    ordinal: Option<u64>,
 }
 
 impl MatchInstance {
-    /// The two facts, for the wire format. See `snapshot_impls`.
+    /// The three facts, for the wire format. See `snapshot_impls`.
     #[doc(hidden)]
     pub fn parts(
         &self,
     ) -> (
         Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         Option<u64>,
+        Option<u64>,
     ) {
-        (self.session, self.activated_on)
+        (self.session, self.activated_on, self.ordinal)
+    }
+
+    /// ⭐⭐ **WHICH MATCH OF THE AGREED SESSION THIS IS — THE ONE TERM A PEER
+    /// CHECKSUM MAY READ.** Every projection over a `MatchInstance` uses this and
+    /// nothing else from it.
+    pub fn peer_match_id(&self) -> Option<u64> {
+        self.ordinal
+    }
+
+    /// The peer half as checksum bytes: a presence tag and the ordinal.
+    ///
+    /// ⚠ TAGGED, so "no ordinal authority" and "ordinal 0" are different
+    /// answers. Folding them would make a bare fixture agree with the first
+    /// match of a real session.
+    pub fn peer_match_digest(&self) -> u64 {
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.instance")
+            .opt_u64(self.ordinal)
+            .finish()
     }
 
     /// ⛔⛔ **THIS IS NOT A PEER-STABLE TERM, AND CALLING IT ONE WAS THE
@@ -235,10 +278,12 @@ impl MatchInstance {
     pub fn from_snapshot(
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         activated_on: Option<u64>,
+        ordinal: Option<u64>,
     ) -> Self {
         Self {
             session,
             activated_on,
+            ordinal,
         }
     }
 }
@@ -254,8 +299,18 @@ mod match_context_tests {
     fn the_peer_stable_checksum_ignores_session_and_seat_topology() {
         use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
+        // ⚠ THE ORDINAL IS FIXED AT MATCH 3 while the local halves vary — that
+        // is what two peers describing one match of one agreed session look
+        // like. It used to be `None` here, which made the arm below unable to
+        // see whether the peer term reached the projection at all.
         let receipt = |session: u64, topology: Option<u64>| {
-            ActiveMatch::activated(2, topology, Some(SessionScopeId(session)), Some(4_200), None)
+            ActiveMatch::activated(
+                2,
+                topology,
+                Some(SessionScopeId(session)),
+                Some(4_200),
+                Some(3),
+            )
         };
         // Two hosts: different prior session counts, different local device
         // topology generations, same match.
@@ -266,11 +321,31 @@ mod match_context_tests {
              local seat-topology generation, so two peers running one match \
              would disagree"
         );
+        // ⛔⛤ AND IT MUST SEE WHICH MATCH OF THE AGREED SESSION. The seat count
+        // alone is peer-stable and NOT identifying: a receipt for match 3 and one
+        // for match 4 with identical seating compared equal until 2026-09-15, so
+        // a peer that had advanced a match agreed with one that had not.
+        assert_ne!(
+            receipt(1, None).peer_stable_checksum(),
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), Some(4))
+                .peer_stable_checksum(),
+            "a receipt for match 3 and one for match 4 with the same seating \
+             share one checksum"
+        );
+        // ⚠ AND AN ABSENT ORDINAL IS NOT MATCH ZERO — a fixture with no ordinal
+        // authority must not agree with a real session's first match.
+        assert_ne!(
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), Some(0))
+                .peer_stable_checksum(),
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(4_200), None)
+                .peer_stable_checksum(),
+            "an absent ordinal projects as ordinal 0"
+        );
         // ⛔ AND IT MUST STILL SEE THE MECHANICAL FACTS, or excluding the local
         // ones would be satisfied by a constant.
         assert_ne!(
             receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200), None)
+            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200), Some(3))
                 .peer_stable_checksum(),
             "a two-seat and a three-seat match share one checksum, so the seat \
              count is not reaching the projection"
@@ -281,7 +356,7 @@ mod match_context_tests {
         // by different routes stamp one match differently.
         assert_eq!(
             receipt(1, None).peer_stable_checksum(),
-            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900), None)
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900), Some(3))
                 .peer_stable_checksum(),
             "the receipt's checksum moves with the ABSOLUTE sim tick the match \
              activated on"
@@ -397,7 +472,12 @@ mod match_context_tests {
     /// ⇒ WHEN THIS ARM FLIPS TO `assert_eq`, the mint has become session-OWNED
     /// state (a `MatchOrdinalMint` under the session root, which starts at zero
     /// because a new session's state is new) and `SessionMatchOrdinal` should
-    /// leave `RECORDED_DIVERGENCE` in `game/ambition_app/tests/id_peer_audit.rs`.
+    /// leave the standing ID-PEER audit's `RECORDED_DIVERGENCE` list.
+    ///
+    /// ⚠ The guard lives in the composition crate and cannot be named from here
+    /// — `engine.ambition_match-source-purity` forbids this crate from knowing
+    /// the app exists, which is right: a data crate that names its consumer has
+    /// a dependency its manifest does not declare. Search the list by name.
     #[test]
     fn two_peers_who_played_different_prior_matches_disagree_before_the_first_activation() {
         let mut veteran = SessionMatchOrdinal::default();
@@ -411,7 +491,7 @@ mod match_context_tests {
             fresh.peer_stable_checksum(),
             "the lazy-reset window has closed — if that is deliberate, flip this \
              arm to assert_eq and drop SessionMatchOrdinal from \
-             RECORDED_DIVERGENCE in game/ambition_app/tests/id_peer_audit.rs"
+             the standing ID-PEER audit's RECORDED_DIVERGENCE list"
         );
     }
 
@@ -637,23 +717,31 @@ impl ActiveMatch {
         MatchInstance {
             session: self.session,
             activated_on: self.activated_on,
+            ordinal: self.ordinal,
         }
     }
 
-    /// Which frozen topology decided this match's seating, if a session had
-    /// frozen one when the roster was built.
-    /// What two PEERS may compare about this receipt.
+    /// What two PEERS may compare about this receipt: the agreed seat count and
+    /// WHICH match of the agreed session it is.
     ///
     /// `session` is a per-App activation count and `seat_topology` is a LOCAL
     /// device-topology generation that moves when a host re-captures an
     /// identical set of seats — neither is mechanical identity, so neither may
-    /// enter a checksum. The seat COUNT and the activation tick are peer-stable.
+    /// enter a checksum.
+    ///
+    /// ⛔⛤ IT HASHED THE SEAT COUNT ALONE for a day. That is peer-stable and it
+    /// is not IDENTIFYING: a receipt for match 1 and a receipt for match 4 with
+    /// the same seating compared equal, so a peer that had advanced a match
+    /// agreed with one that had not.
     pub fn peer_stable_checksum(&self) -> u64 {
-        let mut bytes = Vec::with_capacity(8);
-        bytes.extend_from_slice(&(self.seats as u64).to_le_bytes());
-        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("match.active_receipt")
+            .u64(self.seats as u64)
+            .u64(self.instance().peer_match_digest())
+            .finish()
     }
 
+    /// Which frozen topology decided this match's seating, if a session had
+    /// frozen one when the roster was built.
     pub fn seat_topology(&self) -> Option<u64> {
         self.seat_topology
     }

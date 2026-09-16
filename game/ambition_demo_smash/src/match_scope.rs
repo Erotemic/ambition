@@ -25,12 +25,18 @@ use ambition_platformer2d::versus_match::{ActiveMatch, MatchScoped};
 
 /// The localizer's window on a match-scoped object: the identity it carries.
 pub fn match_scoped_probe(scoped: &MatchScoped) -> u64 {
-    let (session, activated_on) = scoped.0.parts();
-    // Two optional facts folded into one word: the session it belongs to and the
-    // tick it was activated on. Absent reads as zero, which is what a
-    // composition with no session lifecycle stamps.
+    let (session, activated_on, ordinal) = scoped.0.parts();
+    // Three optional facts folded into one word: the session it belongs to, the
+    // tick it was activated on, and WHICH match of the agreed session it is.
+    // Absent reads as zero, which is what a composition with no session
+    // lifecycle stamps.
+    //
+    // ⚠ THIS IS A LOCALIZER WINDOW, NOT A CHECKSUM. It deliberately shows the
+    // local halves, because what a human debugging a stray object needs to see
+    // is which activation on THIS machine owns it. Nothing compared between
+    // peers may be built this way — see `MatchInstance::peer_match_digest`.
     let session = session.map(|s| s.0 as u64).unwrap_or(0);
-    session.rotate_left(32) ^ activated_on.unwrap_or(0)
+    session.rotate_left(32) ^ activated_on.unwrap_or(0) ^ ordinal.unwrap_or(0).rotate_left(16)
 }
 
 /// Stamp a freshly spawned object with the match that created it.

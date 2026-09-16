@@ -460,7 +460,40 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
 /// holds it, and closing it means making the mint session-OWNED state rather
 /// than an App-global resource with an owner tag.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 189;
+/// ⛔⛤ 189 -> 190: the four `MatchInstance`-stamped projections were
+/// FALSE-NEGATIVE. Excluding the local stamp from a peer checksum was right and
+/// it left nothing saying WHICH match the value described, so a verdict, a
+/// sudden-death latch or a clock belonging to the PREVIOUS match checksummed
+/// identically to one belonging to the live match — while `settled(active)` and
+/// `entered(active)` answered differently, because those compare the local
+/// instance. Two peers could hold identical checksums over state that simulates
+/// differently, which is worse than a checksum that disagrees: it HIDES a
+/// desync instead of reporting one.
+/// ⭐ `MatchInstance` now carries both halves. The LOCAL half (`session`,
+/// `activated_on`) still decides staleness and `belongs_to`; the PEER half is
+/// the session-relative ordinal, and `peer_match_digest` is the only part of the
+/// instance any projection may read. All four projections now hash it:
+/// seats + match, verdict + match, latch + match, elapsed + match.
+/// ⚠ The wire format grew with it — the ordinal travels in every codec that
+/// encodes a `MatchInstance`, so a rewind restores which match a value is for.
+/// Found by the GPT architecture review of 2026-09-15, which named this a
+/// false-NEGATIVE checksum bug beside the false-POSITIVE one at 188 -> 189.
+/// ⭐⭐ 190 -> 191: the six hand-rolled peer-checksum projections collapsed onto
+/// one owner, `ambition_platformer2d_core::snapshot::PeerDigest`. No projection
+/// changed WHICH fields it compares; all of them changed how those fields are
+/// encoded, so the values differ and peers on two versions would disagree.
+/// ⛔ WHAT WAS THERE: a raw field returned unhashed, a `Vec` plus
+/// `extend_from_slice`, a wrapping-multiply by a constant, a byte-writer, and two
+/// variants of a local `peer_stable_digest` — three hashing strategies for one
+/// job, and only ONE of the six carrying a domain tag. Every projection defect
+/// this campaign found was a projection encoding something almost the same way as
+/// its neighbour, `CheckpointOperationKey`'s three spellings worst of all.
+/// ⚠ Two rules are now structural instead of remembered: a domain is required,
+/// and an optional writes a presence tag so absent never equals zero. The second
+/// one caught a live defect in the same pass — `LiveMatchTicks` folded an absent
+/// match through `unwrap_or(0)`, so a clock belonging to NO match agreed with one
+/// belonging to a match whose digest happened to be zero.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 191;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -290,11 +290,31 @@ storage kind against source on each `--maintenance` run.
 | room state | `RoomSet`, `RoomGeometry` | Components (the ledger records `RoomSet` as *on SessionRoot*) |
 
 ⛔ **SO "SEPARATE QUEUED WRITES" DESCRIBES ONE VALUE, NOT SIX.** Five of the six
-are already entity-carried; the collapse this row proposes is largely a
-collapse that has happened. What remains on this axis is `SessionMechanics` and
-the question of whether those five components all hang off the SAME entity and
-change on the same edge — which this pass did NOT measure and which is the right
-first day's work for whoever starts C05.
+are already entity-carried; the collapse this row proposes is largely a collapse
+that has happened.
+
+⭐⭐ **AND THEY DO HANG OFF ONE ENTITY, FROM ONE LOWERING.**
+`PlatformerSessionWorld` is a `#[derive(Bundle)]` of the session root's mutable
+components — `catalogs`, `room_set`, `geometry`, `active_room`,
+`starting_character`, `initial_body`, `requests` — and its own doc says it is
+*"constructed only by lowering an immutable `PreparedPlatformerSource`"*. It is
+built at `provider/src/lifecycle.rs:2166` as
+`prepared_content.source().instantiate_live()`, in the same function that takes
+`prepared_content.identity()` and, under the `ldtk` feature, installs the LDtk
+index as *"a SEPARATE component on the same root by the road that installed the
+format, so a game that uses no such format carries nothing for it"*.
+`ActiveContentBinding` is inserted on that same `session_root`.
+
+⇒ **ROOM STATE, PREPARED CONTENT, THE PREPARED IDENTITY, THE LDTK INDEX AND THE
+CONTENT BINDING ALL LAND ON ONE ENTITY, DERIVED FROM ONE PREPARED SOURCE,
+BEFORE PUBLICATION.** The row's premise — six values that "do not all change
+under one current verdict" — is substantially stale.
+
+⚠ **WHAT IS GENUINELY LEFT, and it is one item plus one unmeasured edge.**
+`SessionMechanics` is the only App global of the six. And the `ActiveContentBinding`
+insert lives in `actor_monolith/src/session/setup.rs` while the bundle is built in
+`provider/src/lifecycle.rs` — same root, TWO SITES, and whether they are on the
+same edge is NOT measured here.
 
 ⚠ Two caveats on the table. `PreparedContent` also names a non-ECS struct in
 `ambition_content_pack`, so the Component is the runtime projection rather than

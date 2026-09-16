@@ -2200,19 +2200,15 @@ impl PlatformerSessionBuilder<'_, '_> {
         // ⛔ THE CANDIDATE'S OWN ROOT, spawned through the candidate ownership
         // context so it and everything built under it are hidden together.
         //
-        // ⚠ The `SimId` is the SAME one `spawn_world_for` mints — the activation
-        // identity, which the router now reserves when the route goes pending.
-        // A10 deliberately does not re-key it to something more convenient; that
-        // is the peer-stable identity campaign's question.
+        // ⚠ The `SimId` is the SAME one `spawn_world_for` mints, and sharing it
+        // is deliberate: a hidden candidate carries the live root's identity
+        // until it replaces it. See
+        // `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`.
         //
-        // ⛔⛤ AND THE ANSWER IS THAT IT IS WRONG TODAY, measured 2026-09-15:
-        // `ShellActivationId` is a per-App route-activation count, the root is
-        // rollback-anchored through `RoomSet`, and `entity.sim_id` is
-        // `component-canonical` — so the count is inside the peer checksum.
-        // Two hosts agreeing about a session still name its root differently.
-        // `two_hosts_with_different_route_histories_name_the_session_root_differently`
-        // (`ambition_game_shell::session::tests`) holds it on the other mint,
-        // and re-keying must fix BOTH sites: this one and `spawn_world_for`.
+        // ⭐ IT IS A CONSTANT NOW. It was keyed on `ShellActivationId`, a per-App
+        // route-activation count, inside a `component-canonical` comparison — see
+        // the mint in `ambition_game_shell::session::spawn_world_for` for the
+        // measurement that says the count was disambiguating nothing.
         use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
         let world = self
             .commands
@@ -2224,8 +2220,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         experience_id.as_str()
                     )),
                     ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
-                        "session",
-                        &activation_id.0.to_string(),
+                        "session", "root",
                     ),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
                     // The bare epoch rides alongside the identity that defines it,
@@ -2292,7 +2287,19 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // See `GenerationMechanics::of`.
                         &ambition_platformer2d_actor_monolith::session::mechanics::
                             GenerationMechanics::of(mechanical),
-                        prepared_identity.epoch,
+                        // ⭐ THE ACTIVATION GENERATION, BOTH HALVES, FROM THE
+                        // ONE VALUE THAT HOLDS THEM. `PreparedContentIdentity`
+                        // carries `epoch` and `fingerprint` side by side; naming
+                        // only the epoch here published a session binding whose
+                        // peer half was zero, and a later hot reload — which does
+                        // state both — was refused against it as stale with the
+                        // epochs equal.
+                        ambition_platformer2d_shared_tangle::construction::ContentBinding::content(
+                            prepared_identity.epoch,
+                            ambition_platformer2d_core::PeerContentIdentity::from_bytes(
+                                *prepared_identity.fingerprint.as_bytes(),
+                            ),
+                        ),
                         None,
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session

@@ -259,24 +259,35 @@ impl ActiveGameplaySession {
                         "{} gameplay session world",
                         activation.experience_id.as_str()
                     )),
-                    // The root is rollback-anchored (it carries the room set)
-                    // and there is one per activation: a derived identity, so
-                    // the identity census admits no waiver (S4).
+                    // ⭐⭐ **A CONSTANT, BECAUSE THERE IS NEVER A SECOND VISIBLE
+                    // ROOT TO BE DISTINGUISHED FROM.** The key was
+                    // `ShellActivationId` — a per-App count of how many shell
+                    // routes THIS process has activated, menus included — while
+                    // the root carries `RoomSet` (so `require_rollback` anchors
+                    // it) and `entity.sim_id` is `component-canonical`. The whole
+                    // string was compared between peers, so two hosts that agreed
+                    // completely about a session named its root `session:4` and
+                    // `session:11` solely because one visited more routes.
                     //
-                    // ⛔⛤ AND THE KEY IS A HOST-LOCAL ROUTE COUNTER, WHICH MAKES
-                    // THIS AN OPEN ID-PEER DEFECT. `ShellActivationId` counts
-                    // how many shell routes THIS process has activated, menus
-                    // included; the root carries `RoomSet` so
-                    // `require_rollback` anchors it; and `entity.sim_id` is
-                    // `component-canonical`, so the WHOLE string is compared
-                    // between peers. Two hosts that agree about a session name
-                    // its root `session:4` and `session:11` because one visited
-                    // more routes. Measured by
-                    // `two_hosts_with_different_route_histories_name_the_session_root_differently`
-                    // (`session::tests`), which flips when this is re-keyed.
+                    // ⛔ THE COUNT WAS NOT DISAMBIGUATING ANYTHING. A session
+                    // identity only has to be unique inside the world a checksum
+                    // compares, and `shell_host_lifecycle`'s `assert_in_game` /
+                    // `assert_home` pin `session_roots == 1` and `== 0` at every
+                    // point of a four-session lifecycle, in the rollback variant
+                    // too. An A10 candidate root deliberately SHARES the live
+                    // root's identity while hidden — `InactiveCandidate` keeps it
+                    // out of the capture population — and an unhidden duplicate
+                    // is refused as `BaselineCaptureError::DuplicateIdentity`.
+                    //
+                    // ⚠ So the invariant this rests on is *"exactly one session
+                    // root is visible"*, and it is asserted rather than assumed.
+                    // A future residency that keeps two PUBLISHED session worlds
+                    // alive at once breaks this, and would have broken the
+                    // activation count too — a peer does not share your
+                    // retirement schedule, so a lingering root is a divergence
+                    // whatever it is named.
                     ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
-                        "session",
-                        &activation.activation_id.0.to_string(),
+                        "session", "root",
                     ),
                     SessionRoot(scope),
                     GameplaySessionWorldRoot {

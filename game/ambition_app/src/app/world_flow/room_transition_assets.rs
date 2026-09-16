@@ -1583,7 +1583,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     &construction_recipes,
                     &character_catalog,
                     &mechanics,
-                    ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                    // The prefetch publishes no content either — see the
+                    // transition road in `room_transition/loading.rs`.
+                    ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(
+                        ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                    ),
                     active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE PREFETCH DELIBERATELY REMEMBERS NOTHING, and

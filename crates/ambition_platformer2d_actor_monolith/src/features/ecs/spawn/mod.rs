@@ -242,16 +242,20 @@ impl<'a> ActorConstructionContext<'a> {
         recipes: &'a crate::construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
         sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        content_epoch: ambition_platformer2d_core::ContentEpoch,
+        // ⛔ BOTH HALVES OF THE GENERATION, NOT ONLY THE EPOCH. A caller used to
+        // hand over a bare `ContentEpoch` and this constructor filled the peer
+        // half with the zero value, which is how activation came to publish a
+        // binding no reload could match. See `ContentBinding::content`.
+        content: ambition_platformer2d_shared_tangle::construction::ContentBinding,
     ) -> Self {
         Self {
             recipes,
             characters,
             sheets,
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content { epoch: content_epoch, content: Default::default() },
+            binding: content,
             // A plan states ONE generation until a caller says otherwise;
             // `for_room_construction` is the only road that can separate them.
-            incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content { epoch: content_epoch, content: Default::default() },
+            incoming: content,
             prepared: None,
             brain_profiles: None,
             continuity: None,
@@ -298,7 +302,7 @@ impl<'a> ActorConstructionContext<'a> {
         // WHAT THEY LOOK LIKE and WHAT THEY ARE — the generation's own sheets and
         // prepared cast, from the one owner that has them.
         mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
-        content_epoch: ambition_platformer2d_core::ContentEpoch,
+        content: ambition_platformer2d_shared_tangle::construction::ContentBinding,
         // The generation the SESSION is actually running, when the caller knows
         // it. A room is rebuilt from content the active binding already
         // defines, so stating a default sentinel instead makes every plan a
@@ -327,9 +331,9 @@ impl<'a> ActorConstructionContext<'a> {
         // generation-bound input the identity describes — and a parameter a
         // caller supplies is exactly how the two come apart.
     ) -> Self {
-        let mut context = Self::new(recipes, characters, mechanics.sheets(), content_epoch);
+        let mut context = Self::new(recipes, characters, mechanics.sheets(), content);
         if let Some(active) = active_binding {
-            // ⛔ THE EXPECTED-LIVE HALF ONLY. `incoming` keeps `content_epoch` —
+            // ⛔ THE EXPECTED-LIVE HALF ONLY. `incoming` keeps `content` —
             // the generation this plan's CONTENT is, which is what its roots are
             // stamped with. For a transition the two are the same value stated
             // twice; for a replacement they are the whole point.

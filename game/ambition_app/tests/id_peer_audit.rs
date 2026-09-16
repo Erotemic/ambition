@@ -22,7 +22,7 @@
 //! |---|---|
 //! | authoritative RNG | boss `PatternRng` CLEAN (`encounter_id` + rollback-visible `step_index`); `seed_from_id` CLEAN (FNV over an authored id); the smash match roster seed was NOT and now draws from a peer-agreed match ordinal |
 //! | contact / projectile identity | `MoveOccurrence` is body-local and starts at 0; `SimId`/`SimIdCounter` derive from parent + construction order — but `SimId::match_spawn` embedded the absolute activation tick in a `component-canonical` identity STRING, which no carrier-type list could see |
-//! | canonical identity PROVENANCE | ⛔ OPEN. The session-world root is minted `SimId::singleton("session", activation_id)` on BOTH roads (`ambition_game_shell::session::spawn_world_for` and the A10 candidate road in `ambition_platformer2d_provider`'s `lifecycle.rs`), and `ShellActivationId` is a per-App route-activation count. The root carries `RoomSet`, so `require_rollback` anchors it, and `entity.sim_id` is `component-canonical`. Held by `two_hosts_with_different_route_histories_name_the_session_root_differently` (`ambition_game_shell::session::tests`) |
+//! | canonical identity PROVENANCE | ✔ CLOSED for the session root, 2026-09-16. Both mints (`ambition_game_shell::session::spawn_world_for` and the A10 candidate road in `ambition_platformer2d_provider`'s `lifecycle.rs`) keyed it on `ShellActivationId`, a per-App route-activation count, inside a `component-canonical` comparison. Both are `SimId::singleton("session", "root")` now: the count disambiguated nothing, because exactly one session root is ever visible. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically` (`ambition_game_shell::session::tests`). ⚠ This class is invisible to the type census below — the defect is a PROVENANCE, which is why it is a value-level arm on the production road |
 //!
 //! ⛔⛤ THAT LAST ROW IS A CLASS THIS FILE STRUCTURALLY CANNOT GUARD. Everything
 //! below censuses registered TYPE NAMES, and `SimId` is a type that is SUPPOSED
@@ -108,13 +108,11 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
 /// in the owning crate (`the_verdict_checksum_ignores_the_session_count`,
 /// `the_peer_stable_checksum_ignores_session_and_seat_topology`, …). The guard
 /// holds the registration; the arms hold the function body.
-/// Kinds whose checksum is a stated projection rather than the whole value.
-const PROJECTED_CHECKSUM_KINDS: &[&str] = &[
-    "ComponentCanonicalCustomChecksum",
-    "ResourceCanonicalCustomChecksum",
-    "ResourceCloneCustomChecksum",
-    "ComponentCloneCustomChecksum",
-];
+/// ⛔ THE KIND LIST THAT USED TO LIVE HERE IS NOW
+/// `RollbackEntryKind::uses_peer_projection`. It omitted
+/// `ComponentCanonicalCustomChecksum` from the day that variant existed, which
+/// is the same failure as the `CHECKSUMMED_KINDS` list this guard already lost
+/// once. A predicate beside the variant cannot be forgotten; a list here can.
 
 const PEER_STABLE_PROJECTION: &[&str] = &[
     // `ActiveMatch::peer_stable_checksum` projects the agreed seat count and the
@@ -272,24 +270,55 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         offenders.join("\n  ")
     );
 
-    // ⚠ AND THE RECORDED EXCEPTION MUST STILL BE THERE. If `TransactionId` has
-    // stopped being canonical, this exception is dead and keeping it would let a
-    // future regression through silently.
-    let stale: Vec<&str> = RECORDED_DIVERGENCE
+    // ⚠ AND THE RECORDED EXCEPTION MUST STILL BE EARNED — IN BOTH DIRECTIONS.
+    //
+    // ⛔⛤ **THIS ASKED ONLY THE FIRST HALF AND THAT LEFT A GREEN EXEMPTION.** It
+    // called a divergence stale when its type stopped feeding the peer checksum
+    // ALTOGETHER, which is the way a leak gets closed by DELETING the
+    // registration. The other way — and the way this campaign has actually
+    // closed every one of them — is migrating from a whole-value comparison to a
+    // reviewed projection. A type that does that still feeds the checksum, so
+    // its exemption survived the defect it recorded and the guard stayed green.
+    // Named by the GPT architecture review of 2026-09-16, which saw it coming
+    // for `TransactionId` before the migration rather than after.
+    //
+    // ⇒ A recorded divergence is a claim that the WHOLE VALUE is compared and
+    // leaks a host-local field. It is stale the moment either half stops being
+    // true, and `RollbackEntryKind` answers both.
+    let stale: Vec<String> = RECORDED_DIVERGENCE
         .iter()
         .copied()
-        .filter(|recorded| {
-            !registered.iter().any(|(type_name, kind)| {
-                type_name == recorded && kind.feeds_peer_checksum()
-            })
+        .filter_map(|recorded| {
+            let kinds: Vec<RollbackEntryKind> = registered
+                .iter()
+                .filter(|(type_name, _)| type_name == recorded)
+                .map(|(_, kind)| *kind)
+                .collect();
+            if !kinds.iter().any(|kind| kind.feeds_peer_checksum()) {
+                return Some(format!("{recorded}: no longer feeds the peer checksum"));
+            }
+            if kinds
+                .iter()
+                .filter(|kind| kind.feeds_peer_checksum())
+                .all(|kind| kind.uses_peer_projection())
+            {
+                return Some(format!(
+                    "{recorded}: now compares a REVIEWED PROJECTION, not the whole value"
+                ));
+            }
+            None
         })
         .collect();
     assert!(
         stale.is_empty(),
-        "these recorded divergences are no longer checksummed:\n  {}\n\n\
-         If a leak has been closed, DELETE its line from RECORDED_DIVERGENCE so \
-         this guard covers the type again. An exception for a value that no \
-         longer needs one is a hole with a comment over it.",
+        "these recorded divergences no longer describe what is registered:\n  {}\n\n\
+         A RECORDED_DIVERGENCE line says: this type is compared WHOLE and a \
+         host-local field is inside that comparison. If the registration has \
+         moved to a projection, the leak is closed — DELETE the line and add the \
+         type to PEER_STABLE_PROJECTION instead, which asserts the projection \
+         stays one. If the registration is gone entirely, delete the line. An \
+         exception for a value that no longer needs one is a hole with a comment \
+         over it.",
         stale.join("\n  ")
     );
 
@@ -301,20 +330,22 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .iter()
         .copied()
         .filter_map(|reviewed| {
-            let kinds: Vec<String> = registered
+            let kinds: Vec<(String, RollbackEntryKind)> = registered
                 .iter()
                 .filter(|(type_name, _)| type_name == reviewed)
-                .map(|(_, kind)| format!("{kind:?}"))
+                .cloned()
                 .collect();
             match kinds.as_slice() {
                 [] => Some(format!("{reviewed}: not registered at all")),
-                kinds if kinds
-                    .iter()
-                    .all(|kind| PROJECTED_CHECKSUM_KINDS.contains(&kind.as_str())) =>
-                {
-                    None
-                }
-                kinds => Some(format!("{reviewed}: registered as {}", kinds.join(", "))),
+                kinds if kinds.iter().all(|(_, kind)| kind.uses_peer_projection()) => None,
+                kinds => Some(format!(
+                    "{reviewed}: registered as {}",
+                    kinds
+                        .iter()
+                        .map(|(_, kind)| format!("{kind:?}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )),
             }
         })
         .collect();

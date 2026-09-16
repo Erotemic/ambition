@@ -427,9 +427,9 @@ fn delayed_world_publication_for_a_cannot_attach_to_b() {
 /// 4. `entity.sim_id` is `component-canonical` in the rollback schema — the
 ///    WHOLE value is compared between peers.
 ///
-/// ⇒ Two hosts that agree completely about a gameplay session still name its
+/// ⇒ Two hosts that agreed completely about a gameplay session used to name its
 /// root `session:4` and `session:11`, solely because one visited more shell
-/// routes before joining.
+/// routes before joining. The key is a CONSTANT now and this arm holds that.
 ///
 /// ⛔ THE STANDING `id_peer_audit` GUARD CANNOT SEE THIS CLASS. It censuses
 /// registered TYPE NAMES, and `SimId` is a type that is supposed to be
@@ -438,15 +438,24 @@ fn delayed_world_publication_for_a_cannot_attach_to_b() {
 /// That is why this is a value-level arm on the production road rather than a
 /// row in a list.
 ///
-/// ⇒ WHEN THIS ARM FLIPS TO `assert_eq`, the root has a peer-stable identity and
-/// `ShellActivationId` should leave this mint. ⚠ The replacement is NOT simply
-/// "make it constant": `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`
-/// establishes that an A10 candidate root deliberately carries the SAME `SimId`
-/// as the live root it will replace, so a constant would keep that property —
-/// but it also has to survive whatever future residency allows more than one
-/// session world alive at once. That is an architecture call, not a rename.
+/// ⭐⭐ **THE REPLACEMENT IS A CONSTANT, AND THE REASON IS THAT THE COUNT WAS
+/// DISAMBIGUATING NOTHING.** A canonical identity only has to be unique inside
+/// the world a checksum compares. `shell_host_lifecycle`'s `assert_in_game` and
+/// `assert_home` pin `session_roots == 1` and `== 0` at every point of a
+/// four-session lifecycle, under rollback as well; an A10 candidate root
+/// deliberately carries the SAME identity as the live root it will replace
+/// (`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`),
+/// which a constant preserves exactly; and an UNHIDDEN duplicate is refused as
+/// `BaselineCaptureError::DuplicateIdentity`.
+///
+/// ⚠ **THE INVARIANT IS "EXACTLY ONE SESSION ROOT IS VISIBLE", AND A FUTURE
+/// RESIDENCY THAT BREAKS IT BREAKS MORE THAN THIS NAME.** Two published session
+/// worlds alive at once would have defeated the activation count too: a peer
+/// does not share your retirement schedule, so a root that lingers on one host
+/// and not the other is already a divergence whatever it is called. The identity
+/// is not what would need fixing there.
 #[test]
-fn two_hosts_with_different_route_histories_name_the_session_root_differently() {
+fn two_hosts_with_different_route_histories_name_the_session_root_identically() {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     // Both hosts enter the SAME agreed experience. Their local terms differ,
@@ -488,16 +497,16 @@ fn two_hosts_with_different_route_histories_name_the_session_root_differently() 
     // really did activate different route counts.
     assert_ne!(11, 4, "the two hosts share an activation id");
 
-    assert_ne!(
+    assert_eq!(
         veteran, fresh,
-        "the session root's canonical SimId no longer depends on the host's \
-         route-activation count — if that is deliberate, flip this arm to \
-         assert_eq and say what the peer-stable session identity is"
+        "the session root's canonical SimId depends on the host's \
+         route-activation count again, so two peers who agree completely about \
+         a session disagree about the identity of its root"
     );
-    // ⛔ AND THE COUNTER IS VISIBLY IN THE NAME, which is what makes this a
-    // provenance defect rather than merely a hash collision risk. Pinned so a
-    // change of SPELLING that keeps the dependency cannot quietly satisfy the
-    // arm above.
-    assert_eq!(veteran, "session:11");
-    assert_eq!(fresh, "session:4");
+    // ⛔ AND THE COUNTER MUST NOT BE IN THE NAME AT ALL, which is what makes
+    // this a provenance claim rather than a hash-collision one. Pinned so a
+    // re-keying that merely makes two particular counts collide cannot satisfy
+    // the arm above.
+    assert_eq!(veteran, "session:root");
+    assert_eq!(fresh, "session:root");
 }

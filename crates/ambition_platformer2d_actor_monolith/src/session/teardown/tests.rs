@@ -62,6 +62,14 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_cutscene::CutsceneAdvanceRequest>();
     app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
+    // The match-identity mirrors. See the `SessionScopedResources` field doc:
+    // these are here so a stale stamp from the previous session cannot sit
+    // beside the next session's first match and make two peers disagree
+    // behind an agreeing checksum.
+    app.init_resource::<ambition_match::StocksMatchSettled>();
+    app.init_resource::<ambition_match::SuddenDeathEntered>();
+    app.init_resource::<crate::character_runtime::live_match_clock::LiveMatchTicks>();
+    app.init_resource::<ambition_match::seating::SessionMatchOrdinal>();
     app.add_systems(
         Update,
         (
@@ -602,5 +610,94 @@ fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip(
             .skip_cutscene,
         "a skip raised by the retired session survived it, so the next session's \
          opening cutscene is skipped by an input nobody gave it"
+    );
+}
+
+/// ⛔⛤ **THE PEER-CHECKSUM FALSE NEGATIVE THIS RESET EXISTS TO MAKE
+/// UNSPELLABLE.** Named by the GPT architecture review of 2026-09-16.
+///
+/// The three match-stamped resources decide whether they belong to the live
+/// match by comparing a whole `MatchInstance`, which carries the local
+/// `SessionScopeId`. Their PEER projection carries only the session-relative
+/// ordinal, which restarts at zero every session. So:
+///
+/// ```text
+/// peer A   ActiveMatch = session B / match 0
+///          settled     = session B / match 0, Winner(left)   settled() == true
+/// peer B   ActiveMatch = session B / match 0
+///          settled     = session A / match 0, Winner(left)   settled() == false
+/// ```
+///
+/// Both stamps project to ordinal 0 and both verdicts are `Winner(left)`, so the
+/// checksums AGREE while the mechanics answer differently — two peers running
+/// different simulations with nothing to notice it.
+///
+/// ⭐ THE FIX IS NOT A LONGER CHECKSUM, IT IS AN IMPOSSIBLE ANTECEDENT. A
+/// session-A stamp may not be alive when session B's first match activates, and
+/// the activation edge is where that is enforced. This arm holds the antecedent
+/// shut; the projections stay exactly as narrow as they are.
+#[test]
+fn a_match_stamp_from_the_previous_session_cannot_reach_the_next_ones_first_match() {
+    use ambition_combat::stocks::MatchVerdict;
+    use ambition_match::seating::ActiveMatch;
+
+    let mut app = app_with_populated_mirrors();
+
+    // Session A's FIRST match — ordinal 0, which is the ordinal session B's
+    // first match will also carry. That collision is the whole point: a stale
+    // stamp from any LATER match of A would be caught by the ordinal alone.
+    let session_a_match_0 = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(900), Some(0));
+    app.world_mut()
+        .resource_mut::<ambition_match::StocksMatchSettled>()
+        .settle(&session_a_match_0, MatchVerdict::Winner("left".to_owned()));
+    app.world_mut()
+        .resource_mut::<ambition_match::SuddenDeathEntered>()
+        .enter(&session_a_match_0);
+    app.world_mut()
+        .resource_mut::<ambition_match::seating::SessionMatchOrdinal>()
+        .take(Some(SessionScopeId(1)));
+
+    // Session B activates.
+    app.world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(2)));
+    app.update();
+
+    // Session B's first match carries ordinal 0 as well, and its stamp differs
+    // from A's only in the LOCAL term — which is exactly the term no peer
+    // checksum may read.
+    let session_b_match_0 = ActiveMatch::activated(2, None, Some(SessionScopeId(2)), Some(12), Some(0));
+    assert_eq!(
+        session_a_match_0.instance().peer_match_digest(),
+        session_b_match_0.instance().peer_match_digest(),
+        "the premise of this arm is gone: the two stamps no longer project \
+         identically, so it can no longer witness the false negative"
+    );
+
+    let settled = app.world().resource::<ambition_match::StocksMatchSettled>();
+    assert!(
+        !settled.settled(&session_b_match_0),
+        "session A's verdict survived into session B and answers for a match it \
+         never saw"
+    );
+    assert_eq!(
+        *settled,
+        ambition_match::StocksMatchSettled::default(),
+        "session A's verdict is still latched, so a peer that cleared its own \
+         answers `settled(active) == false` where this one answers `true` — and \
+         both checksums say ordinal 0, Winner(left)"
+    );
+    assert_eq!(
+        *app.world().resource::<ambition_match::SuddenDeathEntered>(),
+        ambition_match::SuddenDeathEntered::default(),
+        "session A's sudden-death latch survived into session B"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_match::seating::SessionMatchOrdinal>()
+            .parts()
+            .1,
+        0,
+        "the mint still holds session A's count, so session B's first match is \
+         not match 0 to this peer and is to the other one"
     );
 }

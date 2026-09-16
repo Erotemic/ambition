@@ -130,12 +130,19 @@ impl SimId {
     /// different objects and a save must be able to tell them apart; two spawned
     /// on the SAME tick would be the same object, which is why the caller must
     /// not draw twice in one tick without the schedule saying so.
-    pub fn match_spawn(activation: u64, tick: u64) -> Self {
-        Self(format!("match:{activation}/spawn/{tick}"))
+    /// ⭐ AND THE FIRST TERM IS THE MATCH'S ORDINAL WITHIN THE AGREED SESSION,
+    /// which is why the parameter is no longer called `activation`. It restarts
+    /// at zero every session, so session A's match 0 and session B's match 0
+    /// mint the same namespace — and that is sound for the same reason the match
+    /// projections are: the two never coexist. A spawned item is both
+    /// `SessionScopedEntity` and `MatchScoped`, so nothing session A minted is
+    /// alive when session B's first match opens.
+    pub fn match_spawn(match_ordinal: u64, tick: u64) -> Self {
+        Self(format!("match:{match_ordinal}/spawn/{tick}"))
     }
 
     /// An entity of which the world holds AT MOST ONE per `key` — a placed
-    /// portal per channel, a gameplay session's world root per activation.
+    /// portal per channel, the one live gameplay session's world root.
     ///
     /// DERIVED like [`Self::strike_volume`], and for the same reason: the key
     /// determines it completely, and re-opening it (a portal re-placed on the

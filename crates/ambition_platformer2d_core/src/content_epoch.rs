@@ -169,6 +169,14 @@ impl PeerContentIdentity {
         &self.0
     }
 
+    /// The value a road with no prepared fingerprint states.
+    ///
+    /// Spelled, rather than left to `Default`, so that "nobody named the
+    /// content" reads as a decision at the call site — see [`Self::is_stated`].
+    pub const fn unstated() -> Self {
+        Self([0u8; 32])
+    }
+
     /// Whether any content was stated at all.
     ///
     /// ⚠ A fixture's all-zero value is "unstated", not "stated as zero" — see the

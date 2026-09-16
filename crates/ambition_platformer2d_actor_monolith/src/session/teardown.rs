@@ -201,6 +201,32 @@ pub struct SessionScopedResources<'w> {
     /// simulation state"*, and that is why it is the last member rather than the
     /// reason for this group.
     cutscene_skip_hold: ResMut<'w, ambition_cutscene::CutsceneSkipHold>,
+    /// ⛔⛤ **THE FOUR MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
+    /// CHECKSUM RATHER THAN FOR HYGIENE.** Each of the three below is stamped
+    /// with a whole [`MatchInstance`] and decides whether it belongs to the live
+    /// match by comparing it — but the PEER projection of that stamp is the
+    /// session-relative match ordinal alone, which restarts at zero every
+    /// session. So `session A / match 0` and `session B / match 0` project
+    /// identically, and a stale session-A stamp sitting beside session B's first
+    /// match makes two peers answer `settled(active)` differently while their
+    /// checksums agree. A false-negative checksum is the one failure ID-PEER
+    /// exists to prevent.
+    ///
+    /// ⇒ The ordinal does not need a session term; the STALE STAMP needs to be
+    /// impossible. Resetting at [`SessionScopeSet::Activate`] — the correctness
+    /// edge, before any provider builds the world — is what makes it impossible,
+    /// and it is the road this crate already had. Named by the GPT architecture
+    /// review of 2026-09-16.
+    settled: ResMut<'w, ambition_match::StocksMatchSettled>,
+    sudden_death: ResMut<'w, ambition_match::SuddenDeathEntered>,
+    live_match_ticks: ResMut<'w, crate::character_runtime::live_match_clock::LiveMatchTicks>,
+    /// ⭐ AND THE MINT ITSELF, WHICH USED TO RESET LAZILY INSIDE `take`. A mint
+    /// that notices the session changed at the moment it is next ASKED still
+    /// holds the previous session's count until then, so two peers with different
+    /// prior match counts disagreed for exactly the window between joining a
+    /// session and activating its first match. The eager edge closes it: a new
+    /// session's mint is new, because a new session's state is new.
+    match_ordinal: ResMut<'w, ambition_match::seating::SessionMatchOrdinal>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -315,6 +341,10 @@ fn reset(resources: SessionScopedResources) {
         mut active_conversation,
         mut cutscene_advance,
         mut cutscene_skip_hold,
+        mut settled,
+        mut sudden_death,
+        mut live_match_ticks,
+        mut match_ordinal,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -342,6 +372,11 @@ fn reset(resources: SessionScopedResources) {
     *active_conversation = ambition_conversation::ActiveConversation::default();
     *cutscene_advance = ambition_cutscene::CutsceneAdvanceRequest::default();
     *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
+    *settled = ambition_match::StocksMatchSettled::default();
+    *sudden_death = ambition_match::SuddenDeathEntered::default();
+    *live_match_ticks =
+        crate::character_runtime::live_match_clock::LiveMatchTicks::default();
+    *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

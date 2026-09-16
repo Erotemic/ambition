@@ -137,7 +137,7 @@ fn fixture_setup(
                     // A smoke fixture authors no sheets; empty is the honest
                     // value and resolves exactly as this test did before U1.
                     &Default::default(),
-                    Default::default(),
+                    ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(Default::default()),
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: "player",

@@ -169,7 +169,9 @@ fn room_features_lower_through_the_caller_supplied_registry() {
             &crate::construction::engine_construction_registry(),
             &catalog,
             &Default::default(),
-            Default::default(),
+            ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                Default::default(),
+            ),
         ),
     )
     .expect("the caller-supplied registry should prepare the room");
@@ -1436,7 +1438,9 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
                 &recipes,
                 &catalog,
                 &crate::session::mechanics::GenerationMechanics::of(&generation),
-                Default::default(),
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                    Default::default(),
+                ),
                 None,
                 None,
                 None,

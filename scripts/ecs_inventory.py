@@ -1629,6 +1629,54 @@ def write_workspace_inventory(
         inventory = build_inventory(repo_root, crate_root, include_tests)
         inventory["crate_name"] = crate_display_name(crate_root)
         inventories.append(inventory)
+
+    summary = summarize_project(inventories)
+
+    # ⛔⛤ **REFUSE TO WRITE A SHRUNKEN INVENTORY.** This generator feeds
+    # `.agent/`, which the architecture census reads as
+    # `generated_inventory_counts` — so a hole here does not red a gate, it
+    # silently lowers a number somebody later reports as consolidation progress.
+    # Its test-file rule is one of FIVE copies of "is this file test-only" in
+    # `scripts/`, drifted into five different answers, and any correction makes
+    # this scanner EXCLUDE MORE. A wider exclusion cannot announce itself, but it
+    # cannot avoid making these counts FALL.
+    #
+    # MEASURED 2026-09-16 at 78 crates / 638 components / 493 resources / 1108
+    # registered systems; the floors sit just under that. Raise one when the tree
+    # genuinely grows; a DROP is the signature of the next hole.
+    INVENTORY_FLOOR = {
+        "crate_count": 75,
+        "components": 620,
+        "resources": 480,
+        "registered_systems": 1080,
+    }
+    counts = summary.get("counts", {})
+    sizes = {"crate_count": summary.get("crate_count", 0)} | {
+        k: counts.get(k, 0) for k in ("components", "resources", "registered_systems")
+    }
+    shortfalls = [
+        f"  {label}: {sizes[label]} found, floor is {floor}"
+        for label, floor in INVENTORY_FLOOR.items()
+        if sizes[label] < floor
+    ]
+    if shortfalls:
+        print(
+            "error: THIS SCAN'S REACH HAS FALLEN, and writing it would publish a\n"
+            "       smaller inventory that every downstream reader takes as the\n"
+            "       tree getting simpler:\n" + "\n".join(shortfalls) + "\n"
+            "⇒ Something narrowed what this scanner sees — most likely the\n"
+            "  test-file exclusion. Fix the reach, or lower the floor deliberately\n"
+            "  and say why in the same commit.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # ⚠ NOTHING IS WRITTEN UNTIL THE FLOOR PASSES. The first version of this
+    # guard checked AFTER the per-crate loop had already written its shards, so a
+    # refused run left `.agent/ecs_inventory/crates/` shrunken beside a stale
+    # `project.json` — a partially-published inventory, which is worse than the
+    # shrunken one it was refusing. Found by its own poison.
+    for inventory in inventories:
         crate_name = inventory["crate_name"]
         json_path = crate_out_dir / f"{crate_name}.json"
         md_path = crate_out_dir / f"{crate_name}.md"
@@ -1641,7 +1689,6 @@ def write_workspace_inventory(
         print(f"wrote {json_path}")
         print(f"wrote {md_path}")
 
-    summary = summarize_project(inventories)
     summary_json = out_dir / "project.json"
     summary_md = out_dir / "project.md"
     summary_json.parent.mkdir(parents=True, exist_ok=True)

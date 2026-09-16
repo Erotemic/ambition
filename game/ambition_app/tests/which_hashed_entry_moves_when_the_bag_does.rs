@@ -194,6 +194,14 @@ fn probe_which_registered_type_diverges_when_the_bag_moves() {
 /// printed, so that a fix, a second diverging entry, or a regression all report
 /// instead of needing the probe re-read.
 ///
+/// ⚠ **THE GRANT MUST BE PER-TICK AND SUSTAINED.** Measured by CalculexAmbition:
+/// a `SimTick`-gated grant firing ONCE at tick 20 runs 240 steps clean, health
+/// `Ok`, with the bag moving 3 → 4. Only the sustained per-tick change
+/// reproduces. ⇒ An arm rewritten to grant once would report an empty divergence
+/// set, which this arm's own assertion reads as "the repair landed" — so the
+/// cadence is load-bearing and both audits are floored on `resimulations > 0`
+/// before either result is read.
+///
 /// ⚠ **WHICH FAILURE DIRECTION IS THE GOOD ONE.** If the granting arm reports NO
 /// divergence, `persist_inventory_to_save` has been moved inside the rewinding
 /// schedule or the mirror has stopped deriving from the bag — delete this arm and
@@ -215,9 +223,19 @@ fn exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save() {
         control.step(AgentAction::default());
     }
 
-    let diverging: std::collections::BTreeSet<&str> = granting
+    let granting_audit = granting
         .world()
-        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    // ⛔ FLOOR BOTH SIDES, NOT JUST THE CONTROL. An audit that saw no
+    // resimulation reports no divergence, and on THIS side that reads as "the
+    // repair landed" rather than as "the instrument saw nothing".
+    assert!(
+        granting_audit.resimulations > 0,
+        "the granting audit saw no resimulation ({}), so the divergence set below \
+         is a reading about the audit and not about the world",
+        granting_audit.coverage()
+    );
+    let diverging: std::collections::BTreeSet<&str> = granting_audit
         .divergences
         .iter()
         .map(|divergence| divergence.type_name)

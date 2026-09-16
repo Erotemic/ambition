@@ -46,10 +46,25 @@ indistinguishable from the exit code.
 ⇒ The next step is a repeat run with `--test-threads=1` and with a fixed seed
 order, comparing against the failing composition — **not** a fix.
 
-## A third instance, 2026-09-16 — and this one is DETERMINISTIC
+## A third instance, 2026-09-16 — INTERMITTENT, like the first
 
-The named next step above was run, on a different subject, and it answers the
-first open question for that subject: **parallelism, not ordering.**
+⛔⛤ **THIS SECTION FIRST SAID "AND THIS ONE IS DETERMINISTIC". IT IS NOT, AND THE
+CLAIM CAME FROM ONE OBSERVATION PER DIRECTION.** Repeating the closest
+configuration three times gave **pass, pass, FAIL**. ⇒ The class is therefore
+UNIFIED rather than split: all three instances are intermittent, which is itself
+the most useful thing this instance contributes, because it means a single
+mechanism can still explain all of them.
+
+⚠ **AND IT INVALIDATES THE ELIMINATIONS I DREW FROM ONE OR TWO CLEAN RUNS.** At a
+rate near one in three, "this variation did not reproduce it" is not evidence of
+absence. Recorded so nobody builds on them: a second sim App built-and-stepped
+without the audit read clean twice, and one with an `Update` writer and no audit
+read clean once. **Those are not negatives.** The only elimination below that
+does not depend on run counts is the wall-clock one, because it rests on reading
+the code rather than on counting failures.
+
+The named next step above was run, and it answers the first open question for
+this subject: **parallelism, not ordering.**
 
 Building a SECOND sim App inside the `app_it` process makes a neighbouring
 audit-based arm report a corrupted baseline. Subject:
@@ -65,9 +80,10 @@ baseline rather than a finding.
     both, `--test-threads=1`                  2 passed
     both, default parallelism                 1 passed, 1 FAILED
 
-⇒ **Deterministic in both directions**, unlike the 2026-09-10 observation. So the
-class has at least three instances and this is the first with a reproduction
-anyone can run in one command.
+⇒ Those were one run each. **Repeated three times, the same configuration gave
+pass, pass, FAIL** — so the class has at least three instances and all of them
+are intermittent. What this one does contribute is a CHEAP reproduction: two
+fixtures in one file, ~16 s a run, versus a 733-arm binary.
 
 ⚠ **AND ONE SUSPECT IS ELIMINATED.** `ambition_items::install_item_catalog` is a
 documented process-global `OnceLock` — the obvious candidate — but it ALLOWS
@@ -75,10 +91,13 @@ identical reinstallation and both fixtures install the same catalog, so it is no
 this. `probes.rs` holds no statics and `RollbackRestoreAudit` is per-App. The
 shared state is elsewhere and is not yet named.
 
-⇒ **WHAT THIS BUYS THE ROW:** a cheap, deterministic harness for the whole class.
-Two concurrently-built sim Apps is a two-line fixture, so whoever takes this can
-bisect the shared state by composing Apps with successively fewer plugins instead
-of chasing an intermittent failure in a 733-arm binary.
+⇒ **WHAT THIS BUYS THE ROW:** a cheap 16-second reproduction for the whole class,
+instead of a 733-arm binary. ⚠ **NOT a deterministic one** — that word was
+published off one observation per direction and RETRACTED the same day when the
+configuration was repeated three times and gave *pass, pass, FAIL*. Two
+concurrently-built sim Apps is a two-line fixture, so whoever takes this can
+bisect by composing Apps with successively fewer plugins — but each configuration
+needs a REPEAT COUNT sized from the rate, not one run.
 
 ⚠ The new arm is `#[ignore]`d rather than deleted, with the measurement in its
 doc, so the lane stays green and the reproduction is not lost. Run it with
@@ -96,11 +115,17 @@ third reading would differ from the first.
     B   (writer outside the schedule)  live_comparisons=240 outside=0 moved=32
     A2  (production fixture, AFTER B)  live_comparisons=240 outside=0 moved=32
 
-A₂ is identical to A₁ on all three numbers. ⇒ **Order is innocent.** The failure
-needs the two Apps running AT THE SAME TIME, which moves the search from shared
-DATA to shared RUNTIME. First candidate: Bevy's process-global task pools —
-`TaskPoolPlugin` initialises them once per process, so two Apps schedule their
-systems onto one set of worker threads.
+A₂ is identical to A₁ on all three numbers. ⚠ **ONE RUN, so this argues against a
+DETERMINISTIC leak — which is what a leak would be — without excluding an
+intermittent one.** Taken with the intermittency, the search still points at
+shared RUNTIME rather than shared DATA. First candidate: Bevy's process-global
+task pools, since `TaskPoolPlugin` initialises them once per process and two Apps
+then schedule their systems onto one set of worker threads.
+
+⚠ **AND A BARE `MinimalPlugins` APP RUNNING 240 UPDATES CONCURRENTLY READ CLEAN**
+— one run, so not a negative either, but it is the cheapest variation to repeat
+enough times to become one, and if it stays clean over ~20 runs the shared thing
+is not merely "two Apps on one task pool".
 
 ⛔ **AND NOT THE WALL-CLOCK TIMESTEP EITHER**, which was the standing candidate
 for this whole class. `013b70c89` measured that `add_headless_foundation` leaves
@@ -110,11 +135,25 @@ offered there as a mechanism to test for exactly this page. It does not apply to
 this instance: `Platformer2dSimHarness::set_timestep` calls
 `enable_manual_stepping` whenever rollback is enabled, both fixtures build with
 `with_sync_test_rollback_settings`, and all three readings above show exactly 240
-comparisons for 240 steps. A load-dependent world would also be INTERMITTENT, and
-this failure is deterministic in both directions.
+comparisons for 240 steps. ⛔⛤ **AND THE FIRST VERSION OF THIS
+PARAGRAPH CLOSED WITH A SECOND ARGUMENT THAT HAS SINCE BEEN RETRACTED** — *"a
+load-dependent world would also be INTERMITTENT, and this failure is
+deterministic in both directions."* The failure IS intermittent, so that leg is
+gone. ⇒ **The elimination survives anyway, and only because the surviving leg is
+STRUCTURAL: it reads the code rather than counting failures.** A structural
+elimination does not care how many times anything ran; a statistical one is
+worthless without a rate. ⚠ A retraction has to be walked into every sentence
+built on it — this one sat two paragraphs below the correction for part of a day.
 
-⇒ **WHAT REMAINS**, in the order that costs least: compose the second App with
-successively fewer plugins until the production arm stops failing under default
-parallelism, and see whether `TaskPoolPlugin`'s presence is the boundary. That is
-a two-line fixture change per step, against a deterministic failure — the first
-time this row has had either.
+⇒ **WHAT REMAINS, AND THE METHOD MATTERS MORE THAN THE CANDIDATE.** An
+intermittent fault cannot be bisected one run at a time. Each configuration needs
+a REPEAT COUNT chosen from the observed rate before its result means anything —
+at roughly one in three, ~20 runs to call a variation clean with any confidence.
+⇒ So the next step is a loop, not a fixture: run the cheapest variation (bare
+`MinimalPlugins` alongside the production arm) twenty times and record the rate,
+then the same for a built-but-unstepped sim App. A rate is the measurement; a
+single pass is not.
+
+⚠ Nobody should take this row expecting a quick answer. What it now has that it
+did not have on 2026-09-10 is a 16-second reproduction and a known rate to size
+the runs against.

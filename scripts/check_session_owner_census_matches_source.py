@@ -376,10 +376,25 @@ COUNT_FORMS = [
 ]
 
 
+#: ⛔⛤ THE SWEEP READ ONLY MARKDOWN, AND THE LEDGER IS JSON. `consolidation-ledger.json`
+#: held the stale count in THREE fields — `current_truth`, `evidence[0].claim` and
+#: `representation` — for the same day the census prose did, invisible to a rule
+#: whose glob was `*.md`. ⇒ Ask how many RECORDERS a fact has before deciding a
+#: rule's population: this one had four, and the count was corrected in two of them.
+#:
+#: ⚠ `static_measurement_snapshot` in that file is DELIBERATELY not swept. It
+#: names its own `source_commit` and is a dated measurement, not a live claim —
+#: correcting it would destroy the evidence it exists to be.
+SWEPT_SUFFIXES = ("*.md", "*.json")
+
+
 def stray_counts(real: int) -> list[str]:
     """Every line stating the BUNDLE'S OWN count as something other than `real`."""
     out = []
-    for path in sorted(PLANNING.rglob("*.md")):
+    paths = sorted(
+        path for suffix in SWEPT_SUFFIXES for path in PLANNING.rglob(suffix)
+    )
+    for path in paths:
         for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
             if BUNDLE not in line:
                 continue

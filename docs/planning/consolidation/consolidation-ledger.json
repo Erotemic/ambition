@@ -1322,21 +1322,21 @@
       "owner": "ambition_platformer2d_actor_monolith::session::teardown",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionScopedResources names 25 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene.",
+      "current_truth": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionScopedResources names 25 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene.",
+          "claim": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
           ]
         }
       ],
       "semantic_lifetime": "gameplay session",
-      "representation": "25 process/App Resources accessed through one SystemParam",
+      "representation": "29 process/App Resources accessed through one SystemParam",
       "classification": "actual storage owner is broader than semantic owner",
       "consolidation_hypothesis": "Move coherent state groups to the session root or a session-owned component/resource container when that reduces reset and stale-owner logic without making access worse.",
       "depends_on": [

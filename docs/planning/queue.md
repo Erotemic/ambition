@@ -1188,81 +1188,38 @@ resource for a shape I guessed.
 invalidation is a frozen world agreeing with itself. `session_health` is clean at
 steps 0 through 5 and first reports at step 6.
 
-✅ **ANSWERED 2026-09-16 — THE DIVERGING HASHED ENTRY IS
-`ambition_persistence::save::AmbitionGameSave`, AND CANDIDATE 1 WAS RIGHT.** The
-row's instruction was followed exactly: *"the registry already knows every entry
-that feeds the peer checksum, so the direct route is a per-entry checksum dump at
-the mismatching frames rather than another hypothesis."*
-
-⭐⭐ **AND THE INSTRUMENT WAS ALREADY RUNNING UNDER ANOTHER NAME.** No new
-machinery was built. `RollbackRestoreAudit` + `record_saved_census` already take a
-per-type census at every save and COMPARE it when GGRS saves the same frame twice
-— which is what a resimulation is. Its own doc says so: *"the cheapest possible
-place to answer 'the aggregate says frames 149-151 differ — differ in WHAT': no
-second run, no bisection, just the census already being taken."* Five arms already
-turn it on; none over a world whose bag was moving.
+⇒ **AND THE SAME ANSWER ARRIVED BY A SECOND METHOD, WHICH ADDS ONE FACT THE
+CENSUS DIFF CANNOT SHOW: `Update` IS THE WRITER, MEASURED AT THE REWIND
+BOUNDARY.** `RollbackRestoreAudit` compares frame F's census against frame F's
+EARLIER census within one run, so it reads the resimulation itself:
 
 ```
-grant 1 each tick                              CONTROL: grant ZERO
-step tick save_sum           rows qty div      step tick save_sum           rows qty div
-   0    2 0x4f52c70a5e29f26c    7  13   0         0    2 0x8f605a278dac557d    7  10   0
-   1    3 0x8cf64e573fc1e591    7  14   0         1    3 0x8f605a278dac557d    7  10   0
-   2    4 0xe2f498aa9e3b6bce    7  15   0         2    4 0x8f605a278dac557d    7  10   0
-   3    5 0xb8f85fb1e3cd5083    7  16   0         3    5 0x8f605a278dac557d    7  10   0
-   4    6 0xd41e15e06646859b    7  17   3   ←     4    6 0x8f605a278dac557d    7  10   0
+frame 2: AmbitionGameSave  first xor 0x4f52c70a…  on replay 0xce4e4758…
+frame 3: AmbitionGameSave  first xor 0x8cf64e57…  on replay 0xce4e4758…
+frame 4: AmbitionGameSave  first xor 0xe2f498aa…  on replay 0xce4e4758…
 ```
-frame 2: `AmbitionGameSave` first xor `0x4f52c70a…`, on replay `0xce4e4758…`
-frame 3: first `0x8cf64e57…`, on replay `0xce4e4758…`
-frame 4: first `0xe2f498aa…`, on replay `0xce4e4758…`
 
-⇒ **THE REPLAY XOR IS CONSTANT WHILE THE FIRST-PASS XOR MOVES EVERY FRAME.** That
-is the signature of a value written from `Update`: the resimulation re-runs the sim
-schedule and not `Update`, so every replay of every frame sees whatever the last
-frame's `Update` wrote. Exactly what
-[DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-predicts, and the control settles that the bag's VALUE is the trigger: identical
-`ResMut<OwnedItems>`, identical schedule position, identical change detection,
-grant ZERO — constant `save_sum`, zero divergences, clock ticking 1:1 to tick 9
-over 12 replay-comparable saves and 4 compared loads.
+⭐ **THE REPLAY XOR IS CONSTANT WHILE THE FIRST-PASS XOR MOVES EVERY FRAME.** That
+is step 4 of the chain above turned into a reading: a resimulation re-runs the sim
+schedule and not `Update`, so every replay of every frame sees whatever the LAST
+frame's `Update` wrote — one value, repeated. A two-run diff at one tick shows
+that the entry follows the bag; only the rewind boundary shows that the replay
+stops updating it.
 
-⛔⛤ **SO ELIMINATION 1 WAS AN INSTRUMENT ERROR, AND IT FAILED TWICE OVER.** It
-read *"the mirror holds `HealthCell = 0` for the whole window while the live bag
-climbs 5 → 10: the latch never opened in this harness, so the save is not changing
-and cannot be disagreeing."* Both halves were about the reading:
+⇒ And the row-count half of the false negative, for the record beside the
+substring half: `PersistedItem` is `{ id, count }`, so granting the same item
+moves a `count` and leaves the ROW COUNT alone — `rows` is **7 in both arms at
+every step** while the summed quantity climbs 13 → 17 under granting and holds at
+10 in the control. Either reading alone would have said "not changing".
 
-1. **The quantity was measured by ROW COUNT.** `PersistedItem` is `{ id, count }`.
-   Granting the same item repeatedly moves a `count` and leaves the row count
-   alone — `rows` is **7 in both arms at every step**, while `qty` climbs 13 → 17
-   under granting and holds at 10 in the control.
-2. **The filter string appears nowhere, in any world.** `PersistedItem::id` is
-   documented as *"the stable lowercase `dialog_id`"*; the mirrored ids are
-   `["fireball=1", "blink=1", "bubbleshield=1", "healthcell=10", "manacell=2",
-   "sparebattery=1", "datachip=1"]`. A filter on `"HealthCell"` returns 0 whatever
-   the bag holds, and the probe asserts that count is 0 in **both** arms at every
-   step to keep the point checkable. ⇒ The mirror was holding the bag all along
-   (`healthcell=10` granting, `healthcell=3` control).
-
-⚠ **NOT A CRITICISM OF THE ELIMINATION DISCIPLINE — IT IS AN ARGUMENT FOR IT.**
-Three candidates were killed by measurement rather than by reading, and the fourth
-was too; the fourth measurement was simply of a substring. The row's own next step
-(*"instrument instead of guessing"*) is what found it. ⇒ The transferable rule:
-**a value whose checksum covers the WHOLE thing cannot be eliminated by sampling a
-FIELD of it.** `AmbitionGameSave::checksum` serialises the entire save to RON and
-hashes the bytes.
-
-**Pinned, so this does not need re-deriving:**
+**Pinned, so neither answer needs re-deriving:**
 `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
 (`game/ambition_app/tests/which_hashed_entry_moves_when_the_bag_does.rs`) asserts
-the diverging set is exactly `{AmbitionGameSave}`, floors the control's audit
-coverage before reading its silence, and says in its own doc which failure
-direction is the good one. The print-only probe beside it is
-`cargo test -p ambition_app --test app_it probe_which_registered_type_diverges -- --include-ignored --nocapture`.
-
-⇒ **WHAT REMAINS IS NO LONGER THIS ROW'S.** The identity is settled; the repair is
-DURABLE-HORIZON-CHECKSUM's — a hashed resource written from `Update`. ⚠ And the
-scope note above still stands and is now sharper: every road that changes a bag
-during play crosses this, and whether other `ResourceClone` entries do the same is
-still unmeasured. The same probe answers it for any of them by swapping the system.
+the diverging set is exactly `{AmbitionGameSave}`, floors the control audit's
+`resimulations > 0` before reading its silence, and says in its own doc which
+failure direction is the good one: no divergence means the repair landed; a second
+type is a new finding; a diverging CONTROL means the cause is no longer the bag and
+every elimination needs redoing.
 
 ⓘ **TWO SESSIONS ANSWERED THIS INDEPENDENTLY AND IN PARALLEL, BY DIFFERENT
 METHODS, AND AGREED.** Both probes are kept because they measure different things:

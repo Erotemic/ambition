@@ -760,6 +760,23 @@ frames 2, 3 and 4 each diverging with **the replay xor CONSTANT at
 EVERY COMPARED FRAME SEES THE SAVE AS IT WAS AT TICK 1.** Two different
 instruments, two sessions, one number.
 
+⚠ **A FOURTH CANDIDATE, PARTLY CONSTRAINED.** YardratAmbition's: the frame-1
+lifecycle trace shows roots admitted, a candidate session published and entities
+promoted, so ticks 1..=3 might be special because the ENTITY POPULATION is still
+settling — a structural property of the window rather than of anything a test
+writes. ⇒ Measured against the room this row uses, with NO writer installed: the
+`FeatureSimEntity` roster reads 7 at tick 1 and 7 at every tick through 13, never
+changing. So that population is already settled before the first observable tick.
+⚠ **That constrains the candidate without killing it** — `feature_roster` counts
+one population, and session roots, promoted entities and custody holders are not
+in it. If the window's specialness is about entities, it is not about these.
+
+⛔ AND ANY SURVIVING VERSION MUST SATISFY A CONSTRAINT ALREADY MEASURED: a system
+granting ZERO every tick from tick 1 — same `ResMut<OwnedItems>`, same schedule
+position, same change detection, value unchanged — is CLEAN. So the window alone
+is never sufficient. The property is a conjunction: a CHANGED hashed value during
+a window that is still settling in some way not yet identified.
+
 ⚠ What that does NOT yet explain is why a change starting at tick 4 is clean. If
 the replay always read a stale save, a change at tick 20 would diverge too. ⇒ The
 honest reading is that the replay holds whatever the restore point carried and

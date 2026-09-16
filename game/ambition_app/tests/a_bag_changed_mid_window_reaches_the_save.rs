@@ -535,6 +535,36 @@ fn probe_whether_the_restore_latch_settles_before_the_window() {
     }
 }
 
+/// ⛔ DOES THE WORLD STOP CHANGING WHERE THE DESYNC STOPS? YardratAmbition's
+/// candidate for why ticks 1..=3 are special: the frame-1 lifecycle trace shows
+/// roots admitted, a candidate session published and entities promoted, so the
+/// early ticks are the only ones at which the ENTITY POPULATION is still moving.
+/// That is a structural property of the window rather than of anything a test
+/// writes, and it would explain why the START TICK is the only variable that
+/// predicts the outcome.
+///
+/// ⚠ It has a constraint to satisfy, from a measurement already taken: a system
+/// granting ZERO every tick FROM TICK 1 is clean. So the window alone is not
+/// sufficient — the property has to be a conjunction, a CHANGED hashed value
+/// during a window that is still settling.
+///
+/// This prints the roster size per tick, with no writer at all, so the answer is
+/// about the world rather than about a probe's writes.
+#[test]
+#[ignore = "PROBE, print-only: when the entity population stops changing"]
+fn probe_when_the_world_stops_settling() {
+    let mut sim = sim_composed_with(nothing_each_tick);
+    let mut previous = feature_roster(&mut sim).len();
+    println!("   tick={:>3} roster={previous:>4} (before any step)", sim_tick(&sim));
+    for _ in 0..12 {
+        sim.step(AgentAction::default());
+        let now = feature_roster(&mut sim).len();
+        let moved = if now == previous { "" } else { "  ← CHANGED" };
+        println!("   tick={:>3} roster={now:>4}{moved}", sim_tick(&sim));
+        previous = now;
+    }
+}
+
 /// The schedule's own step count. This file never writes it, which is the
 /// point: it is the control column for a frozen bag.
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

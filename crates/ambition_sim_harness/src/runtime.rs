@@ -278,7 +278,42 @@ impl Platformer2dSimHarness {
     /// In `WallClock` mode the strategy resource was never installed, so Bevy's default
     /// `Automatic` reads wall-clock dt.
     pub fn step(&mut self, action: AgentAction) -> AgentObservation {
-        self.step_frame(action.into())
+        let mut frame: ControlFrame = action.into();
+        // ⛔⛤ **THE SEAT'S FRAME POLICY IS STAMPED HERE BECAUSE THIS METHOD IS
+        // THE CAPTURE STAGE — MEASURED BY FIVE RED ARMS, 2026-09-16.**
+        // `AgentAction` carries no settings, so `From` leaves the modes at the
+        // default; simulation used to recover them from
+        // `SeatControlFrameModes`, and once the last reader moved onto the frame
+        // the harness's write to that table became a preference nothing could
+        // see. `gravity_symmetry_room` sets `BodyRelativeStrict` and then asked
+        // for a C4-symmetric local gesture, so every arm resolved
+        // `ScreenRelative` instead: run right produced `(0, 0)` where
+        // `(86.667, 0)` was expected, and only the JUMP arm — which has no
+        // horizontal local component — survived.
+        //
+        // ⚠ **AND IT IS `step`, NOT `step_frame`.** A REPLAY drives `step_frame`
+        // with frames that already carry the modes they were RECORDED with, and
+        // overwriting those would destroy the very property carrying the mode on
+        // the frame exists to give: a resimulation of frame N reads the mode
+        // frame N was captured with. `step` is the road that MINTS a frame from
+        // a settings-free action, so it is the only one that owes it a policy.
+        frame.control_frame_modes = self.seat_frame_modes();
+        self.step_frame(frame)
+    }
+
+    /// The frame policy this harness's settings resolve to — what a real
+    /// capture stage would stamp on the seat's frame.
+    ///
+    /// Reads `UserSettings` rather than `SeatControlFrameModes`, because the
+    /// settings resource is the OWNER and the seat table is the capture stage's
+    /// published copy of it. Reading the copy would make this a second consumer
+    /// of a projection instead of the producer standing in for its author.
+    fn seat_frame_modes(&self) -> ambition_platformer2d::sim::ControlFrameModes {
+        let settings = self.app.world().resource::<UserSettings>();
+        ambition_platformer2d::sim::ControlFrameModes {
+            movement: settings.gameplay.resolved_movement_frame_mode(),
+            aim: settings.gameplay.resolved_aim_frame_mode(),
+        }
     }
 
     /// Step one tick driven by a raw [`ControlFrame`] — the unit an

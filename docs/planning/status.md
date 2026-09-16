@@ -44,14 +44,22 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-**NINE OF THE TEN NAMED ROADS ARE CLOSED (2026-09-16).** The per-road table and
-the arm that holds each one are in
+**NINE CLOSED, TWO OPEN (2026-09-16).** The per-road table and the arm that holds
+each one are in
 [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
-A count rather than a completeness word: a tenth road found tomorrow makes this
-"nine closed, a tenth found" instead of making it false.
+⭐ This page said "nine of the ten" and predicted that a tenth road found
+tomorrow would make it "nine closed, a tenth found" instead of making it false.
+An eleventh was found on 2026-09-16 and the sentence held: the count moved, the
+claim did not.
 
-⛔ **THE ONE THAT IS OPEN IS NOT A SESSION COUNT, AND IT IS BLOCKED ON A RULING —
-[Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count).**
+⛔ **NEITHER OPEN ROAD IS A SESSION COUNT, AND BOTH ARE BLOCKED ON A RULING.**
+[Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
+is the absolute `SimTick`.
+[Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation)
+is the snapshot schema fingerprint hashing English prose: `compute_schema_fingerprint`
+hashes the whole `schema_dump()`, `detail` column included, so two builds of the
+same mechanical schema are two identities if somebody reworded a comment.
+Measured by poison — one pluralised word moved 83 rows.
 `SimTick` is registered `resource-canonical`, so its whole value is compared
 between peers, and it is an absolute count of every sim step an App has run
 (one writer, unconditional at the head of the schedule, never rebased, menu
@@ -105,8 +113,8 @@ that shape the profile are Q97, Q100, Q106 and Q108 in the decision ledger.
 
 The queue is intentionally compact. Its current groups are:
 
-- **P0:** A10 publication (CLOSED), peer-stable identity (nine of ten roads
-  closed; the tenth is `Q128`), settings/rollback policy, throw modifier
+- **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
+  two open are `Q128` and `Q122`), settings/rollback policy, throw modifier
   consistency, A2 projectile identity, A12 move-contact attribution and A4
   control/body execution.
 

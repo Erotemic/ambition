@@ -235,18 +235,48 @@ names has already hidden 25 of 29 registrations once:
 REGISTRAR METHOD, WHICH MAKES THIS ONE CLAIM ASSERTED ABOUT 99 TYPES THAT WERE
 NEVER INDIVIDUALLY EXAMINED.** 99 rows read *"state checksum supplied by another
 authoritative projection"*, and that string is a literal inside
-`rollback_component_clone` and `rollback_resource_clone` (two spellings each, in
-`runtime/src/rollback/registrar.rs` and
-`rollback_ggrs/src/registration.rs`). Nobody wrote it 99 times; nobody wrote it
-once per type either.
+`rollback_component_clone` and `rollback_resource_clone`, whose only bound is
+`T: Clone`. Nobody wrote it 99 times; nobody wrote it once per type either.
+⚠ It was spelled TWICE MORE than that — once per registrar, in two crates, with
+nothing comparing the copies — until `879a5a1a3` collapsed all 15 schema
+sentences onto `runtime::rollback::detail`. The dump is byte-identical, so that
+commit is a pure ownership move; it is what makes the sentence a one-place edit.
 
 ⇒ **THE DEFECT IS THAT THE KIND ASSERTS SOMETHING ONLY THE TYPE CAN KNOW.**
 Whether another authoritative projection covers a fact is a property of the
 value, not of the snapshot strategy chosen for it — so `rollback_component_clone`
-is claiming coverage it has no way to establish, on behalf of every caller. The
-remaining 55 rows say *"value-probed for localization, not in the session
-checksum"*, which states a DECISION rather than a coverage claim and is honest at
-the kind level.
+is claiming coverage it has no way to establish, on behalf of every caller.
+
+⛔⛤ **AND THE SENTENCE DECIDED WHO GOT MEASURED. THE 99 WERE NEVER IN THE CENSUS
+THAT EXISTS TO FIND THEM.** `scripts/measure_unchecksummed_rollback_rows.py` is
+titled *"rollback rows that are SNAPSHOTTED but contribute nothing to the session
+checksum"* — which is `feeds_peer_checksum() == false` for a value-bearing kind,
+175 rows. It selected on `"not in the session checksum" in detail`: **59 of 175**.
+The instrument named the concept in its title and matched the SPELLING in its
+filter, and the 116 it missed were missed because they carry the reassuring
+sentence. Same mechanics, opposite attention.
+
+⇒ Fixed: the census selects on `UNHASHED_KINDS = ("component-clone",
+"resource-clone")`, floors at 120 rather than 40 so a revert to prose-matching
+trips it, and prints the population split by how the rows describe themselves:
+
+| rows | self-description | |
+|---|---|---|
+| 99 | *state checksum supplied by another authoritative projection* | CLAIMS COVERAGE |
+| 59 | *value-probed for localization, not in the session checksum* | honest |
+| 17 | entity handle / SET / keyed MAP remapped, probed through stable sim identity | honest |
+
+76 of 175 state a DECISION rather than a coverage claim and are honest at the kind
+level. The float-bearing count over the true population is **79 of 175**.
+
+⚠ **AND WIDENING IT FOUND TWO ROWS THE INSTRUMENT IS STRUCTURALLY BLIND TO.**
+`entity.name` and `entity.transform` are `bevy::prelude::Name` and `Transform` —
+defined outside this repository, so the `git grep '(struct|enum) X'` index cannot
+see them and reported both as having no float-bearing fields. `Transform` is three
+`Vec3`/`Quat`. They are named in `EXTERNAL_TYPES` now with their floats stated.
+ⓘ Their registration had no recorded reason: the comment above them described
+portal-gun timers that had left for `ambition_portal2d::register_rollback_state`,
+and the carve moved the code while leaving the reason to be read as theirs.
 
 ⇒ Two ways out, and the first is cheaper than sweeping 175 rows: either the
 registrar TAKES the coverer (the projection or type that does compare this fact)

@@ -120,8 +120,12 @@ diary.
 
 **Owner:** unclaimed. Found 2026-09-16 while measuring C03 step 3; NOT fixed here.
 
-**REASONED, not measured — there is no failing arm yet, and the row says which
-experiment would make one.** What is MEASURED is the partition: of
+✔⛤ **MEASURED 2026-09-16, AND THE TWO HALVES CAME OUT DIFFERENTLY.** This row
+used to say *"REASONED, not measured — there is no failing arm yet"*.
+`CutsceneAdvanceRequest` is now held by a failing-by-design witness;
+`CutsceneTriggerQueue` is **benign by accident**, and the row's reasoning about
+it named a real structural gap but the wrong consequence. Both are rewritten
+below. The partition that was already MEASURED: of
 `SessionScopedResources`' 29 members, 22 are rollback-registered, 3 call
 `declare_rollback_derived_resource`, and **4 carry no rollback decision of any
 kind**. Reading the four, source already answers two of them:
@@ -136,20 +140,43 @@ kind**. Reading the four, source already answers two of them:
 
 ⛔⛔ **THE OTHER TWO ARE WRITTEN OR CONSUMED INSIDE THE REWINDING SCHEDULE.**
 
-1. **`CutsceneAdvanceRequest`** is produced by
-   `apply_menu_frame_to_cutscene_request` (host side) and consumed by
-   `tick_active_cutscene` with `std::mem::take`, in the sim schedule. Source
-   already calls it *"the cutscene's pending SIMULATION input"* and
-   *"edges already through the door, not presentation"*. ⇒ A rewind that
-   re-simulates the consuming frame finds the latch already emptied, so the
-   player's skip/dismiss edge is dropped on resimulation — and the symmetric case
-   is an edge taken only in a branch that was discarded.
-2. **`CutsceneTriggerQueue`** is written in the sim schedule by
-   `auto_trigger_room_cutscenes` and drained by `drain_cutscene_triggers` — which
-   **returns early, without draining, while a cutscene is playing.** ⇒ It is NOT
-   a fill-and-drain-same-frame buffer: it holds across frames for the whole
-   duration of a scene. `ActiveCutscene` and `LastCutsceneRoom` both rewind
-   (`cutscene.playback`, `cutscene.last_room`); the queue between them does not.
+1. ⛔⛤ **`CutsceneAdvanceRequest` — CONFIRMED, AND A DISMISS PRESS DOES
+   NOTHING.** It is produced by `apply_menu_frame_to_cutscene_request` on the
+   HOST side in `Update` and consumed by `tick_active_cutscene` with
+   `std::mem::take` inside the sim schedule's `Cutscene` phase. Held by
+   `a_cutscene_dismiss_raised_outside_the_simulation_is_lost`
+   (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`),
+   playing the shipped `cutscene_lab_intro` up to its `Dialogue` beat:
+
+   ```text
+   dismissed from INSIDE the sim schedule    beat 1 -> advances (to 3)
+   dismissed from OUTSIDE it (the host)      beat 1 -> stays at 1
+   ```
+
+   ⇒ The first pass takes the edge and advances; the rewind restores
+   `ActiveCutscene` (which IS `cutscene.playback`) but not the request, which is
+   unregistered and already `false`. Nothing re-produces it. ⭐ The in-sim arm is
+   the control: a fixture that cannot advance a cutscene at all prints the same
+   stalled `1`. Poison-verified (0 → beat 3).
+
+2. ✅⛤ **`CutsceneTriggerQueue` — NOT A LIVE DEFECT, AND THE REASON IS AN
+   UNSTATED INVARIANT RATHER THAN A DECISION.** The structural description above
+   was right: it is drained by `drain_cutscene_triggers`, which returns early
+   without draining while a cutscene plays, so it holds across frames while
+   `ActiveCutscene` and `LastCutsceneRoom` rewind around it. But the consequence
+   does not follow, because **every producer is itself inside the sim schedule**
+   — enumerated, not assumed: `auto_trigger_room_cutscenes`
+   (`Platformer2dSimulationPhaseMonolith::Cutscene`) and
+   `update_boss_encounters` → `publish_events` (`ProgressionSet::BossAdvance`).
+   A replay therefore re-produces whatever the rewind dropped. Measured: one
+   in-sim trigger on a single tick starts a cutscene that stays up for 171
+   frames of resimulation.
+
+   ⚠ **SO IT IS CORRECT BY COINCIDENCE, WHICH IS THE THING TO WRITE DOWN.** The
+   moment any producer moves to `Update` — exactly where
+   `apply_menu_frame_to_cutscene_request` already sits — it becomes item 1. The
+   queue owes a stated invariant (*"every producer runs in the sim schedule"*) or
+   a registration; it does not owe a fix today.
 
 ⭐⭐ **AND THIS EXACT SHAPE IS ALREADY SOLVED ONE DOMAIN OVER, WHICH IS THE
 STRONGEST ARGUMENT THAT IT IS REAL.** `OutstandingCheckpointRequest` is a request

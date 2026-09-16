@@ -24,8 +24,10 @@ import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -43,6 +45,16 @@ LEDGER = measurement_paths.SCENARIO_LEDGER
 # triggers a real recompile rather than an mtime-only one.
 MARKER = "\n#[allow(dead_code)]\nfn _compile_cost_probe(x: u32) -> u32 {{ x.wrapping_add({salt}) }}\n"
 
+#: What `MARKER` does to a file, in the vocabulary of
+#: `docs/planning/engine/extension-iteration-evidence.md` M0 (`edit_class`).
+#:
+#: ⛔ EVERY scenario below uses the SAME marker, so every row this script has
+#: ever written carries this one class. The ledger therefore cannot answer "does
+#: a signature change cost more than a body change" — not because the column is
+#: missing, but because the corpus has one value in it. Recording the class is
+#: what makes that limit visible instead of assumed.
+MARKER_EDIT_CLASS = "append-private-fn"
+
 
 @dataclass(frozen=True)
 class Scenario:
@@ -51,6 +63,8 @@ class Scenario:
     command: list[str]
     why: str
     env: dict[str, str] = field(default_factory=dict)
+    #: Overridable so a future scenario that edits differently must SAY so.
+    edit_class: str = MARKER_EDIT_CLASS
 
 
 SCENARIOS: list[Scenario] = [
@@ -90,15 +104,76 @@ def git(*args: str) -> str:
     return proc.stdout.strip()
 
 
-def run_timed(command: list[str], env: dict[str, str]) -> float:
+def run_timed(command: list[str], env: dict[str, str]) -> tuple[float, int | None]:
+    """Wall seconds, and the peak RSS of the LARGEST SINGLE PROCESS in the tree.
+
+    ⚠⚠ `ru_maxrss` is a HIGH-WATER MARK, NOT A TOTAL. `os.wait4` reports the
+    maximum over the reaped child and every descendant it waited for, so this is
+    the biggest single `rustc`/linker — never the sum of the ones resident at
+    once. A 30-job build whose largest unit held 1.1 GB reports 1.1 GB while the
+    host was holding far more. It answers *"does one unit still fit"*, which is
+    the question that decides whether a link OOMs; it does NOT answer *"what did
+    this build cost the machine"*, and no column here does.
+
+    ⛔ Do not "improve" this by polling RSS on a timer. A sampler misses a peak
+    between samples and reports a number that looks measured — this session lost
+    hours to exactly that class of instrument. `wait4` is the kernel's own
+    accounting for this child and cannot miss.
+    """
     merged = {**os.environ, **env}
-    start = time.monotonic()
-    proc = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, env=merged)
-    elapsed = time.monotonic() - start
-    if proc.returncode != 0:
-        tail = "\n".join((proc.stderr or "").strip().splitlines()[-12:])
-        raise SystemExit(f"⛔ `{' '.join(command)}` failed, so its timing is meaningless:\n{tail}")
-    return elapsed
+    with tempfile.TemporaryFile() as sink:
+        start = time.monotonic()
+        # `Popen` for `cwd`, then `os.wait4` for the rusage that `Popen.wait()`
+        # discards. Reaping behind Popen's back is safe ONLY because
+        # `returncode` is assigned below: a Popen that still believes its child
+        # is running will wait on that pid again at GC time, and pids get reused.
+        proc = subprocess.Popen(command, cwd=ROOT, stdout=sink, stderr=sink, env=merged)
+        try:
+            _, status, usage = os.wait4(proc.pid, 0)
+        except BaseException:
+            # Otherwise the child OUTLIVES us: an orphaned `cargo` keeps writing
+            # into the shared target dir while the caller believes the probe
+            # stopped, and the next measurement times a build racing a ghost.
+            proc.kill()
+            _, killed_status, _ = os.wait4(proc.pid, 0)
+            # Told for the SAME reason as the success path below: a Popen that
+            # still believes its child is running waits on that pid at GC time.
+            proc.returncode = os.waitstatus_to_exitcode(killed_status)
+            raise
+        elapsed = time.monotonic() - start
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        if proc.returncode != 0:
+            sink.seek(0)
+            captured = sink.read().decode("utf-8", errors="replace")
+            tail = "\n".join(captured.strip().splitlines()[-12:])
+            raise SystemExit(
+                f"⛔ `{' '.join(command)}` failed, so its timing is meaningless:\n{tail}"
+            )
+
+    # `ru_maxrss` is KiB on Linux and BYTES on macOS. Guessing wrong silently
+    # publishes a number off by 1024, which is worse than publishing none.
+    peak = usage.ru_maxrss * 1024 if sys.platform.startswith("linux") else None
+    return elapsed, peak
+
+
+def job_limit(command: list[str], env: dict[str, str]) -> int | None:
+    """The `-j` cap actually in force, or `None` for "uncapped; `machine_cores` applies".
+
+    ⛔ A capped run's wall clock is NOT the machine's cost, and a row that omits
+    the cap is a number nobody can compare to any other row. The cargo flag beats
+    the environment because that is cargo's own precedence.
+    """
+    for index, token in enumerate(command):
+        if token in ("-j", "--jobs") and index + 1 < len(command):
+            token = command[index + 1]
+        elif token.startswith("--jobs="):
+            token = token.split("=", 1)[1]
+        else:
+            continue
+        return int(token) if token.lstrip("-").isdigit() else None
+
+    raw = {**os.environ, **env}.get("CARGO_BUILD_JOBS", "")
+    return int(raw) if raw.isdigit() else None
 
 
 def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) -> dict:
@@ -119,12 +194,12 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     try:
         if verbose:
             print(f"  warming ({' '.join(scenario.command)}) …", flush=True)
-        warm = run_timed(scenario.command, merged_env)
+        warm, warm_peak = run_timed(scenario.command, merged_env)
 
         if verbose:
             print(f"  editing {scenario.edit} and rebuilding …", flush=True)
         target.write_bytes(original + MARKER.format(salt=17).encode("utf-8"))
-        edited = run_timed(scenario.command, merged_env)
+        edited, edited_peak = run_timed(scenario.command, merged_env)
     finally:
         target.write_bytes(original)
 
@@ -133,16 +208,32 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     # build makes the next `cargo` invocation honest instead of surprising.
     if verbose:
         print("  restoring build state …", flush=True)
-    settle = run_timed(scenario.command, merged_env)
+    settle, settle_peak = run_timed(scenario.command, merged_env)
 
     return {
         "scenario": scenario.name,
         "why": scenario.why,
         "edited_file": scenario.edit,
         "command": " ".join(scenario.command),
+        "edit_class": scenario.edit_class,
         "warm_noop_seconds": round(warm, 2),
         "after_edit_seconds": round(edited, 2),
         "restore_seconds": round(settle, 2),
+        # Peak RSS of the largest single process in each build — see `run_timed`
+        # for why this is a high-water mark and not a total. `null` off Linux.
+        "warm_noop_peak_rss_bytes": warm_peak,
+        "after_edit_peak_rss_bytes": edited_peak,
+        "restore_peak_rss_bytes": settle_peak,
+        # The `-j` cap this row was measured under; `null` means uncapped, in
+        # which case `machine_cores` is the parallelism.
+        "job_limit": job_limit(scenario.command, merged_env),
+        # ⛔ NULL BECAUSE NOTHING COLLECTS IT, NOT BECAUSE IT IS ZERO.
+        # `docs/planning/engine/extension-iteration-evidence.md` M0 names this
+        # field, and counting it honestly needs a shim on the linker path — which
+        # would perturb the very timings in this row. The column lands now so a
+        # future collector back-fills nothing: rows written before it exist say
+        # `null` and mean "unknown", which is true.
+        "host_link_invocations": None,
     }
 
 
@@ -203,6 +294,23 @@ def machine_facts() -> dict:
     }
 
 
+def _abort_on_signal(signum: int, _frame) -> None:
+    """Turn a signal into an exception so `measure`'s `finally` actually runs.
+
+    ⛔ THE BUG THIS CLOSES: default `SIGTERM` does not unwind, so `finally` never
+    fires and the restore never happens. This script's whole contract is that it
+    perturbs a clean source file and puts the original bytes back — and under
+    `timeout(1)`, which is how any bounded or unattended run must invoke it, that
+    contract was silently void. The residue is a `_compile_cost_probe` function
+    left inside a real crate, in a file nobody edited on purpose, which then
+    trips this script's OWN dirty-target refusal on the next run.
+    """
+    raise SystemExit(
+        f"⛔ signal {signum} received mid-measurement; "
+        "restoring the probed file before exiting"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scenario", action="append", choices=sorted(BY_NAME), help="default: all")
@@ -211,6 +319,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="extra environment for the cargo invocations")
     ap.add_argument("--no-record", action="store_true", help="print only; do not append to the ledger")
     args = ap.parse_args(argv)
+
+    # Installed BEFORE any file is touched, so there is no window in which a
+    # signal can strand the marker.
+    for caught in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(caught, _abort_on_signal)
 
     if shutil.which("cargo") is None:
         raise SystemExit("⛔ cargo not on PATH; this measures cargo and cannot proxy it")
@@ -259,10 +372,18 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
         rows.append(row)
+        peak = row["after_edit_peak_rss_bytes"]
+        largest = f"   largest proc {peak / 1e9:>5.2f} GB" if peak is not None else ""
         print(
             f"  warm no-op {row['warm_noop_seconds']:>7.2f}s"
             f"   AFTER EDIT {row['after_edit_seconds']:>7.2f}s"
+            + largest
         )
+        if args.no_record:
+            # ⛔ A DRY RUN THAT HIDES THE ROW CANNOT VERIFY THE ROW. Without
+            # this, the first sight of a newly added column is inside an
+            # append-only file, where a mistake cannot be taken back.
+            print(json.dumps(row, indent=2, sort_keys=True))
 
     if not args.no_record:
         LEDGER.parent.mkdir(parents=True, exist_ok=True)

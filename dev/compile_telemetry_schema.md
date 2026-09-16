@@ -22,13 +22,21 @@ discriminator that lets the four files be read as one table.
 
 | field | type | meaning |
 |---|---|---|
-| `schema` | int | this document's version. **1** today. |
+| `schema` | int | the row's COLUMN CONTRACT version. **1** today. |
 | `kind` | str | `graph` · `unit` · `scenario` · `job` · `carve` |
 | `recorded_at` | str | ISO-8601 with offset, when the ROW was written |
 | `commit` | str | `git rev-parse --short=12 HEAD` at write time |
 | `dirty` | bool | working tree had uncommitted changes |
 | `run_id` | str | 12 hex chars; joins rows produced by one invocation |
 | `label` | str | free text, e.g. `incremental`, `backfill: …` |
+
+⚠ `schema` is bumped when a column's MEANING changes or a reader must branch to
+read the row correctly — **not** when a nullable column is added. The rule at the
+top of this file ("the columns land BEFORE the collector") only works if a new
+column is a non-event for readers, and it is: the one reader that consults this
+field, `scripts/compile_report.py:428`, tests it for TRUTH (*"does this row state
+its own dimensions?"*), never for a value. Bumping on an additive column would
+also strand the four writers that emit the literal `1`, for no reader's benefit.
 
 ### ⛔ Why four files and not one
 
@@ -295,6 +303,30 @@ today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
 | `warm_noop_seconds` / `after_edit_seconds` / `restore_seconds` | measured | ✅ |
 | `profile` / `opt_level` / `incremental` | **NEW in schema 1**, explicit columns | ✅ from 2026-08-08 |
 | `machine_cores` / `machine_linker` / `machine_platform` / `machine_cargo` | measured | ✅ |
+| `warm_noop_peak_rss_bytes` / `after_edit_peak_rss_bytes` / `restore_peak_rss_bytes` | **NEW 2026-09-15**, `os.wait4` rusage | ✅ Linux only, else `null` |
+| `job_limit` | **NEW 2026-09-15**, the `-j` cap in force | ✅ `null` = uncapped |
+| `edit_class` | **NEW 2026-09-15**, what the probe did to the file | ✅ one value so far |
+| `host_link_invocations` | **NEW 2026-09-15**, M0's name for it | ⛔ `null` — no collector |
+
+### ⚠⚠ `*_peak_rss_bytes` IS ONE PROCESS, NOT THE BUILD
+
+`ru_maxrss` from `os.wait4` is the high-water mark over the reaped child and the
+descendants it waited for: **the biggest single `rustc` or linker, never the sum
+of the ones resident at the same time.** A 30-job build whose largest unit held
+1.1 GB records 1.1 GB while the host was holding many times that.
+
+⇒ It answers *"does one unit still fit"* — the question that decides whether a
+link OOMs, which is why it is here. It does **not** answer *"what did this build
+cost the machine"*, and reading it as though it does will understate a parallel
+build by roughly the job count. See §7.
+
+### ⛔ A row without `job_limit` is not comparable to one with it
+
+Wall clock under `-j 2` and wall clock uncapped on a 30-core host are different
+measurements of different things. The four schema-0 rows predate this column and
+are `null` there — which by the rule above means *uncapped*, and for those rows
+that is an assumption, not a record. Treat cross-regime comparison against them
+as unsupported rather than as agreement.
 
 ### ⚠ The four schema-0 rows disagree with each other, and here is the mapping
 
@@ -407,3 +439,16 @@ record (`conversation/mod.rs`'s own docstring) and says so in `recorded_from`.
   lineage is the deterministic stand-in until then.
 * **`incremental` for a unit row.** The timing report does not carry it. It is a
   reserved column, and a collector that owns its own environment can fill it.
+* **What a build cost the HOST in memory.** `*_peak_rss_bytes` is the largest
+  single process, not the sum of concurrent ones (§4). Nothing here totals
+  resident memory across a parallel build, so nothing here predicts an OOM from
+  parallelism — only one from a single oversized unit.
+* **Whether the EDIT CLASS changes the cost.** `edit_class` is recorded, but
+  every row ever written carries `append-private-fn`, because all four scenarios
+  share one marker. A signature change, a data-only move, and a body change may
+  cost very differently; this corpus has one value and cannot say. The column is
+  here so that limit is visible rather than assumed away.
+* **How many times the host linker ran.** `host_link_invocations` is a declared
+  column with no collector: counting it needs a shim on the linker path, which
+  would perturb the timings in the same row. `null` means unknown — and per M0,
+  *"null means unmeasured, not zero"*.

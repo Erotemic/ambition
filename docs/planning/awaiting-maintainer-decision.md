@@ -1169,15 +1169,29 @@ unavailable here; **the reverse is what happens.**
 2. **The restore chain must move inside the rewinding schedule**, so a rewind
    re-derives what it wrote. That needs `SaveRestored` to become rollback state
    and the "one-shot at boot" shape to survive being replayed.
-3. **The writes do not matter**, which needs an argument this row could not find:
-   they are hashed, they are inside the window, and nothing re-applies them.
+3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
+   two-way ruling and not a three-way one.** A mid-session load staged at tick 40
+   inside the rewinding schedule makes
+   `written_outside_the_rewinding_schedule()` return
+   `["...continuity::OccurrenceBaseline"]` and makes the sync test report
+   `Err("checksum mismatch at frames [38, 39, 40]")` — a real desync at the frames
+   of the load. The staging system's own writes to `AmbitionGameSave` and
+   `SaveRestored` are inside the schedule and do NOT appear in the outside set;
+   what appears is the baseline, whose only writer is
+   `adopt_occurrence_checkpoint_from_save` in `Update`.
 
 ⚠ **AND THE DETECTOR IS GREEN FOR A REASON THAT IS NOT SAFETY.**
 `no_registered_type_is_written_outside_the_rewinding_schedule` can see these types
 — they are value-probed — and passes because the harness boots with NO SAVE FILE,
 so `adopt_the_ledger` writes the same empty value it found. The comparison is
-between two identical censuses. **Whoever takes this needs a SEEDED save; nobody
-has built one.** Do not quote that arm's green against this question.
+between two identical censuses. Do not quote that arm's green against this question.
+✅ The seeded save now exists —
+`probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs` — and it is
+`#[ignore]`d because it demonstrates an unfixed defect. ⛔ Note its fixture shape:
+staging from OUTSIDE the timeline does nothing, because both the save and the
+latch are rollback-registered and the next rollback restores them. The staging
+must live in the rewinding schedule.
 
 ## Q134 — is a dialog visit count something two peers must agree on?
 

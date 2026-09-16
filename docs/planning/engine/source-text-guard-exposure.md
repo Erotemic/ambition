@@ -1,13 +1,15 @@
 # Source-text guards — which ones fail silently when their spelling changes
 
 **Two source-text guards were found blind on 2026-09-10 and neither was found by
-looking.** One anchored on a contiguous `commands.insert_resource(` that
+looking; a third was found on 2026-09-16 with a working floor in place, and it is
+the case this page had already predicted it could not see.** One anchored on a contiguous `commands.insert_resource(` that
 `rustfmt` had wrapped; one recognised a drop by the literal `GroundItem {` and
 went blind when the type was sealed. A third — the writer census itself —
 recognised construction by a hand-kept list of blessed method names and lost six
 sites to the same seal. This page is the sweep those three argue for.
 
-Measured 2026-09-10. Re-derive:
+Measured 2026-09-10, re-measured 2026-09-16 (population +20%, conclusions
+unchanged). Re-derive:
 
 ```bash
 python3 scripts/measure_source_text_guard_exposure.py
@@ -25,15 +27,23 @@ this test still pass?**
 
 ## What it found
 
-121 guard files under `scripts/tests/` read source text; 685 test functions in
-them.
+Re-measured **2026-09-16**, six days on. The instrument has not changed since the
+original sweep (last commit `318aa23e8`, 2026-09-10), so every number below moved
+because the TREE did — three agents adding guards — and not because the measure
+did. That separation is the only reason these two rows can be compared at all.
 
-| verdict | tests | meaning |
-|---|---|---|
-| exposed | 103 | a CEILING or an emptiness check, no floor — an empty scan reads as clean |
-| equality | 345 | compares a derived set against a hand-written one; an empty scan fails LOUDLY |
-| floored | 174 | an anti-vacuity assertion, or a fixture positive control requiring the checker to FAIL |
-| unclassified | 63 | no assertion this sweep recognises — read them |
+| verdict | 2026-09-10 | 2026-09-16 | meaning |
+|---|---|---|---|
+| exposed | 103 | **121** | a CEILING or an emptiness check, no floor — an empty scan reads as clean |
+| equality | 345 | **418** | compares a derived set against a hand-written one; an empty scan fails LOUDLY |
+| floored | 174 | **205** | an anti-vacuity assertion, or a fixture positive control requiring the checker to FAIL |
+| unclassified | 63 | **79** | no assertion this sweep recognises — read them |
+| **files / functions** | 121 / 685 | **137 / 823** | |
+
+⭐ **THE SHAPE HELD WHILE THE POPULATION GREW A FIFTH.** Every category rose
+roughly in proportion, and the shortlist below is STILL one file. A sweep whose
+conclusion survives 138 new test functions written by people who had not read it
+is measuring the codebase rather than the day it was run.
 
 ⛔ **"Exposed" is a place to look, not a finding.** Most of the 103 anchor on
 something a formatter cannot touch. Intersecting exposure with a **rigid join** —
@@ -96,6 +106,37 @@ names: **an associated function is `Type::snake_case(`, a method is
 ⚠ And only when none of the three is available does an **anti-vacuity floor**
 come next — it does not stop the guard going blind, it makes the blindness
 loud.
+
+⛔⛤ **AND ON 2026-09-16 THE FIRST BULLET OF "WHAT THIS CANNOT SEE" WAS
+REPRODUCED, WITH A FLOOR IN PLACE AND WORKING.** This page already warns that *"a
+floor on a different collection than the ceiling protects nothing, and this sweep
+cannot tell the two apart"*. Here is that case, measured:
+
+`rollback_schema_usage` censused the rollback registration NAMES out of source
+text. Its floor was `assert len(current["stable_schema_names"]) > 100` — real,
+in the right file, and passing on 423 names. Meanwhile the runtime registry held
+**493** rows, of which **73 were invisible to the scan and 21 fed the peer
+checksum**. Three causes, none of them a formatter: the glob covered `crates/`
+and 47 registrations live under `game/`; 26 names are colon-form against a
+dot-requiring pattern; and the marker it followed is one of FOUR spellings of
+"this file registers", including an extension trait that names no registrar at
+all.
+
+⇒ **A FLOOR PROVES THE SCAN FOUND SOMETHING. IT CANNOT PROVE THE SCAN LOOKED
+EVERYWHERE**, and those are different properties. 423 is a fine number; it is
+simply not a claim about 493. Nothing internal to the guard could have caught
+this, because every part of it agreed with itself — what caught it was an
+INDEPENDENT instrument over the same subject, the checked-in runtime dump, and
+the only reason to compare them was noticing the repo kept the fact twice.
+
+⚠ **SO THE EXPOSURE AXIS HAS A SECOND DIMENSION THIS SWEEP DOES NOT SCORE.** The
+sweep asks *"if the scan matched nothing, would this test still pass?"* — a
+question about the scan's OUTPUT being empty. This case's scan matched plenty and
+its POPULATION was wrong, which no floor, control or equality check on the
+guard's own output can see. The remedy is not a better floor; it is a second
+derivation from a different source, and where a fact has a runtime owner, a
+source scan should not be the one holding it. (`stable_schema_names` was deleted
+rather than widened, for exactly that reason.)
 
 ## Anti-vacuity, stated plainly
 

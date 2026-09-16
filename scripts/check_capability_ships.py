@@ -179,6 +179,26 @@ def _is_test(path: Path) -> bool:
     return "tests" in path.parts or path.name in {"tests.rs", "test_support.rs"}
 
 
+#: ⛔⛤ **A POPULATION FLOOR, BECAUSE EVERY HOLE THIS CLASS OF CHECK HAS HAD
+#: FAILED IN THE GREEN DIRECTION.** `_is_test` is one of FIVE copies of "is this
+#: file test-only" in `scripts/`, and they have drifted into five different
+#: answers — this copy misses `*_tests.rs` and `test.rs`, which two of the others
+#: catch. Any correction to it makes this check EXCLUDE MORE, and a check that
+#: excludes more reports CLEANER. So a consolidation of those five would arrive
+#: looking like an improvement whether it was one or not.
+#:
+#: ⇒ The count is part of the verdict. A widened exclusion that swallows real
+#: production files cannot announce itself, but it cannot avoid making these
+#: numbers FALL. MEASURED 2026-09-16 at 1546 gated files / 191 optional-read
+#: types / 414 writer types; the floors sit just under that. Raise one when the
+#: tree genuinely grows; a DROP is the signature of the next hole.
+POPULATION_FLOOR = {
+    "gated files": 1500,
+    "optional-read types": 185,
+    "init_resource writer types": 400,
+}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true")
@@ -201,6 +221,27 @@ def main() -> int:
             ty = match["turbo"] or match["ty"] or bindings.get(match["local"] or "")
             if ty:
                 writers.setdefault(ty, set()).add(path)
+
+    sizes = {
+        "gated files": len(gates),
+        "optional-read types": len(optional_reads),
+        "init_resource writer types": len(writers),
+    }
+    shortfalls = [
+        f"  {label}: {sizes[label]} visible, floor is {floor}"
+        for label, floor in POPULATION_FLOOR.items()
+        if sizes[label] < floor
+    ]
+    if shortfalls:
+        print(
+            "⛔⛔ THIS CHECK'S OWN REACH HAS FALLEN, so a clean verdict below would "
+            "be a claim about the SCAN and not about the tree:\n"
+            + "\n".join(shortfalls)
+            + "\n⇒ Something narrowed what this script can see — most likely the "
+            "test-file exclusion. Fix the reach, or lower the floor deliberately "
+            "and say why in the same commit."
+        )
+        return 1
 
     findings: list[str] = []
     for ty, read_sites in sorted(optional_reads.items()):

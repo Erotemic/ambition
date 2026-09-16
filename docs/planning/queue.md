@@ -387,7 +387,7 @@ say "derived" about something ELSE — `ActorRenderSize`'s COLLISION BOX,
 box. ⚠ 21 is a floor of CANDIDATES, not a count of defects.
 
 The ones that really do describe themselves that way are deliberate, and the
-reason is written at the registration site (`rollback_registration.rs:428`):
+reason is written at the registration site (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`):
 *"'Re-derived next tick' is not a reason to omit it: `ITEM 0` of this project's
 own record is a component declared derived, dropped by a restore, and read before
 its writer ran again. Presence is authoritative because a query FILTERS on it."*
@@ -838,6 +838,33 @@ population floor asserted inside the script (`POPULATION_FLOOR` in
 and no probe: it fails when the script's own reach falls, on the real tree, in
 the lane that actually runs. That is the only form that survives a consolidation
 which makes every check see less.
+
+⇒ **STEP ONE IS DONE: ALL FIVE NOW HAVE A POPULATION FLOOR (2026-09-16).**
+`check_rollback_mutators_run_in_sim.py` and `check_set_pins_have_engine_members.py`
+already had one. Added to the other three, each poisoned by widening its own test
+exclusion until the reach really fell:
+
+| script | floor term(s) | measured | poison |
+| --- | --- | ---: | --- |
+| `check_capability_ships.py` | gated files / optional-read types / writer types | 1546 / 191 / 414 | RED |
+| `ecs_inventory.py` | crates / components / resources / registered systems | 78 / 638 / 493 / 1108 | refuses, 0 writes |
+| `test_every_smash_technique_has_a_translator.py` | ruleset files in the haystack | 282 | RED |
+
+⚠ **AND `test_every_smash_technique…`'s RISK RUNS THE OTHER WAY.** For the other
+four a WIDENED exclusion is the silent danger — they report cleaner when they see
+less. There, over-exclusion shrinks the HAYSTACK and produces MORE orphans, so it
+fails loudly. Its silent direction is an exclusion too NARROW, letting a test file
+into the haystack so a const named only by a test reads as a connected technique
+— which is the recorded defect in its own docstring. ⇒ When the five collapse
+onto one owner, that call site must not LOSE exclusions, and no floor can see
+that. The floor makes the consolidation reviewable, not safe.
+
+⛔⛤ **AND `ecs_inventory.py`'s FLOOR WAS WRONG ON ITS FIRST WRITING — ITS OWN
+POISON FOUND IT.** The check sat after the per-crate loop had already written its
+shards, so a refused run left `.agent/ecs_inventory/crates/` shrunken beside a
+stale `project.json`: a PARTIALLY PUBLISHED inventory, worse than the shrunken one
+it was refusing. Now nothing is written until the floor passes — measured, the
+poisoned run writes 0 files where the good run writes 162.
 
 **Acceptance:** one owner for "is this file test-only", covering both the name
 conventions and `#![cfg(test)]`; each consuming check fails when its population

@@ -2988,6 +2988,22 @@ not findings. ⚠ **Do not add a retry.** ⚠ And `measure` prints its census co
 on every run while libtest swallows stdout for a PASS, so the diagnostic that
 would show the window drifting needs `--nocapture`.
 
+✔ **AND THE CLASS NOW HAS A RATCHET:
+`scripts/a_test_static_is_a_channel_between_arms.py`.** `app_it` runs its arms as
+threads of ONE process, so an interior-mutable `static` in test code is shared by
+every arm that reaches it. The census is TEN, all ten adjudicated with reasons —
+two serialising locks, one cross-arm filename sequence, two once-built immutable
+casts, and five single-arm recorders marked LATENT because a second arm touching
+one inherits the defect. ⚠ `thread_local!` is the remedy and is not reported; a
+per-call closure is better still, because it is per-USE rather than per-thread.
+
+⛔⛤ **AND THE FIRST VERSION REPORTED THE REMEDY AS THE DEFECT**: `thread_local!`
+declares its cells with the `static` keyword one line down, so two of them read
+exactly like a shared counter. ⚠ The arm holding that exclusion ALSO had to be
+re-routed — it called the helper directly, so poisoning the production call site
+left it green while only the repository ratchet noticed. A unit test of a helper
+is not a test of the wiring that uses it.
+
 ✔ **AND A FOURTH INSTANCE IS CLOSED BY THE SAME MECHANISM, WHICH IS WHAT MAKES
 IT A MECHANISM RATHER THAN A COINCIDENCE.** The triage page's own 2026-09-16
 instance — building a second sim App made

@@ -156,6 +156,9 @@ class BuildCost:
     peak_rss_bytes: int | None
     #: `None` means UNMEASURED, never zero — see `instrumented_for_link_count`.
     host_link_invocations: int | None
+    #: Units cargo actually COMPILED. A warm no-op must rebuild zero; see
+    #: `refuse_a_baseline_that_is_not_one`.
+    units_rebuilt: int | None
 
 
 def instrumented_for_link_count(command: list[str]) -> tuple[list[str], bool]:
@@ -183,6 +186,28 @@ def instrumented_for_link_count(command: list[str]) -> tuple[list[str], bool]:
     if any(token.startswith("--message-format") for token in command):
         return command, False
     return [*command, LINK_COUNT_FLAG], True
+
+
+def count_rebuilt_units(cargo_json: str) -> int:
+    """How many units cargo COMPILED, fresh ones excluded.
+
+    ⭐ THIS IS THE TERM WHOSE CORRECT VALUE IS KNOWN IN ADVANCE. A warm no-op
+    rebuilds ZERO units by definition, on any machine, in any lane — so unlike a
+    duration it needs no per-host threshold, and unlike the link count it works
+    on `cargo check`, which never links.
+    """
+    rebuilt = 0
+    for line in cargo_json.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if message.get("reason") == "compiler-artifact" and not message.get("fresh", False):
+            rebuilt += 1
+    return rebuilt
 
 
 def count_host_links(cargo_json: str) -> int:
@@ -277,6 +302,7 @@ def run_timed(command: list[str], env: dict[str, str]) -> BuildCost:
         seconds=elapsed,
         peak_rss_bytes=peak,
         host_link_invocations=count_host_links(rendered) if countable else None,
+        units_rebuilt=count_rebuilt_units(rendered) if countable else None,
     )
 
 
@@ -345,6 +371,41 @@ class LoadSampler:
         }
 
 
+def refuse_a_baseline_that_is_not_one(scenario: Scenario, warm: BuildCost) -> None:
+    """Stop before the interesting numbers exist, not after a reader has seen them.
+
+    ⛔⛤ MEASURED THREE TIMES ON 2026-09-16, ALWAYS THE SAME CAUSE: a merge landed
+    between building the subject and measuring it, and the "warm" no-op did real
+    work — 346 s, then 47 s, then 7.25 s, against a 0.73 s floor. Every duration
+    in such a row times a different build than the row claims, and NOTHING in the
+    durations says so.
+
+    ⭐ AND A RULE THAT ASKS A READER TO CHECK THE CONTROL COLUMN FIRST DOES NOT
+    HOLD, which is why this raises instead of warning. Once you have read
+    `after_edit_seconds`, you will EXPLAIN an odd baseline rather than discard the
+    row — the explanation is always available and always plausible. So the
+    instrument refuses to produce the interesting term at all. (The ordering
+    point is YardratAmbition's; the enforcement is the part that makes it hold at
+    3am.)
+
+    ⚠ ZERO REBUILT UNITS IS THE TEST, NOT A DURATION THRESHOLD. A threshold is
+    per-machine and per-lane and would need tuning on every host; "a warm no-op
+    compiled nothing" is exact everywhere. ⇒ It also covers `cargo check`, which
+    `host_link_invocations` cannot: a check lane links nothing whether the
+    baseline was warm or stone cold.
+    """
+    if warm.units_rebuilt:
+        raise SystemExit(
+            f"⛔ `{scenario.name}`'s warm no-op REBUILT {warm.units_rebuilt} unit(s) "
+            f"in {warm.seconds:.2f}s, so it is not a baseline and every duration "
+            f"beside it would describe a different build.\n"
+            f"   Cause, every time it has happened here: the tree changed between "
+            f"warming and measuring — usually a merge.\n"
+            f"   Fix: settle the tree, then re-run. Freeze it for the whole "
+            f"measurement, as AGENTS.md already requires across a gate."
+        )
+
+
 def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) -> dict:
     target = ROOT / scenario.edit
     if not target.exists():
@@ -374,6 +435,8 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         edited = run_timed(scenario.command, merged_env)
     finally:
         target.write_bytes(original)
+
+    refuse_a_baseline_that_is_not_one(scenario, warm)
 
     # Leave the tree in the state the caller handed us: the revert above changes
     # content back, but the rebuild artifacts now describe the probe. One more
@@ -419,6 +482,13 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         # beside it is then measuring a different build than it claims to.
         #
         # ⚠ `null` means UNMEASURED, never zero.
+        # Units cargo COMPILED per phase. `warm_noop_units_rebuilt` is 0 in every
+        # row that exists, because `refuse_a_baseline_that_is_not_one` stops the
+        # run otherwise — it is recorded so a reader can see the control was
+        # applied rather than assumed.
+        "warm_noop_units_rebuilt": warm.units_rebuilt,
+        "after_edit_units_rebuilt": edited.units_rebuilt,
+        "restore_units_rebuilt": settle.units_rebuilt,
         "warm_noop_host_link_invocations": warm.host_link_invocations,
         "after_edit_host_link_invocations": edited.host_link_invocations,
         "restore_host_link_invocations": settle.host_link_invocations,

@@ -2268,3 +2268,230 @@ fn one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test() {
          checksum happens to agree"
     );
 }
+
+const NEW_GAME_AT: u64 = 30;
+
+/// Every value `SaveRestored` held, sampled once per `Update`.
+///
+/// ⛔⛤ THIS EXISTS BECAUSE A BETWEEN-STEP READ CANNOT SEE THE TRANSITION.
+/// `reset_inventory_on_new_game` lowered the latch and the load chain raised it
+/// again in the SAME frame, so `sim.step()`-boundary sampling reported it true
+/// throughout — measured: the first version of the arm below passed with the
+/// defect fully present, which is a vacuous guard wearing a green tick.
+#[derive(bevy::prelude::Resource, Default)]
+struct LatchHistory(Vec<bool>);
+
+fn record_the_latch_every_frame(
+    restored: bevy::prelude::Res<SaveRestored>,
+    mut history: bevy::prelude::ResMut<LatchHistory>,
+) {
+    history.0.push(restored.0);
+}
+
+/// Put a row in each occurrence baseline, then commit New Game — all from
+/// inside the rewinding schedule, which is where the shipped reset lives.
+fn seed_both_baselines_then_start_a_new_game(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut occurrence_baseline: bevy::prelude::ResMut<
+        ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
+    >,
+    mut custody_baseline: bevy::prelude::ResMut<
+        ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
+    >,
+    mut reset: bevy::prelude::ResMut<
+        ambition_platformer2d::actors::session::reset::NewGameResetRequested,
+    >,
+) {
+    use ambition_platformer2d::platformer::lifecycle::{
+        AuthoredOccurrences, OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    if tick.0 == 5 {
+        let subject = SimId::from_snapshot("probe:a_thing_the_checkpoint_remembers".to_string());
+        let mut rows = std::collections::BTreeMap::new();
+        rows.insert(subject.clone(), OccurrenceWhereabouts::InCustody);
+        let mut remembered = AuthoredOccurrences::default();
+        remembered.adopt_rows(rows);
+        occurrence_baseline.adopt(remembered);
+        let mut held = std::collections::BTreeMap::new();
+        held.insert(
+            subject,
+            SimId::from_snapshot("probe:a_custodian".to_string()),
+        );
+        custody_baseline.adopt(held);
+    } else if tick.0 == NEW_GAME_AT {
+        reset.request = true;
+    }
+}
+
+/// ✔⛤ NEW GAME CLEARS THE OCCURRENCE BASELINES ITSELF, AND NEVER LOWERS THE
+/// DURABLE-RESTORE LATCH TO DO IT.
+///
+/// `reset_inventory_on_new_game` used to end `restored.0 = false`, which sent
+/// the fresh run back through the generic load chain so that
+/// `adopt_occurrence_checkpoint_from_save` would re-adopt these two baselines
+/// from the wiped file. ⛔ **That line was the ONLY place in the codebase that
+/// lowered `SaveRestored`** — measured by census — so it was single-handedly
+/// creating a "replace the save while a GGRS session is live" road that no
+/// product feature asked for, and running a chain of `Update` systems over
+/// rollback-owned state to do it.
+///
+/// ⇒ Every other fresh-run durable fact was already reset in that same function
+/// (bag, wallet, minted-item baseline, owned-items baseline); these two were the
+/// whole reason to re-enter the load road. They are reset directly now.
+///
+/// ⚠ `AuthoredOccurrences` is not checked here: `process_new_game_reset_request`
+/// clears it with `forget_everything()` one system earlier in the same committed
+/// transaction, and `one_write_to_the_occurrence_ledger_does_not_desync_the_sync_test`
+/// owns that road.
+#[test]
+fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.add_systems(label, seed_both_baselines_then_start_a_new_game);
+            // ⚠ `Update`, not the sim schedule: the chain that lowers and raises
+            // the latch lives in `Update`, and that is the resolution the claim
+            // needs.
+            app.init_resource::<LatchHistory>();
+            // ⛔⛤ AND `.before` THE RESTORE CHAIN, WHICH IS THE THIRD TIME THIS
+            // ARM'S SHUTTER OPENED AT THE WRONG MOMENT. Unordered in `Update`
+            // the recorder lands AFTER `complete_durable_restore` has raised the
+            // latch again, so it reports `true` on every frame with the defect
+            // fully present. The window where the latch is false is: the sim
+            // schedule lowers it (from `PreUpdate`, under the rollback host) and
+            // this same frame's `Update` chain raises it. Sampling has to sit at
+            // the head of that chain.
+            app.add_systems(
+                bevy::prelude::Update,
+                record_the_latch_every_frame.before(
+                    ambition_platformer2d::actors::session::durable_horizon::adopt_occurrence_checkpoint_from_save,
+                ),
+            );
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a New Game on a known tick");
+
+    // Sampled EVERY step, because the claim is that the latch never goes false —
+    // and a value that is true at the start and true at the end can have been
+    // false in between. That is exactly how the old road worked.
+    let mut latch_lowered_at: Vec<usize> = Vec::new();
+    let mut baselines_seeded = false;
+    // ⛔ AND THE ROSTER IS WHAT PROVES THE RESET COMMITTED, not `SimTick`. A
+    // committed reset writes a `ClockResetRequest`, so the tick counter is not a
+    // measure of window progress across one: measured, a 140-step run and a
+    // 280-step run both report tick 32 against a reset staged at 30. The reset
+    // despawns and respawns the room's roster, and despawn bumps the entity
+    // generation, so NO original `Entity` value survives a rebuild that really
+    // ran — the discriminator `a_reset_requested_from_update_mid_window` uses.
+    let roster_before = feature_roster(&mut sim);
+    for frame in 0..200 {
+        sim.step(AgentAction::default());
+        if !sim
+            .world()
+            .get_resource::<SaveRestored>()
+            .is_some_and(|restored| restored.0)
+        {
+            // Kept, but it is the WEAK reading — see `LatchHistory`.
+            latch_lowered_at.push(frame);
+        }
+        if !baselines_seeded
+            && sim
+                .world()
+                .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+                .remembered()
+                .rows()
+                .count()
+                > 0
+        {
+            baselines_seeded = true;
+        }
+    }
+
+    let occurrence_rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        .remembered()
+        .rows()
+        .count();
+    let custody_rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        .rows()
+        .count();
+    let roster_after = feature_roster(&mut sim);
+    let survivors = roster_before.intersection(&roster_after).count();
+    eprintln!(
+        "NEWGAME tick={} seeded={baselines_seeded} occurrence_rows={occurrence_rows} \
+         custody_rows={custody_rows} latch_lowered_at={latch_lowered_at:?} \
+         roster {} -> {} survivors={survivors}",
+        sim_tick(&sim),
+        roster_before.len(),
+        roster_after.len(),
+    );
+
+    // ── PREMISES. The window has to reach the reset, and the baselines have to
+    // have held something, or "they are empty" is a statement about a seed that
+    // never landed.
+    assert!(
+        !roster_before.is_empty(),
+        "the room had no roster before the reset, so 'the roster was rebuilt' \
+         below is a claim about an empty set"
+    );
+    assert_eq!(
+        survivors, 0,
+        "{survivors} of {} roster entities survived, so the New Game reset did \
+         not rebuild the world and nothing below is about a committed reset",
+        roster_before.len()
+    );
+    assert!(
+        baselines_seeded,
+        "the occurrence baseline never held a row, so 'New Game cleared it' is a \
+         claim about an empty subject"
+    );
+
+    // ── THE SUBJECT, both halves.
+    assert_eq!(
+        (occurrence_rows, custody_rows),
+        (0, 0),
+        "New Game left rows in the occurrence baselines, so the fresh run \
+         inherits what the finished run remembered at its last checkpoint"
+    );
+    // ── AND THE LATCH, AT THE RESOLUTION THE CLAIM NEEDS.
+    let history = &sim.world().resource::<LatchHistory>().0;
+    let first_true = history.iter().position(|held| *held);
+    assert!(
+        first_true.is_some(),
+        "the latch never became true in {} sampled frames, so this arm never \
+         entered the state it is about",
+        history.len()
+    );
+    let lowered_after: Vec<usize> = history
+        .iter()
+        .enumerate()
+        .skip(first_true.expect("asserted just above"))
+        .filter(|(_, held)| !**held)
+        .map(|(index, _)| index)
+        .collect();
+    assert!(
+        lowered_after.is_empty(),
+        "`SaveRestored` went false again at sampled frames {:?} of {} after \
+         first becoming true. That is the mid-session save-replacement road: it \
+         re-runs a chain of `Update` systems over rollback-owned state while a \
+         GGRS session is already live. New Game must RESET its durable domains, \
+         not RELOAD them.\n\
+         ⚠ The between-step reading says {latch_lowered_at:?}, and it is blind \
+         to a lower-and-raise inside one frame — which is exactly what the old \
+         road did.",
+        &lowered_after[..lowered_after.len().min(8)],
+        history.len()
+    );
+}

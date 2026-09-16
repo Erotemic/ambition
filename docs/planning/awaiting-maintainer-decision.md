@@ -1240,6 +1240,30 @@ hole, which is why this belongs here rather than in Q134.
 conversation opening after session activation produces exactly one visit, and
 still exactly one after a rewind across it.
 
+✅⛤ **AND ONE OF THIS QUESTION'S TWO ROADS IS GONE, 2026-09-16: THERE IS NO
+MID-SESSION SAVE REPLACEMENT ANY MORE.** Censused: `SaveRestored` was lowered in
+exactly ONE place in the whole codebase — `reset_inventory_on_new_game`'s closing
+`restored.0 = false`, on `NewGameResetCommitted`. It did that so the generic load
+chain would re-adopt `OccurrenceBaseline` and `CustodyBaseline` from the wiped
+file; every other fresh-run durable fact was already reset in that same function.
+
+⇒ Those two are reset directly now, the latch stays true, and New Game is a
+self-contained simulation transaction. **So the only `false -> true` transition
+left is initial session activation** — which is the case option 1 is about, and
+an arbitrary "load another save while the rollback game continues" road is no
+longer being created by accident.
+
+⛔⛤ **THE WINDOW IT CLOSED WAS TWO FRAMES WIDE AND INVISIBLE TO THE OBVIOUS
+INSTRUMENT.** Sampling `SaveRestored` between `sim.step()` calls reported it TRUE
+for the whole run with the defect fully present, because the sim schedule lowered
+it from `PreUpdate` and the `Update` chain raised it again in the same frame. The
+arm had to sample at the HEAD of that chain
+(`.before(adopt_occurrence_checkpoint_from_save)`) to see frames 33 and 34. ⇒ A
+latch that is lowered and re-raised within one frame is invisible to any
+between-frame reader, and the first version of that acceptance passed with the
+defect live. Held by
+`a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch`.
+
 ## Q134 — is a dialog visit count something two peers must agree on?
 
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)

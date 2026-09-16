@@ -66,6 +66,14 @@ pub fn reset_inventory_on_new_game(
     mut restored: ResMut<SaveRestored>,
     mut minted_baseline: Option<ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
     mut owned_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    // ⭐ THE TWO OCCURRENCE BASELINES, RESET HERE rather than re-adopted from
+    // the wiped file. See the note at the end of this function.
+    mut occurrence_baseline: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
+    >,
+    mut custody_baseline: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
+    >,
     mut wallet_q: Query<
         &mut BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -84,11 +92,44 @@ pub fn reset_inventory_on_new_game(
     if let Some(baseline) = owned_baseline.as_deref_mut() {
         *baseline = Default::default();
     }
-    // ⛔ AND THE RESTORE ROAD RUNS AGAIN, against the FRESH file. Leaving this
-    // true is what let the mirror write before any adopter had seen the new save;
-    // lowering it puts the fresh run through the same road a fresh process takes,
-    // where `inventory_saved() == false` means "keep the live starter set".
-    restored.0 = false;
+    // ⛔⛤ **AND THE LAST TWO DURABLE DOMAINS, DIRECTLY — WHICH IS WHAT LETS THE
+    // LATCH STAY TRUE.** This function used to end `restored.0 = false`, sending
+    // the fresh run back through the generic load road so that
+    // `adopt_occurrence_checkpoint_from_save` would re-adopt these two from the
+    // wiped file. Every other fresh-run durable fact above is already reset
+    // HERE; these two were the only reason to re-enter that road at all.
+    //
+    // ⇒ Resetting them here makes New Game a self-contained simulation
+    // transaction, and it removes the ONLY mid-session `false -> true`
+    // transition of `SaveRestored` in the codebase — measured by census: this
+    // line was its only lowering. That transition re-ran a chain of `Update`
+    // systems over rollback-owned state while a GGRS session was already live,
+    // which is the defect Q135 is about
+    // (`docs/planning/awaiting-maintainer-decision.md`). An engine feature that
+    // replaces the save during a live match is not something this line should
+    // have been creating by accident.
+    //
+    // ⚠ `AuthoredOccurrences` is NOT reset here, and that is not an omission:
+    // `process_new_game_reset_request` clears it with `forget_everything()` in
+    // the same committed transaction, one system earlier.
+    //
+    // ⚠ AND THE WINDOW IT CLOSED WAS TWO FRAMES WIDE AND INVISIBLE TO A
+    // BETWEEN-STEP READ — the chain raised the latch again in the same frame it
+    // was lowered, so `sim.step()`-boundary sampling reported it true throughout.
+    // Held by
+    // `a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch`,
+    // which samples at the HEAD of that chain for exactly that reason.
+    if let Some(baseline) = occurrence_baseline.as_deref_mut() {
+        *baseline = Default::default();
+    }
+    if let Some(baseline) = custody_baseline.as_deref_mut() {
+        *baseline = Default::default();
+    }
+    debug_assert!(
+        restored.0,
+        "a New Game committed while the durable restore had never completed, so \
+         the fresh-run values above are being written over a load still in flight"
+    );
 }
 
 /// Apply the saved inventory + wallet to the live state once, after the save

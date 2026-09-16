@@ -309,8 +309,8 @@ Do not replace clear Bevy set ordering with a custom scheduler abstraction.
 
 | ID | Road | What it is | Current state | Deletion/consolidation condition | Blocked by | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| TRANS-DIRECT-SESSION-FALLBACK | Unscoped direct/headless session spawning | real supported composition today | Missing ActiveSessionScope means process-resident direct/legacy spawning; shell frontend with a present but inactive scope sleeps. | Remove only if direct/headless hosts adopt the canonical SessionRoot/session lifecycle. | — | SOURCE_CONFIRMED |
-| TRANS-DIRECT-GENERATION-FALLBACK | App registry fallback for construction with no activated generation | real supported compatibility composition | GenerationMechanics can read App registries when no content generation was activated. Shell-routed live rebuilds refuse this fallback. | Candidate deletion road after provider/session generation activation is universal or direct compositions get an explicit prepared generation. | — | SOURCE_CONFIRMED |
+| TRANS-DIRECT-SESSION-FALLBACK | Unscoped direct/headless session spawning | supported composition answer, not a fallback | `live_scope_of` BRANCHES on `SessionGatedSimulation`: shell-routed selects the root the activation names and answers `None` when no scope is active (a lingering retired root is not a candidate); direct-entry has no activation, so its single root IS the authority. | Remove only if direct/headless hosts are required to adopt the shell session lifecycle — a composition decision, not a correctness one. | — | SOURCE_CONFIRMED 2026-09-16 |
+| TRANS-DIRECT-GENERATION-FALLBACK | App registry values for construction with no activated generation | supported composition answer, not a fallback | `GenerationMechanics` is a THREE-STATE contract, asserted per state: shell + generation takes the generation (the App loses); direct-entry + no generation takes the App override, and is the one composition entitled to supply it; **shell + no generation REFUSES** rather than falling back, so a room cannot come out part generation-derivative and part App. | Remove only if direct compositions are required to carry a prepared generation — a composition decision. | — | SOURCE_CONFIRMED 2026-09-16 |
 | TRANS-DIRECT-CONTENT-BINDING | Missing content-binding allowance in direct fixtures | supported composition answer, not a gap | `verify_and_publish` discriminates on `SessionGatedSimulation`: a shell-routed session missing `ActiveContentBinding` REFUSES the room; a direct-entry fixture states no binding and means it. | Delete only if direct-entry compositions are required to own a content binding — a composition decision, not a correctness one. | — | SOURCE_CONFIRMED 2026-09-15 |
 | TRANS-FACADE-MIRRORS | Umbrella facade and compatibility re-export mirrors | migration/compatibility layer | The responsibility map records facade re-export and legacy module mirrors as compatibility surface, while ownership remains in lower crates. | Remove internal mirror paths as consumers move to the canonical public surface. Keep useful external facade ergonomics. | — | DOC_CLAIM |
 | TRANS-PLANNING-HISTORY | Historical closure prose in live queue | resolved documentation debt | The semantic-preservation cleanup at source snapshot `2dbd81abc50f` returned `queue.md`, `status.md`, and the decision ledger to current-state roles. Closed/retracted case-file prose now lives in Git history instead of the live queue. | Keep the queue role structural: open executable rows only, with owner/current state/next action/blocker/acceptance. | — | SOURCE_CONFIRMED |
@@ -552,9 +552,18 @@ The strongest current cases are:
 
 ### Transitional complexity
 
-- direct-session and direct-generation fallbacks;
-- direct-fixture missing-content-binding allowance;
 - compatibility/facade mirrors.
+
+⚠ **THE THREE "DIRECT-*" ROWS ARE NO LONGER TRANSITIONAL AND THE LIST NO LONGER
+CLAIMS THEY ARE.** Measured 2026-09-16, each turns out to be a composition
+DISCRIMINATOR with the shell-routed side REFUSING, not a compatibility road
+waiting to be deleted: `live_scope_of` and `live_session_world_root` branch on
+`SessionGatedSimulation`, `GenerationMechanics` asserts its three states
+separately, and `verify_and_publish` refuses a shell session missing
+`ActiveContentBinding`. What is left to decide about them is whether direct-entry
+hosts should be *required* to carry a session and a generation — a composition
+decision, not a correctness gap. `TRANS-FACADE-MIRRORS` is the only genuinely
+transitional row still standing (C08).
 
 ### Uncertain areas
 

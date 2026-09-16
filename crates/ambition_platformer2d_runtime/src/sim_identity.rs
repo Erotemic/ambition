@@ -254,11 +254,32 @@ pub struct UnmintedBodyCensus {
     /// Body-observations actually JUDGED. The denominator; zero means the
     /// observer saw nothing, not that the tree is clean.
     pub observed: u64,
-    /// ⛔ WHO, not just how many. A census that says "one" and cannot say WHICH
-    /// sends the reader to re-derive the population by hand — and the sweeper's
-    /// own `continue` names nobody at all.
-    pub first_skipped: Option<String>,
+    /// ⛔ WHO, AND BY WHICH ROAD — not just how many. A census that says "one"
+    /// and cannot say WHICH sends the reader to re-derive the population by
+    /// hand, and the sweeper's own `continue` names nobody at all.
+    ///
+    /// ⭐ EACH ENTRY CARRIES THE BODY'S [`SpawnOrigin`], which is A2's acceptance:
+    /// *"the witness names the construction ROAD and the body rather than
+    /// reporting a population count"*. An entity id and a `Name` say which body;
+    /// only the origin says which construction road let it through, and that is
+    /// the thing a repair edits.
+    ///
+    /// ⚠ **IT IS A SET, SO ITS LENGTH IS A HEADCOUNT WHERE [`Self::skipped`] IS
+    /// AN OBSERVATION COUNT** — that is the whole reason it exists beside the
+    /// number. ⛔ AND IT IS CAPPED AT [`SKIPPED_BODY_CAP`]: past the cap the
+    /// length is a FLOOR, not a total, and [`Self::capped`] says which it is.
+    /// An uncapped set in a 600-frame run is a memory leak in an instrument.
+    pub skipped_bodies: std::collections::BTreeSet<String>,
+    /// Whether [`Self::skipped_bodies`] hit its cap and stopped recording.
+    /// ⚠ Read this before reading that set's length as a total.
+    pub capped: bool,
 }
+
+/// How many distinct unnameable bodies [`UnmintedBodyCensus`] will name.
+///
+/// Small on purpose: the set is for a human reading a failure, and a witness
+/// that names sixteen roads has already said everything a seventeenth would.
+pub const SKIPPED_BODY_CAP: usize = 16;
 
 /// Observe every body the sweeper has already had its turns on.
 ///
@@ -279,6 +300,9 @@ pub fn observe_unminted_bodies(
             Option<&ambition_combat::components::FeatureId>,
             Option<&ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
             Option<&bevy::prelude::Name>,
+            // The construction road. A2's acceptance asks the witness to name it,
+            // and it is the only field here that says where to go and edit.
+            Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
         bevy::ecs::query::With<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
     >,
@@ -287,19 +311,157 @@ pub fn observe_unminted_bodies(
         bevy::ecs::query::Added<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
     >,
 ) {
-    for (entity, sim_id, feature_id, primary, name) in &bodies {
+    for (entity, sim_id, feature_id, primary, name, origin) in &bodies {
         if born_this_tick.contains(entity) {
             continue;
         }
         census.observed += 1;
         if sim_id.is_none() && feature_id.is_none() && primary.is_none() {
             census.skipped += 1;
-            if census.first_skipped.is_none() {
-                census.first_skipped = Some(format!(
-                    "{entity} ({})",
-                    name.map_or("no Name either", |name| name.as_str())
+            if census.skipped_bodies.len() < SKIPPED_BODY_CAP {
+                census.skipped_bodies.insert(format!(
+                    "{entity} name={} origin={}",
+                    name.map_or("<none>", |name| name.as_str()),
+                    origin.map_or_else(
+                        // ⛔ AND "NO ORIGIN" IS ITSELF THE ANSWER SOMETIMES. A
+                        // body built by a road that states no `SpawnOrigin` is a
+                        // road that recorded nothing about itself, which is a
+                        // different repair from a road that named the wrong thing.
+                        || "<no SpawnOrigin — the road recorded none>".to_string(),
+                        |origin| format!("{origin:?}"),
+                    ),
                 ));
+            } else {
+                census.capped = true;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod unminted_body_census_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+    use bevy::prelude::*;
+
+    /// A world that has already had one tick, so `Added<BodyKinematics>` no
+    /// longer excludes a body spawned before it.
+    fn app_with(bodies: impl FnOnce(&mut World)) -> App {
+        let mut app = App::new();
+        app.init_resource::<UnmintedBodyCensus>();
+        app.add_systems(Update, observe_unminted_bodies);
+        bodies(app.world_mut());
+        // ⛔ TWO UPDATES, NOT ONE. `Added<BodyKinematics>` deliberately excludes
+        // this tick's arrivals, so a single update judges nothing and every arm
+        // below would pass over an empty population.
+        app.update();
+        app.update();
+        app
+    }
+
+    fn body() -> BodyKinematics {
+        BodyKinematics {
+            pos: bevy::math::Vec2::ZERO,
+            vel: bevy::math::Vec2::ZERO,
+            size: bevy::math::Vec2::splat(16.0),
+            facing: 1.0,
+        }
+    }
+
+    /// ⛔⛤ **A2's ACCEPTANCE: THE WITNESS NAMES THE CONSTRUCTION ROAD.**
+    ///
+    /// An entity id and a `Name` say WHICH BODY. Only [`SpawnOrigin`] says which
+    /// road let it through, and the road is the thing a repair edits — the
+    /// sweeper's own comment says the fix belongs at the spawn site, and a
+    /// witness that cannot name the site sends the reader to find it by hand.
+    #[test]
+    fn a_skipped_body_is_named_with_the_road_that_built_it() {
+        let app = app_with(|world| {
+            world.spawn((
+                body(),
+                Name::new("unnameable thing"),
+                SpawnOrigin::ProviderStaged {
+                    provider: "test_provider".into(),
+                    room: "test_room".into(),
+                    instance: "occupant_7".into(),
+                },
+            ));
+        });
+        let census = app.world().resource::<UnmintedBodyCensus>();
+        assert!(census.observed > 0, "the observer judged nothing");
+        assert_eq!(census.skipped_bodies.len(), 1, "one unnameable body");
+        let named = census.skipped_bodies.iter().next().unwrap();
+        assert!(
+            named.contains("unnameable thing"),
+            "the witness does not name the body: {named}"
+        );
+        assert!(
+            named.contains("test_provider") && named.contains("occupant_7"),
+            "the witness does not name the construction ROAD, which is the thing \
+             a repair edits: {named}"
+        );
+    }
+
+    /// ⚠ **"NO ORIGIN" IS AN ANSWER, NOT A BLANK.** A road that states no
+    /// `SpawnOrigin` recorded nothing about itself, and that is a DIFFERENT
+    /// repair from a road that recorded the wrong thing. Formatting it as an
+    /// empty string would make the two indistinguishable in the failure text.
+    #[test]
+    fn a_body_whose_road_recorded_nothing_says_so() {
+        let app = app_with(|world| {
+            world.spawn((body(), Name::new("origin-less")));
+        });
+        let census = app.world().resource::<UnmintedBodyCensus>();
+        let named = census.skipped_bodies.iter().next().expect("one body");
+        assert!(
+            named.contains("no SpawnOrigin"),
+            "an absent road reads as a blank instead of as a finding: {named}"
+        );
+    }
+
+    /// ⛔ **THE CONTROL, AND IT IS THE LOAD-BEARING ARM.** A body the sweeper CAN
+    /// name must not appear. Without this, every assertion above is satisfied by
+    /// a census that records everything it sees.
+    #[test]
+    fn an_identified_body_is_not_named() {
+        let app = app_with(|world| {
+            world.spawn((
+                body(),
+                Name::new("named thing"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("known"),
+            ));
+        });
+        let census = app.world().resource::<UnmintedBodyCensus>();
+        assert!(
+            census.observed > 0,
+            "the observer judged nothing, so `skipped_bodies` being empty is a \
+             reading about the observer"
+        );
+        assert!(
+            census.skipped_bodies.is_empty(),
+            "an identified body was named as unnameable: {:?}",
+            census.skipped_bodies
+        );
+    }
+
+    /// ⚠ **PAST THE CAP THE LENGTH IS A FLOOR, AND IT SAYS SO.** An uncapped set
+    /// in a 600-frame run is a memory leak in an instrument; a capped one that
+    /// does not admit it is a total that quietly stops counting.
+    #[test]
+    fn the_set_caps_and_admits_it() {
+        let app = app_with(|world| {
+            for i in 0..(SKIPPED_BODY_CAP + 5) {
+                world.spawn((body(), Name::new(format!("body {i}"))));
+            }
+        });
+        let census = app.world().resource::<UnmintedBodyCensus>();
+        assert_eq!(census.skipped_bodies.len(), SKIPPED_BODY_CAP);
+        assert!(census.capped, "the set hit its cap and did not say so");
+        assert!(
+            census.skipped > census.skipped_bodies.len() as u64,
+            "the OBSERVATION count must keep counting past the cap — it is the \
+             field that is not a floor"
+        );
     }
 }

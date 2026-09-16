@@ -410,8 +410,13 @@ fn a_body_the_sweeper_declines_to_identify_is_nameable() {
         .cloned()
         .expect("the runtime plugin installs `UnmintedBodyCensus`");
     println!(
-        "[unminted] {} body-observations judged, {} skipped, first={:?}",
-        census.observed, census.skipped, census.first_skipped
+        "[unminted] {} body-observations judged, {} skipped over {} distinct \
+         bod(ies){}: {:?}",
+        census.observed,
+        census.skipped,
+        census.skipped_bodies.len(),
+        if census.capped { " (CAPPED — a floor)" } else { "" },
+        census.skipped_bodies
     );
 
     // ⛔ FLOOR FIRST. `skipped: 0` over a population of zero is not a clean bill
@@ -432,10 +437,14 @@ fn a_body_the_sweeper_declines_to_identify_is_nameable() {
          `SimId`, no `FeatureId` and \
          no `PrimaryPlayer` a tick after they became bodies — so BOTH \
          `ensure_sim_id` passes and every in-tick spawner declined to name them, \
-         and nothing else will. First: {:?}. ⚠ The repair is at the SPAWN SITE, \
-         which is what the sweeper's own comment says; minting here would answer \
-         this census and hide the site.",
-        census.skipped, census.first_skipped
+         and nothing else will. {} distinct bod(ies){}, each named with the \
+         CONSTRUCTION ROAD that let it through: {:?}. ⚠ The repair is at that \
+         SPAWN SITE, which is what the sweeper's own comment says; minting here \
+         would answer this census and hide the site.",
+        census.skipped,
+        census.skipped_bodies.len(),
+        if census.capped { " (CAPPED — a floor)" } else { "" },
+        census.skipped_bodies
     );
 }
 

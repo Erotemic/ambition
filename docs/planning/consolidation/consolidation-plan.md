@@ -588,10 +588,25 @@ document inside `docs/`.
 Start **C03: session-owned state and reset-infrastructure consolidation**. ✔ Both
 gates it named are discharged — A10 on 2026-09-15 and the peer-identity checkpoint
 on 2026-09-16 — so this is no longer "only after"; it is the recommendation.
-Close the named shell/content A-supersedes-B supersession witness first if it still shares activation code at that point.
-Mechanical editor admission does not block this campaign; its shared protocol is already the baseline.
+~~Close the named shell/content A-supersedes-B supersession witness first~~ —
+**DISCHARGED 2026-09-16**, both halves witnessed in the shipped composition; see
+`README.md`. Mechanical editor admission does not block this campaign; its shared
+protocol is already the baseline.
 
-Do not begin by moving all 32 values.
+⛔ **BUT DO NOT MOVE STORAGE BEFORE `Q132` IS ANSWERED.** It asks whether a
+handoff frame holding two session roots should make ~206
+`Single<.., With<SessionRoot>>` sites run or skip, and that ruling decides
+whether such a frame may exist at all — which is precisely what moving
+session-owned storage determines. Measuring and sequencing may start now; moving
+may not.
+
+⚠ **AND TWO OF THIS SEQUENCE'S OWN PREMISES WERE MEASURED AWAY ON 2026-09-16**
+(see C03's CURRENT STATE): there is no reset-only subset to lift out, and the two
+reset lists are a disjoint partition rather than two copies. The owner-by-owner
+sequence below is still the right shape; the cheap first win it implies is not
+there.
+
+Do not begin by moving all 36 values.
 Use a bounded owner-by-owner sequence:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the explicit narrower-lifetime list.

@@ -87,6 +87,49 @@ fn stand_in_a_door(sim: &mut ambition_app::Platformer2dSimHarness) -> Option<Str
     Some(door.name.clone())
 }
 
+/// Every distinct peer-stable CONTENT term the live world's construction stamps
+/// carry.
+///
+/// ⛔ **THE TERM, NOT THE CHECKSUM, AND THAT IS WHAT MAKES THE ARM BELOW
+/// POSSIBLE.** `peer_stable_checksum` folds the content term together with the
+/// room, so any two rooms differ no matter what their content term says — which
+/// is precisely how a collapsed term hides inside a projection that still looks
+/// well-behaved. `TransactionId::peer_content_term` is the one rule that decides
+/// which content two peers compare, read from its owner rather than re-spelled
+/// here.
+///
+/// ⚠ `"runtime-dynamic"` IS A LEGITIMATE ANSWER and is kept in the output rather
+/// than filtered: a projectile or a dropped item is not content-derived at all.
+/// `"content-unstated"` is the one that means *"content-derived, and nobody said
+/// which"*.
+/// Does this term name WHICH prepared content, as opposed to declining to?
+///
+/// The three shapes `TransactionId::peer_content_term` can answer are a stated
+/// digest, the constant `"content-unstated"` and the constant `"runtime-dynamic"`.
+/// Only the first is an identity two peers can disagree about, so a floor over
+/// "stamps exist" has to be a floor over THESE.
+fn is_stated_content(term: &str) -> bool {
+    term != "content-unstated" && term != "runtime-dynamic"
+}
+
+/// The same predicate over a `&String`, for `Iterator::any` on a `Vec<String>`.
+fn is_stated_content_ref(term: &String) -> bool {
+    is_stated_content(term)
+}
+
+fn stamped_content_terms(sim: &mut ambition_app::Platformer2dSimHarness) -> Vec<String> {
+    let world = sim.world_mut();
+    let mut query =
+        world.query::<&ambition_platformer2d::platformer::construction::TransactionId>();
+    let mut out: Vec<String> = query
+        .iter(world)
+        .map(|stamp| stamp.peer_content_term().to_string())
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
 fn interact() -> ambition_app::AgentAction {
     ambition_app::AgentAction {
         interact: true,
@@ -328,6 +371,28 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
          lifetime defect, reached through a death rather than a door. \
          newly_built={newly_built:?} before={before:?}"
     );
+
+    // ⛔⛤ A SECOND, INDEPENDENT CLAIM ABOUT THE SAME RECONSTRUCTION: it must
+    // stamp what it built with the session's prepared content. The death road
+    // reaches `room_transition/loading.rs`, which answered `content_unstated`
+    // for the INCOMING binding until 2026-09-16 — so every body rebuilt here
+    // carried a construction provenance no peer could disagree with. Stated as
+    // its own assertion, with its own message, so a failure says WHICH of the
+    // two claims broke. See
+    // `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`.
+    let terms = stamped_content_terms(&mut sim);
+    assert!(
+        terms.iter().any(is_stated_content_ref),
+        "after the death rebuild no construction stamp names any prepared \
+         content (terms={terms:?}), so the assertion below would be vacuous"
+    );
+    assert!(
+        !terms.iter().any(|term| term == "content-unstated"),
+        "the death rebuild stamped its roots `content-unstated` (terms={terms:?}). \
+         A rebuild is made of the generation already running, so that generation \
+         is its incoming content identity — two peers at different prepared \
+         content would project the same construction provenance."
+    );
 }
 
 /// ⛔⛤ **THE NEW-GAME RESET ROAD, WHICH THE OTHER TWO ARMS DO NOT REACH — `Q121`,
@@ -421,5 +486,134 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
          reset road went back to whatever the App holds now — `Q121`'s lifetime \
          defect on the one road the door and death arms cannot reach. \
          newly_built={newly_built:?}"
+    );
+
+    // ⛔⛤ THE SAME SECOND CLAIM, ON THE ONE ROAD THE OTHER TWO ARMS CANNOT REACH.
+    // `session/reset/mod.rs` stated `content_unstated(ContentEpoch::default())`
+    // for its incoming binding — the DEFAULT epoch, on a road that has a real
+    // live one — so a reset erased the prepared content identity from every root
+    // it rebuilt. Measured separately from the transition road, because the
+    // poison separation in this file's headers shows the two roads are distinct.
+    let terms = stamped_content_terms(&mut sim);
+    assert!(
+        terms.iter().any(is_stated_content_ref),
+        "after the new-game reset no construction stamp names any prepared \
+         content (terms={terms:?}), so the assertion below would be vacuous"
+    );
+    assert!(
+        !terms.iter().any(|term| term == "content-unstated"),
+        "the new-game reset stamped its roots `content-unstated` \
+         (terms={terms:?}), so the reset road erased the prepared content \
+         identity the session activated under."
+    );
+}
+
+/// ⛔⛤ **AN ORDINARY ROOM TRANSITION STAMPS ITS ROOTS WITH THE SESSION'S
+/// PREPARED CONTENT — AND IT DID NOT.**
+///
+/// `ConstructionScope` holds two bindings on purpose: `expected_live` is the
+/// generation a plan will be COMMITTED INTO, `incoming` is the generation its
+/// content CAME FROM, and `incoming` is what every root's `TransactionId`
+/// carries. For every road except a content replacement the two coincide —
+/// which is why `ConstructionScope::in_generation` cannot express a split.
+///
+/// ⇒ **THE LAYER ABOVE REOPENED THE HOLE.** `ActorConstructionContext::
+/// for_room_construction` took `content` and `active_binding` as SEPARATE
+/// parameters and applied the second to the expected-live half only, so a
+/// caller could state one generation for the boundary and another for the
+/// roots. Three production roads — the door transition, the reset and the
+/// neighbour prefetch — read that parameter as *"the content THIS ROAD
+/// publishes"*, answered `content_unstated` because a transition publishes
+/// none, and stamped every root they built `content-unstated + room` instead of
+/// `PreparedContentIdentity(C) + room`. Each of their comments reasoned
+/// correctly about the boundary half and none about the identity half.
+///
+/// ⛔⛤ **AND THE CAMPAIGN'S OWN GUARD WAS GREEN OVER IT, STRUCTURALLY.**
+/// `two_hosts_at_different_content_epochs_share_one_construction_provenance`
+/// asserts two hosts holding the same content AGREE — and `content-unstated`
+/// agrees with `content-unstated` perfectly, so erasing the discriminating term
+/// makes that assertion MORE true. An equality arm is satisfied by every
+/// function that throws information away, the constant function included.
+/// ⇒ The missing half is DISAGREEMENT: two hosts at different prepared content
+/// must project differently. Until a fixture can activate two distinct prepared
+/// packs, this arm asserts the term itself rather than the projection.
+///
+/// ⚠ AND IT ASSERTS THE TERM RATHER THAN `peer_stable_checksum` FOR A SECOND
+/// REASON: the projection is `content ⊗ room`, so any two ROOMS differ whatever
+/// their content term says. The collapse was invisible inside a value that
+/// still behaved well.
+#[test]
+fn an_ordinary_room_transition_stamps_its_roots_with_the_session_content() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..8 {
+        sim.step(base());
+    }
+
+    // ⛔ PREMISE: this composition activated a generation that NAMED its
+    // content. Without a stated fingerprint on the session binding,
+    // `content-unstated` is the honest answer everywhere and the arm would be
+    // about the fixture rather than about the road.
+    let live_binding = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::actors::rooms::ActiveContentBinding,
+    >(sim.world())
+    .map(|binding| binding.0);
+    assert!(
+        live_binding
+            .and_then(|binding| binding.peer_content())
+            .is_some_and(|content| content.is_stated()),
+        "this session's `ActiveContentBinding` names no prepared content \
+         ({live_binding:?}), so `content-unstated` is the honest answer \
+         everywhere and this arm cannot tell the defect from the fixture"
+    );
+
+    let before_room = active_room(&mut sim);
+    let initial = stamped_content_terms(&mut sim);
+
+    // ⛔ THE ANTI-VACUITY FLOOR, ON THE STARTING ROOM — the activation road is
+    // the one that was already correct, so if it states nothing then the
+    // comparison after the door has no working reference to be measured against.
+    assert!(
+        initial.iter().any(|term| is_stated_content(term)),
+        "not one construction stamp in the STARTING room names a prepared \
+         content identity (terms={initial:?}), so the activation road states \
+         none either and the door below cannot be shown to lose one"
+    );
+
+    assert!(
+        stand_in_a_door(&mut sim).is_some(),
+        "the starting room authors no door, so this arm cannot reach a room \
+         transition at all"
+    );
+    for _ in 0..90 {
+        sim.step(interact());
+        if active_room(&mut sim) != before_room {
+            break;
+        }
+    }
+    let after_room = active_room(&mut sim);
+    assert_ne!(
+        after_room, before_room,
+        "the door never opened, so no room was reconstructed and the assertion \
+         below would be about the room this test started in"
+    );
+
+    let after = stamped_content_terms(&mut sim);
+    assert!(
+        after.iter().any(|term| is_stated_content(term)),
+        "room `{after_room}` holds no construction stamp naming any prepared \
+         content (terms={after:?}), so 'none of them is unstated' would be \
+         vacuously true"
+    );
+    assert!(
+        !after.iter().any(|term| term == "content-unstated"),
+        "a room reached through an ORDINARY DOOR stamped its roots \
+         `content-unstated` (terms={after:?}, room `{after_room}`), while the \
+         room this session activated into stated {initial:?}. A transition \
+         rebuilds a room the ALREADY-ACTIVE prepared generation defines, so \
+         that generation IS its incoming content identity — publishing no \
+         content of its own is a fact about the commit boundary, not about \
+         provenance. Two peers running DIFFERENT prepared content therefore \
+         project the SAME construction provenance, which is the peer-stable \
+         identity `TransactionId::peer_stable_checksum` exists to provide."
     );
 }

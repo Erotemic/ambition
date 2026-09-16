@@ -88,23 +88,42 @@ def test_the_recipe_quotes_the_journals_real_total():
     )
 
 
-def test_the_recipes_index_states_the_pages_real_size():
+def test_the_recipes_index_does_not_restate_the_pages_size():
     """⛔ THE INDEX IS PROSE ABOUT A TABLE TOO. It said "nine members" when the
     page held twelve, and "nine ... in one gate script" when seven were. An
     index entry is the first thing a reader believes and the last thing anyone
-    updates."""
+    updates.
+
+    ⛔⛤ **AND THIS TEST USED TO DEMAND THE COUNT IT NOW FORBIDS, WHICH IS WHY IT
+    WENT RED — 2026-09-16.** The entry was rewritten to say the members are
+    NUMBERED IN THE PAGE and deliberately not counted here, because the line had
+    said "fourteen" while the page held fifteen within an hour of the fifteenth
+    landing. That is the duplicate authority being removed, and the old
+    assertion read it as the count going missing. Its fallback regex then matched
+    `ts` out of the word "its" and reported `word_to_int('ts') == None`, which is
+    a guard failing to parse its own subject rather than a finding.
+
+    ⇒ **SO THE INVARIANT FLIPPED WITH THE STRUCTURE.** One fact, one owner: the
+    page numbers its own rows, and the index must ROUTE to it without restating
+    the total. A count reappearing here is a second copy, and a second copy is
+    what this family of tests exists to catch.
+    """
     index = (REPO / "docs/recipes/index.md").read_text()
     entry = re.search(
         r"\[`checks-that-did-not-run\.md`\][^\n]*\n(?:  [^\n]*\n)*", index
     )
     assert entry, "the index no longer has an entry for that page"
-    stated = re.search(r"\*\*([a-z-]+)\*\* *\n? *members", entry.group(0)) or re.search(
-        r"([a-z-]+)\s+members", entry.group(0)
-    )
-    assert stated, f"the index entry no longer states a member count:\n{entry.group(0)}"
-    assert word_to_int(stated.group(1)) == len(numbers(RECIPE)), (
-        f"the index says {stated.group(1)}; the page's table has "
-        f"{len(numbers(RECIPE))} rows"
+    # ⚠ THE QUOTED WORD IS EXEMPT, and it has to be: the entry explains the rot
+    # by quoting the wrong number it once carried. A rule that forbade the
+    # DIGITS would forbid the explanation of why they are gone.
+    prose = re.sub(r'"[a-z-]+"', '""', entry.group(0))
+    restated = re.search(r"\b([a-z-]+)\b[\s*]+members", prose)
+    assert not (restated and word_to_int(restated.group(1)) is not None), (
+        f"the index entry states a member count again "
+        f"({restated.group(1) if restated else None}). The page NUMBERS its own "
+        f"rows ({len(numbers(RECIPE))} of them); an index that repeats the total "
+        f"is the second copy that said 'fourteen' over fifteen rows.\n"
+        f"{entry.group(0)}"
     )
 
 

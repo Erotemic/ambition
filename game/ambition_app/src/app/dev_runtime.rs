@@ -479,7 +479,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         content_staging,
         boss_catalog,
         session_scope,
-        ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
+        ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
             construction_recipes,
             character_catalog,
             // ⛔⛤ **A HOT RELOAD BUILDS THE NEXT GENERATION, NOT THE LIVE ONE**,
@@ -487,7 +487,7 @@ pub(super) fn reload_ldtk_world_from_disk(
             // candidate's, and reading the session's frozen mechanics here would
             // rebuild the world from the generation this reload is replacing.
             // Saying so is the point of the parameter — see
-            // `ActorConstructionContext::for_room_construction`.
+            // `ActorConstructionContext::for_content_replacement`.
             &ambition_platformer2d::actors::session::mechanics::GenerationMechanics::new(
                 None,
                 prepared_characters,
@@ -498,22 +498,27 @@ pub(super) fn reload_ldtk_world_from_disk(
             // PREPARING one — so the App's knobs are what there is. See
             // `GenerationMechanics`.
             .with_app_developer_knobs(forced_brains, population_cap),
-            // ⛔ THE INCOMING GENERATION — the one this reload is publishing.
+            // ⛔ THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
+            // boundary compares against this, so the preflight's own generation
+            // is not refused as stale by the generation it is introducing —
+            // `ActiveContentBinding` is published AFTER the commit, deliberately,
+            // and every LATER transaction must state the new one.
+            live_binding.0,
+            // ⛔ AND THE INCOMING GENERATION — the one this reload is publishing.
             // Every root the plan mints is stamped with it, which is what makes a
             // rebuilt root's `TransactionId` name the content it is actually made
             // of. It equals the live epoch exactly when the reload is equivalent.
+            //
+            // ⭐ THE TWO ARE INDEPENDENT ONLY HERE, and asking for them by the
+            // name `for_content_replacement` is what makes that visible. Three
+            // ordinary roads used to reach the same two-binding signature and
+            // three of them filled the incoming half wrong.
             ambition_platformer2d::platformer::construction::ContentBinding::content(
                 committed_content.epoch(),
                 ambition_platformer2d::session::PeerContentIdentity::from_bytes(
                     *committed_content.fingerprint().as_bytes(),
                 ),
             ),
-            // ⛔ AND THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
-            // boundary compares against this, so the preflight's own generation
-            // is not refused as stale by the generation it is introducing —
-            // `ActiveContentBinding` is published AFTER the commit, deliberately,
-            // and every LATER transaction must state the new one.
-            Some(&live_binding),
             brain_profiles,
             // A hot reload replaces the authored content wholesale, so the
             // dispositions of occurrences minted from the OLD definitions say

@@ -127,7 +127,7 @@ fn a_settled_neighbourhood_stops_preparing_itself() {
 /// SAFETY RESTS ON IT.**
 ///
 /// The prefetch prepares each neighbour with NO occurrence continuity
-/// (`ActorConstructionContext::for_room_construction(.., None, ..)`), so every
+/// (`ActorConstructionContext::for_live_room_construction(.., None)`), so every
 /// cached plan carries the DEFAULT outlook. `RoomConstructionPlanPrefetch::
 /// promote` then refuses any plan whose outlook differs from the one it is
 /// handed. Together those two facts mean a cached plan can only ever be promoted

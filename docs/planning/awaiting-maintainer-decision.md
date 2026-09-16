@@ -1027,6 +1027,34 @@ constant while idle, so the bucket is a property of the exercise as much as of
 the registration. (3) The probe reports the SIZE of each bucket, which is what
 nobody had — not which members are wrong.
 
+⛔⛤ **THE 2026-09-16 MERGED-STATE REVIEW REFUSES (b) OUTRIGHT AND RATES THE
+DEFECT P0, ABOVE CONSOLIDATION WORK.** Its words: *"Do not fix this by simply
+removing `AmbitionGameSave` from the checksum. The night's later census
+invalidated that tempting solution."* ⇒ So the choice below is preserved for its
+reasoning, but (b) is no longer live: it *"would make the immediate test green by
+throwing away comparison coverage for substantial simulation state"*, which is
+this ledger's own 13-of-19 count read back to it.
+
+⇒ **The direction it prefers is (a)'s smallest form** — the three live→save
+mirrors cross the same rollback boundary as the state they mirror, so a replay
+can reproduce them, with disk I/O and autosave staying outside the simulation and
+the layering *rollback-owned durable mechanical representation → confirmed/local
+persistence projection → disk*. ⛔ And explicitly NOT the larger "is
+`AmbitionGameSave` both simulation authority and disk representation" split
+before the replay defect is fixed.
+
+⚠ **IT ALSO SHARPENS THE ACCEPTANCE, AND THE SHARPENING IS THIS Q's OWN PINNED
+PROJECTION.** Verbatim: *"I would not accept merely: startup repro now passes"* —
+because the reason the mismatch manifests primarily in the opening few ticks is
+still unexplained, and the registered checksum *"barely changes during some long
+play windows even when the live save changes substantially"*. ⇒ Acceptance must
+show a representative in-simulation save mutation is genuinely being COMPARED
+across repeated snapshots, *"rather than the checksum becoming accidentally
+pinned and therefore incapable of disagreement"*. That is the 2-against-238
+measurement above, arrived at independently, and it means the prior question is
+not optional bookkeeping: a repair validated against a pinned projection would
+report success from a comparison that cannot fail.
+
 The choice: (a) derive the save inside the sim schedule so a rewind re-derives
 it, which makes a persistence mirror into simulation work and raises the cost of
 every rewind; (b) take `AmbitionGameSave` out of the peer checksum, on the ground

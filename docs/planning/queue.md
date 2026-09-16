@@ -807,13 +807,28 @@ found for `OwnedItems`: a player-visible write from outside the rewinding
 schedule, restored away with nothing reporting it. `MoveOccurrence` is not exposed
 to it, because its writer is inside.
 
-**Remaining engineering:** a VALUE-LEVEL rollback witness — a body that starts a
-move, a rewind across the start, and the resimulated move taking the same number
-while a shot stamped by the abandoned future still matches. ⚠ That is a third KIND
-of evidence, not a third measurement of the same property: the two links above are
-structural and each has its own guard, so this would be a witness rather than a
-gap-filler. And: finish reflection/contact attribution after the product rule is
-settled.
+✅ **AND THE VALUE-LEVEL ROLLBACK WITNESS LANDED 2026-09-16.**
+`a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind`
+(`game/ambition_app/tests/a_move_keeps_its_occurrence_across_a_rewind.rs`) drives
+the SAME world for 180 frames with a GGRS sync-test session and without one, and
+compares the number the primary player's counter reaches. **Good value: `Some(9)`
+and `Some(9)`** — nine moves at one press every twelfth frame.
+
+⛔ **POISONED WITH THE PROPERTY, NOT THE ASSERTION.** Removing
+`rollback_component_canonical::<MoveOccurrence>` makes it fail `Some(1)` vs
+`Some(9)`: unregistered, every rewind drops the counter, so the body never gets
+past its first move while the fixed-tick host reaches nine. ⚠ Until this arm
+existed, nothing in the repository failed when that registration went away except
+the schema baseline — which would only have said *the dump changed*, not *the
+identity stopped surviving a rewind*.
+
+⇒ That is why it is a third KIND of evidence rather than a third measurement. The
+two structural links each had a guard; neither guard reads the NUMBER, and
+`ambition_combat`'s own four arms run on a hand-built App with no rollback session
+at all — the exact shape that hid the `OwnedItems` defect.
+
+**Remaining engineering:** finish reflection/contact attribution after the product
+rule is settled — blocked on `Q101`, below.
 
 **Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
 

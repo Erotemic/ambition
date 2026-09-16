@@ -126,10 +126,21 @@ impl AgentAction {
 impl From<AgentAction> for ControlFrame {
     fn from(a: AgentAction) -> Self {
         ControlFrame {
-            // An RL/scripted action carries no settings, so the seat's frame
-            // policy is the DEFAULT one — the same answer every harness got
-            // before this field existed, when the readers asked a resource that
-            // a headless fixture never wrote.
+            // An RL/scripted action carries no settings, so this conversion has
+            // no policy to state and leaves the default.
+            //
+            // ⛔⛤ **AND THE DEFAULT IS NOT THE ANSWER THE HARNESS SHOULD SHIP —
+            // THIS COMMENT USED TO CLAIM IT WAS.** It said "the same answer
+            // every harness got before this field existed, when the readers
+            // asked a resource that a headless fixture never wrote", and that
+            // was false: `Platformer2dSimHarness::set_movement_frame_mode`
+            // writes `SeatControlFrameModes` for exactly that reason, so the
+            // readers DID see a configured mode. Five `gravity_symmetry_room`
+            // arms measured the difference. ⇒ `Platformer2dSimHarness::step`
+            // stamps the seat's resolved policy over this default, because the
+            // harness is the capture stage; a caller building a `ControlFrame`
+            // from an `AgentAction` by hand and driving `step_frame` with it is
+            // stating the default deliberately.
             control_frame_modes: Default::default(),
             axis_x: a.move_x,
             axis_y: a.move_y,

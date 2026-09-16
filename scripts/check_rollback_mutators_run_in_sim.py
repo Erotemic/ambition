@@ -172,9 +172,10 @@ ACKNOWLEDGED: dict[str, str] = {
     "dispatch_pending_dialog_requests": "DURABLE-HORIZON-CHECKSUM",
     "grid_menu_action_activated": "MENU-RESET-MIDSESSION",
     "kaleidoscope_menu_action_activated": "MENU-RESET-MIDSESSION",
-    "persist_inventory_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
-    "persist_minted_item_horizon_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
-    "persist_occurrence_horizon_to_save": "DURABLE-HORIZON-CHECKSUM (Q129)",
+    # ✅ The three `persist_*_to_save` mirrors were banked here and are GONE
+    # because they were FIXED, not because the scan lost sight of them: they now
+    # register through `app.sim_schedule()`, so a rewind replays them. The stale
+    # check below is what forced this deletion to be deliberate.
     "portal_dev_toggle_system": "ROLLBACK-MUTATOR-POPULATION",
     "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
     "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",

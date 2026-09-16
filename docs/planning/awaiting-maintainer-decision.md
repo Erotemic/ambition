@@ -1043,7 +1043,20 @@ persistence projection → disk*. ⛔ And explicitly NOT the larger "is
 `AmbitionGameSave` both simulation authority and disk representation" split
 before the replay defect is fixed.
 
-⚠ **IT ALSO SHARPENS THE ACCEPTANCE, AND THE SHARPENING IS THIS Q's OWN PINNED
+✅ **THE REPAIR LANDED 2026-09-16 AND THIS Q IS NARROWER FOR IT.** The three
+mirrors now register through `app.sim_schedule()`; the divergence set is empty
+and the projection moved from 1 distinct census to 236 across the compared
+frames. ⇒ So the desync is no longer the reason to answer this question, and the
+pinned-projection half of it is ANSWERED for the save: it was pinned BECAUSE the
+mirrors wrote from `Update`, and it tracks now that they do not. What remains is
+the ownership question on its own merits — should a save FILE be part of what two
+peers agree on — plus the general form of the prior question, which the save no
+longer instantiates: whether any OTHER registered-but-pinned hashed entry exists,
+and whether that is a defect in the registration, in the snapshot road, or an
+intended property nobody wrote down. The 116-constant-under-both bucket is where
+that would be looked for, and it is still not a defect list.
+
+⚠ **IT ALSO SHARPENED THE ACCEPTANCE, AND THE SHARPENING WAS THIS Q's OWN PINNED
 PROJECTION.** Verbatim: *"I would not accept merely: startup repro now passes"* —
 because the reason the mismatch manifests primarily in the opening few ticks is
 still unexplained, and the registered checksum *"barely changes during some long

@@ -1423,3 +1423,270 @@ fn stage_a_mid_session_load_at_tick_40(
     );
     restored.0 = false;
 }
+
+/// The dialogue-visit id the two arms below share. Namespaced so a content
+/// author's node can never collide with it.
+const VISIT_NODE: &str = "probe:visit_counted_from_update";
+
+fn visit_count(sim: &Platformer2dSimHarness) -> u32 {
+    sim.world()
+        .resource::<AmbitionGameSave>()
+        .data()
+        .dialog_visit_count(VISIT_NODE)
+}
+
+/// Count a visit the way `dispatch_pending_dialog_requests` does — from outside
+/// the rewinding schedule, into the hashed save.
+fn count_a_visit_from_update(sim: &mut Platformer2dSimHarness) {
+    sim.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .increment_dialog_visit(VISIT_NODE);
+}
+
+/// ⛔⛤ A DIALOGUE VISIT COUNTED FROM `Update` IS TAKEN BACK BY THE REWIND, AND
+/// THE PEER CHECKSUM IS NOT THE MECHANISM.
+///
+/// `dispatch_pending_dialog_requests` (`crates/ambition_dialog/src/bridge.rs`)
+/// calls `save.data_mut().increment_dialog_visit(&dialogue_id)` in top-level
+/// `Update`, and consumes the request that caused it with
+/// `state.pending_start.take()` from a `DialogState` that is on no rollback road.
+/// ⇒ A rewind restores the save to its pre-increment value, the request does not
+/// come back, and nothing re-runs the dispatcher. **The visit is LOST**, and it
+/// is the one save field no tick can re-derive: an increment is neither
+/// idempotent nor a function of simulation state.
+///
+/// ⛔ THIS ARM EXISTS TO NARROW [Q134] TO ONE WAY. That question offers
+/// *"stop the checksum covering fields no tick derives"* as a repair. It is not
+/// one. `rollback_resource_clone_checksum` installs
+/// `rollback_resource_with_clone` and `checksum_resource` INDEPENDENTLY
+/// (`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs`, inside
+/// `install_resource_clone_checksum`), so narrowing the checksum changes only
+/// what two peers compare and leaves the snapshot/restore untouched — and the
+/// restore is what loses the visit.
+///
+/// ⭐ AND THAT IS MEASURED RATHER THAN READ, BY AN ARM THAT HAS BEEN GREEN IN
+/// THIS FILE ALL ALONG: `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind`
+/// takes back an `Update` write to `OwnedItems`, which is
+/// `rollback_resource_clone` — snapshotted and restored, in NO peer checksum at
+/// all. A field outside the checksum still loses its `Update` write.
+///
+/// ⇒ WHEN THIS ARM GOES RED THE DEFECT IS FIXED. Delete it, and close Q134 with
+/// whatever made the visit replayable.
+///
+/// [Q134]: ../../../docs/planning/awaiting-maintainer-decision.md
+#[test]
+fn a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind() {
+    let mut sim = repro_sim();
+
+    // PREMISE: the latch, for the same reason the bag arm needs it — a world
+    // where the save mirrors never run is not the world the dispatcher writes
+    // into.
+    let mut latched = false;
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .get_resource::<SaveRestored>()
+            .is_some_and(|restored| restored.0)
+        {
+            latched = true;
+            break;
+        }
+    }
+    assert!(
+        latched,
+        "`SaveRestored` never became true, so the save mirrors early-return \
+         forever and nothing below is measuring the dispatcher's world"
+    );
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        visit_count(&sim),
+        0,
+        "the probe's node was already visited, so the increment below would not \
+         be the first and the loss could be read as a miscount"
+    );
+    count_a_visit_from_update(&mut sim);
+    assert_eq!(
+        visit_count(&sim),
+        1,
+        "the increment did not reach the live save, so nothing below is \
+         measuring a change"
+    );
+
+    // Sampled every frame rather than compared at the ends, because a value that
+    // is right at frame 0 and right at frame N can have been lost in between.
+    let mut lost_at: Option<usize> = None;
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        if lost_at.is_none() && visit_count(&sim) < 1 {
+            lost_at = Some(frame);
+        }
+    }
+
+    assert!(
+        lost_at.is_some(),
+        "the rewind no longer takes back a dialogue visit counted from \
+         `Update` — that is the FIX this arm is waiting for, not a regression. \
+         Delete this arm and close Q134."
+    );
+    assert_eq!(
+        visit_count(&sim),
+        0,
+        "the visit came back by the end of the window, so the loss is a \
+         transient rather than the restore, and the claim above is wrong"
+    );
+}
+
+/// ⛔ THE CONTROL, AND THE ARM ABOVE IS WORTHLESS WITHOUT IT. "The save lost a
+/// visit" and "the REWIND took the visit back" are indistinguishable from inside
+/// one harness — the durable restore rewrites this save, and a reset clears it.
+/// This runs the SAME increment in the SAME world with no rollback session.
+#[test]
+fn the_control_keeps_the_same_visit_when_nothing_rewinds() {
+    let mut sim = control_sim();
+    let mut latched = false;
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .get_resource::<SaveRestored>()
+            .is_some_and(|restored| restored.0)
+        {
+            latched = true;
+            break;
+        }
+    }
+    assert!(
+        latched,
+        "the control never latched, so it is not the same world as the repro"
+    );
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+
+    count_a_visit_from_update(&mut sim);
+    for frame in 0..240 {
+        sim.step(AgentAction::default());
+        assert_eq!(
+            visit_count(&sim),
+            1,
+            "frame {frame}: the visit left the save with NO rollback session \
+             running, so something other than the rewind clears it and the \
+             repro above is not measuring the rewind"
+        );
+    }
+}
+
+/// The ticks the in-schedule counter fires on. Five, not one, so the arm below
+/// distinguishes "the restore made it idempotent" from "tick 90 was simulated
+/// once".
+const VISIT_TICKS: [u64; 5] = [90, 91, 95, 120, 121];
+
+/// Count the visit from inside the rewinding schedule, on five known ticks.
+fn count_a_visit_inside_the_tick(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut save: bevy::prelude::ResMut<AmbitionGameSave>,
+) {
+    if VISIT_TICKS.contains(&tick.0) {
+        save.data_mut().increment_dialog_visit(VISIT_NODE);
+    }
+}
+
+/// ✔⛤ AN INCREMENT INSIDE THE REWINDING SCHEDULE IS IDEMPOTENT, BECAUSE THE
+/// RESTORE MAKES IT SO — MEASURED, AND IT IS THE OPPOSITE OF WHAT Q134 ARGUES.
+///
+/// Q134 reasons that *"an increment is neither idempotent nor derivable"* and
+/// prices its option 2 accordingly. **The first half is false where it matters.**
+/// A resimulated tick does not add to the value the previous run left: the
+/// snapshot restores `AmbitionGameSave` to its state BEFORE the tick, so every
+/// replay adds one to the same base and reaches the same total. Non-idempotence
+/// only bites a write the snapshot cannot reach — which is precisely where
+/// `dispatch_pending_dialog_requests` puts it.
+///
+/// ⇒ So the repair is the ordinary one and not a research project: move the
+/// increment into the rewinding schedule, driven by a fact a replay reproduces.
+/// `ambition_conversation::ActiveConversation` is already rollback state
+/// (`rollback_resource_clone_entity_set_probed` + `rollback_resource_map_entities`)
+/// and already carries a deterministic `ConversationInstanceId` with an
+/// `opened_at` tick, so the edge "this instance became live" is replayable.
+/// `ambition_dialog` needs no rollback vocabulary; it keeps Yarn.
+///
+/// ⚠ FIVE TICKS, NOT ONE, and that is the whole strength of this arm. A single
+/// tick reaching 1 is also what "the tick ran once, no replay happened" looks
+/// like. Five separate ticks reaching exactly 5 says each one's increment landed
+/// exactly once across every replay of it.
+#[test]
+fn an_increment_inside_the_tick_is_made_idempotent_by_the_restore() {
+    let mut sim = sim_composed_with(count_a_visit_inside_the_tick);
+    // ⛔ THE REWIND IS A PREMISE, NOT AN ASSUMPTION. Five ticks reaching five is
+    // ALSO what a harness with no rollback session reports — the control below
+    // measures exactly that. So this arm has to witness that frames were
+    // actually compared, or its subject was never present.
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    let compared = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>()
+        .live_comparisons;
+    assert!(
+        compared > 0,
+        "no frame was compared across a restore, so this harness did not rewind          and the count below is the control's measurement wearing the repro's          name"
+    );
+    assert!(
+        sim_tick(&sim) > *VISIT_TICKS.last().expect("five ticks"),
+        "the window ended before the last counted tick, so a low count below \
+         would mean 'not yet' rather than 'idempotent'"
+    );
+    assert_eq!(
+        visit_count(&sim),
+        VISIT_TICKS.len() as u32,
+        "an increment inside the rewinding schedule no longer lands exactly once \
+         per tick. HIGHER means replays are accumulating and the restore is not \
+         reaching this resource — re-read Q134, whose cost argument depends on \
+         this. LOWER means a tick in VISIT_TICKS never ran."
+    );
+}
+
+/// ⛔ THE CONTROL FOR THE ARM ABOVE, and it is the ABSENCE of the rewind rather
+/// than a different instance of it. Without a rollback session the same five
+/// increments must also reach five — otherwise "the restore made it idempotent"
+/// and "these five ticks each fired once, rewind or no rewind" are the same
+/// measurement, and the arm above says nothing about the restore.
+///
+/// ⚠ This is the weaker direction on purpose: agreement here does not prove the
+/// restore did anything, it removes the reading under which the restore was
+/// never involved. What proves the restore matters is the pair of arms that
+/// bracket it — the `Update` write LOSES its increment and the in-schedule write
+/// KEEPS exactly one per tick, in the same world.
+#[test]
+fn the_control_counts_the_same_five_visits_with_no_rewind() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.add_systems(label, count_a_visit_inside_the_tick);
+            Ok(())
+        },
+    )
+    .expect("the same world builds without a rollback session");
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        visit_count(&sim),
+        VISIT_TICKS.len() as u32,
+        "the counter did not land five times in a world with NO rewind, so the \
+         arm above is measuring the fixture and not the restore"
+    );
+}

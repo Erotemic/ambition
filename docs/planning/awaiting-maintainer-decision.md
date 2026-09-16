@@ -1203,8 +1203,27 @@ repaired the three `persist_*_to_save` mirrors by moving them into the rewinding
 schedule: they DERIVE the save from simulation state, so a replay reproduces the
 value. `dispatch_pending_dialog_requests` is a fourth writer of the same hashed
 resource and that answer is not available to it — it calls
-`save.data_mut().increment_dialog_visit(&dialogue_id)`, and an increment is
-neither idempotent nor derivable.
+`save.data_mut().increment_dialog_visit(&dialogue_id)`.
+
+⛔⛤ **THIS QUESTION USED TO ARGUE FROM "AN INCREMENT IS NEITHER IDEMPOTENT NOR
+DERIVABLE". BOTH HALVES ARE NOW MEASURED FALSE, AND BOTH OF ITS OPTIONS CHANGE
+SHAPE AS A RESULT.** Measured 2026-09-16 by three arms in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
+
+| placement of the increment | after 200 frames of sync test |
+|---|---|
+| `Update` (today) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
+| inside the sim schedule, 5 known ticks | **exactly 5** — `an_increment_inside_the_tick_is_made_idempotent_by_the_restore` |
+| inside the sim schedule, no rollback session | exactly 5 — the control |
+
+⇒ **THE RESTORE MAKES AN INCREMENT IDEMPOTENT.** A resimulated tick does not add
+to what the previous run left: the snapshot puts `AmbitionGameSave` back to its
+state BEFORE the tick, so every replay adds one to the same base. Non-idempotence
+only bites a write the snapshot cannot reach, which is exactly where this one is.
+⚠ The in-schedule arm fires on FIVE separate ticks on purpose — one tick reaching
+1 is also what "no replay happened" looks like — and it asserts
+`live_comparisons > 0` so the rewind is a witnessed premise rather than an
+assumption.
 
 **MEASURED 2026-09-16, and the measurement closes one of the two branches the row
 had been holding open.** The row asked whether the visit is LOST on a rewind or
@@ -1230,22 +1249,47 @@ compare. Nothing narrows it today.
 
 **THE RULING.** Either
 
-1. **A visit count is durable PROGRESS, not simulation state**, and the save's
-   checksum projection should stop covering fields no tick derives. That is
-   cheap here and expensive in general: it changes what "the peers agree on the
-   save" means for every other field at the same time, and it needs a rule for
-   deciding which side of the line a field is on, not a list.
-2. **A visit count is simulation state**, and the dialogue request has to become
-   rewinding state so the increment can live in the sim schedule. That is the
-   honest version of "the save is part of the shared world", and it is a real
-   piece of work: `ambition_dialog` has no rollback vocabulary at all today.
+1. ~~**A visit count is durable PROGRESS**, and the save's checksum projection
+   should stop covering fields no tick derives.~~ ⛔ **THIS IS NOT A REPAIR, AND
+   THE DISTINCTION IS IN THE REGISTRATION.** `install_resource_clone_checksum`
+   (`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs`) installs
+   `rollback_resource_with_clone` and `checksum_resource` INDEPENDENTLY.
+   Narrowing the checksum changes only what two peers compare; the whole
+   resource is still snapshotted and restored, and **the restore is what loses
+   the visit.** ⭐ Measured, not read: `OwnedItems` is `rollback_resource_clone`
+   — restored, in no peer checksum at all — and
+   `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind` has been
+   green over its lost `Update` write all along. ⇒ A ruling here would silence a
+   peer disagreement and keep the data loss. It remains a live question about
+   what peers should AGREE on; it is not an answer to this defect.
+2. **A visit count is simulation state**, and the increment moves into the
+   rewinding schedule. ⭐ **This is now much cheaper than this entry used to
+   price it, and `ambition_dialog` needs no rollback vocabulary.** The measured
+   idempotence above means the increment itself is safe there; what it needs is
+   a replayable EDGE to fire on, and one already exists.
+   `ambition_conversation::ActiveConversation` is rollback state
+   (`rollback_resource_clone_entity_set_probed` + `rollback_resource_map_entities`)
+   carrying a deterministic `ConversationInstanceId` with an `opened_at` tick, and
+   `project_the_dialog_ui_from_the_conversation` already treats the opening as
+   simulation-owned and the Yarn box as its projection. ⇒ The repair is the same
+   one the three `persist_*_to_save` mirrors got: count the visit in the sim
+   schedule off "this instance became live", and delete the presentation
+   dispatcher's write. Yarn stays presentation-side.
 
 ⇒ This is narrower than
 [Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on) and does not
-wait on it: Q129 asks whether the save belongs in the checksum, and this asks what
-to do with a field that **no tick can reproduce** whatever the answer to Q129 is.
-A ruling of "exclude the save entirely" on Q129 would moot this; any other ruling
-does not.
+wait on it: Q129 asks whether the save belongs in the CHECKSUM, and the
+measurement above shows that answer cannot reach this defect either way, because
+the loss is in the SNAPSHOT. ⇒ **Nothing about the checksum moots this, and that
+is a change from what this entry said before.** Only taking the save out of the
+rollback set entirely would, which is neither option here nor Q129's question.
+
+⚠ **WHAT IS LEFT FOR A MAINTAINER IS SMALLER THAN THIS ENTRY IMPLIES.** Option 2
+is now ordinary engineering with a measured basis and an existing owner; the open
+product question is whether a visit is a fact two peers must agree on at all, or
+per-player progress that should never have been in a shared save. The defect does
+not wait on that answer — either way the increment must stop being written from
+`Update`.
 
 ## Q133 — should a throw obey rage when obeying it changes who wins?
 

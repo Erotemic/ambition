@@ -2083,20 +2083,22 @@ a desync — and ⛔ silent on the half that is hashed, which is the whole row.
 ⛔⛤ **NOW THE ONLY HASHED-SAVE WRITER LEFT OUTSIDE THE REWIND WINDOW, AND THE
 SHARPEST OF THE SET: `dispatch_pending_dialog_requests` is a FOURTH writer and it
 is not a mirror.** ⚠ The three mirrors could move because they DERIVE the save
-from sim state, so replaying them reproduces the value. This one cannot follow
-them for that reason. It calls
+from sim state, so replaying them reproduces the value. ⛔ **THE SENTENCE THAT
+USED TO FOLLOW — "this one cannot follow them for that reason" — IS MEASURED
+FALSE; see the 2026-09-16 block at the end of this row.** It calls
 `save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`
 (`ambition_dialog/src/bridge.rs:125`). The five above DERIVE the save from sim
 state, so running them twice writes the same bytes and running them zero times
-loses only freshness. An INCREMENT has neither property: a rollback restores the
-pre-increment value and `Update` does not re-run, so the visit is lost — or, if
-the dialogue start is replayed through the sim, counted twice. ⇒ Answer this one
-first ON THE ARGUMENT, because it is the case where "derived from sim state, so
-it converges" is simply not available.
-⚠ But NOT first with a test: reaching the increment needs a compiled Yarn project
-in the harness, since the system early-returns without a `DialogueRunnerEntity`
-and `spawn_dialogue_runner` is itself `.run_if(resource_exists::<YarnProject>)`.
-The bag arm was the cheap member of this class and is the template.
+loses only freshness. An increment appears to have neither property: a rollback
+restores the pre-increment value and `Update` does not re-run, so the visit is
+lost.
+⚠ AND THE PREDICTION "NOT FIRST WITH A TEST" WAS WRONG IN A USEFUL WAY. It said
+reaching the increment needs a compiled Yarn project in the harness, because the
+system early-returns without a `DialogueRunnerEntity`. True of the DISPATCHER and
+irrelevant to the question: the question is what the rewind does to the FIELD, so
+the arms below write `increment_dialog_visit` directly at each placement and never
+build a runner. ⇒ **A reachability obstacle in the writer was read as an
+obstacle to measuring the write.**
 
 ✅⛤ **AND THE ARGUMENT IS NOW HALF-SETTLED WITHOUT THE HARNESS, BY READING WHAT
 DRIVES IT — 2026-09-16. THE "COUNTED TWICE" BRANCH CANNOT HAPPEN.** Double
@@ -2120,11 +2122,53 @@ the same app in the real game.
 save, so `dialog_visits` is inside the value two peers compare. There is no
 projection to narrow and nothing already excludes it.
 
-⇒ **WHAT IS LEFT IS ONE RULING, AND IT IS NARROWER THAN Q129's:** see
-[Q134](awaiting-maintainer-decision.md#q134--is-a-dialog-visit-count-something-two-peers-must-agree-on).
-The mirrors' answer is unavailable here, as this row already says; what this
-measurement adds is that the alternative answer the row hedged toward is
-unavailable too.
+✅⛤ **AND THE OTHER HALF IS SETTLED TOO, 2026-09-16, AND IT REVERSES THIS ROW'S
+CONCLUSION: THE MIRRORS' ANSWER *IS* AVAILABLE HERE.** Three arms in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, over 200
+frames of sync test:
+
+| placement of the increment | result |
+|---|---|
+| `Update` (today) | the visit is **LOST** (`a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`, with a no-rollback control that keeps it 240 frames) |
+| sim schedule, 5 known ticks | **exactly 5** (`an_increment_inside_the_tick_is_made_idempotent_by_the_restore`) |
+| sim schedule, no rollback session | exactly 5 (the control) |
+
+⇒ **THE RESTORE MAKES AN INCREMENT IDEMPOTENT.** A replayed tick adds to the
+snapshot's value, not to what the previous run left, so every replay reaches the
+same total. Non-idempotence only bites a write the snapshot cannot reach — which
+is where this one is. ⚠ Five ticks rather than one, because one tick reaching 1
+is also what "no replay happened" looks like; and the arm asserts
+`live_comparisons > 0` so the rewind is a witnessed premise.
+
+⛔ **AND Q134's OPTION 1 IS NOT A REPAIR, WHICH IS A REGISTRATION FACT.**
+`install_resource_clone_checksum` installs `rollback_resource_with_clone` and
+`checksum_resource` INDEPENDENTLY, so narrowing the checksum changes only what
+peers compare and leaves the restore — and the restore is the loss. Measured, not
+read: `OwnedItems` is `rollback_resource_clone`, in NO peer checksum, and
+`a_bag_changed_from_update_is_silently_taken_back_by_the_rewind` has been green
+over its lost `Update` write all along.
+
+**Next action** (executable, and no longer waiting on
+[Q134](awaiting-maintainer-decision.md#q134--is-a-dialog-visit-count-something-two-peers-must-agree-on)):
+count the visit in the sim schedule off the replayable edge that already exists —
+`ambition_conversation::ActiveConversation` is rollback state carrying a
+deterministic `ConversationInstanceId` with an `opened_at` tick, and
+`project_the_dialog_ui_from_the_conversation` already treats the opening as
+simulation-owned with the Yarn box as its projection. Then delete the
+dispatcher's `increment_dialog_visit` call. `ambition_dialog` needs no rollback
+vocabulary and keeps Yarn.
+
+**Acceptance:** `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`
+goes RED (its message says so and says to delete it), a new arm counts one visit
+per conversation opening across a rewound window, and
+`yarn_vocabulary::refresh_yarn_state_mirror`'s `visit_counts` — the LAST surviving
+slice of that mirror, every other one having been collapsed onto a live authority
+— reads a value a replay reproduces.
+
+⚠ **THE LIMIT OF THESE THREE ARMS, STATED SO IT IS NOT OVERSOLD.** They measure
+what the rewind does to the FIELD at each placement. None of them drives
+`dispatch_pending_dialog_requests`; that the dispatcher is reachable in a rollback
+session is a separate source fact (`plugins.rs:108`, above).
 
 ⛔⛤ **THE ONE-SHOT PAIR IS MEASURED AND THE ANSWER IS THE UNFAVOURABLE ONE —
 2026-09-16, `probe_when_the_durable_restore_latch_flips_against_ggrs_start` in

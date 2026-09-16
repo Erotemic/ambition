@@ -1179,7 +1179,21 @@ rollback mutators registered OUTSIDE the rewind, and that one is inside.
 **Next implementation:** the `OwnedItems` half no longer needs investigating,
 only fixing — have `dispatch_item_confirm` write `ItemGrantRequested` (and the
 equivalent for a `take`) instead of mutating `OwnedItems` in place, which is the
-road its own crate already ships. ⚠ The repro arm ASSERTS THE DEFECT so the lane stays green; when it
+road its own crate already ships.
+
+⚠ **AND IT IS NOT A PURE REFACTOR, WHICH IS WHY THIS IS FILED RATHER THAN
+DONE.** The menu READS `OwnedItems` in the same frame to render the row it just
+changed. A deferred write means the sim applies the grant on the next tick, so
+the list would show the old bag for one frame unless the UI is given something
+to render optimistically. That is a visible behaviour change in shipped UI and a
+maintainer's call, not a mechanical substitution. ⇒ The consuming direction already has a road too, and I nearly wrote here
+that it did not: `ShopTransactionRequested` with `ShopSide::Sell` REMOVES from
+the bag through `apply_shop_transactions`, in the sim, beside
+`apply_item_grants`. ⭐ Its own doc states the rule this row is about, in the
+engine's words rather than mine: *"a simulation system applies it on the tick
+it was stamped for — every replay of that tick included."* A consumable USE is
+not a shop sell, so the menu still needs its own message; what it does not need
+is a new pattern. ⚠ The repro arm ASSERTS THE DEFECT so the lane stays green; when it
 goes RED the defect is fixed, and the arm says so in place. Delete it and close
 this row together.
 

@@ -2120,32 +2120,53 @@ clear now live in
 They left this row on 2026-09-16 because the queue is for open executable work,
 not for the rules a closed investigation leaves behind.
 
-⛔⛔ **SEVEN ARMS ARE RED ON MAIN AS OF `7d29117ab`, AND THEY ARE ONE CLUSTER:
-BODY-RELATIVE INPUT UNDER NON-DOWN GRAVITY PRODUCES ZERO VELOCITY.** Five in
-`app_it` (`gravity_symmetry_room::symmetry_room_local_{run,crouch,dash}_trace_is_c4_symmetric`,
-`symmetry_room_one_way_drop_through_is_c4_symmetric`,
-`the_walk_row_plays_on_every_arms_floor_including_the_walls`) and two in
-`--workspace --lib`
-(`control::input_systems::per_seat_gesture_tests::each_seat_resolves_its_gesture_under_its_own_frame_mode`,
-`projectile::tests::charging::released_fireball_uses_controlled_body_local_aim_under_sideways_gravity`).
+⛔⛤ **SEVEN ARMS WERE RED AT `7d29117ab` AND THE REPORT WAS RIGHT ABOUT THE
+MECHANISM AND WRONG ABOUT THE POPULATION — IT WAS TWO ROADS, NOT ONE.** Both
+halves showed the same symptom, body-relative input under non-down gravity
+producing zero velocity, and the row filed them as one cluster. They had
+different causes and one of them was already fixed when I measured it.
 
-```
-gravity_symmetry_room.rs:294
-run right on step A / left arm tick 0 local vel:
-  got (0.000, 0.000), expected (86.667, 0.000), diff (-86.667, 0.000), tol 8
-```
+**HALF 1 — the five `app_it` arms: FIXED, and my red was a STALE TREE.**
+`7d29117ab` is an ancestor of `ce6ddcb25`, so the tree I measured predated the
+fix by two commits. ⇒ **VERIFIED INDEPENDENTLY HERE, NOT TAKEN ON REPORT:**
+`cargo test -p ambition_app --test app_it` → **692 passed / 0 failed / 41
+ignored, 274.80 s at `8a15b357b`** on this box. The cause was in the HARNESS, not
+the room: `Platformer2dSimHarness::step` is `self.step_frame(action.into())` and
+`From<AgentAction> for ControlFrame` sets `control_frame_modes:
+Default::default()`, so the mode `set_movement_frame_mode` configured was stamped
+over on every scripted step. ⭐ That is why `run right` gave `(0,0)` for the WHOLE
+trace rather than at tick 0 only, and why JUMP passed — jump has no horizontal
+local component, so it is the one gesture where the two modes agree.
 
-⇒ ONE MECHANISM, NOT FIVE FLAKES. The gesture arm says it in its own words —
-*"the per-seat table is not reaching the derivation at all, so the seat-zero
-claim below proves nothing"* — and it fails in ISOLATION (1 of 1), so this is not
-the contention class above. The fireball launches world-DOWN where local-head
-under right gravity must be world-LEFT.
+⚠ **THE LESSON IS MINE, NOT ITS OWNER'S: "I measured it at a commit" is only a
+fact about that commit, and a red I report from a tree two commits stale reads as
+a red on main.** `git fetch` before reporting a lane, not just before pushing.
 
-⚠ `gravity_symmetry_room.rs` has not been touched since the git epoch, so the
-ARMS did not move; the behaviour did. Last-touching commits on the neighbourhood,
-as a starting point and not an attribution: `control/input_systems.rs` →
-`0e2ff1f20`, before it `e4e0b1827`. **Reported to the frame-mode owner; not
-touched here.**
+**HALF 2 — the two `--workspace --lib` arms: STILL RED AT `8a15b357b`.**
+`control::input_systems::per_seat_gesture_tests::each_seat_resolves_its_gesture_under_its_own_frame_mode`
+and
+`projectile::tests::charging::released_fireball_uses_controlled_body_local_aim_under_sideways_gravity`.
+MEASURED on this box after `git fetch && git merge origin/main`: **5109 passed /
+2 failed** across the workspace. A fix for both exists in its owner's session and
+is NOT PUSHED; the row stays red here until it lands and this box re-runs.
+
+⛔⛔ **AND THIS IS WHY THE TWO HALVES MATTER SEPARATELY: `app_it` COULD NOT SEE
+HALF 2, AND A GREEN HEAVY LANE WAS READ AS A GREEN TREE.** Its owner fixed the
+five, ran `app_it` to 692/0/41, and the two lib arms were red the whole time. ⇒
+**"I ran the lanes I ran" is not "I ran the lanes that exist"** — and the same
+sentence indicts my report, which called seven arms one cluster because they
+shared a SYMPTOM. A symptom is not a population.
+
+⭐⭐ **ONE ACCEPTANCE CRITERION CAUSED BOTH HALVES, and it is the most portable
+thing here.** The migration that moved frame policy off `SeatControlFrameModes`
+and onto the control frame accepted itself with
+`measure_user_settings_in_simulation.py` reporting ZERO simulation readers of the
+old value — which it truthfully did. **An acceptance criterion that counts the OLD
+road's ABSENCE is satisfied by breaking the NEW one.** Every fixture that still
+wrote the table now configured a policy nothing read, and the counter cannot tell
+that from success. ⇒ **Both halves or neither: the absence count PLUS a value
+witness that the new owner delivers the same answer.** The value witness existed —
+`gravity_symmetry_room` — and was not run.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
 **691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the

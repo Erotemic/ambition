@@ -262,17 +262,59 @@ both modifiers are neutral.
 
 **Current state:** the swept-contact resolver, finite obstruction, exact ordering,
 targeted delivery and compound solid-contact policy are established. Build-site
-census coverage also exists. The remaining hole is independent: `ensure_sim_id`
-intentionally skips a `BodyKinematics` entity that has no `SimId`, `FeatureId` or
-`PrimaryPlayer`, and that silent skip has no production diagnostic/guard.
+census coverage also exists.
 
-**Next implementation:** make that skipped population observable or impossible at
-the construction boundary. Do not add a fallback ID that invents canonical
-identity from query order.
+✅ **THE PLAYER-CLONE ROAD IS CLOSED.** `spawn_requested_player_clone` built a
+body with `BodyKinematics`, `PlayerEntity` and the full movement clusters, and
+with no `SimId`, no `FeatureId` and deliberately no `PrimaryPlayer` — so
+`ensure_sim_id` matched neither arm and skipped it on every tick, forever. The
+site now mints `SimId::spawned(primary, counter.next())`, states
+`SpawnOrigin::Dynamic`, and REFUSES to spawn when the primary has no identity to
+descend from (ADR 0030). Guard:
+`the_player_clone_road_builds_an_identified_body`
+(`game/ambition_app/tests/player_clone_live.rs`).
 
-**Acceptance:** an intentionally unidentified damageable body cannot silently
-survive the identity sweep; the witness identifies the construction fault rather
-than relying only on a total population count.
+⛔ **IT WAS INVISIBLE TO BOTH SHIPPED CENSUSES, AND THAT IS THE REUSABLE PART.**
+`ensure_sim_id`'s `debug_assert` and `observe_damageable_body_identity` both
+require `CenteredAabb` AND `ActorFaction` — `StrikeVictim`'s own pair. The clone
+carries the box and no faction, so neither instrument could see it. ⇒ The
+acceptance below said *damageable*, and the population the invariant needs is
+`BodyKinematics`: a body can be simulated, and can desync, without ever being a
+strike candidate. `UnmintedBodyCensus` is the instrument whose population is
+right, and it is the one that named this body.
+
+⚠ **`UnmintedBodyCensus` COUNTS OBSERVATIONS, NOT BODIES.** It judges every body
+on every tick, so ONE unnameable body standing for fifty ticks reports ~50.
+Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
+repair. Read it as observations or it sends the next reader hunting 49 bodies
+that never existed.
+
+**Remaining — the unnamed SPAWNER, one level above the projectile.**
+`materialize_matching` (`ambition_projectiles/src/materialize.rs`) inserts no
+identity and defers to `mint_spawned_sim_ids`; that is the designated late mint
+for dynamic entities and is correct as a road. The hole is its input:
+`deploy_sentry`, `open_vortex_well` and `open_temporary_gravity_well` each take
+`id: Option<SimId>`, and each production caller computes it through a `match`
+whose fallback arm is `_ => None`. An unnamed turret therefore spawns, and
+`mint_spawned_sim_ids` then skips every bolt it fires — `sentry.rs` documents
+exactly that chain break. ⚠ Reachable BY CONSTRUCTION; not observed in a shipped
+run. ADR 0030 says such a site refuses rather than degrades.
+
+**Next implementation:** turn that `_ => None` fallback into a refusal at those
+three spawn owners, as the clone road now does. Do not add a fallback ID that
+invents canonical identity from query order.
+
+**Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
+— cannot reach the simulation unnameable; the witness names the construction road
+and the body rather than reporting a population count.
+
+⚠ **THE CLONE-ROAD RECEIPT ABOVE WAS MEASURED AT THE PRE-MERGE TREE `b9f2ece18`.**
+At `ecbdf2297` no `app_it` test that steps the simulation terminates — the lane
+ran in 3.53s before the merge and does not finish in 300s after it — so the
+receipt stands on that tree and awaits re-measurement, rather than being a claim
+about `main` today. Attribution is settled by matched probes (with and without
+this work stashed, both hang identically), so the regression is in committed
+`main`, not in the A2 repair.
 
 ### A12 — finish move-contact attribution and reflection identity
 

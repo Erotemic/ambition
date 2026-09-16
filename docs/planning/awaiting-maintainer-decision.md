@@ -1210,10 +1210,39 @@ all**:
  5  UNCLASSIFIED with a per-frame `Update` writer
 ```
 
-The five: `CutsceneAdvanceRequest` (measured defect), `LoadCoordinator` and
-`RoomTransitionLoadState` (room-transition plumbing), `SeatRawFrames` and
-`SlotControlLatches` (input pipeline — likely the same `another_authority_publishes`
-argument as `SlotControls`, NOT yet verified per type).
+⇒ **TRIAGED DOWN TO TWO, AND EVERY CLASSIFICATION IS A VERIFIED GUARD RATHER THAN
+A NAME ON A LIST.** Three separate spellings of the same argument turned up:
+
+| type | who stands down | verified |
+|---|---|---|
+| `SlotControls` | the `Update` writer, via `another_authority_publishes(latches, rollback)` | body read |
+| `LoadCoordinator`, `RoomTransitionLoadState` | the SIM writer, via `if simulation_host.is_rollback() { return; }` | body read, not its param comment |
+| `SlotControlLatches` | the SIM consumer, via `if replay.replaying_history { return; }` | body read |
+
+**The residue is 2:** `CutsceneAdvanceRequest` (the measured defect) and
+`SeatRawFrames` (input capture; sim-side writers refine per-seat frames — the
+same family, not yet verified per writer).
+
+⭐⛤ **AND THE THIRD ROW IS THE INVARIANT THIS WHOLE QUESTION WAS LOOKING FOR.**
+`publish_latched_slot_controls` consumes DESTRUCTIVELY inside the sim —
+`latches.take(slot)`, the exact shape that loses a menu press — and it is
+correct, because it returns while `replaying_history` and a replayed tick is fed
+from **GGRS's stored input** instead.
+
+⇒ **Destructive consumption inside the sim is safe when the intent also rides a
+channel the replay can re-read.** The guard is not the fix on its own: giving
+`tick_active_cutscene` the same early return would stop it double-consuming and
+still lose the advance, because nothing would re-apply it. What makes the input
+path work is that GGRS carries the input, so the replay has a source.
+
+⭐ **WHICH REFRAMES OPTION 1 FROM "INVENT A CHANNEL" TO "USE THE ONE THIS ALREADY
+HAS", at least for the cutscene half.** A dismiss/skip IS a button press. The
+control frame GGRS already carries is the channel; `CutsceneAdvanceRequest` is a
+second, unsynchronised copy of a button beside it. ⚠ Whether cutscene dismiss
+belongs in the gameplay control frame is still a design call — it is read today
+from `MenuControlFrame`, deliberately, because *"cutscene controls are UI/menu
+intent, not gameplay movement"*. That tension is the decision, and it is a much
+smaller one than a new wire format.
 
 ⚠ **THE CENSUS REPORTS, IT DOES NOT GATE, AND THE AXIS IS WHY.** Crossing the
 boundary is necessary for the defect and nowhere near sufficient. What separates

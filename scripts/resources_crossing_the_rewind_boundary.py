@@ -112,6 +112,24 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # fallback stands down. That is what a sanctioned boundary crossing looks
     # like -- the outside writer asks whether it is still the authority.
     "SlotControls": "Update writer stands down under rollback via `another_authority_publishes`",
+    # ⭐ THE MIRROR OF THE `SlotControls` ARGUMENT: here the SIM-side writer is the
+    # one that stands down. `commit_ready_room_transition_system` opens with
+    # `if simulation_host.is_rollback() { return; }` -- verified in the body, not
+    # taken from its param comment -- because a rollback-host room change must go
+    # through `commit_confirmed_lifecycle`'s rebase instead. So under rollback
+    # these two are written only from `Update`, and there is no crossing left.
+    "LoadCoordinator": "sim-side writer returns early under `SimulationHost::Rollback`",
+    "RoomTransitionLoadState": "sim-side writer returns early under `SimulationHost::Rollback`",
+    # ⭐ A THIRD SPELLING OF THE SAME ARGUMENT, and the one closest to the defect.
+    # `publish_latched_slot_controls` DESTRUCTIVELY consumes the latches
+    # (`latches.take(slot)`) inside the sim -- the exact shape that loses a menu
+    # press -- but it opens with
+    # `if replay.is_some_and(|replay| replay.replaying_history) { return; }`, so
+    # the take happens only on a live tick and a replayed tick is fed from GGRS's
+    # stored input instead. ⇒ Destructive consumption inside the sim is safe when
+    # the consumer knows it is replaying. That is the property `CutsceneAdvanceRequest`
+    # lacks.
+    "SlotControlLatches": "sim consumer returns early while `replaying_history`",
 }
 
 

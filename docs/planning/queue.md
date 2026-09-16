@@ -2297,10 +2297,27 @@ which is the case its author wrote it for: `resimulations > 0` does not imply
 compared frames differ, because the window is long and the compared frames are
 few. Reported to its owner; not touched here.
 
+⭐⭐ **AND IT IS INTERMITTENT UNDER FULL-LANE CONTENTION — MEASURED, NOT
+GUESSED.** Immediately after that red, at the same commit on the same box:
+**3 of 3** runs of that arm alone PASS (3.8 s each); **4 of 4** arms of its whole
+file PASS together; and a SECOND full lane run came back **691 passed / 0 failed
+/ 41 ignored in 250.90 s**. ⇒ One failure in two full runs of 731 arms, zero in
+seven targeted runs. The discriminator is the full lane, not the arm.
+
+⛔⛤ **THIS IS THE SAME CLASS AS THIS ROW'S OPEN ITEM, AND THIS TIME THE
+ASSERTION WAS CAPTURED.** The standing instruction was *"on the next
+reproduction, capture the full failing assertion and isolate the production
+ordering/state source before changing test ordering or adding retries"*. The
+message is quoted above in full. ⇒ **Do not add a retry.** The arm's own
+assertion says what it saw — one distinct census at the compared frames — so the
+question is what the full lane does to the compared-frame window, which is a
+question about the harness and not about the arm.
+
 ⚠ **AND IT FALSIFIES A SENTENCE THIS ROW CARRIED FOR AN HOUR.** It read *"no arm
 has changed state across any of the four runs"*, which was true when written and
 is not now. A lane total is a measurement with a commit; the sentence ABOUT a
-run of totals is a claim with a shelf life. Missing prerequisites are reported as incomplete rather
+run of totals is a claim with a shelf life — this one expired in under an hour,
+and its successor ("the lane is red") expired in twenty minutes. Missing prerequisites are reported as incomplete rather
 than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
 disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
 publish output was ~90 files short. Name the box beside the number.

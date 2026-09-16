@@ -1114,7 +1114,7 @@
       "owner": "runtime content identity + actor_monolith room transaction + app reload",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "PreparedContent, PreparedContentIdentity, ActiveContentBinding, and hot-reload-owned prepared state are published through more than one write road. A10 comments state that these values can move independently of the room verification verdict.",
+      "current_truth": "`PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from one lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `room_publication_succeeded`. Source records that gating as one of four roads closed on 2026-09-14.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/content_identity.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -1123,7 +1123,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "PreparedContent, PreparedContentIdentity, ActiveContentBinding, and hot-reload-owned prepared state are published through more than one write road. A10 comments state that these values can move independently of the room verification verdict.",
+          "claim": "`PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from one lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `room_publication_succeeded`. Source records that gating as one of four roads closed on 2026-09-14.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/content_identity.rs",
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -1132,7 +1132,7 @@
         }
       ],
       "semantic_lifetime": "content generation within gameplay session",
-      "classification": "SUSPECT_DUPLICATE_AUTHORITY",
+      "classification": "published through the room verdict",
       "overlaps_with": [
         "AUTH-CONTENT-BINDING",
         "AUTH-CONTENT-IDENTITY",
@@ -1140,7 +1140,7 @@
         "PUB-ROOM-REPLACEMENT"
       ],
       "why_it_exists": "Content preparation, room construction, and hot reload were built at different layers and currently coordinate with ordered writes.",
-      "consolidation_hypothesis": "Publish one admitted candidate session/world record and derive the live content binding, prepared identity, and prepared content references from that switch.",
+      "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: the item read that these values can move independently of the room verification verdict, which the gating above closed.",
       "blocked_by": [
         "A10 candidate-world/session publication",
         "peer-stable identity correction"
@@ -1288,7 +1288,7 @@
       "owner": "actor_monolith room stage + transaction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "One room replacement changes root components, MovingPlatformSet, room entities, and possibly content/session values on different ordered roads. Verification can withhold RoomLoaded but cannot make all of those stores one publication decision today.",
+      "current_truth": "One room replacement is staged whole in `PendingWorldReplacement`, built as hidden candidates, projected and validated, and published only on admission. Root components, MovingPlatformSet, room entities and generation state are projections of that one publication decision; a refusal drops the candidates and the staged world and leaves world N untouched.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -1297,7 +1297,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "One room replacement changes root components, MovingPlatformSet, room entities, and possibly content/session values on different ordered roads. Verification can withhold RoomLoaded but cannot make all of those stores one publication decision today.",
+          "claim": "One room replacement is staged whole in `PendingWorldReplacement`, built as hidden candidates, projected and validated, and published only on admission. Root components, MovingPlatformSet, room entities and generation state are projections of that one publication decision; a refusal drops the candidates and the staged world and leaves world N untouched.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
@@ -1305,9 +1305,9 @@
           ]
         }
       ],
-      "classification": "SUSPECT_DUPLICATE_AUTHORITY",
+      "classification": "resolved by A10",
       "why_it_exists": "The typed entity transaction was added before a full candidate session/world owner existed.",
-      "consolidation_hypothesis": "A10 should make the replacement a single candidate state object or owner switch whose projections include non-entity room state and generation state.",
+      "consolidation_hypothesis": "None. The single-publication shape this item asked for is what `replace_live_world` does.",
       "blocked_by": [
         "A10 candidate-world/session publication"
       ],
@@ -1470,7 +1470,7 @@
       "owner": "ambition_platformer2d_runtime::room_transition + actor_monolith room stage",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The plan is shared with other room reconstruction roads.",
+      "current_truth": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The commit is one candidate publication: the outgoing room stands while the candidate is built and is swept only after the candidate publishes. The plan is shared with other room reconstruction roads.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
@@ -1479,7 +1479,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The plan is shared with other room reconstruction roads.",
+          "claim": "Room transition prepares a RoomConstructionPlan and commits through replace_live_world after readiness and lifecycle authorization. The commit is one candidate publication: the outgoing room stands while the candidate is built and is swept only after the candidate publishes. The plan is shared with other room reconstruction roads.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
@@ -1487,8 +1487,8 @@
           ]
         }
       ],
-      "classification": "shared plan, non-atomic live replacement today",
-      "consolidation_hypothesis": "Keep the shared plan. Replace destructive commit with A10 candidate publication.",
+      "classification": "shared plan, atomic candidate publication",
+      "consolidation_hypothesis": "Keep the shared plan. The destructive commit this item asked to replace is already A10 candidate publication.",
       "blocked_by": [
         "A10 candidate-world/session publication"
       ],
@@ -1775,7 +1775,7 @@
       "owner": "actor_monolith room stage + transaction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "replace_live_world retires outgoing entities and commit_deferred updates RoomSet, RoomGeometry, and moving platforms before verify_and_publish decides whether room entities publish. Failure can therefore occur after partial live replacement.",
+      "current_truth": "`replace_live_world` stages the whole replacement in `PendingWorldReplacement` and publishes on admission; the outgoing sweep moved inside `apply_world_replacement`, so `RoomSet`, `RoomGeometry` and the platform state are projections of the publication rather than writes that precede it. A refusal drops the room AND the world it staged. Source records the change and its date: the four things once published before the verdict were closed on 2026-09-14.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
@@ -1783,15 +1783,15 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "replace_live_world retires outgoing entities and commit_deferred updates RoomSet, RoomGeometry, and moving platforms before verify_and_publish decides whether room entities publish. Failure can therefore occur after partial live replacement.",
+          "claim": "`replace_live_world` stages the whole replacement in `PendingWorldReplacement` and publishes on admission; the outgoing sweep moved inside `apply_world_replacement`, so `RoomSet`, `RoomGeometry` and the platform state are projections of the publication rather than writes that precede it. A refusal drops the room AND the world it staged. Source records the change and its date: the four things once published before the verdict were closed on 2026-09-14.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs",
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
           ]
         }
       ],
-      "classification": "SUSPECT_IMPLICIT_TRANSACTION",
-      "consolidation_hypothesis": "A10 should publish all candidate room/session state with one authority switch, then retire the old world.",
+      "classification": "one candidate publication",
+      "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: this item asked A10 to publish all candidate room/session state with one authority switch and then retire the old world, which is what it does. \u26a0 The SESSION scope is a different transaction and is named as still outside the verdict in `queue.md`'s A10 row.",
       "blocked_by": [
         "A10 candidate-world/session publication"
       ],
@@ -2669,23 +2669,23 @@
       "category": "schedule_order",
       "name": "Room open -> construction commands -> verify/publish",
       "owner": "actor_monolith room transaction",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "Deferred command ordering carries PendingConstructionBaseline from transaction open to verify_and_publish after construction.",
+      "current_truth": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Deferred command ordering carries PendingConstructionBaseline from transaction open to verify_and_publish after construction.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
           ]
         }
       ],
-      "classification": "SUSPECT_IMPLICIT_TRANSACTION",
-      "consolidation_hypothesis": "Prefer an explicit owner/state transition when correctness currently depends on ordering independent stores.",
+      "classification": "explicit owner already; ordering is within one command queue",
+      "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: this item read \"deferred command ordering carries the baseline\" and proposed \"prefer an explicit owner/state transition when correctness depends on ordering independent stores\". The explicit owner EXISTS and is the publication entity; the ordering is within one command queue, not across independent stores.",
       "verification_needed": "Static source shows declared ordering. Runtime schedule execution was not verified in this census.",
       "metric_tags": [
         "correctness_sensitive_ordering_edge"
@@ -2696,23 +2696,23 @@
       "category": "schedule_order",
       "name": "Retire outgoing -> replace root/resource state -> spawn -> verify",
       "owner": "actor_monolith room stage",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "replace_live_world encodes a destructive ordering window. Correctness today depends on this ordered multi-store mutation.",
+      "current_truth": "replace_live_world stages the whole replacement and publishes on admission. Two rooms' bodies coexist for the length of one command flush, which no scheduled system can observe; a refusal publishes nothing and leaves world N intact.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_INFERRED",
-          "claim": "replace_live_world encodes a destructive ordering window. Correctness today depends on this ordered multi-store mutation.",
+          "claim": "replace_live_world stages the whole replacement and publishes on admission. Two rooms' bodies coexist for the length of one command flush, which no scheduled system can observe; a refusal publishes nothing and leaves world N intact.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
           ]
         }
       ],
-      "classification": "LIKELY_REPLACEABLE_BY_OWNERSHIP",
-      "consolidation_hypothesis": "Prefer an explicit owner/state transition when correctness currently depends on ordering independent stores.",
+      "classification": "resolved by A10",
+      "consolidation_hypothesis": "None. Correctness no longer depends on an ordered multi-store mutation.",
       "verification_needed": "Static source shows declared ordering. Runtime schedule execution was not verified in this census.",
       "metric_tags": [
         "correctness_sensitive_ordering_edge"

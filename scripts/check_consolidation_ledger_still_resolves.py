@@ -23,6 +23,12 @@ sentence describing it survives. That needs re-reading the source behind the
 item, which is what the census README asks for and what this cannot substitute
 for. ⇒ A green run here bounds the CHEAP failure and says nothing about the
 expensive one. Do not cite it as a ledger refresh.
+⚠ **DELIBERATELY NOT A `--maintenance` JOB, AND THIS SAYS SO SO NOBODY "FIXES"
+IT.** MEASURED 2026-09-16: it takes **35 s** — it reads every tracked `.rs` file
+(1,915 of them, ~34 MB) to resolve `current_truth` names. The maintenance lane is
+65 s in total, so adding this would grow it by more than half for a check that
+already runs in `pytest scripts/tests` beside its own arms. ⇒ Reachable by one
+local command was the actual requirement; running in the FASTEST lane was not.
 """
 
 from __future__ import annotations

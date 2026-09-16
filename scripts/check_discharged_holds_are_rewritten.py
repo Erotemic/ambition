@@ -88,8 +88,21 @@ COMPLETE_HERE = re.compile(r"\b(COMPLETE|COMPLETED|CLOSED)\b")
 QUEUE_ROW = re.compile(r"^### ([A-Za-z0-9/-]+)")
 QUEUE_DONE = re.compile(r"DONE|CLOSED|✅")
 #: A gate verb within ~40 characters of the row id, in either order.
+#:
+#: ⛔⛤ **THE SECOND HALF IS THE MOOD, NOT THE GATE — ADDED 2026-09-16.** A review
+#: named three `architecture-census.md` rows that stated the defect A10 REMOVED
+#: as live current-state fact: *"A10 should make the replacement a single
+#: candidate publication"*, *"A10 must integrate room/session resource
+#: ownership"*, *"A10 can make it a projection instead of a separately queued
+#: write"*. Sweeping for the GRAMMAR rather than the rows found nine more.
+#:
+#: ⇒ A stale current-state row announces itself in its MOOD: an imperative or a
+#: future tense about a campaign that has closed. None of those sentences is a
+#: gate, so the verbs above could not see any of them.
 GATE_VERBS = (
-    r"should (?:finish|land|close|complete)|must (?:finish|land|wait)|"
+    r"should (?:finish|land|close|complete|make|align|integrate|widen|be)|"
+    r"must (?:finish|land|wait|integrate|widen|make|align)|"
+    r"(?:can|will) (?:make|align|integrate|widen)|target is|"
     r"blocked on|waits? (?:on|for)|gated on|do not (?:start|begin)|"
     r"not until|depends on|pending"
 )

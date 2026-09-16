@@ -125,3 +125,28 @@ def test_rule_three_accepts_a_struck_through_rewrite():
         "**DO NOT START BEFORE:** ~~A10~~ and the identity checkpoint.\n",
         {"A10"},
     ) == []
+
+
+def test_rule_three_catches_the_imperative_mood_about_a_finished_campaign():
+    """⛔ THE TENTH INSTANCE OF A CLASS A REVIEW REPORTED THREE OF.
+
+    A stale current-state row announces itself in its MOOD — an imperative or a
+    future tense about a campaign that closed. None of these is a GATE, so the
+    original verb list could not see any of them.
+    """
+    for sentence in (
+        "A10 should make the replacement a single candidate publication.",
+        "A10 must integrate room/session resource ownership",
+        "A10 can make it a projection of one admitted live candidate",
+        "the A10 target is one normal prepare -> validate -> publish road",
+    ):
+        assert guard.stale_gates(sentence + "\n", {"A10"}), sentence
+
+
+def test_the_mood_rule_leaves_a_finished_campaign_described_in_the_past_alone():
+    """⚠ The rewrite this check ASKS FOR must not itself be a finding."""
+    for sentence in (
+        "A10's scene candidate uses this same lifecycle — one hidden candidate.",
+        "A10's room scope landed first, and a publication authority followed.",
+    ):
+        assert guard.stale_gates(sentence + "\n", {"A10"}) == [], sentence

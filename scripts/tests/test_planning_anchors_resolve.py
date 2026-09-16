@@ -37,3 +37,16 @@ def test_anchors_are_read_from_headings_only():
     found = guard.anchors(tmp)
     assert found, "the planning README declares no headings; the reader is broken"
     assert all(" " not in a for a in found)
+
+
+def test_the_reachability_rule_scans_a_real_population():
+    """⛔ THE CHECK THAT COULD NOT FAIL, CAUGHT IN THIS GUARD ITSELF.
+
+    The first version filtered with `str(page).startswith("docs/planning")`
+    against an ABSOLUTE path, so it matched NOTHING and reported clean over an
+    empty population — inside a guard written against exactly that. TWO poisons
+    passed before it was noticed. This arm asserts the population exists rather
+    than trusting the verdict.
+    """
+    stranded = guard.orphans()          # raises if the population is too small
+    assert stranded == [], stranded

@@ -53,7 +53,7 @@ day old.** C03's three advertised cheap wins were measured on 2026-09-16 and two
 are EMPTY — no session-scoped resource is reset-only, and the two reset lists are
 a disjoint partition rather than two copies. The third turned into a maintainer
 ruling: `Q132` asks whether a handoff frame holding two session roots should make
-~206 `Single<.., With<SessionRoot>>` sites run or skip. ⇒ **C03 can start; it
+185 `SessionWorldRef`/`SessionWorldMut` sites run or skip. ⇒ **C03 can start; it
 should not MOVE STORAGE before Q132 is answered**, because that ruling decides
 whether a two-root frame may exist at all.
 

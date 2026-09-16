@@ -405,11 +405,34 @@ shows the oracle reads the moved definition and not a stale copy.
 before I started: a default body naming the KIND but not the `detail` would close
 half this row and reopen the other half one crate away.
 
-**Next implementation:** collapse the two vocabularies. ⚠ This is the part that
-is design, not relocation: `RollbackRegistrar` RECORDS a descriptor while
-`AmbitionRollbackApp` INSTALLS plugins and checksum systems, so a shared default
-body needs a primitive each impl supplies. Do not add a third table mapping
-method names to kinds; that is the same duplication with an extra hop.
+**Next implementation:** collapse the two vocabularies. This is design, not
+relocation, and it is COSTED now so the next engineer does not re-derive it.
+
+MEASURED 2026-09-16: **24 trait methods, 14 distinct kinds, but ~21 distinct
+(kind, detail) PAIRS.** Where a kind is shared the details are not —
+`ComponentClone` covers 5 methods with 5 distinct sentences, `ResourceClone` 3
+with 3. Only three pairs cover two methods each. ⇒ **The pair is effectively a
+per-method constant**, so any scheme that groups methods by KIND saves nothing.
+
+⛔ **AND THAT KILLS THE OBVIOUS SHAPE.** A default body per method calling a
+per-method required primitive is ~21 defaults plus ~21 primitives — more code
+than the 24×2 call-site spellings it replaces, with an extra hop. That is the
+"third table with an extra hop" this row already forbids, wearing trait syntax.
+
+⭐ **THE SHAPE THAT DOES PAY: ONE required primitive, an action discriminant, and
+24 default bodies.** `RollbackRegistrar` gains `fn install<T>(&mut self, owner,
+name, kind, detail, ops)` as its ONLY required method; each
+`rollback_*` becomes a default body whose whole content is the (kind, detail)
+pair plus an `ops` variant naming the work. The recording impl matches `ops` and
+ignores most of it; `rollback_ggrs` matches `ops` and installs. ⇒ The kind and
+the sentence are then spelled ONCE, at the declaration, which is this row's
+acceptance — and the ggrs impl stops naming either.
+
+⚠ Cost: 24 default bodies, one `ops` enum, and two 24-arm matches replacing two
+sets of 24 bodies. Roughly size-neutral; the win is the single spelling, not
+fewer lines. ⭐ And it is cheap to VERIFY: `compute_schema_fingerprint` hashes
+the whole `schema_dump()` including `detail`, so `the_rollback_schema_matches_
+its_recorded_baseline` is a byte-exact oracle for the whole refactor.
 Give each registrar method ONE kind, named where the method is declared rather
 than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
 mapping method names to kinds; that is the same duplication with an extra hop.
@@ -665,9 +688,35 @@ the production path; the grenade fixture likewise. That is the fix, not a
 workaround: a fixture that can only reach the degraded road cannot witness the
 real one.
 
-**Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
-— cannot reach the simulation unnameable; the witness names the construction road
-and the body rather than reporting a population count.
+✅ **ACCEPTANCE MET 2026-09-16 — THE WITNESS NAMES THE ROAD.** A MECHANICAL body
+(`BodyKinematics`, not merely a damageable one) cannot reach the simulation
+unnameable, and `UnmintedBodyCensus` now says WHICH and BY WHAT: each entry in
+`skipped_bodies` carries the entity, its `Name` and its `SpawnOrigin`. The origin
+is the load-bearing field — an id and a name say which body, only the road says
+where the repair goes, and the sweeper's own comment says the repair belongs at
+the spawn site.
+
+⛔ **THE FIELD WAS INVISIBLE TO EVERY PASSING RUN, WHICH IS WHY IT HAS ITS OWN
+CONTROLS.** A healthy tree reports `0 skipped over 0 distinct bodies`, so the
+formatting of a populated entry is never exercised by the two live consumers.
+Four arms in `ambition_platformer2d_runtime::sim_identity` cover it directly:
+`a_skipped_body_is_named_with_the_road_that_built_it` (a `ProviderStaged` body,
+asserting both the name and the provider/instance appear),
+`a_body_whose_road_recorded_nothing_says_so` (⚠ an absent `SpawnOrigin` is a
+FINDING, not a blank — a road that recorded nothing is a different repair from one
+that recorded the wrong thing), `an_identified_body_is_not_named` (the control,
+without which every arm above is satisfied by a census that records everything),
+and `the_set_caps_and_admits_it`.
+
+⚠ **THE SET IS CAPPED AT 16 AND `capped` SAYS SO**, because an uncapped set in a
+600-frame run is a memory leak in an instrument and a capped one that does not
+admit it is a total that quietly stopped counting. Past the cap its length is a
+FLOOR; `skipped` keeps counting observations and is the field that is not.
+
+⇒ Poisoned both ways: redacting the origin from the descriptor reddens exactly the
+road arm; removing the cap reddens exactly the cap arm. Reverted from a `cp`
+snapshot and byte-compared. ⓘ The two `app_it` consumers print the whole set
+rather than a `first`, and both pass (2 and 6 arms).
 
 ✔ **THE CLONE-ROAD RECEIPT IS RE-MEASURED ON TODAY'S TREE AND THE HANG IS GONE.**
 It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`

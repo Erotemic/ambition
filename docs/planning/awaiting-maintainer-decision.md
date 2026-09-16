@@ -1193,17 +1193,48 @@ unavailable here; **the reverse is what happens.**
    `session_health()` is **still** `Err("checksum mismatch at frames [38, 39,
    40]")`. The placement was not the only cause.
 
-   ⚠ **THE CANDIDATE SECOND CAUSE, STATED AS A CANDIDATE.**
-   `adopt_the_ledger` writes `AuthoredOccurrences`, which is declared
-   `RollbackEntryKind::Derived` — never snapshotted, never restored — on the
-   stated grounds that it is *"republished from live state while its room is
-   loaded"*. The adoption republishes it from the **save** instead, and
-   `OccurrenceBaseline.adopt(occurrences.clone())` takes the hashed baseline's
-   value FROM it. A hashed resource derived from an unrestored one can differ
-   between a run and its replay. ⇒ That the adoption writes a resource its own
-   rollback declaration says is republished from live state is a source-level
-   contradiction either way; that it CAUSES this particular desync is not yet
-   measured.
+   ✅⛤ **AND THE SECOND CAUSE IS NOW MEASURED AND ATTRIBUTED — right resource,
+   wrong road from the first reading.** Held by
+   `a_derived_resource_carries_a_mid_session_load_back_across_the_rewind`
+   (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`),
+   which records every probed entry's census per PASS of each frame. Of 364
+   entries, exactly one disagrees between two passes of the same frame outside
+   world construction: **`AmbitionGameSave`, at frames 38 and 39** — the frames
+   the sync test names. ⛔ **Neither baseline disagrees, so the
+   `OccurrenceBaseline` road this was first attributed to is not the road.**
+
+   The road is `AuthoredOccurrences`, `declare_rollback_derived_resource` —
+   carried in no snapshot, restored by no rewind — on the stated grounds that it
+   is *"republished from live state while its room is loaded"*.
+   `adopt_the_ledger` fills it from the SAVE, nothing republishes it during a
+   rewind, and `persist_occurrence_horizon_to_save` then mirrors its rows into
+   the save's hashed occurrence slice. Measured `(AuthoredOccurrences rows, save
+   occurrence rows)` per pass, load staged at tick 40:
+
+   ```text
+   tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)
+   tick 38   (0,0) (0,0) (0,0) (1,1)
+   tick 39   (0,0) (0,0) (1,1)
+   tick 40   (0,1) (1,1)
+   ```
+
+   ⇒ **The load reaches BACKWARDS across the rewind**: passes of frames 37-39
+   disagree with each other about whether the row exists, because the resource
+   holding it does not rewind. ⚠ And it reaches one frame further back than the
+   checksum reports — tick 37's last pass already holds the row, and the mismatch
+   only appears once the mirror has copied it into the save.
+
+   ⇒ **SO THE DEFECT IS NOT A PLACEMENT, AND MOVING THE CHAIN CANNOT FIX IT.** A
+   hashed value is derived, inside the rewinding schedule, from a value declared
+   exempt from the snapshot. Either `AuthoredOccurrences` must rewind, or the
+   adoption must stop being the thing that fills it — and the declaration's own
+   justification is what has to change, because *"republished from live state"*
+   is not true of the load path.
+
+   ⚠ The instrument's blind spot is the subject: a `Derived` declaration carries
+   no probe, so `AuthoredOccurrences` is in none of the 364 entries and is read
+   directly. A census over the probed set alone reports the save diverging with
+   no candidate beside it.
 3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
    two-way ruling and not a three-way one.** A mid-session load staged at tick 40
    inside the rewinding schedule makes

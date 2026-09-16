@@ -1819,3 +1819,222 @@ fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
     );
 }
 
+
+/// Every per-type census this world reported, keyed by the tick it was taken on.
+///
+/// ⛔ THE POINT IS THE PASS, NOT THE TICK. Under the sync test each frame is
+/// simulated several times, so one tick has several entries here. A type whose
+/// entries for ONE tick disagree is a type two passes of the same frame computed
+/// differently — which is what a checksum mismatch at that frame IS, expressed
+/// as a type instead of a frame number.
+#[derive(bevy::prelude::Resource, Default)]
+struct CensusByPass(
+    std::collections::BTreeMap<
+        u64,
+        Vec<std::collections::BTreeMap<&'static str, (usize, u64)>>,
+    >,
+    /// `(AuthoredOccurrences rows, save occurrence rows)` per pass.
+    std::collections::BTreeMap<u64, Vec<(usize, usize)>>,
+);
+
+fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
+    let Some(tick) = world
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .map(|tick| tick.0)
+    else {
+        return;
+    };
+    let probes = world
+        .remove_resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
+    let Some(probes) = probes else {
+        return;
+    };
+    let census: std::collections::BTreeMap<&'static str, (usize, u64)> = probes
+        .census_all(world)
+        .into_iter()
+        .map(|(name, census)| (name, (census.count, census.xor)))
+        .collect();
+    world.insert_resource(probes);
+    // ⛔ AND THE ONE RESOURCE THE CENSUS CANNOT SEE, recorded beside it.
+    // `AuthoredOccurrences` is `declare_rollback_derived_resource`, so it carries
+    // no probe and is absent from all 364 entries — a stated blind spot rather
+    // than a clean reading.
+    let authored = world
+        .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .map_or(usize::MAX, |authored| authored.rows().count());
+    let saved = world
+        .get_resource::<AmbitionGameSave>()
+        .map_or(usize::MAX, |save| save.data().occurrences().len());
+    let mut by_pass = world.remove_resource::<CensusByPass>().unwrap_or_default();
+    by_pass.0.entry(tick).or_default().push(census);
+    by_pass.1.entry(tick).or_default().push((authored, saved));
+    world.insert_resource(by_pass);
+}
+
+/// ⛔⛤ A DERIVED RESOURCE CARRIES THE LOAD BACKWARDS IN TIME, AND THE HASHED
+/// SAVE MIRRORS IT — WHICH IS WHY MOVING THE RESTORE CHAIN DOES NOT CLOSE
+/// [Q135].
+///
+/// Of 364 probed entries, exactly one disagrees between two passes of the same
+/// frame outside world construction: `AmbitionGameSave`, at frames 38 and 39 —
+/// the frames the sync test names. Neither baseline disagrees, so the
+/// `OccurrenceBaseline` path this was first attributed to is not the road.
+///
+/// ⭐ THE ROAD IS `AuthoredOccurrences`, which is
+/// `declare_rollback_derived_resource` — carried in no snapshot, restored by no
+/// rewind — on the stated grounds that it is *"republished from live state while
+/// its room is loaded"*. `adopt_the_ledger` fills it from the SAVE instead, and
+/// nothing republishes it during a rewind, so it keeps the adopted row while the
+/// timeline re-simulates frames from BEFORE the load. Then
+/// `persist_occurrence_horizon_to_save` mirrors that row into the save's
+/// occurrence slice, which is hashed. ⇒ A hashed value derived, inside the
+/// rewinding schedule, from a value that does not rewind.
+///
+/// Measured `(AuthoredOccurrences rows, save occurrence rows)` per pass, load
+/// staged at tick 40:
+///
+/// ```text
+/// tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)
+/// tick 38   (0,0) (0,0) (0,0) (1,1)
+/// tick 39   (0,0) (0,0) (1,1)
+/// tick 40   (0,1) (1,1)
+/// ```
+///
+/// ⚠ AND THE LEAK REACHES ONE FRAME FURTHER BACK THAN THE SYNC TEST REPORTS:
+/// tick 37's last pass already holds the row. The checksum only notices once the
+/// mirror has copied it into the save.
+///
+/// ⛔ THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT ITSELF. `AuthoredOccurrences`
+/// is `Derived`, so it carries no probe and appears in none of the 364 entries.
+/// It is read directly here for exactly that reason — a census over the probed
+/// set would have reported the save diverging with no candidate beside it.
+///
+/// ⇒ WHEN THIS ARM GOES RED the family is repaired: delete it and close
+/// [Q135]'s second cause.
+///
+/// [Q135]: ../../../docs/planning/awaiting-maintainer-decision.md
+#[test]
+fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.init_resource::<CensusByPass>();
+            app.add_systems(
+                label,
+                (
+                    stage_a_mid_session_load_at_tick_40,
+                    record_the_census_of_every_pass,
+                )
+                    .chain(),
+            );
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a per-pass census");
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+
+    let by_pass = sim.world().resource::<CensusByPass>();
+    // A type is a SUSPECT when one tick's passes disagree about it. Report how
+    // many ticks each suspect disagreed on, so a per-tick-changing type (which
+    // disagrees everywhere) is distinguishable from one that only disagrees at
+    // the load.
+    let mut disagreed: std::collections::BTreeMap<&'static str, Vec<u64>> =
+        std::collections::BTreeMap::new();
+    for (tick, passes) in &by_pass.0 {
+        if passes.len() < 2 {
+            continue;
+        }
+        for (name, first) in &passes[0] {
+            if passes[1..]
+                .iter()
+                .any(|later| later.get(name) != Some(first))
+            {
+                disagreed.entry(name).or_default().push(*tick);
+            }
+        }
+    }
+    let ticks_with_passes = by_pass.0.values().filter(|p| p.len() >= 2).count();
+    let entries = by_pass.0.values().next().map_or(0, |p| p[0].len());
+    eprintln!(
+        "PASSES ticks={} ticks-with-2+-passes={ticks_with_passes} entries={entries}",
+        by_pass.0.len(),
+    );
+    for (name, ticks) in &disagreed {
+        eprintln!(
+            "PASSES disagreed on {} tick(s): {name} at {:?}",
+            ticks.len(),
+            &ticks[..ticks.len().min(6)]
+        );
+    }
+    for tick in [37u64, 38, 39, 40, 41] {
+        eprintln!(
+            "PASSES tick {tick}: (authored, saved) per pass = {:?}",
+            by_pass.1.get(&tick)
+        );
+    }
+
+    // ── PREMISES, because every number below is worthless without them.
+    assert!(
+        ticks_with_passes >= 20,
+        "only {ticks_with_passes} tick(s) were simulated more than once, so \
+         there is barely a replay here to disagree with"
+    );
+    assert!(
+        entries > 300,
+        "the probe set collapsed to {entries} entries; a small population \
+         reports few suspects for a reason that is not agreement"
+    );
+
+    // ── THE SUBJECT: the row reaches back past the tick that loaded it.
+    // ⚠ THE CLAIM IS THAT THE PASSES OF ONE FRAME DISAGREE, not that a row
+    // exists. "A row is present" is also true of a world that loaded before the
+    // window opened, and that world has no defect — so the test is an EMPTY pass
+    // and a NON-EMPTY pass of the same tick.
+    let carried_back: Vec<u64> = [37u64, 38, 39]
+        .into_iter()
+        .filter(|tick| {
+            by_pass.1.get(tick).is_some_and(|passes| {
+                passes.iter().any(|(authored, _)| *authored == 0)
+                    && passes.iter().any(|(authored, _)| *authored > 0)
+            })
+        })
+        .collect();
+    assert_eq!(
+        carried_back,
+        vec![37, 38, 39],
+        "`AuthoredOccurrences` no longer holds the adopted row while the \
+         timeline re-simulates frames from before the load. If the resource now \
+         rewinds, or the adoption stopped writing it, THIS ARM IS THE FIX \
+         LANDING — delete it and close Q135's second cause."
+    );
+
+    // ── AND THE CONSEQUENCE: the hashed save is the entry that disagrees.
+    let outside_construction: Vec<&&str> = disagreed
+        .iter()
+        .filter(|(_, ticks)| ticks.iter().any(|tick| *tick > 0))
+        .map(|(name, _)| name)
+        .collect();
+    assert_eq!(
+        outside_construction,
+        vec![&"ambition_persistence::save::AmbitionGameSave"],
+        "the set of entries disagreeing between two passes of one frame is no \
+         longer exactly {{AmbitionGameSave}}. A NEW member is a new defect of \
+         this shape; an EMPTY set means the mirror no longer carries the \
+         unrewound row into hashed state"
+    );
+    assert!(
+        health(&sim).is_err(),
+        "the sync test agrees now. If the entries above still disagree, the \
+         checksum stopped covering the save; if they agree, this arm is the fix \
+         landing"
+    );
+}

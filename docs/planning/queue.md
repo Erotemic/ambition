@@ -2297,11 +2297,32 @@ of green. Q135 carries the candidate second cause: `adopt_the_ledger` writes
 `AuthoredOccurrences`, declared `RollbackEntryKind::Derived` and never restored,
 and the hashed `OccurrenceBaseline` takes its value from it.
 
-⭐ **WHAT THIS ROW OWES NEXT is a per-ENTRY divergence reading of the moved
-configuration** — `how_much_of_the_peer_checksum_actually_varies.rs` holds that
-instrument — because "the sync test still disagrees" names a frame and not a
-type, and the candidate above was reached by reading declarations rather than by
-measuring the diverging entry.
+✅⛤ **AND THE PER-ENTRY READING IS DONE, SAME DAY: THE DIVERGING ENTRY IS THE
+SAVE, AND THE ROAD IS A RESOURCE DECLARED EXEMPT FROM THE SNAPSHOT.** Held by
+`a_derived_resource_carries_a_mid_session_load_back_across_the_rewind`, which
+censuses all 364 probed entries per PASS of each frame. Exactly one disagrees
+between two passes of one frame outside world construction —
+`AmbitionGameSave`, at frames 38 and 39 — and **neither baseline does**, so the
+`OccurrenceBaseline` attribution this row reached by reading declarations was
+wrong about the road while right about the resource.
+
+    tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)      (AuthoredOccurrences rows,
+    tick 38   (0,0) (0,0) (0,0) (1,1)             save occurrence rows) per pass
+    tick 39   (0,0) (0,0) (1,1)
+    tick 40   (0,1) (1,1)
+
+⇒ `AuthoredOccurrences` is `declare_rollback_derived_resource` — in no snapshot,
+restored by no rewind — justified as *"republished from live state while its room
+is loaded"*. `adopt_the_ledger` fills it from the SAVE, no republish corrects it
+during a rewind, and `persist_occurrence_horizon_to_save` mirrors its rows into
+the hashed save. **The load reaches backwards across the rewind**, one frame
+further than the checksum reports.
+
+⇒ **THE FIX IS NOT A PLACEMENT.** Either `AuthoredOccurrences` rewinds, or the
+adoption stops being what fills it; the declaration's justification is what has
+to change first, because it is not true of the load path. That is a
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
+consequence and it is recorded there.
 
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION

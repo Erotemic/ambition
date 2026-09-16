@@ -1145,6 +1145,25 @@ in `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
 
 - A sampler with an explicit `.after(complete_durable_restore)` edge finds the
   GGRS session **already live** at the instant the latch is set.
+
+⭐⛤ **RE-MEASURED 2026-09-16 AFTER NEW GAME STOPPED LOWERING THE LATCH, AND THE
+WINDOW IS EXACTLY ONE FRAME WIDE.** `PROBE frames=34 session_world@1 body@1
+ggrs@1 restored@2`:
+
+```text
+frame 0   session_world false  bodies 0  ggrs_live false  restored false  ggrs_frame 0
+frame 1   session_world true   bodies 1  ggrs_live TRUE   restored FALSE  ggrs_frame 0
+frame 2   session_world true   bodies 1  ggrs_live true   restored true   ggrs_frame 1
+```
+
+⇒ **Frame 1 is the whole hole:** the synchronised timeline is live over a world
+whose durable restore has not completed, for one frame, and `ggrs_frame` reaches
+1 as the latch rises — inside a check distance of 4, so a resimulation reaches
+back past it. ⚠ That narrows the dependent dialogue defect below to "a
+conversation opened on frame 1 of a session", which a player cannot reach by hand
+but a scripted or autostarted conversation can. It does not make the ordering
+defect smaller: one frame of unsynchronised hydration is either allowed or it is
+not.
 - `RollbackFrameCount` reads **1** there — timeline frame one, inside a check
   distance of four, so a resimulation reaches back past the write.
 - All three restored resources are `rollback_resource_clone_checksum`

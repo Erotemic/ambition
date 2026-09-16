@@ -233,10 +233,28 @@ Also measured and fixed in the same pass: `encoded_types` had the same
 where the name census's was not, because it matches a plain `impl` beside the
 type rather than following a registration road.
 
-What this does NOT settle, and N3 still owes: the dump is a recording of ONE
-composition. `message.causal_*` is filtered by the test rather than negotiated,
-and no peer handshake reads the dump or its version yet — the invariant makes
-the identity honest, it does not yet make it exchanged.
+✔ **AND THE COMPOSITION QUESTION IS NOW MEASURED RATHER THAN ASSUMED.** The
+baseline is recorded from `Platformer2dSimHarness`; the player runs
+`build_visible_app`. Everything reading the baseline — the ratchet above, the
+fingerprint two peers would negotiate, the Rust lane's own byte-for-byte arm —
+was describing the sandbox, and the sandbox arm stays green precisely because it
+never asks the shipped app. `the_shipped_app_registers_the_same_schema_as_the_sandbox`
+now asks: **the two dumps are identical.** It carries the anti-vacuity floor that
+two empty registries are also identical, and both poisons fire on their own
+message path (a `deterministic_dump` on one side hits the diff; emptying a side
+hits the floor).
+
+⚠ Ordering is not a hazard here and this is why: `entries` is a `BTreeMap`, and
+`canonical_section` preserves iteration order rather than sorting — so the
+determinism comes from the container, and a future change to a `HashMap` would
+make the fingerprint vary per process with nothing watching.
+
+What this does NOT settle, and N3 still owes: **no peer handshake reads the dump
+or its version.** The invariant makes the identity honest and the arm makes it
+the shipped one; neither makes it EXCHANGED, which is the row's actual subject
+and waits on N2's absent P2P session. `message.causal_*` is also still filtered
+by the test rather than negotiated — a whole-schema identity that varies with a
+cargo feature is an N3 question nobody has ruled on.
 
 The [extension contract](extension-state-and-execution.md) extends this same
 compatibility manifest with module code, port versions, complete extension schema

@@ -45,3 +45,41 @@ indistinguishable from the exit code.
 
 ⇒ The next step is a repeat run with `--test-threads=1` and with a fixed seed
 order, comparing against the failing composition — **not** a fix.
+
+## A third instance, 2026-09-16 — and this one is DETERMINISTIC
+
+The named next step above was run, on a different subject, and it answers the
+first open question for that subject: **parallelism, not ordering.**
+
+Building a SECOND sim App inside the `app_it` process makes a neighbouring
+audit-based arm report a corrupted baseline. Subject:
+`how_much_of_the_peer_checksum_actually_varies::no_registered_type_is_written_outside_the_rewinding_schedule`,
+which asserts that no rollback-registered type is written outside the rewinding
+schedule. Adding a second fixture in the same file —
+`run_with_a_writer_outside_the_schedule`, a second full sim App — made it report
+**99** types instead of none, which is the signature of a stale comparison
+baseline rather than a finding.
+
+    the new arm alone                         1 passed
+    the audit arm alone                       1 passed
+    both, `--test-threads=1`                  2 passed
+    both, default parallelism                 1 passed, 1 FAILED
+
+⇒ **Deterministic in both directions**, unlike the 2026-09-10 observation. So the
+class has at least three instances and this is the first with a reproduction
+anyone can run in one command.
+
+⚠ **AND ONE SUSPECT IS ELIMINATED.** `ambition_items::install_item_catalog` is a
+documented process-global `OnceLock` — the obvious candidate — but it ALLOWS
+identical reinstallation and both fixtures install the same catalog, so it is not
+this. `probes.rs` holds no statics and `RollbackRestoreAudit` is per-App. The
+shared state is elsewhere and is not yet named.
+
+⇒ **WHAT THIS BUYS THE ROW:** a cheap, deterministic harness for the whole class.
+Two concurrently-built sim Apps is a two-line fixture, so whoever takes this can
+bisect the shared state by composing Apps with successively fewer plugins instead
+of chasing an intermittent failure in a 733-arm binary.
+
+⚠ The new arm is `#[ignore]`d rather than deleted, with the measurement in its
+doc, so the lane stays green and the reproduction is not lost. Run it with
+`--ignored` or with `--test-threads=1`.

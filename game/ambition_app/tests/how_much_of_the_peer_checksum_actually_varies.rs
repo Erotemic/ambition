@@ -108,6 +108,44 @@ fn run_with(action: fn() -> AgentAction) -> Platformer2dSimHarness {
     sim
 }
 
+/// The same composition with the grant moved OUT of the rewinding schedule —
+/// the synthetic subject the detector is asserted against.
+///
+/// ⭐⭐ **THE POISON IS THE FIXTURE, WHICH IS WHY IT CANNOT DIE OF SUCCESS.**
+/// `no_registered_type_is_written_outside_the_rewinding_schedule` used
+/// `AmbitionGameSave` as its positive control because production was writing it
+/// from `Update`; ROLLBACK-BAG-DESYNC's P0 repair moved it into the schedule and
+/// the control went with it. A control that is a live defect has a lifetime
+/// bounded by the defect. This one reproduces the defect DELIBERATELY in a
+/// fixture nothing else uses, so the detector keeps a subject no repair can take
+/// away.
+///
+/// ⚠ THE SUBJECT IS THE SAME SYSTEM, ONE SCHEDULE OVER, and that is the point:
+/// `run_with` adds `grant_each_tick_from_four` to `app.sim_schedule()` and this
+/// adds it to `Update`. The only difference between the two runs is WHERE the
+/// write happens, so a detector that reports the same answer for both is
+/// reporting on something else.
+fn run_with_a_writer_outside_the_schedule() -> Platformer2dSimHarness {
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.add_systems(bevy::prelude::Update, grant_each_tick_from_four);
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with the grant outside the tick");
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    for _ in 0..240 {
+        sim.step(playing());
+    }
+    sim
+}
+
 /// `(hashed type names, hashed names that also carry a probe)`.
 fn hashed_types(sim: &Platformer2dSimHarness) -> (Vec<String>, Vec<String>) {
     let probed: std::collections::BTreeSet<&str> = sim
@@ -442,5 +480,121 @@ fn no_registered_type_is_written_outside_the_rewinding_schedule() {
          desync candidate. Of the {} entries that feed it, the save was the only \
          member of this set on 2026-09-16.",
         hashed.len()
+    );
+}
+
+
+/// ⛔⛤ **THE SYNTHETIC POSITIVE CONTROL THIS FILE OWES CANNOT BE BUILT FROM A
+/// CLONE-REGISTERED RESOURCE, AND THIS ARM IS THE MEASUREMENT THAT SAYS SO.**
+///
+/// `no_registered_type_is_written_outside_the_rewinding_schedule` asserts a set
+/// is EMPTY, and an empty set is what a clean world reports AND what a blind
+/// detector reports. Its separator used to be `AmbitionGameSave` — a LIVE
+/// DEFECT, which ROLLBACK-BAG-DESYNC's P0 repair removed. Its doc names a
+/// synthetic subject as the durable replacement: write a rollback-registered
+/// resource from `Update` in a fixture and assert the detector names it.
+///
+/// ⛔ **IT DOES NOT.** This fixture adds the same grant system to `Update`
+/// instead of `app.sim_schedule()`, so `OwnedItems` — registered, inside the
+/// peer checksum — is written outside the rewinding schedule on every tick from
+/// the fourth. MEASURED: 240 live comparisons, and
+/// `written_outside_the_rewinding_schedule()` returns `[]`.
+///
+/// ⇒ **THE CAUSE IS THE PROBE'S STRENGTH, NOT THE DETECTOR'S PLACEMENT.**
+/// `record_live_census` runs in `Last`, after `Update`, so the write is
+/// certainly in the world when the comparison happens. But `OwnedItems` is
+/// `rollback_resource_clone`, which gets a PRESENCE probe — and a presence
+/// census of a resource is `(count: 1, xor: 0)` whatever the value is. The
+/// comparison is between two identical censuses of a value that changed.
+///
+/// ⛔⛤ **SO THE ARM ABOVE HAS A NARROWER POPULATION THAN ITS OWN DOC CLAIMS.**
+/// It says the population is *"types whose probe can see a value change"*, which
+/// is right — but the consequence was not drawn: **every clone-registered
+/// RESOURCE is outside it**, and `AmbitionGameSave` was only ever visible
+/// because it is `rollback_resource_clone_checksum`, which gets a value probe.
+/// An outside-the-schedule write to any of the clone-registered resources would
+/// be reported as a clean world today.
+///
+/// ⚠ AND `strengthen_with` CANNOT CLOSE IT: its bound is `T: Component`, so a
+/// resource's probe cannot be upgraded at runtime the way `GroundItem`'s is in
+/// `does_a_presence_probed_row_move_when_its_value_does`. ⇒ The road is to give
+/// `strengthen_with` a resource half, or to use a value-probed subject — and the
+/// two value-probed resources in reach (`AmbitionGameSave`, `LastQuestRoom`) are
+/// in `ambition_persistence`, which is not a dependency of this crate and must
+/// not become one for a test fixture.
+///
+/// ⇒ **THIS ARM IS THE TRIPWIRE FOR THAT WORK.** It asserts the limitation, so
+/// the day a resource probe can be strengthened it goes RED and whoever did it
+/// is handed the control that has been owed since 2026-09-16. A recorded
+/// limitation with a failing test attached is the difference between a known gap
+/// and a forgotten one.
+///
+/// ⛔⛤ **`#[ignore]`, AND THE REASON IS A THIRD INSTANCE OF A CLASS THIS
+/// REPOSITORY ALREADY HAS OPEN.** Building a SECOND sim App in this process
+/// makes the arm above fail — `no_registered_type_is_written_outside_the_rewinding_schedule`
+/// reports **99** types written outside the rewinding schedule instead of none,
+/// which is the signature of a corrupted comparison baseline rather than a
+/// finding. MEASURED, and it separates cleanly:
+///
+///     this arm alone                         1 passed
+///     the arm above alone                    1 passed
+///     both, `--test-threads=1`               2 passed
+///     both, default parallelism              1 passed, 1 FAILED
+///
+/// ⇒ Two concurrently-built sim Apps share process state, so this is
+/// `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`
+/// — whose named next step is the `--test-threads=1` run above, and which
+/// recorded the class as having at least two instances. This is the third, and
+/// the first with a deterministic reproduction rather than an intermittent one.
+///
+/// ⚠ NOT the item catalog: `install_item_catalog` is a documented process-global
+/// `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
+/// same one. The shared state is elsewhere and finding it is that page's work,
+/// not this arm's. ⇒ Run it with `--ignored`, or with `--test-threads=1`, and it
+/// answers honestly either way.
+#[test]
+#[ignore = "IGNORED, not broken: it builds a second sim App, which makes the             arm above report 99 types instead of none under default             parallelism. Passes alone and under --test-threads=1; see this             arm's doc and triage/a-composition-acceptance-that-only-fails-in-company.md"]
+fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
+    let sim = run_with_a_writer_outside_the_schedule();
+    let subject = std::any::type_name::<OwnedItems>();
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    // ⛔ THE PREMISE: the comparison actually happened. Without it the empty set
+    // below is about the audit and the arm would pin the wrong limitation.
+    assert!(
+        audit.live_comparisons > 0,
+        "the live census never ran, so this says nothing about probe strength \
+         ({})",
+        audit.coverage()
+    );
+    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
+    let probes = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
+    let presence_only: std::collections::BTreeSet<&str> = probes.presence_only_type_names();
+    // ⛔ AND THE SECOND PREMISE, WHICH IS THE WHOLE EXPLANATION: the subject is
+    // presence-probed. If it ever becomes a value probe this assertion fails
+    // FIRST and names the reason, instead of the reader concluding the detector
+    // is broken.
+    assert!(
+        presence_only.contains(&subject),
+        "`{subject}` is no longer a presence-only probe, so the limitation this \
+         arm records has changed shape. ⇒ Re-derive it: if its probe is now a \
+         VALUE probe, the detector should see the `Update` write this fixture \
+         makes, and this file finally owes the positive control \
+         `no_registered_type_is_written_outside_the_rewinding_schedule` has been \
+         missing. presence_only={} of {} probes",
+        presence_only.len(),
+        probes.type_names().len()
+    );
+    assert!(
+        !outside.contains(&subject),
+        "the detector DID name `{subject}`, which is the outcome this arm exists \
+         to stop recording as impossible. ⇒ GOOD NEWS, AND ACT ON IT: delete this \
+         arm and make the same fixture the positive control \
+         `no_registered_type_is_written_outside_the_rewinding_schedule` owes. \
+         Found: {outside:?} over {} live comparison(s).",
+        audit.live_comparisons
     );
 }

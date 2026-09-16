@@ -112,8 +112,26 @@ mtime on 2026-09-03 was following this paragraph. Removed 2026-09-03. The rule
 below is the one that stands; nothing here licenses a deletion.
 ⇒ **What to actually do:** run `scripts/setup/target_bindmount.sh --status`. A
 `target/` that has grown enormous is almost always an ABSENT BIND, and repairing
-it returns the space without deleting anything, because the duplicate was never
-supposed to exist. Run `df -h /tmp` BEFORE starting a second target or profile
+it stops the bleeding without deleting anything: builds go back to the local
+volume and the duplicate stops growing.
+⛔⛤ **BUT REPAIRING THE BIND DOES NOT RETURN THE SPACE, AND THIS PARAGRAPH USED
+TO SAY IT DID.** The bind SHADOWS the duplicate; it does not remove it. MEASURED
+2026-09-16, either side of one `scripts/setup/target_bindmount.sh`:
+
+| | repo fs (virtiofs) | `target/`'s fs |
+| --- | --- | --- |
+| unbound | 1.7T used, **10G free, 100%** | the same mount |
+| bound | 1.7T used, **10G free, 100%** | `/dev/vda1`, **133G free, 73%** |
+
+⚠ `du -sh target/` had read **156G** while unbound; after the bind the same path
+reads the local volume and that 156G is invisible to both `du` and `df`. So the
+disk that was full is STILL FULL, and `check_disk_headroom.py` goes green
+because it asks about `target/`, which is now a different filesystem. ⇒ Check
+`df -h` on the REPO MOUNT, not only on `target/`, before concluding a full disk
+is fixed. Reclaiming the shadowed copy is a MAINTAINER DECISION, not an agent's:
+inspecting under the mountpoint needs root, and the rule below still stands.
+
+Run `df -h /tmp` BEFORE starting a second target or profile
 combination, not after — the cheap fix is not starting the second copy.
 ⚠ **A full disk can crash the gate mid-run**, and the traceback is an `OSError:
 [Errno 28]` from `run_tests.py`'s own status writer rather than anything about

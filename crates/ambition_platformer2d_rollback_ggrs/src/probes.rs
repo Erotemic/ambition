@@ -118,6 +118,43 @@ impl RollbackChecksumProbes {
             .collect()
     }
 
+    /// Give a registered type's probe a VALUE projection, replacing a presence
+    /// count. Returns whether a probe for `T` was found.
+    ///
+    /// ⛔⛤ **THIS EXISTS BECAUSE THERE WAS NO ROAD TO MEASURE A PRESENCE-PROBED
+    /// ROW WITHOUT PAYING PEER-VISIBLE SCHEMA IDENTITY FOR IT.** `record_probe`
+    /// is private to registration, the `probes` field is private, and
+    /// [`census_presence`] hard-codes `xor: 0` — so the only way to make
+    /// [`RollbackRestoreAudit`] able to see a value was to edit the registration
+    /// site, which changes that row's `detail` string, which changes
+    /// `schema_dump()`, which changes `compute_schema_fingerprint`. A purely
+    /// DIAGNOSTIC property was welded to the identity two peers compare.
+    ///
+    /// ⇒ **STRENGTH IS OWNED HERE, AT RUNTIME, AND REGISTRATION IS HOW IT IS
+    /// INITIALIZED — NOT WHERE IT IS DECIDED.** That is one owner, not two:
+    /// after this call [`Self::strength_tally`] and
+    /// [`Self::presence_only_type_names`] both report `T` as a value probe,
+    /// because it now IS one. Nothing here reaches the GGRS aggregate; a probe
+    /// contributes nothing to the checksum two peers compare, which is what
+    /// makes strengthening one free of peer consequences.
+    ///
+    /// ⚠ **IT CANNOT CREATE A PROBE, ONLY REPLACE ONE.** An unregistered type
+    /// returns `false` rather than silently gaining coverage, so a caller that
+    /// misspells a type gets a refusal instead of a census of nothing — the
+    /// reading that would otherwise be indistinguishable from a clean world.
+    pub fn strengthen_with<T>(&mut self, projection: fn(&T) -> u64) -> bool
+    where
+        T: Component,
+    {
+        let wanted = std::any::type_name::<T>();
+        let Some(probe) = self.probes.iter_mut().find(|p| p.type_name == wanted) else {
+            return false;
+        };
+        probe.census = std::sync::Arc::new(move |world: &mut World| census_with::<T>(world, projection));
+        probe.strength = ProbeStrength::Value;
+        true
+    }
+
     /// Count by strength: `(complete, value, presence_only)`.
     pub fn strength_tally(&self) -> (usize, usize, usize) {
         let mut tally = (0, 0, 0);
@@ -619,6 +656,10 @@ pub struct RollbackRestoreAudit {
     /// is always on becomes a diagnostic nobody can afford to leave on.
     pub enabled: bool,
     saved: BTreeMap<i32, BTreeMap<&'static str, ComponentCensus>>,
+    /// The frames that were saved MORE THAN ONCE — i.e. the frames this audit
+    /// actually compared. `resimulations` counts them; this names them, which is
+    /// what makes [`Self::distinct_censuses_across_compared_frames_of`] possible.
+    resaved: BTreeSet<i32>,
     /// Every component that failed to survive its own snapshot, in discovery order.
     pub divergences: Vec<RestoreDivergence>,
     /// How many frames were censused at save time.
@@ -643,6 +684,38 @@ impl RollbackRestoreAudit {
             enabled: true,
             ..Default::default()
         }
+    }
+
+    /// How many DISTINCT censuses of `T` this audit took at frames it went on to
+    /// COMPARE — the floor a verdict of "it reproduced" needs and cannot get from
+    /// `resimulations`.
+    ///
+    /// ⛔⛤ **`resimulations > 0` AND "THE VALUE WAS MOVING" ARE DIFFERENT CLAIMS,
+    /// AND AN ARM THAT ASSERTS THE FIRST CAN BE MEASURING REST.** A run can take
+    /// thirty saves, compare three of them, and have the subject sitting still at
+    /// all three: the audit then correctly reports no divergence, the arm reports
+    /// `resimulations > 0`, and the conclusion drawn — "this value reproduces
+    /// across a rewind" — is supported by nothing. The number that separates the
+    /// two is how many different values the probe SAW at the frames it compared.
+    ///
+    /// `1` means the subject held one value across every compared frame, so the
+    /// comparison had nothing to disagree about. `0` means `T` was not in the
+    /// census at those frames at all.
+    ///
+    /// ⚠ It reads the probe's own census, so its resolution is the probe's: a
+    /// PRESENCE probe hard-codes `xor: 0`, so for one of those this counts
+    /// distinct CARRIER COUNTS and will read `1` across a window in which the
+    /// value moved the whole time. That is not a defect here — it is the reason
+    /// [`RollbackChecksumProbes::strengthen_with`] exists.
+    pub fn distinct_censuses_across_compared_frames_of<T: 'static>(&self) -> usize {
+        let wanted = std::any::type_name::<T>();
+        self.resaved
+            .iter()
+            .filter_map(|frame| self.saved.get(frame))
+            .filter_map(|census| census.get(wanted))
+            .map(|census| (census.count, census.xor))
+            .collect::<BTreeSet<_>>()
+            .len()
     }
 
     /// The first divergence, which is the one to fix: later ones are usually
@@ -731,6 +804,7 @@ pub fn record_saved_census(world: &mut World) {
         audit.saves += 1;
         if previous.is_some() {
             audit.resimulations += 1;
+            audit.resaved.insert(frame);
         }
         audit.divergences.extend(found);
         // Overwriting would compare replay N against replay N-1 and go quiet once the error became

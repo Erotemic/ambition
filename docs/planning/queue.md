@@ -677,188 +677,88 @@ before running, which every poison here now does.
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
 
-**Current state:** the guard that keeps rollback state from being mutated outside
-the rewinding schedule defines that state as `rollback_*_canonical::<T>` only.
-Every clone and custom-checksum registration is outside its population —
-`RoomSet` and `LdtkRuntimeIndex` among them — although those values are
-snapshotted and restored on every rewind exactly like the canonical ones, so an
-outside mutation drifts identically.
+**Current state:** the widening LANDED. Population 139 → 338 types, findings
+8 → 12, resource half at `068bb6034` and the component half at `fa910c50d`. The
+guard exits 0 again as of `c1ffa812d`. What is open is the `Transform` blind spot
+and two findings that owe an argument; everything else below is a receipt.
 
-⭐⭐ **THE WIDENING LANDED 2026-09-16, AND WHAT UNBLOCKED IT WAS COUNTING THE
-OBJECTION.** The blocker read: widening surfaces 65 offenders, many of them
-`Transform` writes from camera, sprite and inspection systems — presentation
-acting on a component that happens to be rollback-registered — so it is not
-landable until sim writes and presentation writes can be told apart. ⇒ Counted by
-TYPE: **52 of the 64 are `Transform` and twelve are not.** The undecidable part
-was one type, not the population. `Transform` is now excluded by NAME with that
-count beside it, and the other 338 types are in.
-
-Population 139 → 338; findings 8 → 12. The four it bought:
-
-⛔⛤ **AND THE WIDENING COST THE GUARD ITS VERDICT UNTIL 2026-09-16, WHICH THE
-ROW DID NOT SAY.** Twelve unwaived findings meant `exit 1` — so a THIRTEENTH
-offender could not change the answer, and `--maintenance` does not run this
+⛔ **THE EXIT CODE MEANS "NO NEW OFFENDER", NOT "CLEAN" — read this before
+trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
+`WAIVERS`: a waiver says this system's drift across a rewind does not matter and
+carries the argument; an acknowledgement says the drift is REAL and names the row
+that owes it. Twelve are banked — nine here, three save mirrors to
+DURABLE-HORIZON-CHECKSUM/Q129, two menu writers to MENU-RESET-MIDSESSION — and
+they print to stderr every run. ⛔ A banked name the scan STOPS reporting is also
+fatal, or the list rots into a second waiver table and absorbs the next system to
+take a fixed one's place. Both branches poisoned at `c1ffa812d`.
+⇒ Why it exists: at 12 unwaived findings the guard was stuck at `exit 1`, so a
+THIRTEENTH could not change its verdict, and `--maintenance` does not run this
 script. A check that reports FAILED before and after a regression has stopped
-being a check, whatever its row says, because a reader uses the exit code.
-(YardratAmbition's catch, measured against a clean tree at their HEAD.)
+being one. (YardratAmbition's catch.)
 
-⇒ **FIXED BY BANKING THE KNOWN SET, NOT BY WAIVING IT.** `ACKNOWLEDGED` is a
-SECOND table making the OPPOSITE claim to `WAIVERS`: a waiver says this drift
-does not matter, an acknowledgement says it is real and names the row that owes
-it. Waiving these twelve would have written down something false while Q129 and
-MENU-RESET-MIDSESSION are open. The exit code now means *no NEW offender*; the
-twelve still print, to stderr, each with its row.
+⛔⛤ **`Transform` IS A STATED BLIND SPOT AND THE OBVIOUS REPAIR IS MEASURED
+DEAD.** 52 of the 64 offenders the component half would have surfaced are
+`Transform` writes from camera, sprite and inspection systems; it is excluded BY
+NAME with that count beside it, so a green here says nothing about `Transform`.
+⇒ The natural fix — classify by a PROPERTY the system states, `Camera`/`Sprite`/
+`Text`/`Mesh`/`Light`/`Node`/a projection in the signature — was counted against
+those 52: **23 declare such a marker and 29 do not**, and the 29 are presentation
+only by NAME (`camera_follow`, `sync_parallax_layers`, `sync_hit_flash_overlays`).
+⛔ A system's NAME is not a reading of its write set; that classifier was wrong in
+both directions twice on 2026-09-16 alone.
+⇒ **So the repair is a DECLARATION, not a cleverer scanner:** presentation
+systems that write `Transform` should join a set or mark the entities they move,
+turning an undecidable read of source into a fact the code states. That is ~52
+systems rather than this script, and it wants a maintainer's view on the shape
+before anybody starts.
 
-⛔ **AND A BANKED NAME THE SCAN STOPS REPORTING IS ALSO FATAL** — otherwise the
-list rots into a second waiver table and silently absorbs the next system to
-take a fixed one's place. POISONED, both branches, each on its own message and
-the file restored byte-identical: deleting `portal_dev_toggle_system` from the
-bank reddens as a new offender; adding a name that is not a finding reddens as
-stale. ⚠ The first attempt at the test edit asserted its anchor and wrote
-NOTHING — 8 spaces of indent against the file's 4 — and would have read as a
-clean pass had the pytest count not moved; every anchor is now counted before
-the write.
+⭐ **EVERY HOLE THIS GUARD HAS HAD FAILED IN THE GREEN DIRECTION, which is why
+`POPULATION_FLOOR` is checked BEFORE the findings.** `&mut T` alone saw 1 type of
+113; `SessionWorldMut<T>` hid six; `#[derive(SystemParam)]` hid thirteen — that
+last one blind to `MovingPlatformSet`, the single type the guard was originally
+written around, because a bundle is one identifier in a signature and a struct
+field cannot elide the lifetime the pattern required. Each time the report got
+SHORTER and CLEANER, which reads as good news. A fifth spelling cannot announce
+itself, but it cannot avoid making the count fall.
 
-The two standing expected failures in `test_rollback_mutators_run_in_sim.py` are
-gone with it: 22 passed, where the file previously carried 2 permanent reds. Two
-of the three new arms guard the bank's exactness, and the third refuses an
-overlap between the tables, since an entry in both would be one of the two claims
-being false.
+**Open — two findings owe their own argument.**
+`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` are
+one-shot latches on `SaveRestored`, which LOOKS like the activation waiver's "the
+write precedes the timeline". ⛔ It does not transfer: both also require a live
+primary player body, and a live body means the session world root is live —
+exactly the condition `maintain_local_session` gates GGRS start on. So they may
+run WITH a live timeline.
 
-| system | type | why it matters |
-|---|---|---|
-| `sync_ldtk_level_set` | `LdtkRuntimeIndex` | the reason `handle_ldtk_hot_reload`'s waiver read stale |
-| `portal_dev_toggle_system` | `PortalGun` | |
-| `reconcile_roster_with_frozen_topology` | `ActiveMatch` | |
-| `compute_music_intent` | `EncounterMusicRequest` | |
-
-⭐ **AND THE WIDENED GUARD INDEPENDENTLY FINDS BOTH DEFECTS FILED TONIGHT BY
-MEASUREMENT** — `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`
-and `persist_occurrence_horizon_to_save` ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)),
-and `grid_menu_action_activated` / `kaleidoscope_menu_action_activated`
-([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
-Two defects found by running a harness, and a static guard that would have named
-them both. ⇒ The argument for reach over cleverness: neither needed a new idea,
-only a population that was not quietly narrowed.
-
-⚠ **`Transform` IS NOW A STATED BLIND SPOT, NOT A RESOLVED QUESTION.** A genuine
-simulation write to `Transform` outside the rewind is invisible to this guard and
-stays invisible until a sim-versus-presentation distinction exists. A green here
-says nothing about `Transform`, and the exclusion is written where the guard
-defines its population so the next reader meets it before the verdict.
-
-⛔ **AND THE OBVIOUS RULE FOR LIFTING IT DOES NOT WORK — MEASURED, so the next
-person does not re-derive it.** The natural repair is to key on a PROPERTY the
-system states rather than on where it lives: if the signature queries `Camera`,
-`Sprite`, `Text`, `Mesh`, `Light`, `Node` or a projection, it is presentation.
-Counted against the 52: **23 declare such a marker and 29 do not.** The 29 are
-plainly presentation by NAME — `camera_follow`, `sync_parallax_layers`,
-`sync_hit_flash_overlays`, `sync_morph_ball_visual`, `draw_unauthored_attack_volumes`
-— and classifying them would mean matching names. ⚠ A row's NAME is not a reading
-of its write set; that classifier was wrong in both directions twice on
-2026-09-16 alone, in this guard's own neighbourhood and in the S7 census.
-
-⇒ **SO THE REPAIR IS NOT A CLEVERER SCANNER, IT IS A DECLARATION.** Presentation
-systems that write `Transform` should say so — a set they join, or a marker on
-the entities they move — which turns an undecidable read of source into a fact
-the code states. That is "make it impossible, not checked" applied to the guard's
-population, it is a change to ~52 systems rather than to this script, and it
-wants a maintainer's view on the shape before anybody starts. Until then the
-exclusion stands and the blind spot is written down.
-
-⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is EMPTY as a result, and it emptied by being cured
-rather than tidied: its only entry was `handle_ldtk_hot_reload`, unseen because
-`RoomSet` and `LdtkRuntimeIndex` register through component clone. The mechanism
-stays — an empty dict still asserts, because a newly stale waiver reddens the arm.
-
-⚠ A second, independent hole in the same guard was closed on 2026-09-15: its
-param pattern matched only `&mut T` and `ResMut<T>`, so `SessionWorldMut<T>` was
-invisible and a refactor that respelled one write made the guard report a live
-mutation as gone. All six types reached through that param are rollback-registered.
-
-⛔⛤ **A THIRD HOLE, CLOSED 2026-09-16, AND IT HID THE GUARD'S OWN FOUNDING
-SUBJECT.** `#[derive(SystemParam)]` is a fourth spelling: a bundle is ONE
-identifier in a signature and may hold any number of `ResMut` fields.
-`SessionScopedResources` holds 25, **13 of them rollback-registered** —
-including `MovingPlatformSet`, which is the single type this guard could see
-before the 2026-09-02 widening. So it was blind to a mutation of the type it was
-written around and reported clean. 60 such bundles exist across 42 files. ⚠ Half
-the hole was the LIFETIME: a signature elides it (`ResMut<T>`), a struct field
-cannot (`ResMut<'w, T>`), so the pattern was perfect on functions and matched
-nothing in the bodies that mattered. Visible systems 333 → 349; findings 1 → 10,
-each verified by reading rather than counted.
-
-⭐ **THE GENERAL FORM, now that there are three: EVERY hole in this guard has
-failed in the GREEN direction.** `&mut T` alone saw 1 type of 113,
-`SessionWorldMut<T>` hid six, `SystemParam` hid thirteen — and each time the
-report got SHORTER and CLEANER, which reads as good news. ⇒ `POPULATION_FLOOR`
-now makes the population size part of the verdict, checked BEFORE the findings:
-a fifth spelling cannot announce itself, but it cannot avoid making the count
-fall. "No offenders" over a collapsed population was the one thing this guard
-could never report.
-
-⚠ **AND THE `handle_ldtk_hot_reload` ACCEPTANCE BELOW IS BLOCKED ON THE SAME
-FACT AS THE WIDENING, which nothing had said.** MEASURED 2026-09-16: `RoomSet`
-and `LdtkRuntimeIndex` are `rollback_component_clone_checksum`. Adding
-`rollback_resource_clone[_checksum]` (113 → 139 types, 9 findings) does **not**
-restore that waiver — only including COMPONENT clone registrations does, and
-components are exactly where the 65 presentation `Transform` writes enter. So
-the two acceptance clauses are one clause.
-
-⇒ **THE RESOURCE HALF IS SEPARABLE AND IS NOT BLOCKED.** Resource clone
-registrations bring no `Transform`, so widening to
-`rollback_resource_clone[_checksum]` alone costs 9 findings rather than 65:
-`reset_inventory_on_new_game` gains all four of its non-canonical facts
-(`MintedItemBaseline`, `OwnedItems`, `OwnedItemsBaseline`, `SaveRestored`),
-plus `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
-`kaleidoscope_menu_action_activated`, `track_versus_roster`, and four
-`AmbitionGameSave` persistence mirrors that likely want waivers rather than
-fixes.
-
-✅ **The resource half LANDED 2026-09-16** (`068bb6034`): population 113 → 139,
-visible systems 349 → 398, findings 10 → 17. No waivers were invented —
-`ambition_persistence/src/rollback_registration.rs` has said in prose since
-2026-08-29 that *"the ~6 systems that pair a non-rewinding `Local` edge-detector
-with these very resources would have failed SILENTLY once rollback went live"*,
-and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
-re-hide the thing that comment warned about.
-
-**The 14 are triaged — DONE 2026-09-16.** Six took waivers with citations; the
-other eight are filed as `MENU-RESET-MIDSESSION` and `DURABLE-HORIZON-CHECKSUM`,
-each with a named experiment. The guard stays RED on those eight, which is
-correct: waiving them would move a count and answer nothing.
-
-⛔ **ONE OF MY OWN READINGS BELOW WAS WRONG AND IS CORRECTED IN PLACE.** I
-recorded all 7 menu systems as REAL because they carry
-`.run_if(simulation_authorized)` — an argument about WHEN they run, which says
-nothing about WHETHER they write. Five of the seven cannot reach the write at
-all. ⇒ A run condition is not a reachability proof, and I reached for it because
-it was the fact I already had.
-
-| finding | reading |
-| --- | --- |
-| `reset_inventory_on_new_game` | **REAL.** Producer `process_new_game_reset_request` runs in `sim_schedule()` under `ResetProcessing`; consumer runs in `Update`; `NewGameResetCommitted` is `clear_message_on_rollback`. Being moved onto its sibling `clear_transient_on_sandbox_reset`'s chain. |
-| 7 menu systems → `NewGameResetRequested` | **TWO REAL, FIVE WAIVED — corrected from "all 7 REAL".** The flag is set only by `SystemMenuParams::request_reset`, whose one caller is `dispatch_menu_action`, whose only two callers are `grid_menu_action_activated` and `kaleidoscope_menu_action_activated`. The other five take the same bundle and never reach the field: the bundle over-grants. The two real ones are `MENU-RESET-MIDSESSION`. |
-| 4 `AmbitionGameSave` writers → `DURABLE-HORIZON-CHECKSUM` | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
-| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` → `DURABLE-HORIZON-CHECKSUM` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
-| `track_versus_roster` | **WAIVED.** One write, in the `(on_versus, mine) == (true, false)` arm alone; every other combination falls through `_ => {}`, so it cannot write once the route has published its own roster. ⚠ `VersusMatch` feeds the peer checksum, so the waiver rests entirely on the write preceding the timeline — at route entry the roster is `Proposed` with nobody seated, and `maintain_local_session` starts GGRS only once a live body exists. |
-
-⚠ **The discriminator may not be "is there a rebase".** A New Game's
+⚠ **And the discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is
-`clear_message_on_rollback`, and is consumed in `Update` — which is broken
-whether or not the room replacement rebases GGRS. If the real question is
-"is the triggering MESSAGE cleared on rollback", then `SessionScopeActivated`
-owes the same question and nobody has asked it.
+`clear_message_on_rollback`, and is consumed in `Update` — broken whether or not
+the room replacement rebases GGRS. If the real question is *"is the triggering
+MESSAGE cleared on rollback"*, then `SessionScopeActivated` owes the same
+question and nobody has asked it.
 
-**Separately, for the COMPONENT half:** give the guard a way to tell a
-simulation write from a presentation write — most likely by schedule rather than
-by type, since `Transform` is legitimately written in both.
+**Receipts, one line each, so the next reader does not re-derive them.**
+⛔ The costed `install<T>(owner, name, kind, detail, ops)` redesign this row
+carried DOES NOT TYPECHECK — the methods' `T` bounds are disjoint, so `install`'s
+bound list must be their union and every default body fails `E0277`; a 30-line
+probe refuted it more cheaply than the paragraph that proposed it.
+⛔ A run condition is NOT a reachability proof: 7 menu systems were recorded REAL
+because they carry `.run_if(simulation_authorized)`, and five cannot reach the
+write at all — the bundle over-grants. Two are real and are MENU-RESET-MIDSESSION.
+⛔ Demoting the 21 `derived`-documented clone registrations is NOT part of this
+and should not happen on a keyword match: most say "derived" about something else
+(`ActorRenderSize`'s collision box, `CapturedBy`'s inverse), and a component whose
+PRESENCE a query filter reads is authoritative even when its value is derived.
+⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is empty because it was CURED, not tidied; the
+mechanism stays, since an empty dict still reddens on a newly stale waiver.
+⭐ The widened guard independently names both defects found by harness tonight —
+the three `AmbitionGameSave` mirrors ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on))
+and the two menu writers ([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
+Neither needed a new idea, only a population nobody had quietly narrowed.
 
 **Acceptance:** the population is every rollback registration, not one
 registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
 being deleted; a poison that respells a write in any supported param form still
-reddens the guard; and the population floor fails when a spelling stops
-matching.
+reddens the guard; and the population floor fails when a spelling stops matching.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
@@ -1795,555 +1695,265 @@ to be satisfiable by a frozen world, and its author gets no warning.
 
 ### ROLLBACK-BAG-DESYNC — a per-tick change to an UNHASHED resource desyncs the sync test
 
-⛔ **CHANGING `OwnedItems` ONCE PER TICK DESYNCS A GGRS SYNC TEST WITHIN SIX
-TICKS, BY EITHER ROAD.** The mismatch repeats at frames `[2, 3, 4]` forever and
-presents as a frozen clock (see
-[ROLLBACK-DEAD-SESSION](#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
+**MECHANISM SETTLED 2026-09-16. Everything here is a receipt; the decision it
+feeds is [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
+owned by [DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).**
 
-MEASURED 2026-09-16, `probe_how_far_each_harness_ticks_over_the_same_window` in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, `SimTick`
-over 240 `sim.step()` calls:
+⛔ Changing `OwnedItems` once per tick desyncs a GGRS sync test within six ticks,
+by the direct write AND by the sanctioned `ItemGrantRequested` road. The mismatch
+repeats at frames `[2, 3, 4]` forever and presents as a frozen clock
+([ROLLBACK-DEAD-SESSION](#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
 
-| system added to the sim schedule | tick at 0 / 40 / … / 240 | `session_health` |
-|---|---|---|
-| none (`new_with_options`) | 1, 41, …, 241 | `Ok` |
-| none, no rollback session | 0, 40, …, 240 | `Ok` |
-| empty system through `compose` | 1, 41, …, 241 | `Ok` |
-| `ResMut<OwnedItems>`, **grants ZERO** | 1, 41, …, 241 | `Ok` |
-| `ResMut<OwnedItems>`, grants 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
-| `MessageWriter<ItemGrantRequested>`, 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
+⇒ **THE TRIGGER IS THE VALUE MOVING, NOT THE WRITER**, and the control is what
+says so: a system taking the same `ResMut<OwnedItems>` in the same schedule
+position that grants **ZERO** ticks 1:1 and stays `Ok`. `owned.grant(item, 0)`
+still derefs mutably, so change detection fires identically in both arms.
 
-⇒ **THE TRIGGER IS THE VALUE MOVING, NOT THE WRITER.** The zero-grant row is the
-control that settles it: same `ResMut<OwnedItems>`, same unordered position in the
-schedule, same change detection, bag value unchanged — and it ticks 1:1. And the
-sanctioned road desyncs identically to the direct write, so this is not a case of
-writing rollback state from the wrong place. `ItemGrantRequested` →
-`apply_item_grants` is the engine's own road and the message is
-`clear_message_on_rollback`.
+**The chain, end to end.** `persist_inventory_to_save` runs in `Update` — once
+per FRAME — and writes the live bag into `AmbitionGameSave`, which is
+`rollback_resource_clone_checksum` whose checksum serialises the WHOLE save to
+RON. A rewind re-simulates ticks and does NOT re-run `Update`, so the hashed
+value describes a different frame from the tick it is compared at. `OwnedItems`
+itself is `rollback_resource_clone` and `feeds_peer_checksum` is FALSE for that
+kind — the bag is restored, never compared, so something hashed derives from it.
+Asked of the registry rather than guessed: **1 of 364 probed entries differs, and
+it is the save.**
 
-⛔ **AND `OwnedItems` IS NOT HASHED**, which is what makes this sharp rather than
-routine. It is registered `rollback_resource_clone`
-(`crates/ambition_items/src/rollback_registration.rs:11`), and
-`RollbackEntryKind::feeds_peer_checksum` returns FALSE for `ResourceClone`
-(`crates/ambition_platformer2d_core/src/rollback_kind.rs:87`): the bag is
-snapshotted and restored, never compared. It cannot itself be the value the two
-passes disagree about. Something hashed is deriving from it.
+⭐ **`Update` IS THE WRITER, MEASURED AT THE REWIND BOUNDARY** — the fact a
+two-run diff cannot show. `RollbackRestoreAudit` reads frames 2, 3 and 4 each
+diverging with the REPLAY xor CONSTANT at `0xce4e4758…` while the first-pass xor
+moves every frame: a resimulation re-runs the sim schedule and not `Update`, so
+every replay sees whatever the last frame's `Update` wrote.
 
-⭐⭐ **ANSWERED 2026-09-16: IT IS `AmbitionGameSave`, AND THIS IS EXACTLY THE
-MECHANISM [DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
-PREDICTED.** Asked of the registry rather than guessed a fifth time —
-`RollbackChecksumProbes::census_all` reads every entry that feeds the peer
-checksum, so running both harnesses to the same tick inside the live window and
-diffing their censuses names the value that follows the bag:
+⚠ **SEVERITY IS NOT WHAT THE CLEAN RUNS SAID** — see Q129. A bag change starting
+at tick 4 runs 120 steps clean, but over that window the save's hashed projection
+takes 2 distinct censuses against 238 for its busiest neighbours. A comparison
+that cannot differ cannot fail, so "a pickup during play does not desync" is true
+for a reason that makes it worse rather than better.
 
-```
-after 5 steps: granting bag=10 tick=6, still bag=3 tick=6
-≠ ambition_persistence::save::AmbitionGameSave: granting=(1, 0xd41e15e06646859b) still=(1, 0x8f605a278dac557d)
-1 of 364 probed entries differ
-```
+**Eliminations, one line each, each by measurement.**
+⛔ NOT a drained-message edge — `capture_owned_items_baseline` has that shape but
+its channel IS `clear_message_on_rollback`, and the census agrees
+(`OwnedItemsBaseline` is not among the entries that differ).
+⛔ NOT the system's presence — the zero-grant control.
+⛔ NOT change detection — both arms mark `OwnedItems` changed every tick; only the
+one whose VALUE moves desyncs.
+⛔ NOT accumulation and NOT a one-update lag — a pure `f(tick)` write desyncs
+exactly as an accumulating one does, and tick 4 is clean where the lag shape
+predicts a desync. Both were proposed with opposite predictions, which is the
+right shape for a pair of candidates.
 
-**ONE ENTRY OF 364.** The chain is now end to end:
+⛔⛤ **A FOURTH ELIMINATION WAS A FALSE NEGATIVE AND IT WAS MINE**, kept because
+it is the row's most reusable lesson. I reported the save mirror eliminated
+because `mirrored_items()` filtered for the substring `"HealthCell"` while the
+save stores `PersistedItem { id: "healthcell", count: N }` — lowercase, an
+authored id rather than the enum's `Debug` — so it counted 0 while the resource
+changed the entire time. ⇒ **A projection that reads nothing and a resource that
+holds nothing are the same reading.** ⚠ And it had TWO independent causes: the
+row COUNT is 7 in both arms at every step while the summed quantity climbs, so
+even the right string would have said "not changing". Finding one cause and
+stopping would still have been wrong.
 
-1. `persist_inventory_to_save` runs in **`Update`** — once per FRAME
-   (`crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs:296`).
-2. It writes the live bag into the save: `save.data_mut().set_inventory(items, wallet.balance)`
-   (`crates/ambition_platformer2d_actor_monolith/src/items/persist.rs:161`). Measured
-   tracking the bag 1:1 — `healthcell` count 5, 6, 7, 8, 9, 10 as the live bag goes 5 → 10.
-3. `AmbitionGameSave` is `rollback_resource_clone_checksum`
-   (`crates/ambition_persistence/src/rollback_registration.rs:31`), and its checksum
-   serializes the WHOLE save to RON (`save.rs:52`), so ANY field moves it.
-4. A rewind re-simulates ticks and does NOT re-run `Update`. The hashed value
-   therefore describes a different frame from the tick it is compared at.
-
-⇒ Which is why it needs the bag to CHANGE. A value put back before it was taken
-cannot be disagreed about — the zero-grant control is that case, and it is clean.
-
-⚠ **THREE ELIMINATIONS HOLD; THE FOURTH WAS A FALSE NEGATIVE AND IT WAS MINE.**
-I reported the save mirror eliminated because `mirrored_items()` filtered the
-save's item list for the substring `"HealthCell"` and counted 0 across the whole
-window. The save stores `PersistedItem { id: "healthcell", count: N }` —
-lowercase, an authored id rather than the enum's `Debug`. The resource was
-changing the entire time and my observable could not see it. ⇒ **A projection
-that reads nothing and a resource that holds nothing are the same reading**, and
-that is the same defect as a guard matching no files and a session frozen at tick
-6: the instrument agreeing with itself. The census could not make this mistake
-because it asks the registry for every entry by type rather than asking one
-resource for a shape I guessed.
-
-**STILL ELIMINATED, each by measurement:**
-
-1. **NOT a drained-message edge.** `capture_owned_items_baseline` writes the
-   checksummed `OwnedItemsBaseline` from the sim schedule gated on
-   `MessageReader<CheckpointCommitted>` — the "drained in the original pass,
-   empty in the replay" shape — but that channel IS `clear_message_on_rollback`
-   (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs:172`).
-   The census agrees: `OwnedItemsBaseline` is not among the entries that differ.
-2. **NOT the system's presence.** The zero-grant control.
-3. **NOT change detection.** `owned.grant(item, 0)` takes `ResMut` and calls a
-   `&mut self` method, so it derefs mutably and marks `OwnedItems` changed every
-   tick exactly as the granting version does. A `Changed<OwnedItems>` filter would
-   fire identically in both, and only the row whose VALUE moves desyncs.
-
-⚠ **THE LIVE WINDOW IS FRAMES 0–5, NOT 240.** The mismatch is reported at
-`[2, 3, 4]` and the freeze is downstream of it, so anything measured after the
-invalidation is a frozen world agreeing with itself. `session_health` is clean at
-steps 0 through 5 and first reports at step 6.
-
-⇒ **AND THE SAME ANSWER ARRIVED BY A SECOND METHOD, WHICH ADDS ONE FACT THE
-CENSUS DIFF CANNOT SHOW: `Update` IS THE WRITER, MEASURED AT THE REWIND
-BOUNDARY.** `RollbackRestoreAudit` compares frame F's census against frame F's
-EARLIER census within one run, so it reads the resimulation itself:
-
-```
-frame 2: AmbitionGameSave  first xor 0x4f52c70a…  on replay 0xce4e4758…
-frame 3: AmbitionGameSave  first xor 0x8cf64e57…  on replay 0xce4e4758…
-frame 4: AmbitionGameSave  first xor 0xe2f498aa…  on replay 0xce4e4758…
-```
-
-⭐ **THE REPLAY XOR IS CONSTANT WHILE THE FIRST-PASS XOR MOVES EVERY FRAME.** That
-is step 4 of the chain above turned into a reading: a resimulation re-runs the sim
-schedule and not `Update`, so every replay of every frame sees whatever the LAST
-frame's `Update` wrote — one value, repeated. A two-run diff at one tick shows
-that the entry follows the bag; only the rewind boundary shows that the replay
-stops updating it.
-
-⇒ And the row-count half of the false negative, for the record beside the
-substring half: `PersistedItem` is `{ id, count }`, so granting the same item
-moves a `count` and leaves the ROW COUNT alone — `rows` is **7 in both arms at
-every step** while the summed quantity climbs 13 → 17 under granting and holds at
-10 in the control. Either reading alone would have said "not changing".
-
-**Pinned, so neither answer needs re-deriving:**
+**What holds it in place.**
 `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
-(`game/ambition_app/tests/which_hashed_entry_moves_when_the_bag_does.rs`) asserts
-the diverging set is exactly `{AmbitionGameSave}`, floors the control audit's
-`resimulations > 0` before reading its silence, and says in its own doc which
-failure direction is the good one: no divergence means the repair landed; a second
-type is a new finding; a diverging CONTROL means the cause is no longer the bag and
-every elimination needs redoing.
+(`which_hashed_entry_moves_when_the_bag_does.rs`) asserts the diverging set is
+exactly `{AmbitionGameSave}`, floors the control audit's `resimulations > 0`
+before reading its silence, and names which failure direction is the good one: no
+divergence means the repair landed, a second type is a new finding, and a
+diverging CONTROL means the cause is no longer the bag and every elimination
+needs redoing. The probes beside it are `#[ignore]`d and print-only, so they cost
+the lane nothing.
 
-ⓘ **TWO SESSIONS ANSWERED THIS INDEPENDENTLY AND IN PARALLEL, BY DIFFERENT
-METHODS, AND AGREED.** Both probes are kept because they measure different things:
+⚠ **SCOPE.** Measured only for `OwnedItems`; whether other `ResourceClone`
+entries behave the same way is unmeasured, and the same probe answers it for any
+of them by swapping the system.
 
-| probe | method | finds |
-|---|---|---|
-| `probe_which_hashed_entries_follow_the_bag` (`a_bag_changed_mid_window_reaches_the_save.rs`) | `census_all` of the granting run vs the still run AT THE SAME TICK | every hashed entry that DERIVES from the bag |
-| `probe_which_registered_type_diverges_when_the_bag_moves` (`which_hashed_entry_moves_when_the_bag_does.rs`) | `RollbackRestoreAudit`, one run, frame F's census compared against frame F's earlier census | the entries that DISAGREE WITH THEMSELVES across a resimulation |
-
-⚠ **ONE CORRECTION TO THE FIRST PROBE'S DOC, because it steered the choice of
-method:** it says a difference across a rewind *"cannot be observed from outside"*.
-It can, and the machinery for it shipped before either probe:
-`record_saved_census` censuses every save and compares when GGRS saves the same
-frame twice, which is what a resimulation is. That is where the constant replay
-xor above comes from, and the constant is the evidence that identifies `Update` as
-the writer — a two-run difference at one tick cannot see it.
-
-⇒ NEXT. The mechanism is settled, so what is left is a product/architecture
-choice and it belongs to DURABLE-HORIZON-CHECKSUM: a value derived once per frame
-must not be compared once per tick. The two shapes are (a) derive the save inside
-the sim schedule so a rewind re-derives it, or (b) take `AmbitionGameSave` out of
-the peer checksum, since a save file is not simulation authority. ⭐ (b) is the
-smaller change and probably the right one — but it is a claim about what peers
-must agree on, so it wants a maintainer ruling rather than a patch.
-
-The reproduction is committed and costs one `cargo test` to re-run:
-`cargo test -p ambition_app --test app_it probe_which_hashed_entries -- --include-ignored --nocapture`
-names the entry, and `probe_how_far_each_harness_ticks_over_the_same_window`
-prints the full matrix.
-
-⚠ **THE PROBES COST THE LANE NOTHING BECAUSE THEY DO NOT RUN IN IT.** They are
-`#[ignore]`d and print-only; the assertions that hold this finding in place are
-Yardrat's `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
-and the three live arms in the same file. Full lane measured 2026-09-16 on the
-no-GPU box: `cargo test -p ambition_app --test app_it` → 683 passed, 0 failed,
-30 ignored, 726.66s.
-
-⚠ **SCOPE, because it decides whether this is urgent.** A sync test is one
-machine rewinding itself. If a single App disagrees with its own replay, no peer
-is needed for the divergence, and every road that changes a bag during play —
-pickups, shops, drops — crosses it. ⇒ But this is measured only for
-`OwnedItems`; whether other `ResourceClone` entries behave the same way is
-unmeasured, and the same probe answers it for any of them by swapping the system.
+Re-run: `cargo test -p ambition_app --test app_it probe_which_hashed_entries -- --include-ignored --nocapture`.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 
-⭐⭐ **THE CENTRAL PREDICTION IS NOW MEASURED, 2026-09-16. It is no longer "can
-the value hashed at a confirmed frame differ" — it does, it is
-`AmbitionGameSave`, and it desyncs a sync test within six ticks.** A bag that
-changes once per tick makes `persist_inventory_to_save` write a per-FRAME value
-into a per-TICK checksum; a rewind re-simulates ticks without re-running
-`Update`, so the hashed save describes a different frame from the tick it is
-compared at. Of 364 probed rollback entries, exactly ONE differs between a run
-whose bag moves and an otherwise identical run whose bag does not. The
-measurement, the eliminations and the reproduction are in
-[ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
-
-⇒ **WHAT REMAINS IS A RULING, NOT AN INVESTIGATION**, and it is filed as
-[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
-Either derive the save inside the sim schedule so a rewind re-derives it, or take
-`AmbitionGameSave` out of the peer checksum on the ground that a save file is not
-simulation authority. The second is smaller and probably right, and it is a claim
-about what peers must agree on — so it belongs to the maintainer rather than to a
-patch. ⚠ It settles three systems, not one: the other two `persist_*` mirrors
-write the same resource from the same `Update` chain.
-
-⭐⭐ **SUPERSEDED BY MEASUREMENT: IT IS THE FIRST THREE TICKS, NOT THE CADENCE.**
-An every-tick grant STARTING at tick 4 runs 120 steps clean with the bag reaching
-120; starting at tick 1 or 2 it desyncs at frames `[2, 3, 4]`. A cadence sweep
-(N consecutive grants from tick 20, N ∈ {1,2,3,4,5,8}) is clean at every N. ⇒ The
-reproduction at the top of this row changes the bag from tick 1, so it varied
-START TICK and cadence together — the paragraph below was the second of three
-framings and it was wrong for that reason. Kept because the measurement in it is
-still sound and because the correction is the useful part. Full table in
-[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
-
-⭐ **AND IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE.** A `SimTick`-gated grant
-that fires once at tick 20 runs the full 240 steps clean — tick 241, health `Ok`
-— with the bag column proving the grant fired (3 → 4 at step 40) rather than the
-row passing for the wrong reason. ⚠ The gate is `SimTick` and not a `Local`
-precisely because a `Local` is not restored by a rewind: the replay would skip a
-grant the original pass performed and manufacture its own divergence. ⇒ So one
-pickup does not desync on this evidence and the reproduction demonstrates the
-sustained case. WHY they differ is unexplained and nobody should read "single
-changes are safe" out of one measurement at one tick.
-
-⚠ The dialog increment below is still costed and still unmeasured; nothing here
-touches it.
-
 **Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
 
-**Current state:** five systems installed by `DurableSaveHorizonPlugin` sit in
-top-level `Update` and mutate rollback-registered resources. MEASURED
-2026-09-16, with each type's `RollbackEntryKind::feeds_peer_checksum`:
+**Current state:** the central prediction is MEASURED and the bag half is
+answered — `persist_inventory_to_save` writes a per-FRAME value into a per-TICK
+checksum and desyncs a sync test within six ticks; 1 of 364 probed entries
+differs and it is `AmbitionGameSave`. Measurement, eliminations and reproduction
+are in [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
+⇒ **What remains is a RULING, not an investigation:**
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
+which settles three systems rather than one. ⚠ Read Q129's pinned-projection
+finding before quoting this row's severity: the save's hashed projection takes 2
+distinct censuses where its busiest neighbours take 238, so the clean runs are
+clean because the comparison is inert, not because the mechanism is benign.
 
-| system | writes | kind | hashed |
-| --- | --- | --- | --- |
-| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | `ResourceCloneCustomChecksum` | **yes** |
-| `complete_durable_restore` | `SaveRestored` | `ResourceClone` | no |
-| `persist_inventory_to_save` | `AmbitionGameSave` | `ResourceCloneCustomChecksum` | **yes** |
-| `persist_occurrence_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
-| `persist_minted_item_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
+**The five systems this plugin installs into top-level `Update`,** with each
+type's `feeds_peer_checksum`:
 
-⭐ **THE PLACEMENT IS DELIBERATE AND SAYS SO**, which is why this is a row and
-not five waivers. `runtime/src/durable_save_horizon.rs` states it outright: "The
-installed systems remain in top-level `Update`, outside rollback resimulation.
-Their state is rewindable where required, but file/application side effects
-themselves are not replayed as simulation ticks." That argument is sound for the
-side effect — writing a file twice is not a desync.
-
-⛔ **IT IS SILENT ON THE HALF THAT IS HASHED.** Four of the five write a value
-that FEEDS THE PEER CHECKSUM. `AmbitionGameSave` is derived from simulation
-state, so two peers in agreement derive the same bytes — but the derivation runs
-in `Update`, which executes once per FRAME, while the value is snapshotted and
-compared per TICK. A peer that rolled back and re-simulated three ticks ran the
-sim three extra times and `Update` zero extra times; the other peer did neither.
-⇒ The open question is whether the value hashed at a confirmed frame can differ
-between a peer that rewound into it and one that did not. That is not answered
-by "side effects are not replayed", and nothing in the tree answers it elsewhere.
-
-⛔⛤ **A FOURTH WRITER OF `AmbitionGameSave`, AND IT IS NOT A MIRROR — THIS IS
-THE SHARPEST OF THE SET.** `dispatch_pending_dialog_requests`
-(`ambition_dialog/src/bridge.rs:125`, registered into `Update` at :53) calls
-`save.data_mut().increment_dialog_visit(&dialogue_id)` when a dialogue starts.
-
-⇒ The five systems above DERIVE the save from simulation state, so running them
-twice writes the same bytes and running them zero times loses only freshness. An
-INCREMENT has neither property. A rollback restores `AmbitionGameSave` to its
-pre-increment value and `Update` does not re-run, so the visit is lost; if the
-dialogue start is instead replayed through the sim, it is counted twice. ⚠ And
-`AmbitionGameSave` feeds the peer checksum, so the two peers need not even
-disagree about the dialogue to disagree about the number. ⇒ Answer this one
-FIRST on the argument, but NOT first with a test: it is the case where "derived
-from sim state, so it converges" — the argument that makes the other five
-plausible — is simply not available.
-
-⚠ **THE TEST FOR IT IS THE EXPENSIVE ONE, MEASURED BEFORE ATTEMPTING IT.**
-`dispatch_pending_dialog_requests` early-returns unless a `DialogueRunnerEntity`
-exists, and `spawn_dialogue_runner` is itself
-`.run_if(resource_exists::<YarnProject>)` — so reaching the increment needs a
-compiled Yarn project in the harness, not just a stepped world. ⇒ The bag arm in
-`a_bag_changed_mid_window_reaches_the_save.rs` is the cheap member of this class
-and was done first for that reason; it is also the template, since the shape is
-identical: change the value from outside the rewinding schedule mid-window, and
-keep a no-rollback control beside it.
-
-⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
-WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
-`check_rollback_mutators_run_in_sim.py` "FOR THE ACTIVATION CASE ONLY, AND THE
-OTHER CASE IS OPEN", because `durable_horizon.rs` explicitly supports a
-mid-session load. So the mid-session half of this question was already known to
-be open for one member of the chain and was never asked of the other five.
-
-⛔ **DO NOT INHERIT THE "BEFORE THE TIMELINE" ARGUMENT FROM THE SESSION-SCOPE
-WAIVERS.** It was checked against these and it does NOT transfer:
-`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both
-require a live primary player body, which is exactly the condition
-`maintain_local_session` starts GGRS on. These run when a session can already be
-live; the session-scope resets do not.
-
-⭐ **AND THIS CLASS WAS PREDICTED IN WRITING, IN THE REGISTRATION THAT MAKES IT
-CHECKABLE.** `crates/ambition_persistence/src/rollback_registration.rs` explains
-why `AmbitionGameSave` was given a real content projection
-(`AmbitionGameSave::checksum`) rather than a presence-only probe: *"the ~6
-systems that pair a non-rewinding `Local` edge-detector with these very
-resources would have failed SILENTLY once rollback went live."* ⇒ So the
-instrument for this row already exists and is pointed at the right resource —
-what was missing is an arm that makes the value CHANGE while the window runs.
-
-⭐⭐ **THE FIVE ARE TWO PHASES AROUND A ONE-SHOT LATCH, AND ONLY ONE PHASE IS
-THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
-
-| system | its own guard | so it runs |
+| system | writes | hashed |
 | --- | --- | --- |
-| `adopt_occurrence_checkpoint_from_save` | `if restored.0 \|\| bodies.is_empty() { return }` | ONCE, before the latch, and only with a live body |
-| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE, as soon as a PRIMARY PLAYER BODY exists — it IS the latch, and it asks for a body, NOT for a save file |
-| the three `persist_*_to_save` | `if !restored.0 { return }` | every frame AFTER the latch, value-compared |
+| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | **yes** |
+| `complete_durable_restore` | `SaveRestored` | no |
+| the three `persist_*_to_save` | `AmbitionGameSave` | **yes** |
 
-⛔✦ **A CLAIM I PUT IN THIS ROW AND WITHDREW WITHIN THE HOUR, kept because the
-wrong version is the one a reader would reach for.** I wrote that the mirrors
-write nothing until a save has been RESTORED, so a harness booted with no save
-file never flips the latch and any such test measures nothing. **Wrong.**
-`complete_durable_restore` asks `ready_body.single().is_err()` and nothing else:
-the latch flips as soon as a primary player body carries a `BodyWallet`, save
-file or not. `AmbitionGameSave` is a plain `Res`, not an `Option<Res>`, so the
-resource is always there to mirror INTO.
+⭐ The placement is deliberate and `runtime/src/durable_save_horizon.rs` says so:
+*"file/application side effects themselves are not replayed as simulation
+ticks."* That argument is sound for the SIDE EFFECT — writing a file twice is not
+a desync — and ⛔ silent on the half that is hashed, which is the whole row.
 
-⇒ I inferred "needs a save" from the system's NAME and from the `save` field in
-its signature, and never read its guard clause. The three `persist_*` really are
-gated on the latch — that half held — but the latch is about a body.
+⛔⛤ **STILL OPEN AND THE SHARPEST OF THE SET: `dispatch_pending_dialog_requests`
+is a FOURTH writer and it is not a mirror.** It calls
+`save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`
+(`ambition_dialog/src/bridge.rs:125`). The five above DERIVE the save from sim
+state, so running them twice writes the same bytes and running them zero times
+loses only freshness. An INCREMENT has neither property: a rollback restores the
+pre-increment value and `Update` does not re-run, so the visit is lost — or, if
+the dialogue start is replayed through the sim, counted twice. ⇒ Answer this one
+first ON THE ARGUMENT, because it is the case where "derived from sim state, so
+it converges" is simply not available.
+⚠ But NOT first with a test: reaching the increment needs a compiled Yarn project
+in the harness, since the system early-returns without a `DialogueRunnerEntity`
+and `spawn_dialogue_runner` is itself `.run_if(resource_exists::<YarnProject>)`.
+The bag arm was the cheap member of this class and is the template.
 
-⭐ **WHICH MOVES THE EXPERIMENT, AND MAKES IT SHARPER.** The mirrors run in
-every harness that has a player, so `rollback_full_reset.rs` and
-`rollback_lifecycle_reset.rs` already drive them for 180 and 240 frames and are
-GREEN. That is not evidence they are safe: the mirror is value-compared, so in a
-world where the bag never changes it writes once and then returns early forever.
-⇒ The experiment is therefore NOT "boot with a save". It is **change the
-mirrored value in the middle of the rollback window**, which nothing in the tree
-does today, and assert the mirror actually wrote — before, during AND after the
-window, since a value that is right at frame 0 and right at frame N may have
-been lost and re-established in between.
-
-⚠ **AND THE ONE-SHOT PAIR IS A NARROWER QUESTION THAN THE MIRRORS.** Both fire
+⛔ **STILL OPEN: the one-shot pair is a RACE, not a per-frame accumulation.**
+`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both fire
 in the window between a live body existing and the latch flipping — and a live
 body is the exact condition `maintain_local_session` starts GGRS on, so the two
-events are gated on the same fact and their order is not stated anywhere. That
-is a RACE to characterise, not a per-frame accumulation.
+events are gated on the same fact and their order is stated nowhere.
+⛔ **Do not inherit the "write precedes the timeline" argument from the
+session-scope waivers.** Checked against these; it does not transfer, because
+both require a live primary player body and so may run WITH a live timeline.
 
-⚠ **ATTEMPTED 2026-09-16 AND INCONCLUSIVE — THE HARNESS STOPPED SIMULATING.**
-`probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window` in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs` adds a
-grant system to the SIM schedule so the mirrored bag changes tick over tick.
-The count accumulates to 8 over roughly 60 steps and then freezes flat —
-`[(0, 8), (40, 8), (80, 8), (120, 8), (160, 8), (200, 8), (240, 8)]` — while
-`sim.step()` keeps returning. ⇒ A clean `session_health` over those 240 frames
-would have been a pass over a world that was not advancing, so the arm asserts
-its own premise and is `#[ignore]`d as a probe rather than reporting green.
+⚠ **And the sixth system on that same `.chain()` already carries a partial
+waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION
+CASE ONLY, AND THE OTHER CASE IS OPEN" because `durable_horizon.rs` supports a
+mid-session load — so the mid-session half was known to be open for one member of
+the chain and was never asked of the other five.
 
-⛔ **AND THE PREMISE THAT CAUGHT IT WAS THE SECOND ONE I WROTE.** The first
-asked `count > 0`, which the STARTER BAG satisfies on its own — it would have
-passed without the system ever running. Two samples, with the later required to
-exceed the earlier, is what turned "the value is nonzero" into "my system ran".
+**Receipts, one line each.**
+⭐ This class was PREDICTED in the registration that makes it checkable:
+`ambition_persistence/src/rollback_registration.rs` gave `AmbitionGameSave` a real
+content projection because *"the ~6 systems that pair a non-rewinding `Local`
+edge-detector with these very resources would have failed SILENTLY once rollback
+went live."* The instrument existed; what was missing was an arm that makes the
+value CHANGE mid-window.
+⛔ A claim I made here and withdrew within the hour: that the mirrors write
+nothing until a save is RESTORED, so a harness booted without a save file
+measures nothing. Wrong — `complete_durable_restore` asks
+`ready_body.single().is_err()` and nothing else, so the latch is about a BODY.
+I inferred it from the system's name and its `save` field without reading the
+guard clause.
+⭐ Which is why green sibling arms are not evidence: `rollback_full_reset.rs` and
+`rollback_lifecycle_reset.rs` drive these mirrors for 180 and 240 frames, but the
+mirror is value-compared, so in a world where the bag never changes it writes once
+and returns early forever.
+⛔ The premise that caught a bad probe was the SECOND one written: the first asked
+`count > 0`, which the STARTER BAG satisfies on its own and would have passed
+without the system ever running. Two samples, the later required to exceed the
+earlier, is what turns "the value is nonzero" into "my system ran".
+⛔ Superseded framings, both measured and both wrong before the third: "it is the
+cadence" and "it takes a sustained change, not a single one". It is the START
+TICK; the full sweep is in Q129.
 
-⇒ Next thing to try: add the system through `Platformer2dSimHarness::build`'s
-`compose` callback, BEFORE the first update, rather than after the harness has
-built and started its GGRS session.
-
-**Next implementation:** answer the per-frame-vs-per-tick question with a
-sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
-frame in which `persist_inventory_to_save` ran and compare the checksummed
-value. ⚠ If it is clean, these are five waivers with a measurement behind them
-and this row closes. If it is not, the fix is the shape `AmbientGravityRequest`
-already uses: write a message, let the sim apply it. ⇒ Either way the guard
-stays RED until somebody runs it — which is correct, and is why these were not
-waived to make a count go down.
+**Acceptance:** Q129 is answered and the three mirrors follow the ruling; the
+dialog increment has its own answer, which cannot be the mirrors'; and the
+one-shot pair's ordering against GGRS start is characterised rather than assumed.
+⚠ The guard stays banked-but-owed on all of these — see
+[ROLLBACK-MUTATOR-POPULATION](#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state)
+— which is correct, and is why they were not waived to make a count go down.
 
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
-
-⭐ **A STATIC GUARD NAMES THIS ROW SINCE 2026-09-16.** `grid_menu_action_activated`
-and `kaleidoscope_menu_action_activated` appear in
-`check_rollback_mutators_run_in_sim.py`'s findings, carrying `OwnedItems` and
-`NewGameResetRequested`, once the component half of its population landed. ⇒ The
-row was filed off a harness that demonstrated the defect; the guard would have
-named it from source. Neither is redundant — the harness says what the player
-loses, the guard says it cannot be reintroduced quietly — but the guard is the
-cheaper of the two to keep.
 
 **Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
 
 **Current state:** `grid_menu_action_activated` and
-`kaleidoscope_menu_action_activated` both write rollback-registered state from
-`Update`, which does not rewind. Two types, one path:
+`kaleidoscope_menu_action_activated` write rollback-registered state from
+`Update`, which does not rewind — `NewGameResetRequested` via
+`SystemMenuParams::request_reset`, and `OwnedItems` via `dispatch_item_confirm` →
+`apply_menu_action`, which spells the write `owned.take(Item::HealthCell, 1)`.
+Filed off a harness that demonstrated it; `check_rollback_mutators_run_in_sim.py`
+independently names both from source.
 
-  * `NewGameResetRequested` (`rollback_resource_canonical`) via
-    `dispatch_menu_action` → `SystemMenuParams::request_reset`.
-  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm` →
-    `apply_menu_action`, which spells the write `owned.take(Item::HealthCell, 1)`
-    — an equip or a consumable USE.
+⛔ **MEASURED, WITH THE CONTROL THAT MAKES IT READABLE.** An item granted from
+outside the rewinding schedule is **GONE AT FRAME 0** under
+`with_sync_test_rollback_settings(4, 10)` and **KEPT for 240 frames** in the same
+world with no rollback session. ⇒ "The bag lost an item" and "the REWIND took the
+item back" are indistinguishable from inside one harness; the control is the
+load-bearing half of the arm.
 
-⛔ **AND THE REAL PATH DECREMENTS, SO THE REWIND HANDS THE ITEM BACK.** The arm
-below grants, because an increment is the easier thing to observe; the shipped
-menu `take`s. A rewind restores the pre-use count, so the health cell the player
-just drank returns to the bag.
+⛔ **AND NOTHING ANYWHERE SAYS SO.** No desync, no error, no log line.
+`OwnedItems` is `rollback_resource_clone` — restored, not hashed — so there is no
+checksum to disagree. `session_health` was clean on all 240 frames in which the
+grant was being taken back, which also answers the obvious hope: the hashed
+`OwnedItemsBaseline` does NOT stand in for the unhashed value.
+⚠ And the save mirror never saw it either — `persist_inventory_to_save` is
+value-compared and the restore lands before it next runs, so the autosave is
+CONSISTENT with a world in which the equip never happened. That is why
+`rollback_full_reset.rs` and `rollback_lifecycle_reset.rs` are green while
+driving the same mirror: in those worlds the bag never changes.
 
-⚠ **I FIRST WROTE THAT THIS MAKES ITEM DUPLICATION THE LIKELY SYMPTOM. CHECKED,
-AND IT IS NOT.** Duplication needs the HEAL to survive while the ITEM comes
-back, and the heal does not: `apply_menu_action` writes `PlayerHealRequested`,
-which
-`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:622`
-registers `clear_message_on_rollback`, so
-the rewind clears the message as it restores the count. Both halves are undone
-together. ⇒ The symptom is the quieter one — **the menu action silently does
-nothing**, occasionally, only in netplay, and the state stays self-consistent
-throughout. That is harder to notice and much harder to report, which is the
-argument for fixing it rather than for relaxing about it.
+⚠ **NOT A GGRS BUG, AND INVISIBLE IN SINGLE-PLAYER** — which between them is why
+it survived. Restoring a snapshotted resource is what a rewind is FOR; the defect
+is that a player-visible ACTION is expressed as a direct write to rollback state
+from outside the rewinding schedule. With no session there is nothing to rewind,
+so every hour of single-player play is evidence of nothing here.
 
-⭐ **AND THAT MESSAGE IS THE FIX ALREADY BUILT.** Somebody made
-`PlayerHealRequested` rollback-aware on this exact road. The item count beside it
-was left as a direct write, so half of one action is rollback-correct and half is
-not.
+**Two predictions of mine, both corrected by measurement, kept because they are
+the ones a reader would reach for.**
+⛔ **Item duplication is NOT the symptom.** It needs the HEAL to survive while the
+ITEM returns, and it does not: `apply_menu_action` writes `PlayerHealRequested`,
+registered `clear_message_on_rollback`, so both halves are undone together. The
+real symptom is the quieter one — the menu action silently does nothing,
+occasionally, only in netplay, with state self-consistent throughout. Harder to
+notice and much harder to report, which argues for fixing it.
+⛔ **The HASHED type is not the louder one.** This row first said
+`NewGameResetRequested` would produce a DETECTED desync because it feeds the peer
+checksum. Measured, it behaves exactly like the unhashed one: the write is erased
+before it reaches a snapshot anyone compares. ⇒ **A checksum cannot disagree about
+a value that was put back before it was taken.** Registration kind predicts
+whether a SURVIVING divergence is caught; it says nothing about a write that does
+not survive.
 
-⭐ **THE TWO TYPES FAIL DIFFERENTLY, AND THE LOUDER ONE IS THE LUCKIER ONE.**
-Both are written from a LOCAL menu, so only one peer makes the write; what
-happens next depends on the registration kind, which
-`RollbackEntryKind::feeds_peer_checksum` decides.
+⚠⚠ **WHAT THESE ARMS CANNOT SHOW, so the row must not claim it.** A sync test is
+ONE peer replaying itself, and a write erased identically on every replay
+produces no mismatch. The LOCAL LOSS is measured for both types; whether TWO
+peers would disagree in the window before the erase is NOT, and an earlier
+version of this row asserted it. ⇒ The fix does not wait on that answer: a local
+action that vanishes some of the time is already a defect.
 
-| type | kind | feeds the peer checksum | measured behaviour |
-| --- | --- | --- | --- |
-| `NewGameResetRequested` | `ResourceCanonical` | **yes** | taken back by the rewind, SILENTLY — the room is never rebuilt |
-| `OwnedItems` | `ResourceClone` | **no** | taken back by the rewind, SILENTLY — the item returns |
+⭐⭐ **THE FIX IS NOT A NEW PATTERN — `OwnedItems` ALREADY HAS A ROLLBACK-CORRECT
+WRITE ROAD AND THE MENU DOES NOT USE IT.** `ItemGrantRequested` is
+`clear_message_on_rollback` and its consumer `apply_item_grants` mutates
+`OwnedItems` from the SIM schedule, beside `apply_shop_transactions`. So a
+conversation that gives you an item is rollback-correct today and the MENU giving
+you one is not, for the same resource in the same crate. The consuming direction
+has a road too — `ShopTransactionRequested` with `ShopSide::Sell` — whose own doc
+states the rule in the engine's words: *"a simulation system applies it on the
+tick it was stamped for — every replay of that tick included."*
 
-⛔✦ **I PREDICTED THE HASHED ONE WOULD BE THE LOUD ONE, AND IT IS NOT.** The
-table above originally read "makes A's and B's checksums differ — a DETECTED
-desync" for `NewGameResetRequested`, reasoning that a hashed type must produce a
-disagreement. MEASURED: it behaves exactly like the unhashed one. The write is
-erased before it can reach a snapshot that anyone compares, so being hashed buys
-nothing — **a checksum cannot disagree about a value that was put back before it
-was taken.** ⇒ Registration kind predicts whether a SURVIVING divergence is
-caught; it says nothing about a write that does not survive.
+⛔ **AND IT IS NOT A PURE REFACTOR, WHICH IS WHY THIS IS FILED RATHER THAN DONE.**
+The menu READS `OwnedItems` in the same frame to render the row it just changed.
+A deferred write means the sim applies the grant on the next tick, so the list
+shows the old bag for one frame unless the UI renders optimistically. That is a
+visible behaviour change in shipped UI and a maintainer's call, not a mechanical
+substitution. A consumable USE is also not a shop sell, so the menu still needs
+its own message — what it does not need is a new pattern.
 
-⚠⚠ **AND ONE THING THESE ARMS CANNOT SHOW, so the row must not claim it.** The
-sync-test harness is ONE peer replaying itself. A write erased identically on
-every replay produces no mismatch to detect, so whether TWO peers would disagree
-in the window before the erase is a question no single-peer harness can answer.
-The LOCAL LOSS is measured for both types. The cross-peer divergence is NOT
-measured, and the earlier version of this row asserted it.
+⛔ **THE ESCAPE HATCH IS SHUT: the run condition GUARANTEES the dangerous window
+rather than excluding it.** The hope is that such a menu cannot be open while a
+session is live. These systems carry `.run_if(simulation_authorized)`, which
+returns `live_scope_of(..).is_some()` — TRUE exactly when a live session scope
+exists. ⚠ A live scope is not by itself a live GGRS session, but nothing here
+narrows them to single-player.
 
-⛔ **SO `OwnedItems` IS THE ONE TO WORRY ABOUT.** Its kind is documented as
-"snapshotted but not hashed: a rewind restores them, no peer reads them", and
-that is exactly why nothing would report it: the player equips an item, a
-rollback restores the pre-equip value, and the item is simply back in the bag
-with no error anywhere. ⚠ `OwnedItemsBaseline` IS registered
-`rollback_resource_clone_checksum`, so a projection of this state is hashed —
-whether that projection would catch this write is the question to settle, not an
-assumption to inherit from the kind's reassuring detail string. ⇒ **ANSWERED
-BELOW: it does not.** `session_health` was clean on every one of the 240 frames
-in which the grant was being taken back, so the hashed baseline does not stand in
-for the unhashed value here.
+⚠ Five sibling menu systems are WAIVED, not fixed: they take the same
+`SystemMenuParams` bundle and never reach `request_reset`. If the bundle is split
+so access matches use, drop those five waivers — they exist only because it
+over-grants.
 
-⚠ **AND THE EXISTING TEST DOES NOT COVER IT, DELIBERATELY.**
-`game/ambition_app/tests/rollback_full_reset.rs` asks whether the reset
-RECONSTRUCTION is rollback-safe, and its own header says it folds a pending
-request "into the baseline" so the work runs on the baseline frame and every
-re-simulation of it. That is the safe shape by construction: a flag already true
-before the sync-test window opens is identical on every peer and on every
-replay. The mid-window menu write is the case nobody has asked about.
-
-⭐⭐ **MEASURED 2026-09-16 — THE `OwnedItems` HALF IS REPRODUCED, WITH A
-CONTROL.** `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`
-grants an item from outside the rewinding schedule, which is the shape
-`dispatch_menu_action` makes when it equips, and drives the GGRS sync-test
-window:
-
-| harness | what happens to the grant |
-| --- | --- |
-| `with_sync_test_rollback_settings(4, 10)` | **GONE AT FRAME 0.** The live `OwnedItems` is back below the granted count on the very next step |
-| same world, no rollback session | **KEPT for 240 frames** |
-
-⛔ **SO THE REWIND TAKES IT BACK, AND NOTHING ANYWHERE SAYS SO.** No desync, no
-error, no log line: `OwnedItems` is `rollback_resource_clone` — snapshotted and
-restored, NOT hashed — so there is no checksum to disagree. The item is simply
-back in the bag.
-
-⚠ **AND THE SAVE MIRROR NEVER EVEN SAW IT.** `persist_inventory_to_save` is
-value-compared, and the restore lands before it next runs, so it finds nothing
-changed and early-returns. The autosave is therefore CONSISTENT with a world in
-which the equip never happened — which is why no existing arm could have caught
-this. `rollback_full_reset.rs` and `rollback_lifecycle_reset.rs` drive the same
-mirror for 180 and 240 frames and are green, because in those worlds the bag
-never changes.
-
-⇒ The control is the load-bearing half of the arm. "The bag lost an item" and
-"the REWIND took the item back" are indistinguishable from inside one harness.
-
-⚠ **THIS IS NOT A GGRS BUG AND IT IS INVISIBLE IN SINGLE-PLAYER**, which is
-between them why it survived. Restoring a snapshotted resource is exactly what a
-rewind is for; the defect is that a player-visible ACTION is expressed as a
-direct write to rollback state from outside the rewinding schedule. With no
-session there is nothing to rewind and the control keeps the item forever — so
-every hour of single-player play is evidence of nothing here.
-
-⭐⭐ **AND THE FIX IS NOT A NEW PATTERN — `OwnedItems` ALREADY HAS A
-ROLLBACK-CORRECT WRITE ROAD AND THE MENU DOES NOT USE IT.** MEASURED
-2026-09-16:
-
-  * `ItemGrantRequested` is registered `clear_message_on_rollback`
-    (`crates/ambition_items/src/rollback_registration.rs`).
-  * Its consumer `apply_item_grants` mutates `OwnedItems` and is registered into
-    the SIM schedule (`features/mod.rs:214`), beside `apply_shop_transactions`
-    and the effect-bus appliers.
-
-⇒ So a conversation that gives you an item is rollback-correct today, and the
-MENU giving you an item is not, for the same resource, in the same crate. ⚠ That
-this guard has never flagged `apply_item_grants` is the cross-check: it reports
-rollback mutators registered OUTSIDE the rewind, and that one is inside.
-
-**Next implementation:** the `OwnedItems` half no longer needs investigating,
-only fixing — have `dispatch_item_confirm` write `ItemGrantRequested` (and the
-equivalent for a `take`) instead of mutating `OwnedItems` in place, which is the
-road its own crate already ships.
-
-⚠ **AND IT IS NOT A PURE REFACTOR, WHICH IS WHY THIS IS FILED RATHER THAN
-DONE.** The menu READS `OwnedItems` in the same frame to render the row it just
-changed. A deferred write means the sim applies the grant on the next tick, so
-the list would show the old bag for one frame unless the UI is given something
-to render optimistically. That is a visible behaviour change in shipped UI and a
-maintainer's call, not a mechanical substitution. ⇒ The consuming direction already has a road too, and I nearly wrote here
-that it did not: `ShopTransactionRequested` with `ShopSide::Sell` REMOVES from
-the bag through `apply_shop_transactions`, in the sim, beside
-`apply_item_grants`. ⭐ Its own doc states the rule this row is about, in the
-engine's words rather than mine: *"a simulation system applies it on the tick
-it was stamped for — every replay of that tick included."* A consumable USE is
-not a shop sell, so the menu still needs its own message; what it does not need
-is a new pattern. ⚠ The repro arm ASSERTS THE DEFECT so the lane stays green; when it
-goes RED the defect is fixed, and the arm says so in place. Delete it and close
-this row together.
-
-⛔ **AND THE ESCAPE HATCH IS SHUT: THE RUN CONDITION GUARANTEES THE DANGEROUS
-WINDOW RATHER THAN EXCLUDING IT.** The obvious hope is that a menu writing these
-cannot be open while a session is live. These systems carry
-`.run_if(simulation_authorized)`, and that predicate returns
-`live_scope_of(..).is_some()` — it is TRUE exactly when a live session scope
-exists. So they are gated to run only in the window that matters. ⚠ A live scope
-is not by itself a live GGRS session (single-player has one too), but nothing
-here narrows them to the single-player case.
-
-**Still open:** only the cross-peer question, and it needs a TWO-PEER harness
-rather than the sync test. Both local halves are now measured and both are
-silent. ⇒ The fix does not wait on that answer: a local action that vanishes
-some of the time is already a defect, and routing both writes through a message
-the sim consumes fixes it whatever the answer turns out to be. If it cannot, this is two
-waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
-the menu's own state machine; answer it from what gates the menu, because "you
-would not do that" is not a property of the code. If it CAN, the write belongs
-behind a message the sim consumes, the way `AmbientGravityRequest` already does
-it for `BaseGravity` — that pattern is three lines away in the same bundle
-(`gravity_requests`, with the comment "the sim applies the request").
-
-Found 2026-09-16 by `scripts/check_rollback_mutators_run_in_sim.py`. ⚠ Five
-sibling menu systems were flagged with these and are WAIVED, not fixed: they
-take the same `SystemMenuParams` bundle and never reach `request_reset`. If the
-bundle is ever split so access matches use, drop those five waivers — they exist
-only because the bundle over-grants.
+**Acceptance:** both writes go through a message the sim consumes; the repro arm,
+which currently ASSERTS THE DEFECT so the lane stays green, goes RED and is
+deleted with this row.
 
 ### GUARD-CORPUS / ORPHAN-ARMS — CLOSED 2026-09-16
 

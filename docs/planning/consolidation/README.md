@@ -56,25 +56,55 @@ implementation plan for it; use it to find roads whose replacement now exists.
 
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.
 The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B
-hold race still needs its named witness — and MEASURED 2026-09-16, that blocker
-is REAL rather than stale, which is worth stating because it gates C03 and C05.
+hold race is **HALF WITNESSED**, MEASURED 2026-09-16 — and this paragraph is a
+CORRECTION of one written earlier the same day, which said the gate was entirely
+open. It was not. See the ⛔ at the end for how that happened, because the method
+error matters more than the verdict.
 
-⭐ **WHAT ALREADY EXISTS, so nobody re-derives it:** three supersession witnesses,
-all in `crates/ambition_game_shell/src/tests.rs` and
-`crates/ambition_load/src/tests.rs` —
-`provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
-`a_superseded_transaction_names_the_request_it_cancelled`, and
-`superseded_load_cannot_authorize_commit`. Together they pin that a retry
-supersedes a failed transaction, that the superseded one NAMES the request it
-cancelled, and that a superseded load cannot authorise a commit.
+⭐ **THE SHELL/SESSION HALF HAS ITS NAMED PRODUCTION WITNESS, AND IT PASSES.**
+`a_candidate_session_replaced_while_pending_is_discarded`
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1320`) boots
+`build_visible_app` — the shipped visible composition, not a hand-built router —
+issues `ShellCommand::ReplaceWith` for `ambition_gameplay`, waits THREE frames so
+the second request arrives while the first is still PENDING, and asserts the
+superseded candidate is DISCARDED: no candidate gate registration outlives its
+candidate, the route holds are released, and
+`session_root_for_scope(SessionScopeId(1))` finds the live session — which is
+itself the premise that the two requests actually overlapped, because the scope
+allocator is sequential. `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+(`:435`) drives the same road and counts roots every frame. MEASURED at `c78cc725e` on
+this box: both pass.
 
-⛔ **WHAT IS MISSING IS THE WORD "PRODUCTION".** All three build a
-`ShellRouter::default()` by hand and register their own catalog, so they witness
-the ROUTER'S LOGIC rather than the shell/content activation gate in a composed
-host. No `app_it` arm launches the same route twice without quitting — the shape
-`a_re_requested_active_route_gets_a_fresh_transaction` exercises at unit level.
-⇒ The gap is one integration arm, not a mechanism; the unit coverage says what
-the arm should assert.
+⛔ **THE CONTENT/TRANSACTION HALF DOES NOT.** What the three unit witnesses pin
+is the TRANSACTION: that a retry supersedes the failed transaction and the stale
+one cannot publish
+(`provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
+`crates/ambition_game_shell/src/tests.rs:918`), that the superseded transaction
+NAMES the request it cancelled (`:1350`), and that a superseded load cannot
+authorize a commit (`superseded_load_cannot_authorize_commit`,
+`crates/ambition_load/src/tests.rs:131`). All three build a
+`ShellRouter::default()` by hand and register their own catalog. MEASURED: NO
+`app_it` arm reads `ShellEvent::PreparationRequested` or a transaction's
+`barrier.load_id` at all — the three `ShellEvent::` mentions in the whole
+integration suite are in comments. ⇒ The composed host is never asked whether a
+superseded transaction can still publish.
+
+⇒ **SO THE REMAINING GAP IS ONE ARM AND IT IS SMALLER THAN THE ROW SAID.** The
+session lifecycle under supersession is covered in production; the transaction
+identity under supersession is covered only in a unit fixture. The missing arm
+re-requests the live route in `build_visible_app` and asserts the FIRST
+transaction cannot publish afterwards — the unit witnesses say exactly what to
+assert.
+
+⛔⛤ **HOW THE EARLIER PARAGRAPH GOT IT WRONG, because the method is the
+transferable part.** I listed the `app_it` files matching `supersed` and
+`ShellActivationId`, listed the arms issuing `ShellCommand::GoTo`, and concluded
+"no `app_it` arm launches the same route twice without quitting" WITHOUT OPENING
+THEM. The arm that does it uses `ReplaceWith`, not `GoTo`, and its file matched
+my grep the whole time. ⚠ I had written the rule that same afternoon — a number
+counting mentions is VIGILANCE, not safety, so do not report one you have not
+opened — and then reported a NEGATIVE from the same kind of scan. A negative grep
+is a claim about the QUERY.
 Mechanical edit admission is established as an implementation foundation: six production domains use the shared proposal, admission, and publication protocol.
 
 ## What is checked mechanically, and what is not

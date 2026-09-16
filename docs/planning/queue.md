@@ -1599,8 +1599,10 @@ message before starting a step that takes hours.
 **Owner:** test runner / app integration lane.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**677 passed / 0 failed / 25 ignored of 702**, 234.97 s at `582186bff` on the
-ToothbrushAmbition box. Missing prerequisites are reported as incomplete rather
+**683 passed / 0 failed / 31 ignored**, 241.04 s at `c78cc725e` on the
+ToothbrushAmbition box (2026-09-16, tree frozen for the run). Previously
+677/0/25 at `582186bff` on the same box; the +6/+6 is the new arms and
+print-only probes three agents added, and no arm changed state. Missing prerequisites are reported as incomplete rather
 than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
 disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
 publish output was ~90 files short. Name the box beside the number.
@@ -1701,9 +1703,19 @@ one reading a health API once at the end, because its check is load-bearing for
 its own subject rather than bolted on beside it.
 
 **Still open.** One non-reproducing session-root handoff failure whose assertion
-message was never captured. On the next reproduction, capture the full failing
-assertion and isolate the production ordering/state source before changing test
-ordering or adding retries. Keep compile-cost and prerequisite failures distinct
+message was never captured. ⚠ **IT DID NOT REPRODUCE AGAIN: 683/0/31 at
+`c78cc725e`**, and the two arms it would have to be — 
+`the_shipped_app_never_holds_two_session_roots_across_a_handoff` and
+`a_candidate_session_replaced_while_pending_is_discarded`, both in
+`an_edit_reaches_the_shipped_game.rs` — both passed, checked by NAME in the log
+rather than inferred from the total. ⭐ That is now several clean full runs, and
+a failure nobody can reproduce and nobody captured is not evidence of a defect;
+it is an absent observation. ⇒ The next step is NOT more runs. It is that both
+arms already assert their own premises (a root must appear; the activation id
+must MOVE), so a future failure of either carries its cause in its message. On
+the next reproduction, capture the full failing assertion and isolate the
+production ordering/state source before changing test ordering or adding
+retries. Keep compile-cost and prerequisite failures distinct
 from behavioural flakes, and from CONTENTION — a coherent measured story that
 fits the first observation is still the wrong one if it was never tested against
 a second.

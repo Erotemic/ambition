@@ -92,7 +92,7 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 **STATE:** RECOMMENDED first new campaign; the A10 half of its gate is met
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** ~~A10 checkpoint~~ (discharged 2026-09-15) + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing — MEASURED 2026-09-16, that witness gate is REAL and not stale, and `consolidation/README.md` now names the three unit witnesses that already exist plus the one production-composition arm that does not. Read it before re-deriving the gap.
+**DO NOT START BEFORE:** ~~A10 checkpoint~~ (discharged 2026-09-15) + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing — but MEASURED 2026-09-16 (correcting a claim made earlier that day) it is HALF WITNESSED rather than open: the SHELL/SESSION half has a passing production arm, `a_candidate_session_replaced_while_pending_is_discarded`, and only the CONTENT/TRANSACTION half lacks one. `consolidation/README.md` names all five witnesses and says what the missing arm must assert.
 
 ### CURRENT STATE
 
@@ -160,7 +160,7 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 **STATE:** candidate; A10 is COMPLETE, so two gates remain
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + shell/content A-supersedes-B witness + identity checkpoint. ⭐ The witness half is MEASURED 2026-09-16 and scoped in `consolidation/README.md`: three unit witnesses over a hand-built `ShellRouter::default()` exist and say what the missing arm should assert; what is absent is an `app_it` arm in the composed host.
+**DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + shell/content A-supersedes-B witness + identity checkpoint. ⭐ The witness half is MEASURED 2026-09-16 and scoped in `consolidation/README.md`: the SHELL/SESSION half is witnessed in the shipped visible composition and PASSES; what is absent is a composed-host arm for the CONTENT/TRANSACTION half — no `app_it` arm reads `ShellEvent::PreparationRequested` or a transaction's `barrier.load_id` at all.
 
 ### CURRENT STATE
 
@@ -180,7 +180,7 @@ Separate queued writes for values that all mean “this session is now generatio
 
 ### DEPENDENCIES / BLOCKERS
 
-A10; shell/content A-supersedes-B hold witness (scoped 2026-09-16 — see `consolidation/README.md`; the gap is one integration arm, not a mechanism); peer-stable identity.
+A10; shell/content A-supersedes-B hold witness — HALF WITNESSED as of 2026-09-16, session half passing in production, transaction half unit-only (see `consolidation/README.md`); peer-stable identity.
 
 ### RISK
 

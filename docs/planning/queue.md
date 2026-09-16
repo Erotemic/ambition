@@ -452,15 +452,18 @@ with these very resources would have failed SILENTLY once rollback went live"*,
 and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
 re-hide the thing that comment warned about.
 
-**Next implementation — triage the 17, which is owner work rather than guard
-work.** `reset_inventory_on_new_game` is being moved into the sim schedule
-(its producer already runs in `ResetProcessing` and its sibling
-`clear_transient_on_sandbox_reset` is on that chain). The two
-`reset_session_scoped_resources_on_*` roads mutate 13 registered types each from
-`Update` and owe a stated waiver or a move. Then seven menu systems reaching
-`ResMut<NewGameResetRequested>` through `MenuDispatchParams`, the four
-`AmbitionGameSave` mirrors, and `adopt_occurrence_checkpoint_from_save` /
-`complete_durable_restore` / `track_versus_roster`, all untriaged.
+**Next implementation — triage the 14, which is owner work rather than guard
+work.** Two are answered: the `reset_session_scoped_resources_on_*` pair took
+explicit waivers in `869e3ee81`. My reading of the rest, offered so an owner
+starts from a verdict rather than a list:
+
+| finding | reading |
+| --- | --- |
+| `reset_inventory_on_new_game` | **REAL.** Producer `process_new_game_reset_request` runs in `sim_schedule()` under `ResetProcessing`; consumer runs in `Update`; `NewGameResetCommitted` is `clear_message_on_rollback`. Being moved onto its sibling `clear_transient_on_sandbox_reset`'s chain. |
+| 7 menu systems → `NewGameResetRequested` | **REAL.** They carry `.run_if(simulation_authorized)`, so they write a `rollback_resource_canonical` resource with a live session. Reached through `MenuDispatchParams`, which is why they were invisible before `4f442eb11`. |
+| 4 `AmbitionGameSave` writers | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
+| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
+| `track_versus_roster` | **UNTRIAGED.** Writes `VersusMatch` from the shell's versus setup. |
 
 ⚠ **The discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is

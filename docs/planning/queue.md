@@ -688,9 +688,35 @@ the production path; the grenade fixture likewise. That is the fix, not a
 workaround: a fixture that can only reach the degraded road cannot witness the
 real one.
 
-**Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
-— cannot reach the simulation unnameable; the witness names the construction road
-and the body rather than reporting a population count.
+✅ **ACCEPTANCE MET 2026-09-16 — THE WITNESS NAMES THE ROAD.** A MECHANICAL body
+(`BodyKinematics`, not merely a damageable one) cannot reach the simulation
+unnameable, and `UnmintedBodyCensus` now says WHICH and BY WHAT: each entry in
+`skipped_bodies` carries the entity, its `Name` and its `SpawnOrigin`. The origin
+is the load-bearing field — an id and a name say which body, only the road says
+where the repair goes, and the sweeper's own comment says the repair belongs at
+the spawn site.
+
+⛔ **THE FIELD WAS INVISIBLE TO EVERY PASSING RUN, WHICH IS WHY IT HAS ITS OWN
+CONTROLS.** A healthy tree reports `0 skipped over 0 distinct bodies`, so the
+formatting of a populated entry is never exercised by the two live consumers.
+Four arms in `ambition_platformer2d_runtime::sim_identity` cover it directly:
+`a_skipped_body_is_named_with_the_road_that_built_it` (a `ProviderStaged` body,
+asserting both the name and the provider/instance appear),
+`a_body_whose_road_recorded_nothing_says_so` (⚠ an absent `SpawnOrigin` is a
+FINDING, not a blank — a road that recorded nothing is a different repair from one
+that recorded the wrong thing), `an_identified_body_is_not_named` (the control,
+without which every arm above is satisfied by a census that records everything),
+and `the_set_caps_and_admits_it`.
+
+⚠ **THE SET IS CAPPED AT 16 AND `capped` SAYS SO**, because an uncapped set in a
+600-frame run is a memory leak in an instrument and a capped one that does not
+admit it is a total that quietly stopped counting. Past the cap its length is a
+FLOOR; `skipped` keeps counting observations and is the field that is not.
+
+⇒ Poisoned both ways: redacting the origin from the descriptor reddens exactly the
+road arm; removing the cap reddens exactly the cap arm. Reverted from a `cp`
+snapshot and byte-compared. ⓘ The two `app_it` consumers print the whole set
+rather than a `first`, and both pass (2 and 6 arms).
 
 ✔ **THE CLONE-ROAD RECEIPT IS RE-MEASURED ON TODAY'S TREE AND THE HANG IS GONE.**
 It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`

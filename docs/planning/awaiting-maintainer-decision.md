@@ -474,6 +474,35 @@ establish that another projection covers the type; the KIND was asserting what
 only the TYPE can know. `detail::CLONE_UNHASHED` now says *"not in the session
 checksum"*, which is `feeds_peer_checksum() == false` stated plainly.
 
+⭐⭐ **AND IT IS NOW FALSIFIED BY A WITNESS, NOT ONLY BY THE METHOD SIGNATURE.**
+Everything above is structural: `rollback_component_clone`'s bound is `T: Clone`,
+so it CANNOT establish the claim. `57590f4b3` measured it false in a named case.
+`a_bag_changed_from_update_is_silently_taken_back_by_the_rewind`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`) grants an
+item from outside the rewinding schedule — the shape `dispatch_menu_action` makes
+when it equips — and the next rewind takes it back. `OwnedItems` is
+`rollback_resource_clone`; `OwnedItemsBaseline` IS
+`rollback_resource_clone_checksum`, so it is exactly the "other authoritative
+projection" the sentence gestured at — and it did not catch the unhashed value
+going away. `session_health` was clean on all 240 frames.
+
+⚠ **THE WITNESS'S LIMIT, STATED BY ITS AUTHOR AND NOT TO BE CITED PAST IT:** the
+sync-test harness is ONE peer replaying itself, so a write erased identically on
+every replay produces no mismatch to detect. What is established is the LOCAL
+LOSS across 240 frames, and that a hashed sibling projection did not cover an
+unhashed value. It is not a witness about two peers disagreeing.
+
+ⓘ **AND ITS COMPANION ARM KILLS AN ADJACENT REASSURANCE**, which matters here
+because this question is about what a fingerprint is FOR.
+`a_reset_requested_from_update_mid_window` set `NewGameResetRequested` — which is
+`rollback_resource_canonical` and therefore DOES feed the peer checksum — from
+`Update` mid-window, and it behaved exactly like the unhashed resource: the room
+was not rebuilt, 7 of 7 roster entities survived, `session_health` clean for 180
+frames. ⇒ **A checksum cannot disagree about a value that was put back before it
+was taken.** Registration kind predicts whether a SURVIVING divergence is caught;
+it says nothing about a write that does not survive to be hashed. Measured by
+CalculexAmbition, who also retracted the opposite prediction they had published.
+
 ⛔ **AND THE PRICE OF THAT CORRECTION IS THE ARGUMENT FOR THIS QUESTION.**
 Deleting a claim nobody could support cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump
 and a baseline rewrite, because the fingerprint hashes the sentence. The v194 log

@@ -96,8 +96,13 @@ fn the_player_clone_road_builds_an_identified_body() {
         .expect("the runtime plugin installs `UnmintedBodyCensus`");
     println!("[clone] {clone} ({name}) sim_id={sim_id:?} origin={origin:?}");
     println!(
-        "[clone] census: {} body-observations judged, {} skipped, first={:?}",
-        census.observed, census.skipped, census.first_skipped
+        "[clone] census: {} body-observations judged, {} skipped over {} distinct \
+         bod(ies){}: {:?}",
+        census.observed,
+        census.skipped,
+        census.skipped_bodies.len(),
+        if census.capped { " (CAPPED — a floor)" } else { "" },
+        census.skipped_bodies
     );
 
     // ⛔ THE INSTRUMENT'S OWN FLOOR, before any number it reports is read.
@@ -151,10 +156,14 @@ fn the_player_clone_road_builds_an_identified_body() {
         "{} body-OBSERVATION(s) — not that many bodies — found a body carrying \
          `BodyKinematics` with no `SimId`, no `FeatureId` and no `PrimaryPlayer` \
          a tick after it became a body, so BOTH `ensure_sim_id` passes and every \
-         in-tick spawner declined to name it. First: {:?}. ⚠ This fixture travels \
-         the player-clone road, which the sandbox census does not — if the name \
-         above is the clone, the repair is at its spawn site.",
-        census.skipped, census.first_skipped
+         in-tick spawner declined to name it. {} distinct bod(ies){}, each with \
+         the CONSTRUCTION ROAD that let it through: {:?}. ⚠ This fixture travels \
+         the player-clone road, which the sandbox census does not — if the origin \
+         above is the clone's, the repair is at its spawn site.",
+        census.skipped,
+        census.skipped_bodies.len(),
+        if census.capped { " (CAPPED — a floor)" } else { "" },
+        census.skipped_bodies
     );
 }
 

@@ -686,9 +686,12 @@ and two findings that owe an argument; everything else below is a receipt.
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
 `WAIVERS`: a waiver says this system's drift across a rewind does not matter and
 carries the argument; an acknowledgement says the drift is REAL and names the row
-that owes it. Twelve are banked — nine here, three save mirrors to
-DURABLE-HORIZON-CHECKSUM/Q129, two menu writers to MENU-RESET-MIDSESSION — and
-they print to stderr every run. ⛔ A banked name the scan STOPS reporting is also
+that owes it. **Nine** are banked — seven here and two menu writers to
+MENU-RESET-MIDSESSION — and they print to stderr every run. ⭐ It was twelve; the
+three `persist_*_to_save` mirrors left the bank by being FIXED, and the stale
+check is what made that deletion deliberate rather than convenient: it reddened
+the moment they stopped being findings and demanded the commit say which of its
+two cases applied. ⛔ A banked name the scan STOPS reporting is also
 fatal, or the list rots into a second waiver table and absorbs the next system to
 take a fixed one's place. Both branches poisoned at `c1ffa812d`.
 ⇒ Why it exists: at 12 unwaived findings the guard was stuck at `exit 1`, so a
@@ -1695,9 +1698,50 @@ to be satisfiable by a frozen world, and its author gets no warning.
 
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay
 
-**P0. Rated above consolidation work by the 2026-09-16 merged-state review.**
+**P0 — ✅ REPAIRED 2026-09-16. The acceptance bar below is MET, including the
+half that is not the repro.**
 
-**CURRENT HEAD.** `persist_inventory_to_save` runs in ordinary `Update` — once
+**CURRENT HEAD.** The three live→save mirrors — `persist_inventory_to_save`,
+`persist_occurrence_horizon_to_save`, `persist_minted_item_horizon_to_save` —
+register through `app.sim_schedule()` and cross the same rollback boundary as
+the state they mirror, so a replay re-derives them. No disk I/O moved: they
+derive the save RESOURCE from live simulation state and nothing else, and
+autosave and the file write stay outside the simulation.
+
+⭐⭐ **TWO MEASUREMENTS, AND THE SECOND IS THE ONE THE REVIEW ASKED FOR.**
+1. The set of hashed entries that disagree with themselves across a resimulation
+   went from `["ambition_persistence::save::AmbitionGameSave"]` to **EMPTY**.
+2. The save's hashed projection went from **1 distinct census across 236 compared
+   frames to 236** — against 238 for its busiest neighbours. ⇒ It is no longer
+   PINNED, so the empty set in (1) is a comparison that genuinely could have
+   failed rather than one incapable of disagreeing.
+
+⚠ **(2) IS WHY (1) MEANS ANYTHING, and neither arm was deleted.** Both arms'
+docs instructed deletion on exactly this outcome. They are INVERTED instead:
+`no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves` now asserts the
+empty set and floors it on the projection varying, and
+`the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at` guards the
+un-pinning with a floor of 50 — an order of magnitude above the pinned regime's
+1–2 and far below the measured 236. Deleting them would have retired the only
+arms that can notice the mirrors drifting back out of the rewind window.
+
+⚠ **ORDERING THAT USED TO BE FREE IS NOW STATED.** While the mirrors sat in
+`Update`, `RunFixedMainLoop` running first was what kept a New Game's reset ahead
+of them; both are in the sim schedule now, so `.after(reset_inventory_on_new_game)`
+is explicit. And the three keep `.chain()` for a load-bearing reason rather than
+a tidy one: all three take `ResMut<AmbitionGameSave>`, and an ambiguous relative
+order inside a rewinding schedule is nondeterminism the checksum would report as
+a desync.
+
+⚠ One behaviour change, stated: the mirrors read the `SaveRestored` latch from a
+schedule that runs BEFORE `Update` in the frame, so on the single frame the latch
+flips they mirror one frame later. They are value-compared and idempotent, so
+that costs a frame of freshness and nothing else.
+
+<details><summary>The defect as it stood, kept because the eliminations below are
+what make the repair legible</summary>
+
+**WAS.** `persist_inventory_to_save` runs in ordinary `Update` — once
 per FRAME — and writes the live bag into `AmbitionGameSave`, which is
 `rollback_resource_clone_checksum` whose projection serialises the WHOLE save. A
 rewind re-simulates the sim schedules and does NOT replay `Update`, so the same
@@ -1722,36 +1766,52 @@ diverging with the REPLAY xor CONSTANT at `0xce4e4758…` while the first-pass x
 moves every frame: replay re-runs the sim schedule and not `Update`, so every
 replay sees whatever the last frame's `Update` wrote.
 
+</details>
+
 **WHAT REMAINS.** ⛔ **NOT "remove `AmbitionGameSave` from the checksum" — that
 remedy is REFUSED and this row used to recommend it.** The census invalidates it:
 **19 systems take `ResMut<AmbitionGameSave>` and 13 execute INSIDE rewinding
 simulation schedules** — quests, flags, switches, encounters, shrines, cutscenes,
 boss state. Unhashing would make the repro green by throwing away comparison
 coverage for substantial simulation state.
-⇒ The direction is the opposite one: the three live→save mirrors that run from
-`Update` — inventory/wallet, occurrence horizon, minted-item horizon — should
-cross the same rollback boundary as the state they mirror, so a replay can
-reproduce them. Disk I/O and autosave stay outside the simulation, layered
-*rollback-owned durable mechanical representation → confirmed/local persistence
-projection → disk*. ⛔ Do NOT attempt the larger "is `AmbitionGameSave` both
-simulation authority and disk representation" split before the replay defect is
-fixed. Smallest correct phase-boundary repair first.
+✅ The opposite direction is what LANDED, and it is described under CURRENT HEAD.
 
-**ACCEPTANCE — and it is sharper than the repro.** ⛔ *"The startup repro now
-passes"* is NOT sufficient, because one thing is still unexplained: why the
-mismatch manifests primarily in the opening few ticks. ⇒ Acceptance must ALSO
-show that a representative IN-SIMULATION save mutation is genuinely being
-COMPARED across repeated snapshots — **not that the checksum became accidentally
-pinned and therefore incapable of disagreeing.** That risk is measured, not
-hypothetical: over a window where the live save reaches 247 mirrored items, the
-hashed projection takes **2 distinct censuses against 238 for its busiest
-neighbours** (Q129). A checksum that cannot disagree looks exactly like a
-checksum that agrees.
+⛔ **STILL NOT ATTEMPTED AND STILL DEFERRED ON PURPOSE:** the larger *"is
+`AmbitionGameSave` both simulation authority and disk representation"* split. The
+review's instruction was smallest-correct-phase-boundary-repair first; that is
+done, and the split is a separate piece of work that now has a working boundary
+to reason from.
 
-**BLOCKER.** None for the phase-boundary repair.
+⛔ **THE OTHER `Update` WRITER IS UNTOUCHED AND IS NOT A MIRROR.**
+`dispatch_pending_dialog_requests` calls `increment_dialog_visit` from `Update`.
+The three mirrors could move because they DERIVE the save from sim state, so
+replaying them reproduces the value. An increment has neither property — replay
+would double-count it and a rollback loses it — so it needs a different answer,
+recorded in
+[DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
+⚠ It is now the ONLY hashed-save writer left outside the rewind window, which
+makes it both easier to see and more exposed than it was.
+
+**ACCEPTANCE — MET, including the half that is not the repro.** ⛔ *"The startup
+repro now passes"* was explicitly NOT sufficient: acceptance also required
+showing that a representative IN-SIMULATION save mutation is genuinely being
+COMPARED across repeated snapshots, **not that the checksum became accidentally
+pinned and therefore incapable of disagreeing**. ⇒ Measured both ways and both
+are standing arms: the divergence set is empty, AND the projection moved from 1
+distinct census to **236** across the compared frames. The second is guarded at a
+floor of 50 so it cannot silently return to the pinned regime.
+
+⚠ **ONE THING THE REVIEW ASKED THAT IS STILL UNEXPLAINED**, and it is recorded
+rather than closed: why the mismatch manifested primarily in the opening few
+ticks. The repair makes it moot in practice — there is nothing left to mismatch —
+but "the first three ticks are special" was never explained, and that is a
+property of the rollback window rather than of the save. If it matters elsewhere
+it will be found again.
+
+**BLOCKER.** None.
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)
-remains open for the ownership question, and the pinned-projection finding there
-is a PRIOR question to it — but neither gates the repair above.
+remains open for the ownership question, which the repair does not answer and
+does not need to.
 
 **Eliminations, one line each, each by measurement.**
 ⛔ NOT a drained-message edge — `capture_owned_items_baseline` has that shape but
@@ -1796,10 +1856,13 @@ Re-run: `cargo test -p ambition_app --test app_it probe_which_hashed_entries -- 
 
 **Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
 
-**Current state:** the central prediction is MEASURED and the bag half is
-answered — `persist_inventory_to_save` writes a per-FRAME value into a per-TICK
-checksum and desyncs a sync test within six ticks; 1 of 364 probed entries
-differs and it is `AmbitionGameSave`. Measurement, eliminations and reproduction
+**Current state:** ✅ the three `persist_*_to_save` mirrors are REPAIRED — they
+register through `app.sim_schedule()` and a replay re-derives them, so the
+divergence set is empty and the save's hashed projection tracks (1 → 236 distinct
+censuses across the compared frames). What is left of this row is the DIALOG
+INCREMENT and the one-shot pair. ⇒ The repaired half was: a per-FRAME write into
+a per-TICK checksum, 1 of 364 probed entries differing and it being
+`AmbitionGameSave`. Measurement, eliminations and reproduction
 are in [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
 ⇒ **What remains is a RULING, not an investigation:**
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
@@ -1811,19 +1874,22 @@ clean because the comparison is inert, not because the mechanism is benign.
 **The five systems this plugin installs into top-level `Update`,** with each
 type's `feeds_peer_checksum`:
 
-| system | writes | hashed |
-| --- | --- | --- |
-| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | **yes** |
-| `complete_durable_restore` | `SaveRestored` | no |
-| the three `persist_*_to_save` | `AmbitionGameSave` | **yes** |
+| system | writes | hashed | schedule |
+| --- | --- | --- | --- |
+| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | **yes** | `Update` — open |
+| `complete_durable_restore` | `SaveRestored` | no | `Update` — open |
+| the three `persist_*_to_save` | `AmbitionGameSave` | **yes** | ✅ sim schedule |
 
 ⭐ The placement is deliberate and `runtime/src/durable_save_horizon.rs` says so:
 *"file/application side effects themselves are not replayed as simulation
 ticks."* That argument is sound for the SIDE EFFECT — writing a file twice is not
 a desync — and ⛔ silent on the half that is hashed, which is the whole row.
 
-⛔⛤ **STILL OPEN AND THE SHARPEST OF THE SET: `dispatch_pending_dialog_requests`
-is a FOURTH writer and it is not a mirror.** It calls
+⛔⛤ **NOW THE ONLY HASHED-SAVE WRITER LEFT OUTSIDE THE REWIND WINDOW, AND THE
+SHARPEST OF THE SET: `dispatch_pending_dialog_requests` is a FOURTH writer and it
+is not a mirror.** ⚠ The three mirrors could move because they DERIVE the save
+from sim state, so replaying them reproduces the value. This one cannot follow
+them for that reason. It calls
 `save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`
 (`ambition_dialog/src/bridge.rs:125`). The five above DERIVE the save from sim
 state, so running them twice writes the same bytes and running them zero times

@@ -281,15 +281,43 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // sibling consumer of this same message already takes, one step further
     // along the chain that flushes the producer's deferred write.
     //
-    // ⭐ AND THE ORDERING THE `Update` CHAIN EXISTED TO STATE IS PRESERVED BY
-    // THE FRAME, not by the chain: `RunFixedMainLoop` runs before `Update`, so
-    // the reset still precedes `persist_inventory_to_save` and cannot let the
-    // OLD run's bag be written into the freshly wiped save.
+    // ⛔ THE ORDERING AGAINST THE MIRRORS IS NOW STATED, NOT INHERITED FROM THE
+    // FRAME. While the mirrors sat in `Update` this was carried by
+    // `RunFixedMainLoop` running first; they are in this schedule too now, so
+    // the edge that stops the OLD run's bag reaching the freshly wiped save has
+    // to be an explicit `.after`.
     let sim = app.sim_schedule();
     app.add_systems(
         sim,
         crate::items::persist::reset_inventory_on_new_game
             .after(crate::session::reset::clear_transient_on_sandbox_reset),
+    );
+    // ⛔⛤ **THE LIVE→SAVE MIRRORS CROSS THE SAME ROLLBACK BOUNDARY AS THE STATE
+    // THEY MIRROR.** They ran in top-level `Update` — once per FRAME — while
+    // `AmbitionGameSave` is `rollback_resource_clone_checksum` and is compared
+    // once per TICK. A rewind re-simulates ticks and does not replay `Update`, so
+    // the same historical frame saw a different save: measured, 1 of 364 probed
+    // checksum entries diverged and it was this one, with the replay xor CONSTANT
+    // across frames 2, 3 and 4 while the first-pass xor moved every frame.
+    //
+    // ⚠ NO DISK I/O MOVES HERE. These three derive the save RESOURCE from live
+    // simulation state and nothing else; autosave and the file write stay outside
+    // the simulation. The layering is rollback-owned durable representation →
+    // persistence projection → disk, and only the first hop is in this schedule.
+    //
+    // ⚠ `.chain()` is load-bearing rather than tidy: all three take
+    // `ResMut<AmbitionGameSave>`, so an unordered set would leave their relative
+    // order ambiguous, and an ambiguous order inside a rewinding schedule is
+    // nondeterminism the checksum would then report as a desync.
+    app.add_systems(
+        sim,
+        (
+            crate::items::persist::persist_inventory_to_save,
+            persist_occurrence_horizon_to_save,
+            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+        )
+            .chain()
+            .after(crate::items::persist::reset_inventory_on_new_game),
     );
     app.init_resource::<SaveRestored>()
         .add_systems(
@@ -304,11 +332,13 @@ pub fn install_durable_save_horizon(app: &mut App) {
                 // The host-level completion point comes last: only now is the file
                 // fully applied, and only now may a checkpoint resume be requested.
                 complete_durable_restore,
-                // Mirrors run only after the latch is true, so none can overwrite a
-                // file before all domain adopters have consumed it.
-                crate::items::persist::persist_inventory_to_save,
-                persist_occurrence_horizon_to_save,
-                crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+                // ⚠ THE MIRRORS USED TO CHAIN HERE AND ARE NOW IN THE SIM SCHEDULE
+                // ABOVE. Their "only after the latch is true" guard is unchanged and
+                // still theirs: each returns early on `!restored.0`. What changed is
+                // that the latch is now read from a schedule that runs BEFORE this
+                // one in the frame, so on the single frame the latch flips they
+                // mirror one frame later. They are value-compared and idempotent, so
+                // that costs a frame of freshness and nothing else.
             )
                 .chain(),
         );

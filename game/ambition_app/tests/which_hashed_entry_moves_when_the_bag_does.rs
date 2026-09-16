@@ -202,14 +202,33 @@ fn probe_which_registered_type_diverges_when_the_bag_moves() {
 /// cadence is load-bearing and both audits are floored on `resimulations > 0`
 /// before either result is read.
 ///
-/// ⚠ **WHICH FAILURE DIRECTION IS THE GOOD ONE.** If the granting arm reports NO
-/// divergence, `persist_inventory_to_save` has been moved inside the rewinding
-/// schedule or the mirror has stopped deriving from the bag — delete this arm and
-/// close the row. If it reports a SECOND type, that type is a new finding. If the
-/// CONTROL starts diverging, the cause is no longer the bag and every elimination
-/// in the row needs redoing.
+/// ✅ **REPAIRED 2026-09-16, AND THIS ARM NOW GUARDS THE REPAIR RATHER THAN THE
+/// DEFECT.** The three live→save mirrors moved into the sim schedule, so a replay
+/// re-derives them and the divergence set went from
+/// `["ambition_persistence::save::AmbitionGameSave"]` to EMPTY.
+///
+/// ⛔⛤ ITS DOC SAID *"delete this arm and close the row"* AND IT IS CONVERTED
+/// INSTEAD, deliberately: an empty divergence set is the whole content of the
+/// repair, so the assertion that was evidence of the defect is exactly the
+/// assertion that should now hold forever. Deleting it would retire the only arm
+/// that can notice the mirrors drifting back out of the rewind window.
+///
+/// ⛔ **AND AN EMPTY SET IS THE EASIEST VACUOUS PASS IN THIS FILE**, which is why
+/// the premises below it are not optional. "Nothing diverged" is also what a run
+/// that compared nothing, mirrored nothing, or held the save constant would
+/// report. This arm therefore requires, before reading the silence: both audits
+/// resimulated, the live bag moved, AND the save's own census took MANY values
+/// across the compared frames. The last one is the point of the repair — the
+/// save is now genuinely being compared and agreeing, rather than agreeing
+/// because it cannot differ.
+///
+/// ⚠ **WHICH FAILURE DIRECTION IS WHICH NOW.** A NON-empty set is a regression:
+/// the named type is writing hashed state from outside the rewinding schedule. A
+/// failing PREMISE is not a regression in the save at all — it means this arm
+/// stopped exercising the thing it claims to, and the number it reports should be
+/// believed about the instrument rather than about the world.
 #[test]
-fn exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save() {
+fn no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves() {
     let mut granting = sim_composed_with(grant_each_tick);
     granting
         .world_mut()
@@ -264,12 +283,27 @@ fn exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save() {
          every elimination in ROLLBACK-BAG-DESYNC needs redoing"
     );
 
-    assert_eq!(
-        diverging.iter().copied().collect::<Vec<_>>(),
-        vec!["ambition_persistence::save::AmbitionGameSave"],
-        "the set of hashed entries that disagree with themselves across a \
-         resimulation is not exactly the save mirror. See this arm's doc for \
-         which direction is the good one."
+    // ⛔ THE PREMISE THAT STOPS AN EMPTY SET BEING A FREE PASS. A save whose
+    // hashed projection is PINNED agrees with its replay trivially — that was
+    // this repository's state before the repair, at 1 distinct census while its
+    // busiest neighbours took 238. Requiring the projection to vary is what makes
+    // the silence below a statement about the world.
+    type Save = ambition_platformer2d::persistence::save::AmbitionGameSave;
+    let tracked = granting_audit.distinct_censuses_across_compared_frames_of::<Save>();
+    assert!(
+        tracked > 1,
+        "the save's hashed projection took {tracked} value(s) across the frames \
+         this audit compared, so it is pinned and agreeing with its replay costs \
+         it nothing. The empty divergence set below would be vacuous. See \
+         `the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at`."
+    );
+
+    assert!(
+        diverging.is_empty(),
+        "these hashed entries disagree with themselves across a resimulation: \
+         {diverging:?}. Each is writing rollback-registered state that feeds the \
+         peer checksum from a schedule the rewind does not replay — the defect \
+         ROLLBACK-BAG-DESYNC repaired for the three save mirrors, returning."
     );
 }
 
@@ -401,17 +435,29 @@ fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
 /// (`how_much_of_the_peer_checksum_actually_varies.rs`). The idle number is the
 /// reproducible one, which is why it is the one asserted.
 ///
-/// ⭐ **THE GOOD FAILURE IS `distinct > 1`.** If this arm ever reports that the
-/// save's census took several values across the compared frames, the snapshot
-/// started tracking and the defect is FIXED — delete this arm rather than
-/// repairing it, and check whether
-/// `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
-/// still means what it says, because that arm pins the one window (the first
-/// three ticks) where the snapshot was never pinned in the first place.
-/// ⛔ The bad failure is the CONTROL going empty: that means nothing moved at
-/// all and this arm is reporting on a dead run.
+/// ✅ **THE GOOD FAILURE ARRIVED 2026-09-16 AND THIS ARM IS INVERTED, NOT
+/// DELETED.** Its doc said `distinct > 1` means the snapshot started tracking and
+/// to delete it. It did — **236 values across 236 compared frames**, from 1 —
+/// when the three live→save mirrors moved into the sim schedule.
+///
+/// ⛔⛤ **DELETING IT WOULD HAVE THROWN AWAY THE ACCEPTANCE CRITERION.** The
+/// 2026-09-16 merged-state review refused to accept the repair on the repro
+/// alone: acceptance must show a representative in-simulation save mutation is
+/// *"genuinely being compared across repeated snapshots, rather than the checksum
+/// becoming accidentally pinned and therefore incapable of disagreement."* That
+/// is this measurement, standing. A checksum that cannot disagree looks exactly
+/// like a checksum that agrees, and nothing else in the tree can tell them apart.
+///
+/// ⚠ **THE FLOOR IS 50 AND NOT `> 1` ON PURPOSE.** The pinned regime read 1
+/// idle and 2 with an acting agent, so `> 1` would accept the effectively-frozen
+/// state this arm exists to refuse. The repaired regime reads 236 against
+/// neighbours' 238 — essentially every compared frame — so 50 sits an order of
+/// magnitude above the defect and far below the measurement, and distinguishes
+/// the two regimes without being brittle.
+/// ⛔ The bad failure is a CONTROL going empty: that means nothing moved at all
+/// and this arm is reporting on a dead run.
 #[test]
-fn the_saves_hashed_snapshot_holds_one_value_across_every_compared_frame() {
+fn the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at() {
     fn grant_each_tick_from_four(
         tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
         mut owned: bevy::prelude::ResMut<OwnedItems>,
@@ -460,14 +506,17 @@ fn the_saves_hashed_snapshot_holds_one_value_across_every_compared_frame() {
     );
 
     let distinct = audit.distinct_censuses_across_compared_frames_of::<Save>();
-    assert_eq!(
-        distinct, 1,
-        "the save's hashed projection took {distinct} value(s) across the frames \
-         this audit compared, and the measured state of this repository is ONE — \
-         pinned at the early-game value while the live save reached {mirrored} \
-         items and checksum {live:#018x}. ⇒ MORE THAN ONE IS THE GOOD FAILURE: \
-         the snapshot started tracking, so DELETE this arm rather than repairing \
-         it, and re-read `exactly_one_hashed_entry_diverges_when_the_bag_moves_\
-         and_it_is_the_save`, which pins the one window where it was never pinned."
+    assert!(
+        distinct >= 50,
+        "the save's hashed projection took only {distinct} value(s) across the \
+         frames this audit compared, while the live save reached {mirrored} items \
+         and checksum {live:#018x}. ⛔ A PINNED PROJECTION AGREES WITH ITS REPLAY \
+         BECAUSE IT CANNOT DIFFER, so every peer-checksum result about the save \
+         becomes vacuous — including the empty divergence set asserted by \
+         `no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves`. Measured \
+         2026-09-16: 1 value before the mirrors moved into the sim schedule, 236 \
+         after, against 238 for the busiest neighbours. Below 50 means the save \
+         has drifted back out of the rewind window, or its projection has \
+         narrowed to something that no longer tracks the state it covers."
     );
 }

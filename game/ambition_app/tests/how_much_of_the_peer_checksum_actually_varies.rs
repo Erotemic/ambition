@@ -382,13 +382,30 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
 /// from `Update`, read by sim systems, and invisible to this arm because neither
 /// is registered. That is `SETTINGS-ROLLBACK`'s row, not a hole in this one.
 ///
-/// ⭐ **THE POSITIVE CONTROL IS A KNOWN ANSWER ESTABLISHED BY ANOTHER ROUTE.**
-/// `AmbitionGameSave` MUST appear: S8 established independently, by reading the
-/// registration and by the pinned-snapshot measurement, that it is written from
-/// `Update`. An empty set here would otherwise read exactly like a world where
-/// nothing is written outside the schedule.
+/// ⛔⛤ **THE POSITIVE CONTROL DIED OF SUCCESS ON 2026-09-16 AND THIS ARM IS
+/// WEAKER FOR IT — SAID OUT LOUD BECAUSE A GUARD CHANGED BY THE WORK IT WAS
+/// WATCHING IS THE ONE TO DISTRUST.** The control was `AmbitionGameSave` MUST
+/// appear, established independently by reading its registration and by the
+/// pinned-snapshot measurement. It does not appear any more: the three
+/// live→save mirrors moved into the sim schedule (ROLLBACK-BAG-DESYNC's P0
+/// repair), so the set this arm measures is now genuinely EMPTY and the arm's
+/// own control was the defect.
+///
+/// ⛔ **SO AN EMPTY SET NO LONGER DISTINGUISHES A CLEAN WORLD FROM A BLIND
+/// INSTRUMENT, and the floors below do not fully close that.** They prove the
+/// audit ran and that the world was moving; they do NOT prove the
+/// outside-the-schedule DETECTOR still has power, because nothing in the tree
+/// exercises it any more.
+/// ⇒ **OWED: a SYNTHETIC positive control** — compose a system that writes a
+/// rollback-registered hashed resource from `Update` and assert this arm names
+/// it. That is a poison-as-fixture rather than a live defect, so it cannot die
+/// of success the way this one did. Until then this arm can report clean over a
+/// broken detector, and that is the failure mode to suspect first if it is ever
+/// the only thing standing between a regression and a green lane.
+/// (YardratAmbition's arm and their framing: a control pinned to a live defect
+/// dies when the defect is fixed.)
 #[test]
-fn exactly_one_registered_type_is_written_outside_the_rewinding_schedule() {
+fn no_registered_type_is_written_outside_the_rewinding_schedule() {
     let sim = run_with(playing);
     let (hashed, _) = hashed_types(&sim);
     let hashed: std::collections::BTreeSet<String> = hashed.into_iter().collect();
@@ -402,17 +419,22 @@ fn exactly_one_registered_type_is_written_outside_the_rewinding_schedule() {
          instrument ({})",
         audit.coverage()
     );
-    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
+    // ⛔ THE WORLD MUST HAVE BEEN MOVING. This does not replace the positive
+    // control the repair removed — see this arm's doc — but it does refuse the
+    // cheapest way for the set below to be empty: a run in which nothing
+    // happened at all.
+    let moved = audit.types_whose_census_moved_across_compared_frames();
     assert!(
-        outside.contains(&"ambition_persistence::save::AmbitionGameSave"),
-        "the positive control is missing: `AmbitionGameSave` is written from \
-         `Update` — established independently by reading its registration and by \
-         its pinned snapshot — so it must appear here. It did not, and an empty \
-         or short set reads exactly like a clean world. Found: {outside:?}"
+        moved.len() >= 5,
+        "only {} type(s) moved across the compared frames, so this was a \
+         near-static world and an empty set below says nothing about where \
+         writes happen",
+        moved.len()
     );
+    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
     assert_eq!(
         outside,
-        vec!["ambition_persistence::save::AmbitionGameSave"],
+        Vec::<&str>::new(),
         "a registered type other than the save is being written outside the \
          rewinding schedule. ⇒ THAT IS THE GOOD FAILURE IF IT IS NEW WORK and the \
          bad one if it is a regression: check whether the new entry also feeds \

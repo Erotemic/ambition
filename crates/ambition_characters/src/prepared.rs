@@ -1264,7 +1264,8 @@ impl CharacterBindings {
 
 /// A prepared character plus what preparation could and could not verify.
 ///
-/// Module-private for the same reason [`PreparedCharacterOverrides`] is: it
+/// Module-private for the same reason `PreparedCharacterOverrides` is (unlinked:
+/// that type is module-private too, so a public doc cannot point at it): it
 /// carries one, and a type that leaks a partial value leaks the partial phase.
 struct PreparedCharacter {
     prepared: PreparedCharacterOverrides,
@@ -2462,7 +2463,7 @@ impl StagedCharacterOverrides {
     /// THE LOAD-BEARING CHOICE.** A hand-rolled canonical writer is a population
     /// that rots: a new mechanical field is simply absent from it and nothing
     /// says so, which is the same defect one level up. The derive is exhaustive
-    /// by construction — a field added to [`PreparedCharacterOverrides`] changes
+    /// by construction — a field added to `PreparedCharacterOverrides` changes
     /// this dump on the day it is added.
     ///
     /// ⚠ **NOT `Debug`, DELIBERATELY.** `Debug` output is a rendering with no

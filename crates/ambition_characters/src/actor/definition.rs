@@ -302,7 +302,7 @@ impl CharacterDefinition {
     }
 
     /// Author the policy this character runs by default. See
-    /// [`Self::autonomous_profile`].
+    /// [`Self::autonomous_policy`], which is the field it writes.
     pub fn with_autonomous_profile(mut self, profile: crate::brain::BrainProfile) -> Self {
         self.autonomous_policy = Some(AutonomousPolicy::Inline(profile));
         self

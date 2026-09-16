@@ -249,12 +249,43 @@ hits the floor).
 determinism comes from the container, and a future change to a `HashMap` would
 make the fingerprint vary per process with nothing watching.
 
+⛔⛤ **AND A LOCAL DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY —
+MEASURED, NOT ARGUED.** The same sandbox harness, built twice:
+
+| build | dump lines | `message.causal_*` rows | `schema_fingerprint()` |
+|---|---|---|---|
+| default | 494 | 0 | `ssp1:7bc3233fdd0e73d8…` |
+| `--features causal` | 497 | 3 | `ssp1:b90539da551339d9…` |
+
+⇒ Two builds whose simulations are identical advertise different mechanical
+identities. They are identical because `message-clear` registrations carry no
+value of their own (`feeds_peer_checksum() == false`, and the causal channels
+feed a recorder, not the sim), so both peers would produce the same snapshots and
+the same checksums — and then refuse to play each other. That is a FALSE
+NEGATIVE in exactly the direction ID-PEER exists to prevent: host-local tooling
+reaching peer-stable identity.
+
+⭐ **THE REPOSITORY ALREADY DECIDED THIS AND THE DECISION IS NOT WHERE THE
+IDENTITY IS COMPUTED.** `rollback_schema_baseline.rs` filters `message.causal_*`
+from both sides of its comparison with the reason stated plainly — *"Causal
+recorder channels carry no snapshot bytes, so compiling the instrument must not
+change the state-schema baseline."* `compute_schema_fingerprint` hashes
+`schema_dump()` whole and never learned it. One fact, two owners, disagreeing —
+and the test's filter is what keeps the disagreement invisible, because it makes
+the lane green in both configurations.
+
+⇒ The fix is to state it once, where the kind is written: an instrument-only
+channel is a `RollbackEntryKind` that answers FALSE to being part of the peer
+schema, `schema_dump()` excludes it, and the test's name-prefix filter is deleted
+as redundant. ⭐ It costs no version bump and moves no baseline, because with the
+feature OFF — every shipping build — no such row exists and the dump is
+byte-identical. Filed as the thirteenth ID-PEER road.
+
 What this does NOT settle, and N3 still owes: **no peer handshake reads the dump
-or its version.** The invariant makes the identity honest and the arm makes it
-the shipped one; neither makes it EXCHANGED, which is the row's actual subject
-and waits on N2's absent P2P session. `message.causal_*` is also still filtered
-by the test rather than negotiated — a whole-schema identity that varies with a
-cargo feature is an N3 question nobody has ruled on.
+or its version.** The invariant makes the identity honest, the arm makes it the
+shipped one, and the road above makes it instrument-independent; none of them
+makes it EXCHANGED, which is the row's actual subject and waits on N2's absent
+P2P session.
 
 The [extension contract](extension-state-and-execution.md) extends this same
 compatibility manifest with module code, port versions, complete extension schema

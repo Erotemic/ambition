@@ -463,6 +463,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     };
     let live_binding = ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
         prepared_content.epoch(),
+        // ⭐ THE PEER HALF, FROM THE SAME VALUE THAT CARRIES THE EPOCH.
+        // `PreparedContent` exposes `epoch()` and `fingerprint()` side by side,
+        // so a site that can state the local generation can always state which
+        // content it is a generation OF.
+        ambition_platformer2d::session::PeerContentIdentity::from_bytes(
+            *prepared_content.fingerprint().as_bytes(),
+        ),
     );
 
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
@@ -574,7 +581,12 @@ pub(super) fn reload_ldtk_world_from_disk(
         // session it reloaded, not to the process — see `ActiveContentBinding`.
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             world,
-            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(committed_epoch),
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+                committed_epoch,
+                ambition_platformer2d::session::PeerContentIdentity::from_bytes(
+                    *committed_content.fingerprint().as_bytes(),
+                ),
+            ),
         );
         if let Some(mut index) =
             session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world)

@@ -20,8 +20,9 @@ pub use ambition_persistence::save::AmbitionGameSave;
 pub use ambition_persistence::save_data::AmbitionGameSaveData;
 pub use ambition_platformer2d_runtime::{
     ContentDiagnostic, ContentEpoch, ContentFingerprint, ContentFingerprintSchemaVersion,
-    PlatformerSessionCatalogs, PlatformerSessionRequests, PlatformerSessionWorld, PreparedContent,
-    PreparedContentIdentity, PreparedPlatformerSource, SnapshotSchemaFingerprint,
+    PeerContentIdentity, PlatformerSessionCatalogs, PlatformerSessionRequests,
+    PlatformerSessionWorld, PreparedContent, PreparedContentIdentity, PreparedPlatformerSource,
+    SnapshotSchemaFingerprint,
 };
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
     insert_session_world_component, session_world_component, session_world_component_mut,

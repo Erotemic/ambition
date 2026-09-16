@@ -855,8 +855,19 @@ pre-increment value and `Update` does not re-run, so the visit is lost; if the
 dialogue start is instead replayed through the sim, it is counted twice. ⚠ And
 `AmbitionGameSave` feeds the peer checksum, so the two peers need not even
 disagree about the dialogue to disagree about the number. ⇒ Answer this one
-FIRST: it is the case where "derived from sim state, so it converges" — the
-argument that makes the other five plausible — is simply not available.
+FIRST on the argument, but NOT first with a test: it is the case where "derived
+from sim state, so it converges" — the argument that makes the other five
+plausible — is simply not available.
+
+⚠ **THE TEST FOR IT IS THE EXPENSIVE ONE, MEASURED BEFORE ATTEMPTING IT.**
+`dispatch_pending_dialog_requests` early-returns unless a `DialogueRunnerEntity`
+exists, and `spawn_dialogue_runner` is itself
+`.run_if(resource_exists::<YarnProject>)` — so reaching the increment needs a
+compiled Yarn project in the harness, not just a stepped world. ⇒ The bag arm in
+`a_bag_changed_mid_window_reaches_the_save.rs` is the cheap member of this class
+and was done first for that reason; it is also the template, since the shape is
+identical: change the value from outside the rewinding schedule mid-window, and
+keep a no-rollback control beside it.
 
 ⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
 WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
@@ -930,18 +941,57 @@ waived to make a count go down.
 
   * `NewGameResetRequested` (`rollback_resource_canonical`) via
     `dispatch_menu_action` → `SystemMenuParams::request_reset`.
-  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm`, which is
-    what an equip or a consumable use goes through.
+  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm` →
+    `apply_menu_action`, which spells the write `owned.take(Item::HealthCell, 1)`
+    — an equip or a consumable USE.
+
+⛔ **AND THE REAL PATH DECREMENTS, SO THE REWIND HANDS THE ITEM BACK.** The arm
+below grants, because an increment is the easier thing to observe; the shipped
+menu `take`s. A rewind restores the pre-use count, so the health cell the player
+just drank returns to the bag.
+
+⚠ **I FIRST WROTE THAT THIS MAKES ITEM DUPLICATION THE LIKELY SYMPTOM. CHECKED,
+AND IT IS NOT.** Duplication needs the HEAL to survive while the ITEM comes
+back, and the heal does not: `apply_menu_action` writes `PlayerHealRequested`,
+which
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:622`
+registers `clear_message_on_rollback`, so
+the rewind clears the message as it restores the count. Both halves are undone
+together. ⇒ The symptom is the quieter one — **the menu action silently does
+nothing**, occasionally, only in netplay, and the state stays self-consistent
+throughout. That is harder to notice and much harder to report, which is the
+argument for fixing it rather than for relaxing about it.
+
+⭐ **AND THAT MESSAGE IS THE FIX ALREADY BUILT.** Somebody made
+`PlayerHealRequested` rollback-aware on this exact road. The item count beside it
+was left as a direct write, so half of one action is rollback-correct and half is
+not.
 
 ⭐ **THE TWO TYPES FAIL DIFFERENTLY, AND THE LOUDER ONE IS THE LUCKIER ONE.**
 Both are written from a LOCAL menu, so only one peer makes the write; what
 happens next depends on the registration kind, which
 `RollbackEntryKind::feeds_peer_checksum` decides.
 
-| type | kind | feeds the peer checksum | so a local menu write |
+| type | kind | feeds the peer checksum | measured behaviour |
 | --- | --- | --- | --- |
-| `NewGameResetRequested` | `ResourceCanonical` | **yes** | makes A's and B's checksums differ — a DETECTED desync |
-| `OwnedItems` | `ResourceClone` | **no** | is restored away on the next rewind, silently |
+| `NewGameResetRequested` | `ResourceCanonical` | **yes** | taken back by the rewind, SILENTLY — the room is never rebuilt |
+| `OwnedItems` | `ResourceClone` | **no** | taken back by the rewind, SILENTLY — the item returns |
+
+⛔✦ **I PREDICTED THE HASHED ONE WOULD BE THE LOUD ONE, AND IT IS NOT.** The
+table above originally read "makes A's and B's checksums differ — a DETECTED
+desync" for `NewGameResetRequested`, reasoning that a hashed type must produce a
+disagreement. MEASURED: it behaves exactly like the unhashed one. The write is
+erased before it can reach a snapshot that anyone compares, so being hashed buys
+nothing — **a checksum cannot disagree about a value that was put back before it
+was taken.** ⇒ Registration kind predicts whether a SURVIVING divergence is
+caught; it says nothing about a write that does not survive.
+
+⚠⚠ **AND ONE THING THESE ARMS CANNOT SHOW, so the row must not claim it.** The
+sync-test harness is ONE peer replaying itself. A write erased identically on
+every replay produces no mismatch to detect, so whether TWO peers would disagree
+in the window before the erase is a question no single-peer harness can answer.
+The LOCAL LOSS is measured for both types. The cross-peer divergence is NOT
+measured, and the earlier version of this row asserted it.
 
 ⛔ **SO `OwnedItems` IS THE ONE TO WORRY ABOUT.** Its kind is documented as
 "snapshotted but not hashed: a rewind restores them, no peer reads them", and
@@ -1013,11 +1063,11 @@ exists. So they are gated to run only in the window that matters. ⚠ A live sco
 is not by itself a live GGRS session (single-player has one too), but nothing
 here narrows them to the single-player case.
 
-**Still open:** the `NewGameResetRequested` half, which is the hashed one and a
-different failure. Its write is a one-bit flag consumed in `sim_schedule()`, so
-the question is not "is it lost" but "do the two peers hash a different bit" —
-the same arm shape as the one above, asserting `session_health` rather than a
-count. If it cannot, this is two
+**Still open:** only the cross-peer question, and it needs a TWO-PEER harness
+rather than the sync test. Both local halves are now measured and both are
+silent. ⇒ The fix does not wait on that answer: a local action that vanishes
+some of the time is already a defect, and routing both writes through a message
+the sim consumes fixes it whatever the answer turns out to be. If it cannot, this is two
 waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
 the menu's own state machine; answer it from what gates the menu, because "you
 would not do that" is not a property of the code. If it CAN, the write belongs

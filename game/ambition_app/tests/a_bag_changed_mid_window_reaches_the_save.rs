@@ -70,6 +70,19 @@ fn health(sim: &Platformer2dSimHarness) -> Result<(), String> {
     ambition_platformer2d::rollback::session_health(sim.world())
 }
 
+/// The room-scoped roster. A full sandbox reset despawns this whole set and
+/// respawns it, and despawn bumps the generation, so a reconstruction that
+/// really ran leaves NO original `Entity` value behind. Borrowed from
+/// `rollback_full_reset.rs`, which uses it for the same discrimination.
+fn feature_roster(sim: &mut Platformer2dSimHarness) -> std::collections::HashSet<bevy::prelude::Entity> {
+    use bevy::prelude::With;
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<bevy::prelude::Entity, With<
+        ambition_platformer2d::platformer::lifecycle::FeatureSimEntity,
+    >>();
+    q.iter(world).collect()
+}
+
 /// The LIVE bag, which is what separates the two ways this arm can fail: a
 /// mirror that did not write, and a write the rewind took back before the
 /// mirror ever saw it.
@@ -222,4 +235,104 @@ fn the_control_keeps_the_same_grant_when_nothing_rewinds() {
              find what else clears `OwnedItems` before reading it that way"
         );
     }
+}
+
+/// The OTHER half of `MENU-RESET-MIDSESSION`, and it is a different failure.
+///
+/// `NewGameResetRequested` is `rollback_resource_canonical`, which
+/// `RollbackEntryKind::feeds_peer_checksum` reports as hashed — so unlike the
+/// bag above, a local-only write to it is something the peers can DISAGREE
+/// about rather than something that vanishes quietly.
+///
+/// ⛔ `rollback_full_reset.rs` sets this same flag and then calls
+/// `rebase_rollback_history()`, folding it into the baseline ON PURPOSE, so the
+/// reconstruction runs on the baseline frame and every re-simulation of it. That
+/// is the safe shape by construction. This arm is the same write WITHOUT the
+/// rebase, which is what the menu actually does.
+#[test]
+fn a_reset_requested_from_update_mid_window() {
+    type NewGameResetRequested =
+        ambition_platformer2d::actors::session::reset::NewGameResetRequested;
+
+    let mut sim = repro_sim();
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    health(&sim).expect("the window is clean before the flag is set");
+
+    let roster_before = feature_roster(&mut sim);
+    assert!(!roster_before.is_empty(), "the room has a roster before the request");
+
+    // The menu's shape: set from outside the rewinding schedule, no rebase.
+    {
+        let world = sim.world_mut();
+        world.resource_mut::<NewGameResetRequested>().request = true;
+    }
+
+    let mut still_requested_at: Vec<usize> = Vec::new();
+    let mut desync: Option<(usize, String)> = None;
+    for frame in 0..180 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .get_resource::<NewGameResetRequested>()
+            .is_some_and(|flag| flag.request)
+        {
+            still_requested_at.push(frame);
+        }
+        if desync.is_none() {
+            if let Err(error) = health(&sim) {
+                desync = Some((frame, error));
+            }
+        }
+    }
+
+    // ⚠ THE PREMISE, AND IT HAS THREE POSSIBLE ANSWERS RATHER THAN TWO. A clean
+    // window here is only interesting if the flag was actually LIVE for part of
+    // it. If the rewind took the flag back the way it took the bag back, then
+    // `still_requested_at` is empty and this arm has reproduced the SILENT
+    // failure again rather than shown the hashed one to be safe.
+    assert!(
+        desync.is_none(),
+        "a reset requested from `Update` mid-window DESYNCED at {desync:?} — that \
+         is the hashed-half failure MENU-RESET-MIDSESSION predicted, and it is a \
+         stronger result than the silent one the bag arm found. \
+         flag still set on frames: {still_requested_at:?}"
+    );
+    // ⭐ THE DISCRIMINATOR. The flag was never observed set after the write, and
+    // that has two causes with opposite meanings: the sim CONSUMED it (a reset
+    // ran, and the room was rebuilt) or the rewind TOOK IT BACK (nothing
+    // happened, the same silent loss the bag arm found). A full sandbox reset
+    // despawns and respawns the room-scoped roster, so a reconstruction that
+    // really ran shares no `Entity` with the roster before it.
+    let roster_after = feature_roster(&mut sim);
+    let reconstructed = roster_before.is_disjoint(&roster_after);
+    assert!(
+        still_requested_at.is_empty(),
+        "the flag survived the window on frames {still_requested_at:?}, which is a \
+         THIRD outcome this arm has not seen and the row is not written for"
+    );
+    // ⛔✦ ASSERTS THE DEFECT, like its sibling. MEASURED 2026-09-16: the room was
+    // NOT rebuilt — 7 of 7 roster entities survived — so a reset requested from
+    // `Update` is taken back by the rewind exactly as the bag is. RED here means
+    // the request now survives, which is the FIX; delete the arm and close the
+    // row.
+    //
+    // ⚠⚠ WHAT THIS ARM CANNOT SHOW, and the row must not claim: the sync-test
+    // harness is ONE peer replaying itself, so a write that is erased identically
+    // on every replay produces no mismatch to detect. `NewGameResetRequested`
+    // feeds the peer checksum, and whether TWO peers would disagree before the
+    // erase is a question no single-peer harness can answer. The local loss is
+    // measured; the cross-peer divergence is not.
+    assert!(
+        !reconstructed,
+        "the reset request now survives the rewind and the room WAS rebuilt — \
+         that is the fix this arm is waiting for, not a regression"
+    );
+    assert_eq!(
+        roster_before.intersection(&roster_after).count(),
+        roster_before.len(),
+        "the roster partially changed, which is neither outcome this arm knows \
+         how to read — re-measure before trusting either assertion above"
+    );
 }

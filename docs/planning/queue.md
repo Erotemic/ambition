@@ -1286,6 +1286,16 @@ about what peers must agree on — so it belongs to the maintainer rather than t
 patch. ⚠ It settles three systems, not one: the other two `persist_*` mirrors
 write the same resource from the same `Update` chain.
 
+⭐⭐ **SUPERSEDED BY MEASUREMENT: IT IS THE FIRST THREE TICKS, NOT THE CADENCE.**
+An every-tick grant STARTING at tick 4 runs 120 steps clean with the bag reaching
+120; starting at tick 1 or 2 it desyncs at frames `[2, 3, 4]`. A cadence sweep
+(N consecutive grants from tick 20, N ∈ {1,2,3,4,5,8}) is clean at every N. ⇒ The
+reproduction at the top of this row changes the bag from tick 1, so it varied
+START TICK and cadence together — the paragraph below was the second of three
+framings and it was wrong for that reason. Kept because the measurement in it is
+still sound and because the correction is the useful part. Full table in
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
+
 ⭐ **AND IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE.** A `SimTick`-gated grant
 that fires once at tick 20 runs the full 240 steps clean — tick 241, health `Ok`
 — with the bag column proving the grant fired (3 → 4 at step 40) rather than the

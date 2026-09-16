@@ -293,6 +293,112 @@ fn probe_whether_the_single_grant_lands_where_the_comparison_looks() {
     }
 }
 
+/// ⛔ THE THRESHOLD BETWEEN "ONE CHANGE IS CLEAN" AND "EVERY TICK DESYNCS".
+/// Both are measured; the gap between them is the whole open question, and it is
+/// a PARAMETER rather than a mystery. `N` consecutive granting ticks starting at
+/// 20, for a spread of `N`. The smallest `N` that reports a mismatch is the
+/// answer, and a spread that is clean at every `N` says the cadence is not what
+/// matters after all.
+///
+/// ⚠ Read the bag column, not just the health: an `N` whose grants never fired
+/// is clean for the wrong reason, and the bag is what says they did.
+#[test]
+#[ignore = "PROBE, print-only: how many consecutive changed ticks it takes to desync"]
+fn probe_how_many_consecutive_changed_ticks_desync() {
+    fn run<const N: u64>() -> (u32, Option<String>) {
+        fn grant<const N: u64>(
+            tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+            mut owned: bevy::prelude::ResMut<OwnedItems>,
+        ) {
+            if (20..20 + N).contains(&tick.0) {
+                owned.grant(Item::HealthCell, 1);
+            }
+        }
+        let mut sim = sim_composed_with(grant::<N>);
+        for _ in 0..120 {
+            sim.step(AgentAction::default());
+        }
+        (
+            live_cells(&sim),
+            health(&sim)
+                .err()
+                .map(|error| error.chars().take(44).collect::<String>()),
+        )
+    }
+
+    // ⛔ The starter bag is 3, so `bag == 3 + N` is the premise that the grants
+    // fired; anything else and that row measures nothing.
+    for (n, (bag, err)) in [
+        (1, run::<1>()),
+        (2, run::<2>()),
+        (3, run::<3>()),
+        (4, run::<4>()),
+        (5, run::<5>()),
+        (8, run::<8>()),
+        // ⛔ UNBOUNDED FROM TICK 20. `N` up to 8 is clean and granting EVERY tick
+        // from tick 1 dies at frames [2, 3, 4], so the question is whether the
+        // cadence needs longer than 8 or whether the defect is about EARLY
+        // frames. This row is the discriminator: same every-tick cadence, late
+        // start. (Its premise is `bag > 3 + 8`, not `3 + N`.)
+        (0, run::<10_000>()),
+    ] {
+        let expected_floor = if n == 0 { 3 + 8 } else { 3 + n };
+        let fired = if bag >= expected_floor { "grants fired" } else { "⛔ PREMISE" };
+        let label = if n == 0 { "every tick from 20".to_string() } else { format!("N={n}") };
+        println!("   {label:>20} bag={bag:>3} ({fired}) health={err:?}");
+    }
+}
+
+/// ⛔ NOT CADENCE — START TICK. Granting EVERY tick from tick 1 desyncs at frames
+/// [2, 3, 4]; granting every tick from tick 20 is clean over 120 steps with the
+/// bag reaching 104. So the cadence sweep's answer was that cadence is not the
+/// variable. This sweeps the START TICK instead, granting unconditionally from
+/// `FROM` onward, and the smallest `FROM` that stays clean is the edge of the
+/// window where the defect lives.
+#[test]
+#[ignore = "PROBE, print-only: the start tick at which an every-tick grant stops desyncing"]
+fn probe_which_start_tick_stops_desyncing() {
+    fn run<const FROM: u64>() -> (u64, u32, Option<String>) {
+        fn grant<const FROM: u64>(
+            tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+            mut owned: bevy::prelude::ResMut<OwnedItems>,
+        ) {
+            if tick.0 >= FROM {
+                owned.grant(Item::HealthCell, 1);
+            }
+        }
+        let mut sim = sim_composed_with(grant::<FROM>);
+        for _ in 0..120 {
+            sim.step(AgentAction::default());
+        }
+        (
+            sim_tick(&sim),
+            live_cells(&sim),
+            health(&sim)
+                .err()
+                .map(|error| error.chars().take(44).collect::<String>()),
+        )
+    }
+
+    for (from, (tick, bag, err)) in [
+        (1, run::<1>()),
+        (2, run::<2>()),
+        (4, run::<4>()),
+        (6, run::<6>()),
+        (8, run::<8>()),
+        (12, run::<12>()),
+        (16, run::<16>()),
+        (20, run::<20>()),
+    ] {
+        // ⛔ The premise: a clean row must ALSO have kept ticking, or it is clean
+        // because the session died quietly rather than because nothing diverged.
+        let premise = if bag > 3 { "granted" } else { "⛔ NEVER GRANTED" };
+        println!(
+            "   from tick {from:>3}: end tick={tick:>4} bag={bag:>4} ({premise}) health={err:?}"
+        );
+    }
+}
+
 /// The schedule's own step count. This file never writes it, which is the
 /// point: it is the control column for a frozen bag.
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

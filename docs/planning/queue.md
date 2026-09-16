@@ -342,15 +342,56 @@ param pattern matched only `&mut T` and `ResMut<T>`, so `SessionWorldMut<T>` was
 invisible and a refactor that respelled one write made the guard report a live
 mutation as gone. All six types reached through that param are rollback-registered.
 
-**Next implementation:** give the guard a way to distinguish a simulation write
-from a presentation write — most likely by schedule rather than by type, since
-`Transform` is legitimately written in both. Then widen the population and triage
-what remains.
+⛔⛤ **A THIRD HOLE, CLOSED 2026-09-16, AND IT HID THE GUARD'S OWN FOUNDING
+SUBJECT.** `#[derive(SystemParam)]` is a fourth spelling: a bundle is ONE
+identifier in a signature and may hold any number of `ResMut` fields.
+`SessionScopedResources` holds 25, **13 of them rollback-registered** —
+including `MovingPlatformSet`, which is the single type this guard could see
+before the 2026-09-02 widening. So it was blind to a mutation of the type it was
+written around and reported clean. 60 such bundles exist across 42 files. ⚠ Half
+the hole was the LIFETIME: a signature elides it (`ResMut<T>`), a struct field
+cannot (`ResMut<'w, T>`), so the pattern was perfect on functions and matched
+nothing in the bodies that mattered. Visible systems 333 → 349; findings 1 → 10,
+each verified by reading rather than counted.
+
+⭐ **THE GENERAL FORM, now that there are three: EVERY hole in this guard has
+failed in the GREEN direction.** `&mut T` alone saw 1 type of 113,
+`SessionWorldMut<T>` hid six, `SystemParam` hid thirteen — and each time the
+report got SHORTER and CLEANER, which reads as good news. ⇒ `POPULATION_FLOOR`
+now makes the population size part of the verdict, checked BEFORE the findings:
+a fifth spelling cannot announce itself, but it cannot avoid making the count
+fall. "No offenders" over a collapsed population was the one thing this guard
+could never report.
+
+⚠ **AND THE `handle_ldtk_hot_reload` ACCEPTANCE BELOW IS BLOCKED ON THE SAME
+FACT AS THE WIDENING, which nothing had said.** MEASURED 2026-09-16: `RoomSet`
+and `LdtkRuntimeIndex` are `rollback_component_clone_checksum`. Adding
+`rollback_resource_clone[_checksum]` (113 → 139 types, 9 findings) does **not**
+restore that waiver — only including COMPONENT clone registrations does, and
+components are exactly where the 65 presentation `Transform` writes enter. So
+the two acceptance clauses are one clause.
+
+⇒ **THE RESOURCE HALF IS SEPARABLE AND IS NOT BLOCKED.** Resource clone
+registrations bring no `Transform`, so widening to
+`rollback_resource_clone[_checksum]` alone costs 9 findings rather than 65:
+`reset_inventory_on_new_game` gains all four of its non-canonical facts
+(`MintedItemBaseline`, `OwnedItems`, `OwnedItemsBaseline`, `SaveRestored`),
+plus `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
+`kaleidoscope_menu_action_activated`, `track_versus_roster`, and four
+`AmbitionGameSave` persistence mirrors that likely want waivers rather than
+fixes.
+
+**Next implementation:** land the resource-clone widening, which needs a triage
+of those 9 and not a presentation/simulation distinction. Separately, for the
+COMPONENT half, give the guard a way to tell a simulation write from a
+presentation write — most likely by schedule rather than by type, since
+`Transform` is legitimately written in both.
 
 **Acceptance:** the population is every rollback registration, not one
 registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
-being deleted; and a poison that respells a write in any supported param form
-still reddens the guard.
+being deleted; a poison that respells a write in any supported param form still
+reddens the guard; and the population floor fails when a spelling stops
+matching.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

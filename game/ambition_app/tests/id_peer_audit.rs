@@ -29,8 +29,30 @@
 //! to be canonical — the defect is its PROVENANCE, which no type census can
 //! read. Two have now been found this way and both were invisible here: the
 //! match-spawn tick (in a constructor's argument) and the session root (in a
-//! singleton's key). ⇒ Provenance defects are held by value-level arms in the
-//! crate that MINTS the identity, and this table routes to them.
+//! singleton's key).
+//!
+//! ⛔⛤ **AND "A VALUE-LEVEL ARM IN THE CRATE THAT MINTS IT" IS WHAT THIS
+//! PARAGRAPH USED TO SAY, WHICH IS HOW THE SESSION ROOT SPENT A DAY GUARDED ON A
+//! ROAD NOTHING SHIPS.** The minting crate's arm called
+//! `ActiveGameplaySession::spawn_world_for`, which had no production caller at
+//! all — A10's candidate road builds its own root. Re-keying the LIVE mint on
+//! the session scope counter left the whole app suite green at 705 passed / 0
+//! failed. ⇒ **The road, not the crate.** The two resolutions that actually
+//! hold, one each:
+//!
+//! * **A value census over a BUILT WORLD, across two local histories.**
+//!   `two_local_histories_name_every_simulated_entity_identically`
+//!   (`shell_host_lifecycle`) launches the same route first in one host and
+//!   third in another, asserts the local tokens DIFFER (scope `0` vs `2`, epoch
+//!   `1` vs `3`) so the comparison is controlled, and compares all 22 canonical
+//!   identities. A Sanic session is the disagreement half.
+//! * **Closure by SHAPE, when no argument can carry a local term.**
+//!   `SimId::match_spawn` takes the session's match ordinal and a crossing
+//!   ordinal derived from a clock zeroed at every match instance change, so the
+//!   defect is unspellable. An arm there would assert what the types guarantee —
+//!   and its road does not currently ship anyway.
+//!
+//! ⇒ Ask which function the SHIPPED composition calls before writing either.
 //! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
 //! | construction provenance | **CLOSED at the projection, AND IT WAS NOT CLOSED AT THE PRODUCTION ROADS UNTIL 2026-09-16.** `TransactionId` projects the content identity and the room, excluding the app-local content epoch and the session stamp; `two_hosts_with_different_local_history_project_one_transaction_identity` holds that. ⛔⛤ But the door transition, the reset and the neighbour prefetch all stamped their roots `content-unstated`, so the term the projection KEEPS was absent on three of the four roads that mint one. `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` (plus the death and reset arms beside it) is the production witness; `ActorConstructionContext::for_live_room_construction` is the repair |
 //!

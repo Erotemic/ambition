@@ -58,7 +58,8 @@ pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::{
     build_visible_app, build_visible_app_with, prefetch_preparations,
-    run_shared_host_acceptance_cycle, run_shared_host_headless, shared_host_startup_ticks,
+    run_shared_host_acceptance_cycle, run_shared_host_headless,
+    run_shared_host_headless_in_room, shared_host_startup_ticks,
     SharedHostAcceptanceReport, SharedHostHeadlessReport, VisibleRenderMode,
     SHARED_HOST_HEADLESS_TICK_HZ,
 };

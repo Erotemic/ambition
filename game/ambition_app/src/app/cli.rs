@@ -280,7 +280,36 @@ pub fn run_visible() {
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SharedHostHeadlessReport {
-    pub ticks_run: u32,
+    /// Executions of Bevy's `FixedUpdate` — the OUTER host clock.
+    ///
+    /// ⛔⛤ **THIS FIELD WAS CALLED `ticks_run` AND THAT NAME WAS A LIE ON THIS
+    /// RUNNER — NAMED BY THE GPT REVIEW OF 2026-09-16.** `6bab891e5` correctly
+    /// stopped the headless reports returning the REQUESTED tick count, and
+    /// applied the same repair here by counting `FixedUpdate`. But this
+    /// composition is `SimulationHost::Rollback`, and the rollback backend
+    /// advances `GgrsSchedule` from `PreUpdate` via `RunGgrsSystems`. Those are
+    /// different clocks, and there is no invariant making one Bevy fixed step
+    /// equal one GGRS advance: a rollback host can advance zero, one or several
+    /// times per outer frame depending on synchronisation and resimulation.
+    ///
+    /// ⇒ So this is an honest answer to *"how many outer fixed steps ran"*, which
+    /// is not the question a caller asking *"did the simulation run"* means. That
+    /// caller wants [`Self::simulation_advances`].
+    pub outer_fixed_steps: u32,
+    /// Executions of the SIMULATION schedule — whichever host this composition
+    /// built, read through `SimScheduleExt::sim_schedule`.
+    ///
+    /// ⭐ **DELIBERATELY NOT ROLLBACK-REGISTERED, so a resimulated frame counts
+    /// again.** The question this answers is *"did the simulation schedule
+    /// execute"*, and a rewind re-executing ten frames genuinely is ten more
+    /// executions. A confirmed-frame count is a different measurement and
+    /// `SimTick` already owns it.
+    ///
+    /// ⚠ **ZERO IS A LEGITIMATE AND IMPORTANT ANSWER.** A shared-host run idling
+    /// on the launcher has no gameplay session, so nothing simulates however many
+    /// outer frames pass — which is exactly the case that made the old single
+    /// number misleading, and `the_launcher_idle_run_simulates_nothing` pins it.
+    pub simulation_advances: u32,
     pub active_route: Option<String>,
     pub launcher_active: bool,
     pub gameplay_session_active: bool,
@@ -291,8 +320,10 @@ impl std::fmt::Display for SharedHostHeadlessReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "shared host: {} tick(s), route={}, launcher={}, gameplay_session={}",
-            self.ticks_run,
+            "shared host: {} outer fixed step(s), {} simulation advance(s), \
+             route={}, launcher={}, gameplay_session={}",
+            self.outer_fixed_steps,
+            self.simulation_advances,
             self.active_route.as_deref().unwrap_or("<none>"),
             self.launcher_active,
             self.gameplay_session_active,
@@ -333,21 +364,41 @@ pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
 /// This is intentionally distinct from [`crate::headless::run_headless`], the
 /// explicit direct-sandbox runner. Startup, launcher, providers, session bridge,
 /// frontend audio context, and host-relative routing are all composed here.
+///
+/// `AMBITION_HEADLESS_GAMEPLAY_ROOM=<room id>` selects a gameplay room instead of
+/// idling on the launcher; see [`run_shared_host_headless_in_room`], which is the
+/// same road with the room as an argument.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
+    // ⭐ THE ENV VAR IS READ IN EXACTLY ONE PLACE AND IMMEDIATELY BECOMES AN
+    // ARGUMENT. It used to be read inside the body, which made the gameplay-room
+    // road reachable only by mutating process environment — so no test could take
+    // it, and `simulation_advances` had no positive control: a run reporting ZERO
+    // advances was indistinguishable from a counter that was never installed.
+    let room = std::env::var("AMBITION_HEADLESS_GAMEPLAY_ROOM")
+        .ok()
+        .filter(|room| !room.trim().is_empty());
+    run_shared_host_headless_in_room(room, max_ticks)
+}
+
+/// [`run_shared_host_headless`] with the gameplay room stated rather than read
+/// from the environment.
+///
+/// `Some(room)`: select the Ambition route and play `max_ticks` ticks in that
+/// room. This is the whole shipped host — every schedule the windowed binary
+/// runs, minus the render app — in a room of choice, which is what
+/// `--start-room` cannot give (it selects the direct sandbox host, with no
+/// rollback session). `None`: idle on the launcher.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_shared_host_headless_in_room(
+    gameplay_room: Option<String>,
+    max_ticks: u32,
+) -> SharedHostHeadlessReport {
     use bevy::time::TimeUpdateStrategy;
     use std::time::Duration;
 
-    // `AMBITION_HEADLESS_GAMEPLAY_ROOM=<room id>`: instead of idling on the
-    // launcher, select the Ambition route and play `max_ticks` ticks in that
-    // room. This is the whole shipped host — every schedule the windowed
-    // binary runs, minus the render app — in a room of choice, which is what
-    // `--start-room` cannot give (it selects the direct sandbox host, no
-    // rollback session). The room override is a composition input, so it goes
-    // in through the one hook that exists for that.
-    let gameplay_room = std::env::var("AMBITION_HEADLESS_GAMEPLAY_ROOM")
-        .ok()
-        .filter(|room| !room.trim().is_empty());
+    // The room override is a composition input, so it goes in through the one
+    // hook that exists for that.
     let room_for_compose = gameplay_room.clone();
     let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, true, move |app| {
         if let Some(room) = room_for_compose {
@@ -413,16 +464,32 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     // a tick, and report what the schedule ran rather than what the caller asked for.
     #[derive(bevy::prelude::Resource, Default)]
     struct FixedStepsTaken(u32);
+    // ⛔⛤ THE SECOND CLOCK, BECAUSE THE FIRST ONE IS NOT THE SIMULATION'S. See
+    // `SharedHostHeadlessReport::outer_fixed_steps`: this composition is
+    // `SimulationHost::Rollback`, whose backend advances `GgrsSchedule` from
+    // `PreUpdate`, so counting `FixedUpdate` answers a question about the host
+    // and labels it as an answer about the simulation.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct SimAdvancesTaken(u32);
     let timestep = app
         .world()
         .resource::<bevy::time::Time<bevy::time::Fixed>>()
         .timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app.init_resource::<FixedStepsTaken>();
+    app.init_resource::<SimAdvancesTaken>();
     app.add_systems(
         bevy::prelude::FixedUpdate,
         |mut taken: bevy::prelude::ResMut<FixedStepsTaken>| taken.0 += 1,
     );
+    {
+        use ambition_platformer2d::sim::SimScheduleExt;
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            |mut taken: bevy::prelude::ResMut<SimAdvancesTaken>| taken.0 += 1,
+        );
+    }
     // The first `update()` runs `Startup` and steps the fixed schedule zero times,
     // so a plain `0..max_ticks` frame loop is one tick short. The frame budget
     // bounds a fixed loop that stops advancing; the count it then reports is short,
@@ -432,7 +499,8 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         app.update();
         frames += 1;
     }
-    let ticks_run = app.world().resource::<FixedStepsTaken>().0;
+    let outer_fixed_steps = app.world().resource::<FixedStepsTaken>().0;
+    let simulation_advances = app.world().resource::<SimAdvancesTaken>().0;
 
     let world = app.world();
     let active_route = world
@@ -447,7 +515,8 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         .is_some_and(|session| session.0.is_some());
 
     SharedHostHeadlessReport {
-        ticks_run,
+        outer_fixed_steps,
+        simulation_advances,
         active_route,
         launcher_active,
         gameplay_session_active,

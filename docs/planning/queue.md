@@ -1184,6 +1184,39 @@ rather than running N frames. **Guarded by**
 `probe_how_many_fixed_steps_an_unpinned_headless_app_takes` (`013b70c89`) and by
 each repaired arm's own poison. Closing measurements: `c6edd7e7c`.
 
+⛔⛤ **AND THE REPAIR WAS OVERSTATED FOR ONE OF THE TWO RUNNERS — NAMED BY THE GPT
+REVIEW OF 2026-09-16 AND NOW CLOSED.** *"Counting real `FixedUpdate` executions"*
+is the right repair for `run_headless`, which is the direct sandbox host. It is
+the WRONG CLOCK for `run_shared_host_headless`, which composes
+`SimulationHost::Rollback` — the rollback backend advances `GgrsSchedule` from
+`PreUpdate` via `RunGgrsSystems`, and **no invariant equates one Bevy fixed step
+with one GGRS advance.** A rollback host may advance zero, one or several times
+per outer frame depending on synchronisation and resimulation. So the field
+honestly answered *"how many outer fixed steps ran"* and was named `ticks_run`,
+which is what headless scripts read as *"the simulation ran"*.
+
+⇒ **MEASURED, and the two numbers disagree in both directions:**
+
+| run | outer fixed steps | simulation advances |
+| --- | --- | --- |
+| gameplay room, 30 ticks | 30 | **28** |
+| launcher idle, startup budget | ~300 | **0** |
+
+The launcher row is the review's own suggested poison, and this runner supplies
+it free: no gameplay session exists, so nothing simulates however many outer
+frames pass — while the old single number reported ~300 "ticks".
+
+⇒ `SharedHostHeadlessReport` now carries `outer_fixed_steps` AND
+`simulation_advances`, the latter counted by a system in `app.sim_schedule()` and
+deliberately not rollback-registered so a resimulated frame counts again.
+`a_gameplay_room_run_actually_advances_the_simulation` is the positive control
+without which the launcher zero is uninterpretable — it was impossible to write
+until the gameplay room stopped being an env var read inside the function body
+and became an argument (`run_shared_host_headless_in_room`), because a parallel
+test binary cannot safely mutate process environment. ⚠ The two counts are
+deliberately NOT asserted equal: pinning a ratio would re-assert the invariant
+the review showed does not exist.
+
 ⛔ **STANDING PROHIBITIONS THIS ROW BUYS.** Never assert about simulation state
 after N `update()` calls without pinning the clock, and never report a count the
 caller supplied. **The session world arrives on FRAMES with ZERO fixed steps** —

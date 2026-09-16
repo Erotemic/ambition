@@ -617,9 +617,25 @@ both modifiers are neutral.
 
 **Owner:** [`engine/projectile-contact-protocol.md`](engine/projectile-contact-protocol.md).
 
-**Current state:** the swept-contact resolver, finite obstruction, exact ordering,
-targeted delivery and compound solid-contact policy are established. Build-site
-census coverage also exists.
+**Current state (2026-09-16): THE CONSTRUCTION-IDENTITY HOLE — THIS ROW'S TITLE
+AND WHOLE SCOPE — IS CLOSED.** ⚠ That is NOT all of A2: the work frontier's
+[A2a/A2b/A2c](engine/actor-monolith-work-frontier.md) are the geometry, obstruction
+and recipient-naming contracts, and they are a different subject with a different
+normative owner. A reader who takes "A2 closed" from here and applies it there
+will be wrong. The swept-contact resolver, finite
+obstruction, exact ordering, targeted delivery and compound solid-contact policy
+were already established, with build-site census coverage. The two identity roads
+this row existed for are closed and the acceptance is met — the player clone
+(`ADR 0030`, one site) and the five dynamic-mint fallbacks (`_ => None` at every
+bare `match` over `SimId::spawned`), with `UnmintedBodyCensus` naming the
+construction ROAD in its witness.
+
+⚠ **TWO MINT SITES DEGRADE ON PURPOSE AND STAY,** and that is a count, not a
+completeness word: `ambition_held_items`'s thrown-item mint and
+`puppy_slug_gun`'s minion mint are `.ok().map(..)`, marked at the site as the
+visible edge of the unclosed inventory leg on `ItemCustody`. They belong to that
+leg, not to this row. ⇒ A sixth bare-`match` site found tomorrow makes this
+"five closed, a sixth found" rather than making the row false.
 
 ✅ **THE PLAYER-CLONE ROAD IS CLOSED.** `spawn_requested_player_clone` built a
 body with `BodyKinematics`, `PlayerEntity` and the full movement clusters, and

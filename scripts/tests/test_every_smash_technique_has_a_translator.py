@@ -69,6 +69,30 @@ def _is_test_file(path: Path) -> bool:
     return is_test_path(path)
 
 
+#: ⛔⛤ **A FLOOR ON THE HAYSTACK, AND THIS COPY'S RISK RUNS THE OTHER WAY FROM
+#: ITS SIBLINGS.** `_is_test_file` is one of FIVE copies of "is this file
+#: test-only" in `scripts/`, drifted into five different answers; this one is the
+#: narrowest (no `*_tests.rs`, no `test.rs`). For the other copies a WIDENED
+#: exclusion is the silent danger, because they report cleaner when they see
+#: less. Here it is loud: a smaller haystack produces MORE orphans, so
+#: over-exclusion fails the test rather than hiding a defect.
+#:
+#: ⚠ The silent direction here is the opposite one — an exclusion too NARROW lets
+#: a test file into the haystack, and then a const named only by a test reads as
+#: a connected technique. That is the recorded defect in `_is_test_file`'s own
+#: docstring. ⇒ So when the five copies are consolidated onto one owner, this
+#: call site must not LOSE exclusions, and the floor below cannot see that. It
+#: is here to make the consolidation reviewable, not to make it safe.
+#:
+#: MEASURED 2026-09-16: 282 ruleset files scanned, 86 excluded as tests. Then
+#: the consolidation onto `lib.rust_sources` GAINED exclusions rather than
+#: losing them — `*_tests.rs` and `test.rs` by name, plus whole-file
+#: `#![cfg(test)]` — and the reading fell to 257 kept of 368, 109 excluded by
+#: name and 2 by the attribute. That is this guard's loud direction, and the
+#: floor is lowered to match a haystack that is correctly smaller.
+RULESET_FILE_FLOOR = 245
+
+
 def _ruleset_text() -> str:
     parts: list[str] = []
     for root in RULESETS:
@@ -79,6 +103,12 @@ def _ruleset_text() -> str:
             if file_is_test_only(text):
                 continue
             parts.append(text)
+    assert len(parts) >= RULESET_FILE_FLOOR, (
+        f"this guard now reads only {len(parts)} ruleset file(s), floor is "
+        f"{RULESET_FILE_FLOOR}. Something narrowed its reach — most likely the "
+        "test-file exclusion — and a verdict over this corpus would be a claim "
+        "about the scan rather than about the rulesets"
+    )
     return "\n".join(parts)
 
 

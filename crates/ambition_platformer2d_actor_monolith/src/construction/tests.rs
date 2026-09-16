@@ -4073,7 +4073,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
 
     assert_eq!(
         plan.construction_binding(),
-        ContentBinding::Content { epoch: ae::ContentEpoch(4), content: Default::default() },
+        ContentBinding::content_unstated(ae::ContentEpoch(4)),
         "the commit boundary would compare this plan against generation 5 while \
          the live world is still 4, and refuse the very reload introducing 5"
     );
@@ -4081,7 +4081,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
     let session = ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED;
     let stamped = plan.construction().scope().transaction(session);
     let expected = ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation(
-        ContentBinding::Content { epoch: ae::ContentEpoch(5), content: Default::default() },
+        ContentBinding::content_unstated(ae::ContentEpoch(5)),
         Some(room.id.clone()),
     )
     .transaction(session);
@@ -4161,8 +4161,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     assert_eq!(
         named,
         Some((
-            ContentBinding::Content { epoch: ae::ContentEpoch(4), content: Default::default() },
-            ContentBinding::Content { epoch: ae::ContentEpoch(9), content: Default::default() },
+            ContentBinding::content_unstated(ae::ContentEpoch(4)),
+            ContentBinding::content_unstated(ae::ContentEpoch(9)),
         )),
         "the boundary compared the wrong half of the scope. It must name the \
          EXPECTED-LIVE generation (4) against the live one (9); naming the \

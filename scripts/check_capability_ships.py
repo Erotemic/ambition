@@ -187,12 +187,11 @@ def _is_test(path: Path) -> bool:
 #: intersection empties silently, which is indistinguishable from "every
 #: capability ships".
 #:
-#: ⚠ THIS SCRIPT IS A KNOWN DIVERGENCE POINT. Its `_is_test` matches
-#: `test_support.rs` but NOT `test.rs` or `*_tests.rs` — the narrowest of the
-#: five copies of that rule in `scripts/` (see `GUARD-CORPUS` in
-#: `docs/planning/queue.md`). Widening it toward the others REMOVES files from
-#: `production files`, which is the green direction, so the floor exists to make
-#: that change reviewable rather than invisible.
+#: ⚠ THIS SCRIPT WAS THE NARROWEST OF THE FIVE COPIES of the test-file rule and
+#: now shares `lib.rust_sources` with the rest. Adopting it REMOVED files from
+#: `production files` — 1334 to 1264, and `writer types` 414 to 408 — which is
+#: the green direction, so these floors are what made that reviewable. They held
+#: unchanged across the change and the verdict did not move.
 POPULATION_FLOOR = {
     "files scanned": 1450,
     "production files": 1250,

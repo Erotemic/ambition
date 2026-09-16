@@ -816,6 +816,21 @@ sim three extra times and `Update` zero extra times; the other peer did neither.
 between a peer that rewound into it and one that did not. That is not answered
 by "side effects are not replayed", and nothing in the tree answers it elsewhere.
 
+⛔⛤ **A FOURTH WRITER OF `AmbitionGameSave`, AND IT IS NOT A MIRROR — THIS IS
+THE SHARPEST OF THE SET.** `dispatch_pending_dialog_requests`
+(`ambition_dialog/src/bridge.rs:125`, registered into `Update` at :53) calls
+`save.data_mut().increment_dialog_visit(&dialogue_id)` when a dialogue starts.
+
+⇒ The five systems above DERIVE the save from simulation state, so running them
+twice writes the same bytes and running them zero times loses only freshness. An
+INCREMENT has neither property. A rollback restores `AmbitionGameSave` to its
+pre-increment value and `Update` does not re-run, so the visit is lost; if the
+dialogue start is instead replayed through the sim, it is counted twice. ⚠ And
+`AmbitionGameSave` feeds the peer checksum, so the two peers need not even
+disagree about the dialogue to disagree about the number. ⇒ Answer this one
+FIRST: it is the case where "derived from sim state, so it converges" — the
+argument that makes the other five plausible — is simply not available.
+
 ⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
 WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
 `check_rollback_mutators_run_in_sim.py` "FOR THE ACTIVATION CASE ONLY, AND THE

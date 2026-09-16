@@ -264,6 +264,23 @@ WAIVERS: dict[str, str] = {
         "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
         "faces. ⚠ Same nesting as `grid_menu_nav`."
     ),
+    "track_versus_roster": (
+        "\u26d4 ONE WRITE, AT ROUTE ENTRY, BEFORE THE SESSION THAT WOULD REWIND "
+        "IT. `*match_state = VersusMatch::opening()` sits alone in the "
+        "`(on_versus, mine) == (true, false)` arm of `versus.rs`; every other "
+        "combination falls through `_ => {}`, so once this route has published a "
+        "`MatchParticipantRoster` under its own name the system cannot write "
+        "again. Checked at what could un-publish it and make `mine` false "
+        "mid-match: in production only the experience scope's "
+        "`releasing_owned::<MatchParticipantRoster>`, which is the route EXIT and "
+        "ends the session with it \u2014 the other removals are test code and "
+        "`demo_smash`'s own experience, which is a different route. "
+        "\u26a0 `VersusMatch` DOES feed the peer checksum "
+        "(`rollback_resource_clone_checksum`), so this waiver rests entirely on "
+        "the write preceding the timeline: `maintain_local_session` starts GGRS "
+        "only once a live primary player body exists, and at route entry the "
+        "roster is still `RosterSeating::Proposed` with no bodies seated."
+    ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "
         "It writes `BodyWallet` from `Update` while applying a save. At session "

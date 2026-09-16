@@ -199,6 +199,18 @@ def main() -> int:
             # then not a type at all. Counted and REPORTED rather than silently
             # dropped: "it ran and found nothing" and "it never ran" must be
             # different strings.
+            #
+            # ⛔⛤ **DO NOT "FIX" THE SKIP COUNT TO ZERO BY ADDING A
+            # `subject_type` FIELD — I OPENED ALL EIGHT AND THEY HAVE NO SINGLE
+            # SUBJECT.** Seven are the `EDIT-*` family plus `AUTH-CHECKPOINT-
+            # RESTORE`, whose representation is literally *"Resources and, where
+            # needed, component projection"* or *"Resources and operation keys"*:
+            # they describe a PROTOCOL spanning an editable mirror, a proposal, an
+            # admission and a live target. `AUTH-PLAYER-STATS` is *"Components
+            # with editable mirror and sync snapshot"*. Naming one type for any of
+            # them would invent a shape the item does not have, and the check
+            # would then verify a fiction. ⇒ These are unresolvable BY NATURE, not
+            # by parser weakness, and the printed count is the honest report.
             skipped += 1
             continue
         checked += 1

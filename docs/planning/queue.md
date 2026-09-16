@@ -1250,6 +1250,13 @@ The reproduction is committed and costs one `cargo test` to re-run:
 names the entry, and `probe_how_far_each_harness_ticks_over_the_same_window`
 prints the full matrix.
 
+⚠ **THE PROBES COST THE LANE NOTHING BECAUSE THEY DO NOT RUN IN IT.** They are
+`#[ignore]`d and print-only; the assertions that hold this finding in place are
+Yardrat's `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
+and the three live arms in the same file. Full lane measured 2026-09-16 on the
+no-GPU box: `cargo test -p ambition_app --test app_it` → 683 passed, 0 failed,
+30 ignored, 726.66s.
+
 ⚠ **SCOPE, because it decides whether this is urgent.** A sync test is one
 machine rewinding itself. If a single App disagrees with its own replay, no peer
 is needed for the divergence, and every road that changes a bag during play —

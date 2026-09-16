@@ -93,6 +93,14 @@ def stale_mood(items: list[dict]) -> list[str]:
     ⇒ The pattern is IMPORTED from `check_discharged_holds_are_rewritten` rather
     than restated, so widening it there widens it here. One authority for the
     grammar; two artifacts scanned.
+
+    ⚠ **ITS REACH, STATED RATHER THAN IMPLIED: a hypothesis that names NO
+    campaign and uses a BARE imperative is invisible here.** `ROAD-DEV-RELOAD`
+    said *"Make this use the same prepare -> validate -> publish -> retire road
+    as other replacements"* — already true, and it tripped nothing, because the
+    rule needs a row id `queue.md` marks finished within reach of a verb. Two
+    items have been found that way and both took READING the source behind the
+    claim. Do not read a clean run here as "every hypothesis is live".
     """
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import check_discharged_holds_are_rewritten as holds

@@ -362,9 +362,21 @@ thing it was protecting was a list.
 defined outside this repository, so the `git grep '(struct|enum) X'` index cannot
 see them and reported both as having no float-bearing fields. `Transform` is three
 `Vec3`/`Quat`. They are named in `EXTERNAL_TYPES` now with their floats stated.
-ⓘ Their registration had no recorded reason: the comment above them described
-portal-gun timers that had left for `ambition_portal2d::register_rollback_state`,
-and the carve moved the code while leaving the reason to be read as theirs.
+⛔⛤ **AND THEIR REASONS ARE RECORDED IN ANOTHER CRATE'S TEST, WHICH IS THE
+FINDING.** I first wrote that these two registrations had no recorded reason.
+They have one: `rollback_exit_oracle.rs`'s `PRESENCE_ONLY` allowlist says `Name`
+is *"authored debug name; immutable at runtime"* and `Transform` is *"presentation
+transform, republished from BodyKinematics every frame"*, and that allowlist is
+what makes them DECIDED placements rather than accidents. A reader standing at the
+registration site cannot see it — what sat there instead was a stranded comment
+about portal-gun timers that had left for
+`ambition_portal2d::register_rollback_state`, which the carve left behind to be
+read as theirs.
+
+⇒ A registration's justification living in a test's allowlist in a different crate
+is the same shape as the `detail` column's problem one level up: the fact has an
+owner, and it is not where the fact is used. Both are now cross-referenced; the
+one-owner question is `Q122`'s.
 
 ⇒ Two ways out, and the first is cheaper than sweeping 175 rows: either the
 registrar TAKES the coverer (the projection or type that does compare this fact)

@@ -1368,6 +1368,17 @@ have told them they were clear of a charge they had not answered.
   with the cause one line above, and has been seen as six ordinary-looking
   compile errors with no `os error 28` anywhere.
 
+⭐ **`SimTick` ADVANCES 1:1 WITH `sim.step()` — MEASURED 2026-09-16, and it is
+the discriminator nobody reaches for.** `fixed_60hz_room_sim("blink_run")`,
+sampled every 40 steps: `[(0,0), (40,40), (80,80), (120,120), (160,160),
+(200,200), (240,240)]`. A peer read a derived count freezing flat over 240 frames
+as *"the simulation stops advancing ticks"*; it does not. ⇒ **"The sim stopped"
+and "my writer stopped" produce identical evidence downstream, and only the TICK
+tells them apart.** Sample `ambition_platformer2d::time::SimTick` before
+attributing a frozen value to the schedule. ⚠ Scope: the fixed-tick harness. A
+rollback composition is a different host in a different schedule, so re-measure
+there rather than quoting this.
+
 **Still open.** One non-reproducing session-root handoff failure whose assertion
 message was never captured. On the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test

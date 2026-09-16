@@ -987,17 +987,24 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `.after` on the projection alone leaves this free to run after
                 // the publication and hand it last frame's row.
                 .before(ambition_combat::components::DamageFacingVolumesPublished)
-                // ⛔⛤ **THE GATE, NOT A PHASE. `.in_set(WorldPrep)` HERE IS A
-                // DEPENDENCY CYCLE.** This needs a set for one reason: it takes
-                // `Res<BossCatalog>`, whose sole production initializer is
-                // `BossEncounterSimulationPlugin`, so without the
-                // `simulation_authorized` gate it runs in compositions where its
-                // own capability is absent and panics *"Parameter
-                // `Res<BossCatalog>` failed validation"*. But it also runs
-                // `.after(project_boss_attack_state_from_move)`, which is
-                // `.in_set(CombatSet::Playback)` — LATER than `WorldPrep`. Naming
-                // the phase orders this both before and after Playback.
-                // `GameplaySimulationRoot` carries the gate and pins no phase.
+                // ⛔ ITS CAPABILITY IS A RESOURCE, SO THE GUARD IS A RESOURCE
+                // CONDITION. It takes `Res<BossCatalog>`, whose sole production
+                // initializer is `BossEncounterSimulationPlugin`; a host that
+                // omits that plugin must SKIP this system, not fail parameter
+                // validation. A session gate cannot say that — it answers
+                // "is this session authorized", which is a different question
+                // and is true in hosts that have no catalog.
+                .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
+                    ambition_boss_encounter::BossCatalog,
+                >)
+                // ⛔⛤ **AND THE SET IS THE GATE, NEVER `WorldPrep`.** This system
+                // also runs `.after(project_boss_attack_state_from_move)`, which
+                // is `.in_set(CombatSet::Playback)` — LATER in the sim schedule
+                // than `WorldPrep`. Naming that phase orders this system both
+                // before and after Playback: a dependency cycle, which the fixed
+                // loop retries forever while allocating.
+                // `GameplaySimulationRoot` carries `simulation_authorized` and
+                // pins no position.
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
         );
         // ── The SECOND publication of every body's damageable volumes ──

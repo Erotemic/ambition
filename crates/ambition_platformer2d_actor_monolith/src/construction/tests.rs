@@ -1425,9 +1425,7 @@ fn a_room_that_fails_verification_is_not_published() {
     let mut app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(
-            ambition_platformer2d_core::ContentEpoch(7),
-        ));
+            crate::world::rooms::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()));
     });
 
     let verification = app
@@ -3451,9 +3449,7 @@ fn a_stale_plans_room_is_refused_publication() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(
-            ae::ContentEpoch(9),
-        ));
+            crate::world::rooms::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
     });
     let verification = app
         .world()
@@ -3482,9 +3478,7 @@ fn a_plan_matching_the_live_binding_publishes() {
     let app = commit_over(plan, |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::world::rooms::ActiveContentBinding::content(
-            ae::ContentEpoch(4),
-        ));
+            crate::world::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
     });
     let verification = app
         .world()
@@ -4051,7 +4045,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
 
-    let live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4));
+    let live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
     let plan = RoomFeatureConstructionPlan::prepare(
         &room,
         &Default::default(),
@@ -4078,7 +4072,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
 
     assert_eq!(
         plan.construction_binding(),
-        ContentBinding::Content(ae::ContentEpoch(4)),
+        ContentBinding::Content { epoch: ae::ContentEpoch(4), content: Default::default() },
         "the commit boundary would compare this plan against generation 5 while \
          the live world is still 4, and refuse the very reload introducing 5"
     );
@@ -4086,7 +4080,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
     let session = ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED;
     let stamped = plan.construction().scope().transaction(session);
     let expected = ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation(
-        ContentBinding::Content(ae::ContentEpoch(5)),
+        ContentBinding::Content { epoch: ae::ContentEpoch(5), content: Default::default() },
         Some(room.id.clone()),
     )
     .transaction(session);
@@ -4117,7 +4111,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
 
     let recipes = engine_construction_registry();
     let (room, staging) = duelling_room();
-    let expected_live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4));
+    let expected_live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default());
     let replacement = |expected: &crate::rooms::ActiveContentBinding| {
         RoomFeatureConstructionPlan::prepare(
             &room,
@@ -4148,9 +4142,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::rooms::ActiveContentBinding::content(
-            ae::ContentEpoch(9),
-        ));
+            crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(9), Default::default()));
     });
     let verification = app
         .world()
@@ -4168,8 +4160,8 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     assert_eq!(
         named,
         Some((
-            ContentBinding::Content(ae::ContentEpoch(4)),
-            ContentBinding::Content(ae::ContentEpoch(9)),
+            ContentBinding::Content { epoch: ae::ContentEpoch(4), content: Default::default() },
+            ContentBinding::Content { epoch: ae::ContentEpoch(9), content: Default::default() },
         )),
         "the boundary compared the wrong half of the scope. It must name the \
          EXPECTED-LIVE generation (4) against the live one (9); naming the \
@@ -4184,9 +4176,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
     let app = commit_over(replacement(&expected_live), |world| {
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             world,
-            crate::rooms::ActiveContentBinding::content(
-            ae::ContentEpoch(4),
-        ));
+            crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4), Default::default()));
     });
     let verification = app
         .world()

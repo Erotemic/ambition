@@ -51,7 +51,7 @@
 //! character, inside a canonical checksum. So a burned number is NOT invisible
 //! to a peer: an App that refused one reload carries epoch 8 where a fresh App
 //! carries 7, and the two stamp DIFFERENT canonical provenance on a
-//! mechanically identical world. `a_transaction_identity_still_depends_on_host_local_lineage_counters`
+//! mechanically identical world. `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
 //! (`shared_tangle::construction::tests`) is the arm that records exactly this,
 //! and it has been green — as a recorded divergence — the whole time.
 //!
@@ -123,20 +123,31 @@ impl fmt::Display for ContentEpoch {
 /// split, same reason, so the same home — and the local and peer halves of one
 /// question sit adjacent instead of in two crates that cannot see each other.
 ///
-/// ⚠ **IT IS NOT `ambition_content_pack::prepared::ContentFingerprint`, AND
-/// COULD NOT BE.** Measured: `ambition_content_pack` declares NO ambition
-/// dependencies at all — it is a leaf — so it cannot construct a type from this
-/// crate, and this crate naming it would invert the graph. The fingerprint is
-/// the SOURCE of this value; runtime's content identity is the one layer holding
-/// both and is where the rendering belongs. Two names for one fact would be a
-/// duplicate authority; one name, rendered once, at the only layer that can.
+/// ⛔⛤ **THE SOURCE IS `ambition_platformer2d_runtime`'s `ContentFingerprint`,
+/// WHICH IS A 32-BYTE DIGEST — AND THIS DOC NAMED THE WRONG TYPE WHEN IT LANDED.**
+/// There are TWO types called `ContentFingerprint` in this workspace:
+/// `ambition_content_pack::prepared::ContentFingerprint(pub u64)`, and runtime's
+/// `digest_type!(ContentFingerprint, "cfp1:")`, a `[u8; 32]` with a private
+/// field. `PreparedContent::fingerprint()` — the accessor that sits beside
+/// `epoch()` and is therefore the one any binding site can reach — returns the
+/// SECOND. I wrote the first into this comment and into a planning row, because
+/// I searched the name and found the definition with the public field.
 ///
-/// ⚠ **`Default` IS ZERO AND MEANS "NO CONTENT STATED"**, matching
+/// ⇒ That is why this holds 32 bytes rather than a `u64`: the value it carries
+/// is the one production actually computes. Folding a 256-bit digest into 64
+/// bits would be defensible for a checksum term and NOT for an identity string,
+/// and this is destined for both.
+///
+/// ⚠ `ambition_content_pack` declares no ambition dependencies at all — it is a
+/// leaf — so it could not construct this type in any case, and this crate naming
+/// it would invert the graph. Runtime's content identity is the one layer that
+/// holds both and is where the rendering belongs.
+///
+/// ⚠ **`Default` IS ALL-ZERO AND MEANS "NO CONTENT STATED"**, matching
 /// [`ContentEpoch`]'s convention — a headless fixture or a unit test that builds
-/// plans outside a prepared session. ⛔ It does NOT mean "content whose
-/// fingerprint is zero", and a peer projection must therefore encode the
-/// distinction; `PeerDigest::opt_u64` is how, which is why callers hold an
-/// `Option` rather than leaning on the zero.
+/// plans outside a prepared session. ⛔ It does NOT mean "content whose digest is
+/// zero", and a peer projection must therefore encode the distinction rather
+/// than leaning on the zero.
 #[derive(
     bevy_ecs::component::Component,
     Clone,
@@ -147,11 +158,33 @@ impl fmt::Display for ContentEpoch {
     PartialEq,
     Hash,
 )]
-pub struct PeerContentIdentity(pub u64);
+pub struct PeerContentIdentity([u8; 32]);
+
+impl PeerContentIdentity {
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    /// Whether any content was stated at all.
+    ///
+    /// ⚠ A fixture's all-zero value is "unstated", not "stated as zero" — see the
+    /// `Default` note above. A projection asks this before hashing.
+    pub fn is_stated(&self) -> bool {
+        self.0 != [0u8; 32]
+    }
+}
 
 impl fmt::Display for PeerContentIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "content:{:016x}", self.0)
+        write!(f, "content:")?;
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -164,14 +197,16 @@ mod peer_content_identity_tests {
     /// would compare an app-local lineage id against a content identity.
     #[test]
     fn the_local_and_peer_halves_render_distinguishably() {
+        let mut bytes = [0u8; 32];
+        bytes[31] = 7;
         assert_eq!(format!("{}", ContentEpoch(7)), "epoch:7");
         assert_eq!(
-            format!("{}", PeerContentIdentity(7)),
-            "content:0000000000000007"
+            format!("{}", PeerContentIdentity::from_bytes(bytes)),
+            "content:0000000000000000000000000000000000000000000000000000000000000007"
         );
         assert_ne!(
             format!("{}", ContentEpoch(7)),
-            format!("{}", PeerContentIdentity(7))
+            format!("{}", PeerContentIdentity::from_bytes(bytes))
         );
     }
 
@@ -181,6 +216,21 @@ mod peer_content_identity_tests {
     /// `\t3` produce the same bytes if a separator were ever dropped.
     #[test]
     fn the_peer_rendering_is_fixed_width() {
-        assert_eq!(format!("{}", PeerContentIdentity(1)).len(), format!("{}", PeerContentIdentity(u64::MAX)).len());
+        let mut low = [0u8; 32];
+        low[31] = 1;
+        assert_eq!(
+            format!("{}", PeerContentIdentity::from_bytes(low)).len(),
+            format!("{}", PeerContentIdentity::from_bytes([0xff; 32])).len()
+        );
+    }
+
+    /// ⛔ AN ALL-ZERO DIGEST IS "UNSTATED", NOT A STATED VALUE — the distinction a
+    /// fixture depends on, and the one a projection must encode rather than fold.
+    #[test]
+    fn an_unstated_identity_is_distinguishable_from_a_stated_one() {
+        assert!(!PeerContentIdentity::default().is_stated());
+        let mut bytes = [0u8; 32];
+        bytes[0] = 1;
+        assert!(PeerContentIdentity::from_bytes(bytes).is_stated());
     }
 }

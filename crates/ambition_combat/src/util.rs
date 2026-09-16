@@ -396,7 +396,7 @@ pub fn emit_hit_feedback(
 /// exactly, so every un-authored volume is byte-identical to today.
 ///
 /// `growth_scale` is a dimensionless multiplier on the PERCENT TERM ALONE —
-/// the ruleset's [`ResolvedCombatTuning::victim_percent_knockback_scale`] folded
+/// the ruleset's [`crate::rules::ResolvedCombatTuning::victim_percent_knockback_scale`] folded
 /// with its staling influence. `1.0` is the law as first written.
 pub fn scaled_knockback(
     base: f32,

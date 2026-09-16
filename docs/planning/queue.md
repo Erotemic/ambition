@@ -825,6 +825,97 @@ Keep authored throw formulas and move-specific values intact.
 change, and a neutral arm proves base authored throw behavior is unchanged when
 both modifiers are neutral.
 
+⛔ **MEASURED 2026-09-16 AND BOTH HALVES ARE BLOCKED, FOR TWO DIFFERENT REASONS.**
+The row was implemented in full and reverted. The acceptance above is MET at the
+unit level and that turned out not to be worth much — see the staleness half.
+
+**THE RAGE HALF IS A RETUNE, so the sentence "not a request to retune all
+throws" is false as measured.** `apply_capture_throws` multiplying its launch by
+`rage_scale(thrower_damage_taken)` — the shipped cap is `1.4`, and the largest
+multiplier anywhere in the duel is `1.17` — costs the CPU duel this, sweeping
+`AMBITION_DUEL_RUNG` over all five published rungs:
+
+| rung | HEAD | with rage on throws |
+|------|------|---------------------|
+| 1 | 1.99 ✅ | 2.07 ✅ |
+| 3 | 1.99 ✅ | 2.29 ✅ |
+| 5 | 0.21 ❌ | 0.21 ❌ (bit-identical) |
+| 6 | 2.32 ✅ | 0.64 ❌ |
+| 9 | 1.36 ✅ | 0.46 ❌ |
+
+Median `1.99 → 0.64`; three of five rungs fail
+`two_cpus_in_the_shipped_composition_damage_each_other` where one did. The
+failing duels are LONG and UNDECIDED (3618 ticks, `decided None`) — harder
+throws separate the fighters instead of killing them.
+
+⚠ **AND IT IS NOT CHAOTIC RE-ROLL, WHICH IS THE FIRST THING IT LOOKS LIKE.** A
+flat `×1.05` on the throw with no rage and no staling reproduces the rung-9
+failure to the digit (3618 ticks, 18/43 damage, `0.23 / 0.23`). But the metric is
+not monotonic in that constant — `×1.01 → 1.36`, `×1.02 → 1.18`, `×1.04 → 1.03`,
+`×1.05 → 0.46` — so a single rung cannot tell a retune from a coin flip, and the
+five-rung sweep is what can. Rung 5 coming back BIT-IDENTICAL under the change is
+the instrument's own control: no throw lands there, so the road provably did
+nothing, exactly where it should do nothing.
+
+⇒ Filed as [Q133](awaiting-maintainer-decision.md#q133--should-a-throw-obey-rage-when-obeying-it-changes-who-wins) — this is a balance call, not
+a mechanics call, and it is not mine to make.
+
+⛔⛤ **THE STALENESS HALF IS A READ WITH NO MATCHING WRITE — it would be inert
+forever and its witness would still be green.** Wear is recorded at exactly ONE
+site, `moveset/mod.rs::mark_move_playback_landed_hits`, gated on
+`hitbox::LandedBodyHit`; that message is written at exactly one site,
+`hitbox/mod.rs:1128`. `apply_capture_throws` does not mention `LandedBodyHit` at
+all — it applies `health.damage(request.damage)` directly. So a throw never
+records its own use, and `occurrences` for a THROW-ONLY move id (`pirate_fthrow`)
+is structurally always `0`. Measured: staleness routed into the throw with rage
+held neutral is bit-identical to HEAD on rungs 1, 3, 6 and 9.
+
+⚠ **THE UNIT WITNESS THE ACCEPTANCE ASKS FOR PASSES ANYWAY, WHICH IS THE WHOLE
+TRAP.** A controlled throw witness seeds `BodyStaleMoves` by calling
+`queue.record(..)` itself, so it proves the arithmetic and says nothing about
+whether the game can ever reach a nonzero `occurrences`. The one written here was
+green while the shipped composition got nothing. ⇒ Staling throws needs a SECOND
+edit this row does not mention — recording the throw's use — and that is a
+mechanics question (does a throw stale the throw, or the grab?) that belongs in
+the row before any code does.
+
+⇒ ⛔ **Do not re-implement either half from the row text alone.** It reads as one
+20-line change and it is not.
+
+### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
+
+**Owner:** unowned. Found 2026-09-16 while measuring THROW-MODIFIERS; unrelated
+to it.
+
+**Current state:** `two_cpus_in_the_shipped_composition_damage_each_other` runs
+at `RUNG_DEFAULT = 9` and passes. Its own doc says *"Sweeping the lower rungs is
+how that claim is checked against the composed app"*. Swept, at HEAD, with
+nothing modified: **rung 5 FAILS**, `0.13 + 0.08 = 0.21` against a floor of
+`1.0`. Rungs 1, 3, 6 and 9 pass (1.99, 1.99, 2.32, 1.36).
+
+⚠ **AND RUNG 5 IS NOT AN INERT FIGHT — it deals MORE raw damage than the rung
+that passes.** Rung 5: 105 damage (46 + 59) across six distinct moves, 4
+knockouts, decided on tick 2812. Rung 9: 95 damage, 4 knockouts. The guard calls
+the livelier of the two "the CPUs are not fighting".
+
+⇒ **The metric is pool-normalised and therefore not comparable across rungs.**
+`taken[]` sums rises in `BodyHealth::damage_percent()`, which is
+`damage_taken / max_pool` (unclamped — `damage_percent_is_unclamped_so_a_hud_can_print_188`).
+Back-computing the pool from the two runs: rung 9's fighters carry ~95–117, rung
+5's ~590–767, about 6×. `A_REAL_FIGHT` is a single scalar calibrated against
+rung 9's pool, so the same fight reads six times smaller one rung down.
+
+**Next implementation:** decide what the floor is a floor ON. Either normalise
+the metric by something rung-invariant (raw damage per duel tick, or knockouts),
+or make the threshold a per-rung table with each entry measured. ⛔ Not "lower
+the floor until rung 5 passes": the floor's stated job is *"a fight happened, not
+the tuning"*, and a scalar that means different things at different rungs cannot
+do that job at any value.
+
+**Acceptance:** the guard passes at all five published rungs at HEAD, and an
+inert pair still fails it at every one of them — the second half is what stops
+the fix from being "divide until green".
+
 ### A2 — close the remaining projectile construction-identity hole
 
 **Owner:** [`engine/projectile-contact-protocol.md`](engine/projectile-contact-protocol.md).

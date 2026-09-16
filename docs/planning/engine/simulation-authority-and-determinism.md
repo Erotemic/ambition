@@ -734,14 +734,36 @@ mid-window, the room is not rebuilt, 7 of 7 roster entities survive and
 is taken. ⇒ **A checksum cannot disagree about a value that was put back before it
 was taken.** `AmbitionGameSave` satisfies all three and desyncs within six ticks.
 
-⇒ So the four are a FLOOR OF CANDIDATES, not a count of defects: **one measured
-defect, three measured clean under the pressure available.**
+⇒ So the four are a FLOOR OF CANDIDATES, not a count of defects: **two measured
+defects, two measured clean under the pressure available.**
+
+⛔⛤ **UPDATED 2026-09-16: `OccurrenceBaseline` IS THE SECOND MEASURED DEFECT, AND
+"MEASURED CLEAN" WAS "MEASURED EMPTY".** The runs that cleared it ran against a
+harness with no save file, so `adopt_the_ledger` wrote back the same empty value
+it read and condition 3 — *its value actually DIFFERS at a frame compared twice* —
+was never met by the fixture rather than never met by the code. Given a save that
+says something, staged from inside the rewinding schedule at tick 40:
+
+    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
+    session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
+
+⇒ Held by `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, `#[ignore]`d
+because it demonstrates an unfixed defect. The ruling it wants is
+[Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
+⚠ **AND THE LESSON GENERALISES TO THE OTHER TWO:** "clean under the pressure
+available" is a statement about the pressure. `CustodyBaseline` has had no more
+pressure applied to it than `OccurrenceBaseline` had this morning.
 
 ⭐⭐ **AND THE OTHER TWO WERE MEASURED WITHOUT BEING AIMED AT, WHICH IS WHAT A
 PER-ENTRY CENSUS BUYS.** `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
 asserts the diverging set is EXACTLY `{AmbitionGameSave}`, over 364 probed
 entries. `CustodyBaseline` and `OccurrenceBaseline` are in that population and did
-not diverge — in a window where `AmbitionGameSave` itself was being rewritten from
+not diverge — ⛔ **and 2026-09-16 showed why, which is not the reason this
+paragraph gives: both were EMPTY, and a seeded load makes `OccurrenceBaseline`
+diverge and desync.** What follows is the original reasoning, kept because the
+window it describes is real and the conclusion drawn from it was not: in a window
+where `AmbitionGameSave` itself was being rewritten from
 `Update` on every frame, which is the sharpest pressure on them available, because
 `adopt_occurrence_checkpoint_from_save` READS `AmbitionGameSave` and writes both
 baselines from it. A chain of bag → save → baseline was live and only the first
@@ -843,7 +865,8 @@ agent:
 blind spots rather than by disagreement: `NewGameResetRequested` is put back
 within the frame (which is also why it satisfies the first two conditions and does
 not desync), and `CustodyBaseline` / `OccurrenceBaseline` are measured EMPTY for
-the whole run, below. Held by
+the whole run, below — ⛔ which is a statement about the FIXTURE, not about the
+code: seed the save and `OccurrenceBaseline` appears in this very set. Held by
 `exactly_one_registered_type_is_written_outside_the_rewinding_schedule`, whose
 positive control is that the save MUST appear — a known answer established by a
 different route, because an empty set reads exactly like a clean world.

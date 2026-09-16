@@ -183,6 +183,33 @@ migrations. Neither of the two cheap wins the row opened with survived
 measurement. Do not force state that must exist before root creation into the
 root.
 
+⭐⭐ **AND THE "REPEATED OWNER GUARD" HAS A SHAPE, MEASURED 2026-09-16: IT IS ONE
+GUARD SPELLED ~206 TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
+
+| spelling | what it is | mentions |
+| --- | --- | --- |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 177, in 103 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 29, in 19 files |
+| `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 4, in 2 files |
+| `session_root_for_scope` | finds a named scope's root, through the disabling marker | 11, in 6 files |
+
+⛔ **THE TWO DISAGREE ONLY ON ONE FRAME, AND THAT IS WHY THIS IS SUBTLE.**
+`Single` matches NOTHING when the count is not exactly one, and a system whose
+`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, all ~206
+sites stop running while the four scope-aware ones resolve the live root
+correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
+production arm asserts:
+`the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:435`), which counts
+roots every frame across a real shell handoff.
+
+⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias
+used widely, which is already the consolidated form. It is deciding whether the
+`Single` semantics or the scope semantics is the one this engine means, and the
+answer changes what a handoff frame is allowed to look like. That is a ruling,
+not a refactor, and it belongs in front of the maintainer before C03 moves
+storage.
+
 ### DEPENDENCIES / BLOCKERS
 
 ~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.

@@ -9,17 +9,20 @@ A row remains here only while an engineer can act on it. When it closes, keep a
 short receipt only where another open row depends on that fact; otherwise remove
 it.
 
-⚠ **MEASURED 2026-09-16: THIS FILE IS 2,345 LINES AGAINST THE 908 THE C10 CLEANUP
+⚠ **MEASURED 2026-09-16: THIS FILE IS 2,519 LINES AGAINST THE 908 THE C10 CLEANUP
 LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
-doubled. C10's regression rule is *"if a live control-plane file starts
+doubled. It touched 2,572 the same day before TEST-LANES was compressed a second
+time, which is the point: **the growth is continuous and the compression is
+per-row, so a single cleanup does not hold.** C10's regression rule is *"if a live control-plane file starts
 accumulating closed case files again, delete/compress the history IN PLACE"*, so
 this is a note to every owner rather than a complaint: **the growth is per-row
 and only its owner can tell a receipt from live work.**
 
 The mass, largest first: ID-PEER 439, DURABLE-HORIZON-CHECKSUM 192,
 MENU-RESET-MIDSESSION 188, ROLLBACK-MUTATOR-POPULATION 187, SETTINGS-ROLLBACK
-176, ROLLBACK-BAG-DESYNC 172, A2 154. ⭐ TEST-LANES was second at 193 and is now
-66: everything in it that was a RULE rather than open work moved to
+176, ROLLBACK-BAG-DESYNC 172, A2 154. ⭐ TEST-LANES was second at 193, went to 66, grew back to 159 in one
+night of real findings, and is now 106: everything in it that was a RULE rather
+than open work moved to
 [`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md),
 and the closed items became one-line receipts with their SHAs. That is the shape
 the contract asks for, and it is offered as a worked example rather than as a
@@ -2265,72 +2268,26 @@ clear now live in
 They left this row on 2026-09-16 because the queue is for open executable work,
 not for the rules a closed investigation leaves behind.
 
-⛔⛤ **SEVEN ARMS WERE RED AT `7d29117ab` AND THE REPORT WAS RIGHT ABOUT THE
-MECHANISM AND WRONG ABOUT THE POPULATION — IT WAS TWO ROADS, NOT ONE.** Both
-halves showed the same symptom, body-relative input under non-down gravity
-producing zero velocity, and the row filed them as one cluster. They had
-different causes and one of them was already fixed when I measured it.
+**Closed 2026-09-16 — seven arms red, two roads, one symptom. Receipts only.**
+Body-relative input under non-down gravity produced zero velocity in five `app_it`
+arms and two `--workspace --lib` arms, and this row filed them as ONE cluster
+because they shared a symptom. **A symptom is not a population.**
 
-**HALF 1 — the five `app_it` arms: FIXED, and my red was a STALE TREE.**
-`7d29117ab` is an ancestor of `ce6ddcb25`, so the tree I measured predated the
-fix by two commits. ⇒ **VERIFIED INDEPENDENTLY HERE, NOT TAKEN ON REPORT:**
-`cargo test -p ambition_app --test app_it` → **692 passed / 0 failed / 41
-ignored, 274.80 s at `8a15b357b`** on this box. The cause was in the HARNESS, not
-the room: `Platformer2dSimHarness::step` is `self.step_frame(action.into())` and
-`From<AgentAction> for ControlFrame` sets `control_frame_modes:
-Default::default()`, so the mode `set_movement_frame_mode` configured was stamped
-over on every scripted step. ⭐ That is why `run right` gave `(0,0)` for the WHOLE
-trace rather than at tick 0 only, and why JUMP passed — jump has no horizontal
-local component, so it is the one gesture where the two modes agree.
-
-⚠ **THE LESSON IS MINE, NOT ITS OWNER'S: "I measured it at a commit" is only a
-fact about that commit, and a red I report from a tree two commits stale reads as
-a red on main.** `git fetch` before reporting a lane, not just before pushing.
-
-**HALF 2 — the two `--workspace --lib` arms: FIXED at `7ab0fe827`, CONFIRMED
-HERE.** `cargo test --workspace --lib` → **7190 passed / 0 failed / 3 ignored** at
-`8e86a8b8b` on this box. Both fixtures configured the frame policy on
-`SeatControlFrameModes` where nothing reads it any more, and both now state it ON
-THE FRAME, per seat, as `populate_seat_control_frames` does in production. ⭐ The
-gesture arm deliberately no longer writes the table at all: a derivation that
-still read it would get defaults and redden, which is the point of not leaving
-the old authority behind for a reader to fall back on.
-
-⛔⛔ **AND A RED `cargo test` LANE REPORTS A SMALLER POPULATION THAN A GREEN ONE,
-WHICH INVALIDATES EVERY PASS COUNT ANYONE QUOTED FROM A RED RUN TODAY — MINE
-INCLUDED.** `cargo test` is fail-fast ACROSS TARGETS: it stops launching test
-binaries after one fails. MEASURED on the two runs above, same box, same command:
-
-```
-red run  (8a15b357b):  49 binaries reported,  5109 passed / 2 failed
-green run (8e86a8b8b):  79 binaries reported,  7190 passed / 0 failed
-```
-
-⇒ **THIRTY CRATES NEVER RAN**, and this row previously recorded 5109/2 as though
-it were the lane. It was 62% of it. ⚠ So a pass count from a RED run is not
-comparable to one from a GREEN run, and "5109 vs 5110" between two boxes can be
-two different POPULATIONS rather than two different results. ⇒ **Quote a pass
-count only from a green run, or pass `--no-fail-fast`** — which is exactly what
-`run_tests.py:762` already does for the feature-gated graph, and for this reason.
-
-
-⛔⛔ **AND THIS IS WHY THE TWO HALVES MATTER SEPARATELY: `app_it` COULD NOT SEE
-HALF 2, AND A GREEN HEAVY LANE WAS READ AS A GREEN TREE.** Its owner fixed the
-five, ran `app_it` to 692/0/41, and the two lib arms were red the whole time. ⇒
-**"I ran the lanes I ran" is not "I ran the lanes that exist"** — and the same
-sentence indicts my report, which called seven arms one cluster because they
-shared a SYMPTOM. A symptom is not a population.
-
-⭐⭐ **ONE ACCEPTANCE CRITERION CAUSED BOTH HALVES, and it is the most portable
-thing here.** The migration that moved frame policy off `SeatControlFrameModes`
-and onto the control frame accepted itself with
-`measure_user_settings_in_simulation.py` reporting ZERO simulation readers of the
-old value — which it truthfully did. **An acceptance criterion that counts the OLD
-road's ABSENCE is satisfied by breaking the NEW one.** Every fixture that still
-wrote the table now configured a policy nothing read, and the counter cannot tell
-that from success. ⇒ **Both halves or neither: the absence count PLUS a value
-witness that the new owner delivers the same answer.** The value witness existed —
-`gravity_symmetry_room` — and was not run.
+- the five `app_it` arms: fixed at `ce6ddcb25` (the harness stamped
+  `control_frame_modes: Default::default()` over the configured mode on every
+  scripted step). VERIFIED HERE, not taken on report — `app_it` → 692/0/41,
+  274.80 s at `8a15b357b`;
+- the two lib arms: fixed at `7ab0fe827` (two fixtures configured the policy on
+  the table where nothing reads it). VERIFIED HERE — `--workspace --lib` →
+  **7190 passed / 0 failed / 3 ignored** at `8e86a8b8b`;
+- ⚠ my red was reported from a tree TWO COMMITS STALE. `git fetch` before
+  REPORTING a lane, not only before pushing;
+- ⛔⛔ and a RED `cargo test` lane reports a SMALLER POPULATION than a green one —
+  49 binaries vs 79 on this box, thirty crates never run. The rule and the
+  measurement are in
+  [the lane recipe](../recipes/running-the-heavy-app-it-lane.md);
+- ⭐ the acceptance criterion that caused both halves is now a standing principle:
+  [an acceptance criterion that counts the OLD road's absence](decision-principles.md#an-acceptance-criterion-that-counts-the-old-roads-absence-is-satisfied-by-breaking-the-new-one).
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
 **691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the
@@ -2349,13 +2306,6 @@ prerequisites are reported as incomplete rather than pass.
 - the `BodyWallet` red (`4ccfef59c`) was a CROSSING, not a schedule choice:
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
-
-⭐⭐ **A ROLLBACK-MUTATOR RED HAS THREE INDEPENDENT QUESTIONS BEHIND IT, and
-answering one is not a verdict.** (1) the write is inside the rewind window;
-(2) the write is at a point no rewind CROSSES, which satisfies the guard without
-moving anything; (3) the TRIGGER is erasable by a rollback, which closes the
-WAIVER route and which (2) cannot rescue. ⚠ Applying (3) to a peer's road would
-have told them they were clear of a charge they had not answered.
 
 **OPEN 1 — an intermittent arm, and this time the assertion WAS captured.**
 `does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`

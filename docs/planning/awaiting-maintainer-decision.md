@@ -703,6 +703,34 @@ tick 20 — varying start tick alongside arithmetic, the SAME confound that made
 the sustained-versus-single framing wrong two hours earlier. The "from 4" row is
 the repair, and it was added before the result was written down rather than after.
 
+⛔ **A THIRD CANDIDATE, MINE, ALSO REFUTED — AND BEFORE IT WAS ASSERTED.**
+`complete_durable_restore` sets `SaveRestored` once from `Update` on the first
+frame a primary player body exists, and that latch gates whether the mirrors
+write at all; it is `rollback_resource_clone`, so a rewind into a frame where it
+was still false would let the latch re-open and run the system a second time.
+That shape would make ticks 1..=3 special and everything after boring. ⇒ It is
+wrong: measured, `SaveRestored` reads `true` at step 0 of both a desyncing run
+and a clean one and never moves. The latch has already settled before the window
+opens.
+
+⭐⭐ **BUT THE SAME PROBE PRODUCED THE SHARPEST FACT IN THIS ROW, and it is two
+independent measurements agreeing.** The save's census in a desyncing run, per
+tick: `0xce4e4758…` at tick 1, then `0x4f52c70a…`, `0x8cf64e57…`, `0xe2f498aa…`,
+`0xb8f85fb1…`, `0xd41e15e0…` — a new value every tick. YardratAmbition's
+`RollbackRestoreAudit`, reading the resimulation from inside one run, reports
+frames 2, 3 and 4 each diverging with **the replay xor CONSTANT at
+`0xce4e4758…`** while the first-pass xor moves every frame. ⇒ **THE REPLAY OF
+EVERY COMPARED FRAME SEES THE SAVE AS IT WAS AT TICK 1.** Two different
+instruments, two sessions, one number.
+
+⚠ What that does NOT yet explain is why a change starting at tick 4 is clean. If
+the replay always read a stale save, a change at tick 20 would diverge too. ⇒ The
+honest reading is that the replay holds whatever the restore point carried and
+the sampled window was ticks 2–4, so "the restore point is tick 1" and "the
+restore point is stale by a fixed amount" are not yet separated. That is the next
+measurement, and it wants the audit pointed at a window starting well after tick
+4 rather than another hypothesis.
+
 ⇒ **SO THE PRACTICAL SEVERITY IS MUCH LOWER THAN THE FIRST TWO FRAMINGS SAID.** A
 pickup, a shop sale or a drop during play does not desync — measured, not
 inferred. What desyncs is inventory changing in the session's first three ticks,

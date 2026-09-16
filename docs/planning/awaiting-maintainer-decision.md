@@ -641,6 +641,41 @@ differed in START TICK as well as in cadence and I had varied both at once. A
 cadence sweep (N consecutive grants from tick 20, N ∈ {1,2,3,4,5,8}) came back
 clean at every N, which is what said cadence was not the variable at all.
 
+⛔ **TWO MECHANISMS PROPOSED AND BOTH REFUTED.** YardratAmbition offered a pair
+with OPPOSITE predictions, which is the right shape — a mechanism that explains a
+number is not evidence for it. **(A) ACCUMULATION:** `grant` makes the bag
+`3 + (times the system RAN)` rather than a function of the frame, and a
+resimulation re-executes steps; predicts that a pure function of the tick runs
+clean. **(B) THE ONE-UPDATE LAG:** the mirror runs in `Update` once per
+`app.update()` while GGRS snapshots inside the sim schedule, so a frame's snapshot
+holds the save as of the previous update; predicts that a pure function of the
+tick still desyncs.
+
+Measured, 120 steps each, writing `take(all)` then `grant(tick % 5)` so the value
+cannot depend on how many times the system ran:
+
+| write | end tick | peak bag | health |
+|---|---|---|---|
+| pure `f(tick)`, every tick from 1 | 6 | 4 | ⛔ mismatch |
+| pure `f(tick)`, every tick from 4 | 121 | 4 | `Ok` |
+| pure `f(tick)`, once at 20 | 121 | 3 | `Ok` |
+| accumulating `grant`, every tick from 1 | 6 | 10 | ⛔ mismatch |
+
+⇒ **(A) IS DEAD** — a pure function of the tick desyncs exactly as the
+accumulating write does, so the arithmetic is irrelevant. ⇒ **(B) IS DEAD TOO**
+— it predicts a desync from tick 4, and tick 4 is clean. The only variable that
+predicts the outcome remains the START TICK, and no proposed mechanism yet
+explains why the first three ticks are different.
+
+⚠ The `peak` column exists because `tick % 5` is zero once every five ticks, so
+the FINAL bag reads 0 both when the write ran and when it never ran at all. The
+high-water mark separates them; without it the "from 4" row would have been a
+clean result from a write nobody had shown fired. ⚠⚠ And the first version of
+this experiment compared a write starting at tick 1 against a control firing at
+tick 20 — varying start tick alongside arithmetic, the SAME confound that made
+the sustained-versus-single framing wrong two hours earlier. The "from 4" row is
+the repair, and it was added before the result was written down rather than after.
+
 ⇒ **SO THE PRACTICAL SEVERITY IS MUCH LOWER THAN THE FIRST TWO FRAMINGS SAID.** A
 pickup, a shop sale or a drop during play does not desync — measured, not
 inferred. What desyncs is inventory changing in the session's first three ticks,

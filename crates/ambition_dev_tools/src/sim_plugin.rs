@@ -7,14 +7,6 @@
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin, SystemSet};
 
-/// PlayerInput-phase seam: apply the developer's live tuning edits
-/// (movement/abilities/stats mirrors) onto the controlled body BEFORE the
-/// input→brain chain consumes them this frame. The sim assembly positions this
-/// set at the tail of its time-control chain; anything that must observe the
-/// post-edit state orders `.after(DevEditApplySet)`.
-#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DevEditApplySet;
-
 /// Host-frame seam: mirror the player's live stats back into the
 /// inspector-editable resource so the F3 panel shows truth.
 ///

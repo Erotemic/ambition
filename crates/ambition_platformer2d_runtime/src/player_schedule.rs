@@ -75,18 +75,8 @@ impl Plugin for PlayerSchedulePlugin {
 
         // The dev-tools DOMAIN set (its systems live in `DevToolsSimPlugin`;
         // decision #9: the assembly orders sets, never dev leaf systems).
-        // Positioned at part A's tail so live tuning edits apply before the
-        // input→brain chain consumes them.
-        app.configure_sets(
-            sim,
-            ambition_dev_tools::DevEditApplySet
-                .after(ambition_platformer2d_actor_monolith::SimDtMirrored)
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
-        );
-
         // ── PlayerInput, part B: input → controlled subject → brains ──────
         //
-        // Ordered after part A's tail (the dev-tools `DevEditApplySet`).
         // The host's reset/replay pair slots into the A→B gap (module docs).
         app.add_systems(
             sim,
@@ -133,8 +123,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .chain(),
             )
                 .chain()
-                .in_set(PlayerInputSet::Device)
-                .after(ambition_dev_tools::DevEditApplySet),
+                .in_set(PlayerInputSet::Device),
         );
 
         // ⭐ THE AVATAR INSTALLS ITS OWN PLAYER-INPUT STAGE. Three blocks that

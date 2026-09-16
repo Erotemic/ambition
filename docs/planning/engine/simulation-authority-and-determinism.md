@@ -117,6 +117,29 @@ update the declared wire-format baseline intentionally.
 Use the repository's rollback baseline/checks; do not copy their counts into this
 page.
 
+⛔⛤ **AND THE FINGERPRINT HASHES PROSE, MEASURED 2026-09-16.** `schema_dump()`
+emits four columns — name, kind, wire type, and a human-readable `detail` — and
+`compute_schema_fingerprint` hashes the whole dump. So the `detail` string is
+inside content identity. Probed by changing TWO string literals in
+`rollback_component_clone` / `rollback_resource_clone` and changing nothing else:
+`the_rollback_schema_matches_its_recorded_baseline` fails and reports it in these
+words — *"This is a WIRE-FORMAT change: the fingerprint is part of content
+identity, and two peers whose schemas differ cannot agree about a snapshot."*
+
+⇒ **CORRECTING A MISLEADING DESCRIPTION IS INDISTINGUISHABLE FROM CHANGING AN
+ENCODING**, to the guard and to every peer. That is a disincentive pointed at
+exactly the repair S7 needs: the 93 rows whose `detail` asserts coverage the kind
+cannot establish would each cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump whose log
+entry would be the only non-mechanical one in that log.
+
+⇒ The one-fact-one-owner reading is that the mechanical schema is
+`name | kind | wire type` and `detail` is DOCUMENTATION of it: keep `detail` in
+the readable baseline, exclude it from the fingerprint, and descriptions become
+correctable while the guard still catches every real wire change. ⚠ That is
+itself a one-time fingerprint change over a mechanical identity with an absence
+contract on it (`rollback-wire-format-changes-are-declared`), so it is a decision
+rather than a cleanup — recorded here, not taken.
+
 ### Explicit simulation phases
 
 The GGRS simulation schedule has named Ambition phases and currently uses a

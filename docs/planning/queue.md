@@ -617,9 +617,25 @@ both modifiers are neutral.
 
 **Owner:** [`engine/projectile-contact-protocol.md`](engine/projectile-contact-protocol.md).
 
-**Current state:** the swept-contact resolver, finite obstruction, exact ordering,
-targeted delivery and compound solid-contact policy are established. Build-site
-census coverage also exists.
+**Current state (2026-09-16): THE CONSTRUCTION-IDENTITY HOLE — THIS ROW'S TITLE
+AND WHOLE SCOPE — IS CLOSED.** ⚠ That is NOT all of A2: the work frontier's
+[A2a/A2b/A2c](engine/actor-monolith-work-frontier.md) are the geometry, obstruction
+and recipient-naming contracts, and they are a different subject with a different
+normative owner. A reader who takes "A2 closed" from here and applies it there
+will be wrong. The swept-contact resolver, finite
+obstruction, exact ordering, targeted delivery and compound solid-contact policy
+were already established, with build-site census coverage. The two identity roads
+this row existed for are closed and the acceptance is met — the player clone
+(`ADR 0030`, one site) and the five dynamic-mint fallbacks (`_ => None` at every
+bare `match` over `SimId::spawned`), with `UnmintedBodyCensus` naming the
+construction ROAD in its witness.
+
+⚠ **TWO MINT SITES DEGRADE ON PURPOSE AND STAY,** and that is a count, not a
+completeness word: `ambition_held_items`'s thrown-item mint and
+`puppy_slug_gun`'s minion mint are `.ok().map(..)`, marked at the site as the
+visible edge of the unclosed inventory leg on `ItemCustody`. They belong to that
+leg, not to this row. ⇒ A sixth bare-`match` site found tomorrow makes this
+"five closed, a sixth found" rather than making the row false.
 
 ✅ **THE PLAYER-CLONE ROAD IS CLOSED.** `spawn_requested_player_clone` built a
 body with `BodyKinematics`, `PlayerEntity` and the full movement clusters, and
@@ -645,6 +661,29 @@ on every tick, so ONE unnameable body standing for fifty ticks reports ~50.
 Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
 repair. Read it as observations or it sends the next reader hunting 49 bodies
 that never existed.
+
+⛔⛤ **THE ROW SAID THREE SPAWN OWNERS. A CENSUS OF EVERY `SimId::spawned` CALL
+SITE FOUND FIVE.** `crates/ambition_boss_encounter/src/encounter_script.rs` (the
+`DropHazard` beat) and `game/ambition_content/src/portal/fire_adapter.rs` (the
+portal shot) carried the identical `_ => None` fallback and were not in the row's
+list. All five are closed now. ⇒ The row's "three" was a FLOOR that did not say
+so; the population is `grep -rn 'SimId::spawned'` over `crates/` and `game/`,
+minus the tests, and it is 5 bare-`match` sites.
+
+⚠ **AND TWO MORE MINT SITES DEGRADE DELIBERATELY, WITH THE REASON WRITTEN AT
+THEM.** `ambition_held_items`'s thrown-item mint and `puppy_slug_gun`'s minion
+mint both `.ok().map(..)`, and the first says why: *"This arm is the visible edge
+of the unclosed inventory leg described on `ItemCustody` — not a fallback that
+should quietly absorb the common case."* Those are decided placements, not the
+pattern this row closed; converting them would close a caller's hole by deleting
+another row's marker.
+
+⇒ **AND THE PORTAL REFUSAL HAD TO CONSUME THE PRESS.** `melee_pressed` is cleared
+at the bottom of that loop so the wearer's jab does not answer the same press. A
+refusal that skipped the arm would leave the press set and the body would JAB
+instead of nothing happening — so the refusal clears it before `continue`. Same
+class as the mana ordering below: a refusal inherits every side effect the arm it
+skips was responsible for.
 
 ✅ **THE UNNAMED SPAWNER IS CLOSED, 2026-09-16.** `materialize_matching`
 (`ambition_projectiles/src/materialize.rs`) inserts no identity and defers to
@@ -737,9 +776,44 @@ and combat/projectile occurrence identity.
 projectile launched by move A cannot be credited to whatever move happens to be
 playing when it lands. Melee stamps use the same occurrence authority.
 
-**Open engineering:** add the guard that a body which has started a move cannot
-lose `MoveOccurrence` during ordinary body lifetime; finish reflection/contact
-attribution after the product rule is settled.
+✅ **THE GUARD THIS ROW ASKED FOR ALREADY EXISTS — re-read 2026-09-16, and the row
+was the stale half.** *"A body which has started a move cannot lose
+`MoveOccurrence` during ordinary body lifetime"* is
+`every_playing_body_kept_its_occurrence` in `ambition_combat::moveset::tests`,
+called from `a_body_that_has_started_a_move_never_loses_its_occurrence` across a
+move, an idle gap and the next move. It is the one-directional form — **a body
+carrying `MovePlayback` carries `MoveOccurrence`** — with an anti-vacuity floor
+counting PLAYBACKS (the population the invariant is about), and two poison arms:
+`removing_the_occurrence_mid_move_is_caught` breaks the PROPERTY rather than the
+assertion, and `the_guard_refuses_a_world_with_no_body_mid_move` poisons the
+floor. 4 arms, green.
+
+⭐ **AND THE ROLLBACK HALF OF THE ACCEPTANCE IS A MEASURED CHAIN, NOT AN
+ASSUMPTION.** `MoveOccurrence`'s doc claims *"a rewind that kept a later count
+would make the resimulated move claim a number the abandoned future spent… it is
+rollback-registered"*. Both links verified:
+
+1. It is `component-canonical` (`rollback_schema_baseline.txt:48`), so a rewind
+   restores the exact value AND two peers compare it.
+2. Its only writer is `start_move`, reached from `trigger_moveset_moves`, which is
+   registered through `app.add_systems(sim, ..)` in
+   `runtime/src/combat_schedule.rs` — the REWINDING schedule. Confirmed positively
+   at the registration, not inferred from the mutator guard's silence, and
+   `check_rollback_mutators_run_in_sim.py` independently does not list it among
+   its 8 offenders.
+
+⇒ That is the defect class `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind`
+found for `OwnedItems`: a player-visible write from outside the rewinding
+schedule, restored away with nothing reporting it. `MoveOccurrence` is not exposed
+to it, because its writer is inside.
+
+**Remaining engineering:** a VALUE-LEVEL rollback witness — a body that starts a
+move, a rewind across the start, and the resimulated move taking the same number
+while a shot stamped by the abandoned future still matches. ⚠ That is a third KIND
+of evidence, not a third measurement of the same property: the two links above are
+structural and each has its own guard, so this would be a witness rather than a
+gap-filler. And: finish reflection/contact attribution after the product rule is
+settled.
 
 **Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
 
@@ -946,6 +1020,64 @@ change inside `tools/` moves the identity too, through
 (caching by character alone, and `int(spacing)` putting 40.1 and 40.9 in one
 directory). The remaining question this row asked was about CONTENT, and content
 is covered by `source_identity` rather than by the key.
+
+### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence
+
+⛔ **A SYNC-TEST SESSION THAT INVALIDATES KEEPS ACCEPTING `sim.step()` AND STOPS
+ADVANCING `SimTick`.** The step returns an observation every time. Nothing
+panics, nothing prints, and every assertion after the invalidation runs over a
+frozen world — where it agrees with itself, forever.
+
+MEASURED 2026-09-16 (`probe_how_far_each_harness_ticks_over_the_same_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), `SimTick`
+over 240 `sim.step()` calls:
+
+| harness | tick at 0 / 40 / … / 240 | `session_health` |
+|---|---|---|
+| `new_with_options` sync-test | 1, 41, 81, 121, 161, 201, 241 | `Ok` |
+| no rollback session | 0, 40, 80, …, 240 | `Ok` |
+| `build` + compose, EMPTY system | 1, 41, 81, 121, 161, 201, 241 | `Ok` |
+| `build` + compose, a bare `OwnedItems` write | 1, 6, 6, 6, 6, 6, 6 | `Err(checksum mismatch at frames [2, 3, 4, …])` |
+
+⇒ The freeze is not the compose road and not the schedule: an empty system
+through the same callback ticks 1:1. It is one system writing a
+rollback-registered resource (`OwnedItems`, `rollback_resource_clone`,
+`crates/ambition_items/src/rollback_registration.rs:11`) outside its sanctioned
+road, which desyncs the sync test — and the desync then presents as a stopped
+clock rather than as a failure.
+
+**THE EXPOSED POPULATION IS SIX ARMS, counted not estimated.** Of the 21 files
+that build on `with_sync_test_rollback_settings`, thirteen call `rollback_health()`
+or `session_health` at least once. These six step a sync-test session and never
+ask whether it is still alive:
+
+- `game/ambition_app/tests/canonical_state_is_finite.rs`
+- `game/ambition_app/tests/carried_item_crosses_rooms.rs`
+- `game/ambition_app/tests/d71_transaction_census.rs`
+- `game/ambition_app/tests/door_entry.rs`
+- `game/ambition_app/tests/input_stream_under_rollback.rs`
+- `game/ambition_app/tests/rollback_provoked_actor.rs`
+
+⚠ **THIS IS AN EXPOSURE COUNT, NOT A DEFECT COUNT.** None of the six is known to
+be running over a dead session today; what is known is that none of them WOULD
+SAY SO. Do not convert this row into "six broken tests" without running the
+measurement — that is the same conversion this repository's evidence discipline
+exists to stop.
+
+⚠ A health check is also not a progress check. An arm that reads
+`rollback_health()` once at the end catches an invalidation; an arm that asserts
+over a window still has no statement about how many ticks that window contained.
+`SimTick` is the column that answers it, and no arm samples it.
+
+⇒ NEXT, in order, and the first step is cheap:
+1. Add `rollback_health()` to the six arms above and run the `app_it` lane. Green
+   is a strict improvement; red is a defect that was already there.
+2. Decide whether the harness should refuse to step an invalidated session at
+   all, rather than leaving every caller to remember. ⭐ That is the real fix:
+   the current contract makes silence the default and vigilance the opt-in.
+   It touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
+   maintainer ruling before it lands — a harness that panics on a dead session
+   will red any arm that is quietly relying on one.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

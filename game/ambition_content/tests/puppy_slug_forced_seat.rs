@@ -34,6 +34,14 @@ fn seating_app_with_the_real_cast() -> App {
     // authority with it.
     ambition_content::character_catalog::register(&mut app);
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    // ⛔⛤ A HAND-BUILT APP IS ITS OWN PLUGIN, AND THIS ONE WAS MISSING A MINT.
+    // `activate_the_prepared_match` takes `ResMut<SessionMatchOrdinal>` — NOT
+    // `Option`, deliberately, because a composition that activates matches with
+    // no ordinal authority draws every match's items identically. The monolith's
+    // plugin installs it; this fixture composes the three systems by hand and
+    // therefore installs nothing, so all three arms died in bevy parameter
+    // validation with "Resource does not exist" and no system name.
+    app.init_resource::<ambition_platformer2d::versus_match::seating::SessionMatchOrdinal>();
 
     let world = ambition_platformer2d_core::World::new(
         "Arena",

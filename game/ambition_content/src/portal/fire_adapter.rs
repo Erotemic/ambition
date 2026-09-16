@@ -63,15 +63,27 @@ pub fn resolve_portal_fire_intent(
         if !gun.active {
             continue;
         }
+        // ⛔ REFUSE RATHER THAN FIRE AN UNNAMEABLE SHOT — ADR 0030.
+        //
+        // ⚠ AND THE REFUSAL MUST NOT SWALLOW THE PRESS. `melee_pressed` is
+        // cleared at the bottom of this loop so the wearer's jab does not answer
+        // the same press; a refusal that skipped the whole arm would leave the
+        // press set and the body would jab instead of nothing happening. So the
+        // press is consumed here, before the `continue`.
+        let (Some(firer), Some(mut counter)) = (firer, counter) else {
+            warn!(
+                "a portal shot was refused: the firer carries no SimId or no \
+                 SimIdCounter, so the shot could not be named"
+            );
+            actor_control.0.melee_pressed = false;
+            continue;
+        };
         // Minted from the FIRER's own counter, the way every production spawner
         // mints — so a resimulated tick re-mints the same id from the same
         // inputs, and two seats firing on one tick cannot collide.
-        let id = match (firer, counter) {
-            (Some(firer), Some(mut counter)) => Some(
-                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(firer, counter.next()),
-            ),
-            _ => None,
-        };
+        let id = Some(
+            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(firer, counter.next()),
+        );
         intents.write(PortalFireIntent {
             origin: kin.pos,
             dir: fire.aim,
@@ -146,6 +158,12 @@ mod tests {
                 // Every production body carries an intent frame, and this system
                 // spends the Attack press on it when the gun answers.
                 ambition_characters::control::ActorControl::default(),
+                // ⛔ AND AN IDENTITY AND ITS MINT STREAM, because a production
+                // body carries both and the shot mints under the FIRER. A fixture
+                // without them exercised the `_ => None` road that ADR 0030
+                // replaced with a refusal.
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_holder"),
+                ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             ))
             .id();
         app.world_mut().write_message(FirePortalGun {

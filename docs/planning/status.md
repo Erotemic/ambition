@@ -123,8 +123,9 @@ The queue is intentionally compact. Its current groups are:
 
 - **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
   two open are `Q128` and `Q122`), settings/rollback policy, throw modifier
-  consistency, A2 projectile identity, A12 move-contact attribution and A4
-  control/body execution.
+  consistency, A2 projectile identity (CLOSED — the construction-identity hole
+  only; A2a/A2b/A2c geometry and contact contracts are a different subject and
+  still open), A12 move-contact attribution and A4 control/body execution.
 
 ⚠ That list is a SUMMARY OF `queue.md`, which means it is a copy corrections do
 not reach. Read the rows, not this line, before picking work up: a group closing

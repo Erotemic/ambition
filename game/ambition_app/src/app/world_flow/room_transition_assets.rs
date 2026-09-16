@@ -1579,16 +1579,21 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 // was re-prepared from scratch on the next frame — a whole `RoomConstructionPlan`
                 // per neighbour per frame, thrown away, for as long as you stood there. It also
                 // meant the prefetch never covered exactly the rooms that cost the most to prepare.
-                ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
+                ambition_platformer2d::actors::features::ActorConstructionContext::for_live_room_construction(
                     &construction_recipes,
                     &character_catalog,
                     &mechanics,
-                    // The prefetch publishes no content either — see the
-                    // transition road in `room_transition/loading.rs`.
-                    ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(
-                        ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                    // ⛔ THE ACTIVE GENERATION, for the same reason the transition
+                    // road states it — a prefetched neighbour is built from the
+                    // content already running, so that content is its provenance.
+                    // See `room_transition/loading.rs`: "publishes no content" is
+                    // a fact about the boundary, not about the stamp.
+                    ambition_platformer2d::actors::rooms::ActiveContentBinding::live_or(
+                        active_binding.as_deref().map(|binding| &**binding),
+                        ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(
+                            ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                        ),
                     ),
-                    active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE PREFETCH DELIBERATELY REMEMBERS NOTHING, and
                     // the promotion check is what makes that safe: a plan

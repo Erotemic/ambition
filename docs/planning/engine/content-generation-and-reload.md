@@ -109,6 +109,70 @@ to `Default`. ⚠ "Content-derived, nobody stated which" and "not content-derive
 at all" are DIFFERENT answers and a projection must keep them apart; that is what
 `ContentBinding::peer_content` returning `Option` is for.
 
+⛔⛤ **AND `content_unstated` THEN BECAME THE DEFECT — THE SAME HOLE, ONE LAYER UP,
+FOUND BY THE GPT REVIEW OF 2026-09-16.** Making the sentence available was right;
+what was missing is that only a REPLACEMENT may state two generations.
+
+A construction plan holds two bindings, and they answer different questions:
+
+    expected_live   the generation this plan will be COMMITTED INTO
+                    → the commit boundary's staleness comparison
+    incoming        the generation this plan's content CAME FROM
+                    → what every root's `TransactionId` is stamped with
+
+`ConstructionScope::in_generation` cannot express a split, deliberately. But
+`ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is the subject of this note --> took `content` and
+`active_binding` as SEPARATE parameters and applied the second to the
+expected-live half only — so the split was spellable one layer above the layer
+that had forbidden it. **Three production roads filled it wrong:** the door
+transition (`room_transition/loading.rs`), the reset (`session/reset/mod.rs`) and
+the neighbour prefetch (`world_flow/room_transition_assets.rs`). Each read
+`content` as *"the content THIS ROAD publishes"* — a transition publishes none —
+answered `content_unstated`, and stamped every root it built `content-unstated +
+room`.
+
+⇒ **PUBLISHING NO CONTENT IS A FACT ABOUT THE COMMIT BOUNDARY, NOT ABOUT
+PROVENANCE.** A room behind a door is built from the generation already running,
+so that generation IS its incoming content identity. Each of the three comments
+argued correctly about the boundary half and none about the stamp — three careful
+authors writing three true sentences about the wrong field.
+
+⭐⭐ MEASURED, not inferred: after one door transition in the shipped app, the
+ONLY peer content term anywhere in the live world was `content-unstated`. Not
+merely the new room — the transition rebuilds the world, so the whole world's
+construction provenance was content-blind. Two peers running DIFFERENT prepared
+content projected the same `TransactionId`, which is the one thing that
+projection exists to prevent.
+
+⛔⛤ **AND THE CAMPAIGN'S OWN GUARD WAS GREEN OVER IT, STRUCTURALLY — this is the
+durable lesson.** `two_hosts_at_different_content_epochs_share_one_construction_provenance`
+mints two hosts with the same content at different local epochs and asserts
+their projections AGREE. `content-unstated` agrees with `content-unstated`
+perfectly, so erasing the discriminating term made that assertion MORE true. **An
+equality assertion `f(a) == f(b)` is satisfied by every `f` that throws
+information away, the constant function included** — so for any agreement guard,
+ask what the CONSTANT would do to it, and if the constant passes, the other half
+of the claim is a DISAGREEMENT arm.
+
+⇒ THE REPAIR, and it is a shape rather than a patch:
+
+| road | constructor | bindings |
+| --- | --- | --- |
+| activation, door, death, reset, prefetch, fixtures | `for_live_room_construction` | ONE — the split is unspellable |
+| hot reload / content replacement | `for_content_replacement` | `expected_live` and `incoming`, independently, by name |
+
+Both delegate to one private body, so the two roads cannot drift. The three
+ordinary roads pass `ActiveContentBinding::live_or(active, content_unstated(..))`,
+which keeps `None` an honest gap — a headless fixture publishes no binding and
+has nothing to name — while making it impossible for a session that DOES publish
+one to build roots that do not name it.
+
+⚠ The projection was the wrong level to witness this at: it folds `content ⊗
+room`, so any two ROOMS differ whatever the content term says.
+`TransactionId::peer_content_term` exposes the one term the rule decides, and
+`an_ordinary_room_transition_stamps_its_roots_with_the_session_content` asserts
+on that.
+
 ⛔⛤ **AND THE SPELLING WAS CLOSED, NOT JUST THE ONE ROAD — THE COMMENT SAYING SO
 WAS FALSE FOR A DAY.** `ContentBinding::content`'s doc read *"`Content` used to be
 reachable by struct literal"* while **the literal was still spelled at 25 sites**

@@ -2087,7 +2087,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     // fingerprint/consumption TOCTOU a review found: the identity was taken over
     // one value and the world built from whatever the App held by activation.
     // The generation OWNS both knobs now (`SessionMechanics`) and
-    // `for_room_construction` projects them off `GenerationMechanics::of(..)`, so
+    // `for_live_room_construction` projects them off `GenerationMechanics::of(..)`, so
     // this builder has nothing left to read — the compiler said so, as an unused
     // field, which is what an authority actually being removed looks like.
     /// Provider-authored sheets (U1): activation sizes each seated body
@@ -2280,7 +2280,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // as arguments is what stopped that being a thing a road can
                 // forget.
                 construction:
-                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
+                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_live_room_construction(
                         &self.construction_recipes,
                         &self.character_catalog,
                         // ⛔ THE GENERATION BEING ACTIVATED, WITH NO FALLBACK.
@@ -2300,7 +2300,13 @@ impl PlatformerSessionBuilder<'_, '_> {
                                 *prepared_identity.fingerprint.as_bytes(),
                             ),
                         ),
-                        None,
+                        // ⚠ NO `active_binding` PARAMETER ANY MORE, AND THIS IS
+                        // THE ROAD THAT NEVER WANTED ONE. Activation IS the road
+                        // that makes a generation live, so there is no earlier
+                        // binding for it to rebuild against — it states its own,
+                        // and both halves are that one value. It used to pass
+                        // `None` here for exactly that reason, which is why this
+                        // road was the only one already correct.
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
                         // has an empty one and builds exactly what it always

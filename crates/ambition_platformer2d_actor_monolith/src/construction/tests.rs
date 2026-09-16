@@ -4035,6 +4035,16 @@ fn a_direct_entry_fixture_with_no_content_binding_still_publishes() {
 /// `ConstructionScope` carries the pair; this proves the pair survives the road
 /// that builds one.
 ///
+/// ⛔⛤ **AND THE TWO-PARAMETER SIGNATURE THAT ARM DESCRIBES IS GONE, 2026-09-16,
+/// BECAUSE IT WENT WRONG AGAIN IN THE OTHER DIRECTION.** Once a caller could
+/// state the two halves independently, three ORDINARY roads — the door
+/// transition, the reset and the neighbour prefetch — filled the incoming half
+/// with `content_unstated` and the boundary half correctly, so every root they
+/// built named no prepared content. ⇒ A replacement now asks for two bindings
+/// by the name [`ActorConstructionContext::for_content_replacement`], which is
+/// this arm's road, and every other road takes `for_live_room_construction` and
+/// cannot express a split at all.
+///
 /// ⭐ **THE TWO ASSERTIONS PULL IN OPPOSITE DIRECTIONS ON PURPOSE**: the roots'
 /// transaction must follow the INCOMING generation and the boundary comparison
 /// must follow the LIVE one, so a fix that simply propagated one value everywhere
@@ -4052,7 +4062,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         &Default::default(),
         &staging,
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::for_room_construction(
+        ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &crate::session::mechanics::GenerationMechanics::new(
@@ -4061,10 +4071,10 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
                 &Default::default(),
                 &ambition_boss_encounter::BossCatalog::default(),
             ),
+            // The world it is being committed into, which is still N.
+            live.0,
             // The INCOMING generation — what a reload is publishing.
             ContentBinding::content_unstated(ae::ContentEpoch(5)),
-            // The world it is being committed into, which is still N.
-            Some(&live),
             None,
             None,
         ),
@@ -4119,7 +4129,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             &Default::default(),
             &staging,
             &ambition_boss_encounter::test_boss_catalog(),
-            ActorConstructionContext::for_room_construction(
+            ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
                 &crate::session::mechanics::GenerationMechanics::new(
@@ -4128,10 +4138,10 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
                     &Default::default(),
                     &ambition_boss_encounter::BossCatalog::default(),
                 ),
+                // … to be committed INTO a world running 4.
+                expected.0,
                 // built FROM generation 5 …
                 ContentBinding::content_unstated(ae::ContentEpoch(5)),
-                // … to be committed INTO a world running 4.
-                Some(expected),
                 None,
                 None,
             ),

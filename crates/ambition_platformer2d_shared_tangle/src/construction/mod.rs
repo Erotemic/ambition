@@ -1096,6 +1096,22 @@ impl TransactionId {
             .finish()
     }
 
+    /// WHICH CONTENT this stamp names, as the peer projection sees it.
+    ///
+    /// ⭐ **IT EXISTS SO A WITNESS DOES NOT HAVE TO RE-SPELL THE RULE.** The
+    /// projection below folds this term together with the room, so an acceptance
+    /// test asking *"does a door transition stamp its roots with the session's
+    /// prepared content"* would otherwise have to split the stamp and reproduce
+    /// `peer_binding_term`'s three-shape match — a second copy of the one rule
+    /// that decides what two peers compare. `"content-unstated"` is the answer
+    /// that means *"content-derived, and nobody said which"*, and a production
+    /// road returning it is the defect
+    /// `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`
+    /// holds.
+    pub fn peer_content_term(&self) -> &str {
+        Self::peer_binding_term(self.0.split('\t').next().unwrap_or(""))
+    }
+
     /// The peer-stable part of a rendered binding, by its three shapes.
     ///
     /// ⚠ THE ORDER MATTERS AND IS WHAT MAKES IT UNAMBIGUOUS. `runtime-dynamic`

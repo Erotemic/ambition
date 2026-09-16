@@ -1047,6 +1047,30 @@ impl ActiveContentBinding {
             epoch, content,
         ))
     }
+
+    /// The LIVE generation for a road that rebuilds a room this session already
+    /// defines, or `unbound` when the session publishes no binding at all.
+    ///
+    /// ⭐⭐ **IT EXISTS SO THE FALLBACK IS A SENTENCE INSTEAD OF A THIRD
+    /// PARAMETER.** `ActorConstructionContext::for_live_room_construction` takes
+    /// ONE binding, because taking two is how the door transition, the reset and
+    /// the neighbour prefetch came to stamp their roots `content-unstated` while
+    /// their commit boundaries were correct. Those three roads each hold an
+    /// `Option<Res<ActiveContentBinding>>`, so each needs to say what it means
+    /// by `None` — and saying it here once means three roads cannot spell it
+    /// three ways.
+    ///
+    /// ⚠ `None` IS AN HONEST GAP, NOT A WAIVER, and this preserves exactly that:
+    /// a headless fixture with no content authority has nothing to be stale
+    /// against and nothing to name, so `content_unstated` is its true answer.
+    /// What is no longer possible is a session that DOES publish a binding
+    /// building roots that do not name it.
+    pub fn live_or(
+        active: Option<&Self>,
+        unbound: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+    ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
+        active.map_or(unbound, |active| active.0)
+    }
 }
 
 /// Consume a verified publication's frozen effects: make them the world's.

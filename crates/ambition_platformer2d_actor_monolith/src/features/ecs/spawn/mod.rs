@@ -164,7 +164,7 @@ pub struct ActorConstructionContext<'a> {
     /// purpose of being assembled into an `ActorPlacementContext` beside
     /// [`Self::prepared`], [`Self::brain_profiles`] and [`Self::forced_brains`],
     /// which arrived on this type. Five fields of one snapshot, two carriers.
-    /// [`Self::for_room_construction`]'s own doc states the rule they were
+    /// [`Self::for_live_room_construction`]'s own doc states the rule they were
     /// outside of: the authorities are PARAMETERS of one value, so the next one
     /// a room may consult is one signature change that breaks every road at
     /// once.
@@ -253,8 +253,9 @@ impl<'a> ActorConstructionContext<'a> {
             characters,
             sheets,
             binding: content,
-            // A plan states ONE generation until a caller says otherwise;
-            // `for_room_construction` is the only road that can separate them.
+            // A plan states ONE generation, and this constructor cannot say
+            // otherwise: `for_content_replacement` is the only road that can
+            // separate them, and it is named after the one shape that needs to.
             incoming: content,
             prepared: None,
             brain_profiles: None,
@@ -264,7 +265,8 @@ impl<'a> ActorConstructionContext<'a> {
         }
     }
 
-    /// Every authority a ROOM's construction may consult, stated at once.
+    /// Every authority a ROOM's construction may consult, for a road building
+    /// inside ONE generation — which is every road except a content replacement.
     ///
     /// SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE INCOMPLETE. Startup, reset,
     /// transition, hot reload, provider activation, the exclusive-world rebuild and the neighbour
@@ -291,7 +293,25 @@ impl<'a> ActorConstructionContext<'a> {
     /// ⇒ **A road must now state which generation it is building**, including
     /// stating that it has none. `GenerationMechanics::new(None, ..)` is how a
     /// fixture says so, and it is a sentence rather than an omission.
-    pub fn for_room_construction(
+    ///
+    /// ⛔⛤ **AND IT TAKES ONE BINDING, BECAUSE IT USED TO TAKE TWO AND THREE
+    /// PRODUCTION ROADS GOT THEM THE WRONG WAY ROUND — MEASURED 2026-09-16.**
+    /// This was `for_room_construction(.., content, active_binding, ..)`, where
+    /// `active_binding` overrode the expected-live half and `content` stayed the
+    /// INCOMING half every root's `TransactionId` is stamped with. The door
+    /// transition, the reset and the neighbour prefetch all read `content` as
+    /// *"the content THIS ROAD publishes"* — a transition publishes none — and
+    /// answered `content_unstated`, so every root they built named no prepared
+    /// content at all while the boundary half was correct. Their comments each
+    /// argued about the boundary and none about the stamp.
+    ///
+    /// ⇒ The split is now UNSPELLABLE on this road, which is what
+    /// [`ConstructionScope::in_generation`] already did one layer down; the
+    /// layer above had reopened it. A replacement says so by name, through
+    /// [`Self::for_content_replacement`].
+    /// `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`
+    /// is the production witness.
+    pub fn for_live_room_construction(
         recipes: &'a crate::construction::ActorConstructionRegistry,
         // WHO EXISTS. Stated here rather than beside the room, because it is one
         // more of the authorities this constructor's doc is about — see
@@ -302,12 +322,16 @@ impl<'a> ActorConstructionContext<'a> {
         // WHAT THEY LOOK LIKE and WHAT THEY ARE — the generation's own sheets and
         // prepared cast, from the one owner that has them.
         mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
-        content: ambition_platformer2d_shared_tangle::construction::ContentBinding,
-        // The generation the SESSION is actually running, when the caller knows
-        // it. A room is rebuilt from content the active binding already
-        // defines, so stating a default sentinel instead makes every plan a
-        // stale-looking stranger to the epoch it will commit under.
-        active_binding: Option<&crate::rooms::ActiveContentBinding>,
+        // THE ONE GENERATION: both the content these roots are made of and the
+        // generation their commit boundary must still find live. A door, a
+        // death, a reset and a prefetch all rebuild a room the ACTIVE generation
+        // already defines, so for them those are one fact stated once.
+        //
+        // ⇒ A road that has an `ActiveContentBinding` passes its value —
+        // `ActiveContentBinding::live_or` is how it does that while still
+        // saying what it means when the session publishes none. A road that is
+        // ACTIVATING a generation has no live binding yet and passes its own.
+        live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
         brain_profiles: Option<
             &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
         >,
@@ -331,14 +355,74 @@ impl<'a> ActorConstructionContext<'a> {
         // generation-bound input the identity describes — and a parameter a
         // caller supplies is exactly how the two come apart.
     ) -> Self {
-        let mut context = Self::new(recipes, characters, mechanics.sheets(), content);
-        if let Some(active) = active_binding {
-            // ⛔ THE EXPECTED-LIVE HALF ONLY. `incoming` keeps `content` —
-            // the generation this plan's CONTENT is, which is what its roots are
-            // stamped with. For a transition the two are the same value stated
-            // twice; for a replacement they are the whole point.
-            context.binding = active.0;
-        }
+        Self::with_room_authorities(
+            recipes,
+            characters,
+            mechanics,
+            live,
+            live,
+            brain_profiles,
+            continuity,
+        )
+    }
+
+    /// The CONTENT-REPLACEMENT shape: `incoming` is carried into a world still
+    /// running `expected_live`.
+    ///
+    /// ⭐ The asymmetry is the point, and it is the same one
+    /// [`ConstructionScope::replacing`] states one layer down: the commit
+    /// boundary must still recognise the world it publishes into as the one the
+    /// preflight ran against, while the roots it mints belong to the generation
+    /// that replaces it. ⇒ Only a hot reload gets two independent bindings, and
+    /// it has to ask for them by this name.
+    pub fn for_content_replacement(
+        recipes: &'a crate::construction::ActorConstructionRegistry,
+        characters: &'a CharacterCatalog,
+        // ⚠ A REPLACEMENT'S MECHANICS ARE THE CANDIDATE'S, NOT THE SESSION'S.
+        // `GenerationMechanics::new(None, ..)` is how a reload says so — reading
+        // the live session's frozen mechanics here would rebuild the world from
+        // the generation this reload is replacing.
+        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
+        // The generation still live in the world being published INTO. The
+        // staleness comparison at the boundary is against this.
+        expected_live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+        // The generation this plan's content came FROM, and which every root it
+        // mints is stamped with.
+        incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+        brain_profiles: Option<
+            &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
+        >,
+        continuity: Option<OccurrenceContinuity<'a>>,
+    ) -> Self {
+        Self::with_room_authorities(
+            recipes,
+            characters,
+            mechanics,
+            expected_live,
+            incoming,
+            brain_profiles,
+            continuity,
+        )
+    }
+
+    /// The body both room roads share, so the authorities cannot be assembled
+    /// two ways. Private: a caller states which SHAPE it is by choosing
+    /// [`Self::for_live_room_construction`] or
+    /// [`Self::for_content_replacement`], and this is the only place that knows
+    /// the two bindings are separate fields at all.
+    fn with_room_authorities(
+        recipes: &'a crate::construction::ActorConstructionRegistry,
+        characters: &'a CharacterCatalog,
+        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
+        expected_live: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+        incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+        brain_profiles: Option<
+            &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
+        >,
+        continuity: Option<OccurrenceContinuity<'a>>,
+    ) -> Self {
+        let mut context = Self::new(recipes, characters, mechanics.sheets(), incoming);
+        context.binding = expected_live;
         context.prepared = mechanics.characters();
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
@@ -350,7 +434,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// Supply the prepared cast for this construction. See [`Self::prepared`].
     ///
     /// for construction that is not a ROOM's — a summon, a runtime spawn,
-    /// a focused fixture. A room goes through [`Self::for_room_construction`],
+    /// a focused fixture. A room goes through [`Self::for_live_room_construction`],
     /// which is where forgetting an authority stopped being possible.
     #[must_use]
     pub fn with_prepared(

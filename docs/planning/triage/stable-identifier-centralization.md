@@ -6,6 +6,25 @@ apply to every identifier. Explicit, locally readable newtypes remain valid.
 The inventory below is for semantic classification, not a mandate for a derive
 macro or a universal ID crate.
 
+⚠ **MEASURED 2026-09-16, because this page's motivation had gone stale in one
+direction and its central question had been answered in another.** Over the 1601
+tracked files under `crates/*/src` and `game/*/src`:
+
+| | |
+| --- | --- |
+| `macro_rules!` in the whole workspace | 16 |
+| …that generate an identifier type | **1** — `string_id!`, in `crates/ambition_load/src/id.rs` |
+| its invocations | 11, across 3 crates (`ambition_load` 3, `ambition_game_shell` 5, `ambition_load_presentation` 3) |
+| distinct id-suffixed `struct` declarations | 67 |
+| identifiers minted by `format!` | 26 sites |
+
+⇒ **THE SYNTAX CONSOLIDATION IS DONE AND THIS PAGE'S "several local `string_id!`
+macros" WAS ITS PRE-STATE.** There is exactly one definition; the other two
+crates `use ambition_load::string_id`. Its own doc records the three
+byte-identical copies it replaced. So Options B and C below are not answering a
+live duplication — they are answering whether the remaining 67 explicit newtypes
+want the same treatment.
+
 The [architecture reassessment](../engine/architecture-reassessment.md) distinguishes
 authored content identity, live entity identity, occurrence identity,
 construction-attempt identity, session/instance scope and rollback wire identity.
@@ -23,10 +42,58 @@ move. Canonical content metadata cannot identify executable function behavior;
 see [registry protocol](ambition-registry-core.md). The dependency graph can locate
 a shared syntax helper, but cannot establish the semantic owner of all IDs.
 
+## The authority axis now has a mechanical owner, and it is not the declaration
+
+⭐⭐ **THE FIRST AXIS IN THE LIST BELOW — "authority" — STOPPED BEING A TASTE
+QUESTION**, because `ID-PEER` gave it a consumer that fails a build. The binary
+that matters is not the six-way taxonomy: it is whether a value may enter what
+two peers compare.
+
+    local lifecycle / correlation identity   ≠   peer-stable canonical identity
+
+`RollbackEntryKind::feeds_peer_checksum`, `in_peer_schema_identity` and
+`HOST_LOCAL_IDENTITIES` (in `id_peer_audit.rs`) own that question today, and
+`rollback-schema-baseline.json` member-diffs the peer-visible set.
+
+⛔⛤ **AND THE MEASUREMENT SAYS THE DECLARATION CANNOT ANSWER IT.** All 11
+`string_id!` types share one representation, one constructor policy, one panic
+rule and one `Display`. Their authority is decided at the MINT SITE, and two of
+them sit one line apart in the same file with opposite answers:
+
+    LoadId       ← format!("shell.{route}.{next_load_transaction}")   host-local
+    LoadWorkId   ← format!("{ROOM_ASSET_WORK_PREFIX}:{target_label}") content-derived
+
+`LoadId` is in `HOST_LOCAL_IDENTITIES`; `LoadWorkId` is not, and both are
+correct. ⇒ **A policy inventory keyed on the TYPE is looking in the wrong place
+for this axis.** The 26 `format!` mint sites classify cleanly and the type name
+does not predict the class:
+
+| class | sites | shape |
+| --- | --- | --- |
+| content-derived | 9 | `AssetId` × 7 (`sprite.character.{name}`), `BrainPresetId`, `LoadWorkId` |
+| authored-record-derived | 3 | `FeatureId` × 3 — `coin:{id}` from the defeated enemy's `config.id` |
+| host-local lifecycle | 7 | `LoadId` × 2, `ShellRequestId`, `LoadPresentationOwnerId` × 2, `ShellHoldId` × 2 |
+| test fixtures | 7 | not production |
+
+⚠ **AND TWO OF THE FOUR HOST-LOCAL TYPES ARE NOT NAMED BY THE HAND LIST**:
+`LoadPresentationOwnerId` (`room-transition:{sequence}` and
+`shell:{route}:{load_id}`) and `ShellHoldId` (`session-publication:{activation}`
+and `content-publication:{request}`). Both are DERIVED CARRIERS — the exact
+failure mode `HOST_LOCAL_IDENTITIES`'s own comment says bit it twice, *"a
+registered type never matches the name of the id it holds"*.
+
+⇒ **IT IS NOT A DEFECT TODAY AND SAYING SO IS THE POINT.** Neither type is
+rollback-registered, so the guard's verdict is unchanged and adding them would be
+a true-but-vacuous widening. What the measurement establishes is that the
+list is maintained along the wrong axis: the mint site decides, so the hand list
+is a second authority over a question the mint sites already answer. A derived
+census over mint sites is the shape that would not need updating by whoever adds
+a carrier.
+
 ## Why this is in triage
 
-The workspace contains many identifier-like newtypes and several local
-`string_id!` macros. They repeat familiar operations:
+The workspace contains many identifier-like newtypes, all now sharing one
+`string_id!` where they share a policy. They repeat familiar operations:
 
 - construction from strings or integers;
 - `as_str` or raw-value access;
@@ -130,8 +197,15 @@ that makes domain contracts harder to inspect.
 
 ## Proposed next step
 
-Do not create a crate yet. Produce a bounded inventory of identifier types and
-group only exact policy matches. Then implement one pilot using either:
+⭐ **THE BOUNDED INVENTORY THIS ASKED FOR EXISTS FOR ONE AXIS AND IS ABOVE.** What
+remains is the other seven — representation, validation, stability, construction,
+serialization, interchange, error policy — over the 67 explicit newtypes, and
+note that the axis already done is the one where a wrong answer causes a DESYNC
+rather than mild inconsistency. That ordering was not planned; it is what having
+a consumer does to a question.
+
+Do not create a crate yet. Produce the remaining inventory and group only exact
+policy matches. Then implement one pilot using either:
 
 - conventions plus explicit code; or
 - a small declarative macro whose invocation exposes all policy choices.

@@ -370,19 +370,28 @@ pub fn process_new_game_reset_request(
         &play_state.content_staging,
         mechanics.bosses(),
         session_scope,
-        crate::features::ActorConstructionContext::for_room_construction(
+        crate::features::ActorConstructionContext::for_live_room_construction(
             &play_state.recipes,
             &play_state.character_catalog,
             &mechanics,
-            // A reset rebuilds the room the session is already living in; the
-            // live binding is what it is committed against.
-            ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
-                ambition_platformer2d_core::ContentEpoch::default(),
+            // ⛔⛤ THE LIVE GENERATION, FOR BOTH HALVES. A reset rebuilds the room
+            // the session is already living in, so that generation is what the
+            // boundary compares against AND what the rebuilt roots are made of.
+            // This stated `content_unstated(ContentEpoch::default())` for the
+            // second half — the default epoch, on a road that has a real one —
+            // so a reset erased the prepared content identity from every root it
+            // rebuilt.
+            crate::world::rooms::transaction::ActiveContentBinding::live_or(
+                play_state
+                    .active_binding
+                    .as_deref()
+                    .map(|binding| &**binding),
+                // ⚠ A fixture resetting outside any session has no generation to
+                // name, which is the one case this default was ever right for.
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                    ambition_platformer2d_core::ContentEpoch::default(),
+                ),
             ),
-            play_state
-                .active_binding
-                .as_deref()
-                .map(|binding| &**binding),
             play_state.brain_profiles.as_deref(),
             // **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
             // OF A RESET.** The ledger says which authored occurrences are

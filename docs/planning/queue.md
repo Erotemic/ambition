@@ -9,6 +9,22 @@ A row remains here only while an engineer can act on it. When it closes, keep a
 short receipt only where another open row depends on that fact; otherwise remove
 it.
 
+⚠ **MEASURED 2026-09-16: THIS FILE IS 2,345 LINES AGAINST THE 908 THE C10 CLEANUP
+LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
+doubled. C10's regression rule is *"if a live control-plane file starts
+accumulating closed case files again, delete/compress the history IN PLACE"*, so
+this is a note to every owner rather than a complaint: **the growth is per-row
+and only its owner can tell a receipt from live work.**
+
+The mass, largest first: ID-PEER 439, DURABLE-HORIZON-CHECKSUM 192,
+MENU-RESET-MIDSESSION 188, ROLLBACK-MUTATOR-POPULATION 187, SETTINGS-ROLLBACK
+176, ROLLBACK-BAG-DESYNC 172, A2 154. ⭐ TEST-LANES was second at 193 and is now
+66: everything in it that was a RULE rather than open work moved to
+[`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md),
+and the closed items became one-line receipts with their SHAs. That is the shape
+the contract asks for, and it is offered as a worked example rather than as a
+request.
+
 ## P0 — architecture and correctness
 
 ### A10 — candidate world / last-good-world publication — ✅ DONE, DEMOLITION CLOSED 2026-09-16

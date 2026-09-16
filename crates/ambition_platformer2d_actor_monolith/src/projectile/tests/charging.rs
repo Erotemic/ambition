@@ -323,26 +323,25 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     // into a body-relative aim mode to exercise the controlled-body-local seam
     // this test is about.
     //
-    // ⚠ SET ON THE SEAT TABLE, which is what deterministic simulation reads since
-    // `tick_controlled_brains` stopped holding `Res<UserSettings>`. The road from
-    // the settings screen into this table is `populate_seat_control_frames`, and
-    // it has its own arm — `a_seats_frame_policy_is_published_from_the_settings`
-    // in `schedule::input_systems`. This test is about AIM RESOLUTION, so it sets
-    // the authority the resolver reads rather than plumbing through capture.
-    {
-        let mut modes = app
-            .world_mut()
-            .resource_mut::<ambition_characters::control::SeatControlFrameModes>();
-        modes.set(
-            ambition_characters::control::PlayerSlot::PRIMARY,
-            ambition_platformer2d_core::ControlFrameModes {
-                movement: ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
-                aim: ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict,
-            },
-        );
-    }
+    // ⛔⛤ **ON THE FRAME, NOT ON THE SEAT TABLE — CHANGED 2026-09-16.** This set
+    // `SeatControlFrameModes` because that was what deterministic simulation read
+    // once `tick_controlled_brains` stopped holding `Res<UserSettings>`. The
+    // policy rides `ControlFrame` now, so the table write configured a preference
+    // the resolver could not see and the shot launched world-DOWN
+    // (`Vec2(0.0, -360.0)`) instead of world-left. ⇒ Every frame this test shapes
+    // states the policy, which is what `populate_seat_control_frames` does per
+    // seat per frame in production. The road from the settings screen still has
+    // its own arm — `a_seats_frame_policy_is_published_from_the_settings` in
+    // `schedule::input_systems`.
+    let body_local_aim = |frame: &mut ambition_platformer2d_core::ControlFrame| {
+        frame.control_frame_modes = ambition_platformer2d_core::ControlFrameModes {
+            movement: ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
+            aim: ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict,
+        };
+    };
 
     shape_primary(&mut app, |frame| {
+        body_local_aim(frame);
         frame.projectile_pressed = true;
         frame.projectile_held = true;
     });
@@ -350,6 +349,7 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     app.update();
 
     shape_primary(&mut app, |frame| {
+        body_local_aim(frame);
         frame.projectile_pressed = false;
         frame.projectile_held = false;
         frame.projectile_released = true;

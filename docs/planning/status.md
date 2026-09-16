@@ -173,7 +173,14 @@ its whole value is compared per TICK, while `persist_inventory_to_save` writes i
 from `Update` — per FRAME, and a rewind re-simulates ticks without re-running
 `Update`. A bag that changes every tick desyncs a GGRS sync test within six
 ticks; of 364 probed rollback entries exactly one diverges, and it is the save.
-⚠ A single change does not reproduce it, which is why nothing had hit it.
+⚠ **WHAT MAKES IT REPRODUCE IS THE FIRST THREE TICKS, NOT THE CADENCE** —
+corrected 2026-09-16 by its owner after a sweep: an every-tick grant STARTING
+at tick 4 runs 120 steps clean, starting at tick 1 or 2 it desyncs at frames
+`[2, 3, 4]`, and N consecutive grants from tick 20 are clean at every N. This
+page said *"a single change does not reproduce it"*, which was the second of
+three framings. ⇒ The measurement and the correction live ONCE, in
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test);
+do not re-derive them here.
 
 ⚠ This is not only a persistence question: 13 of the 19 systems that write
 `AmbitionGameSave` are registered in the SIM schedule, so the save is

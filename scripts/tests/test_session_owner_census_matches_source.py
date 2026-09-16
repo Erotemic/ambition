@@ -113,6 +113,68 @@ def test_rule_3_accounts_for_every_raw_registration_occurrence():
     assert len(registrations) > 15, registrations
 
 
+def test_rule_3_asks_about_every_registration_method_not_just_one():
+    """⛔⛤ THE VERDICT IS A NEGATIVE, SO THE METHOD LIST IS ITS REAL SUBJECT.
+
+    The first version scanned `rollback_resource_clone_checksum` alone and printed
+    *"NO rollback registration"*. `RollbackRegistrar` declares TEN
+    `rollback_resource_*` methods. The checkpoint family's answer happened not to
+    change — all five use that one method — but `PendingLifecycleCommit`, one
+    resource over, is documented as rollback-registered and does not appear under
+    that name.
+
+    ⇒ MEASURED by poison in the shipped file: swapping `AcceptedCheckpointRestore`
+    from `clone_checksum` to `rollback_resource_canonical` keeps the guard GREEN,
+    which is correct and is precisely what the narrow version got wrong.
+    """
+    methods = guard.registration_methods()
+    assert len(methods) >= 10, methods
+    assert "rollback_resource_clone_checksum" in methods
+    assert "rollback_resource_canonical" in methods
+    assert any(guard.MAP_METHOD in m for m in methods), methods
+
+
+def test_rule_3_does_not_count_a_doc_comment_naming_a_registration():
+    """⛔ REGION FIRST. `teardown.rs` explains a resource by naming its
+
+    registration inside a doc comment, and that mention is a raw occurrence that
+    is not a call. Recognising the prose is the rule backwards; the comment REGION
+    is deleted before anything is classified.
+    """
+    body = (
+        "/// its value is inside the state checksum because of\n"
+        "/// `rollback_resource_canonical::<ProjectileSeqCounter>`), so its\n"
+        "    registrar.rollback_resource_canonical::<Real>(OWNER, \"resource.real\");\n"
+    )
+    stripped = guard.code_only(body)
+    assert stripped.count("rollback_resource_canonical::<") == 1, stripped
+
+
+def test_rule_3_does_not_read_an_entity_map_registration_as_a_second_authority():
+    """⚠ FOUR RESOURCES CARRY BOTH, and reading the second as a competing state
+
+    registration produced four false reds the moment the method list widened.
+    `resource.x` is the state; `map.resource.x` is entity remapping for the same
+    value. Two registrations of different KINDS are not two authorities.
+    """
+    registrations, findings = guard.workspace_registrations()
+    assert findings == [], findings
+    for both in ("PossessionState", "EncounterRegistry", "ActiveConversation"):
+        assert registrations.get(both) == f"resource.{_snake(both)}", (
+            both,
+            registrations.get(both),
+        )
+
+
+def _snake(name: str) -> str:
+    out = []
+    for i, ch in enumerate(name):
+        if ch.isupper() and i:
+            out.append("_")
+        out.append(ch.lower())
+    return "".join(out)
+
+
 def test_rule_3_knows_which_checkpoint_members_are_rollback_state():
     """⭐ THE PARTITION IS 5 + 1 AND BOTH HALVES ARE MEASURED FROM SOURCE.
 

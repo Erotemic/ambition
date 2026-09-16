@@ -15,6 +15,26 @@ sprite-sheet publish output was ~90 files short. **Name the box beside the
 number, and the commit.** A lane result quoted without its commit is a number for
 a program that may no longer exist.
 
+## ⛔⛔ A RED LANE REPORTS A SMALLER POPULATION THAN A GREEN ONE
+
+`cargo test` is fail-fast **across targets**: after one test binary fails it
+stops launching the rest. MEASURED 2026-09-16, one box, one command, two commits:
+a red `--workspace --lib` run reported **49** binaries and 5109 passed, the green
+run two commits later reported **79** and 7190. **Thirty crates never ran.**
+
+⇒ **A pass count from a RED run is not comparable to one from a GREEN run.** And
+it composes badly with the section above: the truncation point is wherever the
+FIRST failure lands, so two boxes with different reds measure different
+POPULATIONS while their totals stay close enough to look like a one-arm
+disagreement about the same tree. Two agents nearly compared 5109 against 5110
+that way.
+
+⇒ **Quote a pass count only from a green run, or pass `--no-fail-fast`.**
+`scripts/run_tests.py:762` already passes it for the feature-gated graph —
+*"preserves failures from later"* — which is the same fact, one lane over, never
+generalised to the lane a human runs by hand. The measurement is in
+[TEST-LANES](../planning/queue.md#test-lanes--keep-required-test-lanes-executable).
+
 ## Three standing prohibitions, from one schedule cycle
 
 `b9f2ece18` gave `drive_boss_animators` `.in_set(WorldPrep)` to buy a capability

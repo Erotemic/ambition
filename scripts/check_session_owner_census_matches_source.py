@@ -70,29 +70,82 @@ RESMUT_FIELD = re.compile(r"^\s{4}(?:pub\s+)?\w+:\s*ResMut<'w,\s*(.+?)>,\s*$", r
 CHECKPOINT = REPO / BUNDLES["SessionOwnedCheckpointState"]
 #: ⛔⛔ THE WHOLE WORKSPACE, NOT THE CRATE THAT OWNS THE STRUCT. A member could
 #: be registered from anywhere, and "it is not registered in the file I looked
-#: in" is a claim about the query, not about the member. MEASURED 2026-09-16: 23
-#: `rollback_resource_clone_checksum` calls live across 19 files, 5 of them the
-#: checkpoint family's, and no checkpoint member registers outside the monolith's
-#: `rollback_registration.rs`. The scan costs ~0.3 s.
+#: in" is a claim about the query, not about the member. MEASURED 2026-09-16: no
+#: checkpoint member registers outside the monolith's `rollback_registration.rs`.
+#: The scan costs ~0.3 s.
 REGISTRATION_ROOTS = ("crates", "game")
-RAW_CALL = "rollback_resource_clone_checksum::<"
+
+#: ⛔⛤ AND THE METHOD LIST IS DERIVED, BECAUSE THE FIRST VERSION NAMED EXACTLY
+#: ONE OF TEN. It asked only about `rollback_resource_clone_checksum` while
+#: reporting "NO rollback registration" — a verdict its query could not support.
+#: `RollbackRegistrar` declares TEN `rollback_resource_*` methods, and a value
+#: registered through any of them is registered. The verdict for the checkpoint
+#: family did not change (all five use `clone_checksum`), but it was right by
+#: luck: `PendingLifecycleCommit`, one resource over, is documented as
+#: rollback-registered and does not appear under that one name.
+#:
+#: ⚠ Every one of them takes `(owner, name, ...)` as its first two arguments, so
+#: one call-site shape covers all ten.
+REGISTRAR_TRAIT = REPO / "crates/ambition_platformer2d_core/src/snapshot.rs"
+RESOURCE_METHOD = re.compile(r"fn (rollback_resource_\w+)<T>")
+
+
+COMMENT = re.compile(r"^\s*(?://|///|//!).*$", re.M)
+
+
+def code_only(body: str) -> str:
+    """Source with line comments removed.
+
+    ⛔⛤ **REGION FIRST, NOT PROSE-RECOGNITION.** `teardown.rs` explains a
+    resource by naming its registration in a doc comment —
+    *"`rollback_resource_canonical::<ProjectileSeqCounter>`), so its value is
+    inside the state checksum"* — and that mention is a raw occurrence that is
+    not a call. Trying to recognise the prose is the rule backwards; deleting the
+    comment REGION first leaves only code to classify.
+    """
+    return COMMENT.sub("", body)
+
+
+#: ⚠ `rollback_resource_map_entities` registers ENTITY REMAPPING for a resource,
+#: not the resource's state, and a value legitimately has BOTH — four do here
+#: (`PossessionState`, `EncounterRegistry`, `ActiveConversation`,
+#: `PendingPlayerHitEvents`), under `resource.x` and `map.resource.x`. Reading the
+#: second as a competing state registration produced four false reds the moment
+#: the method list widened. Two registrations of different KINDS are not two
+#: authorities.
+MAP_METHOD = "map_entities"
+
+
+def registration_methods() -> list[str]:
+    names = sorted(
+        set(RESOURCE_METHOD.findall(REGISTRAR_TRAIT.read_text(encoding="utf-8")))
+    )
+    if len(names) < 5:
+        raise SystemExit(
+            f"⛔⛔ only {len(names)} `rollback_resource_*` method(s) parsed from "
+            f"{REGISTRAR_TRAIT.name}. A guard that derives its query from a trait "
+            "must refuse when the trait stops parsing, not narrow silently."
+        )
+    return names
 #: A registration CALL SITE: the generic names a concrete type, the owner is an
 #: identifier OR a string literal, and the next argument is the rollback KEY.
 #: ⚠ Both owner spellings occur in this tree (`OWNER`, `GATE_PORTAL_ROLLBACK_OWNER`,
 #: `"test"`, `"ambition_demo_sanic"`), and the first version of this pattern
 #: accepted only the identifier form, so it silently parsed 17 of 23.
-CALL_SITE = re.compile(
-    r'rollback_resource_clone_checksum::<\s*([\w:]+)\s*>\s*\(\s*'
-    r'(?:\w+|"[^"]*")\s*,\s*"([^"]+)"'
-)
+def call_site_pattern(methods: list[str]) -> re.Pattern[str]:
+    return re.compile(
+        r"(?:" + "|".join(methods) + r")::<\s*([\w:]+)\s*>\s*\(\s*"
+        r'(?:\w+|"[^"]*")\s*,\s*"([^"]+)"'
+    )
 #: The trait's own forwarding definition — `::<T>(owner, name, detail, checksum)`,
 #: every argument an identifier and the generic a type PARAMETER. It is plumbing,
 #: not a registration, and it must be ACCOUNTED FOR rather than silently dropped:
 #: a scan that just ignores what it cannot parse reports its own blind spot as a
 #: clean tree.
-FORWARDING = re.compile(
-    r"rollback_resource_clone_checksum::<\s*\w+\s*>\s*\(\s*\w+\s*,\s*\w+\s*,"
-)
+def forwarding_pattern(methods: list[str]) -> re.Pattern[str]:
+    return re.compile(
+        r"(?:" + "|".join(methods) + r")::<\s*\w+\s*>\s*\(\s*\w+\s*,\s*\w+\s*[,)]"
+    )
 #: The words source must use to claim a member is host-side. See RULE 3.
 HOST_SIDE_PHRASE = "DELIBERATELY NOT REGISTERED"
 
@@ -104,26 +157,37 @@ def workspace_registrations() -> tuple[dict[str, str], list[str]]:
     member reading as unregistered is only evidence if every raw occurrence was
     classified.
     """
+    methods = registration_methods()
+    state_methods = [m for m in methods if MAP_METHOD not in m]
+    raw_calls = [f"{method}::<" for method in methods]
+    call_site = call_site_pattern(state_methods)
+    map_site = call_site_pattern([m for m in methods if MAP_METHOD in m])
+    forwarding_re = forwarding_pattern(methods)
+
     pairs: list[tuple[str, str]] = []
-    raw = forwarding = 0
+    raw = forwarding = maps = 0
     for root in REGISTRATION_ROOTS:
         for path in sorted((REPO / root).rglob("*.rs")):
-            body = path.read_text(encoding="utf-8", errors="replace")
-            if RAW_CALL not in body:
+            body = code_only(path.read_text(encoding="utf-8", errors="replace"))
+            hits = sum(body.count(call) for call in raw_calls)
+            if not hits:
                 continue
-            raw += body.count(RAW_CALL)
-            forwarding += len(FORWARDING.findall(body))
+            raw += hits
+            forwarding += len(forwarding_re.findall(body))
+            maps += len(map_site.findall(body))
             pairs.extend(
                 (generic.rsplit("::", 1)[-1], key)
-                for generic, key in CALL_SITE.findall(body)
+                for generic, key in call_site.findall(body)
             )
 
     findings = []
-    if len(pairs) + forwarding != raw:
+    if len(pairs) + forwarding + maps != raw:
         findings.append(
-            f"  RULE 3 classified {len(pairs)} call site(s) + {forwarding} forwarding "
-            f"definition(s) out of {raw} raw `{RAW_CALL}` occurrence(s). "
-            f"{raw - len(pairs) - forwarding} are unaccounted for, so a member could "
+            f"  RULE 3 classified {len(pairs)} state call site(s) + {maps} "
+            f"entity-mapping call site(s) + {forwarding} forwarding definition(s) "
+            f"out of {raw} raw occurrence(s) across "
+            f"{len(methods)} `rollback_resource_*` method(s). "
+            f"{raw - len(pairs) - forwarding - maps} are unaccounted for, so a member could "
             "read as unregistered because of THIS SCANNER."
         )
     registrations: dict[str, str] = {}

@@ -156,9 +156,32 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         );
     }
 
-    for _ in 0..max_ticks {
+    // `add_headless_foundation` brings `MinimalPlugins`, which leaves
+    // `TimeUpdateStrategy::Automatic`, so `update()` steps the fixed schedule a
+    // wall-time-derived number of times. Pin the clock so a frame is a tick, and
+    // report what the schedule ran rather than what the caller asked for.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct FixedStepsTaken(u32);
+    let timestep = app
+        .world()
+        .resource::<bevy::time::Time<bevy::time::Fixed>>()
+        .timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    app.init_resource::<FixedStepsTaken>();
+    app.add_systems(
+        bevy::prelude::FixedUpdate,
+        |mut taken: bevy::prelude::ResMut<FixedStepsTaken>| taken.0 += 1,
+    );
+    // The first `update()` runs `Startup` and steps the fixed schedule zero times,
+    // so a plain `0..max_ticks` frame loop is one tick short. The frame budget
+    // bounds a fixed loop that stops advancing; the count it then reports is short,
+    // which is the visible failure.
+    let mut frames = 0u32;
+    while app.world().resource::<FixedStepsTaken>().0 < max_ticks && frames < max_ticks + 8 {
         app.update();
+        frames += 1;
     }
+    let ticks_run = app.world().resource::<FixedStepsTaken>().0;
 
     let world = app.world();
     let stats = world
@@ -187,7 +210,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .unwrap_or_default();
 
     Ok(HeadlessReport {
-        ticks_run: max_ticks,
+        ticks_run,
         active_room: active_room_after,
         room_count,
         spawned_entities: stats.spawned_entities,

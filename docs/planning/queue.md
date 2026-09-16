@@ -78,11 +78,38 @@ reassuring.
 |---|---|
 | smash random-roster seed | **CLOSED** — `agreed_match_seed` hashes the agreed lobby. Its first version still hashed the local input device INDEX; that is fixed and asserted |
 | `SessionScopedEntity` in the peer checksum | **CLOSED** (schema 184) — probed clone; still snapshotted, because the construction scope gather reads it |
-| the four `MatchInstance`-stamped resources | **CLOSED** (schema 186) — `ActiveMatch`, `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks` compare MECHANICAL FACTS ONLY (agreed seat count, verdict, latched-or-not, micros elapsed from the match's own start). All four still snapshot whole |
-| `MatchInstance::random_context` | **OPEN, RECORDED** — still mixes the activation tick; see below |
-| checkpoint operation keys | **OPEN, newly found** — `CheckpointOperationKey::write_into` writes the raw `SessionScopeId`, and four carriers put it in a peer checksum |
+| the peer-agreed match ordinal | **CLOSED** (schema 187) — `SessionMatchOrdinal` mints which match of the session it is; both the item draw context and `SimId::match_spawn` moved off the absolute activation tick |
+| the four `MatchInstance`-stamped resources | **CLOSED** (schema 190), after being closed WRONG TWICE. 186 moved them onto the activation tick and called it peer-stable. 187's correction then excluded the instance ENTIRELY, which was false-NEGATIVE: a verdict for the previous match checksummed identically to one for the live match while `settled(active)` disagreed. `MatchInstance` now carries a LOCAL half (staleness, `belongs_to`) and a PEER half (the ordinal), and `peer_match_digest` is the only part a projection may read |
+| `SessionMatchOrdinal`'s own registration | **CLOSED** (schema 189) — it was `rollback_resource_canonical`, whole-value, with a comment beside it claiming the `session` half "is compared only against ITSELF". The sentence described `take`; the registrar decided the checksum. ⚠ One window is RECORDED, not closed: the mint resets lazily, so it carries the previous session's count until this session's first activation. Closing it means session-OWNED state, not a checksum change |
+| `MatchInstance::random_context` | **CLOSED** — the method moved to `ActiveMatch` and reads the ordinal. This row said OPEN while the row above said CLOSED, which the review flagged as contradictory control-plane text |
+| checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
+| **the session root's canonical `SimId`** | ⛔ **OPEN, AND NOW THE LARGEST NAMED ROAD** — minted `SimId::singleton("session", activation_id)` on BOTH roads; `ShellActivationId` is a per-App route count; the root carries `RoomSet` so it is rollback-anchored; `entity.sim_id` is `component-canonical`. See below |
 | `TransactionId` provenance | **OPEN** — `ContentEpoch` + `SessionScopeId` |
-| the canonical timeline itself | **OPEN, and the largest** — see below |
+| the canonical timeline itself | **OPEN, and the largest unnamed one** — see below |
+
+⛔⛤ **THE SESSION ROOT'S IDENTITY IS A HOST-LOCAL ROUTE COUNTER.** Found by the
+GPT review of 2026-09-15 and measured on the production road by
+`two_hosts_with_different_route_histories_name_the_session_root_differently`
+(`ambition_game_shell::session::tests`), which pins `session:11` against
+`session:4`. Two hosts that agree completely about a gameplay session name its
+root differently because one visited more shell routes before joining.
+
+⇒ **THIS IS A CLASS `id_peer_audit` STRUCTURALLY CANNOT GUARD.** That guard
+censuses registered TYPE NAMES and `SimId` is a type that is supposed to be
+canonical; the bad fact is its PROVENANCE. Two provenance defects have now been
+found and neither was visible there — the match-spawn tick (inside a
+constructor's argument) and this one (inside a singleton's key). Provenance is
+held by value-level arms in the crate that MINTS the identity.
+
+⚠ **THE FIX IS NOT "MAKE IT CONSTANT", and not a rename.**
+`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`
+establishes that an A10 candidate root deliberately carries the SAME `SimId` as
+the live root it replaces — so a constant would preserve that property, and
+`TransactionBaseline::capture` refuses two LIVE entities on one identity, which
+sequential sessions satisfy. What a constant has NOT been proved against is
+future residency allowing more than one session world alive at once. ⇒ It needs
+an explicit peer-stable session identity, which is the identity-substrate work
+(`PeerSessionIdentity`), and re-keying must fix BOTH mint sites.
 
 ⛔⛔ **`SimTick` IS AN ABSOLUTE PER-APP COUNTER AND IT IS ALREADY A WHOLE-VALUE
 PEER CHECKSUM INPUT.** Measured 2026-09-15: one writer

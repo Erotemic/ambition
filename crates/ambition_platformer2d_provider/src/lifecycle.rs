@@ -2204,6 +2204,15 @@ impl PlatformerSessionBuilder<'_, '_> {
         // identity, which the router now reserves when the route goes pending.
         // A10 deliberately does not re-key it to something more convenient; that
         // is the peer-stable identity campaign's question.
+        //
+        // ⛔⛤ AND THE ANSWER IS THAT IT IS WRONG TODAY, measured 2026-09-15:
+        // `ShellActivationId` is a per-App route-activation count, the root is
+        // rollback-anchored through `RoomSet`, and `entity.sim_id` is
+        // `component-canonical` — so the count is inside the peer checksum.
+        // Two hosts agreeing about a session still name its root differently.
+        // `two_hosts_with_different_route_histories_name_the_session_root_differently`
+        // (`ambition_game_shell::session::tests`) holds it on the other mint,
+        // and re-keying must fix BOTH sites: this one and `spawn_world_for`.
         use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
         let world = self
             .commands

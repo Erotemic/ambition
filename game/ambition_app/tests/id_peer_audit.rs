@@ -22,6 +22,15 @@
 //! |---|---|
 //! | authoritative RNG | boss `PatternRng` CLEAN (`encounter_id` + rollback-visible `step_index`); `seed_from_id` CLEAN (FNV over an authored id); the smash match roster seed was NOT and now draws from a peer-agreed match ordinal |
 //! | contact / projectile identity | `MoveOccurrence` is body-local and starts at 0; `SimId`/`SimIdCounter` derive from parent + construction order — but `SimId::match_spawn` embedded the absolute activation tick in a `component-canonical` identity STRING, which no carrier-type list could see |
+//! | canonical identity PROVENANCE | ⛔ OPEN. The session-world root is minted `SimId::singleton("session", activation_id)` on BOTH roads (`ambition_game_shell::session::spawn_world_for` and the A10 candidate road in `ambition_platformer2d_provider`'s `lifecycle.rs`), and `ShellActivationId` is a per-App route-activation count. The root carries `RoomSet`, so `require_rollback` anchors it, and `entity.sim_id` is `component-canonical`. Held by `two_hosts_with_different_route_histories_name_the_session_root_differently` (`ambition_game_shell::session::tests`) |
+//!
+//! ⛔⛤ THAT LAST ROW IS A CLASS THIS FILE STRUCTURALLY CANNOT GUARD. Everything
+//! below censuses registered TYPE NAMES, and `SimId` is a type that is SUPPOSED
+//! to be canonical — the defect is its PROVENANCE, which no type census can
+//! read. Two have now been found this way and both were invisible here: the
+//! match-spawn tick (in a constructor's argument) and the session root (in a
+//! singleton's key). ⇒ Provenance defects are held by value-level arms in the
+//! crate that MINTS the identity, and this table routes to them.
 //! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
 //! | construction provenance | `TransactionId`, recorded by `a_transaction_identity_still_depends_on_host_local_lineage_counters` |
 //!

@@ -445,7 +445,22 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// still round-trips, because all three are `rollback_resource_clone_checksum`:
 /// the SNAPSHOT is a `Clone` of the whole struct and never goes through the
 /// projection. This is the peer/local split, not a deletion.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 188;
+/// ⛔⛤ 188 -> 189: `SessionMatchOrdinal` was registered
+/// `rollback_resource_canonical` — a WHOLE-VALUE checksum — in the very commit
+/// that introduced it, while the comment beside the registration claimed its
+/// `session` half "is compared only against ITSELF". The sentence described
+/// `take`'s reset rule; the registrar decided the checksum. A per-App session
+/// activation count was in the peer comparison, which is the exact defect the
+/// ordinal exists to remove. It now projects the count of matches this session
+/// has activated and nothing else. Found by the GPT architecture review of
+/// 2026-09-15.
+/// ⚠ ONE WINDOW SURVIVES: the mint resets lazily inside `take`, so between
+/// joining a session and activating that session's first match it still holds
+/// the previous session's count.
+/// `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
+/// holds it, and closing it means making the mint session-OWNED state rather
+/// than an App-global resource with an owner tag.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 189;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

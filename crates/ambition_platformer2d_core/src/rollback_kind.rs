@@ -195,9 +195,10 @@ impl RollbackEntryKind {
 /// recorder) and `rollback_ggrs`'s installing registrar each wrote their own
 /// copy of every string. They agreed — measured 2026-09-16, byte for byte — but
 /// only because nobody had reworded one. A drift in either copy would move
-/// `RollbackRegistry::schema_fingerprint` (in `ambition_platformer2d_runtime`),
-/// which is the
-/// snapshot schema's identity, and the two roads would name the same
+/// `RollbackRegistry::schema_fingerprint` (unlinked on purpose: it lives in
+/// `ambition_platformer2d_runtime`, which sits ABOVE this crate and is not a
+/// dependency of it), which is the snapshot schema's identity, and the two
+/// roads would name the same
 /// registration differently depending on which registrar ran.
 ///
 /// ⇒ One sentence, one owner. Both registrars reference these; neither spells
@@ -207,7 +208,8 @@ impl RollbackEntryKind {
 ///
 /// ⚠ THE SENTENCES THEMSELVES ARE NOT ALL VERIFIED, and centralising them does
 /// not make them so — see `Q122`. Collapsing the copies is what made
-/// [`detail::CLONE_UNHASHED`] a one-place edit when its coverage claim came out.
+/// [`detail::CLONE_UNHASHED`] a one-place edit when its coverage claim came
+/// out.
 pub mod detail {
     pub const CANONICAL_IDENTICAL_CHECKSUM: &str =
         "bevy_ggrs canonical codec snapshot + identical canonical checksum projection";

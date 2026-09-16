@@ -1264,7 +1264,8 @@ impl CharacterBindings {
 
 /// A prepared character plus what preparation could and could not verify.
 ///
-/// Module-private for the same reason `PreparedCharacterOverrides` is: it
+/// Module-private for the same reason `PreparedCharacterOverrides` is (unlinked:
+/// that type is module-private too, so a public doc cannot point at it): it
 /// carries one, and a type that leaks a partial value leaks the partial phase.
 struct PreparedCharacter {
     prepared: PreparedCharacterOverrides,

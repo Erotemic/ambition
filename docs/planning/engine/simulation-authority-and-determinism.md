@@ -614,7 +614,8 @@ saves, 108 replay-comparable, **36 compared**, four carriers throughout — and 
 distinct census. Read without the floor that is *"`BodyAnimFacts` reproduces
 across 36 comparisons"*. The probe then measured four inputs across 60 steps
 each: `attack` held, `attack` pressed on the 1-in-12 edge that
-`a_move_keeps_its_occurrence_across_a_rewind` uses to start several moves,
+`game/ambition_app/tests/a_move_keeps_its_occurrence_across_a_rewind.rs` uses
+to start several moves,
 jump-and-land, and run-and-jump. **Under both attack inputs every field of every
 carrier read exactly `0.000` at every step.** Only a landing moved anything, and
 `land_anim_timer` is non-zero for about two frames per touchdown — so the window

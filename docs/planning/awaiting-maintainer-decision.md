@@ -946,3 +946,75 @@ resource. The remaining policy choice is its lifetime and subject: freeze one
 agreed value for the match, or publish a value per participant/seat as an
 accessibility policy. Both are mechanically viable; the product rule decides the
 shape of the admitted authority.
+
+## Q133 — should a throw obey rage when obeying it changes who wins?
+
+[THROW-MODIFIERS](queue.md#throw-modifiers--route-throws-through-rage-and-staleness-policy)
+asks for throws to obey the rage modifier every strike already obeys, and states
+the change *"is a mechanical consistency defect, not a request to retune all
+throws"*. Implemented and measured, that second clause does not hold: it is a
+retune, and a large one.
+
+Sweeping `AMBITION_DUEL_RUNG` over all five published rungs, HEAD against the
+change, reading `two_cpus_in_the_shipped_composition_damage_each_other`'s own
+exchange figure:
+
+| rung | HEAD | rage on throws |
+|------|------|----------------|
+| 1 | 1.99 ✅ | 2.07 ✅ |
+| 3 | 1.99 ✅ | 2.29 ✅ |
+| 5 | 0.21 ❌ | 0.21 ❌ (bit-identical; no throw lands at this rung) |
+| 6 | 2.32 ✅ | 0.64 ❌ |
+| 9 | 1.36 ✅ | 0.46 ❌ |
+
+Median `1.99 → 0.64`. The duels that fail run to the 3618-tick cap `decided
+None`, where HEAD's decide around 2300–2900: harder throws push the fighters
+apart rather than finishing them, and a duel neither seat can close exchanges
+less damage than one somebody wins.
+
+⚠ The mechanism is small and the consequence is not, which is what makes this a
+product question rather than a bug. Shipped rage is `rage_per_damage: 0.004`
+capped at `1.4`, and the duel's own damage totals put the largest multiplier
+actually reached at about `1.17`. A `×1.05` constant applied to the throw with no
+rage at all reproduces the rung-9 failure to the digit.
+
+**The choice.**
+
+**(a) Throws obey rage, and the duel guard is re-baselined.** This is the Smash
+semantic — rage applies to throws in the games this composition is modelled on —
+and it makes the two launch roads agree. The cost is that fight outcomes at rungs
+6 and 9 move materially, and
+[DUEL-GUARD-RUNG](queue.md#duel-guard-rung--the-cpu-duel-guard-fails-at-rung-5-on-main-today)
+has to be settled first or the re-baseline is measured against a scalar that
+already means different things at different rungs.
+
+**(b) Throws obey rage behind a declared influence knob, defaulting to inert.**
+The precedent exists in the same struct: `stale_knockback_influence` and
+`victim_percent_knockback_scale` are both "the mechanism exists, the shipped
+tuning decides how much of it lands". A `throw_rage_influence` at `0.0` makes the
+consistency defect expressible and leaves every shipped outcome untouched. The
+cost is one more knob nobody has asked for, and the defect stays real but
+unfixed in the shipped composition.
+
+**(c) Throws are DECLARED not to obey rage, and the row is closed as
+intended-behaviour.** Cheapest, and defensible — a throw is not a strike and
+Smash's own throw/rage interaction is a design choice, not a law. The cost is
+that it must then be written down where the next reader of
+`apply_capture_throws` will find it, or this row gets refiled in six months.
+
+⚠ **WHY THIS IS ESCALATED AT ALL, given *"do not let TUNING block
+architecture"* (Jon, 2026-07-06).** That rule says pick a reasonable value and
+ship it blind, and escalate only when the KNOB ITSELF is missing. This is not a
+knob value: nothing here is unset, and option (a) is not "choose a number" — it
+turns a shipped guard red, and the guard that goes red is one this same
+measurement found to be broken at a rung nobody runs. Shipping blind would mean
+landing main red against a scalar that means six different things at six
+different rungs. ⇒ If the answer is (a), DUEL-GUARD-RUNG is a prerequisite, not a
+follow-up; if it is (b), the knob is the missing-knob case the rule names
+explicitly.
+
+⛔ **What is NOT in scope here:** the staleness half of the same row. That one is
+not a balance question at all — a throw never records its own use, so the
+staleness read is structurally inert whatever is decided here. It needs a
+mechanics answer (does a throw stale the throw, or the grab?) and is recorded in
+the row.

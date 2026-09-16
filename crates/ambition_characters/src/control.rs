@@ -139,7 +139,8 @@ impl SeatRawFrames {
 /// is filled from whatever travels with that peer's input, and no simulation call
 /// site moves.
 ///
-/// ⚠ **AN UNWRITTEN ROW IS `ControlFrameModes`'s `Default`**, which is the same
+/// ⚠ **AN UNWRITTEN ROW IS [`ambition_platformer2d_core::ControlFrameModes`]'s
+/// `Default`**, which is the same
 /// answer the three readers gave when `UserSettings` was absent — so a headless
 /// composition that installs no capture stage behaves exactly as before.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]

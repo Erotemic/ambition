@@ -838,21 +838,44 @@ admitted prepared value. Prefer deleting the second truth to synchronizing it.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
-### D-SCENARIO-IDENTITY — confirm and then finish scenario cache identity
+### D-SCENARIO-IDENTITY — CLOSED 2026-09-16, the collision is already closed
 
-**Owner:** performance/scenario tooling.
+**Owner:** performance/scenario tooling. **CLOSED** by measurement; nothing was
+implemented.
 
-**Current state:** current source inspection does not locate the named cache
-subject in the tree. Treat that as an investigation requirement, not as
-permission to implement an inferred replacement.
+⚠ **THE ROW SAID THE SUBJECT WAS NOT IN THE TREE. IT IS — IN A SUBMODULE.**
+`CombatScenario.cache_name()` and `scenario_key()` are in
+`tools/ambition_moveset_inspector/ambition_moveset_inspector/server.py`. A
+source inspection confined to `crates/` and `game/` cannot see them. ⇒ That was a
+finding about the earlier search's REACH, recorded here so the next "not located
+in the tree" row is checked against `tools/` before it is believed.
 
-**Next implementation:** locate the current scenario cache/key owner and prove the
-identity collision still exists. If the subject was removed or renamed and the
-collision no longer exists, close this row. Otherwise include geometry identity
-in the cache key at the owner boundary.
+**THE ACCEPTANCE IS MET, by a stronger mechanism than the row proposed.** It asked
+for geometry identity IN the cache key. The cache instead refuses to serve an
+entry whose repository content differs at all: `_evidence_is_current` requires
+`source_identity == _repository_identity()`, which is `HEAD` plus
+`sha256(git diff HEAD + git status --porcelain -uall)`, and additionally requires
+the generator binary to be no newer than the cached stamp.
 
-**Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
-cached result accidentally.
+MEASURED 2026-09-16 by moving content and reading the identity back:
+```
+before                          292d216bc…:9edae5b32418a4cd
+after editing a crate source    292d216bc…:8ef610bac33f066b
+after restore                   292d216bc…:9edae5b32418a4cd
+after editing the SUBMODULE     292d216bc…:2f7f7f5b920fc890
+after restore                   292d216bc…:9edae5b32418a4cd
+```
+⇒ Two scenario geometries cannot share a cached result, because differing content
+is differing `source_identity`. The submodule row is the one worth keeping: a
+change inside `tools/` moves the identity too, through
+`status --porcelain`'s dirty-submodule line.
+
+⭐ The cache key ALSO already hashes the whole request —
+`cache_name()` is `scenario_key(...)` plus `sha256(document())[:12]`, and
+`scenario_key`'s own docstring records two collisions it was widened to fix
+(caching by character alone, and `int(spacing)` putting 40.1 and 40.9 in one
+directory). The remaining question this row asked was about CONTENT, and content
+is covered by `source_identity` rather than by the key.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

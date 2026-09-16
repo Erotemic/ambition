@@ -817,13 +817,19 @@ field cannot elide the lifetime the pattern required. Each time the report got
 SHORTER and CLEANER, which reads as good news. A fifth spelling cannot announce
 itself, but it cannot avoid making the count fall.
 
-**Open — two findings owe their own argument.**
+**✅ Two findings owed their own argument, and it is now MEASURED.**
 `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` are
 one-shot latches on `SaveRestored`, which LOOKS like the activation waiver's "the
-write precedes the timeline". ⛔ It does not transfer: both also require a live
-primary player body, and a live body means the session world root is live —
-exactly the condition `maintain_local_session` gates GGRS start on. So they may
-run WITH a live timeline.
+write precedes the timeline". ⛔ **The opposite is what happens.** The GGRS session
+is live before the latch flips, and a sampler with an explicit
+`.after(complete_durable_restore)` edge finds it already live at the instant the
+latch is set. ⇒ They are not even gated on the same fact: GGRS starts on
+`session_world_entity(world).is_some()`, the restore chain waits for a primary
+player BODY, and the body is the later fact. The measurement, the repeat counts
+and the observer effect that moved the start by a frame are in
+[DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
+⚠ So neither may be waived on the activation argument, and both stay
+ACKNOWLEDGED rather than moving to `WAIVERS`.
 
 ⚠ **And the discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is
@@ -2078,14 +2084,40 @@ The mirrors' answer is unavailable here, as this row already says; what this
 measurement adds is that the alternative answer the row hedged toward is
 unavailable too.
 
-⛔ **STILL OPEN: the one-shot pair is a RACE, not a per-frame accumulation.**
-`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both fire
-in the window between a live body existing and the latch flipping — and a live
-body is the exact condition `maintain_local_session` starts GGRS on, so the two
-events are gated on the same fact and their order is stated nowhere.
-⛔ **Do not inherit the "write precedes the timeline" argument from the
-session-scope waivers.** Checked against these; it does not transfer, because
-both require a live primary player body and so may run WITH a live timeline.
+⛔⛤ **THE ONE-SHOT PAIR IS MEASURED AND THE ANSWER IS THE UNFAVOURABLE ONE —
+2026-09-16, `probe_when_the_durable_restore_latch_flips_against_ggrs_start` in
+`a_bag_changed_mid_window_reaches_the_save.rs`.** Recording, per frame, whether a
+session world exists, whether a primary body exists, whether `AmbitionGgrsSession`
+is live and whether `SaveRestored` is set:
+
+| | session world | primary body | GGRS live | latch set |
+|---|--:|--:|--:|--:|
+| first frame true | 1 | 1 | **1 or 2** | **2** |
+
+⇒ **The timeline PRECEDES the write.** A within-frame sampler carrying an explicit
+`.after(complete_durable_restore)` edge finds the GGRS session ALREADY LIVE at the
+instant the latch has just been set. ⛔ So the session-scope waivers' *"the write
+precedes the timeline"* does not merely fail to transfer — **the opposite is what
+happens**, and the row's earlier reading ("gated on the same fact, order stated
+nowhere") was too generous in one respect and wrong in another: the two are NOT
+gated on the same fact. `maintain_local_session` starts GGRS on
+`session_world_entity(world).is_some()`; the restore chain waits for a primary
+player BODY. The body is the later fact, not the shared one.
+
+⚠ **AND THE GAP IS NOT STABLE AGAINST UNRELATED COMPOSITION CHANGES, which is the
+part that makes this a defect rather than a description.** `maintain_local_session`
+is in `Update` in `LocalSessionSet::Maintain`, ordered only
+`.after(InputSet::Collect)`; the restore chain is in top-level `Update` with NO
+edge to it. Adding ONE exclusive system to `Update` — the probe's own sampler —
+moved the session start from frame 2 to frame 1 and shortened the boot by a frame:
+
+    without the within-frame sampler   ggrs@2 restored@2, 35 frames, 3/3 runs
+    with it                            ggrs@1 restored@2, 34 frames, 6/6 runs
+
+⇒ Each configuration is perfectly repeatable and they disagree, so **the order
+these two land in is a property of the whole `Update` set, not of either system.**
+The probe perturbs its own subject, and says so in its doc; the exact frame numbers
+are not the fact, "nothing orders them" is.
 
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION

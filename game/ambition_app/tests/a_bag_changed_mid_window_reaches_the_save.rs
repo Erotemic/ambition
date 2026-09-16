@@ -1037,3 +1037,143 @@ fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
          per-frame-versus-per-tick question answered in the affirmative"
     );
 }
+
+// ---------------------------------------------------------------------------
+// The one-shot pair against GGRS start
+// ---------------------------------------------------------------------------
+
+/// One frame's answer to the three questions the ordering turns on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DurableRestoreFrame {
+    session_world: bool,
+    primary_bodies: usize,
+    ggrs_live: bool,
+    restored: bool,
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct DurableRestoreLog(Vec<DurableRestoreFrame>);
+
+fn record_durable_restore_order(world: &mut bevy::prelude::World) {
+    let session_world =
+        ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_some();
+    let primary_bodies = world
+        .query_filtered::<bevy::prelude::Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>()
+        .iter(world)
+        .count();
+    let ggrs_live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
+    let restored = world
+        .get_resource::<SaveRestored>()
+        .is_some_and(|latch| latch.0);
+    world
+        .resource_mut::<DurableRestoreLog>()
+        .0
+        .push(DurableRestoreFrame {
+            session_world,
+            primary_bodies,
+            ggrs_live,
+            restored,
+        });
+}
+
+fn sim_recording_the_restore_order() -> Platformer2dSimHarness {
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<DurableRestoreLog>();
+            app.init_resource::<WithinFrameOrder>();
+            // `Last`, so the frame is read after every schedule that could have
+            // moved any of the four facts.
+            app.add_systems(bevy::prelude::Last, record_durable_restore_order);
+            // The probe that resolves WITHIN the frame both facts flip on: it
+            // takes an edge to the latch and samples the OTHER subject.
+            use bevy::prelude::IntoScheduleConfigs as _;
+            app.add_systems(
+                bevy::prelude::Update,
+                sample_ggrs_after_the_latch.after(
+                    ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                ),
+            );
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with the restore-order recorder")
+}
+
+/// When does the durable-restore chain run, relative to the frame GGRS starts?
+///
+/// ⛔ THE ANSWER IS "AFTER", WHICH IS THE UNFAVOURABLE ONE. The chain —
+/// `adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`,
+/// `complete_durable_restore` — sits in top-level `Update` and writes
+/// rollback-registered state. The session-scope waivers excuse a write like that
+/// when it PRECEDES the timeline. Measured here, the timeline precedes the write:
+/// the session goes live on frame 1 or 2 and the latch flips on frame 2, and the
+/// within-frame probe — a sampler with an explicit `.after(complete_durable_restore)`
+/// edge — finds the GGRS session ALREADY LIVE at the instant the latch has just
+/// been set.
+///
+/// ⚠ AND THE GAP IS NOT STABLE AGAINST UNRELATED COMPOSITION CHANGES, which is
+/// the more useful half. `maintain_local_session` runs in `Update` in
+/// `LocalSessionSet::Maintain`, ordered only `.after(InputSet::Collect)`; the
+/// restore chain is in top-level `Update` with no edge to it at all. Adding ONE
+/// exclusive system to `Update` — this probe's own within-frame sampler — moved
+/// the session start from frame 2 to frame 1 and shortened the boot by a frame:
+///
+///     without the within-frame sampler   ggrs@2 restored@2, 35 frames, 3/3 runs
+///     with it                            ggrs@1 restored@2, 34 frames, 6/6 runs
+///
+/// ⇒ So this probe PERTURBS ITS OWN SUBJECT, and that is the finding rather than
+/// a caveat: each configuration is perfectly repeatable and they disagree, so the
+/// order these two land in is a property of the whole `Update` set and not of
+/// either system. Do not read the exact frame numbers as the fact. The fact is
+/// that nothing orders them.
+#[test]
+#[ignore = "PROBE, print-only: reports the frame each of the four durable-restore facts first becomes true"]
+fn probe_when_the_durable_restore_latch_flips_against_ggrs_start() {
+    let mut sim = sim_recording_the_restore_order();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let log = sim.world().resource::<DurableRestoreLog>().0.clone();
+    let first = |pred: fn(&DurableRestoreFrame) -> bool| {
+        log.iter().position(pred).map(|i| i as i64).unwrap_or(-1)
+    };
+    eprintln!(
+        "PROBE frames={} session_world@{} body@{} ggrs@{} restored@{}",
+        log.len(),
+        first(|f| f.session_world),
+        first(|f| f.primary_bodies > 0),
+        first(|f| f.ggrs_live),
+        first(|f| f.restored),
+    );
+    for (i, f) in log.iter().enumerate().take(6) {
+        eprintln!("  frame {i}: {f:?}");
+    }
+    eprintln!(
+        "PROBE within-frame {:?}",
+        sim.world().resource::<WithinFrameOrder>()
+    );
+}
+
+#[derive(bevy::prelude::Resource, Default, Debug)]
+struct WithinFrameOrder {
+    ggrs_live_just_after_the_latch: Option<bool>,
+}
+
+fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
+    let latched = world
+        .get_resource::<SaveRestored>()
+        .is_some_and(|latch| latch.0);
+    if !latched {
+        return;
+    }
+    let live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
+    let mut order = world.resource_mut::<WithinFrameOrder>();
+    if order.ggrs_live_just_after_the_latch.is_none() {
+        order.ggrs_live_just_after_the_latch = Some(live);
+    }
+}

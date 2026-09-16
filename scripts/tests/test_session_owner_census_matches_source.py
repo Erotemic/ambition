@@ -252,3 +252,30 @@ def test_a_stray_count_is_found_through_a_closing_backtick():
     real = "`SessionScopedResources` names **29** process resources"
     stray = [int(m.groups()[-1]) for f in guard.COUNT_FORMS for m in f.finditer(real)]
     assert stray == [29], stray
+
+
+def test_rule_4_checks_the_member_list_not_only_its_length():
+    """⛔⛤ A COUNT IS NOT A CHECK ON A LIST, and this document proved it.
+
+    §3 carried a 25-name list beside a stale 25. Correcting the COUNT alone would
+    have left a list four members short and passed every rule this guard had. And
+    once the count is right, a RENAMED member keeps it at 29 forever.
+
+    ⇒ POISONED in the shipped census, three ways, restored by md5: renaming one
+    member (count unchanged) → red and names both sides; dropping one from the
+    checkpoint list → red; un-fencing both lists so the pattern matches nothing →
+    red on anti-vacuity rather than clean.
+    """
+    assert guard.member_lists() == []
+    scoped = guard.source_members(
+        guard.BUNDLES["SessionScopedResources"], "SessionScopedResources"
+    )
+    checkpoint = guard.source_members(
+        guard.BUNDLES["SessionOwnedCheckpointState"], "SessionOwnedCheckpointState"
+    )
+    # ⚠ The census must carry the real names, not a count of them.
+    census = guard.CENSUS.read_text(encoding="utf-8")
+    for member in scoped + checkpoint:
+        assert member in census, f"{member} is in source and not in the census"
+    assert len(set(scoped)) == len(scoped), "a duplicated field would mask a gap"
+    assert not set(scoped) & set(checkpoint), "the two bundles must be disjoint"

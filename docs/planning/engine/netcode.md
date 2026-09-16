@@ -120,6 +120,17 @@ transport choice must not change simulation/input ontology.
 
 Do not build signaling/deployment infrastructure solely to satisfy this plan.
 
+⛔⛤ **AND N2 NOW HAS A COUNTED POPULATION WAITING ON IT, NOT ONLY A DEFECT.**
+`simulation-authority-and-determinism.md`'s **S7** ranks the rollback rows that
+are outside the peer checksum, read every unfiltered tick, and float-bearing: 25
+rows, 12 of them mutably written in production. Two have been measured clean
+against a local resimulation and that is ALL a `SyncTestSession` can establish
+about them — a value nothing compares between peers is reproducible locally and
+divergent across peers at the same time, and the second half is invisible from
+inside one App. ⇒ So N2 is not only what makes an online slice possible; it is
+the only thing that can ask the question those 25 rows pose. S7 owns the list and
+this row owns the session; neither duplicates the other.
+
 ### N3 — content/schema negotiation
 
 Before external peers begin play, negotiate exact prepared-content identity and

@@ -48,15 +48,30 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-**NINE CLOSED, TWO OPEN (2026-09-16).** The per-road table and the arm that holds
+**NINE CLOSED, THREE OPEN (2026-09-16).** The per-road table and the arm that holds
 each one are in
 [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 ⭐ This page said "nine of the ten" and predicted that a tenth road found
 tomorrow would make it "nine closed, a tenth found" instead of making it false.
 An eleventh was found on 2026-09-16 and the sentence held: the count moved, the
-claim did not.
+claim did not. A **twelfth** was found later the same day and the sentence held
+again — but this one is a DIFFERENT KIND of road, which is worth saying because
+"twelve roads" would otherwise imply twelve of the same thing.
 
-⛔ **NEITHER OPEN ROAD IS A SESSION COUNT, AND BOTH ARE BLOCKED ON A RULING.**
+⛔ **THE TWELFTH ROAD IS NOT A LINEAGE DEFECT AND NO PROJECTION FIXES IT.** The 25
+rows ranked by **S7** in
+[simulation-authority-and-determinism.md](engine/simulation-authority-and-determinism.md)
+are outside the session checksum, read by an unfiltered per-tick query, and
+float-bearing; 12 of them are mutably written in production. They carry no
+host-local id — they are simply never compared between peers. ⇒ And they cannot be
+measured here: `Session::SyncTest` is the only session this workspace constructs,
+so the two rows measured clean (`item.ground_item`, `actor.animation_facts`) are
+cleared of a local RESTORE defect and say nothing about two peers. The blocker is
+netcode's **N2**, the absent P2P session — the same blocker `Q128` has under
+another name.
+
+⛔ **NEITHER OF THE OTHER TWO OPEN ROADS IS A SESSION COUNT, AND BOTH ARE BLOCKED
+ON A RULING.**
 [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
 is the absolute `SimTick`.
 [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation)

@@ -1068,6 +1068,25 @@ body is the exact condition `maintain_local_session` starts GGRS on, so the two
 events are gated on the same fact and their order is not stated anywhere. That
 is a RACE to characterise, not a per-frame accumulation.
 
+⚠ **ATTEMPTED 2026-09-16 AND INCONCLUSIVE — THE HARNESS STOPPED SIMULATING.**
+`probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs` adds a
+grant system to the SIM schedule so the mirrored bag changes tick over tick.
+The count accumulates to 8 over roughly 60 steps and then freezes flat —
+`[(0, 8), (40, 8), (80, 8), (120, 8), (160, 8), (200, 8), (240, 8)]` — while
+`sim.step()` keeps returning. ⇒ A clean `session_health` over those 240 frames
+would have been a pass over a world that was not advancing, so the arm asserts
+its own premise and is `#[ignore]`d as a probe rather than reporting green.
+
+⛔ **AND THE PREMISE THAT CAUGHT IT WAS THE SECOND ONE I WROTE.** The first
+asked `count > 0`, which the STARTER BAG satisfies on its own — it would have
+passed without the system ever running. Two samples, with the later required to
+exceed the earlier, is what turned "the value is nonzero" into "my system ran".
+
+⇒ Next thing to try: add the system through `Platformer2dSimHarness::build`'s
+`compose` callback, BEFORE the first update, rather than after the harness has
+built and started its GGRS session.
+
 **Next implementation:** answer the per-frame-vs-per-tick question with a
 sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
 frame in which `persist_inventory_to_save` ran and compare the checksummed

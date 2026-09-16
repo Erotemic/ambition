@@ -688,6 +688,46 @@ in the cache key at the owner boundary.
 **Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
 cached result accidentally.
 
+### GUARD-CORPUS — five copies of "what is a test file", drifted
+
+**Owner:** repo tooling (`scripts/check_*.py`).
+
+**Current state:** five scripts each carry their own `_is_test_path`, and they
+have drifted into five different answers. MEASURED 2026-09-16:
+
+| script | `tests/` in path | `tests.rs` | `test.rs` | `*_tests.rs` | `test_support.rs` |
+| --- | --- | --- | --- | --- | --- |
+| `check_rollback_mutators_run_in_sim.py` | ✅ | ✅ | ✅ | ✅ | — |
+| `ecs_inventory.py` | ✅ | ✅ | ✅ | ✅ | — |
+| `check_set_pins_have_engine_members.py` | ✅ | ✅ | ✅ | ⛔ | — |
+| `check_capability_ships.py` | ✅ | ✅ | ⛔ | ⛔ | ✅ |
+| `tests/test_every_smash_technique_has_a_translator.py` | ✅ | ✅ | ⛔ | ⛔ | — |
+
+⛔ **THE `*_tests.rs` RULE REACHED TWO OF FIVE.** Its own docstring records that
+it "used to miss all 51 of them", so a known defect was fixed once and three
+copies still have it. ⚠ The population of copies was never enumerated — only the
+one somebody was looking at — which is why the fix stopped where it did.
+
+⛔ **AND THE NAME IS A PROXY FOR A FACT NONE OF THEM CHECKED.** An inner
+`#![cfg(test)]` compiles a whole file out whatever it is called;
+`features/ecs/fighter_harness.rs` is a test harness that every name rule passed.
+4 files carry that attribute and ALL FOUR were missed. Closed for the rollback
+guard in `c6715b84e`; still open in the other four.
+
+**Next implementation — and the ORDER is the load-bearing part.** Broadening an
+exclusion makes a check see LESS, and a check that sees less reports CLEANER, so
+consolidating first would hide defects in the direction nobody inspects. ⇒ Give
+each check a population floor FIRST (the shape in
+`check_rollback_mutators_run_in_sim.py`'s `POPULATION_FLOOR`), then move the one
+rule into `scripts/lib/`, then delete the copies. A consolidation that lands
+before the floors cannot be reviewed, because every reviewer sees a shorter
+report and no way to tell a correct exclusion from a lost one.
+
+**Acceptance:** one owner for "is this file test-only", covering both the name
+conventions and `#![cfg(test)]`; each consuming check fails when its population
+falls; and no check reports a `#![cfg(test)]` file's registrations as
+production.
+
 ### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
 
 **Owner:** test runner / app integration lane.

@@ -443,32 +443,37 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ## 7. C07 — Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required
 
-**STATE:** candidate after composition decision. ⚠ **Its census was re-derived 2026-09-16 and GREW ~16%** (732 → at least 850). Re-scope before costing.
+**STATE:** candidate after composition decision. ⚠ **Its census was re-derived 2026-09-16 with the repository's OWN instrument: 726/196, essentially flat** (the baseline is 732/196). ⛔ An earlier version of this line claimed +16% from a scan of mine that counted inline `#[cfg(test)]` modules — see CURRENT STATE.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **DO NOT START BEFORE:** Supported composition profiles must be named first.
 
 ### CURRENT STATE
 
-Static source contains **at least 850** optional Res/ResMut accesses in
-production files. Most are not defects. Three high-authority cases already use
-composition discriminators: session scope, generation mechanics, and content
+Static source contains **726** optional Res/ResMut occurrences over **196**
+unique type spellings. Most are not defects. Three high-authority cases already
+use composition discriminators: session scope, generation mechanics, and content
 binding.
 
-⚠ **RE-DERIVED 2026-09-16; THIS LINE READ "732 accesses over 196 type
-spellings".** Counting `Option<Res<` / `Option<ResMut<` OPENINGS — which nesting
-cannot hide — gives **850 in production, 859 across all tracked `.rs`**. A
-stricter pattern that also extracts the TYPE resolves 771 of them over 202
-spellings; the ~79 it drops are nested generics like `Option<Res<Assets<T>>>`, so
-**202 spellings is a floor and 850 is the honest total**. ⇒ Both numbers moved
-UP, by about 16%. The population C07 exists to shrink has grown while the row
-waited on its composition decision.
+⛔⛤ **THIS LINE SAID 732/196, THEN SAID "at least 850" FOR AN HOUR ON
+2026-09-16, AND BOTH OF THOSE WERE MINE TO GET RIGHT.** I wrote my own scan,
+counted `Option<Res<` openings across tracked `.rs` excluding only `/tests/`
+directories and `tests.rs` files, got 850, and reported the population had GROWN
+~16%. ⇒ **The repository already has the instrument this row cites**, and running
+it — `python3 scripts/architecture_census.py` — reports **726 occurrences over
+196 unique types TODAY**. Against the baseline's 732/196 that is essentially
+FLAT, six DOWN, not 118 up.
 
-⭐ **AND THE HEAVIEST SPELLING IS ONE OF THE THREE THIS ROW CALLS ALREADY
-DISCRIMINATED:** `ActiveSessionScope`, 60 optional accesses — more than double
-the next (`GameAssets` 33, `PreparedCharacterRegistry` 24, `UserSettings` 20,
-`ActiveMatch` 18). Having a composition discriminator has not reduced how often
-the authority itself is reached for optionally, which is worth knowing before
-costing "replace optional fallbacks with explicit contracts".
+⚠ **THE WHOLE DIFFERENCE IS THE TEST BOUNDARY.** The census strips each file from
+its first `#[cfg(test)]` onward and scans only `crates/`, `game/` and `tools/`;
+my scan kept inline `#[cfg(test)]` modules. Those 124 occurrences are real code
+and they are not what this row is about. **ASK THE TOOL, DO NOT MODEL IT** — and
+when a number disagrees with a baseline by 16%, suspect the instrument before the
+tree.
+
+⭐ **AND THE CENSUS CROSS-CHECKS SOMETHING ELSE TONIGHT:** it independently
+reports *"explicit process resources with session/generation semantics: 36"*,
+which is C03's re-derived count, measured by a different road than the
+field-by-field read that produced it.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

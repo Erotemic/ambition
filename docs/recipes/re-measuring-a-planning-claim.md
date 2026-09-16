@@ -1062,3 +1062,71 @@ MACHINE.** The census was verified correct before the allowlist was emptied —
 check separated *broken* from *working*; it could not separate *shared fact*
 from *local artifact*, and only the second mattered. ⇒ Verifying the tool is not
 verifying the input.
+
+---
+
+### A `pub type` ALIAS splits the population, and each scan sees only its half
+
+⛔ **2026-09-16. Two agents scanned one tree for one population and came back an
+order of magnitude apart, and both scans were honest.** I reported "~206
+`Single<.., With<SessionRoot>>` sites"; a peer counting `Single<` directly found
+**11** occurrences workspace-wide, out of 16 `Single<` parameter sites in total,
+and could not reproduce any reading that reached mine.
+
+⇒ `SessionWorldRef<T>` and `SessionWorldMut<T>` are `pub type` ALIASES for
+`Single<..>`. **A scan keyed on what an alias EXPANDS TO cannot see one of its
+uses; a scan keyed on its NAME sees nothing else.** Neither scan was wrong about
+what it counted, and neither was a count of the thing either of us meant.
+
+⭐ **MEASURED properly — comments stripped, tests excluded — 163 + 22 = 185
+production uses across 105 files.** My 206 was additionally raw MENTIONS with
+comments and test files included, where the prose around it said "sites": two
+errors stacked, a wrong unit on top of a missing half.
+
+⇒ **Before quoting a population of "everything that does X", ask whether X has a
+NAME as well as a SHAPE, and count both.** ⚠ And note what saved the finding: the
+claim it supported — three contracts for one condition — rested on the *code*
+(an `assert!`, a scope branch, and skip-shaped sites existing at all), not on the
+number. The peer declined to use the count while confirming the shape, which is
+the right handling of a number that arrives in a message.
+
+### The row NAMES its instrument. Run that one.
+
+⛔ **2026-09-16, and the phantom was 17%.** A consolidation row read *"Static
+source contains 732 optional Res/ResMut accesses over 196 type spellings"* and
+cited `python3 scripts/architecture_census.py`. I wrote my own scan — counting
+`Option<Res<` openings across all tracked `.rs`, excluding only `/tests/`
+directories and `tests.rs` — got **850**, and published *"the population this
+campaign exists to shrink has GROWN ~16%"*.
+
+⇒ Running the helper the row names: **726 over 196**. Six DOWN against the
+baseline's 732. Essentially flat.
+
+⭐ **The whole delta was the TEST BOUNDARY.** The census strips each file from its
+first `#[cfg(test)]` onward and scans only `crates/`, `game/` and `tools/`; mine
+kept inline test modules. Both numbers are real code; only one answers the row.
+That is exactly the kind of scoping decision a hand-rolled scan does not know it
+should have made.
+
+⚠ **THE TELL I MISSED: a documented baseline disagreeing by 16% in a population
+nobody was adding to.** Growth that large with no cause should point at the
+INSTRUMENT before the tree. Instead it fit the evening's pattern — a run of
+genuinely stale rows — so it got LESS scrutiny rather than more.
+
+### The base rate, so a run of stale rows does not become a prior
+
+⭐ **Eight consolidation rows re-derived in one night. SIX came back different,
+ONE held, and ONE only LOOKED different until the right instrument ran.** The
+six were not carelessness: each was true when written and the tree moved under
+it. One of them drifted by exactly the four resources a *different* campaign had
+made members of a grouping rather than moving — the correct outcome, and one the
+drifting row had no way to notice.
+
+⛔ **The danger of that record is the prior it builds.** By the sixth row, "this
+row is stale" was the cheap hypothesis and the evidence for it got read fast.
+That is how a CORRECT row gets rewritten, and it is why the row that HELD (C06 —
+the materializer is already one primitive, but the transition road really does
+keep its own commit wrapper) was recorded as loudly as the ones that did not.
+
+⇒ **Write down the row that survived re-measurement.** A page that only records
+drift teaches the next reader that drift is the answer.

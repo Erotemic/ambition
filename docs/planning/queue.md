@@ -89,16 +89,17 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): TEN CLOSED, THREE OPEN, THIRTEEN LIVE — the road
-found today is the FOURTEENTH FILED (the thirteenth was withdrawn the day it was
-filed and the numbering does not reuse it), and it is the one that closed,
-within the hour, because it was the only one not blocked outside the campaign.**
+**Current state (2026-09-16): TEN CLOSED, FOUR OPEN, FOURTEEN LIVE — fifteen
+FILED, because the thirteenth was withdrawn the day it was filed and the
+numbering does not reuse it. The fourteenth closed within the hour (it was the
+only one not blocked outside the campaign); the fifteenth was found by verifying
+a price another row had quoted.**
 The
 count is written this way deliberately, and this is the sentence earning it: the
 row used to say "nine of the ten", predicting that "a tenth road found tomorrow
 makes this row 'nine closed, a tenth found' instead of making it false". It has
 now absorbed a twelfth, a withdrawn thirteenth and a fourteenth without ever
-being wrong. **TWO of the three open roads want a maintainer decision** before
+being wrong. **TWO of the four open roads want a maintainer decision** before
 anyone starts — the
 absolute `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing
 English prose (`Q122`, found 2026-09-16). ⚠ This sentence said *"BOTH open roads"*
@@ -108,7 +109,7 @@ is a copy, and the copy nearest the correction is the one that survives it.**
 ⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
 IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
 all; they are simply never compared between peers, so no projection can fix them
-and no local session can measure them. Ten closed, three open.
+and no local session can measure them. Ten closed, four open.
 
 ⛔⛤ **A FOURTEENTH, FOUND 2026-09-16 AND MEASURED THE SAME HOUR: A LOCAL
 DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY.** Building the same
@@ -135,6 +136,23 @@ rewind happens. ⭐ THE DURABLE POINT IS NOT THAT A FEATURE LEAKED — it is tha
 the fingerprint and the dump filter DISAGREED ABOUT WHAT COUNTS AS SCHEMA, both
 deliberately, with nothing comparing them. Measurement and the arm's built-in
 positive control on netcode's [`N3`](engine/netcode.md).
+
+⛔⛤ **A FIFTEENTH, FOUND 2026-09-16 BY VERIFYING A PRICE RATHER THAN A CLAIM:
+NOTHING VERSIONS THE SHAPE OF THE PAYLOAD TWO PEERS EXCHANGE.**
+`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` IS what
+crosses between peers — and every candidate that could cover its shape was
+checked and covers something else: `INPUT_STREAM_VERSION` versions recorded
+replay files and exempts added fields BY DESIGN, the rollback dump carries one
+row naming the TYPE (`derived.control_frame`) and not its fields, the fingerprint
+hashes that dump, and `rollback_codec_shape.txt` has zero mentions because
+`ControlFrame` has no `SnapshotState` impl at all — it is `derived`, rebuilt from
+the input stream rather than snapshotted.
+
+⇒ The state half of the wire now has an identity AND a ratchet, landed today. The
+INPUT half has neither. ⚠ It is found, not started, and it is latent like the
+rest of this campaign while no P2P session is ever built (netcode `N2`) —
+`SETTINGS-ROLLBACK` is simply the row that would add the first new field and
+therefore the row that had to notice. It does not block that work.
 
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
@@ -186,9 +204,9 @@ already committed in code to not changing the thing C03 depends on, and
 ToothbrushAmbition's `a_superseded_transaction_cannot_publish_in_the_shipped_app`
 now asserts that identity survives a supersession in the shipped composition.
 
-⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All three open
-roads are blocked on something outside this campaign, so none is in flight — but
-one of them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
+⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All four open roads
+are blocked on something outside this campaign, so none is in flight — but one of
+them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
 simulation tick "when peers agree to start", which is an ACTIVATION moment.** ⇒ If
 `Q128` is ruled and started while a C03 or C05 migration is in flight, this
 checkpoint re-arms and the two campaigns must coordinate rather than assume. The
@@ -196,7 +214,7 @@ other two (`Q122`'s schema-fingerprint prose, the 25 unchecksummed float rows)
 cannot touch session ownership at all.
 
 ⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — ten of
-thirteen roads, three open — and it is not a review of C03's or C05's own plans. It
+fourteen roads, four open — and it is not a review of C03's or C05's own plans. It
 says the identity neighbourhood they were told to wait for has stopped moving and
 is pinned by arms.
 
@@ -854,6 +872,33 @@ are symmetric: shape 2 has no such transient, and `ControlFrame`'s own doc price
 its cost at no `INPUT_STREAM_VERSION` bump, `#[serde(default)]`, no `Pod` bound.
 ⇒ **The evidence points at shape 2; a maintainer choosing shape 1 is accepting a
 named cost rather than picking between equals.**
+
+⛔⛤ **AND SHAPE 2'S PRICE IS QUOTED FROM THE WRONG LEDGER.** This row prices it
+as *"adding a `ControlFrame` field does not bump `INPUT_STREAM_VERSION`"*, and
+that sentence is TRUE — verified at both ends, `ControlFrame` really is
+`#[serde(default)]` with no `Pod` bound, and `INPUT_STREAM_VERSION`'s own doc
+says *"ADDING a field does not need a bump… an older stream loads with the new
+field neutral, which is exactly what an older recording meant by it."*
+
+But `INPUT_STREAM_VERSION` versions RECORDED REPLAY FILES. It is used in exactly
+three files, none of them a handshake, and the question it is being used to
+answer here is a PEER one. Measured 2026-09-16, every candidate that could cover
+the peer side:
+
+| candidate | covers `ControlFrame`'s shape? |
+|---|---|
+| `INPUT_STREAM_VERSION` | no — replay streams, and it exempts added fields by design |
+| rollback schema dump | no — one row, `derived.control_frame`, carrying the type NAME only |
+| `schema_fingerprint` | no — it hashes that dump, so it sees the name, not the fields |
+| `scripts/tests/rollback_codec_shape.txt` | no — zero mentions; `ControlFrame` has no `SnapshotState` impl, because it is `derived` and rebuilt from the input stream rather than snapshotted |
+
+⇒ **NOTHING IN THE REPOSITORY VERSIONS THE SHAPE OF THE PAYLOAD TWO PEERS
+EXCHANGE.** `AmbitionGgrsConfig = GgrsConfig<ControlFrame>` makes `ControlFrame`
+the GGRS input type, so it is literally what crosses; the state schema now has an
+identity AND a ratchet, and the input half has neither. Filed as ID-PEER's
+fifteenth road. It does not block shape 2 — shape 2 is what EXPOSES it, and
+adding the field is no worse than the exposure that already exists — but the row
+may not go on quoting a replay-file version as though it priced the peer cost.
 
 **Next implementation:** two independent pieces, in either order.
 1. **Frame modes (unblocked, but pick a shape first — see above):** stop any `sim`

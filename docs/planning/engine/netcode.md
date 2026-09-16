@@ -310,11 +310,31 @@ present in `deterministic_dump`. An arm asserting only "no causal row in
 if the `cfg` had been misspelled — the absence it checks is the same absence a
 broken feature produces.
 
-What this does NOT settle, and N3 still owes: **no peer handshake reads the dump
-or its version.** The invariant makes the identity honest, the arm makes it the
-shipped one, and the road above makes it instrument-independent; none of them
-makes it EXCHANGED, which is the row's actual subject and waits on N2's absent
-P2P session.
+⛔⛤ **AND N3 NEGOTIATES TWO THINGS WHERE THE WIRE HAS THREE.** This row's opening
+names prepared-content identity and the rollback schema fingerprint. The third is
+the INPUT PAYLOAD, and it has no identity at all: `AmbitionGgrsConfig =
+GgrsConfig<ControlFrame>`, so `ControlFrame` is literally what crosses between
+peers. Measured 2026-09-16, every candidate that could version its shape covers
+something else:
+
+| candidate | covers `ControlFrame`'s shape? |
+|---|---|
+| `INPUT_STREAM_VERSION` | no — it versions RECORDED REPLAY FILES, and its own doc exempts added fields: *"an older stream loads with the new field neutral"* |
+| the rollback schema dump | no — one row, `derived.control_frame`, carrying the type NAME and not its fields |
+| `schema_fingerprint` | no — it hashes that dump, so it sees the name |
+| `scripts/tests/rollback_codec_shape.txt` | no — zero mentions; `ControlFrame` has no `SnapshotState` impl, being `derived` and rebuilt from the input stream rather than snapshotted |
+
+⇒ So the state half of the wire now has an identity, a ratchet and an
+instrument-independence arm, all landed today, and the input half has none of the
+three. Found while verifying a price `SETTINGS-ROLLBACK` had quoted — the
+sentence it quoted is TRUE and is about the wrong ledger, which is the failure
+mode a correct-sounding citation produces. Filed as ID-PEER's fifteenth road.
+
+What this does NOT settle, and N3 still owes: **no peer handshake reads the dump,
+its version, or the input payload's shape.** The invariant makes the state
+identity honest, the arm makes it the shipped one, and the instrument road makes
+it feature-independent; none of them makes anything EXCHANGED, which is this
+row's actual subject and waits on N2's absent P2P session.
 
 The [extension contract](extension-state-and-execution.md) extends this same
 compatibility manifest with module code, port versions, complete extension schema

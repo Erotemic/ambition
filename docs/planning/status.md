@@ -66,7 +66,7 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-**TEN CLOSED, THREE OPEN (2026-09-16).** The per-road table and the arm that holds
+**TEN CLOSED, FOUR OPEN (2026-09-16).** The per-road table and the arm that holds
 each one are in
 [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 ⭐ This page said "nine of the ten" and predicted that a tenth road found
@@ -98,6 +98,19 @@ that a feature leaked — it is that the fingerprint and the dump filter DISAGRE
 ABOUT WHAT COUNTS AS SCHEMA, both deliberately, with nothing comparing them.
 Measurement and the arm's built-in positive control on
 [`N3`](engine/netcode.md).
+
+⛔⛤ **AND A FIFTEENTH, FOUND BY VERIFYING A PRICE RATHER THAN A CLAIM: NOTHING
+VERSIONS THE SHAPE OF THE PAYLOAD TWO PEERS EXCHANGE.** `SETTINGS-ROLLBACK`
+priced a repair as *"adding a `ControlFrame` field does not bump
+`INPUT_STREAM_VERSION`"*. The sentence is true and was verified at both ends —
+and `INPUT_STREAM_VERSION` versions RECORDED REPLAY FILES, while the question it
+was answering is a peer one. `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so
+`ControlFrame` is literally what crosses; the rollback dump carries one row
+naming the type and not its fields, the fingerprint hashes that dump, and the
+codec-shape baseline has zero mentions because `ControlFrame` is `derived` and
+never snapshotted. ⇒ The STATE half of the wire got an identity and a ratchet
+today; the INPUT half has neither. Found, not started, and latent while no P2P
+session is built.
 
 ⭐ **AND A THIRTEENTH WAS FILED AND WITHDRAWN THE SAME DAY, WHICH IS THE
 CAMPAIGN WORKING.** Walking `possession_trigger_system`'s inputs found an
@@ -236,11 +249,11 @@ fails silently.
 The queue is intentionally compact. Its current groups are:
 
 - **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
-  THREE open are `Q128`, `Q122` and the 25 unchecksummed float rows, which are a
-  different kind — no host-local id, never compared between peers, blocked on
-  netcode's N2; the causal instrument reaching the schema fingerprint was a
-  fourth and closed 2026-09-16), settings/rollback policy, throw
-  modifier
+  FOUR open are `Q128`, `Q122`, the 25 unchecksummed float rows (a different
+  kind — no host-local id, never compared between peers, blocked on netcode's
+  N2) and the unversioned input payload; the causal instrument reaching the
+  schema fingerprint was a fifth and closed 2026-09-16), settings/rollback
+  policy, throw modifier
   consistency, A2 projectile identity (CLOSED — the construction-identity hole
   only; A2a/A2b/A2c geometry and contact contracts are a different subject and
   still open), A12 move-contact attribution and A4 control/body execution.

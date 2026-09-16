@@ -74,6 +74,11 @@ resources arrived because the peer-identity campaign made the `MatchInstance`
 correct outcome and which C03 had no way to notice. A census pinned to a commit
 describes that commit.
 
+⭐ **AND C06 WAS SPOT-CHECKED THE SAME DAY AND HOLDS** — its materializer is
+already one primitive, but the room-transition road really does keep its own
+commit wrapper. That row is in this section deliberately: a run of stale rows
+makes the next one look stale too, and that is how a CORRECT row gets rewritten.
+
 ⇒ So: a number in one of these rows is a MEASUREMENT WITH A DATE, not a fact.
 Two of the four above are now guarded mechanically — the session-owner census
 against `teardown.rs`, and every item's storage kind against its declaration —

@@ -387,13 +387,35 @@ One publication decision selects the candidate session/world. Content binding an
 
 ## 6. C06 — Converge reconstruction entry roads on one materialization/publication engine
 
-**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone
+**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone. ⭐ **Premise SPOT-CHECKED 2026-09-16 and it HOLDS** — unlike the four rows re-derived the same day. See CURRENT STATE for what was and was not measured.
 **IMPLEMENTATION CAMPAIGN SIZE:** large
 **DO NOT START BEFORE:** ~~C01~~ (discharged 2026-09-15) + C05.
 
 ### CURRENT STATE
 
 Initial session, room transition, same-room replay, checkpoint restore, New Game, and development reload already share parts of prepared room construction but still have different commit/publication wrappers.
+
+⭐ **SPOT-CHECKED 2026-09-16 AND THIS ROW HOLDS — the first of five re-derived
+today that did.** It is recorded because a run of stale rows makes the next one
+look stale too, and that is how a correct row gets rewritten.
+
+⇒ **THE MATERIALIZER IS ALREADY ONE PRIMITIVE.**
+`RoomConstructionPlan::spawn_contents` has a single definition
+(`world/rooms/stage.rs:379`) and exactly ONE production caller
+(`session/setup.rs:189`); every other call site is inside that file's
+`#[cfg(test)]` region. It delegates to `construct_room_candidate`, one exclusive
+-world command that consults the opening decision before building anything.
+`finalize_room_publication` likewise has one definition and two production call
+sites.
+
+⛔ **BUT THE WRAPPERS ABOVE IT ARE STILL DISTINCT, WHICH IS WHAT THIS ROW SAYS.**
+The room-transition road has its own `RoomTransitionApply::stage(..)`
+(`runtime/room_transition/commit.rs:247`) with its own preflight —
+`NoSessionWorld`, `SubjectCannotTransit { subject, missing }` — reached without
+going through `session/setup.rs`. ⚠ I did NOT enumerate all six roads' wrappers;
+what is measured is that the room MATERIALIZER is shared and at least one commit
+wrapper is genuinely separate. The row's premise survives on that evidence, and
+its size has NOT been re-derived.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

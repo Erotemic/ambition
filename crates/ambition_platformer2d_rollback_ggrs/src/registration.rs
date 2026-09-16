@@ -559,10 +559,16 @@ impl AmbitionRollbackApp for App {
         )
         {
             RollbackApp::rollback_component_with_clone::<T>(self);
-            // PRESENCE only, because this arm's contract is "snapshotted here,
-            // value checksummed by some other authoritative projection" — there is
-            // no projection to measure. A count still catches a carrier that
-            // bevy_ggrs did not put back, which is `PlayerVisual`'s exact failure.
+            // PRESENCE only, because this arm takes no projection: its bound is
+            // `T: Clone` and there is nothing to measure a value against. A count
+            // still catches a carrier that bevy_ggrs did not put back, which is
+            // `PlayerVisual`'s exact failure.
+            //
+            // ⛔⛤ THIS USED TO SAY THE CONTRACT WAS "value checksummed by some
+            // other authoritative projection", which is the claim `detail` carried
+            // until schema v194 and which neither this arm nor the caller can
+            // establish. The same unverifiable sentence had TWO owners, eleven
+            // lines apart; removing it from one left it asserted by the other.
             //
             // It is genuinely weaker, and G2 made that weakness enumerable rather
             // than implied: a presence probe satisfies the F3 coverage test, which

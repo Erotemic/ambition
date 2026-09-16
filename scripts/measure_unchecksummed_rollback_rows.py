@@ -323,11 +323,25 @@ def main() -> int:
     print("\n⛔ HOW THESE ROWS DESCRIBE THEMSELVES — the sentence comes from the")
     print("   registrar METHOD, so it is a fact about the ROAD, not about the type:")
     for detail, count in sorted(by_sentence.items(), key=lambda kv: -kv[1]):
-        probe = "probed" if "probed" in detail else "NO PROBE"
-        print(f"   {count:4}  [{probe:8}]  {detail}")
-    print("\n⚠ A PROBE IS A LOCALIZATION AID, NOT COVERAGE. A probed row tells a")
-    print("  desync hunt WHERE; it still contributes nothing to the checksum. The")
-    print("  rows marked NO PROBE have neither.")
+        named = "names a value probe" if "probed" in detail else "names none"
+        print(f"   {count:4}  [{named:18}]  {detail}")
+    print("\n⛔⛤ AND THAT COLUMN IS NOT THE PROBE STRENGTH. THIS SCRIPT CANNOT")
+    print("  ANSWER THAT QUESTION AND MUST NOT LOOK LIKE IT DOES. It reads a text")
+    print("  baseline; whether a row carries a probe is decided in Rust, at")
+    print("  registration. `rollback_component_clone` installs a PRESENCE probe")
+    print("  (`ChecksumProbe::presence_for`) even though its detail names no probe")
+    print("  at all — an earlier version of this report called those rows")
+    print("  \"NO PROBE\" and was wrong, by reading prose for a fact the code owns.")
+    print("\n⇒ THE AUTHORITY IS `RollbackChecksumProbes`, at runtime:")
+    print("  `strength_tally()` splits Value / Complete (zero-sized, presence IS")
+    print("  the value) / Presence, and `presence_only_type_names()` enumerates the")
+    print("  weak half. `every_presence_only_probe_is_named_with_its_reason` in")
+    print("  `game/ambition_app/tests/rollback_exit_oracle.rs` asserts each one is")
+    print("  listed WITH A REASON. Measured 2026-09-16: 364 probes — 220 value,")
+    print("  28 complete, 116 presence-only, 45 of those derived.")
+    print("\n⚠ A PROBE IS A LOCALIZATION AID, NOT COVERAGE EITHER WAY. It tells a")
+    print("  desync hunt WHERE; it contributes nothing to the checksum two peers")
+    print("  compare. Every row below is outside that checksum.")
 
     # ⛔⛤ THE TRIAGE OVER THE NO-PROBE ROWS, which is the classification S7 asks
     # for. These have no checksum contribution AND no localization probe, so a
@@ -337,6 +351,10 @@ def main() -> int:
     # ⚠ `reader_sites` was BUILT AND NEVER CALLED by this script — only its test
     # exercised it. A capability with one customer in a test file looks exactly
     # like an absent one from the report.
+    # ⚠ "NAMES NO VALUE PROBE" IS WHAT THIS SELECTS, NOT "HAS NO PROBE" — see the
+    # note printed above. These are the rows whose detail claims no value
+    # projection; the code gives them a presence probe, which counts carriers and
+    # is blind to the value.
     unprobed = [(n, t) for n, t, d in subjects if "probed" not in d]
     prime_mentions([t for _, t in unprobed])
     unread, gated_only, per_tick_read, presence_only = [], [], [], []
@@ -352,7 +370,8 @@ def main() -> int:
             gated_only.append(name)
         else:
             unread.append((name, ty))
-    print(f"\n⛔ OF THE {len(unprobed)} NO-PROBE ROWS — no checksum, no probe:")
+    print(f"\n⛔ OF THE {len(unprobed)} ROWS WITH NO VALUE PROJECTION — outside the")
+    print("   checksum, and localizable only by a carrier COUNT:")
     print(f"   {len(per_tick_read):4}  read by an unfiltered per-tick query — a divergence")
     print("         propagates on the next frame")
     print(f"   {len(presence_only):4}  read only as PRESENCE, through a query filter — the component's")

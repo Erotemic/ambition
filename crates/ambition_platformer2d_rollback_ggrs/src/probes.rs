@@ -492,10 +492,15 @@ where
 
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
 ///
-/// This is the honest answer for `rollback_component_clone`, whose whole contract is
-/// "snapshotted here, checksummed by some other authoritative projection". A probe
-/// that cannot see the value can still see the carrier disappear, and `ProjectileOwner`
-/// — registered exactly this way — is the state the equipment divergence turned on.
+/// This is the honest answer for `rollback_component_clone`, whose bound is
+/// `T: Clone` and which therefore has no projection to offer. A probe that cannot
+/// see the value can still see the carrier disappear, and `ProjectileOwner` —
+/// registered exactly this way — is the state the equipment divergence turned on.
+///
+/// ⚠ The third and last site that described that arm as *"checksummed by some
+/// other authoritative projection"*. The claim came out of `detail` at schema
+/// v194; it was also asserted here and in `registration.rs`, so removing it from
+/// one place left two copies saying it.
 pub fn census_presence<T>(world: &mut World) -> ComponentCensus
 where
     T: Component,

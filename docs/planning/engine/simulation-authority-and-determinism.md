@@ -285,7 +285,7 @@ next step this section named was *"classify the payloads that can change
 mechanical behaviour"*. The census already held a reader triage — and had never
 called it. `reader_sites` was exercised only by its own test, so a capability with
 one customer in a test file looked exactly like an absent one. Wired into the
-report and run over the 99 no-probe rows:
+report and run over the 99 rows whose `detail` names no value projection:
 
 | rows | how it is read | what a divergence does |
 |---|---|---|
@@ -294,9 +294,27 @@ report and run over the 99 no-probe rows:
 | 1 | gated or point reads only | a human must decide when it is read |
 | **1** | **nothing in production** | — |
 
-⇒ **78 of 99 are read every tick, are not in the checksum, and have no probe.** A
-divergence in one of them is both invisible to peer comparison and unlocatable by
-the localization aid that exists for exactly that job.
+⇒ **78 of 99 are read every tick and are not in the checksum**, and the only
+thing that would localize a divergence in one is a carrier COUNT.
+
+⛔⛤ **A CORRECTION TO THIS SECTION, MADE THE SAME DAY IT WAS WRITTEN, AND IT IS
+THE SECTION'S OWN LESSON ONE LEVEL DOWN.** This first read *"78 of 99 have no
+probe"*. They all have one. `rollback_component_clone` installs
+`ChecksumProbe::presence_for::<T>` — a carrier count — eleven lines below the
+`detail` string it records, and I classified from the string. Having just spent
+two commits on a census that matched a SENTENCE instead of the property in its
+own title, I then read a sentence for a fact the code owns.
+
+⇒ **THE AUTHORITY FOR PROBE STRENGTH IS `RollbackChecksumProbes`, AT RUNTIME, AND
+IT ALREADY EXISTED.** `ProbeStrength` is `Value` / `Complete` (zero-sized, where
+presence IS the value, decided by `size_of::<T>() == 0`) / `Presence`, and
+`presence_only_type_names()` enumerates the weak half.
+`every_presence_only_probe_is_named_with_its_reason`
+(`game/ambition_app/tests/rollback_exit_oracle.rs`) already asserts every one is
+listed with a real reason. Measured 2026-09-16 from that test's own output:
+**364 probes — 220 value, 28 complete, 116 presence-only, 45 of those derived.**
+A static scan of the text baseline cannot answer this and the census now says so
+instead of implying an answer.
 
 ⛔⛤ **AND THE TRIAGE'S FIRST NUMBER WAS 20 UNREAD, NOT 1 — THREE MORE BLIND SPOTS,
 ALL IN THE REASSURING DIRECTION.** It looks for a BORROW (`&T`), and two whole
@@ -320,7 +338,8 @@ arms as anti-looseness controls, and both were poisoned.
 
 ⛔ **THE ONE ROW WITH NO PRODUCTION READER IS `player.local_marker`.**
 `LocalPlayer` is `component-clone`: snapshotted every frame, not in the session
-checksum, no probe. Its 16 production mentions are a definition, a re-export, two
+checksum, localizable only by a carrier count. Its 16 production mentions are a
+definition, a re-export, two
 insertions, a rollback registration and doc comments — not one read. Its only
 `With<LocalPlayer>` is in `smash_in_the_host.rs`, a test. Pinned by
 `test_local_player_is_registered_for_rollback_and_read_by_nothing`, which is

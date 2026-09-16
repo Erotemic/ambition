@@ -170,7 +170,8 @@ def test_local_player_is_registered_for_rollback_and_read_by_nothing():
     """⛔ THE ONE ROW THE WIDENED TRIAGE STILL CANNOT FIND A READER FOR.
 
     `player.local_marker` is `component-clone`: snapshotted every frame, not in
-    the session checksum, no probe. Its 16 production mentions are a definition, a
+    the session checksum, and localizable only by a carrier count. Its 16
+    production mentions are a definition, a
     re-export, two insertions, a rollback registration and doc comments — not one
     read. Its only `With<LocalPlayer>` is in `smash_in_the_host.rs`, a test.
 

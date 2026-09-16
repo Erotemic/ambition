@@ -303,7 +303,10 @@ impl RoomConstructionPlan {
         &self.platform_states
     }
 
-    pub fn predicted_authoritative_ids(&self) -> &BTreeSet<String> {
+    /// ⚠ Not `pub`: every caller is in this file. `RoomConstructionPlan` is a
+    /// public type, so a public accessor on it is public API whether or not
+    /// anyone outside uses it.
+    fn predicted_authoritative_ids(&self) -> &BTreeSet<String> {
         self.features.expected_authoritative_ids()
     }
 

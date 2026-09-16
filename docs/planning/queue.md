@@ -15,6 +15,21 @@ it.
 
 **Owner:** [construction and reconstitution](engine/construction-and-reconstitution.md).
 
+⇒ **POST-A10 DEMOLITION IS DONE ON THE SYMBOL AXIS (2026-09-16).** MEASURED: every
+piece of A10 machinery has live production callers — `PendingConstructionReceipt`,
+`FrozenPublicationEffects`, `PublicationRetention`, `PendingWorldReplacement`,
+`RoomCommitStamp`, `opening_refused`, `entity_is_still_a_candidate`,
+`publications_holding_frozen_effects`. Nothing in that set is scaffolding left
+standing. The dead mechanism the demolition DID find — `CandidateState` /
+`spawn_candidate_state` / `candidate_state_entities`, zero callers, comments
+specifying a road production never took — is deleted (`09629b060`).
+
+⚠ **AND THE PUBLIC-SURFACE AXIS IS ESSENTIALLY CLOSED TOO.** Of every `pub`
+item in `transaction.rs` and `stage.rs`, exactly ONE had no caller outside those
+two files: `RoomConstructionPlan::predicted_authoritative_ids`, now private.
+`RoomConstructionPlan` is a public type, so a public accessor on it is public API
+whether or not anyone outside uses it.
+
 **CURRENT INVARIANT.** A failed candidate world leaves the currently playable
 world N intact, at BOTH scopes and UNCHANGED — not merely playable. A candidate
 N+1 is prepared and verified off to the side; only a validated candidate becomes

@@ -843,28 +843,44 @@ assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct
 from behavioral flakes, and from CONTENTION.
 
-⛔ **AND ONE RED GATE IS OPEN WITH ITS ATTRIBUTION CORRECTED.**
-`check_rollback_mutators_run_in_sim` reports `reset_inventory_on_new_game`
-mutating `BodyWallet` (rollback-registered) through
-`Query<&mut BodyWallet, PrimaryPlayerOnly>` while registered into `Update` —
-a schedule that never rewinds.
+⇒ **THE `BodyWallet` RED IS CLOSED AT `4ccfef59c`, AND IT WAS A CROSSING RATHER
+THAN A SCHEDULE.** `check_rollback_mutators_run_in_sim` reported
+`reset_inventory_on_new_game` mutating `BodyWallet` from `Update`. The row had it
+as a choice between two costly remedies; the PRODUCER decided it.
+`process_new_game_reset_request` runs in the SIM schedule's `ResetProcessing`,
+and `NewGameResetCommitted` IS `clear_message_on_rollback`. So the message was
+produced inside the rewind window and consumed outside it, and a rewind could
+clear the trigger before its consumer ran while the rollback-registered writes
+that consumer had already made stood. ⇒ A waiver was never available.
 
-⚠ **IT WAS NOT INTRODUCED BY `547987086`, WHICH A PEER ATTRIBUTED IT TO.**
-MEASURED: `git show 547987086^` has the same system in the same
-`add_systems(Update, (...).chain())` block. That commit deleted a SEPARATE
-`add_systems` block beside it and moved nothing. The mutation is pre-existing;
-what changed is that the guard's parameter pattern was widened and can now SEE
-it — which is the guard gaining reach, not the tree regressing.
+The fix is a MOVE onto a road that already existed:
+`clear_transient_on_sandbox_reset` consumes that same message in the sim
+schedule, chained after the producer so its deferred `world.write_message` has
+flushed. `reset_inventory_on_new_game` now runs `.after` it.
 
-⚠ **AND NEITHER REMEDY THE GUARD OFFERS IS FREE HERE.** Moving it to
-`app.sim_schedule()` puts it inside the rewind window, where its ordering
-constraint bites: the chain's own comment records that running it after the
-mirrors lets `persist_inventory_to_save` write the OLD run's bag into the freshly
-wiped save. A fixed step runs before `Update` in the same frame, so the order
-survives — on frames that HAVE a fixed step. Waiving instead needs a boundary
-argument, and there is none written: `NewGameResetCommitted` is
-`clear_message_on_rollback`-registered with a name and no reason, so whether a
-rewind can cross a New Game is undocumented.
+⭐ **AND IT ANSWERS THIS ROW'S OWN CAVEAT BETTER THAN THE CAVEAT EXPECTED.** The
+row worried the ordering survives "on frames that HAVE a fixed step". The save
+WIPE is inside the producer's queued closure, which is also in the sim schedule —
+so wipe and reset now stand or fall together on the same frame, and the
+"old run's bag into the freshly wiped save" hazard cannot open a frame-shaped gap
+at all. Previously the wipe was in sim and the reset in `Update`, which is where
+that gap lived.
+
+⭐⭐ **THE REUSABLE PART: A RED HERE HAS THREE INDEPENDENT QUESTIONS BEHIND IT,
+and answering one is not a verdict.** (1) is the write inside the rewind window;
+(2) is the write at a point no rewind can CROSS, which satisfies the guard
+without moving anything; (3) is the TRIGGER erasable by a rollback, which is what
+closes the WAIVER route and which (2) cannot rescue. ⚠ MEASURED while handing
+this to a peer: `SessionScopeActivated` is produced AND consumed in `Update` and
+is NOT `clear_message_on_rollback`, so (3) does not touch the session-activation
+reset — but that road still owes (2) for its sixteen rollback-registered
+resources. Reporting (3) as the verdict would have told a peer they were clear of
+a charge they had not answered.
+
+⚠ **NINE FINDINGS REMAIN AND NONE ARE THIS ONE** — verified against the WIDENED
+guard a peer landed while this was in flight, not the version that reported it.
+Seven menu systems reach `ResMut<NewGameResetRequested>` through
+`MenuDispatchParams`; two are session-reset roads. All separately owned.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

@@ -878,17 +878,32 @@ THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
 | system | its own guard | so it runs |
 | --- | --- | --- |
 | `adopt_occurrence_checkpoint_from_save` | `if restored.0 \|\| bodies.is_empty() { return }` | ONCE, before the latch, and only with a live body |
-| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE — it IS the latch |
+| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE, as soon as a PRIMARY PLAYER BODY exists — it IS the latch, and it asks for a body, NOT for a save file |
 | the three `persist_*_to_save` | `if !restored.0 { return }` | every frame AFTER the latch, value-compared |
 
-⛔ **SO THE MIRRORS WRITE NOTHING AT ALL UNTIL A SAVE HAS BEEN RESTORED, and
-any test that forgets that measures nothing.** `SaveRestored` starts false and
-only `complete_durable_restore` sets it. A harness booted with no save file
-never flips the latch, so all three `persist_*` early-return forever and the
-lane is green for a reason that has nothing to do with rollback. ⇒ The
-experiment below MUST boot with a save (`Platformer2dSimHarnessOptions::with_save`)
-and must assert the mirrored value actually changed, or it is the vacuous pass
-this queue keeps finding.
+⛔✦ **A CLAIM I PUT IN THIS ROW AND WITHDREW WITHIN THE HOUR, kept because the
+wrong version is the one a reader would reach for.** I wrote that the mirrors
+write nothing until a save has been RESTORED, so a harness booted with no save
+file never flips the latch and any such test measures nothing. **Wrong.**
+`complete_durable_restore` asks `ready_body.single().is_err()` and nothing else:
+the latch flips as soon as a primary player body carries a `BodyWallet`, save
+file or not. `AmbitionGameSave` is a plain `Res`, not an `Option<Res>`, so the
+resource is always there to mirror INTO.
+
+⇒ I inferred "needs a save" from the system's NAME and from the `save` field in
+its signature, and never read its guard clause. The three `persist_*` really are
+gated on the latch — that half held — but the latch is about a body.
+
+⭐ **WHICH MOVES THE EXPERIMENT, AND MAKES IT SHARPER.** The mirrors run in
+every harness that has a player, so `rollback_full_reset.rs` and
+`rollback_lifecycle_reset.rs` already drive them for 180 and 240 frames and are
+GREEN. That is not evidence they are safe: the mirror is value-compared, so in a
+world where the bag never changes it writes once and then returns early forever.
+⇒ The experiment is therefore NOT "boot with a save". It is **change the
+mirrored value in the middle of the rollback window**, which nothing in the tree
+does today, and assert the mirror actually wrote — before, during AND after the
+window, since a value that is right at frame 0 and right at frame N may have
+been lost and re-established in between.
 
 ⚠ **AND THE ONE-SHOT PAIR IS A NARROWER QUESTION THAN THE MIRRORS.** Both fire
 in the window between a live body existing and the latch flipping — and a live
@@ -935,7 +950,10 @@ rollback restores the pre-equip value, and the item is simply back in the bag
 with no error anywhere. ⚠ `OwnedItemsBaseline` IS registered
 `rollback_resource_clone_checksum`, so a projection of this state is hashed —
 whether that projection would catch this write is the question to settle, not an
-assumption to inherit from the kind's reassuring detail string.
+assumption to inherit from the kind's reassuring detail string. ⇒ **ANSWERED
+BELOW: it does not.** `session_health` was clean on every one of the 240 frames
+in which the grant was being taken back, so the hashed baseline does not stand in
+for the unhashed value here.
 
 ⚠ **AND THE EXISTING TEST DOES NOT COVER IT, DELIBERATELY.**
 `game/ambition_app/tests/rollback_full_reset.rs` asks whether the reset
@@ -945,8 +963,61 @@ re-simulation of it. That is the safe shape by construction: a flag already true
 before the sync-test window opens is identical on every peer and on every
 replay. The mid-window menu write is the case nobody has asked about.
 
-**Next implementation:** answer the narrow question first — can a menu that
-writes these be open while a GGRS session is live? If it cannot, this is two
+⭐⭐ **MEASURED 2026-09-16 — THE `OwnedItems` HALF IS REPRODUCED, WITH A
+CONTROL.** `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`
+grants an item from outside the rewinding schedule, which is the shape
+`dispatch_menu_action` makes when it equips, and drives the GGRS sync-test
+window:
+
+| harness | what happens to the grant |
+| --- | --- |
+| `with_sync_test_rollback_settings(4, 10)` | **GONE AT FRAME 0.** The live `OwnedItems` is back below the granted count on the very next step |
+| same world, no rollback session | **KEPT for 240 frames** |
+
+⛔ **SO THE REWIND TAKES IT BACK, AND NOTHING ANYWHERE SAYS SO.** No desync, no
+error, no log line: `OwnedItems` is `rollback_resource_clone` — snapshotted and
+restored, NOT hashed — so there is no checksum to disagree. The item is simply
+back in the bag.
+
+⚠ **AND THE SAVE MIRROR NEVER EVEN SAW IT.** `persist_inventory_to_save` is
+value-compared, and the restore lands before it next runs, so it finds nothing
+changed and early-returns. The autosave is therefore CONSISTENT with a world in
+which the equip never happened — which is why no existing arm could have caught
+this. `rollback_full_reset.rs` and `rollback_lifecycle_reset.rs` drive the same
+mirror for 180 and 240 frames and are green, because in those worlds the bag
+never changes.
+
+⇒ The control is the load-bearing half of the arm. "The bag lost an item" and
+"the REWIND took the item back" are indistinguishable from inside one harness.
+
+⚠ **THIS IS NOT A GGRS BUG AND IT IS INVISIBLE IN SINGLE-PLAYER**, which is
+between them why it survived. Restoring a snapshotted resource is exactly what a
+rewind is for; the defect is that a player-visible ACTION is expressed as a
+direct write to rollback state from outside the rewinding schedule. With no
+session there is nothing to rewind and the control keeps the item forever — so
+every hour of single-player play is evidence of nothing here.
+
+**Next implementation:** the `OwnedItems` half no longer needs investigating,
+only fixing — route the equip through a message the sim consumes, the way
+`AmbientGravityRequest` already does for `BaseGravity`, three lines away in the
+same bundle. ⚠ The repro arm ASSERTS THE DEFECT so the lane stays green; when it
+goes RED the defect is fixed, and the arm says so in place. Delete it and close
+this row together.
+
+⛔ **AND THE ESCAPE HATCH IS SHUT: THE RUN CONDITION GUARANTEES THE DANGEROUS
+WINDOW RATHER THAN EXCLUDING IT.** The obvious hope is that a menu writing these
+cannot be open while a session is live. These systems carry
+`.run_if(simulation_authorized)`, and that predicate returns
+`live_scope_of(..).is_some()` — it is TRUE exactly when a live session scope
+exists. So they are gated to run only in the window that matters. ⚠ A live scope
+is not by itself a live GGRS session (single-player has one too), but nothing
+here narrows them to the single-player case.
+
+**Still open:** the `NewGameResetRequested` half, which is the hashed one and a
+different failure. Its write is a one-bit flag consumed in `sim_schedule()`, so
+the question is not "is it lost" but "do the two peers hash a different bit" —
+the same arm shape as the one above, asserting `session_health` rather than a
+count. If it cannot, this is two
 waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
 the menu's own state machine; answer it from what gates the menu, because "you
 would not do that" is not a property of the code. If it CAN, the write belongs

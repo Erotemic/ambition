@@ -676,6 +676,15 @@ pub struct RollbackRestoreAudit {
     /// worse than no localizer, because it launders an absence of evidence into
     /// evidence of absence. A caller must assert this is non-zero.
     pub comparisons: usize,
+    /// The most recent frame [`record_saved_census`] censused, and its census.
+    last_saved: Option<(i32, BTreeMap<&'static str, ComponentCensus>)>,
+    /// The census taken right AFTER the GGRS advance and before `Update`.
+    after_the_advance: Option<BTreeMap<&'static str, ComponentCensus>>,
+    /// Types whose LIVE census differed from the most recent SAVED one, at the
+    /// end of a frame — see [`record_live_census`].
+    written_outside_the_rewinding_schedule: BTreeSet<&'static str>,
+    /// How many times [`record_live_census`] had a saved census to compare with.
+    pub live_comparisons: usize,
 }
 
 impl RollbackRestoreAudit {
@@ -713,6 +722,21 @@ impl RollbackRestoreAudit {
             .map(|(_, census)| (census.count, census.xor))
             .collect::<BTreeSet<_>>()
             .len()
+    }
+
+    /// Types whose LIVE value differed from their own most recent SNAPSHOT at the
+    /// end of a frame — i.e. written outside the rewinding schedule.
+    ///
+    /// Requires [`record_live_census`] to be installed and the audit enabled.
+    /// ⛔ An EMPTY set with [`Self::live_comparisons`] at zero means the system
+    /// never ran or never had a saved census to compare against, which reads
+    /// exactly like a world where nothing is written outside the schedule — so a
+    /// caller must assert the count before reading the set.
+    pub fn written_outside_the_rewinding_schedule(&self) -> Vec<&'static str> {
+        self.written_outside_the_rewinding_schedule
+            .iter()
+            .copied()
+            .collect()
     }
 
     /// Every type whose census took MORE THAN ONE value across the frames this
@@ -852,7 +876,91 @@ pub fn record_saved_census(world: &mut World) {
         audit.divergences.extend(found);
         // Overwriting would compare replay N against replay N-1 and go quiet once the error became
         // consistent.
+        audit.last_saved = Some((frame, census.clone()));
         audit.saved.entry(frame).or_insert(census);
+    }
+}
+
+/// The census taken immediately AFTER the GGRS advance, before `Update` runs.
+///
+/// Half of [`record_live_census`]'s comparison; see that function for why the
+/// other half cannot be the SAVED census.
+pub fn record_census_after_the_advance(world: &mut World) {
+    if !world
+        .get_resource::<RollbackRestoreAudit>()
+        .is_some_and(|audit| audit.enabled)
+    {
+        return;
+    }
+    let Some(probes) = world.get_resource::<RollbackChecksumProbes>().cloned() else {
+        return;
+    };
+    let census = probes.census_all(world);
+    if let Some(mut audit) = world.get_resource_mut::<RollbackRestoreAudit>() {
+        audit.after_the_advance = Some(census);
+    }
+}
+
+/// ⛔⛤ **S8'S PREDICATE, MEASURED INSTEAD OF READ OFF EIGHT SYSTEMS' SCHEDULES.**
+///
+/// A rollback entry written from a schedule that never rewinds is a desync
+/// candidate, and that population has so far been found by reading registrations
+/// and `add_systems` calls — careful work a forwarder, a set or a `cfg` can hide
+/// from. This measures it: census the world right after the GGRS advance
+/// (`PreUpdate`, after `run_ggrs_schedules`) and again at the end of the frame
+/// (`Last`). **Anything that differs was written by `Update`, `PostUpdate` or
+/// `Last` — the schedules that never rewind.**
+///
+/// ⛔⛤ **THE FIRST VERSION COMPARED AGAINST THE SAVED CENSUS AND WAS WRONG, IN
+/// THE ALARMING DIRECTION.** It reported 29 of 144 hashed entries "written
+/// outside the rewinding schedule", including `SimTick`, `BodyKinematics`,
+/// `MotionModel` and `SweepSample` — types the simulation obviously writes. The
+/// cause: GGRS saves a frame BEFORE advancing it, so the last SAVED census is the
+/// state at the START of the last advanced frame while the live world is its END,
+/// and every per-tick-changing type differed by construction. ⇒ The number was
+/// seven times S8's hand-read four, which is how a broken instrument announces
+/// itself as a discovery; what caught it was reading the LIST and seeing types
+/// whose answer was already known.
+///
+/// ⚠ **IT NAMES A POPULATION, NOT A DEFECT.** Presentation state is legitimately
+/// written there, and a type that is rollback-registered AND presentation-written
+/// is what `Q131` is about. What makes an entry dangerous is that it ALSO feeds
+/// the peer checksum, which the registry knows and this does not; the JOIN is the
+/// finding.
+///
+/// ⚠ **AND IT CANNOT SEE A WRITE THAT PUTS THE VALUE BACK.** A system that
+/// mutates and restores within one frame leaves no trace — which is why
+/// `NewGameResetRequested` satisfies S8's first two conditions and does not
+/// desync. The same blind spot the checksum has.
+pub fn record_live_census(world: &mut World) {
+    if !world
+        .get_resource::<RollbackRestoreAudit>()
+        .is_some_and(|audit| audit.enabled)
+    {
+        return;
+    }
+    let Some(probes) = world.get_resource::<RollbackChecksumProbes>().cloned() else {
+        return;
+    };
+    let Some(baseline) = world
+        .get_resource::<RollbackRestoreAudit>()
+        .and_then(|audit| audit.after_the_advance.clone())
+    else {
+        return;
+    };
+    let live = probes.census_all(world);
+    let mut differing = Vec::new();
+    for (type_name, now) in &live {
+        let before = baseline.get(type_name).copied().unwrap_or_default();
+        if before != *now {
+            differing.push(*type_name);
+        }
+    }
+    if let Some(mut audit) = world.get_resource_mut::<RollbackRestoreAudit>() {
+        audit.live_comparisons += 1;
+        audit
+            .written_outside_the_rewinding_schedule
+            .extend(differing);
     }
 }
 

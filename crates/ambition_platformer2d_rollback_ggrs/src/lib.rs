@@ -156,6 +156,22 @@ impl Plugin for GgrsBackendPlugin {
             reconcile::reconcile_brain_bindings.in_set(AmbitionLoadWorldSet::Reconcile),
         )
         .add_systems(SaveWorld, probes::record_saved_census)
+        // ⛔⛤ THE PAIR THAT MEASURES S8'S PREDICATE, and both ends matter.
+        // `after(RunGgrsSystems)` is the world at the END of the advance; `Last`
+        // is the world after every non-rewinding writer has had its turn. The
+        // difference is what `Update`/`PostUpdate`/`Last` wrote.
+        // ⚠ THE BASELINE CANNOT BE THE SAVED CENSUS: GGRS saves a frame BEFORE
+        // advancing it, so the last save is the START of the last advanced frame
+        // and every per-tick-changing type would differ by construction. That
+        // version reported `SimTick` and `BodyKinematics` as written outside the
+        // rewinding schedule.
+        // Costs nothing unless `RollbackRestoreAudit` is enabled, which it never
+        // is in a shipping frame.
+        .add_systems(
+            bevy::prelude::PreUpdate,
+            probes::record_census_after_the_advance.after(RunGgrsSystems),
+        )
+        .add_systems(bevy::prelude::Last, probes::record_live_census)
         .add_systems(
             LoadWorld,
             probes::compare_restored_census.after(AmbitionLoadWorldSet::Reconcile),

@@ -15,78 +15,11 @@ use ambition_platformer2d_core::snapshot::{
 
 use super::registry::{self, RollbackEntryKind};
 
-/// The `detail` sentence each registration road records.
-///
-/// ⛔⛤ **EIGHTEEN CALL SITES SPELLED FIFTEEN SENTENCES TWICE, IN TWO CRATES,
-/// AND NOTHING COMPARED THEM.** `SchemaRollbackRegistrar` (the metadata
-/// recorder) and `rollback_ggrs`'s installing registrar each wrote their own
-/// copy of every string. They agreed — measured 2026-09-16, byte for byte — but
-/// only because nobody had reworded one. A drift in either copy would move
-/// [`super::registry::RollbackRegistry::schema_fingerprint`], which is the
-/// snapshot schema's identity, and the two roads would name the same
-/// registration differently depending on which registrar ran.
-///
-/// ⇒ One sentence, one owner. Both registrars reference these; neither spells
-/// one. The `rollback_schema_baseline` test is the proof the collapse was
-/// faithful: this commit leaves the dump byte-identical, so the baseline does
-/// not move and no schema version is owed.
-///
-/// ⚠ THE SENTENCES THEMSELVES ARE NOT ALL VERIFIED, and centralising them does
-/// not make them so — see `Q122`. Collapsing the copies is what made
-/// [`CLONE_UNHASHED`] a one-place edit when its coverage claim came out.
-pub mod detail {
-    pub const CANONICAL_IDENTICAL_CHECKSUM: &str =
-        "bevy_ggrs canonical codec snapshot + identical canonical checksum projection";
-
-    pub const CANONICAL_PRESENCE_AWARE_CHECKSUM: &str =
-        "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection";
-
-    pub const CLONE_CURSOR_CHECKSUM: &str =
-        "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection";
-
-    pub const CLONE_RESOLVED_CHECKSUM: &str =
-        "bevy_ggrs clone snapshot + canonical authored-reference checksum projection";
-
-    pub const CLONE_CANONICAL_CHECKSUM_REMAPPED: &str =
-        "bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load";
-
-    /// ⛔⛤ THIS SENTENCE USED TO CLAIM COVERAGE IT COULD NOT ESTABLISH. It read
-    /// *"state checksum supplied by another authoritative projection"* on 99
-    /// rows, emitted by `rollback_component_clone` / `rollback_resource_clone`,
-    /// whose only bound is `T: Clone`. Whether some OTHER registration projects
-    /// a type's state is a property of the type; the snapshot strategy cannot
-    /// know it. It now states what IS true by construction, which is
-    /// `RollbackEntryKind::feeds_peer_checksum() == false`.
-    pub const CLONE_UNHASHED: &str =
-        "bevy_ggrs clone snapshot; not in the session checksum";
-
-    pub const CLONE_ENTITY_REF_REMAPPED: &str =
-        "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity";
-
-    pub const CLONE_ENTITY_SET_REMAPPED: &str =
-        "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities";
-
-    pub const CLONE_ENTITY_MAP_REMAPPED: &str =
-        "bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity";
-
-    pub const CLONE_PROBED_FOR_LOCALIZATION: &str =
-        "bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum";
-
-    pub const CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED: &str =
-        "bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields";
-
-    pub const ENTITY_MAPPING: &str =
-        "bevy_ggrs LoadWorld entity-reference remapping";
-
-    pub const RESOURCE_ENTITY_MAPPING: &str =
-        "bevy_ggrs LoadWorld resource entity-reference remapping";
-
-    pub const REQUIRED_ROLLBACK: &str =
-        "component presence automatically installs bevy_ggrs::Rollback";
-
-    pub const MESSAGE_CLEAR: &str =
-        "clear abandoned-future message buffer in LoadWorld::Mapping";
-}
+//: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind::detail` 2026-09-16
+//: and re-exported here, in the same step as `RollbackEntryKind`. A default
+//: trait body that names the kind but not the SENTENCE would close half of
+//: ROLLBACK-KIND-SPELLING and reopen the other half one crate away.
+pub use ambition_platformer2d_core::rollback_kind::detail;
 
 /// A metadata-only [`RollbackRegistrar`] borrowed from the composition's app.
 pub struct SchemaRollbackRegistrar<'a> {

@@ -24,6 +24,7 @@ pub mod movement;
 pub mod player_state;
 pub mod rollback_registration;
 pub mod sim_random;
+pub mod rollback_kind;
 pub mod snapshot;
 mod snapshot_impls;
 #[cfg(test)]

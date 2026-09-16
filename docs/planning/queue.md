@@ -388,7 +388,28 @@ on one road and not the other is worse than a kind spelled twice: it installs
 snapshot machinery the schema baseline has no row for, and the
 conflicting-registration check cannot see a name only one road reaches.
 
-**Next implementation:** collapse the two vocabularies before touching kinds.
+⇒ **THE BLOCKER IS CLEARED (2026-09-16).** `RollbackEntryKind` and the 15
+`detail` sentences now live in `ambition_platformer2d_core::rollback_kind`,
+beside the `RollbackRegistrar` trait that `core::snapshot` declares, and are
+re-exported from their old paths so all 94 references resolve unchanged. A
+default trait body can now name both.
+
+⭐ **THE RELOCATION HAS A BYTE-EXACT ORACLE AND IT PASSED WITH A 0-LINE DIFF.**
+`compute_schema_fingerprint` hashes the whole `schema_dump()`, `detail` column
+included, so `the_rollback_schema_matches_its_recorded_baseline` is proof rather
+than corroboration. POISONED THROUGH THE RE-EXPORT — altering one word of
+`detail::MESSAGE_CLEAR` in its NEW location reddens the baseline, which is what
+shows the oracle reads the moved definition and not a stale copy.
+
+⚠ **THE SENTENCES HAD TO MOVE IN THE SAME STEP**, flagged by the ID-PEER owner
+before I started: a default body naming the KIND but not the `detail` would close
+half this row and reopen the other half one crate away.
+
+**Next implementation:** collapse the two vocabularies. ⚠ This is the part that
+is design, not relocation: `RollbackRegistrar` RECORDS a descriptor while
+`AmbitionRollbackApp` INSTALLS plugins and checksum systems, so a shared default
+body needs a primitive each impl supplies. Do not add a third table mapping
+method names to kinds; that is the same duplication with an extra hop.
 Give each registrar method ONE kind, named where the method is declared rather
 than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
 mapping method names to kinds; that is the same duplication with an extra hop.

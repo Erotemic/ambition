@@ -17,8 +17,12 @@ use ambition_platformer2d_core::snapshot::{
     cursor_checksum, resolved_checksum, state_checksum, SnapshotCursor, SnapshotResolve,
     SnapshotState,
 };
+//: ⭐ `spelling` carries the (kind, sentence) pair for both roads
+//: (ROLLBACK-KIND-SPELLING, 2026-09-16). This road no longer spells a kind
+//: literal except where the caller supplies the `detail`.
+use ambition_platformer2d_core::rollback_kind::spelling;
 use ambition_platformer2d_runtime::rollback::{
-    descriptor, descriptor_owned, record_descriptor, detail, RollbackEntryKind,
+    descriptor, descriptor_owned, record_descriptor, RollbackEntryKind,
     RollbackRegistrationDescriptor,
 };
 
@@ -447,8 +451,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentCanonical,
-                detail::CANONICAL_IDENTICAL_CHECKSUM,
+                spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.kind,
+                spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.detail,
             ),
         ) {
             self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -503,8 +507,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentCloneCursor,
-                detail::CLONE_CURSOR_CHECKSUM,
+                spelling::COMPONENT_CLONE_CURSOR.kind,
+                spelling::COMPONENT_CLONE_CURSOR.detail,
             ),
         ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
@@ -530,8 +534,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentCloneResolved,
-                detail::CLONE_RESOLVED_CHECKSUM,
+                spelling::COMPONENT_CLONE_RESOLVED.kind,
+                spelling::COMPONENT_CLONE_RESOLVED.detail,
             ),
         ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
@@ -553,8 +557,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentClone,
-                detail::CLONE_UNHASHED,
+                spelling::COMPONENT_CLONE_UNHASHED.kind,
+                spelling::COMPONENT_CLONE_UNHASHED.detail,
             ),
         )
         {
@@ -600,8 +604,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentClone,
-                detail::CLONE_ENTITY_REF_REMAPPED,
+                spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.kind,
+                spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.detail,
             ),
         )
         {
@@ -633,8 +637,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentClone,
-                detail::CLONE_ENTITY_SET_REMAPPED,
+                spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.kind,
+                spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.detail,
             ),
         )
         {
@@ -663,8 +667,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentClone,
-                detail::CLONE_ENTITY_MAP_REMAPPED,
+                spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.kind,
+                spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.detail,
             ),
         )
         {
@@ -693,8 +697,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentClone,
-                detail::CLONE_PROBED_FOR_LOCALIZATION,
+                spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.kind,
+                spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.detail,
             ),
         )
         {
@@ -722,8 +726,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ComponentCloneCanonicalChecksum,
-                detail::CLONE_CANONICAL_CHECKSUM_REMAPPED,
+                spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.kind,
+                spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.detail,
             ),
         )
         {
@@ -767,8 +771,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceCanonical,
-                detail::CANONICAL_IDENTICAL_CHECKSUM,
+                spelling::RESOURCE_CANONICAL_IDENTICAL_CHECKSUM.kind,
+                spelling::RESOURCE_CANONICAL_IDENTICAL_CHECKSUM.detail,
             ),
         ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -829,8 +833,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceCanonical,
-                detail::CANONICAL_PRESENCE_AWARE_CHECKSUM,
+                spelling::RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM.kind,
+                spelling::RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM.detail,
             ),
         ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -935,8 +939,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceClone,
-                detail::CLONE_UNHASHED,
+                spelling::RESOURCE_CLONE_UNHASHED.kind,
+                spelling::RESOURCE_CLONE_UNHASHED.detail,
             ),
         )
         {
@@ -970,8 +974,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceClone,
-                detail::CLONE_ENTITY_SET_REMAPPED,
+                spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED.kind,
+                spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED.detail,
             ),
         )
         {
@@ -1004,8 +1008,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceClone,
-                detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED,
+                spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED.kind,
+                spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED.detail,
             ),
         )
         {
@@ -1051,8 +1055,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::EntityMapping,
-                detail::ENTITY_MAPPING,
+                spelling::ENTITY_MAPPING.kind,
+                spelling::ENTITY_MAPPING.detail,
             ),
         ) {
             RollbackApp::update_component_with_map_entities::<T>(self);
@@ -1073,8 +1077,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::ResourceEntityMapping,
-                detail::RESOURCE_ENTITY_MAPPING,
+                spelling::RESOURCE_ENTITY_MAPPING.kind,
+                spelling::RESOURCE_ENTITY_MAPPING.detail,
             ),
         ) {
             RollbackApp::update_resource_with_map_entities::<T>(self);
@@ -1091,8 +1095,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::RequiredRollback,
-                detail::REQUIRED_ROLLBACK,
+                spelling::REQUIRED_ROLLBACK.kind,
+                spelling::REQUIRED_ROLLBACK.detail,
             ),
         ) {
             RollbackApp::require_rollback::<T>(self);
@@ -1109,8 +1113,8 @@ impl AmbitionRollbackApp for App {
             descriptor::<T>(
                 owner,
                 name,
-                RollbackEntryKind::MessageClear,
-                detail::MESSAGE_CLEAR,
+                spelling::MESSAGE_CLEAR.kind,
+                spelling::MESSAGE_CLEAR.detail,
             ),
         ) {
             self.add_systems(

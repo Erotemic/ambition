@@ -260,3 +260,139 @@ pub mod detail {
     pub const MESSAGE_CLEAR: &str =
         "clear abandoned-future message buffer in LoadWorld::Mapping";
 }
+
+/// A registrar method's (kind, sentence) pair, spelled ONCE.
+///
+/// ⛔⛤ **EVERY PAIR BELOW WAS WRITTEN TWICE UNTIL 2026-09-16 — once on the
+/// RECORDING road (`ambition_platformer2d_runtime`'s registrar, which writes the
+/// descriptor the schema baseline and every census read) and once on the
+/// INSTALLING road (`ambition_platformer2d_rollback_ggrs`, which adds the
+/// snapshot plugin). Nothing derived one from the other.** Splitting
+/// `resource-canonical-custom-checksum` out of `resource-canonical` on
+/// 2026-09-15 changed the recording road only, and one registration arrived
+/// under two different kinds. It was caught by `RollbackRegistry`'s
+/// conflicting-registration check — accidental cross-evidence, not a designed
+/// guard, and it covers only names BOTH roads reach.
+///
+/// ⭐ **MEASURED, WHICH IS WHY THIS TABLE IS KEYED ON THE PAIR AND NOT ON THE
+/// METHOD.** Across both roads there are exactly 18 distinct literal (kind,
+/// detail) pairs and each occurs EXACTLY TWICE — a perfect 1:1 between the
+/// roads, with zero disagreements. A method-keyed table would have needed the
+/// method attribution that two separate parsers of mine got wrong; the pair
+/// needs none. The remaining methods take a caller-supplied `detail` and so have
+/// no literal to collapse.
+///
+/// ⛔ **THE COSTED DESIGN THIS REPLACES DOES NOT TYPECHECK, AND THAT IS
+/// MEASURED, NOT REASONED.** The queue row proposed ONE required
+/// `install<T>(owner, name, kind, detail, ops)` primitive with 24 default
+/// bodies. The methods' `T` bounds are DISJOINT — `SnapshotState` vs
+/// `SnapshotCursor` vs `SnapshotResolve` vs `MapEntities`, and `Component` vs
+/// `Resource` — so `install`'s own `where` clause would have to be their UNION,
+/// and every default body fails `E0277` at the call. Compiled against `rustc` to
+/// confirm rather than argued. The shapes that do typecheck (a per-op trait, or
+/// fn-pointers carrying the work) either reintroduce ~21 op types — the cost the
+/// row already rejected — or require this crate to name the host's `App`, which
+/// is exactly the dependency the split exists to prevent.
+///
+/// ⇒ So the pair moves to the declaration side WITHOUT trait surgery. Changing a
+/// method's kind here changes both roads, because neither road spells a kind
+/// literal any more.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Spelling {
+    pub kind: RollbackEntryKind,
+    pub detail: &'static str,
+}
+
+pub mod spelling {
+    use super::{RollbackEntryKind, Spelling};
+
+    pub const COMPONENT_CANONICAL_IDENTICAL_CHECKSUM: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentCanonical,
+        detail: super::detail::CANONICAL_IDENTICAL_CHECKSUM,
+    };
+
+    pub const COMPONENT_CLONE_CURSOR: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentCloneCursor,
+        detail: super::detail::CLONE_CURSOR_CHECKSUM,
+    };
+
+    pub const COMPONENT_CLONE_RESOLVED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentCloneResolved,
+        detail: super::detail::CLONE_RESOLVED_CHECKSUM,
+    };
+
+    pub const COMPONENT_CLONE_UNHASHED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentClone,
+        detail: super::detail::CLONE_UNHASHED,
+    };
+
+    pub const COMPONENT_CLONE_ENTITY_REF_REMAPPED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentClone,
+        detail: super::detail::CLONE_ENTITY_REF_REMAPPED,
+    };
+
+    pub const COMPONENT_CLONE_ENTITY_SET_REMAPPED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentClone,
+        detail: super::detail::CLONE_ENTITY_SET_REMAPPED,
+    };
+
+    pub const COMPONENT_CLONE_ENTITY_MAP_REMAPPED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentClone,
+        detail: super::detail::CLONE_ENTITY_MAP_REMAPPED,
+    };
+
+    pub const COMPONENT_CLONE_PROBED_FOR_LOCALIZATION: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentClone,
+        detail: super::detail::CLONE_PROBED_FOR_LOCALIZATION,
+    };
+
+    pub const COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED: Spelling = Spelling {
+        kind: RollbackEntryKind::ComponentCloneCanonicalChecksum,
+        detail: super::detail::CLONE_CANONICAL_CHECKSUM_REMAPPED,
+    };
+
+    pub const RESOURCE_CANONICAL_IDENTICAL_CHECKSUM: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceCanonical,
+        detail: super::detail::CANONICAL_IDENTICAL_CHECKSUM,
+    };
+
+    pub const RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceCanonical,
+        detail: super::detail::CANONICAL_PRESENCE_AWARE_CHECKSUM,
+    };
+
+    pub const RESOURCE_CLONE_UNHASHED: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceClone,
+        detail: super::detail::CLONE_UNHASHED,
+    };
+
+    pub const RESOURCE_CLONE_ENTITY_SET_REMAPPED: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceClone,
+        detail: super::detail::CLONE_ENTITY_SET_REMAPPED,
+    };
+
+    pub const RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceClone,
+        detail: super::detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED,
+    };
+
+    pub const ENTITY_MAPPING: Spelling = Spelling {
+        kind: RollbackEntryKind::EntityMapping,
+        detail: super::detail::ENTITY_MAPPING,
+    };
+
+    pub const RESOURCE_ENTITY_MAPPING: Spelling = Spelling {
+        kind: RollbackEntryKind::ResourceEntityMapping,
+        detail: super::detail::RESOURCE_ENTITY_MAPPING,
+    };
+
+    pub const REQUIRED_ROLLBACK: Spelling = Spelling {
+        kind: RollbackEntryKind::RequiredRollback,
+        detail: super::detail::REQUIRED_ROLLBACK,
+    };
+
+    pub const MESSAGE_CLEAR: Spelling = Spelling {
+        kind: RollbackEntryKind::MessageClear,
+        detail: super::detail::MESSAGE_CLEAR,
+    };
+}

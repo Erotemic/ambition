@@ -21,6 +21,10 @@ use super::registry::{self, RollbackEntryKind};
 //: ROLLBACK-KIND-SPELLING and reopen the other half one crate away.
 pub use ambition_platformer2d_core::rollback_kind::detail;
 
+//: ⭐ THE (kind, sentence) PAIR, SPELLED ONCE FOR BOTH ROADS
+//: (ROLLBACK-KIND-SPELLING, 2026-09-16).
+pub use ambition_platformer2d_core::rollback_kind::spelling;
+
 /// A metadata-only [`RollbackRegistrar`] borrowed from the composition's app.
 pub struct SchemaRollbackRegistrar<'a> {
     app: &'a mut App,
@@ -63,8 +67,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + SnapshotState,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentCanonical,
-            detail::CANONICAL_IDENTICAL_CHECKSUM);
+        self.record::<T>(owner, name, spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.kind,
+            spelling::COMPONENT_CANONICAL_IDENTICAL_CHECKSUM.detail);
         self
     }
 
@@ -72,8 +76,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotCursor,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneCursor,
-            detail::CLONE_CURSOR_CHECKSUM);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_CURSOR.kind,
+            spelling::COMPONENT_CLONE_CURSOR.detail);
         self
     }
 
@@ -81,8 +85,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotResolve,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneResolved,
-            detail::CLONE_RESOLVED_CHECKSUM);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_RESOLVED.kind,
+            spelling::COMPONENT_CLONE_RESOLVED.detail);
         self
     }
 
@@ -90,8 +94,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_UNHASHED);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_UNHASHED.kind,
+            spelling::COMPONENT_CLONE_UNHASHED.detail);
         self
     }
 
@@ -104,8 +108,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_ENTITY_REF_REMAPPED);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.kind,
+            spelling::COMPONENT_CLONE_ENTITY_REF_REMAPPED.detail);
         self
     }
 
@@ -118,8 +122,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_ENTITY_SET_REMAPPED);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.kind,
+            spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED.detail);
         self
     }
 
@@ -132,8 +136,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_ENTITY_MAP_REMAPPED);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.kind,
+            spelling::COMPONENT_CLONE_ENTITY_MAP_REMAPPED.detail);
         self
     }
 
@@ -146,8 +150,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_PROBED_FOR_LOCALIZATION);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.kind,
+            spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION.detail);
         self
     }
 
@@ -155,8 +159,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + Clone + SnapshotState,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneCanonicalChecksum,
-            detail::CLONE_CANONICAL_CHECKSUM_REMAPPED);
+        self.record::<T>(owner, name, spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.kind,
+            spelling::COMPONENT_CLONE_CANONICAL_CHECKSUM_REMAPPED.detail);
         self
     }
 
@@ -198,8 +202,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + SnapshotState,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical,
-            detail::CANONICAL_IDENTICAL_CHECKSUM);
+        self.record::<T>(owner, name, spelling::RESOURCE_CANONICAL_IDENTICAL_CHECKSUM.kind,
+            spelling::RESOURCE_CANONICAL_IDENTICAL_CHECKSUM.detail);
         self
     }
 
@@ -211,8 +215,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + SnapshotState,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical,
-            detail::CANONICAL_PRESENCE_AWARE_CHECKSUM);
+        self.record::<T>(owner, name, spelling::RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM.kind,
+            spelling::RESOURCE_CANONICAL_PRESENCE_AWARE_CHECKSUM.detail);
         self
     }
 
@@ -271,8 +275,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            detail::CLONE_UNHASHED);
+        self.record::<T>(owner, name, spelling::RESOURCE_CLONE_UNHASHED.kind,
+            spelling::RESOURCE_CLONE_UNHASHED.detail);
         self
     }
 
@@ -285,8 +289,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            detail::CLONE_ENTITY_SET_REMAPPED);
+        self.record::<T>(owner, name, spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED.kind,
+            spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED.detail);
         self
     }
 
@@ -300,8 +304,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + Clone,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED);
+        self.record::<T>(owner, name, spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED.kind,
+            spelling::RESOURCE_CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED.detail);
         self
     }
 
@@ -343,8 +347,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component<Mutability = Mutable> + MapEntities,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::EntityMapping,
-            detail::ENTITY_MAPPING);
+        self.record::<T>(owner, name, spelling::ENTITY_MAPPING.kind,
+            spelling::ENTITY_MAPPING.detail);
         self
     }
 
@@ -352,8 +356,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + MapEntities,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceEntityMapping,
-            detail::RESOURCE_ENTITY_MAPPING);
+        self.record::<T>(owner, name, spelling::RESOURCE_ENTITY_MAPPING.kind,
+            spelling::RESOURCE_ENTITY_MAPPING.detail);
         self
     }
 
@@ -361,8 +365,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Component,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::RequiredRollback,
-            detail::REQUIRED_ROLLBACK);
+        self.record::<T>(owner, name, spelling::REQUIRED_ROLLBACK.kind,
+            spelling::REQUIRED_ROLLBACK.detail);
         self
     }
 
@@ -370,8 +374,8 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Message,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::MessageClear,
-            detail::MESSAGE_CLEAR);
+        self.record::<T>(owner, name, spelling::MESSAGE_CLEAR.kind,
+            spelling::MESSAGE_CLEAR.detail);
         self
     }
 

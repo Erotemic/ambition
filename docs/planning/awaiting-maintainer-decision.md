@@ -331,6 +331,38 @@ rather than maintaining an unused semantic branch.
 Resolve the contradictory operational guidance before another cleanup tool acts
 on the target directory.
 
+⛔ **THE QUESTION IS NOT ONLY WHICH RULE WINS, IT IS THAT THE LOSING RULE IS
+STILL DERIVABLE.** Measured 2026-09-16: an agent that had never opened
+`AGENTS.md` hit ENOSPC (98M free of 290G, `target/debug` at 185G of which
+`incremental` was 92G), reasoned from where the bytes were, concluded
+`rm -rf target/debug/incremental` was the surgical cut because it preserves
+`deps`, did it, and recommended it to a peer as general practice — reproducing
+almost verbatim the sentence `AGENTS.md:107` retracted on 2026-09-03 after an
+agent following it pruned `target/debug/{deps,examples,incremental}` and deleted
+205 GB. The retraction is marked, in place, with the incident attached, and it
+did not reach the agent because nothing put it in front of the action.
+
+⇒ **A RETRACTED INSTRUCTION IS MORE DANGEROUS THAN AN ABSENT ONE**: the
+reasoning that produced it is still available to anyone who reasons from first
+principles about disk usage, and it still sounds correct. So a ruling that only
+picks a winner leaves this open. What would close it is a MECHANISM — the rule
+enforced where the action happens rather than stated where it is documented.
+
+⚠ AND THE SAME RUN MADE THE ERROR THE FILE PRESCRIBES AGAINST FIRST: it read
+`df -h $(readlink -f target)` instead of `scripts/setup/target_bindmount.sh
+--status`. Run afterwards, `--status` reported `BOUND -> /dev/vda1[...]`, size
+99G, repo fs virtiofs — so the bind was healthy and this was genuine build
+output, not the absent-bind duplicate `AGENTS.md` says it usually is. The
+outcome was fine and the method was prohibited. `--status` would also have
+answered, without asking a peer, whether two sessions share a `target/`: they do
+not, it is bound per-worktree by hash.
+
+⚠ Related and unruled: repairing an absent bind SHADOWS the duplicate rather
+than reclaiming it, and `check_disk_headroom.py` goes GREEN across that repair
+because it then asks about `target/`, a different filesystem. A green check after
+a repair that freed nothing is the false comfort that makes the next deletion
+look justified.
+
 ## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
 
 Before any blind `git submodule update`, decide which line/commit must be kept and
@@ -384,6 +416,40 @@ Five provider-keyed fragment registries currently refuse conflicting re-registra
 ## Q122 — which registry fields are mechanical, and which are presentation?
 
 The mechanical fingerprint/admission boundary should include only fields that can affect deterministic gameplay. Decide the classification for mixed registries so presentation edits do not force mechanical rebases, while mechanical edits cannot bypass rollback admission. Record the rule per registry owner rather than maintaining one ad-hoc exclusion list.
+
+## Q128 — should the simulation tick be rebased when peers agree to start, or stay an absolute per-App count?
+
+**The last open road of the ID-PEER campaign, and the only one that cannot be
+closed by engineering alone.** `ambition_time::SimTick` is registered
+`resource-canonical`, so its ABSOLUTE value is inside the checksum two peers
+compare. Measured 2026-09-15: one writer (`advance_sim_tick`, `+1` per step),
+`init_resource`'d once at App build, never rebased anywhere in the workspace, and
+sitting unconditionally at the head of the sim schedule — so it counts menu
+frames. ⇒ Two Apps that have been running for different lengths of time disagree
+about `sim_tick` from the first compared frame, before anything else in that
+campaign matters.
+
+⛔ **IT CANNOT BE CLOSED THE WAY THE OTHER NINE WERE.** Every one of those was a
+projection or an ownership move: exclude the local term, or make the stale value
+impossible. A projection that excluded the tick would exclude the TIMELINE
+ITSELF, which is the one thing a rollback comparison is about. What is needed is
+a session-relative tick, rebased at the moment peers agree to start — and where
+that agreement comes from is a netcode decision, not a refactor.
+
+⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** The only
+sessions in use are `SyncTestSession` — one machine rewinding itself, zero
+distance — and a canary that compares a machine against its own past is
+structurally incapable of catching a two-peer disagreement. Every leak in that
+campaign had to be found by reading. So this will not announce itself, and it
+does not get more urgent on its own.
+
+The choice: (a) rebase the tick at an agreed session start, which means deciding
+what "agreed" is before there is a handshake to carry it; (b) keep it absolute
+and accept that peer comparison waits for real sessions, recording it as a known
+hole rather than an oversight; (c) project it out and replace the timeline term
+with something else, which nobody has proposed a shape for. Recorded by the
+`queue.md` ID-PEER table, which names this as the tenth of ten roads and the only
+one still open.
 
 ## Q127 — are difficulty, assist and player-damage modifiers match-wide or participant-specific?
 

@@ -116,20 +116,37 @@ it stops the bleeding without deleting anything: builds go back to the local
 volume and the duplicate stops growing.
 ⛔⛤ **BUT REPAIRING THE BIND DOES NOT RETURN THE SPACE, AND THIS PARAGRAPH USED
 TO SAY IT DID.** The bind SHADOWS the duplicate; it does not remove it. MEASURED
-2026-09-16, either side of one `scripts/setup/target_bindmount.sh`:
+2026-09-15/16 on TWO machines, by two agents who hit it independently and wrote
+this correction in parallel — either side of one `scripts/setup/target_bindmount.sh`:
 
-| | repo fs (virtiofs) | `target/`'s fs |
-| --- | --- | --- |
-| unbound | 1.7T used, **10G free, 100%** | the same mount |
-| bound | 1.7T used, **10G free, 100%** | `/dev/vda1`, **133G free, 73%** |
+| host | state | repo fs (virtiofs) | `target/`'s fs |
+| --- | --- | --- | --- |
+| 1.8T | unbound | 1.7T used, **10G free, 100%** | the same mount |
+| 1.8T | bound | 1.7T used, **10G free, 100%** | `/dev/vda1`, **133G free, 73%** |
+| 938G | unbound | 839G used, **52G free, 95%** | the same mount |
+| 938G | bound | 839G used, **52G free, 95%** | `/dev/vda1`, **54G free, 82%** |
 
 ⚠ `du -sh target/` had read **156G** while unbound; after the bind the same path
 reads the local volume and that 156G is invisible to both `du` and `df`. So the
 disk that was full is STILL FULL, and `check_disk_headroom.py` goes green
-because it asks about `target/`, which is now a different filesystem. ⇒ Check
-`df -h` on the REPO MOUNT, not only on `target/`, before concluding a full disk
-is fixed. Reclaiming the shadowed copy is a MAINTAINER DECISION, not an agent's:
-inspecting under the mountpoint needs root, and the rule below still stands.
+because it asks about `target/`, which is now a different filesystem — it printed
+`OK: 53.2 GB free` on the 938G host while that host's repo mount sat at 95%.
+⇒ Check `df -h` on the REPO MOUNT, not only on `target/`, before concluding a
+full disk is fixed. Reclaiming the shadowed copy is a MAINTAINER DECISION, not an
+agent's: inspecting under the mountpoint needs root, and the rule below still
+stands.
+
+⚠⚠ **AND A FULL REPO MOUNT CAN HAVE A CAUSE OUTSIDE THE REPOSITORY ENTIRELY.**
+On the Namek VM, 2026-09-15, the HOST could not grow the guest's disk (Jon). From
+inside the guest that is indistinguishable from an unbound `target/` filling the
+mount: the same ENOSPC, the same lost tool output, the same session death — and
+nothing in this repository fixes it. ⇒ An agent who finds the repo mount full
+will ALSO find an absent bind, because the bind does not survive a restart, so
+the correlation is guaranteed and reads as cause. I reported exactly that to two
+peers before Jon corrected me. Repair the bind anyway; it is always correct. But
+**if the repo mount stays full with the bind in place, stop and tell Jon** rather
+than hunting for more to clean, and do not report the bind as the root cause of a
+death without evidence that separates the two.
 
 Run `df -h /tmp` BEFORE starting a second target or profile
 combination, not after — the cheap fix is not starting the second copy.

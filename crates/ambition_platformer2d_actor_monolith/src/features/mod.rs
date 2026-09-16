@@ -987,19 +987,18 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `.after` on the projection alone leaves this free to run after
                 // the publication and hand it last frame's row.
                 .before(ambition_combat::components::DamageFacingVolumesPublished)
-                // ⛔⛤ **IT HAD NO SET AT ALL, AND THAT WAS A CAPABILITY LEAK.**
-                // Every sibling boss system here is `.in_set(WorldPrep)`, which
-                // nests under `GameplaySimulationRoot` and its
-                // `simulation_authorized` gate. This one carried only `.after`
-                // and `.before` edges, so it ran in compositions where its own
-                // capability was absent — and it takes `Res<BossCatalog>`, whose
-                // sole production initializer is `BossEncounterSimulationPlugin`.
-                // MEASURED: a host built with that plugin disabled panics with
-                // *"Parameter `Res<BossCatalog>` failed validation: Resource does
-                // not exist"* the first time `FixedUpdate` runs.
-                .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
-                ),
+                // ⛔⛤ **THE GATE, NOT A PHASE. `.in_set(WorldPrep)` HERE IS A
+                // DEPENDENCY CYCLE.** This needs a set for one reason: it takes
+                // `Res<BossCatalog>`, whose sole production initializer is
+                // `BossEncounterSimulationPlugin`, so without the
+                // `simulation_authorized` gate it runs in compositions where its
+                // own capability is absent and panics *"Parameter
+                // `Res<BossCatalog>` failed validation"*. But it also runs
+                // `.after(project_boss_attack_state_from_move)`, which is
+                // `.in_set(CombatSet::Playback)` — LATER than `WorldPrep`. Naming
+                // the phase orders this both before and after Playback.
+                // `GameplaySimulationRoot` carries the gate and pins no phase.
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
         );
         // ── The SECOND publication of every body's damageable volumes ──
         //

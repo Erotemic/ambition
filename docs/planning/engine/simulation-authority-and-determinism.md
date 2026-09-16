@@ -800,14 +800,55 @@ of every clean result in this neighbourhood, including the ones above: the entry
 the entry that diverges in the ONE window — the first three ticks — where the
 snapshot is not yet pinned.
 
-⚠ **ONE LINK IN THAT CHAIN IS STATED RATHER THAN MEASURED, AND IT IS NAMED HERE
-SO NOBODY HAS TO NOTICE ITS ABSENCE.** What was measured is the resource's value
-at `record_saved_census`, which runs at GGRS `SaveWorld`. The GGRS aggregate
-computes its checksum over that same saved snapshot through the same registered
-function, so the two should be the same sample — but this probe did not read the
-GGRS aggregate, and "the probe census is constant" and "the peer checksum
-contribution is constant" are two sentences. The second is the one that matters
-and it is the one not yet directly instrumented.
+⛔⛤ **A CORRECTION TO THE SENTENCE ABOVE, MADE THE SAME DAY AND BY THE NEXT
+MEASUREMENT: "EXACTLY ONE VALUE" IS AN IDLE-RUN FACT.** The run that produced it
+steps with `AgentAction::default()` — no input at all. Re-run with an acting agent
+(run, jump, attack on an edge) over the same 236 compared frames, the save's
+census takes **2 distinct values, not 1**. So it is not literally frozen. It is
+effectively frozen, and the honest comparison is the one against its neighbours in
+the same run:
+
+| entry | distinct censuses over 236 compared frames |
+|---|---|
+| `SimTick`, `BodyKinematics`, `MotionModel`, `ActorPose`, `CenteredAabb`, … (10 of them) | **238** |
+| `ActorTarget` | 228 |
+| `MovePlayback` | 214 |
+| `BodyMelee` | 65 |
+| **`AmbitionGameSave`** | **2**, while its live value reached 247 mirrored items |
+
+⇒ The finding survives the correction and is better stated by it: a hashed entry
+whose live value changes on every one of 240 ticks contributes **two** values to
+what two peers would compare, in a run where ten of its neighbours contribute 238.
+`the_saves_hashed_snapshot_holds_one_value_across_every_compared_frame` asserts the
+idle number, which is the reproducible one, and its message says which failure
+direction is the good one.
+
+✔ **THE LINK TO THE PEER CHECKSUM IS CLOSED BY CONSTRUCTION, NOT BY A SECOND
+MEASUREMENT — AND THAT IS THE STRONGER CLOSURE.** The worry was that *"the probe
+census is constant"* and *"the peer checksum contribution is constant"* are two
+sentences. They are not two samples. `install_resource_clone_checksum`
+(`ambition_platformer2d_rollback_ggrs/src/registration.rs`) installs both from the
+SAME `checksum` argument, in the same call:
+
+```rust
+RollbackApp::rollback_resource_with_clone::<T>(app);
+RollbackApp::checksum_resource(app, checksum);          // the GGRS aggregate
+record_probe(app, ChecksumProbe::new(type_name::<T>(), move |world| {
+    census_resource_with::<T>(world, checksum)          // the probe
+}));
+```
+
+⇒ So the probe's `xor` **is** the value the aggregate folds — one function,
+`AmbitionGameSave::checksum`, applied to one world. `record_saved_census` is
+registered `add_systems(SaveWorld, …)` and `checksum_resource` adds its system to
+the same `SaveWorld` run, which builds the snapshot; nothing there mutates
+gameplay state, it copies it. A probe that agreed with the aggregate would only
+have re-measured the same call.
+
+⚠ **THE ONE CONDITION A FUTURE READER SHOULD CHECK, stated rather than left
+implicit:** the two systems are unordered within `SaveWorld`. That is immaterial
+while nothing in `SaveWorld` writes the save, and it stops being immaterial the
+moment something does.
 
 ⇒ This is `Q129`'s subject and CalculexAmbition owns that row. The shape it
 changes: the question was *"must the save file be part of what two peers agree

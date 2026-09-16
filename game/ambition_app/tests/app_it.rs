@@ -29,6 +29,7 @@ mod a_hit_on_the_player_freezes_the_match;
 mod a_move_keeps_its_occurrence_across_a_rewind;
 mod which_hashed_entry_moves_when_the_bag_does;
 mod does_a_presence_probed_row_move_when_its_value_does;
+mod how_much_of_the_peer_checksum_actually_varies;
 mod a_ron_game_installs_no_ldtk_world;
 mod a_save_remembers_where_you_left_things;
 mod a_teleported_subject_does_not_get_chased;

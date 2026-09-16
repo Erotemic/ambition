@@ -376,3 +376,98 @@ fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
         }
     }
 }
+
+/// ⛔⛤ **THE PINNING, ASSERTED — AND THIS ARM IS PINNED TO A LIVE DEFECT ON
+/// PURPOSE, SO ITS MESSAGE SAYS WHICH FAILURE DIRECTION IS THE GOOD ONE.**
+///
+/// `AmbitionGameSave` is `resource-clone-custom-checksum`: it is INSIDE the
+/// session checksum, projected through `AmbitionGameSave::checksum`, which
+/// serialises the whole save. Measured 2026-09-16, over a run whose live save
+/// reaches 247 mirrored items: across every frame GGRS saved twice, that
+/// projection takes **exactly one value**, the early-game one.
+///
+/// ⇒ So the save is in the peer contract by registration and out of it in
+/// effect. A clean divergence report about it is not evidence it is compared
+/// correctly; it is evidence that what is compared is frozen. `Q129` is where
+/// the ruling goes and it is CalculexAmbition's row; this arm exists so the
+/// measurement cannot quietly stop being true.
+///
+/// ⚠ **THE NUMBER THIS ARM PINS IS THE IDLE ONE, AND SAYING SO IS NOT A HEDGE.**
+/// It steps with `AgentAction::default()`. Re-measured with an ACTING agent over
+/// the same 236 compared frames, the save's census takes **2** values rather than
+/// 1 — so the entry is not literally frozen, it is effectively frozen, and the
+/// comparison that carries the finding is against its neighbours in the same run:
+/// ten hashed entries take **238** distinct values there
+/// (`how_much_of_the_peer_checksum_actually_varies.rs`). The idle number is the
+/// reproducible one, which is why it is the one asserted.
+///
+/// ⭐ **THE GOOD FAILURE IS `distinct > 1`.** If this arm ever reports that the
+/// save's census took several values across the compared frames, the snapshot
+/// started tracking and the defect is FIXED — delete this arm rather than
+/// repairing it, and check whether
+/// `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
+/// still means what it says, because that arm pins the one window (the first
+/// three ticks) where the snapshot was never pinned in the first place.
+/// ⛔ The bad failure is the CONTROL going empty: that means nothing moved at
+/// all and this arm is reporting on a dead run.
+#[test]
+fn the_saves_hashed_snapshot_holds_one_value_across_every_compared_frame() {
+    fn grant_each_tick_from_four(
+        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+        mut owned: bevy::prelude::ResMut<OwnedItems>,
+    ) {
+        if tick.0 >= 4 {
+            owned.grant(Item::HealthCell, 1);
+        }
+    }
+    type Save = ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    let mut sim = sim_composed_with(grant_each_tick_from_four);
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+    }
+    let mirrored = mirrored_quantity(&sim);
+    let live = save_checksum(&sim);
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+
+    // ⛔ THE CONTROL FIRST, AND IT IS THE ABSENCE OF THE SUBJECT: other types'
+    // censuses must have moved at the same instants, or "the save never moved"
+    // is a reading about the audit rather than about the save.
+    let moved = audit.types_whose_census_moved_across_compared_frames();
+    assert!(
+        moved.len() >= 5,
+        "only {} type(s) moved across the compared frames, so the audit was \
+         recording a near-static world and the save holding one value says \
+         nothing. Measured 2026-09-16: 13 moved, nine of them taking 238 \
+         distinct values across 236 compared frames",
+        moved.len()
+    );
+    assert!(
+        audit.resimulations > 0,
+        "GGRS never saved the same frame twice, so nothing was compared ({})",
+        audit.coverage()
+    );
+    // ⛔ AND THE PREMISE: the live save must actually have moved, or a frozen
+    // snapshot is the correct snapshot of a frozen value.
+    assert!(
+        mirrored > 1,
+        "the run mirrored {mirrored} item(s) into the save, so the live value \
+         barely moved and a constant snapshot of it would be correct"
+    );
+
+    let distinct = audit.distinct_censuses_across_compared_frames_of::<Save>();
+    assert_eq!(
+        distinct, 1,
+        "the save's hashed projection took {distinct} value(s) across the frames \
+         this audit compared, and the measured state of this repository is ONE — \
+         pinned at the early-game value while the live save reached {mirrored} \
+         items and checksum {live:#018x}. ⇒ MORE THAN ONE IS THE GOOD FAILURE: \
+         the snapshot started tracking, so DELETE this arm rather than repairing \
+         it, and re-read `exactly_one_hashed_entry_diverges_when_the_bag_moves_\
+         and_it_is_the_save`, which pins the one window where it was never pinned."
+    );
+}

@@ -56,6 +56,28 @@ axes, with a mostly negative result (see the A10 row). It is no longer a lane.
 Use this census to find roads whose replacement now exists, not as an
 implementation plan.
 
+⛔⛤ **RE-DERIVE A ROW BEFORE COSTING IT. THIS IS NOT ADVICE — IT IS THE RESULT OF
+RE-DERIVING FOUR OF THEM ON 2026-09-16, AND ALL FOUR CAME BACK DIFFERENT.**
+
+| what the row said | what source said |
+| --- | --- |
+| C03 starts from 32 session-owned App resources | **36** — `SessionScopedResources` is 29, not 25 |
+| C03 can lift out "reset-only process storage" | **no such member exists**; all 29 have a reader outside their reset |
+| C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
+| C05: six values are separate queued writes | two of the six are **Components already carried by the session root**, one of them DERIVED |
+
+⚠ **THE DRIFT IS NOT NEGLECT, WHICH IS WHY IT WILL HAPPEN AGAIN.** Each of these
+rows was true when written and the tree moved under it — C03's four extra
+resources arrived because the peer-identity campaign made the `MatchInstance`
+-stamped ones MEMBERS of that grouping rather than moving them, which is the
+correct outcome and which C03 had no way to notice. A census pinned to a commit
+describes that commit.
+
+⇒ So: a number in one of these rows is a MEASUREMENT WITH A DATE, not a fact.
+Two of the four above are now guarded mechanically — the session-owner census
+against `teardown.rs`, and every item's storage kind against its declaration —
+and the rest are not. Re-derive, then cost.
+
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.
 The shell/content activation gate is atomic at this snapshot, and its
 A-supersedes-B hold race is **WITNESSED IN PRODUCTION — the gate is CLOSED as of

@@ -1085,3 +1085,136 @@ fn smash_then_ambition(order: RetirementOrder) {
         "the transition committed and the room changed"
     );
 }
+
+/// Every canonical `SimId` the live world holds, sorted.
+///
+/// ⛔⛤ THE CENSUS IS OVER VALUES, NOT TYPES. `id_peer_audit` censuses registered
+/// TYPE NAMES, and `SimId` is a type that is SUPPOSED to be canonical — both
+/// provenance defects found so far (the match-spawn tick, in a constructor's
+/// argument; the session root, in a singleton's key) were invisible to a type
+/// census because the TYPE was right and the STRING it held was not. This reads
+/// the strings out of a fully built world.
+fn canonical_identities(app: &mut App) -> Vec<String> {
+    let world = app.world_mut();
+    let mut query = world.query::<&ambition_platformer2d::observation::SimId>();
+    let mut rows: Vec<String> = query.iter(world).map(|id| id.as_str().to_owned()).collect();
+    rows.sort();
+    rows
+}
+
+/// The host's local route history, as the tokens that actually differ between
+/// two hosts: the session scope counter and the content epoch.
+fn local_lifecycle_tokens(app: &mut App) -> String {
+    let scope = format!("{:?}", live_scope(app));
+    let world = app.world_mut();
+    let mut query = world.query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
+    let epochs: Vec<String> = query
+        .iter(world)
+        .map(|identity| format!("{:?}", identity.epoch))
+        .collect();
+    format!("{scope} {epochs:?}")
+}
+
+/// ⭐⭐ **THE SAME ROUTE, REACHED BY TWO DIFFERENT LOCAL HISTORIES, NAMES EVERY
+/// SIMULATED ENTITY IDENTICALLY — measured over the whole world, not one id.**
+///
+/// ⛔⛤ **AND THE ARM THAT WAS CITED FOR THIS CLASS HELD THE ROAD PRODUCTION DOES
+/// NOT TAKE — MEASURED 2026-09-16 BY POISONING EACH MINT SEPARATELY.** The
+/// session root has two mints. `ambition_game_shell::session::spawn_world_for`
+/// is the one
+/// `two_hosts_with_different_route_histories_name_the_session_root_identically`
+/// calls, and it has NO production caller: A10's candidate road builds its own
+/// root and hands it to `adopt_world`, which `PlatformerSessionBuilder::build_candidate`
+/// says in its own doc it must. Keying `spawn_world_for`'s mint on the
+/// activation count again leaves this walk's census untouched; keying the
+/// CANDIDATE mint on the scope counter turns `session:root` into `session:root-0`
+/// against `session:root-2` — and the whole pre-existing app suite stayed green
+/// at 705 passed / 0 failed under exactly that poison.
+///
+/// ⇒ This arm holds all 22 identities against the shipped composition: launch
+/// Ambition first, and launch Ambition third after two other providers have come
+/// and gone. The local tokens genuinely differ — scope `0` vs `2`, epoch `1` vs
+/// `3`, asserted below so the comparison is controlled rather than two readings
+/// of the same input — and the census does not move.
+///
+/// ⚠ **AN EQUALITY ASSERTION IS SATISFIED BY EVERY PROJECTION THAT THROWS
+/// INFORMATION AWAY, THE CONSTANT INCLUDED**, so the third arm is a
+/// DISAGREEMENT: a Sanic session's census is a different 43 rows, sharing only
+/// the three identities that are supposed to be shared — the session root, the
+/// player slot, and the process-wide encounter authority the content crate
+/// installs at App build. A projection that collapsed to a constant would fail
+/// there, and a projection that lost the two rows whose provenance defects were
+/// actually found would fail the floor.
+#[test]
+fn two_local_histories_name_every_simulated_entity_identically() {
+    let mut first_launch = shell_host_app();
+    settle(&mut first_launch);
+    launch_labeled(&mut first_launch, "Ambition");
+    settle(&mut first_launch);
+
+    let mut third_launch = shell_host_app();
+    settle(&mut third_launch);
+    for provider in ["Sanic", "Mary-O"] {
+        launch_labeled(&mut third_launch, provider);
+        settle(&mut third_launch);
+        third_launch
+            .world_mut()
+            .write_message(ShellCommand::QuitToHome);
+        settle(&mut third_launch);
+    }
+    launch_labeled(&mut third_launch, "Ambition");
+    settle(&mut third_launch);
+
+    // The comparison is only worth anything if the INPUT moved.
+    let fresh_tokens = local_lifecycle_tokens(&mut first_launch);
+    let veteran_tokens = local_lifecycle_tokens(&mut third_launch);
+    assert_ne!(
+        fresh_tokens, veteran_tokens,
+        "the two hosts must reach Ambition with different local lifecycle state, \
+         or this test compares one input with itself"
+    );
+
+    let fresh = canonical_identities(&mut first_launch);
+    let veteran = canonical_identities(&mut third_launch);
+    assert_eq!(
+        fresh, veteran,
+        "a canonical identity may not record how many routes the host visited \
+         first ({fresh_tokens} vs {veteran_tokens})"
+    );
+
+    // The floor: the two rows whose provenance defects were actually found, in a
+    // census large enough to be the world rather than a fragment of it.
+    assert!(
+        fresh.len() >= 20,
+        "the canonical census collapsed to {} rows, so it is no longer reading a \
+         built world: {fresh:?}",
+        fresh.len()
+    );
+    for required in ["session:root", "slot:0"] {
+        assert!(
+            fresh.contains(&required.to_owned()),
+            "{required} is absent from the census, so this test cannot see the \
+             class of defect it exists to catch: {fresh:?}"
+        );
+    }
+
+    // The disagreement half: a different provider is named differently.
+    let mut other_provider = shell_host_app();
+    settle(&mut other_provider);
+    launch_labeled(&mut other_provider, "Sanic");
+    settle(&mut other_provider);
+    let sanic = canonical_identities(&mut other_provider);
+    assert_ne!(
+        fresh, sanic,
+        "two different worlds project to the same census, so the projection is \
+         throwing away everything this test claims to compare"
+    );
+    let shared: Vec<&String> = fresh.iter().filter(|id| sanic.contains(id)).collect();
+    assert_eq!(
+        shared,
+        vec!["encounter:symmetry_attunement", "session:root", "slot:0"],
+        "exactly the session root, the player slot, and the App-build encounter \
+         authority are shared between two providers; anything else shared is one \
+         provider's content leaking into another's identity space"
+    );
+}

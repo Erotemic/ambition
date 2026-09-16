@@ -417,8 +417,8 @@ fn delayed_world_publication_for_a_cannot_attach_to_b() {
 /// Found by the GPT architecture review of 2026-09-15, and it is the campaign's
 /// largest remaining ID-PEER hole. The chain, each link measured:
 ///
-/// 1. production mints the root as `SimId::singleton("session", activation_id)`
-///    — here at `spawn_world_for`, and again on the A10 candidate road in
+/// 1. the root was minted as `SimId::singleton("session", activation_id)` —
+///    here at `spawn_world_for`, and again on the A10 candidate road in
 ///    `ambition_platformer2d_provider`'s `lifecycle.rs`;
 /// 2. `ShellActivationId` is a per-App route-activation counter — it counts how
 ///    many shell routes this process has activated, menus included;
@@ -435,8 +435,18 @@ fn delayed_world_publication_for_a_cannot_attach_to_b() {
 /// registered TYPE NAMES, and `SimId` is a type that is supposed to be
 /// canonical. The defect is its PROVENANCE, which no type census can read — the
 /// same blind spot that hid `SimId::match_spawn` embedding the activation tick.
-/// That is why this is a value-level arm on the production road rather than a
-/// row in a list.
+/// That is why this is a value-level arm rather than a row in a list.
+///
+/// ⛔⛤ **AND THIS ARM IS NOT THE PRODUCTION ROAD, WHICH IT CLAIMED TO BE FOR A
+/// DAY.** `spawn_world_for` has no production caller: A10's candidate road
+/// builds its own root and hands it to `adopt_world`, and
+/// `PlatformerSessionBuilder::build_candidate` says in its own doc that it
+/// cannot go through this primitive. Measured 2026-09-16 by poisoning each mint
+/// separately — re-keying the CANDIDATE mint on the session scope counter left
+/// the whole app suite green at 705 passed / 0 failed, and re-keying this one
+/// left `shell_host_lifecycle`'s identity census untouched. The shipped road is
+/// held by `two_local_histories_name_every_simulated_entity_identically`
+/// (`shell_host_lifecycle`). This arm holds the PRIMITIVE's contract.
 ///
 /// ⭐⭐ **THE REPLACEMENT IS A CONSTANT, AND THE REASON IS THAT THE COUNT WAS
 /// DISAMBIGUATING NOTHING.** A canonical identity only has to be unique inside

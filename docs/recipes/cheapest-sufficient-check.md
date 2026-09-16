@@ -690,6 +690,13 @@ crate you edited. That is the one shape on this page where the right command
 depends on a search rather than on what you changed.
 
 ✔ **AND THE ROW ABOVE IT WAS ALREADY RIGHT AND WAS NOT RUN.** The same landing
-added a message channel; `python3 -m pytest scripts/tests/ -q` catches
-`stable_schema_names: message.parried_body_hit` and it went unrun for hours. This
-page's problem has never been that the rows are wrong.
+added a message channel; `python3 -m pytest scripts/tests/ -q` named it
+(`message.parried_body_hit`) and went unrun for hours. This page's problem has
+never been that the rows are wrong.
+
+⚠ That name census was retired on 2026-09-16 — it was measured 15% blind about
+the rows peers actually compare, and the runtime dump now owns the names. The
+cheap lane's rollback row is unchanged in SPEED and sharper in SUBJECT: pytest
+now catches a registration entering the PEER CHECKSUM without
+`GGRS_ROLLBACK_SCHEMA_VERSION` moving, which is the failure the old row's own
+red text asked for and never checked.

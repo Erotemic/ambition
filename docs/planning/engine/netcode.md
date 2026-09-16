@@ -137,15 +137,106 @@ Before external peers begin play, negotiate exact prepared-content identity and
 rollback schema fingerprint. A peer with mismatched simulation content must fail
 before speculative play rather than discovering incompatibility after divergence.
 
-⛔ **THE FINGERPRINT HAS TWO RECORDINGS TODAY AND THEY ARE CHECKED IN DIFFERENT
-LANES.** `game/ambition_app/tests/rollback_schema_baseline.txt` is read by the
-Rust lane and `scripts/baselines/rollback-schema-baseline.json` by
+✔ **THE SCHEMA HAD TWO RECORDINGS CHECKED IN DIFFERENT LANES, THEY DID NOT
+AGREE, AND THE DUPLICATE IS NOW COLLAPSED** (the measurement and what replaced
+it are below; the negotiation this row is really about is still open).
+`game/ambition_app/tests/rollback_schema_baseline.txt`
+is read by the Rust lane and `scripts/baselines/rollback-schema-baseline.json` by
 `scripts/check_absence_contracts.py` in the repo-tooling lane. A single new
 registration owes both, and on 2026-09-10 one landed with only the first
 updated: the Rust lane was green, which is precisely what made the other
-invisible. Negotiating an identity the repo itself keeps twice is negotiating
-which copy — one authority is a prerequisite for this row, not a tidy-up after
-it.
+invisible.
+
+Measured 2026-09-16, the two are not copies that drifted — they are different
+instruments with different reach, and the smaller one is the peer-facing risk:
+
+- the `.txt` is the runtime dump: 493 rows of name/kind/detail from a live
+  registry, and the fingerprint (`ggrs-rollback-schema-v194`) is a hash of the
+  whole dump, `detail` prose included.
+- the `.json` was source-scanned: 423 `stable_schema_names` and 129
+  `encoded_types`. It recorded no fingerprint at all.
+- **73 of the 493 runtime rows were invisible to the source scan, and 21 of
+  those feed the peer checksum — 15% of the 144 checksum-feeding
+  registrations.**
+  (`feeds_peer_checksum`'s own TRUE arm, read from the source rather than from a
+  hand-kept list: 14 `component-canonical`, 6 `resource-clone-custom-checksum`,
+  1 `component-clone-cursor`.)
+
+Three causes, all structural rather than drift — and the first two are why the
+fix below is a collapse and not a wider regex:
+
+1. **47 are registered under `game/`.** `rollback_schema_usage` globs
+   `crates/*/src/**/*.rs`. The function's own comments describe twice how
+   hand-listing registration FILES failed and was replaced by following the
+   `R: RollbackRegistrar` marker — but the marker is only followed inside a
+   hand-listed ROOT, and every demo and content crate lives outside it.
+2. **26 are colon-form** (`entity:*`, `root:room_set`) spelled as plain literals
+   in a file the scan does read and whose marker bound it matches
+   (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs`).
+   The name pattern is `"([a-z_]+\.[a-z_.]+)"`, which requires a dot, so a
+   colon-delimited name cannot match however well the file is reached.
+3. **The 3 names the JSON holds and the dump lacks are not stale** — the
+   `message.causal_*` trio is filtered out of the dump BY THE TEST, on both
+   sides of the comparison, so that compiling the causal recorder cannot move
+   the state-schema baseline: those channels carry no snapshot bytes. The
+   source scan has no such rule and records the literals. This one is a
+   deliberate divergence, and the surviving N3 question is where it should be
+   stated once rather than in each lane's own dialect.
+
+⇒ Negotiating an identity the repo keeps twice is negotiating which copy, and
+here the copies answered differently about 15% of what peers actually compare.
+
+✔ **RESOLVED 2026-09-16 — the duplicate is collapsed and the runtime dump owns
+the names.** `stable_schema_names` is gone from the JSON and from
+`rollback_schema_usage`: a source scan cannot own this fact, because a
+registration is a runtime call and the four spellings above are not a closed
+set. What replaced it is the one question about the dump that the tree cannot
+answer alone, because the dump has no memory of its previous self:
+
+> **`the-peer-visible-schema-may-not-move-without-the-version`** — if the set of
+> rows whose kind answers `feeds_peer_checksum()` changes, the version on the
+> dump's first line must change in the same commit. 144 rows at
+> `ggrs-rollback-schema-v194`.
+
+⛔⛤ **AND THAT SLICE DROPPED `detail` AT FIRST AND WAS BLIND TO 48 OF THE 144.**
+Q122's own measurement on this page's neighbour caught it: a
+`resource-clone-custom-checksum` row's sentence records what its
+`fn(&T) -> u64` actually covers, and 22 of them say 22 different things, so
+NARROWING A PROJECTION MOVES NO NAME, NO KIND AND NO TYPE. The same is true of
+the 18 `resource-canonical` rows, where `rollback_resource_optional_canonical`
+adds a presence term to the checksum under an unchanged name/kind/type.
+
+⇒ The rule that fits both halves is the artifact's own, and it is the same SPLIT
+Q122 proposes, applied at the granularity the dump already has: **`detail` is
+kept exactly where it distinguishes rows of the same kind, and dropped where it
+does not.** A kind whose rows all carry one sentence has a `detail` the `kind`
+column already implies; a kind whose rows differ is using it to say something
+`kind` cannot. 48 of 144 rows carry theirs. The control and the positive differ
+only in their subject: rewording the 7 uniform `component-clone-cursor` rows
+stays green, rewording one of the 22 varying ones reddens.
+
+⚠ The honest cost: a genuine reword of a VARYING kind's sentence still reddens
+when the projection did not change. That is 48 rows of exposure instead of 493,
+and it fails in the safe direction.
+
+⭐ THE REPOSITORY ALREADY OBEYED THIS AND HAD NEVER SAID SO. Of the commits that
+touched the dump, 14 changed the checksum-feeding set and all 14 moved the
+version; 2 changed the wider row set and held it, and both added a single row of
+a kind nothing hashes — the case `ambition_mount`'s own registration documents
+as deliberate. So the guard was landed green against history rather than
+imposed on it, and a non-hashed registration still lands without a bump, which
+is what keeps the version from becoming a number people bump to pass a check.
+
+Also measured and fixed in the same pass: `encoded_types` had the same
+`crates/`-only root and was blind to nine `SnapshotState` sites in
+`ambition_content`'s boss specials — 129 types became 137. That widening is safe
+where the name census's was not, because it matches a plain `impl` beside the
+type rather than following a registration road.
+
+What this does NOT settle, and N3 still owes: the dump is a recording of ONE
+composition. `message.causal_*` is filtered by the test rather than negotiated,
+and no peer handshake reads the dump or its version yet — the invariant makes
+the identity honest, it does not yet make it exchanged.
 
 The [extension contract](extension-state-and-execution.md) extends this same
 compatibility manifest with module code, port versions, complete extension schema

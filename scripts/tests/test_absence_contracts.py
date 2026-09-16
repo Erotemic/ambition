@@ -516,12 +516,20 @@ def test_the_rollback_ratchet_is_not_silently_empty():
     """The rollback-schema census must remain non-vacuous.
 
     A broken extractor could otherwise report an empty, apparently green wire
-    format. Assert both schema-name and encoded-type populations directly.
+    format. Assert both the encoded-type and peer-visible populations directly.
     """
+    import check_absence_contracts as contracts
+
     root = Path(__file__).resolve().parents[2]
     current = rollback_schema_usage(root)
-    assert len(current["stable_schema_names"]) > 100, current["stable_schema_names"][:5]
     assert len(current["encoded_types"]) > 20, current["encoded_types"][:5]
+    # The NAMES moved owner on 2026-09-16: a source scan was 15% blind about the
+    # rows peers compare, so the runtime dump owns them and this baseline holds
+    # only the peer-visible slice of it. Floor that slice here, in the same test
+    # whose whole job is refusing an apparently green empty census.
+    version, rows = contracts.peer_checksum_schema(root)
+    assert len(rows) > 100, rows[:5]
+    assert version.startswith("ggrs-rollback-schema-v"), version
 
 
 def test_the_wire_format_is_encoded_where_the_types_live():
@@ -568,8 +576,8 @@ def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monke
     root = Path(__file__).resolve().parents[2]
     baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
     shrunk = dict(baseline)
-    shrunk["stable_schema_names"] = baseline["stable_schema_names"][:-1]
-    dropped = baseline["stable_schema_names"][-1]
+    shrunk["encoded_types"] = baseline["encoded_types"][:-1]
+    dropped = baseline["encoded_types"][-1]
 
     fake = tmp_path / "baseline.json"
     fake.write_text(json.dumps(shrunk))
@@ -584,7 +592,7 @@ def test_the_rollback_ratchet_catches_a_new_central_registration(tmp_path, monke
         lambda _root: rollback_schema_usage(root),
     )
     new, stale = contracts.rollback_schema_violations(tmp_path)
-    assert new == [f"stable_schema_names: {dropped}"], new
+    assert new == [f"encoded_types: {dropped}"], new
     assert stale == []
 
 
@@ -602,7 +610,7 @@ def test_the_rollback_ratchet_catches_an_unpruned_baseline(tmp_path, monkeypatch
     root = Path(__file__).resolve().parents[2]
     baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
     grown = dict(baseline)
-    grown["stable_schema_names"] = baseline["stable_schema_names"] + ["ghost.never_existed"]
+    grown["encoded_types"] = baseline["encoded_types"] + ["ghost_crate::NeverExisted"]
 
     fake = tmp_path / "baseline.json"
     fake.write_text(json.dumps(grown))
@@ -615,8 +623,178 @@ def test_the_rollback_ratchet_catches_an_unpruned_baseline(tmp_path, monkeypatch
         lambda _root: rollback_schema_usage(root),
     )
     new, stale = contracts.rollback_schema_violations(tmp_path)
-    assert stale == ["stable_schema_names: ghost.never_existed"], stale
+    assert stale == ["encoded_types: ghost_crate::NeverExisted"], stale
     assert new == []
+
+
+# ── The peer-visible schema may not move without the version ────────────────
+#
+# The rows two peers actually compare are the ones whose kind answers
+# `RollbackEntryKind::feeds_peer_checksum()`. If that set changes and
+# `GGRS_ROLLBACK_SCHEMA_VERSION` does not, both builds advertise the same
+# mechanical identity while checksumming different state: they will not refuse
+# each other before play, they will diverge during it.
+
+
+def _fake_tree(tmp_path, version, rows):
+    """A minimal root holding just the dump the invariant reads."""
+    dump = tmp_path / "dump.txt"
+    dump.write_text(f"{version}\n" + "\n".join(rows) + "\n")
+    return dump
+
+
+def test_the_peer_visible_schema_ratchet_holds_against_the_live_tree():
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    assert contracts.peer_checksum_schema_violations(root) == []
+
+
+def test_a_checksum_feeding_row_that_lands_without_a_version_bump_is_caught(
+    tmp_path, monkeypatch
+):
+    """⛔ The failure this invariant exists for."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, rows = contracts.peer_checksum_schema(root)
+    dump = _fake_tree(
+        tmp_path, version, rows + ["poison.new_canonical\tcomponent-canonical\tPoison"]
+    )
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps({"peer_checksum_schema": {"version": version, "rows": rows}})
+    )
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_DUMP", dump.name)
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_BASELINE", baseline.name)
+    kinds = contracts.checksum_feeding_kinds(root)
+    monkeypatch.setattr(contracts, "checksum_feeding_kinds", lambda _root: kinds)
+    breaches = contracts.peer_checksum_schema_violations(tmp_path)
+    assert breaches == [
+        f"ENTERED the peer checksum at {version}: "
+        "poison.new_canonical\tcomponent-canonical\tPoison"
+    ], breaches
+
+
+def test_the_same_row_with_the_version_moved_is_allowed(tmp_path, monkeypatch):
+    """⭐ THE POSITIVE CONTROL FOR THE LEGITIMATE ROAD.
+
+    Without this the invariant could be satisfied by forbidding all change, which
+    is the shrink-only reading that `resource.impact_hitstop` already settled
+    once for the wire-format ratchet next door.
+    """
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, rows = contracts.peer_checksum_schema(root)
+    dump = _fake_tree(
+        tmp_path,
+        "ggrs-rollback-schema-v999",
+        rows + ["poison.new_canonical\tcomponent-canonical\tPoison"],
+    )
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps({"peer_checksum_schema": {"version": version, "rows": rows}})
+    )
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_DUMP", dump.name)
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_BASELINE", baseline.name)
+    kinds = contracts.checksum_feeding_kinds(root)
+    monkeypatch.setattr(contracts, "checksum_feeding_kinds", lambda _root: kinds)
+    assert contracts.peer_checksum_schema_violations(tmp_path) == []
+
+
+def test_a_row_feeding_no_checksum_may_land_without_a_version_bump(
+    tmp_path, monkeypatch
+):
+    """The deliberate case, which the history exercised twice.
+
+    `derived.attacker_move_instance` and `smash.body_mark` both landed with the
+    version held, and `ambition_mount`'s registration documents the reasoning:
+    a registration nothing hashes changes what a rewind restores locally and
+    nothing that crosses the wire. An invariant that reddened for those would
+    train people to bump the version meaninglessly, which is how a fingerprint
+    stops meaning anything.
+    """
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, rows = contracts.peer_checksum_schema(root)
+    dump = _fake_tree(
+        tmp_path, version, rows + ["poison.new_clone\tcomponent-clone\tPoison"]
+    )
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps({"peer_checksum_schema": {"version": version, "rows": rows}})
+    )
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_DUMP", dump.name)
+    monkeypatch.setattr(contracts, "ROLLBACK_SCHEMA_BASELINE", baseline.name)
+    kinds = contracts.checksum_feeding_kinds(root)
+    monkeypatch.setattr(contracts, "checksum_feeding_kinds", lambda _root: kinds)
+    assert contracts.peer_checksum_schema_violations(tmp_path) == []
+
+
+def test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not():
+    """⛔⛤ THE FIRST VERSION OF THIS SLICE DROPPED `detail` AND WAS BLIND TO 48
+    OF THE 144 ROWS.
+
+    A `resource-clone-custom-checksum` row's `detail` records what its
+    `fn(&T) -> u64` actually covers, and 22 of them say 22 different things — so
+    narrowing a projection moves no name, no kind and no type. Keeping `detail`
+    everywhere is the opposite error: 85 `component-canonical` rows share one
+    sentence, and `Q122` measured one pluralised word moving 83 rows.
+
+    ⭐ THE CONTROL AND THE POSITIVE DIFFER ONLY IN THEIR SUBJECT — both reword a
+    sentence in the dump, and the only difference is whether that sentence
+    distinguishes rows of its kind. Without the control this test would pass for
+    a slice that simply hashed everything.
+    """
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    _, rows = contracts.peer_checksum_schema(root)
+    with_detail = [row for row in rows if row.count("\t") == 3]
+    assert 20 < len(with_detail) < len(rows), (
+        f"{len(with_detail)} of {len(rows)} rows carry their detail; there were "
+        "48 of 144 when this was written. All of them means the prose tax is "
+        "back, none means a narrowed projection is invisible."
+    )
+    kinds_with = {row.split("\t")[1] for row in with_detail}
+    kinds_without = {row.split("\t")[1] for row in rows if row.count("\t") == 2}
+    assert not (kinds_with & kinds_without), (
+        "a kind carries its detail on some rows and not others; the rule is "
+        "per-KIND, so this means the census read two different dumps"
+    )
+    # The load-bearing ones: every kind whose rows describe their own projection.
+    assert "resource-clone-custom-checksum" in kinds_with, sorted(kinds_with)
+    # And the boilerplate one, which must NOT be paying the prose tax.
+    assert "component-canonical" in kinds_without, sorted(kinds_without)
+
+
+def test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list():
+    """⛔⛤ A HAND-KEPT COPY OF THIS SET HID 25 OF 29 REGISTRATIONS ONCE.
+
+    `id_peer_audit.rs` named six variants and omitted every `*CustomChecksum`
+    kind, so the three checkpoint resources that write a raw `SessionScopeId`
+    into their projection were never examined by the guard whose whole subject
+    is host-local identity reaching a peer comparison. This asserts the set is
+    still derived, and — the part that matters — that a kind whose label goes
+    missing RAISES instead of silently dropping its rows and reading green.
+    """
+    import re
+
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    feeding = contracts.checksum_feeding_kinds(root)
+    text = (root / "crates/ambition_platformer2d_core/src/rollback_kind.rs").read_text()
+    true_arm = text.split("pub fn feeds_peer_checksum")[1].split("=> true")[0]
+    assert len(feeding) == len(set(re.findall(r"Self::(\w+)", true_arm))) >= 6, feeding
+    # every kind in the frozen dump slice is one of them, and the reverse cannot
+    # be asserted: `resource-clone-cursor` feeds the checksum and has no member
+    # today, which is a legal state and not a broken filter.
+    version, rows = contracts.peer_checksum_schema(root)
+    assert {row.split("\t")[1] for row in rows} <= feeding
+    assert len(rows) > 100, len(rows)
 
 
 # ── The capability-footprint ratchet ────────────────────────────────────────
@@ -714,14 +892,15 @@ def test_the_wire_format_baseline_is_not_silently_empty():
     from check_absence_contracts import ROLLBACK_SCHEMA_BASELINE
 
     baseline = json.loads((REPO / ROLLBACK_SCHEMA_BASELINE).read_text())
-    assert len(baseline["stable_schema_names"]) >= 400, (
-        f"only {len(baseline['stable_schema_names'])} stable schema names in the "
-        "baseline; there were 414 when this was written, so the file has been "
-        "truncated rather than the format having shrunk"
+    assert len(baseline["peer_checksum_schema"]["rows"]) >= 140, (
+        f"only {len(baseline['peer_checksum_schema']['rows'])} rows feed the "
+        "peer checksum in the baseline; there were 144 when this was written, so "
+        "the file has been truncated rather than the format having shrunk"
     )
-    assert len(baseline["encoded_types"]) >= 120, (
-        f"only {len(baseline['encoded_types'])} encoded types; there were 124 "
-        "when this was written"
+    assert len(baseline["encoded_types"]) >= 130, (
+        f"only {len(baseline['encoded_types'])} encoded types; there were 137 "
+        "when this was written — 129 of them before the census was widened past "
+        "`crates/` to see `game/`'s nine boss-special impls"
     )
 
 

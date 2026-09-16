@@ -111,6 +111,13 @@ is the snapshot schema fingerprint hashing English prose: `compute_schema_finger
 hashes the whole `schema_dump()`, `detail` column included, so two builds of the
 same mechanical schema are two identities if somebody reworded a comment.
 Measured by poison — one pluralised word moved 83 rows.
+⚠ **AND THE REPOSITORY NOW ANSWERS THIS QUESTION TWO OPPOSITE WAYS.** The
+peer-visible schema ratchet landed 2026-09-16 drops the `detail` column
+deliberately, on the reasoning that prose is not wire format and a ratchet that
+reddens for a reworded sentence teaches people to re-freeze it without reading.
+`compute_schema_fingerprint` includes it. Both are defensible alone; holding
+both means the identity a guard protects and the identity a peer would negotiate
+are not the same identity, which is Q122's question with a second witness.
 `SimTick` is registered `resource-canonical`, so its whole value is compared
 between peers, and it is an absolute count of every sim step an App has run
 (one writer, unconditional at the head of the schedule, never rebased, menu

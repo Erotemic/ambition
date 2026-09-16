@@ -40,6 +40,17 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
                     ae::AbilitySet::default(),
                 ),
             ),
+            // ⛔ IDENTITY AND ITS MINT STREAM, BECAUSE A PRODUCTION BODY HAS
+            // BOTH. `ensure_sim_id` gives every production body a `SimId` before
+            // `CoreSimulation`, and the abilities that spawn a dynamic entity
+            // mint it as `SimId::spawned(this body, counter.next())`. A fixture
+            // body without them exercised the `_ => None` road that ADR 0030
+            // replaced with a refusal — so it was testing a path production
+            // cannot take.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement(
+                "test_primary_player",
+            ),
+            ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
         ))
         .id();
     // Ability systems now key on the controlled subject, not a `PrimaryPlayer`

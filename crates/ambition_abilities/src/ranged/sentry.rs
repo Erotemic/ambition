@@ -111,6 +111,27 @@ pub fn fire_sentry_system(
         if held.spec.id != SENTRY_ID {
             continue;
         }
+        // ⛔ REFUSE BEFORE SPENDING. ADR 0030: a dynamic entity that cannot name
+        // its spawner does not spawn. This used to be `_ => None` below, which
+        // deployed an unnameable turret — and `mint_spawned_sim_ids` then skipped
+        // every bolt it fired, because a bolt mints under the turret.
+        //
+        // ⚠ THE ORDER IS THE WHOLE FIX. The refusal sits ABOVE `try_spend`,
+        // because a refusal after it takes the player's mana and deploys nothing.
+        let (Some(deployer), Some(counter)) = (deployer_id, deployer_counter.as_mut()) else {
+            warn!(
+                "a sentry deploy was refused: the deployer carries no SimId or no \
+                 SimIdCounter, so the turret could not be named and its bolts \
+                 could not mint under it"
+            );
+            continue;
+        };
+        // `SimId::spawned(deployer, counter.next())` — the turret is a
+        // dynamically-spawned sim entity, and its bolts mint under IT.
+        let id = Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+            deployer,
+            counter.next(),
+        ));
         if !mana.meter.try_spend(SENTRY_MANA_COST) {
             continue;
         }
@@ -118,17 +139,6 @@ pub fn fire_sentry_system(
         // shots it fires minutes later still sound like the character that placed
         // it — and still do after that character has left the field.
         let inherited = sfx.source_of(wielder);
-        // `SimId::spawned(deployer, counter.next())` — the turret is a
-        // dynamically-spawned sim entity, and its bolts mint under IT.
-        let id = match (deployer_id, deployer_counter.as_mut()) {
-            (Some(deployer), Some(counter)) => {
-                Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
-                    deployer,
-                    counter.next(),
-                ))
-            }
-            _ => None,
-        };
         deploy_sentry(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),
@@ -388,6 +398,85 @@ mod tests {
                 .chain(),
         );
         app
+    }
+
+    /// ⛔⛤ **ADR 0030 AT THIS SITE: AN UNNAMEABLE TURRET DOES NOT DEPLOY, AND
+    /// THE REFUSAL DOES NOT COST MANA.**
+    ///
+    /// The deploy used to compute `SimId::spawned(deployer, counter.next())`
+    /// through a `match` whose fallback was `_ => None`, so a deployer without an
+    /// identity placed a turret nothing could name — and `mint_spawned_sim_ids`
+    /// then skipped every bolt that turret fired, because a bolt mints under IT.
+    ///
+    /// ⚠ **THE ORDER IS HALF THE ASSERTION.** `try_spend` runs in the same loop
+    /// body. A refusal written below it takes the deployer's mana and deploys
+    /// nothing, which is a worse outcome than the defect — so this arm pins the
+    /// METER as well as the turret count, and it is the arm that fails if the
+    /// refusal is ever moved down.
+    #[test]
+    fn a_deployer_with_no_identity_deploys_no_turret_and_keeps_its_mana() {
+        let mut app = test_app();
+        let deployer = spawn_primary_player_holding(&mut app, SENTRY_ID);
+        // The fixture body carries a `SimId` because a production body does.
+        // Take it away: this is the body ADR 0030 says must be refused.
+        app.world_mut()
+            .entity_mut(deployer)
+            .remove::<ambition_platformer2d_shared_tangle::sim_id::SimId>();
+
+        let before = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        // ⛔ ANTI-VACUITY: the deployer must be able to AFFORD the sentry, or
+        // "no turret" is the mana gate speaking and this arm proves nothing.
+        assert!(
+            before >= SENTRY_MANA_COST,
+            "the fixture cannot afford a sentry ({before} < {SENTRY_MANA_COST}), so \
+             a refusal and an empty meter are indistinguishable here"
+        );
+
+        app.world_mut()
+            .get_mut::<ActorControl>(deployer)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+
+        let mut turrets = app.world_mut().query::<&Sentry>();
+        assert_eq!(
+            turrets.iter(app.world()).count(),
+            0,
+            "a deployer with no SimId deployed a turret anyway, so the unnameable \
+             road is still reachable"
+        );
+        let after = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        assert_eq!(
+            after, before,
+            "the refusal charged the deployer for a turret it did not get — the \
+             `let ... else` is below `try_spend` instead of above it"
+        );
+    }
+
+    /// ⚠ THE CONTROL FOR THE ARM ABOVE: the SAME fixture, with its identity left
+    /// in place, DOES deploy. Without this, "no turret" could be any of a dozen
+    /// unrelated gates in that loop body and the refusal arm would be vacuous.
+    #[test]
+    fn the_same_deployer_with_its_identity_does_deploy() {
+        let mut app = test_app();
+        let deployer = spawn_primary_player_holding(&mut app, SENTRY_ID);
+        let before = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        app.world_mut()
+            .get_mut::<ActorControl>(deployer)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+
+        let mut turrets = app.world_mut().query::<&Sentry>();
+        assert_eq!(turrets.iter(app.world()).count(), 1, "one turret deployed");
+        let after = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        assert!(
+            after < before,
+            "a deploy that happened did not spend mana, so the meter is not the \
+             witness the refusal arm thinks it is"
+        );
     }
 
     /// ⛔⛔ POSSESSION MOVES THE ALLEGIANCE, NOT THE FACTION.

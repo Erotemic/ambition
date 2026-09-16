@@ -174,15 +174,95 @@ GATED = re.compile(r"\b(?:Changed|Added|Or)\s*<")
 POINT_READ = re.compile(r"\.get(?:_mut)?::<\s*[\w:]*\b{t}\b")
 
 
-def reader_sites(ty: str) -> tuple[list[str], list[str]]:
-    """`(per-tick query sites, sites a human must read)`."""
-    per_tick, needs_reading = [], []
-    found = subprocess.run(
-        ["git", "grep", "-n", rf"\b{ty}\b", "--", "crates/", "game/"],
+# ⚠ A SCAN ROOT IS A CITATION A FILE MOVE BREAKS IN SILENCE. This census read
+# `crates/` and `game/` only, and the workspace has 51 more `.rs` files under
+# `tests/`, `fixtures/` and `examples/`. Measured 2026-09-16: widening to the two
+# non-test roots moved no row in this population, which is the evidence that the
+# blind spot was empty HERE — not that it cannot matter. `tests/` stays out
+# because it is the workspace-policy crate, and the triage drops test paths anyway.
+READER_ROOTS = ("crates/", "game/", "examples/", "fixtures/")
+
+_MENTION_INDEX: dict[str, list[str]] = {}
+
+
+def prime_mentions(types: list[str]) -> None:
+    """One `git grep` for every subject at once, attributed per type.
+
+    ⚠ SAME REASON `_definition_index` IS BATCHED, and the reason now bites
+    harder: the population went from 59 to 175, and a grep per type is ~0.13 s
+    each. The alternation is one subprocess; attribution is one regex pass over
+    the matched LINES, which is a far smaller corpus than the tree.
+    """
+    wanted = sorted({t for t in types if t not in _MENTION_INDEX})
+    if not wanted:
+        return
+    alternation = re.compile(r"\b(" + "|".join(re.escape(t) for t in wanted) + r")\b")
+    for t in wanted:
+        _MENTION_INDEX[t] = []
+    out = subprocess.run(
+        ["git", "grep", "-n", "-E", r"\b(" + "|".join(wanted) + r")\b", "--", *READER_ROOTS],
         capture_output=True,
         text=True,
         cwd=REPO,
     ).stdout.splitlines()
+    for row in out:
+        for name in set(alternation.findall(row)):
+            _MENTION_INDEX[name].append(row)
+
+
+def _mentions(ty: str) -> list[str]:
+    if ty not in _MENTION_INDEX:
+        prime_mentions([ty])
+    return _MENTION_INDEX[ty]
+
+
+# ⛔⛤ A MARKER IS NEVER BORROWED, ONLY FILTERED ON — AND `reader_sites` LOOKS FOR
+# A BORROW. Its first run over the widened population reported `FeatureSimEntity`
+# with NO PRODUCTION READER while 81 sites spell `With`/`Without`/`Has` of it.
+# That is the reassuring direction, and it is the third way this triage has been
+# wrong about a zero (after `&'static T` and the checksum probe).
+#
+# ⚠ A PRESENCE FILTER IS A DIFFERENT KIND OF READ, not a weaker one. `queue.md`'s
+# rule: a component whose PRESENCE is read by a query filter is AUTHORITATIVE even
+# when its value is derived — rollback cares whether anything reads it before its
+# writer runs again, not how it was computed.
+PRESENCE_FILTER = r"(?:With|Without|Has|Added|Changed)\s*<\s*(?:&\s*)?(?:'\w+\s+)?(?:[\w:]*::)?{t}\b"
+
+# ⛔⛤ AND A RESOURCE IS READ THROUGH `Res<T>`, NEVER `&T`. The fourth blind spot,
+# and it arrived WITH the widened population: `resource-clone` rows were outside
+# this census until the selector moved to the kind, so nothing here had ever been
+# a resource. `FriendlyFire`, `PortalFrameHistory` and `SaveRestored` all reported
+# NO PRODUCTION READER while each is a `Res`/`ResMut` parameter in a live system.
+RESOURCE_READ = r"Res(?:Mut)?\s*<\s*(?:'\w+\s+)?(?:[\w:]*::)?{t}\b"
+
+
+def _matching_sites(ty: str, template: str) -> list[str]:
+    pattern = re.compile(template.format(t=re.escape(ty)))
+    out = []
+    for row in _mentions(ty):
+        path = row.split(":")[0]
+        # ⚠ A TEST, A REGISTRATION AND A RE-EXPORT ARE NOT READERS.
+        if "test" in path or "rollback_registration" in path:
+            continue
+        if pattern.search(row.split(":", 2)[-1]):
+            out.append(row[:150])
+    return out
+
+
+def presence_filter_sites(ty: str) -> list[str]:
+    """Sites that read the component's PRESENCE through a query filter."""
+    return _matching_sites(ty, PRESENCE_FILTER)
+
+
+def resource_read_sites(ty: str) -> list[str]:
+    """Sites that take the type as a `Res`/`ResMut` system parameter."""
+    return _matching_sites(ty, RESOURCE_READ)
+
+
+def reader_sites(ty: str) -> tuple[list[str], list[str]]:
+    """`(per-tick query sites, sites a human must read)`."""
+    per_tick, needs_reading = [], []
+    found = _mentions(ty)
     for row in found:
         path = row.split(":")[0]
         # ⚠ A TEST, A REGISTRATION AND A RE-EXPORT ARE NOT READERS, and counting
@@ -243,11 +323,66 @@ def main() -> int:
     print("\n⛔ HOW THESE ROWS DESCRIBE THEMSELVES — the sentence comes from the")
     print("   registrar METHOD, so it is a fact about the ROAD, not about the type:")
     for detail, count in sorted(by_sentence.items(), key=lambda kv: -kv[1]):
-        probe = "probed" if "probed" in detail else "NO PROBE"
-        print(f"   {count:4}  [{probe:8}]  {detail}")
-    print("\n⚠ A PROBE IS A LOCALIZATION AID, NOT COVERAGE. A probed row tells a")
-    print("  desync hunt WHERE; it still contributes nothing to the checksum. The")
-    print("  rows marked NO PROBE have neither.")
+        named = "names a value probe" if "probed" in detail else "names none"
+        print(f"   {count:4}  [{named:18}]  {detail}")
+    print("\n⛔⛤ AND THAT COLUMN IS NOT THE PROBE STRENGTH. THIS SCRIPT CANNOT")
+    print("  ANSWER THAT QUESTION AND MUST NOT LOOK LIKE IT DOES. It reads a text")
+    print("  baseline; whether a row carries a probe is decided in Rust, at")
+    print("  registration. `rollback_component_clone` installs a PRESENCE probe")
+    print("  (`ChecksumProbe::presence_for`) even though its detail names no probe")
+    print("  at all — an earlier version of this report called those rows")
+    print("  \"NO PROBE\" and was wrong, by reading prose for a fact the code owns.")
+    print("\n⇒ THE AUTHORITY IS `RollbackChecksumProbes`, at runtime:")
+    print("  `strength_tally()` splits Value / Complete (zero-sized, presence IS")
+    print("  the value) / Presence, and `presence_only_type_names()` enumerates the")
+    print("  weak half. `every_presence_only_probe_is_named_with_its_reason` in")
+    print("  `game/ambition_app/tests/rollback_exit_oracle.rs` asserts each one is")
+    print("  listed WITH A REASON. Measured 2026-09-16: 364 probes — 220 value,")
+    print("  28 complete, 116 presence-only, 45 of those derived.")
+    print("\n⚠ A PROBE IS A LOCALIZATION AID, NOT COVERAGE EITHER WAY. It tells a")
+    print("  desync hunt WHERE; it contributes nothing to the checksum two peers")
+    print("  compare. Every row below is outside that checksum.")
+
+    # ⛔⛤ THE TRIAGE OVER THE NO-PROBE ROWS, which is the classification S7 asks
+    # for. These have no checksum contribution AND no localization probe, so a
+    # divergence in one is both invisible and unlocatable. What decides whether
+    # that matters is who READS the value and how soon.
+    #
+    # ⚠ `reader_sites` was BUILT AND NEVER CALLED by this script — only its test
+    # exercised it. A capability with one customer in a test file looks exactly
+    # like an absent one from the report.
+    # ⚠ "NAMES NO VALUE PROBE" IS WHAT THIS SELECTS, NOT "HAS NO PROBE" — see the
+    # note printed above. These are the rows whose detail claims no value
+    # projection; the code gives them a presence probe, which counts carriers and
+    # is blind to the value.
+    unprobed = [(n, t) for n, t, d in subjects if "probed" not in d]
+    prime_mentions([t for _, t in unprobed])
+    unread, gated_only, per_tick_read, presence_only = [], [], [], []
+    for name, ty in unprobed:
+        tick, gated = reader_sites(ty)
+        tick = tick or resource_read_sites(ty)
+        presence = presence_filter_sites(ty)
+        if tick:
+            per_tick_read.append(name)
+        elif presence:
+            presence_only.append(name)
+        elif gated:
+            gated_only.append(name)
+        else:
+            unread.append((name, ty))
+    print(f"\n⛔ OF THE {len(unprobed)} ROWS WITH NO VALUE PROJECTION — outside the")
+    print("   checksum, and localizable only by a carrier COUNT:")
+    print(f"   {len(per_tick_read):4}  read by an unfiltered per-tick query — a divergence")
+    print("         propagates on the next frame")
+    print(f"   {len(presence_only):4}  read only as PRESENCE, through a query filter — the component's")
+    print("         existence is authoritative even where its value is derived")
+    print(f"   {len(gated_only):4}  only gated or point reads — a human must decide when it is read")
+    print(f"   {len(unread):4}  NO PRODUCTION READER THE TRIAGE CAN SEE")
+    for name, ty in unread:
+        print(f"         {name:44} {ty}")
+    print("\n⚠ A ZERO-READER ROW IS A CLAIM ABOUT THE SCAN FIRST. `&'static T` in a")
+    print("  Bevy `SystemParam` alias and a checksum probe taking `&T` both fooled")
+    print("  this triage once; both are handled and pinned by its test.")
     return 0
 
 

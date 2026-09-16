@@ -1100,6 +1100,23 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_discharged_holds_are_rewritten.py",
             ],
         ),
+        # ⛔⛤ **THE SUBJECT, NOT A PROPERTY OF IT.** Every other job in this lane
+        # reports findings ABOUT the planning documents, and each of them passes
+        # cleanly over a document that is no longer there: a citation checker
+        # over a file with no citations has nothing to report. MEASURED
+        # 2026-09-16 -- this lane said 7/7 while `status.md` was ZERO BYTES,
+        # committed and pushed. The absence of findings and the absence of a
+        # subject look identical.
+        # ⚠ It is a catastrophe detector, not a ratchet: its floors sit far under
+        # today's sizes, because compressing a closed row to a receipt is the
+        # queue contract WORKING.
+        Job(
+            "live control-plane documents still have their content",
+            [
+                sys.executable,
+                "scripts/check_planning_docs_survive.py",
+            ],
+        ),
     ]
 
 

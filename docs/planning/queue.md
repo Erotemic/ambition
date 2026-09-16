@@ -15,6 +15,21 @@ it.
 
 **Owner:** [construction and reconstitution](engine/construction-and-reconstitution.md).
 
+⇒ **POST-A10 DEMOLITION IS DONE ON THE SYMBOL AXIS (2026-09-16).** MEASURED: every
+piece of A10 machinery has live production callers — `PendingConstructionReceipt`,
+`FrozenPublicationEffects`, `PublicationRetention`, `PendingWorldReplacement`,
+`RoomCommitStamp`, `opening_refused`, `entity_is_still_a_candidate`,
+`publications_holding_frozen_effects`. Nothing in that set is scaffolding left
+standing. The dead mechanism the demolition DID find — `CandidateState` /
+`spawn_candidate_state` / `candidate_state_entities`, zero callers, comments
+specifying a road production never took — is deleted (`09629b060`).
+
+⚠ **AND THE PUBLIC-SURFACE AXIS IS ESSENTIALLY CLOSED TOO.** Of every `pub`
+item in `transaction.rs` and `stage.rs`, exactly ONE had no caller outside those
+two files: `RoomConstructionPlan::predicted_authoritative_ids`, now private.
+`RoomConstructionPlan` is a public type, so a public accessor on it is public API
+whether or not anyone outside uses it.
+
 **CURRENT INVARIANT.** A failed candidate world leaves the currently playable
 world N intact, at BOTH scopes and UNCHANGED — not merely playable. A candidate
 N+1 is prepared and verified off to the side; only a validated candidate becomes
@@ -587,32 +602,61 @@ Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
 repair. Read it as observations or it sends the next reader hunting 49 bodies
 that never existed.
 
-**Remaining — the unnamed SPAWNER, one level above the projectile.**
-`materialize_matching` (`ambition_projectiles/src/materialize.rs`) inserts no
-identity and defers to `mint_spawned_sim_ids`; that is the designated late mint
-for dynamic entities and is correct as a road. The hole is its input:
-`deploy_sentry`, `open_vortex_well` and `open_temporary_gravity_well` each take
-`id: Option<SimId>`, and each production caller computes it through a `match`
-whose fallback arm is `_ => None`. An unnamed turret therefore spawns, and
-`mint_spawned_sim_ids` then skips every bolt it fires — `sentry.rs` documents
-exactly that chain break. ⚠ Reachable BY CONSTRUCTION; not observed in a shipped
-run. ADR 0030 says such a site refuses rather than degrades.
+✅ **THE UNNAMED SPAWNER IS CLOSED, 2026-09-16.** `materialize_matching`
+(`ambition_projectiles/src/materialize.rs`) inserts no identity and defers to
+`mint_spawned_sim_ids`, which is the designated late mint and was never the hole.
+The hole was its input: `fire_sentry_system`, the vortex cast and
+`tick_gravity_grenade_fuses` each computed the spawned id through a `match` whose
+fallback arm was `_ => None`, so an unnamed turret deployed and
+`mint_spawned_sim_ids` then skipped every bolt it fired — a bolt mints under the
+turret. All three are `let (Some(..), Some(..)) = .. else { warn!(..); .. }` now,
+the same shape the clone road uses.
 
-**Next implementation:** turn that `_ => None` fallback into a refusal at those
-three spawn owners, as the clone road now does. Do not add a fallback ID that
-invents canonical identity from query order.
+⛔⛤ **THE ORDER WAS HALF THE FIX AND IT IS NOT OBVIOUS FROM THE ROW ABOVE.** In
+the sentry and vortex systems `mana.meter.try_spend(..)` runs in the same loop
+body, ABOVE where the id was computed. A refusal written where the `match` was
+takes the caster's mana and spawns nothing — strictly worse than the defect. Both
+refusals sit above `try_spend` now, and the guard asserts the METER as well as the
+turret count:
+`a_deployer_with_no_identity_deploys_no_turret_and_keeps_its_mana`
+(`ambition_abilities::ranged::sentry::tests`). ⚠ Poisoned by moving `try_spend`
+back above the refusal — the mana assertion fails with the message naming that
+exact edit. Its control is `the_same_deployer_with_its_identity_does_deploy`,
+because "no turret" is otherwise satisfied by a dozen unrelated gates in that
+loop.
+
+⚠ **THE GRENADE REFUSES BUT STILL DESPAWNS.** Its fuse has already expired when
+the id is needed; skipping the whole arm would leave a spent grenade retrying
+every tick forever. The refusal costs the EFFECT, not the cleanup.
+
+⭐ **THE SEAM SIGNATURES KEEP `Option<SimId>` DELIBERATELY, and that is a decision
+already recorded at `open_vortex_well`:** *"`id` IS `Option` AND THAT IS NOT A
+HEDGE. A well minted under a caster the sim can name gets `SimId::spawned`; a
+fixture well has no caster to mint under."* The row's target was the production
+CALLERS' fallback, not the seams — tightening the seams would have deleted a
+documented fixture road to close a caller's hole.
+
+⇒ **AND THREE FIXTURES WERE EXERCISING THE ROAD THAT NO LONGER EXISTS.** Four
+tests reddened, all because `spawn_primary_player_holding` built a body with no
+`SimId` and no `SimIdCounter` while `ensure_sim_id` gives every production body
+both before `CoreSimulation`. The fixture carries them now, so those tests take
+the production path; the grenade fixture likewise. That is the fix, not a
+workaround: a fixture that can only reach the degraded road cannot witness the
+real one.
 
 **Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
 — cannot reach the simulation unnameable; the witness names the construction road
 and the body rather than reporting a population count.
 
-⚠ **THE CLONE-ROAD RECEIPT ABOVE WAS MEASURED AT THE PRE-MERGE TREE `b9f2ece18`.**
-At `ecbdf2297` no `app_it` test that steps the simulation terminates — the lane
-ran in 3.53s before the merge and does not finish in 300s after it — so the
-receipt stands on that tree and awaits re-measurement, rather than being a claim
-about `main` today. Attribution is settled by matched probes (with and without
-this work stashed, both hang identically), so the regression is in committed
-`main`, not in the A2 repair.
+✔ **THE CLONE-ROAD RECEIPT IS RE-MEASURED ON TODAY'S TREE AND THE HANG IS GONE.**
+It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`
+test that steps the simulation terminated — 3.53s before the merge, not finishing
+in 300s after it. Re-run 2026-09-16 at `dae0fc44a`:
+`the_player_clone_road_builds_an_identified_body` passes in **1.60s** and prints
+`209 body-observations judged, 0 skipped`, the same numbers the original receipt
+claimed. The whole `-p ambition_app` suite finishes: 213 + 678 + 1 passed, 25
+ignored, 375s. ⇒ The receipt is now a claim about `main`, and the deferral above
+it is discharged rather than restated.
 
 ### A12 — finish move-contact attribution and reflection identity
 
@@ -794,21 +838,44 @@ admitted prepared value. Prefer deleting the second truth to synchronizing it.
 each migrated fact, and production consumers cannot bypass its preparation or
 projection boundary.
 
-### D-SCENARIO-IDENTITY — confirm and then finish scenario cache identity
+### D-SCENARIO-IDENTITY — CLOSED 2026-09-16, the collision is already closed
 
-**Owner:** performance/scenario tooling.
+**Owner:** performance/scenario tooling. **CLOSED** by measurement; nothing was
+implemented.
 
-**Current state:** current source inspection does not locate the named cache
-subject in the tree. Treat that as an investigation requirement, not as
-permission to implement an inferred replacement.
+⚠ **THE ROW SAID THE SUBJECT WAS NOT IN THE TREE. IT IS — IN A SUBMODULE.**
+`CombatScenario.cache_name()` and `scenario_key()` are in
+`tools/ambition_moveset_inspector/ambition_moveset_inspector/server.py`. A
+source inspection confined to `crates/` and `game/` cannot see them. ⇒ That was a
+finding about the earlier search's REACH, recorded here so the next "not located
+in the tree" row is checked against `tools/` before it is believed.
 
-**Next implementation:** locate the current scenario cache/key owner and prove the
-identity collision still exists. If the subject was removed or renamed and the
-collision no longer exists, close this row. Otherwise include geometry identity
-in the cache key at the owner boundary.
+**THE ACCEPTANCE IS MET, by a stronger mechanism than the row proposed.** It asked
+for geometry identity IN the cache key. The cache instead refuses to serve an
+entry whose repository content differs at all: `_evidence_is_current` requires
+`source_identity == _repository_identity()`, which is `HEAD` plus
+`sha256(git diff HEAD + git status --porcelain -uall)`, and additionally requires
+the generator binary to be no newer than the cached stamp.
 
-**Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
-cached result accidentally.
+MEASURED 2026-09-16 by moving content and reading the identity back:
+```
+before                          292d216bc…:9edae5b32418a4cd
+after editing a crate source    292d216bc…:8ef610bac33f066b
+after restore                   292d216bc…:9edae5b32418a4cd
+after editing the SUBMODULE     292d216bc…:2f7f7f5b920fc890
+after restore                   292d216bc…:9edae5b32418a4cd
+```
+⇒ Two scenario geometries cannot share a cached result, because differing content
+is differing `source_identity`. The submodule row is the one worth keeping: a
+change inside `tools/` moves the identity too, through
+`status --porcelain`'s dirty-submodule line.
+
+⭐ The cache key ALSO already hashes the whole request —
+`cache_name()` is `scenario_key(...)` plus `sha256(document())[:12]`, and
+`scenario_key`'s own docstring records two collisions it was widened to fix
+(caching by character alone, and `int(spacing)` putting 40.1 and 40.9 in one
+directory). The remaining question this row asked was about CONTENT, and content
+is covered by `source_identity` rather than by the key.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

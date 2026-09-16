@@ -19,6 +19,25 @@ A planning document earns its place here by answering one of four questions:
 currently selected. [`status.md`](status.md) is a short orientation snapshot.
 Neither is an execution diary.
 
+## A gate over a missing document does not fail
+
+`scripts/check_planning_docs_survive.py` asserts the SUBJECT of this tree: the
+live control-plane documents exist, are non-trivial, and still carry the headings
+that make them what they claim to be. It runs in `--maintenance`.
+
+⛔⛤ **IT EXISTS BECAUSE `status.md` WAS EMPTIED TO ZERO BYTES, COMMITTED AND
+PUSHED, AND THE LANE REPORTED 7/7.** That is not a hole in the other gates — a
+citation checker over a file with no citations has nothing to report, and a hold
+checker over a file with no holds has nothing to report. **The absence of
+findings and the absence of a subject look identical.** MEASURED by replaying it:
+with `status.md` empty the lane is 7/8 and the seven are all still green.
+
+⚠ It is a CATASTROPHE DETECTOR, NOT A RATCHET. Its floors sit far below today's
+sizes, because compressing a closed row to a receipt is this contract WORKING —
+`queue.md` fell 1063 → 908 lines the day it was written and must not red. And it
+cannot see a document that goes wrong while staying big; stale claims, discharged
+holds and broken citations have their own checks.
+
 ## Where the open work is
 
 [`queue.md`](queue.md) is the one live engineering execution ledger. If work is

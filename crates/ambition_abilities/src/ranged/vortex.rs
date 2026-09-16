@@ -95,6 +95,23 @@ pub fn fire_vortex_system(
         if held.spec.id != VORTEX_ID {
             continue;
         }
+        // ⛔ REFUSE BEFORE SPENDING — ADR 0030, and the order is the fix: a
+        // refusal after `try_spend` takes the caster's mana and opens nothing.
+        // This was `_ => None` below, which opened an unnameable well.
+        let (Some(caster), Some(counter)) = (caster_id, caster_counter.as_mut()) else {
+            warn!(
+                "a vortex cast was refused: the caster carries no SimId or no \
+                 SimIdCounter, so the well could not be named"
+            );
+            continue;
+        };
+        // `SimId::spawned(caster, counter.next())` — N3.1's rule for a dynamically
+        // spawned sim entity. The counter lives on the CASTER so two casters never
+        // share a stream; taking a number is itself snapshot state.
+        let id = Some(ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(
+            caster,
+            counter.next(),
+        ));
         if !mana.meter.try_spend(VORTEX_MANA_COST) {
             continue;
         }
@@ -106,15 +123,6 @@ pub fn fire_vortex_system(
             continue;
         }
         let center = kin.pos + aim * VORTEX_RANGE;
-        // `SimId::spawned(caster, counter.next())` — N3.1's rule for a dynamically
-        // spawned sim entity. The counter lives on the CASTER so two casters never
-        // share a stream; taking a number is itself snapshot state.
-        let id = match (caster_id, caster_counter.as_mut()) {
-            (Some(caster), Some(counter)) => Some(
-                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(caster, counter.next()),
-            ),
-            _ => None,
-        };
         open_vortex_well(
             &mut commands,
             SessionSpawnScope::new(owner.map(|owner| owner.0)),

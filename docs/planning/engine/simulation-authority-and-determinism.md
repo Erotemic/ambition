@@ -280,6 +280,72 @@ probe does not make a row peer-compared; it tells a desync hunt where to look.
 These 99 offer neither, and that is a checkable statement where the old one was
 not. The float-bearing count over the true population is **79 of 175**.
 
+⭐⭐ **AND THE CLASSIFICATION S7 ASKED FOR IS NOW MEASURED, NOT PLANNED.** The
+next step this section named was *"classify the payloads that can change
+mechanical behaviour"*. The census already held a reader triage — and had never
+called it. `reader_sites` was exercised only by its own test, so a capability with
+one customer in a test file looked exactly like an absent one. Wired into the
+report and run over the 99 rows whose `detail` names no value projection:
+
+| rows | how it is read | what a divergence does |
+|---|---|---|
+| 78 | an unfiltered per-tick query, or a `Res`/`ResMut` parameter | propagates on the next frame |
+| 19 | PRESENCE only, through a query filter | the component's existence is authoritative even where its value is derived |
+| 1 | gated or point reads only | a human must decide when it is read |
+| **1** | **nothing in production** | — |
+
+⇒ **78 of 99 are read every tick and are not in the checksum**, and the only
+thing that would localize a divergence in one is a carrier COUNT.
+
+⛔⛤ **A CORRECTION TO THIS SECTION, MADE THE SAME DAY IT WAS WRITTEN, AND IT IS
+THE SECTION'S OWN LESSON ONE LEVEL DOWN.** This first read *"78 of 99 have no
+probe"*. They all have one. `rollback_component_clone` installs
+`ChecksumProbe::presence_for::<T>` — a carrier count — eleven lines below the
+`detail` string it records, and I classified from the string. Having just spent
+two commits on a census that matched a SENTENCE instead of the property in its
+own title, I then read a sentence for a fact the code owns.
+
+⇒ **THE AUTHORITY FOR PROBE STRENGTH IS `RollbackChecksumProbes`, AT RUNTIME, AND
+IT ALREADY EXISTED.** `ProbeStrength` is `Value` / `Complete` (zero-sized, where
+presence IS the value, decided by `size_of::<T>() == 0`) / `Presence`, and
+`presence_only_type_names()` enumerates the weak half.
+`every_presence_only_probe_is_named_with_its_reason`
+(`game/ambition_app/tests/rollback_exit_oracle.rs`) already asserts every one is
+listed with a real reason. Measured 2026-09-16 from that test's own output:
+**364 probes — 220 value, 28 complete, 116 presence-only, 45 of those derived.**
+A static scan of the text baseline cannot answer this and the census now says so
+instead of implying an answer.
+
+⛔⛤ **AND THE TRIAGE'S FIRST NUMBER WAS 20 UNREAD, NOT 1 — THREE MORE BLIND SPOTS,
+ALL IN THE REASSURING DIRECTION.** It looks for a BORROW (`&T`), and two whole
+classes of read are not borrows:
+
+- **A marker is never borrowed, only filtered on.** `FeatureSimEntity` reported
+  NO PRODUCTION READER with **81** `With`/`Without`/`Has` sites. Every marker
+  component in the population read as unread.
+- **A resource is read through `Res<T>`.** `resource-clone` rows were outside this
+  census entirely until the selector moved to the kind, so nothing here had ever
+  been a resource — `SaveRestored`, `FriendlyFire` and `PortalFrameHistory` each
+  reported zero while each is a live `Res`/`ResMut` parameter.
+- **The scan root read `crates/` and `game/`** while the workspace has 51 more
+  `.rs` files under `tests/`, `fixtures/` and `examples/`. Widening to the two
+  non-test roots moved no row HERE, which is evidence the blind spot was empty for
+  this population, not that it cannot matter.
+
+⇒ Both patterns are pinned by known-answer controls (`FeatureSimEntity` must be
+seen as presence-filtered, `SaveRestored` as a resource read) with the inverse
+arms as anti-looseness controls, and both were poisoned.
+
+⛔ **THE ONE ROW WITH NO PRODUCTION READER IS `player.local_marker`.**
+`LocalPlayer` is `component-clone`: snapshotted every frame, not in the session
+checksum, localizable only by a carrier count. Its 16 production mentions are a
+definition, a re-export, two
+insertions, a rollback registration and doc comments — not one read. Its only
+`With<LocalPlayer>` is in `smash_in_the_host.rs`, a test. Pinned by
+`test_local_player_is_registered_for_rollback_and_read_by_nothing`, which is
+deliberately tied to the live finding and says in its own message which failure
+direction is the good one.
+
 ⛔⛤ **AND THE GUARD THAT CAUGHT THE SPELLING BUG WENT BLIND THE SAME DAY, TO A
 CHANGE THAT HAD NOTHING TO DO WITH IT.** The first fix floored the census at 120
 rows, on the reasoning that a revert to prose-matching would return 59 and trip
@@ -296,9 +362,21 @@ thing it was protecting was a list.
 defined outside this repository, so the `git grep '(struct|enum) X'` index cannot
 see them and reported both as having no float-bearing fields. `Transform` is three
 `Vec3`/`Quat`. They are named in `EXTERNAL_TYPES` now with their floats stated.
-ⓘ Their registration had no recorded reason: the comment above them described
-portal-gun timers that had left for `ambition_portal2d::register_rollback_state`,
-and the carve moved the code while leaving the reason to be read as theirs.
+⛔⛤ **AND THEIR REASONS ARE RECORDED IN ANOTHER CRATE'S TEST, WHICH IS THE
+FINDING.** I first wrote that these two registrations had no recorded reason.
+They have one: `rollback_exit_oracle.rs`'s `PRESENCE_ONLY` allowlist says `Name`
+is *"authored debug name; immutable at runtime"* and `Transform` is *"presentation
+transform, republished from BodyKinematics every frame"*, and that allowlist is
+what makes them DECIDED placements rather than accidents. A reader standing at the
+registration site cannot see it — what sat there instead was a stranded comment
+about portal-gun timers that had left for
+`ambition_portal2d::register_rollback_state`, which the carve left behind to be
+read as theirs.
+
+⇒ A registration's justification living in a test's allowlist in a different crate
+is the same shape as the `detail` column's problem one level up: the fact has an
+owner, and it is not where the fact is used. Both are now cross-referenced; the
+one-owner question is `Q122`'s.
 
 ⇒ Two ways out, and the first is cheaper than sweeping 175 rows: either the
 registrar TAKES the coverer (the projection or type that does compare this fact)

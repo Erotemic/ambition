@@ -72,6 +72,16 @@ NOT run `pytest scripts/tests`, which holds the tests of the scripts it runs; it
 closing notice derives and names everything it skipped. A green here is a claim
 about this lane.
 
+## Where a finished diagnosis waits
+
+[`triage/`](triage/README.md) holds findings that are MEASURED and not scheduled:
+the diagnosis is complete and the decision to act is somebody else's, or the cost
+of acting is not yet known. ⛔ **It got an index on 2026-09-16 because two of its
+pages had been reachable from NOTHING for six days and both were live** — one
+recorded the same `app_it` failure signature that hit a different arm that night,
+with a named next step nobody had taken. A diagnosis nobody can find is a
+diagnosis nobody has.
+
 ## Where the open work is
 
 [`queue.md`](queue.md) is the one live engineering execution ledger. If work is

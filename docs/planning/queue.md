@@ -70,7 +70,7 @@ diary.
 
 **Current state (2026-09-16): NINE OF THE TEN NAMED ROADS ARE CLOSED, and the
 tenth is the absolute `SimTick`, which is netcode and wants a maintainer decision
-before anyone starts.** A count rather than a completeness word, deliberately: a
+before anyone starts — asked as `Q128`.** A count rather than a completeness word, deliberately: a
 tenth road found tomorrow makes this row "nine closed, a tenth found" instead of
 making it false.
 
@@ -102,7 +102,7 @@ to carry it.
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically`. See below |
 | `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
-| the canonical timeline itself | **OPEN, and the largest unnamed one** — see below |
+| the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**
 Found by the GPT review of 2026-09-15, measured on the production road, and
@@ -453,15 +453,18 @@ with these very resources would have failed SILENTLY once rollback went live"*,
 and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
 re-hide the thing that comment warned about.
 
-**Next implementation — triage the 17, which is owner work rather than guard
-work.** `reset_inventory_on_new_game` is being moved into the sim schedule
-(its producer already runs in `ResetProcessing` and its sibling
-`clear_transient_on_sandbox_reset` is on that chain). The two
-`reset_session_scoped_resources_on_*` roads mutate 13 registered types each from
-`Update` and owe a stated waiver or a move. Then seven menu systems reaching
-`ResMut<NewGameResetRequested>` through `MenuDispatchParams`, the four
-`AmbitionGameSave` mirrors, and `adopt_occurrence_checkpoint_from_save` /
-`complete_durable_restore` / `track_versus_roster`, all untriaged.
+**Next implementation — triage the 14, which is owner work rather than guard
+work.** Two are answered: the `reset_session_scoped_resources_on_*` pair took
+explicit waivers in `869e3ee81`. My reading of the rest, offered so an owner
+starts from a verdict rather than a list:
+
+| finding | reading |
+| --- | --- |
+| `reset_inventory_on_new_game` | **REAL.** Producer `process_new_game_reset_request` runs in `sim_schedule()` under `ResetProcessing`; consumer runs in `Update`; `NewGameResetCommitted` is `clear_message_on_rollback`. Being moved onto its sibling `clear_transient_on_sandbox_reset`'s chain. |
+| 7 menu systems → `NewGameResetRequested` | **REAL.** They carry `.run_if(simulation_authorized)`, so they write a `rollback_resource_canonical` resource with a live session. Reached through `MenuDispatchParams`, which is why they were invisible before `4f442eb11`. |
+| 4 `AmbitionGameSave` writers | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
+| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
+| `track_versus_roster` | **UNTRIAGED.** Writes `VersusMatch` from the shell's versus setup. |
 
 ⚠ **The discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is

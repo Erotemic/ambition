@@ -43,6 +43,10 @@ import json
 import pathlib
 import re
 import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parent / "lib"))
+from test_paths import is_test_path  # noqa: E402
 import tomllib
 from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
@@ -411,11 +415,14 @@ def iter_rs_files(
         parts = set(path.parts)
         if any(part in DEFAULT_EXCLUDED_DIR_NAMES for part in parts):
             continue
-        if not include_tests and "tests" in parts:
-            continue
-        if not include_tests and path.name in {"tests.rs", "test.rs"}:
-            continue
-        if not include_tests and path.name.endswith("_tests.rs"):
+        # ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16. This copy's three
+        # name rules were the widest of the FIVE that had drifted apart, and
+        # still missed a file whose inner `#![cfg(test)]` compiles it out
+        # entirely — the fact none of the five checked.
+        # ⚠ The union excludes MORE, so this inventory gets SMALLER, which every
+        # downstream reader takes as the tree getting simpler. INVENTORY_FLOOR
+        # below is what makes that reviewable.
+        if not include_tests and is_test_path(path):
             continue
         if not include_tests and "/bin/" in path.as_posix():
             continue
@@ -1641,14 +1648,22 @@ def write_workspace_inventory(
     # this scanner EXCLUDE MORE. A wider exclusion cannot announce itself, but it
     # cannot avoid making these counts FALL.
     #
-    # MEASURED 2026-09-16 at 78 crates / 638 components / 493 resources / 1108
-    # registered systems; the floors sit just under that. Raise one when the tree
-    # genuinely grows; a DROP is the signature of the next hole.
+    # MEASURED 2026-09-16, AFTER repointing the test-file rule at
+    # `scripts/lib/test_paths.py`: 78 crates / 659 components / 528 resources /
+    # 1095 registered systems. The floors sit ~3% under that. Raise one when the
+    # tree genuinely grows; a DROP is the signature of the next hole.
+    #
+    # ⚠ THE FIRST VALUES HERE WERE READ OFF THE WRONG THING. I took 638/493/1108
+    # from the architecture census's `generated_inventory_counts`, which is its
+    # snapshot of a PREVIOUS `.agent` generation, and set floors under numbers
+    # this scanner does not produce today. They passed, which is exactly why it
+    # would not have announced itself — a floor calibrated against a stale
+    # reading is a floor in the wrong place, not a broken one.
     INVENTORY_FLOOR = {
         "crate_count": 75,
-        "components": 620,
-        "resources": 480,
-        "registered_systems": 1080,
+        "components": 640,
+        "resources": 510,
+        "registered_systems": 1060,
     }
     counts = summary.get("counts", {})
     sizes = {"crate_count": summary.get("crate_count", 0)} | {

@@ -60,6 +60,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from test_paths import is_test_path  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
@@ -264,12 +267,14 @@ def _is_test_path(path: Path) -> bool:
     registration — the same reason `strip_test_modules` drops inline
     `#[cfg(test)] mod` blocks out of production files. The first such file to
     register a rollback mutator into `Update` was flagged as a real breach.
+
+    ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
+    was the WIDEST of the five copies that had drifted apart, and the one whose
+    `#![cfg(test)]` fix (`c6715b84e`) the other four never got. The owner now
+    carries both halves, so this call site is the union rather than one end of
+    a spread.
     """
-    return (
-        "tests" in path.parts
-        or path.name in {"tests.rs", "test.rs"}
-        or path.name.endswith("_tests.rs")
-    )
+    return is_test_path(path)
 
 
 #: A whole file compiled out of a release build. ⛔ THE NAME CONVENTIONS ABOVE

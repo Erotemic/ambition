@@ -874,10 +874,47 @@ stale `project.json`: a PARTIALLY PUBLISHED inventory, worse than the shrunken o
 it was refusing. Now nothing is written until the floor passes — measured, the
 poisoned run writes 0 files where the good run writes 162.
 
+⇒ **STEP TWO IS DONE: ONE OWNER, `scripts/lib/test_paths.py` (2026-09-16).** All
+five call sites delegate to `is_test_path`, which is the UNION of the five name
+rules plus the inner `#![cfg(test)]` fact none of them checked. The local names
+stay; only the rule moved.
+
+⭐ **AND THE FLOORS EARNED THEIR ORDER IMMEDIATELY — TWO OF THE FIVE WENT RED ON
+THE REPOINT**, which is exactly the review this row said a consolidation could
+not otherwise get:
+
+| script | reach before → after | verdict |
+| --- | --- | --- |
+| `check_capability_ships.py` | production files 1334 → 1264 | passed; floor 1250 held |
+| `check_set_pins_have_engine_members.py` | sources 1367 → 1293 | **RED**, floor lowered 1300 → 1280 with the reason |
+| `ecs_inventory.py` | 8 files newly excluded, 0 regressions | passed |
+| `test_every_smash…` | ruleset files 282 → 257 | **RED**, floor lowered 270 → 250 |
+| `check_rollback_mutators_run_in_sim.py` | unchanged (already the widest) | 14 findings before and after |
+
+Each drop was checked rather than waved through: all 74 files the set-pins check
+newly excludes are `*_tests.rs` it had never matched, plus the four whose inner
+`#![cfg(test)]` compiles them out. `sets pinned` fell 225 → 222 — three pins that
+lived in test files and were never production pins.
+
+⭐ **THE INTERESTING RESULT IS A NEGATIVE ONE.** `test_every_smash_technique…`
+still passes over its smaller haystack, so no authored technique was being kept
+"connected" by a mention in a test file. That guard is strictly stronger now and
+found nothing — worth recording, because a silent widening would have left nobody
+able to say so.
+
+⚠ **AND MY `ecs_inventory` FLOOR WAS CALIBRATED AGAINST THE WRONG READING.** I
+took 638/493/1108 from the architecture census's `generated_inventory_counts`,
+which is its snapshot of a PREVIOUS `.agent` generation, and set floors under
+numbers this scanner does not produce today (659/528/1095). They PASSED, which is
+why it would not have announced itself — a floor under a stale reading is in the
+wrong place, not broken. Re-baselined against the scanner's own output.
+
 **Acceptance:** one owner for "is this file test-only", covering both the name
 conventions and `#![cfg(test)]`; each consuming check fails when its population
 falls; and no check reports a `#![cfg(test)]` file's registrations as
-production.
+production. ⇒ **MET 2026-09-16**, except that the fifth clause is only known for
+the four files carrying an inner `#![cfg(test)]` today; a new one is covered by
+construction rather than by a test.
 
 ### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
 

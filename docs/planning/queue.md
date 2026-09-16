@@ -770,18 +770,20 @@ ZERO simulation readers. That removed the 30-field menu-mutable resource from th
 sim and cut four readers to one writer; it did NOT make either policy
 deterministic.
 
-⛔⛤ **BOTH HALVES ARE STILL FORWARD-ONLY, AND THIS ROW SAID SO ABOUT ONLY ONE OF
+⛔⛤ **BOTH HALVES WERE FORWARD-ONLY, AND THIS ROW SAID SO ABOUT ONLY ONE OF
 THEM.** Corrected 2026-09-16. It read *"Control-frame modes are projected per
 seat, and damage uses `PlayerDamagePolicy`. The remaining damage policy is still
-forward-only"* — which puts the frame-mode half in the done clause and leaves the
-damage half as the remainder. Measured, both are the same shape:
+forward-only"* — which put the frame-mode half in the done clause and left the
+damage half as the remainder. Measured, both were the same shape; one has since
+closed:
 
 | policy | writer | schedule | rollback-registered? | sim readers |
 |---|---|---|---|---|
-| `PlayerDamagePolicy` | `project_player_damage_policy` | **`Update`** | **no** (0 rows in `rollback_schema_baseline.txt`) | 3 |
-| `SeatControlFrameModes` | `populate_seat_control_frames` | **`Update`** | **no** (0 rows) | 4 |
+| `PlayerDamagePolicy` | `project_player_damage_policy` | **`Update`** | **no** (0 rows in `rollback_schema_baseline.txt`) | 3 — still open |
+| `SeatControlFrameModes` | `populate_seat_control_frames` | `Update` | no (0 rows) | **0 — CLOSED 2026-09-16**, the policy rides `ControlFrame` |
 
-⇒ A resimulation of frame N reads whatever either policy holds NOW, for both.
+⇒ A resimulation of frame N read whatever either policy held NOW. That is still
+true of the damage half.
 `rollback_coverage.rs` waives each one with that stated in its reason; this row is
 where a reader looks first, and it was the copy that had drifted. ⚠ "Projected" is
 not "admitted": a projection narrows who reads a mutable value, and the timeline
@@ -789,7 +791,9 @@ question is untouched by it.
 
 **Blocked by:** the DAMAGE half only —
 [Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
-⭐ **THE FRAME-MODE HALF IS NOT BLOCKED ON A RULING AND HAS A RECORDED REPAIR.**
+⭐ **THE FRAME-MODE HALF WAS NOT BLOCKED ON A RULING AND HAD A RECORDED REPAIR**
+(kept below because the repair it named was NOT the one taken, and the reasons
+are the decision record).
 The architecture review of 2026-09-13, quoted in `rollback_coverage.rs`: *"capture
 resolves the semantic DIRECTION and simulation never sees a mode at all, at which
 point this waiver and the row above both shrink."* That is implementation work,
@@ -899,9 +903,47 @@ fifteenth road. It does not block shape 2 — shape 2 is what EXPOSES it, and
 adding the field is no worse than the exposure that already exists — but the row
 may not go on quoting a replay-file version as though it priced the peer cost.
 
-**Next implementation:** two independent pieces, in either order.
-1. **Frame modes (unblocked, but pick a shape first — see above):** stop any `sim`
-   system taking `Res<SeatControlFrameModes>`, and delete the waiver.
+✔ **THE FRAME-MODE HALF IS CLOSED (2026-09-16), BY SHAPE 2.** Four
+`Res<SeatControlFrameModes>` parameters are gone from the simulation schedule;
+`ControlFrame` carries `control_frame_modes`, stamped at capture in BOTH branches
+of `populate_seat_control_frames` (a paused seat keeps its preference, for the
+reason the table was already published before that early-out), and GGRS replays
+it per frame — so a resimulation of frame N reads the mode frame N was CAPTURED
+with.
+
+⭐ **SHAPE 2 WAS CHOSEN BECAUSE IT IS BEHAVIOUR-PRESERVING, WHICH ALSO MEANS IT
+DOES NOT FORECLOSE SHAPE 1.** Carrying the mode leaves the gravity basis live, so
+every gesture resolves exactly as it did before; only the mode's TIMELINE
+changed. Anyone who later prefers capture-resolved directions can still take that
+road, and would be accepting the named cost above rather than undoing this.
+
+⇒ **WHAT IT COST, measured:** `CONTROL_FRAME_WIRE_IDENTITY` 1 → 2 with its
+baseline re-frozen (48 rows), and **the rollback schema did not move at all** —
+the dump records `derived.control_frame`'s TYPE, not its fields, so no
+`GGRS_ROLLBACK_SCHEMA_VERSION` bump was owed. That is the fifteenth road's gap
+seen from the inside: the state identity was blind to this change and the input
+identity, built hours earlier, caught it.
+
+⭐ **AND THE NEW RATCHET CAUGHT ITS OWN AUTHOR.** Adding the field raised
+`input_payload_shape`'s transitive refusal — `ControlFrameModes` is a second
+non-primitive field type whose shape moves independently — so the census now
+follows it and `InputFrameMode`'s variants too. The boundary was asserted rather
+than assumed complete, and it fired on the first change that crossed it.
+
+⚠ **TWO THINGS THE CLOSURE DID NOT MAKE DISAPPEAR.** The waiver in
+`rollback_coverage.rs` SURVIVES, because that guard's population is every mutable
+Ambition resource and not the types simulation reads — measured by deleting it
+and watching two arms redden. Its REASON was rewritten to the new truth rather
+than left describing a repair that has happened. And
+`measure_user_settings_in_simulation.py`'s control for this projection DIED of
+success: "no reader at all" meant instrument failure, which was right until zero
+became the correct answer. An absence now needs a presence premise — the type's
+own declaration — so closed, renamed and never-looked print differently.
+
+**Next implementation:** the damage half only.
+1. ~~Frame modes~~ — CLOSED above; the acceptance measurement is
+   `scripts/measure_user_settings_in_simulation.py` reporting **0 simulation
+   readers of `UserSettings` and 3 of its projections**, down from 3 + 4.
 2. **Damage (after Q127):** make the admitted policy follow the chosen lifetime —
    match activation if match-wide, deterministic per-seat input if
    participant-specific. Do not reintroduce simulation reads of mutable

@@ -158,6 +158,27 @@ pub struct ControlFrame {
     /// See [`Self::attack_aim_x`]. Screen axes, so +Y is DOWN like every other
     /// axis pair on this frame.
     pub attack_aim_y: f32,
+    /// How this seat's sticks map onto the controlled body's local frame.
+    ///
+    /// ⛔⛤ **IT TRAVELS WITH THE INPUT BECAUSE IT IS PART OF WHAT THE INPUT
+    /// MEANS.** It lived in `SeatControlFrameModes`, a resource written from
+    /// `Update` and never rollback-registered, so a resimulation of frame N read
+    /// whatever the settings UI held NOW — "projected" is not "admitted", and a
+    /// projection narrows who reads a mutable value while leaving the timeline
+    /// question untouched.
+    ///
+    /// ⚠ THE OTHER REPAIR WAS TO RESOLVE THE DIRECTION AT CAPTURE and let the
+    /// simulation see no mode at all. It is still available after this change
+    /// and was NOT chosen here, because it is not behaviour-preserving:
+    /// `resolve_input` reads the CURRENT gravity basis for two of its three
+    /// modes (`ScreenRelative` projects onto `side`/`down`, `BodyRelativeAssist`
+    /// reads `down.y`), and both shipped defaults are `ScreenRelative` under a
+    /// `WorldFixed` camera. Baking a direction at capture would resolve the
+    /// default player's gestures against a stale basis at every gravity flip,
+    /// against that mode's own contract — "the body moves the way the stick
+    /// points ON SCREEN at any gravity". Carrying the MODE keeps the basis live
+    /// and changes no behaviour; it only makes the mode deterministic.
+    pub control_frame_modes: crate::ControlFrameModes,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
     /// Generic context interaction. This is a dedicated interact action plus
@@ -231,7 +252,11 @@ impl ControlFrame {
     #[must_use]
     pub fn merge_sample(self, sample: ControlFrame) -> ControlFrame {
         ControlFrame {
-            // Levels — latest wins.
+            // Levels — latest wins. The frame-mode policy is a level and not an
+            // edge: it is the seat's standing preference, so two device samples
+            // inside one tick cannot disagree about it in practice, and if they
+            // ever did the later one is the one the human just chose.
+            control_frame_modes: sample.control_frame_modes,
             axis_x: sample.axis_x,
             axis_y: sample.axis_y,
             aim_x: sample.aim_x,

@@ -80,8 +80,6 @@ pub fn tick_controlled_brains(
     //
     // ⚠ **AND THE TABLE IS A SEAM, NOT THE DESTINATION.** It is still read DURING
     // simulation; the stated architecture is that capture resolves the semantic
-    // DIRECTION and simulation sees no mode at all. See `SeatControlFrameModes`.
-    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     slots: Res<SlotControls>,
     drivers: Query<(bevy::prelude::Entity, &DrivingParticipant)>,
     mut controlled: Query<(
@@ -126,7 +124,8 @@ pub fn tick_controlled_brains(
         // ⭐ ASKED PER SEAT, beside the seat's own control frame. A frame mode is
         // the comfort preference of the human in that chair; resolving every body
         // against one machine-wide answer is what this migration removed.
-        let control_frame_modes = seat_modes.get(slot);
+        // From the seat's own replayed frame, not from an `Update`-written table.
+        let control_frame_modes = input.control_frame_modes;
         // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {
             // A possessed body's brain drives a body a person is steering; it is

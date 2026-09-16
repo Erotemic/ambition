@@ -126,6 +126,11 @@ impl AgentAction {
 impl From<AgentAction> for ControlFrame {
     fn from(a: AgentAction) -> Self {
         ControlFrame {
+            // An RL/scripted action carries no settings, so the seat's frame
+            // policy is the DEFAULT one — the same answer every harness got
+            // before this field existed, when the readers asked a resource that
+            // a headless fixture never wrote.
+            control_frame_modes: Default::default(),
             axis_x: a.move_x,
             axis_y: a.move_y,
             jump_pressed: a.jump,

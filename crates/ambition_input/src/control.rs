@@ -184,6 +184,12 @@ pub fn read_gameplay_control_frame_with_settings(
         .filter(|_| aim_stick_flicked);
 
     let frame = ControlFrame {
+        // ⚠ THE DEVICE ADAPTER DOES NOT KNOW THE SEAT'S FRAME POLICY, and must
+        // not: this crate reads pads and keyboards, and the mode is a settings
+        // fact stamped on at capture by `populate_seat_control_frames`. Left at
+        // the default here so a frame that never reaches that stage still
+        // resolves the way it did before the field existed.
+        control_frame_modes: ambition_platformer2d_core::ControlFrameModes::default(),
         axis_x: axis.x,
         // Ambition's simulation uses screen-space world coordinates: +Y is
         // downward. Leafwing's virtual D-pads use the usual +Y-up convention.

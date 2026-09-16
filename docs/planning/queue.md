@@ -2222,13 +2222,32 @@ local component, so it is the one gesture where the two modes agree.
 fact about that commit, and a red I report from a tree two commits stale reads as
 a red on main.** `git fetch` before reporting a lane, not just before pushing.
 
-**HALF 2 — the two `--workspace --lib` arms: STILL RED AT `8a15b357b`.**
-`control::input_systems::per_seat_gesture_tests::each_seat_resolves_its_gesture_under_its_own_frame_mode`
-and
-`projectile::tests::charging::released_fireball_uses_controlled_body_local_aim_under_sideways_gravity`.
-MEASURED on this box after `git fetch && git merge origin/main`: **5109 passed /
-2 failed** across the workspace. A fix for both exists in its owner's session and
-is NOT PUSHED; the row stays red here until it lands and this box re-runs.
+**HALF 2 — the two `--workspace --lib` arms: FIXED at `7ab0fe827`, CONFIRMED
+HERE.** `cargo test --workspace --lib` → **7190 passed / 0 failed / 3 ignored** at
+`8e86a8b8b` on this box. Both fixtures configured the frame policy on
+`SeatControlFrameModes` where nothing reads it any more, and both now state it ON
+THE FRAME, per seat, as `populate_seat_control_frames` does in production. ⭐ The
+gesture arm deliberately no longer writes the table at all: a derivation that
+still read it would get defaults and redden, which is the point of not leaving
+the old authority behind for a reader to fall back on.
+
+⛔⛔ **AND A RED `cargo test` LANE REPORTS A SMALLER POPULATION THAN A GREEN ONE,
+WHICH INVALIDATES EVERY PASS COUNT ANYONE QUOTED FROM A RED RUN TODAY — MINE
+INCLUDED.** `cargo test` is fail-fast ACROSS TARGETS: it stops launching test
+binaries after one fails. MEASURED on the two runs above, same box, same command:
+
+```
+red run  (8a15b357b):  49 binaries reported,  5109 passed / 2 failed
+green run (8e86a8b8b):  79 binaries reported,  7190 passed / 0 failed
+```
+
+⇒ **THIRTY CRATES NEVER RAN**, and this row previously recorded 5109/2 as though
+it were the lane. It was 62% of it. ⚠ So a pass count from a RED run is not
+comparable to one from a GREEN run, and "5109 vs 5110" between two boxes can be
+two different POPULATIONS rather than two different results. ⇒ **Quote a pass
+count only from a green run, or pass `--no-fail-fast`** — which is exactly what
+`run_tests.py:762` already does for the feature-gated graph, and for this reason.
+
 
 ⛔⛔ **AND THIS IS WHY THE TWO HALVES MATTER SEPARATELY: `app_it` COULD NOT SEE
 HALF 2, AND A GREEN HEAVY LANE WAS READ AS A GREEN TREE.** Its owner fixed the

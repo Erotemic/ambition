@@ -5,8 +5,23 @@
 `rollback_component_clone_probed` installs `rollback_component_with_clone` — the
 value is saved and restored — plus a `ChecksumProbe`, which is a desync
 LOCALIZATION aid a test runs around a restore. It contributes nothing to the
-frame checksum two peers compare. The schema records that in the row's own
-detail: *"value-probed for localization, not in the session checksum"*.
+frame checksum two peers compare.
+
+⛔⛤ **THE POPULATION IS THE KIND, NOT THE SENTENCE — AND IT WAS THE SENTENCE FOR
+SIX DAYS, WHICH HID 116 ROWS.** This census used to select rows whose `detail`
+contained *"not in the session checksum"*: 59 rows. But the mechanical property
+in this script's own title is `RollbackEntryKind::feeds_peer_checksum() == false`
+for a VALUE-BEARING kind, which is `component-clone` and `resource-clone` —
+**175 rows**. The other 116 have the same mechanical standing and simply carry a
+different sentence, most of them
+*"state checksum supplied by another authoritative projection"*.
+
+⚠ AND THAT SENTENCE IS WHY NOBODY MEASURED THEM. It is emitted by
+`rollback_component_clone` / `rollback_resource_clone`, whose only bound is
+`T: Clone`; neither method can establish that another projection covers the type.
+The honest 59 said "not in the session checksum" and got an instrument. The
+unverifiable 116 said "covered elsewhere" and got a reassurance. Same mechanics,
+opposite attention — decided by a string a method chose. See `Q122`.
 
 ⭐ RAISED BY A GUARD THAT FOUND NOTHING. The canonical-finiteness observer
 (`game/ambition_app/tests/canonical_state_is_finite.rs`) is exhaustive BY
@@ -31,19 +46,28 @@ import subprocess
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 BASELINE = REPO / "game/ambition_app/tests/rollback_schema_baseline.txt"
-DETAIL = "not in the session checksum"
+# ⛔ SELECT ON THE KIND. These are the two VALUE-BEARING kinds for which
+# `RollbackEntryKind::feeds_peer_checksum()` is false — see the module docstring
+# for the 59-vs-175 history. The other `false` kinds (message-clear,
+# entity-mapping, required-rollback, derived, dynamic-anchor) carry no value of
+# their own, so they are not rollback state hiding from a peer.
+UNHASHED_KINDS = ("component-clone", "resource-clone")
+# The sentence this census USED to select on, kept only so the report can show
+# which rows describe themselves honestly and which claim coverage.
+PROBED_DETAIL = "not in the session checksum"
 # `Vec2`/`Vec3`/`Quat`/`Rect` are floats wearing a name; `Timer`/`Duration` hold one.
 FLOAT_BEARING = ("f32", "f64", "Vec2", "Vec3", "Quat", "Rect", "Timer", "Duration")
 
 
-def rows() -> list[tuple[str, str]]:
+def rows() -> list[tuple[str, str, str]]:
+    """`(schema name, type, detail sentence)` for every unhashed value-bearing row."""
     out = []
     for line in BASELINE.read_text(encoding="utf-8").splitlines():
         if "\t" not in line:
             continue
         parts = line.split("\t")
-        if len(parts) >= 4 and parts[1] == "component-clone" and DETAIL in parts[3]:
-            out.append((parts[0], parts[2]))
+        if len(parts) >= 4 and parts[1] in UNHASHED_KINDS:
+            out.append((parts[0], parts[2], parts[3]))
     return out
 
 
@@ -79,8 +103,22 @@ def _definition_index() -> dict[str, list[str]]:
     return _DEFINITION_INDEX
 
 
+# ⛔⛤ TYPES THIS REPOSITORY DOES NOT DEFINE, WITH THEIR FLOATS STATED.
+# Widening the population from 59 to 175 pulled in two bevy engine types, and the
+# `git grep '(struct|enum) Name'` index cannot see them. An unlocated type is
+# reported as float-free, which is the REASSURING direction — and `Transform` is
+# three Vec3/Quat. So they are named here rather than left to a scan that is
+# structurally blind to them.
+EXTERNAL_TYPES: dict[str, tuple[str, str, str]] = {
+    "Transform": ("struct", "Quat,Vec3", "bevy engine type: translation, rotation, scale"),
+    "Name": ("struct", "-", "bevy engine type: a String label on an entity"),
+}
+
+
 def definition(ty: str) -> tuple[str, str, str]:
     """`(kind, float-bearing field types, the type's own first doc line)`."""
+    if ty in EXTERNAL_TYPES:
+        return EXTERNAL_TYPES[ty]
     found = _definition_index().get(ty, [])
     # ⚠ A TEST FIXTURE MAY DECLARE A TYPE OF THE SAME NAME.
     found = [f for f in found if "/tests" not in f and "tests.rs" not in f]
@@ -177,23 +215,33 @@ def reader_sites(ty: str) -> tuple[list[str], list[str]]:
 
 def main() -> int:
     subjects = rows()
-    # ⛔ ANTI-VACUITY. An empty read of the baseline prints "0 uncovered rows",
-    # which is the reassuring direction.
-    assert len(subjects) >= 40, (
-        f"only {len(subjects)} rows carry the '{DETAIL}' detail; measured at 59 on "
-        "2026-09-10. Either the registration arm was renamed or this scan lost the "
-        "baseline — check before believing the number went down."
+    # ⛔ ANTI-VACUITY, AND THE FLOOR CARRIES ITS OWN POPULATION. 175 rows on
+    # 2026-09-16, selected by KIND. The floor is deliberately above the 59 the
+    # old sentence-keyed selector returned, so a revert to selecting on `detail`
+    # trips it instead of quietly reporting a third of the population.
+    assert len(subjects) >= 120, (
+        f"only {len(subjects)} rows carry an unhashed value-bearing kind "
+        f"{UNHASHED_KINDS}; measured at 175 on 2026-09-16, of which 59 carry the "
+        f"'{PROBED_DETAIL}' sentence. A number near 59 means the selector went back "
+        "to matching prose; a number near 0 means this scan lost the baseline."
     )
     floaty = 0
+    by_sentence: dict[str, int] = {}
     print(f"⛔ ROLLBACK ROWS OUTSIDE THE SESSION CHECKSUM: {len(subjects)}\n")
-    for name, ty in subjects:
+    for name, ty, detail in subjects:
         kind, floats, doc = definition(ty)
         if floats != "-":
             floaty += 1
+        by_sentence[detail] = by_sentence.get(detail, 0) + 1
         print(f"   {kind:6} {floats:22} {name:44} {doc[:70]}")
     print(f"\n   {floaty} of {len(subjects)} carry a float-bearing field type.")
-    print("\n⚠ Snapshotted and restored; NOT compared between peers. The probe on")
-    print("  each is a localization aid, not a checksum contribution.")
+    print("\n⚠ Snapshotted and restored; NOT compared between peers. A probe on a")
+    print("  row is a localization aid, not a checksum contribution.")
+    print("\n⛔ HOW THESE ROWS DESCRIBE THEMSELVES — the sentence is not evidence,")
+    print("   it is the registrar METHOD talking about types it never examined:")
+    for detail, count in sorted(by_sentence.items(), key=lambda kv: -kv[1]):
+        claim = "CLAIMS COVERAGE" if "supplied by another" in detail else "honest"
+        print(f"   {count:4}  [{claim:15}]  {detail}")
     return 0
 
 

@@ -210,8 +210,9 @@ worst instances were a canonical type whose PROVENANCE was local — a counter
 inside a constructor argument, and a counter inside a singleton's key. Those are
 held by value-level arms in the crate that MINTS each identity.
 
-⇒ Nine of the ten named roads are closed; the table and the arm holding each one
-are the ID-PEER row in [`../queue.md`](../queue.md). The tenth is netcode's, below.
+⇒ Nine roads are closed and two are open; the table and the arm holding each one
+are the ID-PEER row in [`../queue.md`](../queue.md). One of the two is netcode's,
+below; the other is `Q122`, the snapshot schema fingerprint hashing prose.
 
 ## Confirmed effects
 

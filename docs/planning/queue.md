@@ -68,11 +68,13 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): NINE OF THE TEN NAMED ROADS ARE CLOSED, and the
-tenth is the absolute `SimTick`, which is netcode and wants a maintainer decision
-before anyone starts — asked as `Q128`.** A count rather than a completeness word, deliberately: a
-tenth road found tomorrow makes this row "nine closed, a tenth found" instead of
-making it false.
+**Current state (2026-09-16): NINE CLOSED, AND AN ELEVENTH ROAD FOUND.** The
+count is written this way deliberately, and this is the sentence earning it: the
+row used to say "nine of the ten", predicting that "a tenth road found tomorrow
+makes this row 'nine closed, a tenth found' instead of making it false". Both
+open roads want a maintainer decision before anyone starts — the absolute
+`SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing English
+prose (`Q122`, found 2026-09-16). Nine closed, two open.
 
 ⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
 ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
@@ -102,6 +104,7 @@ to carry it.
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically`. See below |
 | `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
+| **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**
@@ -891,204 +894,45 @@ take the same `SystemMenuParams` bundle and never reach `request_reset`. If the
 bundle is ever split so access matches use, drop those five waivers — they exist
 only because the bundle over-grants.
 
-### ORPHAN-ARMS — 36 test arms that no `mod` line compiles
+### GUARD-CORPUS / ORPHAN-ARMS — CLOSED 2026-09-16
 
-**Owner:** `ambition_boss_encounter`.
+**Owner:** repo tooling. Both closed; kept only as the receipt other rows lean
+on. Investigation is in git (`993fdef58`, `e660c2fc4`, `f8b878a55`, `faa2d84d1`,
+`9acbb9947`).
 
-**Current state:** `crates/ambition_boss_encounter/src/pattern/tests.rs` holds 36
-`#[test]` arms and is declared by nothing. `pattern/mod.rs` names six child
-modules and `tests` is not among them; the three sibling `mod tests;` lines in
-that directory (`control_flow.rs`, `content_schema.rs`, `validator.rs`) each
-pull in their OWN `tests` subdirectory. So the file has never compiled and its
-arms have never run.
+**WHAT STANDS NOW.** `scripts/lib/test_paths.py` is the ONE answer to *"is this
+Rust file test-only?"* and all five former copies call it. Every consuming check
+carries a `POPULATION_FLOOR`, because widening an exclusion makes a check see
+LESS and a check that sees less reports CLEANER — the floors are what let the
+consolidation be reviewed at all, and two of the five went red on the repoint.
+`scripts/tests/test_test_paths.py` asserts the orphan list is EMPTY.
 
-⛔ **THIS IS THE GREEN-REPORT FAILURE IN ITS PUREST FORM.** The arms exist, they
-are written, they are named after real claims, and `cargo test` reports every
-one of them as neither passed nor failed because it has never heard of them. A
-reader counting test files sees coverage that does not exist.
+⛔⛤ **THE STANDING RULE, AND IT IS THE HALF THAT WAS NOT DEDUPLICATION.** Every
+copy tested a NAME. **What removes a file from a build is the `#[cfg(test)]` on
+its `mod` line, which lives in the PARENT** — or an inner `#![cfg(test)]` at the
+top of the file. A name and a build can disagree in BOTH directions, and both
+were found here:
+- `pattern/tests.rs` — 36 arms no `mod` line declared, so `cargo test` reported
+  them as neither passed nor failed. Three weeks, zero runs. Declared; 36 passed.
+- `enemy_projectile/mod.rs` — `mod tests;` and `pub(crate) mod test_support;`
+  with NO gate, compiled into every RELEASE build, while the module's own doc
+  called the namespace "test-only".
+⇒ A guard for this class must resolve every file to its DECLARATION. A name rule
+cannot see it, and `scripts/tests/test_test_paths.py` is where that lives.
 
-Found 2026-09-16 while resolving every name-excluded file to its declaration
-(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_test_paths.py` so the
-count cannot grow quietly, which is NOT the same as fixed.
+⚠ **AND `ORPHAN-ARMS` CARRIED REAL COVERAGE, checked before deciding.** The
+pattern types had moved to `ambition_characters::brain::boss_pattern`, whose
+module has ZERO test arms and none of the 36 arm names — so the file was the only
+test of that behaviour, not a stale duplicate. ⭐ A test sits with what it CALLS,
+not with what it NAMES: the types moved, the tick functions did not, and the
+dependency runs from `boss_encounter` to `characters`, so the test stays here.
 
-**Next implementation:** decide whether the arms still state something true of
-`pattern/`, then either declare the module (`#[cfg(test)] mod tests;` in
-`pattern/mod.rs`) and fix whatever fails, or delete the file. ⚠ Do not declare
-it and then waive the failures — arms that never ran have never been green, so
-a first run is evidence, not a regression. Drop the entry from the arm's
-`orphans` list in the same commit.
-
-### GUARD-CORPUS — five copies of "what is a test file", drifted
-
-**Owner:** repo tooling (`scripts/check_*.py`).
-
-**State: CLOSED 2026-09-16.** `scripts/lib/test_paths.py` owns the rule and all
-five call sites use it. Floors landed first, in `993fdef58`; the consolidation
-followed in `e660c2fc4`.
-
-⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
-work was done twice, independently, down to the same four measurements — one as
-`lib/test_paths.py`, one as `lib/rust_sources.py`.
-<!-- cite-ok: the deleted duplicate is this sentence's subject; a resolvable citation would mean it was never deleted -->
-The duplicate was deleted and its two non-overlapping pieces folded in: a brace-depth guard on the
-`#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
-with an owner and a "next implementation" still says nothing about whether
-somebody is in it RIGHT NOW. Say so in the row, or in a message, before starting
-a step that takes hours.
-
-The five copies had drifted into five answers. `*_tests.rs` reached two of five
-even though the docstring that added it records missing "all 51 of them", and
-the population of copies was never enumerated — only the one somebody was
-looking at — which is why that fix stopped where it did.
-
-⭐ **WHAT THE CONSOLIDATION ACTUALLY BOUGHT, which was not the deduplication.**
-Every copy tested a NAME. What removes a file from a build is `#[cfg(test)]` on
-its `mod` line — which lives in the PARENT, not the file — or `#![cfg(test)]`
-at the top of the file. Resolving all 284 name-excluded files to their
-declaration found 281 genuinely gated, **two that shipped**, and one declared by
-nothing at all:
-
-| finding | file | disposition |
-| --- | --- | --- |
-| `mod tests;` and `pub(crate) mod test_support;`, both ungated | `enemy_projectile/mod.rs` | gated in `7301157d0`; the module doc comment already called it "test-only" |
-| declared by no `mod` line in its crate | `boss_encounter/src/pattern/tests.rs` | **open** — 36 arms that never compile and never run |
-
-⛔ **SO FOUR GATES HAD BEEN DROPPING SHIPPING CODE FROM THEIR CORPORA BY NAME,
-AND EVERY ONE OF THEM REPORTED CLEANER FOR IT.** That is the failure this row
-predicted, found in the direction it predicted. `scripts/tests/test_test_paths.py`
-re-runs the comparison, so a name is trusted only for as long as it stays true;
-a second arm pins `feature = "test-support"` to `[dev-dependencies]`, since
-`#[cfg(any(test, feature = ...))]` is the one predicate the file rule cannot
-settle alone.
-
-**The ordering held up under measurement.** Each adoption was run before and
-after:
-
-| check | effect of adopting the owner | floor |
-| --- | --- | --- |
-| `check_rollback_mutators_run_in_sim.py` | verdict identical; already the widest of the five | untouched |
-| `check_set_pins_have_engine_members.py` | 1367 → 1293 files, 225 → 222 pins | **CAUGHT IT**; lowered in the same commit |
-| `check_capability_ships.py` | 1334 → 1264 production files, 414 → 408 writer types | held |
-| `test_every_smash_technique_has_a_translator.py` | 282 → 257 ruleset files | **CAUGHT IT**; lowered |
-| `ecs_inventory.py` | 3 module summaries, 7 fixture spawn sites | held |
-
-⇒ Two of five floors fired on a change their author believed was safe, and both
-times the drop was legitimate and had to be argued for in writing before the
-floor moved. ⛔ **A FLOOR MAY GO DOWN ONLY IN THE COMMIT THAT CAUSES THE DROP,
-AND ONLY WITH THE FILES THAT LEFT NAMED.**
-
-⚠ **A claim made here and withdrawn.** I first recorded that all four
-`test_support.rs` files carry `#![cfg(test)]`, so the name half was subsumed by
-the attribute half — from misreading my own bucketed output. NONE carries it,
-and two had no gate anywhere. The arm exists because that is exactly what a
-comment cannot hold.
-
-⚠ **Still one rule per reader, not one rule.** About 25 further inline copies
-(`"/tests/" in path`, `endswith("tests.rs")`) live in reporting scripts that
-gate nothing. They were left alone: a wrong exclusion in a report is visible to
-its reader, and giving them a floor first is the same ordering all over again.
-
-⛔⛤ **AND THE FLOOR HAS TO LIVE INSIDE EACH SCRIPT — AN EXTERNAL SWEEP CANNOT
-SUBSTITUTE FOR IT. MEASURED 2026-09-16 BY FAILING TO DO EXACTLY THAT.** I tried
-to answer "which of the 29 `check_*.py` pass over an empty tree" by importing
-each, patching its `REPO`/`ROOT` global to an empty directory, and calling
-`main()`. First result: **14 of 29 passed.** It was an ARTIFACT.
-
-⇒ These scripts spell their entry points `def collect(repo: Path = REPO)`. A
-default argument binds at DEFINITION time, so patching the module global
-afterwards is inert — the script re-scans the real tree and passes, which is
-indistinguishable from passing vacuously. Adding one control to the probe (the
-empty-tree output must DIFFER from the real-tree output, or the redirect did not
-take) cut the answerable population to 7 of 29, all of which correctly refused.
-
-⭐ **SO THE HONEST STATE IS "NOT MEASURED", NOT "14 ARE VACUOUS".** The number
-looked like a finding, had a mechanism, and was wrong. ⚠ The 22 unanswerable
-scripts are unanswerable BY THIS PROBE and nothing is implied about them either
-way.
-
-⇒ **WHICH IS THE ARGUMENT FOR THE ORDERING ABOVE RATHER THAN AGAINST IT.** A
-population floor asserted inside the script (`POPULATION_FLOOR` in
-`check_rollback_mutators_run_in_sim.py`) needs no redirect, no import surgery
-and no probe: it fails when the script's own reach falls, on the real tree, in
-the lane that actually runs. That is the only form that survives a consolidation
-which makes every check see less.
-
-⇒ **STEP ONE IS DONE: ALL FIVE NOW HAVE A POPULATION FLOOR (2026-09-16).**
-`check_rollback_mutators_run_in_sim.py` and `check_set_pins_have_engine_members.py`
-already had one. Added to the other three, each poisoned by widening its own test
-exclusion until the reach really fell:
-
-| script | floor term(s) | measured | poison |
-| --- | --- | ---: | --- |
-| `check_capability_ships.py` | files scanned / production files / optional-read types / writer types | 1546 / 1334 / 191 / 414 | RED |
-| `ecs_inventory.py` | crates / components / resources / registered systems | 78 / 638 / 493 / 1108 | refuses, 0 writes |
-| `test_every_smash_technique_has_a_translator.py` | ruleset files in the haystack | 282 | RED |
-
-⚠ **AND `test_every_smash_technique…`'s RISK RUNS THE OTHER WAY.** For the other
-four a WIDENED exclusion is the silent danger — they report cleaner when they see
-less. There, over-exclusion shrinks the HAYSTACK and produces MORE orphans, so it
-fails loudly. Its silent direction is an exclusion too NARROW, letting a test file
-into the haystack so a const named only by a test reads as a connected technique
-— which is the recorded defect in its own docstring. ⇒ When the five collapse
-onto one owner, that call site must not LOSE exclusions, and no floor can see
-that. The floor makes the consolidation reviewable, not safe.
-
-⚠ **AND `check_capability_ships.py`'s FLOOR IS A PEER'S, NOT MINE.** We wrote one
-each in the same hour and theirs is better decomposed: it separates *files
-scanned* from *production files*, so a widened test exclusion shows up as the
-production count falling DIRECTLY rather than as a side effect on the type
-counts. Mine was dropped rather than merged — two floors on one script is the
-disease this row is about. Re-poisoned after taking theirs: widening `_is_test`
-to swallow every `.rs` file still fails it.
-
-⛔⛤ **AND `ecs_inventory.py`'s FLOOR WAS WRONG ON ITS FIRST WRITING — ITS OWN
-POISON FOUND IT.** The check sat after the per-crate loop had already written its
-shards, so a refused run left `.agent/ecs_inventory/crates/` shrunken beside a
-stale `project.json`: a PARTIALLY PUBLISHED inventory, worse than the shrunken one
-it was refusing. Now nothing is written until the floor passes — measured, the
-poisoned run writes 0 files where the good run writes 162.
-
-⇒ **STEP TWO IS DONE: ONE OWNER, `scripts/lib/test_paths.py` (2026-09-16).** All
-five call sites delegate to `is_test_path`, which is the UNION of the five name
-rules plus the inner `#![cfg(test)]` fact none of them checked. The local names
-stay; only the rule moved.
-
-⭐ **AND THE FLOORS EARNED THEIR ORDER IMMEDIATELY — TWO OF THE FIVE WENT RED ON
-THE REPOINT**, which is exactly the review this row said a consolidation could
-not otherwise get:
-
-| script | reach before → after | verdict |
-| --- | --- | --- |
-| `check_capability_ships.py` | production files 1334 → 1264 | passed; floor 1250 held |
-| `check_set_pins_have_engine_members.py` | sources 1367 → 1293 | **RED**, floor lowered 1300 → 1280 with the reason |
-| `ecs_inventory.py` | 8 files newly excluded, 0 regressions | passed |
-| `test_every_smash…` | ruleset files 282 → 257 | **RED**, floor lowered 270 → 250 |
-| `check_rollback_mutators_run_in_sim.py` | unchanged (already the widest) | 14 findings before and after |
-
-Each drop was checked rather than waved through: all 74 files the set-pins check
-newly excludes are `*_tests.rs` it had never matched, plus the four whose inner
-`#![cfg(test)]` compiles them out. `sets pinned` fell 225 → 222 — three pins that
-lived in test files and were never production pins.
-
-⭐ **THE INTERESTING RESULT IS A NEGATIVE ONE.** `test_every_smash_technique…`
-still passes over its smaller haystack, so no authored technique was being kept
-"connected" by a mention in a test file. That guard is strictly stronger now and
-found nothing — worth recording, because a silent widening would have left nobody
-able to say so.
-
-⚠ **AND MY `ecs_inventory` FLOOR WAS CALIBRATED AGAINST THE WRONG READING.** I
-took 638/493/1108 from the architecture census's `generated_inventory_counts`,
-which is its snapshot of a PREVIOUS `.agent` generation, and set floors under
-numbers this scanner does not produce today (659/528/1095). They PASSED, which is
-why it would not have announced itself — a floor under a stale reading is in the
-wrong place, not broken. Re-baselined against the scanner's own output.
-
-**Acceptance:** one owner for "is this file test-only", covering both the name
-conventions and `#![cfg(test)]`; each consuming check fails when its population
-falls; and no check reports a `#![cfg(test)]` file's registrations as
-production. ⇒ **MET 2026-09-16**, except that the fifth clause is only known for
-the four files carrying an inner `#![cfg(test)]` today; a new one is covered by
-construction rather than by a test.
+⚠ **TWO SESSIONS IMPLEMENTED GUARD-CORPUS SIMULTANEOUSLY AND NEITHER KNEW** —
+down to the same four measurements, one as `lib/test_paths.py` and one as
+`lib/rust_sources.py`. <!-- cite-ok: the duplicate is named because it was DELETED; a resolvable citation would mean it still existed -->
+⇒ A row with an owner and a "next implementation" says
+nothing about whether somebody is in it RIGHT NOW. Say so in the row or in a
+message before starting a step that takes hours.
 
 ### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
 

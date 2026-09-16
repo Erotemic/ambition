@@ -20,15 +20,16 @@ def _module():
 def test_it_finds_the_population_and_resolves_every_type():
     module = _module()
     subjects = module.rows()
-    assert len(subjects) >= 40, (
-        f"{len(subjects)} rows carry the 'not in the session checksum' detail; "
-        "measured at 59. A drop means the registration arm was renamed or the "
-        "baseline moved — not that the gap closed."
+    assert len(subjects) >= 120, (
+        f"{len(subjects)} rows carry an unhashed value-bearing kind; measured at "
+        "175 on 2026-09-16. A number near 59 means the selector went back to "
+        "matching the 'not in the session checksum' sentence, which is one of six "
+        "sentences that kind can carry."
     )
     # ⛔ EVERY ROW MUST RESOLVE TO A DEFINITION. A `?` row is the census failing
     # to find a type and reporting it as a row with no floats, which reads as
     # SAFER than the truth.
-    unresolved = [name for name, ty in subjects if module.definition(ty)[0] == "?"]
+    unresolved = [name for name, ty, _ in subjects if module.definition(ty)[0] == "?"]
     assert not unresolved, (
         f"these rows name a type this census cannot locate: {unresolved}. An "
         "unlocated type is reported with no float-bearing fields, which is the "
@@ -74,4 +75,52 @@ def test_the_reader_triage_sees_a_static_borrow_and_ignores_a_probe():
     assert not seat_tick and not seat_gated, (
         f"`SeatCredit` has no production reader; the triage found {seat_tick + seat_gated}. "
         "A checksum probe taking `&T` is not a reader."
+    )
+
+
+def test_the_population_is_the_KIND_and_not_the_SENTENCE():
+    """⛔⛤ THE CENSUS SELECTED ON PROSE FOR SIX DAYS AND SAW A THIRD OF ITS SUBJECT.
+
+    `feeds_peer_checksum()` is false for `component-clone` and `resource-clone`
+    alike, and those rows carry SIX different `detail` sentences. Selecting on
+    one of them — *"not in the session checksum"* — returned 59 of 175. The 116
+    it missed mostly say *"state checksum supplied by another authoritative
+    projection"*, which is the reassuring direction: a claim, emitted by a
+    registrar method bound only by `T: Clone`, that something else covers them.
+
+    This arm dies if the selector goes back to matching a sentence.
+    """
+    module = _module()
+    subjects = module.rows()
+    claiming = [r for r in subjects if "supplied by another" in r[2]]
+    probed = [r for r in subjects if module.PROBED_DETAIL in r[2]]
+    assert len(claiming) >= 80, (
+        f"only {len(claiming)} rows in this population claim another projection "
+        f"covers them; measured at 99. If this is near zero the selector is "
+        "matching prose again and the unverifiable half is invisible."
+    )
+    assert len(probed) >= 40, (
+        f"only {len(probed)} rows carry the honest probe sentence; measured at 59"
+    )
+    # ⚠ AND THE TWO HALVES MUST NOT BE THE SAME ROWS, or the split above is a
+    # description of one bucket counted twice.
+    assert not (
+        {r[0] for r in claiming} & {r[0] for r in probed}
+    ), "a row cannot both claim coverage and say it is uncovered"
+    assert len(subjects) > len(probed) + 10, (
+        "the population is no wider than the old sentence-keyed one"
+    )
+
+
+def test_resource_rows_are_in_the_population():
+    """⚠ `resource-clone` is unhashed for the same reason `component-clone` is.
+
+    The old selector hard-coded `parts[1] == "component-clone"`, so eight
+    resource rows with identical mechanical standing were outside the census
+    twice over — once by kind and once by sentence.
+    """
+    module = _module()
+    names = {name for name, _, _ in module.rows()}
+    assert any(n.startswith("resource.") for n in names), (
+        "no `resource.*` row in the population; the kind filter dropped them"
     )

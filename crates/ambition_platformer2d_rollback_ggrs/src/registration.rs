@@ -18,7 +18,7 @@ use ambition_platformer2d_core::snapshot::{
     SnapshotState,
 };
 use ambition_platformer2d_runtime::rollback::{
-    descriptor, descriptor_owned, record_descriptor, RollbackEntryKind,
+    descriptor, descriptor_owned, record_descriptor, detail, RollbackEntryKind,
     RollbackRegistrationDescriptor,
 };
 
@@ -448,7 +448,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentCanonical,
-                "bevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+                detail::CANONICAL_IDENTICAL_CHECKSUM,
             ),
         ) {
             self.add_plugins(ComponentSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -504,7 +504,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentCloneCursor,
-                "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection",
+                detail::CLONE_CURSOR_CHECKSUM,
             ),
         ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
@@ -531,7 +531,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentCloneResolved,
-                "bevy_ggrs clone snapshot + canonical authored-reference checksum projection",
+                detail::CLONE_RESOLVED_CHECKSUM,
             ),
         ) {
             RollbackApp::rollback_component_with_clone::<T>(self);
@@ -554,7 +554,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection",
+                detail::CLONE_COVERED_ELSEWHERE,
             ),
         )
         {
@@ -595,7 +595,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity",
+                detail::CLONE_ENTITY_REF_REMAPPED,
             ),
         )
         {
@@ -628,7 +628,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities",
+                detail::CLONE_ENTITY_SET_REMAPPED,
             ),
         )
         {
@@ -658,7 +658,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                "bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity",
+                detail::CLONE_ENTITY_MAP_REMAPPED,
             ),
         )
         {
@@ -688,7 +688,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                "bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum",
+                detail::CLONE_PROBED_FOR_LOCALIZATION,
             ),
         )
         {
@@ -717,7 +717,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentCloneCanonicalChecksum,
-                "bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load",
+                detail::CLONE_CANONICAL_CHECKSUM_REMAPPED,
             ),
         )
         {
@@ -762,7 +762,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceCanonical,
-                "bevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+                detail::CANONICAL_IDENTICAL_CHECKSUM,
             ),
         ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -824,7 +824,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceCanonical,
-                "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
+                detail::CANONICAL_PRESENCE_AWARE_CHECKSUM,
             ),
         ) {
             self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
@@ -930,7 +930,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceClone,
-                "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection",
+                detail::CLONE_COVERED_ELSEWHERE,
             ),
         )
         {
@@ -965,7 +965,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceClone,
-                "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities",
+                detail::CLONE_ENTITY_SET_REMAPPED,
             ),
         )
         {
@@ -999,7 +999,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceClone,
-                "bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields",
+                detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED,
             ),
         )
         {
@@ -1046,7 +1046,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::EntityMapping,
-                "bevy_ggrs LoadWorld entity-reference remapping",
+                detail::ENTITY_MAPPING,
             ),
         ) {
             RollbackApp::update_component_with_map_entities::<T>(self);
@@ -1068,7 +1068,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceEntityMapping,
-                "bevy_ggrs LoadWorld resource entity-reference remapping",
+                detail::RESOURCE_ENTITY_MAPPING,
             ),
         ) {
             RollbackApp::update_resource_with_map_entities::<T>(self);
@@ -1086,7 +1086,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::RequiredRollback,
-                "component presence automatically installs bevy_ggrs::Rollback",
+                detail::REQUIRED_ROLLBACK,
             ),
         ) {
             RollbackApp::require_rollback::<T>(self);
@@ -1104,7 +1104,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::MessageClear,
-                "clear abandoned-future message buffer in LoadWorld::Mapping",
+                detail::MESSAGE_CLEAR,
             ),
         ) {
             self.add_systems(

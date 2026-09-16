@@ -668,6 +668,22 @@ crashes a headless harness and silently no-ops the shipped game.** That is not a
 disagreement about style; it is three different contracts for one state, and
 whichever the ruling picks, the other two need saying so out loud.
 
+⚠ **AND THE PANIC IS REACHABLE, which is the part a Q should have to show.** Two
+named roads get there:
+- `session_world_entity` → `live_session_world_root` → (no gate) →
+  `unique_session_world_root`. `ambition_platformer2d/src/rollback.rs:443` calls
+  it to refuse a rollback session opened over an unbuilt world — the sim-harness
+  install path.
+- `insert_session_world_component`
+  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:588`, *"for small direct hosts and
+  focused tests"*) calls `unique_session_world_root` **UNCONDITIONALLY**, not
+  through the gated branch — so that one asserts in ANY host, shell-routed
+  included. Its callers include `ambition_render`'s moving-platform and
+  portal-compositing setup.
+
+⇒ The loud contract is not confined to harnesses: one of its two roads runs in
+the shipped render path.
+
 ⭐⭐ **AND THERE IS ONE MITIGATION THAT IS WORTH DOING UNDER ANY OF THE THREE
 ANSWERS: PRINT THE POPULATION BESIDE THE VERDICT.** The ID-PEER owner supplied
 the general form of this signature from their own lane the same day, with two

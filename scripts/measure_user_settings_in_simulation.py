@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Which `UserSettings` fields does DETERMINISTIC SIMULATION read?
+"""What App-local, menu-mutable policy does DETERMINISTIC SIMULATION read?
+
+⛔⛤ **THE TITLE USED TO NAME ONLY `UserSettings`, AND THAT MADE ITS OWN HEADLINE
+MISLEADING THE DAY THE COUNT REACHED ZERO.** Simulation stopped reading
+`UserSettings` by having the fields it wanted resolved into two small resources at
+a host-side boundary — and both of those are read INSIDE the simulation schedule,
+written from `Update`, and carry zero rows in the rollback schema baseline. So
+"0 simulation readers" was true and "the simulation no longer reads App-local
+mutable policy" was not. ⇒ The projections are censused here too, with a
+hand-verified control apiece; see `PROJECTIONS`. **Projected is not admitted.**
 
 The 2026-09-13 architecture review's priority 1: `UserSettings` is waived in
 `rollback_coverage.rs` as *"user settings, forward-only"* — the category `Q119`
@@ -116,11 +125,12 @@ def without_comments(text: str) -> str:
     return "".join(out)
 
 
-def readers() -> dict[str, set[str]]:
-    """Function name -> the files it is declared in."""
+def readers_of(type_name: str) -> dict[str, set[str]]:
+    """Function name -> the files it is declared in, for `Res<…type_name>`."""
+    signature = re.compile(rf"Res<\s*(?:[A-Za-z0-9_]+::)*{re.escape(type_name)}\s*>")
     out: dict[str, set[str]] = {}
     listing = subprocess.run(
-        ["git", "grep", "-lE", r"Res<\s*([A-Za-z0-9_]+::)*UserSettings\s*>"],
+        ["git", "grep", "-lE", rf"Res<\s*([A-Za-z0-9_]+::)*{type_name}\s*>"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -132,12 +142,52 @@ def readers() -> dict[str, set[str]]:
             continue
         lines = (ROOT / path).read_text().splitlines()
         for i, line in enumerate(lines):
-            if not READER.search(code_of(line)):
+            if not signature.search(code_of(line)):
                 continue
             name = enclosing_fn(lines, i)
             if name:
                 out.setdefault(name, set()).add(path)
     return out
+
+
+def readers() -> dict[str, set[str]]:
+    """Function name -> the files it is declared in."""
+    return readers_of("UserSettings")
+
+
+# ⛔⛤ THE PROJECTIONS, AND THEY ARE THE REASON THIS SCRIPT'S HEADLINE ZERO IS NOT
+# AN ANSWER ON ITS OWN.
+#
+# Removing `Res<UserSettings>` from the simulation schedule was done by resolving
+# the fields it wanted into small resources at a host-side boundary. Both of those
+# resources are then read INSIDE the simulation schedule, are written from
+# `Update`, and have ZERO rows in `game/ambition_app/tests/rollback_schema_baseline.txt`
+# — so a resimulation of frame N reads whatever they hold now, exactly as it did
+# when simulation read the settings directly. The narrowing is real (30 fields and
+# four readers down to a handful of scalars and one writer each); the TIMELINE
+# defect is untouched.
+#
+# ⇒ A census that reports "0 simulation readers of `UserSettings`" and stops there
+# certifies a move that did not change the property it was measuring. The queue's
+# `SETTINGS-ROLLBACK` row had drifted in exactly that direction — it described the
+# frame-mode half in its done clause — which is what this section exists to stop.
+#
+# ⚠ THE POPULATION IS BY TYPE AND IS NOT CLAIMED TO BE COMPLETE. These are the two
+# projections that exist today, each verified by hand against its waiver in
+# `rollback_coverage.rs`. A third one added tomorrow will not appear here by
+# itself, and `every_projection_is_listed` is not a check anything can make — so
+# this list is a floor on the projections, not a count of them.
+PROJECTIONS: dict[str, str] = {
+    "PlayerDamagePolicy": (
+        "two damage scalars resolved from `UserSettings.gameplay` by "
+        "`project_player_damage_policy`, registered in literal `Update`"
+    ),
+    "SeatControlFrameModes": (
+        "each seat's input-interpretation policy resolved from "
+        "`UserSettings.gameplay.control_frame_modes()` by "
+        "`populate_seat_control_frames`, registered in literal `Update`"
+    ),
+}
 
 
 SIM_SCHEDULE_ARG = re.compile(
@@ -421,6 +471,62 @@ def main() -> int:
     for name in elsewhere:
         for path in sorted(found[name]):
             print(f"     {name:<44} {path}")
+    # ⛔⛤ THE PROJECTIONS, WITH TWO CONTROLS THAT COST NOTHING TO ADD BECAUSE THEY
+    # ARE ALREADY HAND-VERIFIED ABOVE. `apply_feature_hit_events` and
+    # `tick_controlled_brains` are the two systems whose simulation-schedule
+    # registration this script already asserts by hand, one per forwarder shape —
+    # and each of them reads one of the two projections. So the projection census
+    # has a known-answer row for each type without a new fact being verified.
+    print("\n" + "─" * 72)
+    print("⛔⛤ AND THE PROJECTIONS, BECAUSE THE ZERO ABOVE IS NOT AN ANSWER ALONE.")
+    print("   `Res<UserSettings>` left the simulation schedule by having its fields")
+    print("   resolved into small resources at a host-side boundary. Those resources")
+    print("   are then read INSIDE the simulation schedule, written from `Update`,")
+    print("   and carry ZERO rows in `rollback_schema_baseline.txt` — so a replay of")
+    print("   frame N reads whatever they hold NOW, exactly as before. The narrowing")
+    print("   is real; the TIMELINE defect is untouched. Projected is not admitted.")
+    projection_controls = {
+        "PlayerDamagePolicy": "apply_feature_hit_events",
+        "SeatControlFrameModes": "tick_controlled_brains",
+    }
+    total_projection_sim_readers = 0
+    for type_name, why in PROJECTIONS.items():
+        hits = readers_of(type_name)
+        if not hits:
+            print(f"\n   ⛔ NO `Res<{type_name}>` READER FOUND AT ALL.")
+            print("      That is an INSTRUMENT failure, not a clearance: the type was")
+            print("      renamed, re-exported, or the projection was removed. Check")
+            print("      which before reading this as progress.")
+            return 1
+        control = projection_controls[type_name]
+        if control not in hits:
+            print(f"\n   ⛔ A CONTROL FAILED: `{control}` does not read")
+            print(f"      `Res<{type_name}>`, and it is the hand-verified")
+            print("      simulation-scheduled reader for this projection. Either the")
+            print("      repair landed (check, then repoint this control) or the scan")
+            print("      is broken — and the second reads exactly like the first.")
+            return 1
+        in_sim_p = sorted(name for name in hits if name in sim)
+        elsewhere_p = sorted(name for name in hits if name not in sim)
+        total_projection_sim_readers += len(in_sim_p)
+        print(f"\n   {type_name} — {why}")
+        print(f"     READ INSIDE THE SIMULATION SCHEDULE ({len(in_sim_p)}):")
+        for name in in_sim_p:
+            mark = "  ⇐ hand-verified control" if name == control else ""
+            for path in sorted(hits[name]):
+                print(f"       {name:<42} {path}{mark}")
+        if elsewhere_p:
+            print(f"     UNATTRIBUTED ({len(elsewhere_p)}) — not a clearance, see above:")
+            for name in elsewhere_p:
+                for path in sorted(hits[name]):
+                    print(f"       {name:<42} {path}")
+    print(
+        f"\n   ⇒ {len(in_sim)} simulation reader(s) of `UserSettings` and "
+        f"{total_projection_sim_readers} of its projections."
+    )
+    print("     The queue's `SETTINGS-ROLLBACK` row is where the repair for each")
+    print("     shape is recorded, including the cost the frame-mode repair carries.")
+
     print(
         "\n⇒ The classification each SIMULATION reader needs (review, 2026-09-13):\n"
         "   · LOCAL INPUT INTERPRETATION (movement/aim/camera frame) — resolve at the\n"

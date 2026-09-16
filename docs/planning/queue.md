@@ -630,9 +630,49 @@ point this waiver and the row above both shrink."* That is implementation work,
 not a decision — and it is strictly better than admitting the mode as state,
 because it removes the concept from the simulation rather than versioning it.
 
+⛔⛤ **AND THE RECORDED REPAIR HAS A COST NOBODY WROTE DOWN, MEASURED 2026-09-16
+BEFORE STARTING IT.** *"Capture resolves the semantic DIRECTION and simulation
+never sees a mode at all"* is implementable, and it is not free, because resolving
+a direction needs the controlled body's gravity BASIS and capture does not have
+frame N's:
+
+- `AccelerationFrame::resolve_input` (`ambition_geometry/src/reference_frame.rs`)
+  needs the basis for two of its three modes — `ScreenRelative` computes
+  `input.dot(self.side)` and `input.dot(self.down)`, `BodyRelativeAssist` reads
+  `self.down.y`. Only `BodyRelativeStrict` ignores it.
+- The basis comes from `AccelerationFrame::new(gravity_dir)` where `gravity_dir`
+  is `controlled_frame_down(...)` reading `ResolvedMotionFrame`, which the
+  baseline lists as `derived` — *"published every tick from the live
+  environment"*.
+- `populate_seat_control_frames` runs in `Update`, ONCE per real frame, while the
+  sim may advance and resimulate many frames inside that one update.
+
+⇒ So a capture-resolved direction is baked against whatever basis the LATEST
+completed tick left behind, not frame N's. That is still deterministic and still
+peer-correct — GGRS replays the resolved value — but it changes the mechanic:
+**under a gravity flip, a gesture resolves in the basis that was current at
+capture rather than at its own frame.** Gravity does flip mid-match on the
+production road (`FlipGravity` is an authored `Switch` action handled in
+`drive_wave_encounters`; `GravityFlipSwitch` survives for the unit test).
+
+⭐ **THE ALTERNATIVE IS EQUALLY DETERMINISTIC AND KEEPS THE BASIS LIVE: CARRY THE
+MODE IN THE INPUT.** `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so a field
+on `ControlFrame` travels with the input and is replayed per frame; the sim then
+applies the mode against the basis it already holds for frame N. This is the shape
+`SeatControlFrameModes`' own doc names — *"a remote seat's row is filled from
+whatever travels with that peer's input, and no simulation call site moves"* — and
+`ControlFrame`'s doc says the cost is low: *"adding a `ControlFrame` field does not
+bump `INPUT_STREAM_VERSION`"*, the struct is `#[serde(default)]`, and no `Pod`
+bound applies.
+
+⇒ **BOTH SHAPES FIX DETERMINISM AND BOTH FIX THE PEER HALF. They differ only in
+which basis a gesture resolves against under changing gravity, which is a feel
+question and not a netcode one.** That is the choice this row now records; it was
+not visible when the repair was written down.
+
 **Next implementation:** two independent pieces, in either order.
-1. **Frame modes (unblocked):** resolve the direction at capture so no `sim`
-   system takes `Res<SeatControlFrameModes>`, and delete both waivers.
+1. **Frame modes (unblocked, but pick a shape first — see above):** stop any `sim`
+   system taking `Res<SeatControlFrameModes>`, and delete the waiver.
 2. **Damage (after Q127):** make the admitted policy follow the chosen lifetime —
    match activation if match-wide, deterministic per-seat input if
    participant-specific. Do not reintroduce simulation reads of mutable

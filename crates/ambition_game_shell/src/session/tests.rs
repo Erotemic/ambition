@@ -374,149 +374,67 @@ fn delayed_retirement_for_a_cannot_retire_b() {
     );
 }
 
-#[derive(Component)]
-struct DelayedWorldPublicationFixture;
-
+/// A world prepared for activation A cannot be adopted into activation B.
+///
+/// ⛔⛤ **THIS ARM USED TO HOLD `spawn_world_for`, WHICH NOTHING CALLED.** Both
+/// primitives validated the activation identically, so the contract was tested
+/// on the copy the game does not run and untested on `adopt_world`, the one road
+/// a gameplay world reaches [`ActiveGameplaySession`] by. The unreachable copy
+/// is gone and the contract lives here.
+///
+/// ⚠ **THE POSITIVE HALF IS NOT DECORATION.** An `adopt_world` that returned
+/// `None` unconditionally satisfies every assertion in the first half, so the
+/// matching activation has to be shown adopting the same candidate root.
 #[test]
-fn delayed_world_publication_for_a_cannot_attach_to_b() {
+fn a_candidate_world_prepared_for_a_cannot_be_adopted_into_b() {
     let mut app = App::new();
     app.insert_resource(ActiveGameplaySession(Some(gameplay_instance(
         2,
         "provider-b",
         22,
     ))));
-    let stale_activation = activation(1, "provider-a");
-    let published = app
-        .world_mut()
-        .run_system_once(
-            move |mut commands: Commands, mut active: ResMut<ActiveGameplaySession>| {
-                active.spawn_world_for(
-                    &mut commands,
-                    &stale_activation,
-                    SessionScopeId(11),
-                    DelayedWorldPublicationFixture,
-                )
-            },
-        )
-        .expect("publication fixture runs");
-    assert!(published.is_none());
-    let mut worlds = app
-        .world_mut()
-        .query_filtered::<Entity, With<DelayedWorldPublicationFixture>>();
-    assert_eq!(worlds.iter(app.world()).count(), 0);
-    assert!(app
-        .world()
-        .resource::<ActiveGameplaySession>()
-        .active_world_entity()
-        .is_none());
-}
+    // The candidate root A10 builds before anyone has agreed to adopt it.
+    let candidate_root = app.world_mut().spawn_empty().id();
 
-/// ⛔⛤ **THE SESSION ROOT'S CANONICAL `SimId` IS A HOST-LOCAL ROUTE COUNTER, AND
-/// THAT IDENTITY IS IN THE PEER CHECKSUM.**
-///
-/// Found by the GPT architecture review of 2026-09-15, and it is the campaign's
-/// largest remaining ID-PEER hole. The chain, each link measured:
-///
-/// 1. the root was minted as `SimId::singleton("session", activation_id)` —
-///    here at `spawn_world_for`, and again on the A10 candidate road in
-///    `ambition_platformer2d_provider`'s `lifecycle.rs`;
-/// 2. `ShellActivationId` is a per-App route-activation counter — it counts how
-///    many shell routes this process has activated, menus included;
-/// 3. the root carries `RoomSet` (it is a `PlatformerSessionWorld`), and
-///    `require_rollback::<RoomSet>` anchors the entity for rollback;
-/// 4. `entity.sim_id` is `component-canonical` in the rollback schema — the
-///    WHOLE value is compared between peers.
-///
-/// ⇒ Two hosts that agreed completely about a gameplay session used to name its
-/// root `session:4` and `session:11`, solely because one visited more shell
-/// routes before joining. The key is a CONSTANT now and this arm holds that.
-///
-/// ⛔ THE STANDING `id_peer_audit` GUARD CANNOT SEE THIS CLASS. It censuses
-/// registered TYPE NAMES, and `SimId` is a type that is supposed to be
-/// canonical. The defect is its PROVENANCE, which no type census can read — the
-/// same blind spot that hid `SimId::match_spawn` embedding the activation tick.
-/// That is why this is a value-level arm rather than a row in a list.
-///
-/// ⛔⛤ **AND THIS ARM IS NOT THE PRODUCTION ROAD, WHICH IT CLAIMED TO BE FOR A
-/// DAY.** `spawn_world_for` has no production caller: A10's candidate road
-/// builds its own root and hands it to `adopt_world`, and
-/// `PlatformerSessionBuilder::build_candidate` says in its own doc that it
-/// cannot go through this primitive. Measured 2026-09-16 by poisoning each mint
-/// separately — re-keying the CANDIDATE mint on the session scope counter left
-/// the whole app suite green at 705 passed / 0 failed, and re-keying this one
-/// left `shell_host_lifecycle`'s identity census untouched. The shipped road is
-/// held by `two_local_histories_name_every_simulated_entity_identically`
-/// (`shell_host_lifecycle`). This arm holds the PRIMITIVE's contract.
-///
-/// ⭐⭐ **THE REPLACEMENT IS A CONSTANT, AND THE REASON IS THAT THE COUNT WAS
-/// DISAMBIGUATING NOTHING.** A canonical identity only has to be unique inside
-/// the world a checksum compares. `shell_host_lifecycle`'s `assert_in_game` and
-/// `assert_home` pin `session_roots == 1` and `== 0` at every point of a
-/// four-session lifecycle, under rollback as well; an A10 candidate root
-/// deliberately carries the SAME identity as the live root it will replace
-/// (`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`),
-/// which a constant preserves exactly; and an UNHIDDEN duplicate is refused as
-/// `BaselineCaptureError::DuplicateIdentity`.
-///
-/// ⚠ **THE INVARIANT IS "EXACTLY ONE SESSION ROOT IS VISIBLE", AND A FUTURE
-/// RESIDENCY THAT BREAKS IT BREAKS MORE THAN THIS NAME.** Two published session
-/// worlds alive at once would have defeated the activation count too: a peer
-/// does not share your retirement schedule, so a root that lingers on one host
-/// and not the other is already a divergence whatever it is called. The identity
-/// is not what would need fixing there.
-#[test]
-fn two_hosts_with_different_route_histories_name_the_session_root_identically() {
-    use ambition_platformer2d_shared_tangle::sim_id::SimId;
-
-    // Both hosts enter the SAME agreed experience. Their local terms differ,
-    // which is the whole ID-PEER premise: a route-activation count and a session
-    // scope id are per-App, so two peers never share them.
-    let root_sim_id = |activation_id: u64, scope: u64| -> String {
-        let mut app = App::new();
-        app.insert_resource(ActiveGameplaySession(Some(gameplay_instance(
-            activation_id,
-            "arena",
-            scope,
-        ))));
-        let live = activation(activation_id, "arena");
-        let spawned = app
-            .world_mut()
-            .run_system_once(
-                move |mut commands: Commands, mut active: ResMut<ActiveGameplaySession>| {
-                    active.spawn_world_for(
-                        &mut commands,
-                        &live,
-                        SessionScopeId(scope),
-                        DelayedWorldPublicationFixture,
-                    )
-                },
-            )
-            .expect("publication fixture runs")
-            .expect("the live activation publishes its world");
-        app.world()
-            .get::<SimId>(spawned)
-            .expect("production stamps the session root with a canonical SimId")
-            .as_str()
-            .to_string()
-    };
-
-    let veteran = root_sim_id(11, 63);
-    let fresh = root_sim_id(4, 7);
-
-    // ⚠ FIRST, THE PREMISE MUST HOLD, or the arm below is vacuous: the two hosts
-    // really did activate different route counts.
-    assert_ne!(11, 4, "the two hosts share an activation id");
-
-    assert_eq!(
-        veteran, fresh,
-        "the session root's canonical SimId depends on the host's \
-         route-activation count again, so two peers who agree completely about \
-         a session disagree about the identity of its root"
+    let stale = activation(1, "provider-a");
+    assert!(
+        app.world_mut()
+            .resource_mut::<ActiveGameplaySession>()
+            .adopt_world(&stale, SessionScopeId(11), candidate_root)
+            .is_none(),
+        "a world prepared for a retired activation may not be adopted into the \
+         live one",
     );
-    // ⛔ AND THE COUNTER MUST NOT BE IN THE NAME AT ALL, which is what makes
-    // this a provenance claim rather than a hash-collision one. Pinned so a
-    // re-keying that merely makes two particular counts collide cannot satisfy
-    // the arm above.
-    assert_eq!(veteran, "session:root");
-    assert_eq!(fresh, "session:root");
+    assert!(
+        app.world()
+            .resource::<ActiveGameplaySession>()
+            .active_world_entity()
+            .is_none(),
+        "the refused adoption still attached the candidate root",
+    );
+
+    let live = activation(2, "provider-b");
+    let root = app
+        .world_mut()
+        .resource_mut::<ActiveGameplaySession>()
+        .adopt_world(&live, SessionScopeId(22), candidate_root)
+        .expect("the live activation adopts its own candidate");
+    assert_eq!(root.activation_id, ShellActivationId(2));
+    assert_eq!(
+        app.world()
+            .resource::<ActiveGameplaySession>()
+            .active_world_entity(),
+        Some(candidate_root),
+    );
 }
+
+// ⛔⛤ **THE ID-PEER PROVENANCE ARM USED TO BE HERE AND ITS SUBJECT IS GONE.**
+// `two_hosts_with_different_route_histories_name_the_session_root_identically`
+// proved the session root's canonical `SimId` no longer carries
+// `ShellActivationId` — through `spawn_world_for`, which had no production
+// caller. The claim is still live and still worth a guard; the road it has to be
+// held on is A10's candidate mint in `ambition_platformer2d_provider`'s
+// `lifecycle.rs`, and the arm is
+// `two_local_histories_name_every_simulated_entity_identically` in
+// `game/ambition_app/tests/shell_host_lifecycle.rs`, which censuses every
+// canonical identity in a built world across two local route histories.

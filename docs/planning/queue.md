@@ -485,22 +485,20 @@ to carry it.
 | `SessionMatchOrdinal`'s own registration | **CLOSED** (schema 189) — it was `rollback_resource_canonical`, whole-value, with a comment beside it claiming the `session` half "is compared only against ITSELF". The sentence described `take`; the registrar decided the checksum. ⚠ The lazy-reset window that was RECORDED here is closed as of 2026-09-16, by the same edge as the row above: the mint is reset eagerly at `SessionScopeSet::Activate`, so it cannot carry the previous session's count into this session's first activation. `take`'s own check survives as the answer for a composition that has only one session |
 | `MatchInstance::random_context` | **CLOSED** — the method moved to `ActiveMatch` and reads the ordinal. This row said OPEN while the row above said CLOSED, which the review flagged as contradictory control-plane text |
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
-| **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. ⛔⛤ **And the arm that was cited for it held the road production does not take** — `spawn_world_for` has no production caller; A10's candidate road builds its own root and hands it to `adopt_world`. Poisoning each mint separately (2026-09-16): the candidate poison left the pre-existing app suite green at **705 passed / 0 failed**. Held on the shipped road by `two_local_histories_name_every_simulated_entity_identically` (`shell_host_lifecycle`), which censuses all 22 canonical identities in a built world; `two_hosts_with_different_route_histories_name_the_session_root_identically` holds the primitive's contract. See below |
+| **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. ⛔⛤ **And the arm that was cited for it held the road production does not take** — `spawn_world_for` has no production caller; A10's candidate road builds its own root and hands it to `adopt_world`. Poisoning each mint separately (2026-09-16): the candidate poison left the pre-existing app suite green at **705 passed / 0 failed**. Held on the shipped road by `two_local_histories_name_every_simulated_entity_identically` (`shell_host_lifecycle`), which censuses all 22 canonical identities in a built world. ⭐⭐ And there is ONE mint now: the unreachable primitive is deleted, and the arm that certified this class through it is retired with it. See below |
 | `TransactionId` provenance | **CLOSED 2026-09-16 at both ends, having been closed at only one for a day.** The projection half (schema 193) was the campaign's original finding: the stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it, while the peer projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist. ⛔⛤ **But the GPT review found the term the projection KEEPS was ABSENT on three of the four roads that mint one.** `ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is what this row records --> took `content` and `active_binding` separately and applied the second to the expected-live half only, so the door transition, the reset and the neighbour prefetch each answered `content_unstated` for the INCOMING half — reasoning correctly that a transition publishes no content, which is a fact about the commit boundary and not about provenance. MEASURED: after one door transition the only peer content term anywhere in the live world was `content-unstated`, so two peers at different prepared content projected identically. ⇒ Repaired as a SHAPE: `for_live_room_construction` takes ONE binding and the split is unspellable, `for_content_replacement` takes two by name, and only a hot reload asks for it. Held by `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` plus the provenance half of the death and reset arms beside it (`5bb3cc8ea`) |
 | **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
 | **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The blocker is N2's absent P2P session, which is the same blocker `Q128` has. The list is the deliverable; the measurements are not ten more rows waiting to be taken |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**
-Found by the GPT review of 2026-09-15 and closed 2026-09-16. The primitive's arm
-is `two_hosts_with_different_route_histories_name_the_session_root_identically`
-(`ambition_game_shell::session::tests`); it used to pin `session:11` against
-`session:4` and now pins `session:root` against itself, with the two hosts still
-activating different route counts so the premise stays non-vacuous.
+Found by the GPT review of 2026-09-15 and closed 2026-09-16. It was
+`SimId::singleton("session", activation_id)`; it is
+`SimId::singleton("session", "root")`, in the one place that still mints it.
 
 ⛔⛤ **AND FOR A DAY THAT WAS THE ONLY ARM, HOLDING A ROAD NOTHING SHIPS.** The
 root has TWO mints, and this row said so — but it cited one arm for both.
-`ActiveGameplaySession::spawn_world_for` has no production caller: A10's
+`ActiveGameplaySession::spawn_world_for` has no production caller: A10's <!-- cite-ok: the deleted mint is what this row records -->
 candidate road builds its own root and hands it to `adopt_world`, which
 `PlatformerSessionBuilder::build_candidate` states in its own doc it must,
 because the primitive validates against the already-published session and a
@@ -509,7 +507,7 @@ separately:
 
 | poisoned mint | production reachable | the primitive's arm | pre-existing `app_it` (751) |
 |---|---|---|---|
-| `spawn_world_for` | **no caller** | FAILS | — |
+| `spawn_world_for` (deleted since) | **no caller** | FAILED | — | <!-- cite-ok: the row records the name that was deleted -->
 | the A10 candidate mint | **yes, the only road** | passes | **705 passed / 0 failed** |
 
 ⇒ The road the game takes was unguarded, and the census that proves it now is
@@ -521,6 +519,24 @@ asserted DIFFERENT first, so the comparison is controlled. ⚠ An equality arm i
 satisfied by the constant, so the disagreement half is a Sanic session: a
 different 43 rows sharing exactly three — the session root, the player slot, and
 the App-build encounter authority.
+
+⭐⭐ **AND THE SECOND MINT IS GONE, WHICH IS THE ACTUAL REPAIR.** A canonical
+identity minted in two places is two authorities for one fact whatever both
+currently spell, and one of the two was unreachable — so the collapse costs
+nothing and removes the thing that made the wrong arm look right.
+`ActiveGameplaySession::spawn_world_for` is deleted: it spawned the root itself <!-- cite-ok: the deleted mint is what this row records -->
+behind a validation `adopt_world` already performs, making it a duplicate of both
+halves at once. What it was propping up, measured by what the compiler said
+afterwards:
+
+- `ambition_game_shell` no longer imports `SessionRoot` or `SpawnSessionScopedExt`
+  — the shell crate does not spawn session-scoped entities at all now;
+- `delayed_world_publication_for_a_cannot_attach_to_b` tested the publication <!-- cite-ok: the row records the name that was deleted -->
+  contract on the dead copy and `adopt_world` had NO test; it moved and became
+  `a_candidate_world_prepared_for_a_cannot_be_adopted_into_b`, with a positive
+  half so an `adopt_world` returning `None` unconditionally cannot satisfy it;
+- the ID-PEER provenance arm lost its subject and is retired, with a routing
+  comment where it stood naming the road and the arm that hold the claim now.
 
 ⇒ **THIS IS A CLASS `id_peer_audit` STRUCTURALLY CANNOT GUARD.** That guard
 censuses registered TYPE NAMES and `SimId` is a type that is supposed to be
@@ -2934,6 +2950,38 @@ sentence generalises to tonight's arm exactly: *"its own doc says the only thing
 that would make it fail is X. That sentence is a claim about the SUBJECT. This
 failure is a claim about the HARNESS, and the two are indistinguishable from the
 exit code."*
+
+⛔⛤ **A THIRD INSTANCE, 2026-09-16, AND THE FIRST WITH A NAMED MECHANISM.**
+`hall_transition_cover::two_round_trips_through_the_gallery_return_the_same_working_set`
+failed in a full `app_it` run on *"the hub's resident character PAGES differ
+between laps (70 → 71) — more is a retention, fewer is a page that never came
+back"*, passed alone, and a second full run of the same binary came back
+**706 passed / 0 failed / 46 ignored**. Same signature as the two above: fails in
+company, passes alone, does not reproduce.
+
+⭐⭐ **WHAT IS NEW IS THAT THIS ARM PRINTS ITS OWN WINDOW.** The captured log:
+
+```text
+[residency-lap 0] to hall in 233 frames: (258, 70, 302.59); back in 4 frames: (258, 70, 302.59)
+[residency-lap 1] to hall in   4 frames: (258, 70, 302.59); back in 4 frames: (258, 71, 304.81)
+```
+
+The first transit took **233 frames** and every later one took **4**, and the
+difference between the laps is exactly ONE page (+2.2 megapixels). ⇒ Candidate
+mechanism: `settle_resident_pages` returns once every resident sheet's used pages
+are loaded AND the count has been quiet for 30 steps, so the number of PINNED
+simulated frames it burns depends on real asset-IO latency — which company
+changes. A realization that arrives after the quiet window closes is counted in
+the next lap and not this one. That makes "settled" a state whose game-time
+position varies with machine load, in a fixture that otherwise pins its clock
+(`hall_transition_cover.rs:994`).
+
+⚠ **A CANDIDATE, NOT A FINDING.** The controlled comparison is the same arm
+alone under `--nocapture` — libtest swallows the lap lines on a PASS, which is why
+the alone run above produced none — against the same arm in company, comparing
+the per-lap FRAME COUNTS rather than the exit code. If the alone run's lap 0 also
+burns ~233 frames, IO latency is not the variable and this candidate dies like CPU
+contention did. ⛔ Do not add a retry.
 
 **OPEN 2 — one older non-reproducing session-root handoff failure** whose
 assertion was never captured. It did not reproduce again across four full runs

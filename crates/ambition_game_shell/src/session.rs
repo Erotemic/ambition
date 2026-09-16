@@ -12,8 +12,8 @@ use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
 use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioRegistry};
 use ambition_load::LoadBarrierRef;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
-    SessionScopeActivated, SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
+    ActiveSessionScope, SessionGatedSimulation, SessionScopeId, SessionScopePlugin,
+    SessionScopeActivated, SessionScopeRetired, SessionScopeSet,
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
@@ -234,88 +234,23 @@ impl GameplaySessionInstance {
 pub struct ActiveGameplaySession(pub Option<GameplaySessionInstance>);
 
 impl ActiveGameplaySession {
-    /// Spawn the canonical provider world only for the exact live activation.
-    pub fn spawn_world_for<B: Bundle>(
-        &mut self,
-        commands: &mut Commands,
-        activation: &ActiveShellExperience,
-        scope: SessionScopeId,
-        world: B,
-    ) -> Option<Entity> {
-        let instance = self.0.as_mut()?;
-        if instance.activation.activation_id != activation.activation_id
-            || instance.activation.experience_id != activation.experience_id
-            || instance.scope != scope
-            || instance.world.is_some()
-        {
-            return None;
-        }
-
-        let entity = commands
-            .spawn_in_session(
-                scope,
-                (
-                    Name::new(format!(
-                        "{} gameplay session world",
-                        activation.experience_id.as_str()
-                    )),
-                    // ⭐⭐ **A CONSTANT, BECAUSE THERE IS NEVER A SECOND VISIBLE
-                    // ROOT TO BE DISTINGUISHED FROM.** The key was
-                    // `ShellActivationId` — a per-App count of how many shell
-                    // routes THIS process has activated, menus included — while
-                    // the root carries `RoomSet` (so `require_rollback` anchors
-                    // it) and `entity.sim_id` is `component-canonical`. The whole
-                    // string was compared between peers, so two hosts that agreed
-                    // completely about a session named its root `session:4` and
-                    // `session:11` solely because one visited more routes.
-                    //
-                    // ⛔ THE COUNT WAS NOT DISAMBIGUATING ANYTHING. A session
-                    // identity only has to be unique inside the world a checksum
-                    // compares, and `shell_host_lifecycle`'s `assert_in_game` /
-                    // `assert_home` pin `session_roots == 1` and `== 0` at every
-                    // point of a four-session lifecycle, in the rollback variant
-                    // too. An A10 candidate root deliberately SHARES the live
-                    // root's identity while hidden — `InactiveCandidate` keeps it
-                    // out of the capture population, held by
-                    // `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
-                    // — and an unhidden duplicate is refused as
-                    // `BaselineCaptureError::DuplicateIdentity`.
-                    //
-                    // ⚠ So the invariant this rests on is *"exactly one session
-                    // root is visible"*, and it is asserted rather than assumed.
-                    // A future residency that keeps two PUBLISHED session worlds
-                    // alive at once breaks this, and would have broken the
-                    // activation count too — a peer does not share your
-                    // retirement schedule, so a lingering root is a divergence
-                    // whatever it is named.
-                    ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
-                        "session", "root",
-                    ),
-                    SessionRoot(scope),
-                    GameplaySessionWorldRoot {
-                        activation_id: activation.activation_id,
-                        experience_id: activation.experience_id.clone(),
-                        scope,
-                        audio: instance.audio.clone(),
-                        load: instance.load.clone(),
-                        prepared: instance.prepared.clone(),
-                    },
-                    world,
-                ),
-            )
-            .id();
-        instance.world = Some(entity);
-        Some(entity)
-    }
-
     /// Adopt a world that was built BEFORE this activation, as A10.5's candidate
-    /// session is.
+    /// session is. **The only road a gameplay session's world reaches this
+    /// resource by.**
     ///
-    /// ⛔⛤ **`spawn_world_for` CANNOT DO THIS AND SHOULD NOT LEARN TO.** It
-    /// begins `let instance = self.0.as_mut()?` and validates against the
-    /// already-published session, which is right for its contract: it constructs
-    /// the world of the session that is live. A candidate is deliberately not
-    /// that session yet, so it builds its own root and hands it here.
+    /// ⛔⛤ **THERE WAS A SECOND ONE, `spawn_world_for`, AND NOTHING CALLED IT.**
+    /// It spawned the root itself behind the same validation this function
+    /// performs, which made it a duplicate of both halves: a second mint of the
+    /// canonical `SimId::singleton("session", "root")` and a second copy of the
+    /// publication contract. A10's candidate is deliberately not yet the live
+    /// session — it may be prepared while a DIFFERENT session is still live — so
+    /// it builds its own root and hands it here, and the primitive that validates
+    /// against the already-published session could never serve it.
+    ///
+    /// ⚠ Its only two callers were its own tests, and the ID-PEER provenance arm
+    /// among them reported the session root's identity safe on a road the game
+    /// does not take. `delayed_world_publication_for_a_cannot_attach_to_b` moved
+    /// here with it.
     ///
     /// Returns the shell facts the caller must put ON that root — the activation
     /// identity a candidate could not know — or `None` when this is not the

@@ -1365,15 +1365,15 @@ Read [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_g
 
 - `ActiveGameplaySession`;
 - `GameplaySessionInstance`;
-- `spawn_world_for`;
+- `adopt_world`;
 - `retire_if_activation`.
 
 Answer:
 
 - Which values are cloned because they are immutable identity facts?
 - Which value is moved when the session retires?
-- Why does `spawn_world_for` take `&mut self`?
-- Why does it return `Option<Entity>` instead of panicking?
+- Why does `adopt_world` take `&mut self`?
+- Why does it return `Option<GameplaySessionWorldRoot>` instead of panicking?
 - How does the exact activation ID prevent an old session from mutating a new one?
 
 This one file teaches more useful ownership than many generic Rust tutorials.

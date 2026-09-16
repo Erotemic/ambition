@@ -2132,12 +2132,12 @@ impl PlatformerSessionBuilder<'_, '_> {
     /// Build a CANDIDATE session: a hidden root, its first room, and everything
     /// admission will owe the world, none of it authoritative yet.
     ///
-    /// ⛔⛤ **IT DOES NOT GO THROUGH `ActiveGameplaySession::spawn_world_for`,
-    /// AND IT CANNOT.** That primitive begins `let instance = self.0.as_mut()?`
-    /// and validates against the already-published session — right for its own
-    /// contract, and useless here: a candidate is deliberately not that session
-    /// yet, and may be prepared while a DIFFERENT session is still live. It
-    /// spawns its own root and `ActiveGameplaySession::adopt_world` takes it at
+    /// ⛔⛤ **IT SPAWNS ITS OWN ROOT, AND THE PRIMITIVE THAT USED TO OFFER AN
+    /// ALTERNATIVE IS GONE.** `ActiveGameplaySession::spawn_world_for` validated
+    /// against the already-published session, which is useless here — a
+    /// candidate is deliberately not that session yet, and may be prepared while
+    /// a DIFFERENT session is still live — so nothing ever called it and it has
+    /// been deleted. `ActiveGameplaySession::adopt_world` takes this root at
     /// activation, which is also where the shell facts a candidate cannot know
     /// (`GameplaySessionWorldRoot`) go on.
     pub fn build_candidate(
@@ -2200,15 +2200,25 @@ impl PlatformerSessionBuilder<'_, '_> {
         // ⛔ THE CANDIDATE'S OWN ROOT, spawned through the candidate ownership
         // context so it and everything built under it are hidden together.
         //
-        // ⚠ The `SimId` is the SAME one `spawn_world_for` mints, and sharing it
-        // is deliberate: a hidden candidate carries the live root's identity
-        // until it replaces it. See
+        // ⚠ A hidden candidate carries the live root's identity until it replaces
+        // it, deliberately. See
         // `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`.
         //
-        // ⭐ IT IS A CONSTANT NOW. It was keyed on `ShellActivationId`, a per-App
-        // route-activation count, inside a `component-canonical` comparison — see
-        // the mint in `ambition_game_shell::session::spawn_world_for` for the
-        // measurement that says the count was disambiguating nothing.
+        // ⭐⭐ **IT IS A CONSTANT, AND THIS IS THE ONLY MINT.** It was keyed on
+        // `ShellActivationId`, a per-App route-activation count, inside a
+        // `component-canonical` comparison — so two hosts that agreed completely
+        // about a session named its root `session:4` and `session:11` solely
+        // because one had visited more routes. A canonical identity only has to
+        // be unique inside the world ONE checksum compares, and
+        // `shell_host_lifecycle` pins exactly one visible session root at every
+        // point of a four-session walk.
+        //
+        // ⛔⛤ `ActiveGameplaySession::spawn_world_for` minted the same identity
+        // and nothing called it; the arm that certified this class ran against
+        // THAT copy, so the road the game takes was unguarded for a day. Held
+        // now by `two_local_histories_name_every_simulated_entity_identically`
+        // (`shell_host_lifecycle`), which censuses every canonical identity in a
+        // built world across two local route histories.
         use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
         let world = self
             .commands

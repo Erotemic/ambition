@@ -1120,16 +1120,15 @@ fn local_lifecycle_tokens(app: &mut App) -> String {
 ///
 /// ⛔⛤ **AND THE ARM THAT WAS CITED FOR THIS CLASS HELD THE ROAD PRODUCTION DOES
 /// NOT TAKE — MEASURED 2026-09-16 BY POISONING EACH MINT SEPARATELY.** The
-/// session root has two mints. `ambition_game_shell::session::spawn_world_for`
-/// is the one
-/// `two_hosts_with_different_route_histories_name_the_session_root_identically`
-/// calls, and it has NO production caller: A10's candidate road builds its own
-/// root and hands it to `adopt_world`, which `PlatformerSessionBuilder::build_candidate`
-/// says in its own doc it must. Keying `spawn_world_for`'s mint on the
-/// activation count again leaves this walk's census untouched; keying the
-/// CANDIDATE mint on the scope counter turns `session:root` into `session:root-0`
-/// against `session:root-2` — and the whole pre-existing app suite stayed green
-/// at 705 passed / 0 failed under exactly that poison.
+/// session root had two mints, and the arm that closed this class called the one
+/// with NO production caller: A10's candidate road builds its own root and hands
+/// it to `adopt_world`, which `PlatformerSessionBuilder::build_candidate` says in
+/// its own doc it must. Re-keying the dead primitive's mint on the activation
+/// count left this walk's census untouched; re-keying the CANDIDATE mint on the
+/// scope counter turns `session:root` into `session:root-0` against
+/// `session:root-2` — and the whole pre-existing app suite stayed green at 705
+/// passed / 0 failed under exactly that poison. The dead primitive and its arm
+/// are both deleted now, so this is the only arm the class has.
 ///
 /// ⇒ This arm holds all 22 identities against the shipped composition: launch
 /// Ambition first, and launch Ambition third after two other providers have come

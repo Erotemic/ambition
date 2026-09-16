@@ -861,7 +861,18 @@ def test_an_unfollowed_field_type_raises_instead_of_reading_green():
     followed = [row for row in shape if row.startswith("AttackStrengthHint::")]
     assert len(followed) >= 3, shape
     types = {row.split(": ", 1)[1] for row in shape if ": " in row}
-    assert types <= {"bool", "f32", "AttackStrengthHint"}, sorted(types)
+    # ⭐ THIS SET GREW ON 2026-09-16, WHICH IS THE BOUNDARY WORKING RATHER THAN
+    # LEAKING: SETTINGS-ROLLBACK moved the seat's frame policy onto
+    # `ControlFrame`, the census refused until `ControlFrameModes` was followed,
+    # and following it added `InputFrameMode` too. A type enters here only after
+    # someone has taught the census its shape.
+    assert types <= {
+        "bool",
+        "f32",
+        "AttackStrengthHint",
+        "crate::ControlFrameModes",
+        "InputFrameMode",
+    }, sorted(types)
 
 
 def test_the_printed_total_equals_the_contracts_actually_printed():

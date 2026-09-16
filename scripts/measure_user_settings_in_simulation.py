@@ -489,15 +489,47 @@ def main() -> int:
         "PlayerDamagePolicy": "apply_feature_hit_events",
         "SeatControlFrameModes": "tick_controlled_brains",
     }
+    # ⛔⛤ A CONTROL PINNED TO A LIVE DEFECT DIES WHEN THE DEFECT IS FIXED, AND
+    # THIS ONE DIED ON 2026-09-16, HOURS AFTER IT WAS WRITTEN.
+    #
+    # The rule below used to be "no reader at all means the instrument is
+    # broken", which was right while every projection had simulation readers.
+    # `SETTINGS-ROLLBACK` then closed the frame-mode half: the policy moved onto
+    # `ControlFrame`, four `Res<SeatControlFrameModes>` parameters left the
+    # simulation schedule, and ZERO became the CORRECT answer. The instrument
+    # reported an instrument failure over the outcome it exists to detect.
+    #
+    # ⇒ Zero has two causes and they need telling apart, so an ABSENCE gets a
+    # PRESENCE PREMISE: the projection's TYPE must still be declared somewhere in
+    # the tree. Type present + no simulation reader is CLOSED; type absent is the
+    # rename or deletion the old rule was reaching for. The three worlds —
+    # closed, renamed, and never-looked — now print differently instead of
+    # sharing one exit code.
+    closed: list[str] = []
     total_projection_sim_readers = 0
     for type_name, why in PROJECTIONS.items():
         hits = readers_of(type_name)
         if not hits:
-            print(f"\n   ⛔ NO `Res<{type_name}>` READER FOUND AT ALL.")
-            print("      That is an INSTRUMENT failure, not a clearance: the type was")
-            print("      renamed, re-exported, or the projection was removed. Check")
-            print("      which before reading this as progress.")
-            return 1
+            declared = subprocess.run(
+                ["git", "grep", "-l", f"struct {type_name}", "--", "*.rs"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            ).stdout.split()
+            if not declared:
+                print(f"\n   ⛔ `{type_name}` IS NOT DECLARED ANYWHERE.")
+                print("      That is an INSTRUMENT failure, not a clearance: the type was")
+                print("      renamed or re-exported, so this scan is about nothing. Check")
+                print("      which before reading zero readers as progress.")
+                return 1
+            print(f"\n   ✔ `{type_name}` — NO SIMULATION READER, AND THE TYPE IS STILL")
+            print(f"      DECLARED ({declared[0]}). This projection is CLOSED:")
+            print(f"      {why}")
+            print("      ⇒ Zero here is the outcome, not a blind spot. The distinction")
+            print("        is the type's own declaration, because a renamed type and a")
+            print("        closed road both produce no readers.")
+            closed.append(type_name)
+            continue
         control = projection_controls[type_name]
         if control not in hits:
             print(f"\n   ⛔ A CONTROL FAILED: `{control}` does not read")

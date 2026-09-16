@@ -611,7 +611,8 @@ pub fn populate_seat_control_frames(
         // source to read yet; the three readers each asked the one global
         // setting. So this is the same answer in a per-seat table, and the table
         // is the seam a per-seat (or per-peer) source plugs into.
-        seat_modes.set(slot, user_settings.gameplay.control_frame_modes());
+        let modes = user_settings.gameplay.control_frame_modes();
+        seat_modes.set(slot, modes);
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
@@ -624,14 +625,17 @@ pub fn populate_seat_control_frames(
             // and the harness's action encoder, so this is what the RECORDED
             // stream contains and changing it would change the wire for no
             // gameplay reason. Every other seat is handed neutral.
-            raw.set(
-                slot,
-                if primary {
-                    read_menu_control_frame(actions)
-                } else {
-                    ControlFrame::default()
-                },
-            );
+            // The mode rides even the neutral frame, for the reason the table
+            // is published before this early-out: a paused seat still has a
+            // preference, and the first tick after it resumes must not resolve
+            // against a default nobody chose.
+            let mut paused_frame = if primary {
+                read_menu_control_frame(actions)
+            } else {
+                ControlFrame::default()
+            };
+            paused_frame.control_frame_modes = modes;
+            raw.set(slot, paused_frame);
             // The latch is CLEARED rather than drained: a seat that has stopped
             // being driven must not hand a held direction to the tick after the
             // pause, and an edge accumulated before it must not survive it.
@@ -645,9 +649,15 @@ pub fn populate_seat_control_frames(
         // drifty 360 pad ran on whatever suited player one's DualSense. A deadzone is a fact
         // about the stick in somebody's hands.
         let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
-        let (next_frame, next) =
+        let (mut next_frame, next) =
             read_gameplay_control_frame_with_settings(actions, filters, burst.0);
         burst.0 = next;
+        // ⛔⛤ STAMPED ONTO THE FRAME, which is what makes it deterministic. The
+        // table below is still written for anything that wants to ask the
+        // CURRENT policy; what a body resolves a gesture with now travels with
+        // the input GGRS replays, so a resimulation of frame N cannot read a
+        // preference the settings screen changed since.
+        next_frame.control_frame_modes = modes;
         // THE ASYMMETRY IS GONE: every seat's raw frame lands in one table, and the shaping
         // stages run over it before anything is committed.
         raw.set(slot, next_frame);

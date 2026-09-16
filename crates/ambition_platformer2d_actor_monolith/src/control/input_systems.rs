@@ -106,8 +106,6 @@ pub fn derive_slot_direction_gestures(
     // so a rollback resimulation of a confirmed frame could interpret its stick
     // input under a mode the player changed AFTER that frame was first
     // simulated. The policy is resolved once at input capture; see
-    // `SeatControlFrameModes`.
-    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     //  the SLOT TABLE, not the global frame. The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
     mut slots: ResMut<ambition_characters::control::SlotControls>,
@@ -138,9 +136,6 @@ pub fn derive_slot_direction_gestures(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
-        // ⭐ ASKED PER SEAT, like the gravity below. The frame mode is the human
-        // in that chair's comfort preference, not a property of the match.
-        let movement_mode = seat_modes.movement(slot);
         let frame = crate::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
@@ -148,6 +143,11 @@ pub fn derive_slot_direction_gestures(
             &raw,
             slot,
         );
+        // ⭐ ASKED PER SEAT, like the gravity below. The frame mode is the human
+        // in that chair's comfort preference, not a property of the match — and
+        // it rides the FRAME, so a resimulation reads the mode that frame was
+        // captured with rather than whatever the settings UI holds now.
+        let movement_mode = frame.control_frame_modes.movement;
         // Fast-fall = double-tap local-down for the body driving THIS seat. Raw
         // cardinal edges are resolved through the same input mapping policy as
         // locomotion, so ScreenDirected sideways gravity can map raw-right /
@@ -214,7 +214,6 @@ pub fn interaction_input_system(
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     // The seat's resolved frame policy — see `derive_slot_direction_gestures`.
-    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
     // being driven by this seat, home avatar or possessed actor.
@@ -252,8 +251,9 @@ pub fn interaction_input_system(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
-        // This seat's own frame policy — see `derive_slot_direction_gestures`.
-        let movement_mode = seat_modes.movement(slot);
+        // This seat's own frame policy, off the replayed frame — see
+        // `derive_slot_direction_gestures`.
+        let movement_mode = frame.control_frame_modes.movement;
         let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
         // Down + Interact is the possession gesture
         // (`abilities::traversal::possession`), so a held-Down interact is

@@ -2287,6 +2287,22 @@ schedule; not enough to say a save write is harmless on its own.
 Those two ask what belongs in the peer checksum; this asks whether a synchronised
 timeline may begin before the world it synchronises has finished loading.
 
+⛔⛤ **AND THE RULING'S OPTION 2 WAS TRIED, 2026-09-16: IT IS NECESSARY AND NOT
+SUFFICIENT.** Registering the three `Update` systems in the sim schedule instead
+empties the outside set — `outside_after=[]`, both baselines gone — and leaves
+`session_health()` at `Err("checksum mismatch at frames [38, 39, 40]")`. ⇒ **The
+placement is not the only cause, and a repair that only moves the systems would
+close the detector while the desync survives**, which is the most expensive kind
+of green. Q135 carries the candidate second cause: `adopt_the_ledger` writes
+`AuthoredOccurrences`, declared `RollbackEntryKind::Derived` and never restored,
+and the hashed `OccurrenceBaseline` takes its value from it.
+
+⭐ **WHAT THIS ROW OWES NEXT is a per-ENTRY divergence reading of the moved
+configuration** — `how_much_of_the_peer_checksum_actually_varies.rs` holds that
+instrument — because "the sync test still disagrees" names a frame and not a
+type, and the candidate above was reached by reading declarations rather than by
+measuring the diverging entry.
+
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION
 CASE ONLY, AND THE OTHER CASE IS OPEN" because `durable_horizon.rs` supports a

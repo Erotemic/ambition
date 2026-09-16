@@ -1167,8 +1167,43 @@ unavailable here; **the reverse is what happens.**
    ⚠ It needs a decision about what else belongs behind the same gate, or the next
    loader to appear reopens this.
 2. **The restore chain must move inside the rewinding schedule**, so a rewind
-   re-derives what it wrote. That needs `SaveRestored` to become rollback state
-   and the "one-shot at boot" shape to survive being replayed.
+   re-derives what it wrote. ⛔⛤ **THE PREREQUISITE THIS OPTION USED TO NAME IS
+   ALREADY MET, AND THE OPTION IS STILL NOT SUFFICIENT — BOTH MEASURED
+   2026-09-16.** It said this *"needs `SaveRestored` to become rollback state and
+   the 'one-shot at boot' shape to survive being replayed"*. Read against the
+   tree:
+
+   - `SaveRestored` **is** rollback state — `rollback_resource_clone` at
+     `crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs`,
+     whose comment says why: *"a rollback-relevant latch because the state it
+     guards rewinds even though the literal `Update` systems that set it do not
+     resimulate."* A rewind clears the latch, so a replay re-latches.
+   - `ResetToCheckpoint` is `clear_message_on_rollback`
+     (`shared_tangle/src/lifecycle/horizon.rs`), so the one-shot's EFFECT already
+     takes the sanctioned road: a rewind drops the request and the replay
+     re-issues it — the same shape `ItemGrantRequested` uses.
+   - `adopt_the_ledger` is a **pure function of `AmbitionGameSave`**:
+     `ledger_from_save(data)` then `adopt_rows`/`adopt`, reading no prior baseline
+     value. Running it twice with the same save writes the same values.
+
+   ⇒ So nothing has to be built first. ⛔ **AND THE MOVE WAS TRIED AND IS
+   NECESSARY BUT NOT SUFFICIENT.** With the three `Update` systems registered in
+   the sim schedule instead, `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
+   reports `outside_after=[]` — both baselines leave the set — and
+   `session_health()` is **still** `Err("checksum mismatch at frames [38, 39,
+   40]")`. The placement was not the only cause.
+
+   ⚠ **THE CANDIDATE SECOND CAUSE, STATED AS A CANDIDATE.**
+   `adopt_the_ledger` writes `AuthoredOccurrences`, which is declared
+   `RollbackEntryKind::Derived` — never snapshotted, never restored — on the
+   stated grounds that it is *"republished from live state while its room is
+   loaded"*. The adoption republishes it from the **save** instead, and
+   `OccurrenceBaseline.adopt(occurrences.clone())` takes the hashed baseline's
+   value FROM it. A hashed resource derived from an unrestored one can differ
+   between a run and its replay. ⇒ That the adoption writes a resource its own
+   rollback declaration says is republished from live state is a source-level
+   contradiction either way; that it CAUSES this particular desync is not yet
+   measured.
 3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
    two-way ruling and not a three-way one.** A mid-session load staged at tick 40
    inside the rewinding schedule makes

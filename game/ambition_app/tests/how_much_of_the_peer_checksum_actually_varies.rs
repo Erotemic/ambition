@@ -28,6 +28,32 @@
 //! `ChecksumProbe` is constructed with it — so a zero overlap would be a broken
 //! join, not a clean world, and the probe asserts against that.
 
+//! ⛔⛔ **THIS FILE'S ARMS ASSUME THEY ARE THE ONLY SIM APP RUNNING IN THIS
+//! PROCESS, AND THAT IS A PROPERTY OF THE TEST BINARY'S CONTENTS RATHER THAN OF
+//! THE TREE. MEASURED 2026-09-16.**
+//!
+//! Adding a SECOND sim App to this file makes
+//! `no_registered_type_is_written_outside_the_rewinding_schedule` report **99**
+//! types written outside the rewinding schedule instead of none — under default
+//! parallelism only, never alone and never under `--test-threads=1`. The 99 is a
+//! corrupted comparison baseline, not a finding, and a reader who did not know
+//! that would read it as a save bug.
+//!
+//! ⇒ **SO DO NOT ADD A SECOND SIM-APP FIXTURE HERE WITHOUT `#[ignore]`.**
+//! `run_with_a_writer_outside_the_schedule` is the one that exists and both arms
+//! using it are ignored for exactly this reason. It is not a rule about taste:
+//! the arms in this file measure a per-frame comparison between the live world
+//! and its own most recent snapshot, and that comparison is what goes wrong.
+//!
+//! ⚠ Not leaked state — `probe_whether_a_second_sim_app_leaves_state_behind`
+//! runs A, B, A sequentially and the third reading is identical to the first, so
+//! order is innocent and the failure needs SIMULTANEITY. Not the wall-clock
+//! timestep either (`013b70c89`'s mechanism): this harness pins the clock
+//! whenever rollback is enabled. See
+//! `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`,
+//! which this instance advanced from intermittent-and-unexplained to
+//! deterministic-with-two-mechanisms-eliminated.
+
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
@@ -597,4 +623,113 @@ fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
          Found: {outside:?} over {} live comparison(s).",
         audit.live_comparisons
     );
+}
+
+
+/// ⭐⭐ **LEAK OR CONCURRENCY? THE ONE EXPERIMENT THAT SEPARATES THEM, for the
+/// deterministic in-company failure recorded in
+/// `triage/a-composition-acceptance-that-only-fails-in-company.md`.**
+///
+/// Building a second sim App in this process makes
+/// `no_registered_type_is_written_outside_the_rewinding_schedule` report 99
+/// types instead of none — but only under default parallelism, never under
+/// `--test-threads=1` and never alone. Two hypotheses fit that equally well:
+///
+///   LEAK        the second App leaves process-global state the first App's
+///               measurement then reads, in which case ORDER is what matters
+///   CONCURRENCY the two Apps interfere only while running AT THE SAME TIME,
+///               in which case order is irrelevant and the shared thing is
+///               something like Bevy's process-global task pools
+///
+/// ⇒ This runs A, then B, then A AGAIN, all sequentially in one thread, and
+/// prints all three readings. `--test-threads=1` already shows A-then-B passing,
+/// so the new information is **A after B**:
+///
+///   · A₂ disagrees with A₁  ⇒ LEAK, and the next step is bisecting which
+///     plugin's global state B installs (compose B with fewer plugins).
+///   · A₂ agrees with A₁     ⇒ NOT a leak. Order is innocent, the failure needs
+///     simultaneity, and the next step is the shared runtime rather than the
+///     shared data.
+///
+/// ⚠ **AND ONE MECHANISM IS ALREADY ELIMINATED, MEASURED rather than argued.**
+/// CalculexAmbition's `013b70c89` found that `add_headless_foundation` leaves
+/// `TimeUpdateStrategy::Automatic`, so fixed steps are drawn from WALL TIME and a
+/// contended box runs a different number of them — offered there as a mechanism
+/// to test for exactly this class. It does not apply here:
+/// `Platformer2dSimHarness` pins the clock whenever rollback is enabled
+/// (`set_timestep` calls `enable_manual_stepping`), and both fixtures build with
+/// `with_sync_test_rollback_settings`. A load-dependent world would also be
+/// intermittent, and this failure is deterministic in both directions.
+///
+/// ⭐⭐ **RUN 2026-09-16, AND THE ANSWER IS `NOT A LEAK`:**
+///
+///     A1  (production fixture, first)    live_comparisons=240 outside=0 moved=32
+///     B   (writer outside the schedule)  live_comparisons=240 outside=0 moved=32
+///     A2  (production fixture, AFTER B)  live_comparisons=240 outside=0 moved=32
+///
+/// A₂ is IDENTICAL to A₁ on every one of the three numbers. Building a second sim
+/// App first changes nothing about what the production fixture measures
+/// afterwards, so **order is innocent and no process-global data is carried
+/// between the two Apps.** ⇒ The 99-type failure needs the two Apps running AT
+/// THE SAME TIME, which moves the search from shared DATA to shared RUNTIME —
+/// Bevy's process-global task pools being the first candidate, since
+/// `TaskPoolPlugin` initialises them once per process and two Apps then schedule
+/// their systems onto one set of worker threads.
+///
+/// ⚠ AND B'S `outside=0` IS THE SECOND CONFIRMATION of the tripwire above: the
+/// fixture writes `OwnedItems` from `Update` on every tick from the fourth, and
+/// the detector reports nothing, because a presence census of a resource is
+/// `(count: 1, xor: 0)` whatever the value is. Two independent runs, same
+/// reading.
+///
+/// Print-only: it asserts nothing, because its job is to tell the next person
+/// WHICH of the two searches to run.
+#[test]
+#[ignore = "PROBE, print-only: runs three sim Apps sequentially to separate a \
+            leak from a concurrency effect. Run with --ignored."]
+fn probe_whether_a_second_sim_app_leaves_state_behind() {
+    fn reading(label: &str, sim: &Platformer2dSimHarness) -> (usize, usize) {
+        let audit = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+        let outside = audit.written_outside_the_rewinding_schedule();
+        println!(
+            "   {label}: live_comparisons={} outside={} moved={}",
+            audit.live_comparisons,
+            outside.len(),
+            audit.types_whose_census_moved_across_compared_frames().len()
+        );
+        (audit.live_comparisons, outside.len())
+    }
+
+    println!("\n⭐ THREE SIM APPS, SEQUENTIALLY, IN ONE THREAD");
+    let first = run_with(playing);
+    let a1 = reading("A1  (production fixture, first)   ", &first);
+    drop(first);
+
+    let second = run_with_a_writer_outside_the_schedule();
+    let b = reading("B   (writer outside the schedule) ", &second);
+    drop(second);
+
+    let third = run_with(playing);
+    let a2 = reading("A2  (production fixture, AFTER B) ", &third);
+
+    println!("\n⇒ VERDICT");
+    if a1 == a2 {
+        println!(
+            "   A2 AGREES WITH A1 {a1:?}. Running B first changes nothing, so this \
+             is NOT leaked state and order is innocent.\n   ⇒ The failure needs the \
+             two Apps running AT THE SAME TIME. Look at what two concurrent Bevy \
+             Apps share at RUNTIME — the process-global task pools are the first \
+             candidate — not at what one leaves behind."
+        );
+    } else {
+        println!(
+            "   A2 {a2:?} DISAGREES WITH A1 {a1:?}. Building B changed what the \
+             production fixture measures afterwards, in one thread.\n   ⇒ LEAKED \
+             PROCESS STATE. Bisect it by composing B with successively fewer \
+             plugins until A2 agrees with A1 again; the last plugin removed owns \
+             the global. B read {b:?}."
+        );
+    }
 }

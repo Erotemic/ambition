@@ -83,3 +83,38 @@ of chasing an intermittent failure in a 733-arm binary.
 ⚠ The new arm is `#[ignore]`d rather than deleted, with the measurement in its
 doc, so the lane stays green and the reproduction is not lost. Run it with
 `--ignored` or with `--test-threads=1`.
+
+### Two mechanisms eliminated, and the search narrowed to shared RUNTIME
+
+⛔ **NOT LEAKED STATE — MEASURED, not reasoned.**
+`probe_whether_a_second_sim_app_leaves_state_behind` runs three sim Apps
+sequentially in one thread: the production fixture, then the second App, then the
+production fixture AGAIN. If a second App left process-global state behind, the
+third reading would differ from the first.
+
+    A1  (production fixture, first)    live_comparisons=240 outside=0 moved=32
+    B   (writer outside the schedule)  live_comparisons=240 outside=0 moved=32
+    A2  (production fixture, AFTER B)  live_comparisons=240 outside=0 moved=32
+
+A₂ is identical to A₁ on all three numbers. ⇒ **Order is innocent.** The failure
+needs the two Apps running AT THE SAME TIME, which moves the search from shared
+DATA to shared RUNTIME. First candidate: Bevy's process-global task pools —
+`TaskPoolPlugin` initialises them once per process, so two Apps schedule their
+systems onto one set of worker threads.
+
+⛔ **AND NOT THE WALL-CLOCK TIMESTEP EITHER**, which was the standing candidate
+for this whole class. `013b70c89` measured that `add_headless_foundation` leaves
+`TimeUpdateStrategy::Automatic`, so fixed steps come from ELAPSED WALL TIME and a
+contended box runs a different number of them — a machine-load-dependent world,
+offered there as a mechanism to test for exactly this page. It does not apply to
+this instance: `Platformer2dSimHarness::set_timestep` calls
+`enable_manual_stepping` whenever rollback is enabled, both fixtures build with
+`with_sync_test_rollback_settings`, and all three readings above show exactly 240
+comparisons for 240 steps. A load-dependent world would also be INTERMITTENT, and
+this failure is deterministic in both directions.
+
+⇒ **WHAT REMAINS**, in the order that costs least: compose the second App with
+successively fewer plugins until the production arm stops failing under default
+parallelism, and see whether `TaskPoolPlugin`'s presence is the boundary. That is
+a two-line fixture change per step, against a deterministic failure — the first
+time this row has had either.

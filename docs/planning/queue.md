@@ -2905,7 +2905,8 @@ prerequisites are reported as incomplete rather than pass.
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
 
-**OPEN 1 — an intermittent arm, and this time the assertion WAS captured.**
+**OPEN 1 — intermittent arms that fail only in company. Three instances; the
+third is closed with a measured cause, and it does NOT explain the other two.**
 `does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`
 failed once in a full lane at `041b07158` on its own third anti-vacuity
 assertion: *"the probe took 1 distinct census(es) at the frames the audit
@@ -2941,7 +2942,9 @@ repeat of the same binary did not reproduce it. Different arm, different subject
 identical signature — **fails in company, passes alone, intermittent rather than
 deterministic-in-company.**
 
-⇒ **TWO INSTANCES MAKE IT A CLASS, and OPEN 2 below may be a third.** ⚠ That
+⇒ **TWO INSTANCES MADE IT A CLASS; THE THIRD BELOW IS THE ONE THAT NAMED A
+CAUSE, and it was not shared with these two — so the class is a SIGNATURE, not
+yet a mechanism.** OPEN 2 below may be a fourth. ⚠ That
 page has sat open, unattributed and LINKED FROM NOTHING for six days — it was one
 of two orphans in the whole planning tree — so its named next step was never
 taken. It says: *"a repeat run with `--test-threads=1` and a fixed seed order,
@@ -2951,7 +2954,7 @@ that would make it fail is X. That sentence is a claim about the SUBJECT. This
 failure is a claim about the HARNESS, and the two are indistinguishable from the
 exit code."*
 
-⛔⛤ **A THIRD INSTANCE, 2026-09-16, AND THE FIRST WITH A NAMED MECHANISM.**
+⛔⛤ **A THIRD INSTANCE, 2026-09-16 — AND THE FIRST ONE FIXED.**
 `hall_transition_cover::two_round_trips_through_the_gallery_return_the_same_working_set`
 failed in a full `app_it` run on *"the hub's resident character PAGES differ
 between laps (70 → 71) — more is a retention, fewer is a page that never came
@@ -2959,29 +2962,60 @@ back"*, passed alone, and a second full run of the same binary came back
 **706 passed / 0 failed / 46 ignored**. Same signature as the two above: fails in
 company, passes alone, does not reproduce.
 
-⭐⭐ **WHAT IS NEW IS THAT THIS ARM PRINTS ITS OWN WINDOW.** The captured log:
+⭐⭐ **AND THIS ONE IS ROOT-CAUSED, BECAUSE THE ARM PRINTS ITS OWN WINDOW.** The
+captured log, company against alone:
 
 ```text
-[residency-lap 0] to hall in 233 frames: (258, 70, 302.59); back in 4 frames: (258, 70, 302.59)
-[residency-lap 1] to hall in   4 frames: (258, 70, 302.59); back in 4 frames: (258, 71, 304.81)
+company (FAILED)  lap 0: to hall in 233 frames: (258,  70, 302.59); back: (258,  70, 302.59)
+                  lap 1: to hall in   4 frames: (258,  70, 302.59); back: (258,  71, 304.81)
+alone   (3 of 3)  lap 0: to hall in 132 frames: (258, 149, 482.75); back: (258, 149, 482.75)
+                  lap 1: to hall in   4 frames: (258, 149, 482.75); back: (258, 149, 482.75)
 ```
 
-The first transit took **233 frames** and every later one took **4**, and the
-difference between the laps is exactly ONE page (+2.2 megapixels). ⇒ Candidate
-mechanism: `settle_resident_pages` returns once every resident sheet's used pages
-are loaded AND the count has been quiet for 30 steps, so the number of PINNED
-simulated frames it burns depends on real asset-IO latency — which company
-changes. A realization that arrives after the quiet window closes is counted in
-the next lap and not this one. That makes "settled" a state whose game-time
-position varies with machine load, in a fixture that otherwise pins its clock
-(`hall_transition_cover.rs:994`).
+⛔⛤ **THE ASSERTION WAS NEVER ABOUT ONE RETAINED PAGE. THE CENSUS WAS LOSING
+HALF THE WORLD.** Alone it reads 149 pages / 482.75 megapixels, three runs
+byte-identical. In the failing lane it read 70, then 71 — so the *"one page too
+many"* it reported was one of 79 absent pages arriving late. A first candidate
+(`settle_resident_pages` going quiet over a still-growing page set) was measured
+and DIED: instrumented across five settle calls the unbuilt count was 0 every
+time.
 
-⚠ **A CANDIDATE, NOT A FINDING.** The controlled comparison is the same arm
-alone under `--nocapture` — libtest swallows the lap lines on a PASS, which is why
-the alone run above produced none — against the same arm in company, comparing
-the per-lap FRAME COUNTS rather than the exit code. If the alone run's lap 0 also
-burns ~233 frames, IO latency is not the variable and this candidate dies like CPU
-contention did. ⛔ Do not add a retry.
+⭐⭐ **THE CAUSE IS A PER-APP CENSUS ROUTED THROUGH A PROCESS-GLOBAL KEYED BY A
+PER-APP ID.** `common::resident_character_pages` classified an image by
+`image_stages::ledger().get(id)` — the ledger is a `static Mutex<ImageStageLedger>`
+keyed by `UntypedAssetId`, `app_it` runs its arms as threads of ONE process, and
+Bevy asset ids are per-arena indices that collide across Apps by construction. A
+sibling inserting the same index with a different path OVERWRITES the row, and the
+`row.path == path` branch written to keep siblings out then discarded THIS App's
+page. Instrumented over one 6-arm run, counting why each image was rejected:
+
+```text
+no-path=22 no-row=0 other-source=76 PATH-MISMATCH=120 kept=29
+no-path=22 no-row=8 other-source=70 PATH-MISMATCH=9   kept=138
+```
+
+⇒ One arm kept 29 of 149 and its neighbour kept 138, decided by whoever else was
+running. ⚠ **The function's own doc already specified the fix** — *"the ledger is
+consulted only as a CLASSIFIER: was this PATH demanded on the `character-sheet`
+road"* — and the code keyed it on the id anyway. A path is a property of the ASSET,
+not of the App that loaded it, so the classifier is a path set built from
+`ledger.rows()` now. Measured: the 6-arm run goes **28 → 139** pages and the alone
+run stays at 149, byte-identical. ⛔ No retry was added.
+
+⭐ **AND IT MADE THE ORPHAN GUARD STRONGER.** `orphan_character_pages` subtracts
+this App's owned sheet paths from this census, so a census that had shrunk to 29
+was checking 29 candidates for leaks. It checks 139 now, and still passes.
+
+⚠ **THE NEXT CANDIDATE IN THIS CLASS, NAMED NOT FIXED.**
+`hall_redecode_census.rs` reads the same process-global ledger directly, and its
+second assertion is `re_decodes == 0` over a DELTA of a process-wide counter
+(`ledger.re_decodes - before_redecodes`). A sibling arm re-decoding one path
+inside this arm's window fails THIS arm, and the failure would read as a Hall
+regression. Its `routed > 0` premise has the opposite exposure — contamination
+makes a floor EASIER to pass, so that half is weak rather than flaky. ⛔ No
+failure of this arm has been observed; it is a mechanism with the right shape and
+no instance, which is exactly what the two unexplained instances above still
+lack.
 
 **OPEN 2 — one older non-reproducing session-root handoff failure** whose
 assertion was never captured. It did not reproduce again across four full runs

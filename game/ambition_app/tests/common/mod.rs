@@ -205,11 +205,35 @@ pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, 
 /// alone cannot attribute a row either.
 ///
 /// ⭐ What IS per App: `Assets<Image>` and the asset server's path for each
-/// id. So residency is read from this App's own assets, the ledger is consulted
-/// only as a CLASSIFIER — "was this PATH demanded on the `character-sheet`
-/// road" — and a row counts only when this App's asset at that id has the
-/// same path the row names. A sibling's row can share an index; it cannot make
+/// id. So residency is read from this App's own assets and the ledger is
+/// consulted only as a CLASSIFIER — "was this PATH demanded on the
+/// `character-sheet` road". A sibling's row can share an index; it cannot make
 /// a page resident here that is not.
+///
+/// ⛔⛤ **AND THE CLASSIFIER WAS KEYED ON THE ID, WHICH IS THE ONE THING THE
+/// PARAGRAPH ABOVE SAYS COLLIDES — MEASURED 2026-09-16.** It read
+/// `ledger.get(id)` and then dropped the page unless the row's path matched
+/// this App's path for that id. A sibling that inserts the same index with a
+/// different path OVERWRITES the row, so the mismatch branch discarded THIS
+/// App's page: the guard written to keep siblings out was throwing this App's
+/// own rows away.
+///
+/// Instrumented over one 6-arm `hall_transition_cover` run, counting why each
+/// image was rejected:
+///
+/// ```text
+/// no-path=22 no-row=0 other-source=76 PATH-MISMATCH=120 kept=29
+/// no-path=22 no-row=8 other-source=70 PATH-MISMATCH=9   kept=138
+/// ```
+///
+/// ⇒ One arm kept 29 of 149 and its neighbour kept 138, decided by whoever else
+/// was running. `two_round_trips_through_the_gallery_return_the_same_working_set`
+/// compares two samples of that number, which is how it failed a full lane on
+/// *"70 → 71 pages"* while passing alone at 149 three times byte-identically.
+///
+/// ⭐ A path is a property of the ASSET, not of the App that loaded it, so the
+/// classifier is built path-keyed: every row the ledger holds, by path. Any App
+/// that loaded the path answers the same question about it.
 ///
 /// Returns `(path, megapixels)` for every such page.
 pub fn resident_character_pages(app: &bevy::prelude::App) -> Vec<(String, f64)> {
@@ -217,16 +241,20 @@ pub fn resident_character_pages(app: &bevy::prelude::App) -> Vec<(String, f64)> 
     let world = app.world();
     let images = world.resource::<Assets<Image>>();
     let server = world.resource::<bevy::asset::AssetServer>();
-    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+    let character_sheet_paths: std::collections::BTreeSet<String> = {
+        let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+        ledger
+            .rows()
+            .filter(|row| row.source == Some("character-sheet"))
+            .filter_map(|row| row.path.clone())
+            .collect()
+    };
     let mut out = Vec::new();
     for (id, image) in images.iter() {
         let Some(path) = server.get_path(id).map(|path| path.to_string()) else {
             continue;
         };
-        let Some(row) = ledger.get(id.untyped()) else {
-            continue;
-        };
-        if row.source != Some("character-sheet") || row.path.as_deref() != Some(path.as_str()) {
+        if !character_sheet_paths.contains(&path) {
             continue;
         }
         let megapixels = f64::from(image.width()) * f64::from(image.height()) / 1.0e6;

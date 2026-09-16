@@ -1197,3 +1197,182 @@ fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
         order.ggrs_frame_when_the_latch_was_set = Some(frame);
     }
 }
+
+/// A MID-SESSION LOAD, with the rollback timeline already live and settled.
+///
+/// The boot ordering probe above shows the durable-restore chain landing at GGRS
+/// frame 1. This asks the sharper version of the same question: re-arm the latch
+/// long after the timeline has settled, hand the chain a save that is NOT empty,
+/// and see what the restore audit says about where the writes happened.
+///
+/// ⛔ `restore_inventory_from_save` carries a waiver FOR THE ACTIVATION CASE
+/// ONLY, and `durable_horizon.rs` supports a mid-session load — so this is the
+/// case the waiver excluded and nobody had driven.
+///
+/// ⚠ WHY AN EMPTY SAVE PROVES NOTHING HERE, and it is why the lane's green on
+/// `no_registered_type_is_written_outside_the_rewinding_schedule` must not be
+/// quoted against this: `adopt_the_ledger` writes what it read, so against the
+/// harness's empty save it writes the same empty value the baselines already
+/// hold, and a value-compared audit sees two identical censuses. The seeded
+/// occurrence below is the whole point.
+/// ⛔⛤ **MEASURED 2026-09-16 AND IT DESYNCS.** With the load staged at tick 40:
+///
+///     written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
+///     session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
+///
+/// ⇒ This is the POSITIVE CONTROL this class has owed all day, and it names the
+/// culprit rather than the file: the staging system writes `AmbitionGameSave` and
+/// `SaveRestored` from INSIDE the schedule and neither appears in the outside set.
+/// What appears is `OccurrenceBaseline`, whose only writer here is
+/// `adopt_occurrence_checkpoint_from_save`, in `Update`.
+///
+/// ⚠ CONTROL, with its confound stated: the same staging system with the latch
+/// left ALONE — so the restore chain never fires — reports `Ok(())` and an empty
+/// outside set. The confound is that leaving the latch true also lets the
+/// in-schedule mirror re-derive the save on the next tick, so the control differs
+/// in two ways rather than one. It is enough to attribute the desync to the chain
+/// and not to this system's presence in the schedule; it is not enough to say a
+/// save write is harmless on its own.
+#[test]
+#[ignore = "PROBE, print-only: reports what a mid-session load writes outside the rewinding schedule"]
+fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use ambition_platformer2d::sim::SimScheduleExt;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<PeakBaselineRows>();
+            app.add_systems(bevy::prelude::Last, record_peak_baseline_rows);
+            let label = app.sim_schedule();
+            app.add_systems(label, stage_a_mid_session_load_at_tick_40);
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with the baseline recorder");
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let peak_before = sim.world().resource::<PeakBaselineRows>().0;
+    let audit_before = {
+        let audit = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+        (
+            audit.live_comparisons,
+            audit
+                .written_outside_the_rewinding_schedule()
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect::<Vec<String>>(),
+        )
+    };
+
+    // ⛔ THE STAGING CANNOT HAPPEN FROM OUT HERE, and finding that out is half
+    // the result. `AmbitionGameSave` is `rollback_resource_clone_checksum` and
+    // `SaveRestored` is `rollback_resource_clone`, so a write between two
+    // `step()` calls is restored away by the next rollback: measured, the latch
+    // never went false and the save's occurrence count never left zero. The
+    // staging system above is inside the rewinding schedule, where a
+    // resimulation re-applies it — which is exactly the property the writer
+    // under investigation lacks.
+    for _ in 0..90 {
+        sim.step(AgentAction::default());
+    }
+
+    let latched = sim.world().resource::<SaveRestored>().0;
+    let rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        .remembered()
+        .rows()
+        .count();
+    let save_rows = sim
+        .world()
+        .resource::<AmbitionGameSave>()
+        .data()
+        .occurrences()
+        .len();
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    let moved = audit.types_whose_census_moved_across_compared_frames();
+    eprintln!(
+        "PROBE mid-session-load latched={latched} baseline_rows={rows} \
+         save_rows={save_rows} comparisons {} -> {} outside_before={:?} \
+         outside_after={:?} moved={} health={:?}",
+        audit_before.0,
+        audit.live_comparisons,
+        audit_before.1,
+        audit.written_outside_the_rewinding_schedule(),
+        moved.len(),
+        health(&sim),
+    );
+    let peak_after = sim.world().resource::<PeakBaselineRows>().0;
+    eprintln!("PROBE peak baseline rows before={peak_before} after={peak_after}");
+    let trace = sim.world().resource::<PeakBaselineRows>().1.clone();
+    eprintln!(
+        "PROBE (latched, save_rows, baseline_rows, authored_rows) frames 28..42: {:?}",
+        &trace[28.min(trace.len())..42.min(trace.len())]
+    );
+    eprintln!("PROBE moved types: {moved:?}");
+}
+
+/// The most rows `OccurrenceBaseline` ever held, sampled every frame — because
+/// the adoption is a ONE-FRAME write and the room republishes over it.
+#[derive(bevy::prelude::Resource, Default)]
+struct PeakBaselineRows(usize, Vec<(bool, usize, usize, usize)>);
+
+fn record_peak_baseline_rows(
+    baseline: bevy::prelude::Res<
+        ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
+    >,
+    authored: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>,
+    >,
+    save: bevy::prelude::Res<AmbitionGameSave>,
+    latch: bevy::prelude::Res<SaveRestored>,
+    mut peak: bevy::prelude::ResMut<PeakBaselineRows>,
+) {
+    let rows = baseline.remembered().rows().count();
+    if rows > peak.0 {
+        peak.0 = rows;
+    }
+    peak.1.push((
+        latch.0,
+        save.data().occurrences().len(),
+        rows,
+        authored.map(|a| a.rows().count()).unwrap_or(usize::MAX),
+    ));
+}
+
+/// Stage the mid-session load from INSIDE the rewinding schedule, so a rollback
+/// re-applies it instead of undoing it.
+fn stage_a_mid_session_load_at_tick_40(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut save: bevy::prelude::ResMut<AmbitionGameSave>,
+    mut restored: bevy::prelude::ResMut<SaveRestored>,
+) {
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedOccurrence, PersistedWhereabouts,
+    };
+    if tick.0 != 40 {
+        return;
+    }
+    save.data_mut().set_durable_horizon(
+        vec![PersistedOccurrence::new(
+            "probe:seeded_occurrence",
+            PersistedWhereabouts::Placed {
+                room: ROOM.to_string(),
+                x: 64,
+                y: 64,
+            },
+        )],
+        Vec::new(),
+    );
+    restored.0 = false;
+}

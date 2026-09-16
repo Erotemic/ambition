@@ -9,6 +9,15 @@ A row remains here only while an engineer can act on it. When it closes, keep a
 short receipt only where another open row depends on that fact; otherwise remove
 it.
 
+⚠ **OWNERSHIP AS OF 2026-09-16T14:45Z, recorded because two sessions ended inside
+one day and a stale owner line is worse than none.** CalculexAmbition stood down;
+YardratAmbition is the primary session for the rest of the day.
+ToothbrushAmbition's session is no longer reachable, so **post-A10 demolition,
+`docs/planning/consolidation/*`, the TEST-LANES row, AGENTS.md's target-bindmount
+section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
+finished, they are unattended. ⇒ Check a row's owner against who is actually
+running before waiting on them.
+
 ⚠ **MEASURED 2026-09-16: THIS FILE IS 2,519 LINES AGAINST THE 908 THE C10 CLEANUP
 LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
 doubled. It touched 2,572 the same day before TEST-LANES was compressed a second
@@ -2166,7 +2175,38 @@ harness boots with no save file, so `adopt_the_ledger` writes the SAME EMPTY VAL
 it found and the comparison is between two identical censuses. ⇒ That is the third
 time tonight a control has died of success — the same shape as the repaired
 `AmbitionGameSave` positive control and as the presence-probe finding. **The arm
-that would demonstrate this needs a SEEDED save, and nobody has built one.**
+that would demonstrate this needed a SEEDED save — ✅ it is built, and it
+desyncs.**
+
+✅⛤ **THE POSITIVE CONTROL EXISTS NOW, and it is the strongest evidence this row
+has.** `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
+stages a mid-session load at tick 40 on the sync-test harness:
+
+    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
+    session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
+
+⇒ A REAL DESYNC, at the frames of the load. ⭐ And the attribution is clean: the
+staging system writes `AmbitionGameSave` and `SaveRestored` from INSIDE the
+rewinding schedule and neither appears in the outside set. What appears is
+`OccurrenceBaseline`, whose only writer here is
+`adopt_occurrence_checkpoint_from_save`, in `Update`.
+
+⛔ **AND THE FIXTURE SHAPE IS THE PART THAT COST THE HOUR: YOU CANNOT STAGE A
+MID-SESSION LOAD FROM OUTSIDE THE TIMELINE.** Writing the save and clearing the
+latch between two `step()` calls does nothing at all — measured, the latch never
+went false and the save's occurrence count never left zero — because
+`AmbitionGameSave` is `rollback_resource_clone_checksum` and `SaveRestored` is
+`rollback_resource_clone`, so the next rollback restores both. The staging has to
+live in the rewinding schedule, where a resimulation re-applies it. ⇒ That is the
+same property the writer under investigation LACKS, which is why the failed
+fixture is worth recording beside the working one.
+
+⚠ CONTROL, with its confound stated: the same staging system with the latch left
+alone — so the restore chain never fires — reports `Ok(())` and an empty outside
+set. Leaving the latch true also lets the in-schedule mirror re-derive the save on
+the next tick, so the control differs in two ways rather than one. Enough to
+attribute the desync to the chain rather than to a system's presence in the
+schedule; not enough to say a save write is harmless on its own.
 
 ⇒ **WHAT IS LEFT IS A RULING, and it is not Q129's or Q134's:**
 [Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).

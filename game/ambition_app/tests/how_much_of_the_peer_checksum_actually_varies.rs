@@ -193,3 +193,120 @@ fn probe_how_much_of_the_peer_checksum_actually_varies() {
          had."
     );
 }
+
+// ---------------------------------------------------------------------------
+// S8's four `Update`-WRITTEN HASHED ENTRIES, ASKED THE ONLY QUESTION THAT
+// SEPARATES "QUIET" FROM "FROZEN".
+//
+// ⛔⛤ S8 measured `CustodyBaseline` and `OccurrenceBaseline` "clean" and STATED
+// its own limit: the audit reports which entries DIVERGED, not whether the
+// system that writes them ran at all. The paired census above closes half of
+// that — all three of `CustodyBaseline`, `OccurrenceBaseline` and
+// `NewGameResetRequested` are CONSTANT under both idle and play, so their clean
+// verdict had nothing to disagree about.
+//
+// ⚠ AND CONSTANT IS NOT FROZEN. A baseline nobody re-checkpoints in this room is
+// legitimately quiet, and that is indistinguishable from a snapshot that stopped
+// tracking — which is exactly the trap `AmbitionGameSave` sprang. The
+// discriminator is the LIVE value: read it at the start and at the end of the
+// same run. Live MOVED + census constant is the save's defect; live constant is a
+// quiet subject and says nothing.
+
+type CustodyBaseline = ambition_platformer2d::platformer::lifecycle::CustodyBaseline;
+type OccurrenceBaseline = ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline;
+
+#[test]
+#[ignore = "PROBE, print-only: are S8's Update-written baselines quiet or frozen?"]
+fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
+    let mut sim = {
+        use ambition_platformer2d::sim::SimScheduleExt;
+        let mut sim = Platformer2dSimHarness::build(
+            Platformer2dSimHarnessOptions::default()
+                .with_timestep(TimestepMode::fixed_60hz())
+                .with_required_start_room(ROOM)
+                .with_sync_test_rollback_settings(4, 10),
+            |app, options| {
+                ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+                let label = app.sim_schedule();
+                app.add_systems(label, grant_each_tick_from_four);
+                Ok(())
+            },
+        )
+        .expect("the sync-test harness builds");
+        sim.world_mut()
+            .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+        sim
+    };
+    // ⛔⛤ THE POPULATION, NOT ONLY THE DIGEST. Two structurally different types
+    // whose checksums are EQUAL is the signature of both being empty — and "the
+    // baseline never moved" over an empty baseline is S8's stated limit, not a
+    // clean bill of health: the audit reports what DIVERGED, never whether the
+    // capture ran at all. So the row count is printed beside the digest.
+    let rows_before = (
+        sim.world().resource::<CustodyBaseline>().rows().count(),
+        sim.world()
+            .resource::<OccurrenceBaseline>()
+            .remembered()
+            .rows()
+            .count(),
+    );
+    let before = (
+        CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
+        OccurrenceBaseline::checksum(sim.world().resource::<OccurrenceBaseline>()),
+    );
+    for _ in 0..240 {
+        sim.step(playing());
+    }
+    let after = (
+        CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
+        OccurrenceBaseline::checksum(sim.world().resource::<OccurrenceBaseline>()),
+    );
+    let rows_after = (
+        sim.world().resource::<CustodyBaseline>().rows().count(),
+        sim.world()
+            .resource::<OccurrenceBaseline>()
+            .remembered()
+            .rows()
+            .count(),
+    );
+    println!(
+        "   CustodyBaseline rows {} -> {} ; OccurrenceBaseline rows {} -> {}",
+        rows_before.0, rows_after.0, rows_before.1, rows_after.1
+    );
+    if rows_after.0 == 0 && rows_after.1 == 0 {
+        println!(
+            "   ⛔ BOTH BASELINES ARE EMPTY AT THE END OF THE RUN. Every verdict \
+             below — S8's \"measured clean\" and this probe's \"quiet\" — is about a \
+             subject that was never captured. That is S8's own stated limit, now \
+             measured rather than suspected."
+        );
+    }
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    println!("{}", audit.coverage());
+    for (name, live_before, live_after, censuses) in [
+        (
+            "CustodyBaseline",
+            before.0,
+            after.0,
+            audit.distinct_censuses_across_compared_frames_of::<CustodyBaseline>(),
+        ),
+        (
+            "OccurrenceBaseline",
+            before.1,
+            after.1,
+            audit.distinct_censuses_across_compared_frames_of::<OccurrenceBaseline>(),
+        ),
+    ] {
+        let verdict = match (live_before != live_after, censuses > 1) {
+            (true, false) => "⛔ FROZEN — the live value moved and the census did not",
+            (true, true) => "✔ tracking",
+            (false, _) => "ⓘ QUIET — the live value never moved, so this says nothing",
+        };
+        println!(
+            "   {name:<20} live {live_before:#018x} -> {live_after:#018x}  \
+             censuses across compared frames: {censuses}   {verdict}"
+        );
+    }
+}

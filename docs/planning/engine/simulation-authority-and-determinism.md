@@ -800,6 +800,35 @@ of every clean result in this neighbourhood, including the ones above: the entry
 the entry that diverges in the ONE window — the first three ticks — where the
 snapshot is not yet pinned.
 
+✔ **AND S8'S OWN STATED LIMIT IS NOW CLOSED, WITH THE ANSWER BEING "NO SUBJECT"
+RATHER THAN "CLEAN".** This section recorded that `CustodyBaseline` and
+`OccurrenceBaseline` were measured clean *"without being aimed at"*, and named the
+limit: the audit reports which entries DIVERGED, never whether the capture ran at
+all. Measured 2026-09-16 by `probe_whether_s8s_baselines_are_quiet_or_frozen`
+(`game/ambition_app/tests/how_much_of_the_peer_checksum_actually_varies.rs`), over
+240 steps with an acting agent:
+
+```
+CustodyBaseline rows 0 -> 0 ; OccurrenceBaseline rows 0 -> 0
+CustodyBaseline      live 0xa8c7f832281a39c5 -> 0xa8c7f832281a39c5   censuses: 1
+OccurrenceBaseline   live 0xa8c7f832281a39c5 -> 0xa8c7f832281a39c5   censuses: 1
+```
+
+⇒ **Both baselines are EMPTY for the whole run and their live checksums never
+move**, so their clean verdict is about a subject that was never captured. There
+is no defect here — and no evidence either, which is the distinction the limit
+was pointing at. ⛔ The tell that made it findable is worth keeping: **two
+structurally different types produced the SAME digest**, which is what an
+empty-collection projection does, and a digest read without its population would
+have looked like two independent confirmations.
+
+⇒ So of S8's four `Update`-written hashed entries, the paired census now classifies
+all four: `AmbitionGameSave` moves twice while its live value moves 247 times
+(effectively frozen, below); `NewGameResetRequested`, `CustodyBaseline` and
+`OccurrenceBaseline` are constant under both idle and play, and the two baselines
+are additionally measured EMPTY, so "constant" is not evidence about them either
+way.
+
 ⛔⛤ **A CORRECTION TO THE SENTENCE ABOVE, MADE THE SAME DAY AND BY THE NEXT
 MEASUREMENT: "EXACTLY ONE VALUE" IS AN IDLE-RUN FACT.** The run that produced it
 steps with `AgentAction::default()` — no input at all. Re-run with an acting agent

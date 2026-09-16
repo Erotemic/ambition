@@ -1218,10 +1218,20 @@ A NAME ON A LIST.** Three separate spellings of the same argument turned up:
 | `SlotControls` | the `Update` writer, via `another_authority_publishes(latches, rollback)` | body read |
 | `LoadCoordinator`, `RoomTransitionLoadState` | the SIM writer, via `if simulation_host.is_rollback() { return; }` | body read, not its param comment |
 | `SlotControlLatches` | the SIM consumer, via `if replay.replaying_history { return; }` | body read |
+| `SeatRawFrames` | nobody — the READ is routed, via `seat_frame_this_tick` | body read |
 
-**The residue is 2:** `CutsceneAdvanceRequest` (the measured defect) and
-`SeatRawFrames` (input capture; sim-side writers refine per-seat frames — the
-same family, not yet verified per writer).
+⇒ **THE RESIDUE IS ONE, AND IT IS THE MEASURED DEFECT.**
+`CutsceneAdvanceRequest` uses none of the four, which is exactly why it is the
+only row left. ⭐ So the fix has **four shipped precedents to choose from** rather
+than needing a new mechanism, and that is a far better position than this
+question started in.
+
+`SeatRawFrames` is the interesting fourth: nothing stands down, the READ picks
+the authoritative table — `if another_authority_publishes(latches, rollback) {
+slots.get(slot) } else { raw.get(slot) }` — and the raw row is written only to be
+folded into the encoded rollback input. Its own doc: *"Writing the table that is
+not authoritative is harmless — it is overwritten by the authority that owns
+it."*
 
 ⭐⛤ **AND THE THIRD ROW IS THE INVARIANT THIS WHOLE QUESTION WAS LOOKING FOR.**
 `publish_latched_slot_controls` consumes DESTRUCTIVELY inside the sim —

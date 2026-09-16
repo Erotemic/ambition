@@ -33,6 +33,26 @@ reset to false — which is what makes the outside write unrecoverable rather th
 merely late. Detecting that statically is not attempted here; it is named so the
 next reader knows which residue matters.
 
+⭐⛤ **AND TRIAGING THIS CENSUS FOUND FOUR SHIPPED WAYS TO CROSS THE BOUNDARY
+SAFELY, WHICH IS A MORE USEFUL RESULT THAN THE ROW COUNT.** Each was read in the
+body, not taken from a comment:
+
+```text
+the UPDATE writer stands down   SlotControls, via another_authority_publishes(latches, rollback)
+the SIM writer stands down      LoadCoordinator / RoomTransitionLoadState, via
+                                `if simulation_host.is_rollback() { return; }`
+the SIM consumer stands down    SlotControlLatches, via `if replay.replaying_history`
+                                -- and a replayed tick is fed from GGRS's stored input
+the READ is routed              SeatRawFrames, via `seat_frame_this_tick` choosing the
+                                authoritative table for this host
+```
+
+⇒ `CutsceneAdvanceRequest` uses **none** of them, which is why it is the whole
+residue. The fix has four precedents to choose from rather than needing a new
+mechanism — and the third row carries the invariant: destructive consumption
+inside the sim is safe when the intent ALSO rides a channel the replay can
+re-read.
+
 ⛔ THE FIRST VERSION OF THIS SWEEP REPORTED 67 TYPES AND THE NOISE WAS
 STRUCTURAL: `App`, `Commands`, `NextState`, `Anchor` and `Sprite` are not
 resources at all, they are ubiquitous parameters that the mutable-param regex
@@ -130,6 +150,14 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # the consumer knows it is replaying. That is the property `CutsceneAdvanceRequest`
     # lacks.
     "SlotControlLatches": "sim consumer returns early while `replaying_history`",
+    # ⭐ THE FOURTH SPELLING, and the only one where nobody stands down: the READ
+    # is routed instead. `seat_frame_this_tick` is
+    # `if another_authority_publishes(latches, rollback) { slots.get(slot) } else
+    # { raw.get(slot) }`, so under a rollback host the authoritative table is
+    # `SlotControls` and the raw row is written only to be folded into the encoded
+    # rollback input. Its own doc: *"Writing the table that is not authoritative
+    # is harmless -- it is overwritten by the authority that owns it."*
+    "SeatRawFrames": "host-aware read predicate picks the authoritative table (`seat_frame_this_tick`)",
 }
 
 

@@ -27,49 +27,49 @@
 //! the same way — `descriptor_owned` stores `std::any::type_name::<T>()` and
 //! `ChecksumProbe` is constructed with it — so a zero overlap would be a broken
 //! join, not a clean world, and the probe asserts against that.
-
-//! ⛔⛔ **THIS FILE'S ARMS ASSUME THEY ARE THE ONLY SIM APP RUNNING IN THIS
-//! PROCESS, AND THAT IS A PROPERTY OF THE TEST BINARY'S CONTENTS RATHER THAN OF
-//! THE TREE. MEASURED 2026-09-16.**
 //!
-//! Adding a SECOND sim App to this file can make
+//! ⛔⛤ **THIS FILE'S ARMS BROKE EACH OTHER THROUGH A SHARED COUNTER IN THIS FILE
+//! — FOUND AND FIXED 2026-09-16, AFTER THREE SITTINGS OF LOOKING AT THE ENGINE.**
+//!
+//! Adding a SECOND sim App to this file made
 //! `no_registered_type_is_written_outside_the_rewinding_schedule` report **99**
 //! types written outside the rewinding schedule instead of none, under default
-//! parallelism. The 99 is a corrupted comparison baseline, not a finding, and a
-//! reader who did not know that would read it as a save bug.
+//! parallelism, never alone and never under `--test-threads=1`. The 99 is a
+//! corrupted comparison baseline, not a finding, and a reader who did not know
+//! that would read it as a save bug.
 //!
-//! ⛔⛤ **IT IS INTERMITTENT, AND I FIRST WROTE THAT IT WAS DETERMINISTIC ON ONE
-//! OBSERVATION PER DIRECTION.** ⇒ **MEASURED OVER 20 RUNS OF THE SAME
-//! CONFIGURATION: 15 pass, 5 FAIL — a 25% failure rate.** So every "this
-//! variation does not reproduce it" below is worth very little: at one in four,
-//! a single clean run happens three times out of four when the fault is fully
-//! present, and that includes every variation I measured. An instrument's first
-//! number is a hypothesis.
+//! ⇒ **THE SHARED STATE WAS `playing`, THIS FILE'S OWN INPUT CADENCE.** Its phase
+//! lived in a `static AtomicUsize`, because `run_with` took a bare
+//! `fn() -> AgentAction` and a `fn` pointer cannot carry state. Every caller drew
+//! from that one counter, so two Apps running at once received arbitrary
+//! subsequences of the phases. `playing()` builds a fresh cadence per call now and
+//! `run_with` takes `impl FnMut()`.
 //!
-//! ⇒ **AND 25% IS THE NUMBER TO SIZE REPEAT COUNTS AGAINST**, which is what this
-//! measurement is for: ten consecutive cleans put a 95% upper bound near 26% and
-//! so establish almost nothing; twenty-five cleans are needed before a variation
-//! can be called clean at this rate.
+//! **THE CONTROLLED COMPARISON, one box, one commit, the two arms alone in the
+//! binary:**
 //!
-//! ⛔⛤ **AND BECAUSE IT IS INTERMITTENT, A GREEN HERE CERTIFIES LESS THAN A RED
-//! MEANS.** A deterministic hazard would at least make this arm a DETECTOR of the
-//! condition — red whenever a second App was present. A probabilistic one is
-//! silent in both directions: **a green run does NOT establish that the
-//! comparison baseline was sound, only that it was sound or that the coin landed
-//! the other way.** ⇒ So a single green with any second sim App in the binary is
-//! not evidence of anything, and a single red should be re-run before it is
-//! believed. Neither reading is worth acting on without a repeat count.
+//! ```text
+//! per-call cadence (`playing()`)     15 runs, 15 passed
+//! shared `static` restored           10 runs,  8 FAILED with the 99-type list
+//! ```
 //!
-//! ⇒ **SO DO NOT ADD A SECOND SIM-APP FIXTURE HERE WITHOUT `#[ignore]`.**
-//! `run_with_a_writer_outside_the_schedule` is the one that exists and both arms
-//! using it are ignored for exactly this reason. It is not a rule about taste:
-//! the arms in this file measure a per-frame comparison between the live world
-//! and its own most recent snapshot, and that comparison is what goes wrong.
+//! ⚠ **AND THE EARLIER RATE WAS MEASURED OVER A DIFFERENT POPULATION.** An
+//! earlier 20 runs of "the same configuration" gave 15 pass / 5 fail — 25% — and
+//! the control above gives 80%. Those are not in conflict: the 25% was the whole
+//! binary's arms competing for the counter and the 80% is two arms drawing from it
+//! directly. ⇒ A failure RATE carries the population it was measured over, the
+//! same way a count does.
 //!
-//! ⚠ Probably not leaked state: `probe_whether_a_second_sim_app_leaves_state_behind`
-//! runs A, B, A sequentially and the third reading is identical to the first.
-//! That argues against a DETERMINISTIC leak, which is what a leak would be — but
-//! it is one run, so it does not exclude an intermittent one.
+//! ⚠ **A CONCURRENCY EFFECT AND A SHARED-STATE EFFECT ARE THE SAME THING WHEN THE
+//! SHARED STATE IS IN THE MEASUREMENT.** Both standing hypotheses — a plugin
+//! leaving global state behind, and two Apps interfering only while simultaneous —
+//! pointed at the engine, because that is where a reader hunting shared state
+//! looks. The channel was one `static` in the harness, a few lines from the arms
+//! it broke. ⇒ Check the instrument's own globals before the subject's.
+//!
+//! ⚠ Not the item catalog: `install_item_catalog` is a documented process-global
+//! `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
+//! same one. That exclusion was correct and is kept.
 //!
 //! ⚠ Not the wall-clock timestep (`013b70c89`'s mechanism), and this one is
 //! structural rather than statistical: `Platformer2dSimHarness::set_timestep`
@@ -122,22 +122,24 @@ fn idle() -> AgentAction {
 /// arm state in this composition (`does_a_presence_probed_row_move_when_its_value_does.rs`
 /// found that holding attack moves nothing and only a LANDING moves
 /// `BodyAnimFacts`).
-fn playing() -> AgentAction {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static N: AtomicUsize = AtomicUsize::new(0);
-    let n = N.fetch_add(1, Ordering::SeqCst);
-    AgentAction {
-        move_x: if (n / 30) % 2 == 0 { 1.0 } else { -1.0 },
-        right_pressed: (n / 30) % 2 == 0,
-        left_pressed: (n / 30) % 2 == 1,
-        jump: n % 8 == 0,
-        jump_held: n % 8 < 3,
-        attack: n % 12 == 0,
-        ..AgentAction::default()
+fn playing() -> impl FnMut() -> AgentAction {
+    let mut n = 0usize;
+    move || {
+        let phase = n;
+        n += 1;
+        AgentAction {
+            move_x: if (phase / 30) % 2 == 0 { 1.0 } else { -1.0 },
+            right_pressed: (phase / 30) % 2 == 0,
+            left_pressed: (phase / 30) % 2 == 1,
+            jump: phase % 8 == 0,
+            jump_held: phase % 8 < 3,
+            attack: phase % 12 == 0,
+            ..AgentAction::default()
+        }
     }
 }
 
-fn run_with(action: fn() -> AgentAction) -> Platformer2dSimHarness {
+fn run_with(mut action: impl FnMut() -> AgentAction) -> Platformer2dSimHarness {
     use ambition_platformer2d::sim::SimScheduleExt;
     let mut sim = Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
@@ -177,6 +179,17 @@ fn run_with(action: fn() -> AgentAction) -> Platformer2dSimHarness {
 /// adds it to `Update`. The only difference between the two runs is WHERE the
 /// write happens, so a detector that reports the same answer for both is
 /// reporting on something else.
+///
+/// ⛔⛤ **AND THAT SENTENCE WAS FALSE UNTIL 2026-09-16: THE TWO RUNS ALSO GOT
+/// DIFFERENT INPUTS.** `playing` kept its cadence phase in a `static
+/// AtomicUsize`, because `run_with` took a bare `fn() -> AgentAction` and a `fn`
+/// pointer cannot carry state. Every caller in this file drew from that one
+/// counter, so the "controlled" pair compared 240 steps at phases 0..239 against
+/// 240 steps at phases 240..479 — a different input sequence with the schedule
+/// change. `playing()` builds a fresh cadence per call now and `run_with` takes
+/// `impl FnMut()`. Same root cause as
+/// `does_a_presence_probed_row_move_when_its_value_does`'s flake, found by
+/// censusing the interior-mutable `static`s in `tests/`.
 fn run_with_a_writer_outside_the_schedule() -> Platformer2dSimHarness {
     let mut sim = Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
@@ -192,8 +205,9 @@ fn run_with_a_writer_outside_the_schedule() -> Platformer2dSimHarness {
     .expect("the sync-test harness builds with the grant outside the tick");
     sim.world_mut()
         .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    let mut action = playing();
     for _ in 0..240 {
-        sim.step(playing());
+        sim.step(action());
     }
     sim
 }
@@ -228,10 +242,14 @@ fn hashed_types(sim: &Platformer2dSimHarness) -> (Vec<String>, Vec<String>) {
 #[ignore = "PROBE, print-only: how much of the peer checksum actually varies"]
 fn probe_how_much_of_the_peer_checksum_actually_varies() {
     let mut constant_in: Vec<std::collections::BTreeSet<String>> = Vec::new();
-    for (label, action) in [
-        ("IDLE — no input at all", idle as fn() -> AgentAction),
-        ("PLAYING — run, jump, attack on an edge", playing as fn() -> AgentAction),
-    ] {
+    let cadences: Vec<(&str, Box<dyn FnMut() -> AgentAction>)> = vec![
+        ("IDLE — no input at all", Box::new(idle)),
+        (
+            "PLAYING — run, jump, attack on an edge",
+            Box::new(playing()),
+        ),
+    ];
+    for (label, action) in cadences {
         let sim = run_with(action);
         let (hashed, with_probe) = hashed_types(&sim);
         let audit = sim
@@ -344,8 +362,9 @@ fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
         CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
         OccurrenceBaseline::checksum(sim.world().resource::<OccurrenceBaseline>()),
     );
+    let mut action = playing();
     for _ in 0..240 {
-        sim.step(playing());
+        sim.step(action());
     }
     let after = (
         CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
@@ -419,7 +438,7 @@ fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
 #[test]
 #[ignore = "PROBE, print-only: which HASHED entries are written outside the rewinding schedule"]
 fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
-    let sim = run_with(playing);
+    let sim = run_with(playing());
     let (hashed, _) = hashed_types(&sim);
     let hashed: std::collections::BTreeSet<String> = hashed.into_iter().collect();
     let audit = sim
@@ -496,7 +515,7 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
 /// dies when the defect is fixed.)
 #[test]
 fn no_registered_type_is_written_outside_the_rewinding_schedule() {
-    let sim = run_with(playing);
+    let sim = run_with(playing());
     let (hashed, _) = hashed_types(&sim);
     let hashed: std::collections::BTreeSet<String> = hashed.into_iter().collect();
     let audit = sim
@@ -581,34 +600,40 @@ fn no_registered_type_is_written_outside_the_rewinding_schedule() {
 /// limitation with a failing test attached is the difference between a known gap
 /// and a forgotten one.
 ///
-/// ⛔⛤ **`#[ignore]`, AND THE REASON IS A THIRD INSTANCE OF A CLASS THIS
-/// REPOSITORY ALREADY HAS OPEN.** Building a SECOND sim App in this process
-/// makes the arm above fail — `no_registered_type_is_written_outside_the_rewinding_schedule`
-/// reports **99** types written outside the rewinding schedule instead of none,
-/// which is the signature of a corrupted comparison baseline rather than a
-/// finding. MEASURED, and it separates cleanly:
+/// ⛔⛤ **`#[ignore]`, AND THE REASON WAS A SHARED COUNTER IN THIS FILE — MEASURED
+/// AND CLOSED 2026-09-16.** Building a SECOND sim App in this process made the
+/// arm above report **99** types written outside the rewinding schedule instead
+/// of none, only under default parallelism, never alone and never under
+/// `--test-threads=1`. The triage page's two hypotheses were LEAK (the second App
+/// leaves process state behind) and CONCURRENCY (the two interfere only while
+/// running at once), and the shared thing turned out to be neither a plugin's
+/// global nor Bevy's task pools: it was `playing`, this file's own input cadence,
+/// whose phase lived in a `static AtomicUsize` because `run_with` took a bare
+/// `fn() -> AgentAction`.
 ///
-///     this arm alone                         1 passed
-///     the arm above alone                    1 passed
-///     both, `--test-threads=1`               2 passed
-///     both, default parallelism              1 passed, 1 FAILED
+/// ⇒ The two arms drew from ONE counter, so each App received an arbitrary
+/// subsequence of the phases, and the audit's live-versus-restored comparison
+/// then reported nearly every registered component as written outside the
+/// schedule. THE CONTROLLED COMPARISON, on one box, same commit:
 ///
-/// ⇒ Two concurrently-built sim Apps share process state, so this is
-/// `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`
-/// — whose named next step is the `--test-threads=1` run above, and which
-/// recorded the class as having at least two instances. This is the third, and
-/// it is INTERMITTENT like the other two: repeating the closest configuration
-/// three times gave pass, pass, FAIL. ⚠ So the four-line table above is four
-/// single observations, not four properties, and the `--test-threads=1` row in
-/// particular does not establish that serial execution is safe.
+///     per-call cadence (`playing()`)     15 runs, 15 passed
+///     shared `static` cadence restored   10 runs, 8 FAILED with the 99-type list
+///
+/// ⚠ **A CONCURRENCY EFFECT AND A SHARED-STATE EFFECT ARE THE SAME THING WHEN THE
+/// SHARED STATE IS IN THE MEASUREMENT.** The page was right that simultaneity was
+/// required and right that process state was shared; both hypotheses pointed at
+/// the engine because that is where the reader was looking. The channel was one
+/// `static` in the harness, four lines from the arms it broke.
 ///
 /// ⚠ NOT the item catalog: `install_item_catalog` is a documented process-global
 /// `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
-/// same one. The shared state is elsewhere and finding it is that page's work,
-/// not this arm's. ⇒ Run it with `--ignored`, or with `--test-threads=1`, and it
-/// answers honestly either way.
+/// same one. That exclusion was correct and is kept.
+///
+/// ⚠ AND THE LIMITATION THIS ARM RECORDS IS UNCHANGED: the detector cannot see a
+/// PRESENCE-probed resource's value change, so the `Update` write this fixture
+/// makes is invisible to it. That is still a real gap, still without a positive
+/// control, and it is why the arm asserts the detector does NOT name the subject.
 #[test]
-#[ignore = "IGNORED, not broken: it builds a second sim App, which makes the             arm above report 99 types instead of none under default             parallelism. Passes alone and under --test-threads=1; see this             arm's doc and triage/a-composition-acceptance-that-only-fails-in-company.md"]
 fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
     let sim = run_with_a_writer_outside_the_schedule();
     let subject = std::any::type_name::<OwnedItems>();
@@ -718,6 +743,15 @@ fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
 ///
 /// Print-only: it asserts nothing, because its job is to tell the next person
 /// WHICH of the two searches to run.
+///
+/// ⛔⛤ **ITS OWN INSTRUMENT LEAKED PROCESS STATE UNTIL 2026-09-16, IN THE
+/// DIRECTION THAT WOULD HAVE SENT A READER HUNTING A PLUGIN.** `playing` drew
+/// from a process-global counter, so A1, B and A2 ran at phases 0..239, 240..479
+/// and 480..719 — three different input sequences. The `a1 != a2` branch below
+/// then says *"LEAKED PROCESS STATE … bisect it by composing B with successively
+/// fewer plugins"*, which is a confident instruction built on a difference the
+/// cadence created. ⇒ A probe written to separate leaked state from a
+/// concurrency effect has to be checked for leaked state OF ITS OWN first.
 #[test]
 #[ignore = "PROBE, print-only: runs three sim Apps sequentially to separate a \
             leak from a concurrency effect. Run with --ignored."]
@@ -737,7 +771,7 @@ fn probe_whether_a_second_sim_app_leaves_state_behind() {
     }
 
     println!("\n⭐ THREE SIM APPS, SEQUENTIALLY, IN ONE THREAD");
-    let first = run_with(playing);
+    let first = run_with(playing());
     let a1 = reading("A1  (production fixture, first)   ", &first);
     drop(first);
 
@@ -745,25 +779,26 @@ fn probe_whether_a_second_sim_app_leaves_state_behind() {
     let b = reading("B   (writer outside the schedule) ", &second);
     drop(second);
 
-    let third = run_with(playing);
+    let third = run_with(playing());
     let a2 = reading("A2  (production fixture, AFTER B) ", &third);
 
     println!("\n⇒ VERDICT");
     if a1 == a2 {
         println!(
             "   A2 AGREES WITH A1 {a1:?}. Running B first changes nothing, so this \
-             is NOT leaked state and order is innocent.\n   ⇒ The failure needs the \
-             two Apps running AT THE SAME TIME. Look at what two concurrent Bevy \
-             Apps share at RUNTIME — the process-global task pools are the first \
-             candidate — not at what one leaves behind."
+             is NOT leaked ENGINE state and order is innocent.\n   ⇒ Then look at \
+             what the two runs SHARE while running, starting with this file's own \
+             `static`s: the 2026-09-16 answer was the input cadence's phase \
+             counter, not a plugin's global and not Bevy's task pools."
         );
     } else {
         println!(
             "   A2 {a2:?} DISAGREES WITH A1 {a1:?}. Building B changed what the \
              production fixture measures afterwards, in one thread.\n   ⇒ LEAKED \
-             PROCESS STATE. Bisect it by composing B with successively fewer \
-             plugins until A2 agrees with A1 again; the last plugin removed owns \
-             the global. B read {b:?}."
+             PROCESS STATE — but check this file's own `static`s FIRST, because \
+             that is where it was in 2026-09-16. If they are clean, bisect by \
+             composing B with successively fewer plugins until A2 agrees with A1 \
+             again; the last plugin removed owns the global. B read {b:?}."
         );
     }
 }

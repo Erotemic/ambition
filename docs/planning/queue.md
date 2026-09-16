@@ -2958,8 +2958,10 @@ prerequisites are reported as incomplete rather than pass.
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
 
-**OPEN 1 — intermittent arms that fail only in company. Three instances; TWO are
-now closed with measured causes, and the two causes are the SAME SHAPE.**
+**OPEN 1 — intermittent arms that fail only in company. FOUR instances; THREE are
+closed with measured causes and all three are the SAME SHAPE: a per-arm
+measurement reading process-global state. The 2026-09-10 original is the one that
+is not.**
 `does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`
 failed once in a full lane at `041b07158` on its own third anti-vacuity
 assertion: *"the probe took 1 distinct census(es) at the frames the audit
@@ -2985,6 +2987,18 @@ once, shared target-dir and asset I/O, libtest's thread scheduling — candidate
 not findings. ⚠ **Do not add a retry.** ⚠ And `measure` prints its census count
 on every run while libtest swallows stdout for a PASS, so the diagnostic that
 would show the window drifting needs `--nocapture`.
+
+✔ **AND A FOURTH INSTANCE IS CLOSED BY THE SAME MECHANISM, WHICH IS WHAT MAKES
+IT A MECHANISM RATHER THAN A COINCIDENCE.** The triage page's own 2026-09-16
+instance — building a second sim App made
+`no_registered_type_is_written_outside_the_rewinding_schedule` report **99** types
+written outside the rewinding schedule — was the same shared-counter channel:
+`how_much_of_the_peer_checksum_actually_varies` drove every fixture from a
+`playing()` cadence whose phase lived in a `static AtomicUsize`. Controlled:
+**15 of 15 pass with a per-call cadence, 8 of 10 FAIL with the `static` restored.**
+The arm that was `#[ignore]`d for it runs in the lane now. ⇒ Three of the four
+instances now share one cause, and it is never the engine: it is a per-arm
+measurement reading process-global state.
 
 ⛔⛤ **AND IT IS THE SECOND INSTANCE OF ONE SIGNATURE, SIX DAYS APART.**
 [`triage/a-composition-acceptance-that-only-fails-in-company.md`](triage/a-composition-acceptance-that-only-fails-in-company.md)

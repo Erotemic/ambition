@@ -1,6 +1,64 @@
 # A composition acceptance that only fails in company
 
-**Status:** open, unattributed. Filed 2026-09-10.
+**Status:** the 2026-09-16 instance is **CLOSED with a measured cause**; the
+2026-09-10 original is **still open and is NOT explained by it**. Filed 2026-09-10.
+
+## The answer, for the instance that had one
+
+⛔⛤ **THE SHARED PROCESS STATE WAS THE TEST FILE'S OWN INPUT CADENCE, NOT AN
+ENGINE GLOBAL.** `how_much_of_the_peer_checksum_actually_varies` drove every
+fixture from `playing()`, whose phase lived in a `static AtomicUsize` because
+`run_with` took a bare `fn() -> AgentAction` and a `fn` pointer cannot carry
+state. Two arms drew from that one counter, so two concurrently-built sim Apps
+received arbitrary subsequences of the phases and the audit's live-versus-restored
+comparison then named **99** registered types as written outside the rewinding
+schedule.
+
+**THE CONTROLLED COMPARISON**, one box, one commit, the two arms alone in the
+binary:
+
+    per-call cadence (`playing()`)     15 runs, 15 passed
+    shared `static` restored           10 runs,  8 FAILED with the 99-type list
+
+⇒ Fixed by making the cadence a per-call closure (`run_with` takes
+`impl FnMut()`), and `the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource`
+is **out of `#[ignore]`** — the lane runs it now.
+
+⚠ **THIS PAGE'S TWO HYPOTHESES WERE LEAK AND CONCURRENCY, AND THE ANSWER IS THAT
+THEY ARE THE SAME THING WHEN THE SHARED STATE IS IN THE MEASUREMENT.** Both
+pointed at the engine, because that is where a reader hunting shared state looks:
+the eliminations below worked through `install_item_catalog`, `probes.rs`,
+`RollbackRestoreAudit`, Bevy's task pools and the wall-clock timestep. The channel
+was one `static` in the harness, a few lines from the arms it broke. ⇒ **Check the
+instrument's own globals before the subject's.**
+
+⚠ **AND THE RATE MOVED WITH THE POPULATION.** This page measured 25% over 20 runs
+of "the same configuration"; the control above gives 80%. Not a conflict: the 25%
+was the whole binary's arms competing for the counter and the 80% is two arms
+drawing from it directly. A failure RATE carries its population the same way a
+count does.
+
+⚠ **WHAT THIS DOES NOT CLOSE: the 2026-09-10 original**
+(`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`).
+Three candidates were checked the same day and all three refuted: that arm's file
+holds no `static`; `ambition_platformer2d_runtime` does not depend on
+`ambition_render`, so the engine group cannot reach the image-stage ledger; and
+`ambition_boss_encounter` holds exactly two globals, a warn-once dedup `BTreeSet`
+and a read-only `LazyLock` catalog, neither of which can zero a fixed-step count
+or panic a plugin build. ⇒ Its next step is still its ASSERTION, which has never
+been captured.
+
+⭐ **THE MAP, MEASURED:** production code outside tests holds roughly **fifty
+`static`s with interior mutability**, concentrated in `ambition_sprite_sheet` (12),
+`ambition_characters` (7), `shared_tangle` (4) and `ambition_causal` (4). In
+`tests/` there are now three, and all three are deliberate: a serialising `Mutex`
+lock, a failure-dump filename sequence, and nothing else.
+
+---
+
+*Everything below is the investigation as it stood before the cause was found. It
+is kept because the eliminations are still valid and because the way the search
+missed the harness is the lesson.*
 
 ## What was seen
 
@@ -101,9 +159,9 @@ concurrently-built sim Apps is a two-line fixture, so whoever takes this can
 bisect by composing Apps with successively fewer plugins — but each configuration
 needs a REPEAT COUNT sized from the rate, not one run.
 
-⚠ The new arm is `#[ignore]`d rather than deleted, with the measurement in its
-doc, so the lane stays green and the reproduction is not lost. Run it with
-`--ignored` or with `--test-threads=1`.
+⚠ The new arm was `#[ignore]`d rather than deleted, with the measurement in its
+doc, so the lane stayed green and the reproduction was not lost. ✔ It runs in the
+lane now — see the answer at the top of this page.
 
 ### Two mechanisms eliminated, and the search narrowed to shared RUNTIME
 
@@ -123,6 +181,14 @@ intermittent one.** Taken with the intermittency, the search still points at
 shared RUNTIME rather than shared DATA. First candidate: Bevy's process-global
 task pools, since `TaskPoolPlugin` initialises them once per process and two Apps
 then schedule their systems onto one set of worker threads.
+
+⛔⛤ **THAT CANDIDATE WAS WRONG, AND SO WAS THE READING ABOVE.** The three
+readings agreed because they ran SEQUENTIALLY — and at the time they also drew
+three different input sequences from the shared counter, so the probe was
+comparing runs that differed in their inputs and still landing on the same
+numbers. The elimination survives (a sequential leak would have shown) but the
+inference *"therefore look at shared runtime"* sent the search past the actual
+channel, which was shared DATA in the harness. See the top of this page.
 
 ⚠ **AND A BARE `MinimalPlugins` APP RUNNING 240 UPDATES CONCURRENTLY READ CLEAN**
 — one run, so not a negative either, but it is the cheapest variation to repeat

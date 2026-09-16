@@ -279,3 +279,27 @@ def test_rule_4_checks_the_member_list_not_only_its_length():
         assert member in census, f"{member} is in source and not in the census"
     assert len(set(scoped)) == len(scoped), "a duplicated field would mask a gap"
     assert not set(scoped) & set(checkpoint), "the two bundles must be disjoint"
+
+
+def test_the_stray_sweep_reaches_the_ledger_json_not_only_markdown():
+    """⛔⛤ THE FOURTH RECORDER, AND THE GLOB COULD NOT SEE IT.
+
+    `consolidation-ledger.json` held the stale bundle count in THREE fields —
+    `current_truth`, `evidence[0].claim` and `representation` — on the same day
+    the census prose did, invisible to a sweep whose glob was `*.md`. ⇒ Ask how
+    many RECORDERS a fact has before choosing a rule's population. This one had
+    four and was corrected in two.
+
+    ⚠ `static_measurement_snapshot` in that file is deliberately NOT swept: it
+    names its own `source_commit` and is a dated measurement, not a live claim.
+    """
+    assert "*.json" in guard.SWEPT_SUFFIXES
+    ledger = guard.PLANNING / "consolidation/consolidation-ledger.json"
+    assert ledger.exists(), ledger
+    swept = {
+        path
+        for suffix in guard.SWEPT_SUFFIXES
+        for path in guard.PLANNING.rglob(suffix)
+    }
+    assert ledger in swept, "the ledger is not in the swept population"
+    assert guard.stray_counts(29) == []

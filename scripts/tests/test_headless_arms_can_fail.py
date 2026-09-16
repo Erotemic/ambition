@@ -96,8 +96,13 @@ def test_the_live_tree_population_is_not_empty() -> None:
     An empty population must be a FAILURE, never a pass.
     """
     checked = 0
-    for path in guard.ROOT.glob("**/*.rs"):
-        if "/target/" in str(path) or "/.git/" in str(path):
+    # ⚠ THE GUARD'S OWN ENUMERATION, not a second copy. This used
+    # `guard.ROOT.glob("**/*.rs")`, which sweeps `.worktrees/` -- other agents'
+    # checkouts -- so this floor counted files the guard never reads and would
+    # have stayed green while the real scan lost reach.
+    for rel in guard.tracked_rust_files():
+        path = guard.ROOT / rel
+        if "/target/" in str(path):
             continue
         try:
             text = path.read_text(errors="replace")

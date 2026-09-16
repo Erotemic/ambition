@@ -2097,3 +2097,124 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
          it until adoption"
     );
 }
+
+/// ⛔⛤ **A SUPERSEDED TRANSACTION CANNOT PUBLISH — IN THE COMPOSED HOST.**
+///
+/// The A-supersedes-B hold race had three witnesses and all three hand-built a
+/// `ShellRouter::default()` and registered their own catalog:
+/// `provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
+/// `a_superseded_transaction_names_the_request_it_cancelled` and
+/// `superseded_load_cannot_authorize_commit`. They pin the ROUTER'S LOGIC. None
+/// of them asks the shipped composition anything, and MEASURED 2026-09-16, no
+/// `app_it` arm read `ShellEvent::PreparationRequested` or a transaction's
+/// `barrier.load_id` at all — the only `ShellEvent::` mentions in the whole
+/// integration suite were in comments. So the question *"can a superseded
+/// transaction still publish HERE"* had never been put to a real app.
+///
+/// ⭐ **THE SESSION HALF WAS ALREADY COVERED**, by
+/// `a_candidate_session_replaced_while_pending_is_discarded` above, which drives
+/// the same overlap and asserts the superseded CANDIDATE is discarded. This arm
+/// is the other half: the TRANSACTION identity, which is what a caller
+/// correlates its own request on.
+///
+/// ⚠ **THE CLAIM IS MADE BY CALLING `publish` ON THE REAL REGISTRY.** Asserting
+/// that a record is absent would test a lookup; asking the production
+/// `PreparedSessionRegistry` to publish the superseded transaction and requiring
+/// `None` tests the refusal itself.
+#[test]
+fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
+    use ambition_platformer2d::game_shell::{
+        PreparedSessionRegistry, ProviderLoadTransaction, ShellEvent, TransactionEnd,
+    };
+    use bevy::ecs::message::Messages;
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+
+    let mut seen: Vec<ShellEvent> = Vec::new();
+    let mut drain = |app: &mut bevy::prelude::App, seen: &mut Vec<ShellEvent>| {
+        if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<ShellEvent>>() {
+            seen.extend(messages.drain());
+        }
+    };
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    // Few enough frames that the first transaction is still PENDING when the
+    // second request lands — the state that supersedes rather than adopts.
+    for _ in 0..3 {
+        app.update();
+        drain(&mut app, &mut seen);
+    }
+
+    let first: ProviderLoadTransaction = seen
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect(
+            "the shipped composition emitted no `PreparationRequested` in three frames, so \
+             there is no transaction for a second request to supersede and this arm measures \
+             nothing",
+        );
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..360 {
+        app.update();
+        drain(&mut app, &mut seen);
+    }
+
+    // ⚠ **THE PREMISE, AND WITHOUT IT "CANNOT PUBLISH" IS SATISFIED BY "NEVER
+    // EXISTED".** A second, DIFFERENT transaction must have been minted; if the
+    // router had reused the first one there would be no supersession here at all
+    // and every assertion below would pass for the wrong reason.
+    let minted: Vec<_> = seen
+        .iter()
+        .filter_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => {
+                Some(transaction.barrier.load_id.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    assert!(
+        minted.len() >= 2 && minted[0] != minted[1],
+        "the second request did not mint a fresh transaction ({minted:?}), so nothing was \
+         superseded and this arm is vacuous"
+    );
+
+    // ⛔ THE FIRST TRANSACTION ENDED, IT WAS NAMED, AND THE REASON IS SUPERSESSION.
+    let ended = seen.iter().find_map(|event| match event {
+        ShellEvent::TransactionEnded {
+            barrier, reason, ..
+        } if *barrier == first.barrier => Some(reason.clone()),
+        _ => None,
+    });
+    assert_eq!(
+        ended,
+        Some(TransactionEnd::Superseded),
+        "the shipped composition ended the first transaction as {ended:?} rather than \
+         naming it superseded. A caller waiting on its own transaction has nothing to \
+         match on for the one terminal state that produces no error at all"
+    );
+
+    // ⛔⛤ AND IT CANNOT PUBLISH. Asked of the PRODUCTION registry, not a fixture.
+    let published = app
+        .world_mut()
+        .resource_mut::<PreparedSessionRegistry>()
+        .publish(&first);
+    assert!(
+        published.is_none(),
+        "the superseded transaction published in the shipped app ({published:?}). A \
+         publication from a cancelled transaction hands the live session a generation \
+         nobody admitted"
+    );
+}

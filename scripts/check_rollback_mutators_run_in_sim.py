@@ -238,6 +238,20 @@ def _is_test_path(path: Path) -> bool:
     )
 
 
+#: A whole file compiled out of a release build. ⛔ THE NAME CONVENTIONS ABOVE
+#: ARE A PROXY AND THIS IS THE FACT. `features/ecs/fighter_harness.rs` is a test
+#: harness living beside the code it exercises, declared `mod fighter_harness;`
+#: with no `#[cfg(test)]` on the declaration and `#![cfg(test)]` INSIDE the file
+#: — so every name rule above passes it and its `Update` registrations entered
+#: the production corpus as if they shipped.
+#:
+#: ⚠ MEASURED 2026-09-16: 4 files carry this attribute and ALL FOUR were missed,
+#: so the proxy had no overlap with the fact at all. Found by chasing
+#: `materialize_projectiles_for_this_tick`, which read as a serious breach —
+#: projectile spawning is simulation, not presentation — and was a fixture.
+_FILE_IS_TEST_ONLY = re.compile(r"^[ \t]*#!\[cfg\(test\)\]", re.M)
+
+
 @functools.cache
 def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
     """Read and normalize each production Rust source once per repository.
@@ -255,6 +269,10 @@ def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
             if _is_test_path(src):
                 continue
             text = strip_test_modules(strip_comments(src.read_text(errors="replace")))
+            # An inner `#![cfg(test)]` compiles the WHOLE file out, so nothing in
+            # it can be a production registration whatever the file is called.
+            if _FILE_IS_TEST_ONLY.search(text):
+                continue
             found.append((src, text))
     return tuple(found)
 

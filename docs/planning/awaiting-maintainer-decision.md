@@ -1128,6 +1128,57 @@ agreed value for the match, or publish a value per participant/seat as an
 accessibility policy. Both are mechanically viable; the product rule decides the
 shape of the admitted authority.
 
+## Q134 — is a dialog visit count something two peers must agree on?
+
+[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
+repaired the three `persist_*_to_save` mirrors by moving them into the rewinding
+schedule: they DERIVE the save from simulation state, so a replay reproduces the
+value. `dispatch_pending_dialog_requests` is a fourth writer of the same hashed
+resource and that answer is not available to it — it calls
+`save.data_mut().increment_dialog_visit(&dialogue_id)`, and an increment is
+neither idempotent nor derivable.
+
+**MEASURED 2026-09-16, and the measurement closes one of the two branches the row
+had been holding open.** The row asked whether the visit is LOST on a rewind or
+COUNTED TWICE. It can only be lost:
+
+- `ambition_dialog` contains the string `rollback` **zero times**. `DialogState`
+  is a plain `#[derive(Resource)]`, registered on no road.
+- The dispatcher consumes the request with `state.pending_start.take()`, in
+  `Update`.
+- ⇒ A rewind restores `AmbitionGameSave` to its pre-increment value. The request
+  that produced the increment was consumed from a resource that does not rewind,
+  so it does not come back and nothing re-runs the dispatcher. One outcome.
+
+**AND THE PATH IS LIVE IN A ROLLBACK SESSION.** `game/ambition_app/src/app/plugins.rs`
+installs the Yarn stack under `#[cfg(feature = "ui")]` and nothing else — it is
+not gated on `simulation_host.is_rollback()`, which is checked thirteen lines
+above for `AmbitionRollbackPlugin`.
+
+**AND THE FIELD IS INSIDE THE COMPARED VALUE.**
+`AmbitionGameSave::checksum` serialises the whole save with
+`ron::ser::to_string(&self.0)`, so `dialog_visits` is part of what two peers
+compare. Nothing narrows it today.
+
+**THE RULING.** Either
+
+1. **A visit count is durable PROGRESS, not simulation state**, and the save's
+   checksum projection should stop covering fields no tick derives. That is
+   cheap here and expensive in general: it changes what "the peers agree on the
+   save" means for every other field at the same time, and it needs a rule for
+   deciding which side of the line a field is on, not a list.
+2. **A visit count is simulation state**, and the dialogue request has to become
+   rewinding state so the increment can live in the sim schedule. That is the
+   honest version of "the save is part of the shared world", and it is a real
+   piece of work: `ambition_dialog` has no rollback vocabulary at all today.
+
+⇒ This is narrower than
+[Q129](#q129--must-the-save-file-be-part-of-what-two-peers-agree-on) and does not
+wait on it: Q129 asks whether the save belongs in the checksum, and this asks what
+to do with a field that **no tick can reproduce** whatever the answer to Q129 is.
+A ruling of "exclude the save entirely" on Q129 would moot this; any other ruling
+does not.
+
 ## Q133 — should a throw obey rage when obeying it changes who wins?
 
 [THROW-MODIFIERS](queue.md#throw-modifiers--route-throws-through-rage-and-staleness-policy)

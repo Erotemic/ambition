@@ -2389,6 +2389,25 @@ not findings. ⚠ **Do not add a retry.** ⚠ And `measure` prints its census co
 on every run while libtest swallows stdout for a PASS, so the diagnostic that
 would show the window drifting needs `--nocapture`.
 
+⛔⛤ **AND IT IS THE SECOND INSTANCE OF ONE SIGNATURE, SIX DAYS APART.**
+[`triage/a-composition-acceptance-that-only-fails-in-company.md`](triage/a-composition-acceptance-that-only-fails-in-company.md)
+recorded the same shape on 2026-09-10:
+`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+FAILED inside a full `cargo test --workspace` run and PASSED alone, twice, and a
+repeat of the same binary did not reproduce it. Different arm, different subject,
+identical signature — **fails in company, passes alone, intermittent rather than
+deterministic-in-company.**
+
+⇒ **TWO INSTANCES MAKE IT A CLASS, and OPEN 2 below may be a third.** ⚠ That
+page has sat open, unattributed and LINKED FROM NOTHING for six days — it was one
+of two orphans in the whole planning tree — so its named next step was never
+taken. It says: *"a repeat run with `--test-threads=1` and a fixed seed order,
+comparing against the failing composition — NOT a fix."* ⭐ And its sharpest
+sentence generalises to tonight's arm exactly: *"its own doc says the only thing
+that would make it fail is X. That sentence is a claim about the SUBJECT. This
+failure is a claim about the HARNESS, and the two are indistinguishable from the
+exit code."*
+
 **OPEN 2 — one older non-reproducing session-root handoff failure** whose
 assertion was never captured. It did not reproduce again across four full runs
 tonight, and the two arms it would have to be — `the_shipped_app_never_holds_two_session_roots_across_a_handoff`

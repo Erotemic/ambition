@@ -1110,6 +1110,15 @@ def build_maintenance_jobs() -> list[Job]:
         # ⚠ It is a catastrophe detector, not a ratchet: its floors sit far under
         # today's sizes, because compressing a closed row to a receipt is the
         # queue contract WORKING.
+        # ⚠ **RUN THIS LANE ON A STAGED TREE.** Two of its jobs read the git
+        # INDEX -- `check_planning_citations.py` resolves a cited path or symbol
+        # through `git ls-files`/`git grep`, so a NEW file that exists on disk
+        # but has not been `git add`ed is invisible to them. MEASURED twice on
+        # 2026-09-16: a README citing a script by a path git did not yet track,
+        # and five `RollbackEntryKind` variants reported as VANISHED while their
+        # relocated module sat untracked. Both resolved on `git add` with no
+        # other change. ⇒ A red here on a file you have just created is this,
+        # not a defect; stage and re-run before triaging it.
         Job(
             "live control-plane documents still have their content",
             [

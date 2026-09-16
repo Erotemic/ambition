@@ -21,7 +21,8 @@
 > broad `reachab` grep returns only incidental English (`unreachable!`, "not
 > reachable in today's content"), and a `pathfind|a_star|astar|navmesh` sweep
 > returned nothing but SUBSTRING noise — `a_star` matching
-> `the_visual_follows_a_stored_set` and `EXTRA_STARTUP`. A pattern that matches
+> `the_visual_follows_a_restored_set_instead_of_remembering_a_start` and
+> `EXTRA_STARTUP`. A pattern that matches
 > inside unrelated identifiers is not evidence either way, which is why the
 > conclusion rests on the concept sweep and not on that one.
 

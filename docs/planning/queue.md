@@ -575,9 +575,11 @@ cached result accidentally.
 **Owner:** test runner / app integration lane.
 
 **Current state:** missing prerequisites are reported as incomplete rather than
-pass. An order-dependent `app_it` failure remains unresolved, and the A10 work
-also observed one non-reproducing session-root handoff failure whose assertion
-message was not captured.
+pass. The `app_it` lane RUNS AGAIN — 676 passed / 0 failed / 25 ignored of 701
+at `23f786757`, 258.28 s — after the sim-schedule cycle below was closed. The
+A10 work also observed one non-reproducing session-root handoff failure whose
+assertion message was not captured. ⚠ The composition probes still do not step
+the engine; see the next implementation step.
 
 ⛔⛤ **THE ORDER-DEPENDENT FAILURE HAS A NAME AND A MECHANISM NOW, AND MY FIRST
 CLASSIFICATION OF IT WAS WRONG.** The arm is
@@ -633,115 +635,70 @@ printed on a Bevy task-pool worker thread, and only the nested
 per-test capture. There is no panic hook to fix — the arm had no assertion, so
 the banners were all it showed.
 
-⛔⛔ **AND FIXING (2) UNCOVERED A THIRD DEFECT THAT IS WORSE THAN BOTH: THIS
-COMPOSITION CANNOT ACTUALLY BE STEPPED.** Pinning
-`TimeUpdateStrategy::ManualDuration(1/60)` so the probe really advances time turns
-the arm into an unbounded hang. MEASURED, same arm, same sampler:
+⛔⛔ **AND FIXING (2) UNCOVERED A THIRD DEFECT THAT WAS WORSE THAN BOTH.
+CLOSED 2026-09-16 at `23f786757`: IT WAS A DEPENDENCY CYCLE IN THE SIM
+SCHEDULE, AND IT WAS NOT ABOUT TIMING AT ALL.** `b9f2ece18` gave
+`drive_boss_animators` `.in_set(WorldPrep)` to close (1). That system also runs
+`.after(project_boss_attack_state_from_move)`, which is
+`.in_set(CombatSet::Playback)` — LATER in the sim schedule than `WorldPrep` — so
+the set ordered one system both before and after Playback. The fix takes the
+GATE and not a phase: `GameplaySimulationRoot` is configured
+`run_if(simulation_authorized)` and pins no position.
 
-| | peak RSS | duration | outcome |
-| --- | --- | --- | --- |
-| baseline (`Automatic`) | **13 MB** | **0.47 s** | passes, having run ZERO fixed steps |
-| time actually advancing | **5.7 GB and rising ~24 MB/s, no plateau** | never finished (>240 s) | hang |
+BISECTED over `770ac4bff..ee3d0852e`, every point re-measured on
+`a_dropped_item_falls`: `770ac4bff` and `91f0721bd` 3 passed in ~1.7 s;
+`bad9ca8153`, `ecbdf22971` and `b9f2ece18` HANG; HEAD with the `.in_set`
+replaced by the gate, 3 passed in 1.63 s. Lanes green at `23f786757`:
+`app_it` **676 passed / 0 failed / 25 ignored / 701 total, 258.28 s**, and
+`-p ambition_platformer2d_runtime --lib` **64 passed / 0 failed, 0.13 s** — two
+arms of that lane had been hanging for a peer, on a lane the fix was not
+measured against.
 
-Bracketed with per-stage probes: update 0 completes in ~220 ms (512 entities,
-unchanged) and runs zero fixed steps; on update 1 `First` and `PreUpdate` run and
-then nothing — the hang is inside `RunFixedMainLoop`, and a probe system added to
-`FixedUpdate` is never reached. Entity count does not grow, so the allocation is
-not population.
+⛔⛤ **THE STANDING PROHIBITION, which is the INVERSE of the rule that produced
+it.** `b9f2ece18` was written against *"carving systems out of a plugin drops
+their set membership"* — edges remembered, set forgotten. ADDING a set to a
+system that already carries cross-phase ordering edges fails the same way:
+`WorldPrep` carries a POSITION as well as a gate, and only the gate was wanted.
+⇒ Before adding `.in_set(X)`, check which set every existing `.after`/`.before`
+target lives in.
 
-⇒ **THE TIMING FIX IS NOT LANDED, DELIBERATELY.** As written it converts a
-vacuous pass into a runaway that OOM-killed the agent session twice (45.7 GB RSS,
-69% of a 62 GB box). Landing it would make the shipped lane unrunnable. ⚠ The
-capability fix for (1) is independent and IS landed.
+⛔⛤ **AND THE LANE THAT WOULD HAVE CAUGHT IT WAS SKIPPED BECAUSE OF THE DEFECT
+ITSELF.** `b9f2ece18` shipped with `cargo check` only and an explicit *"NO
+`app_it` run: the composition probes can run the box out of memory, and the one
+arm this change affects does not execute the simulation at all"*. Both clauses
+were true. A schedule cycle is invisible to `cargo check` and invisible to every
+arm that never steps, so those two facts were exactly what made `app_it` the
+only instrument that could see it. ⇒ See
+[[reference_a_gate_lane_you_did_not_run_is_a_guard_that_does_not_exist]].
 
-**NEXT IMPLEMENTATION STEP (new, owns itself).** Find why the engine plugin group
-cannot advance one fixed step headless without looping in `RunFixedMainLoop`.
-Until then these three composition probes certify only that the engine BUILDS —
-the queue row should not claim they step it.
+⚠ **STILL OPEN FROM (1):** `b9f2ece18` argued the gate closes the capability
+leak because sibling boss systems sit under it. The only MEASURED fact was that
+a host built without `BossEncounterSimulationPlugin` panics on
+`Res<BossCatalog>` validation; whether `simulation_authorized` is false in
+exactly those hosts was reasoned, not tested.
 
-⛔⛔⛤ **THE RUNAWAY NO LONGER NEEDS THE UNLANDED TIMING PIN. IT IS REACHABLE FROM
-A PLAIN `cargo test -p ambition_app --test app_it`, AND IT IS A REGRESSION INSIDE
-THE LAST WEEK.** The paragraph above says the hang appears only once
-`TimeUpdateStrategy::ManualDuration` is pinned. That is a property of the arm it
-was found in, not of the defect. MEASURED 2026-09-15, on a box rebooted 13
-minutes earlier with 59 GB free and nothing else running:
+**NEXT IMPLEMENTATION STEP (new, owns itself).** The timing fix is now
+UNBLOCKED and should be landed: pin `TimeUpdateStrategy::ManualDuration(1/60)`
+in the composition probes so they really advance a fixed step. It was withheld
+only because it exposed the cycle above. Until it lands, those three probes
+certify that the engine BUILDS and nothing more, and this row must not claim
+they step it.
 
-| binary | built | `app_it a_dropped_item_falls` |
-| --- | --- | --- |
-| `app_it-c0a9e9a0132dc84f` | HEAD `ee3d0852e` | HANGS — `timeout 100` → exit 124, no output |
-| `app_it-876fea80f025f796` | 2026-09-07 22:48 | ok. **3 passed, 2.09 s** |
-| `app_it-d7e893edd51bd6e7` | 2026-09-07 18:57 | ok. **3 passed, 2.09 s** |
-
-All three arms of the module hang; they use `fixed_60hz_room_sim(ROOM)`, a real
-stepping harness with NO manual pin. Controls: it is not `--test-threads=1` and
-not `--exact` — the plain module filter at default thread count hangs
-identically. ⚠ The two old binaries are identified by mtime and by their
-`614 filtered out` line being consistent with an older arm count (HEAD lists
-700); their provenance is NOT verified by embedded strings, so pin that before
-building on the row.
-
-⭐ **THE GROWTH IS SUPERLINEAR, AND THE FILED ~24 MB/s DESCRIBES ONLY THE FIRST
-MINUTE.** One arm left running unbounded reached **anon-rss 64,629,160 kB in
-316 s** (`Out of memory: Killed process 17969 (app_it-c0a9e9a0)`, kernel, global
-OOM, one arm alone in its process). The sibling arms measured **1667 MB and
-1633 MB at the 60 s mark**. Those two facts cannot share a rate:
-
-    first 60 s   ~27 MB/s
-    next 256 s   ~234 MB/s
-
-⇒ REASONED, not measured: a per-frame record that is both APPENDED TO and CLONED
-each frame produces this shape, and the untrimmed rollback saved-state history is
-the obvious candidate in this repo. It is a lead, not a finding.
-
-⛔⛔⛤ **AND IT IS NOT AN INTEGRATION-LANE DEFECT. IT REDDENS A SHIPPED LIBRARY
-SUITE, WITH TWO NAMED ARMS.** MEASURED 2026-09-16: `cargo test -p
-ambition_platformer2d_runtime --lib` runs 62 tests green and then hangs in
-
-    combat_schedule::tests::the_finishing_zoom_is_ordered_against_the_match_verdict
-    combat_schedule::tests::the_shipped_engine_installs_the_grab_interruption_exactly_once
-
-both reported by libtest as *"has been running for over 60 seconds"*, with no
-`test result` line ever printed. ⇒ Everything above places this in `app_it` and in
-the headless composition probe; it is also in a plain `--lib` unit suite, so
-**`cargo test --workspace --lib` cannot finish at HEAD** and any agent running one
-is heading for a kill rather than a verdict.
-
-⭐ **THAT MAKES IT A MUCH CHEAPER REPRODUCER THAN `app_it`** — one crate, ~62
-tests of warm-up, hangs in about a minute, and the subjects are named rather than
-having to be bisected out of a 700-arm binary. ⚠ NOT ESTABLISHED: whether either
-arm hangs in ISOLATION or only after the other 62 run first. Try the single-arm
-filter before building on it, and bound it hard.
-
-⚠ **AND A WARNING ABOUT HOW THIS WAS FOUND, because the first three attempts
-produced no evidence at all.** This suite killed one agent session three times in
-a row — foreground each time, exit 144, no output — and the first two attempts
-piped `cargo test` into `grep`, so everything the run had already printed died
-with the process. The third redirected to a FILE instead, and the log survived the
-kill with the two arm names in it. ⇒ For anything that may take the session down,
-REDIRECT, DO NOT PIPE: a pipe makes the evidence conditional on the reader
-surviving, and the reader is what is dying.
-
-⛔ It also means a `144` exit here is not evidence about the Claude Code
-background-shell reaper. It was reported as such once, and retracted: the process
-really was consuming memory without bound, so the kill was correct behaviour and
-says nothing about the reaper's scope.
-
-⛔ **DO NOT RUN THIS LANE WITHOUT A HARD PER-ARM CAP.**
-`scripts/measure_test_arm_rss.py` gives one process per arm — peak RSS is a
-property of a PROCESS, so the only way to make it a property of an ARM is to stop
-sharing — tracks `RssAnon` rather than `VmRSS` or the cgroup's `memory.current`
-(reclaimable page cache dominates both), kills by process group at a hard cap,
-and refuses to report a row where libtest ran zero tests. At ~234 MB/s a 60 s cap
-costs ~14 GB on a 62 GB box: do not raise it and do not run two at once.
-
-⛔⛔ **AND `pkill -f <pattern>` IS NOT A SAFE CLEANUP FOR THIS.** The shell running
-the cleanup is a `bash -c '<whole line>'`, so its OWN argv contains the pattern:
-`pkill -f "measure_test_arm_rss"; pkill -f "app_it-..."; pgrep -af app_it` kills
-the shell on the FIRST `pkill`, so the second one — the one aimed at the test
-binary — never runs, and neither does the `pgrep` that would have reported the
-survivor. That is how the 61.6 GB orphan above escaped a sampler whose own cap
-was working correctly on every other arm. ⇒ `pgrep -af` to LIST, kill by PID, and
-re-`pgrep` in a SEPARATE tool call.
+⛔ **OPERATIONAL RESIDUE, kept because it cost a night.** An affected arm
+allocated without bound and SUPERLINEARLY — ~27 MB/s over the first 60 s, then
+~234 MB/s; one left running reached anon-rss 64,629,160 kB in 316 s and took a
+62 GB box down with a kernel `global_oom`. ⇒ Any instrument that samples 60 s
+and fits a line under-reports by an order of magnitude.
+`scripts/measure_test_arm_rss.py` bounds this: one process per arm (peak RSS is
+a property of a PROCESS, so the only way to make it a property of an ARM is to
+stop sharing), `RssAnon` rather than `VmRSS` or cgroup `memory.current`, kill by
+process group at a hard cap, and it refuses a row where libtest ran zero tests.
+⛔⛔ **AND `pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is
+a `bash -c '<whole line>'`, so its OWN argv contains the pattern and the first
+`pkill` kills the shell — the second one, aimed at the test binary, never runs,
+and neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
+sampler whose cap was working on every other arm. ⇒ `pgrep -af` to LIST, kill by
+PID, re-`pgrep` in a SEPARATE tool call.
 
 **Next implementation:** on the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test

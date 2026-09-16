@@ -32,10 +32,8 @@ use super::registry::{self, RollbackEntryKind};
 /// not move and no schema version is owed.
 ///
 /// ⚠ THE SENTENCES THEMSELVES ARE NOT ALL VERIFIED, and centralising them does
-/// not make them so — see `Q122`. [`CLONE_COVERED_ELSEWHERE`] in particular is a
-/// claim about a projection SOMEWHERE ELSE that the registration cannot check,
-/// recorded on 99 rows by two methods whose only bound is `T: Clone`. Collapsing
-/// the copies is what makes that one claim editable in one place.
+/// not make them so — see `Q122`. Collapsing the copies is what made
+/// [`CLONE_UNHASHED`] a one-place edit when its coverage claim came out.
 pub mod detail {
     pub const CANONICAL_IDENTICAL_CHECKSUM: &str =
         "bevy_ggrs canonical codec snapshot + identical canonical checksum projection";
@@ -52,8 +50,15 @@ pub mod detail {
     pub const CLONE_CANONICAL_CHECKSUM_REMAPPED: &str =
         "bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load";
 
-    pub const CLONE_COVERED_ELSEWHERE: &str =
-        "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection";
+    /// ⛔⛤ THIS SENTENCE USED TO CLAIM COVERAGE IT COULD NOT ESTABLISH. It read
+    /// *"state checksum supplied by another authoritative projection"* on 99
+    /// rows, emitted by `rollback_component_clone` / `rollback_resource_clone`,
+    /// whose only bound is `T: Clone`. Whether some OTHER registration projects
+    /// a type's state is a property of the type; the snapshot strategy cannot
+    /// know it. It now states what IS true by construction, which is
+    /// `RollbackEntryKind::feeds_peer_checksum() == false`.
+    pub const CLONE_UNHASHED: &str =
+        "bevy_ggrs clone snapshot; not in the session checksum";
 
     pub const CLONE_ENTITY_REF_REMAPPED: &str =
         "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity";
@@ -153,7 +158,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            detail::CLONE_COVERED_ELSEWHERE);
+            detail::CLONE_UNHASHED);
         self
     }
 
@@ -334,7 +339,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            detail::CLONE_COVERED_ELSEWHERE);
+            detail::CLONE_UNHASHED);
         self
     }
 

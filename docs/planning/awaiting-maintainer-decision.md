@@ -466,13 +466,25 @@ that does not. The decision this needs is where the line falls — specifically
 whether a *reason* (why a type is derived, or which other projection covers it)
 is ever allowed to be part of peer-visible identity.
 
-⚠ **ONE OF THOSE SENTENCES IS NOT A MECHANICAL FACT AT ALL.**
-`detail::CLONE_COVERED_ELSEWHERE` — *"state checksum supplied by another
-authoritative projection"* — is recorded on **99 rows** (94 `component-clone`,
-5 `resource-clone`) by two registrar methods whose only bound is `T: Clone`.
-Nothing in either method can establish that another projection covers the type;
-the KIND is asserting what only the TYPE can know. Whichever way this question is
-answered, that sentence is wrong where it stands.
+✔ **ONE OF THOSE SENTENCES WAS NOT A MECHANICAL FACT AT ALL, AND IT IS GONE —
+SCHEMA v194.** *"State checksum supplied by another authoritative projection"*
+was recorded on **99 rows** (94 `component-clone`, 5 `resource-clone`) by two
+registrar methods whose only bound is `T: Clone`. Nothing in either method could
+establish that another projection covers the type; the KIND was asserting what
+only the TYPE can know. `detail::CLONE_UNHASHED` now says *"not in the session
+checksum"*, which is `feeds_peer_checksum() == false` stated plainly.
+
+⛔ **AND THE PRICE OF THAT CORRECTION IS THE ARGUMENT FOR THIS QUESTION.**
+Deleting a claim nobody could support cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump
+and a baseline rewrite, because the fingerprint hashes the sentence. The v194 log
+entry says so in the changelog's own voice: *"nothing mechanical changed, and that
+is the point of this entry"*. It is the only non-mechanical entry in a log of
+layout and projection changes, and a reader comparing v193 to v194 across two
+peers learns nothing about whether their snapshots are compatible.
+
+ⓘ It was paid ONCE, not 99 times — one bump covered all 99 rows. The tax is per
+EDIT, not per row, which is why the defect is survivable and also why it goes
+unnoticed.
 
 ⓘ **WHAT DID NOT NEED A DECISION AND HAS LANDED:** those 15 sentences were spelled
 TWICE — once in `SchemaRollbackRegistrar` (the metadata recorder) and once in

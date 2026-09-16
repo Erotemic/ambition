@@ -521,7 +521,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// value, only the COMPARISON narrows.
 /// ⭐ It is the first COMPONENT to state a projection, which is why
 /// `rollback_component_canonical_checksum` had to exist first.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 193;
+/// ⛔⛤ 193 -> 194: NOTHING MECHANICAL CHANGED, AND THAT IS THE POINT OF THIS
+/// ENTRY. No type entered or left the layout, no projection changed, no value is
+/// encoded differently. What changed is a SENTENCE: the `detail` on 99
+/// `component-clone`/`resource-clone` rows stopped reading *"state checksum
+/// supplied by another authoritative projection"* — a claim about some other
+/// registration that `rollback_component_clone` (bound only by `T: Clone`) has no
+/// way to establish — and now reads *"not in the session checksum"*, which is
+/// `RollbackEntryKind::feeds_peer_checksum() == false` stated plainly.
+/// ⚠ A BUMP IS OWED ANYWAY, because `compute_schema_fingerprint` hashes the whole
+/// `schema_dump()`, `detail` column included. That is the defect, not the
+/// protocol: English wording is inside a peer-visible identity, so removing a
+/// false claim costs a version. Asked as `Q122`; measured by poison — pluralising
+/// one word in `detail::MESSAGE_CLEAR` moves 83 rows.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 194;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -2505,9 +2505,15 @@ fn run_throw_diag() {
     let mut refusals = 0;
     for attempt in 0..3 {
         match probe.fire(Pulse::Throw(&params), 0, probe.centre) {
+            // ⚠ `tumbled`, `entry_percent` and `effective_percent` are printed
+            // here because they were CAPTURED and read by nothing — three fields
+            // whose doc comments state exactly why each was worth recording,
+            // written every trial and never surfaced. A measurement a binary
+            // takes and does not emit is not a measurement.
             Some(t) => println!(
-                "   attempt {attempt}: Some — ko={} resolved_launch={:?}",
-                t.ko, t.resolved_launch
+                "   attempt {attempt}: Some — ko={} resolved_launch={:?} \
+                 tumbled={} entry%={} effective%={}",
+                t.ko, t.resolved_launch, t.tumbled, t.entry_percent, t.effective_percent
             ),
             None => {
                 refusals += 1;

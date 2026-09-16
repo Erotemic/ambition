@@ -391,11 +391,18 @@ impl RoomFeatureConstructionReceipt {
     }
 
     /// What the primary actor lane committed, keyed by stable identity.
-    pub fn construction(
+    ///
+    /// ⚠ `#[cfg(test)]`: nothing in production reads this today, and leaving it
+    /// ungated made it a `never used` warning — which CI turns into an error
+    /// through `RUSTFLAGS: -D warnings`. Gating says WHICH build wants it
+    /// instead of silencing the question.
+    #[cfg(test)]
+    pub(crate) fn construction(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::construction::ConstructionReceipt {
         &self.construction
     }
+
 }
 
 /// A room plan's `Debug` leads with the construction plan's canonical dump —
@@ -1096,7 +1103,12 @@ impl RoomFeatureConstructionPlan {
     /// ask for anything else: a room whose construction rows were hidden while
     /// its capability lanes went live is a half-visible scene, which is the state
     /// the candidate mechanism exists to prevent.
-    pub fn spawn(
+    /// ⚠ `pub(crate)`, matching the receipt it returns. The construction
+    /// boundary was narrowed to this crate during the post-A10 demolition and
+    /// this entry point was left `pub`, which made the method reachable at a
+    /// visibility its own return type is not — the exact warning CI turns into
+    /// an error.
+    pub(crate) fn spawn(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,

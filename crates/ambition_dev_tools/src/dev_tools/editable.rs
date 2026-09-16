@@ -1432,7 +1432,6 @@ mod adapter_tests {
 #[cfg(test)]
 mod player_stats_domain_tests {
     use super::*;
-    use bevy::prelude::*;
 
     /// The three systems in the order the composition runs them: propose, then
     /// publish, then the body→inspector mirror.
@@ -1817,7 +1816,6 @@ mod player_stats_domain_tests {
 #[cfg(test)]
 mod body_profile_domain_tests {
     use super::*;
-    use bevy::prelude::*;
 
     fn app_with_the_body_profile_domain() -> App {
         let mut app = App::new();

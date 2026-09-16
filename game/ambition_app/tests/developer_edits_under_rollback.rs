@@ -339,7 +339,7 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
 fn the_canary_rig_has_no_developer_edit_road_to_admit() {
     use bevy::ecs::schedule::Schedules;
 
-    let mut sim = rollback_sim();
+    let sim = rollback_sim();
     let world = sim.world();
     let schedules = world.resource::<Schedules>();
     let pre_update = schedules

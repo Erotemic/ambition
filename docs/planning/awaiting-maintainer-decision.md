@@ -1128,6 +1128,57 @@ agreed value for the match, or publish a value per participant/seat as an
 accessibility policy. Both are mechanically viable; the product rule decides the
 shape of the admitted authority.
 
+## Q135 — should GGRS start before the durable restore has finished?
+
+`maintain_local_session` starts the rollback session on
+`session_world_entity(world).is_some()`. The durable-restore chain —
+`adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`,
+`complete_durable_restore` — waits for a primary player BODY, which is a later
+fact. Both live in top-level `Update` with **no ordering edge between them.**
+
+**MEASURED 2026-09-16**, `probe_when_the_durable_restore_latch_flips_against_ggrs_start`
+in `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
+
+| | session world | primary body | GGRS live | latch set |
+|---|--:|--:|--:|--:|
+| first frame true | 1 | 1 | 1 or 2 | 2 |
+
+- A sampler with an explicit `.after(complete_durable_restore)` edge finds the
+  GGRS session **already live** at the instant the latch is set.
+- `RollbackFrameCount` reads **1** there — timeline frame one, inside a check
+  distance of four, so a resimulation reaches back past the write.
+- All three restored resources are `rollback_resource_clone_checksum`
+  registrations. A rewind across frame 1 restores them to their pre-write
+  snapshot, and `Update` does not re-run.
+- The gap is not stable: adding ONE exclusive system to `Update` moved the
+  session start from frame 2 to frame 1 and shortened the boot by a frame. Each
+  configuration is repeatable (3/3 and 6/6) and they disagree.
+
+⇒ So the session-scope waivers' *"the write precedes the timeline"* is not merely
+unavailable here; **the reverse is what happens.**
+
+**THE RULING.** Either
+
+1. **GGRS must not start until the durable restore is complete.** Gate
+   `maintain_local_session` on `SaveRestored`, or on a broader "the session world
+   is finished loading" fact, so a synchronised timeline never begins over a world
+   that is still being filled in. This is the semantically clean answer and it is
+   a lifecycle change in `ambition_platformer2d_rollback_ggrs::local_session`.
+   ⚠ It needs a decision about what else belongs behind the same gate, or the next
+   loader to appear reopens this.
+2. **The restore chain must move inside the rewinding schedule**, so a rewind
+   re-derives what it wrote. That needs `SaveRestored` to become rollback state
+   and the "one-shot at boot" shape to survive being replayed.
+3. **The writes do not matter**, which needs an argument this row could not find:
+   they are hashed, they are inside the window, and nothing re-applies them.
+
+⚠ **AND THE DETECTOR IS GREEN FOR A REASON THAT IS NOT SAFETY.**
+`no_registered_type_is_written_outside_the_rewinding_schedule` can see these types
+— they are value-probed — and passes because the harness boots with NO SAVE FILE,
+so `adopt_the_ledger` writes the same empty value it found. The comparison is
+between two identical censuses. **Whoever takes this needs a SEEDED save; nobody
+has built one.** Do not quote that arm's green against this question.
+
 ## Q134 — is a dialog visit count something two peers must agree on?
 
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)

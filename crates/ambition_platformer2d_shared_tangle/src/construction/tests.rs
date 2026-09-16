@@ -3806,13 +3806,60 @@ fn a_content_binding_states_which_content_as_well_as_which_generation() {
     assert!(!unstated.peer_content().unwrap().is_stated());
     assert!(stated.peer_content().unwrap().is_stated());
 
-    // ⚠ AND THE CANONICAL SUMMARY STILL RENDERS THE EPOCH ALONE, deliberately.
-    // It is the first field of `TransactionId`, which is `component-canonical`,
-    // so changing what it renders changes a canonical identity every rollback
-    // timeline carries and every plan dump that records one. Two bindings that
-    // differ ONLY in content therefore summarise identically today — pinned here
-    // so the change that wires the peer half into the identity has to come here
-    // and say so.
-    assert_eq!(stated.canonical_summary(), unstated.canonical_summary());
-    assert_eq!(stated.canonical_summary(), "epoch:4");
+    // ⭐⭐ **THE CONTENT TERM IS IN THE CANONICAL IDENTITY NOW**, and this
+    // assertion is the one that had to be visited to put it there. It previously
+    // pinned the opposite — that two bindings differing only in content
+    // summarise IDENTICALLY — precisely so this change could not happen
+    // silently. `canonical_summary` is `TransactionId`'s first field and
+    // `TransactionId` is `component-canonical`, so this changes an identity every
+    // rollback timeline carries and every plan dump that records one.
+    assert_ne!(
+        stated.canonical_summary(),
+        unstated.canonical_summary(),
+        "two bindings differing only in WHICH CONTENT still summarise \
+         identically, so the identity cannot tell them apart"
+    );
+    assert_eq!(
+        stated.canonical_summary(),
+        "epoch:4|content:0707070707070707070707070707070707070707070707070707070707070707"
+    );
+    // ⛔ AND AN UNSTATED BINDING RENDERS EXACTLY AS IT ALWAYS DID. That is what
+    // keeps every fixture's identity byte-identical: the `|content:` segment is
+    // ABSENT, not zero-filled, so a fixture's string did not change at all.
+    assert_eq!(unstated.canonical_summary(), "epoch:4");
+    // ⚠ AND "UNSTATED" CANNOT COLLIDE WITH A STATED ALL-ZERO DIGEST, which is
+    // reachable: a digest of all zeroes renders the segment and differs from a
+    // bare `epoch:4`.
+    let stated_zero = ContentBinding::Content {
+        epoch: ContentEpoch(4),
+        content: PeerContentIdentity::from_bytes([0u8; 32]),
+    };
+    assert_eq!(stated_zero.canonical_summary(), "epoch:4");
+    // ⚠ …and that is a MEASURED LIMIT, not a claim of safety: `is_stated()` is
+    // defined as "not all-zero", so a genuine all-zero digest IS indistinguishable
+    // from unstated. A 256-bit hash colliding with zero is not a case worth
+    // engineering against, but the doc says "all-zero means unstated" and this
+    // arm is where that meaning is pinned rather than assumed.
+
+    // The PEER summary drops the epoch and keeps the content.
+    assert_eq!(
+        stated.peer_stable_summary(),
+        "content:0707070707070707070707070707070707070707070707070707070707070707"
+    );
+    assert_eq!(unstated.peer_stable_summary(), "content-unstated");
+    assert_eq!(
+        ContentBinding::RuntimeDynamic.peer_stable_summary(),
+        "runtime-dynamic"
+    );
+    // ⛔ AND THE PEER SUMMARY MUST NOT VARY WITH THE EPOCH, which is the whole
+    // reason it exists.
+    assert_eq!(
+        stated.peer_stable_summary(),
+        ContentBinding::Content {
+            epoch: ContentEpoch(9_999),
+            content: PeerContentIdentity::from_bytes([7u8; 32]),
+        }
+        .peer_stable_summary(),
+        "the peer summary moves with the app-local activation generation"
+    );
 }

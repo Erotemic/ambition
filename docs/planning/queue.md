@@ -235,11 +235,26 @@ string is compared between peers.
   `PreparedContent::fingerprint()` — which sits beside `epoch()`, so a site that
   can state the local generation can always state which content it is a
   generation OF. ⚠ `canonical_summary()` still renders the epoch ALONE, and an
-  arm pins that two bindings differing only in content summarise identically:
-  that string is `TransactionId`'s first field and `TransactionId` is
-  `component-canonical`, so changing it changes a canonical identity every
-  rollback timeline carries. Wiring the peer half into the identity, and giving
-  `TransactionId` its projection, is the next and separate step.
+  arm pinned that two bindings differing only in content summarised identically,
+  so that the change could not happen silently.
+  ✔ **AND THAT CHANGE HAS NOW BEEN MADE (schema 192).** `canonical_summary`
+  renders `epoch:N|content:<64 hex>` when a content identity is STATED, so
+  `TransactionId` carries a peer-stable term for the first time. ⚠ The segment is
+  ABSENT rather than zero-filled when unstated, so a binding built outside a
+  prepared session renders `epoch:N` exactly as before and every fixture's
+  identity is byte-identical — only production strings moved.
+  ⛔ **THE PROJECTION IS STILL NOT LANDED, and the reason is structural rather
+  than pending work.** `TransactionId` is a bare `String` whose `from_raw` is the
+  codec's decode half, so a checksum function — which receives only
+  `&TransactionId` — must either PARSE the string or store a second field. The
+  string cannot be parsed unambiguously: an unstated `epoch:4` and a
+  `runtime-dynamic` binding both lack the `|content:` segment while meaning
+  different things, and `from_raw` is called with synthetic values like
+  `"t/candidate"` in tests, over which any parser returns something rather than
+  refusing. ⇒ The honest shape is to restructure `TransactionId` into its parts
+  with two renderings over one mint — the `MatchInstance` pattern — which is a
+  61-use change and the next reviewable step. `ContentBinding::peer_stable_summary`
+  is the term it will project, and it is landed and poisoned already.
 
 ⭐ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15.** It
 said *"an epoch is not rollback-registered. Two peers never compare sequences, so

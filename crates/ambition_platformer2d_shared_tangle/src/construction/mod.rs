@@ -726,7 +726,33 @@ impl ContentBinding {
     /// reviewable change that also gives `TransactionId` its projection.
     pub fn canonical_summary(self) -> String {
         match self {
+            // ⭐ THE CONTENT TERM IS RENDERED ONLY WHEN IT IS STATED, and that is
+            // what keeps a fixture's identity byte-identical to what it was. A
+            // binding built outside a prepared session has no content to name, so
+            // it renders `epoch:N` exactly as before; production renders
+            // `epoch:N|content:<64 hex>`.
+            //
+            // ⚠ THE TWO CANNOT COLLIDE. "Unstated" is the ABSENCE of the
+            // `|content:` segment, not an all-zero digest — a stated all-zero
+            // digest renders the segment and differs from a bare `epoch:N`.
+            Self::Content { epoch, content } if content.is_stated() => {
+                format!("{epoch}|{content}")
+            }
             Self::Content { epoch, .. } => format!("{epoch}"),
+            Self::RuntimeDynamic => "runtime-dynamic".to_string(),
+        }
+    }
+
+    /// The PEER-STABLE part of this binding's rendering, for a projection.
+    ///
+    /// ⛔ The epoch is excluded because it is an app-local activation count; the
+    /// content identity is kept because two Apps holding one prepared definition
+    /// agree on it. `RuntimeDynamic` has no content and answers its own constant,
+    /// which is peer-stable by construction.
+    pub fn peer_stable_summary(self) -> String {
+        match self {
+            Self::Content { content, .. } if content.is_stated() => format!("{content}"),
+            Self::Content { .. } => "content-unstated".to_string(),
             Self::RuntimeDynamic => "runtime-dynamic".to_string(),
         }
     }

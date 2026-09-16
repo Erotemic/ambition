@@ -173,6 +173,17 @@ room`, so any two ROOMS differ whatever the content term says.
 `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` asserts
 on that.
 
+⭐⭐ **AND THE AGREEMENT ARM'S BLINDNESS IS MEASURED, NOT INFERRED.** Poison
+`ContentBinding::canonical_summary` to render a STATED BUT CONSTANT content term
+(`format!("{epoch}|pinned")`) and all six arms of `id_peer_audit` pass, the
+agreement arm included. The disagreement arm added to
+`an_edited_pack_reaches_the_cast_the_shipped_composition_plays` — one process
+through two prepared fingerprints via a materially changed reload — is the only
+thing in the workspace that reddens. ⚠ One process at two fingerprints is not two
+peers; it is a real test of discriminating power because the projection already
+excludes the epoch and the session, leaving the content term the only thing that
+can move. Two hosts agreeing needs the P2P session N2 records as absent.
+
 ⛔⛤ **AND THE SPELLING WAS CLOSED, NOT JUST THE ONE ROAD — THE COMMENT SAYING SO
 WAS FALSE FOR A DAY.** `ContentBinding::content`'s doc read *"`Content` used to be
 reachable by struct literal"* while **the literal was still spelled at 25 sites**

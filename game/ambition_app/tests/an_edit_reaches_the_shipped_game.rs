@@ -85,6 +85,28 @@ fn the_only_prepared_epoch(app: &mut bevy::prelude::App) -> u64 {
 }
 
 /// The shell's activation counter — a NEW id means the route re-activated.
+/// Every distinct peer-stable CONTENT term the live world's construction stamps
+/// carry, ignoring the roads that legitimately name no content.
+///
+/// ⛔ THE TERM, NOT `peer_stable_checksum`. The projection folds `content ⊗
+/// room`, so any two ROOMS differ whatever their content term says — which is
+/// how a content term collapsing to a constant hid inside a projection that
+/// still behaved well. `TransactionId::peer_content_term` is the one rule that
+/// decides which content two peers compare.
+fn stamped_content_terms(app: &mut bevy::prelude::App) -> Vec<String> {
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_platformer2d::platformer::construction::TransactionId>();
+    let mut out: Vec<String> = query
+        .iter(app.world())
+        .map(|stamp| stamp.peer_content_term().to_string())
+        .filter(|term| term != "runtime-dynamic")
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
 fn activation_id(app: &bevy::prelude::App) -> Option<u64> {
     app.world()
         .get_resource::<ShellRouter>()
@@ -176,6 +198,12 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
         .generation();
     let epoch_before = the_only_prepared_epoch(&mut app);
+    // ⛔⛤ THE SIXTEENTH ID-PEER ROAD, TAKEN HERE BECAUSE THIS IS THE ONLY
+    // FIXTURE THAT HOLDS TWO PREPARED FINGERPRINTS. See the assertion at the
+    // end of this arm: every other construction-provenance guard asserts two
+    // hosts AGREE, and an equality assertion is satisfied by every function that
+    // throws information away.
+    let provenance_before = stamped_content_terms(&mut app);
 
     // ── an edit, in memory, TOUCHING TWO FAMILIES AT ONCE ───────────────────
     // ⭐⭐ **TWO FAMILIES IN ONE CANDIDATE IS THE POINT, AND IT IS THE 2026-09-12
@@ -405,6 +433,62 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         epoch_after, epoch_before,
         "the prepared session kept generation N's content epoch, so a rollback \
          timeline would accept N's snapshots into N+1's world"
+    );
+
+    // ⛔⛤ **AND THE CONSTRUCTION PROVENANCE MUST HAVE MOVED WITH THE CONTENT —
+    // THE ONE ID-PEER ARM THAT IS A DISAGREEMENT RATHER THAN AN AGREEMENT.**
+    //
+    // `TransactionId::peer_stable_checksum` keeps WHICH CONTENT and WHICH ROOM
+    // and drops the app-local epoch and the session stamp. Every other guard
+    // over it asserts two hosts holding the SAME content project the same value
+    // — and on 2026-09-16 three production roads were found to have collapsed
+    // the content term to the constant `"content-unstated"`, which agrees with
+    // itself perfectly. The defect made every agreement arm MORE true.
+    //
+    // ⇒ **AN EQUALITY ASSERTION `f(a) == f(b)` IS SATISFIED BY EVERY `f` THAT
+    // THROWS INFORMATION AWAY, THE CONSTANT FUNCTION INCLUDED.** So the claim
+    // needs its other half: content that DIFFERS must project differently.
+    //
+    // ⭐⭐ **AND THAT IS MEASURED HERE, NOT ARGUED.** Poison
+    // `ContentBinding::canonical_summary` to render a STATED BUT CONSTANT
+    // content term (`format!("{epoch}|pinned")`) and every one of
+    // `id_peer_audit`'s SIX arms passes — including
+    // `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+    // whose whole subject this is. This assertion is the only thing in the
+    // workspace that reddens. ⇒ The campaign's standing guard has no power over
+    // a construction identity that stops discriminating, and this arm is where
+    // that power lives.
+    //
+    // ⚠ ONE PROCESS AT TWO FINGERPRINTS, NOT TWO PEERS, AND THE DIFFERENCE IS
+    // STATED RATHER THAN GLOSSED. A materially changed reload is the only road
+    // in this workspace that puts two distinct prepared fingerprints inside one
+    // run, and the projection excludes the epoch and the session — so the ONLY
+    // term that may move here is the content one. That makes this a real test of
+    // the projection's discriminating power; it is not a test of two hosts
+    // agreeing, which needs the P2P session `N2` records as absent.
+    let provenance_after = stamped_content_terms(&mut app);
+    assert!(
+        provenance_before.iter().all(|term| term != "content-unstated")
+            && !provenance_before.is_empty(),
+        "before the reload the live world's construction stamps named no prepared \
+         content ({provenance_before:?}), so the comparison below has no working \
+         reference and would pass on two collapsed constants"
+    );
+    assert!(
+        provenance_after.iter().all(|term| term != "content-unstated")
+            && !provenance_after.is_empty(),
+        "after the reload the live world's construction stamps named no prepared \
+         content ({provenance_after:?}) — the rebuilt roots lost the content \
+         identity the reload published"
+    );
+    assert_ne!(
+        provenance_before, provenance_after,
+        "the reload moved the prepared fingerprint from {} to {} and every root's \
+         construction provenance projected the SAME value \
+         ({provenance_before:?}). So `TransactionId::peer_stable_checksum` cannot \
+         tell two mechanically different worlds apart, and every arm asserting \
+         that two hosts AGREE about it would still be green.",
+        base, candidate.fingerprint
     );
 }
 

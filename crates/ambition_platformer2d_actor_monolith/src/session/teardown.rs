@@ -233,6 +233,37 @@ pub struct SessionScopedResources<'w> {
 ///
 /// ⭐ THE CORRECTNESS EDGE. Runs in [`SessionScopeSet::Activate`], before any
 /// provider constructs the world these values describe.
+///
+/// ⛔⛤ **SIXTEEN OF THESE RESOURCES ARE ROLLBACK-REGISTERED AND THIS IS AN
+/// ORDINARY `Update` SYSTEM, WHICH THE ROLLBACK-MUTATOR GUARD ASKS ABOUT.** Its
+/// question is whether a write is replayed with the value it mutates, and two
+/// things can answer it: the write is inside the rewind window, or the write is
+/// at a point no rewind crosses. This is the second, and the ordering that
+/// establishes it spans three crates rather than living here:
+///
+/// - `ambition_game_shell`'s session plugin chains
+///   `(GameplaySessionSet::Bridge, SessionScopeSet::Activate,
+///   GameplaySessionSet::Providers)` in `Update`;
+/// - `adopt_candidate_platformer_session`, which makes a prepared root the LIVE
+///   one, is in `GameplaySessionSet::Providers`;
+/// - `maintain_local_session` starts GGRS only when
+///   `session_world_entity(world).is_some()`.
+///
+/// ⇒ A scope's rollback timeline cannot exist until that scope's world root is
+/// live, and the root is not live until after this runs. These writes land
+/// before there is a frame zero to rewind to.
+///
+/// ⚠ **IT RESTS ON THE A10 CANDIDATE STAYING HIDDEN.** A10.5 prepares the
+/// session world while the route is still PENDING, so a root for the incoming
+/// scope exists before this system runs. It carries `InactiveCandidate`, a Bevy
+/// disabling component, so the default query behind `session_world_entity`
+/// cannot see it. The session root's canonical `SimId` rests on the same fact;
+/// if candidate hiding changes, both need re-deriving.
+///
+/// ⛔ **NOT A REBASE ARGUMENT.** `LifecycleIntent` has two variants,
+/// `Transition` and `ReconstituteRoom`, and a session activation records
+/// neither — so the confirmed-commit GGRS rebase does not fire here and an
+/// argument built on one would be false.
 pub fn reset_session_scoped_resources_on_activation(
     mut activated: MessageReader<SessionScopeActivated>,
     resources: SessionScopedResources,
@@ -249,6 +280,17 @@ pub fn reset_session_scoped_resources_on_activation(
 /// retired session's latches sitting in memory for the whole frontend visit.
 /// [`reset_session_scoped_resources_on_activation`] is what makes the next
 /// session safe, and it does not depend on this having run.
+///
+/// ⚠ **SO ITS ANSWER TO THE ROLLBACK-MUTATOR GUARD IS WEAKER THAN ITS SIBLING'S,
+/// AND DELIBERATELY STATED AS SUCH.** The sibling's writes precede the timeline;
+/// these land on one that is being DISCARDED. The set chain `RetireAuthority ->
+/// Cleanup` looks like it stops the session first and does not:
+/// `retire_rollback_authority_with_its_scope` does its work through
+/// `commands.queue`, so the stand-down applies at a later flush and the live
+/// `AmbitionGgrsSession` may still be installed while this runs. A set edge
+/// orders when a system RUNS, not when its effect LANDS. Nothing reads the
+/// result, because the next session's correctness comes from the activation edge
+/// above.
 pub fn reset_session_scoped_resources_on_retire(
     mut retired: MessageReader<SessionScopeRetired>,
     active: bevy::prelude::Res<

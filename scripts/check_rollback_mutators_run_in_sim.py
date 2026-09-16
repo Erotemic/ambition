@@ -131,6 +131,39 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # which is a strong claim and should read like one — so both entries below cite
 # the code that makes them true rather than asserting it.
 WAIVERS: dict[str, str] = {
+    # ── added 2026-09-16, ID-PEER ────────────────────────────────────────────
+    # The two session-scoped resource resets. They answer this guard in two
+    # DIFFERENT ways, which is why they are two entries and not one: the first
+    # writes before the timeline exists, the second writes to one that is ending.
+    "reset_session_scoped_resources_on_activation": (
+        "\u2b50 THE WRITE PRECEDES THE TIMELINE IT WOULD OTHERWISE MUTATE, by a "
+        "chain rather than by a rebase. `ambition_game_shell/src/session.rs` "
+        "configures `(GameplaySessionSet::Bridge, SessionScopeSet::Activate, "
+        "GameplaySessionSet::Providers).chain()`; "
+        "`adopt_candidate_platformer_session` makes a prepared root LIVE in "
+        "`Providers`; and `maintain_local_session` starts GGRS only when "
+        "`gameplay_active`, which `local_session.rs` defines as "
+        "`session_world_entity(world).is_some()`. So no GGRS session exists for "
+        "this scope until after `Activate` has run. \u26a0 The invariant depends on "
+        "a prepared-but-unadopted root staying INVISIBLE: A10.5 builds it "
+        "before `RouteActivated`, and only its `InactiveCandidate` disabling "
+        "component keeps `session_world_entity` from seeing it. \u26d4 NOT a rebase "
+        "argument: `LifecycleIntent` has two variants, `Transition` and "
+        "`ReconstituteRoom`, and a session activation records neither."
+    ),
+    "reset_session_scoped_resources_on_retire": (
+        "\u26a0 A DIFFERENT CLAIM FROM ITS ACTIVATION SIBLING. \u26d4 IT IS NOT THE "
+        "CHAIN ARGUMENT, AND `SessionScopeSet::RetireAuthority -> Cleanup` LOOKS "
+        "LIKE IT IS: `retire_rollback_authority_with_its_scope` stops the session "
+        "through `commands.queue(...)`, a DEFERRED command, so the `Cleanup` "
+        "reset can run while the outgoing `AmbitionGgrsSession` is still "
+        "installed \u2014 set order does not order what one side defers. The waiver "
+        "is instead that the timeline is ENDING: the function's own doc says "
+        "'HYGIENE, NOT CORRECTNESS ... `reset_session_scoped_resources_on_"
+        "activation` is what makes the next session safe, and it does not "
+        "depend on this having run.' A write to a discarded timeline corrupts "
+        "no comparison anyone will make."
+    ),
     # ── added 2026-09-02 with the widening, triaged by ambition-df ───────────
     # These six appeared the moment `rollback_types` stopped reading one file.
     # Each is waived with the reason its drift across a rewind does not matter,

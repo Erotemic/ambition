@@ -183,6 +183,41 @@ observe actual linker process invocations with a matched tracing/wrapper setup.
 An unchanged executable hash does not prove the linker was never run. Capturing
 only cargo check omits codegen/linking and cannot close edit-to-play acceptance.
 
+#### M0 result: graph position costs ~2x, and the RATIO survived a change of machine
+
+The first B7 number measured twice on deliberately unlike hosts. Both arms edit
+one file and run `cargo check -p ambition_app`; only the edited crate's position
+in the dependency graph differs — `actor_monolith` (the crate most work touches)
+against `platformer2d_core` (the bottom of the graph, worst-case fan-out).
+
+| host | cores | `-j` cap | `check` | `check-leaf` | ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 30-core dev box | 30 | **2** | 17.15 s | 36.66 s | 2.14x |
+| calculex VM | 6 | uncapped | 11.10 s | 21.21 s | **1.91x** |
+
+⭐ **THE ABSOLUTE NUMBERS ARE NOT COMPARABLE AND THE RATIO NEARLY IS.** A
+30-core host throttled to two jobs and a 6-core host running free are different
+machines in every way the wall clock cares about, and the second is FASTER in
+absolute terms despite having a fifth of the cores — which is what a `-j2` cap
+does. The ratios differ by ~11%. ⇒ Consistent with the graph-position penalty
+being a property of the DEPENDENCY GRAPH rather than of the machine, which is
+what would make it worth optimising once instead of per-host.
+
+⚠ **STATED AS CONSISTENT-WITH, NOT ESTABLISHED.** Two reps per arm on the
+calculex side, one pair of scenarios, one edit class (`append-private-fn`), and
+the two hosts differ in cap AND core count together, so neither variable is
+isolated. It is a second regime agreeing, not a controlled experiment.
+
+⚠ **AND ONE `check` REP IS DISCARDED FROM THE RATIO.** Its `warm_noop` read
+7.25 s against a 0.73 s expectation because a merge landed between building the
+subject and measuring it. The ratio uses the clean rep of each arm. See
+`dev/compile_telemetry_schema.md` on why a `warm_noop` that is not warm
+invalidates every duration beside it.
+
+Reproduce: `python3 scripts/compile_cost.py --scenario check` and
+`--scenario check-leaf`, on a settled tree, and compare only rows whose
+`warm_noop_seconds` is at the machine's warm floor.
+
 Existing commands to start inspection on a configured developer machine:
 
 ```bash

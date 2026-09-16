@@ -133,10 +133,18 @@ impl SimId {
     /// ⭐ AND THE FIRST TERM IS THE MATCH'S ORDINAL WITHIN THE AGREED SESSION,
     /// which is why the parameter is no longer called `activation`. It restarts
     /// at zero every session, so session A's match 0 and session B's match 0
-    /// mint the same namespace — and that is sound for the same reason the match
-    /// projections are: the two never coexist. A spawned item is both
-    /// `SessionScopedEntity` and `MatchScoped`, so nothing session A minted is
-    /// alive when session B's first match opens.
+    /// mint the same namespace — sound for the same reason the match projections
+    /// are: the two never coexist. A match-spawned item is a `RoomScopedEntity`
+    /// (`items::match_spawn` spawns it with `spawn_room_scoped`), and a session
+    /// change rebuilds the world, so nothing session A minted is alive when
+    /// session B's first match opens.
+    ///
+    /// ⚠ **IT IS NOT `MatchScoped`, WHICH THIS DOC CLAIMED FOR A DAY.** That
+    /// marker and its sweep belong to the smash ruleset and cover five spawn
+    /// sites — bomb, bolt, mine, portal, spring. A match item is not one of
+    /// them; it is ended by the room, not by the match. The namespace claim
+    /// above does not need it, and whether the sweep SHOULD cover items is a
+    /// ruleset question, not an identity one.
     pub fn match_spawn(match_ordinal: u64, tick: u64) -> Self {
         Self(format!("match:{match_ordinal}/spawn/{tick}"))
     }

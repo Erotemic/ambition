@@ -56,6 +56,24 @@ MARKER = "\n#[allow(dead_code)]\nfn _compile_cost_probe(x: u32) -> u32 {{ x.wrap
 #: what makes that limit visible instead of assumed.
 MARKER_EDIT_CLASS = "append-private-fn"
 
+# The same probe made PUBLIC. A private item is crate-internal, so a dependent
+# may be able to reuse its cached result; an exported one changes what the crate
+# offers.
+PUBLIC_MARKER = (
+    "\npub fn _compile_cost_public_probe(x: u32) -> u32 {{ x.wrapping_add({salt}) }}\n"
+)
+
+#: ⛔ THE POINT IS THE CONTRAST, NOT THIS CLASS. `edit_class` has been recorded
+#: since 2026-09-15 and every row ever written carried ONE value, so the column
+#: documented a limit instead of answering a question — the corpus could not say
+#: whether the class matters because it had no second class to compare.
+#:
+#: ⚠ AND THE ANSWER MAY WELL BE "NOT MUCH". `rustc` tracks dependencies far more
+#: finely than "the crate changed", so a private and a public addition can cost
+#: the same. That is a RESULT worth recording, and it is the reason to pair the
+#: scenarios rather than to assume the public one is the expensive arm.
+PUBLIC_MARKER_EDIT_CLASS = "append-public-fn"
+
 
 @dataclass(frozen=True)
 class Scenario:
@@ -66,6 +84,10 @@ class Scenario:
     env: dict[str, str] = field(default_factory=dict)
     #: Overridable so a future scenario that edits differently must SAY so.
     edit_class: str = MARKER_EDIT_CLASS
+    #: The text appended to `edit`. Paired with `edit_class`: a scenario that
+    #: changes the marker without changing the class writes a row whose own
+    #: column contradicts it.
+    marker: str = MARKER
 
 
 SCENARIOS: list[Scenario] = [
@@ -80,6 +102,17 @@ SCENARIOS: list[Scenario] = [
         edit="crates/ambition_platformer2d_core/src/lib.rs",
         command=["cargo", "check", "-p", "ambition_app"],
         why="the same gate from the BOTTOM of the graph — the worst-case fan-out",
+    ),
+    # ⭐ THE MATCHED PAIR. Same file, same command, same graph position as
+    # `check` — only the visibility of the appended item differs, which is what
+    # makes the two rows subtractable.
+    Scenario(
+        name="check-pub",
+        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        command=["cargo", "check", "-p", "ambition_app"],
+        why="`check`'s control for edit CLASS: an exported item, not a private one",
+        edit_class=PUBLIC_MARKER_EDIT_CLASS,
+        marker=PUBLIC_MARKER,
     ),
     Scenario(
         name="test-build",
@@ -337,7 +370,7 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
 
         if verbose:
             print(f"  editing {scenario.edit} and rebuilding …", flush=True)
-        target.write_bytes(original + MARKER.format(salt=17).encode("utf-8"))
+        target.write_bytes(original + scenario.marker.format(salt=17).encode("utf-8"))
         edited = run_timed(scenario.command, merged_env)
     finally:
         target.write_bytes(original)

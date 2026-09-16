@@ -68,11 +68,28 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-15):** the roads by which host-local identity reached
-peer-compared state are being closed one at a time. ⛔ **A GPT architecture
-review on 2026-09-15 found that the first attempt replaced one host-local term
-with another**, and the table below is written to be re-checkable rather than
-reassuring.
+**Current state (2026-09-16): NINE OF THE TEN NAMED ROADS ARE CLOSED, and the
+tenth is the absolute `SimTick`, which is netcode and wants a maintainer decision
+before anyone starts.** A count rather than a completeness word, deliberately: a
+tenth road found tomorrow makes this row "nine closed, a tenth found" instead of
+making it false.
+
+⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
+ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
+turn — the activation tick for the session id, then the session-relative ordinal
+for the activation tick, each correct one layer up and wrong one layer down. The
+table below is written to be re-checkable rather than reassuring, and every row
+names the arm that holds it.
+
+⭐ **THE TWO THAT CLOSED LAST CLOSED WITHOUT A NEW AUTHORITY, and that is the
+pattern worth carrying into whatever is next.** The cross-session match identity
+needed a stale stamp to be impossible, not a longer checksum — and the one owner
+of "resources that must not survive a session" already existed with an exhaustive
+destructure; four types were simply not in it. The session root's identity needed
+no peer-stable session identity at all — the local count was disambiguating
+nothing, because `shell_host_lifecycle` had been asserting `session_roots == 1`
+in green for weeks. ⇒ Ask who ORDERS and who OWNS a thing before designing a type
+to carry it.
 
 | road | state |
 |---|---|
@@ -176,15 +193,32 @@ provenance contract, so the dependency stayed narrow — but it is wider than it
 (`shared_tangle/src/construction/tests.rs`) records the divergence and flips the
 day the identities are split.
 
-**What the acceptance has, and what it lacks.** A two-App witness exists:
-`two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road`
-(`game/ambition_app/tests/id_peer_audit.rs`) builds two real Apps with
-`build_visible_app`, ages one by extra select-route visits, asserts their
-activation counters DIFFER, and asserts the shipped match-start road publishes
-the same roster from both. ⚠ It ages the host along the SHELL ACTIVATION axis
-only. The construction poison the review asked for — A burns a candidate content
-epoch, B does not, both construct identical content, canonical snapshots must
-agree — is a different axis and is still unwritten.
+**What the acceptance has — BOTH AXES, as of 2026-09-16.** Two two-App witnesses
+live in `game/ambition_app/tests/id_peer_audit.rs`, each building real Apps with
+`build_visible_app` and each asserting its own premise before comparing anything.
+
+1. `two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road`
+   ages one host along the SHELL ACTIVATION axis by extra select-route visits,
+   asserts the activation counters DIFFER, and asserts the shipped match-start
+   road publishes the same roster from both.
+2. `two_hosts_at_different_content_epochs_share_one_construction_provenance` is
+   the CONSTRUCTION axis the review asked for and this paragraph used to record
+   as unwritten. ⭐ The burn is the shipped road rather than a poked resource:
+   content is prepared per load transaction and `prepare_platformer_content` ends
+   `builder.finish(epochs.allocate(), ..)`, so entering a game, quitting to the
+   title and entering again allocates a second `ContentEpoch` for byte-identical
+   content. Observed epochs 3 against 1. It compares the `TransactionId` PEER
+   PROJECTIONS, which must agree, while the local stamps still differ — the
+   latter held by
+   `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`.
+
+⚠ **THE SECOND ARM'S POPULATION IS ONE VALUE, AND IT SAYS SO.** The projection is
+`binding ⊗ room`, so every entity constructed into one room shares a checksum; an
+undeduped comparison prints eighteen identical numbers and reads like an
+eighteen-wide population. It is deduped, and the anti-vacuity floor is written
+against the deduped set. Found by reading what the POISON printed — the passing
+run could not show it, because an `assert_eq` over two equal vectors says nothing
+about their structure.
 
 **Next implementation, in order.** (1) ✔ **DONE** — the peer-agreed match
 ordinal; `ActiveMatch` carries which match of its session it is, minted by a

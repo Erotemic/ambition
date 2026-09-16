@@ -274,6 +274,43 @@ derived from source rather than listed in the guard, so the review that adds a
 member is where the decision gets recorded. Poison-verified three ways in the
 shipped files, restored by md5.
 
+### AND FOR THE BIG FAMILY: 22 OF `SessionScopedResources`' 29 ARE ROLLBACK STATE
+
+MEASURED 2026-09-16 with the same widened scan. **22 of 29 are state-registered**;
+seven are not. ⇒ **This is the number that prices C03**, and it says the campaign
+is mostly a rollback-state migration rather than a storage tidy-up: step 3 applies
+to three quarters of the population, and step 6 ("remove the old compensation only
+after the new owner is the sole authority") has a wire-format identity attached to
+each of those 22.
+
+⚠ **A NARROW SCAN SAID SIX.** The first pass of this measurement asked about
+`rollback_resource_clone_checksum` only and reported 6 registered / 23 not —
+which would have priced this campaign as a storage move with a few rollback
+values attached, the opposite of the truth. Same defect as the checkpoint family's
+"four", four times larger.
+
+⭐ **ONE KEY DELIBERATELY DOES NOT MATCH ITS TYPE AND IT IS NOT A DEFECT.**
+`RoomTransitionCooldown` registers as `resource.sandbox_sim_state`. Source says
+why, beside it: *"THE STABLE NAMES DO NOT MOVE … identities on the wire; the
+schema fingerprint deliberately excludes owner labels so an ownership repoint is
+not a wire-format event."* ⇒ C03 must not "tidy" a rollback key to match a type
+name. A key is an identity two peers agree on, not a label.
+
+**The seven with no state registration**, listed so step 2 has a subject —
+`ControlledSubject`, `EncounterView`, `BossEncounterRegistry`,
+`AuthoredOccurrences`, `CutsceneTriggerQueue`, `CutsceneAdvanceRequest`,
+`CutsceneSkipHold`.
+
+⚠ **THIS LIST IS MEASURED; THE REASON EACH IS ABSENT IS NOT.** REASONED only, and
+recorded as a question rather than a classification: several look like authored
+catalogs or presentation-side cutscene input, which would be correct to leave
+unregistered — but `ControlledSubject` is `Option<Entity>` held in a
+session-scoped resource, and an entity reference that does not rewind is the
+shape the checkpoint family's `AbandonedCheckpointOperation` needed a
+value-complete note to survive. ⇒ **Step 2 for this family starts there, and it
+needs each one read — not a scan.** Do not carry this list into a migration as
+though "unregistered" meant "not rollback-relevant".
+
 ### DEPENDENCIES / BLOCKERS
 
 ~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.

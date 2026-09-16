@@ -128,6 +128,42 @@ says the frame-mode half is PROJECTED, and I read "projected" as "done"** — th
 waiver eleven lines from the code says otherwise, and so does that row's own
 acceptance criterion.
 
+✔ **THE PEER-IDENTITY CHECKPOINT THAT C03 AND C05 WAIT ON IS DISCHARGED
+(2026-09-16), AND THIS ROW IS ITS ONE OWNER.** `consolidation-plan.md` states the
+gate's PURPOSE rather than a completion bar — *"finish A10 and peer identity first
+so the live/candidate session owner is stable"* — so the discharge is a claim about
+stability, not about this campaign being finished. It is not.
+
+Every ID-PEER road that touches `SessionRoot`, activation or provenance is closed,
+each with its arm named in the table below: the session root's canonical `SimId`
+(now the constant `SimId::singleton("session", "root")`), the four
+`MatchInstance`-stamped resources, `SessionMatchOrdinal`'s own registration and
+its eager reset at `SessionScopeSet::Activate`, `MatchInstance::random_context`,
+the checkpoint operation keys, and `TransactionId` provenance.
+
+⭐ **AND THE STRONGEST EVIDENCE IS A COMMITMENT RATHER THAN AN ABSENCE.**
+`TransactionId`'s closure did NOT remove the session stamp: the rendered stamp
+still spells `{binding}\t{room}\t{session}` and MUST, because the construction
+scope's gather filter and A10's candidate-vs-live separation read it — only the
+peer PROJECTION drops the app-local epoch and the session term. So ID-PEER has
+already committed in code to not changing the thing C03 depends on, and
+ToothbrushAmbition's `a_superseded_transaction_cannot_publish_in_the_shipped_app`
+now asserts that identity survives a supersession in the shipped composition.
+
+⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All three open roads
+are blocked on something outside this campaign, so none is in flight — but one of
+them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
+simulation tick "when peers agree to start", which is an ACTIVATION moment.** ⇒ If
+`Q128` is ruled and started while a C03 or C05 migration is in flight, this
+checkpoint re-arms and the two campaigns must coordinate rather than assume. The
+other two (`Q122`'s schema-fingerprint prose, the 25 unchecksummed float rows)
+cannot touch session ownership at all.
+
+⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — nine of
+twelve roads, three open — and it is not a review of C03's or C05's own plans. It
+says the identity neighbourhood they were told to wait for has stopped moving and
+is pinned by arms.
+
 ⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
 ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
 turn — the activation tick for the session id, then the session-relative ordinal
@@ -481,6 +517,25 @@ stays invisible until a sim-versus-presentation distinction exists. A green here
 says nothing about `Transform`, and the exclusion is written where the guard
 defines its population so the next reader meets it before the verdict.
 
+⛔ **AND THE OBVIOUS RULE FOR LIFTING IT DOES NOT WORK — MEASURED, so the next
+person does not re-derive it.** The natural repair is to key on a PROPERTY the
+system states rather than on where it lives: if the signature queries `Camera`,
+`Sprite`, `Text`, `Mesh`, `Light`, `Node` or a projection, it is presentation.
+Counted against the 52: **23 declare such a marker and 29 do not.** The 29 are
+plainly presentation by NAME — `camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`, `sync_morph_ball_visual`, `draw_unauthored_attack_volumes`
+— and classifying them would mean matching names. ⚠ A row's NAME is not a reading
+of its write set; that classifier was wrong in both directions twice on
+2026-09-16 alone, in this guard's own neighbourhood and in the S7 census.
+
+⇒ **SO THE REPAIR IS NOT A CLEVERER SCANNER, IT IS A DECLARATION.** Presentation
+systems that write `Transform` should say so — a set they join, or a marker on
+the entities they move — which turns an undecidable read of source into a fact
+the code states. That is "make it impossible, not checked" applied to the guard's
+population, it is a change to ~52 systems rather than to this script, and it
+wants a maintainer's view on the shape before anybody starts. Until then the
+exclusion stands and the blind spot is written down.
+
 ⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is EMPTY as a result, and it emptied by being cured
 rather than tidied: its only entry was `handle_ldtk_hot_reload`, unseen because
 `RoomSet` and `LdtkRuntimeIndex` register through component clone. The mechanism
@@ -611,9 +666,49 @@ point this waiver and the row above both shrink."* That is implementation work,
 not a decision — and it is strictly better than admitting the mode as state,
 because it removes the concept from the simulation rather than versioning it.
 
+⛔⛤ **AND THE RECORDED REPAIR HAS A COST NOBODY WROTE DOWN, MEASURED 2026-09-16
+BEFORE STARTING IT.** *"Capture resolves the semantic DIRECTION and simulation
+never sees a mode at all"* is implementable, and it is not free, because resolving
+a direction needs the controlled body's gravity BASIS and capture does not have
+frame N's:
+
+- `AccelerationFrame::resolve_input` (`ambition_geometry/src/reference_frame.rs`)
+  needs the basis for two of its three modes — `ScreenRelative` computes
+  `input.dot(self.side)` and `input.dot(self.down)`, `BodyRelativeAssist` reads
+  `self.down.y`. Only `BodyRelativeStrict` ignores it.
+- The basis comes from `AccelerationFrame::new(gravity_dir)` where `gravity_dir`
+  is `controlled_frame_down(...)` reading `ResolvedMotionFrame`, which the
+  baseline lists as `derived` — *"published every tick from the live
+  environment"*.
+- `populate_seat_control_frames` runs in `Update`, ONCE per real frame, while the
+  sim may advance and resimulate many frames inside that one update.
+
+⇒ So a capture-resolved direction is baked against whatever basis the LATEST
+completed tick left behind, not frame N's. That is still deterministic and still
+peer-correct — GGRS replays the resolved value — but it changes the mechanic:
+**under a gravity flip, a gesture resolves in the basis that was current at
+capture rather than at its own frame.** Gravity does flip mid-match on the
+production road (`FlipGravity` is an authored `Switch` action handled in
+`drive_wave_encounters`; `GravityFlipSwitch` survives for the unit test).
+
+⭐ **THE ALTERNATIVE IS EQUALLY DETERMINISTIC AND KEEPS THE BASIS LIVE: CARRY THE
+MODE IN THE INPUT.** `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so a field
+on `ControlFrame` travels with the input and is replayed per frame; the sim then
+applies the mode against the basis it already holds for frame N. This is the shape
+`SeatControlFrameModes`' own doc names — *"a remote seat's row is filled from
+whatever travels with that peer's input, and no simulation call site moves"* — and
+`ControlFrame`'s doc says the cost is low: *"adding a `ControlFrame` field does not
+bump `INPUT_STREAM_VERSION`"*, the struct is `#[serde(default)]`, and no `Pod`
+bound applies.
+
+⇒ **BOTH SHAPES FIX DETERMINISM AND BOTH FIX THE PEER HALF. They differ only in
+which basis a gesture resolves against under changing gravity, which is a feel
+question and not a netcode one.** That is the choice this row now records; it was
+not visible when the repair was written down.
+
 **Next implementation:** two independent pieces, in either order.
-1. **Frame modes (unblocked):** resolve the direction at capture so no `sim`
-   system takes `Res<SeatControlFrameModes>`, and delete both waivers.
+1. **Frame modes (unblocked, but pick a shape first — see above):** stop any `sim`
+   system taking `Res<SeatControlFrameModes>`, and delete the waiver.
 2. **Damage (after Q127):** make the admitted policy follow the chosen lifetime —
    match activation if match-wide, deterministic per-seat input if
    participant-specific. Do not reintroduce simulation reads of mutable

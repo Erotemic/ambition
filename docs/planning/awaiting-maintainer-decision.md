@@ -569,12 +569,33 @@ ITSELF, which is the one thing a rollback comparison is about. What is needed is
 a session-relative tick, rebased at the moment peers agree to start — and where
 that agreement comes from is a netcode decision, not a refactor.
 
-⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** The only
-sessions in use are `SyncTestSession` — one machine rewinding itself, zero
-distance — and a canary that compares a machine against its own past is
+⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** Re-derived
+2026-09-16 rather than carried: `Session::SyncTest` is constructed in **exactly one
+place** in this workspace (`ambition_platformer2d_rollback_ggrs/src/session.rs`),
+and `Session::P2P` appears **exactly once**, in a match arm reading
+`confirmed_frame()` — so no P2P session is ever built. One machine rewinding
+itself, zero distance; a canary comparing a machine against its own past is
 structurally incapable of catching a two-peer disagreement. Every leak in that
-campaign had to be found by reading. So this will not announce itself, and it
-does not get more urgent on its own.
+campaign had to be found by reading. So this will not announce itself, and it does
+not get more urgent on its own.
+
+⛔⛤ **BUT OPTION (b) NOW DEFERS TWO POPULATIONS, NOT ONE, AND THAT IS NEW SINCE
+THIS WAS WRITTEN.** The ID-PEER campaign's twelfth road is **S7's 25 rows** —
+registered rollback state that is outside the session checksum, read by an
+unfiltered per-tick query, and float-bearing, twelve of them mutably written in
+production (`engine/simulation-authority-and-determinism.md`). Those rows carry no
+host-local id, so no projection closes them and no ownership move closes them;
+they are simply never compared between peers, and **the same absent session is the
+only thing that could ask whether two peers agree about them.** Two of the twelve
+were measured clean 2026-09-16 and that clears them of a LOCAL RESTORE defect and
+nothing else — a value nothing compares between peers is reproducible locally and
+divergent across peers at the same time.
+
+⇒ So "(b) keep it absolute and accept that peer comparison waits for real
+sessions" is a bet on one absent session covering the tick AND 25 ranked
+float-bearing rows AND both halves of `SETTINGS-ROLLBACK`'s policy resources. That
+does not make (a) right; it makes the price of (b) larger than the paragraph above
+it implies, and the price was not visible when it was written.
 
 The choice: (a) rebase the tick at an agreed session start, which means deciding
 what "agreed" is before there is a handshake to carry it; (b) keep it absolute
@@ -583,6 +604,43 @@ hole rather than an oversight; (c) project it out and replace the timeline term
 with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
+
+## Q131 — how should a presentation system that writes `Transform` declare itself?
+
+**The last blocker on ROLLBACK-MUTATOR-POPULATION, and it is a shape question
+rather than an engineering one.** The guard that keeps rollback state from being
+mutated outside the rewinding schedule now covers 338 types, having excluded
+exactly one: `Transform`. MEASURED 2026-09-16 — of 64 offenders, 52 are
+`Transform` writes from camera, sprite, parallax and inspection systems, which
+are presentation acting on a component that happens to be rollback-registered.
+
+⛔ **AND THE OBVIOUS RULE FOR TELLING THEM APART DOES NOT WORK.** Keying on a
+property the system STATES — does its signature query `Camera`, `Sprite`, `Text`,
+`Mesh`, `Light`, a projection — covers **23 of the 52**. The other 29 are plainly
+presentation by NAME (`camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`, `sync_morph_ball_visual`,
+`draw_unauthored_attack_volumes`) and nothing else. ⚠ Classifying them means
+matching names, and a row's name is not a reading of its write set — that
+classifier was measured wrong in BOTH directions twice on 2026-09-16, once in
+this guard's own neighbourhood and once in the S7 census.
+
+⇒ So the repair is a declaration rather than a cleverer scanner, and the choice
+is what the declaration IS: (a) a system set that presentation systems join, so
+the guard asks the schedule rather than the source; (b) a marker component on the
+entities presentation moves, so the guard asks the query; (c) a distinct
+component for presentation transforms, so a presentation system cannot write the
+rollback-registered one at all; (d) leave the exclusion and accept `Transform` as
+a permanent blind spot, which is today's state written down honestly.
+
+⭐ (c) is "make it impossible, not checked" and (a) is the cheapest thing that
+could work. Either touches ~52 systems rather than the guard, which is why it is
+a ruling: the cost is spread across every presentation author, and the benefit is
+one guard's reach. ⚠ (d) is a real option and should not be dismissed — a green
+from that guard already says nothing about `Transform`, and it says so where it
+defines its population.
+
+Owner row:
+[ROLLBACK-MUTATOR-POPULATION](queue.md#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
 
 ## Q130 — should the sim harness refuse to step an invalidated rollback session?
 
@@ -722,6 +780,23 @@ frames 2, 3 and 4 each diverging with **the replay xor CONSTANT at
 `0xce4e4758…`** while the first-pass xor moves every frame. ⇒ **THE REPLAY OF
 EVERY COMPARED FRAME SEES THE SAVE AS IT WAS AT TICK 1.** Two different
 instruments, two sessions, one number.
+
+⚠ **A FOURTH CANDIDATE, PARTLY CONSTRAINED.** YardratAmbition's: the frame-1
+lifecycle trace shows roots admitted, a candidate session published and entities
+promoted, so ticks 1..=3 might be special because the ENTITY POPULATION is still
+settling — a structural property of the window rather than of anything a test
+writes. ⇒ Measured against the room this row uses, with NO writer installed: the
+`FeatureSimEntity` roster reads 7 at tick 1 and 7 at every tick through 13, never
+changing. So that population is already settled before the first observable tick.
+⚠ **That constrains the candidate without killing it** — `feature_roster` counts
+one population, and session roots, promoted entities and custody holders are not
+in it. If the window's specialness is about entities, it is not about these.
+
+⛔ AND ANY SURVIVING VERSION MUST SATISFY A CONSTRAINT ALREADY MEASURED: a system
+granting ZERO every tick from tick 1 — same `ResMut<OwnedItems>`, same schedule
+position, same change detection, value unchanged — is CLEAN. So the window alone
+is never sufficient. The property is a conjunction: a CHANGED hashed value during
+a window that is still settling in some way not yet identified.
 
 ⚠ What that does NOT yet explain is why a change starting at tick 4 is clean. If
 the replay always read a stale save, a change at tick 20 would diverge too. ⇒ The

@@ -120,6 +120,14 @@ enumerated.**
 
 ### INDEPENDENT TRUTHS INVOLVED
 
+<!-- session-owner-census: SessionScopedResources=29 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+⭐ **THE LINE ABOVE IS THE MACHINE-READABLE COPY AND
+`scripts/check_session_owner_census_matches_source.py` COMPARES IT TO SOURCE.**
+It exists because this census drifted by four while C03 waited on its gates, and
+a number in prose has no way to notice that. The prose below is for readers; the
+comment is for the guard, and the guard fails if they stop agreeing with
+`teardown.rs` and `checkpoint.rs`.
+
 `SessionScopedResources` (**29**, re-derived 2026-09-16 — the row said 25),
 `SessionOwnedCheckpointState` (6, unchanged) and `SessionMechanics` (1 resource,
 unchanged — it is ONE resource with six fields, and counting its fields is how

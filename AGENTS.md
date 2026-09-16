@@ -112,38 +112,43 @@ mtime on 2026-09-03 was following this paragraph. Removed 2026-09-03. The rule
 below is the one that stands; nothing here licenses a deletion.
 ⇒ **What to actually do:** run `scripts/setup/target_bindmount.sh --status`. A
 `target/` that has grown enormous is almost always an ABSENT BIND, and repairing
-it stops the bleeding: builds go fast again and stop adding to the duplicate.
+it stops the bleeding without deleting anything: builds go back to the local
+volume and the duplicate stops growing.
+⛔⛤ **BUT REPAIRING THE BIND DOES NOT RETURN THE SPACE, AND THIS PARAGRAPH USED
+TO SAY IT DID.** The bind SHADOWS the duplicate; it does not remove it. MEASURED
+2026-09-15/16 on TWO machines, by two agents who hit it independently and wrote
+this correction in parallel — either side of one `scripts/setup/target_bindmount.sh`:
 
-⛔⛔ **BUT REPAIRING THE BIND DOES NOT RETURN THE SPACE, AND THIS PARAGRAPH
-CLAIMED IT DID** — it read *"repairing it returns the space without deleting
-anything, because the duplicate was never supposed to exist"* until 2026-09-15.
-A bind **SHADOWS** the old directory. The copy underneath the mountpoint stays on
-the shared filesystem, and is now invisible to `du` and `df` precisely because
-nothing can see past a mount. MEASURED the same night on two machines by two
-agents who hit it independently:
+| host | state | repo fs (virtiofs) | `target/`'s fs |
+| --- | --- | --- | --- |
+| 1.8T | unbound | 1.7T used, **10G free, 100%** | the same mount |
+| 1.8T | bound | 1.7T used, **10G free, 100%** | `/dev/vda1`, **133G free, 73%** |
+| 938G | unbound | 839G used, **52G free, 95%** | the same mount |
+| 938G | bound | 839G used, **52G free, 95%** | `/dev/vda1`, **54G free, 82%** |
 
-| machine | repo fs BEFORE bind | repo fs AFTER bind |
-|---|---|---|
-| 1.8T virtiofs | 1.7T used, 10G free, **100%** | 1.7T used, 10G free, **100%** |
-| 938G virtiofs | 839G used, 52G free, **95%** | 839G used, 52G free, **95%** |
-
-⇒ **A full shared disk does not fix itself, and the old sentence told you it
-had.** After binding, `df -h` the REPO mount, not just `target/`:
-`check_disk_headroom.py` reports the **bound** volume and will say `OK: 53.2 GB
-free` while the shared mount behind it is still at 95%. Reclaiming the shadowed
-copy is Jon's call — the rule below still stands, and inspecting under a
-mountpoint needs privileges an agent does not have.
+⚠ `du -sh target/` had read **156G** while unbound; after the bind the same path
+reads the local volume and that 156G is invisible to both `du` and `df`. So the
+disk that was full is STILL FULL, and `check_disk_headroom.py` goes green
+because it asks about `target/`, which is now a different filesystem — it printed
+`OK: 53.2 GB free` on the 938G host while that host's repo mount sat at 95%.
+⇒ Check `df -h` on the REPO MOUNT, not only on `target/`, before concluding a
+full disk is fixed. Reclaiming the shadowed copy is a MAINTAINER DECISION, not an
+agent's: inspecting under the mountpoint needs root, and the rule below still
+stands.
 
 ⚠⚠ **AND A FULL REPO MOUNT CAN HAVE A CAUSE OUTSIDE THE REPOSITORY ENTIRELY.**
 On the Namek VM, 2026-09-15, the HOST could not grow the guest's disk (Jon). From
 inside the guest that is indistinguishable from an unbound `target/` filling the
 mount: the same ENOSPC, the same lost tool output, the same session death — and
 nothing in this repository fixes it. ⇒ An agent who finds the repo mount full
-will find an absent bind too, because the bind does not survive a restart, and
-will conclude the bind was the cause. Repair the bind anyway; it is always
-correct. But **if the repo mount stays full with the bind in place, stop and tell
-Jon** rather than hunting for more to clean, and do not report the bind as the
-root cause of a death without evidence that separates the two. Run `df -h /tmp` BEFORE starting a second target or profile
+will ALSO find an absent bind, because the bind does not survive a restart, so
+the correlation is guaranteed and reads as cause. I reported exactly that to two
+peers before Jon corrected me. Repair the bind anyway; it is always correct. But
+**if the repo mount stays full with the bind in place, stop and tell Jon** rather
+than hunting for more to clean, and do not report the bind as the root cause of a
+death without evidence that separates the two.
+
+Run `df -h /tmp` BEFORE starting a second target or profile
 combination, not after — the cheap fix is not starting the second copy.
 ⚠ **A full disk can crash the gate mid-run**, and the traceback is an `OSError:
 [Errno 28]` from `run_tests.py`'s own status writer rather than anything about

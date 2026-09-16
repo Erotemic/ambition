@@ -584,6 +584,43 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
+## Q131 — how should a presentation system that writes `Transform` declare itself?
+
+**The last blocker on ROLLBACK-MUTATOR-POPULATION, and it is a shape question
+rather than an engineering one.** The guard that keeps rollback state from being
+mutated outside the rewinding schedule now covers 338 types, having excluded
+exactly one: `Transform`. MEASURED 2026-09-16 — of 64 offenders, 52 are
+`Transform` writes from camera, sprite, parallax and inspection systems, which
+are presentation acting on a component that happens to be rollback-registered.
+
+⛔ **AND THE OBVIOUS RULE FOR TELLING THEM APART DOES NOT WORK.** Keying on a
+property the system STATES — does its signature query `Camera`, `Sprite`, `Text`,
+`Mesh`, `Light`, a projection — covers **23 of the 52**. The other 29 are plainly
+presentation by NAME (`camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`, `sync_morph_ball_visual`,
+`draw_unauthored_attack_volumes`) and nothing else. ⚠ Classifying them means
+matching names, and a row's name is not a reading of its write set — that
+classifier was measured wrong in BOTH directions twice on 2026-09-16, once in
+this guard's own neighbourhood and once in the S7 census.
+
+⇒ So the repair is a declaration rather than a cleverer scanner, and the choice
+is what the declaration IS: (a) a system set that presentation systems join, so
+the guard asks the schedule rather than the source; (b) a marker component on the
+entities presentation moves, so the guard asks the query; (c) a distinct
+component for presentation transforms, so a presentation system cannot write the
+rollback-registered one at all; (d) leave the exclusion and accept `Transform` as
+a permanent blind spot, which is today's state written down honestly.
+
+⭐ (c) is "make it impossible, not checked" and (a) is the cheapest thing that
+could work. Either touches ~52 systems rather than the guard, which is why it is
+a ruling: the cost is spread across every presentation author, and the benefit is
+one guard's reach. ⚠ (d) is a real option and should not be dismissed — a green
+from that guard already says nothing about `Transform`, and it says so where it
+defines its population.
+
+Owner row:
+[ROLLBACK-MUTATOR-POPULATION](queue.md#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
+
 ## Q130 — should the sim harness refuse to step an invalidated rollback session?
 
 **MEASURED 2026-09-16.** A GGRS session that invalidates keeps accepting

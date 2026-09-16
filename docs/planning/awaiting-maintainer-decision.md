@@ -1245,6 +1245,35 @@ channel the replay can re-read.** The guard is not the fix on its own: giving
 still lose the advance, because nothing would re-apply it. What makes the input
 path work is that GGRS carries the input, so the replay has a source.
 
+⛔⛤ **AND FOR THE CUTSCENE HALF THE CHANNEL NEEDS NO NEW BIT — THE SHIPPED GAME
+ALREADY TELLS THE PLAYER WHICH BUTTON IT IS.** `ControlFrame` (the frame GGRS
+carries, read through `seat_frame_this_tick`) already has `interact_pressed`,
+`start_pressed` and `reset_pressed`. And `cutscene_lab_intro`'s own dialogue
+beat reads: *"Hold Reset to skip cutscenes -- useful when you've heard a beat
+already."*
+
+⇒ So the skip is ALREADY the Reset button in the player's mental model, and
+`reset_pressed` is already synchronised and already consumed this exact way by
+`apply_player_reset_input_system`. Option 1 for the cutscene half is *"read the
+seat frame like every other gameplay button"*, not a wire-format change.
+
+⚠ **THE HOLD STAYS OUTSIDE AND THAT PART IS ALREADY RIGHT.**
+`SKIP_HOLD_THRESHOLD_SECS` is accumulated in `CutsceneSkipHold` in WALL time,
+deliberately input-local, and only the completed edge is meant to cross. The
+census adjudicates `CutsceneSkipHold` as correctly unregistered for that reason.
+The defect is entirely in how the completed EDGE crosses.
+
+⚠ **AND THE COUNTER-ARGUMENT IS WRITTEN AT THE PRODUCER, WHICH IS WHY THIS IS
+STILL A RULING.** `apply_menu_frame_to_cutscene_request` reads `MenuControlFrame`
+on purpose: *"Cutscene controls are UI/menu intent, not gameplay movement. Keep
+this small bridge beside the menu frame so touch Confirm/Back can advance or skip
+cutscenes without teaching the gameplay `ControlFrame` about menu gestures."*
+⇒ That is a real design position and it is the one in tension. Touch Confirm/Back
+has no seat frame; a cutscene dismiss from a touch gesture would need the menu
+road either way. The decision is whether the cutscene edge is gameplay input
+(synchronised, one road) or UI intent (unsynchronised, and then it needs the
+replay source that Q136 is about).
+
 ⭐ **WHICH REFRAMES OPTION 1 FROM "INVENT A CHANNEL" TO "USE THE ONE THIS ALREADY
 HAS", at least for the cutscene half.** A dismiss/skip IS a button press. The
 control frame GGRS already carries is the channel; `CutsceneAdvanceRequest` is a

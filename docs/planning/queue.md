@@ -2054,6 +2054,33 @@ clear now live in
 They left this row on 2026-09-16 because the queue is for open executable work,
 not for the rules a closed investigation leaves behind.
 
+⛔⛔ **SEVEN ARMS ARE RED ON MAIN AS OF `7d29117ab`, AND THEY ARE ONE CLUSTER:
+BODY-RELATIVE INPUT UNDER NON-DOWN GRAVITY PRODUCES ZERO VELOCITY.** Five in
+`app_it` (`gravity_symmetry_room::symmetry_room_local_{run,crouch,dash}_trace_is_c4_symmetric`,
+`symmetry_room_one_way_drop_through_is_c4_symmetric`,
+`the_walk_row_plays_on_every_arms_floor_including_the_walls`) and two in
+`--workspace --lib`
+(`control::input_systems::per_seat_gesture_tests::each_seat_resolves_its_gesture_under_its_own_frame_mode`,
+`projectile::tests::charging::released_fireball_uses_controlled_body_local_aim_under_sideways_gravity`).
+
+```
+gravity_symmetry_room.rs:294
+run right on step A / left arm tick 0 local vel:
+  got (0.000, 0.000), expected (86.667, 0.000), diff (-86.667, 0.000), tol 8
+```
+
+⇒ ONE MECHANISM, NOT FIVE FLAKES. The gesture arm says it in its own words —
+*"the per-seat table is not reaching the derivation at all, so the seat-zero
+claim below proves nothing"* — and it fails in ISOLATION (1 of 1), so this is not
+the contention class above. The fireball launches world-DOWN where local-head
+under right gravity must be world-LEFT.
+
+⚠ `gravity_symmetry_room.rs` has not been touched since the git epoch, so the
+ARMS did not move; the behaviour did. Last-touching commits on the neighbourhood,
+as a starting point and not an attribution: `control/input_systems.rs` →
+`0e2ff1f20`, before it `e4e0b1827`. **Reported to the frame-mode owner; not
+touched here.**
+
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
 **691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the
 ToothbrushAmbition box, tree frozen. Earlier the same night, same box: 690/1/41

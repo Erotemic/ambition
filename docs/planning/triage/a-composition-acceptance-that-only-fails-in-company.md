@@ -91,10 +91,13 @@ identical reinstallation and both fixtures install the same catalog, so it is no
 this. `probes.rs` holds no statics and `RollbackRestoreAudit` is per-App. The
 shared state is elsewhere and is not yet named.
 
-⇒ **WHAT THIS BUYS THE ROW:** a cheap, deterministic harness for the whole class.
-Two concurrently-built sim Apps is a two-line fixture, so whoever takes this can
-bisect the shared state by composing Apps with successively fewer plugins instead
-of chasing an intermittent failure in a 733-arm binary.
+⇒ **WHAT THIS BUYS THE ROW:** a cheap 16-second reproduction for the whole class,
+instead of a 733-arm binary. ⚠ **NOT a deterministic one** — that word was
+published off one observation per direction and RETRACTED the same day when the
+configuration was repeated three times and gave *pass, pass, FAIL*. Two
+concurrently-built sim Apps is a two-line fixture, so whoever takes this can
+bisect by composing Apps with successively fewer plugins — but each configuration
+needs a REPEAT COUNT sized from the rate, not one run.
 
 ⚠ The new arm is `#[ignore]`d rather than deleted, with the measurement in its
 doc, so the lane stays green and the reproduction is not lost. Run it with
@@ -132,8 +135,15 @@ offered there as a mechanism to test for exactly this page. It does not apply to
 this instance: `Platformer2dSimHarness::set_timestep` calls
 `enable_manual_stepping` whenever rollback is enabled, both fixtures build with
 `with_sync_test_rollback_settings`, and all three readings above show exactly 240
-comparisons for 240 steps. A load-dependent world would also be INTERMITTENT, and
-this failure is deterministic in both directions.
+comparisons for 240 steps. ⛔⛤ **AND THE FIRST VERSION OF THIS
+PARAGRAPH CLOSED WITH A SECOND ARGUMENT THAT HAS SINCE BEEN RETRACTED** — *"a
+load-dependent world would also be INTERMITTENT, and this failure is
+deterministic in both directions."* The failure IS intermittent, so that leg is
+gone. ⇒ **The elimination survives anyway, and only because the surviving leg is
+STRUCTURAL: it reads the code rather than counting failures.** A structural
+elimination does not care how many times anything ran; a statistical one is
+worthless without a rate. ⚠ A retraction has to be walked into every sentence
+built on it — this one sat two paragraphs below the correction for part of a day.
 
 ⇒ **WHAT REMAINS, AND THE METHOD MATTERS MORE THAN THE CANDIDATE.** An
 intermittent fault cannot be bisected one run at a time. Each configuration needs

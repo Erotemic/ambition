@@ -315,13 +315,46 @@ fn a_host_that_omits_cutscenes_still_builds_and_steps() {
         } else {
             app.add_plugins(group);
         }
-        for _ in 0..8 {
-            app.update();
-        }
+        step_the_fixed_schedule(&mut app, 8);
     };
 
     host(false);
     host(true);
+}
+
+/// A probe host that really advances the fixed schedule, and PROVES it did.
+///
+/// ⛔⛤ **`add_headless_foundation` BRINGS `MinimalPlugins`, WHICH LEAVES
+/// `TimeUpdateStrategy::Automatic`.** Under `Automatic`, `app.update()` runs
+/// `FixedUpdate` zero or more times depending on WALL TIME, so a fast probe
+/// crosses 1/60s never, takes zero fixed steps, and reports success having
+/// exercised nothing. MEASURED before this was pinned: 13 MB peak, 0.47s, ZERO
+/// fixed steps — the arms certified that the engine BUILDS and nothing else,
+/// and a deterministic capability panic read as a 50/50 flake for weeks.
+///
+/// ⇒ Pin the step, and then ASSERT THE STEP HAPPENED. The pin alone is not
+/// enough: anything that stops the fixed loop advancing puts these arms back to
+/// certifying a build, and the failure is silence rather than a red.
+fn step_the_fixed_schedule(app: &mut bevy::prelude::App, updates: usize) {
+    #[derive(bevy::prelude::Resource, Default)]
+    struct FixedStepsTaken(u32);
+
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    app.init_resource::<FixedStepsTaken>();
+    app.add_systems(
+        bevy::prelude::FixedUpdate,
+        |mut taken: bevy::prelude::ResMut<FixedStepsTaken>| taken.0 += 1,
+    );
+    for _ in 0..updates {
+        app.update();
+    }
+    assert!(
+        app.world().resource::<FixedStepsTaken>().0 > 0,
+        "the probe advanced {updates} updates and the fixed schedule never ran, so \
+         this arm certifies only that the engine BUILDS -- see the pin above"
+    );
 }
 
 /// The same probe for two more of the doctrine's named target compositions.
@@ -341,9 +374,7 @@ fn the_engine_steps_with_and_without<P: bevy::app::Plugin>() {
         } else {
             app.add_plugins(group);
         }
-        for _ in 0..8 {
-            app.update();
-        }
+        step_the_fixed_schedule(&mut app, 8);
     }
 }
 

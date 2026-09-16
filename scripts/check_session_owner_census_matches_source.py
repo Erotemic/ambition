@@ -70,6 +70,46 @@ def bundle_members(rel: str, name: str) -> int:
     return len(RESMUT_FIELD.findall(text[start:end]))
 
 
+PLANNING = REPO / "docs/planning"
+#: The bundle whose count is restated across the planning corpus.
+BUNDLE = "SessionScopedResources"
+#: ⛔⛤ THE MARKER IS NOT THE ONLY COPY. When this guard was written the plan
+#: carried the count in prose AND in a marker, and `architecture-census.md`
+#: carried a THIRD copy in a table cell — still 25 after the other two were
+#: corrected to 29. A rule that checks one known copy cannot find the copy nobody
+#: remembered.
+#:
+#: ⚠ **AND THE FIRST VERSION OF THIS RULE FIRED ON A CORRECT LINE.** It accepted
+#: any number within 80 characters of "App resources" on a line mentioning the
+#: bundle, so it flagged *"36 process/App resources are explicitly documented…
+#: (SessionScopedResources …)"* — where 36 is the TOTAL across three groupings
+#: and is right. A false RED is obeyed faster than a false green is questioned,
+#: so this matches only the forms that state the BUNDLE'S OWN count.
+COUNT_FORMS = [
+    re.compile(rf"SessionScopedResources[^\n]{{0,12}}?\((\*\*)?(\d{{1,3}})"),
+    re.compile(r"SessionScopedResources\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"),
+    re.compile(r"(?:\*\*)?(\d{1,3})(?:\*\*)?[^|\n]{0,60}?accessed through one SystemParam"),
+]
+
+
+def stray_counts(real: int) -> list[str]:
+    """Every line stating the BUNDLE'S OWN count as something other than `real`."""
+    out = []
+    for path in sorted(PLANNING.rglob("*.md")):
+        for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            if BUNDLE not in line:
+                continue
+            for form in COUNT_FORMS:
+                for match in form.finditer(line):
+                    value = int(match.groups()[-1])
+                    if value != real:
+                        out.append(
+                            f"  {path.relative_to(REPO)}:{n} states the bundle holds "
+                            f"{value}; source has {real}\n     {line.strip()[:100]}"
+                        )
+    return out
+
+
 def main() -> int:
     stated = declared()
     findings = []
@@ -92,6 +132,9 @@ def main() -> int:
             findings.append(
                 f"  {name}: the plan says {stated[name]}, {rel} has {real}"
             )
+
+    real_bundle = bundle_members(BUNDLES[BUNDLE], BUNDLE)
+    findings.extend(stray_counts(real_bundle))
 
     name, rel = SINGLETON
     if f"pub struct {name}" not in (REPO / rel).read_text(encoding="utf-8"):

@@ -1225,6 +1225,49 @@ asking how many cases match.** A population count can be survived by a bigger
 corpus. A correct row that matches cannot be tuned away, and it is usually
 cheaper to look for.
 
+## ⛔⛔ DELETING A NAMED SEAM LEAVES REFERENCES NO COMPILER CHECKS
+
+**Measured 2026-09-15.** `DevEditApplySet` was deleted correctly — the set had
+zero members on every road, and the `.after(DevEditApplySet)` pins it carried
+were ordering against nothing. The deletion compiled, the two guards it fixed
+went green, and it left an `error`-severity workspace policy still asserting that
+`crates/ambition_platformer2d_runtime/src/player_schedule.rs` **must contain**
+the string `ambition_dev_tools::DevEditApplySet`. That policy was then the only
+occurrence of the symbol left in the repository.
+
+⇒ **A DECLARATIVE REFERENCE IS NOT A CALL SITE.** The compiler sweeps every Rust
+reference to a deleted symbol for you, which is exactly why the remaining ones
+feel handled. They are not: policy TOML, `contains = [...]` clauses, baseline
+files, planning prose, agent instructions and scan roots all name symbols as
+DATA. None of them breaks the build, and the one that does break — a red policy
+suite — breaks in a lane nobody was running.
+
+⭐ **THE ACCEPTANCE STEP IS ONE COMMAND, and it belongs in the deletion, not
+after it:**
+
+```sh
+git grep -n 'DeletedSymbolName'   # after the deletion, before the commit
+```
+
+Anything it finds outside the diff is a reference the deletion missed. Fix each
+one in the SAME commit — and when the reference is a policy or a guard, read its
+RATIONALE too: the clause and the sentence explaining the clause are two copies
+of the same claim, and removing only the clause leaves prose describing a seam
+that no longer exists.
+
+⚠ **THE SAME SHAPE, THREE TIMES IN ONE EVENING**, across three agents: this
+policy; a checkpoint-restoration document describing a deleted design in the
+present tense, guards included; and an orphaned comment block left behind by a
+carve. See also *a comment is a specification* — a deletion is the one edit that
+can make a correct comment false without touching it.
+
+⛔ **AND THE CONVERSE, so this does not become a reflex:** do NOT resurrect the
+deleted thing to satisfy the reference. The policy existed to prove those systems
+were LIBRARY-owned, which the three surviving clauses still do; only the clause
+naming a symbol that no longer exists was false. A guard whose subject is gone
+asserts nothing, and keeping it green by restoring its subject is how an empty
+seam survives its own deletion.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

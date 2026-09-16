@@ -548,6 +548,31 @@ actually drives:
 live binding) is covered by that first arm's positive assertion rather than by
 the comment beside it. One arm in nine was on the wrong road; the rest were not.
 
+✔ **AND THE DEFECT SHAPE NOW HAS A RATCHET:
+`scripts/one_owner_per_canonical_identity.py`.** It censuses every production
+`SimId::<ctor>(literals…)` call — the mints that name ONE specific entity rather
+than a family — and reports any constant identity more than one production site
+spells. Run against the tree before the repair it reports exactly the defect:
+`singleton("session", "root")` at two sites.
+
+⚠ **THE POPULATION IS TWO, AND A RATCHET AT ITS CEILING IS NOT A RATCHET** — so
+the arms are the value, not the number. `scripts/tests/test_one_owner_per_canonical_identity.py`
+builds its own corpora rather than pinning to a live defect that was repaired the
+same day, and three poisons fire three distinct arms: a second production mint of
+`session:root` (the repository arm), a per-line scan loop (the wrapped-call arm),
+and a literal filter that accepts variables (the `placement(id)` arm). ⛔ A fourth
+poison did NOT fire — removing `re.S` changed nothing, because `[^()]` already
+spans newlines, so the flag was decoration that read like the fix. It is gone and
+the comment says which change the arm actually holds.
+
+⚠ **AND THE INSTRUMENT CANNOT TELL A MINT FROM A REFERENCE.** Its one adjudicated
+row, `player_slot(0)`, is one of each: minted in `sim_identity.rs` as the fallback
+identity for an unidentified primary-player body, and spelled in `possession.rs`
+as the controller a possession claim names. Two sites is right there because the
+possession feature is slot-0-only by design and says so at its `home_q` parameter.
+A test asserts every adjudicated row still has two sites, so a stale decision
+cannot silently excuse a new duplicate.
+
 ⭐⭐ **AND THE SECOND MINT IS GONE, WHICH IS THE ACTUAL REPAIR.** A canonical
 identity minted in two places is two authorities for one fact whatever both
 currently spell, and one of the two was unreachable — so the collapse costs

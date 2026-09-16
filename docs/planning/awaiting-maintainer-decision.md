@@ -619,7 +619,7 @@ they disagree on exactly one kind of frame.
 | `session_root_for_scope` | a named scope's root, seen through the disabling marker | 11, in 6 files |
 
 ⛔ `Single` matches NOTHING when the count is not exactly one, and a system whose
-`Single` fails is SILENTLY SKIPPED. So on a frame holding two roots, ~206 sites
+`Single` fails is SILENTLY SKIPPED. So on a frame holding two roots, 185 production sites
 stop running and the four scope-aware ones keep working. ⇒ **The correctness of
 two hundred systems rests on an invariant one test arm asserts:**
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
@@ -637,7 +637,7 @@ The choice: **(a)** `Single` is the meaning — a two-root frame is a BUG, and t
 scope-aware helpers exist only for the lifecycle code that legitimately sees both
 sides of a handoff. Then the invariant deserves more than one arm, and C03 may
 freely assume one root. **(b)** Scope is the meaning — a two-root frame is LEGAL
-during a handoff, and ~206 sites are silently skipping on it rather than
+during a handoff, and 185 production sites are silently skipping on it rather than
 resolving the live root. Then those aliases are wrong and the migration is
 large. **(c)** Keep both deliberately, and say in one place which code is
 entitled to which, so the next author picks on purpose rather than by import.
@@ -658,7 +658,7 @@ A plain `assert!`, on in release.
 
 | road | what two roots means | where |
 | --- | --- | --- |
-| `Single<.., With<SessionRoot>>` | the system is SILENTLY SKIPPED | ~206 sites |
+| `SessionWorldRef<T>` / `SessionWorldMut<T>` — both `Single<.., With<SessionRoot>>` | the system is SILENTLY SKIPPED | **185** production uses, 105 files |
 | `live_session_world_root`, shell-routed | RESOLVE the one whose scope is active | 4 sites |
 | `unique_session_world_root`, direct/headless | **PANIC** | the same 4 sites, other branch |
 
@@ -783,16 +783,25 @@ back a reading nobody can interpret" is already precedent here, and it is
 stronger than anything this Q proposes. (ToothbrushAmbition's find, filed on
 their side as part of Q132.)
 
-⚠ **ONE NUMBER FROM THAT REPORT DOES NOT REPRODUCE AND IS NOT USED ABOVE.** It
-described "~206 `Single<.., With<SessionRoot>>` sites" treating the same
-condition as *skip this system*. Counted here with a multi-line-aware scan over
-`crates/` and `game/`: **11** `Single<..SessionRoot..>` occurrences across 9
-files, out of **16** `Single<` parameter sites in the whole workspace — so no
-reading of that phrase reaches 206, and the widest related populations are 32
-`With<SessionRoot>` and 33 `Query<..SessionRoot..>`. The three-contracts SHAPE is
-verified at the source and stands; only its third population was overstated, and
-the shape does not need the number. ⇒ Recorded because a count that travels
-between agents in a message is the kind that gets quoted later.
+⛔⛤ **THAT THIRD POPULATION WAS OVERSTATED AND IS NOW RESOLVED — BOTH COUNTS
+WERE RIGHT ABOUT DIFFERENT THINGS.** The first report said "~206 `Single<..,
+With<SessionRoot>>` sites", which was raw grep MENTIONS of the two type aliases,
+comments and tests included. A peer then counted **11** `Single<..SessionRoot..>`
+occurrences out of **16** `Single<` parameter sites in the whole workspace and
+could not reach 206 — correctly, because `SessionWorldRef` and `SessionWorldMut`
+are `pub type` ALIASES for `Single<..>`, so a scan keyed on the word `Single`
+cannot see any of their uses.
+
+⇒ **MEASURED with comments stripped and tests excluded: 163 `SessionWorldRef<`
+plus 22 `SessionWorldMut<` = 185 production uses across 105 files**, and the
+direct `Single<..SessionRoot..>` spellings the peer counted are additional. The
+SHAPE never depended on the number; it is carried by the assert, the scope
+branch, and the existence of skip-shaped sites at all.
+
+⚠ **THE LESSON IS THE ALIAS, NOT THE ARITHMETIC:** a type alias makes a
+population invisible to a scan keyed on what it expands to, and visible only to
+one keyed on its name. Two honest scans of the same tree disagreed by an order of
+magnitude for that reason alone.
 
 ⚠ A practical note for anyone reading a failure here: that `assert!` fires
 inside a helper, so the arm named in the output is the last one that ran, not

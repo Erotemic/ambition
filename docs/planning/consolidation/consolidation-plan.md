@@ -184,18 +184,26 @@ measurement. Do not force state that must exist before root creation into the
 root.
 
 ⭐⭐ **AND THE "REPEATED OWNER GUARD" HAS A SHAPE, MEASURED 2026-09-16: IT IS ONE
-GUARD SPELLED ~206 TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
+GUARD SPELLED 185 TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
 
-| spelling | what it is | mentions |
-| --- | --- | --- |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 177, in 103 files |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 29, in 19 files |
+| spelling | what it is | production USES |
+| --- | --- | ---: |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 163, in 91 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 22, in 14 files |
 | `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 4, in 2 files |
 | `session_root_for_scope` | finds a named scope's root, through the disabling marker | 11, in 6 files |
 
+⚠ **THESE ARE USES, COMMENTS STRIPPED AND TESTS EXCLUDED.** An earlier version of
+this table counted raw grep MENTIONS (177/29) and the prose read them as "sites",
+which overstated the population by about 11%. ⛔ And a peer counting `Single<`
+directly got **11** occurrences workspace-wide and could not reproduce any of it
+— correctly, because these two are `pub type` ALIASES for `Single<..>`, so a scan
+keyed on what they EXPAND TO cannot see a single one of their uses. Two honest
+scans of one tree disagreed by an order of magnitude for that reason alone.
+
 ⛔ **THE TWO DISAGREE ONLY ON ONE FRAME, AND THAT IS WHY THIS IS SUBTLE.**
 `Single` matches NOTHING when the count is not exactly one, and a system whose
-`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, all ~206
+`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, all 185
 sites stop running while the four scope-aware ones resolve the live root
 correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
 production arm asserts:
@@ -645,7 +653,7 @@ on 2026-09-16 — so this is no longer "only after"; it is the recommendation.
 protocol is already the baseline.
 
 ⛔ **BUT DO NOT MOVE STORAGE BEFORE `Q132` IS ANSWERED.** It asks whether a
-handoff frame holding two session roots should make ~206
+handoff frame holding two session roots should make 185
 `Single<.., With<SessionRoot>>` sites run or skip, and that ruling decides
 whether such a frame may exist at all — which is precisely what moving
 session-owned storage determines. Measuring and sequencing may start now; moving

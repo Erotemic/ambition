@@ -57,7 +57,7 @@ ruling: `Q132` asks whether a handoff frame holding two session roots should mak
 should not MOVE STORAGE before Q132 is answered**, because that ruling decides
 whether a two-root frame may exist at all.
 
-The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
+The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication--%E2%9C%85-done-demolition-closed-2026-09-16).
 
 ### Deterministic identity
 

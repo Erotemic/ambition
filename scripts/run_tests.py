@@ -1181,6 +1181,18 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_session_owner_census_matches_source.py",
             ],
         ),
+        # ⛔⛤ A HEADING RENAME BREAKS EVERY POINTER TO IT AND NOTHING ELSE
+        # HERE SEES IT. Marking the A10 row done broke `status.md`'s only link
+        # to it, and this lane stayed 10/10 across four runs either side of that
+        # edit: the doc-link job checks the agent KB, and the citation checkers
+        # resolve PATHS and SYMBOLS, not anchors.
+        Job(
+            "planning pointers land on a heading that exists",
+            [
+                sys.executable,
+                "scripts/check_planning_anchors_resolve.py",
+            ],
+        ),
     ]
 
 

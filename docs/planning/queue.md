@@ -677,6 +677,26 @@ what a profile actually links/installs. The remaining work is semantic: define
 what each supported profile promises instead of optimizing for a crate-count
 number.
 
+⇒ **AND HALF OF THIS ROW'S ACCEPTANCE WAS SILENTLY UNMET UNTIL 2026-09-16.** It
+asks that each supported profile *"constructs and STEPS a real subject"*. The
+three composition probes in `composes_through_the_sdk` called `app.update()`
+eight times under `TimeUpdateStrategy::Automatic`, which `add_headless_foundation`
+leaves in force through `MinimalPlugins` — so `FixedUpdate` ran zero or more
+times depending on WALL TIME, and a fast run crossed 1/60 s never. MEASURED
+before the fix: 13 MB peak, 0.47 s, **ZERO fixed steps**. They certified that the
+engine BUILDS.
+
+`582186bff` pins the step AND asserts a `FixedUpdate` counter is non-zero, so the
+"steps" clause is now real for the three probed compositions (cutscenes, portals,
+boss encounters). ⚠ The pin alone was not enough: anything that stops the fixed
+loop advancing returns these arms to certifying a build, and that failure is
+SILENCE rather than a red.
+
+⭐ **THE GENERAL FORM, worth more to this row than the fix:** an arm whose green
+is compatible with the engine being broken certifies nothing, and "it passes
+quickly" is the tell. A profile contract needs a witness that STEPS, and a
+witness that steps needs a witness that it stepped.
+
 **Blocked by:** [Q100](awaiting-maintainer-decision.md#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools),
 [Q106](awaiting-maintainer-decision.md#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities),
 [Q108](awaiting-maintainer-decision.md#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link),

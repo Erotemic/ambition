@@ -58,6 +58,20 @@ claim did not. A **twelfth** was found later the same day and the sentence held
 again — but this one is a DIFFERENT KIND of road, which is worth saying because
 "twelve roads" would otherwise imply twelve of the same thing.
 
+⭐ **AND A THIRTEENTH WAS FILED AND WITHDRAWN THE SAME DAY, WHICH IS THE
+CAMPAIGN WORKING.** Walking `possession_trigger_system`'s inputs found an
+App-local, menu-mutable USER PREFERENCE interpreting GGRS-replayed stick input
+inside the simulation — measured and real, and already owned by
+[SETTINGS-ROLLBACK](queue.md#settings-rollback--finish-the-settingsmechanics-admission-boundary)
+with a better repair recorded than the one about to be proposed. A new row would
+have been a second owner for one fact. ⇒ What survived is the peer half (that
+owner had only the local half) and a correction to that row, which said the
+frame-mode side was *"projected"* in its done clause while the waiver eleven lines
+from the code says a resimulation still reads today's policy. **"Projected" is not
+"admitted"**, and both policies — `PlayerDamagePolicy` and
+`SeatControlFrameModes` — are written from `Update`, unregistered for rollback, and
+read by sim systems.
+
 ⛔ **THE TWELFTH ROAD IS NOT A LINEAGE DEFECT AND NO PROJECTION FIXES IT.** The 25
 rows ranked by **S7** in
 [simulation-authority-and-determinism.md](engine/simulation-authority-and-determinism.md)

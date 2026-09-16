@@ -190,12 +190,19 @@ def test_the_real_tree_is_clean_or_waived():
 #: `RoomGeometry` through `SessionWorldMut`, and all three are registered with
 #: `rollback_component_clone{,_checksum}` — the form `_ROLLBACK_REGISTRATION`
 #: deliberately does not match. The mutation is untouched; the regex is narrow.
-BLIND_SPOT_NOT_CLEAN_BILL = {
-    "handle_ldtk_hot_reload": (
-        "game/ambition_app/src/app/dev_runtime.rs",
-        "registered through component clone, which _ROLLBACK_REGISTRATION omits",
-    ),
-}
+#: Waivers whose system the SCANNER stopped seeing, as opposed to systems that
+#: genuinely stopped mutating. The distinction matters because deleting a live
+#: waiver on the strength of a blind scan is how a real mutation becomes
+#: invisible twice over.
+#:
+#: ⭐ EMPTY SINCE 2026-09-16, and it emptied by being CURED rather than by being
+#: cleaned up. Its only entry was `handle_ldtk_hot_reload`, waived and then
+#: unseen because `RoomSet` and `LdtkRuntimeIndex` are registered through
+#: component clone, which the guard's population did not include. Landing the
+#: component half made the waiver live again. ⇒ Keep the mechanism: an empty dict
+#: here still asserts something, because a newly stale waiver reddens the arm
+#: below.
+BLIND_SPOT_NOT_CLEAN_BILL: dict[str, tuple[str, str]] = {}
 
 
 def test_every_waiver_cites_the_code_that_makes_it_true():

@@ -276,8 +276,10 @@ impl ActiveGameplaySession {
                     // point of a four-session lifecycle, in the rollback variant
                     // too. An A10 candidate root deliberately SHARES the live
                     // root's identity while hidden — `InactiveCandidate` keeps it
-                    // out of the capture population — and an unhidden duplicate
-                    // is refused as `BaselineCaptureError::DuplicateIdentity`.
+                    // out of the capture population, held by
+                    // `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
+                    // — and an unhidden duplicate is refused as
+                    // `BaselineCaptureError::DuplicateIdentity`.
                     //
                     // ⚠ So the invariant this rests on is *"exactly one session
                     // root is visible"*, and it is asserted rather than assumed.

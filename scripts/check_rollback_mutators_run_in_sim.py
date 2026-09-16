@@ -147,7 +147,8 @@ WAIVERS: dict[str, str] = {
         "this scope until after `Activate` has run. \u26a0 The invariant depends on "
         "a prepared-but-unadopted root staying INVISIBLE: A10.5 builds it "
         "before `RouteActivated`, and only its `InactiveCandidate` disabling "
-        "component keeps `session_world_entity` from seeing it. \u26d4 NOT a rebase "
+        "component keeps `session_world_entity` from seeing it -- held by "
+        "`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`. \u26d4 NOT a rebase "
         "argument: `LifecycleIntent` has two variants, `Transition` and "
         "`ReconstituteRoom`, and a session activation records neither."
     ),

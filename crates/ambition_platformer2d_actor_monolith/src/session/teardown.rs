@@ -257,8 +257,11 @@ pub struct SessionScopedResources<'w> {
 /// session world while the route is still PENDING, so a root for the incoming
 /// scope exists before this system runs. It carries `InactiveCandidate`, a Bevy
 /// disabling component, so the default query behind `session_world_entity`
-/// cannot see it. The session root's canonical `SimId` rests on the same fact;
-/// if candidate hiding changes, both need re-deriving.
+/// cannot see it. ⭐ That is HELD, not assumed —
+/// `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
+/// (`shared_tangle/src/lifecycle/session/tests.rs`) pins all three halves,
+/// including that ownership does not inherit the disabling. The session root's
+/// canonical `SimId` rests on the same arm.
 ///
 /// ⛔ **NOT A REBASE ARGUMENT.** `LifecycleIntent` has two variants,
 /// `Transition` and `ReconstituteRoom`, and a session activation records

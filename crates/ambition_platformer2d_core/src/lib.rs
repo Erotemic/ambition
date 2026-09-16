@@ -64,7 +64,7 @@ pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shap
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
-pub use content_epoch::ContentEpoch;
+pub use content_epoch::{ContentEpoch, PeerContentIdentity};
 pub use control_frame::AttackStrengthHint;
 pub use control_frame::ControlFrame;
 /// One seat's frame→tick input latch (netcode N0.1). a VALUE, not a resource:

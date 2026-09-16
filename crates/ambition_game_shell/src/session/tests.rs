@@ -410,3 +410,94 @@ fn delayed_world_publication_for_a_cannot_attach_to_b() {
         .active_world_entity()
         .is_none());
 }
+
+/// ⛔⛤ **THE SESSION ROOT'S CANONICAL `SimId` IS A HOST-LOCAL ROUTE COUNTER, AND
+/// THAT IDENTITY IS IN THE PEER CHECKSUM.**
+///
+/// Found by the GPT architecture review of 2026-09-15, and it is the campaign's
+/// largest remaining ID-PEER hole. The chain, each link measured:
+///
+/// 1. production mints the root as `SimId::singleton("session", activation_id)`
+///    — here at `spawn_world_for`, and again on the A10 candidate road in
+///    `ambition_platformer2d_provider`'s `lifecycle.rs`;
+/// 2. `ShellActivationId` is a per-App route-activation counter — it counts how
+///    many shell routes this process has activated, menus included;
+/// 3. the root carries `RoomSet` (it is a `PlatformerSessionWorld`), and
+///    `require_rollback::<RoomSet>` anchors the entity for rollback;
+/// 4. `entity.sim_id` is `component-canonical` in the rollback schema — the
+///    WHOLE value is compared between peers.
+///
+/// ⇒ Two hosts that agree completely about a gameplay session still name its
+/// root `session:4` and `session:11`, solely because one visited more shell
+/// routes before joining.
+///
+/// ⛔ THE STANDING `id_peer_audit` GUARD CANNOT SEE THIS CLASS. It censuses
+/// registered TYPE NAMES, and `SimId` is a type that is supposed to be
+/// canonical. The defect is its PROVENANCE, which no type census can read — the
+/// same blind spot that hid `SimId::match_spawn` embedding the activation tick.
+/// That is why this is a value-level arm on the production road rather than a
+/// row in a list.
+///
+/// ⇒ WHEN THIS ARM FLIPS TO `assert_eq`, the root has a peer-stable identity and
+/// `ShellActivationId` should leave this mint. ⚠ The replacement is NOT simply
+/// "make it constant": `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`
+/// establishes that an A10 candidate root deliberately carries the SAME `SimId`
+/// as the live root it will replace, so a constant would keep that property —
+/// but it also has to survive whatever future residency allows more than one
+/// session world alive at once. That is an architecture call, not a rename.
+#[test]
+fn two_hosts_with_different_route_histories_name_the_session_root_differently() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    // Both hosts enter the SAME agreed experience. Their local terms differ,
+    // which is the whole ID-PEER premise: a route-activation count and a session
+    // scope id are per-App, so two peers never share them.
+    let root_sim_id = |activation_id: u64, scope: u64| -> String {
+        let mut app = App::new();
+        app.insert_resource(ActiveGameplaySession(Some(gameplay_instance(
+            activation_id,
+            "arena",
+            scope,
+        ))));
+        let live = activation(activation_id, "arena");
+        let spawned = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands, mut active: ResMut<ActiveGameplaySession>| {
+                    active.spawn_world_for(
+                        &mut commands,
+                        &live,
+                        SessionScopeId(scope),
+                        DelayedWorldPublicationFixture,
+                    )
+                },
+            )
+            .expect("publication fixture runs")
+            .expect("the live activation publishes its world");
+        app.world()
+            .get::<SimId>(spawned)
+            .expect("production stamps the session root with a canonical SimId")
+            .as_str()
+            .to_string()
+    };
+
+    let veteran = root_sim_id(11, 63);
+    let fresh = root_sim_id(4, 7);
+
+    // ⚠ FIRST, THE PREMISE MUST HOLD, or the arm below is vacuous: the two hosts
+    // really did activate different route counts.
+    assert_ne!(11, 4, "the two hosts share an activation id");
+
+    assert_ne!(
+        veteran, fresh,
+        "the session root's canonical SimId no longer depends on the host's \
+         route-activation count — if that is deliberate, flip this arm to \
+         assert_eq and say what the peer-stable session identity is"
+    );
+    // ⛔ AND THE COUNTER IS VISIBLY IN THE NAME, which is what makes this a
+    // provenance defect rather than merely a hash collision risk. Pinned so a
+    // change of SPELLING that keeps the dependency cannot quietly satisfy the
+    // arm above.
+    assert_eq!(veteran, "session:11");
+    assert_eq!(fresh, "session:4");
+}

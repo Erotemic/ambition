@@ -22,6 +22,15 @@
 //! |---|---|
 //! | authoritative RNG | boss `PatternRng` CLEAN (`encounter_id` + rollback-visible `step_index`); `seed_from_id` CLEAN (FNV over an authored id); the smash match roster seed was NOT and now draws from a peer-agreed match ordinal |
 //! | contact / projectile identity | `MoveOccurrence` is body-local and starts at 0; `SimId`/`SimIdCounter` derive from parent + construction order — but `SimId::match_spawn` embedded the absolute activation tick in a `component-canonical` identity STRING, which no carrier-type list could see |
+//! | canonical identity PROVENANCE | ⛔ OPEN. The session-world root is minted `SimId::singleton("session", activation_id)` on BOTH roads (`ambition_game_shell::session::spawn_world_for` and the A10 candidate road in `ambition_platformer2d_provider`'s `lifecycle.rs`), and `ShellActivationId` is a per-App route-activation count. The root carries `RoomSet`, so `require_rollback` anchors it, and `entity.sim_id` is `component-canonical`. Held by `two_hosts_with_different_route_histories_name_the_session_root_differently` (`ambition_game_shell::session::tests`) |
+//!
+//! ⛔⛤ THAT LAST ROW IS A CLASS THIS FILE STRUCTURALLY CANNOT GUARD. Everything
+//! below censuses registered TYPE NAMES, and `SimId` is a type that is SUPPOSED
+//! to be canonical — the defect is its PROVENANCE, which no type census can
+//! read. Two have now been found this way and both were invisible here: the
+//! match-spawn tick (in a constructor's argument) and the session root (in a
+//! singleton's key). ⇒ Provenance defects are held by value-level arms in the
+//! crate that MINTS the identity, and this table routes to them.
 //! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
 //! | construction provenance | `TransactionId`, recorded by `a_transaction_identity_still_depends_on_host_local_lineage_counters` |
 //!
@@ -107,17 +116,24 @@ const PROJECTED_CHECKSUM_KINDS: &[&str] = &[
 ];
 
 const PEER_STABLE_PROJECTION: &[&str] = &[
-    // `ActiveMatch::peer_stable_checksum` projects the seat count and the
-    // activation tick, excluding `session` and the local seat-topology
-    // generation. Both still snapshot, so a rewind restores them.
+    // `ActiveMatch::peer_stable_checksum` projects the agreed seat count and the
+    // peer match ordinal, excluding `session`, `activated_on` and the local
+    // seat-topology generation. All still snapshot, so a rewind restores them.
     "ambition_match::seating::ActiveMatch",
-    // ⛔ ONE SEAM, FOUR REGISTRATIONS. All four stamp a `MatchInstance`, whose
-    // `session` is a per-App activation count. Each projects through
-    // `MatchInstance::peer_stable()` — the activation tick, which both peers
-    // simulate — and keeps the whole value in the snapshot so a rewind still
-    // restores the local half. The `peer_stable_checksum` arm in each owning
-    // crate is what holds the projection honest; this list only records that a
-    // reviewer checked it.
+    // ⛔ ONE SEAM, FOUR REGISTRATIONS. All four stamp a `MatchInstance`, and each
+    // reads exactly one thing from it — `peer_match_digest`, the session-relative
+    // ordinal — while keeping the whole value in the snapshot so a rewind still
+    // restores the local half.
+    //
+    // ⛔⛤ THEY READ NOTHING FROM IT FOR A DAY, AND THAT WAS A DEFECT OF ITS OWN.
+    // Excluding the local stamp was right; excluding the instance ENTIRELY left
+    // the projections unable to say WHICH match they described, so a verdict for
+    // the previous match checksummed identically to one for the live match while
+    // `settled(active)` disagreed. A false-negative checksum hides a desync,
+    // which is worse than a false-positive one reporting a phantom.
+    // `the_same_verdict_for_a_different_match_is_a_different_checksum` holds it.
+    // The `peer_stable_checksum` arm in each owning crate is what holds the
+    // projection honest; this list only records that a reviewer checked it.
     "ambition_match::settlement::StocksMatchSettled",
     "ambition_match::settlement::SuddenDeathEntered",
     "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",

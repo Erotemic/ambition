@@ -36,20 +36,37 @@ pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 /// Hash a mechanical fact plus a discriminant, for the checksum projections
 /// below.
 ///
-/// ⛔ NO PART OF `MatchInstance` REACHES THIS. Both its terms count something
-/// local — activations for `session`, sim steps for `activated_on` — so neither
-/// can be compared between peers. See `MatchInstance::activation_tick`.
-fn peer_stable_digest(tag: u64, extra: u64) -> u64 {
-    let mut bytes = Vec::with_capacity(16);
-    bytes.extend_from_slice(&tag.to_le_bytes());
-    bytes.extend_from_slice(&extra.to_le_bytes());
-    ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+/// ⛔ ONLY `MatchInstance`'s PEER HALF REACHES THIS, through
+/// `peer_match_digest`. Its local terms count something per-App — activations
+/// for `session`, sim steps for `activated_on` — so neither can be compared
+/// between peers. See `MatchInstance::activation_tick`.
+///
+/// ⛔⛤ AND `which` IS NOT OPTIONAL. These projections excluded the instance
+/// ENTIRELY for a day, which made them false-negative: the same verdict stamped
+/// for a different match checksummed identically while `settled(active)`
+/// disagreed. A projection has to say WHICH match it describes, in the peer's
+/// vocabulary.
+fn peer_stable_digest(domain: &str, which: u64, extra: u64) -> u64 {
+    ambition_platformer2d_core::snapshot::PeerDigest::in_domain(domain)
+        .u64(which)
+        .u64(extra)
+        .finish()
 }
 
 impl StocksMatchSettled {
-    /// What two PEERS may compare about this verdict: WHICH match was decided
-    /// and HOW. The session half of the instance is a per-App count.
+    /// What two PEERS may compare about this verdict: WHICH match was decided,
+    /// in the peer's vocabulary, and HOW.
+    ///
+    /// ⛔⛤ IT HASHED THE VERDICT ALONE for a day. A `Winner("left")` stamped for
+    /// the PREVIOUS match then checksummed identically to one stamped for the
+    /// current match — while `settled(active)` answered `false` on the first and
+    /// `true` on the second, so the two peers ran different simulations from
+    /// identical checksums.
     pub fn peer_stable_checksum(&self) -> u64 {
+        let which = match &self.0 {
+            None => 0,
+            Some((instance, _)) => instance.peer_match_digest(),
+        };
         let verdict = match &self.0 {
             None => 0,
             Some((_local_stamp, verdict)) => {
@@ -63,7 +80,7 @@ impl StocksMatchSettled {
                 }
             }
         };
-        peer_stable_digest(0x5700_0000_0000_0001, verdict)
+        peer_stable_digest("match.stocks_verdict", which, verdict)
     }
 
     /// Has THIS match been decided? A verdict for a different match is not
@@ -153,10 +170,17 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
 pub struct SuddenDeathEntered(Option<MatchInstance>);
 
 impl SuddenDeathEntered {
-    /// What two PEERS may compare: WHICH match entered sudden death.
+    /// What two PEERS may compare: WHICH match entered sudden death, in the
+    /// peer's vocabulary, and whether anything is latched at all.
+    ///
+    /// ⛔⛤ IT HASHED ONLY `is_some()` for a day — one BIT — so a latch belonging
+    /// to the previous match agreed with a latch belonging to this one.
     pub fn peer_stable_checksum(&self) -> u64 {
-        // Latched or not: the stamp says WHICH match, and that is local.
-        peer_stable_digest(0x5D00_0000_0000_0002, u64::from(self.0.is_some()))
+        let which = match &self.0 {
+            None => 0,
+            Some(instance) => instance.peer_match_digest(),
+        };
+        peer_stable_digest("match.sudden_death", which, u64::from(self.0.is_some()))
     }
 
     /// Is THIS match in sudden death?
@@ -188,8 +212,86 @@ mod peer_stable_projection_tests {
     use ambition_combat::stocks::MatchVerdict;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
+    /// A stamp whose LOCAL halves vary and whose PEER half is fixed at match 3.
+    /// Two peers describing the same match of the same agreed session look like
+    /// this: the same ordinal, different session counts, different ticks.
     fn stamp(session: u64, tick: u64) -> MatchInstance {
-        MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick))
+        MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick), Some(3))
+    }
+
+    /// The same match, named by its peer ordinal, with local halves a peer could
+    /// never share.
+    fn peer_match(ordinal: u64) -> MatchInstance {
+        MatchInstance::from_snapshot(Some(SessionScopeId(77)), Some(123_456), Some(ordinal))
+    }
+
+    /// ⛔⛤ **THE FALSE-NEGATIVE ARM: IDENTICAL PAYLOAD, DIFFERENT MATCH.**
+    ///
+    /// This is the case that made removing the local stamp insufficient. Two
+    /// peers can hold the same verdict value where one's stamp belongs to the
+    /// CURRENT match and the other's to the PREVIOUS one. `settled(active)` then
+    /// answers `true` on one and `false` on the other — different simulation —
+    /// and before 2026-09-15 their checksums were equal, because the projection
+    /// hashed the verdict and nothing about which match it was for.
+    ///
+    /// ⇒ A checksum that agrees while the simulation diverges is worse than one
+    /// that disagrees while it does not: the first hides a desync, the second
+    /// only reports one.
+    #[test]
+    fn the_same_verdict_for_a_different_match_is_a_different_checksum() {
+        let verdict_for = |ordinal: u64| {
+            StocksMatchSettled::from_snapshot(Some((
+                peer_match(ordinal),
+                MatchVerdict::Winner("left".to_string()),
+            )))
+            .peer_stable_checksum()
+        };
+        assert_ne!(
+            verdict_for(3),
+            verdict_for(2),
+            "the same verdict stamped for match 3 and for match 2 checksums \
+             identically, so a peer holding a STALE verdict agrees with one \
+             holding the live one while `settled(active)` disagrees"
+        );
+        // ⚠ AND "NO ORDINAL AUTHORITY" IS NOT MATCH ZERO. A bare fixture with no
+        // ordinal must not agree with the first match of a real session.
+        assert_ne!(
+            verdict_for(0),
+            StocksMatchSettled::from_snapshot(Some((
+                MatchInstance::from_snapshot(Some(SessionScopeId(77)), Some(123_456), None),
+                MatchVerdict::Winner("left".to_string()),
+            )))
+            .peer_stable_checksum(),
+            "an absent ordinal projects as ordinal 0"
+        );
+        // ⛔ AND THE SUDDEN-DEATH LATCH HAS THE SAME SHAPE, one bit wide, so it
+        // was even easier to collide: a latch for match 2 agreed with a latch
+        // for match 3.
+        assert_ne!(
+            SuddenDeathEntered::from_snapshot(Some(peer_match(3))).peer_stable_checksum(),
+            SuddenDeathEntered::from_snapshot(Some(peer_match(2))).peer_stable_checksum(),
+            "sudden death latched for match 3 and for match 2 checksum \
+             identically"
+        );
+        // ⚠ AND THE LOCAL HALVES MUST STILL BE EXCLUDED, or this arm's fix is
+        // the old defect returning: the SAME match named by two peers with
+        // different session counts and different activation ticks must agree.
+        assert_eq!(
+            SuddenDeathEntered::from_snapshot(Some(MatchInstance::from_snapshot(
+                Some(SessionScopeId(1)),
+                Some(400),
+                Some(3),
+            )))
+            .peer_stable_checksum(),
+            SuddenDeathEntered::from_snapshot(Some(MatchInstance::from_snapshot(
+                Some(SessionScopeId(9)),
+                Some(999_999),
+                Some(3),
+            )))
+            .peer_stable_checksum(),
+            "two peers naming the SAME match of the agreed session disagree, so \
+             the peer term was widened by re-admitting a local one"
+        );
     }
 
     #[test]
@@ -213,7 +315,7 @@ mod peer_stable_projection_tests {
         assert_eq!(
             settled(1).peer_stable_checksum(),
             StocksMatchSettled::from_snapshot(Some((
-                MatchInstance::from_snapshot(Some(SessionScopeId(1)), Some(999_999)),
+                MatchInstance::from_snapshot(Some(SessionScopeId(1)), Some(999_999), Some(3)),
                 MatchVerdict::Winner("left".to_string()),
             )))
             .peer_stable_checksum(),

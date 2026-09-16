@@ -262,6 +262,18 @@ impl ActiveGameplaySession {
                     // The root is rollback-anchored (it carries the room set)
                     // and there is one per activation: a derived identity, so
                     // the identity census admits no waiver (S4).
+                    //
+                    // ⛔⛤ AND THE KEY IS A HOST-LOCAL ROUTE COUNTER, WHICH MAKES
+                    // THIS AN OPEN ID-PEER DEFECT. `ShellActivationId` counts
+                    // how many shell routes THIS process has activated, menus
+                    // included; the root carries `RoomSet` so
+                    // `require_rollback` anchors it; and `entity.sim_id` is
+                    // `component-canonical`, so the WHOLE string is compared
+                    // between peers. Two hosts that agree about a session name
+                    // its root `session:4` and `session:11` because one visited
+                    // more routes. Measured by
+                    // `two_hosts_with_different_route_histories_name_the_session_root_differently`
+                    // (`session::tests`), which flips when this is re-keyed.
                     ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
                         "session",
                         &activation.activation_id.0.to_string(),

@@ -12,10 +12,10 @@ A candidate can move down if a new source inspection shows that two values have 
 | Rank | ID | Opportunity | State | Campaign size | Do not start before |
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
-| 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | ACTIVE separate identity campaign | large | Do not start before the active identity campaign checkpoint. |
-| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | RECOMMENDED first new campaign; A10 half of its gate is met | large | ID-PEER checkpoint — C03 touches `SessionRoot`, activation and provenance, the neighbourhood ID-PEER is changing. Plus the shell/content A-supersedes-B race witness. |
+| 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), nine of twelve roads closed (2026-09-16) | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
+| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | candidate; A10 is complete, so the remaining gates are the other two | large | Shell/content A-supersedes-B witness + identity checkpoint. |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
@@ -56,9 +56,16 @@ find roads whose replacement now exists.
 
 ## 2. C02 — Separate local lifetime/correlation identity from peer-stable mechanical provenance
 
-**STATE:** ACTIVE separate identity campaign
+**STATE:** ACTIVE, and it IS the campaign the other rows were told to wait for —
+[ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity)
+in the queue, **nine of twelve roads closed as of 2026-09-16**, three open and each
+blocked outside this campaign (`Q122`, `Q128`, and the 25 unchecksummed float rows
+which wait on netcode's N2).
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** Do not start before the active identity campaign checkpoint.
+**DO NOT START BEFORE:** — ⛔ **THIS LINE USED TO READ "do not start before the
+active identity campaign checkpoint", WHICH GATED THIS ROW ON ITSELF.** C02 is that
+campaign. Corrected 2026-09-16; the per-road table, the arm holding each closure
+and the discharge statement C03/C05 depend on all live in the queue row, not here.
 
 ### CURRENT STATE
 
@@ -90,9 +97,9 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**STATE:** RECOMMENDED first new campaign; the A10 half of its gate is met
+**STATE:** STARTABLE 2026-09-16 — every gate discharged
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** ~~A10 checkpoint~~ (discharged 2026-09-15) + peer identity checkpoint. ~~The shell/content A-supersedes-B race witness~~ — **DISCHARGED 2026-09-16**: both halves are now witnessed in the shipped composition, the session half by `a_candidate_session_replaced_while_pending_is_discarded` and the transaction half by `a_superseded_transaction_cannot_publish_in_the_shipped_app`, the latter poison-verified so its refusal is specific to supersession. `consolidation/README.md` carries the detail.
+**DO NOT START BEFORE:** ~~A10 checkpoint~~ (discharged 2026-09-15) + ~~peer identity checkpoint~~ — **DISCHARGED 2026-09-16 by its owner.** The statement and its evidence live once, in [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity); this line is a pointer on purpose, because this file has already been bitten by a body that contradicted its own table (see C01). ⛔ It names one RE-ARM CONDITION: `Q128` rebases the simulation tick at an ACTIVATION moment, so if that road is ruled and started while this migration is in flight, coordinate rather than assume. ~~The shell/content A-supersedes-B race witness~~ — **DISCHARGED 2026-09-16**: both halves are now witnessed in the shipped composition, the session half by `a_candidate_session_replaced_while_pending_is_discarded` and the transaction half by `a_superseded_transaction_cannot_publish_in_the_shipped_app`, the latter poison-verified so its refusal is specific to supersession. `consolidation/README.md` carries the detail.
 
 ### CURRENT STATE
 
@@ -112,7 +119,7 @@ Reset-only process storage where direct `SessionRoot` ownership works; repeated 
 
 ### DEPENDENCIES / BLOCKERS
 
-Finish A10 and peer identity first so the live/candidate session owner is stable. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.
+~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.
 
 ### RISK
 
@@ -158,9 +165,9 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** candidate; A10 is COMPLETE, so two gates remain
+**STATE:** STARTABLE 2026-09-16 — every gate discharged
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + shell/content A-supersedes-B witness + identity checkpoint. ⭐ ~~shell/content A-supersedes-B witness~~ **DISCHARGED 2026-09-16** — both halves are witnessed in the shipped composition; see `consolidation/README.md`. The identity checkpoint is the remaining gate.
+**DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + ~~shell/content A-supersedes-B witness~~ (discharged 2026-09-16; both halves witnessed in the shipped composition, see `consolidation/README.md`) + ~~identity checkpoint~~ — **DISCHARGED 2026-09-16 by its owner**, stated once in [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity) with its evidence and its one re-arm condition (`Q128`, which rebases the tick at an activation moment).
 
 ### CURRENT STATE
 
@@ -180,7 +187,7 @@ Separate queued writes for values that all mean “this session is now generatio
 
 ### DEPENDENCIES / BLOCKERS
 
-A10; ~~shell/content A-supersedes-B hold witness~~ (discharged 2026-09-16, both halves witnessed in the shipped composition); peer-stable identity.
+~~A10~~ (discharged 2026-09-15); ~~shell/content A-supersedes-B hold witness~~ (discharged 2026-09-16, both halves witnessed in the shipped composition); ~~peer-stable identity~~ (discharged 2026-09-16 by its owner). **No blocker remains.**
 
 ### RISK
 
@@ -349,7 +356,9 @@ document inside `docs/`.
 
 ## Recommended first new campaign after the current architecture milestone
 
-Start **C03: session-owned state and reset-infrastructure consolidation** only after A10 and the active peer-identity checkpoint are stable.
+Start **C03: session-owned state and reset-infrastructure consolidation**. ✔ Both
+gates it named are discharged — A10 on 2026-09-15 and the peer-identity checkpoint
+on 2026-09-16 — so this is no longer "only after"; it is the recommendation.
 Close the named shell/content A-supersedes-B supersession witness first if it still shares activation code at that point.
 Mechanical editor admission does not block this campaign; its shared protocol is already the baseline.
 

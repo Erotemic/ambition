@@ -128,6 +128,42 @@ says the frame-mode half is PROJECTED, and I read "projected" as "done"** — th
 waiver eleven lines from the code says otherwise, and so does that row's own
 acceptance criterion.
 
+✔ **THE PEER-IDENTITY CHECKPOINT THAT C03 AND C05 WAIT ON IS DISCHARGED
+(2026-09-16), AND THIS ROW IS ITS ONE OWNER.** `consolidation-plan.md` states the
+gate's PURPOSE rather than a completion bar — *"finish A10 and peer identity first
+so the live/candidate session owner is stable"* — so the discharge is a claim about
+stability, not about this campaign being finished. It is not.
+
+Every ID-PEER road that touches `SessionRoot`, activation or provenance is closed,
+each with its arm named in the table below: the session root's canonical `SimId`
+(now the constant `SimId::singleton("session", "root")`), the four
+`MatchInstance`-stamped resources, `SessionMatchOrdinal`'s own registration and
+its eager reset at `SessionScopeSet::Activate`, `MatchInstance::random_context`,
+the checkpoint operation keys, and `TransactionId` provenance.
+
+⭐ **AND THE STRONGEST EVIDENCE IS A COMMITMENT RATHER THAN AN ABSENCE.**
+`TransactionId`'s closure did NOT remove the session stamp: the rendered stamp
+still spells `{binding}\t{room}\t{session}` and MUST, because the construction
+scope's gather filter and A10's candidate-vs-live separation read it — only the
+peer PROJECTION drops the app-local epoch and the session term. So ID-PEER has
+already committed in code to not changing the thing C03 depends on, and
+ToothbrushAmbition's `a_superseded_transaction_cannot_publish_in_the_shipped_app`
+now asserts that identity survives a supersession in the shipped composition.
+
+⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All three open roads
+are blocked on something outside this campaign, so none is in flight — but one of
+them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
+simulation tick "when peers agree to start", which is an ACTIVATION moment.** ⇒ If
+`Q128` is ruled and started while a C03 or C05 migration is in flight, this
+checkpoint re-arms and the two campaigns must coordinate rather than assume. The
+other two (`Q122`'s schema-fingerprint prose, the 25 unchecksummed float rows)
+cannot touch session ownership at all.
+
+⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — nine of
+twelve roads, three open — and it is not a review of C03's or C05's own plans. It
+says the identity neighbourhood they were told to wait for has stopped moving and
+is pinned by arms.
+
 ⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
 ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
 turn — the activation tick for the session id, then the session-relative ordinal

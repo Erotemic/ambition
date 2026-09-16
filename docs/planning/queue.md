@@ -180,6 +180,33 @@ which side is larger, and nothing here executes today because the network path i
 P2P-only. What IS established is that no layer compares the two builds' input
 SHAPE, so whatever happens, it will not be a refusal that names the cause.
 
+✔ **HALF-CLOSED THE SAME DAY: THE INPUT PAYLOAD NOW HAS AN IDENTITY AND A
+RATCHET.** `CONTROL_FRAME_WIRE_IDENTITY` sits beside `INPUT_STREAM_VERSION`, in
+the file where the two ledgers were confused, and each now says what the other
+does not cover. `the-peer-input-payload-may-not-move-without-its-identity`
+freezes 42 rows — 39 `ControlFrame` fields IN DECLARATION ORDER plus the 3
+`AttackStrengthHint` variants — and reddens if the shape moves while the identity
+holds.
+
+⭐ **ORDER IS PART OF THE SHAPE**, because bincode encodes positionally and
+carries no field names; a census returning a set would not notice a reorder that
+changes what every byte after it means. The poison for that is an arm: making the
+census return a sorted set reddens the ratchet.
+
+⭐ **A SOURCE SCAN IS THE RIGHT OWNER HERE AND WAS THE WRONG ONE THIS MORNING**,
+and the guard says why in its own docstring: a registration is a runtime CALL
+with four spellings and no way to enumerate them from text, while a struct's
+fields are ONE authoritative declaration in ONE file.
+
+⚠ **THE TRANSITIVE BOUNDARY IS ASSERTED, NOT ASSUMED.** A field whose type is not
+primitive can change the bincode shape without `ControlFrame`'s text moving.
+Exactly one such type exists (`AttackStrengthHint`) and its variants are
+censused; a SECOND appearing raises rather than reading green, because a guard
+that quietly stops covering its own subject is worse than no guard.
+
+⇒ **STILL OPEN:** the identity exists and is ratcheted, and nothing EXCHANGES it
+— same remainder as the state half, waiting on `N2`.
+
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
 found an App-local, menu-mutable USER PREFERENCE interpreting replayed stick input

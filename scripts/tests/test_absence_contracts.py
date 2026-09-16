@@ -770,6 +770,133 @@ def test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not():
     assert "component-canonical" in kinds_without, sorted(kinds_without)
 
 
+# ── The peer INPUT payload may not move without its identity ────────────────
+#
+# The other half of the wire. `ggrs` documents `Config::Input` as "the only
+# game-related data transmitted over the network", and `AmbitionGgrsConfig =
+# GgrsConfig<ControlFrame>` — so `ControlFrame`'s declaration IS the peer input
+# format. Until 2026-09-16 nothing versioned its shape: `INPUT_STREAM_VERSION`
+# covers recorded replay files and exempts added fields BY DESIGN, the rollback
+# dump carries one row naming the TYPE, and the codec-shape baseline has zero
+# mentions because `ControlFrame` is `derived` rather than snapshotted.
+
+
+def test_the_input_payload_ratchet_holds_against_the_live_tree():
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    assert contracts.input_payload_violations(root) == []
+
+
+def test_the_input_payload_census_is_not_silently_empty():
+    """⭐ THE VACUITY CONTROL. Every assertion next door is `not <difference>`,
+    and a census that stopped finding fields makes all of them pass."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, shape = contracts.input_payload_shape(root)
+    assert len(shape) >= 40, (
+        f"only {len(shape)} rows in the peer input payload; there were 42 when "
+        "this was written (39 `ControlFrame` fields and 3 `AttackStrengthHint` "
+        "variants), so the parser has stopped finding them"
+    )
+    assert version.isdigit(), version
+    # The field ORDER is part of the shape, because bincode encodes positionally
+    # and carries no field names. A census returning a set would not notice a
+    # reorder, which changes what every byte after it means.
+    assert shape[0] == "axis_x: f32", shape[:3]
+
+
+def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypatch):
+    """⛔ The failure this ratchet exists for, and the one about to happen:
+    SETTINGS-ROLLBACK's recommended repair adds a `ControlFrame` field."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, shape = contracts.input_payload_shape(root)
+    baseline = tmp_path / "input.json"
+    baseline.write_text(json.dumps({"version": version, "shape": shape}))
+    monkeypatch.setattr(contracts, "INPUT_PAYLOAD_BASELINE", baseline.name)
+    monkeypatch.setattr(
+        contracts,
+        "input_payload_shape",
+        lambda _root: (version, shape + ["poison_new_field: bool"]),
+    )
+    assert contracts.input_payload_violations(tmp_path) == [
+        f"ENTERED the peer input payload at identity {version}: poison_new_field: bool"
+    ]
+
+
+def test_the_same_field_with_the_identity_bumped_is_allowed(tmp_path, monkeypatch):
+    """⭐ THE POSITIVE CONTROL FOR THE LEGITIMATE ROAD. Without it the ratchet
+    could be satisfied by forbidding all change, which would block the very
+    repair that made this guard worth building."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, shape = contracts.input_payload_shape(root)
+    baseline = tmp_path / "input.json"
+    baseline.write_text(json.dumps({"version": version, "shape": shape}))
+    monkeypatch.setattr(contracts, "INPUT_PAYLOAD_BASELINE", baseline.name)
+    monkeypatch.setattr(
+        contracts,
+        "input_payload_shape",
+        lambda _root: (str(int(version) + 1), shape + ["poison_new_field: bool"]),
+    )
+    assert contracts.input_payload_violations(tmp_path) == []
+
+
+def test_an_unfollowed_field_type_raises_instead_of_reading_green():
+    """⛔⛤ THE TRANSITIVE BOUNDARY, ASSERTED RATHER THAN ASSUMED COMPLETE.
+
+    A field whose type is not primitive can change the bincode shape without
+    `ControlFrame`'s own text moving. Exactly one such type exists today and its
+    variants are censused; a second appearing must FAIL, because the alternative
+    is a guard that silently stops covering the thing it is named after.
+    """
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    _, shape = contracts.input_payload_shape(root)
+    followed = [row for row in shape if row.startswith("AttackStrengthHint::")]
+    assert len(followed) >= 3, shape
+    types = {row.split(": ", 1)[1] for row in shape if ": " in row}
+    assert types <= {"bool", "f32", "AttackStrengthHint"}, sorted(types)
+
+
+def test_the_printed_total_equals_the_contracts_actually_printed():
+    """⛔⛤ THE TOTAL IS HAND-COUNTED, AND THE HAND WAS WRONG FOR A DAY.
+
+    `total` sums three collections plus a literal for the hand-emitted contracts.
+    A ratchet landed 2026-09-16 without bumping that literal, so the lane printed
+    "44 of 44" over 45 contracts — and a total nobody derives is a total nobody
+    checks. This derives it the other way, from the lines the run actually
+    emitted, so the two can only agree by being right.
+    """
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    run = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_absence_contracts.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+    )
+    printed = [
+        line for line in run.stdout.splitlines() if line.startswith(("  ok   ", "  RED  "))
+    ]
+    claimed = re.search(r"(\d+) of (\d+) absence contracts", run.stdout)
+    assert claimed, run.stdout[-2000:]
+    assert len(printed) == int(claimed.group(2)), (
+        f"the lane claims {claimed.group(2)} contracts and printed "
+        f"{len(printed)}. The hand-counted literal in `total` has drifted from "
+        "the contracts actually emitted; name the new one there."
+    )
+    # ⭐ AND A FLOOR, because 0 == 0 satisfies the line above.
+    assert len(printed) > 40, len(printed)
+
+
 def test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list():
     """⛔⛤ A HAND-KEPT COPY OF THIS SET HID 25 OF 29 REGISTRATIONS ONCE.
 

@@ -1681,6 +1681,91 @@ def checksum_feeding_kinds(root: Path) -> frozenset[str]:
     return frozenset(feeding)
 
 
+INPUT_PAYLOAD_BASELINE = "scripts/baselines/input-payload-baseline.json"
+
+CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
+
+
+def input_payload_shape(root: Path) -> tuple[str, list[str]]:
+    """`version, shape` — what two peers exchange, and the identity that names it.
+
+    `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, and `ggrs` documents
+    `Config::Input` as "the only game-related data transmitted over the network".
+    So `ControlFrame`'s declaration IS the peer input format, and this returns it
+    field by field, in declaration order, because bincode encodes positionally.
+
+    ⭐ A SOURCE SCAN IS THE RIGHT OWNER HERE AND WAS THE WRONG ONE FOR THE
+    ROLLBACK SCHEMA NAMES, which this same file rejected on the same day. The
+    difference is not fastidiousness: a registration is a runtime CALL with four
+    spellings and nothing preventing a fifth, so source text cannot enumerate
+    them. A struct's fields are ONE authoritative declaration in ONE file, and
+    there is no second way to spell them.
+
+    ⚠ THE TRANSITIVE BOUNDARY, NAMED RATHER THAN ASSUMED COMPLETE. A field whose
+    type is not primitive can change shape without `ControlFrame`'s text moving.
+    Today there is exactly one such type, `AttackStrengthHint`, and its variants
+    are included below. `_UNCOVERED_FIELD_TYPES` fails the census if a second one
+    appears, because the alternative is a guard that silently stops covering the
+    thing it names.
+    """
+    text = (root / CONTROL_FRAME_SOURCE).read_text()
+    body = text.split("pub struct ControlFrame {", 1)[1].split("\n}", 1)[0]
+    fields = re.findall(r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", body, re.MULTILINE)
+    uncovered = {ty for _, ty in fields} - {"bool", "f32", "AttackStrengthHint"}
+    if uncovered:
+        raise AssertionError(
+            f"`ControlFrame` now has field types this census does not follow: "
+            f"{sorted(uncovered)}. Each can change the bincode shape two peers "
+            "exchange without `ControlFrame`'s own text moving. Add it to the "
+            "covered set AND include its shape below, or the guard stops "
+            "covering what it claims to."
+        )
+    shape = [f"{name}: {ty}" for name, ty in fields]
+    hint = text.split("pub enum AttackStrengthHint {", 1)[1].split("\n}", 1)[0]
+    shape += [
+        f"AttackStrengthHint::{variant}"
+        for variant in re.findall(r"^\s*(\w+),", hint, re.MULTILINE)
+    ]
+    version = re.search(
+        r"pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = (\d+);",
+        (root / "crates/ambition_platformer2d_core/src/input_stream.rs").read_text(),
+    )
+    if version is None:
+        raise AssertionError(
+            "`CONTROL_FRAME_WIRE_IDENTITY` is gone. It is the only thing that "
+            "names the shape two peers exchange; without it this guard compares "
+            "a frozen list against itself and reports success."
+        )
+    return version.group(1), shape
+
+
+def input_payload_violations(root: Path) -> list[str]:
+    """Breaches of: the peer input shape may not move without its identity.
+
+    The same invariant as `peer_checksum_schema_violations`, on the other half of
+    the wire. The STATE half got an identity, a ratchet and an
+    instrument-independence arm; this is the input half's first one.
+
+    ⛔ AND `INPUT_STREAM_VERSION` DOES NOT COVER THIS, however much it looks
+    like it does. It versions recorded replay files and exempts added fields BY
+    DESIGN, on the strength of `#[serde(default)]` — which cannot participate on
+    the wire at all, because bincode is non-self-describing and never looks for a
+    field by name.
+    """
+    baseline = json.loads((root / INPUT_PAYLOAD_BASELINE).read_text())
+    version, shape = input_payload_shape(root)
+    if shape == baseline["shape"] or version != baseline["version"]:
+        return []
+    added = [row for row in shape if row not in baseline["shape"]]
+    removed = [row for row in baseline["shape"] if row not in shape]
+    moved = [] if (added or removed) else ["field ORDER changed"]
+    return (
+        [f"ENTERED the peer input payload at identity {version}: {row}" for row in added]
+        + [f"LEFT the peer input payload at identity {version}: {row}" for row in removed]
+        + moved
+    )
+
+
 def peer_checksum_schema_violations(root: Path) -> list[str]:
     """Breaches of: the peer-visible schema may not move without the version.
 
@@ -2246,6 +2331,34 @@ def main() -> int:
                 "declare it (baseline + schema version) or drop it"
             )
 
+    input_moves = input_payload_violations(root)
+    input_version, input_shape = input_payload_shape(root)
+    if not input_moves:
+        print(
+            f"  ok   the-peer-input-payload-may-not-move-without-its-identity  "
+            f"({len(input_shape)} rows at CONTROL_FRAME_WIRE_IDENTITY={input_version})"
+        )
+    else:
+        broken += 1
+        print("  RED  the-peer-input-payload-may-not-move-without-its-identity")
+        print(
+            "       `ControlFrame` is the GGRS input type — ggrs calls it \"the "
+            "only game-related data transmitted\n"
+            "       over the network\" — and its shape changed while "
+            "CONTROL_FRAME_WIRE_IDENTITY held.\n"
+            "       ⛔ INPUT_STREAM_VERSION DOES NOT COVER THIS. That versions "
+            "recorded replay files and exempts\n"
+            "         added fields by design, resting on `#[serde(default)]`, "
+            "which cannot participate on the\n"
+            "         wire at all: bincode is non-self-describing and never "
+            "looks for a field by name.\n"
+            "       ⇒ Bump CONTROL_FRAME_WIRE_IDENTITY in "
+            "crates/ambition_platformer2d_core/src/input_stream.rs and\n"
+            "         re-freeze this baseline, in ONE commit."
+        )
+        for item in input_moves:
+            print(f"       {item}")
+
     peer_moves = peer_checksum_schema_violations(root)
     version, feeding_rows = peer_checksum_schema(root)
     if not peer_moves:
@@ -2288,9 +2401,21 @@ def main() -> int:
         len(ABSENCE_CONTRACTS)
         + len(DEPENDENCY_CONTRACTS)
         + len(MODULE_ALLOWLISTS)
-        # The three hand-emitted contracts above: the capability footprint, the
-        # rollback wire format, and the featureless consumer's closure.
-        + 3
+        # ⛔⛤ THE HAND-EMITTED CONTRACTS, COUNTED BY HAND — AND THE HAND WAS
+        # WRONG FOR A DAY. This read `+ 3` while five were being printed: the
+        # peer-checksum schema ratchet landed 2026-09-16 without bumping it, so
+        # the lane reported "44 of 44" over 45 contracts, and the only reason it
+        # looked right is that a total nobody derives is a total nobody checks.
+        # The same failure this file's own footprint ratchet exists to catch, in
+        # the line that counts it.
+        #
+        # ⇒ Name them, so the next addition has somewhere obvious to go:
+        #   1. capability footprint
+        #   2. rollback wire format
+        #   3. the featureless consumer's closure
+        #   4. the-peer-visible-schema-may-not-move-without-the-version
+        #   5. the-peer-input-payload-may-not-move-without-its-identity
+        + 5
     )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")

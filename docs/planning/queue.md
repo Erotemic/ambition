@@ -100,6 +100,34 @@ IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id
 all; they are simply never compared between peers, so no projection can fix them
 and no local session can measure them. Nine closed, three open.
 
+⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
+BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
+found an App-local, menu-mutable USER PREFERENCE interpreting replayed stick input
+inside the simulation — measured, real, and already waived with its reason in
+`rollback_coverage.rs`, already owned by `SETTINGS-ROLLBACK`, and already carrying
+a BETTER repair than the one I was about to propose. ⇒ A new row would have been a
+second owner for one fact, which is the thing this campaign exists to remove. What
+survived is this paragraph and a correction to that owner's stale "current state";
+the table above is unchanged, because a cross-reference is not a road.
+
+⭐ **WHAT THIS CAMPAIGN ADDS TO `SETTINGS-ROLLBACK` IS THE PEER HALF, WHICH THE
+WAIVER DOES NOT STATE.** `rollback_coverage.rs` records the LOCAL consequence — a
+resimulation of frame N interprets frame N's stick under whatever policy holds
+now — and it records that registering the table as rollback state is the WRONG
+repair, *"it is written from `Update`, which may not write rollback state"*. The
+peer consequence is worse and needs no settings change at all to fire:
+`holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode)` in
+`possession.rs` takes the AXES from GGRS's replayed input and the MODE from an
+App-local preference, so **two peers with different accessibility settings
+interpret the same exchanged input differently, from the first frame, forever, and
+silently.** In that call site the mode decides which way "down" is for a
+control-authority transfer.
+
+⚠ The method lesson is narrow and worth keeping: **the row I nearly duplicated
+says the frame-mode half is PROJECTED, and I read "projected" as "done"** — the
+waiver eleven lines from the code says otherwise, and so does that row's own
+acceptance criterion.
+
 ⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
 ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
 turn — the activation tick for the session id, then the session-relative ordinal
@@ -521,20 +549,73 @@ matching.
 **Owner:** rollback/mechanical-policy owners.
 
 **Current state:** direct `UserSettings` reads have been removed from the
-simulation schedule. Control-frame modes are projected per seat, and damage uses
-`PlayerDamagePolicy`. The remaining damage policy is still forward-only across a
-rollback timeline.
+simulation schedule — `scripts/measure_user_settings_in_simulation.py` reports
+ZERO simulation readers. That removed the 30-field menu-mutable resource from the
+sim and cut four readers to one writer; it did NOT make either policy
+deterministic.
 
-**Blocked by:** [Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+⛔⛤ **BOTH HALVES ARE STILL FORWARD-ONLY, AND THIS ROW SAID SO ABOUT ONLY ONE OF
+THEM.** Corrected 2026-09-16. It read *"Control-frame modes are projected per
+seat, and damage uses `PlayerDamagePolicy`. The remaining damage policy is still
+forward-only"* — which puts the frame-mode half in the done clause and leaves the
+damage half as the remainder. Measured, both are the same shape:
 
-**Next implementation:** after Q127, make the admitted damage policy follow the
-chosen lifetime: match activation if match-wide, or deterministic per-seat input
-if participant-specific. Do not reintroduce simulation reads of mutable
-`UserSettings`.
+| policy | writer | schedule | rollback-registered? | sim readers |
+|---|---|---|---|---|
+| `PlayerDamagePolicy` | `project_player_damage_policy` | **`Update`** | **no** (0 rows in `rollback_schema_baseline.txt`) | 3 |
+| `SeatControlFrameModes` | `populate_seat_control_frames` | **`Update`** | **no** (0 rows) | 4 |
+
+⇒ A resimulation of frame N reads whatever either policy holds NOW, for both.
+`rollback_coverage.rs` waives each one with that stated in its reason; this row is
+where a reader looks first, and it was the copy that had drifted. ⚠ "Projected" is
+not "admitted": a projection narrows who reads a mutable value, and the timeline
+question is untouched by it.
+
+**Blocked by:** the DAMAGE half only —
+[Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+⭐ **THE FRAME-MODE HALF IS NOT BLOCKED ON A RULING AND HAS A RECORDED REPAIR.**
+The architecture review of 2026-09-13, quoted in `rollback_coverage.rs`: *"capture
+resolves the semantic DIRECTION and simulation never sees a mode at all, at which
+point this waiver and the row above both shrink."* That is implementation work,
+not a decision — and it is strictly better than admitting the mode as state,
+because it removes the concept from the simulation rather than versioning it.
+
+**Next implementation:** two independent pieces, in either order.
+1. **Frame modes (unblocked):** resolve the direction at capture so no `sim`
+   system takes `Res<SeatControlFrameModes>`, and delete both waivers.
+2. **Damage (after Q127):** make the admitted policy follow the chosen lifetime —
+   match activation if match-wide, deterministic per-seat input if
+   participant-specific. Do not reintroduce simulation reads of mutable
+   `UserSettings`.
 
 **Acceptance:** rewinding/resimulating frame N observes the policy admitted for
 that timeline, not whatever the settings UI contains now; the settings-to-policy
-projection remains witnessed end to end.
+projection remains witnessed end to end; and **no `sim`-schedule system takes
+either policy resource as a parameter**, which is the check that distinguishes a
+projection from an admission and would have caught this row's drift.
+
+⛔ **AND THE PEER HALF — WHOSE PRINCIPLE WAS ALREADY RECORDED AND WHOSE CALL SITE
+WAS NOT.** ⚠ The principle is not new and I nearly published it as if it were:
+`scripts/measure_user_settings_in_simulation.py` prints it in its own
+classification — *"resolve at the INPUT-CAPTURE boundary so deterministic
+simulation consumes semantic intent; **peers must not have to share accessibility
+settings**"*. What was not written anywhere is the measured consequence, which
+needs no settings change to fire: `holding_descend(control.axis_x, control.axis_y,
+gravity_dir, movement_mode)` in `possession.rs` takes the AXES from GGRS's
+replayed input and the MODE from an App-local preference, so two peers holding
+different preferences interpret the same exchanged input differently from the
+first frame, and in that call site the mode decides which way "down" is for a
+control-authority transfer. ⇒ So the frame-mode repair above is not only a
+determinism fix; it is the only one of the two shapes that is peer-correct,
+because a direction resolved at capture travels with the input while a policy
+resource does not.
+
+ⓘ **RE-MEASURED 2026-09-16 RATHER THAN QUOTED:**
+`scripts/measure_user_settings_in_simulation.py` at this HEAD reports **44
+production functions taking `Res<UserSettings>` and 0 of them inside the
+simulation schedule.** The three damage readers it and the waiver name —
+`apply_player_hit_events`, `apply_feature_hit_events`, `charge_projectile_input` —
+are each registered in `player_schedule.rs` or `combat_schedule.rs`.
 
 ### THROW-MODIFIERS — route throws through rage and staleness policy
 

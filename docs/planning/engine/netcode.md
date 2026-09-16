@@ -324,11 +324,21 @@ something else:
 | `schema_fingerprint` | no — it hashes that dump, so it sees the name |
 | `scripts/tests/rollback_codec_shape.txt` | no — zero mentions; `ControlFrame` has no `SnapshotState` impl, being `derived` and rebuilt from the input stream rather than snapshotted |
 
-⇒ So the state half of the wire now has an identity, a ratchet and an
-instrument-independence arm, all landed today, and the input half has none of the
+⇒ So the state half of the wire had an identity, a ratchet and an
+instrument-independence arm, all landed today, and the input half had none of the
 three. Found while verifying a price `SETTINGS-ROLLBACK` had quoted — the
 sentence it quoted is TRUE and is about the wrong ledger, which is the failure
-mode a correct-sounding citation produces. Filed as ID-PEER's fifteenth road.
+mode a correct-sounding citation produces.
+
+✔ **THE INPUT HALF NOW HAS TWO OF THE THREE.**
+`CONTROL_FRAME_WIRE_IDENTITY` names the shape and
+`the-peer-input-payload-may-not-move-without-its-identity` ratchets it over 42
+rows — 39 `ControlFrame` fields IN DECLARATION ORDER plus the 3
+`AttackStrengthHint` variants. Order is part of the shape because bincode encodes
+positionally and carries no field names, and the transitive boundary is asserted:
+a second non-primitive field type raises rather than reading green. The
+instrument-independence question has no analogue here, because no feature adds an
+input field today — the guard is what will notice the first one.
 
 What this does NOT settle, and N3 still owes: **no peer handshake reads the dump,
 its version, or the input payload's shape.** The invariant makes the state

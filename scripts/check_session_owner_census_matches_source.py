@@ -300,7 +300,15 @@ BUNDLE = "SessionScopedResources"
 #: so this matches only the forms that state the BUNDLE'S OWN count.
 COUNT_FORMS = [
     re.compile(rf"SessionScopedResources[^\n]{{0,12}}?\((\*\*)?(\d{{1,3}})"),
-    re.compile(r"SessionScopedResources\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"),
+    # ⛔⛤ THE BACKTICK IS WHY THIS RULE MISSED A WHOLE STALE SECTION.
+    # `architecture-census.md` §3 read "`SessionScopedResources` names **25**
+    # process resources" — with the CLOSING BACKTICK between the name and the
+    # verb — while the same document's executive map had already been corrected
+    # to 36. One document, two numbers, and the rule that exists to find exactly
+    # that could not see past one character.
+    re.compile(
+        r"SessionScopedResources`?\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"
+    ),
     re.compile(r"(?:\*\*)?(\d{1,3})(?:\*\*)?[^|\n]{0,60}?accessed through one SystemParam"),
 ]
 

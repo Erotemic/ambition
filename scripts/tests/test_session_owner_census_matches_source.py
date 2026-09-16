@@ -231,3 +231,24 @@ def test_rule_3_can_fail_on_an_undeclared_unregistered_member():
         guard.HOST_SIDE_PHRASE in window and "SessionCheckpointOperations" in line
         for line, window in windows
     ), "a registered member is declared host-side; source contradicts itself"
+
+
+def test_a_stray_count_is_found_through_a_closing_backtick():
+    """⛔⛤ THE ONE CHARACTER THAT HID A WHOLE STALE SECTION.
+
+    `architecture-census.md` §3 stated the old count with the bundle name in
+    backticks — `` `SessionScopedResources` names **25** `` — while the same
+    document's executive map had already been corrected to 36. The stray-count
+    rule required the name and the verb to be ADJACENT, so it read past the
+    closing backtick and certified a document that contradicted itself for a day.
+
+    ⇒ A rule keyed on a phrase is keyed on its PUNCTUATION too.
+    """
+    backticked = "`SessionScopedResources` names **25** process resources"
+    hits = [int(m.groups()[-1]) for f in guard.COUNT_FORMS for m in f.finditer(backticked)]
+    assert 25 in hits, "the backticked form is invisible to every count pattern"
+    # ⚠ THE CONTROL. The same sentence at the REAL count must not be a finding,
+    # or the rule is just "this line mentions a number".
+    real = "`SessionScopedResources` names **29** process resources"
+    stray = [int(m.groups()[-1]) for f in guard.COUNT_FORMS for m in f.finditer(real)]
+    assert stray == [29], stray

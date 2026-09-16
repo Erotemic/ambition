@@ -311,13 +311,16 @@ holds an `Option<Entity>`, is precisely one of the three with an answer: it is t
 body driven by the primary **LOCAL** control authority, which is host-side by
 definition and must not rewind.
 
-⇒ **THE ACTUAL OPEN POPULATION IS FOUR: `BossEncounterRegistry`,
-`CutsceneTriggerQueue`, `CutsceneAdvanceRequest`, `CutsceneSkipHold`.** MEASURED:
-none of the four is registered on any road, none is declared derived, and none is
-named in any doc or check outside this plan. They are session-scoped state with no
-rollback decision of any kind recorded. Three of the four are cutscene input,
-which is plausibly presentation-side — but plausible is what a declaration exists
-to replace, and the campaign's step 3 cannot record a boundary nobody wrote down.
+⇒ **FOUR CARRY NO ROLLBACK DECISION OF ANY KIND**, and reading them answered two:
+`BossEncounterRegistry` is an authored read-only catalog behind a one-shot latch
+and `CutsceneSkipHold` is HUD-only by its own doc, both correctly unregistered.
+**The remaining two — `CutsceneTriggerQueue` and `CutsceneAdvanceRequest` — are
+written or consumed INSIDE the rewinding schedule and rewind with nothing.** That
+is now its own queue row,
+[CUTSCENE-ROLLBACK-DECISION](../queue.md#cutscene-rollback-decision--two-session-scoped-cutscene-values-cross-into-simulation-with-no-rollback-decision),
+because it is open executable work rather than a census fact, and C03 does not own
+it: the decision may be to move `CutsceneAdvanceRequest` onto the control frame
+rather than to register it.
 
 ⛔ **THE GUARD DELIBERATELY DOES NOT ENFORCE THIS YET.** Extending RULE 3's
 "register or declare" rule from the checkpoint family to `SessionScopedResources`

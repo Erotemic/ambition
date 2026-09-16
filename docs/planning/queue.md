@@ -975,9 +975,17 @@ version of this row did — and at rung 5 it overstates by 6.6×.
 
 **Next implementation:** two separable pieces, and the second is the row's real
 subject.
-1. Make `[dealt]` say what it counts — split seat-directed from summon-directed
-   damage at the print, so the diagnostic cannot be read as the guard's input
-   when it is not.
+1. ✅ **DONE.** `[dealt]` now prints both victim classes, and the `dealt > 0`
+   PASSENGER ASSERTION beside it — not just the print — counted summon damage
+   too, so a seat that never touched the opponent satisfied the half whose
+   stated job is *"the exchange floor above can be carried by one seat alone,
+   and that is exactly the state this half exists to refuse"*. It now counts
+   seat-directed damage only. Measured across the five rungs, dealt-to-seat vs
+   dealt-to-another-body per seat: rung 1 `83/24, 97/8`; rung 3 `69/60, 54/60`;
+   rung 5 `6/40, 10/49`; rung 6 `46/0, 60/0`; rung 9 `35/34, 16/10`. ⛔ The
+   predicate is not constant in either direction — rung 6 spends nothing on
+   other bodies and rung 5 spends 89 of 105 — which is what makes the split a
+   measurement rather than a relabelling. No rung changed verdict.
 2. Rung 5's move selection is a [BRAIN](#brain--finish-truthful-fighter-attack-selection)
    defect, not a guard defect: a duelist policy that answers 71–84% of its
    decisions with two moves and lands 15% of its damage on the opponent is the

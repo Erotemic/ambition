@@ -78,29 +78,51 @@ MIN_WORDS = 6
 # resolvable citation would mean the deletion did not happen. Such a line carries
 # `<!-- cite-ok: <reason> -->`.
 #
-# ⛔⛤ **THIS IS AN AMNESTY, SO IT IS SCOPED AND IT IS PRINTED.** Five planning
-# documents were already writing `cite-ok` markers before this function existed
-# and the checker did not read them -- the convention looked honoured and did
-# nothing, so the gate went red on a name whose exemption had been written
-# months earlier. Three rules keep that from becoming a hiding place: the marker
-# exempts only names on ITS OWN LINE, it must carry a non-empty reason, and
-# every name it excuses is REPORTED on a green run. An amnesty nobody can see is
-# a way to hide what it exempts.
-EXEMPT = re.compile(r"<!--\s*cite-ok:\s*(?P<reason>[^>]*?)\s*-->")
+# ⛔⛤ **THE PREDICATE IS IMPORTED, NOT RESPELLED, AND THAT IS THE WHOLE POINT.**
+# `check_planning_citations.py` already owns `marker_suppresses` and documents
+# the scope as THE CITATION'S OWN LINE OR THE ONE BELOW IT, because a citation
+# often ends a wrapped sentence and the marker will not fit beside it at 80
+# columns. That module records having been respelled three times in itself and a
+# FOURTH time, differently and more narrowly, in a test -- and that the narrow
+# copy reddened a guard on a marker that was legal by the documented rule.
+# MEASURED 2026-09-16: my first version here was a FIFTH spelling, same-line
+# only, which is the same trap one more time. ⇒ Import the keeper.
+#
+# ⛔⛔ AND IT IS AN AMNESTY, SO IT IS SCOPED AND PRINTED. Five planning documents
+# were writing `cite-ok` before this checker read them at all -- the convention
+# looked honoured and did nothing, so the gate went red on a name whose exemption
+# had been written months earlier on the same line. The marker must carry a
+# NON-EMPTY reason, and every name it excuses is REPORTED on a green run. An
+# amnesty nobody can see is a way to hide what it exempts.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_planning_citations import MARKER, marker_suppresses  # noqa: E402
+
+EXEMPT_REASON = re.compile(re.escape(MARKER) + r":\s*(?P<reason>[^>]*?)\s*-->")
 
 
 def cited_names(path: Path) -> tuple[set[str], set[str]]:
-    """Return (names to check, names excused by a `cite-ok` marker on their line)."""
+    """Return (names to check, names excused by a `cite-ok` marker)."""
+    lines = path.read_text(encoding="utf-8").splitlines()
     checkable: set[str] = set()
     excused: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for lineno, line in enumerate(lines, start=1):
         names = {
             name for name in CITED.findall(line) if len(name.split("_")) >= MIN_WORDS
         }
         if not names:
             continue
-        marker = EXEMPT.search(line)
-        if marker and marker.group("reason"):
+        # ⚠ `marker_suppresses` owns the SCOPE (this line or the next). The
+        # reason is this checker's own extra requirement, so it is searched
+        # across exactly the same two lines the keeper looks at.
+        window = "\n".join(lines[lineno - 1 : lineno + 1])
+        reason = EXEMPT_REASON.search(window)
+        # ⛔ `.search()` TRUTHY IS NOT A REASON. `<!-- cite-ok: -->` matches this
+        # pattern with an EMPTY capture, so testing the match object excuses the
+        # name on a marker that gives no reason at all. MEASURED: the poison for
+        # this went green, and only that poison found it -- the first version of
+        # this function tested the GROUP and the regression came in when I
+        # collapsed onto the shared predicate.
+        if marker_suppresses(lines, lineno) and reason and reason.group("reason").strip():
             excused |= names
         else:
             checkable |= names

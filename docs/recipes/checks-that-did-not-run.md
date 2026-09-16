@@ -1227,7 +1227,7 @@ cheaper to look for.
 
 ## ⛔⛔ DELETING A NAMED SEAM LEAVES REFERENCES NO COMPILER CHECKS
 
-**Measured 2026-09-15.** `DevEditApplySet` was deleted correctly — the set had
+**Measured 2026-09-15.** `DevEditApplySet` was deleted correctly <!-- cite-ok: the deleted seam is this section's subject; a resolvable citation would mean the deletion did not happen --> — the set had
 zero members on every road, and the `.after(DevEditApplySet)` pins it carried
 were ordering against nothing. The deletion compiled, the two guards it fixed
 went green, and it left an `error`-severity workspace policy still asserting that

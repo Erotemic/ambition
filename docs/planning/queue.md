@@ -2096,7 +2096,12 @@ is live and whether `SaveRestored` is set:
 
 ⇒ **The timeline PRECEDES the write.** A within-frame sampler carrying an explicit
 `.after(complete_durable_restore)` edge finds the GGRS session ALREADY LIVE at the
-instant the latch has just been set. ⛔ So the session-scope waivers' *"the write
+instant the latch has just been set, and **`RollbackFrameCount` reads 1 there** —
+timeline frame one, not "before frame zero". The sync-test check distance is four,
+so a resimulation reaches back past it, and all three restored resources
+(`OccurrenceBaseline`, `CustodyBaseline` and the save itself) are
+`rollback_resource_clone_checksum` registrations: a rewind across frame 1 restores
+them to their pre-write snapshot and `Update` does not re-run. ⛔ So the session-scope waivers' *"the write
 precedes the timeline"* does not merely fail to transfer — **the opposite is what
 happens**, and the row's earlier reading ("gated on the same fact, order stated
 nowhere") was too generous in one respect and wrong in another: the two are NOT
@@ -2118,6 +2123,22 @@ moved the session start from frame 2 to frame 1 and shortened the boot by a fram
 these two land in is a property of the whole `Update` set, not of either system.**
 The probe perturbs its own subject, and says so in its doc; the exact frame numbers
 are not the fact, "nothing orders them" is.
+
+⚠ **AND THE DETECTOR THAT SHOULD SEE THIS IS GREEN FOR A REASON THAT IS NOT
+SAFETY — do not read its green as a clean bill.** `OccurrenceBaseline` and
+`CustodyBaseline` are value-probed, so
+`written_outside_the_rewinding_schedule()` CAN see them, and
+`no_registered_type_is_written_outside_the_rewinding_schedule` passes anyway. The
+harness boots with no save file, so `adopt_the_ledger` writes the SAME EMPTY VALUE
+it found and the comparison is between two identical censuses. ⇒ That is the third
+time tonight a control has died of success — the same shape as the repaired
+`AmbitionGameSave` positive control and as the presence-probe finding. **The arm
+that would demonstrate this needs a SEEDED save, and nobody has built one.**
+
+⇒ **WHAT IS LEFT IS A RULING, and it is not Q129's or Q134's:**
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
+Those two ask what belongs in the peer checksum; this asks whether a synchronised
+timeline may begin before the world it synchronises has finished loading.
 
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION

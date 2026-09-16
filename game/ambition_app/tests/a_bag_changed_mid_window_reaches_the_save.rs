@@ -1049,6 +1049,7 @@ struct DurableRestoreFrame {
     primary_bodies: usize,
     ggrs_live: bool,
     restored: bool,
+    ggrs_frame: i32,
 }
 
 #[derive(bevy::prelude::Resource, Default)]
@@ -1065,6 +1066,10 @@ fn record_durable_restore_order(world: &mut bevy::prelude::World) {
     let restored = world
         .get_resource::<SaveRestored>()
         .is_some_and(|latch| latch.0);
+    let ggrs_frame = world
+        .get_resource::<ambition_platformer2d::rollback::RollbackFrameCount>()
+        .map(|count| count.0)
+        .unwrap_or(-1);
     world
         .resource_mut::<DurableRestoreLog>()
         .0
@@ -1073,6 +1078,7 @@ fn record_durable_restore_order(world: &mut bevy::prelude::World) {
             primary_bodies,
             ggrs_live,
             restored,
+            ggrs_frame,
         });
 }
 
@@ -1115,6 +1121,14 @@ fn sim_recording_the_restore_order() -> Platformer2dSimHarness {
 /// within-frame probe — a sampler with an explicit `.after(complete_durable_restore)`
 /// edge — finds the GGRS session ALREADY LIVE at the instant the latch has just
 /// been set.
+///
+/// ⛔⛤ AND IT IS INSIDE THE REWIND WINDOW, which is what makes it a defect rather
+/// than an ordering curiosity. `RollbackFrameCount` reads **1** at that instant —
+/// timeline frame one, not "before frame zero" — and the sync-test settings give
+/// a check distance of four, so a resimulation reaches back past it. The three
+/// restored resources are `rollback_resource_clone_checksum` registrations, so a
+/// rewind across frame 1 restores them to their pre-write snapshot and `Update`
+/// does not re-run.
 ///
 /// ⚠ AND THE GAP IS NOT STABLE AGAINST UNRELATED COMPOSITION CHANGES, which is
 /// the more useful half. `maintain_local_session` runs in `Update` in
@@ -1162,6 +1176,7 @@ fn probe_when_the_durable_restore_latch_flips_against_ggrs_start() {
 #[derive(bevy::prelude::Resource, Default, Debug)]
 struct WithinFrameOrder {
     ggrs_live_just_after_the_latch: Option<bool>,
+    ggrs_frame_when_the_latch_was_set: Option<i32>,
 }
 
 fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
@@ -1172,8 +1187,13 @@ fn sample_ggrs_after_the_latch(world: &mut bevy::prelude::World) {
         return;
     }
     let live = world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
+    let frame = world
+        .get_resource::<ambition_platformer2d::rollback::RollbackFrameCount>()
+        .map(|count| count.0)
+        .unwrap_or(-1);
     let mut order = world.resource_mut::<WithinFrameOrder>();
     if order.ggrs_live_just_after_the_latch.is_none() {
         order.ggrs_live_just_after_the_latch = Some(live);
+        order.ggrs_frame_when_the_latch_was_set = Some(frame);
     }
 }

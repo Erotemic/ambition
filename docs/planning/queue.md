@@ -2231,6 +2231,34 @@ in the harness, since the system early-returns without a `DialogueRunnerEntity`
 and `spawn_dialogue_runner` is itself `.run_if(resource_exists::<YarnProject>)`.
 The bag arm was the cheap member of this class and is the template.
 
+✅⛤ **AND THE ARGUMENT IS NOW HALF-SETTLED WITHOUT THE HARNESS, BY READING WHAT
+DRIVES IT — 2026-09-16. THE "COUNTED TWICE" BRANCH CANNOT HAPPEN.** Double
+counting requires the dialogue START to be replayed through the sim. Nothing
+replays it: the crate `ambition_dialog` contains the string `rollback` **zero
+times**, `DialogState` is a plain `#[derive(Resource)]` with no registration on
+any road, and the dispatcher consumes the request with
+`state.pending_start.take()` in `Update`. ⇒ So on a rewind across the start frame
+`AmbitionGameSave` is restored to its pre-increment value, the request that caused
+the increment is already gone and does not come back, and nothing re-runs the
+dispatcher. **The visit is LOST, full stop** — one outcome, not two.
+
+⛔ **AND IT IS NOT HYPOTHETICAL IN A ROLLBACK SESSION.** `plugins.rs:108` installs
+the whole Yarn stack under `#[cfg(feature = "ui")]` and **nothing else** — it is
+NOT gated on `simulation_host.is_rollback()`, which is checked thirteen lines
+earlier for `AmbitionRollbackPlugin`. The bridge and the rollback plugin live in
+the same app in the real game.
+
+⛔ **AND THE FIELD REACHES THE PEER CHECKSUM WITH NO FILTER.**
+`AmbitionGameSave::checksum` is `ron::ser::to_string(&self.0)` over the WHOLE
+save, so `dialog_visits` is inside the value two peers compare. There is no
+projection to narrow and nothing already excludes it.
+
+⇒ **WHAT IS LEFT IS ONE RULING, AND IT IS NARROWER THAN Q129's:** see
+[Q134](awaiting-maintainer-decision.md#q134--is-a-dialog-visit-count-something-two-peers-must-agree-on).
+The mirrors' answer is unavailable here, as this row already says; what this
+measurement adds is that the alternative answer the row hedged toward is
+unavailable too.
+
 ⛔ **STILL OPEN: the one-shot pair is a RACE, not a per-frame accumulation.**
 `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both fire
 in the window between a live body existing and the latch flipping — and a live

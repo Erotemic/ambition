@@ -309,10 +309,39 @@ conflicting-registration check — which is accidental cross-evidence, not a
 designed guard, and **covers only names BOTH roads reach**. A kind spelled
 wrongly on a registration that only one road installs has nothing checking it.
 
-**Next implementation:** give each registrar method ONE kind, named where the
-method is declared rather than at each call of `descriptor::<T>` /
-`record::<T>`. Do not add a third table mapping method names to kinds; that is
-the same duplication with an extra hop.
+⭐⭐ **MEASURED 2026-09-16: THE TWO ROADS AGREE TODAY, AND THE DUPLICATION IS
+STRUCTURAL RATHER THAN A DRIFT.** Every method name present on both roads spells
+the SAME kind — zero disagreements. The roads are two SEPARATE TRAITS with
+matching method names: `RollbackRegistrar` (declared in
+`ambition_platformer2d_core::snapshot`, 24 methods, implemented by
+`SchemaRollbackRegistrar` in `runtime` — 24, an exact match) and
+`AmbitionRollbackApp` (declared and implemented for `App` in
+`rollback_ggrs/src/registration.rs`). ⇒ There is no shared declaration to hang a
+kind on, which is why "name it where the method is declared" needs the two
+vocabularies collapsed first. That is the real shape of this row.
+
+⚠ **AND A FIRST PASS OF MINE REPORTED FOUR RECORDING-ONLY METHODS THAT DO NOT
+EXIST.** My script took the first `RollbackEntryKind::` after each `fn` and the
+installing road nests differently, so it mis-grouped
+`rollback_component_clone_checksum` and `rollback_resource_clone_checksum` and
+their `_with_schema_detail` siblings. They are on both roads. The asymmetry is
+ONE method, not five — see below. A parser's grouping is a finding about the
+parser until it is checked by hand.
+
+⇒ **ONE ASYMMETRY WAS REAL AND IS DELETED.** `rollback_resource_cursor` was
+declared and implemented on the INSTALLING road only, with no counterpart in
+`RollbackRegistrar` and ZERO callers in the workspace. A registration expressible
+on one road and not the other is worse than a kind spelled twice: it installs
+snapshot machinery the schema baseline has no row for, and the
+conflicting-registration check cannot see a name only one road reaches.
+
+**Next implementation:** collapse the two vocabularies before touching kinds.
+Give each registrar method ONE kind, named where the method is declared rather
+than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
+mapping method names to kinds; that is the same duplication with an extra hop.
+⚠ `RollbackEntryKind` lives in `runtime::rollback::registry` and the shared trait
+lives in `core::snapshot`, so the enum has to move before a default method body
+can name it.
 
 **Acceptance:** changing a method's kind in one place changes both roads, and a
 poison that changes only one side fails to compile rather than relying on a

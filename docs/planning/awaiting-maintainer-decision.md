@@ -513,8 +513,8 @@ what "agreed" is before there is a handshake to carry it; (b) keep it absolute
 and accept that peer comparison waits for real sessions, recording it as a known
 hole rather than an oversight; (c) project it out and replace the timeline term
 with something else, which nobody has proposed a shape for. Recorded by the
-`queue.md` ID-PEER table, which names this as the tenth of ten roads and the only
-one still open.
+`queue.md` ID-PEER table, which names this as one of two roads still open — the
+other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
 ## Q127 — are difficulty, assist and player-damage modifiers match-wide or participant-specific?
 

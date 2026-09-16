@@ -272,7 +272,7 @@ pub(crate) fn bark_is_allowed(
         ambition_platformer2d_core::sim_random::DOMAIN_BARK,
         active.map_or(
             ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
-            |active| active.instance().random_context(),
+            |active| active.random_context(),
         ),
         tick.get(),
         // ⛔⛔ THE SIMULATION NAME, NEVER `Entity::to_bits()`. An entity index is

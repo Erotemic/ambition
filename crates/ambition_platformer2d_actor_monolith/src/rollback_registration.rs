@@ -117,6 +117,16 @@ where
          only, excluding the host-local session, seat-topology and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
+    // ⭐ THE ORDINAL MINT. It rewinds for the same reason any counter does: a
+    // resimulated activation must draw the ordinal it drew the first time, or
+    // the match re-rolls its item table on every rollback. ⚠ Its `session` half
+    // is a per-App count, but it is compared only against ITSELF to decide
+    // whether to restart at zero — the value two peers compare is the ordinal,
+    // which they agree on.
+    registrar.rollback_resource_canonical::<ambition_match::seating::SessionMatchOrdinal>(
+        OWNER,
+        "resource.session_match_ordinal",
+    );
     // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
     // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the
     // other would restore a verdict about a match that is not running. Registered together,

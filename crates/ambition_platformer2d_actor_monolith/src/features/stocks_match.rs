@@ -399,7 +399,7 @@ mod tests {
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
     fn match_activated_on(tick: u64) -> ActiveMatch {
-        ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick))
+        ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick), None)
     }
 
     fn side(label: &str, stocks: u32, damage: i32) -> (String, u32, i32) {
@@ -743,7 +743,7 @@ mod tests {
     fn a_verdict_from_another_session_does_not_settle_this_match() {
         let mut settled = StocksMatchSettled::default();
         settled.settle(
-            &ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100)),
+            &ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100), None),
             MatchVerdict::Draw,
         );
         assert!(
@@ -752,6 +752,7 @@ mod tests {
                 None,
                 Some(SessionScopeId(1)),
                 Some(100),
+                None,
             )),
             "a new session's match inherited the previous session's verdict"
         );

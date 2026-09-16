@@ -11,7 +11,7 @@ fn app() -> App {
 /// that proves identity is BOTH facts lives with the type, in
 /// `ambition_match::seating`. What these tests own is the SWEEP.
 fn seated(seats: usize, tick: u64) -> ActiveMatch {
-    ActiveMatch::activated(seats, None, None, Some(tick))
+    ActiveMatch::activated(seats, None, None, Some(tick), None)
 }
 
 /// ⛔⛔ AN OBJECT OUTLIVES ITS MOVE AND NOT ITS MATCH.

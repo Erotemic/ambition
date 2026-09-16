@@ -51,6 +51,16 @@ impl SnapshotState for crate::ActiveMatch {
                 put_u64(out, tick);
             }
         }
+        // ⭐ AND THE ORDINAL, which is what the draws are actually keyed on. A
+        // rewind that restored the receipt without it would resume a match whose
+        // item table starts over.
+        match self.ordinal() {
+            None => put_bool(out, false),
+            Some(ordinal) => {
+                put_bool(out, true);
+                put_u64(out, ordinal);
+            }
+        }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let seats = r.u64()? as usize;
@@ -61,11 +71,41 @@ impl SnapshotState for crate::ActiveMatch {
             None
         };
         let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+        let ordinal = if r.bool()? { Some(r.u64()?) } else { None };
         Some(crate::ActiveMatch::from_snapshot(
             seats,
             seat_topology,
             session,
             activated_on,
+            ordinal,
+        ))
+    }
+}
+
+/// The ordinal MINT. It rewinds because it is a counter: a resimulated
+/// activation must draw the same ordinal it drew the first time, or the match
+/// re-rolls its item table on every rollback.
+impl SnapshotState for crate::seating::SessionMatchOrdinal {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let (session, next) = self.parts();
+        match session {
+            None => put_bool(out, false),
+            Some(session) => {
+                put_bool(out, true);
+                put_u64(out, session.0);
+            }
+        }
+        put_u64(out, next);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let session = if r.bool()? {
+            Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+        } else {
+            None
+        };
+        Some(crate::seating::SessionMatchOrdinal::from_snapshot(
+            session,
+            r.u64()?,
         ))
     }
 }

@@ -58,3 +58,38 @@ Examples of meaningful progress are:
 - the narrower-lifetime resource count falls because state moved under an actual session owner and reset code disappeared;
 - a transitional road is deleted after its replacement becomes the normal path;
 - a mixed identity type is split into local correlation and canonical provenance even if the total number of types increases.
+
+## 2026-09-16 static re-measurement (`09629b060f65`)
+
+⚠ **COUNTS ONLY.** The semantic ledger items were not re-read; see the ledger's
+`static_measurement_refresh`. Deltas are against the `662a9b56096a` baseline.
+
+| metric | baseline | 2026-09-16 | delta |
+| --- | ---: | ---: | ---: |
+| workspace nonblank Rust LOC | 777,646 | 787,934 | +10,288 |
+| workspace Rust files | 1,882 | 1,883 | +1 |
+| test Rust LOC (heuristic) | 265,099 | 269,454 | +4,355 |
+| large modules (≥1000 nonblank lines) | 182 | 184 | +2 |
+| `Option<Res<_>>` occurrences | 732 | 726 | −6 |
+| `Option<Res<_>>` unique types | 196 | 196 | 0 |
+| raw `.before`/`.after` edges | 473 | 471 | −2 |
+| explicit narrow-lifetime resources | 32 | 32 | 0 |
+| inventory: ECS resources | 525 | 493 | −32 |
+| inventory: registrations | 1,818 | 1,763 | −55 |
+| inventory: unique registration identifiers | 3,245 | 3,132 | −113 |
+| inventory: components | 650 | 638 | −12 |
+| inventory: non-ECS items | 2,123 | 2,048 | −75 |
+| inventory: plugins | 189 | 187 | −2 |
+| inventory: registered systems | 1,098 | 1,108 | +10 |
+
+⭐ The inventory bucket fell across the board while source LOC ROSE. REASONED,
+not measured: that is the shape post-A10 demolition should make — fewer distinct
+registered truths against more code. ⛔ It is not proof. The counts are
+text-pattern heuristics over a separately generated index, and a crate moving
+between directories moves its rows too. ⇒ Do not cite the −113 as a consolidation
+result without naming which identifiers went.
+
+⛔ The inventory numbers were 50 commits stale when this was measured, and
+regenerating `.agent/` changed `files`/`symbols`/`tests` while leaving every
+`ecs.*` count identical. So the ECS deltas above are drift since the baseline,
+not an artefact of the regeneration — that was checked, not assumed.

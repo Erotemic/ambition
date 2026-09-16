@@ -378,6 +378,30 @@ mapping method names to kinds; that is the same duplication with an extra hop.
 lives in `core::snapshot`, so the enum has to move before a default method body
 can name it.
 
+⛔⛤ **AND "DEMOTE THE GENUINELY-`derived` REGISTRATIONS" IS NOT A MECHANICAL
+SUB-TASK — ITS FIRST NAMED EXAMPLE IS WRONG.** MEASURED 2026-09-16: of 212
+distinct types registered through a `*_clone` method, 21 have a declaration doc
+matching `derived|recomputed|never authored|never persisted`. Reading them, most
+say "derived" about something ELSE — `ActorRenderSize`'s COLLISION BOX,
+`CapturedBy`'s INVERSE, `AuthoredHurtboxes`' absence selecting a sprite-derived
+box. ⚠ 21 is a floor of CANDIDATES, not a count of defects.
+
+The ones that really do describe themselves that way are deliberate, and the
+reason is written at the registration site (`rollback_registration.rs:428`):
+*"'Re-derived next tick' is not a reason to omit it: `ITEM 0` of this project's
+own record is a component declared derived, dropped by a restore, and read before
+its writer ran again. Presence is authoritative because a query FILTERS on it."*
+`Dormant` and `SensesUndecided` are both registered for that reason;
+`StrikeVolume` for a sibling one (without it "a rollback that rebuilds
+`MovePlayback` from a blob would strand every live box forever").
+
+⭐ **THE RULE: a component whose PRESENCE is read by a query filter is
+AUTHORITATIVE even when its value is derived.** *"Derived"* describes how it is
+COMPUTED; rollback cares whether anything READS it before its writer runs again.
+The doc sentence that reads like a demotion candidate is usually answering the
+first question. ⇒ The demotion population looks close to zero and nothing should
+be demoted on a keyword match.
+
 **Acceptance:** changing a method's kind in one place changes both roads, and a
 poison that changes only one side fails to compile rather than relying on a
 runtime conflict check. The existing conflict check stays — it covers a

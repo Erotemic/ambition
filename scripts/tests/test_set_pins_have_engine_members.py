@@ -115,3 +115,38 @@ def test_the_real_tree_has_no_unwaived_rows():
         "an engine pin points at a set only a game fills: "
         f"{[f[0] for f in unwaived]}"
     )
+
+
+# ── the population floor (added 2026-09-16) ────────────────────────────────
+
+
+def test_the_scan_still_reaches_its_own_population() -> None:
+    """⛔ A SOURCE-READING GUARD FAILS BY REPORTING LESS.
+
+    A pattern that stops matching, a source root that moves, or a widened
+    test-path rule all produce FEWER findings, and fewer findings reads as good
+    news. MEASURED three times in `check_rollback_mutators_run_in_sim.py`, every
+    one in the green direction: 1 type visible of 113, then six hidden behind
+    `SessionWorldMut<T>`, then thirteen behind a `#[derive(SystemParam)]`
+    bundle.
+
+    ⚠ This arm runs against the REAL tree deliberately, unlike every other arm
+    in this file. The synthetic workspaces cannot answer "did the scan stop
+    reaching the repository", which is the only question a floor asks.
+    """
+    sizes = guard.population_sizes()
+    assert not guard.population_shortfalls(), (
+        f"the scan lost reach: {sizes} against {guard.POPULATION_FLOOR}"
+    )
+
+
+def test_the_floor_can_actually_fail() -> None:
+    """A floor that cannot fire guards nothing, and reads identically to one
+    that can."""
+    original = dict(guard.POPULATION_FLOOR)
+    try:
+        guard.POPULATION_FLOOR["sets defined"] = guard.population_sizes()["sets defined"] + 1
+        assert guard.population_shortfalls(), "the floor cannot fail, so it guards nothing"
+    finally:
+        guard.POPULATION_FLOOR.clear()
+        guard.POPULATION_FLOOR.update(original)

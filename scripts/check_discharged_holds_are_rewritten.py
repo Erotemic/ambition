@@ -71,6 +71,58 @@ DISCHARGED = re.compile(r"DISCHARGED|SATISFIED|LIFTED|CLOSED|hold-ok|discharged"
 ROW_ID = re.compile(r"\b([A-Z]\d{1,3})\b")
 COMPLETE_HERE = re.compile(r"\b(COMPLETE|COMPLETED|CLOSED)\b")
 
+# ⛔⛤ **THE THIRD RULE, AND IT IS A THIRD SPELLING OF THE SAME CONVENTION.**
+# MEASURED 2026-09-16: `consolidation/architecture-census.md` carried the
+# sentence *"The current A10 implementation should finish before another agent
+# changes the room publication model."* A10 closed on 2026-09-15 and its
+# demolition on 2026-09-16, so that line held a door shut with nobody behind it
+# — and it was invisible to BOTH rules above, because it is neither a bold
+# `**HOLD:**` marker nor inside a row that announces its own discharge. It is
+# ordinary prose in a document with no status table at all.
+#
+# ⇒ So this rule crosses FILES: `queue.md` row headers are the authority on which
+# campaigns are done, and a GATE SENTENCE anywhere in the corpus that names one
+# of them is stale. ⚠ It needs a gate VERB near the id, because the corpus is
+# full of legitimate history ("A10's room scope landed first") that names a
+# closed row without gating anything on it.
+QUEUE_ROW = re.compile(r"^### ([A-Za-z0-9/-]+)")
+QUEUE_DONE = re.compile(r"DONE|CLOSED|✅")
+#: A gate verb within ~40 characters of the row id, in either order.
+GATE_VERBS = (
+    r"should (?:finish|land|close|complete)|must (?:finish|land|wait)|"
+    r"blocked on|waits? (?:on|for)|gated on|do not (?:start|begin)|"
+    r"not until|depends on|pending"
+)
+GATE_NEAR_ID = re.compile(
+    rf"(?:(?:{GATE_VERBS}).{{0,40}}?\b([A-Z][A-Z0-9-]*\d[A-Z0-9-]*)\b"
+    rf"|\b([A-Z][A-Z0-9-]*\d[A-Z0-9-]*)\b.{{0,40}}?(?:{GATE_VERBS}))"
+)
+
+
+def rows_marked_done(queue: pathlib.Path) -> set[str]:
+    """Which campaigns `queue.md` announces as finished, from its row headers."""
+    out = set()
+    for line in queue.read_text(encoding="utf-8").split("\n"):
+        m = QUEUE_ROW.match(line)
+        if m and QUEUE_DONE.search(line):
+            out.add(m.group(1))
+    return out
+
+
+def stale_gates(text: str, done: set[str]) -> list[tuple[int, str, str]]:
+    """(lineno, id, line) for gate sentences naming a finished campaign."""
+    findings = []
+    for n, line in enumerate(text.split("\n"), start=1):
+        if DISCHARGED.search(line):
+            continue
+        # ⚠ A struck-through id is the REWRITE this check asks for.
+        bare = re.sub(r"~~[^~]*~~", "", line)
+        for m in GATE_NEAR_ID.finditer(bare):
+            name = m.group(1) or m.group(2)
+            if name in done:
+                findings.append((n, name, line))
+    return findings
+
 # ⛔⛔ THE KNOWN-ANSWER CONTROL, RUN ON EVERY INVOCATION. A source-text guard goes
 # blind when its pattern rots, and the symptom is a clean report — which is what a
 # healthy corpus also produces. This is the exact A7 shape plus the exact quoted
@@ -178,6 +230,23 @@ def main() -> int:
         )
         return 1
 
+    # RULE 3: a gate sentence anywhere in the corpus naming a FINISHED campaign.
+    queue = pathlib.Path("docs/planning/queue.md")
+    done_rows = rows_marked_done(queue) if queue.exists() else set()
+    if done_rows:
+        for root in args.roots:
+            for path in sorted(pathlib.Path(root).rglob("*.md")):
+                if path == queue:
+                    continue  # the authority describes its own rows
+                for n, name, line in stale_gates(
+                    path.read_text(encoding="utf-8"), done_rows
+                ):
+                    findings.append(
+                        f"  {path}:{n}\n"
+                        f"     GATES work on {name}, which `queue.md` marks finished\n"
+                        f"     :{n} {line.strip()[:78]}"
+                    )
+
     if findings:
         print(
             f"⛔ {len(findings)} hold(s) state a condition this repository has "
@@ -186,12 +255,16 @@ def main() -> int:
         )
         print("\n".join(findings))
         print(
-            "⇒ REWRITE THE `**HOLD:**` LINE ITSELF, naming what discharged it and\n"
-            "  when. The banner above it is a second copy of that fact and the second\n"
-            "  copy is the one that rots — a reader scrolling to the hold is the\n"
-            "  reader deciding whether to start.\n"
+            "⇒ REWRITE THE GATING LINE ITSELF, naming what discharged it and when.\n"
+            "  A banner above it, or a status table two screens up, is a SECOND COPY\n"
+            "  of that fact and the second copy is the one that rots — the reader who\n"
+            "  scrolls to the gate is the reader deciding whether to start.\n"
             "⚠ If the row genuinely delivers ONE half of a two-part hold and is still\n"
-            "  held on the other, put `hold-ok` on the hold line and say which half."
+            "  held on the other, put `hold-ok` on the hold line and say which half.\n"
+            "⚠ For a RULE 3 finding (a prose gate naming a campaign `queue.md` marks\n"
+            "  finished): if the sentence is HISTORY rather than a gate, rewrite it in\n"
+            "  the past tense. This check needs a gate VERB beside the id, so an\n"
+            "  ordinary mention of a closed campaign is already invisible to it."
         )
         return 0 if args.report_only else 1
 

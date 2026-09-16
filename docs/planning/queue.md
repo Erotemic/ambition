@@ -1633,6 +1633,29 @@ attributing a frozen value to the schedule. ⚠ Scope: the fixed-tick harness. A
 rollback composition is a different host in a different schedule, so re-measure
 there rather than quoting this.
 
+⭐ **AND `check_headless_arms_can_fail`'s 17 ARMS WERE AUDITED FOR THE INFLATION
+THIS ROW'S OWN LOGIC INVITES — 0 EXPOSED (2026-09-16).** The check's rule is
+"pins `ManualDuration` OR asserts something", which counts what an arm CONTAINS.
+A peer warned that counting by what an arm CALLS rather than by what would FAIL
+had inflated their own census six-to-zero. ⇒ Measured here instead of assumed:
+10 of the 17 pass on asserts alone, and every one of them asserts something a
+non-stepping engine cannot satisfy — a tick going 0 → 1, a counter reaching 60,
+a life spent, a level clock advancing.
+
+⚠ The two that looked like composition-only assertions (`a_fixed_aspect_profile_
+reaches_the_camera_and_the_surround`, `an_undeclared_profile_leaves_the_host_
+full_bleed`) POISON RED: removing the two `app.update()` calls from their shared
+`presentation_shell` helper fails both, because `ResolvedGameplayPresentation` is
+produced by those updates. ⚠ My first poison at those two removed zero calls —
+they step through a helper, and `reachable()` expands it. A poison that edits the
+wrong scope is a finding about the poison.
+
+⭐⭐ **THE DISTINCTION IS WORTH MORE THAN THE RESULT: counting calls to a safety
+API measures VIGILANCE; counting assertions a broken world fails measures
+SAFETY.** An arm demanding a room change has a stronger liveness guarantee than
+one reading a health API once at the end, because its check is load-bearing for
+its own subject rather than bolted on beside it.
+
 **Still open.** One non-reproducing session-root handoff failure whose assertion
 message was never captured. On the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test

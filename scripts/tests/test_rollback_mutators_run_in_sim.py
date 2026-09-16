@@ -174,10 +174,42 @@ def test_an_ordering_edge_is_not_a_registration(tmp_path):
     )
 
 
-def test_the_real_tree_is_clean_or_waived():
-    assert guard.collect() == [], (
-        "rollback state is mutated outside the rewinding schedule: "
-        f"{[f[0] for f in guard.collect()]}"
+def test_the_real_tree_has_no_mutator_outside_the_rewind_that_is_not_banked():
+    """⛔ NOT "clean" — twelve offenders are real, owed and NOT waived.
+
+    A `WAIVERS` entry says the drift does not matter; an `ACKNOWLEDGED` entry
+    says it does and names the row it is owed to. What this refuses is a
+    THIRTEENTH, because while the guard could not go green one more could not
+    change its verdict.
+    """
+    new_offenders = [f[0] for f in guard.collect() if f[0] not in guard.ACKNOWLEDGED]
+    assert new_offenders == [], (
+        "rollback state is mutated outside the rewinding schedule by a system "
+        f"that is neither waived nor acknowledged: {new_offenders}"
+    )
+
+
+def test_every_banked_offender_is_still_one():
+    """⛔⛤ THE LIST HAS TO BE EXACT OR IT BECOMES A SECOND WAIVER TABLE.
+
+    A banked name the scan no longer reports was either fixed — delete it — or
+    lost to a blind spot, and a stale entry silently absorbs the next system to
+    take its place.
+    """
+    reported = {f[0] for f in guard.collect()}
+    stale = sorted(set(guard.ACKNOWLEDGED) - reported)
+    assert stale == [], (
+        f"ACKNOWLEDGED names systems the scan no longer reports: {stale}. "
+        "Check WHICH of the two happened before deleting the entry."
+    )
+
+
+def test_the_two_tables_never_name_the_same_system():
+    """They make OPPOSITE claims, so an overlap is one of them being false."""
+    both = sorted(set(guard.ACKNOWLEDGED) & set(guard.WAIVERS))
+    assert both == [], (
+        f"{both} are both waived (the drift does not matter) and acknowledged "
+        "(the drift is real and owed) — those cannot both be true"
     )
 
 
@@ -238,16 +270,18 @@ def test_every_waiver_cites_the_code_that_makes_it_true():
 def test_the_real_tree_registers_no_unwaived_rollback_mutator_outside_the_rewind():
     """⚠ Against the REAL crates, not a fixture — `collect()` defaults to REPO.
 
-    Green means zero UNWAIVED. Six systems are waived with reasons; a seventh
-    turns this red, which is the property the widening bought.
+    Green means no offender that is neither WAIVED nor ACKNOWLEDGED. The twelve
+    banked ones are real and owed; a THIRTEENTH turns this red, which is the
+    property that was lost while the guard could not go green.
     """
-    offenders = guard.collect()
+    offenders = [row for row in guard.collect() if row[0] not in guard.ACKNOWLEDGED]
     assert not offenders, (
         "a system that mutates rollback state is registered into a schedule that "
         "does not rewind, so its writes survive a rollback and desync the run: "
         f"{[(row[0], row[3]) for row in offenders]}. Register it through "
         "`app.sim_schedule()`, or waive it in WAIVERS with the reason its drift "
-        "across a rewind does not matter."
+        "across a rewind does not matter \u2014 or, if it is real and owed to an "
+        "open row, bank it in ACKNOWLEDGED, which claims the opposite."
     )
 
 

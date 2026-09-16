@@ -9,6 +9,22 @@ A row remains here only while an engineer can act on it. When it closes, keep a
 short receipt only where another open row depends on that fact; otherwise remove
 it.
 
+⚠ **MEASURED 2026-09-16: THIS FILE IS 2,345 LINES AGAINST THE 908 THE C10 CLEANUP
+LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
+doubled. C10's regression rule is *"if a live control-plane file starts
+accumulating closed case files again, delete/compress the history IN PLACE"*, so
+this is a note to every owner rather than a complaint: **the growth is per-row
+and only its owner can tell a receipt from live work.**
+
+The mass, largest first: ID-PEER 439, DURABLE-HORIZON-CHECKSUM 192,
+MENU-RESET-MIDSESSION 188, ROLLBACK-MUTATOR-POPULATION 187, SETTINGS-ROLLBACK
+176, ROLLBACK-BAG-DESYNC 172, A2 154. ⭐ TEST-LANES was second at 193 and is now
+66: everything in it that was a RULE rather than open work moved to
+[`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md),
+and the closed items became one-line receipts with their SHAs. That is the shape
+the contract asks for, and it is offered as a worked example rather than as a
+request.
+
 ## P0 — architecture and correctness
 
 ### A10 — candidate world / last-good-world publication — ✅ DONE, DEMOLITION CLOSED 2026-09-16
@@ -678,6 +694,36 @@ was one type, not the population. `Transform` is now excluded by NAME with that
 count beside it, and the other 338 types are in.
 
 Population 139 → 338; findings 8 → 12. The four it bought:
+
+⛔⛤ **AND THE WIDENING COST THE GUARD ITS VERDICT UNTIL 2026-09-16, WHICH THE
+ROW DID NOT SAY.** Twelve unwaived findings meant `exit 1` — so a THIRTEENTH
+offender could not change the answer, and `--maintenance` does not run this
+script. A check that reports FAILED before and after a regression has stopped
+being a check, whatever its row says, because a reader uses the exit code.
+(YardratAmbition's catch, measured against a clean tree at their HEAD.)
+
+⇒ **FIXED BY BANKING THE KNOWN SET, NOT BY WAIVING IT.** `ACKNOWLEDGED` is a
+SECOND table making the OPPOSITE claim to `WAIVERS`: a waiver says this drift
+does not matter, an acknowledgement says it is real and names the row that owes
+it. Waiving these twelve would have written down something false while Q129 and
+MENU-RESET-MIDSESSION are open. The exit code now means *no NEW offender*; the
+twelve still print, to stderr, each with its row.
+
+⛔ **AND A BANKED NAME THE SCAN STOPS REPORTING IS ALSO FATAL** — otherwise the
+list rots into a second waiver table and silently absorbs the next system to
+take a fixed one's place. POISONED, both branches, each on its own message and
+the file restored byte-identical: deleting `portal_dev_toggle_system` from the
+bank reddens as a new offender; adding a name that is not a finding reddens as
+stale. ⚠ The first attempt at the test edit asserted its anchor and wrote
+NOTHING — 8 spaces of indent against the file's 4 — and would have read as a
+clean pass had the pytest count not moved; every anchor is now counted before
+the write.
+
+The two standing expected failures in `test_rollback_mutators_run_in_sim.py` are
+gone with it: 22 passed, where the file previously carried 2 permanent reds. Two
+of the three new arms guard the bank's exactness, and the third refuses an
+overlap between the tables, since an entry in both would be one of the two claims
+being false.
 
 | system | type | why it matters |
 |---|---|---|
@@ -1553,13 +1599,54 @@ MONOTONE in level. A monotone ladder producing a non-monotone outcome with a
 large outlier at one rung is the finding, and the F6 menu/utility term is where
 it belongs.
 
-⚠ **BOUNDS, because this is one sample and cannot be resampled.**
-`fighter_cognition_seed` mixes the character id and the level with no clock and
-no external seed, so each rung is ONE deterministic stream — rung 5 returned
-bit-identical figures across three unrelated code states, which confirms the
-determinism but does not widen the sample. These rows are `npc_pirate_admiral`
-only. ⇒ Before acting, re-run across the other duel fighters; a defect at one
-(character, level) pair is not yet a defect in the rung.
+⛔⛤ **WIDENED THE SAME DAY, AND THE RUNG FRAMING ABOVE IS THE WRONG ONE.** The
+bound this row set — *"a defect at one (character, level) pair is not yet a
+defect in the rung"* — was the right caution and it was discharged by running
+`every_fighter_on_the_grid_can_fight_its_mirror` at rung 5 and at rung 9: 21
+fighters, mirror matches, 3600 ticks each, ~12 minutes a sweep. **It is not a
+property of the rung. It is a per-(character, rung) LOCK, and it has a
+signature.**
+
+| | starts | distinct used | top move | damage | hitstun | neutral |
+|---|---:|---:|---|---:|---:|---:|
+| `goblin` @5 | 201 | **1** | `dirt_kick`×201 | 0% / 0% | 0 | **100%** |
+| `goblin` @9 | 189 | 17 | `dirt_kick`×79 | 138% / 95% | 930 | 61% |
+| `special_patent_clerk` @9 | 160 | **1** | `synchronize_clocks`×160 | 0% / 0% | 0 | **100%** |
+| `special_patent_clerk` @5 | 143 | 18 | `synchronize_clocks`×52 | 167% / 200% | 1223 | 48% |
+
+⇒ A locked fighter throws ONE move for the whole bout, never leaves Neutral,
+and deals and takes exactly nothing — while still starting ~200 moves, so it is
+NOT a seating failure and not an idle body. `special_patent_clerk`'s locked bout
+re-starts the same move on a median gap of **4 ticks**.
+
+⇒ **AND IT IS NOT "LOW RUNGS ARE WORSE".** `goblin` locks at 5 and is fine at 9;
+`special_patent_clerk` locks at 9 and is fine at 5. Both directions occur, which
+is what `fighter_cognition_seed` mixing the character id with the level predicts:
+each pair is its own deterministic stream, and some streams land in a basin the
+decision layer cannot leave. Across the grid, 5 of 21 fighters fall under 40%
+total damage at rung 5 and 1 of 21 at rung 9 — all five of the rung-5 ones are
+healthy at rung 9 (`sanic` 0→130%, `goblin` 0→233%, `npc_pirate_admiral` 16→87%,
+`npc_emmy_noether` 36→142%, `npc_carl_stargan` 28→116%).
+
+⛔ **THE ONE THAT SHOULD WORRY A READER MOST IS AT RUNG 9, WHICH IS
+`RUNG_DEFAULT`** — the rung every other CPU number in this project is taken at.
+`special_patent_clerk` is locked there today.
+
+⚠ **AND THE INSTRUMENT ALREADY NAMED THEM; NOBODY HAD RUN IT.** The sweep is
+`#[ignore]`d as *"a measurement, not a guard"*, and its one assertion
+(`silent.len() * 2 < ids.len()`) is deliberately about whether the TABLE is
+readable, not about whether fighters fight — so one or two locked fighters print
+their zeros and it passes. That is the documented design, not a defect in it.
+
+**Next implementation for this half:** the lock is a decision-layer live-lock,
+and `used == 1` with `neutral == 100%` over a 3600-tick bout is a crisp,
+cheap predicate. ⇒ It is a candidate for a real guard, but ⛔ NOT by tightening
+the sweep's existing assertion, which measures something else on purpose.
+
+⚠ **BOUNDS THAT REMAIN.** Two rungs of the five, mirror matches only, one bout
+per pair — and the pairs cannot be resampled, since the seed is
+`(character, level)` with no clock. What is NOT bounded any more is the "one
+character" caveat: 21 fighters, both directions of the effect.
 
 ### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 
@@ -2294,143 +2381,82 @@ message before starting a step that takes hours.
 
 **Owner:** test runner / app integration lane.
 
+**Operational rules, the standing prohibitions and what a green lane does NOT
+clear now live in
+[`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).**
+They left this row on 2026-09-16 because the queue is for open executable work,
+not for the rules a closed investigation leaves behind.
+
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**690 passed / 0 failed / 41 ignored**, 255.14 s at `a5cf06306` on the
-ToothbrushAmbition box (2026-09-16). Earlier the same night, same box: 688/0/35,
-683/0/31 at `c78cc725e`, 677/0/25 at `582186bff`. The growth is new arms and
-print-only probes three agents added; **no arm has changed state across any of
-the four runs.** Missing prerequisites are reported as incomplete rather
-than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
-disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
-publish output was ~90 files short. Name the box beside the number.
+**691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the
+ToothbrushAmbition box, tree frozen. Earlier the same night, same box: 690/1/41
+(see the open item below), 690/0/41, 688/0/35, 683/0/31, 677/0/25. Missing
+prerequisites are reported as incomplete rather than pass.
 
-⇒ **THE LONG-RUNNING `app_it` FLAKE IS CLOSED (2026-09-16).** It was never a
-flake: `b9f2ece18` gave `drive_boss_animators` `.in_set(WorldPrep)` to buy a
-capability gate, while that system also runs
-`.after(project_boss_attack_state_from_move)`, which is `.in_set(CombatSet::Playback)`
-— LATER in the sim schedule. One system ordered both before and after Playback,
-and the fixed loop retried the broken schedule forever, allocating ~27 MB/s for
-the first minute and ~234 MB/s after. One orphaned arm reached anon-rss
-64,629,160 kB in 316 s and took a 62 GB box down. Bisected over
-`770ac4bff..ee3d0852e`; fixed at `23f786757`; guarded from BOTH sides by
-`the_boss_animator_takes_the_gate_and_not_a_phase`. See git for the timeline.
-
-⛔⛤ **THE THREE STANDING PROHIBITIONS IT LEFT.**
-1. **A set carries a POSITION as well as a gate.** Adding `.in_set(X)` to a
-   system that already has cross-phase `.after`/`.before` edges can contradict
-   them. This is the INVERSE of
-   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]] and
-   bites just as hard. Check which set every existing edge target lives in.
-2. **A session gate is not a capability check.** `run_if(simulation_authorized)`
-   answers *"is this session authorized"*, which is TRUE in a host that has no
-   boss catalog. A system needing a resource is guarded by that resource's
-   existence: `.run_if(resource_exists::<BossCatalog>)`.
-3. **`cargo check` cannot see a schedule cycle, and neither can an arm that never
-   steps.** `b9f2ece18` shipped on `cargo check` alone, with an explicit "NO
-   `app_it` run" justified by those two facts — which were exactly what made
-   `app_it` the only instrument that could see it.
-
-⇒ **THE COMPOSITION PROBES REALLY STEP NOW** (`582186bff`).
-`step_the_fixed_schedule` pins `TimeUpdateStrategy::ManualDuration(1/60)` AND
-asserts a `FixedUpdate` counter is non-zero — the pin alone is not enough,
-because anything that stops the loop advancing returns the arms to certifying a
-build and that failure is SILENCE. Before the pin: 13 MB, 0.47 s, ZERO fixed
-steps.
-
-⇒ **THE `BodyWallet` RED IS CLOSED** (`4ccfef59c`) and it was a CROSSING, not a
-schedule choice: `NewGameResetCommitted` is produced in the sim schedule's
-`ResetProcessing` and is `clear_message_on_rollback`, so a rewind could clear the
-trigger before its `Update` consumer ran. A waiver was never available.
+**Closed 2026-09-16, receipts only — the stories are in git:**
+- the long-running `app_it` runaway was a sim-schedule CYCLE, not a flake:
+  fixed `23f786757`, capability-guarded `582186bff`, two-sided regression test
+  `2e88670d1`;
+- the composition probes really STEP (`582186bff`): `step_the_fixed_schedule`
+  pins `ManualDuration(1/60)` AND asserts a `FixedUpdate` counter is non-zero,
+  because the pin alone returns the arms to certifying a build and that failure
+  is SILENCE. Before it: 13 MB, 0.47 s, ZERO fixed steps;
+- the `BodyWallet` red (`4ccfef59c`) was a CROSSING, not a schedule choice:
+  `NewGameResetCommitted` is produced in the sim schedule and is
+  `clear_message_on_rollback`, so no waiver existed.
 
 ⭐⭐ **A ROLLBACK-MUTATOR RED HAS THREE INDEPENDENT QUESTIONS BEHIND IT, and
-answering one is not a verdict.** (1) is the write inside the rewind window;
-(2) is the write at a point no rewind CROSSES, which satisfies the guard without
-moving anything; (3) is the TRIGGER erasable by a rollback, which closes the
+answering one is not a verdict.** (1) the write is inside the rewind window;
+(2) the write is at a point no rewind CROSSES, which satisfies the guard without
+moving anything; (3) the TRIGGER is erasable by a rollback, which closes the
 WAIVER route and which (2) cannot rescue. ⚠ Applying (3) to a peer's road would
 have told them they were clear of a charge they had not answered.
 
-⛔ **OPERATIONAL RULES FOR THIS LANE, kept because they cost a night.**
-- `scripts/measure_test_arm_rss.py` bounds a runaway: one process per arm (peak
-  RSS is a property of a PROCESS), `RssAnon` rather than `VmRSS` or cgroup
-  `memory.current`, kill by process group at a hard cap, and it refuses a row
-  where libtest ran zero tests.
-- ⛔⛔ **`pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is a
-  `bash -c '<whole line>'`, so its own argv contains the pattern and the first
-  `pkill` kills the shell — the second one, aimed at the binary, never runs, and
-  neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
-  sampler whose cap was working. ⇒ `pgrep -af` to LIST, kill by PID, re-`pgrep`
-  in a SEPARATE call.
-- ⚠ When a build fails in a crate you did not touch, check free space BEFORE
-  reading the diagnostic. ENOSPC arrives as `error: could not compile <crate>`
-  with the cause one line above, and has been seen as six ordinary-looking
-  compile errors with no `os error 28` anywhere.
+**OPEN 1 — an intermittent arm, and this time the assertion WAS captured.**
+`does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`
+failed once in a full lane at `041b07158` on its own third anti-vacuity
+assertion: *"the probe took 1 distinct census(es) at the frames the audit
+COMPARED — so either the subject held one value at every one of them or the
+projection is constant… `resimulations > 0` does not imply this: the window is
+long and the compared frames are few."*
 
-⛔⛤ **AND THE BIGGEST SCOPE LIMIT ON EVERY ROLLBACK LANE CLAIM IN THIS
-REPOSITORY: NO P2P SESSION IS EVER BUILT.** Flagged by the ID-PEER owner,
-MEASURED INDEPENDENTLY HERE 2026-09-16: `Session::P2P` appears EXACTLY ONCE in
-the workspace — `rollback_ggrs/src/session.rs:910`, a match arm reading
-`confirmed_frame()` — and there is ONE construction site for a session at all,
-`AmbitionGgrsSession::SyncTest` at `:220`. ⇒ **A green rollback lane clears a row
-of a LOCAL RESIMULATION defect and says nothing about two peers agreeing.** The
-sync test saves, rewinds and resimulates in one process against itself; a desync
-that needs two hosts with different local state has no instrument here at all.
+⇒ **MEASURED, same commit and box:** 3 of 3 runs of that arm alone PASS; 4 of 4
+arms of its file pass together; a second full lane came back 691/0/41. One
+failure in two full runs of 731 arms, zero in seven targeted runs.
+⛔ **CPU contention is REFUTED as the mechanism** — twelve busy-loop processes on
+a 12-vCPU box, then the arm three times: 3 of 3 PASS. Wall-clock starvation is
+not the variable. What remains that a 731-arm run has: many Bevy apps alive at
+once, shared target-dir and asset I/O, libtest's thread scheduling — candidates,
+not findings. ⚠ **Do not add a retry.** ⚠ And `measure` prints its census count
+on every run while libtest swallows stdout for a PASS, so the diagnostic that
+would show the window drifting needs `--nocapture`.
 
-⚠ That is why "the rollback suite is green" must never be written without the
-word LOCAL. The ID-PEER owner redirected ten rows away from being measured this
-way, on the grounds that ten more "clean under local resimulation" verdicts would
-have read on the page as ten rows CLEARED.
+⛔⛤ **AND IT IS THE SECOND INSTANCE OF ONE SIGNATURE, SIX DAYS APART.**
+[`triage/a-composition-acceptance-that-only-fails-in-company.md`](triage/a-composition-acceptance-that-only-fails-in-company.md)
+recorded the same shape on 2026-09-10:
+`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+FAILED inside a full `cargo test --workspace` run and PASSED alone, twice, and a
+repeat of the same binary did not reproduce it. Different arm, different subject,
+identical signature — **fails in company, passes alone, intermittent rather than
+deterministic-in-company.**
 
-⭐ **`SimTick` ADVANCES 1:1 WITH `sim.step()` — MEASURED 2026-09-16, and it is
-the discriminator nobody reaches for.** `fixed_60hz_room_sim("blink_run")`,
-sampled every 40 steps: `[(0,0), (40,40), (80,80), (120,120), (160,160),
-(200,200), (240,240)]`. A peer read a derived count freezing flat over 240 frames
-as *"the simulation stops advancing ticks"*; it does not. ⇒ **"The sim stopped"
-and "my writer stopped" produce identical evidence downstream, and only the TICK
-tells them apart.** Sample `ambition_platformer2d::time::SimTick` before
-attributing a frozen value to the schedule. ⚠ Scope: the fixed-tick harness. A
-rollback composition is a different host in a different schedule, so re-measure
-there rather than quoting this.
+⇒ **TWO INSTANCES MAKE IT A CLASS, and OPEN 2 below may be a third.** ⚠ That
+page has sat open, unattributed and LINKED FROM NOTHING for six days — it was one
+of two orphans in the whole planning tree — so its named next step was never
+taken. It says: *"a repeat run with `--test-threads=1` and a fixed seed order,
+comparing against the failing composition — NOT a fix."* ⭐ And its sharpest
+sentence generalises to tonight's arm exactly: *"its own doc says the only thing
+that would make it fail is X. That sentence is a claim about the SUBJECT. This
+failure is a claim about the HARNESS, and the two are indistinguishable from the
+exit code."*
 
-⭐ **AND `check_headless_arms_can_fail`'s 17 ARMS WERE AUDITED FOR THE INFLATION
-THIS ROW'S OWN LOGIC INVITES — 0 EXPOSED (2026-09-16).** The check's rule is
-"pins `ManualDuration` OR asserts something", which counts what an arm CONTAINS.
-A peer warned that counting by what an arm CALLS rather than by what would FAIL
-had inflated their own census six-to-zero. ⇒ Measured here instead of assumed:
-10 of the 17 pass on asserts alone, and every one of them asserts something a
-non-stepping engine cannot satisfy — a tick going 0 → 1, a counter reaching 60,
-a life spent, a level clock advancing.
-
-⚠ The two that looked like composition-only assertions (`a_fixed_aspect_profile_
-reaches_the_camera_and_the_surround`, `an_undeclared_profile_leaves_the_host_
-full_bleed`) POISON RED: removing the two `app.update()` calls from their shared
-`presentation_shell` helper fails both, because `ResolvedGameplayPresentation` is
-produced by those updates. ⚠ My first poison at those two removed zero calls —
-they step through a helper, and `reachable()` expands it. A poison that edits the
-wrong scope is a finding about the poison.
-
-⭐⭐ **THE DISTINCTION IS WORTH MORE THAN THE RESULT: counting calls to a safety
-API measures VIGILANCE; counting assertions a broken world fails measures
-SAFETY.** An arm demanding a room change has a stronger liveness guarantee than
-one reading a health API once at the end, because its check is load-bearing for
-its own subject rather than bolted on beside it.
-
-**Still open.** One non-reproducing session-root handoff failure whose assertion
-message was never captured. ⚠ **IT DID NOT REPRODUCE AGAIN: 683/0/31 at
-`c78cc725e`**, and the two arms it would have to be — 
-`the_shipped_app_never_holds_two_session_roots_across_a_handoff` and
-`a_candidate_session_replaced_while_pending_is_discarded`, both in
-`an_edit_reaches_the_shipped_game.rs` — both passed, checked by NAME in the log
-rather than inferred from the total. ⭐ That is now several clean full runs, and
-a failure nobody can reproduce and nobody captured is not evidence of a defect;
-it is an absent observation. ⇒ The next step is NOT more runs. It is that both
-arms already assert their own premises (a root must appear; the activation id
-must MOVE), so a future failure of either carries its cause in its message. On
-the next reproduction, capture the full failing assertion and isolate the
-production ordering/state source before changing test ordering or adding
-retries. Keep compile-cost and prerequisite failures distinct
-from behavioural flakes, and from CONTENTION — a coherent measured story that
-fits the first observation is still the wrong one if it was never tested against
-a second.
+**OPEN 2 — one older non-reproducing session-root handoff failure** whose
+assertion was never captured. It did not reproduce again across four full runs
+tonight, and the two arms it would have to be — `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+and `a_candidate_session_replaced_while_pending_is_discarded` — passed in every
+one, checked BY NAME in the log rather than inferred from the total. Both already
+assert their own premises, so a future failure carries its cause in its message.
+⇒ The next step is NOT more runs.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

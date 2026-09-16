@@ -24,11 +24,13 @@ planning own semantic claims.
 
 ## What this is
 
-- `architecture-census.md` is the human current-state map.
-- `consolidation-ledger.json` is the stable-ID machine ledger. Update an item instead of adding a second prose account of the same fact.
-- `consolidation-plan.md` ranks removal and ownership work by architectural leverage.
-- `campaign-metrics.md` records repeatable baseline counts.
-- `scripts/architecture_census.py` refreshes static package, LOC, optional-resource, editor-domain, and ledger measurements.
+- [`architecture-census.md`](architecture-census.md) is the human current-state map.
+- [`consolidation-ledger.json`](consolidation-ledger.json) is the stable-ID machine ledger. Update an item instead of adding a second prose account of the same fact.
+- [`consolidation-plan.md`](consolidation-plan.md) ranks removal and ownership work by architectural leverage.
+- [`campaign-metrics.md`](campaign-metrics.md) records repeatable baseline counts.
+- `scripts/architecture_census.py` refreshes static package, LOC, optional-resource, editor-domain, and ledger measurements. ⭐ **RUN IT RATHER THAN WRITING YOUR OWN SCAN** — a hand-rolled one overstated the optional-resource population by 17% on 2026-09-16 by keeping inline `#[cfg(test)]` modules, which this helper strips.
+
+⚠ **THOSE WERE BACKTICKS AND NOT LINKS UNTIL 2026-09-16**, so `consolidation-plan.md` and `campaign-metrics.md` were reachable from NO document in the repository — the whole campaign tree was navigable only by knowing the filenames. A page nobody can reach is the dual of a pointer that lands nowhere, and nothing checked for it.
 
 This census does not set complexity limits. A count can rise when a valid capability is added. The counts exist so a later campaign can state what changed.
 

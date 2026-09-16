@@ -93,6 +93,41 @@ Prefer a narrow validation path. A good architecture change should usually have 
 
 Do not let TUNING block architecture (Jon, 2026-07-06). Numeric feel/quality values — DI angles, boss-quality thresholds, slope feel, fighter-brain weights, visual-quality defaults, and the like — are KNOBS, not Jon-blocking decisions. When the right variable already exists as a knob, treat choosing its value as data/playtest work and pick a reasonable default (or leave the existing one); ship it BLIND and let Jon adjust. Only escalate when the KNOB ITSELF is missing (an architecture gap), not when only its value is unset. A tuning task is never a reason to stall a structural carve.
 
+## When a verification is green, ask what question it actually answered
+
+⛔ **An instrument that CANNOT SEE and an instrument that WAS ASKED SOMETHING ELSE
+both report green, and they are different failures.** The first is the
+anti-vacuity family — an empty corpus, a pattern that cannot match, a control
+that applies to nothing. The second is a pipeline that answered a NARROWER
+question than the one you asked, and the narrower question has an answer, and the
+answer is green.
+
+Four instances hit one agent in one night (2026-09-16), all in shell plumbing
+rather than in the repository: `| grep` exiting with GREP's status so a green lane
+read as a failed job; a score-shaped grep gating a commit on
+`[0-9]+/[0-9]+ jobs passed`, which accepts **`9/10`**; `sort | head -20` on a
+caller list dropping the one `game/…` caller after every `crates/…` path;
+and a regex that could not match the source's spelling returning a zero
+indistinguishable from a clean tree. A fifth, from a second agent the same night:
+a checkout's `.venv/bin/python3` was a BROKEN SYMLINK, so `python3 -m pytest`
+fell through to an interpreter without the dependencies and reported 25 failures
+where another machine measured 3. ⇒ **When two agents' lane numbers disagree,
+suspect the INTERPRETER before the tree.**
+
+⇒ **Two rules, and they are cheap.** Make the predicate NAME THE VALUE IT
+ACCEPTS, so it cannot pass on a failure it was written to catch. And make an
+empty result REFUSE rather than report, so "found nothing" and "there is nothing"
+stop being the same string.
+
+⚠ What found three of the four was not care, it was a SECOND INSTRUMENT
+disagreeing — a compiler naming the caller a grep had dropped, a peer's scan
+disagreeing by an order of magnitude, a test suite red where a lane was green.
+**When something matters, arrange for two instruments rather than more care.**
+
+The worked instances, with what each cost, are in
+[`../recipes/re-measuring-a-planning-claim.md`](../recipes/re-measuring-a-planning-claim.md);
+they are not repeated here.
+
 ## Low-weight criteria
 
 Do not choose a solution merely because it is easier to implement right now. Ease of implementation has very little weight compared with elegance, maintainability, clarity, runtime behavior, and architectural fit.

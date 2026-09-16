@@ -11,6 +11,23 @@ MOVED. A reader cannot tell a fabricated citation from a stale one, and the
 stale/fabricated distinction is the difference between "fix the row" and "the
 row was never true".
 
+⛔⛤ **A KNOWN BLIND SPOT, DIAGNOSED AND DELIBERATELY NOT GATED: THIS SEES
+SYMBOLS, NOT THE DIRECTORY A SENTENCE NAMES.** A doc comment reading
+a doc comment naming `abilities/traversal/{blink,dive,mark_recall}.rs` resolves nothing, gates
+nothing, and reddens nothing when those files move -- and they did, to
+`crates/ambition_abilities/src/traversal/`, while the tree stayed green. ⇒ A
+carve breaks prose paths silently and IN BULK, because the prose describing
+WHERE a population lives is exactly the prose a carve invalidates.
+
+⚠ The full diagnosis, and the argument for filing rather than gating it -- prose
+paths are also written about deleted files on purpose, about other repositories,
+and about SHAPES (`crates/*/src/rollback_registration.rs`), so a checker for them
+buys a suppression list and an amnesty list is how you hide what it exempts --
+is in
+`docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`.
+⛔ That page was reachable from NOTHING until 2026-09-16, which is why this
+pointer is here: a diagnosis nobody can find is a diagnosis nobody has.
+
 ⭐ THE POINT IS THE TRIAGE, NOT THE COUNT. Every finding here is one of:
 
     MOVED       the file or symbol was renamed/deleted -> update the row

@@ -814,6 +814,31 @@ rule into `scripts/lib/`, then delete the copies. A consolidation that lands
 before the floors cannot be reviewed, because every reviewer sees a shorter
 report and no way to tell a correct exclusion from a lost one.
 
+⛔⛤ **AND THE FLOOR HAS TO LIVE INSIDE EACH SCRIPT — AN EXTERNAL SWEEP CANNOT
+SUBSTITUTE FOR IT. MEASURED 2026-09-16 BY FAILING TO DO EXACTLY THAT.** I tried
+to answer "which of the 29 `check_*.py` pass over an empty tree" by importing
+each, patching its `REPO`/`ROOT` global to an empty directory, and calling
+`main()`. First result: **14 of 29 passed.** It was an ARTIFACT.
+
+⇒ These scripts spell their entry points `def collect(repo: Path = REPO)`. A
+default argument binds at DEFINITION time, so patching the module global
+afterwards is inert — the script re-scans the real tree and passes, which is
+indistinguishable from passing vacuously. Adding one control to the probe (the
+empty-tree output must DIFFER from the real-tree output, or the redirect did not
+take) cut the answerable population to 7 of 29, all of which correctly refused.
+
+⭐ **SO THE HONEST STATE IS "NOT MEASURED", NOT "14 ARE VACUOUS".** The number
+looked like a finding, had a mechanism, and was wrong. ⚠ The 22 unanswerable
+scripts are unanswerable BY THIS PROBE and nothing is implied about them either
+way.
+
+⇒ **WHICH IS THE ARGUMENT FOR THE ORDERING ABOVE RATHER THAN AGAINST IT.** A
+population floor asserted inside the script (`POPULATION_FLOOR` in
+`check_rollback_mutators_run_in_sim.py`) needs no redirect, no import surgery
+and no probe: it fails when the script's own reach falls, on the real tree, in
+the lane that actually runs. That is the only form that survives a consolidation
+which makes every check see less.
+
 **Acceptance:** one owner for "is this file test-only", covering both the name
 conventions and `#![cfg(test)]`; each consuming check fails when its population
 falls; and no check reports a `#![cfg(test)]` file's registrations as

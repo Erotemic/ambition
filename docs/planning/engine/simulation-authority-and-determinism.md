@@ -208,13 +208,29 @@ names has already hidden 25 of 29 registrations once:
   a sibling registration of ITSELF. Every claim of coverage is a claim about a
   DIFFERENT type.
 
-⛔⛤ **AND THE REASONS SPLIT INTO TWO BOILERPLATE STRINGS, ONE OF WHICH IS AN
-UNVERIFIED CLAIM REPEATED 93 TIMES.** 55 rows say *"value-probed for
-localization, not in the session checksum"*, which states a decision. 93 say
-*"state checksum supplied by another authoritative projection"* — and name no
-projection. One sentence, 93 identical copies, each asserting that some other row
-covers this fact, none saying which. ⇒ That is the row-level work S7 is for: a
-claim of coverage has to NAME its coverer, or it cannot be checked and cannot go
+⛔⛤ **AND THE REASON COLUMN IS NOT AUTHORED PER ROW — IT IS EMITTED BY THE
+REGISTRAR METHOD, WHICH MAKES THIS ONE CLAIM ASSERTED ABOUT 93 TYPES THAT WERE
+NEVER INDIVIDUALLY EXAMINED.** 93 rows read *"state checksum supplied by another
+authoritative projection"*, and that string is a literal inside
+`rollback_component_clone` and `rollback_resource_clone` (two spellings each, in
+`runtime/src/rollback/registrar.rs` and
+`rollback_ggrs/src/registration.rs`). Nobody wrote it 93 times; nobody wrote it
+once per type either.
+
+⇒ **THE DEFECT IS THAT THE KIND ASSERTS SOMETHING ONLY THE TYPE CAN KNOW.**
+Whether another authoritative projection covers a fact is a property of the
+value, not of the snapshot strategy chosen for it — so `rollback_component_clone`
+is claiming coverage it has no way to establish, on behalf of every caller. The
+remaining 55 rows say *"value-probed for localization, not in the session
+checksum"*, which states a DECISION rather than a coverage claim and is honest at
+the kind level.
+
+⇒ Two ways out, and the first is cheaper than sweeping 175 rows: either the
+registrar TAKES the coverer (the projection or type that does compare this fact)
+as an argument, so a caller must name it or say there is none; or the string
+stops claiming coverage and says what the kind actually knows — that this value
+is snapshotted and not compared. The second is a one-line change that makes 93
+rows stop asserting something unchecked; the first is the version that could go
 stale visibly.
 
 Two worked examples, to show the classification is not uniform:
@@ -233,10 +249,17 @@ Two worked examples, to show the classification is not uniform:
   `ActiveMatch::peer_stable_checksum`, which hashes the seat COUNT, and whether
   that constrains per-body slot assignment has not been measured.
 
-⇒ The next step is not a sweep of 175. It is to make the 93 name their coverer,
-starting with the ones whose payload can change mechanical behaviour, and to
-demote the ones that are genuinely `derived` to that kind so they leave the
+⇒ The next step is not a sweep of 175. It is to stop the KIND asserting coverage
+it cannot know, then classify the payloads that can change mechanical behaviour,
+and demote the ones that are genuinely `derived` to that kind so they leave the
 population honestly.
+
+⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT.** The
+first version of this section said "93 unverified claims" and inferred, from 93
+identical strings in the artifact, that somebody had written the sentence 93
+times. The generator was one literal in two methods. Reading a repeated value out
+of a derived artifact tells you about the artifact, not about how it came to be —
+open the emitter before describing the population's authorship.
 
 ### Host-to-host determinism witness
 

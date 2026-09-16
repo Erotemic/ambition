@@ -177,8 +177,14 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "presentation.body_source_derived",
         )
-        // Portal-gun cooldown, in-flight shot, and pickup arm timers affect future
-        // transit/grab decisions and therefore must rewind with portal state.
+        // ⚠ NO RECORDED REASON, AND THE COMMENT THAT USED TO SIT HERE WAS NOT
+        // ABOUT THEM. It described portal-gun cooldown/in-flight/pickup timers,
+        // which left for `ambition_portal2d::register_rollback_state`; the carve
+        // moved the code and left the reason, which then read as these two lines'
+        // justification. Both are bevy engine types, both are `component-clone`,
+        // so neither is in the peer checksum — see
+        // `scripts/measure_unchecksummed_rollback_rows.py`, where they are the
+        // only two rows of 175 this repository does not define.
         .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
         .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");
 

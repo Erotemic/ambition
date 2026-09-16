@@ -207,17 +207,29 @@ not a missing line. The decision is what is missing, not the registration.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): TEN CLOSED, FOUR OPEN, FOURTEEN LIVE — fifteen
+**Current state (2026-09-16): ELEVEN CLOSED, THREE OPEN, FOURTEEN LIVE — fifteen
 FILED, because the thirteenth was withdrawn the day it was filed and the
 numbering does not reuse it. The fourteenth closed within the hour (it was the
 only one not blocked outside the campaign); the fifteenth was found by verifying
-a price another row had quoted.**
+a price another row had quoted, and closed the same day for what is owed today.**
+
+⭐ **RE-DERIVE THE COUNT FROM THE TABLE RATHER THAN TRUSTING THIS SENTENCE** —
+the row asks that of its own prose for the reason the next paragraph gives. The
+table below holds TWELVE roads (nine closed, three open); the fourteenth and
+fifteenth are described in prose beneath it, both closed. 9 + 2 = eleven closed,
+and the three open are all in the table.
+
+⚠ **AND THE ELEVENTH CARRIES A HEDGE A READER SHOULD NOT LOSE.** The fifteenth
+(`ControlFrame`'s shape) is closed for the RATCHET — a silent change is now
+impossible — and NOT for a negotiated input version, which does not exist and is
+not obviously owed while netcode is `N2`. If a P2P session is ever built, that
+half returns as new work rather than as a correction to this count.
 The
 count is written this way deliberately, and this is the sentence earning it: the
 row used to say "nine of the ten", predicting that "a tenth road found tomorrow
 makes this row 'nine closed, a tenth found' instead of making it false". It has
 now absorbed a twelfth, a withdrawn thirteenth and a fourteenth without ever
-being wrong. **TWO of the four open roads want a maintainer decision** before
+being wrong. **TWO of the three open roads want a maintainer decision** before
 anyone starts — the
 absolute `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing
 English prose (`Q122`, found 2026-09-16). ⚠ This sentence said *"BOTH open roads"*
@@ -227,7 +239,7 @@ is a copy, and the copy nearest the correction is the one that survives it.**
 ⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
 IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
 all; they are simply never compared between peers, so no projection can fix them
-and no local session can measure them. Ten closed, four open.
+and no local session can measure them. Eleven closed, three open.
 
 ⛔⛤ **A FOURTEENTH, FOUND 2026-09-16 AND MEASURED THE SAME HOUR: A LOCAL
 DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY.** Building the same
@@ -433,7 +445,7 @@ already committed in code to not changing the thing C03 depends on, and
 ToothbrushAmbition's `a_superseded_transaction_cannot_publish_in_the_shipped_app`
 now asserts that identity survives a supersession in the shipped composition.
 
-⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All four open roads
+⛔ **THE RE-ARM CONDITION, NAMED RATHER THAN LEFT IMPLICIT.** All three open roads
 are blocked on something outside this campaign, so none is in flight — but one of
 them would enter C03's neighbourhood if it ever started. **`Q128` rebases the
 simulation tick "when peers agree to start", which is an ACTIVATION moment.** ⇒ If
@@ -442,8 +454,8 @@ checkpoint re-arms and the two campaigns must coordinate rather than assume. The
 other two (`Q122`'s schema-fingerprint prose, the 25 unchecksummed float rows)
 cannot touch session ownership at all.
 
-⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — ten of
-fourteen roads, four open — and it is not a review of C03's or C05's own plans. It
+⚠ **WHAT THIS DISCHARGE IS NOT.** It is not a claim that ID-PEER is done — eleven
+of fourteen roads, three open — and it is not a review of C03's or C05's own plans. It
 says the identity neighbourhood they were told to wait for has stopped moving and
 is pinned by arms.
 

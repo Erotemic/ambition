@@ -66,7 +66,7 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-**TEN CLOSED, FOUR OPEN (2026-09-16).** The per-road table and the arm that holds
+**ELEVEN CLOSED, THREE OPEN (2026-09-16).** The per-road table and the arm that holds
 each one are in
 [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 ⭐ This page said "nine of the ten" and predicted that a tenth road found

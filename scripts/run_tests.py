@@ -1128,6 +1128,16 @@ def build_maintenance_jobs() -> list[Job]:
             [
                 sys.executable,
                 "scripts/check_discharged_holds_are_rewritten.py",
+                # ⭐ WIDER THAN `docs/planning`, AND THE WIDENING WAS MEASURED
+                # BEFORE IT WAS INSTALLED: 1,084 rows -> 1,552, zero new
+                # findings. A gate sentence or a stale imperative about a closed
+                # campaign is not a planning-only shape -- `docs/architecture`
+                # and `docs/systems` describe current state to the same readers.
+                "docs/planning",
+                "docs/architecture",
+                "docs/concepts",
+                "docs/systems",
+                "docs/recipes",
             ],
         ),
         # ⛔⛤ **THE SUBJECT, NOT A PROPERTY OF IT.** Every other job in this lane

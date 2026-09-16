@@ -197,6 +197,47 @@ Do not preserve a copied count of these rows here. Recompute the population from
 A green float-finiteness or codec test does not prove that every restored value is
 peer-compared.
 
+**THE POPULATION, COMPUTED AT SCHEMA 193 (2026-09-16).** 494 rows, 443 distinct
+types. Asking `RollbackEntryKind` rather than matching kind strings — the enum
+owns `carries_state()` and `feeds_peer_checksum()`, and a hand-kept list of kind
+names has already hidden 25 of 29 registrations once:
+
+- **175 types CARRY state and are never peer-compared.** That is the S7
+  population. Recompute it, do not copy this number.
+- Zero types are registered both cloned and checksummed, so no type is covered by
+  a sibling registration of ITSELF. Every claim of coverage is a claim about a
+  DIFFERENT type.
+
+⛔⛤ **AND THE REASONS SPLIT INTO TWO BOILERPLATE STRINGS, ONE OF WHICH IS AN
+UNVERIFIED CLAIM REPEATED 93 TIMES.** 55 rows say *"value-probed for
+localization, not in the session checksum"*, which states a decision. 93 say
+*"state checksum supplied by another authoritative projection"* — and name no
+projection. One sentence, 93 identical copies, each asserting that some other row
+covers this fact, none saying which. ⇒ That is the row-level work S7 is for: a
+claim of coverage has to NAME its coverer, or it cannot be checked and cannot go
+stale visibly.
+
+Two worked examples, to show the classification is not uniform:
+
+- ✔ `Dormant` (`actor.dormant`) — the claim HOLDS. Its own doc says *"derived
+  every tick; never authored, never persisted"*, and `assess_dormancy` recomputes
+  it from observer `BodyKinematics`, which are canonical. ⚠ It is arguably
+  mis-KINDED rather than mis-covered: a value recomputed every tick from
+  canonical state is what `derived` describes, and it is registered
+  `component-clone`.
+- ❓ `PlayerSlot` (`actor.player_slot`) — the claim is UNVERIFIED and I could not
+  confirm it. It carries a `u8`, its own doc calls it *"the canonical 'which
+  player?' handle"*, it appears exactly once in the baseline as `component-clone`,
+  and no canonical projection naming the per-body slot was found. This is
+  recorded as a QUESTION, not a defect: seating is peer-agreed through
+  `ActiveMatch::peer_stable_checksum`, which hashes the seat COUNT, and whether
+  that constrains per-body slot assignment has not been measured.
+
+⇒ The next step is not a sweep of 175. It is to make the 93 name their coverer,
+starting with the ones whose payload can change mechanical behaviour, and to
+demote the ones that are genuinely `derived` to that kind so they leave the
+population honestly.
+
 ### Host-to-host determinism witness
 
 An older two-host measurement found a duel that agreed for hundreds of ticks and

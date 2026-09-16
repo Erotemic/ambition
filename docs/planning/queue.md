@@ -1693,43 +1693,65 @@ to be satisfiable by a frozen world, and its author gets no warning.
    and a seventh would too. ⇒ If the contract moves into `step`, no guard is
    needed; if it does not, no guard can be written.
 
-### ROLLBACK-BAG-DESYNC — a per-tick change to an UNHASHED resource desyncs the sync test
+### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay
 
-**MECHANISM SETTLED 2026-09-16. Everything here is a receipt; the decision it
-feeds is [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
-owned by [DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).**
+**P0. Rated above consolidation work by the 2026-09-16 merged-state review.**
 
-⛔ Changing `OwnedItems` once per tick desyncs a GGRS sync test within six ticks,
-by the direct write AND by the sanctioned `ItemGrantRequested` road. The mismatch
-repeats at frames `[2, 3, 4]` forever and presents as a frozen clock
+**CURRENT HEAD.** `persist_inventory_to_save` runs in ordinary `Update` — once
+per FRAME — and writes the live bag into `AmbitionGameSave`, which is
+`rollback_resource_clone_checksum` whose projection serialises the WHOLE save. A
+rewind re-simulates the sim schedules and does NOT replay `Update`, so the same
+historical frame sees a different save. Changing `OwnedItems` once per tick
+desyncs a GGRS sync test within six ticks, by the direct write AND by the
+sanctioned `ItemGrantRequested` road; the mismatch repeats at frames `[2, 3, 4]`
+and presents as a frozen clock
 ([ROLLBACK-DEAD-SESSION](#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
 
-⇒ **THE TRIGGER IS THE VALUE MOVING, NOT THE WRITER**, and the control is what
-says so: a system taking the same `ResMut<OwnedItems>` in the same schedule
-position that grants **ZERO** ticks 1:1 and stays `Ok`. `owned.grant(item, 0)`
-still derefs mutably, so change detection fires identically in both arms.
-
-**The chain, end to end.** `persist_inventory_to_save` runs in `Update` — once
-per FRAME — and writes the live bag into `AmbitionGameSave`, which is
-`rollback_resource_clone_checksum` whose checksum serialises the WHOLE save to
-RON. A rewind re-simulates ticks and does NOT re-run `Update`, so the hashed
-value describes a different frame from the tick it is compared at. `OwnedItems`
-itself is `rollback_resource_clone` and `feeds_peer_checksum` is FALSE for that
-kind — the bag is restored, never compared, so something hashed derives from it.
-Asked of the registry rather than guessed: **1 of 364 probed entries differs, and
-it is the save.**
+**CURRENT INVARIANT — what the tree actually guarantees today.** `OwnedItems` is
+`rollback_resource_clone` and `feeds_peer_checksum` is FALSE for that kind, so
+the bag is restored and never compared; something hashed derives from it. Asked
+of the registry rather than guessed: **1 of 364 probed entries differs, and it is
+the save.** ⇒ The trigger is the VALUE MOVING, not the writer — a system taking
+the same `ResMut<OwnedItems>` in the same schedule position that grants ZERO
+ticks 1:1 and stays `Ok`, and `grant(item, 0)` still derefs mutably so change
+detection fires identically in both arms.
 
 ⭐ **`Update` IS THE WRITER, MEASURED AT THE REWIND BOUNDARY** — the fact a
 two-run diff cannot show. `RollbackRestoreAudit` reads frames 2, 3 and 4 each
 diverging with the REPLAY xor CONSTANT at `0xce4e4758…` while the first-pass xor
-moves every frame: a resimulation re-runs the sim schedule and not `Update`, so
-every replay sees whatever the last frame's `Update` wrote.
+moves every frame: replay re-runs the sim schedule and not `Update`, so every
+replay sees whatever the last frame's `Update` wrote.
 
-⚠ **SEVERITY IS NOT WHAT THE CLEAN RUNS SAID** — see Q129. A bag change starting
-at tick 4 runs 120 steps clean, but over that window the save's hashed projection
-takes 2 distinct censuses against 238 for its busiest neighbours. A comparison
-that cannot differ cannot fail, so "a pickup during play does not desync" is true
-for a reason that makes it worse rather than better.
+**WHAT REMAINS.** ⛔ **NOT "remove `AmbitionGameSave` from the checksum" — that
+remedy is REFUSED and this row used to recommend it.** The census invalidates it:
+**19 systems take `ResMut<AmbitionGameSave>` and 13 execute INSIDE rewinding
+simulation schedules** — quests, flags, switches, encounters, shrines, cutscenes,
+boss state. Unhashing would make the repro green by throwing away comparison
+coverage for substantial simulation state.
+⇒ The direction is the opposite one: the three live→save mirrors that run from
+`Update` — inventory/wallet, occurrence horizon, minted-item horizon — should
+cross the same rollback boundary as the state they mirror, so a replay can
+reproduce them. Disk I/O and autosave stay outside the simulation, layered
+*rollback-owned durable mechanical representation → confirmed/local persistence
+projection → disk*. ⛔ Do NOT attempt the larger "is `AmbitionGameSave` both
+simulation authority and disk representation" split before the replay defect is
+fixed. Smallest correct phase-boundary repair first.
+
+**ACCEPTANCE — and it is sharper than the repro.** ⛔ *"The startup repro now
+passes"* is NOT sufficient, because one thing is still unexplained: why the
+mismatch manifests primarily in the opening few ticks. ⇒ Acceptance must ALSO
+show that a representative IN-SIMULATION save mutation is genuinely being
+COMPARED across repeated snapshots — **not that the checksum became accidentally
+pinned and therefore incapable of disagreeing.** That risk is measured, not
+hypothetical: over a window where the live save reaches 247 mirrored items, the
+hashed projection takes **2 distinct censuses against 238 for its busiest
+neighbours** (Q129). A checksum that cannot disagree looks exactly like a
+checksum that agrees.
+
+**BLOCKER.** None for the phase-boundary repair.
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)
+remains open for the ownership question, and the pinned-projection finding there
+is a PRIOR question to it — but neither gates the repair above.
 
 **Eliminations, one line each, each by measurement.**
 ⛔ NOT a drained-message edge — `capture_owned_items_baseline` has that shape but

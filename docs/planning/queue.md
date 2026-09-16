@@ -1241,11 +1241,14 @@ whose bag moves and an otherwise identical run whose bag does not. The
 measurement, the eliminations and the reproduction are in
 [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
 
-⇒ **WHAT REMAINS IS A RULING, NOT AN INVESTIGATION.** Either derive the save
-inside the sim schedule so a rewind re-derives it, or take `AmbitionGameSave` out
-of the peer checksum on the ground that a save file is not simulation authority.
-The second is smaller and probably right, and it is a claim about what peers must
-agree on — so it belongs to the maintainer rather than to a patch.
+⇒ **WHAT REMAINS IS A RULING, NOT AN INVESTIGATION**, and it is filed as
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on).
+Either derive the save inside the sim schedule so a rewind re-derives it, or take
+`AmbitionGameSave` out of the peer checksum on the ground that a save file is not
+simulation authority. The second is smaller and probably right, and it is a claim
+about what peers must agree on — so it belongs to the maintainer rather than to a
+patch. ⚠ It settles three systems, not one: the other two `persist_*` mirrors
+write the same resource from the same `Update` chain.
 
 ⚠ The dialog increment below is still costed and still unmeasured; nothing here
 touches it.

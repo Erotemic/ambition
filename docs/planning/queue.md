@@ -381,11 +381,34 @@ plus `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
 `AmbitionGameSave` persistence mirrors that likely want waivers rather than
 fixes.
 
-**Next implementation:** land the resource-clone widening, which needs a triage
-of those 9 and not a presentation/simulation distinction. Separately, for the
-COMPONENT half, give the guard a way to tell a simulation write from a
-presentation write — most likely by schedule rather than by type, since
-`Transform` is legitimately written in both.
+✅ **The resource half LANDED 2026-09-16** (`068bb6034`): population 113 → 139,
+visible systems 349 → 398, findings 10 → 17. No waivers were invented —
+`ambition_persistence/src/rollback_registration.rs` has said in prose since
+2026-08-29 that *"the ~6 systems that pair a non-rewinding `Local` edge-detector
+with these very resources would have failed SILENTLY once rollback went live"*,
+and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
+re-hide the thing that comment warned about.
+
+**Next implementation — triage the 17, which is owner work rather than guard
+work.** `reset_inventory_on_new_game` is being moved into the sim schedule
+(its producer already runs in `ResetProcessing` and its sibling
+`clear_transient_on_sandbox_reset` is on that chain). The two
+`reset_session_scoped_resources_on_*` roads mutate 13 registered types each from
+`Update` and owe a stated waiver or a move. Then seven menu systems reaching
+`ResMut<NewGameResetRequested>` through `MenuDispatchParams`, the four
+`AmbitionGameSave` mirrors, and `adopt_occurrence_checkpoint_from_save` /
+`complete_durable_restore` / `track_versus_roster`, all untriaged.
+
+⚠ **The discriminator may not be "is there a rebase".** A New Game's
+`NewGameResetCommitted` is produced inside the rewind window, is
+`clear_message_on_rollback`, and is consumed in `Update` — which is broken
+whether or not the room replacement rebases GGRS. If the real question is
+"is the triggering MESSAGE cleared on rollback", then `SessionScopeActivated`
+owes the same question and nobody has asked it.
+
+**Separately, for the COMPONENT half:** give the guard a way to tell a
+simulation write from a presentation write — most likely by schedule rather than
+by type, since `Transform` is legitimately written in both.
 
 **Acceptance:** the population is every rollback registration, not one
 registration spelling; `handle_ldtk_hot_reload` is visible without its waiver

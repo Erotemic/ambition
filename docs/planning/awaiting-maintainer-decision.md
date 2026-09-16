@@ -415,7 +415,72 @@ Five provider-keyed fragment registries currently refuse conflicting re-registra
 
 ## Q122 — which registry fields are mechanical, and which are presentation?
 
-The mechanical fingerprint/admission boundary should include only fields that can affect deterministic gameplay. Decide the classification for mixed registries so presentation edits do not force mechanical rebases, while mechanical edits cannot bypass rollback admission. Record the rule per registry owner rather than maintaining one ad-hoc exclusion list.
+The mechanical fingerprint/admission boundary should include only fields that can
+affect deterministic gameplay. Decide the classification for mixed registries so
+presentation edits do not force mechanical rebases, while mechanical edits cannot
+bypass rollback admission. Record the rule per registry owner rather than
+maintaining one ad-hoc exclusion list.
+
+⭐⭐ **THE ROLLBACK REGISTRY IS THE CONCRETE CASE, AND IT IS ALREADY COSTING US A
+CORRECT DECLARATION.** `RollbackRegistry::schema_dump()` emits
+`name \t kind \t wire-type \t detail`, and `compute_schema_fingerprint` hashes the
+whole dump — so the PROSE is inside the snapshot schema's identity, which
+`ActiveRollbackAuthority::installed` uses as the timeline's contract. Rewording a
+sentence moves the identity.
+
+⛔⛤ **THE BILL HAS BEEN PAID ONCE ALREADY, IN A COMMENT THAT SAYS SO.**
+`game/ambition_app/tests/rollback_coverage.rs:1208` waives two demo view
+components from rollback coverage *"rather than DECLARED DERIVED, deliberately.
+A derived declaration's reason string is hashed into `schema_fingerprint`, so it
+would put a demo's exhibit into the engine's wire format and owe a version bump
+every time somebody reworded it."* That is the defect choosing the architecture:
+the cheaper-but-weaker declaration won because the correct one carried a prose
+tax. This is not a hypothetical.
+
+⚠ **AND THE OBVIOUS FIX — DROP `detail` FROM THE FINGERPRINT — LOSES REAL REACH.**
+Measured 2026-09-16 over the 493-row committed baseline
+(`game/ambition_app/tests/rollback_schema_baseline.txt`), by kind:
+
+| | kinds | rows | what `detail` adds |
+|---|---|---|---|
+| uniform | 10 | 225 | nothing — one sentence per kind, derivable from the `kind` column beside it |
+| varying | 7 | 268 | facts `kind` does not encode |
+
+The varying half is load-bearing: `component-clone` alone carries five sentences
+distinguishing *entity handle remapped* from *entity SET remapped* from *keyed
+entity MAP remapped*; `resource-canonical` splits *identical* from
+*presence-aware* canonical checksum projection; and 22 `resource-clone-custom-checksum`
+rows each name what their `fn(&T) -> u64` actually covers. Excluding `detail`
+wholesale would stop the fingerprint seeing an entity-remapping change.
+
+⛔⛤ **THE EXCHANGE RATE, MEASURED BY POISON.** Pluralising ONE WORD in
+`detail::MESSAGE_CLEAR` — *"message buffer"* → *"message buffers"* — turned
+`the_rollback_schema_matches_its_recorded_baseline` red with **166 diff lines, 83
+added and 83 removed**: every `message-clear` row in the schema. One letter of
+English moved 83 rows of peer-visible snapshot identity. That is the size of the
+tax `rollback_coverage.rs:1208` declined to pay.
+
+⇒ **The shape that fits the measurement is a SPLIT, not an exclusion:** a
+mechanical `detail` that stays in the fingerprint and a `coverage`/reason note
+that does not. The decision this needs is where the line falls — specifically
+whether a *reason* (why a type is derived, or which other projection covers it)
+is ever allowed to be part of peer-visible identity.
+
+⚠ **ONE OF THOSE SENTENCES IS NOT A MECHANICAL FACT AT ALL.**
+`detail::CLONE_COVERED_ELSEWHERE` — *"state checksum supplied by another
+authoritative projection"* — is recorded on **99 rows** (94 `component-clone`,
+5 `resource-clone`) by two registrar methods whose only bound is `T: Clone`.
+Nothing in either method can establish that another projection covers the type;
+the KIND is asserting what only the TYPE can know. Whichever way this question is
+answered, that sentence is wrong where it stands.
+
+ⓘ **WHAT DID NOT NEED A DECISION AND HAS LANDED:** those 15 sentences were spelled
+TWICE — once in `SchemaRollbackRegistrar` (the metadata recorder) and once in
+`rollback_ggrs`'s installing registrar — with nothing comparing the copies. They
+agreed only because nobody had reworded one. They now live in
+`ambition_platformer2d_runtime::rollback::detail` and both registrars reference
+them, dump byte-identical. That collapse is what makes any answer here a
+one-place edit instead of a two-crate one.
 
 ## Q128 — should the simulation tick be rebased when peers agree to start, or stay an absolute per-App count?
 

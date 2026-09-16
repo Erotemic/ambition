@@ -15,6 +15,74 @@ use ambition_platformer2d_core::snapshot::{
 
 use super::registry::{self, RollbackEntryKind};
 
+/// The `detail` sentence each registration road records.
+///
+/// ⛔⛤ **EIGHTEEN CALL SITES SPELLED FIFTEEN SENTENCES TWICE, IN TWO CRATES,
+/// AND NOTHING COMPARED THEM.** `SchemaRollbackRegistrar` (the metadata
+/// recorder) and `rollback_ggrs`'s installing registrar each wrote their own
+/// copy of every string. They agreed — measured 2026-09-16, byte for byte — but
+/// only because nobody had reworded one. A drift in either copy would move
+/// [`super::registry::RollbackRegistry::schema_fingerprint`], which is the
+/// snapshot schema's identity, and the two roads would name the same
+/// registration differently depending on which registrar ran.
+///
+/// ⇒ One sentence, one owner. Both registrars reference these; neither spells
+/// one. The `rollback_schema_baseline` test is the proof the collapse was
+/// faithful: this commit leaves the dump byte-identical, so the baseline does
+/// not move and no schema version is owed.
+///
+/// ⚠ THE SENTENCES THEMSELVES ARE NOT ALL VERIFIED, and centralising them does
+/// not make them so — see `Q122`. [`CLONE_COVERED_ELSEWHERE`] in particular is a
+/// claim about a projection SOMEWHERE ELSE that the registration cannot check,
+/// recorded on 99 rows by two methods whose only bound is `T: Clone`. Collapsing
+/// the copies is what makes that one claim editable in one place.
+pub mod detail {
+    pub const CANONICAL_IDENTICAL_CHECKSUM: &str =
+        "bevy_ggrs canonical codec snapshot + identical canonical checksum projection";
+
+    pub const CANONICAL_PRESENCE_AWARE_CHECKSUM: &str =
+        "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection";
+
+    pub const CLONE_CURSOR_CHECKSUM: &str =
+        "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection";
+
+    pub const CLONE_RESOLVED_CHECKSUM: &str =
+        "bevy_ggrs clone snapshot + canonical authored-reference checksum projection";
+
+    pub const CLONE_CANONICAL_CHECKSUM_REMAPPED: &str =
+        "bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load";
+
+    pub const CLONE_COVERED_ELSEWHERE: &str =
+        "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection";
+
+    pub const CLONE_ENTITY_REF_REMAPPED: &str =
+        "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity";
+
+    pub const CLONE_ENTITY_SET_REMAPPED: &str =
+        "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities";
+
+    pub const CLONE_ENTITY_MAP_REMAPPED: &str =
+        "bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity";
+
+    pub const CLONE_PROBED_FOR_LOCALIZATION: &str =
+        "bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum";
+
+    pub const CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED: &str =
+        "bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields";
+
+    pub const ENTITY_MAPPING: &str =
+        "bevy_ggrs LoadWorld entity-reference remapping";
+
+    pub const RESOURCE_ENTITY_MAPPING: &str =
+        "bevy_ggrs LoadWorld resource entity-reference remapping";
+
+    pub const REQUIRED_ROLLBACK: &str =
+        "component presence automatically installs bevy_ggrs::Rollback";
+
+    pub const MESSAGE_CLEAR: &str =
+        "clear abandoned-future message buffer in LoadWorld::Mapping";
+}
+
 /// A metadata-only [`RollbackRegistrar`] borrowed from the composition's app.
 pub struct SchemaRollbackRegistrar<'a> {
     app: &'a mut App,
@@ -58,7 +126,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + SnapshotState,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentCanonical,
-            "bevy_ggrs canonical codec snapshot + identical canonical checksum projection");
+            detail::CANONICAL_IDENTICAL_CHECKSUM);
         self
     }
 
@@ -67,7 +135,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone + SnapshotCursor,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneCursor,
-            "bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection");
+            detail::CLONE_CURSOR_CHECKSUM);
         self
     }
 
@@ -76,7 +144,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone + SnapshotResolve,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneResolved,
-            "bevy_ggrs clone snapshot + canonical authored-reference checksum projection");
+            detail::CLONE_RESOLVED_CHECKSUM);
         self
     }
 
@@ -85,7 +153,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection");
+            detail::CLONE_COVERED_ELSEWHERE);
         self
     }
 
@@ -99,7 +167,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            "bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity");
+            detail::CLONE_ENTITY_REF_REMAPPED);
         self
     }
 
@@ -113,7 +181,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities");
+            detail::CLONE_ENTITY_SET_REMAPPED);
         self
     }
 
@@ -127,7 +195,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            "bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity");
+            detail::CLONE_ENTITY_MAP_REMAPPED);
         self
     }
 
@@ -141,7 +209,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentClone,
-            "bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum");
+            detail::CLONE_PROBED_FOR_LOCALIZATION);
         self
     }
 
@@ -150,7 +218,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + Clone + SnapshotState,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ComponentCloneCanonicalChecksum,
-            "bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load");
+            detail::CLONE_CANONICAL_CHECKSUM_REMAPPED);
         self
     }
 
@@ -193,7 +261,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + SnapshotState,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical,
-            "bevy_ggrs canonical codec snapshot + identical canonical checksum projection");
+            detail::CANONICAL_IDENTICAL_CHECKSUM);
         self
     }
 
@@ -206,7 +274,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + SnapshotState,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical,
-            "bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection");
+            detail::CANONICAL_PRESENCE_AWARE_CHECKSUM);
         self
     }
 
@@ -266,7 +334,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            "bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection");
+            detail::CLONE_COVERED_ELSEWHERE);
         self
     }
 
@@ -280,7 +348,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            "bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities");
+            detail::CLONE_ENTITY_SET_REMAPPED);
         self
     }
 
@@ -295,7 +363,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + Clone,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceClone,
-            "bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields");
+            detail::CLONE_ENTITY_SET_REMAPPED_AND_VALUE_PROBED);
         self
     }
 
@@ -338,7 +406,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component<Mutability = Mutable> + MapEntities,
     {
         self.record::<T>(owner, name, RollbackEntryKind::EntityMapping,
-            "bevy_ggrs LoadWorld entity-reference remapping");
+            detail::ENTITY_MAPPING);
         self
     }
 
@@ -347,7 +415,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Resource + MapEntities,
     {
         self.record::<T>(owner, name, RollbackEntryKind::ResourceEntityMapping,
-            "bevy_ggrs LoadWorld resource entity-reference remapping");
+            detail::RESOURCE_ENTITY_MAPPING);
         self
     }
 
@@ -356,7 +424,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Component,
     {
         self.record::<T>(owner, name, RollbackEntryKind::RequiredRollback,
-            "component presence automatically installs bevy_ggrs::Rollback");
+            detail::REQUIRED_ROLLBACK);
         self
     }
 
@@ -365,7 +433,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         T: Message,
     {
         self.record::<T>(owner, name, RollbackEntryKind::MessageClear,
-            "clear abandoned-future message buffer in LoadWorld::Mapping");
+            detail::MESSAGE_CLEAR);
         self
     }
 

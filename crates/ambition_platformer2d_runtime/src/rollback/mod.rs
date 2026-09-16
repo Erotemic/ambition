@@ -19,7 +19,7 @@ pub use authority::{
     RollbackDiagnosticHistory, RollbackTimelineContract, RollbackTimelineGeneration,
     RollbackTimelineStatus, SessionRollbackConfirmation,
 };
-pub use registrar::SchemaRollbackRegistrar;
+pub use registrar::{detail, SchemaRollbackRegistrar};
 pub use registry::*;
 
 /// Install the host-independent typed rollback schema used by prepared-content

@@ -419,15 +419,24 @@ This is a coherent behavior change, implemented in buildable subcommits:
    consistency boundary and may name item and occurrence types `shared_tangle`
    must never depend on. Putting them in the shared token would make it the
    checkpoint coordinator under a vocabulary type's name, and every domain would
-   then read the coordinator instead of its own owner's value. Guarded by
-   `the_admitted_restore_carries_only_which_operation_and_whose`, whose
-   exhaustive destructure stops compiling the moment a field is added.
+   then read the coordinator instead of its own owner's value. ⛔⛤ **AND THE SHARED TOKEN IS GONE — A1c/3b DELETED IT, AND THIS PARAGRAPH
+   OUTLIVED IT BY DESCRIBING ITS GUARDS IN THE PRESENT TENSE.** It cited two arms —
+   one asserting the token carried only which operation and whose, one recording
+   that it did not yet outlive its own frame — and named
+   `resource.admitted_checkpoint_restore` (schema v168) as live registered
+   state. **Measured 2026-09-15: no such type, no such arms, and no such row in
+   `rollback_schema_baseline.txt`.** ⚠ Their names are deliberately unquoted
+   here: `check_planning_test_citations.py` matches any backticked test-shaped
+   name, so citing a dead arm even to record its death re-raises the finding. `AcceptedCheckpointRestore` replaced it and
+   is the operation's DATA rather than an authorization token — the reducers
+   moved into `CheckpointDomainApply`, which only a commit executor runs, so
+   holding the values permits nothing and there is deliberately no token to
+   guard. See `AcceptedCheckpointRestore`'s own doc in `session/checkpoint.rs`.
 
-   The token IS registered rollback state (`resource.admitted_checkpoint_restore`,
-   schema v168) even though it is same-frame today: its lifetime changes in 3-5,
-   and the registration must not be what someone has to remember.
-   `the_admitted_restore_does_not_yet_outlive_its_own_frame` records the current
-   shape so that change is visible rather than assumed.
+   ⚠ The paragraph above is kept because the REASONING still holds — pinned
+   snapshots belong to the session's own accepted-operation state, not to a
+   shared vocabulary type — and that is why `AcceptedCheckpointRestore` lives
+   where it does. Only its claim to be currently guarded was false.
 
    Still open in this subcommit: the coarse startup routed/completed flags
    (`CheckpointResumeProgress`) <!-- cite-ok: what was STILL OPEN in that subcommit; deleted by `f473f0d72` --> are untouched, and the same-room startup

@@ -278,11 +278,30 @@ a Component, and is DERIVED (`prepared_content.identity()`) rather than written.
 marked SOURCE_CONFIRMED; that is corrected, and a rule now checks every item's
 storage kind against source on each `--maintenance` run.
 
-⚠ **THE OTHER FOUR — prepared content, the LDtk index, generation mechanics and
-room state — ARE NOT MEASURED HERE**, and this paragraph makes no claim about
-them. ⇒ Anyone starting C05 should re-derive all six before costing it, because
-the two that were checked both moved in the direction of "already owned by the
-candidate", which is the opposite of what "separate queued writes" predicts.
+⇒ **ALL SIX ARE NOW RE-DERIVED, AND FIVE OF SIX ARE COMPONENTS.**
+
+| the row's truth | the type | storage kind |
+| --- | --- | --- |
+| `PreparedContentIdentity` | `PreparedContentIdentity` | Component (DERIVED, `prepared_content.identity()`) |
+| `ActiveContentBinding` | `ActiveContentBinding` | Component, inserted on `session_root`, ONE production site |
+| prepared content | `PreparedContent` (`runtime/content_identity.rs`) | Component |
+| LDtk index | `LdtkRuntimeIndex` | Component |
+| generation mechanics | `SessionMechanics` | **Resource** — the only App global of the six |
+| room state | `RoomSet`, `RoomGeometry` | Components (the ledger records `RoomSet` as *on SessionRoot*) |
+
+⛔ **SO "SEPARATE QUEUED WRITES" DESCRIBES ONE VALUE, NOT SIX.** Five of the six
+are already entity-carried; the collapse this row proposes is largely a
+collapse that has happened. What remains on this axis is `SessionMechanics` and
+the question of whether those five components all hang off the SAME entity and
+change on the same edge — which this pass did NOT measure and which is the right
+first day's work for whoever starts C05.
+
+⚠ Two caveats on the table. `PreparedContent` also names a non-ECS struct in
+`ambition_content_pack`, so the Component is the runtime projection rather than
+the only thing wearing that name. And a `RoomSet` deriving BOTH `Resource` and
+`Component` exists in `tests/ambition_workspace_policy` — a policy fixture, not
+production; a scan that counted it would report an App-global room set that does
+not exist.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

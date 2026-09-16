@@ -64,7 +64,7 @@ RE-DERIVING FOUR OF THEM ON 2026-09-16, AND ALL FOUR CAME BACK DIFFERENT.**
 | C03 starts from 32 session-owned App resources | **36** — `SessionScopedResources` is 29, not 25 |
 | C03 can lift out "reset-only process storage" | **no such member exists**; all 29 have a reader outside their reset |
 | C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
-| C05: six values are separate queued writes | two of the six are **Components already carried by the session root**, one of them DERIVED |
+| C05: six values are separate queued writes | **five of six are Components**; only `SessionMechanics` is an App global, and one of the five is DERIVED |
 
 ⚠ **THE DRIFT IS NOT NEGLECT, WHICH IS WHY IT WILL HAPPEN AGAIN.** Each of these
 rows was true when written and the tree moved under it — C03's four extra

@@ -1590,7 +1590,7 @@
       "owner": "ambition_app dev_runtime + content reload",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "Development reload prepares new content and a new room plan, then replace_live_world retires the current room before the new room verification result. It separately queues content binding and other live state writes.",
+      "current_truth": "Development reload prepares new content and a new room plan, then `replace_live_world` stages the whole replacement and publishes on admission \u2014 the current room is swept only after the new room's verification result, and the content binding and other live state are projections of that publication. Source records the change and its date: the hot reload's body transit and presentation spawns joined the verdict on 2026-09-14 (`reload_ldtk_world_from_disk`), and the caller's advance of the session's content generation is gated by `room_publication_succeeded`.",
       "source_paths": [
         "game/ambition_app/src/app/dev_runtime.rs",
         "game/ambition_content/src/reload.rs",
@@ -1599,7 +1599,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Development reload prepares new content and a new room plan, then replace_live_world retires the current room before the new room verification result. It separately queues content binding and other live state writes.",
+          "claim": "Development reload prepares new content and a new room plan, then `replace_live_world` stages the whole replacement and publishes on admission \u2014 the current room is swept only after the new room's verification result, and the content binding and other live state are projections of that publication. Source records the change and its date: the hot reload's body transit and presentation spawns joined the verdict on 2026-09-14 (`reload_ldtk_world_from_disk`), and the caller's advance of the session's content generation is gated by `room_publication_succeeded`.",
           "sources": [
             "game/ambition_app/src/app/dev_runtime.rs",
             "game/ambition_content/src/reload.rs",
@@ -1608,7 +1608,7 @@
         }
       ],
       "classification": "A10 primary bounded candidate-world customer",
-      "consolidation_hypothesis": "Make this use the same prepare -> validate -> publish -> retire road as other replacements. No special hot-reload construction road should remain.",
+      "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: this item asked the reload to use the same prepare -> validate -> publish -> retire road as other replacements, and it does \u2014 there is no special hot-reload construction road left. \u26a0 It did not trip the stale-mood sweep because it names no campaign and uses a bare imperative; only reading the source behind the claim found it.",
       "blocked_by": [
         "A10 candidate-world/session publication"
       ],

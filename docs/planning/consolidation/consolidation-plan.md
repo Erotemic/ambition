@@ -296,20 +296,34 @@ schema fingerprint deliberately excludes owner labels so an ownership repoint is
 not a wire-format event."* ⇒ C03 must not "tidy" a rollback key to match a type
 name. A key is an identity two peers agree on, not a label.
 
-**The seven with no state registration**, listed so step 2 has a subject —
-`ControlledSubject`, `EncounterView`, `BossEncounterRegistry`,
-`AuthoredOccurrences`, `CutsceneTriggerQueue`, `CutsceneAdvanceRequest`,
-`CutsceneSkipHold`.
+**Seven are not state-registered — and THREE OF THOSE SEVEN ALREADY HAVE THEIR
+ANSWER WRITTEN IN SOURCE.** `ControlledSubject`, `EncounterView` and
+`AuthoredOccurrences` each call `declare_rollback_derived_resource`, which is a
+recorded decision that the value is RECOMPUTED rather than restored, not an
+omission. ⇒ The registrar has THREE verdicts, not two — registered, declared
+derived, and silent — and only the third is an open question.
 
-⚠ **THIS LIST IS MEASURED; THE REASON EACH IS ABSENT IS NOT.** REASONED only, and
-recorded as a question rather than a classification: several look like authored
-catalogs or presentation-side cutscene input, which would be correct to leave
-unregistered — but `ControlledSubject` is `Option<Entity>` held in a
-session-scoped resource, and an entity reference that does not rewind is the
-shape the checkpoint family's `AbandonedCheckpointOperation` needed a
-value-complete note to survive. ⇒ **Step 2 for this family starts there, and it
-needs each one read — not a scan.** Do not carry this list into a migration as
-though "unregistered" meant "not rollback-relevant".
+⚠ **I WROTE "SEVEN NEED READING" ONE COMMIT AGO AND THAT WAS A THIRD NARROW
+QUERY IN THE SAME AFTERNOON.** I had grepped the `rollback_resource_*` methods
+and not the `declare_rollback_derived_*` ones, so a deliberate decision read as an
+absence. ⭐ `ControlledSubject`, the one this row flagged as suspicious because it
+holds an `Option<Entity>`, is precisely one of the three with an answer: it is the
+body driven by the primary **LOCAL** control authority, which is host-side by
+definition and must not rewind.
+
+⇒ **THE ACTUAL OPEN POPULATION IS FOUR: `BossEncounterRegistry`,
+`CutsceneTriggerQueue`, `CutsceneAdvanceRequest`, `CutsceneSkipHold`.** MEASURED:
+none of the four is registered on any road, none is declared derived, and none is
+named in any doc or check outside this plan. They are session-scoped state with no
+rollback decision of any kind recorded. Three of the four are cutscene input,
+which is plausibly presentation-side — but plausible is what a declaration exists
+to replace, and the campaign's step 3 cannot record a boundary nobody wrote down.
+
+⛔ **THE GUARD DELIBERATELY DOES NOT ENFORCE THIS YET.** Extending RULE 3's
+"register or declare" rule from the checkpoint family to `SessionScopedResources`
+would go red on these four the moment it landed, which is a fail-closed check
+pausing a working repository over a question nobody has answered. ⇒ Answer the
+four first, then widen the rule; that ordering is the point.
 
 ### DEPENDENCIES / BLOCKERS
 

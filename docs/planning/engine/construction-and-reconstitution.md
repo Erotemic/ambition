@@ -144,15 +144,23 @@ SESSION scope has none of them.
 6 malformed candidate real production refusals, not parse errors
 ```
 
-**Candidate-owned state is held UNDER the candidate, not in a process global.**
-`construction::spawn_candidate_state` puts the room's staged world — outgoing
-roster, room set, target index, geometry, platform state, arriving body — on a
-hidden entity stamped with the transaction and marked `CandidateState`. Three
-consequences are structural rather than remembered: a refusal retires it with
-everything else the transaction made; a leak carries a dead stamp no later room
-can find; publication ADOPTS it (takes the component, applies it, despawns the
-carrier). `CandidateState` is excluded from `candidate_roots`, so "N roots
-admitted" still counts authoritative bodies only.
+**The staged world is held on the PUBLICATION, not in a process global.**
+`PendingWorldReplacement` — outgoing roster, room set, target index, geometry,
+platform state, arriving body — is a component on the entity `begin_publication`
+spawns. Publication ADOPTS it (takes the component, applies it against the exact
+target, and the receipt is retired by its owner); both refusal arms REMOVE it
+explicitly. ⛔ That removal is the only thing that ends a refused replacement:
+the publication entity carries `RoomPublication` and NO `TransactionId`, so
+`retire_candidate` does not reach it. Anything that reads the staged world reads
+the publication; a query keyed on the candidate's transaction answers ZERO
+whether or not one stands.
+
+`construction::CandidateState` and `spawn_candidate_state` are the construction
+module's only way for a domain above `shared_tangle` to hold state under a
+candidate, since `InactiveCandidate` is `pub(crate)`. They have ZERO callers —
+a capability with no users, not the carrier described above. `CandidateState` is
+excluded from `candidate_roots`, so "N roots admitted" counts authoritative
+bodies only.
 
 **Supersession is a third baseline declaration, not a relaxed reconstruction.**
 `TransactionBaseline::reconstructing` keeps its meaning ("the old body should

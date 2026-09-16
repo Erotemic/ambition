@@ -194,13 +194,6 @@ WAIVERS: dict[str, str] = {
         "`materialize_projectiles_for_this_tick`: it steps the sim from `Update` "
         "with no rollback host, so `BodyKinematics`/`BodyMelee` do not rewind."
     ),
-    "tick_body_cooldowns": (
-        "⛔ fighter harness — same composition again. Checked at the registration, "
-        "not inferred from the file name: `fighter_harness.rs` adds all three of "
-        "these to `Update` in the app it builds itself, and that app installs no "
-        "GGRS host, so `BodyMelee` is never restored and there is no history for "
-        "the cooldown tick to be inconsistent with."
-    ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "
         "It writes `BodyWallet` from `Update` while applying a save. At session "

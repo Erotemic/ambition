@@ -301,8 +301,10 @@ impl CharacterDefinition {
         self
     }
 
-    /// Author the policy this character runs by default. See
-    /// [`Self::autonomous_profile`].
+    /// Author the policy this character runs by default. It is read back as
+    /// `PreparedCharacter::autonomous_profile` AFTER preparation — there is no
+    /// `autonomous_profile` on this type; the two `Option` fields it used to
+    /// name were collapsed into one `autonomous_policy`.
     pub fn with_autonomous_profile(mut self, profile: crate::brain::BrainProfile) -> Self {
         self.autonomous_policy = Some(AutonomousPolicy::Inline(profile));
         self

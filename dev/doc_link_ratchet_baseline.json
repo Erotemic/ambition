@@ -73,10 +73,7 @@
     "ambition_entity_catalog": [
       "crates/ambition_entity_catalog/src/authoring.rs: unresolved `ChargeSustain`",
       "crates/ambition_entity_catalog/src/authoring.rs: unresolved `WindboxVolume::repeating`",
-      "crates/ambition_entity_catalog/src/lib.rs: unresolved `ambition_platformer2d_core::BodyMana`",
-      "crates/ambition_entity_catalog/src/smash_limit.rs: unresolved `dealt`",
-      "crates/ambition_entity_catalog/src/smash_limit.rs: unresolved `taken`",
-      "crates/ambition_entity_catalog/src/smash_trapdoor.rs: unresolved `ambition_platformer2d_core::player_state::BodyMode::Submerged`"
+      "crates/ambition_entity_catalog/src/lib.rs: unresolved `ambition_platformer2d_core::BodyMana`"
     ],
     "ambition_items": [
       "crates/ambition_items/src/lib.rs: private `ItemCatalog -> ITEM_META`",
@@ -120,7 +117,6 @@
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs: private `EncounterRewardSyncPlugin -> sync_encounter_reward_chests`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `BodyKinematics`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `WorldMemory`",
-      "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs: private `spawn -> crate::world::rooms::transaction`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs: unresolved `ContentBinding::Content`",
       "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs: unresolved `GravityField`",
       "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs: unresolved `super::drive_music_director`",

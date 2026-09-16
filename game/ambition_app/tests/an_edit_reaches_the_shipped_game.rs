@@ -2134,7 +2134,7 @@ fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
     let gameplay = ShellRouteId::new("ambition_gameplay");
 
     let mut seen: Vec<ShellEvent> = Vec::new();
-    let mut drain = |app: &mut bevy::prelude::App, seen: &mut Vec<ShellEvent>| {
+    let drain = |app: &mut bevy::prelude::App, seen: &mut Vec<ShellEvent>| {
         if let Some(mut messages) = app.world_mut().get_resource_mut::<Messages<ShellEvent>>() {
             seen.extend(messages.drain());
         }

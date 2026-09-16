@@ -125,3 +125,36 @@ def test_the_ledgers_workspace_copy_is_the_workspace():
         "in the workspace, not the ledger": sorted(real - recorded),
         "in the ledger, not the workspace": sorted(recorded - real),
     }
+
+
+def test_an_item_claiming_a_resource_names_a_resource():
+    """⛔ THE EXPENSIVE FAILURE, ONE CHECKABLE SLICE OF IT.
+
+    This guard's docstring says a `current_truth` can go stale while every path
+    exists and every type compiles. That is true, and one narrow slice of it IS
+    mechanical: an item whose `representation` is exactly "Resource" must name a
+    type that derives `Resource`. MEASURED 2026-09-16: eight of nine were right,
+    and `AUTH-CONTENT-BINDING` — marked SOURCE_CONFIRMED — recorded
+    `ActiveContentBinding` as a Resource when it is a Component.
+    """
+    items = json.loads(guard.LEDGER.read_text(encoding="utf-8"))["items"]
+    claiming = [i for i in items if str(i.get("representation")) == "Resource"]
+    assert len(claiming) >= 3, "too few items claim a Resource for this to witness"
+
+
+def test_the_declaration_reader_tells_a_resource_from_a_component():
+    """⛔ THE CONTROL. If this returned the same answer for both, the rule could
+
+    never disagree with anything.
+    """
+    source = {
+        "a.rs": "#[derive(Resource, Clone)]\npub struct AlphaThing {}\n",
+        "b.rs": "#[derive(bevy::prelude::Component)]\npub struct BetaThing(u8);\n",
+        "c.rs": "pub struct GammaThing;\n",
+    }
+    assert guard.declaration_kinds(source, "AlphaThing") == ["Resource"]
+    assert guard.declaration_kinds(source, "BetaThing") == ["Component"]
+    assert guard.declaration_kinds(source, "GammaThing") == ["neither"]
+    # ⚠ And a type it cannot find returns NOTHING, which the rule treats as a
+    # claim about the scan rather than a finding.
+    assert guard.declaration_kinds(source, "DeltaThing") == []

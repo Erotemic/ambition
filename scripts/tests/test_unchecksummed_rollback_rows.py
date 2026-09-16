@@ -131,3 +131,59 @@ def test_resource_rows_are_in_the_population():
     assert any(n.startswith("resource.") for n in names), (
         "no `resource.*` row in the population; the kind filter dropped them"
     )
+
+
+def test_the_triage_sees_a_presence_filter_and_a_resource_read():
+    """⛔⛤ TWO MORE WAYS THE TRIAGE REPORTED A ZERO, both found by widening it.
+
+    `reader_sites` looks for a BORROW (`&T`). Two whole classes of read are not
+    borrows, and both arrived with the 59 -> 175 widening:
+
+    * A MARKER IS NEVER BORROWED, ONLY FILTERED ON. `FeatureSimEntity` came back
+      with NO PRODUCTION READER while 81 sites spell `With`/`Without`/`Has` of it.
+    * A RESOURCE IS READ THROUGH `Res<T>`. `resource-clone` rows were outside this
+      census entirely until the selector moved to the kind, so nothing here had
+      ever been a resource; `SaveRestored`, `FriendlyFire` and
+      `PortalFrameHistory` all reported zero readers while each is a live
+      `Res`/`ResMut` parameter.
+
+    Both zeros were in the reassuring direction. 20 rows read as unread; 1 is.
+    """
+    module = _module()
+    assert len(module.presence_filter_sites("FeatureSimEntity")) >= 20, (
+        "the triage cannot see a `With`/`Without` filter; a marker component has "
+        "no other kind of reader, so it reports every marker as unread"
+    )
+    assert not module.presence_filter_sites("SaveRestored"), (
+        "a resource is not presence-filtered; if this matches, the pattern is "
+        "loose enough to match anything"
+    )
+    assert len(module.resource_read_sites("SaveRestored")) >= 5, (
+        "the triage cannot see a `Res`/`ResMut` system parameter"
+    )
+    assert not module.resource_read_sites("FeatureSimEntity"), (
+        "a component is not a `Res`; if this matches, the pattern is loose"
+    )
+
+
+def test_local_player_is_registered_for_rollback_and_read_by_nothing():
+    """⛔ THE ONE ROW THE WIDENED TRIAGE STILL CANNOT FIND A READER FOR.
+
+    `player.local_marker` is `component-clone`: snapshotted every frame, not in
+    the session checksum, no probe. Its 16 production mentions are a definition, a
+    re-export, two insertions, a rollback registration and doc comments — not one
+    read. Its only `With<LocalPlayer>` is in `smash_in_the_host.rs`, a test.
+
+    ⚠ THIS ARM IS PINNED TO A LIVE FINDING AND WILL DIE WHEN IT IS FIXED. If it
+    fails because a production reader appeared, that is the good outcome: delete
+    the arm and the row's entry. If it fails because the triage stopped seeing
+    reads, that is the bad one — check `FeatureSimEntity` and `SaveRestored`
+    above first, since those are the known-answer controls.
+    """
+    module = _module()
+    per_tick, gated = module.reader_sites("LocalPlayer")
+    assert not per_tick and not gated, f"borrowed somewhere now: {per_tick + gated}"
+    assert not module.presence_filter_sites("LocalPlayer"), (
+        "filtered on in production now — this row has a reader"
+    )
+    assert not module.resource_read_sites("LocalPlayer"), "LocalPlayer is not a resource"

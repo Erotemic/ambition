@@ -466,6 +466,35 @@ that does not. The decision this needs is where the line falls — specifically
 whether a *reason* (why a type is derived, or which other projection covers it)
 is ever allowed to be part of peer-visible identity.
 
+⭐⭐ **AND THE SPLIT IS NO LONGER HYPOTHETICAL: IT IS IMPLEMENTED, GREEN AND
+POISONED — in the tooling lane, not in the fingerprint.** Landed 2026-09-16 with
+`the-peer-visible-schema-may-not-move-without-the-version`, which needed the same
+question answered for the 144 checksum-feeding rows and answered it from the
+artifact rather than by a hand-drawn line:
+
+> **`detail` is kept exactly where it DISTINGUISHES rows of the same kind, and
+> dropped where it does not.** A kind whose rows all carry one sentence has a
+> `detail` the `kind` column already implies; a kind whose rows differ is using
+> it to say something `kind` cannot.
+
+48 of the 144 carry theirs. It covers both halves this page measured: the 22
+`resource-clone-custom-checksum` projections AND the 18 `resource-canonical` rows
+where `rollback_resource_optional_canonical` adds a presence term under an
+unchanged name/kind/type. The control and the positive differ only in their
+subject — rewording the 7 uniform `component-clone-cursor` rows stays green,
+rewording one of the 22 varying ones reddens — and both arms assert their anchor
+count first, because a reword aimed at a uniform kind matched 0 rows on the first
+attempt and printed the same green a no-op does.
+
+⇒ **WHAT THIS DOES AND DOES NOT DECIDE.** It does not touch
+`compute_schema_fingerprint`, so the repository now answers this question two
+opposite ways in two places, which is a second witness rather than a resolution.
+What it removes from the ruling is the doubt about feasibility: the line this
+page proposes drawing by hand can be derived, and a guard drawing it that way has
+been running green for a day. ⚠ Its honest cost, also measured: a genuine reword
+of a VARYING kind's sentence still reddens even when no projection changed — 48
+rows of exposure instead of 493, failing in the safe direction.
+
 ✔ **ONE OF THOSE SENTENCES WAS NOT A MECHANICAL FACT AT ALL, AND IT IS GONE —
 SCHEMA v194.** *"State checksum supplied by another authoritative projection"*
 was recorded on **99 rows** (94 `component-clone`, 5 `resource-clone`) by two

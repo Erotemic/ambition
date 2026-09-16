@@ -619,9 +619,26 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
     // working, not the tax hurting.
     assert!(
         index.len() > 800,
-        "the baked record index holds {} sheet(s), below the floor of 800 — \
-         either the baked table did not compile in (so every comparison below \
-         would pass vacuously), or the publish glob matched a different tree",
+        "the baked record index holds {} sheet(s), below the floor of 800. THREE \
+         causes, and the third is the likely one on a fresh box:\n\
+         \x20 1. the baked table did not compile in, so every comparison below \
+         would pass vacuously;\n\
+         \x20 2. the publish glob matched a different tree;\n\
+         \x20 3. ⭐ THIS CHECKOUT HAS FEWER PUBLISHED BASE SHEETS THAN THE TREE \
+         THE FLOOR WAS WRITTEN AGAINST. Not one `*_spritesheet.ron` is tracked in \
+         git — the whole population is publish output — so this floor is a claim \
+         about the BOX as much as about the tree. MEASURED 2026-09-16 on a \
+         checkout reading {}: 188 base sheets per tier over four tiers, where the \
+         870 the floor was set under implies roughly 217. `find \
+         crates/ambition_platformer2d_actor_monolith/assets -name \
+         '*_spritesheet.ron' | wc -l` is the one-line check, and \
+         `scripts/check_published_sheets_are_present.py` can report ALL ROSTERED \
+         TARGETS PRESENT while the count is short, because it asks about the \
+         roster and this asks about the corpus.\n\
+         ⛔ DO NOT LOWER THE FLOOR TO GO GREEN. A loose floor waves through cause \
+         2, which is what it exists for; a short checkout is a machine-state \
+         problem and belongs in the publish step, not here.",
+        index.len(),
         index.len(),
     );
     assert!(

@@ -105,8 +105,84 @@ def git(*args: str) -> str:
     return proc.stdout.strip()
 
 
-def run_timed(command: list[str], env: dict[str, str]) -> tuple[float, int | None]:
-    """Wall seconds, and the peak RSS of the LARGEST SINGLE PROCESS in the tree.
+#: Cargo's own report of what it built, per unit. Appended ONLY by
+#: `instrumented_for_link_count`, which is the one place that decides whether a
+#: row can carry a link count at all.
+LINK_COUNT_FLAG = "--message-format=json"
+
+
+@dataclass(frozen=True)
+class BuildCost:
+    """One build's wall clock and the two resource facts M0 asks for.
+
+    A tuple grew to three unlabelled fields and the third was the one most
+    likely to be read as the second.
+    """
+
+    seconds: float
+    peak_rss_bytes: int | None
+    #: `None` means UNMEASURED, never zero — see `instrumented_for_link_count`.
+    host_link_invocations: int | None
+
+
+def instrumented_for_link_count(command: list[str]) -> tuple[list[str], bool]:
+    """The command to actually run, and whether its output can be counted.
+
+    ⚠ This APPENDS A FLAG TO THE COMMAND BEING MEASURED, which is a real cost to
+    declare rather than hide: the ledger's `command` column keeps the scenario's
+    own spelling, so the string a reader sees is not byte-identical to the
+    process that ran. It is recorded here instead of in the row because it is a
+    property of the INSTRUMENT, not of the scenario.
+
+    MEASURED 2026-09-16 on the calculex VM (6 cores, 15 GB), warm no-op
+    `cargo check -p ambition_app`, arms interleaved, n=4 each:
+    plain median 0.83 s (0.74-0.83), json median 0.80 s (0.76-0.94). The json
+    arm is not slower. ⭐ And the no-op is the CONSERVATIVE case, not a weak one:
+    cargo emits an artifact message for every unit whether or not it rebuilt, so
+    the JSON volume was byte-identical at 521,014 bytes in both the no-op and a
+    real rebuild. The instrument's whole cost is therefore paid in the cheapest
+    build measured, where there is no compile work for it to hide behind.
+
+    ⛔ A scenario that already chose its own `--message-format` KEEPS IT and gets
+    `None`. Overriding it would silently measure a different command than the
+    scenario asked for, and a wrong number here is worse than an absent one.
+    """
+    if any(token.startswith("--message-format") for token in command):
+        return command, False
+    return [*command, LINK_COUNT_FLAG], True
+
+
+def count_host_links(cargo_json: str) -> int:
+    """How many units cargo actually LINKED into an executable.
+
+    ⛔ `fresh` is the whole point. A warm build re-reports every cached unit as
+    an artifact, so counting artifacts counts the dependency graph and would
+    report a large constant for a build that did nothing.
+
+    ⚠ THE DISCRIMINATOR IS `executable`, NOT `target.kind`. MEASURED on
+    `ambition_entity_catalog`: its linked TEST BINARY reports `kind: ["rlib"]`,
+    exactly like the library it was built from. The two are told apart only by
+    `executable` being non-null.
+    """
+    linked = 0
+    for line in cargo_json.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError:
+            # A truncated line means the build died mid-write; the caller is
+            # already raising about that. Do not let it become a wrong count.
+            continue
+        if message.get("reason") == "compiler-artifact" and message.get("executable"):
+            if not message.get("fresh", False):
+                linked += 1
+    return linked
+
+
+def run_timed(command: list[str], env: dict[str, str]) -> BuildCost:
+    """Wall seconds, peak RSS of the LARGEST SINGLE PROCESS, and host links.
 
     ⚠⚠ `ru_maxrss` is a HIGH-WATER MARK, NOT A TOTAL. `os.wait4` reports the
     maximum over the reaped child and every descendant it waited for, so this is
@@ -120,15 +196,23 @@ def run_timed(command: list[str], env: dict[str, str]) -> tuple[float, int | Non
     between samples and reports a number that looks measured — this session lost
     hours to exactly that class of instrument. `wait4` is the kernel's own
     accounting for this child and cannot miss.
+
+    ⛔ STDOUT AND STDERR GET SEPARATE FILES, and that is not tidiness. Cargo
+    writes machine-readable JSON to stdout and human progress to stderr; sharing
+    one fd lets an interleaved write split a JSON line in half, which
+    `count_host_links` would silently skip. The count would then be low by an
+    amount nobody could see. The error tail below reads stderr, which is where
+    cargo puts the failure anyway.
     """
     merged = {**os.environ, **env}
-    with tempfile.TemporaryFile() as sink:
+    instrumented, countable = instrumented_for_link_count(command)
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         start = time.monotonic()
         # `Popen` for `cwd`, then `os.wait4` for the rusage that `Popen.wait()`
         # discards. Reaping behind Popen's back is safe ONLY because
         # `returncode` is assigned below: a Popen that still believes its child
         # is running will wait on that pid again at GC time, and pids get reused.
-        proc = subprocess.Popen(command, cwd=ROOT, stdout=sink, stderr=sink, env=merged)
+        proc = subprocess.Popen(instrumented, cwd=ROOT, stdout=out, stderr=err, env=merged)
         try:
             _, status, usage = os.wait4(proc.pid, 0)
         except BaseException:
@@ -144,17 +228,23 @@ def run_timed(command: list[str], env: dict[str, str]) -> tuple[float, int | Non
         elapsed = time.monotonic() - start
         proc.returncode = os.waitstatus_to_exitcode(status)
         if proc.returncode != 0:
-            sink.seek(0)
-            captured = sink.read().decode("utf-8", errors="replace")
+            err.seek(0)
+            captured = err.read().decode("utf-8", errors="replace")
             tail = "\n".join(captured.strip().splitlines()[-12:])
             raise SystemExit(
-                f"⛔ `{' '.join(command)}` failed, so its timing is meaningless:\n{tail}"
+                f"⛔ `{' '.join(instrumented)}` failed, so its timing is meaningless:\n{tail}"
             )
+        out.seek(0)
+        rendered = out.read().decode("utf-8", errors="replace")
 
     # `ru_maxrss` is KiB on Linux and BYTES on macOS. Guessing wrong silently
     # publishes a number off by 1024, which is worse than publishing none.
     peak = usage.ru_maxrss * 1024 if sys.platform.startswith("linux") else None
-    return elapsed, peak
+    return BuildCost(
+        seconds=elapsed,
+        peak_rss_bytes=peak,
+        host_link_invocations=count_host_links(rendered) if countable else None,
+    )
 
 
 def job_limit(command: list[str], env: dict[str, str]) -> int | None:
@@ -243,12 +333,12 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     try:
         if verbose:
             print(f"  warming ({' '.join(scenario.command)}) …", flush=True)
-        warm, warm_peak = run_timed(scenario.command, merged_env)
+        warm = run_timed(scenario.command, merged_env)
 
         if verbose:
             print(f"  editing {scenario.edit} and rebuilding …", flush=True)
         target.write_bytes(original + MARKER.format(salt=17).encode("utf-8"))
-        edited, edited_peak = run_timed(scenario.command, merged_env)
+        edited = run_timed(scenario.command, merged_env)
     finally:
         target.write_bytes(original)
 
@@ -257,7 +347,7 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     # build makes the next `cargo` invocation honest instead of surprising.
     if verbose:
         print("  restoring build state …", flush=True)
-    settle, settle_peak = run_timed(scenario.command, merged_env)
+    settle = run_timed(scenario.command, merged_env)
     load.stop()
 
     return {
@@ -267,24 +357,38 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         "edited_file": scenario.edit,
         "command": " ".join(scenario.command),
         "edit_class": scenario.edit_class,
-        "warm_noop_seconds": round(warm, 2),
-        "after_edit_seconds": round(edited, 2),
-        "restore_seconds": round(settle, 2),
+        "warm_noop_seconds": round(warm.seconds, 2),
+        "after_edit_seconds": round(edited.seconds, 2),
+        "restore_seconds": round(settle.seconds, 2),
         # Peak RSS of the largest single process in each build — see `run_timed`
         # for why this is a high-water mark and not a total. `null` off Linux.
-        "warm_noop_peak_rss_bytes": warm_peak,
-        "after_edit_peak_rss_bytes": edited_peak,
-        "restore_peak_rss_bytes": settle_peak,
+        "warm_noop_peak_rss_bytes": warm.peak_rss_bytes,
+        "after_edit_peak_rss_bytes": edited.peak_rss_bytes,
+        "restore_peak_rss_bytes": settle.peak_rss_bytes,
         # The `-j` cap this row was measured under; `null` means uncapped, in
         # which case `machine_cores` is the parallelism.
         "job_limit": job_limit(scenario.command, merged_env),
-        # ⛔ NULL BECAUSE NOTHING COLLECTS IT, NOT BECAUSE IT IS ZERO.
-        # `docs/planning/engine/extension-iteration-evidence.md` M0 names this
-        # field, and counting it honestly needs a shim on the linker path — which
-        # would perturb the very timings in this row. The column lands now so a
-        # future collector back-fills nothing: rows written before it exist say
-        # `null` and mean "unknown", which is true.
-        "host_link_invocations": None,
+        # How many units cargo LINKED into an executable, per phase — M0's
+        # `host_link_invocations`, which was a declared null here until
+        # 2026-09-16 on the belief that counting it needed a shim on the linker
+        # path. It does not: cargo already reports `fresh` and `executable` per
+        # unit, and `instrumented_for_link_count` measured the flag that asks
+        # for them to be free.
+        #
+        # ⭐ THE PHASE SPLIT IS THE POINT, which one flat column could not say.
+        # M0's rule is "do not count a lightweight crate followed by a heavy
+        # host link as completion", and that is a comparison BETWEEN phases: a
+        # content edit whose `after_edit` count is 0 did not relink the host,
+        # and one whose count is nonzero did, however fast it was.
+        #
+        # ⚠ `warm_noop` is the CONTROL, not filler. It should be 0 — a warm
+        # no-op that links something is not warm, and every duration in the row
+        # beside it is then measuring a different build than it claims to.
+        #
+        # ⚠ `null` means UNMEASURED, never zero.
+        "warm_noop_host_link_invocations": warm.host_link_invocations,
+        "after_edit_host_link_invocations": edited.host_link_invocations,
+        "restore_host_link_invocations": settle.host_link_invocations,
     }
 
 

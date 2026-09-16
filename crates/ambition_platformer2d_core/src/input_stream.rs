@@ -54,7 +54,7 @@ pub const INPUT_STREAM_VERSION: u32 = 1;
 /// CALL with at least four spellings and nothing stopping a fifth, so source
 /// text cannot enumerate them. A struct's fields are a single authoritative
 /// declaration in one file; there is no second way to spell them.
-pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 1;
+pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 2;
 
 /// Everything wrong with a stream, said precisely enough to act on.
 #[derive(Debug, Clone, PartialEq, Eq)]

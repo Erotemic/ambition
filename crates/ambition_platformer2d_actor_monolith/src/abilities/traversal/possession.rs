@@ -126,8 +126,6 @@ pub fn possession_trigger_system(
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     // The PRIMARY seat's resolved frame policy, not `Res<UserSettings>` — see
-    // `SeatControlFrameModes`. This system runs in the simulation schedule.
-    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     world_time: Res<ambition_time::WorldTime>,
     // The possession DECISION — who is driven and where the seat returns to. The
     // seat itself is written by `crate::control::project_driving_participant`,
@@ -184,8 +182,10 @@ pub fn possession_trigger_system(
     );
     // Possession is currently primary-seat gameplay policy, so both the control
     // frame and the policy that interprets it are asked for the PRIMARY seat.
-    let movement_mode = seat_modes.movement(ambition_characters::control::PlayerSlot::PRIMARY);
     let control = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
+    // From the FRAME, which GGRS replays, rather than from a resource written in
+    // `Update` that a resimulation would read at its current value.
+    let movement_mode = control.control_frame_modes.movement;
     let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being
     // HELD — not the single-frame `interact_pressed` edge (which doors / the

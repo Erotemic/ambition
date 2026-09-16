@@ -50,6 +50,14 @@ pub fn tick_player_brain_from_control(
 
     // No `..`: adding an input field must make this translation choose how to carry it.
     let ControlFrame {
+        // ⇒ NOT CARRIED, and this is the choice the `No ..` above demands.
+        // `control_frame_modes` is consumed at the gesture-resolution seam
+        // (`AccelerationFrame::resolve_input`), which needs the controlled
+        // body's gravity basis — a thing this translation does not have and
+        // must not acquire. The brain turns a stick into an intent; which way
+        // "down" is for that stick is resolved by the systems that hold the
+        // frame. Carrying it here would give two owners one answer.
+        control_frame_modes: _,
         // ── carried below, verbatim or after interpretation ──
         axis_x: _,
         axis_y: _,

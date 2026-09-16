@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "shape": [
     "axis_x: f32",
     "axis_y: f32",
@@ -24,6 +24,7 @@
     "attack_from_aim_stick: bool",
     "attack_aim_x: f32",
     "attack_aim_y: f32",
+    "control_frame_modes: crate::ControlFrameModes",
     "pogo_pressed: bool",
     "fly_toggle_pressed: bool",
     "interact_pressed: bool",
@@ -42,6 +43,11 @@
     "aim_y: f32",
     "AttackStrengthHint::Auto",
     "AttackStrengthHint::Tilt",
-    "AttackStrengthHint::Smash"
+    "AttackStrengthHint::Smash",
+    "ControlFrameModes::movement: InputFrameMode",
+    "ControlFrameModes::aim: InputFrameMode",
+    "InputFrameMode::ScreenRelative",
+    "InputFrameMode::BodyRelativeStrict",
+    "InputFrameMode::BodyRelativeAssist"
   ]
 }

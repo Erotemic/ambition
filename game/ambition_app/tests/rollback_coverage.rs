@@ -1450,19 +1450,36 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // enum fields per seat from one writer instead of a menu-mutable settings
     // blob from four readers.
     //
-    // ⛔ **WHAT IS STILL OPEN**: the table is read DURING simulation, so a
-    // rollback resimulation of frame N still interprets frame N's stick under
-    // whatever policy holds now. Registering it as canonical rollback state is
-    // the WRONG repair — it is written from `Update`, which may not write
-    // rollback state. The stated fix (architecture review, 2026-09-13) is that
-    // capture resolves the semantic DIRECTION and simulation never sees a mode
-    // at all, at which point this waiver and the row above both shrink. See
-    // `docs/planning/queue.md`'s `UserSettings` row.
+    // ✔ **CLOSED 2026-09-16, AND THE WAIVER SURVIVES FOR A DIFFERENT REASON THAN
+    // IT WAS WRITTEN FOR.** What was open: the table was read DURING simulation,
+    // so a resimulation of frame N interpreted frame N's stick under whatever
+    // policy held now. Four `Res<SeatControlFrameModes>` parameters are gone from
+    // the simulation schedule; the seat's policy rides `ControlFrame`, which GGRS
+    // replays per frame, so a resimulation reads the mode its frame was CAPTURED
+    // with. `CONTROL_FRAME_WIRE_IDENTITY` moved 1 -> 2 for the new field and the
+    // rollback schema did not move at all, because the dump records
+    // `derived.control_frame`'s TYPE and not its fields.
+    //
+    // ⚠ THE OTHER REPAIR IS STILL AVAILABLE AND WAS NOT TAKEN. The 2026-09-13
+    // review said capture should resolve the semantic DIRECTION so simulation
+    // sees no mode. That is not behaviour-preserving: `resolve_input` reads the
+    // CURRENT gravity basis for two of its three modes and both shipped defaults
+    // are `ScreenRelative` under a `WorldFixed` camera, so baking a direction at
+    // capture resolves the DEFAULT player's gestures against a stale basis at
+    // every gravity flip. Carrying the mode keeps the basis live. See
+    // `docs/planning/queue.md`'s `SETTINGS-ROLLBACK` row for the measurement.
+    //
+    // ⛔ SO WHY IS THIS STILL WAIVED? Because this guard's population is every
+    // mutable Ambition RESOURCE, not the types simulation reads — removing the
+    // entry reddens `every_mutable_ambition_resource_is_registered_derived_or_waived`
+    // (measured, not assumed). The table remains as the capture-side projection
+    // that answers "what is this seat's policy NOW", and nothing in the rewinding
+    // schedule reads it any more.
     (
         "::control::SeatControlFrameModes",
-        "per-seat input-interpretation policy, forward-only like the settings it \
-         is resolved from; the remaining step is resolving the direction at \
-         capture so simulation reads no mode",
+        "capture-side projection of the seat's frame policy; simulation no longer \
+         reads it — the policy travels on `ControlFrame` and is replayed per \
+         frame, so a rewind cannot see a newer value",
     ),
     (
         "::movement::tuning::ActiveMovementTuning",

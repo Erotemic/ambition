@@ -1711,7 +1711,12 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     text = (root / CONTROL_FRAME_SOURCE).read_text()
     body = text.split("pub struct ControlFrame {", 1)[1].split("\n}", 1)[0]
     fields = re.findall(r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", body, re.MULTILINE)
-    uncovered = {ty for _, ty in fields} - {"bool", "f32", "AttackStrengthHint"}
+    uncovered = {ty for _, ty in fields} - {
+        "bool",
+        "f32",
+        "AttackStrengthHint",
+        "crate::ControlFrameModes",
+    }
     if uncovered:
         raise AssertionError(
             f"`ControlFrame` now has field types this census does not follow: "
@@ -1725,6 +1730,30 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     shape += [
         f"AttackStrengthHint::{variant}"
         for variant in re.findall(r"^\s*(\w+),", hint, re.MULTILINE)
+    ]
+    # ⭐ THE TRANSITIVE EDGE FIRED WITHIN HOURS OF BEING BUILT, and it fired on
+    # the change this ratchet was built in anticipation of: `SETTINGS-ROLLBACK`
+    # moved the seat's frame-mode policy onto `ControlFrame`, and
+    # `ControlFrameModes` is a second non-primitive field type. Its two fields
+    # and `InputFrameMode`'s variants all move the bincode shape without
+    # `ControlFrame`'s own text moving, which is precisely what the refusal
+    # above exists to force someone to notice.
+    frame_modes = (
+        root / "crates/ambition_geometry/src/reference_frame.rs"
+    ).read_text()
+    modes_body = frame_modes.split("pub struct ControlFrameModes {", 1)[1].split(
+        "\n}", 1
+    )[0]
+    shape += [
+        f"ControlFrameModes::{name}: {ty}"
+        for name, ty in re.findall(
+            r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", modes_body, re.MULTILINE
+        )
+    ]
+    mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
+    shape += [
+        f"InputFrameMode::{variant}"
+        for variant in re.findall(r"^\s*(\w+),", mode_enum, re.MULTILINE)
     ]
     version = re.search(
         r"pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = (\d+);",

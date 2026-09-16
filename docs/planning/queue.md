@@ -1166,8 +1166,38 @@ Ten `update()` calls bought five ticks, and the loop itself bought one of them:
 each `update()` costs far less than the 15.625 ms timestep, so the accumulator
 rarely crosses.
 
+⛔⛤ **AND READING THE NINE FOUND THE PUREST INSTANCE OF THE CLASS THIS ROW IS
+ABOUT — ✅ FIXED 2026-09-16.** `run_headless` and `run_shared_host_headless` each
+built a report ending `ticks_run: max_ticks`: **the number the caller asked for,
+echoed back as though it had been observed.** Three arms asserted on it —
+`assert_eq!(report.ticks_run, 8)` against `run_headless(8)` — so the assertion
+was `8 == 8` and could not fail, in a test named
+`run_headless_runs_multiple_ticks`. Meanwhile the clock was unpinned, so the
+number of ticks that actually ran was whatever wall time allowed. ⇒ An arm
+claiming to prove the simulation ran multiple ticks proved only that a function
+returned `Ok`.
+
+✅ **THE REPAIR MAKES THE EXISTING ASSERTIONS TRUE RATHER THAN DELETING THEM.**
+Both runners now pin `TimeUpdateStrategy::ManualDuration(timestep)`, count real
+`FixedUpdate` executions, and report THAT. ⚠ And they loop until the tick budget
+is MET rather than running `max_ticks` frames: a caller asks for ticks, the first
+`update()` runs `Startup` and steps nothing, and once the count was honest an 801
+-frame loop returned 800 ticks. The frame budget is bounded, so a fixed loop that
+stops advancing ends the run with a SHORT count instead of hanging — and a short
+count is now a visible failure.
+
+⭐ **POISONED WITH THE ORIGINAL FAILURE MODE**, which is the only poison that
+proves anything here: unpin the clock and leave everything else, and
+`run_headless(1)` reports **6** ticks against a requested 1. The assertion that
+could not fail now detects an unpinned world. (File restored byte-identical.)
+
 **Population: 24 files call `add_headless_foundation`; NINE call `update()`
-without pinning the timestep.** `game/ambition_demo_sanic/src/tests.rs` (30
+without pinning the timestep.** One of the nine,
+`game/ambition_app/src/headless.rs`, is repaired above; its `cli.rs` sibling was
+repaired with it but is NOT in this population, because it builds the shared host
+rather than calling `add_headless_foundation` — so the unpinned-clock defect
+reaches at least one caller the census does not name, and the nine is a floor.
+`game/ambition_demo_sanic/src/tests.rs` (30
 `update()` calls), `game/ambition_demo_mary_o/src/lib.rs` (21),
 `game/ambition_demo_mary_o/src/movement/tests.rs` (14),
 `game/ambition_app/src/headless/tests.rs` (6),

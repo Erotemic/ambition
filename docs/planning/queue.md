@@ -112,9 +112,10 @@ leak in the table above had to be found by reading.
 
 **The standing guard, and what it could not see.** `id_peer_audit.rs` reads the
 LIVE registry. ⛔ Until 2026-09-15 its population was a list of variant names
-kept in the test, which omitted every `*CustomChecksum` kind — **25 of the 29
-registrations that feed a peer checksum were never examined**, the checkpoint
-family among them. The question now lives on `RollbackEntryKind` itself as
+kept in the test, which omitted every `*CustomChecksum` kind. Measured against
+the schema baseline: **143 registrations feed a peer checksum, the list named
+114, and the 29 `*custom-checksum` rows were invisible** — the checkpoint family
+among them. The question now lives on `RollbackEntryKind` itself as
 `feeds_peer_checksum()`, where a new variant cannot be added without answering
 it. Poison-verified in both directions: claiming a custom-checksum kind does not
 feed the checksum reddens the guard and names what it stopped covering.

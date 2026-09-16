@@ -37,6 +37,12 @@ use crate::common;
 /// holds. New registrations are caught by `rollback_schema_baseline.txt`, which
 /// member-diffs every row; this list is what that baseline cannot know.
 const HOST_LOCAL_IDENTITIES: &[&str] = &[
+    // ⛔⛔ THE LARGEST ONE, AND IT DOES NOT LOOK LIKE A LIFECYCLE COUNTER.
+    // `SimTick` is the canonical timeline — but it is `init_resource`'d once at
+    // App build, advances UNCONDITIONALLY at the head of the sim schedule
+    // (menus and suspended gameplay included), has exactly one writer, and is
+    // never rebased. So it counts this App's whole life.
+    "SimTick",
     "SessionScopeId",
     "SessionScopedEntity",
     "ShellActivationId",
@@ -110,6 +116,18 @@ const RECORDED_DIVERGENCE: &[&str] = &[
     // `a_transaction_identity_still_depends_on_host_local_lineage_counters`
     // (shared_tangle::construction::tests) holds the detail.
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
+    // ⛔⛤ THE CAMPAIGN'S LARGEST OPEN ITEM, and the one that makes every other
+    // absolute-tick value suspect. `sim_tick` is `resource-canonical`, so its
+    // ABSOLUTE value is compared: two Apps that have been running for different
+    // lengths of time disagree from the FIRST compared frame, and nothing
+    // derived from it can be peer-stable either — which is exactly the mistake
+    // `MatchInstance::activation_tick` records.
+    //
+    // ⚠ It cannot be closed the way the others were. A projection excluding the
+    // tick would exclude the timeline itself; what is needed is a
+    // SESSION-RELATIVE tick, rebased when peers agree to start, which is netcode
+    // work. Recorded so this is held by a test rather than by prose.
+    "ambition_time::SimTick",
     // ⛔⛤ ONE ROOT CAUSE, FOUR CARRIERS — found by the GPT review of 2026-09-15,
     // after this guard had twice reported the campaign complete. Every value
     // holding a `CheckpointOperationKey` reuses its ONE projection, and that

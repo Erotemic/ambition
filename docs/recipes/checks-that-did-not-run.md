@@ -325,9 +325,16 @@ by hand in an exception list.
 
 ⛔⛔ **AND THE SAME GUARD HAD A WORSE VERSION OF THE SAME BUG ONE LINE ABOVE.**
 Its population was a list of variant NAMES kept in the test file, and that list
-omitted every `*CustomChecksum` kind — so **25 of the 29 registrations that feed
-a peer checksum were never examined at all**, including four that write a raw
-host-local id. A guard that reproduces an enum's semantics as strings inherits
+omitted every `*CustomChecksum` kind — so of the **143** registrations that feed
+a peer checksum it named 114, and the **29** `*custom-checksum` rows were never
+examined at all, including four that write a raw host-local id.
+
+⚠ I first wrote that as *"25 of the 29 registrations that feed a peer checksum"*,
+which is two populations in one sentence: 29 is the custom-checksum rows, 143 is
+what feeds a checksum, and 25 was the remainder after one kind had already been
+added mid-session. **A count keeps its population in the same sentence or it
+stops meaning anything one document later** — see
+[re-measuring a planning claim](re-measuring-a-planning-claim.md). A guard that reproduces an enum's semantics as strings inherits
 none of the enum's exhaustiveness: adding a variant cannot break it, which is
 precisely the property you want. ⇒ **Put the predicate ON THE ENUM**
 (`RollbackEntryKind::feeds_peer_checksum`), where a new variant will not compile

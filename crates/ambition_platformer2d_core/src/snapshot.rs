@@ -894,6 +894,25 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support clear_message_on_rollback for {name}")
     }
 
+    /// Clear a message channel on rollback that feeds an INSTRUMENT, not the
+    /// simulation.
+    ///
+    /// Same rewind behaviour as [`Self::clear_message_on_rollback`]; the
+    /// difference is that the registration is not part of the schema identity
+    /// two peers negotiate. See
+    /// `RollbackEntryKind::MessageClearInstrument` for the measurement that
+    /// made this a separate road.
+    fn clear_instrument_message_on_rollback<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::message::Message,
+    {
+        panic!("RollbackRegistrar does not support clear_instrument_message_on_rollback for {name}")
+    }
+
     fn declare_rollback_derived_component<T>(
         &mut self,
         _owner: &'static str,

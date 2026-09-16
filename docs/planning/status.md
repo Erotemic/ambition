@@ -66,7 +66,7 @@ separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
 canonical checksums.
 
-**NINE CLOSED, FOUR OPEN (2026-09-16).** The per-road table and the arm that holds
+**TEN CLOSED, THREE OPEN (2026-09-16).** The per-road table and the arm that holds
 each one are in
 [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 ⭐ This page said "nine of the ten" and predicted that a tenth road found
@@ -78,16 +78,25 @@ again — but this one is a DIFFERENT KIND of road, which is worth saying becaus
 was filed later still — thirteen LIVE, because the thirteenth was withdrawn the
 day it was filed and the numbering does not reuse it.
 
-⛔⛤ **THE FOURTEENTH IS THE ONLY OPEN ROAD THAT COULD START TODAY, and it is the
-campaign's own shape in a place nobody looked: a LOCAL DEBUGGING INSTRUMENT is an
-input to the peer identity.** The same harness built with and without
+✔ **THE FOURTEENTH WAS THE ONLY ROAD NOT BLOCKED OUTSIDE THE CAMPAIGN AND IT
+CLOSED WITHIN THE HOUR. It is the campaign's own shape in a place nobody looked:
+a LOCAL DEBUGGING INSTRUMENT is an input to the peer identity.** The same harness built with and without
 `--features causal` produces two different `schema_fingerprint()` values
 (`ssp1:7bc3233fdd0e73d8…` vs `ssp1:b90539da551339d9…`) for simulations that are
 mechanically identical — so two such peers would refuse each other for no
 mechanical reason. The repository already decided those channels are not part of
 the state schema; the decision lives in a test's filter and not in
 `compute_schema_fingerprint`, and the filter is what keeps the disagreement
-invisible by making the lane green either way. Measured on
+invisible by making the lane green either way.
+
+⇒ Fixed by asking the question at the KIND (`MessageClearInstrument`, which
+answers `in_peer_schema_identity() == false`) instead of by name prefix in a
+test, which let that filter be deleted as redundant. Both builds now fingerprint
+`ssp1:7bc3233fdd0e73d8…`, identical to the value before the change, so no
+version bump was owed and the baseline did not move. ⭐ The durable point is not
+that a feature leaked — it is that the fingerprint and the dump filter DISAGREED
+ABOUT WHAT COUNTS AS SCHEMA, both deliberately, with nothing comparing them.
+Measurement and the arm's built-in positive control on
 [`N3`](engine/netcode.md).
 
 ⭐ **AND A THIRTEENTH WAS FILED AND WITHDRAWN THE SAME DAY, WHICH IS THE
@@ -220,10 +229,10 @@ fails silently.
 The queue is intentionally compact. Its current groups are:
 
 - **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
-  FOUR open are `Q128`, `Q122`, the 25 unchecksummed float rows (a different
-  kind — no host-local id, never compared between peers, blocked on netcode's
-  N2) and the causal instrument reaching the schema fingerprint, which is the
-  only one not blocked outside the campaign), settings/rollback policy, throw
+  THREE open are `Q128`, `Q122` and the 25 unchecksummed float rows, which are a
+  different kind — no host-local id, never compared between peers, blocked on
+  netcode's N2; the causal instrument reaching the schema fingerprint was a
+  fourth and closed 2026-09-16), settings/rollback policy, throw
   modifier
   consistency, A2 projectile identity (CLOSED — the construction-identity hole
   only; A2a/A2b/A2c geometry and contact contracts are a different subject and

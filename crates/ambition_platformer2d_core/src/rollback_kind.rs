@@ -48,6 +48,29 @@ pub enum RollbackEntryKind {
     ResourceClone,
     ResourceCloneCustomChecksum,
     MessageClear,
+    /// A message channel cleared on rollback that feeds an INSTRUMENT, not the
+    /// simulation — the causal recorder's channels are the only members today.
+    ///
+    /// ⛔⛤ **THIS EXISTS BECAUSE A DEBUGGING FEATURE WAS CHANGING THE PEER
+    /// IDENTITY.** Building the same harness with and without
+    /// `--features causal` gave 494 vs 497 schema rows and two different
+    /// `schema_fingerprint()` values, for simulations that are mechanically
+    /// identical: these rows carry no value of their own and the channels feed a
+    /// recorder, so both peers compute the same snapshots and the same
+    /// checksums — and would then refuse to play each other.
+    ///
+    /// ⚠ IT IS NOT A SECOND SPELLING OF `MessageClear`. A rewind clears both the
+    /// same way; what differs is whether the channel is part of the schema two
+    /// peers negotiate, and `MessageClear` cannot answer that because ordinary
+    /// message channels ARE part of it.
+    ///
+    /// ⇒ The repository had already decided this, in
+    /// `rollback_schema_baseline.rs`, which filtered these rows out of its
+    /// comparison by NAME PREFIX with the reason written beside it. A decision
+    /// stated in a test and not in the authority is a decision the authority
+    /// does not make — and that filter was also what hid the defect, by keeping
+    /// the lane green in both configurations.
+    MessageClearInstrument,
     EntityMapping,
     ResourceEntityMapping,
     RequiredRollback,
@@ -88,6 +111,7 @@ impl RollbackEntryKind {
             | Self::ResourceClone
             // These carry no value of their own.
             | Self::MessageClear
+            | Self::MessageClearInstrument
             | Self::EntityMapping
             | Self::ResourceEntityMapping
             | Self::RequiredRollback
@@ -129,6 +153,7 @@ impl RollbackEntryKind {
             | Self::ComponentClone
             | Self::ResourceClone
             | Self::MessageClear
+            | Self::MessageClearInstrument
             | Self::EntityMapping
             | Self::ResourceEntityMapping
             | Self::RequiredRollback
@@ -157,10 +182,53 @@ impl RollbackEntryKind {
             | Self::ResourceCloneCustomChecksum
             | Self::Derived => true,
             Self::MessageClear
+            | Self::MessageClearInstrument
             | Self::EntityMapping
             | Self::ResourceEntityMapping
             | Self::RequiredRollback
             | Self::DynamicAnchor => false,
+        }
+    }
+
+    /// Is this registration part of the schema identity two peers negotiate?
+    ///
+    /// ⛔⛤ **ASKED HERE BECAUSE THE ONLY OTHER PLACE IT WAS ASKED WAS A NAME
+    /// PREFIX IN A TEST.** `rollback_schema_baseline.rs` filtered
+    /// `message.causal_*` from both sides of its comparison, which is the right
+    /// decision recorded in a place that cannot enforce it: the fingerprint is
+    /// computed from `schema_dump()`, which had no such rule, so the instrument
+    /// moved the identity while the lane stayed green in both configurations.
+    ///
+    /// ⚠ ANSWERING FALSE IS A CLAIM THAT A PEER CANNOT OBSERVE THIS
+    /// REGISTRATION AT ALL — not that it is unhashed, which
+    /// [`Self::feeds_peer_checksum`] already covers, and not that it carries no
+    /// value, which [`Self::carries_state`] covers. An unhashed row still
+    /// changes what a rewind restores; a row outside the schema does not exist
+    /// as far as the other peer is concerned.
+    pub fn in_peer_schema_identity(self) -> bool {
+        match self {
+            // The instrument is the only thing a peer cannot observe: its
+            // channels are compiled in by a local feature, cleared like any
+            // other message, and read by nothing the simulation consults.
+            Self::MessageClearInstrument => false,
+            Self::ComponentCanonical
+            | Self::ComponentCloneCursor
+            | Self::ComponentCloneResolved
+            | Self::ComponentClone
+            | Self::ComponentCloneCanonicalChecksum
+            | Self::ComponentCloneCustomChecksum
+            | Self::ComponentCanonicalCustomChecksum
+            | Self::ResourceCanonical
+            | Self::ResourceCanonicalCustomChecksum
+            | Self::ResourceCloneCursor
+            | Self::ResourceClone
+            | Self::ResourceCloneCustomChecksum
+            | Self::MessageClear
+            | Self::EntityMapping
+            | Self::ResourceEntityMapping
+            | Self::RequiredRollback
+            | Self::Derived
+            | Self::DynamicAnchor => true,
         }
     }
 
@@ -179,6 +247,7 @@ impl RollbackEntryKind {
             Self::ResourceClone => "resource-clone",
             Self::ResourceCloneCustomChecksum => "resource-clone-custom-checksum",
             Self::MessageClear => "message-clear",
+            Self::MessageClearInstrument => "message-clear-instrument",
             Self::EntityMapping => "entity-mapping",
             Self::ResourceEntityMapping => "resource-entity-mapping",
             Self::RequiredRollback => "required-rollback",
@@ -262,6 +331,14 @@ pub mod detail {
 
     pub const MESSAGE_CLEAR: &str =
         "clear abandoned-future message buffer in LoadWorld::Mapping";
+
+    /// ⚠ This sentence is never hashed and never compared, because the kind it
+    /// belongs to is excluded from `schema_dump()` — but it is written to the
+    /// same standard anyway, since `deterministic_dump()` still carries it and
+    /// a reader meets it there.
+    pub const MESSAGE_CLEAR_INSTRUMENT: &str =
+        "clear abandoned-future INSTRUMENT message buffer in LoadWorld::Mapping; \
+         outside the peer schema identity";
 }
 
 /// A registrar method's (kind, sentence) pair, spelled ONCE.
@@ -397,5 +474,10 @@ pub mod spelling {
     pub const MESSAGE_CLEAR: Spelling = Spelling {
         kind: RollbackEntryKind::MessageClear,
         detail: super::detail::MESSAGE_CLEAR,
+    };
+
+    pub const MESSAGE_CLEAR_INSTRUMENT: Spelling = Spelling {
+        kind: RollbackEntryKind::MessageClearInstrument,
+        detail: super::detail::MESSAGE_CLEAR_INSTRUMENT,
     };
 }

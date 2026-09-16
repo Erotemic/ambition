@@ -364,6 +364,18 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
         self
     }
 
+    fn clear_instrument_message_on_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Message,
+    {
+        self.app.clear_instrument_message_on_rollback::<T>(owner, name);
+        self
+    }
+
     fn declare_rollback_derived_component<T>(
         &mut self,
         owner: &'static str,

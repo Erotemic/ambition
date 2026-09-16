@@ -379,6 +379,19 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         self
     }
 
+    fn clear_instrument_message_on_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Message,
+    {
+        self.record::<T>(owner, name, spelling::MESSAGE_CLEAR_INSTRUMENT.kind,
+            spelling::MESSAGE_CLEAR_INSTRUMENT.detail);
+        self
+    }
+
     fn declare_rollback_derived_component<T>(
         &mut self,
         owner: &'static str,

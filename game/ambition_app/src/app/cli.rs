@@ -408,9 +408,31 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         assert!(in_room, "route {route:?} came up, but the active room never became {room:?}");
         eprintln!("ambition_app: headless gameplay in {room:?}; measuring {max_ticks} ticks");
     }
-    for _ in 0..max_ticks {
+    // Same fix as `headless.rs`: `TimeUpdateStrategy::Automatic` makes the number
+    // of fixed steps per `update()` wall-time-derived. Pin the clock so a frame is
+    // a tick, and report what the schedule ran rather than what the caller asked for.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct FixedStepsTaken(u32);
+    let timestep = app
+        .world()
+        .resource::<bevy::time::Time<bevy::time::Fixed>>()
+        .timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
+    app.init_resource::<FixedStepsTaken>();
+    app.add_systems(
+        bevy::prelude::FixedUpdate,
+        |mut taken: bevy::prelude::ResMut<FixedStepsTaken>| taken.0 += 1,
+    );
+    // The first `update()` runs `Startup` and steps the fixed schedule zero times,
+    // so a plain `0..max_ticks` frame loop is one tick short. The frame budget
+    // bounds a fixed loop that stops advancing; the count it then reports is short,
+    // which is the visible failure.
+    let mut frames = 0u32;
+    while app.world().resource::<FixedStepsTaken>().0 < max_ticks && frames < max_ticks + 8 {
         app.update();
+        frames += 1;
     }
+    let ticks_run = app.world().resource::<FixedStepsTaken>().0;
 
     let world = app.world();
     let active_route = world
@@ -425,7 +447,7 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
         .is_some_and(|session| session.0.is_some());
 
     SharedHostHeadlessReport {
-        ticks_run: max_ticks,
+        ticks_run,
         active_route,
         launcher_active,
         gameplay_session_active,

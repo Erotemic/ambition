@@ -47,6 +47,9 @@ import tomllib
 from collections import defaultdict
 from typing import Iterable, Iterator, Sequence
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lib.rust_sources import is_test_path  # noqa: E402
+
 try:
     import tree_sitter_rust as tsrust
     from tree_sitter import Language, Parser
@@ -411,11 +414,7 @@ def iter_rs_files(
         parts = set(path.parts)
         if any(part in DEFAULT_EXCLUDED_DIR_NAMES for part in parts):
             continue
-        if not include_tests and "tests" in parts:
-            continue
-        if not include_tests and path.name in {"tests.rs", "test.rs"}:
-            continue
-        if not include_tests and path.name.endswith("_tests.rs"):
+        if not include_tests and is_test_path(path):
             continue
         if not include_tests and "/bin/" in path.as_posix():
             continue
@@ -1636,10 +1635,13 @@ def write_workspace_inventory(
     # `.agent/`, which the architecture census reads as
     # `generated_inventory_counts` — so a hole here does not red a gate, it
     # silently lowers a number somebody later reports as consolidation progress.
-    # Its test-file rule is one of FIVE copies of "is this file test-only" in
-    # `scripts/`, drifted into five different answers, and any correction makes
-    # this scanner EXCLUDE MORE. A wider exclusion cannot announce itself, but it
-    # cannot avoid making these counts FALL.
+    # Its test-file rule was one of FIVE copies of "is this file test-only" in
+    # `scripts/`, drifted into five different answers; it now calls the one owner
+    # in `lib.rust_sources`. That correction made this scanner EXCLUDE MORE, as
+    # predicted: it gained `test_support.rs`, and the counts fell by 3 module
+    # summaries and 7 spawn sites, every one of them a fixture that spawns a
+    # test body. No floor moved. A wider exclusion cannot announce itself, but it
+    # cannot avoid making these counts FALL — which is what the floor is for.
     #
     # MEASURED 2026-09-16 at 78 crates / 638 components / 493 resources / 1108
     # registered systems; the floors sit just under that. Raise one when the tree

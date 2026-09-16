@@ -74,7 +74,10 @@ pub use control_frame::ControlFrame;
 pub use control_frame::ControlFrameLatch;
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
 /// The per-tick input artifact (netcode N0.2): replay, RL, forensics, wire.
-pub use input_stream::{InputStream, InputStreamError, InputStreamFrame, INPUT_STREAM_VERSION};
+pub use input_stream::{
+    InputStream, InputStreamError, InputStreamFrame, CONTROL_FRAME_WIRE_IDENTITY,
+    INPUT_STREAM_VERSION,
+};
 pub use kinematic_path::{resolve_kinematic_path, KinematicPath, KinematicPathMode};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,

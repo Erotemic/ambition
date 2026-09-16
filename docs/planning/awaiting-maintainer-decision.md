@@ -960,6 +960,44 @@ session. The file matches a grep for both terms because it holds both KINDS of a
 ⇒ The first claim was right and the correction was wrong, and neither was measured
 when written.
 
+⛔⛤ **THE CLEAN RESULTS ABOVE ARE WEAKER THAN THEY LOOK, AND THIS REFRAMES THE
+WHOLE ROW — MEASURED 2026-09-16 BY YardratAmbition, RE-RUN HERE.** Every "clean"
+verdict in the tables above is a comparison that came back equal. But over that
+same window the save's HASHED PROJECTION barely moves.
+`probe_how_much_of_the_peer_checksum_actually_varies`, run at `f96493e31`: of the
+**144** entries whose kind feeds the peer checksum,
+`ambition_persistence::save::AmbitionGameSave` shows **2 distinct censuses**,
+against **238** for each of its nine busiest neighbours (`SimTick`,
+`BodyKinematics`, `ActorPose`, `CenteredAabb`, `MotionModel`, `SweepSample`,
+`BodyLifetime`, `GameplayElapsed`, `PlayerProjectileState`). The sibling file's
+header puts it more sharply still: exactly one value across every frame GGRS
+saved twice, while the LIVE save reaches 247 mirrored items.
+
+⇒ **SO "A PICKUP DURING PLAY DOES NOT DESYNC" IS TRUE FOR A REASON THAT MAKES IT
+WORSE, NOT BETTER.** A comparison that cannot differ cannot fail. The 120-step
+runs that came back `Ok` with a bag reaching 120 did not show the mechanism is
+benign during play; they show that during play the save is not effectively being
+compared at all. ⛔ The severity paragraph below stands as a statement about
+OBSERVED desyncs and must not be read as a statement about coverage.
+
+⚠ **WHICH MAKES A PRIOR QUESTION, AND IT IS ARGUABLY THE ONE TO ANSWER FIRST:
+is a registered-but-pinned hashed entry a defect in the REGISTRATION, a defect in
+the SNAPSHOT ROAD, or an intended property nobody wrote down?** `AmbitionGameSave`
+is in the peer contract by registration and out of it in effect. Whichever of
+(a)/(b)/(c) is chosen, that stays true unless the projection itself changes —
+and if the answer is "intended", then (b) is closer to describing the tree as it
+already behaves than to changing it.
+
+⚠ **THREE CAVEATS, CARRIED BECAUSE THE NUMBERS INVITE A WRONG READING.**
+(1) **116 entries are constant under BOTH idle and play, and that is NOT a defect
+list** — a component nobody spawns in this room, a resource only a boss
+encounter writes, and a genuinely frozen projection all land in the same bucket;
+separating them needs the live value read beside the census, which no instrument
+does for 144 types. (2) Playing rather than idling wakes **15** entries that were
+constant while idle, so the bucket is a property of the exercise as much as of
+the registration. (3) The probe reports the SIZE of each bucket, which is what
+nobody had — not which members are wrong.
+
 The choice: (a) derive the save inside the sim schedule so a rewind re-derives
 it, which makes a persistence mirror into simulation work and raises the cost of
 every rewind; (b) take `AmbitionGameSave` out of the peer checksum, on the ground

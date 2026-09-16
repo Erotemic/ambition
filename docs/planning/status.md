@@ -108,9 +108,17 @@ was answering is a peer one. `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so
 `ControlFrame` is literally what crosses; the rollback dump carries one row
 naming the type and not its fields, the fingerprint hashes that dump, and the
 codec-shape baseline has zero mentions because `ControlFrame` is `derived` and
-never snapshotted. ⇒ The STATE half of the wire got an identity and a ratchet
-today; the INPUT half has neither. Found, not started, and latent while no P2P
-session is built.
+never snapshotted.
+
+✔ **HALF-CLOSED THE SAME DAY.** `CONTROL_FRAME_WIRE_IDENTITY` now names the
+shape, declared beside `INPUT_STREAM_VERSION` so each constant says what the
+other does not cover, and `the-peer-input-payload-may-not-move-without-its-
+identity` freezes 42 rows — 39 fields IN DECLARATION ORDER (bincode encodes
+positionally, so a reorder changes what every later byte means) plus the 3
+`AttackStrengthHint` variants. The transitive boundary is asserted rather than
+assumed: a SECOND non-primitive field type raises instead of reading green.
+⇒ Still open, and it is the same remainder as the state half: the identity
+exists and is ratcheted, and nothing EXCHANGES it, which waits on `N2`.
 
 ⭐ **AND A THIRTEENTH WAS FILED AND WITHDRAWN THE SAME DAY, WHICH IS THE
 CAMPAIGN WORKING.** Walking `possession_trigger_system`'s inputs found an

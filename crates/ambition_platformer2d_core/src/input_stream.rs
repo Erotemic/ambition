@@ -15,7 +15,46 @@ use crate::ControlFrame;
 /// ADDING a field does not need a bump: `ControlFrame` deserializes with
 /// `#[serde(default)]`, so an older stream loads with the new field neutral —
 /// which is exactly what an older recording meant by it.
+///
+/// ⛔⛤ **THIS VERSIONS RECORDED STREAMS AND NOTHING ELSE**, and a planning row
+/// quoted the exemption above as the price of a PEER-facing change. The sentence
+/// was true and the ledger was wrong, which is the failure a correct citation
+/// produces: checking it confirms it. Peers are
+/// [`CONTROL_FRAME_WIRE_IDENTITY`], and the `#[serde(default)]` this exemption
+/// rests on cannot reach them — bincode is non-self-describing, so no field is
+/// ever "missing" on the wire and no default is ever supplied.
 pub const INPUT_STREAM_VERSION: u32 = 1;
+
+/// Bump when the SHAPE of what two peers exchange changes — any field added,
+/// removed, retyped or reordered on `ControlFrame`, or any change to the one
+/// non-primitive type its fields name.
+///
+/// ⛔⛤ **THE INPUT HALF OF THE WIRE HAD NO IDENTITY AT ALL UNTIL 2026-09-16,
+/// WHILE THE STATE HALF HAD TWO.** Measured: `INPUT_STREAM_VERSION` versions
+/// replay files and exempts additions by design; the rollback dump carries one
+/// row (`derived.control_frame`) naming the TYPE and not its fields; the schema
+/// fingerprint hashes that dump, so it sees the name; and
+/// `scripts/tests/rollback_codec_shape.txt` has zero mentions, because
+/// `ControlFrame` is `derived` — rebuilt from the input stream rather than
+/// snapshotted — and so has no `SnapshotState` codec to hash.
+///
+/// ⚠ WHY A MISMATCH WOULD NOT ANNOUNCE ITSELF. `ggrs` documents
+/// `Config::Input` as *"the only game-related data transmitted over the
+/// network"*; `InputBytes::from_inputs` packs every player's input into one
+/// bincode buffer, and `to_player_inputs` splits it by
+/// `bytes.len() / num_players` — taking the per-player size from the SENDER's
+/// buffer, validating only that the length divides by the player count. Nothing
+/// compares the two builds' input shape, so a divergence surfaces as decoded
+/// garbage or a bincode error about a player index, never as a refusal naming
+/// the cause.
+///
+/// ⭐ A SOURCE-SCANNED GUARD IS LEGITIMATE FOR THIS AND WAS NOT FOR THE ROLLBACK
+/// SCHEMA, and the difference is worth stating because the same campaign
+/// rejected one and built the other on the same day. A registration is a runtime
+/// CALL with at least four spellings and nothing stopping a fifth, so source
+/// text cannot enumerate them. A struct's fields are a single authoritative
+/// declaration in one file; there is no second way to spell them.
+pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 1;
 
 /// Everything wrong with a stream, said precisely enough to act on.
 #[derive(Debug, Clone, PartialEq, Eq)]

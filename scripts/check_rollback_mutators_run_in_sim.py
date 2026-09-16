@@ -76,7 +76,27 @@ ROLLBACK_REGISTRY = REPO / "crates/ambition_platformer2d_runtime/src/rollback/mo
 NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
 # `Startup` is deliberately ABSENT.
 
-_CANONICAL = re.compile(r"rollback_(?:component|resource)_canonical::<([^>]+)>")
+# ⭐ RESOURCE CLONE REGISTRATIONS ARE IN THE POPULATION SINCE 2026-09-16, and the
+# COMPONENT ones deliberately are not. They are snapshotted and restored on every
+# rewind exactly like the canonical ones, so an outside mutation drifts
+# identically — the distinction was never about rollback semantics, only about
+# which spelling the first version of this file happened to grep for.
+#
+# ⛔ THE COMPONENT HALF STAYS OUT, AND NOT FOR LACK OF NERVE. MEASURED: widening
+# to ALL registrations surfaces 65 unwaived offenders, and most are `Transform`
+# writes from camera, sprite and inspection systems — PRESENTATION reading a
+# component that happens to be rollback-registered. That needs a way to tell a
+# simulation write from a presentation write, which does not exist yet.
+# Resources carry no `Transform`, so this half costs 9 findings instead of 65
+# and is separable. See `ROLLBACK-MUTATOR-POPULATION` in `docs/planning/queue.md`.
+#
+# ⚠ SO `RoomSet` AND `LdtkRuntimeIndex` ARE STILL INVISIBLE: both are
+# `rollback_component_clone_checksum`. That is why `handle_ldtk_hot_reload`'s
+# waiver reads stale and why widening the RESOURCE half does not cure it.
+_ROLLBACK_REGISTRATION = re.compile(
+    r"rollback_(?:component|resource)_canonical::<([^>]+)>"
+    r"|rollback_resource_clone(?:_checksum)?::<([^>]+)>"
+)
 _PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")
 _CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
 # ⛔⛤ `SessionWorldMut<T>` IS A MUTABLE PARAM AND WAS INVISIBLE UNTIL
@@ -260,9 +280,9 @@ def rollback_types(repo: Path = REPO) -> set[str]:
     halves over one population by construction.
     """
     return {
-        m.group(1).strip().split("::")[-1]
+        (m.group(1) or m.group(2)).strip().split("::")[-1]
         for _path, text in _production_sources(repo)
-        for m in _CANONICAL.finditer(text)
+        for m in _ROLLBACK_REGISTRATION.finditer(text)
     }
 
 
@@ -278,7 +298,7 @@ def rollback_types(repo: Path = REPO) -> set[str]:
 #: Raise a floor when the tree genuinely grows; a DROP is the signature of the
 #: next hole and must fail loudly rather than pass quietly.
 POPULATION_FLOOR = {
-    "rollback types": 113,
+    "rollback types": 139,
     "system param bundles": 55,
 }
 

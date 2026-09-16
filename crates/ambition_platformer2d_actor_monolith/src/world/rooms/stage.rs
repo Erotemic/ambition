@@ -1301,21 +1301,14 @@ mod tests {
         (geometry, active, platforms, ids)
     }
 
-    /// Every candidate-owned state entity this room's transaction still holds,
-    /// hidden or not.
+    /// Every staged world still standing, whoever holds it.
     ///
-    /// ⛔⛤ **IT COUNTS THE PUBLICATION ENTITY, AND IT USED TO COUNT A POPULATION
-    /// NOTHING EVER FILLS.** This asked `candidate_state_entities`, with a
-    /// comment forbidding `world.query::<&PendingWorldReplacement>()` because
-    /// candidate state wears the disabling marker and an ordinary query would
-    /// answer ZERO whether or not one stood. That ban was right about the design
-    /// it was written for and expired with it: the staged world is a component on
-    /// the PUBLICATION entity now, `begin_publication` spawns that entity plain,
-    /// and `spawn_candidate_state` has no callers at all. MEASURED — so the old
-    /// instrument answered ZERO unconditionally and both assertions below passed
-    /// without reaching their subject.
-    ///
-    /// ⚠ The invariant is unchanged and real; only the carrier moved.
+    /// ⛔ Ask the PUBLICATION entity, not `candidate_state_entities`. The staged
+    /// world is a `PendingWorldReplacement` component on the entity
+    /// `begin_publication` spawns, and that entity is spawned plain — no
+    /// disabling marker — so an ordinary query sees it. A query keyed on the
+    /// candidate's transaction answers ZERO unconditionally: the publication
+    /// carries no `TransactionId`.
     fn staged_worlds_alive(app: &mut bevy::prelude::App, _plan: &RoomConstructionPlan) -> usize {
         let world = app.world_mut();
         let mut query = world.query::<&transaction::PendingWorldReplacement>();

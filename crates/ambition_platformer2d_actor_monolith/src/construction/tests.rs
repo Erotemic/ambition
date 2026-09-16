@@ -176,13 +176,10 @@ fn commit(plan: RoomFeatureConstructionPlan) -> App {
 
 /// As [`commit`], with `seed` run against the world FIRST
 ///
-/// ⛔⛤ **IT COMMITS ON THE ROAD PRODUCTION TAKES, AND IT USED TO NOT.** The
-/// default was a hard `false` — the LIVE road — while the A10 candidate bracket
-/// went on, so twenty-seven construction arms were certifying a road the game no
-/// longer uses. (The bracket flag itself is deleted as of 2026-09-15; there is
-/// one road now.) A published room's observable end state is the same either way
-/// (publication is a marker REMOVAL), which is exactly why the divergence would
-/// have been silent.
+/// ⛔ It must commit on the road production takes. There is one road — the
+/// candidate road — and a published room's observable end state is the same as
+/// the old live road's, because publication is a marker REMOVAL. An arm that
+/// drifts onto a second road therefore diverges SILENTLY.
 fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
     commit_bracketed(plan, |world| {
             // ⛔ THE COMPOSITION PRODUCTION BUILDS, installed HERE rather than
@@ -1411,14 +1408,13 @@ fn room_loaded_count(app: &mut App) -> usize {
 /// *"a live shell session lost its canonical content authority"* case that
 /// comparison exists for.
 ///
-/// ⛔⛤ **IT USED TO SEED A LIVE `placement:duel_blue` AND EXPECT
-/// `ReconstructedOldSurvived`, AND THAT STOPPED BEING A FAILURE AT ALL.** Under
-/// the candidate bracket a planned identity the baseline still holds is
-/// declared a SUPERSESSION, not a reconstruction — the coexistence is A10's
-/// premise, the projection removes the predecessor, and the room publishes. ⇒
-/// `ReconstructedOldSurvived` is a LIVE-ROAD violation now: on the candidate road
-/// a planned id with a live body is never declared `reconstructing` in the first
-/// place. Its meaning is still pinned, at the verifier that owns it
+/// ⛔ Do not seed a live `placement:duel_blue` here expecting
+/// `ReconstructedOldSurvived`: that is not a failure on this road. A planned
+/// identity the baseline still holds is declared a SUPERSESSION, not a
+/// reconstruction — the coexistence is A10's premise, the projection removes the
+/// predecessor, and the room publishes. A planned id with a live body is never
+/// declared `reconstructing` in the first place. Its meaning is pinned at the
+/// verifier that owns it
 /// (`a_reconstruction_that_leaves_the_old_body_alive_is_detected`), rather than
 /// by an arm here certifying a road production no longer uses.
 #[test]

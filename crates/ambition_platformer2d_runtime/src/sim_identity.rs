@@ -244,7 +244,12 @@ pub fn heal_projectile_owners(
 /// what tells a clean result from an absent measurement. ⇒ Read it first.
 #[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct UnmintedBodyCensus {
-    /// Bodies STILL on the `(None, None)` arm a tick after they became bodies.
+    /// Body-OBSERVATIONS still on the `(None, None)` arm a tick after they
+    /// became bodies. ⚠ THE SAME UNIT AS `observed`, NOT A HEADCOUNT: the loop
+    /// below re-judges every body on every tick and adds to both fields, so ONE
+    /// unnameable body standing for fifty ticks reports ~50. Measured: `209
+    /// judged, 49 skipped` for a SINGLE body. Reading it as a population sends
+    /// the next reader hunting 49 bodies that never existed.
     pub skipped: u64,
     /// Body-observations actually JUDGED. The denominator; zero means the
     /// observer saw nothing, not that the tree is clean.

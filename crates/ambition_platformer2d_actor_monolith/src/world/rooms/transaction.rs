@@ -313,9 +313,9 @@ impl std::fmt::Display for OpenRefused {
 /// commit_deferred` is four statements and only the last one builds the
 /// candidate; the other three — `rooms.set_active`, `geometry.0 = ..`,
 /// `*moving_platforms = ..` — write the LIVE world, and `replace_live_world`
-/// retired the OUTGOING room ahead of all of it. So a refusal used to leave the
-/// session pointed at a room index with no room in it: the strictly worse
-/// outcome A10 exists to delete, arrived at by the candidate bracket working.
+/// retires the OUTGOING room ahead of all of it. Left there, a refusal points
+/// the session at a room index with no room in it: the strictly worse outcome
+/// A10 exists to delete, reached by the candidate machinery WORKING.
 ///
 /// ⇒ Every one of those four is now staged here and applied by the ONE
 /// publication authority in [`verify_and_publish`], after the candidate has been
@@ -744,8 +744,8 @@ pub struct LastConstructionVerification {
     /// two are answers to different questions about different worlds, and a
     /// reader that cannot tell *"the room I built is wrong"* from *"the room I
     /// built is fine and publishing it would break the world"* has lost the
-    /// distinction A10 is made of. Empty whenever the candidate bracket is off,
-    /// because then there is no candidate world to project.
+    /// distinction A10 is made of. Empty when the transaction staged no
+    /// candidate world, because then there is nothing to project.
     pub projection_violations: Vec<ProjectionViolation>,
     /// Every reason the staged non-entity world — which room becomes active, and
     /// what geometry it collides against — would be incoherent. See
@@ -1612,14 +1612,12 @@ fn verify_and_publish(
                 )
             })
             .sum();
-        // ⛔⛤ **A REFUSAL IS A WORLD EVENT, NOT ONLY A LOG LINE — 2026-09-14.**
-        // This path wrote `bevy::log::error!` alone, and a harness without a log
-        // plugin surfaces nothing: measured, flipping the candidate bracket on
-        // makes `death_restores_the_checkpoint` fail with the object NOWHERE and
-        // prints no violation at all, so *"no violations printed"* could not be
-        // told from *"the transaction published"*. A10 cannot be implemented
-        // against an invisible refusal — the publication side has said
-        // `room-loaded` on the same channel since it existed.
+        // ⛔ A REFUSAL IS A WORLD EVENT, NOT ONLY A LOG LINE. `bevy::log::error!`
+        // alone surfaces NOTHING in a harness without a log plugin, so *"no
+        // violations printed"* cannot be told from *"the transaction published"*.
+        // A10 cannot be implemented against an invisible refusal — the
+        // publication side has said `room-loaded` on this channel since it
+        // existed, and the refusal must answer on the same one.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-refused {room_id} ({failure_count} violation(s), {dropped} roots dropped, \
              live world {}): {}",

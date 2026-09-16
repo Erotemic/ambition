@@ -271,6 +271,30 @@ Visibility is `InactiveCandidate`, a registered disabling component that stays
 and was a real defect: Bevy's disabling components do not inherit through
 ownership, and the gameplay queries that find a body find it by its own markers.
 
+⛔⛤ **TWO CONCLUSIONS OUTSIDE THIS DOCUMENT NOW REST ON A CANDIDATE BEING
+INVISIBLE, AND DEMOLITION MUST NOT BREAK THEM SILENTLY** (flagged by the
+ID-PEER owner, 2026-09-16):
+
+1. **The session root's `SimId` is a CONSTANT** — `SimId::singleton("session",
+   "root")` on both mints — which is only sound because exactly one session root
+   is ever VISIBLE. An A10 candidate root deliberately carries the SAME identity
+   as the live root it will replace, and a constant preserves that exactly.
+2. **The session-activation reset's waiver** is route two of a rollback-mutator
+   red: the write is at a point no rewind crosses. That holds because
+   `gameplay_active` is `session_world_entity(world).is_some()`, and A10.5 moved
+   construction EARLIER — `prepare_candidate_platformer_session` builds the
+   session world while the route is still PENDING. A root for the incoming scope
+   therefore exists BEFORE `SessionScopeSet::Activate`, and the argument survives
+   ONLY because that root wears `InactiveCandidate`, so the default query cannot
+   see it and no GGRS session starts until adoption.
+
+⇒ Both depend on the same fact: **a candidate is not merely marked, it is
+UNFINDABLE by an ordinary query.** A demolition that relaxed hiding to a plain
+marker, or that exempted the session root from it, would leave both conclusions
+false and neither owner's tests would say so. `only-the-candidate-builder-hides-a-root`
+guards WHO may hide; nothing guards that hiding still BLINDS, so that is the
+check to write before touching this.
+
 ⛔⛤ **AND A CANDIDATE SESSION HAS EXACTLY FOUR EXITS — closed 2026-09-15, when
 TWO of them turned out not to exist.**
 

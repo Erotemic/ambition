@@ -2148,27 +2148,47 @@ read: `OwnedItems` is `rollback_resource_clone`, in NO peer checksum, and
 `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind` has been green
 over its lost `Update` write all along.
 
-**Next action** (executable, and no longer waiting on
-[Q134](awaiting-maintainer-decision.md#q134--is-a-dialog-visit-count-something-two-peers-must-agree-on)):
-count the visit in the sim schedule off the replayable edge that already exists —
-`ambition_conversation::ActiveConversation` is rollback state carrying a
-deterministic `ConversationInstanceId` with an `opened_at` tick, and
-`project_the_dialog_ui_from_the_conversation` already treats the opening as
-simulation-owned with the Yarn box as its projection. Then delete the
-dispatcher's `increment_dialog_visit` call. `ambition_dialog` needs no rollback
-vocabulary and keeps Yarn.
+✅⛤ **AND IT IS REPAIRED, SAME DAY, WITHOUT THE RULING.**
+`count_the_dialogue_visit_when_a_conversation_opens` now counts the visit in the
+sim schedule, from `ActiveConversation`'s `opened_at == SimTick` — a pure function
+of rollback state — chained with the three mirrors for the
+`ResMut<AmbitionGameSave>` reason and `.after(interact_ecs_actors_and_switches)`,
+the system that opens the conversation. `ambition_dialog::bridge` no longer takes
+`ResMut<AmbitionGameSave>` at all, so the presentation dispatcher writes nothing
+to the save and Yarn stays presentation-side.
 
-**Acceptance:** `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`
-goes RED (its message says so and says to delete it), a new arm counts one visit
-per conversation opening across a rewound window, and
-`yarn_vocabulary::refresh_yarn_state_mirror`'s `visit_counts` — the LAST surviving
-slice of that mirror, every other one having been collapsed onto a live authority
-— reads a value a replay reproduces.
+**Acceptance, held by
+`a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`:** two
+openings of one node across 240 frames of sync test reach **exactly 2**, with
+`live_comparisons > 0` witnessing the rewind. Poisoned both directions —
+unregistering the counter gives 0, and relaxing the edge to a level rule
+(`opened_at <= now`) gives 6.
 
-⚠ **THE LIMIT OF THESE THREE ARMS, STATED SO IT IS NOT OVERSOLD.** They measure
-what the rewind does to the FIELD at each placement. None of them drives
-`dispatch_pending_dialog_requests`; that the dispatcher is reachable in a rollback
-session is a separate source fact (`plugins.rs:108`, above).
+⛔⛤ **THE ORDERING IS THE WHOLE REPAIR AND IT COST AN HOUR, SO IT IS WRITTEN
+DOWN.** With the opener registered anywhere else in the sim schedule the counter
+observes the instance first at `opened_at + 1`, the edge is gone, and the count is
+**0** — measured, with the counter running 1186 times, seeing the conversation
+live 30 times, and `opened_at == now` never once true. ⇒ A visit counter that fires
+on an opening tick is only correct downstream of the opening; the acceptance arm
+registers its stand-in in `FeatureInteractionSet::Actuate` because that is where
+the real opener sits.
+
+⚠ **AND THE `Update` ARM DOES NOT GO RED, WHICH IS NOT A GAP.**
+`a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` performs the
+increment itself from outside the schedule, so it characterises the SAVE FIELD and
+stays green whatever production does. It is the standing witness that this
+placement is never available again; the new arm is the one that tracks the repair.
+
+⚠ **THE LIMIT OF ALL FOUR ARMS.** None drives
+`dispatch_pending_dialog_requests` or the real `interact_ecs_actors_and_switches`;
+reaching either needs a compiled Yarn project and a body in reach of an NPC. That
+the dispatcher is reachable in a rollback session is a source fact
+(`plugins.rs:108`, above), and that the counter sits downstream of the real opener
+is an ordering constraint the compiler checks, not one these arms exercise.
+
+⇒ What is left of Q134 is a product question (is a visit a fact two peers must
+agree on, or per-player progress that should not be in a shared save), and the
+defect no longer waits on it.
 
 ⛔⛤ **THE ONE-SHOT PAIR IS MEASURED AND THE ANSWER IS THE UNFAVOURABLE ONE —
 2026-09-16, `probe_when_the_durable_restore_latch_flips_against_ggrs_start` in

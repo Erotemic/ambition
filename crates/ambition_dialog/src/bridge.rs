@@ -23,7 +23,6 @@ use crate::bindings::{YarnContentBindings, YarnPresentationCue, YarnStateMirror}
 use crate::content::DialogChoice;
 use crate::context::{DialogueContext, DialogueNodeIndex};
 use crate::runtime::{DialogSpeechStyle, DialogState};
-use ambition_persistence::save::AmbitionGameSave;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.
@@ -116,7 +115,8 @@ fn register_presentation_commands(commands: &mut Commands, runner: &mut Dialogue
 }
 
 /// Drain `DialogState.pending_*` fields each frame, translate them
-/// into runner calls, and write visit-count side effects to save.
+/// into runner calls. ⭐ It writes NOTHING to the save — see the visit-count
+/// note inside.
 ///
 /// Order matters: `pending_start` is processed before
 /// `pending_select` / `pending_advance` so a "start + immediate
@@ -126,7 +126,6 @@ fn dispatch_pending_dialog_requests(
     mut state: ResMut<DialogState>,
     runner_e: Option<Res<DialogueRunnerEntity>>,
     mut runner_q: Query<&mut DialogueRunner>,
-    save: Option<ResMut<AmbitionGameSave>>,
 ) {
     // Early-return + visible diagnostic if the runner hasn't
     // spawned yet. Without this, dialog.start() requests pile up
@@ -158,9 +157,14 @@ fn dispatch_pending_dialog_requests(
         // WHO is talking to WHOM, published before the node begins so content's
         // very first `<<if $speaker_is_self>>` reads a live value.
         publish_dialogue_context(&mut runner, &pending.context);
-        if let Some(mut save) = save {
-            save.data_mut().increment_dialog_visit(&dialogue_id);
-        }
+        // ⛔⛤ THE VISIT COUNT USED TO BE INCREMENTED HERE, AND THIS IS
+        // PRESENTATION. `AmbitionGameSave` is rollback-snapshotted, this system
+        // is top-level `Update`, and the request that got us here was taken from
+        // a `DialogState` on no rollback road — so a rewind restored the
+        // pre-increment save, the request did not come back, and the visit was
+        // LOST. It is now counted by
+        // `ambition_platformer2d_actor_monolith::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
+        // on the tick `ActiveConversation` says the conversation opened.
         if !runner.node_exists(&dialogue_id) {
             warn!(
                 target: "crate::bridge",

@@ -1284,12 +1284,20 @@ the loss is in the SNAPSHOT. ⇒ **Nothing about the checksum moots this, and th
 is a change from what this entry said before.** Only taking the save out of the
 rollback set entirely would, which is neither option here nor Q129's question.
 
-⚠ **WHAT IS LEFT FOR A MAINTAINER IS SMALLER THAN THIS ENTRY IMPLIES.** Option 2
-is now ordinary engineering with a measured basis and an existing owner; the open
-product question is whether a visit is a fact two peers must agree on at all, or
-per-player progress that should never have been in a shared save. The defect does
-not wait on that answer — either way the increment must stop being written from
-`Update`.
+✅⛤ **AND OPTION 2 IS TAKEN AND LANDED, SO WHAT IS LEFT HERE IS A PRODUCT
+QUESTION AND NOT A DEFECT.** `count_the_dialogue_visit_when_a_conversation_opens`
+(`crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`)
+counts the visit in the sim schedule from `ActiveConversation`'s
+`opened_at == SimTick`, and `ambition_dialog::bridge` no longer takes
+`ResMut<AmbitionGameSave>` at all. Held by
+`a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window`: two
+openings reach exactly 2 across 240 rewound frames, poisoned to 0 (counter
+unregistered) and 6 (edge relaxed to a level rule).
+
+⚠ **THE QUESTION THAT REMAINS IS THE PRODUCT ONE:** is a dialogue visit a fact two
+peers must agree on, or per-player progress that should not be in a shared save at
+all? Answering it would change what the save's checksum covers; it no longer
+changes whether a visit survives a rewind.
 
 ## Q133 — should a throw obey rage when obeying it changes who wins?
 

@@ -1690,3 +1690,132 @@ fn the_control_counts_the_same_five_visits_with_no_rewind() {
          arm above is measuring the fixture and not the restore"
     );
 }
+
+/// The two ticks the acceptance arm opens a conversation on, and the tick it
+/// closes the first one. TWO openings, because an arm that expects 1 cannot tell
+/// "counted on the opening edge" from "counted once ever".
+const OPENS_AT: [u64; 2] = [90, 150];
+const CLOSES_AT: u64 = 120;
+
+/// Open and close a conversation on known ticks, from inside the rewinding
+/// schedule — standing in for `interact_ecs_actors_and_switches`, which needs a
+/// body in reach of an NPC with a compiled Yarn node.
+///
+/// ⚠ It mints the instance the way production does, at the CURRENT tick, rather
+/// than through `LiveConversation::for_test` — that hatch opens at tick zero on
+/// purpose, and the opening tick is the entire subject here.
+fn open_a_conversation_on_known_ticks(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut conversation: bevy::prelude::ResMut<
+        ambition_platformer2d::conversation::ActiveConversation,
+    >,
+) {
+    use ambition_platformer2d::conversation::{
+        ActiveConversation, ConversationInputOwner, ConversationInstanceId, LiveConversation,
+    };
+    let _: &ActiveConversation = &conversation;
+    if tick.0 == CLOSES_AT {
+        conversation.close();
+        return;
+    }
+    if !OPENS_AT.contains(&tick.0) {
+        return;
+    }
+    conversation.open(LiveConversation {
+        instance: ConversationInstanceId::mint(
+            tick.0,
+            VISIT_NODE,
+            None,
+            None,
+            &ambition_platformer2d::dialog::DialogueContext::scripted(),
+        ),
+        initiator: None,
+        talker: None,
+        input_owner: ConversationInputOwner::Primary,
+        speaker_name: String::new(),
+    });
+}
+
+/// ✔⛤ THE ACCEPTANCE FOR THE REPAIR: A CONVERSATION'S VISIT IS COUNTED ONCE PER
+/// OPENING, ACROSS A REWOUND WINDOW.
+///
+/// `count_the_dialogue_visit_when_a_conversation_opens` runs in the sim schedule
+/// and fires on `ActiveConversation`'s `opened_at == SimTick`, which is a pure
+/// function of rollback state. Two openings of the same node must reach exactly
+/// two, with every tick of the window resimulated.
+///
+/// ⛔ THE COUNT IS THE WHOLE ASSERTION, IN BOTH DIRECTIONS. **0** is the old
+/// defect's signature — nothing counted the visit, or it was counted and taken
+/// back. **More than 2** is the failure mode the edge exists to prevent: a
+/// level rule (`opened_at <= now`) or change detection would fire on every tick
+/// the conversation stays live, and a restore marks a rollback-registered
+/// resource changed, so `is_changed` fires every frame under GGRS.
+#[test]
+fn a_conversation_opening_counts_exactly_one_visit_across_a_rewound_window() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            // ⛔⛤ THE SET IS LOAD-BEARING AND COST AN HOUR. Registered anywhere
+            // else in this schedule, the stand-in opens the conversation AFTER
+            // the counter has already run for that tick — so the counter sees
+            // the instance first at `opened_at + 1`, the edge is gone, and the
+            // visit is never counted. Measured: the same fixture reports 0
+            // visits unset and 2 with this line, with the counter's own
+            // `opened_at == now` never once true in the first case.
+            // ⇒ `FeatureInteractionSet::Actuate` is where
+            // `interact_ecs_actors_and_switches` — the real opener — sits, and
+            // the counter's `.after(interact_ecs_actors_and_switches)` edge is
+            // the production form of this line.
+            app.add_systems(
+                label,
+                open_a_conversation_on_known_ticks.in_set(
+                    ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
+                ),
+            );
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a conversation opener");
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+    }
+    let compared = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>()
+        .live_comparisons;
+    assert!(
+        compared > 0,
+        "no frame was compared across a restore, so this arm ran without the \
+         rewind it claims to survive"
+    );
+    assert!(
+        sim_tick(&sim) > *OPENS_AT.last().expect("two openings"),
+        "the window ended before the second opening, so a count of 1 would mean \
+         'not yet' rather than 'counted once'"
+    );
+    assert!(
+        sim.world()
+            .get_resource::<SaveRestored>()
+            .is_some_and(|restored| restored.0),
+        "the latch never flipped, so the counter early-returned for the whole \
+         window and a count of 0 would say nothing about the edge"
+    );
+    assert_eq!(
+        visit_count(&sim),
+        OPENS_AT.len() as u32,
+        "two conversation openings did not produce two visits. 0 means the \
+         counter never fired or its write was taken back — the defect this \
+         repair closes. MORE than 2 means the edge is not an edge and the \
+         counter is firing while the conversation merely stays live."
+    );
+}
+

@@ -309,12 +309,20 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // `ResMut<AmbitionGameSave>`, so an unordered set would leave their relative
     // order ambiguous, and an ambiguous order inside a rewinding schedule is
     // nondeterminism the checksum would then report as a desync.
+    //
+    // ⭐ AND THE VISIT COUNTER JOINS THEM, for the `ResMut<AmbitionGameSave>`
+    // reason the `.chain()` note above gives. Its `.after` edge is the one thing
+    // it needs beyond theirs: it fires on the tick a conversation OPENED, so
+    // running before the opening would mean the edge is gone by the next tick and
+    // the visit is never counted at all.
     app.add_systems(
         sim,
         (
             crate::items::persist::persist_inventory_to_save,
             persist_occurrence_horizon_to_save,
             crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+            count_the_dialogue_visit_when_a_conversation_opens
+                .after(crate::features::interact_ecs_actors_and_switches),
         )
             .chain()
             .after(crate::items::persist::reset_inventory_on_new_game),
@@ -342,6 +350,60 @@ pub fn install_durable_save_horizon(app: &mut App) {
             )
                 .chain(),
         );
+}
+
+/// Count a dialogue visit on the tick its conversation opened. (sim)
+///
+/// ⛔⛤ THIS REPLACES AN INCREMENT IN `dispatch_pending_dialog_requests`, WHICH
+/// RAN IN TOP-LEVEL `Update` AND LOST THE VISIT ON EVERY REWIND. Measured: an
+/// `Update` write to this save is taken back by the restore, while the same
+/// increment inside this schedule lands exactly once per tick across every
+/// replay of that tick — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`
+/// and `an_increment_inside_the_tick_is_made_idempotent_by_the_restore` in
+/// `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`.
+///
+/// ⭐ THE RESTORE IS WHAT MAKES AN INCREMENT SAFE HERE, and that is the
+/// non-obvious part. A resimulated tick does not add to the value the previous
+/// run left: the snapshot puts the save back to its state before the tick, so
+/// every replay adds one to the same base. The sibling mirrors above converge
+/// because they DERIVE the save from sim state; this one converges for a
+/// different reason, and needs no derivation.
+///
+/// ⚠ THE EDGE IS `opened_at == now`, NOT CHANGE DETECTION. A restore marks a
+/// rollback-registered resource changed, so `Res::is_changed` fires every frame
+/// under GGRS. The instance's opening tick is a pure function of rollback state
+/// and names exactly one tick, so the same tick replayed re-fires it and no
+/// other tick does.
+///
+/// ⚠ NO TIMELINE, NO VISIT. Without `SimTick` every frame would match
+/// `opened_at == 0` and the count would climb forever. That is the degenerate
+/// clock `ConversationInstanceId::opened_at` documents rather than a case to
+/// support: a composition that cannot tell two visits apart has no visit edge.
+/// Every shipped composition has the clock.
+pub fn count_the_dialogue_visit_when_a_conversation_opens(
+    // `Option` because a composition may install the save without the
+    // conversation domain, or the clock without either.
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
+    tick: Option<Res<ambition_time::SimTick>>,
+    restored: Res<SaveRestored>,
+    save: Option<ResMut<AmbitionGameSave>>,
+) {
+    // The siblings' guard, for the siblings' reason: before the latch the save is
+    // still being applied from the file, and a visit written into it now is
+    // written into a value the load is about to replace.
+    if !restored.0 {
+        return;
+    }
+    let (Some(conversation), Some(tick), Some(mut save)) = (conversation, tick, save) else {
+        return;
+    };
+    let Some(live) = conversation.live() else {
+        return;
+    };
+    if live.opened_at() != tick.0 {
+        return;
+    }
+    save.data_mut().increment_dialog_visit(live.dialogue_id());
 }
 
 /// Mirror the current occurrence horizon into the save after restore completes. Writes are

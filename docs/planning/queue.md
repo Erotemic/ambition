@@ -1509,6 +1509,15 @@ waived to make a count go down.
 
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
 
+⭐ **A STATIC GUARD NAMES THIS ROW SINCE 2026-09-16.** `grid_menu_action_activated`
+and `kaleidoscope_menu_action_activated` appear in
+`check_rollback_mutators_run_in_sim.py`'s findings, carrying `OwnedItems` and
+`NewGameResetRequested`, once the component half of its population landed. ⇒ The
+row was filed off a harness that demonstrated the defect; the guard would have
+named it from source. Neither is redundant — the harness says what the player
+loses, the guard says it cannot be reintroduced quietly — but the guard is the
+cheaper of the two to keep.
+
 **Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
 
 **Current state:** `grid_menu_action_activated` and

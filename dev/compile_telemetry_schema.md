@@ -309,6 +309,55 @@ today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
 | `edit_class` | **NEW 2026-09-15**, what the probe did to the file | ✅ one value so far |
 | `warm_noop_host_link_invocations` / `after_edit_host_link_invocations` / `restore_host_link_invocations` | **COLLECTED 2026-09-16**, cargo's own `--message-format=json` — see §below | ✅ `null` = unmeasured, never zero |
 
+### `edit_class` has a second value, and the answer is "it does not matter here"
+
+The column landed 2026-09-15 and every row carried `append-private-fn`, so it
+documented a limit instead of answering a question. The `check-pub` scenario is
+`check`'s control: same file, same command, same graph position — only the
+VISIBILITY of the appended item differs, which is what makes the two rows
+subtractable.
+
+MEASURED 2026-09-16, calculex VM (6 cores, uncapped, mold, incremental), arms
+INTERLEAVED, n=3 each:
+
+| edit class | after-edit median | all |
+| --- | ---: | --- |
+| `append-private-fn` | 10.85 s | 10.78, 10.85, 10.99 |
+| `append-public-fn` | 10.87 s | 10.82, 10.87, 10.91 |
+
+⭐ **A NEGATIVE RESULT IS THE POINT.** `rustc` tracks dependencies far more
+finely than "the crate changed", so exporting the new item buys no extra
+rebuild in this lane. The corpus can now SAY that, where before it could only
+say it had never looked.
+
+⚠ **IT IS ONE LANE AND ONE PAIR.** Both arms edit
+`actor_monolith/src/lib.rs` under `cargo check -p ambition_app`. It does not
+generalise to a signature CHANGE (these are additions), to a trait or generic
+edit, or to a codegen lane.
+
+### ⚠ A `warm_noop` that is not warm has been a GIT OPERATION both times
+
+Twice on 2026-09-16 a run recorded a baseline that was not a baseline, and in
+both cases the cause was a merge landing between building the subject and
+measuring it — not the machine, and not the build lane:
+
+| run | `warm_noop_seconds` | what it should read | `warm_noop_host_link_invocations` |
+| --- | ---: | ---: | --- |
+| `relink` | 346.07 s | 0.79 s | **2** — caught it |
+| `check` | 47.33 s | 0.73 s | 0 — could NOT catch it |
+
+⛔ **THE LINK-COUNT CONTROL ONLY WORKS ON A LANE THAT LINKS.** `cargo check`
+never links, so its `warm_noop` count is 0 whether the baseline was warm or
+stone cold. On a check lane the DURATION is the only signal, and 47 s beside a
+0.73 s expectation is only obvious if you know the expectation. ⇒ Freeze the
+tree across a measurement, exactly as `AGENTS.md` requires across a gate.
+
+⚠ **AND THE HYPOTHESIS THAT NUMBER FIRST SUGGESTED WAS WRONG.** It read like
+lane alternation — `cargo check` and `cargo test --no-run` invalidating each
+other in one target. MEASURED: check-after-test 3.95 s against 0.78 s warm, and
+test-after-check 1.08 s against 0.77 s. Real, small, and nowhere near 47 s. The
+alternation cost is worth knowing and it was not the cause.
+
 ### `*_host_link_invocations` — the column that was a declared null until 2026-09-16
 
 It was `null` from 2026-09-15 with a stated reason: *counting it needs a shim on

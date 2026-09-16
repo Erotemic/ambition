@@ -51,7 +51,7 @@
 //! character, inside a canonical checksum. So a burned number is NOT invisible
 //! to a peer: an App that refused one reload carries epoch 8 where a fresh App
 //! carries 7, and the two stamp DIFFERENT canonical provenance on a
-//! mechanically identical world. `a_transaction_identity_still_depends_on_host_local_lineage_counters`
+//! mechanically identical world. `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
 //! (`shared_tangle::construction::tests`) is the arm that records exactly this,
 //! and it has been green — as a recorded divergence — the whole time.
 //!

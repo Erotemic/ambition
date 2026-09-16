@@ -32,7 +32,7 @@
 //! singleton's key). ⇒ Provenance defects are held by value-level arms in the
 //! crate that MINTS the identity, and this table routes to them.
 //! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
-//! | construction provenance | `TransactionId`, recorded by `a_transaction_identity_still_depends_on_host_local_lineage_counters` |
+//! | construction provenance | **CLOSED** — `TransactionId` projects the content identity and the room, excluding the app-local content epoch and the session stamp. `two_hosts_with_different_local_history_project_one_transaction_identity` mints two stamps from different local history and asserts the strings DIFFER and the projections AGREE |
 //!
 //! ⛔⛤ THIS TABLE HAS SAID "NARROW AND PRECISELY TWO THINGS" AND BEEN WRONG
 //! TWICE. Both times the missed leaks were real, canonical and older than the
@@ -110,6 +110,7 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
 /// holds the registration; the arms hold the function body.
 /// Kinds whose checksum is a stated projection rather than the whole value.
 const PROJECTED_CHECKSUM_KINDS: &[&str] = &[
+    "ComponentCanonicalCustomChecksum",
     "ResourceCanonicalCustomChecksum",
     "ResourceCloneCustomChecksum",
     "ComponentCloneCustomChecksum",
@@ -158,20 +159,31 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     // so it carries the previous session's count until this session's first
     // activation. Closing that is a carve to session-owned state.
     "ambition_match::seating::SessionMatchOrdinal",
+    // ⭐⭐ THE CAMPAIGN'S ORIGINAL FINDING, CLOSED. `TransactionId` renders as
+    // `{binding}\t{room}\t{session}` and its projection keeps the content
+    // identity and the room, dropping the app-local content epoch and the
+    // session stamp. The STRING still carries both local terms and must — the
+    // construction scope's gather filter and A10's candidate-vs-live separation
+    // read it — so this is the split the campaign header describes rather than a
+    // substitution.
+    // `two_hosts_with_different_local_history_project_one_transaction_identity`
+    // holds the projection;
+    // `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
+    // holds the half that must NOT change.
+    "ambition_platformer2d_shared_tangle::construction::TransactionId",
 ];
 
 /// Values that ARE canonical while still being a function of host-local
 /// lineage, recorded so the guard reports a CHANGE rather than the known state.
 ///
-/// ⛔ `a_transaction_identity_still_depends_on_host_local_lineage_counters`
-/// (`shared_tangle::construction::tests`) proves the dependency on
-/// `ContentEpoch` and `SessionScopeId`. When that arm flips, delete this
-/// exception and the guard tightens by itself.
+/// ⚠ `TransactionId` LEFT THIS LIST on 2026-09-16 — it is the first COMPONENT to
+/// state a peer projection, which needed
+/// `rollback_component_canonical_checksum` to exist at all. The family was
+/// asymmetric: resources had two canonical-with-projection registrars and
+/// components had only the clone-strategy one, so a component snapshotting
+/// through its own canonical codec could not state a projection.
 const RECORDED_DIVERGENCE: &[&str] = &[
-    // Derived from `ContentEpoch` + `SessionScopeId`;
-    // `a_transaction_identity_still_depends_on_host_local_lineage_counters`
-    // (shared_tangle::construction::tests) holds the detail.
-    "ambition_platformer2d_shared_tangle::construction::TransactionId",
+
     // ⛔⛤ THE CAMPAIGN'S LARGEST OPEN ITEM, and the one that makes every other
     // absolute-tick value suspect. `sim_tick` is `resource-canonical`, so its
     // ABSOLUTE value is compared: two Apps that have been running for different

@@ -84,7 +84,7 @@ reassuring.
 | `MatchInstance::random_context` | **CLOSED** — the method moved to `ActiveMatch` and reads the ordinal. This row said OPEN while the row above said CLOSED, which the review flagged as contradictory control-plane text |
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
 | **the session root's canonical `SimId`** | ⛔ **OPEN, AND NOW THE LARGEST NAMED ROAD** — minted `SimId::singleton("session", activation_id)` on BOTH roads; `ShellActivationId` is a per-App route count; the root carries `RoomSet` so it is rollback-anchored; `entity.sim_id` is `component-canonical`. See below |
-| `TransactionId` provenance | **OPEN** — `ContentEpoch` + `SessionScopeId` |
+| `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
 | the canonical timeline itself | **OPEN, and the largest unnamed one** — see below |
 
 ⛔⛤ **THE SESSION ROOT'S IDENTITY IS A HOST-LOCAL ROUTE COUNTER.** Found by the
@@ -153,7 +153,7 @@ now declares the lane `TransactionId`s it owns (`PublicationEffects::owned_by`),
 with `CandidateNotOwned` refusing anything stamped outside them. A10 deliberately
 used the existing interfaces rather than hardening host-local lineage into a new
 provenance contract, so the dependency stayed narrow — but it is wider than it was.
-`a_transaction_identity_still_depends_on_host_local_lineage_counters`
+`a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
 (`shared_tangle/src/construction/tests.rs`) records the divergence and flips the
 day the identities are split.
 
@@ -235,11 +235,26 @@ string is compared between peers.
   `PreparedContent::fingerprint()` — which sits beside `epoch()`, so a site that
   can state the local generation can always state which content it is a
   generation OF. ⚠ `canonical_summary()` still renders the epoch ALONE, and an
-  arm pins that two bindings differing only in content summarise identically:
-  that string is `TransactionId`'s first field and `TransactionId` is
-  `component-canonical`, so changing it changes a canonical identity every
-  rollback timeline carries. Wiring the peer half into the identity, and giving
-  `TransactionId` its projection, is the next and separate step.
+  arm pinned that two bindings differing only in content summarised identically,
+  so that the change could not happen silently.
+  ✔ **AND THAT CHANGE HAS NOW BEEN MADE (schema 192).** `canonical_summary`
+  renders `epoch:N|content:<64 hex>` when a content identity is STATED, so
+  `TransactionId` carries a peer-stable term for the first time. ⚠ The segment is
+  ABSENT rather than zero-filled when unstated, so a binding built outside a
+  prepared session renders `epoch:N` exactly as before and every fixture's
+  identity is byte-identical — only production strings moved.
+  ⛔ **THE PROJECTION IS STILL NOT LANDED, and the reason is structural rather
+  than pending work.** `TransactionId` is a bare `String` whose `from_raw` is the
+  codec's decode half, so a checksum function — which receives only
+  `&TransactionId` — must either PARSE the string or store a second field. The
+  string cannot be parsed unambiguously: an unstated `epoch:4` and a
+  `runtime-dynamic` binding both lack the `|content:` segment while meaning
+  different things, and `from_raw` is called with synthetic values like
+  `"t/candidate"` in tests, over which any parser returns something rather than
+  refusing. ⇒ The honest shape is to restructure `TransactionId` into its parts
+  with two renderings over one mint — the `MatchInstance` pattern — which is a
+  61-use change and the next reviewable step. `ContentBinding::peer_stable_summary`
+  is the term it will project, and it is landed and poisoned already.
 
 ⭐ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15.** It
 said *"an epoch is not rollback-registered. Two peers never compare sequences, so

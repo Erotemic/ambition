@@ -726,7 +726,33 @@ impl ContentBinding {
     /// reviewable change that also gives `TransactionId` its projection.
     pub fn canonical_summary(self) -> String {
         match self {
+            // ⭐ THE CONTENT TERM IS RENDERED ONLY WHEN IT IS STATED, and that is
+            // what keeps a fixture's identity byte-identical to what it was. A
+            // binding built outside a prepared session has no content to name, so
+            // it renders `epoch:N` exactly as before; production renders
+            // `epoch:N|content:<64 hex>`.
+            //
+            // ⚠ THE TWO CANNOT COLLIDE. "Unstated" is the ABSENCE of the
+            // `|content:` segment, not an all-zero digest — a stated all-zero
+            // digest renders the segment and differs from a bare `epoch:N`.
+            Self::Content { epoch, content } if content.is_stated() => {
+                format!("{epoch}|{content}")
+            }
             Self::Content { epoch, .. } => format!("{epoch}"),
+            Self::RuntimeDynamic => "runtime-dynamic".to_string(),
+        }
+    }
+
+    /// The PEER-STABLE part of this binding's rendering, for a projection.
+    ///
+    /// ⛔ The epoch is excluded because it is an app-local activation count; the
+    /// content identity is kept because two Apps holding one prepared definition
+    /// agree on it. `RuntimeDynamic` has no content and answers its own constant,
+    /// which is peer-stable by construction.
+    pub fn peer_stable_summary(self) -> String {
+        match self {
+            Self::Content { content, .. } if content.is_stated() => format!("{content}"),
+            Self::Content { .. } => "content-unstated".to_string(),
             Self::RuntimeDynamic => "runtime-dynamic".to_string(),
         }
     }
@@ -1002,6 +1028,53 @@ impl TransactionId {
     /// exactly the stamp the executor wrote.
     pub fn from_raw(raw: String) -> Self {
         Self(raw)
+    }
+
+    /// ⭐⭐ **WHAT TWO PEERS MAY COMPARE ABOUT A TRANSACTION IDENTITY: WHICH
+    /// CONTENT AND WHICH ROOM.**
+    ///
+    /// The stamp renders as `{binding}\t{room}\t{session}`. The session term is
+    /// a per-App activation count and the binding's epoch is a per-App
+    /// activation generation, so neither may be compared; the room is authored
+    /// and the content identity is a digest of the prepared definition, so both
+    /// may.
+    ///
+    /// ⛔⛤ **IT READS THE STAMP RATHER THAN THE PARTS, AND THAT IS A DELIBERATE
+    /// TRADE.** A checksum registrar hands the projection only `&TransactionId`,
+    /// which is a bare `String` — so the alternative is restructuring this type
+    /// into its parts across 61 uses plus the codec. The string is already the
+    /// canonical serialized form (`from_raw` is the codec's decode half), so
+    /// reading it is what the codec does too. ⚠ The cost is that the formatter in
+    /// [`ConstructionScope::transaction`] and the reader here can drift; the
+    /// round-trip arm in this module's tests mints a real stamp and projects it,
+    /// which is what holds them together.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        let mut fields = self.0.split('\t');
+        let binding = fields.next().unwrap_or("");
+        let room = fields.next().unwrap_or("");
+        // ⛔ THE SESSION FIELD IS DROPPED ON THE FLOOR, which is the point.
+        ambition_platformer2d_core::snapshot::PeerDigest::in_domain("construction.transaction")
+            .bytes(Self::peer_binding_term(binding).as_bytes())
+            .bytes(room.as_bytes())
+            .finish()
+    }
+
+    /// The peer-stable part of a rendered binding, by its three shapes.
+    ///
+    /// ⚠ THE ORDER MATTERS AND IS WHAT MAKES IT UNAMBIGUOUS. `runtime-dynamic`
+    /// and an epoch with no content both lack the `|content:` segment while
+    /// meaning different things, so the constant is matched FIRST. Anything else
+    /// without the segment is content-derived with nobody stating which — which
+    /// is also what a synthetic `from_raw` value in a fixture lands on, and that
+    /// is the honest answer for one.
+    fn peer_binding_term(binding: &str) -> &str {
+        if binding == "runtime-dynamic" {
+            return "runtime-dynamic";
+        }
+        match binding.split_once('|') {
+            Some((_app_local_epoch, content)) => content,
+            None => "content-unstated",
+        }
     }
 }
 

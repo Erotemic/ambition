@@ -493,7 +493,35 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// one caught a live defect in the same pass — `LiveMatchTicks` folded an absent
 /// match through `unwrap_or(0)`, so a clock belonging to NO match agreed with one
 /// belonging to a match whose digest happened to be zero.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 191;
+/// ⭐⭐ 191 -> 192: `ContentBinding::canonical_summary` now renders WHICH CONTENT
+/// alongside which activation of it, so `TransactionId` — `component-canonical`,
+/// whole string compared — carries a peer-stable term for the first time. It was
+/// `{epoch}\t{room}\t{session}` with two of three terms per-App counts, and a
+/// projection excluding them would have left `{room}` alone, handing every entity
+/// in one room the same identity.
+/// ⚠ ONLY PRODUCTION STRINGS MOVE. The `|content:` segment is rendered only when
+/// a content identity is STATED, and it is ABSENT rather than zero-filled when it
+/// is not — so a binding built outside a prepared session renders `epoch:N`
+/// exactly as before, and every fixture's identity is byte-identical.
+/// ⛔ THE PROJECTION ITSELF IS NOT LANDED. `TransactionId` is a bare `String`
+/// whose `from_raw` is the codec's decode half, so a checksum over "content and
+/// room but not epoch and session" needs it restructured into parts — a 61-use
+/// change, and the next reviewable step. `ContentBinding::peer_stable_summary`
+/// is the term it will project.
+/// ⭐⭐ 192 -> 193: `TransactionId` — the campaign's ORIGINAL finding — stopped
+/// comparing its whole string. It renders as `{binding}\t{room}\t{session}` and
+/// two of those three terms are per-App counts: the binding's content epoch and
+/// the owning session's activation stamp. The projection keeps the CONTENT
+/// IDENTITY and the ROOM and drops both.
+/// ⚠ THE STRING IS UNCHANGED AND MUST BE. It carries local ownership that the
+/// construction scope's gather filter and A10's candidate-vs-live separation both
+/// read; two sessions committing one room at one epoch once minted the same token
+/// and each classified the other's roots as its own. This is the split the
+/// campaign exists for, not a substitution — the snapshot is still the whole
+/// value, only the COMPARISON narrows.
+/// ⭐ It is the first COMPONENT to state a projection, which is why
+/// `rollback_component_canonical_checksum` had to exist first.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 193;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -693,6 +693,39 @@ OOM, one arm alone in its process). The sibling arms measured **1667 MB and
 each frame produces this shape, and the untrimmed rollback saved-state history is
 the obvious candidate in this repo. It is a lead, not a finding.
 
+⛔⛔⛤ **AND IT IS NOT AN INTEGRATION-LANE DEFECT. IT REDDENS A SHIPPED LIBRARY
+SUITE, WITH TWO NAMED ARMS.** MEASURED 2026-09-16: `cargo test -p
+ambition_platformer2d_runtime --lib` runs 62 tests green and then hangs in
+
+    combat_schedule::tests::the_finishing_zoom_is_ordered_against_the_match_verdict
+    combat_schedule::tests::the_shipped_engine_installs_the_grab_interruption_exactly_once
+
+both reported by libtest as *"has been running for over 60 seconds"*, with no
+`test result` line ever printed. ⇒ Everything above places this in `app_it` and in
+the headless composition probe; it is also in a plain `--lib` unit suite, so
+**`cargo test --workspace --lib` cannot finish at HEAD** and any agent running one
+is heading for a kill rather than a verdict.
+
+⭐ **THAT MAKES IT A MUCH CHEAPER REPRODUCER THAN `app_it`** — one crate, ~62
+tests of warm-up, hangs in about a minute, and the subjects are named rather than
+having to be bisected out of a 700-arm binary. ⚠ NOT ESTABLISHED: whether either
+arm hangs in ISOLATION or only after the other 62 run first. Try the single-arm
+filter before building on it, and bound it hard.
+
+⚠ **AND A WARNING ABOUT HOW THIS WAS FOUND, because the first three attempts
+produced no evidence at all.** This suite killed one agent session three times in
+a row — foreground each time, exit 144, no output — and the first two attempts
+piped `cargo test` into `grep`, so everything the run had already printed died
+with the process. The third redirected to a FILE instead, and the log survived the
+kill with the two arm names in it. ⇒ For anything that may take the session down,
+REDIRECT, DO NOT PIPE: a pipe makes the evidence conditional on the reader
+surviving, and the reader is what is dying.
+
+⛔ It also means a `144` exit here is not evidence about the Claude Code
+background-shell reaper. It was reported as such once, and retracted: the process
+really was consuming memory without bound, so the kill was correct behaviour and
+says nothing about the reaper's scope.
+
 ⛔ **DO NOT RUN THIS LANE WITHOUT A HARD PER-ARM CAP.**
 `scripts/measure_test_arm_rss.py` gives one process per arm — peak RSS is a
 property of a PROCESS, so the only way to make it a property of an ARM is to stop

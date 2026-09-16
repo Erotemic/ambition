@@ -197,14 +197,23 @@ string is compared between peers.
   The only peer-stable term in the string today is `{room}`, and projecting to
   that would give every entity in a room one identity — a worse defect than the
   one being fixed. The projection needs a peer-stable CONTENT term to survive.
-- ⛔ **And that term is not reachable.** `ContentFingerprint` is the value
-  wanted; it lives in `ambition_content_pack`, which `shared_tangle` does not
-  depend on. `content_pack` depends on neither `shared_tangle` nor
-  `platformer2d_core`, so the edge is legal — but the better question is
-  PLACEMENT, and `platformer2d_core`'s `content_epoch.rs` already owns the LOCAL
-  half of the pair and explains the epoch-vs-fingerprint distinction in its
-  module doc. ⚠ Recorded as the decision to make, not made: it is a vocabulary
-  call and should be deliberate rather than a side effect of this campaign.
+- ✔ **THE PLACEMENT DECISION IS MADE (2026-09-15) and the vocabulary is
+  landed:** `ambition_platformer2d_core::PeerContentIdentity`, beside
+  `ContentEpoch` in `content_epoch.rs`, as the PEER half of a pair whose LOCAL
+  half was already there. ⭐ Decided from that module's OWN stated principle
+  rather than by convenience: the epoch lives in the neutral foundation because
+  *"several layers that must not name each other all need to state it"*, with
+  preparation ALLOCATING and construction planning only STAMPING. The peer term
+  has exactly that shape — planning must stamp WHICH CONTENT a plan was built
+  against, and `ambition_platformer2d_runtime`'s content identity renders the
+  value. Same split, same reason, same home.
+  ⚠ Measured correction to this row's own earlier reasoning: it said the
+  `content_pack` edge "is legal". It is not available —
+  `ambition_content_pack` declares NO ambition dependencies at all, so it cannot
+  construct a type from `platformer2d_core`, and `platformer2d_core` naming it
+  would invert the graph. `ContentFingerprint(u64)` is the SOURCE of the value;
+  runtime's content identity is the one layer holding both crates and is where
+  the rendering belongs. One name, rendered once, at the only layer that can.
 - ⚠ The plumbing is also real: the production binding site
   (`session/setup.rs`) receives `construction.binding` already built and never
   sees `PreparedContent`, so a fingerprint has to travel with the epoch from

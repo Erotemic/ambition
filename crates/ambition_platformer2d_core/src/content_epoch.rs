@@ -96,3 +96,91 @@ impl fmt::Display for ContentEpoch {
         write!(f, "epoch:{}", self.0)
     }
 }
+
+/// ⭐⭐ **THE PEER HALF OF THE PAIR: WHICH CONTENT, NOT WHICH ACTIVATION OF IT.**
+///
+/// [`ContentEpoch`] answers *"which committed activation of prepared content does
+/// this belong to"* and is an app-local lineage id — two Apps that reloaded
+/// different numbers of times hold different epochs for byte-identical content.
+/// This answers *"which content"*, and two Apps holding the same prepared
+/// definition agree on it no matter what either one did before.
+///
+/// ⛔⛤ **IT EXISTS BECAUSE A PROJECTION HAD NOTHING PEER-STABLE LEFT TO HASH.**
+/// `TransactionId` is `{epoch}\t{room}\t{session}` and is registered
+/// `component-canonical`, so the whole string is compared between peers. Two of
+/// its three terms are per-App counts. Giving it a projection that excluded them
+/// would leave only `{room}` — and projecting to that would hand every entity in
+/// one room the SAME identity, which is a worse defect than the one being fixed.
+/// A projection is only as good as the peer-stable term it has to keep.
+///
+/// ⭐ **WHY IT LIVES HERE, decided 2026-09-15 from this module's own stated
+/// principle rather than by convenience.** The epoch is in the neutral
+/// foundation because *"several layers that must not name each other all need to
+/// state it"*, with preparation ALLOCATING and construction planning only
+/// STAMPING. The peer term has exactly that shape: construction planning, far
+/// below, must STAMP which content a plan was built against;
+/// `ambition_platformer2d_runtime`'s content identity RENDERS the value. ⇒ Same
+/// split, same reason, so the same home — and the local and peer halves of one
+/// question sit adjacent instead of in two crates that cannot see each other.
+///
+/// ⚠ **IT IS NOT `ambition_content_pack::prepared::ContentFingerprint`, AND
+/// COULD NOT BE.** Measured: `ambition_content_pack` declares NO ambition
+/// dependencies at all — it is a leaf — so it cannot construct a type from this
+/// crate, and this crate naming it would invert the graph. The fingerprint is
+/// the SOURCE of this value; runtime's content identity is the one layer holding
+/// both and is where the rendering belongs. Two names for one fact would be a
+/// duplicate authority; one name, rendered once, at the only layer that can.
+///
+/// ⚠ **`Default` IS ZERO AND MEANS "NO CONTENT STATED"**, matching
+/// [`ContentEpoch`]'s convention — a headless fixture or a unit test that builds
+/// plans outside a prepared session. ⛔ It does NOT mean "content whose
+/// fingerprint is zero", and a peer projection must therefore encode the
+/// distinction; `PeerDigest::opt_u64` is how, which is why callers hold an
+/// `Option` rather than leaning on the zero.
+#[derive(
+    bevy_ecs::component::Component,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    Hash,
+)]
+pub struct PeerContentIdentity(pub u64);
+
+impl fmt::Display for PeerContentIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "content:{:016x}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod peer_content_identity_tests {
+    use super::{ContentEpoch, PeerContentIdentity};
+
+    /// ⛔ THE TWO HALVES MUST NOT RENDER ALIKE, because both end up inside
+    /// canonical identity STRINGS and a reader — or a parser — that confused them
+    /// would compare an app-local lineage id against a content identity.
+    #[test]
+    fn the_local_and_peer_halves_render_distinguishably() {
+        assert_eq!(format!("{}", ContentEpoch(7)), "epoch:7");
+        assert_eq!(
+            format!("{}", PeerContentIdentity(7)),
+            "content:0000000000000007"
+        );
+        assert_ne!(
+            format!("{}", ContentEpoch(7)),
+            format!("{}", PeerContentIdentity(7))
+        );
+    }
+
+    /// ⚠ AND THE RENDERING IS FIXED-WIDTH, so two identities cannot be re-split
+    /// when they sit next to another field in a tab-joined identity string. A
+    /// variable-width decimal would let `content:1` + `\t23` and `content:12` +
+    /// `\t3` produce the same bytes if a separator were ever dropped.
+    #[test]
+    fn the_peer_rendering_is_fixed_width() {
+        assert_eq!(format!("{}", PeerContentIdentity(1)).len(), format!("{}", PeerContentIdentity(u64::MAX)).len());
+    }
+}

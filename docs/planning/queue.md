@@ -481,6 +481,25 @@ stays invisible until a sim-versus-presentation distinction exists. A green here
 says nothing about `Transform`, and the exclusion is written where the guard
 defines its population so the next reader meets it before the verdict.
 
+⛔ **AND THE OBVIOUS RULE FOR LIFTING IT DOES NOT WORK — MEASURED, so the next
+person does not re-derive it.** The natural repair is to key on a PROPERTY the
+system states rather than on where it lives: if the signature queries `Camera`,
+`Sprite`, `Text`, `Mesh`, `Light`, `Node` or a projection, it is presentation.
+Counted against the 52: **23 declare such a marker and 29 do not.** The 29 are
+plainly presentation by NAME — `camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`, `sync_morph_ball_visual`, `draw_unauthored_attack_volumes`
+— and classifying them would mean matching names. ⚠ A row's NAME is not a reading
+of its write set; that classifier was wrong in both directions twice on
+2026-09-16 alone, in this guard's own neighbourhood and in the S7 census.
+
+⇒ **SO THE REPAIR IS NOT A CLEVERER SCANNER, IT IS A DECLARATION.** Presentation
+systems that write `Transform` should say so — a set they join, or a marker on
+the entities they move — which turns an undecidable read of source into a fact
+the code states. That is "make it impossible, not checked" applied to the guard's
+population, it is a change to ~52 systems rather than to this script, and it
+wants a maintainer's view on the shape before anybody starts. Until then the
+exclusion stands and the blind spot is written down.
+
 ⚠ `BLIND_SPOT_NOT_CLEAN_BILL` is EMPTY as a result, and it emptied by being cured
 rather than tidied: its only entry was `handle_ldtk_hot_reload`, unseen because
 `RoomSet` and `LdtkRuntimeIndex` register through component clone. The mechanism

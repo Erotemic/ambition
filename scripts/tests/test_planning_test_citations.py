@@ -34,7 +34,7 @@ def test_it_reads_backticked_names_out_of_prose(tmp_path: Path):
         "and by `the_shipped_apps_own_first_room_publishes`.\n",
         encoding="utf-8",
     )
-    assert cited_names(doc) == {
+    assert cited_names(doc)[0] == {
         "a_candidate_session_replaced_while_pending_is_discarded",
         "the_shipped_apps_own_first_room_publishes",
     }
@@ -51,7 +51,7 @@ def test_a_short_backticked_name_is_not_a_citation(tmp_path: Path):
         "`scores/active` — `a_possible_morning`, `aether_severance`,\n",
         encoding="utf-8",
     )
-    assert cited_names(doc) == set()
+    assert cited_names(doc)[0] == set()
 
 
 def test_it_ignores_ordinary_backticked_prose(tmp_path: Path):
@@ -65,4 +65,4 @@ def test_it_ignores_ordinary_backticked_prose(tmp_path: Path):
         "the field `left_to_custodian` counts them.\n",
         encoding="utf-8",
     )
-    assert cited_names(doc) == set()
+    assert cited_names(doc)[0] == set()

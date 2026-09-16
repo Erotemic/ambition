@@ -584,6 +584,52 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
+## Q130 — should the sim harness refuse to step an invalidated rollback session?
+
+**MEASURED 2026-09-16.** A GGRS session that invalidates keeps accepting
+`sim.step()`. It returns an observation every time and simply stops advancing
+`SimTick`. Nothing panics and nothing prints. `session_health` knows; the step
+loop never asks. ⇒ Every assertion after the invalidation runs over a frozen
+world, where it agrees with itself.
+
+⭐ **THE CURRENT TREE IS SAFE, AND THAT IS THE ARGUMENT FOR ACTING RATHER THAN
+AGAINST IT.** Of the 21 files built on `with_sync_test_rollback_settings`,
+thirteen call `rollback_health()` or `session_health`; the other eight each refuse
+a frozen world by other means — a 116,280-float population floor, a recorded
+stream length against the tick count, `load_runs` having moved, explicit
+`room_changes > 0` preconditions, and two door walks that panic when the room
+never changes. ⚠ The first version of this census counted six of those eight as
+EXPOSED, because it counted calls to the safety API rather than assertions a
+broken world fails. Nothing needs cleaning up.
+
+⇒ **BUT THE CENSUS ROTS.** It proves the current 21 are safe and says nothing
+about the twenty-second. A rollback arm whose assertions happen to be satisfiable
+by a frozen world is exposed the moment it is written, and its author gets no
+warning. That is the same argument that turns "the only production registrar is
+this one" into an absence contract rather than a note.
+
+⚠ **AND A GUARD SCRIPT CANNOT SUBSTITUTE.** The property is "this arm's
+assertions are unsatisfiable by a frozen world", which six different mechanisms
+produced above and a seventh would too. It is not decidable by reading source. If
+the contract moves into `step`, no guard is needed; if it does not, no guard can
+be written.
+
+The choice: (a) `Platformer2dSimHarness::step` panics when the session has
+invalidated, making silence impossible — the census above is the evidence that
+nothing currently relies on stepping a dead session, so this should redden
+nothing today; (b) it returns an error the caller may ignore, which is the
+current situation with a nicer name; (c) leave it, and accept that each future
+rollback arm's safety is its author's to remember.
+
+⭐ (a) is "make it impossible, not checked" applied to a harness contract, and
+the reason it is a ruling rather than a patch is that it changes what every
+existing and future rollback arm is allowed to do — a harness that panics on a
+dead session will red any arm that turns out to be relying on one, and the census
+is a claim about today rather than a proof about tomorrow.
+
+Owner row:
+[ROLLBACK-DEAD-SESSION](queue.md#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence).
+
 ## Q129 — must the save file be part of what two peers agree on?
 
 **MEASURED 2026-09-16, and unlike Q128 this one announces itself today.** A bag
@@ -599,29 +645,36 @@ otherwise identical run whose bag does not, and it is this one.
 ⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
 NOW.** No second peer is required for the divergence — a single App already
 disagrees with its own replay. Every road that changes a bag during play crosses
-this: a pickup, a shop sale, a drop. ⭐ **IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE — measured, and this is what
-sets the urgency.** A `SimTick`-gated one-shot that grants once at tick 20 runs
-the full 240 steps clean: tick 241, `session_health` `Ok`. The bag column proves
-the grant fired rather than the arm passing for the wrong reason — 3 → 4 at step
-40, held to the end.
+this: a pickup, a shop sale, a drop. ⭐⭐ **IT IS NOT CADENCE AND IT IS NOT SUSTAINED CHANGE — IT IS THE FIRST THREE
+TICKS.** Sweeping the tick at which an every-tick grant STARTS, 120 steps each:
 
-| system in the sim schedule | (step, tick, bag) at 0 / 40 / … / 240 | health |
-|---|---|---|
-| grants 1 per tick | (0,1,5) (40,6,10) … (240,6,10) | `Err` |
-| grants ZERO per tick | (0,1,3) (40,41,3) … (240,241,3) | `Ok` |
-| grants ONCE at tick 20 | (0,1,3) (40,41,**4**) … (240,241,4) | `Ok` |
+| grants every tick from | end tick | bag | health |
+|---|---|---|---|
+| 1 | 6 | 8 | ⛔ `Err(mismatch at [2, 3, 4, …])` |
+| 2 | 6 | 7 | ⛔ `Err(mismatch at [2, 3, 4, …])` |
+| 4 | 121 | 120 | `Ok` |
+| 6 | 121 | 118 | `Ok` |
+| 8, 12, 16, 20 | 121 | 116, 112, 108, 104 | `Ok` |
 
-⚠ The gate is `SimTick` and not a `Local`, which is the whole reason the one-shot
-is valid: a `Local` is not restored by a rewind, so the replay would skip a grant
-the original pass performed and manufacture a divergence of its own. `SimTick` is
-rollback state, so the replay re-enters the same branch on the same tick.
+⇒ **A BAG CHANGING ON EVERY ONE OF 118 CONSECUTIVE TICKS IS CLEAN IF IT STARTS AT
+TICK 4.** The defect lives entirely in the first three ticks, and `check_distance`
+is 4 — the mismatch is reported at frames `[2, 3, 4]`, which is the window before
+the session has a full rollback history behind it.
 
-⇒ So a pickup during play — one change — does not desync on this evidence, and
-what the reproduction demonstrates is the sustained case. ⛔ WHY the sustained
-case differs from the single case is NOT explained, and nobody should read
-"single changes are safe" out of one measurement at one tick. What is established
-is that the defect is not triggered by every inventory change, which is why it has
-gone unnoticed.
+⚠ **THIS IS THE THIRD FRAMING OF THIS ROW AND EACH ONE WAS MEASURED.** First "a
+per-tick change desyncs", then "sustained change desyncs and a single change does
+not" — which survived a floor check and was still wrong, because the two cases
+differed in START TICK as well as in cadence and I had varied both at once. A
+cadence sweep (N consecutive grants from tick 20, N ∈ {1,2,3,4,5,8}) came back
+clean at every N, which is what said cadence was not the variable at all.
+
+⇒ **SO THE PRACTICAL SEVERITY IS MUCH LOWER THAN THE FIRST TWO FRAMINGS SAID.** A
+pickup, a shop sale or a drop during play does not desync — measured, not
+inferred. What desyncs is inventory changing in the session's first three ticks,
+which is startup: a save restore, an opening script, a debug grant at boot.
+⛔ That is still a real hole and still wants the ruling below, because the repair
+is the same and because "do not touch the bag for the first three ticks" is not a
+contract anything states or checks.
 
 ⚠ **AND THE ROLLBACK ARMS DO NOT EXERCISE IT**, corrected twice. I first wrote
 that they never change inventory in a rewinding window, then retracted that on

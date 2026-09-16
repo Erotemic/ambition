@@ -1126,6 +1126,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_planning_docs_survive.py",
             ],
         ),
+        # ⛔⛤ THE ONE THING IN THIS LANE THAT READS RUST. It is here rather than
+        # in a cargo lane because it is a SOURCE-TEXT check: it asks whether a
+        # (kind, sentence) pair is written beside a road instead of referenced
+        # from its one declaration, and no compiler can see that. The defect it
+        # guards changed one road and not the other, and what caught it was a
+        # runtime conflict check that only covers names BOTH roads reach.
+        Job(
+            "a rollback registration's kind is spelled once, not per road",
+            [
+                sys.executable,
+                "scripts/check_rollback_kind_spelled_once.py",
+            ],
+        ),
     ]
 
 

@@ -481,18 +481,25 @@ with these very resources would have failed SILENTLY once rollback went live"*,
 and the four `AmbitionGameSave` writers ARE those systems, so waiving them would
 re-hide the thing that comment warned about.
 
-**Next implementation — triage the 14, which is owner work rather than guard
-work.** Two are answered: the `reset_session_scoped_resources_on_*` pair took
-explicit waivers in `869e3ee81`. My reading of the rest, offered so an owner
-starts from a verdict rather than a list:
+**The 14 are triaged — DONE 2026-09-16.** Six took waivers with citations; the
+other eight are filed as `MENU-RESET-MIDSESSION` and `DURABLE-HORIZON-CHECKSUM`,
+each with a named experiment. The guard stays RED on those eight, which is
+correct: waiving them would move a count and answer nothing.
+
+⛔ **ONE OF MY OWN READINGS BELOW WAS WRONG AND IS CORRECTED IN PLACE.** I
+recorded all 7 menu systems as REAL because they carry
+`.run_if(simulation_authorized)` — an argument about WHEN they run, which says
+nothing about WHETHER they write. Five of the seven cannot reach the write at
+all. ⇒ A run condition is not a reachability proof, and I reached for it because
+it was the fact I already had.
 
 | finding | reading |
 | --- | --- |
 | `reset_inventory_on_new_game` | **REAL.** Producer `process_new_game_reset_request` runs in `sim_schedule()` under `ResetProcessing`; consumer runs in `Update`; `NewGameResetCommitted` is `clear_message_on_rollback`. Being moved onto its sibling `clear_transient_on_sandbox_reset`'s chain. |
-| 7 menu systems → `NewGameResetRequested` | **REAL.** They carry `.run_if(simulation_authorized)`, so they write a `rollback_resource_canonical` resource with a live session. Reached through `MenuDispatchParams`, which is why they were invisible before `4f442eb11`. |
-| 4 `AmbitionGameSave` writers | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
-| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
-| `track_versus_roster` | **UNTRIAGED.** Writes `VersusMatch` from the shell's versus setup. |
+| 7 menu systems → `NewGameResetRequested` | **TWO REAL, FIVE WAIVED — corrected from "all 7 REAL".** The flag is set only by `SystemMenuParams::request_reset`, whose one caller is `dispatch_menu_action`, whose only two callers are `grid_menu_action_activated` and `kaleidoscope_menu_action_activated`. The other five take the same bundle and never reach the field: the bundle over-grants. The two real ones are `MENU-RESET-MIDSESSION`. |
+| 4 `AmbitionGameSave` writers → `DURABLE-HORIZON-CHECKSUM` | **REAL, AND A DIFFERENT FAILURE FROM THE ONE THE GUARD'S PROSE DESCRIBES.** That resource has a CHECKSUM projection, so two peers can disagree at ONE FRAME without anything drifting — the guard says "drifts a little further each time", which invites a reader to dismiss a one-frame disagreement. ⚠ `ambition_persistence/src/rollback_registration.rs` predicted exactly these in 2026-08-29: *"the ~6 systems that pair a non-rewinding `Local` edge-detector with these very resources would have failed SILENTLY once rollback went live."* |
+| `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` → `DURABLE-HORIZON-CHECKSUM` | **UNRESOLVED, and the obvious argument does NOT transfer.** Both are one-shot latch-gated on `SaveRestored`, which looks like the activation waiver's "the write precedes the timeline". ⛔ But both also require a LIVE PRIMARY PLAYER BODY (`bodies.is_empty()` / `ready_body.single().is_err()`), and a live body means the session world root is live — which is the exact condition `maintain_local_session` gates GGRS start on. So they may run WITH a live timeline. They owe their own argument. |
+| `track_versus_roster` | **WAIVED.** One write, in the `(on_versus, mine) == (true, false)` arm alone; every other combination falls through `_ => {}`, so it cannot write once the route has published its own roster. ⚠ `VersusMatch` feeds the peer checksum, so the waiver rests entirely on the write preceding the timeline — at route entry the roster is `Proposed` with nobody seated, and `maintain_local_session` starts GGRS only once a live body exists. |
 
 ⚠ **The discriminator may not be "is there a rebase".** A New Game's
 `NewGameResetCommitted` is produced inside the rewind window, is
@@ -677,6 +684,26 @@ what a profile actually links/installs. The remaining work is semantic: define
 what each supported profile promises instead of optimizing for a crate-count
 number.
 
+⇒ **AND HALF OF THIS ROW'S ACCEPTANCE WAS SILENTLY UNMET UNTIL 2026-09-16.** It
+asks that each supported profile *"constructs and STEPS a real subject"*. The
+three composition probes in `composes_through_the_sdk` called `app.update()`
+eight times under `TimeUpdateStrategy::Automatic`, which `add_headless_foundation`
+leaves in force through `MinimalPlugins` — so `FixedUpdate` ran zero or more
+times depending on WALL TIME, and a fast run crossed 1/60 s never. MEASURED
+before the fix: 13 MB peak, 0.47 s, **ZERO fixed steps**. They certified that the
+engine BUILDS.
+
+`582186bff` pins the step AND asserts a `FixedUpdate` counter is non-zero, so the
+"steps" clause is now real for the three probed compositions (cutscenes, portals,
+boss encounters). ⚠ The pin alone was not enough: anything that stops the fixed
+loop advancing returns these arms to certifying a build, and that failure is
+SILENCE rather than a red.
+
+⭐ **THE GENERAL FORM, worth more to this row than the fix:** an arm whose green
+is compatible with the engine being broken certifies nothing, and "it passes
+quickly" is the tell. A profile contract needs a witness that STEPS, and a
+witness that steps needs a witness that it stepped.
+
 **Blocked by:** [Q100](awaiting-maintainer-decision.md#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools),
 [Q106](awaiting-maintainer-decision.md#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities),
 [Q108](awaiting-maintainer-decision.md#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link),
@@ -783,438 +810,276 @@ in the cache key at the owner boundary.
 **Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
 cached result accidentally.
 
-### ORPHAN-ARMS — 36 test arms that no `mod` line compiles
+### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 
-**Owner:** `ambition_boss_encounter`.
+**Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
 
-**Current state:** `crates/ambition_boss_encounter/src/pattern/tests.rs` holds 36
-`#[test]` arms and is declared by nothing. `pattern/mod.rs` names six child
-modules and `tests` is not among them; the three sibling `mod tests;` lines in
-that directory (`control_flow.rs`, `content_schema.rs`, `validator.rs`) each
-pull in their OWN `tests` subdirectory. So the file has never compiled and its
-arms have never run.
+**Current state:** five systems installed by `DurableSaveHorizonPlugin` sit in
+top-level `Update` and mutate rollback-registered resources. MEASURED
+2026-09-16, with each type's `RollbackEntryKind::feeds_peer_checksum`:
 
-⛔ **THIS IS THE GREEN-REPORT FAILURE IN ITS PUREST FORM.** The arms exist, they
-are written, they are named after real claims, and `cargo test` reports every
-one of them as neither passed nor failed because it has never heard of them. A
-reader counting test files sees coverage that does not exist.
+| system | writes | kind | hashed |
+| --- | --- | --- | --- |
+| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | `ResourceCloneCustomChecksum` | **yes** |
+| `complete_durable_restore` | `SaveRestored` | `ResourceClone` | no |
+| `persist_inventory_to_save` | `AmbitionGameSave` | `ResourceCloneCustomChecksum` | **yes** |
+| `persist_occurrence_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
+| `persist_minted_item_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
 
-Found 2026-09-16 while resolving every name-excluded file to its declaration
-(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_test_paths.py` so the
-count cannot grow quietly, which is NOT the same as fixed.
+⭐ **THE PLACEMENT IS DELIBERATE AND SAYS SO**, which is why this is a row and
+not five waivers. `runtime/src/durable_save_horizon.rs` states it outright: "The
+installed systems remain in top-level `Update`, outside rollback resimulation.
+Their state is rewindable where required, but file/application side effects
+themselves are not replayed as simulation ticks." That argument is sound for the
+side effect — writing a file twice is not a desync.
 
-**Next implementation:** decide whether the arms still state something true of
-`pattern/`, then either declare the module (`#[cfg(test)] mod tests;` in
-`pattern/mod.rs`) and fix whatever fails, or delete the file. ⚠ Do not declare
-it and then waive the failures — arms that never ran have never been green, so
-a first run is evidence, not a regression. Drop the entry from the arm's
-`orphans` list in the same commit.
+⛔ **IT IS SILENT ON THE HALF THAT IS HASHED.** Four of the five write a value
+that FEEDS THE PEER CHECKSUM. `AmbitionGameSave` is derived from simulation
+state, so two peers in agreement derive the same bytes — but the derivation runs
+in `Update`, which executes once per FRAME, while the value is snapshotted and
+compared per TICK. A peer that rolled back and re-simulated three ticks ran the
+sim three extra times and `Update` zero extra times; the other peer did neither.
+⇒ The open question is whether the value hashed at a confirmed frame can differ
+between a peer that rewound into it and one that did not. That is not answered
+by "side effects are not replayed", and nothing in the tree answers it elsewhere.
 
-### GUARD-CORPUS — five copies of "what is a test file", drifted
+⛔⛤ **A FOURTH WRITER OF `AmbitionGameSave`, AND IT IS NOT A MIRROR — THIS IS
+THE SHARPEST OF THE SET.** `dispatch_pending_dialog_requests`
+(`ambition_dialog/src/bridge.rs:125`, registered into `Update` at :53) calls
+`save.data_mut().increment_dialog_visit(&dialogue_id)` when a dialogue starts.
 
-**Owner:** repo tooling (`scripts/check_*.py`).
+⇒ The five systems above DERIVE the save from simulation state, so running them
+twice writes the same bytes and running them zero times loses only freshness. An
+INCREMENT has neither property. A rollback restores `AmbitionGameSave` to its
+pre-increment value and `Update` does not re-run, so the visit is lost; if the
+dialogue start is instead replayed through the sim, it is counted twice. ⚠ And
+`AmbitionGameSave` feeds the peer checksum, so the two peers need not even
+disagree about the dialogue to disagree about the number. ⇒ Answer this one
+FIRST: it is the case where "derived from sim state, so it converges" — the
+argument that makes the other five plausible — is simply not available.
 
-**State: CLOSED 2026-09-16.** `scripts/lib/test_paths.py` owns the rule and all
-five call sites use it. Floors landed first, in `993fdef58`; the consolidation
-followed in `e660c2fc4`.
+⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
+WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
+`check_rollback_mutators_run_in_sim.py` "FOR THE ACTIVATION CASE ONLY, AND THE
+OTHER CASE IS OPEN", because `durable_horizon.rs` explicitly supports a
+mid-session load. So the mid-session half of this question was already known to
+be open for one member of the chain and was never asked of the other five.
 
-⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
-work was done twice, independently, down to the same four measurements — one as
-`lib/test_paths.py`, one as `lib/rust_sources.py`. The duplicate was deleted and
-its two non-overlapping pieces folded in: a brace-depth guard on the
-`#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
-with an owner and a "next implementation" still says nothing about whether
-somebody is in it RIGHT NOW. Say so in the row, or in a message, before starting
-a step that takes hours.
+⛔ **DO NOT INHERIT THE "BEFORE THE TIMELINE" ARGUMENT FROM THE SESSION-SCOPE
+WAIVERS.** It was checked against these and it does NOT transfer:
+`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both
+require a live primary player body, which is exactly the condition
+`maintain_local_session` starts GGRS on. These run when a session can already be
+live; the session-scope resets do not.
 
-The five copies had drifted into five answers. `*_tests.rs` reached two of five
-even though the docstring that added it records missing "all 51 of them", and
-the population of copies was never enumerated — only the one somebody was
-looking at — which is why that fix stopped where it did.
+⭐⭐ **THE FIVE ARE TWO PHASES AROUND A ONE-SHOT LATCH, AND ONLY ONE PHASE IS
+THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
 
-⭐ **WHAT THE CONSOLIDATION ACTUALLY BOUGHT, which was not the deduplication.**
-Every copy tested a NAME. What removes a file from a build is `#[cfg(test)]` on
-its `mod` line — which lives in the PARENT, not the file — or `#![cfg(test)]`
-at the top of the file. Resolving all 284 name-excluded files to their
-declaration found 281 genuinely gated, **two that shipped**, and one declared by
-nothing at all:
-
-| finding | file | disposition |
+| system | its own guard | so it runs |
 | --- | --- | --- |
-| `mod tests;` and `pub(crate) mod test_support;`, both ungated | `enemy_projectile/mod.rs` | gated in `7301157d0`; the module doc comment already called it "test-only" |
-| declared by no `mod` line in its crate | `boss_encounter/src/pattern/tests.rs` | **open** — 36 arms that never compile and never run |
+| `adopt_occurrence_checkpoint_from_save` | `if restored.0 \|\| bodies.is_empty() { return }` | ONCE, before the latch, and only with a live body |
+| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE — it IS the latch |
+| the three `persist_*_to_save` | `if !restored.0 { return }` | every frame AFTER the latch, value-compared |
 
-⛔ **SO FOUR GATES HAD BEEN DROPPING SHIPPING CODE FROM THEIR CORPORA BY NAME,
-AND EVERY ONE OF THEM REPORTED CLEANER FOR IT.** That is the failure this row
-predicted, found in the direction it predicted. `scripts/tests/test_test_paths.py`
-re-runs the comparison, so a name is trusted only for as long as it stays true;
-a second arm pins `feature = "test-support"` to `[dev-dependencies]`, since
-`#[cfg(any(test, feature = ...))]` is the one predicate the file rule cannot
-settle alone.
+⛔ **SO THE MIRRORS WRITE NOTHING AT ALL UNTIL A SAVE HAS BEEN RESTORED, and
+any test that forgets that measures nothing.** `SaveRestored` starts false and
+only `complete_durable_restore` sets it. A harness booted with no save file
+never flips the latch, so all three `persist_*` early-return forever and the
+lane is green for a reason that has nothing to do with rollback. ⇒ The
+experiment below MUST boot with a save (`Platformer2dSimHarnessOptions::with_save`)
+and must assert the mirrored value actually changed, or it is the vacuous pass
+this queue keeps finding.
 
-**The ordering held up under measurement.** Each adoption was run before and
-after:
+⚠ **AND THE ONE-SHOT PAIR IS A NARROWER QUESTION THAN THE MIRRORS.** Both fire
+in the window between a live body existing and the latch flipping — and a live
+body is the exact condition `maintain_local_session` starts GGRS on, so the two
+events are gated on the same fact and their order is not stated anywhere. That
+is a RACE to characterise, not a per-frame accumulation.
 
-| check | effect of adopting the owner | floor |
-| --- | --- | --- |
-| `check_rollback_mutators_run_in_sim.py` | verdict identical; already the widest of the five | untouched |
-| `check_set_pins_have_engine_members.py` | 1367 → 1293 files, 225 → 222 pins | **CAUGHT IT**; lowered in the same commit |
-| `check_capability_ships.py` | 1334 → 1264 production files, 414 → 408 writer types | held |
-| `test_every_smash_technique_has_a_translator.py` | 282 → 257 ruleset files | **CAUGHT IT**; lowered |
-| `ecs_inventory.py` | 3 module summaries, 7 fixture spawn sites | held |
+**Next implementation:** answer the per-frame-vs-per-tick question with a
+sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
+frame in which `persist_inventory_to_save` ran and compare the checksummed
+value. ⚠ If it is clean, these are five waivers with a measurement behind them
+and this row closes. If it is not, the fix is the shape `AmbientGravityRequest`
+already uses: write a message, let the sim apply it. ⇒ Either way the guard
+stays RED until somebody runs it — which is correct, and is why these were not
+waived to make a count go down.
 
-⇒ Two of five floors fired on a change their author believed was safe, and both
-times the drop was legitimate and had to be argued for in writing before the
-floor moved. ⛔ **A FLOOR MAY GO DOWN ONLY IN THE COMMIT THAT CAUSES THE DROP,
-AND ONLY WITH THE FILES THAT LEFT NAMED.**
+### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
 
-⚠ **A claim made here and withdrawn.** I first recorded that all four
-`test_support.rs` files carry `#![cfg(test)]`, so the name half was subsumed by
-the attribute half — from misreading my own bucketed output. NONE carries it,
-and two had no gate anywhere. The arm exists because that is exactly what a
-comment cannot hold.
+**Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
 
-⚠ **Still one rule per reader, not one rule.** About 25 further inline copies
-(`"/tests/" in path`, `endswith("tests.rs")`) live in reporting scripts that
-gate nothing. They were left alone: a wrong exclusion in a report is visible to
-its reader, and giving them a floor first is the same ordering all over again.
+**Current state:** `grid_menu_action_activated` and
+`kaleidoscope_menu_action_activated` both write rollback-registered state from
+`Update`, which does not rewind. Two types, one path:
 
-⛔⛤ **AND THE FLOOR HAS TO LIVE INSIDE EACH SCRIPT — AN EXTERNAL SWEEP CANNOT
-SUBSTITUTE FOR IT. MEASURED 2026-09-16 BY FAILING TO DO EXACTLY THAT.** I tried
-to answer "which of the 29 `check_*.py` pass over an empty tree" by importing
-each, patching its `REPO`/`ROOT` global to an empty directory, and calling
-`main()`. First result: **14 of 29 passed.** It was an ARTIFACT.
+  * `NewGameResetRequested` (`rollback_resource_canonical`) via
+    `dispatch_menu_action` → `SystemMenuParams::request_reset`.
+  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm`, which is
+    what an equip or a consumable use goes through.
 
-⇒ These scripts spell their entry points `def collect(repo: Path = REPO)`. A
-default argument binds at DEFINITION time, so patching the module global
-afterwards is inert — the script re-scans the real tree and passes, which is
-indistinguishable from passing vacuously. Adding one control to the probe (the
-empty-tree output must DIFFER from the real-tree output, or the redirect did not
-take) cut the answerable population to 7 of 29, all of which correctly refused.
+⭐ **THE TWO TYPES FAIL DIFFERENTLY, AND THE LOUDER ONE IS THE LUCKIER ONE.**
+Both are written from a LOCAL menu, so only one peer makes the write; what
+happens next depends on the registration kind, which
+`RollbackEntryKind::feeds_peer_checksum` decides.
 
-⭐ **SO THE HONEST STATE IS "NOT MEASURED", NOT "14 ARE VACUOUS".** The number
-looked like a finding, had a mechanism, and was wrong. ⚠ The 22 unanswerable
-scripts are unanswerable BY THIS PROBE and nothing is implied about them either
-way.
+| type | kind | feeds the peer checksum | so a local menu write |
+| --- | --- | --- | --- |
+| `NewGameResetRequested` | `ResourceCanonical` | **yes** | makes A's and B's checksums differ — a DETECTED desync |
+| `OwnedItems` | `ResourceClone` | **no** | is restored away on the next rewind, silently |
 
-⇒ **WHICH IS THE ARGUMENT FOR THE ORDERING ABOVE RATHER THAN AGAINST IT.** A
-population floor asserted inside the script (`POPULATION_FLOOR` in
-`check_rollback_mutators_run_in_sim.py`) needs no redirect, no import surgery
-and no probe: it fails when the script's own reach falls, on the real tree, in
-the lane that actually runs. That is the only form that survives a consolidation
-which makes every check see less.
+⛔ **SO `OwnedItems` IS THE ONE TO WORRY ABOUT.** Its kind is documented as
+"snapshotted but not hashed: a rewind restores them, no peer reads them", and
+that is exactly why nothing would report it: the player equips an item, a
+rollback restores the pre-equip value, and the item is simply back in the bag
+with no error anywhere. ⚠ `OwnedItemsBaseline` IS registered
+`rollback_resource_clone_checksum`, so a projection of this state is hashed —
+whether that projection would catch this write is the question to settle, not an
+assumption to inherit from the kind's reassuring detail string.
 
-⇒ **STEP ONE IS DONE: ALL FIVE NOW HAVE A POPULATION FLOOR (2026-09-16).**
-`check_rollback_mutators_run_in_sim.py` and `check_set_pins_have_engine_members.py`
-already had one. Added to the other three, each poisoned by widening its own test
-exclusion until the reach really fell:
+⚠ **AND THE EXISTING TEST DOES NOT COVER IT, DELIBERATELY.**
+`game/ambition_app/tests/rollback_full_reset.rs` asks whether the reset
+RECONSTRUCTION is rollback-safe, and its own header says it folds a pending
+request "into the baseline" so the work runs on the baseline frame and every
+re-simulation of it. That is the safe shape by construction: a flag already true
+before the sync-test window opens is identical on every peer and on every
+replay. The mid-window menu write is the case nobody has asked about.
 
-| script | floor term(s) | measured | poison |
-| --- | --- | ---: | --- |
-| `check_capability_ships.py` | files scanned / production files / optional-read types / writer types | 1546 / 1334 / 191 / 414 | RED |
-| `ecs_inventory.py` | crates / components / resources / registered systems | 78 / 638 / 493 / 1108 | refuses, 0 writes |
-| `test_every_smash_technique_has_a_translator.py` | ruleset files in the haystack | 282 | RED |
+**Next implementation:** answer the narrow question first — can a menu that
+writes these be open while a GGRS session is live? If it cannot, this is two
+waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
+the menu's own state machine; answer it from what gates the menu, because "you
+would not do that" is not a property of the code. If it CAN, the write belongs
+behind a message the sim consumes, the way `AmbientGravityRequest` already does
+it for `BaseGravity` — that pattern is three lines away in the same bundle
+(`gravity_requests`, with the comment "the sim applies the request").
 
-⚠ **AND `test_every_smash_technique…`'s RISK RUNS THE OTHER WAY.** For the other
-four a WIDENED exclusion is the silent danger — they report cleaner when they see
-less. There, over-exclusion shrinks the HAYSTACK and produces MORE orphans, so it
-fails loudly. Its silent direction is an exclusion too NARROW, letting a test file
-into the haystack so a const named only by a test reads as a connected technique
-— which is the recorded defect in its own docstring. ⇒ When the five collapse
-onto one owner, that call site must not LOSE exclusions, and no floor can see
-that. The floor makes the consolidation reviewable, not safe.
+Found 2026-09-16 by `scripts/check_rollback_mutators_run_in_sim.py`. ⚠ Five
+sibling menu systems were flagged with these and are WAIVED, not fixed: they
+take the same `SystemMenuParams` bundle and never reach `request_reset`. If the
+bundle is ever split so access matches use, drop those five waivers — they exist
+only because the bundle over-grants.
 
-⚠ **AND `check_capability_ships.py`'s FLOOR IS A PEER'S, NOT MINE.** We wrote one
-each in the same hour and theirs is better decomposed: it separates *files
-scanned* from *production files*, so a widened test exclusion shows up as the
-production count falling DIRECTLY rather than as a side effect on the type
-counts. Mine was dropped rather than merged — two floors on one script is the
-disease this row is about. Re-poisoned after taking theirs: widening `_is_test`
-to swallow every `.rs` file still fails it.
+### GUARD-CORPUS / ORPHAN-ARMS — CLOSED 2026-09-16
 
-⛔⛤ **AND `ecs_inventory.py`'s FLOOR WAS WRONG ON ITS FIRST WRITING — ITS OWN
-POISON FOUND IT.** The check sat after the per-crate loop had already written its
-shards, so a refused run left `.agent/ecs_inventory/crates/` shrunken beside a
-stale `project.json`: a PARTIALLY PUBLISHED inventory, worse than the shrunken one
-it was refusing. Now nothing is written until the floor passes — measured, the
-poisoned run writes 0 files where the good run writes 162.
+**Owner:** repo tooling. Both closed; kept only as the receipt other rows lean
+on. Investigation is in git (`993fdef58`, `e660c2fc4`, `f8b878a55`, `faa2d84d1`,
+`9acbb9947`).
 
-⇒ **STEP TWO IS DONE: ONE OWNER, `scripts/lib/test_paths.py` (2026-09-16).** All
-five call sites delegate to `is_test_path`, which is the UNION of the five name
-rules plus the inner `#![cfg(test)]` fact none of them checked. The local names
-stay; only the rule moved.
+**WHAT STANDS NOW.** `scripts/lib/test_paths.py` is the ONE answer to *"is this
+Rust file test-only?"* and all five former copies call it. Every consuming check
+carries a `POPULATION_FLOOR`, because widening an exclusion makes a check see
+LESS and a check that sees less reports CLEANER — the floors are what let the
+consolidation be reviewed at all, and two of the five went red on the repoint.
+`scripts/tests/test_test_paths.py` asserts the orphan list is EMPTY.
 
-⭐ **AND THE FLOORS EARNED THEIR ORDER IMMEDIATELY — TWO OF THE FIVE WENT RED ON
-THE REPOINT**, which is exactly the review this row said a consolidation could
-not otherwise get:
+⛔⛤ **THE STANDING RULE, AND IT IS THE HALF THAT WAS NOT DEDUPLICATION.** Every
+copy tested a NAME. **What removes a file from a build is the `#[cfg(test)]` on
+its `mod` line, which lives in the PARENT** — or an inner `#![cfg(test)]` at the
+top of the file. A name and a build can disagree in BOTH directions, and both
+were found here:
+- `pattern/tests.rs` — 36 arms no `mod` line declared, so `cargo test` reported
+  them as neither passed nor failed. Three weeks, zero runs. Declared; 36 passed.
+- `enemy_projectile/mod.rs` — `mod tests;` and `pub(crate) mod test_support;`
+  with NO gate, compiled into every RELEASE build, while the module's own doc
+  called the namespace "test-only".
+⇒ A guard for this class must resolve every file to its DECLARATION. A name rule
+cannot see it, and `scripts/tests/test_test_paths.py` is where that lives.
 
-| script | reach before → after | verdict |
-| --- | --- | --- |
-| `check_capability_ships.py` | production files 1334 → 1264 | passed; floor 1250 held |
-| `check_set_pins_have_engine_members.py` | sources 1367 → 1293 | **RED**, floor lowered 1300 → 1280 with the reason |
-| `ecs_inventory.py` | 8 files newly excluded, 0 regressions | passed |
-| `test_every_smash…` | ruleset files 282 → 257 | **RED**, floor lowered 270 → 250 |
-| `check_rollback_mutators_run_in_sim.py` | unchanged (already the widest) | 14 findings before and after |
+⚠ **AND `ORPHAN-ARMS` CARRIED REAL COVERAGE, checked before deciding.** The
+pattern types had moved to `ambition_characters::brain::boss_pattern`, whose
+module has ZERO test arms and none of the 36 arm names — so the file was the only
+test of that behaviour, not a stale duplicate. ⭐ A test sits with what it CALLS,
+not with what it NAMES: the types moved, the tick functions did not, and the
+dependency runs from `boss_encounter` to `characters`, so the test stays here.
 
-Each drop was checked rather than waved through: all 74 files the set-pins check
-newly excludes are `*_tests.rs` it had never matched, plus the four whose inner
-`#![cfg(test)]` compiles them out. `sets pinned` fell 225 → 222 — three pins that
-lived in test files and were never production pins.
+⚠ **TWO SESSIONS IMPLEMENTED GUARD-CORPUS SIMULTANEOUSLY AND NEITHER KNEW** —
+down to the same four measurements, one as `lib/test_paths.py` and one as
+`lib/rust_sources.py`. <!-- cite-ok: the duplicate is named because it was DELETED; a resolvable citation would mean it still existed -->
+⇒ A row with an owner and a "next implementation" says
+nothing about whether somebody is in it RIGHT NOW. Say so in the row or in a
+message before starting a step that takes hours.
 
-⭐ **THE INTERESTING RESULT IS A NEGATIVE ONE.** `test_every_smash_technique…`
-still passes over its smaller haystack, so no authored technique was being kept
-"connected" by a mention in a test file. That guard is strictly stronger now and
-found nothing — worth recording, because a silent widening would have left nobody
-able to say so.
-
-⚠ **AND MY `ecs_inventory` FLOOR WAS CALIBRATED AGAINST THE WRONG READING.** I
-took 638/493/1108 from the architecture census's `generated_inventory_counts`,
-which is its snapshot of a PREVIOUS `.agent` generation, and set floors under
-numbers this scanner does not produce today (659/528/1095). They PASSED, which is
-why it would not have announced itself — a floor under a stale reading is in the
-wrong place, not broken. Re-baselined against the scanner's own output.
-
-**Acceptance:** one owner for "is this file test-only", covering both the name
-conventions and `#![cfg(test)]`; each consuming check fails when its population
-falls; and no check reports a `#![cfg(test)]` file's registrations as
-production. ⇒ **MET 2026-09-16**, except that the fifth clause is only known for
-the four files carrying an inner `#![cfg(test)]` today; a new one is covered by
-construction rather than by a test.
-
-### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
+### TEST-LANES — keep required test lanes executable
 
 **Owner:** test runner / app integration lane.
 
-**Current state:** missing prerequisites are reported as incomplete rather than
-pass. The `app_it` lane RUNS AGAIN — 676 passed / 0 failed / 25 ignored of 701
-at `23f786757`, 258.28 s — after the sim-schedule cycle below was closed. The
-A10 work also observed one non-reproducing session-root handoff failure whose
-assertion message was not captured. ⚠ The composition probes still do not step
-the engine; see the next implementation step.
+**Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
+**677 passed / 0 failed / 25 ignored of 702**, 234.97 s at `582186bff` on the
+ToothbrushAmbition box. Missing prerequisites are reported as incomplete rather
+than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
+disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
+publish output was ~90 files short. Name the box beside the number.
 
-⛔⛤ **THE ORDER-DEPENDENT FAILURE HAS A NAME AND A MECHANISM NOW, AND MY FIRST
-CLASSIFICATION OF IT WAS WRONG.** The arm is
-`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`.
-I first recorded it as machine CONTENTION, because it appeared while two or three
-full suites were running concurrently — then it reproduced **serially, on a quiet
-machine, with one rust process and a load average of 2**. A coherent measured
-story that fits the first observation is still the wrong one if it was never
-tested against a second.
+⇒ **THE LONG-RUNNING `app_it` FLAKE IS CLOSED (2026-09-16).** It was never a
+flake: `b9f2ece18` gave `drive_boss_animators` `.in_set(WorldPrep)` to buy a
+capability gate, while that system also runs
+`.after(project_boss_attack_state_from_move)`, which is `.in_set(CombatSet::Playback)`
+— LATER in the sim schedule. One system ordered both before and after Playback,
+and the fixed loop retried the broken schedule forever, allocating ~27 MB/s for
+the first minute and ~234 MB/s after. One orphaned arm reached anon-rss
+64,629,160 kB in 316 s and took a 62 GB box down. Bisected over
+`770ac4bff..ee3d0852e`; fixed at `23f786757`; guarded from BOTH sides by
+`the_boss_animator_takes_the_gate_and_not_a_phase`. See git for the timeline.
 
-MEASURED at `770ac4bff`:
-- Intermittent across runs of the FULL suite: 674/1 and 675/0 on the same tree.
-- **12 of 12 green running that test file ALONE**, so it needs the whole process.
-- The failure is a PANIC inside `FixedMain`, not a timeout and not a kill —
-  `Encountered a panic in system bevy_app::main_schedule::FixedMain::run_fixed_main`.
-- ⚠ The panic's own message is SWALLOWED: the arm has no assertion (it builds the
-  engine with and without one plugin and steps 8 frames), and libtest's capture
-  shows only bevy's three "Encountered a panic in system" lines. That is why this
-  has read as a silent flake for so long.
+⛔⛤ **THE THREE STANDING PROHIBITIONS IT LEFT.**
+1. **A set carries a POSITION as well as a gate.** Adding `.in_set(X)` to a
+   system that already has cross-phase `.after`/`.before` edges can contradict
+   them. This is the INVERSE of
+   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]] and
+   bites just as hard. Check which set every existing edge target lives in.
+2. **A session gate is not a capability check.** `run_if(simulation_authorized)`
+   answers *"is this session authorized"*, which is TRUE in a host that has no
+   boss catalog. A system needing a resource is guarded by that resource's
+   existence: `.run_if(resource_exists::<BossCatalog>)`.
+3. **`cargo check` cannot see a schedule cycle, and neither can an arm that never
+   steps.** `b9f2ece18` shipped on `cargo check` alone, with an explicit "NO
+   `app_it` run" justified by those two facts — which were exactly what made
+   `app_it` the only instrument that could see it.
 
-⛔⛤ **AND THE PROCESS-GLOBAL HYPOTHESIS WAS ALSO WRONG. THE CAUSE IS TWO REAL
-DEFECTS, BOTH FIXED 2026-09-15.** A source review found them without another
-suite run; the "needs the whole process" reading was a timing artefact, not
-shared state.
+⇒ **THE COMPOSITION PROBES REALLY STEP NOW** (`582186bff`).
+`step_the_fixed_schedule` pins `TimeUpdateStrategy::ManualDuration(1/60)` AND
+asserts a `FixedUpdate` counter is non-zero — the pin alone is not enough,
+because anything that stops the loop advancing returns the arms to certifying a
+build and that failure is SILENCE. Before the pin: 13 MB, 0.47 s, ZERO fixed
+steps.
 
-1. **A CAPABILITY LEAK.** `drive_boss_animators` takes `Res<BossCatalog>`, whose
-   sole production initializer is `BossEncounterSimulationPlugin`
-   (`boss_encounter/src/lib.rs`). `WorldPrepSchedulePlugin` registered it with
-   `.after`/`.before` edges and **no `.in_set(...)` at all**, while every sibling
-   boss system is `.in_set(WorldPrep)` — nested under `GameplaySimulationRoot`
-   and its `simulation_authorized` gate. So it ran in a composition whose own
-   capability was disabled. ⇒ Same family as
-   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]]: the
-   ordering edges were remembered and the set membership was not.
+⇒ **THE `BodyWallet` RED IS CLOSED** (`4ccfef59c`) and it was a CROSSING, not a
+schedule choice: `NewGameResetCommitted` is produced in the sim schedule's
+`ResetProcessing` and is `clear_message_on_rollback`, so a rewind could clear the
+trigger before its `Update` consumer ran. A waiver was never available.
 
-2. **THE PROBE STEPPED NOTHING.** `the_engine_steps_with_and_without` builds the
-   engine and calls `app.update()` eight times, but `add_headless_foundation`
-   brings `MinimalPlugins`, which leaves `TimeUpdateStrategy::Automatic` in
-   force — so `run_fixed_main_schedule` executes `FixedUpdate` **zero or more**
-   times depending on elapsed WALL TIME. A fast run never crossed 1/60s and the
-   arm reported success having exercised nothing.
+⭐⭐ **A ROLLBACK-MUTATOR RED HAS THREE INDEPENDENT QUESTIONS BEHIND IT, and
+answering one is not a verdict.** (1) is the write inside the rewind window;
+(2) is the write at a point no rewind CROSSES, which satisfies the guard without
+moving anything; (3) is the TRIGGER erasable by a rollback, which closes the
+WAIVER route and which (2) cannot rescue. ⚠ Applying (3) to a peer's road would
+have told them they were clear of a charge they had not answered.
 
-⇒ **(2) IS WHY (1) READ AS A 50/50 FLAKE.** Pinning
-`TimeUpdateStrategy::ManualDuration(1/60)` turned an intermittent silent kill
-into a deterministic 1.58-second failure naming its own cause:
+⛔ **OPERATIONAL RULES FOR THIS LANE, kept because they cost a night.**
+- `scripts/measure_test_arm_rss.py` bounds a runaway: one process per arm (peak
+  RSS is a property of a PROCESS), `RssAnon` rather than `VmRSS` or cgroup
+  `memory.current`, kill by process group at a hard cap, and it refuses a row
+  where libtest ran zero tests.
+- ⛔⛔ **`pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is a
+  `bash -c '<whole line>'`, so its own argv contains the pattern and the first
+  `pkill` kills the shell — the second one, aimed at the binary, never runs, and
+  neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
+  sampler whose cap was working. ⇒ `pgrep -af` to LIST, kill by PID, re-`pgrep`
+  in a SEPARATE call.
+- ⚠ When a build fails in a crate you did not touch, check free space BEFORE
+  reading the diagnostic. ENOSPC arrives as `error: could not compile <crate>`
+  with the cause one line above, and has been seen as six ordinary-looking
+  compile errors with no `os error 28` anywhere.
 
-    Encountered an error in system `drive_boss_animators`:
-    Parameter `Res<'_, BossCatalog>` failed validation: Resource does not exist
-
-⚠ **AND NOTHING WAS SWALLOWING THE PANIC.** The message was always there; it is
-printed on a Bevy task-pool worker thread, and only the nested
-`Encountered a panic in system ...` propagation banners reached libtest's
-per-test capture. There is no panic hook to fix — the arm had no assertion, so
-the banners were all it showed.
-
-⛔⛔ **AND FIXING (2) UNCOVERED A THIRD DEFECT THAT WAS WORSE THAN BOTH.
-CLOSED 2026-09-16 at `23f786757`: IT WAS A DEPENDENCY CYCLE IN THE SIM
-SCHEDULE, AND IT WAS NOT ABOUT TIMING AT ALL.** `b9f2ece18` gave
-`drive_boss_animators` `.in_set(WorldPrep)` to close (1). That system also runs
-`.after(project_boss_attack_state_from_move)`, which is
-`.in_set(CombatSet::Playback)` — LATER in the sim schedule than `WorldPrep` — so
-the set ordered one system both before and after Playback. The fix takes the
-GATE and not a phase: `GameplaySimulationRoot` is configured
-`run_if(simulation_authorized)` and pins no position.
-
-BISECTED over `770ac4bff..ee3d0852e`, every point re-measured on
-`a_dropped_item_falls`: `770ac4bff` and `91f0721bd` 3 passed in ~1.7 s;
-`bad9ca8153`, `ecbdf22971` and `b9f2ece18` HANG; HEAD with the `.in_set`
-replaced by the gate, 3 passed in 1.63 s. Lanes green at `23f786757`:
-`app_it` **676 passed / 0 failed / 25 ignored / 701 total, 258.28 s**, and
-`-p ambition_platformer2d_runtime --lib` **64 passed / 0 failed, 0.13 s** — two
-arms of that lane had been hanging for a peer, on a lane the fix was not
-measured against.
-
-⛔⛤ **THE STANDING PROHIBITION, which is the INVERSE of the rule that produced
-it.** `b9f2ece18` was written against *"carving systems out of a plugin drops
-their set membership"* — edges remembered, set forgotten. ADDING a set to a
-system that already carries cross-phase ordering edges fails the same way:
-`WorldPrep` carries a POSITION as well as a gate, and only the gate was wanted.
-⇒ Before adding `.in_set(X)`, check which set every existing `.after`/`.before`
-target lives in.
-
-⛔⛤ **AND THE LANE THAT WOULD HAVE CAUGHT IT WAS SKIPPED BECAUSE OF THE DEFECT
-ITSELF.** `b9f2ece18` shipped with `cargo check` only and an explicit *"NO
-`app_it` run: the composition probes can run the box out of memory, and the one
-arm this change affects does not execute the simulation at all"*. Both clauses
-were true. A schedule cycle is invisible to `cargo check` and invisible to every
-arm that never steps, so those two facts were exactly what made `app_it` the
-only instrument that could see it. ⇒ See
-[[reference_a_gate_lane_you_did_not_run_is_a_guard_that_does_not_exist]].
-
-⛔⛤ **AND (1) WAS NOT CLOSED BY THE GATE. A SESSION GATE IS NOT A CAPABILITY
-CHECK.** `23f786757` argued `.in_set(GameplaySimulationRoot)` closes the
-`Res<BossCatalog>` leak because the set carries `simulation_authorized`.
-MEASURED IN ISOLATION that looked right — dropping the set failed exactly
-`a_host_that_omits_boss_encounters_still_builds_and_steps`, 5 passed 1 failed.
-⇒ It was wrong. Once the probes really stepped, the FULL lane failed that same
-arm WITH the gate in place (674/2 at `1ac88c713`). `simulation_authorized`
-answers *"is this session authorized"*, which is TRUE in hosts that have no
-catalog. CLOSED at `582186bff` by asking the capability's own question:
-`.run_if(resource_exists::<BossCatalog>)`. The set stays only because it pins no
-position.
-
-⚠ **A POISON MEASURED IN ISOLATION CERTIFIED A CLAIM THE FULL LANE REFUSED** —
-same arm, opposite verdict. An arm that needs the whole process to fail cannot
-be poison-verified alone.
-
-**DONE (was the next implementation step).** The composition probes really step
-as of `582186bff`. `step_the_fixed_schedule` pins
-`TimeUpdateStrategy::ManualDuration(1/60)` AND asserts a `FixedUpdate` counter
-is non-zero — the pin alone is not enough, because anything that stops the fixed
-loop advancing returns these arms to certifying a build and that failure is
-SILENCE, not a red. POISONED: removing the pin fails all three arms with the
-counter's own message, exit 101.
-
-**Current lane state.** `cargo test -p ambition_app --test app_it` →
-**675 passed / 1 failed / 25 ignored of 701, 252.02 s** at `582186bff`. ⛔ The
-one red is ID-PEER's, not this row's:
-`an_edit_reaches_the_shipped_game::a_committed_world_reload_applies_its_effects`
-fails on `ContentBindingMismatch` with the LIVE `PeerContentIdentity` reading
-thirty-two ZERO bytes against a populated planned one, epochs equal. Green in
-the full run at `23f786757`, red after the merge bringing `9e222ffb2`. Reported
-to its owner.
-
-⛔ **OPERATIONAL RESIDUE, kept because it cost a night.** An affected arm
-allocated without bound and SUPERLINEARLY — ~27 MB/s over the first 60 s, then
-~234 MB/s; one left running reached anon-rss 64,629,160 kB in 316 s and took a
-62 GB box down with a kernel `global_oom`. ⇒ Any instrument that samples 60 s
-and fits a line under-reports by an order of magnitude.
-`scripts/measure_test_arm_rss.py` bounds this: one process per arm (peak RSS is
-a property of a PROCESS, so the only way to make it a property of an ARM is to
-stop sharing), `RssAnon` rather than `VmRSS` or cgroup `memory.current`, kill by
-process group at a hard cap, and it refuses a row where libtest ran zero tests.
-⛔⛔ **AND `pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is
-a `bash -c '<whole line>'`, so its OWN argv contains the pattern and the first
-`pkill` kills the shell — the second one, aimed at the test binary, never runs,
-and neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
-sampler whose cap was working on every other arm. ⇒ `pgrep -af` to LIST, kill by
-PID, re-`pgrep` in a SEPARATE tool call.
-
-**Next implementation:** on the next reproduction, capture the full failing
+**Still open.** One non-reproducing session-root handoff failure whose assertion
+message was never captured. On the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct
-from behavioral flakes, and from CONTENTION.
-
-⇒ **THE `BodyWallet` RED IS CLOSED AT `4ccfef59c`, AND IT WAS A CROSSING RATHER
-THAN A SCHEDULE.** `check_rollback_mutators_run_in_sim` reported
-`reset_inventory_on_new_game` mutating `BodyWallet` from `Update`. The row had it
-as a choice between two costly remedies; the PRODUCER decided it.
-`process_new_game_reset_request` runs in the SIM schedule's `ResetProcessing`,
-and `NewGameResetCommitted` IS `clear_message_on_rollback`. So the message was
-produced inside the rewind window and consumed outside it, and a rewind could
-clear the trigger before its consumer ran while the rollback-registered writes
-that consumer had already made stood. ⇒ A waiver was never available.
-
-The fix is a MOVE onto a road that already existed:
-`clear_transient_on_sandbox_reset` consumes that same message in the sim
-schedule, chained after the producer so its deferred `world.write_message` has
-flushed. `reset_inventory_on_new_game` now runs `.after` it.
-
-⭐ **AND IT ANSWERS THIS ROW'S OWN CAVEAT BETTER THAN THE CAVEAT EXPECTED.** The
-row worried the ordering survives "on frames that HAVE a fixed step". The save
-WIPE is inside the producer's queued closure, which is also in the sim schedule —
-so wipe and reset now stand or fall together on the same frame, and the
-"old run's bag into the freshly wiped save" hazard cannot open a frame-shaped gap
-at all. Previously the wipe was in sim and the reset in `Update`, which is where
-that gap lived.
-
-⭐⭐ **THE REUSABLE PART: A RED HERE HAS THREE INDEPENDENT QUESTIONS BEHIND IT,
-and answering one is not a verdict.** (1) is the write inside the rewind window;
-(2) is the write at a point no rewind can CROSS, which satisfies the guard
-without moving anything; (3) is the TRIGGER erasable by a rollback, which is what
-closes the WAIVER route and which (2) cannot rescue. ⚠ MEASURED while handing
-this to a peer: `SessionScopeActivated` is produced AND consumed in `Update` and
-is NOT `clear_message_on_rollback`, so (3) does not touch the session-activation
-reset — but that road still owes (2) for its sixteen rollback-registered
-resources. Reporting (3) as the verdict would have told a peer they were clear of
-a charge they had not answered.
-
-⚠ **NINE FINDINGS REMAIN AND NONE ARE THIS ONE** — verified against the WIDENED
-guard a peer landed while this was in flight, not the version that reported it.
-Seven menu systems reach `ResMut<NewGameResetRequested>` through
-`MenuDispatchParams`; two are session-reset roads. All separately owned.
+from behavioural flakes, and from CONTENTION — a coherent measured story that
+fits the first observation is still the wrong one if it was never tested against
+a second.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a
 production invariant.
-
-## P2 — product/authoring work with an executable owner
-
-- **Character feel / Smash tuning:** use the real roster and the measurement tools
-  named by [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
-  Do not infer the roster from `game/ambition_content/src/*_moveset.rs` or from one
-  demo registration table. Product values waiting on a ruling stay in the
-  decision ledger.
-- **Q80 art/hitbox tolerance:** once the pixel tolerance is chosen, encode it in
-  authoring/tool validation rather than subjective screenshots.
-- **Q94 residency target:** once the memory target is chosen, use the asset owner
-  plan to trade tiers/residency against a measured budget.
-
-## P3 — human-gated or local-machine measurements
-
-Do these only on a machine/environment that can answer the question:
-
-- **D-RASTER-3:** measure weak-GPU framebuffer scale versus source-tier behavior.
-- **Switch Pro outer range:** run the controller diagnostic on both target
-  machines and compare the raw range.
-- **Web reveal branch:** validate the existing reveal-barrier branch in the real
-  browser/runtime.
-- **Kaleidoscope Bevy-0.19 flash:** reproduce interactively before filing a fix.
-- **LDtk preview tilesets:** measure whether editor-preview assets are still
-  required by the authoring workflow before Q82 is resolved.
-- **Capture after window close:** reproduce against the current capture path.
-- **External consumer/platform checks:** follow the SDK/external-consumer owner
-  documents; do not infer support from workspace-only builds.
-
-## Replenishment rule
-
-Before adding or promoting a row:
-
-1. inspect current HEAD and confirm the problem still exists;
-2. link the focused owner document;
-3. state current behavior, next implementation, blockers and acceptance;
-4. create/name a `Q` for every maintainer decision that blocks the row;
-5. keep measurements in the owner document or a durable receipt, not as queue
-   chronology;
-6. remove closed rows instead of preserving their investigation history here.

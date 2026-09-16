@@ -1,4 +1,12 @@
 use super::*;
+// ⛔ The pattern TYPES moved to `ambition_characters::brain::boss_pattern`; the
+// tick FUNCTIONS stayed here. `use super::*` reaches only the second half now,
+// which is why nothing in this file resolved.
+use ambition_characters::brain::boss_pattern::*;
+// ⚠ `ae` is this crate's local alias for the engine core, declared per-file
+// rather than crate-wide (see `attack_geometry/mod.rs`), so a file that was
+// never compiled never needed it.
+use ambition_platformer2d_core as ae;
 
 fn scripted_two_step_phase1(strike_profile: BossAttackProfile) -> BossAttackPattern {
     let phase1 = BossPattern {

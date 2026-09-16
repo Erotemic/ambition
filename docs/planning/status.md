@@ -109,6 +109,14 @@ A9 remains the owner for truthful minimum engine profiles. The target is a named
 capability contract, not a crate-count budget. Current product/architecture choices
 that shape the profile are Q97, Q100, Q106 and Q108 in the decision ledger.
 
+⛔ **AND A PROFILE WITNESS MUST STEP, WHICH UNTIL 2026-09-16 NONE OF THEM DID.**
+The three composition probes passed in under half a second having run ZERO fixed
+steps, because `MinimalPlugins` leaves `TimeUpdateStrategy::Automatic` and a fast
+run never crosses 1/60 s. They certified that the engine BUILDS. A profile
+contract tested by an arm whose green is compatible with the engine being broken
+is not a contract. ⇒ Pin the step, then ASSERT the step happened — the pin alone
+fails silently.
+
 ## Current execution
 
 The queue is intentionally compact. Its current groups are:
@@ -122,8 +130,11 @@ The queue is intentionally compact. Its current groups are:
 not reach. Read the rows, not this line, before picking work up: a group closing
 here is a two-edit change and only one of the edits is anybody's job.
 - **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
-  selection, low-tier sprite policy, Smash parity, character authoring, scenario
-  identity and test-lane reliability.
+  selection, low-tier sprite policy, Smash parity, character authoring and
+  scenario identity. ⚠ Test-lane reliability is no longer a standing P1 theme:
+  the long-running `app_it` failure was a sim-schedule cycle, not a flake, and
+  the lane runs. What remains in TEST-LANES is one non-reproducing session-root
+  handoff failure.
 - **P2:** product/authoring work that has an executable owner after a maintainer
   rule.
 - **P3:** measurements that require a particular machine, device or interactive

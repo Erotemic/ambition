@@ -374,11 +374,18 @@ class LoadSampler:
 def refuse_a_baseline_that_is_not_one(scenario: Scenario, warm: BuildCost) -> None:
     """Stop before the interesting numbers exist, not after a reader has seen them.
 
-    ⛔⛤ MEASURED THREE TIMES ON 2026-09-16, ALWAYS THE SAME CAUSE: a merge landed
-    between building the subject and measuring it, and the "warm" no-op did real
-    work — 346 s, then 47 s, then 7.25 s, against a 0.73 s floor. Every duration
-    in such a row times a different build than the row claims, and NOTHING in the
-    durations says so.
+    ⛔⛤ MEASURED THREE TIMES ON 2026-09-16: the "warm" no-op did real work — 346
+    s, then 47 s, then 7.25 s, against a 0.73 s floor. Every duration in such a
+    row times a different build than the row claims, and NOTHING in the durations
+    says so.
+
+    ⚠ I RECORDED THOSE THREE AS "ALWAYS THE SAME CAUSE — A MERGE", AND THAT WAS
+    ONE CAUSE TOO CONFIDENT. A fourth refusal (`relink`, 59 units in 206 s) came
+    with no merge, no tree change and an unmoved HEAD: `measure` ran the command
+    ONCE and called the result the baseline, so the number was a COLD build every
+    time the cache had not already been warmed by some other lane. The check was
+    right and its explanation was wrong, which is the combination that sends a
+    reader hunting for a merge that never happened.
 
     ⭐ AND A RULE THAT ASKS A READER TO CHECK THE CONTROL COLUMN FIRST DOES NOT
     HOLD, which is why this raises instead of warning. Once you have read
@@ -399,10 +406,14 @@ def refuse_a_baseline_that_is_not_one(scenario: Scenario, warm: BuildCost) -> No
             f"⛔ `{scenario.name}`'s warm no-op REBUILT {warm.units_rebuilt} unit(s) "
             f"in {warm.seconds:.2f}s, so it is not a baseline and every duration "
             f"beside it would describe a different build.\n"
-            f"   Cause, every time it has happened here: the tree changed between "
-            f"warming and measuring — usually a merge.\n"
-            f"   Fix: settle the tree, then re-run. Freeze it for the whole "
-            f"measurement, as AGENTS.md already requires across a gate."
+            f"   Two causes have produced this, and they want opposite fixes:\n"
+            f"     1. the tree changed between warming and measuring — usually a "
+            f"merge. Settle the tree and re-run, frozen for the whole "
+            f"measurement, as AGENTS.md already requires across a gate.\n"
+            f"     2. the warm-up did not warm this command's cache, because "
+            f"something outside it invalidated the units in between. Re-run; a "
+            f"second attempt on a settled tree starts from the cache the first "
+            f"one built."
         )
 
 
@@ -425,8 +436,18 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     # not to one phase of it. A daemon thread, so an abort cannot outlive us.
     load = LoadSampler().start()
     try:
+        # ⛔⛤ TWO BUILDS, AND THE FIRST ONE'S NUMBERS ARE THROWN AWAY. This ran
+        # ONE build and called its result the warm baseline, which is only a
+        # no-op when the cache was ALREADY warm from some earlier command. Every
+        # `check` lane inherited a warm cache from the AGENTS.md gate and passed;
+        # `relink` was the first lane whose command nothing else runs, and its
+        # "baseline" was a 206 s cold build of 59 units.
         if verbose:
             print(f"  warming ({' '.join(scenario.command)}) …", flush=True)
+        run_timed(scenario.command, merged_env)
+
+        if verbose:
+            print("  measuring the warm no-op (the control) …", flush=True)
         warm = run_timed(scenario.command, merged_env)
 
         if verbose:

@@ -194,12 +194,92 @@ WAIVERS: dict[str, str] = {
         "`materialize_projectiles_for_this_tick`: it steps the sim from `Update` "
         "with no rollback host, so `BodyKinematics`/`BodyMelee` do not rewind."
     ),
-    "tick_body_cooldowns": (
-        "⛔ fighter harness — same composition again. Checked at the registration, "
-        "not inferred from the file name: `fighter_harness.rs` adds all three of "
-        "these to `Update` in the app it builds itself, and that app installs no "
-        "GGRS host, so `BodyMelee` is never restored and there is no history for "
-        "the cooldown tick to be inconsistent with."
+    # ── added 2026-09-16, the menu bundle ──────────────────────────
+    # Five systems, ONE cause: a `#[derive(SystemParam)]` bundle that grants a
+    # rollback `ResMut` to every taker. ⚠ The scanner is right to report them —
+    # it answers "who has mutable access", and narrowing it to "who writes"
+    # would need to see through `request_reset()`, a METHOD on the bundle, so
+    # the field name never appears at the call site. A precision fix there buys
+    # five fewer rows and risks a false NEGATIVE, which in this guard is a
+    # silent desync. ⇒ Waive with the reachability argument instead.
+    "grid_menu_apply_scroll_drag": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It applies a drag offset to "
+        "the tab strip."
+    ),
+    "grid_menu_republish_view": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It rebuilds the view rows "
+        "after a state change."
+    ),
+    "grid_menu_scroll_wheel": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It converts wheel input into "
+        "a scroll offset."
+    ),
+    "grid_menu_nav": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It moves the cursor. ⚠ It "
+        "reaches the bundle through `MenuDispatchParams`, one level further "
+        "out than its three siblings, which is why the scanner sees it at all "
+        "— the nesting is resolved transitively and the reachability is not."
+    ),
+    "kaleidoscope_focus_nav": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
+        "faces. ⚠ Same nesting as `grid_menu_nav`."
+    ),
+    "track_versus_roster": (
+        "\u26d4 ONE WRITE, AT ROUTE ENTRY, BEFORE THE SESSION THAT WOULD REWIND "
+        "IT. `*match_state = VersusMatch::opening()` sits alone in the "
+        "`(on_versus, mine) == (true, false)` arm of `versus.rs`; every other "
+        "combination falls through `_ => {}`, so once this route has published a "
+        "`MatchParticipantRoster` under its own name the system cannot write "
+        "again. Checked at what could un-publish it and make `mine` false "
+        "mid-match: in production only the experience scope's "
+        "`releasing_owned::<MatchParticipantRoster>`, which is the route EXIT and "
+        "ends the session with it \u2014 the other removals are test code and "
+        "`demo_smash`'s own experience, which is a different route. "
+        "\u26a0 `VersusMatch` DOES feed the peer checksum "
+        "(`rollback_resource_clone_checksum`), so this waiver rests entirely on "
+        "the write preceding the timeline: `maintain_local_session` starts GGRS "
+        "only once a live primary player body exists, and at route entry the "
+        "roster is still `RosterSeating::Proposed` with no bodies seated."
     ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "

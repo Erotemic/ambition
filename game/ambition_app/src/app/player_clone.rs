@@ -22,6 +22,8 @@ use ambition_platformer2d::characters::brain::{Brain, BrainSnapshot, StateMachin
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::platformer::construction::SpawnOrigin;
+use ambition_platformer2d::platformer::sim_id::{SimId, SimIdCounter};
 use ambition_platformer2d::render::rendering::{player_presentation_for_collision, PlayerVisual};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
@@ -65,10 +67,19 @@ pub fn spawn_requested_player_clone(
     // The clone mirrors the primary's WORN IDENTITY as well as its position, so it
     // looks like whoever the player currently is rather than like a hardcoded
     // protagonist. `Option` because a bare test/demo body may wear nothing.
-    player_q: Query<
+    mut player_q: Query<
         (
             &ambition_platformer2d::engine_core::BodyKinematics,
             Option<&ambition_platformer2d::characters::actor::WornCharacter>,
+            // The clone descends from the primary. `SimId::spawned` needs the
+            // parent identity and the parent mint stream, and this site already
+            // reads the primary body.
+            //
+            // `Option` because a bare fixture body can carry no identity. A
+            // production body always carries one: `ensure_sim_id` runs before
+            // `CoreSimulation`, and this system runs inside it.
+            Option<&SimId>,
+            Option<&mut SimIdCounter>,
         ),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
@@ -77,11 +88,39 @@ pub fn spawn_requested_player_clone(
         return;
     }
     request.0 = false;
-    let Ok((player_kin, worn)) = player_q.single() else {
+    let Ok((player_kin, worn, parent_id, parent_counter)) = player_q.single_mut() else {
         return;
     };
     // Spawn a little to the left of the player so it reads as a separate body.
     let spawn = player_kin.pos + ae::Vec2::new(-90.0, -20.0);
+
+    // ⛔ THE IDENTITY IS MINTED HERE, WHERE THE BODY IS BUILT.
+    //
+    // This body carries `BodyKinematics` and `PlayerEntity`, so
+    // `player_simulation_system` integrates it like the human player's body. It
+    // carries no authored `FeatureId`, and it is deliberately not a
+    // `PrimaryPlayer`. `ensure_sim_id` matches neither of its arms and skips it,
+    // so no later system can name this body. ADR 0030 puts a dynamic entity's
+    // identity at the site that knows its spawner. This site knows it.
+    //
+    // ⛔ Refuse when the parent has no identity. Do not invent one. ADR 0030: a
+    // dynamic entity that cannot name its parent cannot be reconstructed.
+    let (Some(parent_id), Some(mut parent_counter)) = (parent_id, parent_counter) else {
+        warn!(
+            "a player clone was requested, but the primary player carries no \
+             `SimId` to descend from, so the clone would reach the simulation \
+             unnameable. Refusing to spawn it rather than minting an identity \
+             nothing can reconstruct."
+        );
+        return;
+    };
+    // Use the parent's own stream. A global counter couples unrelated spawners.
+    let parent = parent_id.clone();
+    let sequence = parent_counter.next();
+    let clone_id = SimId::spawned(&parent, sequence);
+    // Provenance is data, not the spelling of the id (ADR 0030). Nothing may
+    // recover the parent from `clone_id`.
+    let origin = SpawnOrigin::Dynamic { parent, sequence };
     let scratch = ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
@@ -143,8 +182,15 @@ pub fn spawn_requested_player_clone(
             ambition_platformer2d::combat::BodyMelee::default(),
             ambition_platformer2d::platformer::safe_position::PlayerSafetyState::default(),
         ),
-        transform,
-        Name::new("Player Clone (brain-driven)"),
+        // Nested, to keep the top-level bundle tuple inside Bevy's arity limit.
+        (
+            transform,
+            Name::new("Player Clone (brain-driven)"),
+            // Inserted in the same command batch as the body, so no flush shows
+            // this body without its identity.
+            clone_id,
+            origin,
+        ),
     ));
 
     // Real textured player sprite + animator, mirroring `scene_setup`'s primary

@@ -1509,6 +1509,14 @@ an explicit ownership reason.
 
 **Owner:** [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
+⛔⛤ **READ THIS BEFORE ANY OTHER CPU NUMBER IN THIS REPOSITORY.** Measured
+2026-09-16: `special_patent_clerk` throws ONE move for a whole 3600-tick bout at
+rung 9 — `synchronize_clocks`×160, median gap 4 ticks, 0% damage either seat,
+zero hitstun, Neutral 100% — and rung 9 is `RUNG_DEFAULT`, the rung every CPU
+measurement in this project is taken at. ⇒ That is not a tuning observation. It
+is a statement about what all the other numbers mean. Evidence and the full grid
+below.
+
 **Current state:** the truthful attack kit evaluates the action a press actually
 produces, and the previous rung-9 quantization defect is closed. Current failures
 are no longer evidence that the old attack-kit mapping is wrong. The remaining

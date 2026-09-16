@@ -93,6 +93,32 @@ Mutable user preferences are distinct from admitted mechanical policy. Direct
 damage-policy lifetime is a product decision in
 [Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
 
+### Persistence and the peer contract
+
+⛔ **MEASURED 2026-09-16: THE SAVE FILE IS INSIDE THE PEER CHECKSUM AND IS
+DERIVED PER FRAME.** `AmbitionGameSave` is `rollback_resource_clone_checksum`, so
+its whole value is compared per TICK, while `persist_inventory_to_save` writes it
+from `Update` — per FRAME, and a rewind re-simulates ticks without re-running
+`Update`. A bag that changes every tick desyncs a GGRS sync test within six
+ticks; of 364 probed rollback entries exactly one diverges, and it is the save.
+⚠ A single change does not reproduce it, which is why nothing had hit it.
+
+⚠ This is not only a persistence question: 13 of the 19 systems that write
+`AmbitionGameSave` are registered in the SIM schedule, so the save is
+simulation-adjacent state in practice whatever it is in principle. That is what
+makes "take it out of the checksum" the large option rather than the small one.
+
+The ruling is
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
+the measurement and the reproduction are in
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
+
+⇒ Found beside it, and filed as
+[Q130](awaiting-maintainer-decision.md#q130--should-the-sim-harness-refuse-to-step-an-invalidated-rollback-session):
+an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
+`SimTick` in silence. Every rollback arm in the tree refuses a frozen world
+today, none of them because a guard made it do so.
+
 ### Content generations and fast iteration
 
 The host can consume edited move content without a Cargo/link step. Reload has

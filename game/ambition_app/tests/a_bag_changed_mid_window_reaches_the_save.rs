@@ -248,6 +248,51 @@ fn probe_which_hashed_entries_follow_the_bag() {
     );
 }
 
+/// ⛔ WHETHER "ONE CHANGE IS CLEAN" IS A RESULT OR AN ARTEFACT.
+///
+/// `probe_how_far_each_harness_ticks_over_the_same_window` reports that a grant
+/// firing ONCE at tick 20 runs 240 steps with `session_health` clean, and the
+/// bag column proves the grant fired. ⚠ THAT IS STILL NOT ENOUGH. The sync test
+/// compares a frame against its own resimulation, and the save's value is what
+/// two passes disagree about — so if the save had already settled by the frames
+/// GGRS actually compared, the comparison had nothing to disagree about and the
+/// clean run says nothing. A floor must be raised on the quantity the claim is
+/// about, not on the instrument's own activity. (YardratAmbition's lesson, from
+/// an audit that would have called a stationary ground item reproducible.)
+///
+/// ⇒ So this prints the SAVE'S OWN CENSUS per step across the grant, next to the
+/// bag. `check_distance` is 4, so the frames compared around tick 20 are the
+/// handful either side of it. If the xor moves at the grant and the neighbouring
+/// ticks are inside that distance, the comparison did straddle a moving value
+/// and "one change is clean" is a real result.
+#[test]
+#[ignore = "PROBE, print-only: was the save still moving at the frames GGRS compared"]
+fn probe_whether_the_single_grant_lands_where_the_comparison_looks() {
+    let mut sim = sim_composed_with(grant_once_at_tick_20);
+    for _ in 0..14 {
+        sim.step(AgentAction::default());
+    }
+    for _ in 0..14 {
+        let tick = sim_tick(&sim);
+        let bag = live_cells(&sim);
+        let probes = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
+            .clone();
+        let save = probes
+            .census_all(sim.world_mut())
+            .into_iter()
+            .find(|(name, _)| name.contains("AmbitionGameSave"))
+            .map(|(_, census)| census.xor);
+        println!(
+            "   tick={tick:>3} bag={bag:>3} save_xor={:?} health={:?}",
+            save.map(|xor| format!("{xor:#018x}")),
+            health(&sim).err().map(|e| e.chars().take(40).collect::<String>())
+        );
+        sim.step(AgentAction::default());
+    }
+}
+
 /// The schedule's own step count. This file never writes it, which is the
 /// point: it is the control column for a frozen bag.
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

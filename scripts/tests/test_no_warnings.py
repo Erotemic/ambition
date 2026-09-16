@@ -6,13 +6,20 @@ name the underlying diagnostic."""
 
 from __future__ import annotations
 
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-from check_no_warnings import warnings_from  # noqa: E402
+from check_no_warnings import (  # noqa: E402
+    REPO as CHECKED_REPO,
+    VacuousFreshRun,
+    fresh_touch_targets,
+    warnings_from,
+)
 
 # Captured from `cargo check -p ambition_geometry --all-targets
 # --message-format=short` with one unused import planted.
@@ -62,3 +69,67 @@ def test_several_diagnostics_are_each_reported():
     assert len(found) == 2
     assert any("unused import" in f for f in found)
     assert any("never used" in f for f in found)
+
+
+def test_fresh_touches_only_files_tracked_in_this_checkout():
+    """⛔ THE DEFECT IS INVISIBLE UNTIL A `.worktrees/` EXISTS, which is why it
+    needs an arm rather than a reading. `--fresh` does not READ what it finds, it
+    TOUCHES it, so a `rglob` that walks another session's checkout forces a
+    rebuild in somebody else's tree and nothing here says so.
+    """
+    targets = fresh_touch_targets(CHECKED_REPO)
+    # ⛔ ANTI-VACUITY: an empty list satisfies every assertion below.
+    assert len(targets) > 50, (
+        f"only {len(targets)} crate roots resolved, so this arm is asserting "
+        "about almost nothing — check that `git ls-files` still reaches them"
+    )
+    assert all(path.exists() for path in targets)
+    # ⚠ This one cannot fire in a tree with no `.worktrees/`, so it is vigilance
+    # rather than safety — the arm below is the one that bites today.
+    assert not any(".worktrees" in path.parts for path in targets)
+
+
+def test_an_untracked_worktree_checkout_is_not_touched():
+    """⛔ THE ARM THAT ACTUALLY FIRES. The tree this runs in has no
+    `.worktrees/`, so asserting its absence proves nothing. This BUILDS one — a
+    second checkout's `src/lib.rs` that git does not track — and requires the
+    enumeration to leave it alone. `rglob` returns it; `git ls-files` does not.
+    """
+    with tempfile.TemporaryDirectory() as root:
+        repo = Path(root)
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        mine = repo / "crates" / "a" / "src"
+        mine.mkdir(parents=True)
+        (mine / "lib.rs").write_text("// mine\n")
+        theirs = repo / ".worktrees" / "peer" / "crates" / "b" / "src"
+        theirs.mkdir(parents=True)
+        (theirs / "lib.rs").write_text("// somebody else's session\n")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "crates/a/src/lib.rs"], check=True
+        )
+
+        targets = fresh_touch_targets(repo)
+
+        # The premise: the peer's file is really there, so a scan COULD find it.
+        assert (theirs / "lib.rs").exists()
+        assert targets == [mine / "lib.rs"], (
+            f"expected only this checkout's crate root, got {targets}. A "
+            "`--fresh` run does not read what it finds, it TOUCHES it, so "
+            "reaching into `.worktrees/` forces a rebuild in another session"
+        )
+
+
+def test_a_fresh_run_that_would_touch_nothing_is_a_refusal():
+    """The other half: a rebuild of nothing reports no warnings for the wrong
+    reason, and that reads exactly like a clean tree."""
+    with tempfile.TemporaryDirectory() as empty:
+        repo = Path(empty)
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        try:
+            fresh_touch_targets(repo)
+        except VacuousFreshRun:
+            return
+        raise AssertionError(
+            "a checkout with no tracked `src/lib.rs` was accepted, so `--fresh` "
+            "would rebuild nothing and the lane would report clean"
+        )

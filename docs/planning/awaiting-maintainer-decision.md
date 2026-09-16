@@ -557,6 +557,52 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
+## Q130 — should the sim harness refuse to step an invalidated rollback session?
+
+**MEASURED 2026-09-16.** A GGRS session that invalidates keeps accepting
+`sim.step()`. It returns an observation every time and simply stops advancing
+`SimTick`. Nothing panics and nothing prints. `session_health` knows; the step
+loop never asks. ⇒ Every assertion after the invalidation runs over a frozen
+world, where it agrees with itself.
+
+⭐ **THE CURRENT TREE IS SAFE, AND THAT IS THE ARGUMENT FOR ACTING RATHER THAN
+AGAINST IT.** Of the 21 files built on `with_sync_test_rollback_settings`,
+thirteen call `rollback_health()` or `session_health`; the other eight each refuse
+a frozen world by other means — a 116,280-float population floor, a recorded
+stream length against the tick count, `load_runs` having moved, explicit
+`room_changes > 0` preconditions, and two door walks that panic when the room
+never changes. ⚠ The first version of this census counted six of those eight as
+EXPOSED, because it counted calls to the safety API rather than assertions a
+broken world fails. Nothing needs cleaning up.
+
+⇒ **BUT THE CENSUS ROTS.** It proves the current 21 are safe and says nothing
+about the twenty-second. A rollback arm whose assertions happen to be satisfiable
+by a frozen world is exposed the moment it is written, and its author gets no
+warning. That is the same argument that turns "the only production registrar is
+this one" into an absence contract rather than a note.
+
+⚠ **AND A GUARD SCRIPT CANNOT SUBSTITUTE.** The property is "this arm's
+assertions are unsatisfiable by a frozen world", which six different mechanisms
+produced above and a seventh would too. It is not decidable by reading source. If
+the contract moves into `step`, no guard is needed; if it does not, no guard can
+be written.
+
+The choice: (a) `Platformer2dSimHarness::step` panics when the session has
+invalidated, making silence impossible — the census above is the evidence that
+nothing currently relies on stepping a dead session, so this should redden
+nothing today; (b) it returns an error the caller may ignore, which is the
+current situation with a nicer name; (c) leave it, and accept that each future
+rollback arm's safety is its author's to remember.
+
+⭐ (a) is "make it impossible, not checked" applied to a harness contract, and
+the reason it is a ruling rather than a patch is that it changes what every
+existing and future rollback arm is allowed to do — a harness that panics on a
+dead session will red any arm that turns out to be relying on one, and the census
+is a claim about today rather than a proof about tomorrow.
+
+Owner row:
+[ROLLBACK-DEAD-SESSION](queue.md#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence).
+
 ## Q129 — must the save file be part of what two peers agree on?
 
 **MEASURED 2026-09-16, and unlike Q128 this one announces itself today.** A bag
@@ -592,7 +638,28 @@ rollback state, so the replay re-enters the same branch on the same tick.
 ⇒ So a pickup during play — one change — does not desync on this evidence, and
 what the reproduction demonstrates is the sustained case. ⛔ WHY the sustained
 case differs from the single case is NOT explained, and nobody should read
-"single changes are safe" out of one measurement at one tick. What is established
+"single changes are safe" out of one measurement at one tick. ⚠ **AND THE CLEAN RESULT WAS ITSELF SUSPECT UNTIL THE SAVE WAS SAMPLED.** A run
+can be clean because nothing disagreed or because the compared frames had nothing
+to disagree ABOUT — a floor on the instrument's activity cannot tell those apart,
+which is the failure mode YardratAmbition hit from the other side, with an audit
+that would have called a stationary ground item reproducible. ⇒ Measured, the
+save's own census across the grant:
+
+```
+tick=15..20  bag=3  save_xor=0x8f605a278dac557d
+tick=21..28  bag=4  save_xor=0x0d500710d37b048a     health clean throughout
+```
+
+The hashed value moves exactly ONCE, at tick 21, and `check_distance` is 4 — so
+the transition sits inside the band of frames the sync test keeps re-comparing,
+and the run stayed clean for 220 further steps. ⇒ **"One change is clean" is a
+result, not an artefact of looking where nothing was moving.**
+
+⛔ WHICH MAKES THE SUSTAINED-VERSUS-SINGLE DIFFERENCE SHARPER AND STILL
+UNEXPLAINED, and it is the one thing this row would most like answered: a save
+that moves once inside the compared band is fine, and a save that moves every
+tick is not. Whatever the mechanism, it is not simply "the hashed value changed
+while a rewind was in flight". What is established
 is that the defect is not triggered by every inventory change, which is why it has
 gone unnoticed.
 

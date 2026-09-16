@@ -69,6 +69,15 @@ digest_type!(SnapshotSchemaFingerprint, "ssp1:");
 /// ([`ContentEpochSequence`]); only the stamp is shared.
 pub use ambition_platformer2d_core::ContentEpoch;
 
+/// The PEER half of the same pair, re-exported beside the local half so a
+/// binding site reaches both by one path.
+///
+/// ⚠ `PreparedContent::fingerprint()` is what fills it, and that returns THIS
+/// crate's `ContentFingerprint` — a 32-byte digest — not
+/// `ambition_content_pack`'s `u64` newtype of the same name. Two types share
+/// that spelling in this workspace.
+pub use ambition_platformer2d_core::PeerContentIdentity;
+
 /// App-local generation allocator — a source of DISTINCT ids, not a count of
 /// activations.
 ///

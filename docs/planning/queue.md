@@ -211,15 +211,35 @@ string is compared between peers.
   `content_pack` edge "is legal". It is not available —
   `ambition_content_pack` declares NO ambition dependencies at all, so it cannot
   construct a type from `platformer2d_core`, and `platformer2d_core` naming it
-  would invert the graph. `ContentFingerprint(u64)` is the SOURCE of the value;
-  runtime's content identity is the one layer holding both crates and is where
-  the rendering belongs. One name, rendered once, at the only layer that can.
+  would invert the graph.
+  ⛔⛤ **AND A SECOND CORRECTION: THIS ROW NAMED THE WRONG
+  `ContentFingerprint`.** There are TWO types with that spelling.
+  `ambition_content_pack::prepared::ContentFingerprint` is `(pub u64)`;
+  `ambition_platformer2d_runtime`'s is `digest_type!(ContentFingerprint, "cfp1:")`
+  — a `[u8; 32]` with a private field. `PreparedContent::fingerprint()`, the
+  accessor sitting beside `epoch()` and therefore the one any binding site can
+  reach, returns the SECOND. The row named the first because a search for the
+  name found the definition with the public field. ⇒ `PeerContentIdentity`
+  carries 32 bytes, not a `u64`: folding a 256-bit digest into 64 is defensible
+  for a checksum term and not for an identity string, and this is destined for
+  both.
 - ⚠ The plumbing is also real: the production binding site
   (`session/setup.rs`) receives `construction.binding` already built and never
   sees `PreparedContent`, so a fingerprint has to travel with the epoch from
   wherever content is prepared. 19 `ContentBinding::Content(` sites, against 45
   `.transaction(` callers — so the change belongs in what the BINDING renders,
   not in the transaction signature.
+  ✔ **THE BINDING NOW CARRIES IT (2026-09-16).** `ContentBinding::Content` is a
+  struct variant with `epoch` (local, staleness) and `content` (peer), all 19
+  sites are migrated, and the two PRODUCTION sites are populated from
+  `PreparedContent::fingerprint()` — which sits beside `epoch()`, so a site that
+  can state the local generation can always state which content it is a
+  generation OF. ⚠ `canonical_summary()` still renders the epoch ALONE, and an
+  arm pins that two bindings differing only in content summarise identically:
+  that string is `TransactionId`'s first field and `TransactionId` is
+  `component-canonical`, so changing it changes a canonical identity every
+  rollback timeline carries. Wiring the peer half into the identity, and giving
+  `TransactionId` its projection, is the next and separate step.
 
 ⭐ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15.** It
 said *"an epoch is not rollback-registered. Two peers never compare sequences, so

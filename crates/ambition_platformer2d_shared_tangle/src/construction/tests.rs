@@ -177,7 +177,7 @@ fn registry() -> ConstructionRegistry<Toy> {
 }
 
 fn scope() -> ConstructionScope {
-    ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(7)), Some("room_a".into()))
+    ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(7), content: Default::default() }, Some("room_a".into()))
 }
 
 fn request(id: &str) -> ConstructionRequest<Toy> {
@@ -1662,7 +1662,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
             ctx.commands_for_sabotage().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
-            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(9), content: Default::default() }, Some("some_other_room".into()));
             ctx.commands_for_sabotage()
                 .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
@@ -1670,7 +1670,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
         Sabotage::SpawnForeignScopedRoot => {
             // Another live transaction's root. Present in the world, none of
             // this transaction's business, and must not be reported.
-            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(9), content: Default::default() }, Some("some_other_room".into()));
             ctx.commands_for_sabotage().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
@@ -3012,8 +3012,8 @@ fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
 /// `TransactionId` naming **N**.
 #[test]
 fn a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one() {
-    let n = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(4));
-    let next = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(5));
+    let n = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(4), content: Default::default() };
+    let next = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(5), content: Default::default() };
     let room = Some("hall".to_string());
     let session = crate::lifecycle::SessionSpawnScope::UNSCOPED;
 
@@ -3054,14 +3054,14 @@ fn a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_l
 /// cache and `RoomConstructionPlanId` key on.
 #[test]
 fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
-    let next = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(5));
+    let next = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(5), content: Default::default() };
     let into_four = ConstructionScope::replacing(
-        ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(4)),
+        ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(4), content: Default::default() },
         next,
         Some("hall".into()),
     );
     let into_three = ConstructionScope::replacing(
-        ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(3)),
+        ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(3), content: Default::default() },
         next,
         Some("hall".into()),
     );
@@ -3679,7 +3679,7 @@ fn a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances()
 /// id is CANONICAL ROLLBACK STATE — snapshotted as its exact string. Both of the
 /// first two fields are process-local counters:
 ///
-/// * `ContentBinding::Content(epoch)` renders the `ContentEpoch` NUMBER, and
+/// * `ContentBinding::Content { epoch: epoch, content: Default::default() }` renders the `ContentEpoch` NUMBER, and
 ///   `ContentEpochSequence` is app-local. `Q120`'s sibling ruling deliberately
 ///   made it GAP-TOLERANT — a refused hot reload burns a number — so two hosts
 ///   that refused different numbers of candidates reach the same content at
@@ -3715,7 +3715,7 @@ fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
     let room = || Some("central_hub_complex".to_string());
     let scope_of = |epoch: u64| {
         super::ConstructionScope::in_generation(
-            super::ContentBinding::Content(ContentEpoch(epoch)),
+            super::ContentBinding::Content { epoch: ContentEpoch(epoch), content: Default::default() },
             room(),
         )
     };
@@ -3760,7 +3760,7 @@ fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
     // unstable: it is stable on the peer-stable field and unstable on the two
     // local ones.
     let other_room = super::ConstructionScope::in_generation(
-        super::ContentBinding::Content(ContentEpoch(7)),
+        super::ContentBinding::Content { epoch: ContentEpoch(7), content: Default::default() },
         Some("proving_grounds".to_string()),
     );
     assert_ne!(
@@ -3769,4 +3769,50 @@ fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
         "two DIFFERENT rooms share one transaction identity, which would be a \
          much worse defect than the one this arm is about"
     );
+}
+
+/// ⭐⭐ **THE BINDING CARRIES BOTH HALVES, AND THEY ANSWER DIFFERENT QUESTIONS.**
+///
+/// `epoch` is the app-local activation generation and does the staleness job.
+/// `content` is WHICH CONTENT, and it is the only term in the binding two peers
+/// can agree on — which matters because `TransactionId` renders as
+/// `{binding}\t{room}\t{session}`, is registered `component-canonical`, and two
+/// of its three terms are per-App counts. Projecting to `{room}` alone would hand
+/// every entity in one room the same identity, so the projection needs this.
+#[test]
+fn a_content_binding_states_which_content_as_well_as_which_generation() {
+    use ambition_platformer2d_core::{ContentEpoch, PeerContentIdentity};
+
+    let stated = ContentBinding::Content {
+        epoch: ContentEpoch(4),
+        content: PeerContentIdentity::from_bytes([7u8; 32]),
+    };
+    assert_eq!(stated.content_epoch(), Some(ContentEpoch(4)));
+    assert_eq!(
+        stated.peer_content(),
+        Some(PeerContentIdentity::from_bytes([7u8; 32]))
+    );
+
+    // ⛔ THREE STATES, NOT TWO, and a projection has to keep them apart.
+    // `RuntimeDynamic` is NOT content-derived at all; a fixture's binding IS
+    // content-derived with nobody stating which. Folding those together would let
+    // a summon agree with a room entity built outside a prepared session.
+    let unstated = ContentBinding::Content {
+        epoch: ContentEpoch(4),
+        content: PeerContentIdentity::default(),
+    };
+    assert_eq!(ContentBinding::RuntimeDynamic.peer_content(), None);
+    assert_eq!(unstated.peer_content(), Some(PeerContentIdentity::default()));
+    assert!(!unstated.peer_content().unwrap().is_stated());
+    assert!(stated.peer_content().unwrap().is_stated());
+
+    // ⚠ AND THE CANONICAL SUMMARY STILL RENDERS THE EPOCH ALONE, deliberately.
+    // It is the first field of `TransactionId`, which is `component-canonical`,
+    // so changing what it renders changes a canonical identity every rollback
+    // timeline carries and every plan dump that records one. Two bindings that
+    // differ ONLY in content therefore summarise identically today — pinned here
+    // so the change that wires the peer half into the identity has to come here
+    // and say so.
+    assert_eq!(stated.canonical_summary(), unstated.canonical_summary());
+    assert_eq!(stated.canonical_summary(), "epoch:4");
 }

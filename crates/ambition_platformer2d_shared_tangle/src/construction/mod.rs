@@ -665,7 +665,24 @@ impl ConstructionScope {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContentBinding {
     /// Prepared against one exact generation of prepared content.
-    Content(ambition_platformer2d_core::ContentEpoch),
+    ///
+    /// ⭐⭐ **TWO HALVES, AND THEY ANSWER DIFFERENT QUESTIONS.** `epoch` is the
+    /// app-local activation generation — which committed activation of prepared
+    /// content this is — and it does the staleness job: a plan built against
+    /// epoch N is refused at a boundary running N+1. `content` is which CONTENT,
+    /// and two Apps holding the same prepared definition agree on it no matter
+    /// how many times either one reloaded.
+    ///
+    /// ⛔⛤ THE PEER HALF EXISTS BECAUSE `TransactionId` HAS NOTHING PEER-STABLE
+    /// TO PROJECT TO. It renders as `{binding}\t{room}\t{session}` and is
+    /// registered `component-canonical`, so the whole string is compared between
+    /// peers while two of its three terms are per-App counts. Excluding them
+    /// would leave `{room}` alone — and that hands every entity in one room the
+    /// same identity, which is worse than the defect being fixed.
+    Content {
+        epoch: ambition_platformer2d_core::ContentEpoch,
+        content: ambition_platformer2d_core::PeerContentIdentity,
+    },
     /// Not derived from prepared content at all — a summon, a projectile, a
     /// dropped item. Built and committed inside a single tick, so it cannot
     /// outlive a reload and has no generation to be stale against.
@@ -678,15 +695,38 @@ impl ContentBinding {
     /// does not apply to it — NOT that its generation is unknown.
     pub const fn content_epoch(self) -> Option<ambition_platformer2d_core::ContentEpoch> {
         match self {
-            Self::Content(epoch) => Some(epoch),
+            Self::Content { epoch, .. } => Some(epoch),
+            Self::RuntimeDynamic => None,
+        }
+    }
+
+    /// WHICH CONTENT this plan was built against, for a peer projection.
+    ///
+    /// `None` for a runtime-dynamic plan, which is not content-derived at all.
+    /// ⚠ `Some(PeerContentIdentity(0))` is DIFFERENT and means "content-derived,
+    /// but nobody stated which" — a fixture or a unit test building plans outside
+    /// a prepared session. A projection must keep those apart, which is what
+    /// `PeerDigest::opt_u64` is for.
+    pub const fn peer_content(
+        self,
+    ) -> Option<ambition_platformer2d_core::PeerContentIdentity> {
+        match self {
+            Self::Content { content, .. } => Some(content),
             Self::RuntimeDynamic => None,
         }
     }
 
     /// Byte-stable rendering for the plan dump.
+    /// ⚠ **IT RENDERS THE EPOCH ONLY, DELIBERATELY, AND THAT IS NOT AN
+    /// OVERSIGHT.** This string is the first field of [`TransactionId`], which is
+    /// `component-canonical` — so changing what it renders changes a canonical
+    /// identity every rollback timeline carries, and every plan dump that records
+    /// one. The peer half is CARRIED by the binding and reachable through
+    /// [`Self::peer_content`]; wiring it into the identity is the separate,
+    /// reviewable change that also gives `TransactionId` its projection.
     pub fn canonical_summary(self) -> String {
         match self {
-            Self::Content(epoch) => format!("{epoch}"),
+            Self::Content { epoch, .. } => format!("{epoch}"),
             Self::RuntimeDynamic => "runtime-dynamic".to_string(),
         }
     }

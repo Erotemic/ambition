@@ -1029,9 +1029,23 @@ pub struct ActiveContentBinding(pub ambition_platformer2d_shared_tangle::constru
 
 impl ActiveContentBinding {
     /// The binding for one exact prepared-content generation — the app-side
-    /// spelling for "the session now runs under this epoch".
-    pub fn content(epoch: ambition_platformer2d_core::ContentEpoch) -> Self {
-        Self(ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(epoch))
+    /// spelling for "the session now runs under this epoch, prepared from this
+    /// content".
+    ///
+    /// ⭐ BOTH HALVES OR NEITHER. The epoch does the staleness job and the
+    /// content identity is the only term in the binding two peers can agree on;
+    /// a caller that has one has the other, because `PreparedContent` exposes
+    /// `epoch()` and `fingerprint()` side by side. Taking them as separate
+    /// arguments is what stops a caller from stating the local half and
+    /// forgetting the peer half.
+    pub fn content(
+        epoch: ambition_platformer2d_core::ContentEpoch,
+        content: ambition_platformer2d_core::PeerContentIdentity,
+    ) -> Self {
+        Self(ambition_platformer2d_shared_tangle::construction::ContentBinding::Content {
+            epoch,
+            content,
+        })
     }
 }
 

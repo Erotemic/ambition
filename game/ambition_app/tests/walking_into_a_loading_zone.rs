@@ -342,9 +342,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         // targets the live session's own root.
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             sim.world_mut(),
-            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
-                ambition_platformer2d::engine_core::ContentEpoch(epoch),
-            ),
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(ambition_platformer2d::engine_core::ContentEpoch(epoch), Default::default()),
         );
         let here = body_pos(&mut sim);
         arm_the_discriminators(&mut sim);

@@ -1666,9 +1666,7 @@ mod tests {
         // this plan was not prepared against.
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            super::transaction::ActiveContentBinding::content(
-                ambition_platformer2d_core::ContentEpoch(7),
-            ),
+            super::transaction::ActiveContentBinding::content(ambition_platformer2d_core::ContentEpoch(7), Default::default()),
         );
 
         stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());

@@ -248,14 +248,10 @@ impl<'a> ActorConstructionContext<'a> {
             recipes,
             characters,
             sheets,
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
-                content_epoch,
-            ),
+            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content { epoch: content_epoch, content: Default::default() },
             // A plan states ONE generation until a caller says otherwise;
             // `for_room_construction` is the only road that can separate them.
-            incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
-                content_epoch,
-            ),
+            incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content { epoch: content_epoch, content: Default::default() },
             prepared: None,
             brain_profiles: None,
             continuity: None,

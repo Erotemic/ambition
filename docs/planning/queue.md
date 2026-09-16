@@ -1148,6 +1148,47 @@ reaches at least one caller the census does not name, and the nine is a floor.
 `game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs` (1),
 `game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs` (1).
 
+✅ **TWO OF THE NINE ARE NOW READ ARM BY ARM, WHICH IS THE ONLY WAY THE
+POPULATION BECOMES A DEFECT COUNT — 2026-09-16.**
+
+⛔⛤ **`game/ambition_app/src/headless/tests.rs` — REAL, TWO ARMS, FIXED.** The
+shared fixture `sandbox_sim_app` is where every arm in that file gets its clock,
+so it is where the pin belongs, and it now pins `ManualDuration(timestep)`.
+MEASURED UNPINNED first, because the numbers explain why nobody noticed: settling
+spent **15 fixed steps in 2 frames** — banked wall time from plugin build and
+startup, clamped by the max-delta — and the following **twenty frames bought
+SEVEN ticks, thirteen of them stepping none at all**. ⇒ So the arms in that file
+were passing on wall time the STARTUP had banked, which means their green was a
+property of the box being slow enough.
+
+  - ⛔ `sim_completes_60_ticks_with_counter_intact` said *"Run 60 ticks (1 sim
+    second at 60Hz)"* in a comment and ran 60 FRAMES, then asserted
+    `last_frame <= total`. **`0 <= 0` is true**, so the arm passed against a
+    counter that had never been written — the ordering property it exists to
+    check is unobservable on a counter at zero. It now carries a floor
+    (`counter.total > 0`) and, with the fixture pinned, its comment is true.
+  - ⛔⛤ `sim_accumulates_messages_across_repeated_attacks` pressed attack on every
+    other tick and asserted `BrainActionCounter::total >= 10` — but `total` counts
+    **every action by every actor**. POISONED by holding the button un-pressed for
+    the entire run: **it still passed.** The arm was named for attacks and
+    measured the room. It now counts MELEE messages and runs the same twenty ticks
+    twice, pressed and idle: **10 against 0**, and the difference is the
+    assertion. Poisoned again with the press severed — 0 against 0, and it fails
+    saying so.
+
+⭐ **`game/ambition_demo_mary_o/src/movement/tests.rs` — FOURTEEN `update()`
+CALLS AND ZERO DEFECTS, AND THE REASON INDICTS THE CENSUS.** The one arm that
+calls `add_headless_foundation` there
+(`her_authored_gait_makes_speed_something_she_builds_and_keeps`) calls `update()`
+**zero times** — it reads the authored
+tuning off the catalog. Every arm that DOES update builds a bare `App::new()`,
+inserts `WorldTime { scaled_dt: 1.0 / 60.0 }` BY HAND, and registers its system in
+`Update`. That is correct unpinned and correct forever. ⇒ **The membership rule is
+file-level co-occurrence — "this file calls the foundation somewhere and calls
+`update()` somewhere" — and the unit of the defect is an APP, not a file.** Two of
+the nine are now settled and they land on opposite ends: one file where the rule
+found real bugs and one where it found nothing at all.
+
 ⚠ **BEING IN THAT LIST IS NOT A DEFECT, and this row must not be read as nine
 bugs.** An arm that only exercises `Update`-schedule behaviour is correct
 unpinned. The defect is an arm that asserts about SIMULATION state after N

@@ -12,6 +12,18 @@ fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
     crate::app::shell_host::compose_ambition_gameplay_host(&mut app);
+    // ⛔ A FRAME IS A TICK HERE, AND IT WAS NOT BEFORE. `add_headless_foundation`
+    // brings `MinimalPlugins`, which leaves `TimeUpdateStrategy::Automatic`, so
+    // `update()` steps the fixed schedule a WALL-TIME-derived number of times.
+    // Measured on this fixture: settling banked enough wall time to spend 15 fixed
+    // steps in 2 frames, and the next twenty frames bought SEVEN ticks with
+    // thirteen of them stepping none at all. Every arm below that counts `update()`
+    // calls was counting frames and calling them ticks.
+    let timestep = app
+        .world()
+        .resource::<bevy::time::Time<bevy::time::Fixed>>()
+        .timestep();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app
 }
 
@@ -145,19 +157,27 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     );
 }
 
+/// `last_frame` is a per-frame count and `total` a running sum, so the observer
+/// double-counting or resetting out of order shows up as `last_frame > total`.
+///
+/// ⛔ THE FLOOR IS THE HALF THAT MAKES THIS AN ASSERTION. `0 <= 0` is true, so
+/// the comparison alone passed against a counter that had never been written —
+/// which is exactly what an unpinned clock produced, since the fixed schedule
+/// could step zero times for the whole run. The clock is pinned in the fixture
+/// now and the counter must have observed something.
 #[test]
 fn sim_completes_60_ticks_with_counter_intact() {
     use ambition_platformer2d::characters::brain::BrainActionCounter;
     let mut app = sandbox_sim_app();
-    // Run 60 ticks (1 sim second at 60Hz).
     for _ in 0..60 {
         app.update();
     }
     let counter = app.world().resource::<BrainActionCounter>();
-    // Total is a running sum, last_frame is per-frame count;
-    // last_frame must never exceed total (would indicate the
-    // observer is double-counting or the reset got out of
-    // order).
+    assert!(
+        counter.total > 0,
+        "sixty pinned ticks produced no brain action at all, so the ordering \
+         assertion below would pass on an empty counter"
+    );
     assert!(
         counter.last_frame as u64 <= counter.total,
         "last_frame={} exceeds total={}",
@@ -189,34 +209,53 @@ fn sim_includes_brain_plugin_registration() {
     );
 }
 
-/// Sustained run with multiple player attack presses: stamp
-/// attack on every other tick for 20 ticks and verify the
-/// counter accumulates at least 10 melee messages. Pins that
-/// the seam survives sustained brain-message production
-/// (not just single-tick poison).
+/// Sustained play with the attack pressed on every other tick emits melee
+/// messages, and the seam survives the repetition rather than only the first one.
+///
+/// IT USED TO READ `BrainActionCounter::total`, WHICH COUNTS EVERY ACTION BY
+/// EVERY ACTOR. Poisoned 2026-09-16 by holding the button un-pressed for the whole
+/// run: it still passed, because ambient brains clear a floor of ten on their own.
+/// The arm was named for attacks and measured the room. So it counts MELEE
+/// messages, and it runs the same twenty ticks with the button down and with it
+/// up — the difference is the assertion, and neither number alone is one.
 #[test]
 fn sim_accumulates_messages_across_repeated_attacks() {
-    use ambition_platformer2d::characters::brain::BrainActionCounter;
-    let mut app = initialized_sandbox_sim_app();
-    for i in 0..20 {
-        let attack = i % 2 == 0;
-        drive_control_frame(
-            app.world_mut(),
-            ControlFrame {
-                attack_pressed: attack,
-                ..ControlFrame::default()
-            },
-        );
-        app.update();
+    use ambition_platformer2d::characters::brain::ActorActionMessage;
+
+    fn melee_over_twenty_ticks(press: bool) -> usize {
+        let mut app = initialized_sandbox_sim_app();
+        let mut melee = 0usize;
+        for i in 0..20 {
+            drive_control_frame(
+                app.world_mut(),
+                ControlFrame {
+                    attack_pressed: press && i % 2 == 0,
+                    ..ControlFrame::default()
+                },
+            );
+            app.update();
+            melee += app
+                .world()
+                .resource::<Messages<ActorActionMessage>>()
+                .iter_current_update_messages()
+                .filter(|m| m.is_melee())
+                .count();
+        }
+        melee
     }
-    let counter = app.world().resource::<BrainActionCounter>();
-    // 10 attack-press ticks × 1 melee message each = 10 total.
-    // Other ticks may emit zero or other actions; assert
-    // floor.
+
+    let pressed = melee_over_twenty_ticks(true);
+    let idle = melee_over_twenty_ticks(false);
     assert!(
-        counter.total >= 10,
-        "expected ≥ 10 ActorActionMessages over 20-tick mix; got {}",
-        counter.total,
+        pressed > idle,
+        "ten attack presses over twenty ticks produced {pressed} melee messages \
+         against {idle} with the button never pressed, so this arm cannot tell a \
+         working attack seam from a room full of brains"
+    );
+    assert!(
+        pressed >= 10,
+        "expected one melee message per attack press over twenty ticks; got \
+         {pressed} (idle baseline {idle})"
     );
 }
 
@@ -284,5 +323,42 @@ fn sim_emits_action_messages_when_player_attacks() {
         melee_count >= 1,
         "expected at least one Melee ActorActionMessage; counter.last_frame={}",
         counter.last_frame,
+    );
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct ProbeFixedSteps(Vec<u32>, u32);
+
+/// How many fixed steps each `update()` of this file's fixture actually buys.
+#[test]
+#[ignore = "PROBE, print-only: reports the per-frame fixed-step count of the unpinned sandbox fixture"]
+fn probe_how_many_fixed_steps_the_sandbox_fixture_takes() {
+    let mut app = sandbox_sim_app();
+    app.init_resource::<ProbeFixedSteps>();
+    app.add_systems(
+        bevy::prelude::FixedUpdate,
+        |mut probe: bevy::prelude::ResMut<ProbeFixedSteps>| probe.1 += 1,
+    );
+    app.add_systems(bevy::prelude::Last, |mut probe: bevy::prelude::ResMut<ProbeFixedSteps>| {
+        let taken = probe.1;
+        probe.0.push(taken);
+        probe.1 = 0;
+    });
+
+    let settled = ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+        &mut app,
+        ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+    );
+    let settle_frames = app.world().resource::<ProbeFixedSteps>().0.len();
+    let settle_steps: u32 = app.world().resource::<ProbeFixedSteps>().0.iter().sum();
+    for _ in 0..20 {
+        app.update();
+    }
+    let per_frame = app.world().resource::<ProbeFixedSteps>().0.clone();
+    let after: Vec<u32> = per_frame[settle_frames..].to_vec();
+    let total: u32 = after.iter().sum();
+    eprintln!(
+        "PROBE settle={settled:?} settle_frames={settle_frames} settle_steps={settle_steps} \
+         after_settle_per_frame={after:?} after_settle_total={total}"
     );
 }

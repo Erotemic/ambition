@@ -1172,13 +1172,16 @@ unavailable here; **the reverse is what happens.**
 3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
    two-way ruling and not a three-way one.** A mid-session load staged at tick 40
    inside the rewinding schedule makes
-   `written_outside_the_rewinding_schedule()` return
-   `["...continuity::OccurrenceBaseline"]` and makes the sync test report
+   `written_outside_the_rewinding_schedule()` return BOTH
+   `["...continuity::OccurrenceBaseline", "...custody_horizon::CustodyBaseline"]`
+   and makes the sync test report
    `Err("checksum mismatch at frames [38, 39, 40]")` — a real desync at the frames
    of the load. The staging system's own writes to `AmbitionGameSave` and
    `SaveRestored` are inside the schedule and do NOT appear in the outside set;
-   what appears is the baseline, whose only writer is
-   `adopt_occurrence_checkpoint_from_save` in `Update`.
+   what appears is the pair of baselines, whose only writer is
+   `adopt_occurrence_checkpoint_from_save` in `Update`. ⇒ **Two hashed resources,
+   not one, so option 1's gate has to cover the whole `adopt_the_ledger` call and
+   not a single field.**
 
 ⚠ **AND THE DETECTOR IS GREEN FOR A REASON THAT IS NOT SAFETY.**
 `no_registered_type_is_written_outside_the_rewinding_schedule` can see these types

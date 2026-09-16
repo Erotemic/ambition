@@ -2182,14 +2182,24 @@ desyncs.**
 has.** `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
 stages a mid-session load at tick 40 on the sync-test harness:
 
-    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
+    baseline_rows / custody_rows              1 / 1
+    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline",
+                                               "...custody_horizon::CustodyBaseline"]
     session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
 
 ⇒ A REAL DESYNC, at the frames of the load. ⭐ And the attribution is clean: the
 staging system writes `AmbitionGameSave` and `SaveRestored` from INSIDE the
-rewinding schedule and neither appears in the outside set. What appears is
-`OccurrenceBaseline`, whose only writer here is
-`adopt_occurrence_checkpoint_from_save`, in `Update`.
+rewinding schedule and neither appears in the outside set. What appears is BOTH
+baselines, whose only writer here is `adopt_occurrence_checkpoint_from_save`, in
+`Update`.
+
+⛔⛤ **AND THE SECOND MEMBER TOOK A SECOND FIXTURE CORRECTION, WHICH IS THE SAME
+ERROR ONE LAYER IN.** The first seeded probe passed `Vec::new()` for the custody
+half, so that half of `adopt_the_ledger` wrote back what it read and
+`CustodyBaseline` stayed out of the set — reported as one defect and one clean.
+⇒ **Curing "the harness has no save file" does not cure "the save says nothing
+about this field".** The probe now ASSERTS both halves landed, poison-verified to
+fail with `(occurrence=1, custody=0)`, so the narrowing cannot recur silently.
 
 ⛔ **AND THE FIXTURE SHAPE IS THE PART THAT COST THE HOUR: YOU CANNOT STAGE A
 MID-SESSION LOAD FROM OUTSIDE THE TIMELINE.** Writing the save and clearing the

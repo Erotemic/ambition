@@ -1291,6 +1291,12 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
         .remembered()
         .rows()
         .count();
+    // ⭐ THE SECOND BASELINE, UNDER THE SAME PRESSURE FOR THE FIRST TIME.
+    let custody_rows = sim
+        .world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        .rows()
+        .count();
     let save_rows = sim
         .world()
         .resource::<AmbitionGameSave>()
@@ -1303,8 +1309,8 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
     let moved = audit.types_whose_census_moved_across_compared_frames();
     eprintln!(
         "PROBE mid-session-load latched={latched} baseline_rows={rows} \
-         save_rows={save_rows} comparisons {} -> {} outside_before={:?} \
-         outside_after={:?} moved={} health={:?}",
+         custody_rows={custody_rows} save_rows={save_rows} comparisons {} -> {} \
+         outside_before={:?} outside_after={:?} moved={} health={:?}",
         audit_before.0,
         audit.live_comparisons,
         audit_before.1,
@@ -1320,6 +1326,35 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
         &trace[28.min(trace.len())..42.min(trace.len())]
     );
     eprintln!("PROBE moved types: {moved:?}");
+
+    // ⛔ THE PREMISE, ASSERTED, BECAUSE ASSUMING IT IS WHAT PRODUCED THE WRONG
+    // ANSWER LAST TIME. A staging system that loads nothing reports an empty
+    // outside set and looks exactly like a clean subject. Both halves of the
+    // durable horizon must actually arrive before the reading below means
+    // anything.
+    assert_eq!(
+        (rows, custody_rows),
+        (1, 1),
+        "the staged load must put a row in BOTH baselines, or this probe is \
+         reporting on a subject that was never captured (occurrence={rows}, \
+         custody={custody_rows})"
+    );
+
+    // The defect, stated so that FIXING it reds this arm instead of leaving a
+    // stale `#[ignore]`d probe agreeing with whatever the code does. Q135 is
+    // the ruling; when it lands, invert this.
+    let outside = audit.written_outside_the_rewinding_schedule();
+    for owed in [
+        "ambition_platformer2d_shared_tangle::lifecycle::continuity::OccurrenceBaseline",
+        "ambition_platformer2d_shared_tangle::lifecycle::custody_horizon::CustodyBaseline",
+    ] {
+        assert!(
+            outside.contains(&owed),
+            "{owed} is no longer written outside the rewinding schedule \
+             (outside={outside:?}) — if that is a FIX, invert this arm and \
+             close Q135; if it is a weaker fixture, the probe lost its subject"
+        );
+    }
 }
 
 /// The most rows `OccurrenceBaseline` ever held, sampled every frame — because
@@ -1358,11 +1393,20 @@ fn stage_a_mid_session_load_at_tick_40(
     mut restored: bevy::prelude::ResMut<SaveRestored>,
 ) {
     use ambition_platformer2d::persistence::save_data::{
-        PersistedOccurrence, PersistedWhereabouts,
+        PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
     };
     if tick.0 != 40 {
         return;
     }
+    // ⛔⛤ **THE CUSTODY LIST USED TO BE `Vec::new()`, AND THAT IS WHY
+    // `CustodyBaseline` READ CLEAN.** `adopt_occurrence_checkpoint_from_save`
+    // hands BOTH baselines to `adopt_the_ledger`, so an empty custody list makes
+    // it write back the same value it read — no census change, and the audit
+    // cannot see a write that does not move the value. The page recorded
+    // `CustodyBaseline` as clean on exactly that evidence, which was a statement
+    // about the PRESSURE and not about the resource. ⇒ Both halves are seeded
+    // now, so the two are under the same pressure and a difference between them
+    // means something.
     save.data_mut().set_durable_horizon(
         vec![PersistedOccurrence::new(
             "probe:seeded_occurrence",
@@ -1372,7 +1416,10 @@ fn stage_a_mid_session_load_at_tick_40(
                 y: 64,
             },
         )],
-        Vec::new(),
+        vec![PersistedCustody::new(
+            "probe:seeded_occurrence",
+            "probe:seeded_custodian",
+        )],
     );
     restored.0 = false;
 }

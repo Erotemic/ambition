@@ -734,33 +734,53 @@ mid-window, the room is not rebuilt, 7 of 7 roster entities survive and
 is taken. ⇒ **A checksum cannot disagree about a value that was put back before it
 was taken.** `AmbitionGameSave` satisfies all three and desyncs within six ticks.
 
-⇒ So the four are a FLOOR OF CANDIDATES, not a count of defects: **two measured
-defects, two measured clean under the pressure available.**
+⇒ So the four are a FLOOR OF CANDIDATES, not a count of defects. The count as of
+2026-09-16 is **three measured defects and one clean with a stated mechanism** —
+and it got there in three readings, each of which raised it, because the first two
+counted the fixture and not the code. The surviving clean entry is
+`NewGameResetRequested`, and what makes it different is that its clean verdict
+rests on a MECHANISM (*put back before it is taken*) rather than on an absence of
+findings.
 
-⛔⛤ **UPDATED 2026-09-16: `OccurrenceBaseline` IS THE SECOND MEASURED DEFECT, AND
-"MEASURED CLEAN" WAS "MEASURED EMPTY".** The runs that cleared it ran against a
+⛔⛤ **UPDATED 2026-09-16: BOTH BASELINES ARE MEASURED DEFECTS, AND "MEASURED
+CLEAN" WAS "MEASURED EMPTY" EACH TIME.** The runs that cleared them ran against a
 harness with no save file, so `adopt_the_ledger` wrote back the same empty value
 it read and condition 3 — *its value actually DIFFERS at a frame compared twice* —
 was never met by the fixture rather than never met by the code. Given a save that
-says something, staged from inside the rewinding schedule at tick 40:
+says something in BOTH halves of the durable horizon, staged from inside the
+rewinding schedule at tick 40:
 
-    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline"]
+    baseline_rows / custody_rows              1 / 1
+    written_outside_the_rewinding_schedule()  ["...continuity::OccurrenceBaseline",
+                                               "...custody_horizon::CustodyBaseline"]
     session_health()                          Err("checksum mismatch at frames [38, 39, 40]")
+
+⛔ **AND `CustodyBaseline` TOOK ONE MORE READING THAN `OccurrenceBaseline`, FOR A
+REASON WORTH KEEPING.** The staging system seeded occurrences and passed
+`Vec::new()` for custody, so `adopt_occurrence_checkpoint_from_save` — which hands
+BOTH baselines to `adopt_the_ledger` — wrote the custody half back unchanged. The
+save file existed, the load ran, the writer executed, and the resource still did
+not move. ⇒ **A fixture can put pressure on one field of a pair and none on the
+other, and the report does not say which.** The old one-member reading is
+reproducible on demand: emptying the custody seed again prints
+`outside=["...OccurrenceBaseline"]` with the second member gone.
 
 ⇒ Held by `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` in
 `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, `#[ignore]`d
-because it demonstrates an unfixed defect. The ruling it wants is
+because it demonstrates an unfixed defect. It now asserts, rather than prints:
+its PREMISE (a row landed in both baselines, so a revert to `Vec::new()` fails
+loudly instead of quietly narrowing the subject) and the DEFECT (both names are in
+the outside set, so a fix reds the arm and forces the inversion). Both were
+poison-verified — the premise fires with `(occurrence=1, custody=0)` and the defect
+loop names the missing member. The ruling it wants is
 [Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
-⚠ **AND THE LESSON GENERALISES TO THE OTHER TWO:** "clean under the pressure
-available" is a statement about the pressure. `CustodyBaseline` has had no more
-pressure applied to it than `OccurrenceBaseline` had this morning.
 
 ⭐⭐ **AND THE OTHER TWO WERE MEASURED WITHOUT BEING AIMED AT, WHICH IS WHAT A
 PER-ENTRY CENSUS BUYS.** `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
 asserts the diverging set is EXACTLY `{AmbitionGameSave}`, over 364 probed
 entries. `CustodyBaseline` and `OccurrenceBaseline` are in that population and did
 not diverge — ⛔ **and 2026-09-16 showed why, which is not the reason this
-paragraph gives: both were EMPTY, and a seeded load makes `OccurrenceBaseline`
+paragraph gives: both were EMPTY, and a load that seeds BOTH halves makes both
 diverge and desync.** What follows is the original reasoning, kept because the
 window it describes is real and the conclusion drawn from it was not: in a window
 where `AmbitionGameSave` itself was being rewritten from
@@ -866,7 +886,8 @@ blind spots rather than by disagreement: `NewGameResetRequested` is put back
 within the frame (which is also why it satisfies the first two conditions and does
 not desync), and `CustodyBaseline` / `OccurrenceBaseline` are measured EMPTY for
 the whole run, below — ⛔ which is a statement about the FIXTURE, not about the
-code: seed the save and `OccurrenceBaseline` appears in this very set. Held by
+code: seed BOTH halves of the durable horizon and BOTH baselines appear in this
+very set. Held by
 `exactly_one_registered_type_is_written_outside_the_rewinding_schedule`, whose
 positive control is that the save MUST appear — a known answer established by a
 different route, because an empty set reads exactly like a clean world.
@@ -905,8 +926,11 @@ OccurrenceBaseline   live 0xa8c7f832281a39c5 -> 0xa8c7f832281a39c5   censuses: 1
 
 ⇒ **Both baselines are EMPTY for the whole run and their live checksums never
 move**, so their clean verdict is about a subject that was never captured. There
-is no defect here — and no evidence either, which is the distinction the limit
-was pointing at. ⛔ The tell that made it findable is worth keeping: **two
+is no defect VISIBLE TO THIS INSTRUMENT — and no evidence either, which is the
+distinction the limit was pointing at. ⛔ **And the later seeded probe settled
+which of the two it was: there IS a defect, in both.** So "no subject" was the
+right verdict about this run and the wrong thing to carry forward as a property
+of the resources. ⛔ The tell that made it findable is worth keeping: **two
 structurally different types produced the SAME digest**, which is what an
 empty-collection projection does, and a digest read without its population would
 have looked like two independent confirmations.
@@ -916,7 +940,9 @@ all four: `AmbitionGameSave` moves twice while its live value moves 247 times
 (effectively frozen, below); `NewGameResetRequested`, `CustodyBaseline` and
 `OccurrenceBaseline` are constant under both idle and play, and the two baselines
 are additionally measured EMPTY, so "constant" is not evidence about them either
-way.
+way. ⇒ **Two of those three were later shown to be defects under a seeded load;
+only `NewGameResetRequested` survives, and on a mechanism rather than on a
+constant.**
 
 ⛔⛤ **A CORRECTION TO THE SENTENCE ABOVE, MADE THE SAME DAY AND BY THE NEXT
 MEASUREMENT: "EXACTLY ONE VALUE" IS AN IDLE-RUN FACT.** The run that produced it

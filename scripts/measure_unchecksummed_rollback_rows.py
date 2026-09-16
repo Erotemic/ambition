@@ -154,6 +154,45 @@ def definition(ty: str) -> tuple[str, str, str]:
     return (kind, ",".join(floats) or "-", doc)
 
 
+# ⛔⛤ THE INTERSECTION, WHICH IS THE SHARPEST LIST THIS SCRIPT CAN PRODUCE.
+#
+# ⚠ THE FLOOR IS ON THE INTERSECTION, NOT ON ITS OPERANDS. Both halves being
+# large says nothing about the overlap, and an `ok: 0 compared` over two
+# non-empty sets is exactly the failure this rule exists for. So the assertion
+# lives here, beside the join, and not beside either input.
+def sharp_rows(
+    unprobed: list[tuple[str, str]], per_tick_read: list[str]
+) -> list[tuple[str, str, str]]:
+    """Rows that are outside the checksum AND read every tick AND carry a float.
+
+    A float drifts by rounding rather than by a logic error, the drift compounds,
+    the reader sees it on the next frame, and no checksum two peers compare can
+    see any of it. That is the whole desync shape in one row.
+
+    ⚠ AN UNRESOLVED TYPE (`?`) IS NOT COUNTED AS FLOAT-BEARING. It is not known
+    to be float-free either — `definition()` simply could not find it, and
+    silently promoting "unknown" to "risky" would inflate this list with the
+    instrument's own blind spots. `every_type_resolves` is the arm that keeps
+    `?` from happening at all; if it ever fires, this list is short, not long.
+    """
+    per_tick = set(per_tick_read)
+    rows = [
+        (name, ty, definition(ty)[1])
+        for name, ty in unprobed
+        if name in per_tick and definition(ty)[1] not in ("-", "?")
+    ]
+    if not rows:
+        raise AssertionError(
+            "the no-projection x per-tick x float-bearing intersection is EMPTY "
+            f"over {len(unprobed)} no-projection rows and {len(per_tick_read)} "
+            "per-tick readers. Both operands are non-empty, so an empty overlap "
+            "is a claim about the JOIN and not a clean bill of health — check "
+            "that `definition()` still resolves these types and that the row "
+            "names in `per_tick_read` are still spelled like `unprobed`'s."
+        )
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # THE READER CHECK
 #
@@ -380,6 +419,14 @@ def main() -> int:
     print(f"   {len(unread):4}  NO PRODUCTION READER THE TRIAGE CAN SEE")
     for name, ty in unread:
         print(f"         {name:44} {ty}")
+    # The selector, its floor and the reason all live on `sharp_rows`.
+    sharp = sharp_rows(unprobed, per_tick_read)
+    print(f"\n⛔⛤ NO PROJECTION x READ EVERY TICK x FLOAT-BEARING: {len(sharp)}")
+    print("   A float drifts by rounding, the drift compounds, the reader sees it")
+    print("   next frame, and no peer checksum can see any of it.")
+    for name, ty, floats in sharp:
+        print(f"   {name:44} {ty:34} {floats}")
+
     print("\n⚠ A ZERO-READER ROW IS A CLAIM ABOUT THE SCAN FIRST. `&'static T` in a")
     print("  Bevy `SystemParam` alias and a checksum probe taking `&T` both fooled")
     print("  this triage once; both are handled and pinned by its test.")

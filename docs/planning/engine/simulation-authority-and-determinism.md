@@ -419,10 +419,15 @@ Two worked examples, to show the classification is not uniform:
   `ActiveMatch::peer_stable_checksum`, which hashes the seat COUNT, and whether
   that constrains per-body slot assignment has not been measured.
 
-⇒ The next step is not a sweep of 175, and it is not a demotion pass either —
-that population looks close to zero, measured above. It is to stop the KIND
-asserting coverage it cannot know, then classify the payloads that can change
-mechanical behaviour.
+⇒ **BOTH HALVES OF WHAT THIS PARAGRAPH ONCE CALLED "NEXT" ARE DONE.** It is not a
+sweep of 175 and not a demotion pass — that population looks close to zero,
+measured above. It was to stop the KIND asserting coverage it cannot know, which
+landed at schema **v194** (the `detail` column now says *"bevy_ggrs clone
+snapshot; not in the session checksum"* and claims nothing about a coverer), and
+then to classify the payloads that can change mechanical behaviour, which is the
+triage table above and the 25-row intersection below. What remains after those is
+a DECISION, not a measurement: `Q122` on where a registration's justification
+lives, and the 25.
 
 ⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT — AND IT
 WAS WRONG TWICE.** The first version of this section said "93 unverified claims"
@@ -445,6 +450,166 @@ the sentence 93 times. Both halves failed:
 its **good value** — here, the baseline has 494 rows and 99 is a subset of them,
 so `grep -c` against the committed file is the check, and it takes one command.
 A peer ran it and corrected the number; nothing in my own output would have.
+
+⛔⛤ **AND THE 78 NARROW TO 25 WHEN THE THREE CONDITIONS ARE INTERSECTED.** "Read
+every tick" and "outside the checksum" are two thirds of a desync; the third is a
+value that can drift without anybody making a mistake. Measured 2026-09-16 over
+the no-value-projection rows:
+
+> **no value projection × read by an unfiltered per-tick query × carries a
+> float-bearing field = 25 rows.**
+
+`actor.animation_facts`, `actor.interaction`, `actor.render_size`,
+`actor.spawn_baseline`, `actor.sprite_offset`, `actor.sprite_posed_body`,
+`boss.capability`, `boss.config`, `boss.death_animation`, `boss.overrides`,
+`combat.tuning`, `encounter.camera_zoom`, `entity.transform`, `feature.hazard`,
+`gravity.flip_switch`, `item.ground_item`, `lifecycle.room_visual`,
+`mount.authored_size`, `mount.mass`, `mount.mountable`,
+`player.blink_camera_state`, `portal.emission`, `portal.gun_pickup`,
+`portal.placed`, `portal.shot`.
+
+⇒ A float drifts by rounding rather than by a logic error, the drift compounds,
+the reader sees it on the next frame, and no checksum two peers compare can see
+any of it. That is the whole shape in one row, twenty-five times.
+
+⚠ **THIS IS A RANKING, NOT A DEFECT LIST, AND THE DISCRIMINATOR IS WHETHER
+ANYTHING MUTATES THE VALUE AFTER SPAWN.** A value nobody writes cannot diverge
+between two peers who authored it from the same content, so the 25 split on that
+question and not on how alarming the name sounds. Measured 2026-09-16 by
+`git grep -E '(&mut +T\b|ResMut<T>|Mut<T>)'` over `crates/`, `game/` and
+`examples/`, excluding tests — **12 of the 25 are mutably borrowed in
+production**:
+
+| row | mut sites | row | mut sites |
+|---|---|---|---|
+| `item.ground_item` | 7 | `gravity.flip_switch` | 1 |
+| `actor.animation_facts` | 6 | `player.blink_camera_state` | 1 |
+| `portal.placed` | 4 | `portal.emission` | 1 |
+| `boss.death_animation` | 2 | `portal.gun_pickup` | 1 |
+| `actor.render_size` | 1 | `portal.shot` | 1 |
+| `feature.hazard` | 1 | `entity.transform` | republished every frame |
+
+The other 13 — `actor.interaction`, `actor.spawn_baseline`,
+`actor.sprite_offset`, `actor.sprite_posed_body`, `boss.capability`,
+`boss.config`, `boss.overrides`, `combat.tuning`, `encounter.camera_zoom`,
+`lifecycle.room_visual`, `mount.authored_size`, `mount.mass`, `mount.mountable` —
+have no mutable borrow anywhere in production. For those, a float field is not a
+drift risk; it is authored data that two peers read from the same content, and
+being outside the checksum costs nothing.
+
+⛔⛤ **MY FIRST VERSION OF THIS PARAGRAPH NAMED FIVE ROWS FROM INTUITION AND WAS
+WRONG ON TWO, IN BOTH DIRECTIONS.** It called `actor.spawn_baseline` and
+`mount.mass` sim-written — both have **zero** mutable borrows — while missing
+`item.ground_item` (7) and `actor.animation_facts` (6), the two largest writers in
+the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
+authored constants and the ones that sound like inventory bookkeeping are the
+mutated ones. A row's NAME is not a reading of its write set.
+
+⚠ **AND THE CENSUS'S OWN LIMIT, STATED BECAUSE THE NUMBER LOOKS DECISIVE.** A
+`&mut` census cannot see a component REPLACED by re-insertion, which is also a
+write. I probed for that and my `insert(T…)` pattern returned 0 or 1 for every
+one of the 13 — including components that must be inserted somewhere to exist at
+all, since bevy inserts them inside tuples. So that probe measured its own
+regex, not the code, and the 13 are "no mutable borrow", not "never written".
+Closing that gap wants the same runtime instrument as S8: **is there a frame at
+which this value differs between two saves of it?** `RollbackRestoreAudit`
+answers that and no static scan can.
+
+⛔ **THE FLOOR IS ON THE INTERSECTION, NOT ON ITS OPERANDS.** `sharp_rows` in
+`scripts/measure_unchecksummed_rollback_rows.py` RAISES rather than returning an
+empty list, because a join written against the wrong key — row names on one side,
+type names on the other — returns zero rows, and a list of zero risks reads as
+good news. An unresolved type (`?`) is also NOT promoted into the list, which
+would inflate it with the instrument's own blind spots. Both are pinned by
+`test_the_sharpest_list_is_an_intersection_and_excludes_each_operand_alone` and
+`test_an_unresolved_type_is_not_promoted_into_the_sharpest_list`, each with its
+negative case, and both were poisoned: each poison fires on its own arm only.
+
+### S8 — the hashed entries written from a schedule that never rewinds
+
+⛔⛤ **FOUR HASHED ENTRIES ARE WRITTEN FROM `Update`, AND ONE OF THEM IS A PROVEN
+SYNC-TEST DESYNC.** Measured 2026-09-16 by crossing
+`check_rollback_mutators_run_in_sim.py`'s offender list against the registration
+KIND of each type it names. The guard reports systems; it does not ask whether the
+value they touch is compared between peers, and that is the question that turns a
+placement note into a defect.
+
+| type the `Update` system writes | registration kind | hashed? |
+|---|---|---|
+| `AmbitionGameSave` | `resource-clone-custom-checksum` | **YES** |
+| `NewGameResetRequested` | `resource-canonical` | **YES** |
+| `CustodyBaseline` | `resource-clone-custom-checksum` | **YES** |
+| `OccurrenceBaseline` | `resource-clone-custom-checksum` | **YES** |
+| `OwnedItems` | `resource-clone` | no |
+| `SaveRestored` | `resource-clone` | no |
+
+Eight systems, six types, four hashed. The writers:
+`persist_inventory_to_save`, `persist_minted_item_horizon_to_save`,
+`persist_occurrence_horizon_to_save` and `dispatch_pending_dialog_requests`
+(`AmbitionGameSave`); `adopt_occurrence_checkpoint_from_save` (`CustodyBaseline`,
+`OccurrenceBaseline`); `grid_menu_action_activated` and
+`kaleidoscope_menu_action_activated` (`NewGameResetRequested`, `OwnedItems`);
+`complete_durable_restore` (`SaveRestored`).
+
+⚠ **BEING HASHED AND WRITTEN FROM `Update` IS NOT SUFFICIENT, AND THAT IS
+MEASURED, NOT ARGUED.** The predicate has three parts:
+
+1. the entry is hashed (`feeds_peer_checksum()`),
+2. its writer is outside the rewinding schedule,
+3. **its value actually DIFFERS at a frame that gets compared twice.**
+
+`NewGameResetRequested` satisfies 1 and 2 and does NOT desync: set from `Update`
+mid-window, the room is not rebuilt, 7 of 7 roster entities survive and
+`session_health` is clean for 180 frames — because the flag is put back before it
+is taken. ⇒ **A checksum cannot disagree about a value that was put back before it
+was taken.** `AmbitionGameSave` satisfies all three and desyncs within six ticks.
+
+⇒ So the four are a FLOOR OF CANDIDATES, not a count of defects: **one measured
+defect, three measured clean under the pressure available.**
+
+⭐⭐ **AND THE OTHER TWO WERE MEASURED WITHOUT BEING AIMED AT, WHICH IS WHAT A
+PER-ENTRY CENSUS BUYS.** `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
+asserts the diverging set is EXACTLY `{AmbitionGameSave}`, over 364 probed
+entries. `CustodyBaseline` and `OccurrenceBaseline` are in that population and did
+not diverge — in a window where `AmbitionGameSave` itself was being rewritten from
+`Update` on every frame, which is the sharpest pressure on them available, because
+`adopt_occurrence_checkpoint_from_save` READS `AmbitionGameSave` and writes both
+baselines from it. A chain of bag → save → baseline was live and only the first
+link moved.
+
+⚠ **THE LIMIT OF THAT NEGATIVE, STATED SO IT IS NOT CITED FURTHER.** The audit
+reports which entries DIVERGED; it does not report whether
+`adopt_occurrence_checkpoint_from_save` ran at all in that world — it early-returns
+on `restored.0` or on an empty primary-body query, and "clean" and "never
+executed" are the same reading here. ⇒ What is unmeasured is a window in which the
+occurrence ledger or custody themselves move. The instrument is the same one:
+`RollbackRestoreAudit::enabled()` read inside the live frames. See
+[ROLLBACK-BAG-DESYNC](../queue.md) and `Q129`.
+
+⛔⛤ **AND THE OBVIOUS REPAIR IS THE LARGEST ONE, MEASURED BY WHAT IT STOPS
+CHECKING.** "Take `AmbitionGameSave` out of the peer checksum — a save file is not
+simulation authority" was the recommendation on both sides of this until the
+writer census landed: of **19 systems taking `ResMut<AmbitionGameSave>`, 13 are in
+the SIM schedule** — quest advances, boss encounter progress, switch activations,
+shrine heals, cutscene ticks, wave encounters, flag effects. Removing the entry
+from the checksum would stop comparing all thirteen, in the schedule where the
+comparison is doing real work. ⇒ Deriving the save inside the sim schedule is the
+honest repair, and the three `persist_*` mirrors are the only reason it is not
+there already. Measured by CalculexAmbition and filed with the table in `Q129`.
+
+⚠ **TWO INSTRUMENT NOTES FROM THAT CENSUS, BOTH OF WHICH WOULD HAVE MOVED THE
+COUNT:** a name inside `.after(...)` is an ordering EDGE, not a registration, so a
+classifier that counts it attributes a system to whatever schedule its neighbour
+is in (`heal_save_shrine_system` has an `.after()` mention and a real
+`add_systems` elsewhere). And the three `persist_*` mirrors landing on the
+`Update` side is the POSITIVE CONTROL: a classifier that put them anywhere else
+would be wrong about the very systems the question is named for.
+
+⚠ **AND THE REPRODUCTION NEEDS A SUSTAINED CHANGE, NOT A CHANGE.** A `SimTick`-gated
+grant firing ONCE at tick 20 runs 240 steps clean with health `Ok` while the bag
+moves 3 → 4. Only the per-tick change reproduces — so an arm written around a
+single grant reports no divergence, which reads exactly like a repaired world. The
+pinned arm floors both audits on `resimulations > 0` for that reason.
 
 ### Host-to-host determinism witness
 

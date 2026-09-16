@@ -75,6 +75,19 @@ both sides by `the_boss_animator_takes_the_gate_and_not_a_phase`.
   with the cause one line above, and has been seen as six ordinary-looking
   compile errors with no `os error 28` anywhere.
 
+## A rollback-mutator red has THREE independent questions behind it
+
+Answering one is not a verdict:
+
+1. the write is inside the rewind window;
+2. the write is at a point no rewind CROSSES — which satisfies the guard without
+   moving anything;
+3. the TRIGGER is erasable by a rollback, which closes the WAIVER route and which
+   (2) cannot rescue.
+
+⚠ Applying (3) to another owner's road would have told them they were clear of a
+charge they had not answered. Name which question a green answers.
+
 ## What a green lane does and does not clear
 
 ⛔⛤ **NO P2P SESSION IS EVER BUILT IN THIS WORKSPACE.** `Session::P2P` appears

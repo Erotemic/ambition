@@ -128,6 +128,33 @@ The worked instances, with what each cost, are in
 [`../recipes/re-measuring-a-planning-claim.md`](../recipes/re-measuring-a-planning-claim.md);
 they are not repeated here.
 
+## An acceptance criterion that counts the OLD road's absence is satisfied by breaking the NEW one
+
+MEASURED 2026-09-16, across seven red arms in two lanes. A migration moved
+per-seat frame policy off `SeatControlFrameModes` and onto the control frame, and
+accepted itself with `measure_user_settings_in_simulation.py` reporting **zero**
+simulation readers of the old value. It truthfully did. ⇒ Every fixture that
+still wrote the old table now configured a policy nothing read, and a counter of
+READERS cannot tell that from success.
+
+⛔ **The absence of the old road is achievable by making the replacement resolve
+garbage.** So: **both halves or neither** — the absence count, PLUS a value
+witness that the new owner delivers the same answer. The value witness existed
+here (`gravity_symmetry_room`, which asserts velocities rather than wiring) and
+was not run.
+
+⚠ The same shape reaches guards and censuses, not just migrations: a threshold
+chosen from EXPECTATION rather than derived from the instrument's own output is
+the same failure. A floor of `>= 20` over a scan that could only ever see 5 is
+green for the same reason. ⇒ **Let the instrument set the number, and make the
+accounting balance rather than clear a bar.**
+
+⭐ And the corollary for the arms themselves: the arm that made this diagnosable
+refused to let a partial pass stand in for the whole table, and said so in its own
+failure message — *"the per-seat table is not reaching the derivation at all, so
+the seat-zero claim below proves nothing."* **An arm that names what its own green
+would NOT have proven is the arm you want failing.**
+
 ## Low-weight criteria
 
 Do not choose a solution merely because it is easier to implement right now. Ease of implementation has very little weight compared with elegance, maintainability, clarity, runtime behavior, and architectural fit.

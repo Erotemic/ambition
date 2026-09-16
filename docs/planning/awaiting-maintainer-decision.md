@@ -648,6 +648,25 @@ nothing happened. That is the same failure signature as a system that ran and
 found nothing to do, which is why neither the suite nor a reader can tell them
 apart without being told which semantics was intended.
 
+⭐⭐ **AND THERE IS ONE MITIGATION THAT IS WORTH DOING UNDER ANY OF THE THREE
+ANSWERS: PRINT THE POPULATION BESIDE THE VERDICT.** The ID-PEER owner supplied
+the general form of this signature from their own lane the same day, with two
+instances: a rollback audit reporting *"no component changed across a save/load
+of the same frame"* over **`carriers=0`** — a room authoring no ground item — and
+a `BodyAnimFacts` probe reporting 36 clean comparisons where every field was
+`0.000` and there was ONE distinct census. ⛔ The tell in a third case was that
+two structurally different types produced the SAME digest, which is what an
+empty-collection projection does; read without its population that looks like two
+independent confirmations.
+
+⇒ **"It ran and found nothing" and "it never ran" must be DIFFERENT STRINGS.** A
+carrier count, a row count, a distinct-census count, a root count — anything that
+makes the population visible next to the verdict. For this question the natural
+one is the ROOT COUNT, which
+`the_shipped_app_never_holds_two_session_roots_across_a_handoff` already computes
+every frame. That mitigation does not decide the ruling and is not a substitute
+for it: it makes the failure legible, not impossible.
+
 ## Q131 — how should a presentation system that writes `Transform` declare itself?
 
 **The last blocker on ROLLBACK-MUTATOR-POPULATION, and it is a shape question

@@ -57,8 +57,14 @@ When a command changes, update or delete the recipe in the same patch.
   it. ⛔ Most are an INSTRUMENT error, not a mistake about the code: a filter
   that could not match, a scan at the wrong granularity, a count that was a
   property of its own flags, two instruments using one word.
+- [`running-the-heavy-app-it-lane.md`](running-the-heavy-app-it-lane.md) — the
+  only instrument here that can see a schedule cycle, a composition that does not
+  step, or a rollback defect in a real host, and the one that can take the box
+  down. ⛔ `pkill -f` is not a safe cleanup; ENOSPC arrives as an ordinary compile
+  error; and NO P2P SESSION IS EVER BUILT, so a green lane clears a LOCAL
+  RESIMULATION defect and says nothing about two peers agreeing.
 - [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the
-  questions that catch a check which is CORRECT and never executed. ⛔ **fourteen**
+  questions that catch a check which is CORRECT and never executed. ⛔ **fifteen**
   members now, seven of them found in one gate script and most of the first ten
   by accident; several are still structurally live. Also holds the SIBLING
   family (a check that ran and could not have failed, 46 instances in

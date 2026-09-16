@@ -140,7 +140,26 @@ Much of this state was introduced as App resources for broad system access. Sess
 
 ### WHAT COULD DISAPPEAR
 
-Reset-only process storage where direct `SessionRoot` ownership works; repeated owner guards; separate reset lists. Do not force state that must exist before root creation into the root.
+⛔⛤ **MEASURED 2026-09-16: THE "RESET-ONLY" POPULATION IS EMPTY.** All 29
+`SessionScopedResources` members have at least one reader outside the reset that
+owns them — `scripts/measure_session_scoped_resource_readers.py`, which prints
+its own patterns so a reader can see what it would miss. The thinnest are
+`LastCutsceneRoom` (1 system param + 2 direct accesses) and `SwitchActivationQueue`
+(2 + 2); the fattest are `ControlledSubject` (14 + 13) and `MovingPlatformSet`
+(8 + 16). ⇒ **C03's session-scoped half is a MIGRATION, not a move.** There is no
+cheap subset to lift out first, and a plan that opens by hunting for one will
+spend its first day finding that out.
+
+⚠ The counts are a FLOOR — the scan cannot see `SystemState`, an alias, or a
+reader inside a macro — which is the right direction for THIS inference: a floor
+proves a member HAS readers and can never prove one has none. ⛔ The first version
+of that script reported three reset-only types and all three were wrong: it
+matched `Res<Short>` after stripping each type to its last path segment, while
+production writes `ResMut<ambition_cutscene::LastCutsceneRoom>`. A zero from a
+name-matching scan is a claim about the QUERY.
+
+Still on the table: repeated owner guards; separate reset lists. Do not force
+state that must exist before root creation into the root.
 
 ### DEPENDENCIES / BLOCKERS
 

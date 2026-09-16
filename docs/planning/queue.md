@@ -2063,6 +2063,14 @@ long and the compared frames are few."*
 ⇒ **MEASURED, same commit and box:** 3 of 3 runs of that arm alone PASS; 4 of 4
 arms of its file pass together; a second full lane came back 691/0/41. One
 failure in two full runs of 731 arms, zero in seven targeted runs.
+⇒ **AND THE SIX-DAY-OLD NAMED NEXT STEP IS NOW TAKEN: a full lane at
+`--test-threads=1` came back 691 passed / 0 failed / 41 ignored in 1053.40 s**
+(at `23a0d21a6`, same box). ⚠ **That is WEAK evidence and must not be read as a
+verdict** — the arm passes most parallel runs too, so one clean serial run is
+equally consistent with parallelism being irrelevant. The result that would have
+been strong is the opposite one: a serial run that still failed would have ruled
+parallel contention out in a single shot.
+
 ⛔ **CPU contention is REFUTED as the mechanism** — twelve busy-loop processes on
 a 12-vCPU box, then the arm three times: 3 of 3 PASS. Wall-clock starvation is
 not the variable. What remains that a 731-arm run has: many Bevy apps alive at

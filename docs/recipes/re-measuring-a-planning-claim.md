@@ -1164,3 +1164,41 @@ it produces the CONFIDENCE of a check without its content.
 ⭐ What found three of the four was not care, it was a SECOND instrument
 disagreeing — a compiler naming the caller a grep had dropped, a peer's scan
 disagreeing by an order of magnitude, a test suite red where a lane was green.
+
+### Ask what the CONSTANT would do to your check
+
+⛔ **An equality assertion `f(a) == f(b)` is satisfied by every `f` that throws
+information away — the constant function included.** A peer found this the
+expensive way on 2026-09-16: an agreement guard minted two hosts at different
+content epochs and asserted their provenance projections AGREE. It reported the
+lane closed TWICE, because the defect made both sides `content-unstated`, and
+`content-unstated` agrees with itself perfectly. **The defect made the assertion
+more true.**
+
+⇒ **If the constant passes, the guard holds at most HALF the claim.** The other
+half is a DISAGREEMENT arm: two inputs that must differ, asserted to project
+differently.
+
+⭐ **RUN THE TEST ON YOUR OWN CHECKS — it is one edit each.** Five guards written
+the same night were audited by collapsing their key reader to a constant:
+
+| guard | reader collapsed | caught by |
+| --- | --- | --- |
+| planning anchors | `slug()` → `"CONSTANT"` | two known-answer arms pinning the GitHub slug |
+| session-owner census | `bundle_members()` → `29` | **the wrong arm, by luck** — see below |
+| rollback-kind spelling | `offenders()` → `[]` | its known-answer control |
+| ledger storage kinds | `declaration_kinds()` → `["Resource","Component"]` | its known-answer control |
+
+⛔ **THE ONE THAT ALMOST GOT THROUGH IS THE LESSON.** The census guard's control
+asserted `real == declared[...]`, which a constant `29` satisfies forever, and it
+PASSED. What caught the constant was a SECOND bundle read by the same function
+disagreeing (`SessionOwnedCheckpointState` is 6). ⇒ **A control whose shape is an
+EQUALITY inherits the equality's blind spot** — written while auditing for
+exactly that class. It is now a disagreement arm: two subjects through one
+reader must report different numbers.
+
+⚠ **AND A FOLD CONTAINING THE SUBJECT IS NOT THE SUBJECT.** The peer's projection
+folded `content ⊗ room`, so any two ROOMS differ whatever the content term says;
+the collapse hid inside a value that still behaved perfectly well. The fix was to
+expose the one TERM the rule decides and assert on that. Witness the term your
+rule is about, not a hash that contains it.

@@ -399,6 +399,91 @@ fn probe_which_start_tick_stops_desyncing() {
     }
 }
 
+/// ⛔ ACCUMULATION OR AN UPDATE-CADENCE LAG — two candidates with OPPOSITE
+/// predictions, separated by one write. YardratAmbition's design; a mechanism
+/// that explains the number is not evidence for it, so this asks the tree.
+///
+/// **A — ACCUMULATION.** `grant` makes the bag `3 + (times the system has RUN)`,
+/// which is not a function of the FRAME, because a resimulation re-executes
+/// steps. Predicts: a value that changes every tick but is a pure function of
+/// the tick runs clean.
+///
+/// **B — THE ONE-UPDATE LAG.** The mirror runs in `Update`, once per
+/// `app.update()`, while GGRS snapshots during the sim schedule — so a frame's
+/// snapshot holds the save as of the PREVIOUS update, and how many sim steps sat
+/// in that update differs between passes. Predicts: a pure function of the tick
+/// still desyncs, because the lag is about WHEN the mirror ran.
+///
+/// ⚠ The second row is the control that keeps either answer from being about the
+/// harness: the same write fired ONCE must stay clean, reproducing `b0b7280dc`.
+#[test]
+#[ignore = "PROBE, print-only: accumulation versus an Update-cadence lag"]
+fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
+    fn set_from_tick(
+        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+        mut owned: bevy::prelude::ResMut<OwnedItems>,
+    ) {
+        // ⛔ A PURE FUNCTION OF THE TICK, which is the whole point: `take`
+        // everything first so the result cannot depend on how many times this ran.
+        owned.take(Item::HealthCell, u32::MAX);
+        owned.grant(Item::HealthCell, (tick.0 % 5) as u32);
+    }
+    fn set_from_tick_once(
+        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+        mut owned: bevy::prelude::ResMut<OwnedItems>,
+    ) {
+        if tick.0 == 20 {
+            owned.take(Item::HealthCell, u32::MAX);
+            owned.grant(Item::HealthCell, 2);
+        }
+    }
+
+    // ⛔ THE ROW THAT STOPS THIS REPEATING THE LAST MISTAKE. `set_from_tick`
+    // writes from tick 1, and the accumulating reproduction also writes from tick
+    // 1 while the one-shot control fires at 20 — so without this row the
+    // experiment varies START TICK alongside the arithmetic, which is exactly the
+    // confound that made "sustained versus single" wrong. An accumulating grant
+    // from tick 4 is clean; a pure function from tick 4 must be compared against
+    // THAT, not against the once-at-20 control.
+    fn set_from_tick_after_3(
+        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+        mut owned: bevy::prelude::ResMut<OwnedItems>,
+    ) {
+        if tick.0 >= 4 {
+            owned.take(Item::HealthCell, u32::MAX);
+            owned.grant(Item::HealthCell, (tick.0 % 5) as u32);
+        }
+    }
+
+    for (name, mut sim) in [
+        ("pure f(tick), EVERY tick", sim_composed_with(set_from_tick)),
+        (
+            "pure f(tick), every tick FROM 4",
+            sim_composed_with(set_from_tick_after_3),
+        ),
+        ("pure f(tick), ONCE at 20", sim_composed_with(set_from_tick_once)),
+        ("accumulating grant, EVERY tick", sim_composed_with(grant_each_tick)),
+    ] {
+        // ⛔ THE PREMISE, AND `bag=0` IS WHY IT IS HERE. `tick % 5` is zero once
+        // every five ticks, so the FINAL bag reads 0 both when the write ran and
+        // when it never ran at all. The high-water mark separates them: a write
+        // that ran reaches 4, and one that never ran never leaves the starter 3.
+        let mut peak = live_cells(&sim);
+        for _ in 0..120 {
+            sim.step(AgentAction::default());
+            peak = peak.max(live_cells(&sim));
+        }
+        println!(
+            "   {name:>32}: end tick={:>4} bag={:>4} peak={peak:>4} health={:?}",
+            sim_tick(&sim),
+            live_cells(&sim),
+            health(&sim)
+                .err()
+                .map(|error| error.chars().take(40).collect::<String>())
+        );
+    }
+}
+
 /// The schedule's own step count. This file never writes it, which is the
 /// point: it is the control column for a frozen bag.
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

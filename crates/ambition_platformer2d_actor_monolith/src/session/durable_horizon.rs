@@ -22,6 +22,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     OccurrenceBaseline,
     OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity,
 };
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// Whether the loaded save has been applied to this world.
@@ -264,16 +265,36 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // composition that also installs `session::reset` nothing and saves one that
     // does not.
     app.add_message::<crate::session::reset::NewGameResetCommitted>();
+    // ⛔⛤ **THE NEW-GAME RESET BELONGS IN THE REWIND WINDOW, AND IT USED TO SIT
+    // IN `Update` AT THE HEAD OF THE CHAIN BELOW.** It writes `BodyWallet` and
+    // lowers `SaveRestored`, both rollback-registered, so from `Update` it
+    // mutates state that every rewind restores and that this mutation is not
+    // replayed with — silent drift from the peer, and only under GGRS, because a
+    // fixed-tick host runs the same schedule either way.
+    //
+    // ⚠ The producer was already here: `process_new_game_reset_request` runs in
+    // the SIM schedule's `ResetProcessing`, and `NewGameResetCommitted` is
+    // `clear_message_on_rollback`. So a message produced INSIDE the rewind window
+    // was being consumed OUTSIDE it.
+    //
+    // ⇒ `.after(clear_transient_on_sandbox_reset)` puts it on the road its
+    // sibling consumer of this same message already takes, one step further
+    // along the chain that flushes the producer's deferred write.
+    //
+    // ⭐ AND THE ORDERING THE `Update` CHAIN EXISTED TO STATE IS PRESERVED BY
+    // THE FRAME, not by the chain: `RunFixedMainLoop` runs before `Update`, so
+    // the reset still precedes `persist_inventory_to_save` and cannot let the
+    // OLD run's bag be written into the freshly wiped save.
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        crate::items::persist::reset_inventory_on_new_game
+            .after(crate::session::reset::clear_transient_on_sandbox_reset),
+    );
     app.init_resource::<SaveRestored>()
         .add_systems(
             Update,
             (
-                // ⛔⛤ FIRST, AND THE ORDER IS THE FIX. A committed New Game
-                // establishes this run's durable item state and lowers
-                // `SaveRestored`; running it after the mirrors below would let
-                // `persist_inventory_to_save` write the OLD run's bag into the
-                // freshly wiped save on the very frame the wipe happened.
-                crate::items::persist::reset_inventory_on_new_game,
                 // Lifecycle state first: the room/custody baseline must be present
                 // before the load asks the ordinary checkpoint-resume road to act.
                 adopt_occurrence_checkpoint_from_save,

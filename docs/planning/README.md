@@ -38,6 +38,31 @@ sizes, because compressing a closed row to a receipt is this contract WORKING �
 cannot see a document that goes wrong while staying big; stale claims, discharged
 holds and broken citations have their own checks.
 
+## What else is mechanically enforced over this tree
+
+⛔ **DO NOT LIST THEM HERE. RUN THE LANE AND READ ITS JOB NAMES** —
+`./run_tests.sh --maintenance` — because a hand-written list of checks is a
+second authority that rots exactly like the claims these checks exist to catch.
+The lane is the list.
+
+⭐ What is worth saying in prose is the SHAPE of what they cover, because three
+of these classes are ones a careful reader would not think to look for:
+
+- a **gate sentence** naming a campaign `queue.md` marks finished — including the
+  prose spelling (*"X should finish before…"*), which is a third spelling of the
+  hold convention and was invisible to the first two rules;
+- a **number** restated away from its source: the session-owner census is
+  compared to `teardown.rs`, and any line in this tree stating that bundle's count
+  is swept for a stale copy — a third copy of it survived in a table cell after
+  the first two were corrected;
+- a **pointer into a heading** — a heading rename breaks every link to it while
+  the compiler, the citation checkers and the doc-link job all stay green.
+
+⚠ **AND THE LANE'S OWN BOUNDARY IS PRINTED BY THE LANE.** `--maintenance` does
+NOT run `pytest scripts/tests`, which holds the tests of the scripts it runs; its
+closing notice derives and names everything it skipped. A green here is a claim
+about this lane.
+
 ## Where the open work is
 
 [`queue.md`](queue.md) is the one live engineering execution ledger. If work is

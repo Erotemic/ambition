@@ -1067,7 +1067,7 @@ fn sanic_setup(
                     &construction_recipes,
                     &character_catalog,
                     &authored_sheets,
-                    Default::default(),
+                    ambition_platformer2d::platformer::construction::ContentBinding::content_unstated(Default::default()),
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,

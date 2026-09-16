@@ -12,6 +12,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{App, Commands, Update, World};
 
 use super::*;
+use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 use crate::features::{
     ActorConstructionContext, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
 };
@@ -158,7 +159,7 @@ fn prepare(
             recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            ae::ContentEpoch(4),
+            ContentBinding::content_unstated(ae::ContentEpoch(4)),
         )
         .with_prepared(fixture_cast()),
     )
@@ -3255,7 +3256,7 @@ fn prepare_with_placements(
             &engine_construction_registry(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            ae::ContentEpoch(4),
+            ContentBinding::content_unstated(ae::ContentEpoch(4)),
         )
         .with_prepared(fixture_cast()),
     )
@@ -3642,7 +3643,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
             &engine_construction_registry(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            ae::ContentEpoch(4),
+            ContentBinding::content_unstated(ae::ContentEpoch(4)),
         )
         .with_prepared(&cast),
     );
@@ -4061,7 +4062,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
                 &ambition_boss_encounter::BossCatalog::default(),
             ),
             // The INCOMING generation — what a reload is publishing.
-            ae::ContentEpoch(5),
+            ContentBinding::content_unstated(ae::ContentEpoch(5)),
             // The world it is being committed into, which is still N.
             Some(&live),
             None,
@@ -4128,7 +4129,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
                     &ambition_boss_encounter::BossCatalog::default(),
                 ),
                 // built FROM generation 5 …
-                ae::ContentEpoch(5),
+                ContentBinding::content_unstated(ae::ContentEpoch(5)),
                 // … to be committed INTO a world running 4.
                 Some(expected),
                 None,

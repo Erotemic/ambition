@@ -374,7 +374,11 @@ pub fn process_new_game_reset_request(
             &play_state.recipes,
             &play_state.character_catalog,
             &mechanics,
-            ambition_platformer2d_core::ContentEpoch::default(),
+            // A reset rebuilds the room the session is already living in; the
+            // live binding is what it is committed against.
+            ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                ambition_platformer2d_core::ContentEpoch::default(),
+            ),
             play_state
                 .active_binding
                 .as_deref()

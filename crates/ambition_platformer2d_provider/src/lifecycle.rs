@@ -2292,7 +2292,19 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // See `GenerationMechanics::of`.
                         &ambition_platformer2d_actor_monolith::session::mechanics::
                             GenerationMechanics::of(mechanical),
-                        prepared_identity.epoch,
+                        // ⭐ THE ACTIVATION GENERATION, BOTH HALVES, FROM THE
+                        // ONE VALUE THAT HOLDS THEM. `PreparedContentIdentity`
+                        // carries `epoch` and `fingerprint` side by side; naming
+                        // only the epoch here published a session binding whose
+                        // peer half was zero, and a later hot reload — which does
+                        // state both — was refused against it as stale with the
+                        // epochs equal.
+                        ambition_platformer2d_shared_tangle::construction::ContentBinding::content(
+                            prepared_identity.epoch,
+                            ambition_platformer2d_core::PeerContentIdentity::from_bytes(
+                                *prepared_identity.fingerprint.as_bytes(),
+                            ),
+                        ),
                         None,
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session

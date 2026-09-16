@@ -690,6 +690,35 @@ pub enum ContentBinding {
 }
 
 impl ContentBinding {
+    /// Both halves of a content generation, stated together.
+    ///
+    /// ⛔⛤ **THE PAIR IS MINTED ONCE OR IT DRIFTS.** `Content` used to be
+    /// reachable by struct literal, so a road holding a `PreparedContent` could
+    /// state the epoch and leave `content` at its zero value — and it did:
+    /// activation published `epoch: 1, content: 0` onto the session root while a
+    /// later hot reload, which did state both, was refused as stale against it.
+    /// The epochs matched; the halves did not. ⇒ a caller now names which
+    /// content, or says [`Self::content_unstated`] and means it.
+    pub const fn content(
+        epoch: ambition_platformer2d_core::ContentEpoch,
+        content: ambition_platformer2d_core::PeerContentIdentity,
+    ) -> Self {
+        Self::Content { epoch, content }
+    }
+
+    /// Content-derived, by a road that has no prepared fingerprint to name.
+    ///
+    /// ⚠ This is a SENTENCE, not a default: a fixture, a demo, or a stage
+    /// harness builds plans outside any prepared session and has nothing to
+    /// state. It is NOT [`Self::RuntimeDynamic`] — these plans ARE derived from
+    /// content — and [`Self::peer_content`] keeps the two apart.
+    pub const fn content_unstated(epoch: ambition_platformer2d_core::ContentEpoch) -> Self {
+        Self::Content {
+            epoch,
+            content: ambition_platformer2d_core::PeerContentIdentity::unstated(),
+        }
+    }
+
     /// The generation this plan names, for a commit boundary to compare against
     /// the live one. `None` means the plan is not content-derived and staleness
     /// does not apply to it — NOT that its generation is unknown.

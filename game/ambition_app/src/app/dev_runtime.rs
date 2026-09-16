@@ -502,7 +502,12 @@ pub(super) fn reload_ldtk_world_from_disk(
             // Every root the plan mints is stamped with it, which is what makes a
             // rebuilt root's `TransactionId` name the content it is actually made
             // of. It equals the live epoch exactly when the reload is equivalent.
-            committed_content.epoch(),
+            ambition_platformer2d::platformer::construction::ContentBinding::content(
+                committed_content.epoch(),
+                ambition_platformer2d::session::PeerContentIdentity::from_bytes(
+                    *committed_content.fingerprint().as_bytes(),
+                ),
+            ),
             // ⛔ AND THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
             // boundary compares against this, so the preflight's own generation
             // is not refused as stale by the generation it is introducing —

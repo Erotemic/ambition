@@ -629,6 +629,7 @@ fn construction_plan_id(
 mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::construction::ContentBinding;
 
     fn empty_spec(id: &str) -> RoomSpec {
         RoomSpec::new(
@@ -687,7 +688,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
                 .with_prepared(fixture_cast()),
         )
     }
@@ -793,7 +794,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, epoch).with_prepared(cast),
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(epoch)).with_prepared(cast),
         )
     }
 
@@ -1090,7 +1091,7 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
                 .with_prepared(fixture_cast()),
         )
         .expect("plan");
@@ -1265,7 +1266,7 @@ mod tests {
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
             session,
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
                 .with_prepared(fixture_cast()),
         )
         .expect("the candidate room plans")
@@ -2119,7 +2120,7 @@ mod tests {
         let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
-            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
                 .with_prepared(fixture_cast());
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,

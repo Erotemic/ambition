@@ -1210,7 +1210,12 @@ pub fn begin_room_transition_load_system(
                     &construction_services.4,
                     &construction_services.2,
                     mechanics,
-                    ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
+                    // A transition publishes no content, so it has no
+                    // fingerprint of its own to name; the live binding below is
+                    // what the boundary compares.
+                    ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                        ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
+                    ),
                     active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.

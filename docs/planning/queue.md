@@ -819,6 +819,42 @@ which basis a gesture resolves against under changing gravity, which is a feel
 question and not a netcode one.** That is the choice this row now records; it was
 not visible when the repair was written down.
 
+⛔⛤ **AND "THEY DIFFER ONLY IN FEEL" IS TOO KIND TO SHAPE 1 — THE DEVIATION LANDS
+ON THE DEFAULT CONFIGURATION, NOT AN OPT-IN ONE.** Measured 2026-09-16 from the
+definitions rather than from the names:
+
+| | value | where |
+|---|---|---|
+| default camera frame | `WorldFixed` (`#[default]`) | `CameraReferenceFrame` |
+| default movement mode | `ScreenRelative` | `InputFrameMode::DEFAULT_MOVEMENT` |
+| default aim mode | `ScreenRelative` | `InputFrameMode::DEFAULT_AIM` |
+
+`InputFrameMode::under_camera` collapses every mode to `BodyRelativeStrict` under
+a `SubjectFrame` camera — which would have made this whole question moot — but
+that is not the default, so nothing collapses on the shipped road.
+
+And `resolve_input`'s BODY, not its doc: `ScreenRelative` is
+`input.dot(self.side)` / `input.dot(self.down)`, and `BodyRelativeAssist` is
+`if self.down.y < 0.0 { -1.0 } else { 1.0 }`. Two of the three modes are DEFINED
+as a function of the CURRENT basis; only `BodyRelativeStrict` ignores it, and it
+is the default for nobody.
+
+⇒ So shape 1 resolves the default player's every gesture against a stale basis
+for the capture-to-frame lag, at each gravity flip — and `ScreenRelative`'s own
+contract is *"the body moves the way the stick points ON SCREEN at any gravity"*.
+That is not a preference being retuned; it is the default mode not doing the one
+thing that distinguishes it from `BodyRelativeStrict`, transiently.
+
+⚠ **WHAT IS NOT MEASURED, AND THE ROW SHOULD NOT PRETEND OTHERWISE:** the SIZE of
+that lag in frames (one `Update`'s worth of sim frames, more under catch-up), and
+whether it is perceptible at the rate authored gravity flips actually turn. Shape
+1 could still be chosen deliberately, trading a bounded transient for removing
+the concept from the simulation. What the row can no longer say is that the two
+are symmetric: shape 2 has no such transient, and `ControlFrame`'s own doc prices
+its cost at no `INPUT_STREAM_VERSION` bump, `#[serde(default)]`, no `Pod` bound.
+⇒ **The evidence points at shape 2; a maintainer choosing shape 1 is accepting a
+named cost rather than picking between equals.**
+
 **Next implementation:** two independent pieces, in either order.
 1. **Frame modes (unblocked, but pick a shape first — see above):** stop any `sim`
    system taking `Res<SeatControlFrameModes>`, and delete the waiver.

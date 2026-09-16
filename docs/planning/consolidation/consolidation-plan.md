@@ -443,13 +443,32 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ## 7. C07 — Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required
 
-**STATE:** candidate after composition decision
+**STATE:** candidate after composition decision. ⚠ **Its census was re-derived 2026-09-16 and GREW ~16%** (732 → at least 850). Re-scope before costing.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **DO NOT START BEFORE:** Supported composition profiles must be named first.
 
 ### CURRENT STATE
 
-Static source contains 732 optional Res/ResMut accesses over 196 type spellings. Most are not defects. Three high-authority cases already use composition discriminators: session scope, generation mechanics, and content binding.
+Static source contains **at least 850** optional Res/ResMut accesses in
+production files. Most are not defects. Three high-authority cases already use
+composition discriminators: session scope, generation mechanics, and content
+binding.
+
+⚠ **RE-DERIVED 2026-09-16; THIS LINE READ "732 accesses over 196 type
+spellings".** Counting `Option<Res<` / `Option<ResMut<` OPENINGS — which nesting
+cannot hide — gives **850 in production, 859 across all tracked `.rs`**. A
+stricter pattern that also extracts the TYPE resolves 771 of them over 202
+spellings; the ~79 it drops are nested generics like `Option<Res<Assets<T>>>`, so
+**202 spellings is a floor and 850 is the honest total**. ⇒ Both numbers moved
+UP, by about 16%. The population C07 exists to shrink has grown while the row
+waited on its composition decision.
+
+⭐ **AND THE HEAVIEST SPELLING IS ONE OF THE THREE THIS ROW CALLS ALREADY
+DISCRIMINATED:** `ActiveSessionScope`, 60 optional accesses — more than double
+the next (`GameAssets` 33, `PreparedCharacterRegistry` 24, `UserSettings` 20,
+`ActiveMatch` 18). Having a composition discriminator has not reduced how often
+the authority itself is reached for optionally, which is worth knowing before
+costing "replace optional fallbacks with explicit contracts".
 
 ### INDEPENDENT TRUTHS INVOLVED
 
@@ -517,7 +536,29 @@ Imports name the owner internally; public facade surface is deliberate and small
 
 ### CURRENT STATE
 
-The workspace has 80 packages. The largest package has 104,962 nonblank Rust lines, but durable architecture explicitly rejects a size-only carve of `actor_monolith`.
+The workspace has 80 packages (verified against `cargo metadata` 2026-09-16, and
+now guarded — see the ledger check). The largest package has **108,646** nonblank
+Rust lines, but durable architecture explicitly rejects a size-only carve of
+`actor_monolith`.
+
+⛔⛤ **AND RE-DERIVING THAT NUMBER 2026-09-16 FOUND SOMETHING THE HEADLINE HIDES:
+IT MIXES SOURCE AND TESTS, AND FOR A CRATE-BOUNDARY CAMPAIGN THAT IS THE WHOLE
+QUESTION.**
+
+| package | src | tests | total |
+| --- | ---: | ---: | ---: |
+| `crates/ambition_platformer2d_actor_monolith` | 60,228 | 48,418 | 108,646 |
+| `game/ambition_app` | 25,581 | 79,942 | 105,523 |
+| `game/ambition_content` | 41,594 | 10,895 | 52,489 |
+| `crates/ambition_combat` | 30,842 | 21,270 | 52,112 |
+| `crates/ambition_platformer2d_core` | 28,054 | 18,151 | 46,205 |
+
+⇒ `actor_monolith`'s PRODUCTION source is 60,228 lines — 55% of the headline —
+and `game/ambition_app` is the second-largest package almost entirely because of
+its test suite (76% tests; it holds the `app_it` integration arms). **You do not
+carve a package because its integration tests are large**, and a size-ordered
+list that mixes the two puts a test crate second. ⚠ The row already rejects a
+size-only carve; this says the size itself was not the size anyone meant.
 
 ### INDEPENDENT TRUTHS INVOLVED
 
@@ -569,10 +610,25 @@ document inside `docs/`.
 Start **C03: session-owned state and reset-infrastructure consolidation**. ✔ Both
 gates it named are discharged — A10 on 2026-09-15 and the peer-identity checkpoint
 on 2026-09-16 — so this is no longer "only after"; it is the recommendation.
-Close the named shell/content A-supersedes-B supersession witness first if it still shares activation code at that point.
-Mechanical editor admission does not block this campaign; its shared protocol is already the baseline.
+~~Close the named shell/content A-supersedes-B supersession witness first~~ —
+**DISCHARGED 2026-09-16**, both halves witnessed in the shipped composition; see
+`README.md`. Mechanical editor admission does not block this campaign; its shared
+protocol is already the baseline.
 
-Do not begin by moving all 32 values.
+⛔ **BUT DO NOT MOVE STORAGE BEFORE `Q132` IS ANSWERED.** It asks whether a
+handoff frame holding two session roots should make ~206
+`Single<.., With<SessionRoot>>` sites run or skip, and that ruling decides
+whether such a frame may exist at all — which is precisely what moving
+session-owned storage determines. Measuring and sequencing may start now; moving
+may not.
+
+⚠ **AND TWO OF THIS SEQUENCE'S OWN PREMISES WERE MEASURED AWAY ON 2026-09-16**
+(see C03's CURRENT STATE): there is no reset-only subset to lift out, and the two
+reset lists are a disjoint partition rather than two copies. The owner-by-owner
+sequence below is still the right shape; the cheap first win it implies is not
+there.
+
+Do not begin by moving all 36 values.
 Use a bounded owner-by-owner sequence:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the explicit narrower-lifetime list.

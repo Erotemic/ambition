@@ -263,6 +263,69 @@ def _doc_windows(doc: str) -> list[tuple[str, str]]:
     return out
 
 
+CENSUS = REPO / "docs/planning/consolidation/architecture-census.md"
+#: A backtick-fenced run of `Name, Name, Name` on one line — how the census
+#: spells each bundle's membership.
+NAME_LIST = re.compile(r"`([A-Z]\w+(?:,\s*[A-Z]\w+){4,})`")
+
+
+def member_lists() -> list[str]:
+    """RULE 4: the census's NAME LISTS must equal source's members, not just count.
+
+    ⛔⛤ **A COUNT IS NOT A CHECK ON A LIST, AND THIS DOCUMENT PROVED IT TWICE IN
+    ONE DAY.** §3 carried a 25-name list beside a stale 25; correcting the count
+    alone would have left a list missing four members and passed every rule this
+    guard had. And once the count is right, a RENAMED member keeps the count at 29
+    forever.
+
+    ⚠ The rule is EQUALITY of sets, and it names what is missing and what is
+    extra, because "the list is wrong" sends a reader to re-derive 29 rows.
+    """
+    text = CENSUS.read_text(encoding="utf-8")
+    findings = []
+    checked = 0
+    for name, rel in BUNDLES.items():
+        source = set(source_members(rel, name))
+        if len(source) < 3:
+            findings.append(
+                f"  RULE 4 read {len(source)} member(s) of {name} from source; "
+                "the field scan is broken, not the census"
+            )
+            continue
+        for listed in NAME_LIST.findall(text):
+            members = {part.strip() for part in listed.split(",")}
+            # A list is THIS bundle's when it overlaps it more than half — the
+            # census spells no bundle name on the list's own line.
+            if len(members & source) * 2 <= len(source):
+                continue
+            checked += 1
+            missing = sorted(source - members)
+            extra = sorted(members - source)
+            if missing or extra:
+                findings.append(
+                    f"  {name}'s name list in {CENSUS.name} does not match source: "
+                    + (f"missing {', '.join(missing)}" if missing else "")
+                    + ("; " if missing and extra else "")
+                    + (f"not in source: {', '.join(extra)}" if extra else "")
+                )
+    # ⛔ ANTI-VACUITY. A census whose lists stopped being backtick-fenced matches
+    # nothing and this rule certifies a document it never read.
+    if not findings and checked < len(BUNDLES):
+        findings.append(
+            f"  RULE 4 found {checked} member list(s) in {CENSUS.name} for "
+            f"{len(BUNDLES)} bundle(s). A list it cannot find is a list it cannot "
+            "check, and this rule must refuse rather than report clean."
+        )
+    return findings
+
+
+def source_members(rel: str, name: str) -> list[str]:
+    text = (REPO / rel).read_text(encoding="utf-8")
+    start = text.index(f"pub struct {name}")
+    end = text.index("\n}\n", start)
+    return [m.rsplit("::", 1)[-1] for m in RESMUT_FIELD.findall(text[start:end])]
+
+
 def declared() -> dict[str, int]:
     match = MARKER.search(PLAN.read_text(encoding="utf-8"))
     if not match:
@@ -300,7 +363,15 @@ BUNDLE = "SessionScopedResources"
 #: so this matches only the forms that state the BUNDLE'S OWN count.
 COUNT_FORMS = [
     re.compile(rf"SessionScopedResources[^\n]{{0,12}}?\((\*\*)?(\d{{1,3}})"),
-    re.compile(r"SessionScopedResources\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"),
+    # ⛔⛤ THE BACKTICK IS WHY THIS RULE MISSED A WHOLE STALE SECTION.
+    # `architecture-census.md` §3 read "`SessionScopedResources` names **25**
+    # process resources" — with the CLOSING BACKTICK between the name and the
+    # verb — while the same document's executive map had already been corrected
+    # to 36. One document, two numbers, and the rule that exists to find exactly
+    # that could not see past one character.
+    re.compile(
+        r"SessionScopedResources`?\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"
+    ),
     re.compile(r"(?:\*\*)?(\d{1,3})(?:\*\*)?[^|\n]{0,60}?accessed through one SystemParam"),
 ]
 
@@ -349,6 +420,7 @@ def main() -> int:
     real_bundle = bundle_members(BUNDLES[BUNDLE], BUNDLE)
     findings.extend(stray_counts(real_bundle))
     findings.extend(checkpoint_partition())
+    findings.extend(member_lists())
 
     name, rel = SINGLETON
     if f"pub struct {name}" not in (REPO / rel).read_text(encoding="utf-8"):
@@ -380,6 +452,10 @@ def main() -> int:
         "  and RULE 3: every SessionOwnedCheckpointState member either registers "
         "for rollback under a key the doc block names, or source declares its "
         "absence deliberate."
+    )
+    print(
+        "  and RULE 4: the census's member NAME LISTS equal source's members, "
+        "not merely their count."
     )
     return 0
 

@@ -1140,10 +1140,32 @@ the row before any code does.
 ⇒ ⛔ **Do not re-implement either half from the row text alone.** It reads as one
 20-line change and it is not.
 
-### HEADLESS-STEP-COUNT — nine arms step a headless app whose clock nobody pinned
+### HEADLESS-STEP-COUNT — ✅ CLOSED: three arms whose green was wall-clock luck
 
-**Owner:** unowned. Measured 2026-09-16 on the no-GPU box, which is the honest
-place for it.
+**Owner:** CalculexAmbition. Measured and closed 2026-09-16 on the no-GPU box,
+which is the honest place for it.
+
+✅ **RECEIPT, and the evidence for every sentence is below.** `MinimalPlugins`
+leaves `TimeUpdateStrategy::Automatic`, so an `update()` steps the fixed schedule
+a number of times derived from WALL TIME — measured, ten unpinned calls bought
+five ticks with seven consecutive frames stepping none. Nine files were in the
+census; **all nine are now read arm by arm, and three arms in TWO files were
+real**, both files in `ambition_app`'s own headless path:
+`run_headless`/`run_shared_host_headless` reported `ticks_run: max_ticks` (the
+caller's own argument echoed back, so `assert_eq!(report.ticks_run, 8)` was
+`8 == 8`), and two arms in `headless/tests.rs` asserted `0 <= 0` and read a
+whole-room action counter for an attack they never had to press. Fixed at
+`6bab891e5` and `ba825d22a` by pinning `ManualDuration(timestep)` at each
+fixture and each runner, counting real `FixedUpdate` executions, and looping
+until the TICK budget is met rather than running N frames. Guarded by
+`probe_how_many_fixed_steps_an_unpinned_headless_app_takes` (`013b70c89`) and by
+each repaired arm's own poison.
+
+⛔ **THE STANDING PROHIBITION THIS ROW BUYS:** never assert about simulation
+state after N `update()` calls without pinning the clock, and never report a
+count the caller supplied. The session world arrives on FRAMES with ZERO fixed
+steps (measured below), so "the app settled" is not evidence that anything
+simulated.
 
 **Current state:** `add_headless_foundation` brings `MinimalPlugins`, which
 leaves `TimeUpdateStrategy::Automatic` — so `RunFixedMainLoop` executes a number
@@ -1206,6 +1228,116 @@ reaches at least one caller the census does not name, and the nine is a floor.
 `game/ambition_app/src/headless.rs` (2),
 `game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs` (1),
 `game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs` (1).
+
+✅ **TWO OF THE NINE ARE NOW READ ARM BY ARM, WHICH IS THE ONLY WAY THE
+POPULATION BECOMES A DEFECT COUNT — 2026-09-16.**
+
+⛔⛤ **`game/ambition_app/src/headless/tests.rs` — REAL, TWO ARMS, FIXED.** The
+shared fixture `sandbox_sim_app` is where every arm in that file gets its clock,
+so it is where the pin belongs, and it now pins `ManualDuration(timestep)`.
+MEASURED UNPINNED first, because the numbers explain why nobody noticed: settling
+spent **15 fixed steps in 2 frames** — banked wall time from plugin build and
+startup, clamped by the max-delta — and the following **twenty frames bought
+SEVEN ticks, thirteen of them stepping none at all**. ⇒ So the arms in that file
+were passing on wall time the STARTUP had banked, which means their green was a
+property of the box being slow enough.
+
+  - ⛔ `sim_completes_60_ticks_with_counter_intact` said *"Run 60 ticks (1 sim
+    second at 60Hz)"* in a comment and ran 60 FRAMES, then asserted
+    `last_frame <= total`. **`0 <= 0` is true**, so the arm passed against a
+    counter that had never been written — the ordering property it exists to
+    check is unobservable on a counter at zero. It now carries a floor
+    (`counter.total > 0`) and, with the fixture pinned, its comment is true.
+  - ⛔⛤ `sim_accumulates_messages_across_repeated_attacks` pressed attack on every
+    other tick and asserted `BrainActionCounter::total >= 10` — but `total` counts
+    **every action by every actor**. POISONED by holding the button un-pressed for
+    the entire run: **it still passed.** The arm was named for attacks and
+    measured the room. It now counts MELEE messages and runs the same twenty ticks
+    twice, pressed and idle: **10 against 0**, and the difference is the
+    assertion. Poisoned again with the press severed — 0 against 0, and it fails
+    saying so.
+
+⭐ **`game/ambition_demo_mary_o/src/movement/tests.rs` — FOURTEEN `update()`
+CALLS AND ZERO DEFECTS, AND THE REASON INDICTS THE CENSUS.** The one arm that
+calls `add_headless_foundation` there
+(`her_authored_gait_makes_speed_something_she_builds_and_keeps`) calls `update()`
+**zero times** — it reads the authored
+tuning off the catalog. Every arm that DOES update builds a bare `App::new()`,
+inserts `WorldTime { scaled_dt: 1.0 / 60.0 }` BY HAND, and registers its system in
+`Update`. That is correct unpinned and correct forever. ⇒ **The membership rule is
+file-level co-occurrence — "this file calls the foundation somewhere and calls
+`update()` somewhere" — and the unit of the defect is an APP, not a file.** Two of
+the nine are now settled and they land on opposite ends: one file where the rule
+found real bugs and one where it found nothing at all.
+
+⭐⭐ **AND THE CHEAP CLASSIFIER FELL OUT OF ONE MEASUREMENT: THE SESSION WORLD
+ARRIVES ON FRAMES, NOT ON TICKS.** Pinned the sandbox fixture to
+`ManualDuration(Duration::ZERO)` — a clock that never advances, so the fixed
+schedule can never step — and `settle_until_session_world` STILL returned
+`Ok(2)`, with **`settle_steps=0` and every one of the following twenty frames
+stepping zero times.** ⇒ Session activation, room preparation and the canonical
+`RoomSet` are driven from `Update`. A headless arm can hold a fully built session
+world, name its active room, and have simulated **nothing**.
+
+⇒ **SO THE RULE FOR READING THE REST OF THE POPULATION IS:** after a settle loop,
+an assertion about STRUCTURE (an entity exists, a component is absent, a route is
+active, a visual was spawned) is honest unpinned, because structure is
+frame-driven. An assertion about a value the FIXED schedule computes (a position,
+a counter, a message the sim emits) is the defect, and the settle returning `Ok`
+proves nothing about it. ⚠ That also sharpens `settle_until_session_world`'s own
+doc note that it stops *"one frame before the session is DRIVABLE"*: it is not one
+frame, it is zero ticks.
+
+✅ **FOUR MORE OF THE NINE READ AND FOUND CLEAN, for the same reason in three
+cases:** `crates/ambition_platformer2d/src/lib.rs` (3 calls — `CausalPlugin` on a
+bare `App`, with `SimTick` SET BY HAND between updates, which is the pinning
+discipline done right), `crates/ambition_platformer2d_host/src/lib.rs` (3 — the
+clash-strategy systems, bare `App`, `Update`), and
+`game/ambition_demo_mary_o/src/movement/tests.rs` (14). In all three the file's
+`add_headless_foundation` call and its `update()` calls belong to DIFFERENT apps.
+`game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs` (1) settles on
+frames and then asserts purely structurally — that a live session root carries a
+`RoomSet` and carries NO `LdtkRuntimeIndex` — which the measurement above says is
+exactly the honest shape.
+
+⚠ **`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs` (1) is clean but
+sits on the line**, and is noted rather than filed: its `settle` is five frames
+and its subjects are presentation entities (`RoomVisual`, the world-label
+placement pass), which are `Update`-side. It would become a defect the day any of
+those spawns moved behind a fixed step.
+
+⛔ **ONE THING THE ZERO-STEP MEASUREMENT RAISES THAT IS NOT MINE AND IS NOT FILED
+AS A BUG:** session activation running wholly in `Update` is the same shape as the
+P0 repaired at `f95d49ce6` (three save mirrors living in `Update` while the values
+they mirrored rewound). Whether any of the activation state needs to be inside the
+rewinding schedule is a question for whoever owns session lifecycle, and
+`check_rollback_mutators_run_in_sim.py` only reaches ROLLBACK-REGISTERED types, so
+it cannot answer it either way.
+
+✅✅ **THE LAST TWO ARE READ AND THE CENSUS IS CLOSED: NINE FILES, TWO
+DEFECTIVE, THREE DEFECTIVE ARMS, ALL FIXED.** `game/ambition_demo_sanic/src/tests.rs`
+(30 `update()` calls) and `game/ambition_demo_mary_o/src/lib.rs` (21) are BOTH
+clean, and they are clean for one reason that is worth more than the count:
+
+⭐ **THE DEMOS ALREADY HAD THE DISCIPLINE.** Every fixture in those two files that
+combines `add_headless_foundation` with `update()` also inserts
+`ambition_platformer2d::time::WorldTime { scaled_dt: … }` BY HAND and runs its
+rules plugin in `Update` — so a frame is one tick of the demo's own clock, chosen
+by the author, and the assertions are EXACT rather than floors:
+`assert_eq!(remaining, STARTING_TIME - 2.0)` after two frames at `dt = 1.0`;
+`assert_eq!(elapsed, Some(1.0))` after two frames at `dt = 0.5`; a dwell test that
+sets `scaled_dt` to HALF the dwell so frame 1 must not cross it and frame 2 must.
+⇒ Those arms go RED if the number of executions changes, which is the property the
+three broken arms lacked.
+
+⛔⛤ **SO THE DEFECT WAS NOT DISTRIBUTED ACROSS THE REPOSITORY — IT WAS CONCENTRATED
+IN `ambition_app`'s OWN HEADLESS PATH**, which is the one place nobody hand-set the
+clock, because it is not a fixture: it builds the real app and runs the real loop,
+and a real app under `MinimalPlugins` has no one to set its clock for it. All three
+defective arms and both defective files are there. ⇒ The lesson for the next census
+is that the risky population is not "tests that use the engine foundation", it is
+**"code that runs the production loop in a test process"**, which is a much smaller
+set and contains everything found here.
 
 ⚠ **BEING IN THAT LIST IS NOT A DEFECT, and this row must not be read as nine
 bugs.** An arm that only exercises `Update`-schedule behaviour is correct

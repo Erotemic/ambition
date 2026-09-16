@@ -15,7 +15,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), nine of twelve roads closed (2026-09-16) | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged, but RE-SCOPE FIRST: premise measured substantially stale the same day** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
@@ -225,9 +225,9 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 ## 4. C04 — Make activated generation mechanics the only live-session construction source
 
-**STATE:** candidate after session ownership stabilizes
+**STATE:** candidate after session ownership stabilizes. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16); what remains is the composition-contract ruling.** Re-scope before costing.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** C03 owner decision + supported-composition decision.
+**DO NOT START BEFORE:** C03 owner decision + supported-composition decision. `hold-ok` — this row genuinely delivers ONE half of its own scope (the declared-profile half, MEASURED 2026-09-16) and is STILL HELD on the other: the supported direct/headless composition contract is a ruling nobody has made, and C03's owner decision now depends on `Q132`.
 
 ### CURRENT STATE
 
@@ -243,7 +243,26 @@ Direct-entry compositions predate universal prepared-generation activation and s
 
 ### WHAT COULD DISAPPEAR
 
-The second live-construction source when the product moves to a universal generation path. Keep explicit fixture construction if still useful, but make it a declared profile instead of an accidental missing-resource branch.
+⛔⛤ **MEASURED 2026-09-16: THE "ACCIDENTAL MISSING-RESOURCE BRANCH" IS ALREADY A
+DECLARED DECISION.** `GenerationMechanics::for_live_session(shell_routed, ..)`
+REFUSES — returns `None` — when a shell-routed session has no activated
+generation, and the discriminator is `SessionGatedSimulation`, which the source
+describes as *"installed only by `ambition_game_shell`'s session plugin, never
+inserted by direct-entry apps or headless harnesses"*. Composition MODE is asked,
+not inferred. Every live-rebuild road (`session/reset/mod.rs`,
+`room_transition/loading.rs`, `world/rooms/stage.rs`) goes through it; the
+preparation road uses `GenerationMechanics::of`.
+
+⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` IS CORRECT.**
+`game/ambition_app/src/app/dev_runtime.rs:491` — the HOT RELOAD, which passes
+`None` on purpose because it is BUILDING the generation that replaces the live
+one, and says so at the call site. Narrowing `new` to `pub(crate)` was tried and
+fails to compile for exactly that caller.
+
+⇒ **WHAT IS LEFT FOR C04 IS THE RULING, NOT A REFACTOR** — *"decide supported
+direct/headless composition contract"*, already its own DO-NOT-START-BEFORE. The
+same shape C03's third candidate turned out to have. Keep explicit fixture
+construction if still useful; the declared-profile half is delivered.
 
 ### DEPENDENCIES / BLOCKERS
 
@@ -259,13 +278,88 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** STARTABLE 2026-09-16 — every gate discharged
-**IMPLEMENTATION CAMPAIGN SIZE:** large
+**STATE:** STARTABLE 2026-09-16 — every gate discharged. ⛔ **BUT RE-SCOPE
+BEFORE STARTING: its premise is substantially STALE, measured the same day.**
+Five of the six values it proposes to collapse already land on ONE entity from
+ONE lowering, and the sixth carries its value from the same frozen generation.
+See CURRENT STATE.
+**IMPLEMENTATION CAMPAIGN SIZE:** large **(as written; the measured remainder is
+much smaller and has NOT been re-costed)**
 **DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + ~~shell/content A-supersedes-B witness~~ (discharged 2026-09-16; both halves witnessed in the shipped composition, see `consolidation/README.md`) + ~~identity checkpoint~~ — **DISCHARGED 2026-09-16 by its owner**, stated once in [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity) with its evidence and its one re-arm condition (`Q128`, which rebases the tick at an activation moment).
 
 ### CURRENT STATE
 
 `PreparedContentIdentity`, `ActiveContentBinding`, prepared content, LDtk index, generation mechanics, and room state do not all change under one current verdict. The content half has a gate/candidate road; the scene half is A10.
+
+⚠ **PARTIALLY RE-DERIVED 2026-09-16, AND TWO OF THE SIX ARE NOT WHAT THIS ROW
+IMPLIES.** `ActiveContentBinding` is a **Component**, not an App resource — one
+declaration (`world/rooms/transaction.rs`) and ONE production insert site, onto
+`session_root`, in the same `commands` batch that goes on to build the first
+room's construction plan. So it is already carried by the session it describes
+rather than queued as a separate global write. `PreparedContentIdentity` is also
+a Component, and is DERIVED (`prepared_content.identity()`) rather than written.
+⛔ The consolidation ledger had `ActiveContentBinding` recorded as a `Resource`,
+marked SOURCE_CONFIRMED; that is corrected, and a rule now checks every item's
+storage kind against source on each `--maintenance` run.
+
+⇒ **ALL SIX ARE NOW RE-DERIVED, AND FIVE OF SIX ARE COMPONENTS.**
+
+| the row's truth | the type | storage kind |
+| --- | --- | --- |
+| `PreparedContentIdentity` | `PreparedContentIdentity` | Component (DERIVED, `prepared_content.identity()`) |
+| `ActiveContentBinding` | `ActiveContentBinding` | Component, inserted on `session_root`, ONE production site |
+| prepared content | `PreparedContent` (`runtime/content_identity.rs`) | Component |
+| LDtk index | `LdtkRuntimeIndex` | Component |
+| generation mechanics | `SessionMechanics` | **Resource** — the only App global of the six |
+| room state | `RoomSet`, `RoomGeometry` | Components (the ledger records `RoomSet` as *on SessionRoot*) |
+
+⛔ **SO "SEPARATE QUEUED WRITES" DESCRIBES ONE VALUE, NOT SIX.** Five of the six
+are already entity-carried; the collapse this row proposes is largely a collapse
+that has happened.
+
+⭐⭐ **AND THEY DO HANG OFF ONE ENTITY, FROM ONE LOWERING.**
+`PlatformerSessionWorld` is a `#[derive(Bundle)]` of the session root's mutable
+components — `catalogs`, `room_set`, `geometry`, `active_room`,
+`starting_character`, `initial_body`, `requests` — and its own doc says it is
+*"constructed only by lowering an immutable `PreparedPlatformerSource`"*. It is
+built at `provider/src/lifecycle.rs:2166` as
+`prepared_content.source().instantiate_live()`, in the same function that takes
+`prepared_content.identity()` and, under the `ldtk` feature, installs the LDtk
+index as *"a SEPARATE component on the same root by the road that installed the
+format, so a game that uses no such format carries nothing for it"*.
+`ActiveContentBinding` is inserted on that same `session_root`.
+
+⇒ **ROOM STATE, PREPARED CONTENT, THE PREPARED IDENTITY, THE LDTK INDEX AND THE
+CONTENT BINDING ALL LAND ON ONE ENTITY, DERIVED FROM ONE PREPARED SOURCE,
+BEFORE PUBLICATION.** The row's premise — six values that "do not all change
+under one current verdict" — is substantially stale.
+
+⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2241`
+calls `actor_monolith::session::setup::simulation_world(..)` — the function that
+inserts `ActiveContentBinding` — from the SAME function that built the bundle at
+`:2166`, passing `session_root: world`, the root that activation just spawned.
+The comment at the call site states the design in the row's own words: *"Setup
+publishes the session's content generation ON it — not into a process global that
+a second session would have to overwrite."*
+
+⚠ **WHAT IS GENUINELY LEFT IS `SessionMechanics`, AND EVEN IT IS NOT A LOOSE
+WRITE.** It is a FIELD of the prepared content (`pub mechanical: SessionMechanics`,
+`provider/src/lifecycle.rs:1526`), so its VALUE comes from the same frozen
+generation — the doc there records why: a generation used to be prepared against
+cast N and have its world built from N+1 with the identity still claiming N.
+⛔ It is nonetheless a real App Resource: `Res`/`ResMut<SessionMechanics>` appears
+in FOUR production files and `teardown.rs` reads it through `world.resource`. ⚠ I
+did NOT locate its production install site — `insert_resource(..SessionMechanics)`
+matches only a test — and after three name-matching scans produced confident zeros
+tonight I am not reporting that absence as a finding. It is an open question for
+whoever starts C05, not evidence.
+
+⚠ Two caveats on the table. `PreparedContent` also names a non-ECS struct in
+`ambition_content_pack`, so the Component is the runtime projection rather than
+the only thing wearing that name. And a `RoomSet` deriving BOTH `Resource` and
+`Component` exists in `tests/ambition_workspace_policy` — a policy fixture, not
+production; a scan that counted it would report an App-global room set that does
+not exist.
 
 ### INDEPENDENT TRUTHS INVOLVED
 
@@ -293,13 +387,35 @@ One publication decision selects the candidate session/world. Content binding an
 
 ## 6. C06 — Converge reconstruction entry roads on one materialization/publication engine
 
-**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone
+**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone. ⭐ **Premise SPOT-CHECKED 2026-09-16 and it HOLDS** — unlike the four rows re-derived the same day. See CURRENT STATE for what was and was not measured.
 **IMPLEMENTATION CAMPAIGN SIZE:** large
 **DO NOT START BEFORE:** ~~C01~~ (discharged 2026-09-15) + C05.
 
 ### CURRENT STATE
 
 Initial session, room transition, same-room replay, checkpoint restore, New Game, and development reload already share parts of prepared room construction but still have different commit/publication wrappers.
+
+⭐ **SPOT-CHECKED 2026-09-16 AND THIS ROW HOLDS — the first of five re-derived
+today that did.** It is recorded because a run of stale rows makes the next one
+look stale too, and that is how a correct row gets rewritten.
+
+⇒ **THE MATERIALIZER IS ALREADY ONE PRIMITIVE.**
+`RoomConstructionPlan::spawn_contents` has a single definition
+(`world/rooms/stage.rs:379`) and exactly ONE production caller
+(`session/setup.rs:189`); every other call site is inside that file's
+`#[cfg(test)]` region. It delegates to `construct_room_candidate`, one exclusive
+-world command that consults the opening decision before building anything.
+`finalize_room_publication` likewise has one definition and two production call
+sites.
+
+⛔ **BUT THE WRAPPERS ABOVE IT ARE STILL DISTINCT, WHICH IS WHAT THIS ROW SAYS.**
+The room-transition road has its own `RoomTransitionApply::stage(..)`
+(`crates/ambition_platformer2d_runtime/src/room_transition/commit.rs:247`) with its own preflight —
+`NoSessionWorld`, `SubjectCannotTransit { subject, missing }` — reached without
+going through `session/setup.rs`. ⚠ I did NOT enumerate all six roads' wrappers;
+what is measured is that the room MATERIALIZER is shared and at least one commit
+wrapper is genuinely separate. The row's premise survives on that evidence, and
+its size has NOT been re-derived.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

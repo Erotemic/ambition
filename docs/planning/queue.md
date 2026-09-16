@@ -1188,6 +1188,55 @@ resource for a shape I guessed.
 invalidation is a frozen world agreeing with itself. `session_health` is clean at
 steps 0 through 5 and first reports at step 6.
 
+⇒ **AND THE SAME ANSWER ARRIVED BY A SECOND METHOD, WHICH ADDS ONE FACT THE
+CENSUS DIFF CANNOT SHOW: `Update` IS THE WRITER, MEASURED AT THE REWIND
+BOUNDARY.** `RollbackRestoreAudit` compares frame F's census against frame F's
+EARLIER census within one run, so it reads the resimulation itself:
+
+```
+frame 2: AmbitionGameSave  first xor 0x4f52c70a…  on replay 0xce4e4758…
+frame 3: AmbitionGameSave  first xor 0x8cf64e57…  on replay 0xce4e4758…
+frame 4: AmbitionGameSave  first xor 0xe2f498aa…  on replay 0xce4e4758…
+```
+
+⭐ **THE REPLAY XOR IS CONSTANT WHILE THE FIRST-PASS XOR MOVES EVERY FRAME.** That
+is step 4 of the chain above turned into a reading: a resimulation re-runs the sim
+schedule and not `Update`, so every replay of every frame sees whatever the LAST
+frame's `Update` wrote — one value, repeated. A two-run diff at one tick shows
+that the entry follows the bag; only the rewind boundary shows that the replay
+stops updating it.
+
+⇒ And the row-count half of the false negative, for the record beside the
+substring half: `PersistedItem` is `{ id, count }`, so granting the same item
+moves a `count` and leaves the ROW COUNT alone — `rows` is **7 in both arms at
+every step** while the summed quantity climbs 13 → 17 under granting and holds at
+10 in the control. Either reading alone would have said "not changing".
+
+**Pinned, so neither answer needs re-deriving:**
+`exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
+(`game/ambition_app/tests/which_hashed_entry_moves_when_the_bag_does.rs`) asserts
+the diverging set is exactly `{AmbitionGameSave}`, floors the control audit's
+`resimulations > 0` before reading its silence, and says in its own doc which
+failure direction is the good one: no divergence means the repair landed; a second
+type is a new finding; a diverging CONTROL means the cause is no longer the bag and
+every elimination needs redoing.
+
+ⓘ **TWO SESSIONS ANSWERED THIS INDEPENDENTLY AND IN PARALLEL, BY DIFFERENT
+METHODS, AND AGREED.** Both probes are kept because they measure different things:
+
+| probe | method | finds |
+|---|---|---|
+| `probe_which_hashed_entries_follow_the_bag` (`a_bag_changed_mid_window_reaches_the_save.rs`) | `census_all` of the granting run vs the still run AT THE SAME TICK | every hashed entry that DERIVES from the bag |
+| `probe_which_registered_type_diverges_when_the_bag_moves` (`which_hashed_entry_moves_when_the_bag_does.rs`) | `RollbackRestoreAudit`, one run, frame F's census compared against frame F's earlier census | the entries that DISAGREE WITH THEMSELVES across a resimulation |
+
+⚠ **ONE CORRECTION TO THE FIRST PROBE'S DOC, because it steered the choice of
+method:** it says a difference across a rewind *"cannot be observed from outside"*.
+It can, and the machinery for it shipped before either probe:
+`record_saved_census` censuses every save and compares when GGRS saves the same
+frame twice, which is what a resimulation is. That is where the constant replay
+xor above comes from, and the constant is the evidence that identifies `Update` as
+the writer — a two-run difference at one tick cannot see it.
+
 ⇒ NEXT. The mechanism is settled, so what is left is a product/architecture
 choice and it belongs to DURABLE-HORIZON-CHECKSUM: a value derived once per frame
 must not be compared once per tick. The two shapes are (a) derive the save inside
@@ -1229,6 +1278,16 @@ simulation authority. The second is smaller and probably right, and it is a clai
 about what peers must agree on — so it belongs to the maintainer rather than to a
 patch. ⚠ It settles three systems, not one: the other two `persist_*` mirrors
 write the same resource from the same `Update` chain.
+
+⭐ **AND IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE.** A `SimTick`-gated grant
+that fires once at tick 20 runs the full 240 steps clean — tick 241, health `Ok`
+— with the bag column proving the grant fired (3 → 4 at step 40) rather than the
+row passing for the wrong reason. ⚠ The gate is `SimTick` and not a `Local`
+precisely because a `Local` is not restored by a rewind: the replay would skip a
+grant the original pass performed and manufacture its own divergence. ⇒ So one
+pickup does not desync on this evidence and the reproduction demonstrates the
+sustained case. WHY they differ is unexplained and nobody should read "single
+changes are safe" out of one measurement at one tick.
 
 ⚠ The dialog increment below is still costed and still unmeasured; nothing here
 touches it.

@@ -96,20 +96,32 @@ fn probe_how_far_each_harness_ticks_over_the_same_window() {
             sim_composed_with(touch_the_bag_each_tick),
         ),
         (
+            "compose, grant ONCE at tick 20",
+            sim_composed_with(grant_once_at_tick_20),
+        ),
+        (
             "compose, request a grant each tick",
             sim_composed_with(request_a_grant_each_tick),
         ),
     ] {
-        let mut trajectory: Vec<(usize, u64)> = vec![(0, sim_tick(&sim))];
+        // ⛔ THE BAG TRAVELS WITH THE TICK, BECAUSE A ROW WHOSE SYSTEM NEVER
+        // FIRED IS CLEAN FOR THE WRONG REASON. "Granting once at tick 20 does not
+        // desync" and "the grant never happened" are the same trajectory, and
+        // only this column tells them apart.
+        let mut trajectory: Vec<(usize, u64, u32)> =
+            vec![(0, sim_tick(&sim), live_cells(&sim))];
         for frame in 1..=240 {
             sim.step(AgentAction::default());
             if frame % 40 == 0 {
-                trajectory.push((frame, sim_tick(&sim)));
+                trajectory.push((frame, sim_tick(&sim), live_cells(&sim)));
             }
         }
         // ⚠ A STOPPED CLOCK HAS A REASON AND `session_health` HOLDS IT. Printing
         // the trajectory without it reports the symptom and hides the cause.
-        println!("[tick] {name}: {trajectory:?} health={:?}", health(&sim));
+        println!(
+            "[tick] {name}: (step, tick, bag)={trajectory:?} health={:?}",
+            health(&sim)
+        );
     }
 }
 
@@ -245,6 +257,24 @@ fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
 
 /// The other half of the bisect: same road into the schedule, no writes at all.
 fn nothing_each_tick() {}
+
+/// ⛔ ONE CHANGE, NOT ONE PER TICK — which is what decides whether Q129 is
+/// urgent. A pickup during play changes the bag ONCE; this reproduction changes
+/// it every tick, which is the loudest possible version of the defect.
+///
+/// ⚠ The gate is `SimTick`, and that is the whole reason this is a valid
+/// one-shot. A `Local` flag would NOT be restored by a rewind, so the replay
+/// would skip the grant the original pass performed and manufacture a divergence
+/// of its own. `SimTick` is rollback state, so the replay re-enters the same
+/// branch on the same tick.
+fn grant_once_at_tick_20(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut owned: bevy::prelude::ResMut<OwnedItems>,
+) {
+    if tick.0 == 20 {
+        owned.grant(Item::HealthCell, 1);
+    }
+}
 
 /// ⛔ THE CONTROL THAT SEPARATES THE VALUE FROM THE SYSTEM. This takes the same
 /// `ResMut<OwnedItems>` at the same ambiguous schedule position and fires the

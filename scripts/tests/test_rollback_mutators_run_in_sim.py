@@ -365,3 +365,42 @@ def test_a_shrinking_population_is_a_failure_not_a_clean_report() -> None:
     finally:
         guard.POPULATION_FLOOR.clear()
         guard.POPULATION_FLOOR.update(original)
+
+
+def test_a_whole_file_compiled_out_is_not_production(tmp_path, monkeypatch) -> None:
+    """⛔ THE NAME CONVENTIONS ARE A PROXY; `#![cfg(test)]` IS THE FACT.
+
+    `features/ecs/fighter_harness.rs` is a test harness beside the code it
+    exercises: declared `mod fighter_harness;` with no `#[cfg(test)]` on the
+    DECLARATION and the attribute inside the file instead. Every name rule
+    passed it, so its `Update` registrations sat in the production corpus.
+    MEASURED: 4 files carry that attribute and all four were missed, so the
+    proxy had no overlap with the fact at all.
+    """
+    crate = tmp_path / "crates" / "demo" / "src"
+    crate.mkdir(parents=True)
+    (crate / "harness.rs").write_text(
+        """
+        #![cfg(test)]
+        registrar.rollback_resource_canonical::<MovingPlatformSet>(OWNER, "x");
+        pub fn fixture_writer(platforms: ResMut<MovingPlatformSet>) {}
+        app.add_systems(Update, (fixture_writer,));
+        """
+    )
+    (crate / "real.rs").write_text(
+        """
+        registrar.rollback_resource_canonical::<BaseGravity>(OWNER, "y");
+        pub fn real_writer(gravity: ResMut<BaseGravity>) {}
+        app.add_systems(Update, (real_writer,));
+        """
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    for cached in (guard.rollback_types, guard.mutating_systems, guard.system_param_mutables,
+                   guard._production_sources):
+        cached.cache_clear()
+
+    names = {name for name, _file, _sched, _hits in guard.collect(tmp_path)}
+    assert "real_writer" in names, "a production Update mutator must still be found"
+    assert "fixture_writer" not in names, (
+        "a file compiled out by `#![cfg(test)]` cannot hold a production registration"
+    )

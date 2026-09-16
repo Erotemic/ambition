@@ -846,7 +846,7 @@ exclusion until the reach really fell:
 
 | script | floor term(s) | measured | poison |
 | --- | --- | ---: | --- |
-| `check_capability_ships.py` | gated files / optional-read types / writer types | 1546 / 191 / 414 | RED |
+| `check_capability_ships.py` | files scanned / production files / optional-read types / writer types | 1546 / 1334 / 191 / 414 | RED |
 | `ecs_inventory.py` | crates / components / resources / registered systems | 78 / 638 / 493 / 1108 | refuses, 0 writes |
 | `test_every_smash_technique_has_a_translator.py` | ruleset files in the haystack | 282 | RED |
 
@@ -858,6 +858,14 @@ into the haystack so a const named only by a test reads as a connected technique
 — which is the recorded defect in its own docstring. ⇒ When the five collapse
 onto one owner, that call site must not LOSE exclusions, and no floor can see
 that. The floor makes the consolidation reviewable, not safe.
+
+⚠ **AND `check_capability_ships.py`'s FLOOR IS A PEER'S, NOT MINE.** We wrote one
+each in the same hour and theirs is better decomposed: it separates *files
+scanned* from *production files*, so a widened test exclusion shows up as the
+production count falling DIRECTLY rather than as a side effect on the type
+counts. Mine was dropped rather than merged — two floors on one script is the
+disease this row is about. Re-poisoned after taking theirs: widening `_is_test`
+to swallow every `.rs` file still fails it.
 
 ⛔⛤ **AND `ecs_inventory.py`'s FLOOR WAS WRONG ON ITS FIRST WRITING — ITS OWN
 POISON FOUND IT.** The check sat after the per-crate loop had already written its

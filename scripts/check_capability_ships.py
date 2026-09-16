@@ -179,30 +179,71 @@ def _is_test(path: Path) -> bool:
     return "tests" in path.parts or path.name in {"tests.rs", "test_support.rs"}
 
 
-#: ⛔⛤ **A POPULATION FLOOR, BECAUSE EVERY HOLE THIS CLASS OF CHECK HAS HAD
-#: FAILED IN THE GREEN DIRECTION.** `_is_test` is one of FIVE copies of "is this
-#: file test-only" in `scripts/`, and they have drifted into five different
-#: answers — this copy misses `*_tests.rs` and `test.rs`, which two of the others
-#: catch. Any correction to it makes this check EXCLUDE MORE, and a check that
-#: excludes more reports CLEANER. So a consolidation of those five would arrive
-#: looking like an improvement whether it was one or not.
+#: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A
+#: SOURCE-READING GUARD IS A CLEAN REPORT. Every finding here needs BOTH an
+#: `Option<Res<T>>` reader and a writer to be found; lose either pattern and the
+#: intersection empties silently, which is indistinguishable from "every
+#: capability ships".
 #:
-#: ⇒ The count is part of the verdict. A widened exclusion that swallows real
-#: production files cannot announce itself, but it cannot avoid making these
-#: numbers FALL. MEASURED 2026-09-16 at 1546 gated files / 191 optional-read
-#: types / 414 writer types; the floors sit just under that. Raise one when the
-#: tree genuinely grows; a DROP is the signature of the next hole.
+#: ⚠ THIS SCRIPT IS A KNOWN DIVERGENCE POINT. Its `_is_test` matches
+#: `test_support.rs` but NOT `test.rs` or `*_tests.rs` — the narrowest of the
+#: five copies of that rule in `scripts/` (see `GUARD-CORPUS` in
+#: `docs/planning/queue.md`). Widening it toward the others REMOVES files from
+#: `production files`, which is the green direction, so the floor exists to make
+#: that change reviewable rather than invisible.
 POPULATION_FLOOR = {
-    "gated files": 1500,
-    "optional-read types": 185,
-    "init_resource writer types": 400,
+    "files scanned": 1450,
+    "production files": 1250,
+    "optional read types": 175,
+    "writer types": 380,
 }
+
+
+def population_sizes() -> dict[str, int]:
+    gates = _gates_by_file()
+    production = [path for path in gates if not _is_test(path)]
+    optional: set[str] = set()
+    writers: set[str] = set()
+    for path in production:
+        source = _without_comments(_source(path))
+        optional.update(match["ty"] for match in OPTIONAL_READ.finditer(source))
+        writers.update(match["ty"] for match in INIT_RESOURCE.finditer(source))
+    return {
+        "files scanned": len(gates),
+        "production files": len(production),
+        "optional read types": len(optional),
+        "writer types": len(writers),
+    }
+
+
+def population_shortfalls() -> list[str]:
+    sizes = population_sizes()
+    return [
+        f"{label}: {sizes[label]} visible, floor is {floor}"
+        for label, floor in POPULATION_FLOOR.items()
+        if sizes[label] < floor
+    ]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
+
+    # ⛔ BEFORE ANY FINDING. A finding here is an INTERSECTION of two patterns,
+    # so losing either one empties the report and reads as "every capability
+    # ships" — the exact answer this guard exists to doubt.
+    shortfalls = population_shortfalls()
+    if shortfalls:
+        print(
+            "the scan lost reach — it can no longer see part of its own "
+            "population:\n\n  " + "\n  ".join(shortfalls) + "\n\n"
+            "Find the pattern or path rule that stopped matching before "
+            "trusting any verdict here. If the drop is legitimate, lower "
+            "POPULATION_FLOOR in the same commit that causes it.",
+            file=sys.stderr,
+        )
+        return 1
 
     gates = _gates_by_file()
     optional_reads: dict[str, set[Path]] = {}
@@ -221,27 +262,6 @@ def main() -> int:
             ty = match["turbo"] or match["ty"] or bindings.get(match["local"] or "")
             if ty:
                 writers.setdefault(ty, set()).add(path)
-
-    sizes = {
-        "gated files": len(gates),
-        "optional-read types": len(optional_reads),
-        "init_resource writer types": len(writers),
-    }
-    shortfalls = [
-        f"  {label}: {sizes[label]} visible, floor is {floor}"
-        for label, floor in POPULATION_FLOOR.items()
-        if sizes[label] < floor
-    ]
-    if shortfalls:
-        print(
-            "⛔⛔ THIS CHECK'S OWN REACH HAS FALLEN, so a clean verdict below would "
-            "be a claim about the SCAN and not about the tree:\n"
-            + "\n".join(shortfalls)
-            + "\n⇒ Something narrowed what this script can see — most likely the "
-            "test-file exclusion. Fix the reach, or lower the floor deliberately "
-            "and say why in the same commit."
-        )
-        return 1
 
     findings: list[str] = []
     for ty, read_sites in sorted(optional_reads.items()):

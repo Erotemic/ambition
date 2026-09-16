@@ -117,6 +117,29 @@ update the declared wire-format baseline intentionally.
 Use the repository's rollback baseline/checks; do not copy their counts into this
 page.
 
+⛔⛤ **AND THE FINGERPRINT HASHES PROSE, MEASURED 2026-09-16.** `schema_dump()`
+emits four columns — name, kind, wire type, and a human-readable `detail` — and
+`compute_schema_fingerprint` hashes the whole dump. So the `detail` string is
+inside content identity. Probed by changing TWO string literals in
+`rollback_component_clone` / `rollback_resource_clone` and changing nothing else:
+`the_rollback_schema_matches_its_recorded_baseline` fails and reports it in these
+words — *"This is a WIRE-FORMAT change: the fingerprint is part of content
+identity, and two peers whose schemas differ cannot agree about a snapshot."*
+
+⇒ **CORRECTING A MISLEADING DESCRIPTION IS INDISTINGUISHABLE FROM CHANGING AN
+ENCODING**, to the guard and to every peer. That is a disincentive pointed at
+exactly the repair S7 needs: the 93 rows whose `detail` asserts coverage the kind
+cannot establish would each cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump whose log
+entry would be the only non-mechanical one in that log.
+
+⇒ The one-fact-one-owner reading is that the mechanical schema is
+`name | kind | wire type` and `detail` is DOCUMENTATION of it: keep `detail` in
+the readable baseline, exclude it from the fingerprint, and descriptions become
+correctable while the guard still catches every real wire change. ⚠ That is
+itself a one-time fingerprint change over a mechanical identity with an absence
+contract on it (`rollback-wire-format-changes-are-declared`), so it is a decision
+rather than a cleanup — recorded here, not taken.
+
 ### Explicit simulation phases
 
 The GGRS simulation schedule has named Ambition phases and currently uses a
@@ -235,12 +258,29 @@ stale visibly.
 
 Two worked examples, to show the classification is not uniform:
 
-- ✔ `Dormant` (`actor.dormant`) — the claim HOLDS. Its own doc says *"derived
-  every tick; never authored, never persisted"*, and `assess_dormancy` recomputes
-  it from observer `BodyKinematics`, which are canonical. ⚠ It is arguably
-  mis-KINDED rather than mis-covered: a value recomputed every tick from
-  canonical state is what `derived` describes, and it is registered
-  `component-clone`.
+- ✔ `Dormant` (`actor.dormant`) — the claim HOLDS, and the registration is right
+  too. Its own doc says *"derived every tick; never authored, never persisted"*,
+  and `assess_dormancy` recomputes it from observer `BodyKinematics`, which are
+  canonical. ⛔ **THAT SENTENCE IS NOT A DEMOTION CANDIDATE, AND READING IT AS
+  ONE IS THE TRAP.** `Without<Dormant>` filters three production queries in
+  `features/ecs/actors/update.rs`, so a rewind that dropped the marker would put
+  a sleeping body back into the decision phase for one advance. The registration
+  beside its sibling `SensesUndecided` says so in the repository's own words:
+  *"'Re-derived next tick' is not a reason to omit it: `ITEM 0` of this project's
+  own record is a component declared derived, dropped by a restore, and read
+  before its writer ran again. Presence is authoritative because a query FILTERS
+  on it."*
+
+  ⇒ **A COMPONENT WHOSE PRESENCE IS READ BY A QUERY FILTER IS AUTHORITATIVE EVEN
+  WHEN ITS VALUE IS DERIVED.** "Derived" describes how it is COMPUTED; rollback
+  cares about whether anything READS it before its writer runs again. A doc
+  sentence that sounds like a demotion candidate is usually answering the first
+  question. A keyword sweep of the 212 types registered through a `*_clone`
+  method whose declaration doc matches `derived|recomputed|never authored|never
+  persisted` returns 21 CANDIDATES — and most of those say "derived" about
+  something else entirely (`ActorRenderSize`'s collision box, `CapturedBy`'s
+  inverse, `AuthoredHurtboxes`' absence). The demotion population looks close to
+  zero; 21 is a floor of candidates, not a count of defects.
 - ❓ `PlayerSlot` (`actor.player_slot`) — the claim is UNVERIFIED and I could not
   confirm it. It carries a `u8`, its own doc calls it *"the canonical 'which
   player?' handle"*, it appears exactly once in the baseline as `component-clone`,
@@ -249,10 +289,10 @@ Two worked examples, to show the classification is not uniform:
   `ActiveMatch::peer_stable_checksum`, which hashes the seat COUNT, and whether
   that constrains per-body slot assignment has not been measured.
 
-⇒ The next step is not a sweep of 175. It is to stop the KIND asserting coverage
-it cannot know, then classify the payloads that can change mechanical behaviour,
-and demote the ones that are genuinely `derived` to that kind so they leave the
-population honestly.
+⇒ The next step is not a sweep of 175, and it is not a demotion pass either —
+that population looks close to zero, measured above. It is to stop the KIND
+asserting coverage it cannot know, then classify the payloads that can change
+mechanical behaviour.
 
 ⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT.** The
 first version of this section said "93 unverified claims" and inferred, from 93

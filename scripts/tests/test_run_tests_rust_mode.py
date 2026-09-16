@@ -476,3 +476,44 @@ def test_a_stricter_lane_cannot_report_fewer_omissions_than_a_looser_one():
     assert alone_unchecked - rust_unchecked == rust_plan - alone_plan, (
         "the extra omissions named must be exactly the extra jobs dropped"
     )
+
+
+def test_the_maintenance_notice_names_every_job_that_lane_drops():
+    """⛔ THE LANE GAP THAT COST A DAY, ASSERTED AS A RELATION.
+
+    `--maintenance`'s notice was four hand-written words for a lane that drops
+    the pytest guard set carrying over a thousand tests — the same defect this
+    file already pins for `--rust` and `--rust-alone`. MEASURED 2026-09-16: a
+    commit changed a checker's return type, left three of its own tests red, and
+    shipped behind a green `--maintenance` whose notice never said the words
+    `scripts/tests`.
+
+    ⭐ Asserts the RELATION between the plan and the prose, like its siblings.
+    Spelling the names here would make this test another writer of the same fact.
+    """
+    notice = run_tests.coverage_notice(
+        exhaustive=False, filtered=False, maintenance_only=True
+    )
+    dropped = run_tests.unchecked_by_maintenance()
+    assert dropped, "the lane must drop something, or this test witnesses nothing"
+
+    missing = [job.name for job in dropped if job.name not in notice]
+    assert not missing, (
+        f"--maintenance drops {len(dropped)} job(s) and its notice does not "
+        f"name: {missing}"
+    )
+
+    # ⚠ AND WHAT IT NAMES MUST REALLY BE ABSENT FROM THE PLAN, or it names
+    # phantoms — a notice that lists a job the lane actually runs teaches the
+    # reader to distrust the whole list.
+    planned = {job.name for job in run_tests.build_maintenance_jobs()}
+    still_planned = [job.name for job in dropped if job.name in planned]
+    assert not still_planned, (
+        f"the notice claims --maintenance skips {still_planned}, but the lane "
+        "plans them"
+    )
+
+    # ⛔ AND THE ONE THAT MATTERS BY NAME. The relation above would still hold if
+    # the repo-coupled pytest job left the plan entirely; this pins that the lane
+    # gap the notice exists for is the one being named.
+    assert "scripts/tests" in notice

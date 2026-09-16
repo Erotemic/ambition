@@ -58,6 +58,11 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "TransactionId",
     // Carry `session`, `activated_on` and/or the local seat-topology generation.
     "ActiveMatch",
+    // ⛔⛤ CARRIES A `SessionScopeId` AS ITS OWNER TAG, and was registered
+    // whole-value in the commit that introduced it. The guard did not name it,
+    // which is why a list of type names has to be updated by whoever adds a
+    // carrier — the baseline sees the ROW, not the field.
+    "SessionMatchOrdinal",
     // ⛔ CARRIERS OF `CheckpointOperationKey`. Found by the GPT review of
     // 2026-09-15, after this guard had reported the campaign complete twice:
     // every one of them is a `*CustomChecksum` kind, which the old string list
@@ -128,6 +133,15 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
     "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
     "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
+    // `SessionMatchOrdinal::peer_stable_checksum` projects the count of matches
+    // the session has activated, excluding its `SessionScopeId` owner tag.
+    // `the_peer_projection_ignores_the_local_session_id_once_a_match_has_activated`
+    // holds the body; ⚠ and
+    // `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
+    // holds the window the projection does NOT close — the mint resets lazily,
+    // so it carries the previous session's count until this session's first
+    // activation. Closing that is a carve to session-owned state.
+    "ambition_match::seating::SessionMatchOrdinal",
 ];
 
 /// Values that ARE canonical while still being a function of host-local

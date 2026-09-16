@@ -51,8 +51,10 @@ roster, and publishes or drops; the session road prepares a candidate session of
 to the side and admits it through the shell gate. There is no mode flag — the
 candidate-bracket selector is deleted, not frozen.
 
-Post-A10 demolition is the active lane. Do not use this census as an
-implementation plan for it; use it to find roads whose replacement now exists.
+Post-A10 demolition CLOSED on 2026-09-16 on both the symbol and public-surface
+axes, with a mostly negative result (see the A10 row). It is no longer a lane.
+Use this census to find roads whose replacement now exists, not as an
+implementation plan.
 
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.
 The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B

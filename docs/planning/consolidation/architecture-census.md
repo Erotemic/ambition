@@ -25,8 +25,8 @@ The main consolidation pressure is not the number of ECS objects. It is where on
 - direct-entry compatibility still gives some canonical values a second App-global fallback road;
 - live content/session values can be updated separately around development reload.
 
-The current A10 implementation should finish before another agent changes the room publication model.
-The identity correction is also separate active work.
+⚠ **THIS LINE USED TO SAY "the current A10 implementation should finish before another agent changes the room publication model". A10 CLOSED on 2026-09-15 and its demolition on 2026-09-16**, so that sentence was holding a door shut that nobody was behind — the exact stale-blocker shape this corpus keeps finding. The room publication model is not gated on A10 any more.
+The identity correction is still separate active work.
 
 ## Evidence and limits
 

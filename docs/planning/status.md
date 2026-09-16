@@ -31,9 +31,13 @@ the world OUTSIDE its own population, so a room published inside a pending
 candidate session announces nothing to the live one until that session is
 admitted.
 
-Post-A10 demolition is the active lane: deleting the mechanisms A10's replacement
-made dead. Peer-stable identity (ID-PEER) runs beside it as a separate campaign
-with a separate agent, and is no longer "next" — see below.
+**And post-A10 demolition is CLOSED too (2026-09-16), on both axes.** Its result
+was almost entirely negative: every A10 symbol has live production callers, and
+exactly one `pub` item across `transaction.rs` and `stage.rs` had no caller
+outside those two files. One dead mechanism was deleted, one accessor narrowed.
+⇒ **There is no active A10 lane.** Peer-stable identity (ID-PEER) runs as a
+separate campaign with a separate agent — see below — and the consolidation
+control plane is the remaining work here.
 
 The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
 

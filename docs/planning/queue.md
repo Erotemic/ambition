@@ -11,7 +11,7 @@ it.
 
 ## P0 — architecture and correctness
 
-### A10 — candidate world / last-good-world publication
+### A10 — candidate world / last-good-world publication — ✅ DONE, DEMOLITION CLOSED 2026-09-16
 
 **Owner:** [construction and reconstitution](engine/construction-and-reconstitution.md).
 
@@ -55,9 +55,15 @@ The five ownership contracts named by the 2026-09-15 holistic audit:
 | 4 | True pre-construction refusal | CLOSED — `construct_room_candidate`, witnessed by an insertion hook |
 | 5 | One exact verification-and-application target | CLOSED — one entity through both ends, every sink preflighted |
 
-**NEXT IMPLEMENTATION STEP.** None. Post-A10 demolition is the active lane:
-delete the mechanisms A10's replacement made dead, and keep the consolidation
-control plane matching source. ⛔ Not part of A10: peer-stable identity
+**NEXT IMPLEMENTATION STEP.** None, and post-A10 demolition is no longer an
+active lane either — it CLOSED on 2026-09-16 on both axes, with a mostly NEGATIVE
+result that is worth keeping because it is what stops the next reader re-running
+it: of every A10 symbol, ALL have live production callers, and of every `pub`
+item in `transaction.rs` and `stage.rs`, exactly one had no caller outside those
+two files. One dead mechanism was found and deleted (`CandidateState`,
+`09629b060`); one accessor was narrowed. ⭐ A demolition that finds almost
+nothing is a result about the CAMPAIGN — A10 replaced its mechanisms rather than
+layering over them — and it is only worth that if the negative is recorded. ⛔ Not part of A10: peer-stable identity
 (ID-PEER's row below), the defensive `DepartureAuthority::Custodian` fallback,
 and the refused-door player signal — the last is presentation policy awaiting a
 product ruling, not last-good-world correctness.

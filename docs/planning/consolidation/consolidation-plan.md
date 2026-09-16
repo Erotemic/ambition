@@ -15,7 +15,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), nine of twelve roads closed (2026-09-16) | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged, but RE-SCOPE FIRST: premise measured substantially stale the same day** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
@@ -259,8 +259,13 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** STARTABLE 2026-09-16 — every gate discharged
-**IMPLEMENTATION CAMPAIGN SIZE:** large
+**STATE:** STARTABLE 2026-09-16 — every gate discharged. ⛔ **BUT RE-SCOPE
+BEFORE STARTING: its premise is substantially STALE, measured the same day.**
+Five of the six values it proposes to collapse already land on ONE entity from
+ONE lowering, and the sixth carries its value from the same frozen generation.
+See CURRENT STATE.
+**IMPLEMENTATION CAMPAIGN SIZE:** large **(as written; the measured remainder is
+much smaller and has NOT been re-costed)**
 **DO NOT START BEFORE:** ~~A10 complete~~ (discharged 2026-09-15) + ~~shell/content A-supersedes-B witness~~ (discharged 2026-09-16; both halves witnessed in the shipped composition, see `consolidation/README.md`) + ~~identity checkpoint~~ — **DISCHARGED 2026-09-16 by its owner**, stated once in [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity) with its evidence and its one re-arm condition (`Q128`, which rebases the tick at an activation moment).
 
 ### CURRENT STATE

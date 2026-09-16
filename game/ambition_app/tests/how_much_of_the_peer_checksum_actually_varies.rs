@@ -32,12 +32,18 @@
 //! PROCESS, AND THAT IS A PROPERTY OF THE TEST BINARY'S CONTENTS RATHER THAN OF
 //! THE TREE. MEASURED 2026-09-16.**
 //!
-//! Adding a SECOND sim App to this file makes
+//! Adding a SECOND sim App to this file can make
 //! `no_registered_type_is_written_outside_the_rewinding_schedule` report **99**
-//! types written outside the rewinding schedule instead of none — under default
-//! parallelism only, never alone and never under `--test-threads=1`. The 99 is a
-//! corrupted comparison baseline, not a finding, and a reader who did not know
-//! that would read it as a save bug.
+//! types written outside the rewinding schedule instead of none, under default
+//! parallelism. The 99 is a corrupted comparison baseline, not a finding, and a
+//! reader who did not know that would read it as a save bug.
+//!
+//! ⛔⛤ **IT IS INTERMITTENT, AND I FIRST WROTE THAT IT WAS DETERMINISTIC ON ONE
+//! OBSERVATION PER DIRECTION.** Repeating the closest configuration three times
+//! gave **pass, pass, FAIL**. ⇒ So every "this variation does not reproduce it"
+//! below is worth very little: with a rate near one in three, one or two clean
+//! runs is not evidence of absence, and that includes the variations I measured.
+//! An instrument's first number is a hypothesis.
 //!
 //! ⇒ **SO DO NOT ADD A SECOND SIM-APP FIXTURE HERE WITHOUT `#[ignore]`.**
 //! `run_with_a_writer_outside_the_schedule` is the one that exists and both arms
@@ -45,14 +51,19 @@
 //! the arms in this file measure a per-frame comparison between the live world
 //! and its own most recent snapshot, and that comparison is what goes wrong.
 //!
-//! ⚠ Not leaked state — `probe_whether_a_second_sim_app_leaves_state_behind`
-//! runs A, B, A sequentially and the third reading is identical to the first, so
-//! order is innocent and the failure needs SIMULTANEITY. Not the wall-clock
-//! timestep either (`013b70c89`'s mechanism): this harness pins the clock
-//! whenever rollback is enabled. See
-//! `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`,
-//! which this instance advanced from intermittent-and-unexplained to
-//! deterministic-with-two-mechanisms-eliminated.
+//! ⚠ Probably not leaked state: `probe_whether_a_second_sim_app_leaves_state_behind`
+//! runs A, B, A sequentially and the third reading is identical to the first.
+//! That argues against a DETERMINISTIC leak, which is what a leak would be — but
+//! it is one run, so it does not exclude an intermittent one.
+//!
+//! ⚠ Not the wall-clock timestep (`013b70c89`'s mechanism), and this one is
+//! structural rather than statistical: `Platformer2dSimHarness::set_timestep`
+//! calls `enable_manual_stepping` whenever rollback is enabled, both fixtures
+//! build with `with_sync_test_rollback_settings`, and the audit reports exactly
+//! 240 comparisons for 240 steps. ⇒ That elimination does not depend on how many
+//! times anything was run.
+//!
+//! See `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`.
 
 #![cfg(feature = "rl_sim")]
 

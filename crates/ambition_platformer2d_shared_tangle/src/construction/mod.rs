@@ -3271,70 +3271,7 @@ pub fn retire_candidate(world: &mut World, transaction: &TransactionId) -> usize
     for entity in &roots {
         world.entity_mut(*entity).despawn();
     }
-    // ⛔ AND THE STATE GOES WITH THEM. A refusal discards everything the
-    // transaction made, and candidate-owned state is not an exception — it is
-    // the half a `Resource` could not express, and the half a caller could
-    // forget to clean up.
-    for entity in candidate_state_entities(world, transaction) {
-        world.entity_mut(entity).despawn();
-    }
     roots.len()
-}
-
-/// Marks an entity that carries candidate-owned STATE rather than an
-/// authoritative root.
-///
-/// ⛔⛤ **"CANDIDATE-OWNED STATE, NOT JUST ENTITIES" NEEDED A PLACE TO LIVE, AND A
-/// PROCESS-GLOBAL RESOURCE IS THE SHAPE THE RULING SAYS NOT TO PREFER.** A room's
-/// incoming geometry, room set, platform state and arriving body are values the
-/// candidate owns and the live world must not see. Held in a resource they are
-/// retired by a caller REMEMBERING to remove it; held here they are retired by
-/// [`retire_candidate`] because they belong to the transaction, which is the same
-/// road the candidate's entities take.
-///
-/// ⚠ **IT IS DELIBERATELY NOT A ROOT.** [`candidate_roots`] excludes it, so
-/// [`publish_candidate`]'s admitted count still counts authoritative bodies and
-/// nothing else, and the owning domain despawns its own state after adopting it.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct CandidateState;
-
-/// Attach candidate-owned state to `transaction`: a HIDDEN entity carrying
-/// whatever components the owning domain needs, retired with the candidate.
-///
-/// ⚠ The state's shape is the DOMAIN's, not this module's — `InactiveCandidate`
-/// is `pub(crate)`, so this is the only way a domain above can hold state under
-/// the candidate at all, and that restriction is the reason the marker cannot
-/// have a hook attached from outside.
-pub fn spawn_candidate_state<B: bevy::prelude::Bundle>(
-    commands: &mut Commands,
-    transaction: &TransactionId,
-    state: B,
-) -> Entity {
-    commands
-        .spawn((
-            transaction.clone(),
-            InactiveCandidate::default(),
-            CandidateState,
-            state,
-        ))
-        .id()
-}
-
-/// Every candidate-state entity belonging to `transaction`.
-///
-/// ⛔ `With<InactiveCandidate>` for the same reason [`candidate_roots`] has it:
-/// it selects the hidden population AND opts this query out of the default
-/// filter that would otherwise hide every one of them.
-pub fn candidate_state_entities(world: &mut World, transaction: &TransactionId) -> Vec<Entity> {
-    let mut query = world.query_filtered::<(Entity, &TransactionId), (
-        bevy::prelude::With<InactiveCandidate>,
-        bevy::prelude::With<CandidateState>,
-    )>();
-    query
-        .iter(world)
-        .filter(|(_, owner)| *owner == transaction)
-        .map(|(entity, _)| entity)
-        .collect()
 }
 
 /// Every still-inactive root belonging to `transaction`.
@@ -3354,12 +3291,8 @@ pub fn candidate_state_entities(world: &mut World, transaction: &TransactionId) 
 /// forever while every call looks like it succeeded — that hazard is real, and
 /// it lives on the `With`, not on an extra filter beside it.
 fn candidate_roots(world: &mut World, transaction: &TransactionId) -> Vec<Entity> {
-    // ⛔ `Without<CandidateState>`: candidate-owned STATE is stamped with the same
-    // transaction and is not an authoritative body, so counting it here would
-    // inflate every "roots admitted" the publication reports.
     let mut query = world.query_filtered::<(Entity, &TransactionId), (
         bevy::prelude::With<InactiveCandidate>,
-        bevy::prelude::Without<CandidateState>,
     )>();
     query
         .iter(world)

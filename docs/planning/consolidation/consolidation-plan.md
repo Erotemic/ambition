@@ -267,6 +267,23 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 `PreparedContentIdentity`, `ActiveContentBinding`, prepared content, LDtk index, generation mechanics, and room state do not all change under one current verdict. The content half has a gate/candidate road; the scene half is A10.
 
+⚠ **PARTIALLY RE-DERIVED 2026-09-16, AND TWO OF THE SIX ARE NOT WHAT THIS ROW
+IMPLIES.** `ActiveContentBinding` is a **Component**, not an App resource — one
+declaration (`world/rooms/transaction.rs`) and ONE production insert site, onto
+`session_root`, in the same `commands` batch that goes on to build the first
+room's construction plan. So it is already carried by the session it describes
+rather than queued as a separate global write. `PreparedContentIdentity` is also
+a Component, and is DERIVED (`prepared_content.identity()`) rather than written.
+⛔ The consolidation ledger had `ActiveContentBinding` recorded as a `Resource`,
+marked SOURCE_CONFIRMED; that is corrected, and a rule now checks every item's
+storage kind against source on each `--maintenance` run.
+
+⚠ **THE OTHER FOUR — prepared content, the LDtk index, generation mechanics and
+room state — ARE NOT MEASURED HERE**, and this paragraph makes no claim about
+them. ⇒ Anyone starting C05 should re-derive all six before costing it, because
+the two that were checked both moved in the direction of "already owned by the
+candidate", which is the opposite of what "separate queued writes" predicts.
+
 ### INDEPENDENT TRUTHS INVOLVED
 
 content candidate, shell activation gate, provider session world, room candidate, rollback contract, live content binding.

@@ -484,6 +484,57 @@ fn probe_whether_a_pure_function_of_the_tick_also_desyncs() {
     }
 }
 
+/// ⛔ WHY THE FIRST THREE TICKS ARE DIFFERENT — the one candidate left standing
+/// after accumulation and the update-lag were both refuted, and it is offered as
+/// a candidate rather than asserted.
+///
+/// `complete_durable_restore` sets `SaveRestored` ONCE, from `Update`, on the
+/// first frame a primary player body exists, and that latch gates whether the
+/// three save mirrors write at all. It is `rollback_resource_clone`, so a rewind
+/// RESTORES it — and a rewind into a frame where it was still false lets the next
+/// `Update` run `complete_durable_restore` a second time, which also writes
+/// `ResetToCheckpoint`. Once it has settled, restoring `true` over `true` is a
+/// no-op. ⇒ That shape would make ticks 1..=3 special and everything after
+/// boring, which is the shape the measurements have.
+///
+/// This prints the latch beside the tick and the save's census for the first
+/// steps of both a desyncing run and a clean one.
+#[test]
+#[ignore = "PROBE, print-only: does the SaveRestored latch move during the first ticks"]
+fn probe_whether_the_restore_latch_settles_before_the_window() {
+    fn latch(sim: &Platformer2dSimHarness) -> Option<bool> {
+        sim.world().get_resource::<SaveRestored>().map(|l| l.0)
+    }
+    fn save_xor(sim: &mut Platformer2dSimHarness) -> Option<u64> {
+        let probes = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
+            .clone();
+        probes
+            .census_all(sim.world_mut())
+            .into_iter()
+            .find(|(name, _)| name.contains("AmbitionGameSave"))
+            .map(|(_, census)| census.xor)
+    }
+
+    for (name, mut sim) in [
+        ("grants from tick 1 (desyncs)", sim_composed_with(grant_each_tick)),
+        ("no writer at all (clean)", sim_composed_with(nothing_each_tick)),
+    ] {
+        println!("── {name}");
+        for step in 0..10 {
+            let (tick, bag, l) = (sim_tick(&sim), live_cells(&sim), latch(&sim));
+            let xor = save_xor(&mut sim);
+            println!(
+                "   step={step:>2} tick={tick:>3} bag={bag:>3} SaveRestored={l:?}                  save_xor={:?} health={:?}",
+                xor.map(|x| format!("{x:#018x}")),
+                health(&sim).err().map(|e| e.chars().take(34).collect::<String>())
+            );
+            sim.step(AgentAction::default());
+        }
+    }
+}
+
 /// The schedule's own step count. This file never writes it, which is the
 /// point: it is the control column for a frozen bag.
 fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {

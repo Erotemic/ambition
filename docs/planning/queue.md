@@ -9,6 +9,15 @@ A row remains here only while an engineer can act on it. When it closes, keep a
 short receipt only where another open row depends on that fact; otherwise remove
 it.
 
+⚠ **OWNERSHIP AS OF 2026-09-16T14:45Z, recorded because two sessions ended inside
+one day and a stale owner line is worse than none.** CalculexAmbition stood down;
+YardratAmbition is the primary session for the rest of the day.
+ToothbrushAmbition's session is no longer reachable, so **post-A10 demolition,
+`docs/planning/consolidation/*`, the TEST-LANES row, AGENTS.md's target-bindmount
+section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
+finished, they are unattended. ⇒ Check a row's owner against who is actually
+running before waiting on them.
+
 ⚠ **MEASURED 2026-09-16: THIS FILE IS 2,519 LINES AGAINST THE 908 THE C10 CLEANUP
 LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
 doubled. It touched 2,572 the same day before TEST-LANES was compressed a second

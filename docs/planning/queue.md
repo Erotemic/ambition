@@ -602,32 +602,61 @@ Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
 repair. Read it as observations or it sends the next reader hunting 49 bodies
 that never existed.
 
-**Remaining — the unnamed SPAWNER, one level above the projectile.**
-`materialize_matching` (`ambition_projectiles/src/materialize.rs`) inserts no
-identity and defers to `mint_spawned_sim_ids`; that is the designated late mint
-for dynamic entities and is correct as a road. The hole is its input:
-`deploy_sentry`, `open_vortex_well` and `open_temporary_gravity_well` each take
-`id: Option<SimId>`, and each production caller computes it through a `match`
-whose fallback arm is `_ => None`. An unnamed turret therefore spawns, and
-`mint_spawned_sim_ids` then skips every bolt it fires — `sentry.rs` documents
-exactly that chain break. ⚠ Reachable BY CONSTRUCTION; not observed in a shipped
-run. ADR 0030 says such a site refuses rather than degrades.
+✅ **THE UNNAMED SPAWNER IS CLOSED, 2026-09-16.** `materialize_matching`
+(`ambition_projectiles/src/materialize.rs`) inserts no identity and defers to
+`mint_spawned_sim_ids`, which is the designated late mint and was never the hole.
+The hole was its input: `fire_sentry_system`, the vortex cast and
+`tick_gravity_grenade_fuses` each computed the spawned id through a `match` whose
+fallback arm was `_ => None`, so an unnamed turret deployed and
+`mint_spawned_sim_ids` then skipped every bolt it fired — a bolt mints under the
+turret. All three are `let (Some(..), Some(..)) = .. else { warn!(..); .. }` now,
+the same shape the clone road uses.
 
-**Next implementation:** turn that `_ => None` fallback into a refusal at those
-three spawn owners, as the clone road now does. Do not add a fallback ID that
-invents canonical identity from query order.
+⛔⛤ **THE ORDER WAS HALF THE FIX AND IT IS NOT OBVIOUS FROM THE ROW ABOVE.** In
+the sentry and vortex systems `mana.meter.try_spend(..)` runs in the same loop
+body, ABOVE where the id was computed. A refusal written where the `match` was
+takes the caster's mana and spawns nothing — strictly worse than the defect. Both
+refusals sit above `try_spend` now, and the guard asserts the METER as well as the
+turret count:
+`a_deployer_with_no_identity_deploys_no_turret_and_keeps_its_mana`
+(`ambition_abilities::ranged::sentry::tests`). ⚠ Poisoned by moving `try_spend`
+back above the refusal — the mana assertion fails with the message naming that
+exact edit. Its control is `the_same_deployer_with_its_identity_does_deploy`,
+because "no turret" is otherwise satisfied by a dozen unrelated gates in that
+loop.
+
+⚠ **THE GRENADE REFUSES BUT STILL DESPAWNS.** Its fuse has already expired when
+the id is needed; skipping the whole arm would leave a spent grenade retrying
+every tick forever. The refusal costs the EFFECT, not the cleanup.
+
+⭐ **THE SEAM SIGNATURES KEEP `Option<SimId>` DELIBERATELY, and that is a decision
+already recorded at `open_vortex_well`:** *"`id` IS `Option` AND THAT IS NOT A
+HEDGE. A well minted under a caster the sim can name gets `SimId::spawned`; a
+fixture well has no caster to mint under."* The row's target was the production
+CALLERS' fallback, not the seams — tightening the seams would have deleted a
+documented fixture road to close a caller's hole.
+
+⇒ **AND THREE FIXTURES WERE EXERCISING THE ROAD THAT NO LONGER EXISTS.** Four
+tests reddened, all because `spawn_primary_player_holding` built a body with no
+`SimId` and no `SimIdCounter` while `ensure_sim_id` gives every production body
+both before `CoreSimulation`. The fixture carries them now, so those tests take
+the production path; the grenade fixture likewise. That is the fix, not a
+workaround: a fixture that can only reach the degraded road cannot witness the
+real one.
 
 **Acceptance:** a MECHANICAL body — `BodyKinematics`, not merely a damageable one
 — cannot reach the simulation unnameable; the witness names the construction road
 and the body rather than reporting a population count.
 
-⚠ **THE CLONE-ROAD RECEIPT ABOVE WAS MEASURED AT THE PRE-MERGE TREE `b9f2ece18`.**
-At `ecbdf2297` no `app_it` test that steps the simulation terminates — the lane
-ran in 3.53s before the merge and does not finish in 300s after it — so the
-receipt stands on that tree and awaits re-measurement, rather than being a claim
-about `main` today. Attribution is settled by matched probes (with and without
-this work stashed, both hang identically), so the regression is in committed
-`main`, not in the A2 repair.
+✔ **THE CLONE-ROAD RECEIPT IS RE-MEASURED ON TODAY'S TREE AND THE HANG IS GONE.**
+It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`
+test that steps the simulation terminated — 3.53s before the merge, not finishing
+in 300s after it. Re-run 2026-09-16 at `dae0fc44a`:
+`the_player_clone_road_builds_an_identified_body` passes in **1.60s** and prints
+`209 body-observations judged, 0 skipped`, the same numbers the original receipt
+claimed. The whole `-p ambition_app` suite finishes: 213 + 678 + 1 passed, 25
+ignored, 375s. ⇒ The receipt is now a claim about `main`, and the deferral above
+it is discharged rather than restated.
 
 ### A12 — finish move-contact attribution and reflection identity
 

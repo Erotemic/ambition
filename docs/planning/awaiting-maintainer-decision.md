@@ -648,6 +648,26 @@ nothing happened. That is the same failure signature as a system that ran and
 found nothing to do, which is why neither the suite nor a reader can tell them
 apart without being told which semantics was intended.
 
+⛔⛤ **AND MEASURED 2026-09-16, THE TREE ALREADY GIVES THREE DIFFERENT ANSWERS,
+NOT TWO.** A third road exists and it is the loudest:
+`unique_session_world_root` (`shared_tangle/src/lifecycle/session.rs:398`) — the
+fallback `live_session_world_root` takes in a host with NO
+`SessionGatedSimulation`, i.e. direct-entry and headless — carries
+`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`.
+A plain `assert!`, on in release.
+
+| road | what two roots means | where |
+| --- | --- | --- |
+| `Single<.., With<SessionRoot>>` | the system is SILENTLY SKIPPED | ~206 sites |
+| `live_session_world_root`, shell-routed | RESOLVE the one whose scope is active | 4 sites |
+| `unique_session_world_root`, direct/headless | **PANIC** | the same 4 sites, other branch |
+
+⇒ So the same condition is impossible, skippable and resolvable depending on
+which road asks, and the shell-routed vs direct split means **a two-root frame
+crashes a headless harness and silently no-ops the shipped game.** That is not a
+disagreement about style; it is three different contracts for one state, and
+whichever the ruling picks, the other two need saying so out loud.
+
 ⭐⭐ **AND THERE IS ONE MITIGATION THAT IS WORTH DOING UNDER ANY OF THE THREE
 ANSWERS: PRINT THE POPULATION BESIDE THE VERDICT.** The ID-PEER owner supplied
 the general form of this signature from their own lane the same day, with two

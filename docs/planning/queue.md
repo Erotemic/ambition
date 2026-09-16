@@ -776,9 +776,44 @@ and combat/projectile occurrence identity.
 projectile launched by move A cannot be credited to whatever move happens to be
 playing when it lands. Melee stamps use the same occurrence authority.
 
-**Open engineering:** add the guard that a body which has started a move cannot
-lose `MoveOccurrence` during ordinary body lifetime; finish reflection/contact
-attribution after the product rule is settled.
+✅ **THE GUARD THIS ROW ASKED FOR ALREADY EXISTS — re-read 2026-09-16, and the row
+was the stale half.** *"A body which has started a move cannot lose
+`MoveOccurrence` during ordinary body lifetime"* is
+`every_playing_body_kept_its_occurrence` in `ambition_combat::moveset::tests`,
+called from `a_body_that_has_started_a_move_never_loses_its_occurrence` across a
+move, an idle gap and the next move. It is the one-directional form — **a body
+carrying `MovePlayback` carries `MoveOccurrence`** — with an anti-vacuity floor
+counting PLAYBACKS (the population the invariant is about), and two poison arms:
+`removing_the_occurrence_mid_move_is_caught` breaks the PROPERTY rather than the
+assertion, and `the_guard_refuses_a_world_with_no_body_mid_move` poisons the
+floor. 4 arms, green.
+
+⭐ **AND THE ROLLBACK HALF OF THE ACCEPTANCE IS A MEASURED CHAIN, NOT AN
+ASSUMPTION.** `MoveOccurrence`'s doc claims *"a rewind that kept a later count
+would make the resimulated move claim a number the abandoned future spent… it is
+rollback-registered"*. Both links verified:
+
+1. It is `component-canonical` (`rollback_schema_baseline.txt:48`), so a rewind
+   restores the exact value AND two peers compare it.
+2. Its only writer is `start_move`, reached from `trigger_moveset_moves`, which is
+   registered through `app.add_systems(sim, ..)` in
+   `runtime/src/combat_schedule.rs` — the REWINDING schedule. Confirmed positively
+   at the registration, not inferred from the mutator guard's silence, and
+   `check_rollback_mutators_run_in_sim.py` independently does not list it among
+   its 8 offenders.
+
+⇒ That is the defect class `a_bag_changed_from_update_is_silently_taken_back_by_the_rewind`
+found for `OwnedItems`: a player-visible write from outside the rewinding
+schedule, restored away with nothing reporting it. `MoveOccurrence` is not exposed
+to it, because its writer is inside.
+
+**Remaining engineering:** a VALUE-LEVEL rollback witness — a body that starts a
+move, a rewind across the start, and the resimulated move taking the same number
+while a shot stamped by the abandoned future still matches. ⚠ That is a third KIND
+of evidence, not a third measurement of the same property: the two links above are
+structural and each has its own guard, so this would be a witness rather than a
+gap-filler. And: finish reflection/contact attribution after the product rule is
+settled.
 
 **Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
 

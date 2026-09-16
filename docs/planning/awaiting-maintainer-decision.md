@@ -1146,24 +1146,50 @@ in `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
 - A sampler with an explicit `.after(complete_durable_restore)` edge finds the
   GGRS session **already live** at the instant the latch is set.
 
-⭐⛤ **RE-MEASURED 2026-09-16 AFTER NEW GAME STOPPED LOWERING THE LATCH, AND THE
-WINDOW IS EXACTLY ONE FRAME WIDE.** `PROBE frames=34 session_world@1 body@1
-ggrs@1 restored@2`:
+⛔⛤ **RE-MEASURED 2026-09-16, AND THE ANSWER IS NOT A FRAME COUNT. WHETHER THE
+PRE-HYDRATION HOLE EXISTS AT ALL IS DECIDED BY UNRELATED `Update` MEMBERSHIP.**
+
+The between-frame probe above reports when GGRS becomes **live**. Liveness is not
+**advance**: a session can exist for a frame without stepping the timeline, and a
+frame of that shape carries no tick for anything to happen on. So the question
+was re-asked with a recorder INSIDE the simulation schedule, in
+`FeatureInteractionSet::Actuate` — where the real conversation opener sits —
+reading `SaveRestored` at the instant an opener would read it.
+
+Two worlds, identical but for whether ONE unrelated `Update` system is installed
+(this file's own within-frame sampler):
 
 ```text
-frame 0   session_world false  bodies 0  ggrs_live false  restored false  ggrs_frame 0
-frame 1   session_world true   bodies 1  ggrs_live TRUE   restored FALSE  ggrs_frame 0
-frame 2   session_world true   bodies 1  ggrs_live true   restored true   ggrs_frame 1
+sampler absent    first simulated tick = tick 0 on host frame 3, latch TRUE
+sampler present   first simulated tick = tick 0 on host frame 2, latch FALSE
 ```
 
-⇒ **Frame 1 is the whole hole:** the synchronised timeline is live over a world
-whose durable restore has not completed, for one frame, and `ggrs_frame` reaches
-1 as the latch rises — inside a check distance of 4, so a resimulation reaches
-back past it. ⚠ That narrows the dependent dialogue defect below to "a
-conversation opened on frame 1 of a session", which a player cannot reach by hand
-but a scripted or autostarted conversation can. It does not make the ordering
-defect smaller: one frame of unsynchronised hydration is either allowed or it is
-not.
+⇒ In one composition **no tick is ever simulated unrestored** and the hole does
+not exist. In the other, **exactly one tick — tick 0, the first tick of the
+session — is simulated with the latch false.** Same options, same recorder, same
+harness.
+
+⭐ **THAT IS THE RULING'S INPUT, AND IT IS STRONGER THAN A WINDOW WIDTH.** The
+defect is not "a window of N frames", which could be argued down by making N
+small. It is that **nothing orders durable hydration against the start of the
+synchronised timeline**, so the answer is decided by whichever systems happen to
+share `Update` — a property no reviewer of either system can see. Adding an
+unrelated system to `Update` can open the hole; removing one can close it. A
+lifecycle that is correct by coincidence is the thing option 1 exists to end.
+
+Held by `a_conversation_on_the_first_tick_is_counted_only_when_hydration_won_the_race`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), which
+runs BOTH compositions with the same first-tick conversation opener and asserts
+the pair: **1 visit** when hydration wins the race, **0 visits** when it loses.
+Both arms were poisoned — disabling the counter's `if !restored.0` gate flips the
+losing arm 0 → 1, and silencing the opener flips the winning arm 1 → 0 — so each
+number is attributed to its own cause rather than to the fixture.
+
+⚠ **THE ARM ASSERTS TODAY'S DEFECT AND THE REPAIR MUST INVERT IT.** When the
+simulation is made to wait for hydration, both arms read 1 and the unrestored
+tick list is empty in both. Satisfying it by relaxing the counter's edge to
+`opened_at <= tick` is explicitly out: that turns an edge into a level and
+over-counts every tick a conversation stays live.
 - `RollbackFrameCount` reads **1** there — timeline frame one, inside a check
   distance of four, so a resimulation reaches back past the write.
 - All three restored resources are `rollback_resource_clone_checksum`

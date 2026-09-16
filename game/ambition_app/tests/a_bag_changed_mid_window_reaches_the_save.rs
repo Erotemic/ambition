@@ -2495,3 +2495,305 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
         history.len()
     );
 }
+
+/// Every `(SimTick, SaveRestored)` pair this world simulated, in execution
+/// order, one row per PASS.
+///
+/// ⛔ READ FROM INSIDE THE SIMULATION SCHEDULE, which is the whole point.
+/// `probe_when_the_durable_restore_latch_flips_against_ggrs_start` samples
+/// between `sim.step()` calls and therefore cannot see a latch that is false
+/// only WHILE the schedule runs — the error that made the New Game window look
+/// two frames wide and closed.
+#[derive(bevy::prelude::Resource, Default)]
+struct LatchInsideTheSchedule(Vec<(u64, u64, bool)>);
+
+/// The host frame this world is on, counted OUTSIDE the simulation schedule.
+///
+/// ⭐ IT IS THE JOIN BETWEEN THE TWO INSTRUMENTS. A between-frame probe reports
+/// "frame 1: ggrs live, restored false"; an in-schedule probe reports "tick 0:
+/// restored true". Neither row can refute the other without a shared column,
+/// and this is it.
+#[derive(bevy::prelude::Resource, Default)]
+struct HostFrame(u64);
+
+fn count_the_host_frame(mut frame: bevy::prelude::ResMut<HostFrame>) {
+    frame.0 += 1;
+}
+
+fn record_the_latch_from_inside_the_schedule(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    frame: bevy::prelude::Res<HostFrame>,
+    restored: Option<bevy::prelude::Res<SaveRestored>>,
+    mut log: bevy::prelude::ResMut<LatchInsideTheSchedule>,
+) {
+    log.0
+        .push((frame.0, tick.0, restored.is_some_and(|restored| restored.0)));
+}
+
+/// Build the in-schedule latch recorder, optionally alongside the within-frame
+/// sampler whose mere presence
+/// [`probe_when_the_durable_restore_latch_flips_against_ggrs_start`] measured as
+/// moving the GGRS start by a frame.
+///
+/// ⭐ THE SAMPLER IS THE VARIABLE, and it is installed or not installed in
+/// worlds that are otherwise identical — including the recorder. The earlier
+/// probe compared a world WITH the sampler against a world with NOTHING added,
+/// so "the sampler moved it" and "adding any Update system moves it" were the
+/// same measurement.
+fn sim_recording_the_latch_inside_the_schedule(
+    with_the_within_frame_sampler: bool,
+) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.init_resource::<LatchInsideTheSchedule>();
+            app.init_resource::<HostFrame>();
+            app.add_systems(bevy::prelude::Last, count_the_host_frame);
+            app.add_systems(
+                label,
+                record_the_latch_from_inside_the_schedule.in_set(
+                    ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
+                ),
+            );
+            if with_the_within_frame_sampler {
+                app.init_resource::<WithinFrameOrder>();
+                app.add_systems(
+                    bevy::prelude::Update,
+                    sample_ggrs_after_the_latch.after(
+                        ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                    ),
+                );
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with an in-schedule latch recorder")
+}
+
+/// Open a conversation on the FIRST tick the simulation ever runs, and never
+/// again.
+///
+/// ⚠ TICK 0 IS NOT AN ARBITRARY EARLY TICK, it is the one the measurement
+/// named: with the perturbing sampler installed, tick 0 is the only tick ever
+/// simulated while `SaveRestored` is false. A conversation cannot open earlier
+/// than the first tick, so this is the earliest openable moment of a session —
+/// unreachable by a human hand on the pad, reachable by a scripted or
+/// autostarted conversation, and reachable by any content that opens dialogue
+/// on room entry.
+fn open_a_conversation_on_the_very_first_tick(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut conversation: bevy::prelude::ResMut<
+        ambition_platformer2d::conversation::ActiveConversation,
+    >,
+) {
+    use ambition_platformer2d::conversation::{
+        ConversationInputOwner, ConversationInstanceId, LiveConversation,
+    };
+    if tick.0 != 0 {
+        return;
+    }
+    conversation.open(LiveConversation {
+        instance: ConversationInstanceId::mint(
+            tick.0,
+            VISIT_NODE,
+            None,
+            None,
+            &ambition_platformer2d::dialog::DialogueContext::scripted(),
+        ),
+        initiator: None,
+        talker: None,
+        input_owner: ConversationInputOwner::Primary,
+        speaker_name: String::new(),
+    });
+}
+
+fn sim_opening_a_conversation_on_the_first_tick(
+    with_the_within_frame_sampler: bool,
+) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            use bevy::prelude::IntoScheduleConfigs as _;
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.init_resource::<LatchInsideTheSchedule>();
+            app.init_resource::<HostFrame>();
+            app.add_systems(bevy::prelude::Last, count_the_host_frame);
+            app.add_systems(
+                label,
+                (
+                    record_the_latch_from_inside_the_schedule,
+                    open_a_conversation_on_the_very_first_tick,
+                )
+                    .in_set(
+                        ambition_platformer2d::platformer::schedule::FeatureInteractionSet::Actuate,
+                    ),
+            );
+            if with_the_within_frame_sampler {
+                app.init_resource::<WithinFrameOrder>();
+                app.add_systems(
+                    bevy::prelude::Update,
+                    sample_ggrs_after_the_latch.after(
+                        ambition_platformer2d::actors::session::durable_horizon::complete_durable_restore,
+                    ),
+                );
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a first-tick conversation opener")
+}
+
+/// The ticks this world simulated before the durable-restore latch rose.
+///
+/// ⚠ TICKS, NOT HOST FRAMES. Which host frame the boot lands on is exactly what
+/// [`probe_when_the_durable_restore_latch_flips_against_ggrs_start`] measured as
+/// moving under unrelated composition changes, so asserting on it would make
+/// this arm fail for the reason it is trying to REPORT. The tick number is the
+/// stable fact: tick 0 is the first tick whatever frame it runs on.
+fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
+    sim.world()
+        .resource::<LatchInsideTheSchedule>()
+        .0
+        .iter()
+        .filter(|(_, _, restored)| !restored)
+        .map(|(_, tick, _)| *tick)
+        .collect()
+}
+
+/// ⛔⛤ **A CONVERSATION OPENED ON THE FIRST TICK OF A SESSION LOSES ITS VISIT,
+/// AND WHETHER IT DOES IS DECIDED BY UNRELATED `Update` MEMBERSHIP — MEASURED
+/// 2026-09-16, BOTH ARMS IN ONE TEST.**
+///
+/// The two arms below are the same world with the same opener, the same
+/// in-schedule recorder and the same tick. The ONLY difference is whether one
+/// unrelated `Update` system — this file's own within-frame sampler — is
+/// installed:
+///
+/// ```text
+/// sampler absent    first simulated tick = tick 0 on host frame 3, latch TRUE   -> 1 visit
+/// sampler present   first simulated tick = tick 0 on host frame 2, latch FALSE  -> 0 visits
+/// ```
+///
+/// ⇒ `count_the_dialogue_visit_when_a_conversation_opens` opens with
+/// `if !restored.0 { return; }`, so in the second arm the visit is silently
+/// dropped: the counter fires on the OPENING EDGE (`opened_at == tick`), that
+/// edge exists on exactly one tick, and on that tick the counter refuses to
+/// write. Tick 1 sees `opened_at(0) != 1` and correctly does nothing.
+///
+/// ⭐ THE CONTROL IS THE ABSENCE OF THE PERTURBATION, not a different
+/// conversation. That is what makes the pair evidence about the ORDERING rather
+/// than about the opener: an arm reporting 0 alone could mean the stand-in never
+/// opened anything, and the first arm rules that out with the same code.
+///
+/// ⚠ **THIS ARM ASSERTS THE PRESENT DEFECT AND MUST BE INVERTED BY THE REPAIR.**
+/// When the simulation is made to wait for durable hydration —
+/// [Q135](../../../docs/planning/awaiting-maintainer-decision.md), the open
+/// ruling — `unrestored` must become EMPTY in both arms and both visit counts
+/// must read 1. Do not satisfy it by relaxing the counter's edge to
+/// `opened_at <= tick`: that turns an edge into a level and over-counts every
+/// tick the conversation stays live, which
+/// `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`'s
+/// more-than-two case already pins.
+#[test]
+fn a_conversation_on_the_first_tick_is_counted_only_when_hydration_won_the_race() {
+    let mut without = sim_opening_a_conversation_on_the_first_tick(false);
+    for _ in 0..12 {
+        without.step(AgentAction::default());
+    }
+    let mut with = sim_opening_a_conversation_on_the_first_tick(true);
+    for _ in 0..12 {
+        with.step(AgentAction::default());
+    }
+
+    // PREMISE: both worlds simulated tick 0 at all. A count of 0 from a world
+    // whose schedule never ran says nothing about the counter.
+    for (name, sim) in [("without", &without), ("with", &with)] {
+        assert!(
+            sim.world()
+                .resource::<LatchInsideTheSchedule>()
+                .0
+                .iter()
+                .any(|(_, tick, _)| *tick == 0),
+            "the {name}-sampler world never simulated tick 0, so neither the \
+             opener nor the counter was reached and both counts are vacuous"
+        );
+    }
+
+    // PREMISE: the two arms really do disagree about the latch on tick 0. If
+    // they ever stop disagreeing this test is measuring one condition twice.
+    assert!(
+        ticks_simulated_unrestored(&without).is_empty(),
+        "the world WITHOUT the perturbing sampler simulated ticks before the \
+         durable restore completed ({:?}), so it is no longer the favourable \
+         arm and this pair has lost its control",
+        ticks_simulated_unrestored(&without)
+    );
+    assert_eq!(
+        ticks_simulated_unrestored(&with),
+        vec![0],
+        "the world WITH the perturbing sampler no longer simulates exactly \
+         tick 0 unrestored. An EMPTY list means the race is now won every time \
+         — if that is because the simulation waits for hydration, invert this \
+         whole test per its doc comment. A LONGER list means the window grew."
+    );
+
+    assert_eq!(
+        visit_count(&without),
+        1,
+        "a conversation opened on tick 0 with the durable restore ALREADY \
+         complete was not counted exactly once, so the first-tick opening edge \
+         is broken for reasons that have nothing to do with the race"
+    );
+    assert_eq!(
+        visit_count(&with),
+        0,
+        "the first-tick visit is no longer lost when the restore loses the \
+         race. If the lifecycle repair landed, this is the arm that proves it — \
+         change it to 1 together with the premise above"
+    );
+}
+
+/// Is any simulation tick ever SIMULATED while the durable-restore latch is
+/// still false?
+///
+/// ⛔ THE BETWEEN-FRAME PROBE CANNOT ANSWER THIS, and the distinction is the
+/// finding. It reports the frame GGRS becomes LIVE against the frame the latch
+/// rises; liveness is not advance. A session can exist for a frame without
+/// stepping the timeline, and a frame of that shape carries no tick for a
+/// conversation to open on.
+#[test]
+#[ignore = "probe: prints the latch as the simulation itself sees it, with and without the perturbing sampler"]
+fn probe_the_latch_as_the_opener_sees_it() {
+    for with_sampler in [false, true] {
+        let mut sim = sim_recording_the_latch_inside_the_schedule(with_sampler);
+        for _ in 0..12 {
+            sim.step(AgentAction::default());
+        }
+        let log = &sim.world().resource::<LatchInsideTheSchedule>().0;
+        eprintln!(
+            "PROBE with_within_frame_sampler={with_sampler} passes={} first={:?} \
+             unrestored_ticks={:?}",
+            log.len(),
+            log.first(),
+            log.iter()
+                .filter(|(_, _, restored)| !restored)
+                .map(|(frame, tick, _)| (*frame, *tick))
+                .collect::<Vec<_>>(),
+        );
+        for (index, (frame, tick, restored)) in log.iter().take(8).enumerate() {
+            eprintln!("    pass {index:>3}: host frame {frame:>3}  tick {tick:>3}  restored {restored}");
+        }
+    }
+}

@@ -605,6 +605,49 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
+## Q132 — when a handoff frame holds two session roots, should two hundred systems run or skip?
+
+**MEASURED 2026-09-16, and it is C03's real shape rather than the one its row
+carried.** The engine resolves "the live session world" two different ways, and
+they disagree on exactly one kind of frame.
+
+| spelling | what it is | mentions |
+| --- | --- | --- |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 177, in 103 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 29, in 19 files |
+| `live_session_world_root` | the root whose scope equals the ACTIVE scope | 4, in 2 files |
+| `session_root_for_scope` | a named scope's root, seen through the disabling marker | 11, in 6 files |
+
+⛔ `Single` matches NOTHING when the count is not exactly one, and a system whose
+`Single` fails is SILENTLY SKIPPED. So on a frame holding two roots, ~206 sites
+stop running and the four scope-aware ones keep working. ⇒ **The correctness of
+two hundred systems rests on an invariant one test arm asserts:**
+`the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:435`), which counts
+roots every frame across a real shell handoff and requires the count never to
+exceed one.
+
+⭐ **THE INVARIANT HOLDS TODAY. This is not a bug report.** The arm passes, and
+`a_candidate_session_replaced_while_pending_is_discarded` passes beside it. The
+question is what the engine MEANS, because the two answers license different
+futures — and C03 is about to move session-owned storage, which is exactly the
+work that decides whether a two-root frame can ever exist.
+
+The choice: **(a)** `Single` is the meaning — a two-root frame is a BUG, and the
+scope-aware helpers exist only for the lifecycle code that legitimately sees both
+sides of a handoff. Then the invariant deserves more than one arm, and C03 may
+freely assume one root. **(b)** Scope is the meaning — a two-root frame is LEGAL
+during a handoff, and ~206 sites are silently skipping on it rather than
+resolving the live root. Then those aliases are wrong and the migration is
+large. **(c)** Keep both deliberately, and say in one place which code is
+entitled to which, so the next author picks on purpose rather than by import.
+
+⚠ **WHAT MAKES THIS URGENT RATHER THAN INTERESTING:** a system that is silently
+skipped produces no error, no log and no failing test — it produces a frame where
+nothing happened. That is the same failure signature as a system that ran and
+found nothing to do, which is why neither the suite nor a reader can tell them
+apart without being told which semantics was intended.
+
 ## Q131 — how should a presentation system that writes `Transform` declare itself?
 
 **The last blocker on ROLLBACK-MUTATOR-POPULATION, and it is a shape question

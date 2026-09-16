@@ -353,6 +353,20 @@ pub fn prepare_the_match(
 /// the same plan waiting, or the cast it rebuilds is not the cast it built.
 pub fn activate_the_prepared_match(
     mut commands: Commands,
+    // ⛔⛤ NOT `Option`, AND ITS ABSENCE FAILS WITH NO NAME. A composition that
+    // activates matches without an ordinal authority would draw every match's
+    // items identically, so this stays a bare `ResMut`. ⚠ THE COST IS THE ERROR
+    // MESSAGE: bevy reports `Parameter <Enable the debug feature to see the name>
+    // failed validation: Resource does not exist` and names neither the system nor
+    // the resource. Measured 2026-09-16 — three arms of
+    // `game/ambition_content/tests/puppy_slug_forced_seat.rs` died that way, and
+    // finding it took a `RUST_BACKTRACE=1` run to read the param list off the
+    // monomorphised symbol.
+    //
+    // ⇒ THE INSTALLER IS `character_runtime`'s plugin. A hand-composed App that
+    // adds this system is its own plugin and must
+    // `init_resource::<SessionMatchOrdinal>()` itself; every other parameter here
+    // is `Option` precisely so a bare fixture can reach the system at all.
     mut ordinals: ResMut<ambition_match::seating::SessionMatchOrdinal>,
     prepared: Option<Res<PreparedMatch>>,
     active: Option<Res<ActiveMatch>>,

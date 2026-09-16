@@ -623,6 +623,29 @@ Measured `209 judged, 49 skipped` for a single clone; `0 skipped` after the
 repair. Read it as observations or it sends the next reader hunting 49 bodies
 that never existed.
 
+⛔⛤ **THE ROW SAID THREE SPAWN OWNERS. A CENSUS OF EVERY `SimId::spawned` CALL
+SITE FOUND FIVE.** `crates/ambition_boss_encounter/src/encounter_script.rs` (the
+`DropHazard` beat) and `game/ambition_content/src/portal/fire_adapter.rs` (the
+portal shot) carried the identical `_ => None` fallback and were not in the row's
+list. All five are closed now. ⇒ The row's "three" was a FLOOR that did not say
+so; the population is `grep -rn 'SimId::spawned'` over `crates/` and `game/`,
+minus the tests, and it is 5 bare-`match` sites.
+
+⚠ **AND TWO MORE MINT SITES DEGRADE DELIBERATELY, WITH THE REASON WRITTEN AT
+THEM.** `ambition_held_items`'s thrown-item mint and `puppy_slug_gun`'s minion
+mint both `.ok().map(..)`, and the first says why: *"This arm is the visible edge
+of the unclosed inventory leg described on `ItemCustody` — not a fallback that
+should quietly absorb the common case."* Those are decided placements, not the
+pattern this row closed; converting them would close a caller's hole by deleting
+another row's marker.
+
+⇒ **AND THE PORTAL REFUSAL HAD TO CONSUME THE PRESS.** `melee_pressed` is cleared
+at the bottom of that loop so the wearer's jab does not answer the same press. A
+refusal that skipped the arm would leave the press set and the body would JAB
+instead of nothing happening — so the refusal clears it before `continue`. Same
+class as the mana ordering below: a refusal inherits every side effect the arm it
+skips was responsible for.
+
 ✅ **THE UNNAMED SPAWNER IS CLOSED, 2026-09-16.** `materialize_matching`
 (`ambition_projectiles/src/materialize.rs`) inserts no identity and defers to
 `mint_spawned_sim_ids`, which is the designated late mint and was never the hole.

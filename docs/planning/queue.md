@@ -92,10 +92,14 @@ diary.
 **Current state (2026-09-16): NINE CLOSED, AND A TWELFTH ROAD FOUND.** The
 count is written this way deliberately, and this is the sentence earning it: the
 row used to say "nine of the ten", predicting that "a tenth road found tomorrow
-makes this row 'nine closed, a tenth found' instead of making it false". Both
-open roads want a maintainer decision before anyone starts — the absolute
-`SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing English
-prose (`Q122`, found 2026-09-16). ⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
+makes this row 'nine closed, a tenth found' instead of making it false". **TWO of
+the three open roads want a maintainer decision** before anyone starts — the
+absolute `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing
+English prose (`Q122`, found 2026-09-16). ⚠ This sentence said *"BOTH open roads"*
+until the twelfth road was filed beneath it, which is the smaller version of the
+same defect `status.md`'s P0 summary suffered on the same day: **a count in prose
+is a copy, and the copy nearest the correction is the one that survives it.**
+⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
 IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
 all; they are simply never compared between peers, so no projection can fix them
 and no local session can measure them. Nine closed, three open.

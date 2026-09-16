@@ -199,7 +199,9 @@ fails silently.
 The queue is intentionally compact. Its current groups are:
 
 - **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
-  two open are `Q128` and `Q122`), settings/rollback policy, throw modifier
+  THREE open are `Q128`, `Q122` and the 25 unchecksummed float rows, which are a
+  different kind — no host-local id, never compared between peers, blocked on
+  netcode's N2), settings/rollback policy, throw modifier
   consistency, A2 projectile identity (CLOSED — the construction-identity hole
   only; A2a/A2b/A2c geometry and contact contracts are a different subject and
   still open), A12 move-contact attribution and A4 control/body execution.
@@ -207,6 +209,13 @@ The queue is intentionally compact. Its current groups are:
 ⚠ That list is a SUMMARY OF `queue.md`, which means it is a copy corrections do
 not reach. Read the rows, not this line, before picking work up: a group closing
 here is a two-edit change and only one of the edits is anybody's job.
+⛔⛤ **AND THAT WARNING FAILED TO PROTECT THE LINE IT SITS UNDER, THE SAME DAY IT
+WAS WRITTEN.** On 2026-09-16 the ID-PEER owner corrected the "Deterministic
+identity" section above to *nine closed, three open* and left this line saying
+*"the two open are `Q128` and `Q122`"* — while reading this exact warning. ⇒ A
+warning that a copy will rot does not stop it rotting; the only thing that would
+have is editing every copy in the same command, which is now the habit for this
+page: `grep -n` the claim, not the heading.
 - **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
   selection, low-tier sprite policy, Smash parity, character authoring and
   scenario identity. ⚠ Test-lane reliability is no longer a standing P1 theme:

@@ -139,13 +139,38 @@ correction to the shape of the tax, learned by paying it: it is per EDIT, not pe
 row. One bump covered all 99. That is why this defect is survivable, and why it
 goes unnoticed.
 
-⇒ The one-fact-one-owner reading is that the mechanical schema is
-`name | kind | wire type` and `detail` is DOCUMENTATION of it: keep `detail` in
+⇒ The one-fact-one-owner reading looks like this: the mechanical schema is
+`name | kind | wire type` and `detail` is DOCUMENTATION of it — keep `detail` in
 the readable baseline, exclude it from the fingerprint, and descriptions become
 correctable while the guard still catches every real wire change. ⚠ That is
 itself a one-time fingerprint change over a mechanical identity with an absence
 contract on it (`rollback-wire-format-changes-are-declared`), so it is a decision
 rather than a cleanup — recorded here, not taken.
+
+⛔⛤ **AND THAT READING IS REFUTED BY MEASUREMENT ON THE PAGE IT ROUTES TO.**
+`Q122` counted the 493 rows by kind: **225 are uniform** (one sentence per kind,
+derivable from the `kind` column beside it) and **268 VARY**, carrying facts
+`kind` does not encode — `component-clone` alone distinguishes *entity handle
+remapped* from *entity SET remapped* from *keyed entity MAP remapped*, and 22
+`resource-clone-custom-checksum` rows each name what their `fn(&T) -> u64`
+actually covers. Excluding `detail` wholesale would stop the fingerprint seeing
+an entity-remapping change. ⇒ `detail` is not documentation OF the schema; for
+half the rows it IS the schema.
+
+✔ **THE RULE THAT FITS BOTH HALVES IS IMPLEMENTED AND GREEN, at the granularity
+the dump already has** — landed 2026-09-16 for the peer-checksum slice of the
+tooling ratchet: **`detail` is kept exactly where it DISTINGUISHES rows of the
+same kind, and dropped where it does not.** A kind whose rows all carry one
+sentence has a `detail` the `kind` column already implies; a kind whose rows
+differ is using it to say something `kind` cannot. Of the 144 checksum-feeding
+rows, 48 carry theirs. The control and the positive differ only in their subject:
+rewording the 7 uniform `component-clone-cursor` rows stays green, rewording one
+of the 22 varying ones reddens.
+
+⚠ That is the tooling ratchet, NOT `compute_schema_fingerprint`, which still
+hashes the whole dump. So the repository now answers this question two opposite
+ways in two places — which is a second witness for `Q122`'s ruling and evidence
+that the split is implementable, not the ruling itself.
 
 ### Explicit simulation phases
 

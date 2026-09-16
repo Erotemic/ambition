@@ -29,7 +29,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::rl_sim::{
-    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 
 type GroundItem = ambition_platformer2d::item::GroundItem;
@@ -98,10 +98,6 @@ fn sim_in(room: &str) -> Platformer2dSimHarness {
         |app, options| ambition_app::rl_sim::ambition_sim_composition(app, options),
     )
     .expect("the sync-test harness builds")
-}
-
-fn sim() -> Platformer2dSimHarness {
-    sim_in(ROOM)
 }
 
 /// Strengthen `GroundItem`'s probe and turn the audit on. Returns whether the

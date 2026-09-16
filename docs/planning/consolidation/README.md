@@ -55,7 +55,26 @@ Post-A10 demolition is the active lane. Do not use this census as an
 implementation plan for it; use it to find roads whose replacement now exists.
 
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.
-The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B hold race still needs its named witness.
+The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B
+hold race still needs its named witness — and MEASURED 2026-09-16, that blocker
+is REAL rather than stale, which is worth stating because it gates C03 and C05.
+
+⭐ **WHAT ALREADY EXISTS, so nobody re-derives it:** three supersession witnesses,
+all in `crates/ambition_game_shell/src/tests.rs` and
+`crates/ambition_load/src/tests.rs` —
+`provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication`,
+`a_superseded_transaction_names_the_request_it_cancelled`, and
+`superseded_load_cannot_authorize_commit`. Together they pin that a retry
+supersedes a failed transaction, that the superseded one NAMES the request it
+cancelled, and that a superseded load cannot authorise a commit.
+
+⛔ **WHAT IS MISSING IS THE WORD "PRODUCTION".** All three build a
+`ShellRouter::default()` by hand and register their own catalog, so they witness
+the ROUTER'S LOGIC rather than the shell/content activation gate in a composed
+host. No `app_it` arm launches the same route twice without quitting — the shape
+`a_re_requested_active_route_gets_a_fresh_transaction` exercises at unit level.
+⇒ The gap is one integration arm, not a mechanism; the unit coverage says what
+the arm should assert.
 Mechanical edit admission is established as an implementation foundation: six production domains use the shared proposal, admission, and publication protocol.
 
 ## What is checked mechanically, and what is not

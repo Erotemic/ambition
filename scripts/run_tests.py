@@ -1169,6 +1169,18 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_rollback_kind_spelled_once.py",
             ],
         ),
+        # ⛔⛤ A CAMPAIGN'S STARTING CENSUS DRIFTS WHILE IT WAITS ON ITS GATES.
+        # C03's opened with "32 App resources" and was 36 the day every gate
+        # discharged — four `MatchInstance`-stamped resources had joined the
+        # grouping in the meantime. The number is in the plan twice on purpose:
+        # prose for readers, a marker comment for this.
+        Job(
+            "C03's session-owner census still matches source",
+            [
+                sys.executable,
+                "scripts/check_session_owner_census_matches_source.py",
+            ],
+        ),
     ]
 
 

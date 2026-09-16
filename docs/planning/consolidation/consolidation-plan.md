@@ -120,6 +120,14 @@ enumerated.**
 
 ### INDEPENDENT TRUTHS INVOLVED
 
+<!-- session-owner-census: SessionScopedResources=29 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+⭐ **THE LINE ABOVE IS THE MACHINE-READABLE COPY AND
+`scripts/check_session_owner_census_matches_source.py` COMPARES IT TO SOURCE.**
+It exists because this census drifted by four while C03 waited on its gates, and
+a number in prose has no way to notice that. The prose below is for readers; the
+comment is for the guard, and the guard fails if they stop agreeing with
+`teardown.rs` and `checkpoint.rs`.
+
 `SessionScopedResources` (**29**, re-derived 2026-09-16 — the row said 25),
 `SessionOwnedCheckpointState` (6, unchanged) and `SessionMechanics` (1 resource,
 unchanged — it is ONE resource with six fields, and counting its fields is how
@@ -132,7 +140,75 @@ Much of this state was introduced as App resources for broad system access. Sess
 
 ### WHAT COULD DISAPPEAR
 
-Reset-only process storage where direct `SessionRoot` ownership works; repeated owner guards; separate reset lists. Do not force state that must exist before root creation into the root.
+⛔⛤ **MEASURED 2026-09-16: THE "RESET-ONLY" POPULATION IS EMPTY.** All 29
+`SessionScopedResources` members have at least one reader outside the reset that
+owns them — `scripts/measure_session_scoped_resource_readers.py`, which prints
+its own patterns so a reader can see what it would miss. The thinnest are
+`LastCutsceneRoom` (1 system param + 2 direct accesses) and `SwitchActivationQueue`
+(2 + 2); the fattest are `ControlledSubject` (14 + 13) and `MovingPlatformSet`
+(8 + 16). ⇒ **C03's session-scoped half is a MIGRATION, not a move.** There is no
+cheap subset to lift out first, and a plan that opens by hunting for one will
+spend its first day finding that out.
+
+⚠ The counts are a FLOOR — the scan cannot see `SystemState`, an alias, or a
+reader inside a macro — which is the right direction for THIS inference: a floor
+proves a member HAS readers and can never prove one has none. ⛔ The first version
+of that script reported three reset-only types and all three were wrong: it
+matched `Res<Short>` after stripping each type to its last path segment, while
+production writes `ResMut<ambition_cutscene::LastCutsceneRoom>`. A zero from a
+name-matching scan is a claim about the QUERY.
+
+⛔⛤ **AND "SEPARATE RESET LISTS" IS NOT A DUPLICATED AUTHORITY EITHER, MEASURED
+2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (29)
+and `SessionOwnedCheckpointState` (6, all six checkpoint-operation types) — and
+their intersection is **EMPTY**. Both run at `SessionScopeSet::Activate`. So they
+are a PARTITION of session-owned state, not two copies of it: merging them buys
+one fewer struct, not one fewer truth.
+
+⚠ The activation and retire resets are ALSO not two lists. Both take the same
+`SessionScopedResources` bundle and call the same `reset()`; the retire one is
+declared HYGIENE at the site, and the activation one is what makes the next
+session safe.
+
+⚠ **AND `clear_transient_on_sandbox_reset` IS A DIFFERENT AXIS, not a third
+list** — it takes `Commands` and entity `Query`s and no session resource at all.
+⛔ A regex over its signature reported ZERO resource params, which is TRUE and
+would have been reported as a finding by a scan that did not open it. It is a
+correct zero for the wrong-sounding reason, which is exactly when to read the
+function.
+
+⇒ **WHAT IS LEFT FOR C03 ON THIS AXIS IS REPEATED OWNER GUARDS AND THE
+`SessionRoot`-vs-App-global ownership question itself** — both of which are
+migrations. Neither of the two cheap wins the row opened with survived
+measurement. Do not force state that must exist before root creation into the
+root.
+
+⭐⭐ **AND THE "REPEATED OWNER GUARD" HAS A SHAPE, MEASURED 2026-09-16: IT IS ONE
+GUARD SPELLED ~206 TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
+
+| spelling | what it is | mentions |
+| --- | --- | --- |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 177, in 103 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 29, in 19 files |
+| `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 4, in 2 files |
+| `session_root_for_scope` | finds a named scope's root, through the disabling marker | 11, in 6 files |
+
+⛔ **THE TWO DISAGREE ONLY ON ONE FRAME, AND THAT IS WHY THIS IS SUBTLE.**
+`Single` matches NOTHING when the count is not exactly one, and a system whose
+`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, all ~206
+sites stop running while the four scope-aware ones resolve the live root
+correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
+production arm asserts:
+`the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:435`), which counts
+roots every frame across a real shell handoff.
+
+⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias
+used widely, which is already the consolidated form. It is deciding whether the
+`Single` semantics or the scope semantics is the one this engine means, and the
+answer changes what a handoff frame is allowed to look like. That is a ruling,
+not a refactor, and it belongs in front of the maintainer before C03 moves
+storage.
 
 ### DEPENDENCIES / BLOCKERS
 

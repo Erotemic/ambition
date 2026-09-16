@@ -154,6 +154,32 @@ rest of this campaign while no P2P session is ever built (netcode `N2`) —
 `SETTINGS-ROLLBACK` is simply the row that would add the first new field and
 therefore the row that had to notice. It does not block that work.
 
+⛔⛤ **AND THE PROPERTY THE EXEMPTION RESTS ON CANNOT REACH THE PEER LEDGER AT
+ALL.** Read from GGRS's own source rather than inferred:
+
+- `Config::Input` is documented there as *"the only game-related data transmitted
+  over the network"*, bounded `Copy + Clone + PartialEq + Default + Serialize +
+  DeserializeOwned` — serde, not `Pod`.
+- `InputBytes::from_inputs` packs every player's input into ONE buffer with
+  `bincode::serialize_into`, and `InputBytes::zeroed` sizes it
+  `bincode::serialized_size(&T::Input::default()) * num_players`.
+- `to_player_inputs` splits that buffer by `self.bytes.len() / num_players` —
+  **the size is taken from the SENDER's buffer**, and the only validation is that
+  the length divides by the player count.
+
+⇒ **`#[serde(default)]` provides nothing here.** Bincode is non-self-describing:
+there are no field names on the wire, so a field is never "missing" and a default
+is never supplied. The attribute gives `INPUT_STREAM_VERSION` its replay-compat
+exemption honestly and gives the peer question nothing — the same attribute,
+load-bearing in one ledger and inert in the other, which is why quoting across
+them was wrong in a way that survived checking.
+
+⚠ **WHAT IS NOT ESTABLISHED:** whether a mismatched field set fails loudly or
+decodes into garbage. It depends on bincode's trailing-byte behaviour and on
+which side is larger, and nothing here executes today because the network path is
+P2P-only. What IS established is that no layer compares the two builds' input
+SHAPE, so whatever happens, it will not be a refusal that names the cause.
+
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
 found an App-local, menu-mutable USER PREFERENCE interpreting replayed stick input

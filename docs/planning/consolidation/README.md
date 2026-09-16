@@ -57,13 +57,14 @@ Use this census to find roads whose replacement now exists, not as an
 implementation plan.
 
 ⛔⛤ **RE-DERIVE A ROW BEFORE COSTING IT. THIS IS NOT ADVICE — IT IS THE RESULT OF
-RE-DERIVING FOUR OF THEM ON 2026-09-16, AND ALL FOUR CAME BACK DIFFERENT.**
+RE-DERIVING FIVE OF THEM ON 2026-09-16, AND ALL FIVE CAME BACK DIFFERENT.**
 
 | what the row said | what source said |
 | --- | --- |
 | C03 starts from 32 session-owned App resources | **36** — `SessionScopedResources` is 29, not 25 |
 | C03 can lift out "reset-only process storage" | **no such member exists**; all 29 have a reader outside their reset |
 | C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
+| C04: a live-construction fallback is an "accidental missing-resource branch" | it is a **DECLARED** decision — `for_live_session` REFUSES a shell-routed session with no generation, discriminated by `SessionGatedSimulation` |
 | C05: six values are separate queued writes | **five of six are Components on ONE entity from ONE lowering** (`PlatformerSessionWorld`, a Bundle on the session root); only `SessionMechanics` is an App global |
 
 ⚠ **THE DRIFT IS NOT NEGLECT, WHICH IS WHY IT WILL HAPPEN AGAIN.** Each of these

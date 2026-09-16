@@ -132,12 +132,14 @@ fn probe_the_mirror_and_the_sim_do_not_share_a_clock() {
     ] {
         println!("── {name}");
         for step in 0..14 {
-            let mirrored = mirrored_items(&sim)
-                .iter()
-                .filter(|item| item.contains("HealthCell"))
-                .count();
+            // ⛔ THE RAW LIST, NOT A SUBSTRING MATCH ON IT. Filtering these for
+            // "HealthCell" returned 0 for the whole window and I read that as
+            // "the save is not changing" — a false negative from guessing the
+            // encoding. `census_all` then showed `AmbitionGameSave` as the one
+            // entry of 364 that moves with the bag.
+            let mirrored = mirrored_items(&sim).join(",");
             println!(
-                "   step={step:>2} tick={:>3} live={:>3} mirrored={mirrored:>3} health={:?}",
+                "   step={step:>2} tick={:>3} live={:>3} mirrored=[{mirrored}] health={:?}",
                 sim_tick(&sim),
                 live_cells(&sim),
                 health(&sim).err().map(|error| error.chars().take(46).collect::<String>()),
@@ -145,6 +147,87 @@ fn probe_the_mirror_and_the_sim_do_not_share_a_clock() {
             sim.step(AgentAction::default());
         }
     }
+}
+
+/// ⛔ WHICH HASHED ENTRY MOVES WHEN THE BAG MOVES — asked of the registry
+/// instead of guessed. Four hypotheses were each cheap and each wrong; the
+/// registry already knows every entry that feeds the peer checksum, and
+/// `RollbackChecksumProbes::census_all` will read them all.
+///
+/// The method is a DIFFERENCE BETWEEN TWO RUNS AT THE SAME TICK, not a
+/// difference across a rewind, which cannot be observed from outside. Both
+/// harnesses take the same `ResMut<OwnedItems>` at the same schedule position and
+/// fire the same change detection; one grants 1 per tick and one grants 0. Any
+/// hashed entry whose census differs between them is a value that derives from
+/// the bag, which is exactly the population this row is missing.
+///
+/// ⚠ Read inside frames 0..=5. The granting run invalidates at frame 6 and
+/// everything after that is a frozen world agreeing with itself.
+#[test]
+#[ignore = "PROBE, print-only: which hashed rollback entries follow the bag"]
+fn probe_which_hashed_entries_follow_the_bag() {
+    use std::collections::BTreeMap;
+
+    fn census_at(
+        sim: &mut Platformer2dSimHarness,
+        steps: usize,
+    ) -> BTreeMap<&'static str, (usize, u64)> {
+        for _ in 0..steps {
+            sim.step(AgentAction::default());
+        }
+        let probes = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
+            .clone();
+        probes
+            .census_all(sim.world_mut())
+            .into_iter()
+            .map(|(name, census)| (name, (census.count, census.xor)))
+            .collect()
+    }
+
+    // ⚠ FIVE STEPS, WHICH IS INSIDE THE LIVE WINDOW. At six the granting run is
+    // already invalidated and its census describes a stopped world.
+    const STEPS: usize = 5;
+    let mut granting = sim_composed_with(grant_each_tick);
+    let mut still = sim_composed_with(touch_the_bag_each_tick);
+    println!(
+        "   granting health={:?} / still health={:?}",
+        health(&granting),
+        health(&still)
+    );
+    let moved = census_at(&mut granting, STEPS);
+    let held = census_at(&mut still, STEPS);
+    println!(
+        "   after {STEPS} steps: granting bag={} tick={}, still bag={} tick={}",
+        live_cells(&granting),
+        sim_tick(&granting),
+        live_cells(&still),
+        sim_tick(&still)
+    );
+
+    let mut differ = 0usize;
+    for (name, (count, xor)) in &moved {
+        match held.get(name) {
+            Some((held_count, held_xor)) if held_count == count && held_xor == xor => {}
+            Some((held_count, held_xor)) => {
+                differ += 1;
+                println!(
+                    "   ≠ {name}: granting=({count}, {xor:#x}) still=({held_count}, {held_xor:#x})"
+                );
+            }
+            None => {
+                differ += 1;
+                println!("   ≠ {name}: present only in the granting run");
+            }
+        }
+    }
+    // ⛔ ANTI-VACUITY: zero probes censused reads exactly like zero differences.
+    println!("   {differ} of {} probed entries differ", moved.len());
+    assert!(
+        !moved.is_empty(),
+        "no rollback checksum probes were censused at all, so this probe compared          nothing and its clean output means nothing"
+    );
 }
 
 /// The schedule's own step count. This file never writes it, which is the

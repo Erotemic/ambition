@@ -58,6 +58,23 @@ impl Platformer2dSimHarness {
     /// installs game-specific content/simulation and may reject invalid content.
     /// Construction performs the initial update(s) needed before observations are
     /// available in either timestep mode.
+    ///
+    /// ⛔⛤ **A SYSTEM ADDED HERE CARRIES NO ORDERING CONSTRAINT, AND THE SIM
+    /// SCHEDULE HAS PHASES FOR A REASON.** `compose` hands you the App after the
+    /// foundation and the schedule choice but before the game plugins, so a bare
+    /// `add_systems(app.sim_schedule(), my_system)` lands wherever the graph
+    /// puts it — which can be before the integrator, before the phase that
+    /// publishes what it reads, or between a producer and the consumer that was
+    /// promised its output. ⇒ Name a phase:
+    /// `Platformer2dSimulationPhaseMonolith::*`, or an `.after`/`.before` on a
+    /// system that already has one.
+    ///
+    /// ⚠ **PLACEMENT IS DETERMINISTIC, SO THIS IS A WRONG-ANSWER RISK AND NOT A
+    /// FLAKE RISK.** A schedule's executable order is a topological sort fixed at
+    /// build time, and a GGRS sync test is ONE App replaying its own frames — so
+    /// an unconstrained system is placed the SAME way in the original pass and
+    /// the replay. It will give you a consistently wrong answer, never two
+    /// different ones. Do not reach for this to explain a desync.
     pub fn build(
         options: Platformer2dSimHarnessOptions,
         compose: impl FnOnce(&mut App, &Platformer2dSimHarnessOptions) -> Result<(), String>,

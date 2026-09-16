@@ -557,6 +557,52 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
+## Q129 — must the save file be part of what two peers agree on?
+
+**MEASURED 2026-09-16, and unlike Q128 this one announces itself today.** A bag
+that changes once per tick desyncs a GGRS sync test within six ticks. The chain:
+`persist_inventory_to_save` sits in top-level `Update` and writes the live bag
+into `AmbitionGameSave` once per FRAME; `AmbitionGameSave` is registered
+`rollback_resource_clone_checksum`, so its value is compared once per TICK; and a
+rewind re-simulates ticks without re-running `Update`. The hashed save therefore
+describes a different frame from the tick it is compared at. Of 364 probed
+rollback entries, exactly ONE differs between a run whose bag moves and an
+otherwise identical run whose bag does not, and it is this one.
+
+⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
+NOW.** No second peer is required for the divergence — a single App already
+disagrees with its own replay. Every road that changes a bag during play crosses
+this: a pickup, a shop sale, a drop. ⚠ **WHY NOTHING IN THE TREE REPORTS IT IS UNMEASURED, and
+the obvious explanation is wrong.** Inventory is not untouched by the rollback
+arms: `grant_pickup` writes `OwnedItems` directly for `PickupKind::Ability`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs:294`),
+and `carried_item_crosses_rooms` picks items up inside a sync-test window. ⇒ So
+"what distinguishes a change that desyncs from one that does not" is open —
+candidates are the mirror's `restored.0` latch being closed in those arms, or the
+change landing outside the compared window. The reproduction here changes the bag
+EVERY tick, which is the loudest possible version, and a single change may behave
+differently. That does not affect the ruling; it decides how urgent the ruling
+is.
+
+The choice: (a) derive the save inside the sim schedule so a rewind re-derives
+it, which makes a persistence mirror into simulation work and raises the cost of
+every rewind; (b) take `AmbitionGameSave` out of the peer checksum, on the ground
+that a save FILE is a local artifact and not simulation authority two peers must
+agree on; (c) keep both and gate the mirror so it only runs on confirmed frames,
+which needs a confirmed-frame hook the `Update` schedule does not currently have.
+
+⭐ (b) is much the smallest and is probably right — nothing about a local save
+file is a thing peers must agree on — but it is a claim about the CONTENT of the
+peer contract rather than a refactor, so it is not a patch to make unilaterally.
+⚠ It also applies to more than the bag: `persist_occurrence_horizon_to_save` and
+`persist_minted_item_horizon_to_save` write the same resource from the same
+`Update` chain, so a ruling here settles three systems, not one.
+
+Reproduction, eliminations and the full harness matrix are in
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test);
+the owner document is
+[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
+
 ## Q127 — are difficulty, assist and player-damage modifiers match-wide or participant-specific?
 
 `PlayerDamagePolicy` now projects the settings values that deterministic damage

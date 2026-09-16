@@ -56,11 +56,21 @@
 //! inputs that must differ, asserted to project differently.
 //! `a_different_agreed_configuration_draws_a_different_sequence` and
 //! `the_same_verdict_for_a_different_match_is_a_different_checksum` are the two
-//! that already have one. ⚠ CONSTRUCTION PROVENANCE STILL DOES NOT: the missing
-//! arm is two hosts at DIFFERENT prepared fingerprints projecting differently,
-//! which needs a fixture that can activate two distinct prepared packs — a
-//! materially changed hot reload is the cheap road to it, since it moves the
-//! fingerprint in one process.
+//! that already have one.
+//!
+//! ⭐⭐ **CONSTRUCTION PROVENANCE NOW HAS ONE TOO, AND THE COST OF ITS ABSENCE IS
+//! MEASURED RATHER THAN ARGUED.** Poison `ContentBinding::canonical_summary` to
+//! render a STATED BUT CONSTANT content term and **all six arms in this file
+//! pass** — including `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+//! whose whole subject is that term. The only thing in the workspace that
+//! reddens is `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+//! which takes one process through two prepared fingerprints via a materially
+//! changed reload and asserts the provenance MOVED. ⚠ One process at two
+//! fingerprints is not two peers, and it is stated that way there: the
+//! projection excludes the epoch and the session, so the content term is the
+//! only thing that CAN move, which is what makes it a real test of
+//! discriminating power. Two hosts agreeing still needs the P2P session `N2`
+//! records as absent.
 use crate::common;
 
 /// Types whose VALUE is, or carries, a host-local lifecycle count. None may be

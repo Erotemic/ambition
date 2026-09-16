@@ -277,10 +277,19 @@ INFORMATION AWAY, THE CONSTANT FUNCTION INCLUDED.** For every agreement arm in
 this campaign, ask what the constant would do to it; if the constant passes, the
 other half of the claim is a DISAGREEMENT arm. `a_different_agreed_configuration_draws_a_different_sequence`
 and `the_same_verdict_for_a_different_match_is_a_different_checksum` have one.
-⚠ Construction provenance still does not: **the sixteenth road** is two hosts at
-DIFFERENT prepared fingerprints projecting differently, which needs a fixture
-that can activate two distinct prepared packs — a materially changed hot reload
-is the cheap road, since it moves the fingerprint inside one process.
+
+⭐⭐ **THE SIXTEENTH ROAD IS TAKEN, AND THE COST OF ITS ABSENCE IS MEASURED
+RATHER THAN ARGUED.** Poison `ContentBinding::canonical_summary` to render a
+STATED BUT CONSTANT content term and **all six arms of `id_peer_audit` pass** —
+including `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+whose whole subject is that term. The only thing in the workspace that reddens is
+the new arm in `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+which takes one process through two prepared fingerprints via a materially
+changed reload and asserts the provenance MOVED. ⚠ One process at two
+fingerprints is not two peers and is stated that way: the projection excludes the
+epoch and the session, so the content term is the only thing that CAN move, which
+is what makes it a real test of discriminating power rather than a stand-in.
+Two hosts agreeing still needs the P2P session **N2** records as absent.
 
 ⭐ **AND THE STRONGEST EVIDENCE IS A COMMITMENT RATHER THAN AN ABSENCE.**
 `TransactionId`'s closure did NOT remove the session stamp: the rendered stamp

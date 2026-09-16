@@ -1904,6 +1904,21 @@ have told them they were clear of a charge they had not answered.
   with the cause one line above, and has been seen as six ordinary-looking
   compile errors with no `os error 28` anywhere.
 
+⛔⛤ **AND THE BIGGEST SCOPE LIMIT ON EVERY ROLLBACK LANE CLAIM IN THIS
+REPOSITORY: NO P2P SESSION IS EVER BUILT.** Flagged by the ID-PEER owner,
+MEASURED INDEPENDENTLY HERE 2026-09-16: `Session::P2P` appears EXACTLY ONCE in
+the workspace — `rollback_ggrs/src/session.rs:910`, a match arm reading
+`confirmed_frame()` — and there is ONE construction site for a session at all,
+`AmbitionGgrsSession::SyncTest` at `:220`. ⇒ **A green rollback lane clears a row
+of a LOCAL RESIMULATION defect and says nothing about two peers agreeing.** The
+sync test saves, rewinds and resimulates in one process against itself; a desync
+that needs two hosts with different local state has no instrument here at all.
+
+⚠ That is why "the rollback suite is green" must never be written without the
+word LOCAL. The ID-PEER owner redirected ten rows away from being measured this
+way, on the grounds that ten more "clean under local resimulation" verdicts would
+have read on the page as ten rows CLEARED.
+
 ⭐ **`SimTick` ADVANCES 1:1 WITH `sim.step()` — MEASURED 2026-09-16, and it is
 the discriminator nobody reaches for.** `fixed_60hz_room_sim("blink_run")`,
 sampled every 40 steps: `[(0,0), (40,40), (80,80), (120,120), (160,160),

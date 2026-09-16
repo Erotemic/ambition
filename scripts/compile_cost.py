@@ -28,6 +28,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -176,6 +177,51 @@ def job_limit(command: list[str], env: dict[str, str]) -> int | None:
     return int(raw) if raw.isdigit() else None
 
 
+class LoadSampler:
+    """Competing machine load across a whole scenario, sampled rather than guessed.
+
+    ⚠ M0 requires "record competing machine load", and it is not decoration: a
+    wall clock taken while something else owned the cores is not this machine's
+    cost, and a row that cannot say so is not comparable to one taken quiet.
+
+    ⛔ Two endpoint readings are NOT enough — contention that starts halfway
+    through is invisible to them, which is the case that actually happened while
+    `compile_collect.py` was being written. Hence a thread.
+
+    Field names match `compile_collect.py`'s contention block deliberately: the
+    schema's rule is that an existing vocabulary is REUSED, not replaced.
+    """
+
+    def __init__(self, interval: float = 5.0) -> None:
+        self._interval = interval
+        self._samples: list[float] = []
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._sample, daemon=True)
+
+    def _sample(self) -> None:
+        # Sampled once up front so a scenario shorter than one interval still
+        # reports a reading instead of a null that reads as "quiet".
+        self._samples.append(os.getloadavg()[0])
+        while not self._stop.wait(self._interval):
+            self._samples.append(os.getloadavg()[0])
+
+    def start(self) -> "LoadSampler":
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=1.0)
+
+    def reading(self) -> dict:
+        if not self._samples:
+            return {"load_mean": None, "load_max": None}
+        return {
+            "load_mean": round(sum(self._samples) / len(self._samples), 2),
+            "load_max": round(max(self._samples), 2),
+        }
+
+
 def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) -> dict:
     target = ROOT / scenario.edit
     if not target.exists():
@@ -191,6 +237,9 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
 
     original = target.read_bytes()
     merged_env = {**scenario.env, **env}
+    # Spans all THREE builds: the contention figure belongs to the measurement,
+    # not to one phase of it. A daemon thread, so an abort cannot outlive us.
+    load = LoadSampler().start()
     try:
         if verbose:
             print(f"  warming ({' '.join(scenario.command)}) …", flush=True)
@@ -209,8 +258,10 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     if verbose:
         print("  restoring build state …", flush=True)
     settle, settle_peak = run_timed(scenario.command, merged_env)
+    load.stop()
 
     return {
+        **load.reading(),
         "scenario": scenario.name,
         "why": scenario.why,
         "edited_file": scenario.edit,

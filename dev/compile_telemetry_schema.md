@@ -305,6 +305,7 @@ today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
 | `machine_cores` / `machine_linker` / `machine_platform` / `machine_cargo` | measured | ✅ |
 | `warm_noop_peak_rss_bytes` / `after_edit_peak_rss_bytes` / `restore_peak_rss_bytes` | **NEW 2026-09-15**, `os.wait4` rusage | ✅ Linux only, else `null` |
 | `job_limit` | **NEW 2026-09-15**, the `-j` cap in force | ✅ `null` = uncapped |
+| `load_mean` / `load_max` | **NEW 2026-09-15**, `getloadavg()[0]` sampled every 5s across all three builds | ✅ |
 | `edit_class` | **NEW 2026-09-15**, what the probe did to the file | ✅ one value so far |
 | `host_link_invocations` | **NEW 2026-09-15**, M0's name for it | ⛔ `null` — no collector |
 
@@ -319,6 +320,14 @@ of the ones resident at the same time.** A 30-job build whose largest unit held
 link OOMs, which is why it is here. It does **not** answer *"what did this build
 cost the machine"*, and reading it as though it does will understate a parallel
 build by roughly the job count. See §7.
+
+⛔ **AND IT IS NOT COMPARABLE TO `scripts/measure_test_arm_rss.py`'s
+`peak_anon_mb`, DESPITE BOTH BEING "PEAK RSS".** That script tracks **`RssAnon`**
+and deliberately refuses `VmRSS` and the cgroup's `memory.current`, because page
+cache dominates both and is reclaimable. `ru_maxrss` here INCLUDES file-backed
+pages. Each is right for its own subject — anonymous growth for a runaway arm,
+total resident for "will this linker fit" — and quoting one against the other
+compares two different questions that happen to share a word.
 
 ### ⛔ A row without `job_limit` is not comparable to one with it
 

@@ -623,6 +623,57 @@ cannot advance one fixed step headless without looping in `RunFixedMainLoop`.
 Until then these three composition probes certify only that the engine BUILDS —
 the queue row should not claim they step it.
 
+⛔⛔⛤ **THE RUNAWAY NO LONGER NEEDS THE UNLANDED TIMING PIN. IT IS REACHABLE FROM
+A PLAIN `cargo test -p ambition_app --test app_it`, AND IT IS A REGRESSION INSIDE
+THE LAST WEEK.** The paragraph above says the hang appears only once
+`TimeUpdateStrategy::ManualDuration` is pinned. That is a property of the arm it
+was found in, not of the defect. MEASURED 2026-09-15, on a box rebooted 13
+minutes earlier with 59 GB free and nothing else running:
+
+| binary | built | `app_it a_dropped_item_falls` |
+| --- | --- | --- |
+| `app_it-c0a9e9a0132dc84f` | HEAD `ee3d0852e` | HANGS — `timeout 100` → exit 124, no output |
+| `app_it-876fea80f025f796` | 2026-09-07 22:48 | ok. **3 passed, 2.09 s** |
+| `app_it-d7e893edd51bd6e7` | 2026-09-07 18:57 | ok. **3 passed, 2.09 s** |
+
+All three arms of the module hang; they use `fixed_60hz_room_sim(ROOM)`, a real
+stepping harness with NO manual pin. Controls: it is not `--test-threads=1` and
+not `--exact` — the plain module filter at default thread count hangs
+identically. ⚠ The two old binaries are identified by mtime and by their
+`614 filtered out` line being consistent with an older arm count (HEAD lists
+700); their provenance is NOT verified by embedded strings, so pin that before
+building on the row.
+
+⭐ **THE GROWTH IS SUPERLINEAR, AND THE FILED ~24 MB/s DESCRIBES ONLY THE FIRST
+MINUTE.** One arm left running unbounded reached **anon-rss 64,629,160 kB in
+316 s** (`Out of memory: Killed process 17969 (app_it-c0a9e9a0)`, kernel, global
+OOM, one arm alone in its process). The sibling arms measured **1667 MB and
+1633 MB at the 60 s mark**. Those two facts cannot share a rate:
+
+    first 60 s   ~27 MB/s
+    next 256 s   ~234 MB/s
+
+⇒ REASONED, not measured: a per-frame record that is both APPENDED TO and CLONED
+each frame produces this shape, and the untrimmed rollback saved-state history is
+the obvious candidate in this repo. It is a lead, not a finding.
+
+⛔ **DO NOT RUN THIS LANE WITHOUT A HARD PER-ARM CAP.**
+`scripts/measure_test_arm_rss.py` gives one process per arm — peak RSS is a
+property of a PROCESS, so the only way to make it a property of an ARM is to stop
+sharing — tracks `RssAnon` rather than `VmRSS` or the cgroup's `memory.current`
+(reclaimable page cache dominates both), kills by process group at a hard cap,
+and refuses to report a row where libtest ran zero tests. At ~234 MB/s a 60 s cap
+costs ~14 GB on a 62 GB box: do not raise it and do not run two at once.
+
+⛔⛔ **AND `pkill -f <pattern>` IS NOT A SAFE CLEANUP FOR THIS.** The shell running
+the cleanup is a `bash -c '<whole line>'`, so its OWN argv contains the pattern:
+`pkill -f "measure_test_arm_rss"; pkill -f "app_it-..."; pgrep -af app_it` kills
+the shell on the FIRST `pkill`, so the second one — the one aimed at the test
+binary — never runs, and neither does the `pgrep` that would have reported the
+survivor. That is how the 61.6 GB orphan above escaped a sampler whose own cap
+was working correctly on every other arm. ⇒ `pgrep -af` to LIST, kill by PID, and
+re-`pgrep` in a SEPARATE tool call.
+
 **Next implementation:** on the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct

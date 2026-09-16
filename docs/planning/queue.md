@@ -1133,47 +1133,78 @@ routine. It is registered `rollback_resource_clone`
 snapshotted and restored, never compared. It cannot itself be the value the two
 passes disagree about. Something hashed is deriving from it.
 
-**THREE CANDIDATES ELIMINATED, each by measurement rather than by reading:**
+⭐⭐ **ANSWERED 2026-09-16: IT IS `AmbitionGameSave`, AND THIS IS EXACTLY THE
+MECHANISM [DURABLE-HORIZON-CHECKSUM](#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
+PREDICTED.** Asked of the registry rather than guessed a fifth time —
+`RollbackChecksumProbes::census_all` reads every entry that feeds the peer
+checksum, so running both harnesses to the same tick inside the live window and
+diffing their censuses names the value that follows the bag:
 
-1. ⚠ **NOT the save mirror, which is the one I expected and wrote up before
-   checking.** `AmbitionGameSave` is `rollback_resource_clone_checksum` and
-   `persist_inventory_to_save` really does write it from `Update` — the exact
-   per-frame-vs-per-tick shape DURABLE-HORIZON-CHECKSUM predicts. But sampled
-   frame by frame the mirror holds `HealthCell = 0` for the whole window while
-   the live bag climbs 5 → 10: the latch never opened in this harness, so the
-   save is not changing and cannot be disagreeing. The mechanism was right in
-   shape and wrong in fact.
-2. **NOT a drained-message edge.** `capture_owned_items_baseline` writes the
+```
+after 5 steps: granting bag=10 tick=6, still bag=3 tick=6
+≠ ambition_persistence::save::AmbitionGameSave: granting=(1, 0xd41e15e06646859b) still=(1, 0x8f605a278dac557d)
+1 of 364 probed entries differ
+```
+
+**ONE ENTRY OF 364.** The chain is now end to end:
+
+1. `persist_inventory_to_save` runs in **`Update`** — once per FRAME
+   (`crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs:296`).
+2. It writes the live bag into the save: `save.data_mut().set_inventory(items, wallet.balance)`
+   (`crates/ambition_platformer2d_actor_monolith/src/items/persist.rs:161`). Measured
+   tracking the bag 1:1 — `healthcell` count 5, 6, 7, 8, 9, 10 as the live bag goes 5 → 10.
+3. `AmbitionGameSave` is `rollback_resource_clone_checksum`
+   (`crates/ambition_persistence/src/rollback_registration.rs:31`), and its checksum
+   serializes the WHOLE save to RON (`save.rs:52`), so ANY field moves it.
+4. A rewind re-simulates ticks and does NOT re-run `Update`. The hashed value
+   therefore describes a different frame from the tick it is compared at.
+
+⇒ Which is why it needs the bag to CHANGE. A value put back before it was taken
+cannot be disagreed about — the zero-grant control is that case, and it is clean.
+
+⚠ **THREE ELIMINATIONS HOLD; THE FOURTH WAS A FALSE NEGATIVE AND IT WAS MINE.**
+I reported the save mirror eliminated because `mirrored_items()` filtered the
+save's item list for the substring `"HealthCell"` and counted 0 across the whole
+window. The save stores `PersistedItem { id: "healthcell", count: N }` —
+lowercase, an authored id rather than the enum's `Debug`. The resource was
+changing the entire time and my observable could not see it. ⇒ **A projection
+that reads nothing and a resource that holds nothing are the same reading**, and
+that is the same defect as a guard matching no files and a session frozen at tick
+6: the instrument agreeing with itself. The census could not make this mistake
+because it asks the registry for every entry by type rather than asking one
+resource for a shape I guessed.
+
+**STILL ELIMINATED, each by measurement:**
+
+1. **NOT a drained-message edge.** `capture_owned_items_baseline` writes the
    checksummed `OwnedItemsBaseline` from the sim schedule gated on
    `MessageReader<CheckpointCommitted>` — the "drained in the original pass,
    empty in the replay" shape — but that channel IS `clear_message_on_rollback`
    (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs:172`).
-3. **NOT the system's presence.** The zero-grant control above.
-4. **NOT change detection, and the zero-grant control already settles this too.**
-   `owned.grant(item, 0)` takes `ResMut` and calls a `&mut self` method, so it
-   derefs mutably and marks `OwnedItems` changed on EVERY tick exactly as the
-   granting version does. A `Changed<OwnedItems>` filter — a real candidate,
-   since a change tick that is not itself restored makes a filtered system run a
-   different number of times across a rewind — would therefore fire identically
-   in both rows, and only the row whose VALUE moves desyncs. ⇒ Whatever is
-   hashed reads the bag's VALUE, not its change flag.
+   The census agrees: `OwnedItemsBaseline` is not among the entries that differ.
+2. **NOT the system's presence.** The zero-grant control.
+3. **NOT change detection.** `owned.grant(item, 0)` takes `ResMut` and calls a
+   `&mut self` method, so it derefs mutably and marks `OwnedItems` changed every
+   tick exactly as the granting version does. A `Changed<OwnedItems>` filter would
+   fire identically in both, and only the row whose VALUE moves desyncs.
 
-⚠ **THE ELIMINATIONS ARE READ INSIDE THE LIVE WINDOW, WHICH IS FRAMES 0–5 AND
-NOT 240.** The mismatch is reported at frames `[2, 3, 4]` and the freeze is
-downstream of it, so anything measured after the invalidation is a frozen world
-agreeing with itself and proves nothing. `session_health` is clean at steps 0
-through 5 and first reports at step 6; the mirror reads `HealthCell = 0` across
-those live steps while the live bag climbs 5 → 10, so elimination 1 is measured
-where it counts. ⇒ Any further hypothesis must be tested in that same window.
+⚠ **THE LIVE WINDOW IS FRAMES 0–5, NOT 240.** The mismatch is reported at
+`[2, 3, 4]` and the freeze is downstream of it, so anything measured after the
+invalidation is a frozen world agreeing with itself. `session_health` is clean at
+steps 0 through 5 and first reports at step 6.
 
-⇒ NEXT. The reproduction is committed and costs one `cargo test` to re-run, so
-the next owner does not have to rebuild any of it:
-`cargo test -p ambition_app --test app_it probe_how_far_each_harness -- --include-ignored --nocapture`.
-What is owed is the identity of the hashed entry that moves. ⭐ The registry
-already knows every entry that feeds the peer checksum, so the direct route is a
-per-entry checksum dump at the mismatching frames rather than another hypothesis
-— the three above were each cheap and each wrong, which is the argument for
-instrumenting instead of guessing a fourth time.
+⇒ NEXT. The mechanism is settled, so what is left is a product/architecture
+choice and it belongs to DURABLE-HORIZON-CHECKSUM: a value derived once per frame
+must not be compared once per tick. The two shapes are (a) derive the save inside
+the sim schedule so a rewind re-derives it, or (b) take `AmbitionGameSave` out of
+the peer checksum, since a save file is not simulation authority. ⭐ (b) is the
+smaller change and probably the right one — but it is a claim about what peers
+must agree on, so it wants a maintainer ruling rather than a patch.
+
+The reproduction is committed and costs one `cargo test` to re-run:
+`cargo test -p ambition_app --test app_it probe_which_hashed_entries -- --include-ignored --nocapture`
+names the entry, and `probe_how_far_each_harness_ticks_over_the_same_window`
+prints the full matrix.
 
 ⚠ **SCOPE, because it decides whether this is urgent.** A sync test is one
 machine rewinding itself. If a single App disagrees with its own replay, no peer
@@ -1183,6 +1214,26 @@ pickups, shops, drops — crosses it. ⇒ But this is measured only for
 unmeasured, and the same probe answers it for any of them by swapping the system.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
+
+⭐⭐ **THE CENTRAL PREDICTION IS NOW MEASURED, 2026-09-16. It is no longer "can
+the value hashed at a confirmed frame differ" — it does, it is
+`AmbitionGameSave`, and it desyncs a sync test within six ticks.** A bag that
+changes once per tick makes `persist_inventory_to_save` write a per-FRAME value
+into a per-TICK checksum; a rewind re-simulates ticks without re-running
+`Update`, so the hashed save describes a different frame from the tick it is
+compared at. Of 364 probed rollback entries, exactly ONE differs between a run
+whose bag moves and an otherwise identical run whose bag does not. The
+measurement, the eliminations and the reproduction are in
+[ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
+
+⇒ **WHAT REMAINS IS A RULING, NOT AN INVESTIGATION.** Either derive the save
+inside the sim schedule so a rewind re-derives it, or take `AmbitionGameSave` out
+of the peer checksum on the ground that a save file is not simulation authority.
+The second is smaller and probably right, and it is a claim about what peers must
+agree on — so it belongs to the maintainer rather than to a patch.
+
+⚠ The dialog increment below is still costed and still unmeasured; nothing here
+touches it.
 
 **Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
 

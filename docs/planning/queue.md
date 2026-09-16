@@ -1081,6 +1081,69 @@ the row before any code does.
 ⇒ ⛔ **Do not re-implement either half from the row text alone.** It reads as one
 20-line change and it is not.
 
+### HEADLESS-STEP-COUNT — nine arms step a headless app whose clock nobody pinned
+
+**Owner:** unowned. Measured 2026-09-16 on the no-GPU box, which is the honest
+place for it.
+
+**Current state:** `add_headless_foundation` brings `MinimalPlugins`, which
+leaves `TimeUpdateStrategy::Automatic` — so `RunFixedMainLoop` executes a number
+of times derived from ELAPSED WALL TIME, not from the number of `update()` calls.
+`demo_shell_smoke.rs` already knew and says why in one sentence: *"without the
+count, silence and success look the same."* It pins the frame to the tick AND
+counts fixed steps. It is the only place that does.
+
+⛔ **MEASURED, AND IT IS WORSE THAN "ZERO OR MORE".** Same composition,
+`TimeUpdateStrategy` left alone, counting `FixedUpdate` runs after each of ten
+`update()` calls — `probe_how_many_fixed_steps_an_unpinned_headless_app_takes`:
+
+| after update # | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| cumulative fixed steps | 0 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 5 |
+
+⇒ **Updates 3 through 9 — SEVEN CONSECUTIVE FRAMES — ran ZERO fixed steps.** The
+4 at update 2 is the startup frame's banked wall time, not the loop doing work.
+Ten `update()` calls bought five ticks, and the loop itself bought one of them:
+each `update()` costs far less than the 15.625 ms timestep, so the accumulator
+rarely crosses.
+
+**Population: 24 files call `add_headless_foundation`; NINE call `update()`
+without pinning the timestep.** `game/ambition_demo_sanic/src/tests.rs` (30
+`update()` calls), `game/ambition_demo_mary_o/src/lib.rs` (21),
+`game/ambition_demo_mary_o/src/movement/tests.rs` (14),
+`game/ambition_app/src/headless/tests.rs` (6),
+`crates/ambition_platformer2d/src/lib.rs` (3),
+`crates/ambition_platformer2d_host/src/lib.rs` (3),
+`game/ambition_app/src/headless.rs` (2),
+`game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs` (1),
+`game/ambition_demo_mary_o_app/tests/ov1_draws_the_world.rs` (1).
+
+⚠ **BEING IN THAT LIST IS NOT A DEFECT, and this row must not be read as nine
+bugs.** An arm that only exercises `Update`-schedule behaviour is correct
+unpinned. The defect is an arm that asserts about SIMULATION state after N
+`update()` calls, because it is asserting over however many ticks that box
+happened to run. ⇒ Separating the two needs each arm read, which this census does
+not do — it reports the population and the step count, which nobody had.
+
+⭐ **A CANDIDATE FOR THE "FAILS ONLY IN COMPANY" CLASS, offered as a mechanism to
+test rather than a conclusion.** The step count rises with wall time per
+`update()`, so a contended box takes MORE fixed steps than an idle one for the
+same arm — which is a machine-load-dependent world, the shape
+`triage/a-composition-acceptance-that-only-fails-in-company.md` and the
+intermittent `app_it` arm are both chasing. ⛔ Not asserted: neither of those has
+been shown to sit in this population, and checking is the next step rather than
+the finding.
+
+**Next implementation:** give the nine the pattern `demo_shell_smoke` already
+ships — pin `TimeUpdateStrategy::ManualDuration(timestep)` and COUNT the fixed
+steps, so the arm fails when it steps nothing. ⛔ Pinning alone is half the fix:
+a pinned arm that still never asserts a step ran is the same silent pass with a
+deterministic clock.
+
+**Acceptance:** every arm that asserts about simulation state pins its clock and
+floors its own step count, and a guard counts the population so a tenth cannot
+arrive quietly.
+
 ### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
 
 **Owner:** unowned. Found 2026-09-16 while measuring THROW-MODIFIERS; unrelated

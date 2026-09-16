@@ -2601,6 +2601,38 @@ only in netplay"*; this one is deterministic — the request is written outside 
 timeline every time, so the press is swallowed every time a rollback host is
 running.
 
+⛔⛤ **AND THE OBVIOUS REPAIR DOES NOT WORK, MEASURED BEFORE BUILDING IT.** Two
+reviews named `ItemGrantRequested`/`ShopTransactionRequested` as the road a menu
+action should take instead of writing rollback state. Those messages are
+`clear_message_on_rollback` (`crates/ambition_items/src/rollback_registration.rs`),
+so **the queue is rollback state too**, and their shipped producer is a
+conversation node running INSIDE the sim schedule. Held by
+`a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`:
+
+```text
+one HealthCell grant, written from INSIDE the sim    bag 3 -> 4
+the same grant, written from OUTSIDE it              bag 3 -> 3, never rises
+```
+
+⇒ **Re-spelling the menu's write as one of these messages would change nothing.**
+A rollback-cleared message produced outside the timeline is exactly as loseable
+as the resource write it would replace: the rewind clears the queue and restores
+the bag, and nothing re-produces the request. The arm samples every frame, so
+*"never landed"* is distinguished from *"landed and was reverted"* — it is the
+former.
+
+⭐ **SO THE QUESTION IS NOT "WHICH MESSAGE" BUT "HOW DOES A LOCAL INTENT ENTER A
+SYNCHRONISED TIMELINE AT ALL", AND IT IS A PEER-VISIBLE DECISION.** A menu press
+is a local input event; in rollback netcode local inputs reach the timeline
+through the INPUT payload GGRS carries, not through a resource or a rewinding
+queue. Putting a New Game bit there changes the input wire format, which two
+peers must agree on. ⇒ Filed as [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) rather
+than resolved by a quiet refactor. ⚠ Both witnesses are green ASSERTING THE
+DEFECT and must be inverted by whatever lands; neither should be satisfied by
+removing a type from the peer checksum, because
+`install_resource_clone_checksum` installs the restore independently of the
+checksum.
+
 ⛔ **AND NOTHING ANYWHERE SAYS SO.** No desync, no error, no log line.
 `OwnedItems` is `rollback_resource_clone` — restored, not hashed — so there is no
 checksum to disagree. `session_health` was clean on all 240 frames in which the

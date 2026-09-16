@@ -1128,6 +1128,59 @@ agreed value for the match, or publish a value per participant/seat as an
 accessibility policy. Both are mechanically viable; the product rule decides the
 shape of the admitted authority.
 
+## Q136 — how does a local menu intent enter the synchronised timeline?
+
+**Asked 2026-09-16, with both answers already measured false.**
+
+A menu press — New Game, or using an item — is a LOCAL input event raised in
+top-level `Update`. The state it has to affect is rollback-owned. Two spellings
+have been measured and neither works:
+
+| the menu writes | what happens | witness |
+|---|---|---|
+| `NewGameResetRequested` (`resource-canonical`) directly | **0 commits.** The restore returns the flag to `false` before `process_new_game_reset_request` sees it | `a_new_game_asked_for_from_outside_the_simulation_is_swallowed` |
+| an `ItemGrantRequested`-style message (`clear_message_on_rollback`) | **no change at all.** The rewind clears the queue; nothing re-produces the request | `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost` |
+
+Both witnesses live in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, both
+carry an IN-SIM control arm that succeeds (1 commit; bag 3 → 4), and both are
+poison-verified. The control is what makes the zeroes readable: a declining reset
+and a composition without `apply_item_grants` print the same zero.
+
+⇒ **The recommendation both prior reviews gave — "make it a semantic request the
+simulation consumes, reusing `ItemGrantRequested`" — is necessary but not
+sufficient.** Those messages work because their shipped producer is a
+conversation node that already runs inside the sim schedule. The menu does not,
+and cannot: it is UI.
+
+**What the ruling is actually about.** In rollback netcode a local intent reaches
+the timeline through the INPUT payload GGRS carries, because that is the one
+channel with a deterministic, agreed arrival tick. Options:
+
+1. **Carry it in the input payload.** Correct by construction, and **peer-visible**:
+   it changes the input wire format two peers must agree on, and a New Game bit
+   in every frame's input is a large thing to spend on a menu press.
+2. **A non-rewinding intent buffer, drained inside the sim at a declared tick.**
+   The buffer is host-local (never in a snapshot or checksum), and the DRAIN is
+   the authoritative step. ⚠ The drain tick must be a function of agreed state,
+   or this is just the current defect with more steps — two peers draining on
+   different ticks is a desync rather than a swallow, which is worse.
+3. **Declare New Game a session-level operation outside the timeline**, which
+   stops the session, resets, and starts a new one. ⭐ This may be the honest
+   answer for New Game specifically: it is not a mechanical action inside a match,
+   it ENDS the match. It does nothing for the item-use half of
+   MENU-RESET-MIDSESSION.
+
+⚠ **NOT AN OPTION:** removing either type from the peer checksum.
+`install_resource_clone_checksum` installs the snapshot/restore and the checksum
+projection INDEPENDENTLY, so narrowing what peers compare leaves the swallow
+exactly as it is. This has now been the wrong answer to three separate questions
+in this file.
+
+⚠ **AND SINGLE-PLAYER IS EVIDENCE OF NOTHING.** With no rollback session there is
+nothing to rewind, so every hour of local play exercises the working path. The
+witnesses need `with_sync_test_rollback_settings`.
+
 ## Q135 — should GGRS start before the durable restore has finished?
 
 ✅ **ANSWERED AND LANDED 2026-09-16: NO, AND IT NO LONGER CAN.** (The heading

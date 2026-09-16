@@ -2955,3 +2955,136 @@ fn a_new_game_asked_for_from_outside_the_simulation_is_swallowed() {
          the one this arm records"
     );
 }
+
+/// The tick the in-sim control writes its grant request on.
+const IN_SIM_GRANT_AT: u64 = 30;
+
+fn request_a_grant_from_inside_the_sim(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut requests: bevy::prelude::MessageWriter<ambition_platformer2d::item::ItemGrantRequested>,
+) {
+    if tick.0 == IN_SIM_GRANT_AT {
+        requests.write(ambition_platformer2d::item::ItemGrantRequested {
+            item: ambition_platformer2d::item::Item::HealthCell,
+            count: 1,
+        });
+    }
+}
+
+fn sim_granting_an_item(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            if with_an_in_sim_producer {
+                app.add_systems(label, request_a_grant_from_inside_the_sim);
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with an item-grant producer")
+}
+
+fn health_cells(sim: &Platformer2dSimHarness) -> u32 {
+    sim.world()
+        .get_resource::<ambition_platformer2d::item::OwnedItems>()
+        .map_or(u32::MAX, |owned| {
+            owned.count(ambition_platformer2d::item::Item::HealthCell)
+        })
+}
+
+/// ⛔⛤ **THE REPAIR BOTH REVIEWS PROPOSED FOR [MENU-RESET-MIDSESSION] DOES NOT
+/// WORK FROM OUTSIDE THE SIMULATION, AND THAT IS WHY THIS ARM EXISTS BEFORE THE
+/// REPAIR DOES — MEASURED 2026-09-16.**
+///
+/// Both reviews named `ItemGrantRequested`/`ShopTransactionRequested` as the road
+/// a menu action should take *instead of* writing rollback state. Their shipped
+/// producer is a conversation node, which runs INSIDE the sim schedule, and the
+/// messages are `clear_message_on_rollback`
+/// (`crates/ambition_items/src/rollback_registration.rs`) — so **the queue is
+/// rollback state too.** Measured, one grant of one `HealthCell`:
+///
+/// ```text
+/// written from INSIDE the sim schedule    bag 3 -> 4
+/// written from OUTSIDE it (the menu)      bag 3 -> 3, no transient change at all
+/// ```
+///
+/// ⇒ **Re-spelling the menu's write as one of these messages would change
+/// nothing.** A message cleared on rollback, produced outside the timeline, is
+/// exactly as loseable as the resource write it would replace: the rewind clears
+/// the queue and restores the bag, and nothing re-produces the request.
+///
+/// ⭐ THE IN-SIM ARM IS THE CONTROL, AND WITHOUT IT THE ZERO IS UNREADABLE — a
+/// composition that never installs `apply_item_grants` prints the same `3 -> 3`.
+/// The two arms differ only in WHERE the message is written.
+///
+/// ⚠ **SO THE OPEN QUESTION IS NOT "WHICH MESSAGE" BUT "HOW DOES A LOCAL INTENT
+/// ENTER A SYNCHRONISED TIMELINE AT ALL".** A menu press is a local input event,
+/// and in rollback netcode local inputs reach the timeline through the INPUT
+/// payload GGRS carries — not through a resource or a rewinding queue. That is a
+/// peer-visible design decision (the input wire format), which is why it belongs
+/// in a maintainer question rather than in a quiet refactor. Recorded in
+/// [MENU-RESET-MIDSESSION].
+///
+/// [MENU-RESET-MIDSESSION]: ../../../docs/planning/queue.md
+#[test]
+fn a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost() {
+    // CONTROL: the same message, written from inside the timeline.
+    let mut inside = sim_granting_an_item(true);
+    step_past_hydration(&mut inside);
+    let inside_before = health_cells(&inside);
+    for _ in 0..200 {
+        inside.step(AgentAction::default());
+    }
+    assert_eq!(
+        health_cells(&inside),
+        inside_before + 1,
+        "the in-sim control did not grant its item, so `apply_item_grants` is \
+         either absent from this composition or never reached — every number \
+         below would then be measuring the fixture rather than the road"
+    );
+
+    // THE MENU'S POSITION: a producer outside the rewinding schedule.
+    let mut outside = sim_granting_an_item(false);
+    step_past_hydration(&mut outside);
+    for _ in 0..20 {
+        outside.step(AgentAction::default());
+    }
+    let before = health_cells(&outside);
+    outside
+        .world_mut()
+        .write_message(ambition_platformer2d::item::ItemGrantRequested {
+            item: ambition_platformer2d::item::Item::HealthCell,
+            count: 1,
+        });
+
+    // Sampled every frame: a value that is right at both ends can still have
+    // been granted and taken back in between, and "never landed" is a different
+    // finding from "landed and was reverted".
+    let mut ever_rose = false;
+    for _ in 0..200 {
+        outside.step(AgentAction::default());
+        if health_cells(&outside) > before {
+            ever_rose = true;
+        }
+    }
+    assert_eq!(
+        health_cells(&outside),
+        before,
+        "a grant requested from outside the simulation now survives — that is \
+         the FIX this arm is waiting for, not a regression. Invert it, and note \
+         in MENU-RESET-MIDSESSION what made a local intent reach the timeline"
+    );
+    assert!(
+        !ever_rose,
+        "the grant DID land and was then taken back, which is a different defect \
+         from the one recorded here: this arm says the request never reaches \
+         `apply_item_grants` at all. Update the row to whichever it is"
+    );
+}
+

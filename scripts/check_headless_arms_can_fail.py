@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 import sys
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,8 +109,30 @@ def reachable(text: str, body: str) -> str:
 
 def main() -> int:
     offenders, checked = [], 0
-    for path in sorted(ROOT.glob("**/*.rs")):
-        if "/target/" in str(path) or "/.git/" in str(path):
+    # ⛔⛤ **TRACKED FILES ONLY — A `**/*.rs` GLOB SWEEPS OTHER AGENTS'
+    # CHECKOUTS.** `.worktrees/` holds full copies of this repository at whatever
+    # commit another session left them at, and they are not `/target/` so the
+    # exclusions below never saw them. MEASURED 2026-09-16: this check reported
+    # EIGHT offenders and every one was a stale worktree — arms already fixed in
+    # the live tree, which nobody could act on and which would train a reader to
+    # ignore the whole report. `git ls-files` answers about THIS checkout.
+    tracked = subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files", "*.rs"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    # ⛔ ANTI-VACUITY. An empty listing would make every verdict below trivially
+    # clean, and a scan root a move silently emptied looks exactly like a
+    # repository with no defects.
+    if len(tracked) < 500:
+        print(
+            f"⛔⛔ only {len(tracked)} tracked .rs file(s) found; a clean verdict "
+            "over this corpus would be a claim about the scan, not about the tree"
+        )
+        return 1
+    for path in sorted(ROOT / rel for rel in tracked):
+        if "/target/" in str(path):
             continue
         try:
             text = path.read_text(errors="replace")

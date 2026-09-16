@@ -410,7 +410,7 @@ sites.
 
 ⛔ **BUT THE WRAPPERS ABOVE IT ARE STILL DISTINCT, WHICH IS WHAT THIS ROW SAYS.**
 The room-transition road has its own `RoomTransitionApply::stage(..)`
-(`runtime/room_transition/commit.rs:247`) with its own preflight —
+(`crates/ambition_platformer2d_runtime/src/room_transition/commit.rs:247`) with its own preflight —
 `NoSessionWorld`, `SubjectCannotTransit { subject, missing }` — reached without
 going through `session/setup.rs`. ⚠ I did NOT enumerate all six roads' wrappers;
 what is measured is that the room MATERIALIZER is shared and at least one commit

@@ -24,37 +24,35 @@ A candidate can move down if a new source inspection shows that two values have 
 
 ## 1. C01 — Finish A10 as the one live room/session replacement transaction
 
-**STATE:** ACTIVE — do not start a parallel implementation
-**IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** A10 is already the current architecture milestone. This row is observation only.
+**STATE:** COMPLETED 2026-09-15. Post-A10 demolition is the active lane.
 
-### CURRENT STATE
+⛔⛤ **THIS SECTION DESCRIBED THE PRE-A10 WORLD UNTIL 2026-09-16**, three weeks
+after the work landed — it said *"candidate entity support exists, but the normal
+room bracket is still off"* and `STATE: ACTIVE`, while the priority table two
+screens above already said COMPLETE. A ranked plan whose body contradicts its own
+table is a second authority, and the body is the half a reader acts on.
 
-Current room replacement retires N and writes `RoomSet`, `RoomGeometry`, and moving-platform state before final verification. Candidate entity support exists, but the normal room bracket is still off.
+There is ONE road into a live session and ONE publication authority per level.
+Every road that can change the authoritative world — room transition, reset,
+death reconstruction, shell handoff, dev LDtk reload — crosses its own
+publication's verdict, each with a refusal arm and an admission control in
+`app_it`. A verified publication also FREEZES what it owes the world outside its
+own population, so a room published inside a pending candidate session announces
+nothing to the live one until that session is admitted.
 
-### INDEPENDENT TRUTHS INVOLVED
+**What disappeared, as promised by the row:** the destructive retire-before-verify
+road; the candidate mode flag (`ROOM_CANDIDATE_BRACKET` is DELETED, not frozen
+on, so there is no second road to drift onto); the split hot-reload writes; and
+room-verifier responsibility for a world it cannot retain beside N.
 
-`replace_live_world`, root/resource writes, candidate root visibility, `ActiveContentBinding`, prepared/session state, old-room retirement.
+**REGRESSION RULE:** a new road that changes the authoritative world must cross a
+publication verdict. ⛔ Do not reintroduce a flag that selects between a
+candidate road and a live one — a mode flag is how twenty-seven construction arms
+came to certify a road the game no longer used.
 
-### WHY COMPLEXITY EXISTS
-
-The typed candidate primitive is ahead of the full world/session owner. Deferred Commands and resource/root writes create separate publication slices.
-
-### WHAT COULD DISAPPEAR
-
-Destructive retire-before-verify road, the candidate mode flag, split hot-reload writes, and room-verifier responsibility for a world it cannot retain beside N.
-
-### DEPENDENCIES / BLOCKERS
-
-Active A10 work; peer-stable provenance must not be hardened around local IDs; current A10 source/queue packet.
-
-### RISK
-
-high: a wrong cut can expose two worlds, lose the last good world, or publish mixed generations.
-
-### EXPECTED BENEFIT
-
-One prepare -> validate -> publish -> retire model for room/session replacement; refusal leaves N intact.
+⇒ Owner document: [construction and reconstitution](../engine/construction-and-reconstitution.md).
+Do not use this row as an implementation plan for the demolition lane; use it to
+find roads whose replacement now exists.
 
 ## 2. C02 — Separate local lifetime/correlation identity from peer-stable mechanical provenance
 

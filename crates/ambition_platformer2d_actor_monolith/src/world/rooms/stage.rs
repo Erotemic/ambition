@@ -1304,7 +1304,7 @@ mod tests {
 
     /// Every staged world still standing, whoever holds it.
     ///
-    /// ⛔ Ask the PUBLICATION entity, not `candidate_state_entities`. The staged
+    /// ⛔ Ask the PUBLICATION entity. The staged
     /// world is a `PendingWorldReplacement` component on the entity
     /// `begin_publication` spawns, and that entity is spawned plain — no
     /// disabling marker — so an ordinary query sees it. A query keyed on the

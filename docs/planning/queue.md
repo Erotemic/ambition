@@ -725,18 +725,38 @@ arm that never steps, so those two facts were exactly what made `app_it` the
 only instrument that could see it. ⇒ See
 [[reference_a_gate_lane_you_did_not_run_is_a_guard_that_does_not_exist]].
 
-⚠ **STILL OPEN FROM (1):** `b9f2ece18` argued the gate closes the capability
-leak because sibling boss systems sit under it. The only MEASURED fact was that
-a host built without `BossEncounterSimulationPlugin` panics on
-`Res<BossCatalog>` validation; whether `simulation_authorized` is false in
-exactly those hosts was reasoned, not tested.
+⛔⛤ **AND (1) WAS NOT CLOSED BY THE GATE. A SESSION GATE IS NOT A CAPABILITY
+CHECK.** `23f786757` argued `.in_set(GameplaySimulationRoot)` closes the
+`Res<BossCatalog>` leak because the set carries `simulation_authorized`.
+MEASURED IN ISOLATION that looked right — dropping the set failed exactly
+`a_host_that_omits_boss_encounters_still_builds_and_steps`, 5 passed 1 failed.
+⇒ It was wrong. Once the probes really stepped, the FULL lane failed that same
+arm WITH the gate in place (674/2 at `1ac88c713`). `simulation_authorized`
+answers *"is this session authorized"*, which is TRUE in hosts that have no
+catalog. CLOSED at `582186bff` by asking the capability's own question:
+`.run_if(resource_exists::<BossCatalog>)`. The set stays only because it pins no
+position.
 
-**NEXT IMPLEMENTATION STEP (new, owns itself).** The timing fix is now
-UNBLOCKED and should be landed: pin `TimeUpdateStrategy::ManualDuration(1/60)`
-in the composition probes so they really advance a fixed step. It was withheld
-only because it exposed the cycle above. Until it lands, those three probes
-certify that the engine BUILDS and nothing more, and this row must not claim
-they step it.
+⚠ **A POISON MEASURED IN ISOLATION CERTIFIED A CLAIM THE FULL LANE REFUSED** —
+same arm, opposite verdict. An arm that needs the whole process to fail cannot
+be poison-verified alone.
+
+**DONE (was the next implementation step).** The composition probes really step
+as of `582186bff`. `step_the_fixed_schedule` pins
+`TimeUpdateStrategy::ManualDuration(1/60)` AND asserts a `FixedUpdate` counter
+is non-zero — the pin alone is not enough, because anything that stops the fixed
+loop advancing returns these arms to certifying a build and that failure is
+SILENCE, not a red. POISONED: removing the pin fails all three arms with the
+counter's own message, exit 101.
+
+**Current lane state.** `cargo test -p ambition_app --test app_it` →
+**675 passed / 1 failed / 25 ignored of 701, 252.02 s** at `582186bff`. ⛔ The
+one red is ID-PEER's, not this row's:
+`an_edit_reaches_the_shipped_game::a_committed_world_reload_applies_its_effects`
+fails on `ContentBindingMismatch` with the LIVE `PeerContentIdentity` reading
+thirty-two ZERO bytes against a populated planned one, epochs equal. Green in
+the full run at `23f786757`, red after the merge bringing `9e222ffb2`. Reported
+to its owner.
 
 ⛔ **OPERATIONAL RESIDUE, kept because it cost a night.** An affected arm
 allocated without bound and SUPERLINEARLY — ~27 MB/s over the first 60 s, then

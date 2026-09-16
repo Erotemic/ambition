@@ -45,6 +45,44 @@ class SentinelLockfileStale(RuntimeError):
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "one-registrar-installs-the-session-teardown",
+        "paths": [
+            "crates/",
+            "game/",
+            "examples/",
+            ":(exclude)crates/ambition_platformer2d_provider/src/authoring.rs",
+            ":(exclude)crates/ambition_game_shell/",
+        ],
+        "patterns": [
+            r"ExperienceRegistration::new\(",
+        ],
+        "reason": (
+            "EVERY COMPOSITION THAT CAN REACH A SECOND SESSION MUST INSTALL THE "
+            "SESSION RESET, AND THE ONLY THING THAT GUARANTEES IT IS THIS BEING "
+            "THE ONLY REGISTRAR. The chain, MEASURED 2026-09-16: a second session "
+            "needs a second activation; `ShellActivationId` is minted in exactly "
+            "one place (`ambition_game_shell/src/router.rs`); the router routes "
+            "only to a REGISTERED experience; and `PlatformerExperience::register` "
+            "installs `PlatformerProviderRuntimePlugin` unconditionally, which "
+            "installs `SessionTeardownPlugin` and its exhaustive "
+            "`SessionScopedResources` destructure. A second registrar is a road to "
+            "a second session that resets nothing, and the resources it fails to "
+            "reset are stamps from the PREVIOUS session -- which read as valid.\n"
+            "\u26d4 THIS EXISTS BECAUSE THE ARGUMENT IT REPLACES WAS A CENSUS OF "
+            "WRITERS. `SessionScopedResources`' completeness was justified by "
+            "*'the only production registrar is this one'*, which is a count, and "
+            "a count rots the day somebody adds a provider crate. A boundary "
+            "notices; a count in a comment does not.\n"
+            "\u26a0 `ambition_game_shell` is excluded because its OWN tests "
+            "register experiences and activate multiple sessions without the "
+            "provider. They cannot exhibit the failure: that crate depends on "
+            "`ambition_platformer2d_shared_tangle` and on neither `ambition_match` "
+            "nor the actor monolith, so it cannot NAME the session-scoped match "
+            "resources, let alone hold one across an activation. The exclusion is "
+            "the dependency graph's answer, not an amnesty."
+        ),
+    },
+    {
         "id": "only-the-candidate-builder-hides-a-root",
         "paths": [
             "crates/",

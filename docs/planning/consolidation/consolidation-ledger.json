@@ -3628,7 +3628,7 @@
     }
   ],
   "static_measurement_snapshot": {
-    "source_commit": "662a9b56096a304ce9fcfe3ebcf1177403f2452d",
+    "source_commit": "09629b060f6505d600e9558d32646f5555ca42ad",
     "method": {
       "compiler_used": false,
       "direct_dependency_rule": "declared workspace dependencies from dependencies/build-dependencies and target-specific equivalents; dev-dependencies are reported separately",
@@ -3645,18 +3645,18 @@
     },
     "workspace": {
       "crates": 80,
-      "nonblank_rust_loc": 777646,
-      "raw_rust_loc": 825759,
-      "repository_tracked_rust_files": 1908,
-      "rust_files": 1882,
-      "test_rust_loc_heuristic": 265099
+      "nonblank_rust_loc": 787934,
+      "raw_rust_loc": 836584,
+      "repository_tracked_rust_files": 1909,
+      "rust_files": 1883,
+      "test_rust_loc_heuristic": 269454
     },
-    "large_module_count": 182,
+    "large_module_count": 184,
     "source_patterns": {
-      "optional_res_occurrences": 732,
+      "optional_res_occurrences": 726,
       "optional_res_unique_types": 196,
       "mechanical_editor_domain_count": 6,
-      "raw_before_after_edges": 473
+      "raw_before_after_edges": 471
     },
     "explicit_narrow_lifetime_resource_count": 32,
     "generated_inventory_counts": {
@@ -3665,27 +3665,29 @@
       "concepts": 27,
       "crates": 80,
       "ecs": {
-        "architecture_items": 190,
+        "architecture_items": 173,
         "bundles": 11,
-        "components": 650,
-        "message_channels": 386,
+        "components": 638,
+        "message_channels": 393,
         "messages": 105,
-        "module_summaries": 608,
-        "non_ecs_items": 2123,
-        "plugins": 189,
-        "registered_systems": 1098,
-        "registrations": 1818,
-        "resource_access_entries": 1054,
-        "resources": 525,
-        "spawn_sites": 314,
-        "system_like_functions": 1521,
-        "unique_registration_identifiers": 3245
+        "module_summaries": 593,
+        "non_ecs_items": 2048,
+        "plugins": 187,
+        "registered_systems": 1108,
+        "registrations": 1763,
+        "resource_access_entries": 1017,
+        "resources": 493,
+        "spawn_sites": 312,
+        "system_like_functions": 1505,
+        "unique_registration_identifiers": 3132
       },
-      "files": 3329,
-      "planning_docs": 123,
-      "symbols": 33315,
-      "tests": 8262,
-      "tools": 10
+      "files": 3340,
+      "planning_docs": 127,
+      "symbols": 33606,
+      "tests": 8336,
+      "tools": 11,
+      "_generated_from_commit": "09629b060f65",
+      "_generated_at": "2026-09-16T05:02:47+00:00"
     }
   },
   "workspace_crates": [
@@ -6075,5 +6077,10 @@
       "rust_files": 4,
       "test_rust_loc_heuristic": 131
     }
-  ]
+  ],
+  "static_measurement_refresh": {
+    "commit": "09629b060f6505d600e9558d32646f5555ca42ad",
+    "date": "2026-09-16",
+    "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim."
+  }
 }

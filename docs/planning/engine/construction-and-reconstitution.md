@@ -155,12 +155,12 @@ the publication entity carries `RoomPublication` and NO `TransactionId`, so
 the publication; a query keyed on the candidate's transaction answers ZERO
 whether or not one stands.
 
-`construction::CandidateState` and `spawn_candidate_state` are the construction
-module's only way for a domain above `shared_tangle` to hold state under a
-candidate, since `InactiveCandidate` is `pub(crate)`. They have ZERO callers —
-a capability with no users, not the carrier described above. `CandidateState` is
-excluded from `candidate_roots`, so "N roots admitted" counts authoritative
-bodies only.
+⇒ `construction` no longer offers a domain above `shared_tangle` any way to hold
+state UNDER a candidate: `InactiveCandidate` is `pub(crate)` and the
+`CandidateState` / `spawn_candidate_state` / `candidate_state_entities` trio that
+once did is DELETED — it had zero callers, and its comments specified an
+architecture production does not use. A domain that needs candidate-owned state
+holds it as a component on the publication, as the staged world does.
 
 **Supersession is a third baseline declaration, not a relaxed reconstruction.**
 `TransactionBaseline::reconstructing` keeps its meaning ("the old body should
@@ -259,7 +259,7 @@ SessionRoot + InactiveCandidate            every root minted InactiveCandidate,
     entity spawned through                   the lane TransactionId
     SessionSpawnScope::candidate(scope)
   + ActiveContentBinding on the root       + PendingWorldReplacement on the
-  + the world bundle on the root             publication entity (CandidateState)
+  + the world bundle on the root             publication entity (PendingWorldReplacement)
   + process projections held as DATA in
     CandidateSessionPublication
 ```

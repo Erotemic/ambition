@@ -307,7 +307,79 @@ today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
 | `job_limit` | **NEW 2026-09-15**, the `-j` cap in force | ✅ `null` = uncapped |
 | `load_mean` / `load_max` | **NEW 2026-09-15**, `getloadavg()[0]` sampled every 5s across all three builds | ✅ |
 | `edit_class` | **NEW 2026-09-15**, what the probe did to the file | ✅ one value so far |
-| `host_link_invocations` | **NEW 2026-09-15**, M0's name for it | ⛔ `null` — no collector |
+| `warm_noop_host_link_invocations` / `after_edit_host_link_invocations` / `restore_host_link_invocations` | **COLLECTED 2026-09-16**, cargo's own `--message-format=json` — see §below | ✅ `null` = unmeasured, never zero |
+
+### `*_host_link_invocations` — the column that was a declared null until 2026-09-16
+
+It was `null` from 2026-09-15 with a stated reason: *counting it needs a shim on
+the linker path, which would perturb the timings in the same row.* ⛔ **THE
+PREMISE WAS WRONG, AND NOTHING HAD TO BE INJECTED ANYWHERE.** Cargo already
+reports, per unit, whether it was `fresh` and what `executable` it produced.
+`--message-format=json` asks for those messages; it does not change the build.
+
+    non-fresh AND non-null `executable`  ==  one real link
+
+⚠ **`fresh` is the whole discriminator.** A warm build re-reports EVERY cached
+unit as an artifact, so counting artifacts counts the dependency graph — a large
+plausible constant for a build that did nothing.
+
+⚠ **AND `target.kind` IS NOT A DISCRIMINATOR.** MEASURED on
+`ambition_entity_catalog`: its linked TEST BINARY reports `kind: ["rlib"]`,
+identical to the library beside it. Only `executable` separates them. A counter
+"simplified" onto `kind` counts both or neither;
+`scripts/tests/test_compile_cost_link_count.py` fails the moment someone does.
+
+**The flag was measured, not assumed free.** Warm no-op `cargo check -p
+ambition_app` on the calculex VM (6 cores, 15 GB, mold, incremental), arms
+INTERLEAVED, n=4 each: plain median 0.83 s (0.74–0.83), json median 0.80 s
+(0.76–0.94). ⭐ And the no-op is the CONSERVATIVE case rather than a weak one —
+cargo emitted the same **521,014 bytes** of JSON for a no-op as for a real
+rebuild, so the instrument's entire cost lands in the cheapest build measured,
+where there is no compile work for it to hide behind.
+
+⚠ **THE COST THAT IS REAL: the `command` column is no longer byte-identical to
+the process that ran.** The flag is appended by the instrument, and the ledger
+keeps the scenario's own spelling. A scenario that chooses its own
+`--message-format` KEEPS it and gets `null` — measuring a different command than
+the scenario asked for would be worse than an absent number.
+
+⭐ **WHY THREE COLUMNS AND NOT ONE.** M0's rule is *"do not count a lightweight
+crate followed by a heavy host link as completion"*, which is a comparison
+BETWEEN phases, not a fact about a build. `warm_noop` is the CONTROL and must
+read 0: a warm no-op that links something is not warm, and every duration in the
+row beside it is then timing a different build than it claims to.
+
+**VALIDATED ON TWO LANES, because a counter that only ever reports 0 in
+production cannot be told from a broken one.** Calculex VM, 6 cores, uncapped,
+at `0a8252fe8`:
+
+| scenario | warm no-op | after edit | restore | after-edit wall |
+| --- | ---: | ---: | ---: | ---: |
+| `check` (`cargo check -p ambition_app`) | 0 | **0** | 0 | 11.06 s |
+| `relink` (`cargo test --test app_it --no-run`) | 0 | **1** | 1 | 6.73 s |
+
+The `check` lane's zeros are a RESULT — the AGENTS.md gate never links, so a
+content edit measured through it cannot be hiding a host relink. The `relink`
+lane's 1 is the same instrument reporting the opposite, which is what makes the
+zero credible.
+
+⭐ **AND THE CONTROL FIRED ON ITS FIRST PRODUCTION USE.** The first `relink`
+attempt reported `warm_noop_host_link_invocations: 2` with a 346-second "warm
+no-op" — because a merge had landed between building the binary and measuring
+it, so the baseline build was doing real work. Nothing in the DURATIONS says
+that; a reader would have taken 346 s as this machine's warm cost and computed a
+meaningless ratio against it. The re-run at a settled tree reads 0 / 0.79 s.
+⇒ A row whose `warm_noop` count is nonzero is not a slow row. It is a row whose
+baseline is not a baseline, and every duration in it is timing a different build
+than it claims to.
+
+⚠ **`null` STILL MEANS UNMEASURED, NEVER ZERO.** Every row written before
+2026-09-16 carries the old single `host_link_invocations` column at `null`, and
+this ledger is append-only, so those rows are not rewritten. A reader asking the
+old name of a new row gets nothing, and a reader asking the new names of an old
+row gets nothing; neither is a zero. The `schema` version is deliberately NOT
+bumped — per the rule at the top of this file, filling a column that only ever
+held `null` changes no meaning and forces no reader to branch.
 
 ### ⚠⚠ `*_peak_rss_bytes` IS ONE PROCESS, NOT THE BUILD
 
@@ -457,7 +529,9 @@ record (`conversation/mod.rs`'s own docstring) and says so in `recorded_from`.
   share one marker. A signature change, a data-only move, and a body change may
   cost very differently; this corpus has one value and cannot say. The column is
   here so that limit is visible rather than assumed away.
-* **How many times the host linker ran.** `host_link_invocations` is a declared
-  column with no collector: counting it needs a shim on the linker path, which
-  would perturb the timings in the same row. `null` means unknown — and per M0,
-  *"null means unmeasured, not zero"*.
+* **Whether a phase's links were the HOST or a test binary.** The three
+  `*_host_link_invocations` columns count every unit cargo linked into an
+  executable, and a test binary is one. A row that links once cannot say from
+  this column alone *which* executable it was. M0's question — did a content
+  edit relink the host — is answered by the count being 0 or nonzero for the
+  scenario's own command, not by identifying the artifact.

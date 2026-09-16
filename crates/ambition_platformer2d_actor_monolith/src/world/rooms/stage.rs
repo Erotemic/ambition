@@ -1304,18 +1304,22 @@ mod tests {
     /// Every candidate-owned state entity this room's transaction still holds,
     /// hidden or not.
     ///
-    /// ⛔ **NOT `world.query::<&PendingWorldReplacement>()`.** Candidate state
-    /// wears the disabling marker, so an ordinary query is excluded from it and
-    /// would answer ZERO whether or not one is standing — the exact shape of a
-    /// check that cannot fail. `candidate_state_entities` is the construction
-    /// module's own opt-out.
-    fn staged_worlds_alive(app: &mut bevy::prelude::App, plan: &RoomConstructionPlan) -> usize {
-        let transaction = plan.features.construction_transactions(plan.session_scope)[0].clone();
-        ambition_platformer2d_shared_tangle::construction::candidate_state_entities(
-            app.world_mut(),
-            &transaction,
-        )
-        .len()
+    /// ⛔⛤ **IT COUNTS THE PUBLICATION ENTITY, AND IT USED TO COUNT A POPULATION
+    /// NOTHING EVER FILLS.** This asked `candidate_state_entities`, with a
+    /// comment forbidding `world.query::<&PendingWorldReplacement>()` because
+    /// candidate state wears the disabling marker and an ordinary query would
+    /// answer ZERO whether or not one stood. That ban was right about the design
+    /// it was written for and expired with it: the staged world is a component on
+    /// the PUBLICATION entity now, `begin_publication` spawns that entity plain,
+    /// and `spawn_candidate_state` has no callers at all. MEASURED — so the old
+    /// instrument answered ZERO unconditionally and both assertions below passed
+    /// without reaching their subject.
+    ///
+    /// ⚠ The invariant is unchanged and real; only the carrier moved.
+    fn staged_worlds_alive(app: &mut bevy::prelude::App, _plan: &RoomConstructionPlan) -> usize {
+        let world = app.world_mut();
+        let mut query = world.query::<&transaction::PendingWorldReplacement>();
+        query.iter(world).count()
     }
 
     fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {

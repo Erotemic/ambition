@@ -70,7 +70,7 @@ diary.
 
 **Current state (2026-09-16): NINE OF THE TEN NAMED ROADS ARE CLOSED, and the
 tenth is the absolute `SimTick`, which is netcode and wants a maintainer decision
-before anyone starts.** A count rather than a completeness word, deliberately: a
+before anyone starts — asked as `Q128`.** A count rather than a completeness word, deliberately: a
 tenth road found tomorrow makes this row "nine closed, a tenth found" instead of
 making it false.
 
@@ -102,7 +102,7 @@ to carry it.
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically`. See below |
 | `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
-| the canonical timeline itself | **OPEN, and the largest unnamed one** — see below |
+| the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**
 Found by the GPT review of 2026-09-15, measured on the production road, and

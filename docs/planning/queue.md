@@ -387,7 +387,8 @@ say "derived" about something ELSE — `ActorRenderSize`'s COLLISION BOX,
 box. ⚠ 21 is a floor of CANDIDATES, not a count of defects.
 
 The ones that really do describe themselves that way are deliberate, and the
-reason is written at the registration site (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`):
+reason is written at the registration site
+(`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`):
 *"'Re-derived next tick' is not a reason to omit it: `ITEM 0` of this project's
 own record is a component declared derived, dropped by a restore, and read before
 its writer ran again. Presence is authoritative because a query FILTERS on it."*

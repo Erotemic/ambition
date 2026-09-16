@@ -128,7 +128,7 @@ identity, and two peers whose schemas differ cannot agree about a snapshot."*
 
 ⇒ **CORRECTING A MISLEADING DESCRIPTION IS INDISTINGUISHABLE FROM CHANGING AN
 ENCODING**, to the guard and to every peer. That is a disincentive pointed at
-exactly the repair S7 needs: the 93 rows whose `detail` asserts coverage the kind
+exactly the repair S7 needs: the 99 rows whose `detail` asserts coverage the kind
 cannot establish would each cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump whose log
 entry would be the only non-mechanical one in that log.
 
@@ -232,12 +232,12 @@ names has already hidden 25 of 29 registrations once:
   DIFFERENT type.
 
 ⛔⛤ **AND THE REASON COLUMN IS NOT AUTHORED PER ROW — IT IS EMITTED BY THE
-REGISTRAR METHOD, WHICH MAKES THIS ONE CLAIM ASSERTED ABOUT 93 TYPES THAT WERE
-NEVER INDIVIDUALLY EXAMINED.** 93 rows read *"state checksum supplied by another
+REGISTRAR METHOD, WHICH MAKES THIS ONE CLAIM ASSERTED ABOUT 99 TYPES THAT WERE
+NEVER INDIVIDUALLY EXAMINED.** 99 rows read *"state checksum supplied by another
 authoritative projection"*, and that string is a literal inside
 `rollback_component_clone` and `rollback_resource_clone` (two spellings each, in
 `runtime/src/rollback/registrar.rs` and
-`rollback_ggrs/src/registration.rs`). Nobody wrote it 93 times; nobody wrote it
+`rollback_ggrs/src/registration.rs`). Nobody wrote it 99 times; nobody wrote it
 once per type either.
 
 ⇒ **THE DEFECT IS THAT THE KIND ASSERTS SOMETHING ONLY THE TYPE CAN KNOW.**
@@ -252,7 +252,7 @@ the kind level.
 registrar TAKES the coverer (the projection or type that does compare this fact)
 as an argument, so a caller must name it or say there is none; or the string
 stops claiming coverage and says what the kind actually knows — that this value
-is snapshotted and not compared. The second is a one-line change that makes 93
+is snapshotted and not compared. The second is a one-line change that makes 99
 rows stop asserting something unchecked; the first is the version that could go
 stale visibly.
 
@@ -294,12 +294,27 @@ that population looks close to zero, measured above. It is to stop the KIND
 asserting coverage it cannot know, then classify the payloads that can change
 mechanical behaviour.
 
-⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT.** The
-first version of this section said "93 unverified claims" and inferred, from 93
-identical strings in the artifact, that somebody had written the sentence 93
-times. The generator was one literal in two methods. Reading a repeated value out
-of a derived artifact tells you about the artifact, not about how it came to be —
-open the emitter before describing the population's authorship.
+⚠ **A METHOD NOTE, BECAUSE THIS PAGE IS WHERE SOMEBODY WILL REPEAT IT — AND IT
+WAS WRONG TWICE.** The first version of this section said "93 unverified claims"
+and inferred, from the repeated string in the artifact, that somebody had written
+the sentence 93 times. Both halves failed:
+
+1. **The authorship was invented.** The generator is one literal in two
+   registrar methods. Reading a repeated value out of a derived artifact tells
+   you about the artifact, not about how it came to be — open the emitter before
+   describing the population's authorship.
+2. **The count was an instrument artifact, and the artifact never held it.** The
+   baseline carries **99** rows (94 `component-clone`, 5 `resource-clone`), and
+   `git show <sha>:game/ambition_app/tests/rollback_schema_baseline.txt` says 99
+   at every recent commit that touched the file — so 93 was never a reading of
+   anything. Which step of the ad-hoc script dropped six is not recoverable from
+   the artifact, and guessing a mechanism would repeat the first error in a new
+   costume.
+
+⇒ The act-trigger: a count taken by a script written for one question must print
+its **good value** — here, the baseline has 494 rows and 99 is a subset of them,
+so `grep -c` against the committed file is the check, and it takes one command.
+A peer ran it and corrected the number; nothing in my own output would have.
 
 ### Host-to-host determinism witness
 

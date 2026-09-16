@@ -177,7 +177,7 @@ fn registry() -> ConstructionRegistry<Toy> {
 }
 
 fn scope() -> ConstructionScope {
-    ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(7), content: Default::default() }, Some("room_a".into()))
+    ConstructionScope::in_generation(ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(7)), Some("room_a".into()))
 }
 
 fn request(id: &str) -> ConstructionRequest<Toy> {
@@ -1662,7 +1662,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
             ctx.commands_for_sabotage().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
-            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(9), content: Default::default() }, Some("some_other_room".into()));
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
             ctx.commands_for_sabotage()
                 .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
@@ -1670,7 +1670,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
         Sabotage::SpawnForeignScopedRoot => {
             // Another live transaction's root. Present in the world, none of
             // this transaction's business, and must not be reported.
-            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(9), content: Default::default() }, Some("some_other_room".into()));
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
             ctx.commands_for_sabotage().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
@@ -3012,8 +3012,8 @@ fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
 /// `TransactionId` naming **N**.
 #[test]
 fn a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one() {
-    let n = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(4), content: Default::default() };
-    let next = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(5), content: Default::default() };
+    let n = ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(4));
+    let next = ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(5));
     let room = Some("hall".to_string());
     let session = crate::lifecycle::SessionSpawnScope::UNSCOPED;
 
@@ -3054,14 +3054,14 @@ fn a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_l
 /// cache and `RoomConstructionPlanId` key on.
 #[test]
 fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
-    let next = ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(5), content: Default::default() };
+    let next = ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(5));
     let into_four = ConstructionScope::replacing(
-        ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(4), content: Default::default() },
+        ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(4)),
         next,
         Some("hall".into()),
     );
     let into_three = ConstructionScope::replacing(
-        ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(3), content: Default::default() },
+        ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(3)),
         next,
         Some("hall".into()),
     );
@@ -3679,7 +3679,7 @@ fn a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances()
 /// id is CANONICAL ROLLBACK STATE — snapshotted as its exact string. Both of the
 /// first two fields are process-local counters:
 ///
-/// * `ContentBinding::Content { epoch: epoch, content: Default::default() }` renders the `ContentEpoch` NUMBER, and
+/// * `ContentBinding::content_unstated(epoch)` renders the `ContentEpoch` NUMBER, and
 ///   `ContentEpochSequence` is app-local. `Q120`'s sibling ruling deliberately
 ///   made it GAP-TOLERANT — a refused hot reload burns a number — so two hosts
 ///   that refused different numbers of candidates reach the same content at
@@ -3715,7 +3715,7 @@ fn a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so() {
     let room = || Some("central_hub_complex".to_string());
     let scope_of = |epoch: u64| {
         super::ConstructionScope::in_generation(
-            super::ContentBinding::Content { epoch: ContentEpoch(epoch), content: Default::default() },
+            super::ContentBinding::content_unstated(ContentEpoch(epoch)),
             room(),
         )
     };
@@ -3765,7 +3765,7 @@ fn a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so() {
     // unstable: it is stable on the peer-stable field and unstable on the two
     // local ones.
     let other_room = super::ConstructionScope::in_generation(
-        super::ContentBinding::Content { epoch: ContentEpoch(7), content: Default::default() },
+        super::ContentBinding::content_unstated(ContentEpoch(7)),
         Some("proving_grounds".to_string()),
     );
     assert_ne!(
@@ -3788,10 +3788,10 @@ fn a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so() {
 fn a_content_binding_states_which_content_as_well_as_which_generation() {
     use ambition_platformer2d_core::{ContentEpoch, PeerContentIdentity};
 
-    let stated = ContentBinding::Content {
-        epoch: ContentEpoch(4),
-        content: PeerContentIdentity::from_bytes([7u8; 32]),
-    };
+    let stated = ContentBinding::content(
+        ContentEpoch(4),
+        PeerContentIdentity::from_bytes([7u8; 32]),
+    );
     assert_eq!(stated.content_epoch(), Some(ContentEpoch(4)));
     assert_eq!(
         stated.peer_content(),
@@ -3802,10 +3802,7 @@ fn a_content_binding_states_which_content_as_well_as_which_generation() {
     // `RuntimeDynamic` is NOT content-derived at all; a fixture's binding IS
     // content-derived with nobody stating which. Folding those together would let
     // a summon agree with a room entity built outside a prepared session.
-    let unstated = ContentBinding::Content {
-        epoch: ContentEpoch(4),
-        content: PeerContentIdentity::default(),
-    };
+    let unstated = ContentBinding::content_unstated(ContentEpoch(4));
     assert_eq!(ContentBinding::RuntimeDynamic.peer_content(), None);
     assert_eq!(unstated.peer_content(), Some(PeerContentIdentity::default()));
     assert!(!unstated.peer_content().unwrap().is_stated());
@@ -3835,10 +3832,10 @@ fn a_content_binding_states_which_content_as_well_as_which_generation() {
     // ⚠ AND "UNSTATED" CANNOT COLLIDE WITH A STATED ALL-ZERO DIGEST, which is
     // reachable: a digest of all zeroes renders the segment and differs from a
     // bare `epoch:4`.
-    let stated_zero = ContentBinding::Content {
-        epoch: ContentEpoch(4),
-        content: PeerContentIdentity::from_bytes([0u8; 32]),
-    };
+    let stated_zero = ContentBinding::content(
+        ContentEpoch(4),
+        PeerContentIdentity::from_bytes([0u8; 32]),
+    );
     assert_eq!(stated_zero.canonical_summary(), "epoch:4");
     // ⚠ …and that is a MEASURED LIMIT, not a claim of safety: `is_stated()` is
     // defined as "not all-zero", so a genuine all-zero digest IS indistinguishable
@@ -3860,10 +3857,10 @@ fn a_content_binding_states_which_content_as_well_as_which_generation() {
     // reason it exists.
     assert_eq!(
         stated.peer_stable_summary(),
-        ContentBinding::Content {
-            epoch: ContentEpoch(9_999),
-            content: PeerContentIdentity::from_bytes([7u8; 32]),
-        }
+        ContentBinding::content(
+            ContentEpoch(9_999),
+            PeerContentIdentity::from_bytes([7u8; 32]),
+        )
         .peer_stable_summary(),
         "the peer summary moves with the app-local activation generation"
     );
@@ -3887,10 +3884,7 @@ fn two_hosts_with_different_local_history_project_one_transaction_identity() {
     let content = PeerContentIdentity::from_bytes([3u8; 32]);
     let stamp = |epoch: u64, session: u64| {
         ConstructionScope::in_generation(
-            ContentBinding::Content {
-                epoch: ContentEpoch(epoch),
-                content,
-            },
+            ContentBinding::content(ContentEpoch(epoch), content),
             Some("hub".to_string()),
         )
         .transaction(crate::lifecycle::SessionSpawnScope::scoped(
@@ -3922,10 +3916,7 @@ fn two_hosts_with_different_local_history_project_one_transaction_identity() {
     // ⛔ AND IT MUST STILL SEE THE TERMS IT KEEPS, or excluding the local ones
     // would be satisfied by a constant.
     let other_room = ConstructionScope::in_generation(
-        ContentBinding::Content {
-            epoch: ContentEpoch(4),
-            content,
-        },
+        ContentBinding::content(ContentEpoch(4), content),
         Some("cellar".to_string()),
     )
     .transaction(crate::lifecycle::SessionSpawnScope::scoped(
@@ -3938,10 +3929,10 @@ fn two_hosts_with_different_local_history_project_one_transaction_identity() {
     );
 
     let other_content = ConstructionScope::in_generation(
-        ContentBinding::Content {
-            epoch: ContentEpoch(4),
-            content: PeerContentIdentity::from_bytes([9u8; 32]),
-        },
+        ContentBinding::content(
+            ContentEpoch(4),
+            PeerContentIdentity::from_bytes([9u8; 32]),
+        ),
         Some("hub".to_string()),
     )
     .transaction(crate::lifecycle::SessionSpawnScope::scoped(
@@ -3959,10 +3950,7 @@ fn two_hosts_with_different_local_history_project_one_transaction_identity() {
     // them together would let a summon agree with a room entity built outside a
     // prepared session.
     let unstated = ConstructionScope::in_generation(
-        ContentBinding::Content {
-            epoch: ContentEpoch(4),
-            content: PeerContentIdentity::default(),
-        },
+        ContentBinding::content_unstated(ContentEpoch(4)),
         Some("hub".to_string()),
     )
     .transaction(crate::lifecycle::SessionSpawnScope::scoped(

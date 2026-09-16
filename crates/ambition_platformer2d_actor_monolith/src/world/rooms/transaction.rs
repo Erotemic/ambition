@@ -1042,10 +1042,9 @@ impl ActiveContentBinding {
         epoch: ambition_platformer2d_core::ContentEpoch,
         content: ambition_platformer2d_core::PeerContentIdentity,
     ) -> Self {
-        Self(ambition_platformer2d_shared_tangle::construction::ContentBinding::Content {
-            epoch,
-            content,
-        })
+        Self(ambition_platformer2d_shared_tangle::construction::ContentBinding::content(
+            epoch, content,
+        ))
     }
 }
 

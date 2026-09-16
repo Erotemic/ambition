@@ -163,7 +163,7 @@ mod tests {
         };
         let registry = portal_gun_construction_registry();
         let plan = PortalGunConstructionPlan::prepare_in_lane(
-            ConstructionScope::in_generation(ContentBinding::Content { epoch: ambition_platformer2d_core::ContentEpoch(1), content: Default::default() }, Some("room".to_string())),
+            ConstructionScope::in_generation(ContentBinding::content_unstated(ambition_platformer2d_core::ContentEpoch(1)), Some("room".to_string())),
             ConstructionLane::named(PORTAL_GUN_CONSTRUCTION_DOMAIN),
             [request],
             &BTreeSet::new(),

@@ -81,8 +81,46 @@ Separate these meanings in the implementation:
 | Mechanical generation digest | Bind selected definitions, code, schemas, ports and execution policy |
 | Host compatibility identity | State the engine/build/target policy required for execution |
 | ContentEpoch | Reject stale App-local activation plans |
+| PeerContentIdentity | State WHICH CONTENT, in the vocabulary two peers share |
 | Gameplay session / rollback timeline | Own live state and the history being replayed |
 | Construction attempt | Own candidate work and cleanup, not durable object identity |
+
+⭐⭐ **THE TWO CONTENT ROWS ARE ONE PAIR AND MUST BE MINTED TOGETHER.**
+`ContentEpoch` is an App-LOCAL activation count — which committed activation of
+prepared content this is — and it does the staleness job. `PeerContentIdentity`
+is which CONTENT, and two Apps holding the same prepared definition agree on it
+no matter how many times either one reloaded. `ContentBinding::Content` carries
+both, and `TransactionId`'s peer projection keeps the second and drops the first.
+
+⛔⛤ **MINTED APART, THEY PRODUCED A LIVE BINDING NOTHING COULD MATCH — 2026-09-16.**
+`ContentBinding::Content` was reachable by struct literal, so a road holding a
+`PreparedContent` could state the epoch and let the peer half default to thirty-two
+zero bytes. Provider activation did exactly that and published `epoch: 1,
+content: 0` onto the session root, while the hot-reload road — which draws both
+halves from the same `PreparedContent` — was refused against it as
+`ContentBindingMismatch` with the EPOCHS EQUAL and only the identity disagreeing.
+Every committed world reload was refused.
+
+⇒ The repair was not to populate that one site. `ActorConstructionContext` takes a
+whole `ContentBinding` now, so a road states both halves or says
+`ContentBinding::content_unstated(epoch)` and means it —
+`PeerContentIdentity::unstated()` spells a fixture's answer rather than leaving it
+to `Default`. ⚠ "Content-derived, nobody stated which" and "not content-derived
+at all" are DIFFERENT answers and a projection must keep them apart; that is what
+`ContentBinding::peer_content` returning `Option` is for.
+
+⛔⛤ **AND THE SPELLING WAS CLOSED, NOT JUST THE ONE ROAD — THE COMMENT SAYING SO
+WAS FALSE FOR A DAY.** `ContentBinding::content`'s doc read *"`Content` used to be
+reachable by struct literal"* while **the literal was still spelled at 25 sites**
+— 24 constructions and one doc comment teaching the form — six of them outside
+the defining crate, and one of those six a production wrapper
+(`ActiveContentBinding::content`) re-spelling the pair instead of calling the
+constructor. A fixed road does not close a spelling. The variant is
+`#[non_exhaustive]` now, which makes the half-stated form a COMPILE ERROR outside
+`shared_tangle` rather than a convention, and every remaining literal became
+`content(..)` or `content_unstated(..)`. ⚠ The census that found this was
+`grep -rn 'ContentBinding::Content\s*{'` — the same one command that should have
+been run before writing the word "used to".
 
 Canonical bytes specify tag order, integer width, sequence order, string encoding,
 map order, numeric restrictions and unknown-field behavior. Do not hash Rust

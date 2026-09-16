@@ -679,6 +679,13 @@ pub enum ContentBinding {
     /// peers while two of its three terms are per-App counts. Excluding them
     /// would leave `{room}` alone — and that hands every entity in one room the
     /// same identity, which is worse than the defect being fixed.
+    ///
+    /// ⛔⛤ `#[non_exhaustive]` IS THE ENFORCEMENT, NOT A FUTURE-PROOFING HABIT.
+    /// It makes the struct literal unspellable outside this crate, so no road
+    /// can state `epoch` and let `content` fall to its zero value — which is
+    /// exactly how activation and hot reload came to disagree. Callers use
+    /// [`ContentBinding::content`] or [`ContentBinding::content_unstated`].
+    #[non_exhaustive]
     Content {
         epoch: ambition_platformer2d_core::ContentEpoch,
         content: ambition_platformer2d_core::PeerContentIdentity,
@@ -692,13 +699,14 @@ pub enum ContentBinding {
 impl ContentBinding {
     /// Both halves of a content generation, stated together.
     ///
-    /// ⛔⛤ **THE PAIR IS MINTED ONCE OR IT DRIFTS.** `Content` used to be
-    /// reachable by struct literal, so a road holding a `PreparedContent` could
-    /// state the epoch and leave `content` at its zero value — and it did:
-    /// activation published `epoch: 1, content: 0` onto the session root while a
-    /// later hot reload, which did state both, was refused as stale against it.
-    /// The epochs matched; the halves did not. ⇒ a caller now names which
-    /// content, or says [`Self::content_unstated`] and means it.
+    /// ⛔⛤ **THE PAIR IS MINTED ONCE OR IT DRIFTS.** `Content` was reachable by
+    /// struct literal, so a road holding a `PreparedContent` could state the
+    /// epoch and leave `content` at its zero value — and it did: activation
+    /// published `epoch: 1, content: 0` onto the session root while a later hot
+    /// reload, which did state both, was refused as stale against it. The epochs
+    /// matched; the halves did not. ⇒ the variant is `#[non_exhaustive]`, so a
+    /// caller outside this crate cannot spell the half-stated form at all: it
+    /// names which content, or says [`Self::content_unstated`] and means it.
     pub const fn content(
         epoch: ambition_platformer2d_core::ContentEpoch,
         content: ambition_platformer2d_core::PeerContentIdentity,

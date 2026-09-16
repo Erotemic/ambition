@@ -427,7 +427,9 @@ fn a_body_the_sweeper_declines_to_identify_is_nameable() {
     );
     assert_eq!(
         census.skipped, 0,
-        "{} body(ies) carry `BodyKinematics` with no `SimId`, no `FeatureId` and \
+        "{} body-OBSERVATION(s) — NOT that many bodies, because the sweeper \
+         re-judges every body every tick — carry `BodyKinematics` with no \
+         `SimId`, no `FeatureId` and \
          no `PrimaryPlayer` a tick after they became bodies — so BOTH \
          `ensure_sim_id` passes and every in-tick spawner declined to name them, \
          and nothing else will. First: {:?}. ⚠ The repair is at the SPAWN SITE, \

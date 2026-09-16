@@ -1012,7 +1012,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // as one thing would hide the day the second one starts counting.
     (
         "ambition_platformer2d_runtime::sim_identity::UnmintedBodyCensus",
-        "diagnostic counter of bodies the identity sweeper declined to name; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
+        "diagnostic counter of body-OBSERVATIONS the identity sweeper declined to name — the sweeper re-judges every body every tick, so this is not a headcount; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
     ),
     // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
     // checkpoint terminal road is split in two. "This host could not prepare the

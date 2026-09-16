@@ -2253,11 +2253,24 @@ message before starting a step that takes hours.
 **Owner:** test runner / app integration lane.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**690 passed / 0 failed / 41 ignored**, 255.14 s at `a5cf06306` on the
-ToothbrushAmbition box (2026-09-16). Earlier the same night, same box: 688/0/35,
-683/0/31 at `c78cc725e`, 677/0/25 at `582186bff`. The growth is new arms and
-print-only probes three agents added; **no arm has changed state across any of
-the four runs.** Missing prerequisites are reported as incomplete rather
+**690 passed / 1 FAILED / 41 ignored**, 256.51 s at `041b07158` on the
+ToothbrushAmbition box (2026-09-16), tree frozen. Earlier the same night, same
+box: 690/0/41 at `a5cf06306`, 688/0/35, 683/0/31 at `c78cc725e`, 677/0/25 at
+`582186bff`.
+
+⛔ **THE FAILING ARM IS NOT MINE AND THE ROW SAYS SO RATHER THAN ROUNDING IT
+AWAY:** `does_a_presence_probed_row_move_when_its_value_does::decaying_animation_timers_reproduce_across_every_resimulation`
+(last touched `2d701a53c`, the peer-checksum census work). It is that arm's OWN
+third anti-vacuity assertion firing — *"the probe took 1 distinct census at the
+frames the audit COMPARED, so the comparison had nothing to disagree about"* —
+which is the case its author wrote it for: `resimulations > 0` does not imply
+compared frames differ, because the window is long and the compared frames are
+few. Reported to its owner; not touched here.
+
+⚠ **AND IT FALSIFIES A SENTENCE THIS ROW CARRIED FOR AN HOUR.** It read *"no arm
+has changed state across any of the four runs"*, which was true when written and
+is not now. A lane total is a measurement with a commit; the sentence ABOUT a
+run of totals is a claim with a shelf life. Missing prerequisites are reported as incomplete rather
 than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
 disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
 publish output was ~90 files short. Name the box beside the number.

@@ -272,3 +272,107 @@ fn exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save() {
          which direction is the good one."
     );
 }
+
+/// ⛔⛤ **IS THE SAVE'S SNAPSHOT PINNED AT TICK 1, OR STALE BY A FIXED AMOUNT?**
+///
+/// CalculexAmbition's probe and the audit above printed the SAME number from two
+/// instruments and two sessions: in a desyncing run the save's per-tick census
+/// reads `0xce4e4758…` at tick 1 and a new value every tick after, and
+/// `0xce4e4758…` is exactly the constant replay value the audit reported for
+/// frames 2, 3 and 4. So the replay of every compared frame saw the save as it
+/// was at tick 1.
+///
+/// ⚠ **TWO EXPLANATIONS SURVIVE THAT AND THE WINDOW ABOVE CANNOT SEPARATE THEM.**
+/// "The restore point is tick 1" and "the snapshot is stale by a fixed amount"
+/// predict the same thing over frames 2–4, because a fixed lag of one or two
+/// frames IS tick 1 when you are standing at frame 3. The window is eight steps
+/// because the session dies at step 6, so it has never sampled a compared frame
+/// far from the start.
+///
+/// ⇒ A grant gated to start at tick 4 runs CLEAN for 240 steps (measured by
+/// CalculexAmbition), which means the audit gets ~120 compared frames spread
+/// across the whole run. If the save's census takes MANY distinct values across
+/// those frames, its snapshot tracks the frame it is taken at, and "stale by a
+/// fixed amount" is dead everywhere except the first three ticks. If it takes
+/// ONE, the snapshot is pinned and the desync window is where that happens to
+/// matter.
+///
+/// ⛔ Print-only, because the number it produces is the input to somebody else's
+/// open question (`Q129`) and not an assertion this file is entitled to make.
+#[test]
+#[ignore = "PROBE, print-only: does the save's snapshot track its frame once the first ticks are past"]
+fn probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window() {
+    /// The same per-tick grant, gated to start clear of the first three ticks.
+    fn grant_each_tick_from_four(
+        tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+        mut owned: bevy::prelude::ResMut<OwnedItems>,
+    ) {
+        if tick.0 >= 4 {
+            owned.grant(Item::HealthCell, 1);
+        }
+    }
+
+    type Save = ambition_platformer2d::persistence::save::AmbitionGameSave;
+
+    // ⚠ The `fn(_, _)` cast this was written with does NOT implement
+    // `SystemParamFunction`, so the loop shape the sibling arms use cannot carry
+    // a two-parameter system. One name, one call.
+    for name in ["grant 1 each tick FROM TICK 4"] {
+        let mut sim = sim_composed_with(grant_each_tick_from_four);
+        sim.world_mut()
+            .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+        for _ in 0..240 {
+            sim.step(AgentAction::default());
+        }
+        let audit = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+        // ⛔ COVERAGE AND HEALTH FIRST. A run that died at step 6 and froze would
+        // print a small number here and it would be about the freeze.
+        println!("── {name}");
+        println!("   end tick: {}", sim_tick(&sim));
+        println!("   health: {:?}", health(&sim).err());
+        println!("   coverage: {}", audit.coverage());
+        println!(
+            "   distinct save censuses across COMPARED frames: {}",
+            audit.distinct_censuses_across_compared_frames_of::<Save>()
+        );
+        println!(
+            "   distinct bag censuses across COMPARED frames: {}",
+            audit.distinct_censuses_across_compared_frames_of::<OwnedItems>()
+        );
+        println!("   divergences: {}", audit.divergences.len());
+        // ⛔⛤ A COUNT OF ONE IS NOT AN ANSWER; *WHICH* ONE IS. A census stuck at a
+        // single value across 236 compared frames, while the live value moved
+        // hundreds of times, is a snapshot that is not tracking — and from the
+        // count alone that is indistinguishable from a quiet subject.
+        let censuses = audit.censuses_across_compared_frames_of::<Save>();
+        if let (Some(first), Some(last)) = (censuses.first(), censuses.last()) {
+            println!(
+                "   save census at the FIRST compared frame ({}): count={} xor={:#018x}",
+                first.0, first.1.count, first.1.xor
+            );
+            println!(
+                "   save census at the LAST compared frame  ({}): count={} xor={:#018x}",
+                last.0, last.1.count, last.1.xor
+            );
+        }
+        println!("   save checksum LIVE now: {:#018x}", save_checksum(&sim));
+        println!("   mirrored qty now: {}", mirrored_quantity(&sim));
+        println!(
+            "   ⇒ if the two censuses agree with each other and DISAGREE with the \
+             live checksum, the checksummed snapshot is pinned rather than tracking."
+        );
+        // ⛔⛤ THE CONTROL, AND IT IS THE ABSENCE OF THE SUBJECT. "The save's census
+        // never moved across 236 compared frames" means nothing unless OTHER
+        // types' censuses did. An empty list here is a reading about the audit.
+        let moved = audit.types_whose_census_moved_across_compared_frames();
+        println!(
+            "   CONTROL — types whose census DID move across the compared frames: {}",
+            moved.len()
+        );
+        for (type_name, values) in moved.iter().take(12) {
+            println!("       {values:>4} distinct  {type_name}");
+        }
+    }
+}

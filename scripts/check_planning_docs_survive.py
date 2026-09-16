@@ -46,6 +46,20 @@ LIVE_CONTROL_PLANE: dict[str, tuple[int, tuple[str, ...]]] = {
     "docs/planning/README.md": (60, ("# ",)),
     # 281 lines. The standing reservoir.
     "docs/planning/tracks.md": (80, ("# ",)),
+    # ⛔⛤ **THE CONSOLIDATION CONTROL PLANE WAS OUTSIDE THIS POPULATION UNTIL
+    # 2026-09-16, and it is the half that gets EDITED.** `status.md` is what this
+    # check was built for; these four are where the architecture campaigns' state
+    # actually lives, they were rewritten repeatedly in one night, and every
+    # argument for guarding `status.md` applies to them unchanged. A citation
+    # checker over an emptied census has nothing to report.
+    # 180 lines. The census's own reader's guide and the re-derivation table.
+    "docs/planning/consolidation/README.md": (60, ("# ",)),
+    # 671 lines. The ranked campaigns, their gates and their premises.
+    "docs/planning/consolidation/consolidation-plan.md": (200, ("## Priority table",)),
+    # 587 lines. The authority/lifetime map the campaigns are cut from.
+    "docs/planning/consolidation/architecture-census.md": (200, ("# ",)),
+    # 134 lines. The baseline snapshot and its later readings.
+    "docs/planning/consolidation/campaign-metrics.md": (40, ("# ",)),
 }
 
 

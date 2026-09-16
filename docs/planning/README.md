@@ -25,6 +25,13 @@ Neither is an execution diary.
 live control-plane documents exist, are non-trivial, and still carry the headings
 that make them what they claim to be. It runs in `--maintenance`.
 
+⭐ **ITS POPULATION IS TEN DOCUMENTS, AND THE FOUR CONSOLIDATION ONES WERE
+ADDED 2026-09-16** — `consolidation/README.md`, `consolidation-plan.md`,
+`architecture-census.md`, `campaign-metrics.md`. They are where the
+architecture campaigns' state actually lives, they get rewritten far more often
+than this page does, and every argument for guarding `status.md` applied to them
+unchanged while they sat outside the check.
+
 ⛔⛤ **IT EXISTS BECAUSE `status.md` WAS EMPTIED TO ZERO BYTES, COMMITTED AND
 PUSHED, AND THE LANE REPORTED 7/7.** That is not a hole in the other gates — a
 citation checker over a file with no citations has nothing to report, and a hold

@@ -569,12 +569,33 @@ ITSELF, which is the one thing a rollback comparison is about. What is needed is
 a session-relative tick, rebased at the moment peers agree to start — and where
 that agreement comes from is a netcode decision, not a refactor.
 
-⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** The only
-sessions in use are `SyncTestSession` — one machine rewinding itself, zero
-distance — and a canary that compares a machine against its own past is
+⚠ **NOTHING IN THE REPOSITORY CAN CURRENTLY OBSERVE THE DEFECT.** Re-derived
+2026-09-16 rather than carried: `Session::SyncTest` is constructed in **exactly one
+place** in this workspace (`ambition_platformer2d_rollback_ggrs/src/session.rs`),
+and `Session::P2P` appears **exactly once**, in a match arm reading
+`confirmed_frame()` — so no P2P session is ever built. One machine rewinding
+itself, zero distance; a canary comparing a machine against its own past is
 structurally incapable of catching a two-peer disagreement. Every leak in that
-campaign had to be found by reading. So this will not announce itself, and it
-does not get more urgent on its own.
+campaign had to be found by reading. So this will not announce itself, and it does
+not get more urgent on its own.
+
+⛔⛤ **BUT OPTION (b) NOW DEFERS TWO POPULATIONS, NOT ONE, AND THAT IS NEW SINCE
+THIS WAS WRITTEN.** The ID-PEER campaign's twelfth road is **S7's 25 rows** —
+registered rollback state that is outside the session checksum, read by an
+unfiltered per-tick query, and float-bearing, twelve of them mutably written in
+production (`engine/simulation-authority-and-determinism.md`). Those rows carry no
+host-local id, so no projection closes them and no ownership move closes them;
+they are simply never compared between peers, and **the same absent session is the
+only thing that could ask whether two peers agree about them.** Two of the twelve
+were measured clean 2026-09-16 and that clears them of a LOCAL RESTORE defect and
+nothing else — a value nothing compares between peers is reproducible locally and
+divergent across peers at the same time.
+
+⇒ So "(b) keep it absolute and accept that peer comparison waits for real
+sessions" is a bet on one absent session covering the tick AND 25 ranked
+float-bearing rows AND both halves of `SETTINGS-ROLLBACK`'s policy resources. That
+does not make (a) right; it makes the price of (b) larger than the paragraph above
+it implies, and the price was not visible when it was written.
 
 The choice: (a) rebase the tick at an agreed session start, which means deciding
 what "agreed" is before there is a handshake to carry it; (b) keep it absolute

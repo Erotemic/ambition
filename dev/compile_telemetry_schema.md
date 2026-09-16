@@ -448,13 +448,35 @@ zero credible.
 
 ⭐ **AND THE CONTROL FIRED ON ITS FIRST PRODUCTION USE.** The first `relink`
 attempt reported `warm_noop_host_link_invocations: 2` with a 346-second "warm
-no-op" — because a merge had landed between building the binary and measuring
-it, so the baseline build was doing real work. Nothing in the DURATIONS says
+no-op", so the baseline build was doing real work. Nothing in the DURATIONS says
 that; a reader would have taken 346 s as this machine's warm cost and computed a
-meaningless ratio against it. The re-run at a settled tree reads 0 / 0.79 s.
-⇒ A row whose `warm_noop` count is nonzero is not a slow row. It is a row whose
-baseline is not a baseline, and every duration in it is timing a different build
-than it claims to.
+meaningless ratio against it. ⇒ A row whose `warm_noop` count is nonzero is not
+a slow row. It is a row whose baseline is not a baseline, and every duration in
+it is timing a different build than it claims to.
+
+⛔⛤ **I ATTRIBUTED THAT REFUSAL TO A MERGE, AND THE ATTRIBUTION WAS WRONG — THE
+INSTRUMENT HAD NEVER WARMED ANYTHING.** `measure()` ran the scenario command
+ONCE and used that result as the warm no-op. It is a no-op only when some
+earlier command had already warmed the cache, which every `check` lane inherited
+from the AGENTS.md gate — so the three lanes anybody ran were the three that
+could not expose it. Re-measured 2026-09-16 at `dbe58fc9a`: a fresh `relink`
+refused with **59 units in 206.11 s**, with HEAD unmoved, no `.rs` file touched
+in an hour, and a clean `git status`. No merge. Fixed by warming for real — one
+build whose numbers are discarded, then the no-op that is the actual control —
+after which the same lane reads:
+
+| phase | units rebuilt | host links | seconds |
+| --- | ---: | ---: | ---: |
+| `warm_noop` (control) | 0 | **0** | 0.79 |
+| `after_edit` | 1 | **1** | 6.39 |
+| `restore` | 1 | 1 | 6.40 |
+
+⚠ **AND THAT IS AN INDEPENDENT REPRODUCTION OF THE ROW ABOVE**, on a different
+commit, of a lane whose after-edit link count is 1 and whose baseline is 0 — the
+contrast is what makes the `check` lane's zero a result rather than a broken
+counter. ⇒ The lesson is not about merges. A check that is RIGHT for a reason it
+states WRONGLY sends the next reader hunting for a merge that never happened;
+the refusal now names both causes and says they want opposite fixes.
 
 ⚠ **`null` STILL MEANS UNMEASURED, NEVER ZERO.** Every row written before
 2026-09-16 carries the old single `host_link_invocations` column at `null`, and

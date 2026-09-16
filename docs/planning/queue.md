@@ -780,6 +780,117 @@ in the cache key at the owner boundary.
 **Acceptance:** two scenario geometries with equal benchmark knobs cannot share a
 cached result accidentally.
 
+### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
+
+**Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
+
+**Current state:** five systems installed by `DurableSaveHorizonPlugin` sit in
+top-level `Update` and mutate rollback-registered resources. MEASURED
+2026-09-16, with each type's `RollbackEntryKind::feeds_peer_checksum`:
+
+| system | writes | kind | hashed |
+| --- | --- | --- | --- |
+| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | `ResourceCloneCustomChecksum` | **yes** |
+| `complete_durable_restore` | `SaveRestored` | `ResourceClone` | no |
+| `persist_inventory_to_save` | `AmbitionGameSave` | `ResourceCloneCustomChecksum` | **yes** |
+| `persist_occurrence_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
+| `persist_minted_item_horizon_to_save` | `AmbitionGameSave` | as above | **yes** |
+
+⭐ **THE PLACEMENT IS DELIBERATE AND SAYS SO**, which is why this is a row and
+not five waivers. `runtime/src/durable_save_horizon.rs` states it outright: "The
+installed systems remain in top-level `Update`, outside rollback resimulation.
+Their state is rewindable where required, but file/application side effects
+themselves are not replayed as simulation ticks." That argument is sound for the
+side effect — writing a file twice is not a desync.
+
+⛔ **IT IS SILENT ON THE HALF THAT IS HASHED.** Four of the five write a value
+that FEEDS THE PEER CHECKSUM. `AmbitionGameSave` is derived from simulation
+state, so two peers in agreement derive the same bytes — but the derivation runs
+in `Update`, which executes once per FRAME, while the value is snapshotted and
+compared per TICK. A peer that rolled back and re-simulated three ticks ran the
+sim three extra times and `Update` zero extra times; the other peer did neither.
+⇒ The open question is whether the value hashed at a confirmed frame can differ
+between a peer that rewound into it and one that did not. That is not answered
+by "side effects are not replayed", and nothing in the tree answers it elsewhere.
+
+⚠ **AND THE SIXTH SYSTEM ON THAT SAME `.chain()` ALREADY CARRIES A PARTIAL
+WAIVER SAYING THE SAME THING.** `restore_inventory_from_save` is waived in
+`check_rollback_mutators_run_in_sim.py` "FOR THE ACTIVATION CASE ONLY, AND THE
+OTHER CASE IS OPEN", because `durable_horizon.rs` explicitly supports a
+mid-session load. So the mid-session half of this question was already known to
+be open for one member of the chain and was never asked of the other five.
+
+⛔ **DO NOT INHERIT THE "BEFORE THE TIMELINE" ARGUMENT FROM THE SESSION-SCOPE
+WAIVERS.** It was checked against these and it does NOT transfer:
+`adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` both
+require a live primary player body, which is exactly the condition
+`maintain_local_session` starts GGRS on. These run when a session can already be
+live; the session-scope resets do not.
+
+**Next implementation:** answer the per-frame-vs-per-tick question with a
+sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
+frame in which `persist_inventory_to_save` ran and compare the checksummed
+value. ⚠ If it is clean, these are five waivers with a measurement behind them
+and this row closes. If it is not, the fix is the shape `AmbientGravityRequest`
+already uses: write a message, let the sim apply it. ⇒ Either way the guard
+stays RED until somebody runs it — which is correct, and is why these were not
+waived to make a count go down.
+
+### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
+
+**Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
+
+**Current state:** `grid_menu_action_activated` and
+`kaleidoscope_menu_action_activated` both write rollback-registered state from
+`Update`, which does not rewind. Two types, one path:
+
+  * `NewGameResetRequested` (`rollback_resource_canonical`) via
+    `dispatch_menu_action` → `SystemMenuParams::request_reset`.
+  * `OwnedItems` via `dispatch_menu_action` → `dispatch_item_confirm`, which is
+    what an equip or a consumable use goes through.
+
+⭐ **THE TWO TYPES FAIL DIFFERENTLY, AND THE LOUDER ONE IS THE LUCKIER ONE.**
+Both are written from a LOCAL menu, so only one peer makes the write; what
+happens next depends on the registration kind, which
+`RollbackEntryKind::feeds_peer_checksum` decides.
+
+| type | kind | feeds the peer checksum | so a local menu write |
+| --- | --- | --- | --- |
+| `NewGameResetRequested` | `ResourceCanonical` | **yes** | makes A's and B's checksums differ — a DETECTED desync |
+| `OwnedItems` | `ResourceClone` | **no** | is restored away on the next rewind, silently |
+
+⛔ **SO `OwnedItems` IS THE ONE TO WORRY ABOUT.** Its kind is documented as
+"snapshotted but not hashed: a rewind restores them, no peer reads them", and
+that is exactly why nothing would report it: the player equips an item, a
+rollback restores the pre-equip value, and the item is simply back in the bag
+with no error anywhere. ⚠ `OwnedItemsBaseline` IS registered
+`rollback_resource_clone_checksum`, so a projection of this state is hashed —
+whether that projection would catch this write is the question to settle, not an
+assumption to inherit from the kind's reassuring detail string.
+
+⚠ **AND THE EXISTING TEST DOES NOT COVER IT, DELIBERATELY.**
+`game/ambition_app/tests/rollback_full_reset.rs` asks whether the reset
+RECONSTRUCTION is rollback-safe, and its own header says it folds a pending
+request "into the baseline" so the work runs on the baseline frame and every
+re-simulation of it. That is the safe shape by construction: a flag already true
+before the sync-test window opens is identical on every peer and on every
+replay. The mid-window menu write is the case nobody has asked about.
+
+**Next implementation:** answer the narrow question first — can a menu that
+writes these be open while a GGRS session is live? If it cannot, this is two
+waivers with that citation and nothing else is owed. ⛔ Do NOT answer it from
+the menu's own state machine; answer it from what gates the menu, because "you
+would not do that" is not a property of the code. If it CAN, the write belongs
+behind a message the sim consumes, the way `AmbientGravityRequest` already does
+it for `BaseGravity` — that pattern is three lines away in the same bundle
+(`gravity_requests`, with the comment "the sim applies the request").
+
+Found 2026-09-16 by `scripts/check_rollback_mutators_run_in_sim.py`. ⚠ Five
+sibling menu systems were flagged with these and are WAIVED, not fixed: they
+take the same `SystemMenuParams` bundle and never reach `request_reset`. If the
+bundle is ever split so access matches use, drop those five waivers — they exist
+only because the bundle over-grants.
+
 ### ORPHAN-ARMS — 36 test arms that no `mod` line compiles
 
 **Owner:** `ambition_boss_encounter`.
@@ -817,8 +928,9 @@ followed in `e660c2fc4`.
 
 ⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
 work was done twice, independently, down to the same four measurements — one as
-`lib/test_paths.py`, one as `lib/rust_sources.py`. The duplicate was deleted and
-its two non-overlapping pieces folded in: a brace-depth guard on the
+`lib/test_paths.py`, one as `lib/rust_sources.py`.
+<!-- cite-ok: the deleted duplicate is this sentence's subject; a resolvable citation would mean it was never deleted -->
+The duplicate was deleted and its two non-overlapping pieces folded in: a brace-depth guard on the
 `#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
 with an owner and a "next implementation" still says nothing about whether
 somebody is in it RIGHT NOW. Say so in the row, or in a message, before starting

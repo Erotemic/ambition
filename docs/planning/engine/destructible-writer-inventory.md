@@ -3,8 +3,19 @@
 **Delivered 2026-09-10; the writer table RE-DERIVED the same day at `352a08806`**
 after an outside review found a production transition missing from a table headed
 *"complete"*. A5's hold reads *"HOLD until A2's contact contract is
-established AND writer inventory is complete."* A2 is closed. This is the second
-half. It is the same shape as the [accepted-control writer
+established AND writer inventory is complete."* **A2's CONTACT CONTRACT is
+established** — the swept-contact resolver, finite obstruction, exact ordering
+and targeted delivery, with build-site census coverage — and this page is the
+second half.
+
+⚠ **THAT SENTENCE USED TO READ "A2 is closed", WHICH IS THE SCOPE ERROR A2's own
+queue row warns about in so many words:** the row's construction-identity hole is
+closed, but A2a/A2b/A2c in the [work
+frontier](actor-monolith-work-frontier.md) are the geometry, obstruction and
+recipient-naming contracts, a different subject with a different normative owner.
+A reader who carried a bare "A2 is closed" from here to there would be wrong. The
+half this hold needs is the CONTACT CONTRACT, and naming it is what makes the
+claim checkable. It is the same shape as the [accepted-control writer
 map](accepted-control-writer-map.md), which lifted half of A4's hold.
 
 ⛔ **MEASUREMENT ONLY. IT DECIDES NOTHING.** Q96 asks whether a projectile should

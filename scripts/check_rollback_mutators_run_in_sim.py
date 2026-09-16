@@ -87,8 +87,21 @@ _CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
 # are rollback-registered. A guard keyed on how a write is SPELLED goes blind
 # when a refactor respells it, and the direction is the dangerous one — it
 # reports no offenders.
+# ⚠ THE OPTIONAL LIFETIME IS NOT COSMETIC. A system signature elides it
+# (`ResMut<T>`), but a `#[derive(SystemParam)]` FIELD cannot (`ResMut<'w, T>`),
+# so the lifetime-free form matched every function and no struct — and the
+# struct bodies are where 13 rollback-registered types were hiding.
 _MUTABLE_PARAM_TYPE = re.compile(
-    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+#: A `#[derive(SystemParam)]` bundle: the derive, then the struct it decorates.
+_SYSTEM_PARAM_STRUCT = re.compile(
+    r"#\[derive\([^)]*\bSystemParam\b[^)]*\)\]"
+    r"(?:\s*#\[[^\]]*\])*"
+    r"\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+([A-Za-z_][A-Za-z_0-9]*)"
 )
 
 # ── Waivers ──
@@ -253,6 +266,104 @@ def rollback_types(repo: Path = REPO) -> set[str]:
     }
 
 
+#: What the scan must still be able to SEE. ⛔⛔ EVERY HOLE THIS GUARD HAS EVER
+#: HAD FAILED IN THE GREEN DIRECTION — `&mut T` alone (2026-09-02, 1 type
+#: visible of 113), `SessionWorldMut<T>` (2026-09-15, six types), and
+#: `#[derive(SystemParam)]` (2026-09-16, THIRTEEN registered types behind one
+#: identifier). Each time the report got SHORTER and CLEANER, and each time that
+#: read as good news.
+#:
+#: ⭐ SO THE COUNT IS PART OF THE VERDICT. A fifth spelling that hides forty
+#: types cannot announce itself, but it cannot avoid making these numbers FALL.
+#: Raise a floor when the tree genuinely grows; a DROP is the signature of the
+#: next hole and must fail loudly rather than pass quietly.
+POPULATION_FLOOR = {
+    "rollback types": 113,
+    "system param bundles": 55,
+}
+
+
+def population_sizes(repo: Path = REPO) -> dict[str, int]:
+    return {
+        "rollback types": len(rollback_types(repo)),
+        "system param bundles": len(system_param_mutables(repo)),
+    }
+
+
+def population_shortfalls(repo: Path = REPO) -> list[str]:
+    """⚠ A guard that reads source cannot tell "clean tree" from "broken scan"
+    by looking at its own output. This is the term whose correct value is known
+    in advance, so the two stop looking alike."""
+    sizes = population_sizes(repo)
+    return [
+        f"{label}: {sizes[label]} visible, floor is {floor}"
+        for label, floor in POPULATION_FLOOR.items()
+        if sizes[label] < floor
+    ]
+
+
+def _braced(text: str, open_brace: int) -> str:
+    depth, index = 0, open_brace
+    while index < len(text):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_brace : index + 1]
+        index += 1
+    return text[open_brace:]
+
+
+@functools.cache
+def system_param_mutables(repo: Path = REPO) -> dict[str, frozenset[str]]:
+    """`#[derive(SystemParam)]` bundle name → every type it borrows mutably.
+
+    ⛔⛔ THE FOURTH SPELLING OF A MUTABLE WRITE, AND THE WORST ONE. The scanner
+    reads function SIGNATURES, so a system taking `resources: SessionScopedResources`
+    showed ONE opaque identifier and this guard reported nothing. That single
+    bundle holds 25 `ResMut` fields, **13 of them rollback-registered** —
+    `MovingPlatformSet` among them, which this file's own `rollback_types`
+    docstring records as the ENTIRE population the guard could see before
+    2026-09-02. So the guard could be blind to a mutation of the very type it
+    was built around, and read clean while doing it. MEASURED 2026-09-16; the
+    workspace has 60 such bundles across 42 files, so this is a pattern rather
+    than one site.
+
+    ⇒ Same disease as the `SessionWorldMut<T>` hole above, and the fix is the
+    same shape: resolve the spelling generally instead of naming the site.
+    Nesting is resolved transitively, because a bundle may hold a bundle.
+    """
+    direct: dict[str, set[str]] = {}
+    nested: dict[str, set[str]] = {}
+    for _path, text in _production_sources(repo):
+        for match in _SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = _braced(text, brace)
+            direct[match.group(1)] = set(_MUTABLE_PARAM_TYPE.findall(body))
+            nested[match.group(1)] = set(re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", body))
+
+    resolved: dict[str, frozenset[str]] = {}
+
+    def resolve(name: str, seen: frozenset[str]) -> frozenset[str]:
+        if name in resolved:
+            return resolved[name]
+        if name in seen:
+            return frozenset()  # a cycle cannot add anything new
+        out = set(direct.get(name, ()))
+        for candidate in nested.get(name, ()):
+            if candidate != name and candidate in direct:
+                out |= resolve(candidate, seen | {name})
+        answer = frozenset(out)
+        if not (seen - {name}):
+            resolved[name] = answer
+        return answer
+
+    return {name: resolve(name, frozenset()) for name in direct}
+
+
 def _params(text: str, open_paren: int) -> str:
     depth = 1
     index = open_paren
@@ -275,11 +386,18 @@ def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
     candidate function even though a signature names only a handful of types.
     """
     types = rollback_types(repo)
+    bundles = system_param_mutables(repo)
     found: dict[str, list[str]] = {}
     for _src, text in _production_sources(repo):
         for match in _PUB_FN.finditer(text):
             params = _params(text, match.end())
-            hits = sorted(types.intersection(_MUTABLE_PARAM_TYPE.findall(params)))
+            mutated = set(_MUTABLE_PARAM_TYPE.findall(params))
+            # A bundle named in the signature contributes what IT borrows
+            # mutably; see `system_param_mutables` for why one identifier can
+            # stand for thirteen registered types.
+            for identifier in re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", params):
+                mutated |= bundles.get(identifier, frozenset())
+            hits = sorted(types.intersection(mutated))
             if hits:
                 found.setdefault(match.group(1), hits)
     return found
@@ -320,8 +438,27 @@ def main() -> int:
     findings = collect()
 
     if args.list:
-        print(f"{len(rollback_types())} rollback-registered types")
+        for label, size in population_sizes().items():
+            print(f"{size} {label} (floor {POPULATION_FLOOR[label]})")
         print(f"{len(mutators)} systems take one mutably\n")
+
+    # ⛔ BEFORE THE FINDINGS, because "no offenders" over a collapsed population
+    # is the failure this guard cannot otherwise report. A shortfall means the
+    # SCAN lost reach, and every clean line below it would be a lie.
+    shortfalls = population_shortfalls()
+    if shortfalls:
+        print(
+            "the scan lost reach — it can no longer see part of its own "
+            "population:\n\n  " + "\n  ".join(shortfalls) + "\n\n"
+            "Every hole this guard has had reported FEWER offenders, not more, "
+            "so a falling count is the symptom and an empty report is the "
+            "reward. Find the write spelling that stopped matching before you "
+            "trust any verdict from this file. If the drop is legitimate — "
+            "registrations really were deleted — lower POPULATION_FLOOR in the "
+            "same commit that deletes them.",
+            file=sys.stderr,
+        )
+        return 1
 
     if findings:
         lines = [

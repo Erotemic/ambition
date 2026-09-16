@@ -273,3 +273,95 @@ def test_the_live_scan_reasoned_about_something_at_all():
         "no system anywhere was seen mutating rollback state; the source scan is "
         "empty and the guard above cannot fail"
     )
+
+
+# ── `#[derive(SystemParam)]` resolution (added 2026-09-16) ──────────────────
+#
+# The fourth spelling of a mutable write, and the one that hid the most: a
+# bundle is ONE identifier in a signature and can hold any number of `ResMut`
+# fields. MEASURED when the hole was found: `SessionScopedResources` holds 25,
+# of which 13 are rollback-registered — `MovingPlatformSet` among them, the type
+# this guard's own docstring records as its entire population before 2026-09-02.
+
+
+def test_a_bundle_field_is_a_mutable_write(tmp_path, monkeypatch) -> None:
+    """A system naming a bundle mutates what the BUNDLE borrows mutably."""
+    crate = tmp_path / "crates" / "demo" / "src"
+    crate.mkdir(parents=True)
+    (crate / "lib.rs").write_text(
+        """
+        registrar.rollback_resource_canonical::<MovingPlatformSet>(OWNER, "x");
+
+        #[derive(SystemParam)]
+        pub struct SessionScoped<'w> {
+            platforms: ResMut<'w, MovingPlatformSet>,
+        }
+
+        pub fn reset_on_activation(scoped: SessionScoped) {}
+
+        app.add_systems(Update, (reset_on_activation,));
+        """
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    for cached in (guard.rollback_types, guard.mutating_systems, guard.system_param_mutables,
+                   guard._production_sources):
+        cached.cache_clear()
+
+    assert guard.system_param_mutables(tmp_path)["SessionScoped"] == frozenset({"MovingPlatformSet"})
+    assert guard.mutating_systems(tmp_path)["reset_on_activation"] == ["MovingPlatformSet"]
+
+
+def test_the_lifetime_in_a_bundle_field_does_not_hide_it(tmp_path) -> None:
+    """⛔ A SIGNATURE ELIDES THE LIFETIME AND A STRUCT FIELD CANNOT.
+    `ResMut<T>` matched everywhere and `ResMut<'w, T>` matched nowhere, so the
+    pattern was perfect on functions and blind on exactly the bodies where the
+    13 registered types were."""
+    assert guard._MUTABLE_PARAM_TYPE.findall("ResMut<'w, MovingPlatformSet>") == ["MovingPlatformSet"]
+    assert guard._MUTABLE_PARAM_TYPE.findall("ResMut<MovingPlatformSet>") == ["MovingPlatformSet"]
+    assert guard._MUTABLE_PARAM_TYPE.findall("SessionWorldMut<'w, world::RoomSet>") == ["RoomSet"]
+
+
+def test_a_bundle_inside_a_bundle_still_reaches_the_write(tmp_path, monkeypatch) -> None:
+    """Bundles nest, so resolution is transitive or it is another silent floor."""
+    crate = tmp_path / "crates" / "demo" / "src"
+    crate.mkdir(parents=True)
+    (crate / "lib.rs").write_text(
+        """
+        registrar.rollback_resource_canonical::<BaseGravity>(OWNER, "x");
+
+        #[derive(SystemParam)]
+        pub struct Inner<'w> { gravity: ResMut<'w, BaseGravity> }
+
+        #[derive(SystemParam)]
+        pub struct Outer<'w, 's> { inner: Inner<'w, 's> }
+
+        pub fn outer_writer(bundle: Outer) {}
+        """
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    for cached in (guard.rollback_types, guard.mutating_systems, guard.system_param_mutables,
+                   guard._production_sources):
+        cached.cache_clear()
+    assert guard.mutating_systems(tmp_path)["outer_writer"] == ["BaseGravity"]
+
+
+def test_a_shrinking_population_is_a_failure_not_a_clean_report() -> None:
+    """⛔ EVERY HOLE THIS GUARD HAS HAD REPORTED FEWER OFFENDERS, NOT MORE.
+
+    `&mut T` alone saw 1 type of 113; `SessionWorldMut<T>` hid six; a
+    `SystemParam` bundle hid thirteen. Each made the report shorter and cleaner.
+    So the population size is part of the verdict: a count that FALLS below the
+    floor must fail, because the next hole cannot announce itself any other way.
+    """
+    sizes = guard.population_sizes()
+    assert not guard.population_shortfalls(), (
+        f"the scan lost reach: {sizes} against {guard.POPULATION_FLOOR}"
+    )
+    # and the floor must actually be capable of failing
+    original = dict(guard.POPULATION_FLOOR)
+    try:
+        guard.POPULATION_FLOOR["rollback types"] = sizes["rollback types"] + 1
+        assert guard.population_shortfalls(), "the floor cannot fail, so it guards nothing"
+    finally:
+        guard.POPULATION_FLOOR.clear()
+        guard.POPULATION_FLOOR.update(original)

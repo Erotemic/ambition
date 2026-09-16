@@ -1231,10 +1231,30 @@ unavailable here; **the reverse is what happens.**
    justification is what has to change, because *"republished from live state"*
    is not true of the load path.
 
-   ⚠ The instrument's blind spot is the subject: a `Derived` declaration carries
-   no probe, so `AuthoredOccurrences` is in none of the 364 entries and is read
-   directly. A census over the probed set alone reports the save diverging with
-   no candidate beside it.
+   ⛔⛤ **AND THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT, FOR A SHARPER REASON
+   THAN THE FIRST READING GAVE.** `AuthoredOccurrences` **is** probed and **is**
+   one of the 364 entries — its probe is PRESENCE-ONLY, and a presence probe on a
+   RESOURCE reports `count: 1, xor: 0` however many rows it holds. So the census
+   can see the type and can never see this defect. That is the weakness
+   `declare_rollback_derived_component`'s own doc names: *"for a singleton
+   derived resource 'present' is nearly a constant."*
+
+   ⛔ **AND THE DECLARED REASON IS FALSE, WHICH THAT SAME DOC PREDICTED:** *"a
+   derived declaration that lies is worse than no declaration, because it
+   satisfies the coverage sweep."* It records one such lie already —
+   `ProjectileOwner`, which cost a day of bisection. This is a second.
+   ⇒ `every_presence_only_probe_is_named_with_its_reason` deliberately excludes
+   derived registrations, because their reason is declared at the registration
+   site rather than copied into a list — so **the promise is checked for
+   EXISTENCE and never for TRUTH**, and that is the gap this defect came
+   through.
+
+   ⭐ **THE CHEAPEST FIRST MOVE, WHICHEVER WAY THE RULING GOES:** make the defect
+   visible. `declare_rollback_derived_resource_state` is the value-sensitive twin
+   and needs `AuthoredOccurrences: SnapshotState` (it holds one
+   `BTreeMap<SimId, OccurrenceWhereabouts>`). With a value probe the per-pass
+   census names the culprit directly instead of naming only its hashed
+   consumer.
 3. ~~**The writes do not matter**~~ — ⛔ **REFUTED BY MEASUREMENT, so this is a
    two-way ruling and not a three-way one.** A mid-session load staged at tick 40
    inside the rewinding schedule makes

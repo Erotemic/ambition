@@ -2324,6 +2324,22 @@ to change first, because it is not true of the load path. That is a
 [Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
 consequence and it is recorded there.
 
+⛔⛤ **AND THE REASON NOBODY SAW IT IS A GAP WITH A NAME.** `AuthoredOccurrences`
+is probed and is one of the 364 — its probe is PRESENCE-ONLY, and on a RESOURCE
+that reports `count: 1, xor: 0` whatever it holds. `declare_rollback_derived_*`
+takes a `reason` that is *"an assertion about behaviour"*, and
+`every_presence_only_probe_is_named_with_its_reason` deliberately excludes
+derived registrations because that reason lives at the registration site. ⇒ **The
+promise is checked for EXISTENCE and never for TRUTH**, which is the second time
+that has cost this repo a bisection — the registration doc records the first
+(`ProjectileOwner`) and predicts this one: *"a derived declaration that lies is
+worse than no declaration, because it satisfies the coverage sweep."*
+
+⭐ **NEXT, AND CHEAP, WHICHEVER WAY THE RULING GOES:** strengthen the probe to
+`declare_rollback_derived_resource_state` so the census names the culprit rather
+than only its hashed consumer. It needs `AuthoredOccurrences: SnapshotState`
+over one `BTreeMap<SimId, OccurrenceWhereabouts>`.
+
 ⚠ **And the sixth system on that same `.chain()` already carries a partial
 waiver saying this.** `restore_inventory_from_save` is waived "FOR THE ACTIVATION
 CASE ONLY, AND THE OTHER CASE IS OPEN" because `durable_horizon.rs` supports a

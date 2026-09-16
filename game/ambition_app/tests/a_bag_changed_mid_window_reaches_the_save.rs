@@ -1904,10 +1904,25 @@ fn record_the_census_of_every_pass(world: &mut bevy::prelude::World) {
 /// tick 37's last pass already holds the row. The checksum only notices once the
 /// mirror has copied it into the save.
 ///
-/// ⛔ THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT ITSELF. `AuthoredOccurrences`
-/// is `Derived`, so it carries no probe and appears in none of the 364 entries.
-/// It is read directly here for exactly that reason — a census over the probed
-/// set would have reported the save diverging with no candidate beside it.
+/// ⛔⛤ AND THE INSTRUMENT'S BLIND SPOT IS THE SUBJECT ITSELF — measured, after
+/// a first reading that got the reason wrong. `AuthoredOccurrences` IS probed
+/// and IS one of the 364 entries; its probe is **presence-only**, and a presence
+/// probe on a RESOURCE reports `count: 1, xor: 0` however many rows the resource
+/// holds. So the census can see the type and can never see this defect. That is
+/// the weakness `declare_rollback_derived_component`'s own doc names — *"for a
+/// singleton derived resource 'present' is nearly a constant"* — which is why
+/// the rows are read directly here, beside the census.
+///
+/// ⛔⛤ AND THE DECLARED REASON IS FALSE, WHICH THE REGISTRATION DOC PREDICTED IN
+/// THESE WORDS: *"a derived declaration that lies is worse than no declaration,
+/// because it satisfies the coverage sweep."* It records one such lie already
+/// (`ProjectileOwner`, a day of bisection). This is a second:
+/// `AuthoredOccurrences` declares *"republished from live state while its room
+/// is loaded"*, and `adopt_the_ledger` fills it from a SAVE with no republish to
+/// correct it across a rewind. ⚠ `every_presence_only_probe_is_named_with_its_reason`
+/// deliberately does not list derived registrations, on the grounds that their
+/// reason is declared at the registration site — so the promise is checked for
+/// EXISTENCE and never for TRUTH.
 ///
 /// ⇒ WHEN THIS ARM GOES RED the family is repaired: delete it and close
 /// [Q135]'s second cause.
@@ -1979,6 +1994,29 @@ fn a_derived_resource_carries_a_mid_session_load_back_across_the_rewind() {
         eprintln!(
             "PASSES tick {tick}: (authored, saved) per pass = {:?}",
             by_pass.1.get(&tick)
+        );
+    }
+
+    // ⛔ THE ARM'S OWN PREMISE ABOUT ITS INSTRUMENT, ASSERTED. Reading the rows
+    // directly is only justified while the census cannot see them; if the probe
+    // is ever strengthened, the census becomes the better witness and the
+    // reasoning above needs rewriting rather than re-running.
+    {
+        const SUBJECT: &str =
+            "ambition_platformer2d_shared_tangle::lifecycle::continuity::AuthoredOccurrences";
+        let probes = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
+        assert!(
+            probes.type_names().contains(&SUBJECT),
+            "the subject left the probe set entirely, so 'the census cannot see \
+             this defect' is now true for a different reason than the one stated"
+        );
+        assert!(
+            probes.presence_only_type_names().contains(&SUBJECT),
+            "the subject's probe is no longer presence-only. If it was \
+             STRENGTHENED, the census can now see these rows: make it the \
+             witness and delete the direct read"
         );
     }
 

@@ -405,11 +405,34 @@ shows the oracle reads the moved definition and not a stale copy.
 before I started: a default body naming the KIND but not the `detail` would close
 half this row and reopen the other half one crate away.
 
-**Next implementation:** collapse the two vocabularies. ⚠ This is the part that
-is design, not relocation: `RollbackRegistrar` RECORDS a descriptor while
-`AmbitionRollbackApp` INSTALLS plugins and checksum systems, so a shared default
-body needs a primitive each impl supplies. Do not add a third table mapping
-method names to kinds; that is the same duplication with an extra hop.
+**Next implementation:** collapse the two vocabularies. This is design, not
+relocation, and it is COSTED now so the next engineer does not re-derive it.
+
+MEASURED 2026-09-16: **24 trait methods, 14 distinct kinds, but ~21 distinct
+(kind, detail) PAIRS.** Where a kind is shared the details are not —
+`ComponentClone` covers 5 methods with 5 distinct sentences, `ResourceClone` 3
+with 3. Only three pairs cover two methods each. ⇒ **The pair is effectively a
+per-method constant**, so any scheme that groups methods by KIND saves nothing.
+
+⛔ **AND THAT KILLS THE OBVIOUS SHAPE.** A default body per method calling a
+per-method required primitive is ~21 defaults plus ~21 primitives — more code
+than the 24×2 call-site spellings it replaces, with an extra hop. That is the
+"third table with an extra hop" this row already forbids, wearing trait syntax.
+
+⭐ **THE SHAPE THAT DOES PAY: ONE required primitive, an action discriminant, and
+24 default bodies.** `RollbackRegistrar` gains `fn install<T>(&mut self, owner,
+name, kind, detail, ops)` as its ONLY required method; each
+`rollback_*` becomes a default body whose whole content is the (kind, detail)
+pair plus an `ops` variant naming the work. The recording impl matches `ops` and
+ignores most of it; `rollback_ggrs` matches `ops` and installs. ⇒ The kind and
+the sentence are then spelled ONCE, at the declaration, which is this row's
+acceptance — and the ggrs impl stops naming either.
+
+⚠ Cost: 24 default bodies, one `ops` enum, and two 24-arm matches replacing two
+sets of 24 bodies. Roughly size-neutral; the win is the single spelling, not
+fewer lines. ⭐ And it is cheap to VERIFY: `compute_schema_fingerprint` hashes
+the whole `schema_dump()` including `detail`, so `the_rollback_schema_matches_
+its_recorded_baseline` is a byte-exact oracle for the whole refactor.
 Give each registrar method ONE kind, named where the method is declared rather
 than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
 mapping method names to kinds; that is the same duplication with an extra hop.
@@ -1020,6 +1043,15 @@ require a live primary player body, which is exactly the condition
 `maintain_local_session` starts GGRS on. These run when a session can already be
 live; the session-scope resets do not.
 
+⭐ **AND THIS CLASS WAS PREDICTED IN WRITING, IN THE REGISTRATION THAT MAKES IT
+CHECKABLE.** `crates/ambition_persistence/src/rollback_registration.rs` explains
+why `AmbitionGameSave` was given a real content projection
+(`AmbitionGameSave::checksum`) rather than a presence-only probe: *"the ~6
+systems that pair a non-rewinding `Local` edge-detector with these very
+resources would have failed SILENTLY once rollback went live."* ⇒ So the
+instrument for this row already exists and is pointed at the right resource —
+what was missing is an arm that makes the value CHANGE while the window runs.
+
 ⭐⭐ **THE FIVE ARE TWO PHASES AROUND A ONE-SHOT LATCH, AND ONLY ONE PHASE IS
 THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
 
@@ -1058,6 +1090,25 @@ in the window between a live body existing and the latch flipping — and a live
 body is the exact condition `maintain_local_session` starts GGRS on, so the two
 events are gated on the same fact and their order is not stated anywhere. That
 is a RACE to characterise, not a per-frame accumulation.
+
+⚠ **ATTEMPTED 2026-09-16 AND INCONCLUSIVE — THE HARNESS STOPPED SIMULATING.**
+`probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs` adds a
+grant system to the SIM schedule so the mirrored bag changes tick over tick.
+The count accumulates to 8 over roughly 60 steps and then freezes flat —
+`[(0, 8), (40, 8), (80, 8), (120, 8), (160, 8), (200, 8), (240, 8)]` — while
+`sim.step()` keeps returning. ⇒ A clean `session_health` over those 240 frames
+would have been a pass over a world that was not advancing, so the arm asserts
+its own premise and is `#[ignore]`d as a probe rather than reporting green.
+
+⛔ **AND THE PREMISE THAT CAUGHT IT WAS THE SECOND ONE I WROTE.** The first
+asked `count > 0`, which the STARTER BAG satisfies on its own — it would have
+passed without the system ever running. Two samples, with the later required to
+exceed the earlier, is what turned "the value is nonzero" into "my system ran".
+
+⇒ Next thing to try: add the system through `Platformer2dSimHarness::build`'s
+`compose` callback, BEFORE the first update, rather than after the harness has
+built and started its GGRS session.
 
 **Next implementation:** answer the per-frame-vs-per-tick question with a
 sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
@@ -1358,6 +1409,17 @@ have told them they were clear of a charge they had not answered.
   reading the diagnostic. ENOSPC arrives as `error: could not compile <crate>`
   with the cause one line above, and has been seen as six ordinary-looking
   compile errors with no `os error 28` anywhere.
+
+⭐ **`SimTick` ADVANCES 1:1 WITH `sim.step()` — MEASURED 2026-09-16, and it is
+the discriminator nobody reaches for.** `fixed_60hz_room_sim("blink_run")`,
+sampled every 40 steps: `[(0,0), (40,40), (80,80), (120,120), (160,160),
+(200,200), (240,240)]`. A peer read a derived count freezing flat over 240 frames
+as *"the simulation stops advancing ticks"*; it does not. ⇒ **"The sim stopped"
+and "my writer stopped" produce identical evidence downstream, and only the TICK
+tells them apart.** Sample `ambition_platformer2d::time::SimTick` before
+attributing a frozen value to the schedule. ⚠ Scope: the fixed-tick harness. A
+rollback composition is a different host in a different schedule, so re-measure
+there rather than quoting this.
 
 **Still open.** One non-reproducing session-root handoff failure whose assertion
 message was never captured. On the next reproduction, capture the full failing

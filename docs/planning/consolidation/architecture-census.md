@@ -301,7 +301,7 @@ The raw source has many `.before()` and `.after()` edges. The census records onl
 | ORDER-CHECKPOINT | checkpoint admission | room/replay commit and domain restore | lifecycle/checkpoint sets and exact operation key | domain restore cannot treat an unadmitted request as authority | NORMAL_PIPELINE_ORDER | SOURCE_INFERRED |
 | ORDER-NEW-GAME | new-game preflight | dependent reset systems | `NewGameResetDecided` then `NewGameResetCommitted` | dependent state resets only after the reset is accepted | NORMAL_PIPELINE_ORDER | SOURCE_INFERRED |
 
-`ORDER-ROOM-TRANSACTION` is the remaining consolidation candidate; `ORDER-ROOM-REPLACE` is resolved.
+Neither `ORDER-ROOM-TRANSACTION` nor `ORDER-ROOM-REPLACE` is a consolidation candidate any more. Both were re-derived on 2026-09-16: the replacement is one candidate publication, and the transaction's baseline is carried as a COMPONENT ON THE PUBLICATION ENTITY — the explicit owner the row asked for — with the source stating why a resource would be wrong ("a second publication in flight would have overwritten 'the pending baseline'").
 The other rows are normal pipeline order with useful public phase/set vocabulary.
 Do not replace clear Bevy set ordering with a custom scheduler abstraction.
 

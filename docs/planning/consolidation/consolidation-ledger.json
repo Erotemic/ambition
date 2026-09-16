@@ -2669,23 +2669,23 @@
       "category": "schedule_order",
       "name": "Room open -> construction commands -> verify/publish",
       "owner": "actor_monolith room transaction",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "Deferred command ordering carries PendingConstructionBaseline from transaction open to verify_and_publish after construction.",
+      "current_truth": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Deferred command ordering carries PendingConstructionBaseline from transaction open to verify_and_publish after construction.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The transaction's opening baseline is carried as a COMPONENT on the PUBLICATION ENTITY -- `PendingConstructionBaseline` is inserted on `publication.0` at open and `take`n from that same entity at verify-and-publish. The source states why: \"ON THE PUBLICATION, not in a resource: a second publication in flight would have overwritten 'the pending baseline'.\" A baseline that failed to capture is carried as the Err arm and REFUSES the publication rather than being lost.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs"
           ]
         }
       ],
-      "classification": "SUSPECT_IMPLICIT_TRANSACTION",
-      "consolidation_hypothesis": "Prefer an explicit owner/state transition when correctness currently depends on ordering independent stores.",
+      "classification": "explicit owner already; ordering is within one command queue",
+      "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: this item read \"deferred command ordering carries the baseline\" and proposed \"prefer an explicit owner/state transition when correctness depends on ordering independent stores\". The explicit owner EXISTS and is the publication entity; the ordering is within one command queue, not across independent stores.",
       "verification_needed": "Static source shows declared ordering. Runtime schedule execution was not verified in this census.",
       "metric_tags": [
         "correctness_sensitive_ordering_edge"

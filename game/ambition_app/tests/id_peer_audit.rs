@@ -107,17 +107,24 @@ const PROJECTED_CHECKSUM_KINDS: &[&str] = &[
 ];
 
 const PEER_STABLE_PROJECTION: &[&str] = &[
-    // `ActiveMatch::peer_stable_checksum` projects the seat count and the
-    // activation tick, excluding `session` and the local seat-topology
-    // generation. Both still snapshot, so a rewind restores them.
+    // `ActiveMatch::peer_stable_checksum` projects the agreed seat count and the
+    // peer match ordinal, excluding `session`, `activated_on` and the local
+    // seat-topology generation. All still snapshot, so a rewind restores them.
     "ambition_match::seating::ActiveMatch",
-    // ⛔ ONE SEAM, FOUR REGISTRATIONS. All four stamp a `MatchInstance`, whose
-    // `session` is a per-App activation count. Each projects through
-    // `MatchInstance::peer_stable()` — the activation tick, which both peers
-    // simulate — and keeps the whole value in the snapshot so a rewind still
-    // restores the local half. The `peer_stable_checksum` arm in each owning
-    // crate is what holds the projection honest; this list only records that a
-    // reviewer checked it.
+    // ⛔ ONE SEAM, FOUR REGISTRATIONS. All four stamp a `MatchInstance`, and each
+    // reads exactly one thing from it — `peer_match_digest`, the session-relative
+    // ordinal — while keeping the whole value in the snapshot so a rewind still
+    // restores the local half.
+    //
+    // ⛔⛤ THEY READ NOTHING FROM IT FOR A DAY, AND THAT WAS A DEFECT OF ITS OWN.
+    // Excluding the local stamp was right; excluding the instance ENTIRELY left
+    // the projections unable to say WHICH match they described, so a verdict for
+    // the previous match checksummed identically to one for the live match while
+    // `settled(active)` disagreed. A false-negative checksum hides a desync,
+    // which is worse than a false-positive one reporting a phantom.
+    // `the_same_verdict_for_a_different_match_is_a_different_checksum` holds it.
+    // The `peer_stable_checksum` arm in each owning crate is what holds the
+    // projection honest; this list only records that a reviewer checked it.
     "ambition_match::settlement::StocksMatchSettled",
     "ambition_match::settlement::SuddenDeathEntered",
     "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",

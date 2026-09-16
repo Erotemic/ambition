@@ -113,8 +113,8 @@ where
     registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
-        "bevy_ggrs canonical codec snapshot + presence-aware checksum over the agreed seat count \
-         only, excluding the host-local session, seat-topology and activation-tick stamps",
+        "bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match \
+         ordinal, excluding the host-local session, seat-topology and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
     // ⭐ THE ORDINAL MINT. It rewinds for the same reason any counter does: a
@@ -141,8 +141,8 @@ where
     registrar.rollback_resource_canonical_checksum::<ambition_match::StocksMatchSettled>(
         OWNER,
         "resource.stocks_match_settled",
-        "bevy_ggrs canonical codec snapshot + checksum over the verdict only, excluding the \
-         host-local match stamp",
+        "bevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match \
+         ordinal, excluding the host-local session and activation-tick stamps",
         ambition_match::StocksMatchSettled::peer_stable_checksum,
     );
     // …and whether it refused to be settled. Sudden death is entered by NOT
@@ -151,8 +151,8 @@ where
     registrar.rollback_resource_canonical_checksum::<ambition_match::SuddenDeathEntered>(
         OWNER,
         "resource.sudden_death_entered",
-        "bevy_ggrs canonical codec snapshot + checksum over whether a match is latched, excluding \
-         the host-local match stamp",
+        "bevy_ggrs canonical codec snapshot + checksum over whether a match is latched and the \
+         peer match ordinal, excluding the host-local session and activation-tick stamps",
         ambition_match::SuddenDeathEntered::peer_stable_checksum,
     );
     // …and HOW LONG it has been fought. Counted, not derived: the timeout and
@@ -162,8 +162,9 @@ where
         .rollback_resource_canonical_checksum::<crate::character_runtime::live_match_clock::LiveMatchTicks>(
             OWNER,
             "resource.live_match_ticks",
-            "bevy_ggrs canonical codec snapshot + checksum over the elapsed micros only, which are \
-             counted from the match's own start, excluding the host-local match stamp",
+            "bevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from \
+             the match's own start, and the peer match ordinal, excluding the host-local session \
+             and activation-tick stamps",
             crate::character_runtime::live_match_clock::LiveMatchTicks::peer_stable_checksum,
         );
     // …and the announcement it makes once. Written inside the sim and read

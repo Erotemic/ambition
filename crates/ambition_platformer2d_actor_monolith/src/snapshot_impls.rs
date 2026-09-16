@@ -28,7 +28,7 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
             None => put_bool(out, false),
             Some(instance) => {
                 put_bool(out, true);
-                let (session, activated_on) = instance.parts();
+                let (session, activated_on, ordinal) = instance.parts();
                 match session {
                     None => put_bool(out, false),
                     Some(session) => {
@@ -43,6 +43,16 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
                         put_u64(out, tick);
                     }
                 }
+                // ⭐ THE PEER HALF TRAVELS TOO. A rewind that restored the local
+                // stamp without it would restore a value that no longer names
+                // which match of the agreed session it describes.
+                match ordinal {
+                    None => put_bool(out, false),
+                    Some(ordinal) => {
+                        put_bool(out, true);
+                        put_u64(out, ordinal);
+                    }
+                }
             }
         }
         put_u64(out, ticks);
@@ -55,9 +65,11 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
                 None
             };
             let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            let ordinal = if r.bool()? { Some(r.u64()?) } else { None };
             Some(ambition_match::MatchInstance::from_snapshot(
                 session,
                 activated_on,
+                ordinal,
             ))
         } else {
             None

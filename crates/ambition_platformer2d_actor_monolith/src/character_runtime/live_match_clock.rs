@@ -113,11 +113,25 @@ impl LiveMatchTicks {
     /// What two PEERS may compare: WHICH match, and how long it has been
     /// fought. The session half of the instance is a per-App count.
     pub fn peer_stable_checksum(&self) -> u64 {
-        // ⛔ ELAPSED time only. It is counted from the match's own start, so two
-        // peers at the same point in one fight agree; the `MatchInstance` stamp
-        // beside it counts this App's sim steps and cannot be compared.
-        let (_local_stamp, micros) = self.parts();
-        ambition_platformer2d_core::snapshot::checksum_bytes(&micros.to_le_bytes())
+        // ⛔ ELAPSED time, plus WHICH match of the agreed session it elapsed in.
+        // The time is counted from the match's own start, so two peers at the
+        // same point in one fight agree. The instance's LOCAL terms count this
+        // App's activations and sim steps and cannot be compared — only its
+        // `peer_match_digest` may be.
+        //
+        // ⛔⛤ IT HASHED THE ELAPSED MICROS ALONE for a day, which is peer-stable
+        // and not identifying: 50ms into match 1 and 50ms into match 4 compared
+        // equal, so a peer whose clock belonged to a finished match agreed with
+        // one whose clock belonged to the live one.
+        let (of, micros) = self.parts();
+        let mut bytes = Vec::with_capacity(16);
+        bytes.extend_from_slice(
+            &of.map(|instance| instance.peer_match_digest())
+                .unwrap_or(0)
+                .to_le_bytes(),
+        );
+        bytes.extend_from_slice(&micros.to_le_bytes());
+        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
     }
 
     pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
@@ -221,8 +235,11 @@ mod tests {
     fn the_clock_checksum_ignores_the_session_count() {
         use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
+        // The LOCAL halves vary; the PEER half is fixed at match 3, which is what
+        // two peers describing the same match of the same agreed session look
+        // like.
         let stamp = |session: u64, tick: u64| {
-            MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick))
+            MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick), Some(3))
         };
         let clock =
             |session: u64, micros: u64| LiveMatchTicks::from_snapshot(Some(stamp(session, 4_200)), micros);
@@ -231,6 +248,26 @@ mod tests {
             clock(9, 50_000).peer_stable_checksum(),
             "the clock's checksum moves with the host's prior session count, so \
              two peers at the same point in one match would desync"
+        );
+        // ⛔⛤ AND IT MUST SEE WHICH MATCH OF THE AGREED SESSION. Elapsed micros
+        // alone is peer-stable and NOT identifying: 50ms into match 3 and 50ms
+        // into match 2 compared equal before 2026-09-15, so a peer whose clock
+        // belonged to a finished match agreed with one whose clock belonged to
+        // the live one. Same defect as the verdict and the sudden-death latch —
+        // one root cause, four projections.
+        assert_ne!(
+            clock(1, 50_000).peer_stable_checksum(),
+            LiveMatchTicks::from_snapshot(
+                Some(MatchInstance::from_snapshot(
+                    Some(SessionScopeId(1)),
+                    Some(4_200),
+                    Some(2),
+                )),
+                50_000,
+            )
+            .peer_stable_checksum(),
+            "the same elapsed time in match 3 and in match 2 checksums \
+             identically, so a stale clock agrees with the live one"
         );
         // ⛔ AND IT MUST STILL SEE THE ELAPSED TIME AND WHICH MATCH.
         assert_ne!(
@@ -248,10 +285,21 @@ mod tests {
             "the clock's checksum moves with the ABSOLUTE tick the match \
              activated on, which counts menu frames"
         );
-        assert_eq!(
+        // ⛔⛤ THIS ARM WAS `assert_eq` AND IT WAS ASSERTING THE DEFECT. When the
+        // projection excluded the instance entirely, an UNSTAMPED clock and a
+        // clock stamped for match 3 necessarily agreed, and this arm pinned that
+        // as correct — "the checksum moves with whether the match is stamped at
+        // all" was written as the failure message for a checksum that noticed.
+        //
+        // ⚠ It is a real distinction, not an implementation detail: a clock
+        // belonging to NO match and a clock belonging to match 3 describe
+        // different worlds, and `LiveMatchTicks::of` is what the ruleset reads to
+        // decide whether the clock applies. What must stay excluded is the
+        // instance's LOCAL halves, which the two `assert_eq` arms above cover.
+        assert_ne!(
             clock(1, 50_000).peer_stable_checksum(),
             LiveMatchTicks::from_snapshot(None, 50_000).peer_stable_checksum(),
-            "the clock's checksum moves with whether the match is stamped at all"
+            "a clock belonging to no match agrees with one belonging to match 3"
         );
     }
 

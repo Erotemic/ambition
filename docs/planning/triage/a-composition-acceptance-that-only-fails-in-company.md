@@ -55,9 +55,11 @@ UNIFIED rather than split: all three instances are intermittent, which is itself
 the most useful thing this instance contributes, because it means a single
 mechanism can still explain all of them.
 
-⚠ **AND IT INVALIDATES THE ELIMINATIONS I DREW FROM ONE OR TWO CLEAN RUNS.** At a
-rate near one in three, "this variation did not reproduce it" is not evidence of
-absence. Recorded so nobody builds on them: a second sim App built-and-stepped
+⚠ **AND IT INVALIDATES THE ELIMINATIONS I DREW FROM ONE OR TWO CLEAN RUNS.**
+⇒ **THE RATE IS NOW MEASURED: 20 runs of the same configuration gave 15 pass,
+5 FAIL — 25%.** At one in four, a single clean run happens three times in four
+even when the fault is fully present, so "this variation did not reproduce it" is
+not evidence of absence. Recorded so nobody builds on them: a second sim App built-and-stepped
 without the audit read clean twice, and one with an `Update` writer and no audit
 read clean once. **Those are not negatives.** The only elimination below that
 does not depend on run counts is the wall-clock one, because it rests on reading
@@ -149,10 +151,13 @@ built on it — this one sat two paragraphs below the correction for part of a d
 intermittent fault cannot be bisected one run at a time. Each configuration needs
 a REPEAT COUNT chosen from the observed rate before its result means anything —
 at roughly one in three, ~20 runs to call a variation clean with any confidence.
-⇒ So the next step is a loop, not a fixture: run the cheapest variation (bare
-`MinimalPlugins` alongside the production arm) twenty times and record the rate,
-then the same for a built-but-unstepped sim App. A rate is the measurement; a
-single pass is not.
+⇒ So the next step is a loop, not a fixture. **The baseline rate is 25% (5 of 20),
+measured 2026-09-16**, which is what every later run count must be sized against:
+ten cleans put a 95% upper bound near 26% and therefore establish nothing here,
+and roughly twenty-five cleans are needed before a variation can be called clean.
+⇒ Run the cheapest variation (bare `MinimalPlugins` alongside the production arm)
+twenty-five times, then a built-but-unstepped sim App. A rate is the measurement;
+a single pass is not.
 
 ⚠ Nobody should take this row expecting a quick answer. What it now has that it
 did not have on 2026-09-10 is a 16-second reproduction and a known rate to size

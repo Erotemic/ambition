@@ -39,11 +39,26 @@
 //! reader who did not know that would read it as a save bug.
 //!
 //! ⛔⛤ **IT IS INTERMITTENT, AND I FIRST WROTE THAT IT WAS DETERMINISTIC ON ONE
-//! OBSERVATION PER DIRECTION.** Repeating the closest configuration three times
-//! gave **pass, pass, FAIL**. ⇒ So every "this variation does not reproduce it"
-//! below is worth very little: with a rate near one in three, one or two clean
-//! runs is not evidence of absence, and that includes the variations I measured.
-//! An instrument's first number is a hypothesis.
+//! OBSERVATION PER DIRECTION.** ⇒ **MEASURED OVER 20 RUNS OF THE SAME
+//! CONFIGURATION: 15 pass, 5 FAIL — a 25% failure rate.** So every "this
+//! variation does not reproduce it" below is worth very little: at one in four,
+//! a single clean run happens three times out of four when the fault is fully
+//! present, and that includes every variation I measured. An instrument's first
+//! number is a hypothesis.
+//!
+//! ⇒ **AND 25% IS THE NUMBER TO SIZE REPEAT COUNTS AGAINST**, which is what this
+//! measurement is for: ten consecutive cleans put a 95% upper bound near 26% and
+//! so establish almost nothing; twenty-five cleans are needed before a variation
+//! can be called clean at this rate.
+//!
+//! ⛔⛤ **AND BECAUSE IT IS INTERMITTENT, A GREEN HERE CERTIFIES LESS THAN A RED
+//! MEANS.** A deterministic hazard would at least make this arm a DETECTOR of the
+//! condition — red whenever a second App was present. A probabilistic one is
+//! silent in both directions: **a green run does NOT establish that the
+//! comparison baseline was sound, only that it was sound or that the coin landed
+//! the other way.** ⇒ So a single green with any second sim App in the binary is
+//! not evidence of anything, and a single red should be re-run before it is
+//! believed. Neither reading is worth acting on without a repeat count.
 //!
 //! ⇒ **SO DO NOT ADD A SECOND SIM-APP FIXTURE HERE WITHOUT `#[ignore]`.**
 //! `run_with_a_writer_outside_the_schedule` is the one that exists and both arms
@@ -582,7 +597,10 @@ fn no_registered_type_is_written_outside_the_rewinding_schedule() {
 /// `docs/planning/triage/a-composition-acceptance-that-only-fails-in-company.md`
 /// — whose named next step is the `--test-threads=1` run above, and which
 /// recorded the class as having at least two instances. This is the third, and
-/// the first with a deterministic reproduction rather than an intermittent one.
+/// it is INTERMITTENT like the other two: repeating the closest configuration
+/// three times gave pass, pass, FAIL. ⚠ So the four-line table above is four
+/// single observations, not four properties, and the `--test-threads=1` row in
+/// particular does not establish that serial execution is safe.
 ///
 /// ⚠ NOT the item catalog: `install_item_catalog` is a documented process-global
 /// `OnceLock` that ALLOWS identical reinstallation, and both fixtures install the
@@ -638,7 +656,7 @@ fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
 
 
 /// ⭐⭐ **LEAK OR CONCURRENCY? THE ONE EXPERIMENT THAT SEPARATES THEM, for the
-/// deterministic in-company failure recorded in
+/// intermittent in-company failure recorded in
 /// `triage/a-composition-acceptance-that-only-fails-in-company.md`.**
 ///
 /// Building a second sim App in this process makes
@@ -669,8 +687,13 @@ fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
 /// to test for exactly this class. It does not apply here:
 /// `Platformer2dSimHarness` pins the clock whenever rollback is enabled
 /// (`set_timestep` calls `enable_manual_stepping`), and both fixtures build with
-/// `with_sync_test_rollback_settings`. A load-dependent world would also be
-/// intermittent, and this failure is deterministic in both directions.
+/// `with_sync_test_rollback_settings`, and the audit reports exactly 240
+/// comparisons for 240 steps. ⚠ **AND THAT ELIMINATION USED TO CARRY A SECOND
+/// LEG THAT IS NOW GONE:** *"a load-dependent world would also be intermittent,
+/// and this failure is deterministic in both directions"*. The failure IS
+/// intermittent, so that leg is dead. ⇒ The elimination stands on the first leg
+/// alone, which reads the CODE rather than counting failures — a structural
+/// elimination does not care how many times anything ran.
 ///
 /// ⭐⭐ **RUN 2026-09-16, AND THE ANSWER IS `NOT A LEAK`:**
 ///

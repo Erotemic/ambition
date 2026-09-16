@@ -89,13 +89,16 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): NINE CLOSED, AND AN ELEVENTH ROAD FOUND.** The
+**Current state (2026-09-16): NINE CLOSED, AND A TWELFTH ROAD FOUND.** The
 count is written this way deliberately, and this is the sentence earning it: the
 row used to say "nine of the ten", predicting that "a tenth road found tomorrow
 makes this row 'nine closed, a tenth found' instead of making it false". Both
 open roads want a maintainer decision before anyone starts — the absolute
 `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing English
-prose (`Q122`, found 2026-09-16). Nine closed, two open.
+prose (`Q122`, found 2026-09-16). ⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
+IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
+all; they are simply never compared between peers, so no projection can fix them
+and no local session can measure them. Nine closed, three open.
 
 ⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
 ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
@@ -126,6 +129,7 @@ to carry it.
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically`. See below |
 | `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
 | **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
+| **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The blocker is N2's absent P2P session, which is the same blocker `Q128` has. The list is the deliverable; the measurements are not ten more rows waiting to be taken |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**

@@ -627,10 +627,47 @@ zero in this composition. A window chosen from a field name, with 36 clean
 comparisons and four carriers to back it, produces a verdict about rest that
 reads exactly like a verdict about motion.
 
-24 of the 25 are now 23, and the 10 other mutated rows are the ones worth
-spending the road on. The instrument is one generic function (`measure::<T>`) plus
-four floors (`the_reading_is_about_the_subject`), so each additional row is a
-projection, a room, and an input that is measured to move it.
+⛔⛔ **AND THE LIMIT ON BOTH RESULTS, WHICH IS LARGE ENOUGH THAT IT CHANGES WHAT
+THE REMAINING TEN ARE WORTH.** What that instrument measures is whether a value
+survives **one machine rewinding itself**. That is not the question S7's rows are
+dangerous for.
+
+`Session::SyncTest` is constructed in exactly ONE place in this workspace
+(`crates/ambition_platformer2d_rollback_ggrs/src/session.rs`), and `Session::P2P`
+appears exactly once, in a match arm reading `confirmed_frame()` — **no P2P
+session is ever built.** So every rollback measurement in this repository,
+including these two, is a local resimulation comparison.
+
+⇒ A value OUTSIDE the peer checksum can be perfectly reproducible under local
+resimulation and still differ between two peers, because **nothing compares it
+between peers at all.** The two questions are:
+
+| question | what answers it | the two rows' verdict |
+|---|---|---|
+| does a rewind restore this value correctly? | `RollbackRestoreAudit` + a value probe | ✔ yes, both of them |
+| do two peers agree about this value? | nothing this repository installs | ⛔ unmeasured, and unmeasurABLE here |
+
+So `item.ground_item` and `actor.animation_facts` are cleared of a LOCAL RESTORE
+defect, which is a real class and was worth ruling out — the audit's five other
+users exist because that class has bitten. They are **not** cleared of the thing
+S7 is about. A per-tick float decay that two Apps compute differently, for any
+reason, diverges silently forever, and a green SyncTest is exactly what that
+looks like from inside one App.
+
+⇒ **THAT REDIRECTS THE REMAINING TEN FROM A GRIND TO A DECISION.** Measuring each
+of them the same way would produce ten more "clean under local resimulation"
+verdicts that do not answer the question, and would read in this page as ten rows
+cleared. The question the 25 actually pose is ID-PEER's acceptance test — two Apps
+with different prior local histories entering the same peer-agreed session and
+agreeing on mechanical state — and it cannot be asked until a session exists that
+has two peers in it. **`Q128` and the absent P2P session are the same blocker
+wearing two names.** The 25 are a ranked list of what that session would need to
+compare; they are not ten more measurements waiting to be taken.
+
+ⓘ The instrument stays, because it is cheap and its class is real: one generic
+function (`measure::<T>`) plus four floors
+(`the_reading_is_about_the_subject`), so a row costs a projection, a room, and an
+input measured to move it. Spend it when a row is SUSPECTED, not to walk the list.
 
 ### S8 — the hashed entries written from a schedule that never rewinds
 

@@ -520,6 +520,34 @@ satisfied by the constant, so the disagreement half is a Sanic session: a
 different 43 rows sharing exactly three — the session root, the player slot, and
 the App-build encounter authority.
 
+✔ **AND THE QUESTION WAS THEN ASKED OF EVERY OTHER ROW: ONE DEFECT IN NINE
+ARMS.** If one cited arm held a road nothing ships, the others owe the same
+check. Each of the ID-PEER agreement/disagreement arms was traced to what it
+actually drives:
+
+- on the shipped composition already —
+  `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` (a real
+  door in `fixed_60hz_sim`, with a premise check, two anti-vacuity floors and the
+  POSITIVE assertion that no stamp reads `content-unstated`),
+  `a_superseded_transaction_cannot_publish_in_the_shipped_app`,
+  `two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road`,
+  `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+  `a_different_agreed_configuration_draws_a_different_sequence`;
+- subject is a pure function, so the function IS the road —
+  `the_same_verdict_for_a_different_match_is_a_different_checksum`
+  (`peer_stable_checksum`) and
+  `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
+  (`ConstructionScope::transaction`);
+- hand-built inputs, checked against the production call —
+  `two_activations_are_two_draw_contexts` passes `Some(0)`/`Some(1)` where
+  `match_activation.rs:566` passes `Some(ordinals.take(prepared.session()))`, so
+  the fixture spells what production spells.
+
+⇒ And the `content_unstated` FALLBACK inside the repaired transition road
+(`crates/ambition_platformer2d_runtime/src/room_transition/loading.rs:1228`, reached only when `ActiveContentBinding::live_or` finds no
+live binding) is covered by that first arm's positive assertion rather than by
+the comment beside it. One arm in nine was on the wrong road; the rest were not.
+
 ⭐⭐ **AND THE SECOND MINT IS GONE, WHICH IS THE ACTUAL REPAIR.** A canonical
 identity minted in two places is two authorities for one fact whatever both
 currently spell, and one of the two was unreachable — so the collapse costs

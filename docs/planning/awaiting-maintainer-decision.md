@@ -572,17 +572,40 @@ otherwise identical run whose bag does not, and it is this one.
 ⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
 NOW.** No second peer is required for the divergence — a single App already
 disagrees with its own replay. Every road that changes a bag during play crosses
-this: a pickup, a shop sale, a drop. ⚠ **WHY NOTHING IN THE TREE REPORTS IT IS UNMEASURED, and
-the obvious explanation is wrong.** Inventory is not untouched by the rollback
-arms: `grant_pickup` writes `OwnedItems` directly for `PickupKind::Ability`
-(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs:294`),
-and `carried_item_crosses_rooms` picks items up inside a sync-test window. ⇒ So
-"what distinguishes a change that desyncs from one that does not" is open —
-candidates are the mirror's `restored.0` latch being closed in those arms, or the
-change landing outside the compared window. The reproduction here changes the bag
-EVERY tick, which is the loudest possible version, and a single change may behave
-differently. That does not affect the ruling; it decides how urgent the ruling
-is.
+this: a pickup, a shop sale, a drop. ⭐ **IT TAKES A SUSTAINED CHANGE, NOT A SINGLE ONE — measured, and this is what
+sets the urgency.** A `SimTick`-gated one-shot that grants once at tick 20 runs
+the full 240 steps clean: tick 241, `session_health` `Ok`. The bag column proves
+the grant fired rather than the arm passing for the wrong reason — 3 → 4 at step
+40, held to the end.
+
+| system in the sim schedule | (step, tick, bag) at 0 / 40 / … / 240 | health |
+|---|---|---|
+| grants 1 per tick | (0,1,5) (40,6,10) … (240,6,10) | `Err` |
+| grants ZERO per tick | (0,1,3) (40,41,3) … (240,241,3) | `Ok` |
+| grants ONCE at tick 20 | (0,1,3) (40,41,**4**) … (240,241,4) | `Ok` |
+
+⚠ The gate is `SimTick` and not a `Local`, which is the whole reason the one-shot
+is valid: a `Local` is not restored by a rewind, so the replay would skip a grant
+the original pass performed and manufacture a divergence of its own. `SimTick` is
+rollback state, so the replay re-enters the same branch on the same tick.
+
+⇒ So a pickup during play — one change — does not desync on this evidence, and
+what the reproduction demonstrates is the sustained case. ⛔ WHY the sustained
+case differs from the single case is NOT explained, and nobody should read
+"single changes are safe" out of one measurement at one tick. What is established
+is that the defect is not triggered by every inventory change, which is why it has
+gone unnoticed.
+
+⚠ **AND THE ROLLBACK ARMS DO NOT EXERCISE IT**, corrected twice. I first wrote
+that they never change inventory in a rewinding window, then retracted that on
+finding `grant_pickup` writes `OwnedItems` and `carried_item_crosses_rooms` picks
+items up. ToothbrushAmbition measured the retraction and it was the over-correction:
+that file's only `with_sync_test_rollback_settings` arm is
+`a_mount_dying_under_a_possession_survives_rewinds`, which does not touch the bag,
+and every `pick_it_up` caller in it is in a `fixed_60hz_room_sim` arm with no GGRS
+session. The file matches a grep for both terms because it holds both KINDS of arm.
+⇒ The first claim was right and the correction was wrong, and neither was measured
+when written.
 
 The choice: (a) derive the save inside the sim schedule so a rewind re-derives
 it, which makes a persistence mirror into simulation work and raises the cost of
@@ -591,9 +614,27 @@ that a save FILE is a local artifact and not simulation authority two peers must
 agree on; (c) keep both and gate the mirror so it only runs on confirmed frames,
 which needs a confirmed-frame hook the `Update` schedule does not currently have.
 
-⭐ (b) is much the smallest and is probably right — nothing about a local save
-file is a thing peers must agree on — but it is a claim about the CONTENT of the
-peer contract rather than a refactor, so it is not a patch to make unilaterally.
+⛔ **(b) LOOKED SMALLEST UNTIL THE WRITERS WERE COUNTED, AND THE COUNT ARGUES
+AGAINST IT.** The test is whether anything OTHER than the three `Update` mirrors
+writes `AmbitionGameSave` inside a REWINDING schedule — because if nothing does,
+taking it out of the checksum costs only the coverage those mirrors never
+honestly provided, while if something does, (b) silently drops a real guarantee.
+**Something does.** `apply_flag_effects` takes `ResMut<AmbitionGameSave>`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs:18`)
+and is registered through `app.sim_schedule()`
+(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:204`). A story
+flag set by the simulation lands in the save inside the rewinding schedule, where
+the checksum is doing real work. ⇒ On that evidence (a) is the honest option and
+(b) trades a defect for a blind spot.
+
+⚠ **THAT IS ONE CONFIRMED WRITER, NOT A CENSUS.** 19 systems take
+`ResMut<AmbitionGameSave>` workspace-wide; a crude scan puts about a dozen of them
+in a sim schedule, but the same scan also reports `persist_inventory_to_save` as
+both `Update` and `sim`, which is false — so the number is vigilance and only the
+one above is safety. ⇒ The ruling needs the real enumeration, and it is a
+half-hour of reading, not a research task. What it changes is which option is
+cheap, not which defect exists.
+
 ⚠ It also applies to more than the bag: `persist_occurrence_horizon_to_save` and
 `persist_minted_item_horizon_to_save` write the same resource from the same
 `Update` chain, so a ruling here settles three systems, not one.

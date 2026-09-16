@@ -70,6 +70,83 @@ fn health(sim: &Platformer2dSimHarness) -> Result<(), String> {
     ambition_platformer2d::rollback::session_health(sim.world())
 }
 
+/// A grant that happens INSIDE the rewinding schedule, installed through the
+/// `compose` callback so it is present before the harness's first update rather
+/// than bolted on after its GGRS session has started.
+/// ⛔ THE CONTROL FOR EVERY OTHER ARM IN THIS FILE, AND IT WAS MISSING.
+/// The three arms above all run on `with_sync_test_rollback_settings`, and none
+/// of them asks how many SIM TICKS their window actually contains. A window that
+/// holds six ticks is not the window the arm's name claims, and an arm that
+/// steps 240 times over a stopped schedule agrees with itself forever.
+///
+/// ⇒ This prints the tick trajectory of both harnesses over the same 240 steps.
+/// The rollback one is the question; the no-rollback one is the reference that
+/// says whether the room itself can tick at all.
+#[test]
+#[ignore = "PROBE, print-only: how many sim ticks each harness gives per 240 steps"]
+fn probe_how_far_each_harness_ticks_over_the_same_window() {
+    for (name, mut sim) in [
+        ("rollback sync-test", repro_sim()),
+        ("no rollback session", control_sim()),
+        ("compose, empty system", sim_composed_with(nothing_each_tick)),
+        ("compose, grant each tick", sim_composed_with(grant_each_tick)),
+    ] {
+        let mut trajectory: Vec<(usize, u64)> = vec![(0, sim_tick(&sim))];
+        for frame in 1..=240 {
+            sim.step(AgentAction::default());
+            if frame % 40 == 0 {
+                trajectory.push((frame, sim_tick(&sim)));
+            }
+        }
+        // ⚠ A STOPPED CLOCK HAS A REASON AND `session_health` HOLDS IT. Printing
+        // the trajectory without it reports the symptom and hides the cause.
+        println!("[tick] {name}: {trajectory:?} health={:?}", health(&sim));
+    }
+}
+
+/// The schedule's own step count. This file never writes it, which is the
+/// point: it is the control column for a frozen bag.
+fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
+    sim.world()
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .map(|tick| tick.0)
+        .unwrap_or(u64::MAX)
+}
+
+fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
+    owned.grant(Item::HealthCell, 1);
+}
+
+/// The other half of the bisect: same road into the schedule, no writes at all.
+fn nothing_each_tick() {}
+
+fn sim_that_grants_inside_the_tick() -> Platformer2dSimHarness {
+    sim_composed_with(grant_each_tick)
+}
+
+fn sim_composed_with<M>(
+    system: impl bevy::prelude::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>
+    + Clone
+    + Send
+    + Sync
+    + 'static,
+) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.add_systems(label, system.clone());
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a grant inside the tick")
+}
+
 /// The room-scoped roster. A full sandbox reset despawns this whole set and
 /// respawns it, and despawn bumps the generation, so a reconstruction that
 /// really ran leaves NO original `Entity` value behind. Borrowed from
@@ -360,34 +437,44 @@ fn a_reset_requested_from_update_mid_window() {
 /// flag would itself have to be rollback state for the one-shot to replay
 /// correctly, and a flag that survives the rewind would suppress the replayed
 /// grant and manufacture the divergence this arm is looking for.
-/// ⛔ INCONCLUSIVE, AND KEPT AS A PROBE RATHER THAN DELETED because the
-/// scaffolding is the expensive part and the measurement is worth starting from.
+/// ⛔ INCONCLUSIVE ABOUT THE MIRROR, AND IT FAILED IN A MORE USEFUL DIRECTION.
+/// Kept as a probe because the scaffolding is the expensive part and because the
+/// measurement below is the thing worth starting from.
 ///
-/// MEASURED 2026-09-16: the in-sim grant accumulates to 8 over the first ~60
-/// steps and then FREEZES — `[(0, 8), (40, 8), (80, 8), (120, 8), (160, 8),
-/// (200, 8), (240, 8)]` — so the simulation stops advancing ticks while
-/// `sim.step()` keeps returning. That is a question about this harness, not
-/// about the mirror, and until it is answered a clean `session_health` over
-/// those 240 frames would be a pass over a world that was not simulating.
+/// MEASURED 2026-09-16, `SimTick` and the bag over the same 240 `sim.step()`
+/// calls, bisected against `probe_how_far_each_harness_ticks_over_the_same_window`:
 ///
-/// ⇒ What is still owed is a window in which the mirrored value genuinely
-/// CHANGES tick over tick. Adding the system through
-/// `Platformer2dSimHarness::build`'s `compose` callback, BEFORE the first
-/// update, is the next thing to try: this one is added after the harness has
-/// already built and started its GGRS session.
+/// | harness | tick at 0/40/…/240 |
+/// |---|---|
+/// | `new_with_options` sync-test | 1, 41, 81, 121, 161, 201, 241 |
+/// | no rollback session | 0, 40, 80, …, 240 |
+/// | `build` + compose, EMPTY system | 1, 41, 81, 121, 161, 201, 241 |
+/// | `build` + compose, THIS grant | 1, 6, 6, 6, 6, 6, 6 |
+///
+/// ⛔ THE CLOCK STOPS BECAUSE THE SESSION DIED, AND NOTHING IN THE STEP LOOP
+/// SAYS SO. `session_health` reads `GGRS sync-test checksum mismatch at frames
+/// [2, 3, 4, …]` on that last row, repeating forever. An invalidated session
+/// keeps accepting `sim.step()` and returns an observation every time; it simply
+/// stops advancing `SimTick`. Every assertion after the invalidation runs over a
+/// frozen world and agrees with itself.
+///
+/// ⚠ SO MY FIRST READING WAS WRONG IN THE WAY THAT MATTERS: I wrote that "the
+/// simulation stops advancing", which is true of this harness and of NO OTHER
+/// one here. The compose road is innocent — an empty system through the same
+/// callback ticks 1:1. What stalls the session is THIS SYSTEM writing
+/// `OwnedItems` from a bare sim system, and `OwnedItems` is
+/// `rollback_resource_clone` (`ambition_items/src/rollback_registration.rs:11`).
+/// ⇒ A rollback-registered resource has one sanctioned writer road
+/// (`ItemGrantRequested` → `apply_item_grants`), and writing it directly from an
+/// unordered system desyncs the sync test rather than being ignored.
+///
+/// ⇒ WHAT IS STILL OWED for the mirror question is unchanged and now has a
+/// shape: a window in which the mirrored value changes tick over tick WITHOUT
+/// desyncing — which means going through `ItemGrantRequested`, not around it.
 #[test]
-#[ignore = "PROBE, print-only: the in-sim grant freezes after ~60 steps; harness mechanics unresolved"]
+#[ignore = "PROBE, print-only: the in-sim grant desyncs the sync test, which freezes the clock"]
 fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
-    use ambition_platformer2d::sim::SimScheduleExt;
-    use bevy::prelude::ResMut;
-
-    fn grant_each_tick(mut owned: ResMut<OwnedItems>) {
-        owned.grant(Item::HealthCell, 1);
-    }
-
-    let mut sim = repro_sim();
-    let label = sim.app_mut().sim_schedule();
-    sim.app_mut().add_systems(label, grant_each_tick);
+    let mut sim = sim_that_grants_inside_the_tick();
 
     // ⚠ THE PREMISE IS "MY SYSTEM RAN", AND `count > 0` DOES NOT SAY THAT — the
     // starter bag may already hold cells. Two samples, and the SECOND must exceed
@@ -406,7 +493,10 @@ fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
 
     let mut desync: Option<(usize, String)> = None;
     let mut mirror_moved = false;
-    let mut trajectory: Vec<(usize, u32)> = Vec::new();
+    // ⚠ THE TICK IS IN THIS TUPLE BECAUSE "THE SIM STOPPED" AND "MY WRITER
+    // STOPPED" LOOK IDENTICAL FROM THE BAG ALONE. Only a column that the
+    // schedule owns, and that this file does not write, tells them apart.
+    let mut trajectory: Vec<(usize, u64, u32)> = Vec::new();
     let before = mirrored_items(&sim);
     for frame in 0..240 {
         sim.step(AgentAction::default());
@@ -419,16 +509,19 @@ fn probe_a_bag_changed_inside_the_sim_is_mirrored_across_the_window() {
             mirror_moved = true;
         }
         if frame % 40 == 0 {
-            trajectory.push((frame, live_cells(&sim)));
+            trajectory.push((frame, sim_tick(&sim), live_cells(&sim)));
         }
     }
-    trajectory.push((240, live_cells(&sim)));
+    trajectory.push((240, sim_tick(&sim), live_cells(&sim)));
 
     assert!(
         live_cells(&sim) > settled,
         "the in-sim grant stopped accumulating (settled={settled}, \
-         trajectory={trajectory:?}), so the window ran over a value that was not \
-         changing and a clean result says nothing"
+         trajectory={trajectory:?} as (step, tick, cells), health={:?}), so the \
+         window ran over a value that was not changing and a clean result says \
+         nothing. ⇒ If the tick column is also frozen, read the health: a \
+         session that invalidated keeps accepting steps and stops advancing",
+        health(&sim)
     );
     assert!(
         mirror_moved,

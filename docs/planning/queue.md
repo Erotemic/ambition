@@ -1021,6 +1021,64 @@ change inside `tools/` moves the identity too, through
 directory). The remaining question this row asked was about CONTENT, and content
 is covered by `source_identity` rather than by the key.
 
+### ROLLBACK-DEAD-SESSION — an invalidated GGRS session stops the clock in silence
+
+⛔ **A SYNC-TEST SESSION THAT INVALIDATES KEEPS ACCEPTING `sim.step()` AND STOPS
+ADVANCING `SimTick`.** The step returns an observation every time. Nothing
+panics, nothing prints, and every assertion after the invalidation runs over a
+frozen world — where it agrees with itself, forever.
+
+MEASURED 2026-09-16 (`probe_how_far_each_harness_ticks_over_the_same_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), `SimTick`
+over 240 `sim.step()` calls:
+
+| harness | tick at 0 / 40 / … / 240 | `session_health` |
+|---|---|---|
+| `new_with_options` sync-test | 1, 41, 81, 121, 161, 201, 241 | `Ok` |
+| no rollback session | 0, 40, 80, …, 240 | `Ok` |
+| `build` + compose, EMPTY system | 1, 41, 81, 121, 161, 201, 241 | `Ok` |
+| `build` + compose, a bare `OwnedItems` write | 1, 6, 6, 6, 6, 6, 6 | `Err(checksum mismatch at frames [2, 3, 4, …])` |
+
+⇒ The freeze is not the compose road and not the schedule: an empty system
+through the same callback ticks 1:1. It is one system writing a
+rollback-registered resource (`OwnedItems`, `rollback_resource_clone`,
+`crates/ambition_items/src/rollback_registration.rs:11`) outside its sanctioned
+road, which desyncs the sync test — and the desync then presents as a stopped
+clock rather than as a failure.
+
+**THE EXPOSED POPULATION IS SIX ARMS, counted not estimated.** Of the 21 files
+that build on `with_sync_test_rollback_settings`, thirteen call `rollback_health()`
+or `session_health` at least once. These six step a sync-test session and never
+ask whether it is still alive:
+
+- `game/ambition_app/tests/canonical_state_is_finite.rs`
+- `game/ambition_app/tests/carried_item_crosses_rooms.rs`
+- `game/ambition_app/tests/d71_transaction_census.rs`
+- `game/ambition_app/tests/door_entry.rs`
+- `game/ambition_app/tests/input_stream_under_rollback.rs`
+- `game/ambition_app/tests/rollback_provoked_actor.rs`
+
+⚠ **THIS IS AN EXPOSURE COUNT, NOT A DEFECT COUNT.** None of the six is known to
+be running over a dead session today; what is known is that none of them WOULD
+SAY SO. Do not convert this row into "six broken tests" without running the
+measurement — that is the same conversion this repository's evidence discipline
+exists to stop.
+
+⚠ A health check is also not a progress check. An arm that reads
+`rollback_health()` once at the end catches an invalidation; an arm that asserts
+over a window still has no statement about how many ticks that window contained.
+`SimTick` is the column that answers it, and no arm samples it.
+
+⇒ NEXT, in order, and the first step is cheap:
+1. Add `rollback_health()` to the six arms above and run the `app_it` lane. Green
+   is a strict improvement; red is a defect that was already there.
+2. Decide whether the harness should refuse to step an invalidated session at
+   all, rather than leaving every caller to remember. ⭐ That is the real fix:
+   the current contract makes silence the default and vigilance the opt-in.
+   It touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
+   maintainer ruling before it lands — a harness that panics on a dead session
+   will red any arm that is quietly relying on one.
+
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 
 **Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.

@@ -986,7 +986,20 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `refresh_boss_damageable_volumes` now reads it in `Combat`; an
                 // `.after` on the projection alone leaves this free to run after
                 // the publication and hand it last frame's row.
-                .before(ambition_combat::components::DamageFacingVolumesPublished),
+                .before(ambition_combat::components::DamageFacingVolumesPublished)
+                // ⛔⛤ **IT HAD NO SET AT ALL, AND THAT WAS A CAPABILITY LEAK.**
+                // Every sibling boss system here is `.in_set(WorldPrep)`, which
+                // nests under `GameplaySimulationRoot` and its
+                // `simulation_authorized` gate. This one carried only `.after`
+                // and `.before` edges, so it ran in compositions where its own
+                // capability was absent — and it takes `Res<BossCatalog>`, whose
+                // sole production initializer is `BossEncounterSimulationPlugin`.
+                // MEASURED: a host built with that plugin disabled panics with
+                // *"Parameter `Res<BossCatalog>` failed validation: Resource does
+                // not exist"* the first time `FixedUpdate` runs.
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
+                ),
         );
         // ── The SECOND publication of every body's damageable volumes ──
         //

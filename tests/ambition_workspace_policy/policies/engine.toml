@@ -2672,20 +2672,6 @@ skip_paths = [
 # a claim that a site may move a body but not change how it is moving, which the
 # ADR does not say about anything.
 # ─────────────────────────────────────────────────────────────────────────────
-# A10: a construction RECIPE may not spawn.
-#
-# `ConstructionRootCtx` is the surface a recipe gets and it holds no `Commands`,
-# so for the two fully-migrated domains (gravity, portal2d) a recipe spawning an
-# authoritative root is UNEXPRESSIBLE rather than merely unused — which is what
-# makes `commit_inactive`'s candidate isolation complete for them: the executor
-# hides every root it minted, and there is no other way to mint one.
-#
-# `commands_escape()` is the remaining hole, and this policy is what keeps it
-# from growing quietly. The monolith's nine recipes still need it because they
-# delegate to helpers taking `&mut Commands`; every one of those uses is a row in
-# the migration that deletes this waiver, and nothing OUTSIDE that file may add a
-# tenth.
-# ─────────────────────────────────────────────────────────────────────────────
 [[policy]]
 id = "engine.velocity-writes-are-authority-only"
 scope = "engine"

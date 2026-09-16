@@ -478,14 +478,94 @@ MEASURED at `770ac4bff`:
   shows only bevy's three "Encountered a panic in system" lines. That is why this
   has read as a silent flake for so long.
 
-⇒ **It needs other tests in the same PROCESS, which makes the suspect population
-process-global state** — a static, an env var, or a shared registry — not test
-ordering within one app.
+⛔⛤ **AND THE PROCESS-GLOBAL HYPOTHESIS WAS ALSO WRONG. THE CAUSE IS TWO REAL
+DEFECTS, BOTH FIXED 2026-09-15.** A source review found them without another
+suite run; the "needs the whole process" reading was a timing artefact, not
+shared state.
+
+1. **A CAPABILITY LEAK.** `drive_boss_animators` takes `Res<BossCatalog>`, whose
+   sole production initializer is `BossEncounterSimulationPlugin`
+   (`boss_encounter/src/lib.rs`). `WorldPrepSchedulePlugin` registered it with
+   `.after`/`.before` edges and **no `.in_set(...)` at all**, while every sibling
+   boss system is `.in_set(WorldPrep)` — nested under `GameplaySimulationRoot`
+   and its `simulation_authorized` gate. So it ran in a composition whose own
+   capability was disabled. ⇒ Same family as
+   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]]: the
+   ordering edges were remembered and the set membership was not.
+
+2. **THE PROBE STEPPED NOTHING.** `the_engine_steps_with_and_without` builds the
+   engine and calls `app.update()` eight times, but `add_headless_foundation`
+   brings `MinimalPlugins`, which leaves `TimeUpdateStrategy::Automatic` in
+   force — so `run_fixed_main_schedule` executes `FixedUpdate` **zero or more**
+   times depending on elapsed WALL TIME. A fast run never crossed 1/60s and the
+   arm reported success having exercised nothing.
+
+⇒ **(2) IS WHY (1) READ AS A 50/50 FLAKE.** Pinning
+`TimeUpdateStrategy::ManualDuration(1/60)` turned an intermittent silent kill
+into a deterministic 1.58-second failure naming its own cause:
+
+    Encountered an error in system `drive_boss_animators`:
+    Parameter `Res<'_, BossCatalog>` failed validation: Resource does not exist
+
+⚠ **AND NOTHING WAS SWALLOWING THE PANIC.** The message was always there; it is
+printed on a Bevy task-pool worker thread, and only the nested
+`Encountered a panic in system ...` propagation banners reached libtest's
+per-test capture. There is no panic hook to fix — the arm had no assertion, so
+the banners were all it showed.
+
+⛔⛔ **AND FIXING (2) UNCOVERED A THIRD DEFECT THAT IS WORSE THAN BOTH: THIS
+COMPOSITION CANNOT ACTUALLY BE STEPPED.** Pinning
+`TimeUpdateStrategy::ManualDuration(1/60)` so the probe really advances time turns
+the arm into an unbounded hang. MEASURED, same arm, same sampler:
+
+| | peak RSS | duration | outcome |
+| --- | --- | --- | --- |
+| baseline (`Automatic`) | **13 MB** | **0.47 s** | passes, having run ZERO fixed steps |
+| time actually advancing | **5.7 GB and rising ~24 MB/s, no plateau** | never finished (>240 s) | hang |
+
+Bracketed with per-stage probes: update 0 completes in ~220 ms (512 entities,
+unchanged) and runs zero fixed steps; on update 1 `First` and `PreUpdate` run and
+then nothing — the hang is inside `RunFixedMainLoop`, and a probe system added to
+`FixedUpdate` is never reached. Entity count does not grow, so the allocation is
+not population.
+
+⇒ **THE TIMING FIX IS NOT LANDED, DELIBERATELY.** As written it converts a
+vacuous pass into a runaway that OOM-killed the agent session twice (45.7 GB RSS,
+69% of a 62 GB box). Landing it would make the shipped lane unrunnable. ⚠ The
+capability fix for (1) is independent and IS landed.
+
+**NEXT IMPLEMENTATION STEP (new, owns itself).** Find why the engine plugin group
+cannot advance one fixed step headless without looping in `RunFixedMainLoop`.
+Until then these three composition probes certify only that the engine BUILDS —
+the queue row should not claim they step it.
 
 **Next implementation:** on the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct
 from behavioral flakes, and from CONTENTION.
+
+⛔ **AND ONE RED GATE IS OPEN WITH ITS ATTRIBUTION CORRECTED.**
+`check_rollback_mutators_run_in_sim` reports `reset_inventory_on_new_game`
+mutating `BodyWallet` (rollback-registered) through
+`Query<&mut BodyWallet, PrimaryPlayerOnly>` while registered into `Update` —
+a schedule that never rewinds.
+
+⚠ **IT WAS NOT INTRODUCED BY `547987086`, WHICH A PEER ATTRIBUTED IT TO.**
+MEASURED: `git show 547987086^` has the same system in the same
+`add_systems(Update, (...).chain())` block. That commit deleted a SEPARATE
+`add_systems` block beside it and moved nothing. The mutation is pre-existing;
+what changed is that the guard's parameter pattern was widened and can now SEE
+it — which is the guard gaining reach, not the tree regressing.
+
+⚠ **AND NEITHER REMEDY THE GUARD OFFERS IS FREE HERE.** Moving it to
+`app.sim_schedule()` puts it inside the rewind window, where its ordering
+constraint bites: the chain's own comment records that running it after the
+mirrors lets `persist_inventory_to_save` write the OLD run's bag into the freshly
+wiped save. A fixed step runs before `Update` in the same frame, so the order
+survives — on frames that HAVE a fixed step. Waiving instead needs a boundary
+argument, and there is none written: `NewGameResetCommitted` is
+`clear_message_on_rollback`-registered with a name and no reason, so whether a
+rewind can cross a New Game is undocumented.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

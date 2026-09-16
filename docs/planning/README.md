@@ -25,8 +25,10 @@ Neither is an execution diary.
 live control-plane documents exist, are non-trivial, and still carry the headings
 that make them what they claim to be. It runs in `--maintenance`.
 
-⭐ **ITS POPULATION IS TEN DOCUMENTS, AND THE FOUR CONSOLIDATION ONES WERE
-ADDED 2026-09-16** — `consolidation/README.md`, `consolidation-plan.md`,
+⭐ **ITS POPULATION IS ELEVEN DOCUMENTS, AND FIVE WERE ADDED 2026-09-16** —
+`roadmap.md`, which `status.md`, `queue.md` and `tracks.md` all name as their
+peer and which was the only one of the four outside the check, plus the four
+consolidation documents: — `consolidation/README.md`, `consolidation-plan.md`,
 `architecture-census.md`, `campaign-metrics.md`. They are where the
 architecture campaigns' state actually lives, they get rewritten far more often
 than this page does, and every argument for guarding `status.md` applied to them

@@ -648,6 +648,42 @@ nothing happened. That is the same failure signature as a system that ran and
 found nothing to do, which is why neither the suite nor a reader can tell them
 apart without being told which semantics was intended.
 
+⛔⛤ **AND MEASURED 2026-09-16, THE TREE ALREADY GIVES THREE DIFFERENT ANSWERS,
+NOT TWO.** A third road exists and it is the loudest:
+`unique_session_world_root` (`shared_tangle/src/lifecycle/session.rs:398`) — the
+fallback `live_session_world_root` takes in a host with NO
+`SessionGatedSimulation`, i.e. direct-entry and headless — carries
+`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`.
+A plain `assert!`, on in release.
+
+| road | what two roots means | where |
+| --- | --- | --- |
+| `Single<.., With<SessionRoot>>` | the system is SILENTLY SKIPPED | ~206 sites |
+| `live_session_world_root`, shell-routed | RESOLVE the one whose scope is active | 4 sites |
+| `unique_session_world_root`, direct/headless | **PANIC** | the same 4 sites, other branch |
+
+⇒ So the same condition is impossible, skippable and resolvable depending on
+which road asks, and the shell-routed vs direct split means **a two-root frame
+crashes a headless harness and silently no-ops the shipped game.** That is not a
+disagreement about style; it is three different contracts for one state, and
+whichever the ruling picks, the other two need saying so out loud.
+
+⚠ **AND THE PANIC IS REACHABLE, which is the part a Q should have to show.** Two
+named roads get there:
+- `session_world_entity` → `live_session_world_root` → (no gate) →
+  `unique_session_world_root`. `ambition_platformer2d/src/rollback.rs:443` calls
+  it to refuse a rollback session opened over an unbuilt world — the sim-harness
+  install path.
+- `insert_session_world_component`
+  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:588`, *"for small direct hosts and
+  focused tests"*) calls `unique_session_world_root` **UNCONDITIONALLY**, not
+  through the gated branch — so that one asserts in ANY host, shell-routed
+  included. Its callers include `ambition_render`'s moving-platform and
+  portal-compositing setup.
+
+⇒ The loud contract is not confined to harnesses: one of its two roads runs in
+the shipped render path.
+
 ⭐⭐ **AND THERE IS ONE MITIGATION THAT IS WORTH DOING UNDER ANY OF THE THREE
 ANSWERS: PRINT THE POPULATION BESIDE THE VERDICT.** The ID-PEER owner supplied
 the general form of this signature from their own lane the same day, with two
@@ -733,6 +769,34 @@ assertions are unsatisfiable by a frozen world", which six different mechanisms
 produced above and a seventh would too. It is not decidable by reading source. If
 the contract moves into `step`, no guard is needed; if it does not, no guard can
 be written.
+
+⭐ **THE CODEBASE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST
+DIRECTION, which is evidence whichever way this is decided.** For a two-root
+world the headless path does not return an uninterpretable reading — it ABORTS.
+`lifecycle/session.rs::unique_session_world_root` carries a plain
+`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`,
+ungated and live in release, and `live_session_world_root` falls through to it
+whenever `SessionGatedSimulation` is absent — direct entry and headless, which is
+every harness this row is about. The shell-routed branch instead resolves the
+same condition by scope, silently. ⇒ So "the harness refuses rather than hands
+back a reading nobody can interpret" is already precedent here, and it is
+stronger than anything this Q proposes. (ToothbrushAmbition's find, filed on
+their side as part of Q132.)
+
+⚠ **ONE NUMBER FROM THAT REPORT DOES NOT REPRODUCE AND IS NOT USED ABOVE.** It
+described "~206 `Single<.., With<SessionRoot>>` sites" treating the same
+condition as *skip this system*. Counted here with a multi-line-aware scan over
+`crates/` and `game/`: **11** `Single<..SessionRoot..>` occurrences across 9
+files, out of **16** `Single<` parameter sites in the whole workspace — so no
+reading of that phrase reaches 206, and the widest related populations are 32
+`With<SessionRoot>` and 33 `Query<..SessionRoot..>`. The three-contracts SHAPE is
+verified at the source and stands; only its third population was overstated, and
+the shape does not need the number. ⇒ Recorded because a count that travels
+between agents in a message is the kind that gets quoted later.
+
+⚠ A practical note for anyone reading a failure here: that `assert!` fires
+inside a helper, so the arm named in the output is the last one that ran, not
+necessarily the one at fault.
 
 The choice: (a) `Platformer2dSimHarness::step` panics when the session has
 invalidated, making silence impossible — the census above is the evidence that

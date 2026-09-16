@@ -103,6 +103,32 @@ impl SessionMatchOrdinal {
         ordinal
     }
 
+    /// ⭐⭐ **WHAT A PEER COMPARES: HOW MANY MATCHES THIS SESSION HAS ACTIVATED.**
+    /// Not the session id — that is a per-App activation count, and two peers in
+    /// one agreed session hold different ones by construction.
+    ///
+    /// ⛔⛤ THIS RESOURCE WAS REGISTERED `rollback_resource_canonical` — a
+    /// WHOLE-VALUE checksum — while the comment beside the registration claimed
+    /// the session half "is compared only against ITSELF". The comment described
+    /// `take`'s behaviour; the registration compared the field. Both halves were
+    /// in the peer checksum. Found by the GPT architecture review of 2026-09-15,
+    /// in the same commit that introduced the type.
+    ///
+    /// ⚠ ONE DIVERGENCE WINDOW SURVIVES THIS PROJECTION, and it is recorded
+    /// rather than papered over: the mint resets LAZILY, inside `take`, so
+    /// between joining a session and activating that session's first match it
+    /// still holds the PREVIOUS session's `next`. Two peers with different prior
+    /// match counts disagree for exactly that window.
+    /// `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
+    /// holds it. Closing it means making the mint session-OWNED state — a
+    /// `MatchOrdinalMint` under the session root, which starts at zero because a
+    /// new session's state is new — instead of an App-global resource carrying an
+    /// owner tag. That is the review's recommendation and the right shape; it is
+    /// a carve, not a checksum change.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        self.next
+    }
+
     /// The two facts, for the wire format.
     #[doc(hidden)]
     pub fn parts(
@@ -287,7 +313,14 @@ mod match_context_tests {
     /// together.
     #[test]
     fn a_host_with_prior_matches_still_starts_a_new_session_at_zero() {
-        let agreed = Some(SessionScopeId(9));
+        // ⛔⛤ THE TWO HOSTS NAME THE AGREED SESSION WITH DIFFERENT LOCAL IDS,
+        // and that is the entire ID-PEER premise. This arm used to hand both of
+        // them `SessionScopeId(9)` — a shared local id, which is the one thing
+        // two peers never have — so it could not have caught a mint that keyed
+        // on the scope's VALUE. Found by the GPT architecture review of
+        // 2026-09-15.
+        let agreed_on_a = Some(SessionScopeId(9));
+        let agreed_on_b = Some(SessionScopeId(41));
 
         // Host A: played three matches in an earlier session, then joins.
         let mut veteran = SessionMatchOrdinal::default();
@@ -295,11 +328,11 @@ mod match_context_tests {
         for _ in 0..3 {
             veteran.take(earlier);
         }
-        let veteran_draws: Vec<u64> = (0..3).map(|_| veteran.take(agreed)).collect();
+        let veteran_draws: Vec<u64> = (0..3).map(|_| veteran.take(agreed_on_a)).collect();
 
-        // Host B: fresh App, joins the same session.
+        // Host B: fresh App, joins the same session under its OWN local id.
         let mut fresh = SessionMatchOrdinal::default();
-        let fresh_draws: Vec<u64> = (0..3).map(|_| fresh.take(agreed)).collect();
+        let fresh_draws: Vec<u64> = (0..3).map(|_| fresh.take(agreed_on_b)).collect();
 
         assert_eq!(
             veteran_draws, fresh_draws,
@@ -313,6 +346,72 @@ mod match_context_tests {
             vec![0, 1, 2],
             "consecutive matches in one session share an ordinal, so the second \
              replays the first's items"
+        );
+    }
+
+    /// ⭐⭐ **THE PEER PROJECTION AGREES ONCE BOTH HOSTS HAVE ACTIVATED, WITH
+    /// DIFFERENT LOCAL SESSION IDS AND DIFFERENT PRIOR HISTORIES.**
+    ///
+    /// This is the arm that would have caught the whole-value registration: under
+    /// `rollback_resource_canonical` the checksum included `session.0`, so 9 and
+    /// 41 disagreed forever no matter what the ordinals did.
+    #[test]
+    fn the_peer_projection_ignores_the_local_session_id_once_a_match_has_activated() {
+        let mut veteran = SessionMatchOrdinal::default();
+        for _ in 0..3 {
+            veteran.take(Some(SessionScopeId(2)));
+        }
+        veteran.take(Some(SessionScopeId(9)));
+
+        let mut fresh = SessionMatchOrdinal::default();
+        fresh.take(Some(SessionScopeId(41)));
+
+        assert_eq!(
+            veteran.peer_stable_checksum(),
+            fresh.peer_stable_checksum(),
+            "two peers who activated the same first match of an agreed session \
+             still checksum differently, so they desync on a value they agree \
+             about"
+        );
+        // ⛔ AND THE PROJECTION MUST STILL COUNT. A checksum that ignored `next`
+        // too would satisfy the arm above and compare nothing.
+        let mut second = fresh;
+        second.take(Some(SessionScopeId(41)));
+        assert_ne!(
+            fresh.peer_stable_checksum(),
+            second.peer_stable_checksum(),
+            "activating a second match does not change the projection, so a peer \
+             that missed an activation agrees with one that did not"
+        );
+    }
+
+    /// ⛔⛤ **THE ONE DIVERGENCE WINDOW THE PROJECTION DOES NOT CLOSE, HELD BY A
+    /// TEST RATHER THAN BY PROSE.**
+    ///
+    /// The mint resets LAZILY, inside `take`. Between joining a session and
+    /// activating that session's first match it still holds the PREVIOUS
+    /// session's count, so two peers with different prior match counts disagree
+    /// for exactly that window — and rollback checksums are compared every frame,
+    /// not only after an activation.
+    ///
+    /// ⇒ WHEN THIS ARM FLIPS TO `assert_eq`, the mint has become session-OWNED
+    /// state (a `MatchOrdinalMint` under the session root, which starts at zero
+    /// because a new session's state is new) and `SessionMatchOrdinal` should
+    /// leave `RECORDED_DIVERGENCE` in `game/ambition_app/tests/id_peer_audit.rs`.
+    #[test]
+    fn two_peers_who_played_different_prior_matches_disagree_before_the_first_activation() {
+        let mut veteran = SessionMatchOrdinal::default();
+        for _ in 0..3 {
+            veteran.take(Some(SessionScopeId(2)));
+        }
+        let fresh = SessionMatchOrdinal::default();
+
+        assert_ne!(
+            veteran.peer_stable_checksum(),
+            fresh.peer_stable_checksum(),
+            "the lazy-reset window has closed — if that is deliberate, flip this \
+             arm to assert_eq and drop SessionMatchOrdinal from \
+             RECORDED_DIVERGENCE in game/ambition_app/tests/id_peer_audit.rs"
         );
     }
 

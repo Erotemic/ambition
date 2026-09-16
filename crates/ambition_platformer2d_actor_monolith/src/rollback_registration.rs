@@ -119,13 +119,20 @@ where
     );
     // ⭐ THE ORDINAL MINT. It rewinds for the same reason any counter does: a
     // resimulated activation must draw the ordinal it drew the first time, or
-    // the match re-rolls its item table on every rollback. ⚠ Its `session` half
-    // is a per-App count, but it is compared only against ITSELF to decide
-    // whether to restart at zero — the value two peers compare is the ordinal,
-    // which they agree on.
-    registrar.rollback_resource_canonical::<ambition_match::seating::SessionMatchOrdinal>(
+    // the match re-rolls its item table on every rollback.
+    //
+    // ⛔⛤ THE COMMENT HERE USED TO SAY the `session` half "is compared only
+    // against ITSELF" — over a `rollback_resource_canonical` registration, which
+    // compares EVERY field. The sentence described `take`; the registrar decided
+    // the checksum. A per-App session count was in the peer comparison.
+    // `SessionMatchOrdinal::peer_stable_checksum` now owns the split and states
+    // the one window that survives it.
+    registrar.rollback_resource_canonical_checksum::<ambition_match::seating::SessionMatchOrdinal>(
         OWNER,
         "resource.session_match_ordinal",
+        "bevy_ggrs canonical codec snapshot + checksum over the count of matches this session has \
+         activated only, excluding the host-local session stamp",
+        ambition_match::seating::SessionMatchOrdinal::peer_stable_checksum,
     );
     // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
     // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the

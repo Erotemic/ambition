@@ -603,6 +603,59 @@ both arms, poison-verified.
   every deletion gate that had to precede A2c has landed.
 Moving-target CCD remains out of scope by the protocol's own slice.
 
+### A2 construction-identity receipt, 2026-09-15
+
+**A shipped road built a mechanical body that nothing could name, and both
+censuses were structurally blind to it.** `spawn_requested_player_clone`
+(`game/ambition_app/src/app/player_clone.rs`) spawned `BodyKinematics` +
+`PlayerEntity` + the full movement clusters + a `CenteredAabb`, with no `SimId`,
+no `FeatureId`, and deliberately no `PrimaryPlayer` — so `ensure_sim_id` matched
+neither of its arms and passed the body over on every tick. It is registered
+unconditionally into the sim schedule (`WorldPrep`), with no feature gate.
+
+⛔⛤ **WHY NEITHER CENSUS SAW IT, which is the part that generalises.**
+`ensure_sim_id`'s `debug_assert` and `observe_damageable_body_identity` both
+require `CenteredAabb` AND `ActorFaction` — `StrikeVictim`'s own pair. The clone
+carries the box and no faction. A body can be simulated, and can desync, without
+ever being a strike candidate, so *minting an identity* and *being damageable*
+are different properties — the same distinction `construct_shrine` shows from the
+other side. Only `UnmintedBodyCensus`, whose population is `BodyKinematics`,
+could name it.
+
+⭐ **THE REPAIR IS AT THE CONSTRUCTION OWNER, NOT THE SWEEPER.** The site already
+queries the primary body under `PrimaryPlayerOnly`, and the primary carries both
+a `SimId` and the `SimIdCounter` that `SimId` requires — so the deferral was
+unnecessary rather than unavoidable. The site now mints
+`SimId::spawned(parent, counter.next())` and states
+`SpawnOrigin::Dynamic { parent, sequence }`, in the same command batch as the
+body, so no flush shows the body without its identity. A clone whose parent has
+no identity is REFUSED: ADR 0030 rules that *"dynamic, parent unknown"* is not a
+state worth being able to spell.
+
+Witness: `the_player_clone_road_builds_an_identified_body`. It failed before the
+repair, naming the body — `537v0 (Player Clone (brain-driven))`, `sim_id=None`,
+`origin=None` — and passes after, at `slot:0/0` with
+`Dynamic { parent: slot:0, sequence: 0 }`.
+
+⛔ **BOTH READINGS NAME THE PRE-MERGE TREE `b9f2ece18`, AND CANNOT BE REPRODUCED
+AT `ecbdf2297` TODAY.** Every `app_it` test that steps the simulation stops
+terminating at the merged tree: this lane ran `2 passed ... finished in 3.53s`
+before the merge, and after it a single test does not finish in 300s while its
+world grows about 10 MB per second. Startup is healthy (638ms, 790 systems), so
+the defect is in stepping, not construction. Matched probes — the same
+pre-existing test, same flags, same budget, with and without this repair stashed
+— both hung (`124`/`124`, 3.1 GB vs 3.3 GB), so the cause is in committed `main`
+and not in this work. ⇒ A reader who cannot reproduce the numbers above is
+looking at that regression, not at a false receipt. Re-measure once stepping
+terminates again. ⚠ Its arms are ordered
+SPECIFIC-before-POPULATION on purpose: an arm placed behind a wider one can never
+be shown to fire, which is the correction `a_body_the_sweeper_declines_to_identify_is_nameable`
+already had to make once.
+
+⚠ **`UnmintedBodyCensus` COUNTS OBSERVATIONS, NOT BODIES** — it judges every body
+every tick, so one unnameable body standing for fifty ticks reports ~50. Measured
+`209 judged, 49 skipped` for a single clone, and `0` after the repair.
+
 ### A2c: direct delivery and smaller flight authority
 
 Replace unresolved-feature projectile events with targeted delivery. Identity-

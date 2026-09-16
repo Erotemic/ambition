@@ -807,13 +807,28 @@ found for `OwnedItems`: a player-visible write from outside the rewinding
 schedule, restored away with nothing reporting it. `MoveOccurrence` is not exposed
 to it, because its writer is inside.
 
-**Remaining engineering:** a VALUE-LEVEL rollback witness — a body that starts a
-move, a rewind across the start, and the resimulated move taking the same number
-while a shot stamped by the abandoned future still matches. ⚠ That is a third KIND
-of evidence, not a third measurement of the same property: the two links above are
-structural and each has its own guard, so this would be a witness rather than a
-gap-filler. And: finish reflection/contact attribution after the product rule is
-settled.
+✅ **AND THE VALUE-LEVEL ROLLBACK WITNESS LANDED 2026-09-16.**
+`a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind`
+(`game/ambition_app/tests/a_move_keeps_its_occurrence_across_a_rewind.rs`) drives
+the SAME world for 180 frames with a GGRS sync-test session and without one, and
+compares the number the primary player's counter reaches. **Good value: `Some(9)`
+and `Some(9)`** — nine moves at one press every twelfth frame.
+
+⛔ **POISONED WITH THE PROPERTY, NOT THE ASSERTION.** Removing
+`rollback_component_canonical::<MoveOccurrence>` makes it fail `Some(1)` vs
+`Some(9)`: unregistered, every rewind drops the counter, so the body never gets
+past its first move while the fixed-tick host reaches nine. ⚠ Until this arm
+existed, nothing in the repository failed when that registration went away except
+the schema baseline — which would only have said *the dump changed*, not *the
+identity stopped surviving a rewind*.
+
+⇒ That is why it is a third KIND of evidence rather than a third measurement. The
+two structural links each had a guard; neither guard reads the NUMBER, and
+`ambition_combat`'s own four arms run on a hand-built App with no rollback session
+at all — the exact shape that hid the `OwnedItems` defect.
+
+**Remaining engineering:** finish reflection/contact attribution after the product
+rule is settled — blocked on `Q101`, below.
 
 **Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
 
@@ -1078,6 +1093,13 @@ accumulated good taste in individual arms, and nothing holds that property in
 place: the next rollback arm written is exposed the moment its assertions happen
 to be satisfiable by a frozen world, and its author gets no warning.
 
+0. ⚠ **THE CENSUS ABOVE ROTS.** It proves the CURRENT 21 arms are safe; it says
+   nothing about the twenty-second. The cost of not fixing the contract is that
+   every future rollback arm inherits the exposure and its author gets no
+   warning — which is the same argument that turns "the only production
+   registrar is this one" into an absence contract rather than a note.
+   (ToothbrushAmbition's point, and it is the reason this row stays open after
+   the exposure count went to zero.)
 1. Decide whether `Platformer2dSimHarness::step` should refuse to step an
    invalidated session rather than leaving every caller to notice on their own.
    ⭐ That is the real fix: the current contract makes silence the default. It
@@ -1089,6 +1111,91 @@ to be satisfiable by a frozen world, and its author gets no warning.
    is not decidable by reading the source — six different mechanisms produced it
    and a seventh would too. ⇒ If the contract moves into `step`, no guard is
    needed; if it does not, no guard can be written.
+
+### ROLLBACK-BAG-DESYNC — a per-tick change to an UNHASHED resource desyncs the sync test
+
+⛔ **CHANGING `OwnedItems` ONCE PER TICK DESYNCS A GGRS SYNC TEST WITHIN SIX
+TICKS, BY EITHER ROAD.** The mismatch repeats at frames `[2, 3, 4]` forever and
+presents as a frozen clock (see
+[ROLLBACK-DEAD-SESSION](#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
+
+MEASURED 2026-09-16, `probe_how_far_each_harness_ticks_over_the_same_window` in
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, `SimTick`
+over 240 `sim.step()` calls:
+
+| system added to the sim schedule | tick at 0 / 40 / … / 240 | `session_health` |
+|---|---|---|
+| none (`new_with_options`) | 1, 41, …, 241 | `Ok` |
+| none, no rollback session | 0, 40, …, 240 | `Ok` |
+| empty system through `compose` | 1, 41, …, 241 | `Ok` |
+| `ResMut<OwnedItems>`, **grants ZERO** | 1, 41, …, 241 | `Ok` |
+| `ResMut<OwnedItems>`, grants 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
+| `MessageWriter<ItemGrantRequested>`, 1/tick | 1, 6, 6, 6, 6, 6, 6 | `Err(mismatch [2, 3, 4, …])` |
+
+⇒ **THE TRIGGER IS THE VALUE MOVING, NOT THE WRITER.** The zero-grant row is the
+control that settles it: same `ResMut<OwnedItems>`, same unordered position in the
+schedule, same change detection, bag value unchanged — and it ticks 1:1. And the
+sanctioned road desyncs identically to the direct write, so this is not a case of
+writing rollback state from the wrong place. `ItemGrantRequested` →
+`apply_item_grants` is the engine's own road and the message is
+`clear_message_on_rollback`.
+
+⛔ **AND `OwnedItems` IS NOT HASHED**, which is what makes this sharp rather than
+routine. It is registered `rollback_resource_clone`
+(`crates/ambition_items/src/rollback_registration.rs:11`), and
+`RollbackEntryKind::feeds_peer_checksum` returns FALSE for `ResourceClone`
+(`crates/ambition_platformer2d_core/src/rollback_kind.rs:87`): the bag is
+snapshotted and restored, never compared. It cannot itself be the value the two
+passes disagree about. Something hashed is deriving from it.
+
+**THREE CANDIDATES ELIMINATED, each by measurement rather than by reading:**
+
+1. ⚠ **NOT the save mirror, which is the one I expected and wrote up before
+   checking.** `AmbitionGameSave` is `rollback_resource_clone_checksum` and
+   `persist_inventory_to_save` really does write it from `Update` — the exact
+   per-frame-vs-per-tick shape DURABLE-HORIZON-CHECKSUM predicts. But sampled
+   frame by frame the mirror holds `HealthCell = 0` for the whole window while
+   the live bag climbs 5 → 10: the latch never opened in this harness, so the
+   save is not changing and cannot be disagreeing. The mechanism was right in
+   shape and wrong in fact.
+2. **NOT a drained-message edge.** `capture_owned_items_baseline` writes the
+   checksummed `OwnedItemsBaseline` from the sim schedule gated on
+   `MessageReader<CheckpointCommitted>` — the "drained in the original pass,
+   empty in the replay" shape — but that channel IS `clear_message_on_rollback`
+   (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs:172`).
+3. **NOT the system's presence.** The zero-grant control above.
+4. **NOT change detection, and the zero-grant control already settles this too.**
+   `owned.grant(item, 0)` takes `ResMut` and calls a `&mut self` method, so it
+   derefs mutably and marks `OwnedItems` changed on EVERY tick exactly as the
+   granting version does. A `Changed<OwnedItems>` filter — a real candidate,
+   since a change tick that is not itself restored makes a filtered system run a
+   different number of times across a rewind — would therefore fire identically
+   in both rows, and only the row whose VALUE moves desyncs. ⇒ Whatever is
+   hashed reads the bag's VALUE, not its change flag.
+
+⚠ **THE ELIMINATIONS ARE READ INSIDE THE LIVE WINDOW, WHICH IS FRAMES 0–5 AND
+NOT 240.** The mismatch is reported at frames `[2, 3, 4]` and the freeze is
+downstream of it, so anything measured after the invalidation is a frozen world
+agreeing with itself and proves nothing. `session_health` is clean at steps 0
+through 5 and first reports at step 6; the mirror reads `HealthCell = 0` across
+those live steps while the live bag climbs 5 → 10, so elimination 1 is measured
+where it counts. ⇒ Any further hypothesis must be tested in that same window.
+
+⇒ NEXT. The reproduction is committed and costs one `cargo test` to re-run, so
+the next owner does not have to rebuild any of it:
+`cargo test -p ambition_app --test app_it probe_how_far_each_harness -- --include-ignored --nocapture`.
+What is owed is the identity of the hashed entry that moves. ⭐ The registry
+already knows every entry that feeds the peer checksum, so the direct route is a
+per-entry checksum dump at the mismatching frames rather than another hypothesis
+— the three above were each cheap and each wrong, which is the argument for
+instrumenting instead of guessing a fourth time.
+
+⚠ **SCOPE, because it decides whether this is urgent.** A sync test is one
+machine rewinding itself. If a single App disagrees with its own replay, no peer
+is needed for the divergence, and every road that changes a bag during play —
+pickups, shops, drops — crosses it. ⇒ But this is measured only for
+`OwnedItems`; whether other `ResourceClone` entries behave the same way is
+unmeasured, and the same probe answers it for any of them by swapping the system.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

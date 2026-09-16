@@ -27,6 +27,7 @@ type SaveRestored = ambition_platformer2d::actors::session::durable_horizon::Sav
 type AmbitionGameSave = ambition_platformer2d::persistence::save::AmbitionGameSave;
 type OwnedItems = ambition_platformer2d::item::OwnedItems;
 type Item = ambition_platformer2d::item::Item;
+type ItemGrantRequested = ambition_platformer2d::item::ItemGrantRequested;
 
 /// The room the other rollback arms use, so a failure here is about the mirror
 /// rather than about an unusual world.
@@ -90,6 +91,14 @@ fn probe_how_far_each_harness_ticks_over_the_same_window() {
         ("no rollback session", control_sim()),
         ("compose, empty system", sim_composed_with(nothing_each_tick)),
         ("compose, grant each tick", sim_composed_with(grant_each_tick)),
+        (
+            "compose, touch the bag, grant ZERO",
+            sim_composed_with(touch_the_bag_each_tick),
+        ),
+        (
+            "compose, request a grant each tick",
+            sim_composed_with(request_a_grant_each_tick),
+        ),
     ] {
         let mut trajectory: Vec<(usize, u64)> = vec![(0, sim_tick(&sim))];
         for frame in 1..=240 {
@@ -101,6 +110,40 @@ fn probe_how_far_each_harness_ticks_over_the_same_window() {
         // ⚠ A STOPPED CLOCK HAS A REASON AND `session_health` HOLDS IT. Printing
         // the trajectory without it reports the symptom and hides the cause.
         println!("[tick] {name}: {trajectory:?} health={:?}", health(&sim));
+    }
+}
+
+/// ⛔ THE ROW'S ACTUAL QUESTION, MEASURED FRAME BY FRAME RATHER THAN ARGUED.
+/// `persist_inventory_to_save` derives the checksummed `AmbitionGameSave` once
+/// per FRAME in `Update`; the sim advances and is compared once per TICK. This
+/// prints both clocks beside both values for the first frames of the window,
+/// which is where the session is still alive.
+///
+/// ⚠ It runs the SANCTIONED road — `ItemGrantRequested`, which
+/// `apply_item_grants` owns and which is `clear_message_on_rollback` — so a
+/// mismatch here cannot be dismissed as writing rollback state from the wrong
+/// place.
+#[test]
+#[ignore = "PROBE, print-only: the save mirror's clock against the sim's clock"]
+fn probe_the_mirror_and_the_sim_do_not_share_a_clock() {
+    for (name, mut sim) in [
+        ("requested grant (sanctioned road)", sim_composed_with(request_a_grant_each_tick)),
+        ("direct write", sim_composed_with(grant_each_tick)),
+    ] {
+        println!("── {name}");
+        for step in 0..14 {
+            let mirrored = mirrored_items(&sim)
+                .iter()
+                .filter(|item| item.contains("HealthCell"))
+                .count();
+            println!(
+                "   step={step:>2} tick={:>3} live={:>3} mirrored={mirrored:>3} health={:?}",
+                sim_tick(&sim),
+                live_cells(&sim),
+                health(&sim).err().map(|error| error.chars().take(46).collect::<String>()),
+            );
+            sim.step(AgentAction::default());
+        }
     }
 }
 
@@ -119,6 +162,29 @@ fn grant_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
 
 /// The other half of the bisect: same road into the schedule, no writes at all.
 fn nothing_each_tick() {}
+
+/// ⛔ THE CONTROL THAT SEPARATES THE VALUE FROM THE SYSTEM. This takes the same
+/// `ResMut<OwnedItems>` at the same ambiguous schedule position and fires the
+/// same change detection, but grants ZERO — the bag's value never moves. If this
+/// desyncs, the trigger is a system's PRESENCE in the schedule and nothing in
+/// this file is about items at all.
+fn touch_the_bag_each_tick(mut owned: bevy::prelude::ResMut<OwnedItems>) {
+    owned.grant(Item::HealthCell, 0);
+}
+
+/// The SANCTIONED road, which is the whole difference from `grant_each_tick`:
+/// ask for the grant instead of performing it. `apply_item_grants` is already in
+/// the sim schedule and owns the write, and `ItemGrantRequested` is
+/// `clear_message_on_rollback`, so a rewind drops the request and the replay
+/// re-issues it.
+fn request_a_grant_each_tick(
+    mut requests: bevy::prelude::MessageWriter<ItemGrantRequested>,
+) {
+    requests.write(ItemGrantRequested {
+        item: Item::HealthCell,
+        count: 1,
+    });
+}
 
 fn sim_that_grants_inside_the_tick() -> Platformer2dSimHarness {
     sim_composed_with(grant_each_tick)

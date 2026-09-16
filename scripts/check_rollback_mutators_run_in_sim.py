@@ -194,12 +194,75 @@ WAIVERS: dict[str, str] = {
         "`materialize_projectiles_for_this_tick`: it steps the sim from `Update` "
         "with no rollback host, so `BodyKinematics`/`BodyMelee` do not rewind."
     ),
-    "tick_body_cooldowns": (
-        "⛔ fighter harness — same composition again. Checked at the registration, "
-        "not inferred from the file name: `fighter_harness.rs` adds all three of "
-        "these to `Update` in the app it builds itself, and that app installs no "
-        "GGRS host, so `BodyMelee` is never restored and there is no history for "
-        "the cooldown tick to be inconsistent with."
+    # ── added 2026-09-16, the menu bundle ──────────────────────────
+    # Five systems, ONE cause: a `#[derive(SystemParam)]` bundle that grants a
+    # rollback `ResMut` to every taker. ⚠ The scanner is right to report them —
+    # it answers "who has mutable access", and narrowing it to "who writes"
+    # would need to see through `request_reset()`, a METHOD on the bundle, so
+    # the field name never appears at the call site. A precision fix there buys
+    # five fewer rows and risks a false NEGATIVE, which in this guard is a
+    # silent desync. ⇒ Waive with the reachability argument instead.
+    "grid_menu_apply_scroll_drag": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It applies a drag offset to "
+        "the tab strip."
+    ),
+    "grid_menu_republish_view": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It rebuilds the view rows "
+        "after a state change."
+    ),
+    "grid_menu_scroll_wheel": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It converts wheel input into "
+        "a scroll offset."
+    ),
+    "grid_menu_nav": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It moves the cursor. ⚠ It "
+        "reaches the bundle through `MenuDispatchParams`, one level further "
+        "out than its three siblings, which is why the scanner sees it at all "
+        "— the nesting is resolved transitively and the reachability is not."
+    ),
+    "kaleidoscope_focus_nav": (
+        "⛔ MUTABLE ACCESS IT HAS NO PATH TO USE. `SystemMenuParams` hands "
+        "`ResMut<NewGameResetRequested>` to every system that takes the "
+        "bundle, and this one takes it and never reaches the field. Checked "
+        "at the CALL GRAPH, not inferred from the name: the flag is set only "
+        "by `SystemMenuParams::request_reset` (menu/kaleidoscope_app.rs:760), "
+        "whose one caller is `dispatch_menu_action` (menu/dispatch.rs:121), "
+        "whose only two callers are `grid_menu_action_activated` and "
+        "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
+        "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
+        "faces. ⚠ Same nesting as `grid_menu_nav`."
     ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "

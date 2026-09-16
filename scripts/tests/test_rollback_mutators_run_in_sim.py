@@ -181,6 +181,23 @@ def test_the_real_tree_is_clean_or_waived():
     )
 
 
+#: Waived systems this scanner no longer SEES mutate, for a reason that is about
+#: the SCANNER and not about the system. ⛔ AN ENTRY HERE IS A KNOWN BLIND SPOT,
+#: NOT A CLEAN BILL — deleting the waiver would let the system straight through
+#: on the day the blind spot closes, which is the one day nobody is looking.
+#:
+#: `handle_ldtk_hot_reload` reaches `RoomSet`, `LdtkRuntimeIndex` and
+#: `RoomGeometry` through `SessionWorldMut`, and all three are registered with
+#: `rollback_component_clone{,_checksum}` — the form `_ROLLBACK_REGISTRATION`
+#: deliberately does not match. The mutation is untouched; the regex is narrow.
+BLIND_SPOT_NOT_CLEAN_BILL = {
+    "handle_ldtk_hot_reload": (
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "registered through component clone, which _ROLLBACK_REGISTRATION omits",
+    ),
+}
+
+
 def test_every_waiver_cites_the_code_that_makes_it_true():
     """A waiver here claims a value may drift across a rewind. That is a strong
     claim, so it has to point at something checkable rather than assert itself."""
@@ -255,9 +272,17 @@ def test_no_waiver_names_a_system_that_no_longer_mutates_rollback_state():
     """
     mutators = set(guard.mutating_systems())
     stale = sorted(name for name in guard.WAIVERS if name not in mutators)
-    assert not stale, (
+    for name, (relative, _why) in sorted(BLIND_SPOT_NOT_CLEAN_BILL.items()):
+        source = guard.REPO / relative
+        assert source.exists() and f"fn {name}" in source.read_text(errors="replace"), (
+            f"{name} is recorded as a scanner blind spot but is gone from "
+            f"{relative}; drop it from BLIND_SPOT_NOT_CLEAN_BILL and from WAIVERS"
+        )
+    assert stale == sorted(BLIND_SPOT_NOT_CLEAN_BILL), (
         f"{stale} are waived but no longer seen mutating rollback state — remove "
-        "them, so the waiver cannot cover a future system that reuses the name"
+        "them, so the waiver cannot cover a future system that reuses the name. "
+        "If the scanner is what stopped seeing it, say so in "
+        "BLIND_SPOT_NOT_CLEAN_BILL rather than deleting a live waiver"
     )
 
 

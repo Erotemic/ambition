@@ -949,240 +949,86 @@ down to the same four measurements, one as `lib/test_paths.py` and one as
 nothing about whether somebody is in it RIGHT NOW. Say so in the row or in a
 message before starting a step that takes hours.
 
-### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
+### TEST-LANES — keep required test lanes executable
 
 **Owner:** test runner / app integration lane.
 
-**Current state:** missing prerequisites are reported as incomplete rather than
-pass. The `app_it` lane RUNS AGAIN — 676 passed / 0 failed / 25 ignored of 701
-at `23f786757`, 258.28 s — after the sim-schedule cycle below was closed. The
-A10 work also observed one non-reproducing session-root handoff failure whose
-assertion message was not captured. ⚠ The composition probes still do not step
-the engine; see the next implementation step.
+**Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
+**677 passed / 0 failed / 25 ignored of 702**, 234.97 s at `582186bff` on the
+ToothbrushAmbition box. Missing prerequisites are reported as incomplete rather
+than pass. ⚠ A suite total is stamped to a TREE **and a MACHINE**: two agents
+disagreed by 98 arms for an hour because one checkout's gitignored sprite-sheet
+publish output was ~90 files short. Name the box beside the number.
 
-⛔⛤ **THE ORDER-DEPENDENT FAILURE HAS A NAME AND A MECHANISM NOW, AND MY FIRST
-CLASSIFICATION OF IT WAS WRONG.** The arm is
-`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`.
-I first recorded it as machine CONTENTION, because it appeared while two or three
-full suites were running concurrently — then it reproduced **serially, on a quiet
-machine, with one rust process and a load average of 2**. A coherent measured
-story that fits the first observation is still the wrong one if it was never
-tested against a second.
+⇒ **THE LONG-RUNNING `app_it` FLAKE IS CLOSED (2026-09-16).** It was never a
+flake: `b9f2ece18` gave `drive_boss_animators` `.in_set(WorldPrep)` to buy a
+capability gate, while that system also runs
+`.after(project_boss_attack_state_from_move)`, which is `.in_set(CombatSet::Playback)`
+— LATER in the sim schedule. One system ordered both before and after Playback,
+and the fixed loop retried the broken schedule forever, allocating ~27 MB/s for
+the first minute and ~234 MB/s after. One orphaned arm reached anon-rss
+64,629,160 kB in 316 s and took a 62 GB box down. Bisected over
+`770ac4bff..ee3d0852e`; fixed at `23f786757`; guarded from BOTH sides by
+`the_boss_animator_takes_the_gate_and_not_a_phase`. See git for the timeline.
 
-MEASURED at `770ac4bff`:
-- Intermittent across runs of the FULL suite: 674/1 and 675/0 on the same tree.
-- **12 of 12 green running that test file ALONE**, so it needs the whole process.
-- The failure is a PANIC inside `FixedMain`, not a timeout and not a kill —
-  `Encountered a panic in system bevy_app::main_schedule::FixedMain::run_fixed_main`.
-- ⚠ The panic's own message is SWALLOWED: the arm has no assertion (it builds the
-  engine with and without one plugin and steps 8 frames), and libtest's capture
-  shows only bevy's three "Encountered a panic in system" lines. That is why this
-  has read as a silent flake for so long.
+⛔⛤ **THE THREE STANDING PROHIBITIONS IT LEFT.**
+1. **A set carries a POSITION as well as a gate.** Adding `.in_set(X)` to a
+   system that already has cross-phase `.after`/`.before` edges can contradict
+   them. This is the INVERSE of
+   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]] and
+   bites just as hard. Check which set every existing edge target lives in.
+2. **A session gate is not a capability check.** `run_if(simulation_authorized)`
+   answers *"is this session authorized"*, which is TRUE in a host that has no
+   boss catalog. A system needing a resource is guarded by that resource's
+   existence: `.run_if(resource_exists::<BossCatalog>)`.
+3. **`cargo check` cannot see a schedule cycle, and neither can an arm that never
+   steps.** `b9f2ece18` shipped on `cargo check` alone, with an explicit "NO
+   `app_it` run" justified by those two facts — which were exactly what made
+   `app_it` the only instrument that could see it.
 
-⛔⛤ **AND THE PROCESS-GLOBAL HYPOTHESIS WAS ALSO WRONG. THE CAUSE IS TWO REAL
-DEFECTS, BOTH FIXED 2026-09-15.** A source review found them without another
-suite run; the "needs the whole process" reading was a timing artefact, not
-shared state.
+⇒ **THE COMPOSITION PROBES REALLY STEP NOW** (`582186bff`).
+`step_the_fixed_schedule` pins `TimeUpdateStrategy::ManualDuration(1/60)` AND
+asserts a `FixedUpdate` counter is non-zero — the pin alone is not enough,
+because anything that stops the loop advancing returns the arms to certifying a
+build and that failure is SILENCE. Before the pin: 13 MB, 0.47 s, ZERO fixed
+steps.
 
-1. **A CAPABILITY LEAK.** `drive_boss_animators` takes `Res<BossCatalog>`, whose
-   sole production initializer is `BossEncounterSimulationPlugin`
-   (`boss_encounter/src/lib.rs`). `WorldPrepSchedulePlugin` registered it with
-   `.after`/`.before` edges and **no `.in_set(...)` at all**, while every sibling
-   boss system is `.in_set(WorldPrep)` — nested under `GameplaySimulationRoot`
-   and its `simulation_authorized` gate. So it ran in a composition whose own
-   capability was disabled. ⇒ Same family as
-   [[reference_moving_systems_out_of_a_plugin_drops_their_set_membership]]: the
-   ordering edges were remembered and the set membership was not.
+⇒ **THE `BodyWallet` RED IS CLOSED** (`4ccfef59c`) and it was a CROSSING, not a
+schedule choice: `NewGameResetCommitted` is produced in the sim schedule's
+`ResetProcessing` and is `clear_message_on_rollback`, so a rewind could clear the
+trigger before its `Update` consumer ran. A waiver was never available.
 
-2. **THE PROBE STEPPED NOTHING.** `the_engine_steps_with_and_without` builds the
-   engine and calls `app.update()` eight times, but `add_headless_foundation`
-   brings `MinimalPlugins`, which leaves `TimeUpdateStrategy::Automatic` in
-   force — so `run_fixed_main_schedule` executes `FixedUpdate` **zero or more**
-   times depending on elapsed WALL TIME. A fast run never crossed 1/60s and the
-   arm reported success having exercised nothing.
+⭐⭐ **A ROLLBACK-MUTATOR RED HAS THREE INDEPENDENT QUESTIONS BEHIND IT, and
+answering one is not a verdict.** (1) is the write inside the rewind window;
+(2) is the write at a point no rewind CROSSES, which satisfies the guard without
+moving anything; (3) is the TRIGGER erasable by a rollback, which closes the
+WAIVER route and which (2) cannot rescue. ⚠ Applying (3) to a peer's road would
+have told them they were clear of a charge they had not answered.
 
-⇒ **(2) IS WHY (1) READ AS A 50/50 FLAKE.** Pinning
-`TimeUpdateStrategy::ManualDuration(1/60)` turned an intermittent silent kill
-into a deterministic 1.58-second failure naming its own cause:
+⛔ **OPERATIONAL RULES FOR THIS LANE, kept because they cost a night.**
+- `scripts/measure_test_arm_rss.py` bounds a runaway: one process per arm (peak
+  RSS is a property of a PROCESS), `RssAnon` rather than `VmRSS` or cgroup
+  `memory.current`, kill by process group at a hard cap, and it refuses a row
+  where libtest ran zero tests.
+- ⛔⛔ **`pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is a
+  `bash -c '<whole line>'`, so its own argv contains the pattern and the first
+  `pkill` kills the shell — the second one, aimed at the binary, never runs, and
+  neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
+  sampler whose cap was working. ⇒ `pgrep -af` to LIST, kill by PID, re-`pgrep`
+  in a SEPARATE call.
+- ⚠ When a build fails in a crate you did not touch, check free space BEFORE
+  reading the diagnostic. ENOSPC arrives as `error: could not compile <crate>`
+  with the cause one line above, and has been seen as six ordinary-looking
+  compile errors with no `os error 28` anywhere.
 
-    Encountered an error in system `drive_boss_animators`:
-    Parameter `Res<'_, BossCatalog>` failed validation: Resource does not exist
-
-⚠ **AND NOTHING WAS SWALLOWING THE PANIC.** The message was always there; it is
-printed on a Bevy task-pool worker thread, and only the nested
-`Encountered a panic in system ...` propagation banners reached libtest's
-per-test capture. There is no panic hook to fix — the arm had no assertion, so
-the banners were all it showed.
-
-⛔⛔ **AND FIXING (2) UNCOVERED A THIRD DEFECT THAT WAS WORSE THAN BOTH.
-CLOSED 2026-09-16 at `23f786757`: IT WAS A DEPENDENCY CYCLE IN THE SIM
-SCHEDULE, AND IT WAS NOT ABOUT TIMING AT ALL.** `b9f2ece18` gave
-`drive_boss_animators` `.in_set(WorldPrep)` to close (1). That system also runs
-`.after(project_boss_attack_state_from_move)`, which is
-`.in_set(CombatSet::Playback)` — LATER in the sim schedule than `WorldPrep` — so
-the set ordered one system both before and after Playback. The fix takes the
-GATE and not a phase: `GameplaySimulationRoot` is configured
-`run_if(simulation_authorized)` and pins no position.
-
-BISECTED over `770ac4bff..ee3d0852e`, every point re-measured on
-`a_dropped_item_falls`: `770ac4bff` and `91f0721bd` 3 passed in ~1.7 s;
-`bad9ca8153`, `ecbdf22971` and `b9f2ece18` HANG; HEAD with the `.in_set`
-replaced by the gate, 3 passed in 1.63 s. Lanes green at `23f786757`:
-`app_it` **676 passed / 0 failed / 25 ignored / 701 total, 258.28 s**, and
-`-p ambition_platformer2d_runtime --lib` **64 passed / 0 failed, 0.13 s** — two
-arms of that lane had been hanging for a peer, on a lane the fix was not
-measured against.
-
-⛔⛤ **THE STANDING PROHIBITION, which is the INVERSE of the rule that produced
-it.** `b9f2ece18` was written against *"carving systems out of a plugin drops
-their set membership"* — edges remembered, set forgotten. ADDING a set to a
-system that already carries cross-phase ordering edges fails the same way:
-`WorldPrep` carries a POSITION as well as a gate, and only the gate was wanted.
-⇒ Before adding `.in_set(X)`, check which set every existing `.after`/`.before`
-target lives in.
-
-⛔⛤ **AND THE LANE THAT WOULD HAVE CAUGHT IT WAS SKIPPED BECAUSE OF THE DEFECT
-ITSELF.** `b9f2ece18` shipped with `cargo check` only and an explicit *"NO
-`app_it` run: the composition probes can run the box out of memory, and the one
-arm this change affects does not execute the simulation at all"*. Both clauses
-were true. A schedule cycle is invisible to `cargo check` and invisible to every
-arm that never steps, so those two facts were exactly what made `app_it` the
-only instrument that could see it. ⇒ See
-[[reference_a_gate_lane_you_did_not_run_is_a_guard_that_does_not_exist]].
-
-⛔⛤ **AND (1) WAS NOT CLOSED BY THE GATE. A SESSION GATE IS NOT A CAPABILITY
-CHECK.** `23f786757` argued `.in_set(GameplaySimulationRoot)` closes the
-`Res<BossCatalog>` leak because the set carries `simulation_authorized`.
-MEASURED IN ISOLATION that looked right — dropping the set failed exactly
-`a_host_that_omits_boss_encounters_still_builds_and_steps`, 5 passed 1 failed.
-⇒ It was wrong. Once the probes really stepped, the FULL lane failed that same
-arm WITH the gate in place (674/2 at `1ac88c713`). `simulation_authorized`
-answers *"is this session authorized"*, which is TRUE in hosts that have no
-catalog. CLOSED at `582186bff` by asking the capability's own question:
-`.run_if(resource_exists::<BossCatalog>)`. The set stays only because it pins no
-position.
-
-⚠ **A POISON MEASURED IN ISOLATION CERTIFIED A CLAIM THE FULL LANE REFUSED** —
-same arm, opposite verdict. An arm that needs the whole process to fail cannot
-be poison-verified alone.
-
-**DONE (was the next implementation step).** The composition probes really step
-as of `582186bff`. `step_the_fixed_schedule` pins
-`TimeUpdateStrategy::ManualDuration(1/60)` AND asserts a `FixedUpdate` counter
-is non-zero — the pin alone is not enough, because anything that stops the fixed
-loop advancing returns these arms to certifying a build and that failure is
-SILENCE, not a red. POISONED: removing the pin fails all three arms with the
-counter's own message, exit 101.
-
-**Current lane state.** `cargo test -p ambition_app --test app_it` →
-**675 passed / 1 failed / 25 ignored of 701, 252.02 s** at `582186bff`. ⛔ The
-one red is ID-PEER's, not this row's:
-`an_edit_reaches_the_shipped_game::a_committed_world_reload_applies_its_effects`
-fails on `ContentBindingMismatch` with the LIVE `PeerContentIdentity` reading
-thirty-two ZERO bytes against a populated planned one, epochs equal. Green in
-the full run at `23f786757`, red after the merge bringing `9e222ffb2`. Reported
-to its owner.
-
-⛔ **OPERATIONAL RESIDUE, kept because it cost a night.** An affected arm
-allocated without bound and SUPERLINEARLY — ~27 MB/s over the first 60 s, then
-~234 MB/s; one left running reached anon-rss 64,629,160 kB in 316 s and took a
-62 GB box down with a kernel `global_oom`. ⇒ Any instrument that samples 60 s
-and fits a line under-reports by an order of magnitude.
-`scripts/measure_test_arm_rss.py` bounds this: one process per arm (peak RSS is
-a property of a PROCESS, so the only way to make it a property of an ARM is to
-stop sharing), `RssAnon` rather than `VmRSS` or cgroup `memory.current`, kill by
-process group at a hard cap, and it refuses a row where libtest ran zero tests.
-⛔⛔ **AND `pkill -f <pattern>` IS NOT A SAFE CLEANUP.** The shell running it is
-a `bash -c '<whole line>'`, so its OWN argv contains the pattern and the first
-`pkill` kills the shell — the second one, aimed at the test binary, never runs,
-and neither does the verifying `pgrep`. That is how a 61.6 GB orphan escaped a
-sampler whose cap was working on every other arm. ⇒ `pgrep -af` to LIST, kill by
-PID, re-`pgrep` in a SEPARATE tool call.
-
-**Next implementation:** on the next reproduction, capture the full failing
+**Still open.** One non-reproducing session-root handoff failure whose assertion
+message was never captured. On the next reproduction, capture the full failing
 assertion and isolate the production ordering/state source before changing test
 ordering or adding retries. Keep compile-cost and prerequisite failures distinct
-from behavioral flakes, and from CONTENTION.
-
-⇒ **THE `BodyWallet` RED IS CLOSED AT `4ccfef59c`, AND IT WAS A CROSSING RATHER
-THAN A SCHEDULE.** `check_rollback_mutators_run_in_sim` reported
-`reset_inventory_on_new_game` mutating `BodyWallet` from `Update`. The row had it
-as a choice between two costly remedies; the PRODUCER decided it.
-`process_new_game_reset_request` runs in the SIM schedule's `ResetProcessing`,
-and `NewGameResetCommitted` IS `clear_message_on_rollback`. So the message was
-produced inside the rewind window and consumed outside it, and a rewind could
-clear the trigger before its consumer ran while the rollback-registered writes
-that consumer had already made stood. ⇒ A waiver was never available.
-
-The fix is a MOVE onto a road that already existed:
-`clear_transient_on_sandbox_reset` consumes that same message in the sim
-schedule, chained after the producer so its deferred `world.write_message` has
-flushed. `reset_inventory_on_new_game` now runs `.after` it.
-
-⭐ **AND IT ANSWERS THIS ROW'S OWN CAVEAT BETTER THAN THE CAVEAT EXPECTED.** The
-row worried the ordering survives "on frames that HAVE a fixed step". The save
-WIPE is inside the producer's queued closure, which is also in the sim schedule —
-so wipe and reset now stand or fall together on the same frame, and the
-"old run's bag into the freshly wiped save" hazard cannot open a frame-shaped gap
-at all. Previously the wipe was in sim and the reset in `Update`, which is where
-that gap lived.
-
-⭐⭐ **THE REUSABLE PART: A RED HERE HAS THREE INDEPENDENT QUESTIONS BEHIND IT,
-and answering one is not a verdict.** (1) is the write inside the rewind window;
-(2) is the write at a point no rewind can CROSS, which satisfies the guard
-without moving anything; (3) is the TRIGGER erasable by a rollback, which is what
-closes the WAIVER route and which (2) cannot rescue. ⚠ MEASURED while handing
-this to a peer: `SessionScopeActivated` is produced AND consumed in `Update` and
-is NOT `clear_message_on_rollback`, so (3) does not touch the session-activation
-reset — but that road still owes (2) for its sixteen rollback-registered
-resources. Reporting (3) as the verdict would have told a peer they were clear of
-a charge they had not answered.
-
-⚠ **NINE FINDINGS REMAIN AND NONE ARE THIS ONE** — verified against the WIDENED
-guard a peer landed while this was in flight, not the version that reported it.
-Seven menu systems reach `ResMut<NewGameResetRequested>` through
-`MenuDispatchParams`; two are session-reset roads. All separately owned.
+from behavioural flakes, and from CONTENTION — a coherent measured story that
+fits the first observation is still the wrong one if it was never tested against
+a second.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a
 production invariant.
-
-## P2 — product/authoring work with an executable owner
-
-- **Character feel / Smash tuning:** use the real roster and the measurement tools
-  named by [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
-  Do not infer the roster from `game/ambition_content/src/*_moveset.rs` or from one
-  demo registration table. Product values waiting on a ruling stay in the
-  decision ledger.
-- **Q80 art/hitbox tolerance:** once the pixel tolerance is chosen, encode it in
-  authoring/tool validation rather than subjective screenshots.
-- **Q94 residency target:** once the memory target is chosen, use the asset owner
-  plan to trade tiers/residency against a measured budget.
-
-## P3 — human-gated or local-machine measurements
-
-Do these only on a machine/environment that can answer the question:
-
-- **D-RASTER-3:** measure weak-GPU framebuffer scale versus source-tier behavior.
-- **Switch Pro outer range:** run the controller diagnostic on both target
-  machines and compare the raw range.
-- **Web reveal branch:** validate the existing reveal-barrier branch in the real
-  browser/runtime.
-- **Kaleidoscope Bevy-0.19 flash:** reproduce interactively before filing a fix.
-- **LDtk preview tilesets:** measure whether editor-preview assets are still
-  required by the authoring workflow before Q82 is resolved.
-- **Capture after window close:** reproduce against the current capture path.
-- **External consumer/platform checks:** follow the SDK/external-consumer owner
-  documents; do not infer support from workspace-only builds.
-
-## Replenishment rule
-
-Before adding or promoting a row:
-
-1. inspect current HEAD and confirm the problem still exists;
-2. link the focused owner document;
-3. state current behavior, next implementation, blockers and acceptance;
-4. create/name a `Q` for every maintainer decision that blocks the row;
-5. keep measurements in the owner document or a durable receipt, not as queue
-   chronology;
-6. remove closed rows instead of preserving their investigation history here.

@@ -21,7 +21,7 @@ The main consolidation pressure is not the number of ECS objects. It is where on
 
 - room/session replacement is not one switch yet;
 - local lifecycle identifiers still enter some canonical provenance;
-- 32 process/App resources are explicitly documented by source as session- or generation-owned;
+- **36** process/App resources are explicitly documented by source as session- or generation-owned (re-derived 2026-09-16; this line read 32 until `SessionScopedResources` was counted field by field and came back 29 rather than 25 — see C03 for which four arrived and why);
 - direct-entry compatibility still gives some canonical values a second App-global fallback road;
 - live content/session values can be updated separately around development reload.
 

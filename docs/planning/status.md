@@ -36,8 +36,17 @@ was almost entirely negative: every A10 symbol has live production callers, and
 exactly one `pub` item across `transaction.rs` and `stage.rs` had no caller
 outside those two files. One dead mechanism was deleted, one accessor narrowed.
 ⇒ **There is no active A10 lane.** Peer-stable identity (ID-PEER) runs as a
-separate campaign with a separate agent — see below — and the consolidation
-control plane is the remaining work here.
+separate campaign with a separate agent — see below.
+
+⭐ **AND WHAT THAT UNBLOCKS, as of 2026-09-16: C03 and C05 are STARTABLE — every
+gate on both is discharged.** The two that stood this morning are gone: the
+shell/content A-supersedes-B race is witnessed in the shipped composition on both
+halves, and the peer-identity checkpoint was discharged by its owner. ⚠ The
+statement and its evidence live ONCE each — the witness in
+[`consolidation/README.md`](consolidation/README.md), the checkpoint in ID-PEER's
+queue row — and `consolidation-plan.md` points at them rather than restating
+them, because this file has been the second copy that rots before. ⛔ One re-arm
+condition is named there and not repeated here.
 
 The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication).
 

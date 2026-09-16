@@ -457,6 +457,36 @@ def repo_coupled_python_job() -> Job:
     )
 
 
+def unchecked_by_maintenance() -> list[Job]:
+    """What `--maintenance` does NOT run, derived from the plan it is not.
+
+    ⛔⛤ **THIS NOTICE HAD THE EXACT DEFECT THIS FILE HAS ALREADY DIAGNOSED
+    TWICE.** `--rust-only` and `--rust-alone` both restated their omissions as
+    hand-written THEMES and each named fewer jobs than it dropped; both were
+    fixed by deriving the list from the plan. `--maintenance`'s notice was still
+    the hand-written kind — *"Repo-coupled tests, Rust/Cargo lanes, and detached
+    tool tests were NOT run"* — four words for a lane that drops the pytest guard
+    set carrying over a thousand tests.
+
+    ⚠ **AND IT COST A DAY, TWICE, ON 2026-09-16.** `4b22cd736` changed
+    `cited_names` to return a 2-tuple and left three of its own tests comparing
+    against a bare set. The author ran `--maintenance`, saw 8/8, and shipped —
+    because `--maintenance` does not run `pytest scripts/tests` and its notice
+    did not say the words. A second agent independently read 20 refusals from
+    that same lane gap as 20 findings the same night.
+
+    ⇒ A LANE'S GREEN IS A CLAIM ABOUT THAT LANE, and the notice is the only place
+    that claim gets its boundary. Derive the boundary; a hand-written one drifts
+    the moment the plan does.
+    """
+    return [
+        repo_coupled_python_job(),
+        *slow_python_checker_jobs(),
+        Job("the Rust/Cargo lanes (--rust, --rust-alone, the backbone)", []),
+        Job("detached developer-tool tests (--tool-tests)", []),
+    ]
+
+
 def unchecked_by_rust_alone() -> list[Job]:
     """Everything `--rust-alone` drops, derived from the plan it builds.
 
@@ -1654,9 +1684,20 @@ def coverage_notice(
             "audits were NOT run."
         )
     if maintenance_only:
+        dropped = "".join(
+            f"\n      · {job.name}" for job in unchecked_by_maintenance()
+        )
         return (
-            "\n  ⚠ --maintenance ran periodic repository-hygiene audits only. "
-            "Repo-coupled tests, Rust/Cargo lanes, and detached tool tests were NOT run."
+            "\n  ⛔⛔ --maintenance ran periodic repository-hygiene audits ONLY. "
+            f"Unchecked this run:{dropped}"
+            "\n      ⇒ The first of those is `pytest scripts/tests`, and it is where"
+            "\n      the tests of the SCRIPTS THIS LANE RUNS live. MEASURED"
+            "\n      2026-09-16: a commit changed a checker's return type and left"
+            "\n      three of its own tests red for a day behind a green"
+            "\n      `--maintenance`. If you edited anything under `scripts/`, this"
+            "\n      lane has not tested it:\n"
+            "      ./run_tests.sh --tool-tests   # detached tools\n"
+            "      python3 -m pytest scripts/tests -q   # the checkers' own tests"
         )
 
     notices: list[str] = [

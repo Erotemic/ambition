@@ -79,6 +79,45 @@ def declaration_kinds(source_by_file: dict[str, str], ty: str) -> list[str]:
     return kinds
 
 
+def stale_mood(items: list[dict]) -> list[str]:
+    """Ledger prose stating an imperative about a campaign `queue.md` calls done.
+
+    ⛔⛤ **THE LEDGER IS JSON, AND THE GUARD THAT CATCHES THIS SCANS `.md` ONLY.**
+    MEASURED 2026-09-16: `PUB-ROOM-REPLACEMENT`'s CENSUS row already said *"a
+    refusal drops the candidate roots AND the staged world; N is untouched"*
+    while its LEDGER item still said *"failure can therefore occur after partial
+    live replacement"* and asked *"A10 should publish all candidate room/session
+    state with one authority switch"*. The two copies of one claim drifted APART
+    and only the markdown half was ever swept.
+
+    ⇒ The pattern is IMPORTED from `check_discharged_holds_are_rewritten` rather
+    than restated, so widening it there widens it here. One authority for the
+    grammar; two artifacts scanned.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import check_discharged_holds_are_rewritten as holds
+
+    queue = REPO / "docs/planning/queue.md"
+    if not queue.exists():
+        raise SystemExit("⛔⛔ queue.md is not there; this rule has no authority")
+    done = holds.rows_marked_done(queue)
+    if not done:
+        raise SystemExit(
+            "⛔⛔ `queue.md` marks NO row done, so this rule can never fire. That "
+            "is a claim about the parser, not about the ledger."
+        )
+    out = []
+    for item in items:
+        for field in ("current_truth", "consolidation_hypothesis"):
+            text = str(item.get(field) or "")
+            for _, name, line in holds.stale_gates(text + "\n", done):
+                out.append(
+                    f"    {item['id']}.{field}: names {name}, which `queue.md` "
+                    f"marks finished\n      {line.strip()[:96]}"
+                )
+    return out
+
+
 def workspace_packages() -> set[str]:
     """Ask cargo which crates the workspace HAS. Do not model it from globs.
 
@@ -250,6 +289,21 @@ def main() -> int:
             "\n⇒ A Resource is PROCESS-GLOBAL and a Component is carried by an\n"
             "  ENTITY. An item that gets this wrong describes a different\n"
             "  consolidation problem from the one the tree has."
+        )
+        return 1
+
+    # RULE 5: the ledger's own prose, in the mood the markdown sweep reads.
+    moody = stale_mood(items)
+    if moody:
+        print(
+            f"⛔ {len(moody)} ledger field(s) state an imperative about a campaign "
+            "this repository has finished:\n"
+        )
+        print("\n".join(moody))
+        print(
+            "\n⇒ REWRITE THE CLAIM AS CURRENT STATE. A `consolidation_hypothesis`\n"
+            "  asking for work that is done reads as open work to the next census\n"
+            "  update, which is the one reader this file has."
         )
         return 1
 

@@ -345,7 +345,7 @@
         "AUTH-CONTENT-IDENTITY",
         "DUP-CONTENT-CURRENT"
       ],
-      "consolidation_hypothesis": "A10 should make this a projection of the admitted candidate session/world switch instead of a separately queued publication.",
+      "consolidation_hypothesis": "None. Re-derived 2026-09-16: it already IS a projection of the admitted candidate \u2014 a Component inserted on `session_root` in the same `commands` batch that builds the first room's construction plan, not a separately queued write.",
       "blocked_by": [
         "A10 candidate-world/session publication"
       ],
@@ -1231,7 +1231,7 @@
       ],
       "classification": "LEGITIMATE_STAGE_SEPARATION",
       "why_it_exists": "An active generation must remain authoritative while a replacement is prepared.",
-      "consolidation_hypothesis": "Keep the active/candidate split. A10 should align its scene candidate with this same lifecycle rather than create a parallel candidate state machine."
+      "consolidation_hypothesis": "Keep the active/candidate split. A10's scene candidate uses this same lifecycle \u2014 one hidden candidate, one admission, no parallel candidate state machine; `CandidateState`, the one abstraction that would have been a second road, was deleted unused."
     },
     {
       "id": "DUP-ROLLBACK-CONFIRMATION",
@@ -1702,7 +1702,7 @@
         }
       ],
       "classification": "candidate primitive not yet normal room lifecycle",
-      "consolidation_hypothesis": "A10 should make candidate construction the normal bounded replacement lifecycle and delete the old destructive replacement road once acceptance is complete.",
+      "consolidation_hypothesis": "None. Candidate construction IS the normal bounded replacement lifecycle: `commit_inactive` then validation then `publish_candidate`, with `retire_candidate` on refusal, and the old live world swept by the same publication that admits the candidate.",
       "blocked_by": [
         "active A10 campaign; do not implement in census"
       ],

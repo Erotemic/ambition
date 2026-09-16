@@ -602,6 +602,26 @@ they are not the same kind of fix.
 Members #2, #7 and #8 are not properties of the code alone — they fire or do not
 fire depending on what is installed where you are standing.
 
+⛔⛤ **AND A PUBLISH-OUTPUT POPULATION IS A THIRD KIND OF MACHINE STATE, MEASURED
+ACROSS TWO BOXES 2026-09-16.** `ambition_sprite_sheet`'s
+`the_registry_and_the_record_index_are_one_map_built_twice` floors its baked
+record index at `> 800`. It **FAILS here at 780** and **PASSES on
+ToothbrushAmbition's box at the same commit** — because not one
+`*_spritesheet.ron` is tracked in git. The whole corpus is publish output, so the
+floor is a claim about the box as much as about the tree: 188 base sheets per
+tier over four tiers here, against the roughly 217 the 870 it was set under
+implies.
+
+⚠ **AND THE ROSTER CHECK SAYS EVERYTHING IS FINE**, which is the part that makes
+this hard to see. `scripts/check_published_sheets_are_present.py` reports *"all
+173 rostered target(s) have published art"* and exits 0 on the same tree, because
+it asks whether every ROSTERED target has art and the floor asks how big the
+CORPUS is. Two honest instruments, two populations, one of them short.
+⇒ The failure message now names this as its third cause and prints the one-line
+`find`, because the first two causes it offered sent me looking at `build.rs`.
+⛔ Lowering the floor is the wrong repair: it would wave through the glob-mismatch
+case the floor exists for.
+
 ⛔ **AND A STALE SUBMODULE CHECKOUT LOOKS EXACTLY LIKE REPOSITORY ROT.** Measured
 2026-09-03: `test_the_committed_report_matches_a_fresh_generation` failed here
 for a day — the committed runtime-frame-history reports **43** records and

@@ -91,3 +91,143 @@ def test_the_total_across_all_three_groups_is_not_mistaken_for_the_bundles_own()
     )
     hits = [m for form in guard.COUNT_FORMS for m in form.finditer(line)]
     assert not hits, hits
+
+
+def test_rule_3_accounts_for_every_raw_registration_occurrence():
+    """⛔⛤ THE FLOOR THAT CAUGHT ITSELF, and it was a REASONED number failing.
+
+    The first version asserted `len(registrations) >= 20` — a figure I picked,
+    not measured — while reading only the monolith's `rollback_registration.rs`,
+    which holds 5. It fired on a correct tree. The replacement is the TOOL'S OWN
+    TOTAL: every raw `rollback_resource_clone_checksum::<` occurrence must be
+    classified as either a call site or the trait's forwarding definition.
+
+    ⚠ And the widened scan immediately found a second defect the floor could not
+    have: the pattern accepted only an IDENTIFIER owner, so the four call sites
+    spelling it as a string literal (`"test"`, `"ambition_demo_sanic"`) parsed as
+    nothing — 17 of 23.
+    """
+    registrations, findings = guard.workspace_registrations()
+    assert findings == [], findings
+    # The checkpoint family is five of them; the rest belong to other domains.
+    assert len(registrations) > 15, registrations
+
+
+def test_rule_3_asks_about_every_registration_method_not_just_one():
+    """⛔⛤ THE VERDICT IS A NEGATIVE, SO THE METHOD LIST IS ITS REAL SUBJECT.
+
+    The first version scanned `rollback_resource_clone_checksum` alone and printed
+    *"NO rollback registration"*. `RollbackRegistrar` declares TEN
+    `rollback_resource_*` methods. The checkpoint family's answer happened not to
+    change — all five use that one method — but `PendingLifecycleCommit`, one
+    resource over, is documented as rollback-registered and does not appear under
+    that name.
+
+    ⇒ MEASURED by poison in the shipped file: swapping `AcceptedCheckpointRestore`
+    from `clone_checksum` to `rollback_resource_canonical` keeps the guard GREEN,
+    which is correct and is precisely what the narrow version got wrong.
+    """
+    methods = guard.registration_methods()
+    assert len(methods) >= 10, methods
+    assert "rollback_resource_clone_checksum" in methods
+    assert "rollback_resource_canonical" in methods
+    assert any(guard.MAP_METHOD in m for m in methods), methods
+
+
+def test_rule_3_does_not_count_a_doc_comment_naming_a_registration():
+    """⛔ REGION FIRST. `teardown.rs` explains a resource by naming its
+
+    registration inside a doc comment, and that mention is a raw occurrence that
+    is not a call. Recognising the prose is the rule backwards; the comment REGION
+    is deleted before anything is classified.
+    """
+    body = (
+        "/// its value is inside the state checksum because of\n"
+        "/// `rollback_resource_canonical::<ProjectileSeqCounter>`), so its\n"
+        "    registrar.rollback_resource_canonical::<Real>(OWNER, \"resource.real\");\n"
+    )
+    stripped = guard.code_only(body)
+    assert stripped.count("rollback_resource_canonical::<") == 1, stripped
+
+
+def test_rule_3_does_not_read_an_entity_map_registration_as_a_second_authority():
+    """⚠ FOUR RESOURCES CARRY BOTH, and reading the second as a competing state
+
+    registration produced four false reds the moment the method list widened.
+    `resource.x` is the state; `map.resource.x` is entity remapping for the same
+    value. Two registrations of different KINDS are not two authorities.
+    """
+    registrations, findings = guard.workspace_registrations()
+    assert findings == [], findings
+    for both in ("PossessionState", "EncounterRegistry", "ActiveConversation"):
+        assert registrations.get(both) == f"resource.{_snake(both)}", (
+            both,
+            registrations.get(both),
+        )
+
+
+def _snake(name: str) -> str:
+    out = []
+    for i, ch in enumerate(name):
+        if ch.isupper() and i:
+            out.append("_")
+        out.append(ch.lower())
+    return "".join(out)
+
+
+def test_rule_3_knows_which_checkpoint_members_are_rollback_state():
+    """⭐ THE PARTITION IS 5 + 1 AND BOTH HALVES ARE MEASURED FROM SOURCE.
+
+    Source's own doc block said *"Four of these are canonical ROLLBACK state"*.
+    It was a count of the BULLETS, one of which pairs a registered value with an
+    unregistered one, so a reader auditing the family got the mechanism's count
+    from a prose grouping.
+    """
+    registrations, _ = guard.workspace_registrations()
+    family = {
+        "SessionCheckpointOperations": "resource.session_checkpoint_operations",
+        "SessionCheckpointOutcomes": "resource.session_checkpoint_outcomes",
+        "AcceptedCheckpointRestore": "resource.accepted_checkpoint_restore",
+        "OutstandingCheckpointRequest": "resource.outstanding_checkpoint_request",
+        "SessionStartupResume": "resource.session_startup_resume",
+    }
+    for member, key in family.items():
+        assert registrations.get(member) == key, (member, registrations.get(member))
+    assert "AbandonedCheckpointOperation" not in registrations, (
+        "it is written from `Update`, which never rewinds, and carries a "
+        "value-complete note so a rewound world DISCARDS it. If it is registered "
+        "now, the doc block above `SessionOwnedCheckpointState` must be rewritten "
+        "— not this assertion relaxed."
+    )
+
+
+def test_rule_3_can_fail_on_an_undeclared_unregistered_member():
+    """⛔ THE POISON, and it must land in the SHIPPED text, not a fixture.
+
+    MEASURED 2026-09-16 against the real files: deleting `SessionStartupResume`'s
+    registration, moving the host-side declaration onto a registered member, and
+    dropping one key from the doc block each turn the guard red, and all three
+    restored by md5.
+
+    This arm keeps the cheapest of the three runnable in a lane: it asks the
+    partition function about a member the doc block does not mention at all.
+    """
+    text = guard.CHECKPOINT.read_text(encoding="utf-8")
+    start = text.index("pub struct SessionOwnedCheckpointState")
+    doc = text[max(0, start - 4000) : start]
+    windows = guard._doc_windows(doc)
+    declared = {
+        line.strip()
+        for line, window in windows
+        if guard.HOST_SIDE_PHRASE in window and "AbandonedCheckpointOperation" in line
+    }
+    assert declared, (
+        "no doc line names AbandonedCheckpointOperation beside "
+        f"{guard.HOST_SIDE_PHRASE!r}; the exemption the guard honours is derived "
+        "from source, so with no such line the guard is failing for a reason "
+        "other than the one this arm means to witness"
+    )
+    assert not any(
+        guard.HOST_SIDE_PHRASE in window and "SessionCheckpointOperations" in line
+        for line, window in windows
+    ), "a registered member is declared host-side; source contradicts itself"

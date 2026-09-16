@@ -22,6 +22,24 @@ parser got wrong.** `SessionScopedResources` and `SessionOwnedCheckpointState`
 are `SystemParam` bundles whose every field is one `ResMut<'w, T>` — one resource
 each. `SessionMechanics` is ONE resource that happens to have six fields, and
 counting its fields reads the total as 41 instead of 36.
+
+⛔⛤ **RULE 3 — AND A COUNT IS NOT A CHECK ON A LIST.** The first two rules agree
+that `SessionOwnedCheckpointState` has SIX members and would keep agreeing if all
+six were replaced. The thing C03 step 3 actually needs before it moves storage is
+the ROLLBACK PARTITION: which members are rollback-registered, under which key,
+and which are deliberately host-side. Source's own doc block said *"Four of these
+are canonical ROLLBACK state"*; MEASURED 2026-09-16 in `rollback_registration.rs`
+it is FIVE, and the four was a count of the BULLETS below it — one of which pairs
+a registered value with an unregistered one. ⇒ A prose list that happens to be
+grouped differently from the mechanism reads as a count of the mechanism.
+
+⭐ **THE EXEMPTION IS DERIVED, NOT HAND-LISTED.** A member may be unregistered
+only if the doc block DECLARES it so, in the words `DELIBERATELY NOT REGISTERED`,
+beside its name. An amnesty list inside this file would be the way to hide what
+it exempts; making the declaration live in source means the code review that adds
+a member is where the decision is recorded, and this guard only checks the two
+agree. It fails BOTH ways: an unregistered member with no declaration, and a
+declared-host-side member that is in fact registered.
 """
 
 from __future__ import annotations
@@ -47,7 +65,202 @@ SINGLETON = (
     "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs",
 )
 
-RESMUT_FIELD = re.compile(r"^\s{4}(?:pub\s+)?\w+:\s*ResMut<'w,\s*.+?>,\s*$", re.M)
+RESMUT_FIELD = re.compile(r"^\s{4}(?:pub\s+)?\w+:\s*ResMut<'w,\s*(.+?)>,\s*$", re.M)
+
+CHECKPOINT = REPO / BUNDLES["SessionOwnedCheckpointState"]
+#: ⛔⛔ THE WHOLE WORKSPACE, NOT THE CRATE THAT OWNS THE STRUCT. A member could
+#: be registered from anywhere, and "it is not registered in the file I looked
+#: in" is a claim about the query, not about the member. MEASURED 2026-09-16: no
+#: checkpoint member registers outside the monolith's `rollback_registration.rs`.
+#: The scan costs ~0.3 s.
+REGISTRATION_ROOTS = ("crates", "game")
+
+#: ⛔⛤ AND THE METHOD LIST IS DERIVED, BECAUSE THE FIRST VERSION NAMED EXACTLY
+#: ONE OF TEN. It asked only about `rollback_resource_clone_checksum` while
+#: reporting "NO rollback registration" — a verdict its query could not support.
+#: `RollbackRegistrar` declares TEN `rollback_resource_*` methods, and a value
+#: registered through any of them is registered. The verdict for the checkpoint
+#: family did not change (all five use `clone_checksum`), but it was right by
+#: luck: `PendingLifecycleCommit`, one resource over, is documented as
+#: rollback-registered and does not appear under that one name.
+#:
+#: ⚠ Every one of them takes `(owner, name, ...)` as its first two arguments, so
+#: one call-site shape covers all ten.
+REGISTRAR_TRAIT = REPO / "crates/ambition_platformer2d_core/src/snapshot.rs"
+RESOURCE_METHOD = re.compile(r"fn (rollback_resource_\w+)<T>")
+
+
+COMMENT = re.compile(r"^\s*(?://|///|//!).*$", re.M)
+
+
+def code_only(body: str) -> str:
+    """Source with line comments removed.
+
+    ⛔⛤ **REGION FIRST, NOT PROSE-RECOGNITION.** `teardown.rs` explains a
+    resource by naming its registration in a doc comment —
+    *"`rollback_resource_canonical::<ProjectileSeqCounter>`), so its value is
+    inside the state checksum"* — and that mention is a raw occurrence that is
+    not a call. Trying to recognise the prose is the rule backwards; deleting the
+    comment REGION first leaves only code to classify.
+    """
+    return COMMENT.sub("", body)
+
+
+#: ⚠ `rollback_resource_map_entities` registers ENTITY REMAPPING for a resource,
+#: not the resource's state, and a value legitimately has BOTH — four do here
+#: (`PossessionState`, `EncounterRegistry`, `ActiveConversation`,
+#: `PendingPlayerHitEvents`), under `resource.x` and `map.resource.x`. Reading the
+#: second as a competing state registration produced four false reds the moment
+#: the method list widened. Two registrations of different KINDS are not two
+#: authorities.
+MAP_METHOD = "map_entities"
+
+
+def registration_methods() -> list[str]:
+    names = sorted(
+        set(RESOURCE_METHOD.findall(REGISTRAR_TRAIT.read_text(encoding="utf-8")))
+    )
+    if len(names) < 5:
+        raise SystemExit(
+            f"⛔⛔ only {len(names)} `rollback_resource_*` method(s) parsed from "
+            f"{REGISTRAR_TRAIT.name}. A guard that derives its query from a trait "
+            "must refuse when the trait stops parsing, not narrow silently."
+        )
+    return names
+#: A registration CALL SITE: the generic names a concrete type, the owner is an
+#: identifier OR a string literal, and the next argument is the rollback KEY.
+#: ⚠ Both owner spellings occur in this tree (`OWNER`, `GATE_PORTAL_ROLLBACK_OWNER`,
+#: `"test"`, `"ambition_demo_sanic"`), and the first version of this pattern
+#: accepted only the identifier form, so it silently parsed 17 of 23.
+def call_site_pattern(methods: list[str]) -> re.Pattern[str]:
+    return re.compile(
+        r"(?:" + "|".join(methods) + r")::<\s*([\w:]+)\s*>\s*\(\s*"
+        r'(?:\w+|"[^"]*")\s*,\s*"([^"]+)"'
+    )
+#: The trait's own forwarding definition — `::<T>(owner, name, detail, checksum)`,
+#: every argument an identifier and the generic a type PARAMETER. It is plumbing,
+#: not a registration, and it must be ACCOUNTED FOR rather than silently dropped:
+#: a scan that just ignores what it cannot parse reports its own blind spot as a
+#: clean tree.
+def forwarding_pattern(methods: list[str]) -> re.Pattern[str]:
+    return re.compile(
+        r"(?:" + "|".join(methods) + r")::<\s*\w+\s*>\s*\(\s*\w+\s*,\s*\w+\s*[,)]"
+    )
+#: The words source must use to claim a member is host-side. See RULE 3.
+HOST_SIDE_PHRASE = "DELIBERATELY NOT REGISTERED"
+
+
+def workspace_registrations() -> tuple[dict[str, str], list[str]]:
+    """Every `(type, rollback key)` pair in the workspace, and any accounting gap.
+
+    ⛔ The return is a PAIR because the accounting is the anti-vacuity check: a
+    member reading as unregistered is only evidence if every raw occurrence was
+    classified.
+    """
+    methods = registration_methods()
+    state_methods = [m for m in methods if MAP_METHOD not in m]
+    raw_calls = [f"{method}::<" for method in methods]
+    call_site = call_site_pattern(state_methods)
+    map_site = call_site_pattern([m for m in methods if MAP_METHOD in m])
+    forwarding_re = forwarding_pattern(methods)
+
+    pairs: list[tuple[str, str]] = []
+    raw = forwarding = maps = 0
+    for root in REGISTRATION_ROOTS:
+        for path in sorted((REPO / root).rglob("*.rs")):
+            body = code_only(path.read_text(encoding="utf-8", errors="replace"))
+            hits = sum(body.count(call) for call in raw_calls)
+            if not hits:
+                continue
+            raw += hits
+            forwarding += len(forwarding_re.findall(body))
+            maps += len(map_site.findall(body))
+            pairs.extend(
+                (generic.rsplit("::", 1)[-1], key)
+                for generic, key in call_site.findall(body)
+            )
+
+    findings = []
+    if len(pairs) + forwarding + maps != raw:
+        findings.append(
+            f"  RULE 3 classified {len(pairs)} state call site(s) + {maps} "
+            f"entity-mapping call site(s) + {forwarding} forwarding definition(s) "
+            f"out of {raw} raw occurrence(s) across "
+            f"{len(methods)} `rollback_resource_*` method(s). "
+            f"{raw - len(pairs) - forwarding - maps} are unaccounted for, so a member could "
+            "read as unregistered because of THIS SCANNER."
+        )
+    registrations: dict[str, str] = {}
+    for name, key in pairs:
+        if name in registrations and registrations[name] != key:
+            findings.append(
+                f"  two different rollback keys register a type spelled {name}: "
+                f"`{registrations[name]}` and `{key}`. RULE 3 keys by the type's "
+                "SHORT name, which is no longer an identity here."
+            )
+        registrations[name] = key
+    return registrations, findings
+
+
+def checkpoint_partition() -> list[str]:
+    """RULE 3: every member registers, or source declares why it does not."""
+    text = CHECKPOINT.read_text(encoding="utf-8")
+    start = text.index("pub struct SessionOwnedCheckpointState")
+    members = RESMUT_FIELD.findall(text[start : text.index("\n}\n", start)])
+
+    registrations, findings = workspace_registrations()
+    if findings:
+        return findings
+    # ⛔ ANTI-VACUITY on the other side: an unparsed member list exempts every
+    # member at once.
+    if len(members) < 3:
+        return [
+            f"  RULE 3 parsed {len(members)} member(s) of "
+            "SessionOwnedCheckpointState; the field scan is broken"
+        ]
+
+    #: The doc block above the struct is where a host-side claim must live.
+    doc = text[max(0, start - 4000) : start]
+    for member in members:
+        member = member.rsplit("::", 1)[-1]
+        declared_host_side = any(
+            member in line and HOST_SIDE_PHRASE in window
+            for line, window in _doc_windows(doc)
+        )
+        key = registrations.get(member)
+        if key and declared_host_side:
+            findings.append(
+                f"  {member} is registered as `{key}` AND the doc block calls it "
+                f"{HOST_SIDE_PHRASE}. Source contradicts itself."
+            )
+        elif not key and not declared_host_side:
+            findings.append(
+                f"  {member} is a session-owned checkpoint value with NO rollback "
+                "registration and no declaration that its absence is deliberate.\n"
+                "     Register it, or say why not beside it — C03 step 3 cannot "
+                "record a boundary nobody wrote down."
+            )
+        elif key and key not in doc:
+            findings.append(
+                f"  {member} registers as `{key}`, which the doc block above the "
+                "struct does not name. The partition a reader sees is not the one "
+                "the registrar has."
+            )
+    return findings
+
+
+def _doc_windows(doc: str) -> list[tuple[str, str]]:
+    """Each doc line paired with the paragraph it sits in.
+
+    ⚠ A host-side claim is a SENTENCE, and a sentence wraps across `///` lines,
+    so a per-line test would only ever see the phrase beside the name when the
+    author happened to fit both on one line.
+    """
+    out = []
+    for para in doc.split("///\n"):
+        for line in para.split("\n"):
+            out.append((line, para))
+    return out
 
 
 def declared() -> dict[str, int]:
@@ -135,6 +348,7 @@ def main() -> int:
 
     real_bundle = bundle_members(BUNDLES[BUNDLE], BUNDLE)
     findings.extend(stray_counts(real_bundle))
+    findings.extend(checkpoint_partition())
 
     name, rel = SINGLETON
     if f"pub struct {name}" not in (REPO / rel).read_text(encoding="utf-8"):
@@ -161,6 +375,11 @@ def main() -> int:
         f"C03's session-owner census matches source: "
         + ", ".join(f"{k}={v}" for k, v in sorted(stated.items()))
         + f" ({total} App resources)"
+    )
+    print(
+        "  and RULE 3: every SessionOwnedCheckpointState member either registers "
+        "for rollback under a key the doc block names, or source declares its "
+        "absence deliberate."
     )
     return 0
 

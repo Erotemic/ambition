@@ -219,6 +219,112 @@ not a refactor, and it is FILED as `Q132` in
 [`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) with the
 three options costed. C03 should not move storage before it is answered.
 
+### STEP 3 IS DONE FOR ONE FAMILY: THE CHECKPOINT COORDINATOR'S ROLLBACK PARTITION
+
+The sequence's step 3 says *"for rollback-registered values, record the current
+registration and restore boundary before changing storage."* MEASURED 2026-09-16
+across every `.rs` in `crates/` and `game/`, over all **ten** `rollback_resource_*`
+registration methods the `RollbackRegistrar` trait declares — 68 raw occurrences,
+every one classified as a state call site, an entity-mapping call site, or the
+trait's own forwarding definition, yielding **54 state-registered resource types**
+workspace-wide — for `SessionOwnedCheckpointState`'s six members:
+
+| member | rollback key | boundary |
+| --- | --- | --- |
+| `SessionCheckpointOperations` | `resource.session_checkpoint_operations` | rewinds; must NOT reset at a room rebase |
+| `SessionCheckpointOutcomes` | `resource.session_checkpoint_outcomes` | rewinds; read frames later by the startup road |
+| `AcceptedCheckpointRestore` | `resource.accepted_checkpoint_restore` | rewinds; spans frames by design |
+| `OutstandingCheckpointRequest` | `resource.outstanding_checkpoint_request` | rewinds; kept until the slot admits it |
+| `SessionStartupResume` | `resource.session_startup_resume` | rewinds; key renamed when the VALUE changed |
+| `AbandonedCheckpointOperation` | **none, deliberately** | written from `Update`, which never rewinds |
+
+⛔ **THE PARTITION IS 5 + 1, AND SOURCE'S OWN DOC BLOCK SAID FOUR.** The four was
+a count of the BULLETS above it, one of which pairs a registered value
+(`AcceptedCheckpointRestore`) with an unregistered one
+(`AbandonedCheckpointOperation`) because they cooperate. ⇒ A prose list grouped by
+COLLABORATION reads as a count of the MECHANISM, and an auditor who took the
+number would have carried one host-side value into a rollback migration. Source is
+corrected and states the five keys.
+
+⭐ **THE SIXTH'S ABSENCE IS THE DESIGN, NOT AN OMISSION.**
+`AbandonedCheckpointOperation` carries a VALUE-COMPLETE note — key, admitted
+frame and the accepted operation's checksum — precisely so a world that rewound
+past its branch DISCARDS it (`AbandonmentVerdict::Stale`) rather than cancelling a
+healthy replacement that reused the rewound sequence number. Registering it would
+make a local preparation failure, which two peers need not agree about, into
+shared state. ⇒ **C03 must not "finish the family" by registering it.**
+
+⛔⛤ **AND THE FIRST VERSION OF THAT MEASUREMENT ASKED ABOUT ONE METHOD OF TEN.**
+It scanned only `rollback_resource_clone_checksum` while printing the verdict *"NO
+rollback registration"* — a claim its query could not support. The checkpoint
+family's answer did not change, because all five do use that method, so it was
+right BY LUCK: one resource over, `PendingLifecycleCommit` is documented as
+rollback-registered and does not appear under that name. ⇒ **When a scan's verdict
+is a NEGATIVE, the method list is the finding's real subject.** Widening it also
+surfaced two classification errors that a narrow query hid: a doc comment in
+`teardown.rs` NAMING a registration is a raw occurrence that is not a call (strip
+the comment REGION first — recognising the prose is the rule backwards), and four
+resources carry BOTH a state registration and a `map.resource.*` entity-mapping
+one, which is two registrations of different KINDS, not two authorities.
+
+⭐ `scripts/check_session_owner_census_matches_source.py` RULE 3 now holds this:
+every member registers under a key the doc block NAMES, or source declares the
+absence with the words `DELIBERATELY NOT REGISTERED` beside it. The exemption is
+derived from source rather than listed in the guard, so the review that adds a
+member is where the decision gets recorded. Poison-verified three ways in the
+shipped files, restored by md5.
+
+### AND FOR THE BIG FAMILY: 22 OF `SessionScopedResources`' 29 ARE ROLLBACK STATE
+
+MEASURED 2026-09-16 with the same widened scan. **22 of 29 are state-registered**;
+seven are not. ⇒ **This is the number that prices C03**, and it says the campaign
+is mostly a rollback-state migration rather than a storage tidy-up: step 3 applies
+to three quarters of the population, and step 6 ("remove the old compensation only
+after the new owner is the sole authority") has a wire-format identity attached to
+each of those 22.
+
+⚠ **A NARROW SCAN SAID SIX.** The first pass of this measurement asked about
+`rollback_resource_clone_checksum` only and reported 6 registered / 23 not —
+which would have priced this campaign as a storage move with a few rollback
+values attached, the opposite of the truth. Same defect as the checkpoint family's
+"four", four times larger.
+
+⭐ **ONE KEY DELIBERATELY DOES NOT MATCH ITS TYPE AND IT IS NOT A DEFECT.**
+`RoomTransitionCooldown` registers as `resource.sandbox_sim_state`. Source says
+why, beside it: *"THE STABLE NAMES DO NOT MOVE … identities on the wire; the
+schema fingerprint deliberately excludes owner labels so an ownership repoint is
+not a wire-format event."* ⇒ C03 must not "tidy" a rollback key to match a type
+name. A key is an identity two peers agree on, not a label.
+
+**Seven are not state-registered — and THREE OF THOSE SEVEN ALREADY HAVE THEIR
+ANSWER WRITTEN IN SOURCE.** `ControlledSubject`, `EncounterView` and
+`AuthoredOccurrences` each call `declare_rollback_derived_resource`, which is a
+recorded decision that the value is RECOMPUTED rather than restored, not an
+omission. ⇒ The registrar has THREE verdicts, not two — registered, declared
+derived, and silent — and only the third is an open question.
+
+⚠ **I WROTE "SEVEN NEED READING" ONE COMMIT AGO AND THAT WAS A THIRD NARROW
+QUERY IN THE SAME AFTERNOON.** I had grepped the `rollback_resource_*` methods
+and not the `declare_rollback_derived_*` ones, so a deliberate decision read as an
+absence. ⭐ `ControlledSubject`, the one this row flagged as suspicious because it
+holds an `Option<Entity>`, is precisely one of the three with an answer: it is the
+body driven by the primary **LOCAL** control authority, which is host-side by
+definition and must not rewind.
+
+⇒ **THE ACTUAL OPEN POPULATION IS FOUR: `BossEncounterRegistry`,
+`CutsceneTriggerQueue`, `CutsceneAdvanceRequest`, `CutsceneSkipHold`.** MEASURED:
+none of the four is registered on any road, none is declared derived, and none is
+named in any doc or check outside this plan. They are session-scoped state with no
+rollback decision of any kind recorded. Three of the four are cutscene input,
+which is plausibly presentation-side — but plausible is what a declaration exists
+to replace, and the campaign's step 3 cannot record a boundary nobody wrote down.
+
+⛔ **THE GUARD DELIBERATELY DOES NOT ENFORCE THIS YET.** Extending RULE 3's
+"register or declare" rule from the checkpoint family to `SessionScopedResources`
+would go red on these four the moment it landed, which is a fail-closed check
+pausing a working repository over a question nobody has answered. ⇒ Answer the
+four first, then widen the rule; that ordering is the point.
+
 ### DEPENDENCIES / BLOCKERS
 
 ~~Finish A10 and peer identity first so the live/candidate session owner is stable.~~ **BOTH DISCHARGED** (A10 2026-09-15, peer identity 2026-09-16) — and that sentence is the reason the discharge is a claim about STABILITY and not about ID-PEER being finished, which it is not. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.

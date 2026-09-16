@@ -16,12 +16,15 @@ for a VALUE-BEARING kind, which is `component-clone` and `resource-clone` —
 different sentence, most of them
 *"state checksum supplied by another authoritative projection"*.
 
-⚠ AND THAT SENTENCE IS WHY NOBODY MEASURED THEM. It is emitted by
+⚠ AND THAT SENTENCE WAS WHY NOBODY MEASURED THEM. It used to read *"state
+checksum supplied by another authoritative projection"* — emitted by
 `rollback_component_clone` / `rollback_resource_clone`, whose only bound is
-`T: Clone`; neither method can establish that another projection covers the type.
-The honest 59 said "not in the session checksum" and got an instrument. The
-unverifiable 116 said "covered elsewhere" and got a reassurance. Same mechanics,
-opposite attention — decided by a string a method chose. See `Q122`.
+`T: Clone`, so neither method could establish it. The honest 59 said "not in the
+session checksum" and got an instrument; the unverifiable 99 said "covered
+elsewhere" and got a reassurance. Same mechanics, opposite attention, decided by a
+string a method chose. ⇒ The claim came out at schema v194 and those rows now say
+"not in the session checksum" too. See `Q122` for why removing a false sentence
+cost a schema version.
 
 ⭐ RAISED BY A GUARD THAT FOUND NOTHING. The canonical-finiteness observer
 (`game/ambition_app/tests/canonical_state_is_finite.rs`) is exhaustive BY
@@ -237,11 +240,14 @@ def main() -> int:
     print(f"\n   {floaty} of {len(subjects)} carry a float-bearing field type.")
     print("\n⚠ Snapshotted and restored; NOT compared between peers. A probe on a")
     print("  row is a localization aid, not a checksum contribution.")
-    print("\n⛔ HOW THESE ROWS DESCRIBE THEMSELVES — the sentence is not evidence,")
-    print("   it is the registrar METHOD talking about types it never examined:")
+    print("\n⛔ HOW THESE ROWS DESCRIBE THEMSELVES — the sentence comes from the")
+    print("   registrar METHOD, so it is a fact about the ROAD, not about the type:")
     for detail, count in sorted(by_sentence.items(), key=lambda kv: -kv[1]):
-        claim = "CLAIMS COVERAGE" if "supplied by another" in detail else "honest"
-        print(f"   {count:4}  [{claim:15}]  {detail}")
+        probe = "probed" if "probed" in detail else "NO PROBE"
+        print(f"   {count:4}  [{probe:8}]  {detail}")
+    print("\n⚠ A PROBE IS A LOCALIZATION AID, NOT COVERAGE. A probed row tells a")
+    print("  desync hunt WHERE; it still contributes nothing to the checksum. The")
+    print("  rows marked NO PROBE have neither.")
     return 0
 
 

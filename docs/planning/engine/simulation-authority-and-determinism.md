@@ -128,9 +128,16 @@ identity, and two peers whose schemas differ cannot agree about a snapshot."*
 
 ⇒ **CORRECTING A MISLEADING DESCRIPTION IS INDISTINGUISHABLE FROM CHANGING AN
 ENCODING**, to the guard and to every peer. That is a disincentive pointed at
-exactly the repair S7 needs: the 99 rows whose `detail` asserts coverage the kind
-cannot establish would each cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump whose log
-entry would be the only non-mechanical one in that log.
+exactly the repair S7 needs: the 99 rows whose `detail` asserted coverage the kind
+cannot establish would cost a `GGRS_ROLLBACK_SCHEMA_VERSION` bump whose log entry
+would be the only non-mechanical one in that log.
+
+✔ **PAID, 2026-09-16 — v194.** The repair landed and the prediction held exactly:
+the bump is real, its log entry opens *"nothing mechanical changed, and that is
+the point of this entry"*, and it is the only such entry in the log. ⓘ One
+correction to the shape of the tax, learned by paying it: it is per EDIT, not per
+row. One bump covered all 99. That is why this defect is survivable, and why it
+goes unnoticed.
 
 ⇒ The one-fact-one-owner reading is that the mechanical schema is
 `name | kind | wire type` and `detail` is DOCUMENTATION of it: keep `detail` in
@@ -234,7 +241,8 @@ names has already hidden 25 of 29 registrations once:
 ⛔⛤ **AND THE REASON COLUMN IS NOT AUTHORED PER ROW — IT IS EMITTED BY THE
 REGISTRAR METHOD, WHICH MAKES THIS ONE CLAIM ASSERTED ABOUT 99 TYPES THAT WERE
 NEVER INDIVIDUALLY EXAMINED.** 99 rows read *"state checksum supplied by another
-authoritative projection"*, and that string is a literal inside
+authoritative projection"* (removed at schema v194; quoted here as the defect this
+section recorded), and that string was a literal inside
 `rollback_component_clone` and `rollback_resource_clone`, whose only bound is
 `T: Clone`. Nobody wrote it 99 times; nobody wrote it once per type either.
 ⚠ It was spelled TWICE MORE than that — once per registrar, in two crates, with
@@ -257,17 +265,31 @@ filter, and the 116 it missed were missed because they carry the reassuring
 sentence. Same mechanics, opposite attention.
 
 ⇒ Fixed: the census selects on `UNHASHED_KINDS = ("component-clone",
-"resource-clone")`, floors at 120 rather than 40 so a revert to prose-matching
-trips it, and prints the population split by how the rows describe themselves:
+"resource-clone")` and prints the population split by whether the row carries a
+desync-localization probe — a mechanical fact, unlike the coverage claim it
+replaced:
 
-| rows | self-description | |
+| rows | self-description | probe |
 |---|---|---|
-| 99 | *state checksum supplied by another authoritative projection* | CLAIMS COVERAGE |
-| 59 | *value-probed for localization, not in the session checksum* | honest |
-| 17 | entity handle / SET / keyed MAP remapped, probed through stable sim identity | honest |
+| 99 | *not in the session checksum* — was *state checksum supplied by another authoritative projection* until v194 | **none** |
+| 59 | *value-probed for localization, not in the session checksum* | yes |
+| 17 | entity handle / SET / keyed MAP remapped, probed through stable sim identity | yes |
 
-76 of 175 state a DECISION rather than a coverage claim and are honest at the kind
-level. The float-bearing count over the true population is **79 of 175**.
+⇒ **99 of 175 unhashed rows have NEITHER a checksum contribution NOR a probe.** A
+probe does not make a row peer-compared; it tells a desync hunt where to look.
+These 99 offer neither, and that is a checkable statement where the old one was
+not. The float-bearing count over the true population is **79 of 175**.
+
+⛔⛤ **AND THE GUARD THAT CAUGHT THE SPELLING BUG WENT BLIND THE SAME DAY, TO A
+CHANGE THAT HAD NOTHING TO DO WITH IT.** The first fix floored the census at 120
+rows, on the reasoning that a revert to prose-matching would return 59 and trip
+it. Then v194 reworded the 99 to *"not in the session checksum"* — the words the
+old selector matched — so a reverted selector now returns **158**, sails over the
+floor, and reports a population missing 17 rows. Poisoned and confirmed: with the
+prose filter restored, the count floor passes and only the member-diff arm fails.
+⇒ The surviving arm recomputes the population from the baseline by a DIFFERENT
+expression and diffs the MEMBERS. A count floor is a claim about a number; the
+thing it was protecting was a list.
 
 ⚠ **AND WIDENING IT FOUND TWO ROWS THE INSTRUMENT IS STRUCTURALLY BLIND TO.**
 `entity.name` and `entity.transform` are `bevy::prelude::Name` and `Transform` —

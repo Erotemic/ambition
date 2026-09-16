@@ -249,3 +249,39 @@ def test_a_citation_to_a_deleted_tracked_file_is_reported_dead(
     out = proc.stdout + proc.stderr
     assert "src/gone.rs" in out, out
     assert "no file at this path" in out, out
+
+
+# ── the corpus itself ──────────────────────────────────────────────────────
+
+
+def test_an_emptied_planning_document_is_a_refusal_not_a_clean_run() -> None:
+    """⛔⛤ A CHECKER OVER A MISSING DOCUMENT DOES NOT FAIL — IT HAS NOTHING TO
+    CHECK. MEASURED 2026-09-16 as an incident: a script truncated
+    `docs/planning/status.md` to zero bytes, the empty file was committed and
+    pushed, and the whole `--maintenance` suite passed 7/7 over it. Every gate
+    here states something about the citations a document CONTAINS, and a
+    document that contains nothing satisfies all of them.
+
+    ⚠ The victim is restored from memory in a `finally`, so an abort cannot
+    leave the tree holding the poison.
+    """
+    victim = REPO / "docs" / "planning" / "decision-principles.md"
+    original = victim.read_bytes()
+    assert original, "the victim is already empty — this arm cannot prove anything"
+    try:
+        victim.write_bytes(b"")
+        run = subprocess.run(
+            [sys.executable, str(REPO / "scripts" / "check_planning_citations.py"),
+             "docs/planning"],
+            capture_output=True, text=True, cwd=REPO, timeout=900,
+        )
+    finally:
+        victim.write_bytes(original)
+    assert victim.read_bytes() == original, "the victim was not restored byte for byte"
+    assert run.returncode != 0, (
+        "the citation suite passed over an emptied planning document, which is "
+        "the exact shape of the 2026-09-16 status.md incident"
+    )
+    assert "decision-principles.md" in (run.stderr + run.stdout), (
+        "the refusal must NAME the document that lost its content"
+    )

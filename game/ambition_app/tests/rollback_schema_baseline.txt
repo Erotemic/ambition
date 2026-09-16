@@ -1,20 +1,20 @@
-ggrs-rollback-schema-v193
+ggrs-rollback-schema-v194
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+ability.puppy_slug_ally	component-clone	PuppySlugAlly	bevy_ggrs clone snapshot; not in the session checksum
 ability.sentry	component-clone	Sentry	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.vortex_well	component-clone	VortexWell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.anim_override	component-clone	ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.animation_facts	component-clone	BodyAnimFacts	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.anim_override	component-clone	ActorAnimOverride	bevy_ggrs clone snapshot; not in the session checksum
+actor.animation_facts	component-clone	BodyAnimFacts	bevy_ggrs clone snapshot; not in the session checksum
 actor.attack_gesture_state	component-canonical	AttackGestureState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.attack_gesture_tuning	component-canonical	AttackGestureTuning	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.attacker_move_instance	component-canonical	AttackerMoveInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.authored_brain_context	component-canonical	AuthoredBrainContext	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.authored_hurtboxes	component-clone	AuthoredHurtboxes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.authored_hurtboxes	component-clone	AuthoredHurtboxes	bevy_ggrs clone snapshot; not in the session checksum
 actor.body_combat	component-canonical	BodyCombat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.body_envelope	component-canonical	BodyEnvelope	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.body_melee	component-canonical	BodyMelee	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -23,22 +23,22 @@ actor.body_pose_clock	component-clone	BodyPoseClock	bevy_ggrs clone snapshot; va
 actor.brain	component-clone-cursor	Brain	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.brain_binding	component-canonical	BrainBinding	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.centered_aabb	component-canonical	CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.charges_projectiles	component-clone	ChargesProjectiles	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.charges_projectiles	component-clone	ChargesProjectiles	bevy_ggrs clone snapshot; not in the session checksum
 actor.combo_trace	component-canonical	BodyComboTrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.config	component-clone	ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.config	component-clone	ActorConfig	bevy_ggrs clone snapshot; not in the session checksum
 actor.control	component-canonical	ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.control_claims	component-canonical	ControlClaims	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.control_holds	component-clone	ControlHolds	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.death_interlude	component-canonical	DeathInterlude	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; not in the session checksum
 actor.driving_participant	component-clone	DrivingParticipant	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; not in the session checksum
+actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; not in the session checksum
+actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; not in the session checksum
+actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in the session checksum
+actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; not in the session checksum
 actor.ledge	component-canonical	BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -47,27 +47,27 @@ actor.motion_path	component-clone-cursor	ActorMotionPath	bevy_ggrs clone snapsho
 actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.move_occurrence	component-canonical	MoveOccurrence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
-actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.moveset_ranged	component-clone	MovesetRanged	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; not in the session checksum
+actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; not in the session checksum
+actor.moveset_ranged	component-clone	MovesetRanged	bevy_ggrs clone snapshot; not in the session checksum
 actor.out_of_play	component-canonical	OutOfPlay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 actor.perception	component-canonical	Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.player_slot	component-clone	PlayerSlot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.player_slot	component-clone	PlayerSlot	bevy_ggrs clone snapshot; not in the session checksum
 actor.pose	component-canonical	ActorPose	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; not in the session checksum
 actor.roll	component-canonical	ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ruleset_owns_death	component-canonical	RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.scripted_control	component-clone	ScriptedControl	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.senses_undecided	component-clone	SensesUndecided	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.scripted_control	component-clone	ScriptedControl	bevy_ggrs clone snapshot; not in the session checksum
+actor.senses_undecided	component-clone	SensesUndecided	bevy_ggrs clone snapshot; not in the session checksum
+actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; not in the session checksum
+actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; not in the session checksum
+actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; not in the session checksum
+actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -75,11 +75,11 @@ actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical co
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.transform_beat	component-clone	TransformBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs clone snapshot; not in the session checksum
 actor.worn_character	component-canonical	WornCharacter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.worn_equipment	component-clone	WornEquipment	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.worn_equipment	component-clone	WornEquipment	bevy_ggrs clone snapshot; not in the session checksum
 body.abilities	component-canonical	BodyAbilities	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; not in the session checksum
 body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -101,23 +101,23 @@ body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot +
 body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.attack_intent	component-canonical	BossAttackIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.attack_state	component-canonical	BossAttackState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; not in the session checksum
+boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the session checksum
+boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.pattern_timer	component-canonical	BossPatternTimer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
-combat.kit	component-clone	CombatKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+combat.kit	component-clone	CombatKit	bevy_ggrs clone snapshot; not in the session checksum
 combat.stale_moves	component-canonical	BodyStaleMoves	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 combat.strike_volume	component-clone	StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; not in the session checksum
 component.boss_anim_frame	component-clone-cursor	BossAnimFrame	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 component.construction_transaction_id	component-canonical-custom-checksum	TransactionId	bevy_ggrs canonical codec snapshot + checksum over the content identity and the room only, excluding the host-local content epoch and session stamps
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
@@ -129,7 +129,7 @@ content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical code
 content.flag_pole	derived	FlagPole	the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.level_destination	derived	LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
-content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_departure	component-clone	LevelDeparture	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -198,21 +198,21 @@ derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and repu
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
-encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; not in the session checksum
 encounter.commanded_move	component-clone	CommandedMove	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; not in the session checksum
 encounter.falling_hazard	component-clone	FallingHazard	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; not in the session checksum
 encounter.lifecycle	component-canonical	EncounterLifecycle	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-encounter.lock_wall	component-clone	EncounterLockWall	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.objective	component-clone	EncounterObjective	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.lock_wall	component-clone	EncounterLockWall	bevy_ggrs clone snapshot; not in the session checksum
+encounter.objective	component-clone	EncounterObjective	bevy_ggrs clone snapshot; not in the session checksum
 encounter.participants	component-clone-canonical-checksum	EncounterParticipants	bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load
-encounter.track	component-clone	EncounterTrack	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.track	component-clone	EncounterTrack	bevy_ggrs clone snapshot; not in the session checksum
 encounter.waves	component-clone-resolved	EncounterWaves	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
-entity.name	component-clone	Name	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+entity.name	component-clone	Name	bevy_ggrs clone snapshot; not in the session checksum
 entity.sim_id	component-canonical	SimId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity.spawn_origin	component-canonical	SpawnOrigin	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity.transform	component-clone	Transform	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+entity.transform	component-clone	Transform	bevy_ggrs clone snapshot; not in the session checksum
 entity:body_kinematics	required-rollback	BodyKinematics	component presence automatically installs bevy_ggrs::Rollback
 entity:encounter_lifecycle	required-rollback	EncounterLifecycle	component presence automatically installs bevy_ggrs::Rollback
 entity:falling_hazard	required-rollback	FallingHazard	component presence automatically installs bevy_ggrs::Rollback
@@ -238,44 +238,44 @@ entity:temporary_zone	required-rollback	TemporaryZone	component presence automat
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:vortex_well	required-rollback	VortexWell	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
-feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; not in the session checksum
+feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; not in the session checksum
 feature.empowered	component-clone	Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.falling_chest	component-clone	FallingChest	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.hazard	component-clone	HazardFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.id	component-clone	FeatureId	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.name	component-clone	FeatureName	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.opened	component-clone	Opened	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup	component-clone	PickupFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup_art	component-clone	PickupArt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup_collect_lock	component-clone	PickupCollectLock	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_policy	component-clone	PogoPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target_contributor	component-clone	PogoTargetContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.hazard	component-clone	HazardFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.id	component-clone	FeatureId	bevy_ggrs clone snapshot; not in the session checksum
+feature.name	component-clone	FeatureName	bevy_ggrs clone snapshot; not in the session checksum
+feature.opened	component-clone	Opened	bevy_ggrs clone snapshot; not in the session checksum
+feature.pickup	component-clone	PickupFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.pickup_art	component-clone	PickupArt	bevy_ggrs clone snapshot; not in the session checksum
+feature.pickup_collect_lock	component-clone	PickupCollectLock	bevy_ggrs clone snapshot; not in the session checksum
+feature.pogo_policy	component-clone	PogoPolicy	bevy_ggrs clone snapshot; not in the session checksum
+feature.pogo_target_contributor	component-clone	PogoTargetContributor	bevy_ggrs clone snapshot; not in the session checksum
+feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone snapshot; not in the session checksum
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; not in the session checksum
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; not in the session checksum
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.released_as	component-clone	ReleasedAs	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-lifecycle.spawned_this_attempt	component-clone	SpawnedThisAttempt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-limb.intents	component-clone	LimbIntents	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; not in the session checksum
+lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; not in the session checksum
+lifecycle.spawned_this_attempt	component-clone	SpawnedThisAttempt	bevy_ggrs clone snapshot; not in the session checksum
+limb.intents	component-clone	LimbIntents	bevy_ggrs clone snapshot; not in the session checksum
 limb.member	component-clone	Limb	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 limb.rig	component-clone	LimbRig	bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity
-limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; not in the session checksum
 map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
@@ -299,12 +299,12 @@ map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitE
 map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
 map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
 map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
-marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.posed_body	component-clone	PosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; not in the session checksum
+marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; not in the session checksum
+marker.posed_body	component-clone	PosedBody	bevy_ggrs clone snapshot; not in the session checksum
+marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; not in the session checksum
+marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; not in the session checksum
+marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; not in the session checksum
 message.actor_action	message-clear	ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -388,34 +388,34 @@ message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future m
 message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
 message.vfx	message-clear	VfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.wallet_shield_spent	message-clear	WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping
-mount.authored_size	component-clone	MountedSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.brain_cache	component-clone	MountedBrainCache	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.authored_size	component-clone	MountedSize	bevy_ggrs clone snapshot; not in the session checksum
+mount.brain_cache	component-clone	MountedBrainCache	bevy_ggrs clone snapshot; not in the session checksum
+mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; not in the session checksum
+mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; not in the session checksum
+mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; not in the session checksum
+mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; not in the session checksum
+mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; not in the session checksum
 mount.reserved_for	component-clone	MountReservedFor	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-player.local_marker	component-clone	LocalPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; not in the session checksum
+player.local_marker	component-clone	LocalPlayer	bevy_ggrs clone snapshot; not in the session checksum
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-portal.body	component-clone	PortalBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.body	component-clone	PortalBody	bevy_ggrs clone snapshot; not in the session checksum
+portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
+portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
+portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum
+portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.policy	component-clone	PortalPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
+portal.policy	component-clone	PortalPolicy	bevy_ggrs clone snapshot; not in the session checksum
+portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum
+portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; not in the session checksum
 portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; not in the session checksum
 projectile.allegiance	component-canonical	ProjectileAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.fired_by_move_instance	component-canonical	FiredByMoveInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -433,8 +433,8 @@ resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
+resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -444,11 +444,11 @@ resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
 resource.outstanding_checkpoint_request	resource-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore
-resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; not in the session checksum
 resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity checksum projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection
-resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room the RoomEntered producer last announced
@@ -457,7 +457,7 @@ resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs 
 resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum
 resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
 resource.session_checkpoint_outcomes	resource-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation
 resource.session_match_ordinal	resource-canonical-custom-checksum	SessionMatchOrdinal	bevy_ggrs canonical codec snapshot + checksum over the count of matches this session has activated only, excluding the host-local session stamp
@@ -470,11 +470,11 @@ resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEnte
 resource.switch_activation_queue	resource-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone snapshot; not in the session checksum
+root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
+root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; not in the session checksum
 root.ldtk_runtime_index	component-clone-custom-checksum	LdtkRuntimeIndex	bevy_ggrs clone snapshot + active LDtk area checksum
-root.room_music_request	component-clone	RoomMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.room_music_request	component-clone	RoomMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

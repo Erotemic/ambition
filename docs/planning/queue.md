@@ -872,6 +872,30 @@ require a live primary player body, which is exactly the condition
 `maintain_local_session` starts GGRS on. These run when a session can already be
 live; the session-scope resets do not.
 
+⭐⭐ **THE FIVE ARE TWO PHASES AROUND A ONE-SHOT LATCH, AND ONLY ONE PHASE IS
+THE PER-FRAME PROBLEM.** MEASURED 2026-09-16 by reading each guard clause:
+
+| system | its own guard | so it runs |
+| --- | --- | --- |
+| `adopt_occurrence_checkpoint_from_save` | `if restored.0 \|\| bodies.is_empty() { return }` | ONCE, before the latch, and only with a live body |
+| `complete_durable_restore` | `if restored.0 \|\| ready_body.single().is_err() { return }` then `restored.0 = true` | ONCE — it IS the latch |
+| the three `persist_*_to_save` | `if !restored.0 { return }` | every frame AFTER the latch, value-compared |
+
+⛔ **SO THE MIRRORS WRITE NOTHING AT ALL UNTIL A SAVE HAS BEEN RESTORED, and
+any test that forgets that measures nothing.** `SaveRestored` starts false and
+only `complete_durable_restore` sets it. A harness booted with no save file
+never flips the latch, so all three `persist_*` early-return forever and the
+lane is green for a reason that has nothing to do with rollback. ⇒ The
+experiment below MUST boot with a save (`Platformer2dSimHarnessOptions::with_save`)
+and must assert the mirrored value actually changed, or it is the vacuous pass
+this queue keeps finding.
+
+⚠ **AND THE ONE-SHOT PAIR IS A NARROWER QUESTION THAN THE MIRRORS.** Both fire
+in the window between a live body existing and the latch flipping — and a live
+body is the exact condition `maintain_local_session` starts GGRS on, so the two
+events are gated on the same fact and their order is not stated anywhere. That
+is a RACE to characterise, not a per-frame accumulation.
+
 **Next implementation:** answer the per-frame-vs-per-tick question with a
 sync-test, the way `rollback_full_reset.rs` answered its own — rewind across a
 frame in which `persist_inventory_to_save` ran and compare the checksummed

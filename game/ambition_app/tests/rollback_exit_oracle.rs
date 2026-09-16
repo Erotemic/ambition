@@ -1523,7 +1523,7 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         // both real sim dependencies — were checked by hand and say so below.
         (
             "ambition_audio::selection::AudioContextChanged",
-            "the shell audio owner changed. Its ONE reader is          `reset_audio_request_state_on_context_change`, registered in literal `Update`          (verified 2026-08-06) — the only channel in this K2b batch that needed          checking rather than a dependency-graph argument, because the sim does depend          on `ambition_audio`",
+            "the shell audio owner changed. Its ONE reader is          `reset_audio_request_state_on_context_change`, registered in literal `Update`          (verified 2026-08-06, re-verified 2026-09-16) — the only channel in this K2b batch that needed          checking rather than a dependency-graph argument, because the sim does depend          on `ambition_audio`",
         ),
         (
             "ambition_game_shell::abandon::ShellAbandonRequested",
@@ -1591,12 +1591,12 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         ),
         (
             "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeRetired",
-            "a session scope ENDED. Unlike the rest of this batch it lives in a sim crate, so          it got the individual check: its sole writer is          `translate_shell_session_lifecycle`, registered in literal `Update` (verified          2026-08-06) — the same system and schedule that make the `ActiveSessionScope`          waiver hold, so the two go stale together",
+            "a session scope ENDED. Unlike the rest of this batch it lives in a sim crate, so          it got the individual check: its sole writer is          `translate_shell_session_lifecycle`, registered in literal `Update` (verified 2026-08-06 and RE-VERIFIED          2026-09-16) — the same system and schedule that make the `ActiveSessionScope`          waiver hold, so the two go stale together",
         ),
 
         (
             "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeActivated",
-            "a session scope BEGAN — the sibling of `SessionScopeRetired` one entry up,          with the same sole writer (`translate_shell_session_lifecycle`) in literal          `Update`, so the same argument holds and the two go stale together. Its          reader re-establishes the process globals that mirror one live session,          which is `Update` work about a session that has not simulated a frame yet",
+            "a session scope BEGAN — the sibling of `SessionScopeRetired` one entry up,          with the same sole writer (`translate_shell_session_lifecycle`) in literal          `Update` (re-verified 2026-09-16: ONE production `.write(..)` site — the          second one a name grep finds lives in a `#[cfg(test)]` module in          `ambition_render`), so the same argument holds and the two go stale together. Its          reader re-establishes the process globals that mirror one live session,          which is `Update` work about a session that has not simulated a frame yet",
         ),
 
         (

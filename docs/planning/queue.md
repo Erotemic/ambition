@@ -1002,12 +1002,27 @@ and the observer effect that moved the start by a frame are in
 ⚠ So neither may be waived on the activation argument, and both stay
 ACKNOWLEDGED rather than moving to `WAIVERS`.
 
-⚠ **And the discriminator may not be "is there a rebase".** A New Game's
-`NewGameResetCommitted` is produced inside the rewind window, is
-`clear_message_on_rollback`, and is consumed in `Update` — broken whether or not
-the room replacement rebases GGRS. If the real question is *"is the triggering
-MESSAGE cleared on rollback"*, then `SessionScopeActivated` owes the same
-question and nobody has asked it.
+✔ **AND THE DISCRIMINATOR IS NOT "IS THERE A REBASE" — IT IS "IS THE TRIGGERING
+MESSAGE CLEARED ON ROLLBACK", WHICH WAS ASKED OF `SessionScopeActivated` ON
+2026-09-16 AND SEPARATES THE TWO.** A New Game's `NewGameResetCommitted` is
+produced inside the rewind window, is `message-clear` in the schema
+(`message.sandbox_reset_committed`, baseline line 378) and is consumed in
+`Update` — broken whether or not the room replacement rebases GGRS.
+`SessionScopeActivated` is a different shape at every end, measured:
+
+| | `NewGameResetCommitted` | `SessionScopeActivated` |
+|---|---|---|
+| written by | inside the rewind window | `translate_shell_session_lifecycle`, literal `Update` (`crates/ambition_game_shell/src/session.rs:425`) |
+| read by | `Update` | `reset_session_scoped_resources_on_activation`, literal `Update` (`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs:446`) |
+| rollback schema | `message-clear` | **absent — no registration at all** |
+
+⇒ Both ends are outside the rewind window and the buffer never enters it, so
+there is nothing for a clear to drop. `SessionScopeActivated` owes nothing here.
+⚠ Its real exposure is the other one its two waivers already name: they rest on
+that sole writer staying in literal `Update`, **re-verified 2026-09-16** — one
+production `.write(SessionScopeActivated(..))` site, registered in `Update` — and
+they go stale together with `ActiveSessionScope`'s and `SessionScopeRetired`'s the
+day it moves into `app.sim_schedule()`.
 
 **Receipts, one line each, so the next reader does not re-derive them.**
 ⛔ The costed `install<T>(owner, name, kind, detail, ops)` redesign this row

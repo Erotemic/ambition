@@ -1046,38 +1046,49 @@ rollback-registered resource (`OwnedItems`, `rollback_resource_clone`,
 road, which desyncs the sync test — and the desync then presents as a stopped
 clock rather than as a failure.
 
-**THE EXPOSED POPULATION IS SIX ARMS, counted not estimated.** Of the 21 files
-that build on `with_sync_test_rollback_settings`, thirteen call `rollback_health()`
-or `session_health` at least once. These six step a sync-test session and never
-ask whether it is still alive:
+**THE EXPOSED POPULATION IS ZERO, AND THE FIRST COUNT SAID SIX.** Of the 21
+files built on `with_sync_test_rollback_settings`, thirteen call
+`rollback_health()` or `session_health`. I filed the other eight as exposed. Then
+I read them, and every one of them already refuses a frozen world — not with a
+health check, but with an assertion a stopped clock cannot satisfy:
 
-- `game/ambition_app/tests/canonical_state_is_finite.rs`
-- `game/ambition_app/tests/carried_item_crosses_rooms.rs`
-- `game/ambition_app/tests/d71_transaction_census.rs`
-- `game/ambition_app/tests/door_entry.rs`
-- `game/ambition_app/tests/input_stream_under_rollback.rs`
-- `game/ambition_app/tests/rollback_provoked_actor.rs`
+| arm | what a dead session breaks |
+|---|---|
+| `canonical_state_is_finite.rs` | population floor: `finite_seen >= ENCODED_FLOAT_FLOOR` against a measured 116,280 |
+| `input_stream_under_rollback.rs` | recorded stream length compared against the tick count |
+| `rollback_provoked_actor.rs` | `load_runs` must move; `assert_rolled_back` |
+| `d71_transaction_census.rs` | explicit preconditions `room_changes > 0` and `transactions > 0` |
+| `carried_item_crosses_rooms.rs` | `walk_through_the_door_to` panics after 60 frames with no room change |
+| `door_entry.rs` | asserts the room changed after the authored hold |
 
-⚠ **THIS IS AN EXPOSURE COUNT, NOT A DEFECT COUNT.** None of the six is known to
-be running over a dead session today; what is known is that none of them WOULD
-SAY SO. Do not convert this row into "six broken tests" without running the
-measurement — that is the same conversion this repository's evidence discipline
-exists to stop.
+⭐ **THE TRANSFERABLE PART IS THAT `grep` FOR THE HEALTH CALL MEASURED THE WRONG
+THING.** "Does this arm ask whether the session is alive" and "can this arm pass
+over a dead session" are different questions, and only the second one matters. An
+arm that demands a room change has a better liveness check than one that reads
+`rollback_health()` once at the end, because its check is load-bearing for what
+the arm is actually about. ⇒ Counting calls to a safety API measures vigilance;
+counting assertions that a broken world fails measures safety.
 
-⚠ A health check is also not a progress check. An arm that reads
-`rollback_health()` once at the end catches an invalidation; an arm that asserts
-over a window still has no statement about how many ticks that window contained.
-`SimTick` is the column that answers it, and no arm samples it.
+⚠ So there is no cleanup here and NOTHING SHOULD BE EDITED IN THOSE SIX FILES.
+Adding `rollback_health()` to them would add a redundant check and would trade a
+strong guarantee for a visible one.
 
-⇒ NEXT, in order, and the first step is cheap:
-1. Add `rollback_health()` to the six arms above and run the `app_it` lane. Green
-   is a strict improvement; red is a defect that was already there.
-2. Decide whether the harness should refuse to step an invalidated session at
-   all, rather than leaving every caller to remember. ⭐ That is the real fix:
-   the current contract makes silence the default and vigilance the opt-in.
-   It touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
-   maintainer ruling before it lands — a harness that panics on a dead session
-   will red any arm that is quietly relying on one.
+⇒ WHAT REMAINS IS THE CONTRACT, NOT A CLEANUP. The tree is currently safe by
+accumulated good taste in individual arms, and nothing holds that property in
+place: the next rollback arm written is exposed the moment its assertions happen
+to be satisfiable by a frozen world, and its author gets no warning.
+
+1. Decide whether `Platformer2dSimHarness::step` should refuse to step an
+   invalidated session rather than leaving every caller to notice on their own.
+   ⭐ That is the real fix: the current contract makes silence the default. It
+   touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
+   maintainer ruling — a harness that panics on a dead session will red any arm
+   that turns out to be relying on one, and the census above says none is.
+2. ⚠ A guard script is the WRONG shape here and the table above is why. The
+   property is "this arm's assertions are unsatisfiable by a frozen world", which
+   is not decidable by reading the source — six different mechanisms produced it
+   and a seventh would too. ⇒ If the contract moves into `step`, no guard is
+   needed; if it does not, no guard can be written.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 

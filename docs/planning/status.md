@@ -74,9 +74,19 @@ tomorrow would make it "nine closed, a tenth found" instead of making it false.
 An eleventh was found on 2026-09-16 and the sentence held: the count moved, the
 claim did not. A **twelfth** was found later the same day and the sentence held
 again — but this one is a DIFFERENT KIND of road, which is worth saying because
-"twelve roads" would otherwise imply twelve of the same thing. A **fourteenth**
-was filed later still — thirteen LIVE, because the thirteenth was withdrawn the
-day it was filed and the numbering does not reuse it.
+"twelve roads" would otherwise imply twelve of the same thing. **FIFTEEN are now
+filed and FOURTEEN are live**, because the thirteenth was withdrawn the day it was
+filed and the numbering does not reuse it; the fifteenth (`ControlFrame`'s shape)
+is closed for the RATCHET and not for a negotiated input version, which does not
+exist and is not obviously owed while netcode is `N2`.
+
+⛔⛤ **AND THIS PARAGRAPH SAID "A FOURTEENTH … THIRTEEN LIVE" WHILE THE ROW IT
+SUMMARISES SAID FIFTEEN FILED, FOURTEEN LIVE — the same defect it congratulates
+itself for surviving, one road later.** A count in prose is a copy, and a copy in
+ANOTHER DOCUMENT is the one a correction does not reach. ⇒ Re-derive from
+[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity)'s
+table, which prints its own arithmetic beside it, rather than incrementing this
+sentence.
 
 ✔ **THE FOURTEENTH WAS THE ONLY ROAD NOT BLOCKED OUTSIDE THE CAMPAIGN AND IT
 CLOSED WITHIN THE HOUR. It is the campaign's own shape in a place nobody looked:
@@ -282,11 +292,11 @@ fails silently.
 
 The queue is intentionally compact. Its current groups are:
 
-- **P0:** A10 publication (CLOSED), peer-stable identity (nine roads closed; the
-  FOUR open are `Q128`, `Q122`, the 25 unchecksummed float rows (a different
-  kind — no host-local id, never compared between peers, blocked on netcode's
-  N2) and the unversioned input payload; the causal instrument reaching the
-  schema fingerprint was a fifth and closed 2026-09-16), settings/rollback
+- **P0:** A10 publication (CLOSED), peer-stable identity (ELEVEN roads closed of
+  fourteen live; the THREE open are `Q128`, `Q122` and the 25 unchecksummed float
+  rows — a different kind, with no host-local id, never compared between peers,
+  blocked on netcode's N2. All three want a maintainer or a P2P session, so none
+  is pickable here), settings/rollback
   policy, throw modifier
   consistency, A2 projectile identity (CLOSED — the construction-identity hole
   only; A2a/A2b/A2c geometry and contact contracts are a different subject and
@@ -295,19 +305,28 @@ The queue is intentionally compact. Its current groups are:
 ⚠ That list is a SUMMARY OF `queue.md`, which means it is a copy corrections do
 not reach. Read the rows, not this line, before picking work up: a group closing
 here is a two-edit change and only one of the edits is anybody's job.
-⛔⛤ **AND THAT WARNING FAILED TO PROTECT THE LINE IT SITS UNDER, THE SAME DAY IT
-WAS WRITTEN.** On 2026-09-16 the ID-PEER owner corrected the "Deterministic
-identity" section above to *nine closed, three open* and left this line saying
-*"the two open are `Q128` and `Q122`"* — while reading this exact warning. ⇒ A
-warning that a copy will rot does not stop it rotting; the only thing that would
-have is editing every copy in the same command, which is now the habit for this
-page: `grep -n` the claim, not the heading.
+⛔⛤ **AND THAT WARNING FAILED TO PROTECT THE LINE IT SITS UNDER TWICE, BOTH
+TIMES ON 2026-09-16.** First it was corrected above to *nine closed, three open*
+while this line still said *"the two open are `Q128` and `Q122`"* — written by
+someone reading this exact warning. Then both copies drifted again: the section
+above counted a fourteenth road and thirteen live while `queue.md` had fifteen
+filed and fourteen live, and this line still said nine closed and four open after
+the input payload closed for its ratchet. ⇒ A warning that a copy will rot does
+not stop it rotting, and neither does the habit it recommends. The only reading
+that survives is the one that RE-DERIVES: `queue.md`'s ID-PEER row prints its own
+arithmetic (nine in the table plus two in prose beneath it) precisely so a reader
+does not have to trust a sentence anywhere — including that one.
 - **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
   selection, low-tier sprite policy, Smash parity, character authoring and
   scenario identity. ⚠ Test-lane reliability is no longer a standing P1 theme:
   the long-running `app_it` failure was a sim-schedule cycle, not a flake, and
-  the lane runs. What remains in TEST-LANES is one non-reproducing session-root
-  handoff failure.
+  the lane runs. What remains in TEST-LANES is the fails-in-company class —
+  THREE instances, of which the third is closed with a measured cause (a per-App
+  page census keyed on a process-global's colliding asset id) that does NOT
+  explain the other two — plus one older non-reproducing session-root handoff
+  failure whose assertion was never captured. ⇒ Read the rows: `queue.md`'s OPEN
+  1 states which candidates are refuted (CPU contention; a settle loop going
+  quiet over a growing set) so nobody re-measures them.
 - **P2:** product/authoring work that has an executable owner after a maintainer
   rule.
 - **P3:** measurements that require a particular machine, device or interactive

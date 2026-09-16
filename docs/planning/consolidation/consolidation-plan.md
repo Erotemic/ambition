@@ -504,6 +504,30 @@ Each optional canonical authority has one explicit reason for absence, and produ
 
 The responsibility map and facade crates include compatibility re-exports/mirrors. Some are useful public ergonomics; others hide which lower crate owns a concept.
 
+⭐⭐ **MEASURED 2026-09-16, AND THE SHAPE IS NARROWER THAN "facade crates"
+PLURAL: IT IS ONE CRATE.** Counting `pub use` STATEMENTS in production files
+(a floor on ITEMS — `pub use foo::{A, B, C}` counts once):
+
+| package | `pub use` | of which CROSS-CRATE |
+| --- | ---: | ---: |
+| `ambition_platformer2d` | 187 | **168** |
+| `ambition_platformer2d_actor_monolith` | 109 | 14 |
+| `ambition_platformer2d_runtime` | 52 | 31 |
+| `ambition_platformer2d_core` | 44 | 6 |
+| `ambition_combat` | 34 | 15 |
+| (workspace total) | 937 | 300 |
+
+⇒ **`ambition_platformer2d` IS THE FACADE: 90% of its re-exports cross a crate
+boundary, and it holds 168 of the workspace's 300 — 56% in ONE package.** The
+remaining 132 are spread across ~79 others, which is background, not a campaign.
+A row that says "facade crates include compatibility re-exports" reads as a
+diffuse problem; it is one crate plus a long tail.
+
+⚠ This counts STATEMENTS and says nothing about which are deliberate public
+ergonomics — the row's own distinction, and the part no scan can make. What it
+buys is the denominator: whoever takes C08 is triaging ~168 lines in one file
+tree, not auditing a workspace.
+
 ### INDEPENDENT TRUTHS INVOLVED
 
 facade modules, legacy paths, re-exports, lower owner crates.

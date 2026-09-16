@@ -1541,13 +1541,54 @@ MONOTONE in level. A monotone ladder producing a non-monotone outcome with a
 large outlier at one rung is the finding, and the F6 menu/utility term is where
 it belongs.
 
-⚠ **BOUNDS, because this is one sample and cannot be resampled.**
-`fighter_cognition_seed` mixes the character id and the level with no clock and
-no external seed, so each rung is ONE deterministic stream — rung 5 returned
-bit-identical figures across three unrelated code states, which confirms the
-determinism but does not widen the sample. These rows are `npc_pirate_admiral`
-only. ⇒ Before acting, re-run across the other duel fighters; a defect at one
-(character, level) pair is not yet a defect in the rung.
+⛔⛤ **WIDENED THE SAME DAY, AND THE RUNG FRAMING ABOVE IS THE WRONG ONE.** The
+bound this row set — *"a defect at one (character, level) pair is not yet a
+defect in the rung"* — was the right caution and it was discharged by running
+`every_fighter_on_the_grid_can_fight_its_mirror` at rung 5 and at rung 9: 21
+fighters, mirror matches, 3600 ticks each, ~12 minutes a sweep. **It is not a
+property of the rung. It is a per-(character, rung) LOCK, and it has a
+signature.**
+
+| | starts | distinct used | top move | damage | hitstun | neutral |
+|---|---:|---:|---|---:|---:|---:|
+| `goblin` @5 | 201 | **1** | `dirt_kick`×201 | 0% / 0% | 0 | **100%** |
+| `goblin` @9 | 189 | 17 | `dirt_kick`×79 | 138% / 95% | 930 | 61% |
+| `special_patent_clerk` @9 | 160 | **1** | `synchronize_clocks`×160 | 0% / 0% | 0 | **100%** |
+| `special_patent_clerk` @5 | 143 | 18 | `synchronize_clocks`×52 | 167% / 200% | 1223 | 48% |
+
+⇒ A locked fighter throws ONE move for the whole bout, never leaves Neutral,
+and deals and takes exactly nothing — while still starting ~200 moves, so it is
+NOT a seating failure and not an idle body. `special_patent_clerk`'s locked bout
+re-starts the same move on a median gap of **4 ticks**.
+
+⇒ **AND IT IS NOT "LOW RUNGS ARE WORSE".** `goblin` locks at 5 and is fine at 9;
+`special_patent_clerk` locks at 9 and is fine at 5. Both directions occur, which
+is what `fighter_cognition_seed` mixing the character id with the level predicts:
+each pair is its own deterministic stream, and some streams land in a basin the
+decision layer cannot leave. Across the grid, 5 of 21 fighters fall under 40%
+total damage at rung 5 and 1 of 21 at rung 9 — all five of the rung-5 ones are
+healthy at rung 9 (`sanic` 0→130%, `goblin` 0→233%, `npc_pirate_admiral` 16→87%,
+`npc_emmy_noether` 36→142%, `npc_carl_stargan` 28→116%).
+
+⛔ **THE ONE THAT SHOULD WORRY A READER MOST IS AT RUNG 9, WHICH IS
+`RUNG_DEFAULT`** — the rung every other CPU number in this project is taken at.
+`special_patent_clerk` is locked there today.
+
+⚠ **AND THE INSTRUMENT ALREADY NAMED THEM; NOBODY HAD RUN IT.** The sweep is
+`#[ignore]`d as *"a measurement, not a guard"*, and its one assertion
+(`silent.len() * 2 < ids.len()`) is deliberately about whether the TABLE is
+readable, not about whether fighters fight — so one or two locked fighters print
+their zeros and it passes. That is the documented design, not a defect in it.
+
+**Next implementation for this half:** the lock is a decision-layer live-lock,
+and `used == 1` with `neutral == 100%` over a 3600-tick bout is a crisp,
+cheap predicate. ⇒ It is a candidate for a real guard, but ⛔ NOT by tightening
+the sweep's existing assertion, which measures something else on purpose.
+
+⚠ **BOUNDS THAT REMAIN.** Two rungs of the five, mirror matches only, one bout
+per pair — and the pairs cannot be resampled, since the seed is
+`(character, level)` with no clock. What is NOT bounded any more is the "one
+character" caveat: 21 fighters, both directions of the effect.
 
 ### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 

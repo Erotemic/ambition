@@ -122,8 +122,12 @@ Examples of meaningful progress are:
 | inventory: registered systems | 1,098 | 1,108 | +10 |
 
 ⭐ The inventory bucket fell across the board while source LOC ROSE. REASONED,
-not measured: that is the shape post-A10 demolition should make — fewer distinct
-registered truths against more code. ⛔ It is not proof. The counts are
+not measured: fewer distinct registered truths against more code is the shape a
+demolition makes. ⚠ **Post-A10 demolition CLOSED on 2026-09-16 with a mostly
+NEGATIVE result** — every A10 symbol had live production callers and exactly one
+`pub` item across two files had no outside caller — so this movement is NOT that
+campaign's output, and reading it as such would credit a deletion that did not
+happen. ⛔ It is not proof. The counts are
 text-pattern heuristics over a separately generated index, and a crate moving
 between directories moves its rows too. ⇒ Do not cite the −113 as a consolidation
 result without naming which identifiers went.

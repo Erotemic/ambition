@@ -266,11 +266,42 @@ hashes that dump, and `rollback_codec_shape.txt` has zero mentions because
 `ControlFrame` has no `SnapshotState` impl at all — it is `derived`, rebuilt from
 the input stream rather than snapshotted.
 
-⇒ The state half of the wire now has an identity AND a ratchet, landed today. The
-INPUT half has neither. ⚠ It is found, not started, and it is latent like the
-rest of this campaign while no P2P session is ever built (netcode `N2`) —
-`SETTINGS-ROLLBACK` is simply the row that would add the first new field and
-therefore the row that had to notice. It does not block that work.
+⇒ The state half of the wire has an identity AND a ratchet. The INPUT half had
+neither.
+
+✔⛤ **THE RATCHET HALF IS LANDED, 2026-09-16 — AND IT IS A RATCHET, NOT A
+VERSION, WHICH IS THE HONEST DESCRIPTION.** `control_frame.rs`'s
+`the_payload_two_peers_exchange` module pins the exact `serde` JSON of a default
+frame plus `size_of` (60 bytes). It cannot tell an author what to BUMP, because
+there is nothing to bump yet; it makes a change to the peer input payload
+impossible to make SILENTLY, which was the missing property. A negotiated input
+version is still absent and is not obviously owed while netcode is `N2`.
+
+⭐ **THE WHOLE JSON RATHER THAN A FIELD LIST, for two measured reasons:** a
+nested change (`control_frame_modes` gaining a mode) leaves the top-level key set
+identical but moves the JSON, and the default VALUES distinguish types a name
+list cannot (`false`, `0` and `0.0` render differently, so `bool` → `u8` is
+caught). `size_of` is a companion, not a duplicate: it moves on a layout change
+the JSON cannot see, and the JSON moves on a rename the size cannot.
+
+⛔⛤ **AND THE RATCHET IS NOT DUPLICATING THE COMPILER — POISONED BOTH WAYS TO
+FIND OUT.** ADDING a field already fails to compile, because
+`ControlFrame::merge_sample` builds an exhaustive literal and a new field must
+declare whether it is a LEVEL or an EDGE. Good nudge, wrong subject: it is about
+merge semantics and says nothing of the wire. RENAMING the wire name compiles
+**cleanly** — `#[serde(rename = ...)]` is already live on this type
+(`burst_pressed` ships as `dash_pressed`), and changing that one attribute
+produced **zero compile errors** while reddening only the new assertion. With
+`#[serde(default)]`, an old peer's `dash_pressed` would land in no field and
+decode as `false` rather than failing. ⇒ That gap is the reason the module
+exists, and it is why the arm had to be poisoned rather than reasoned about.
+
+⚠ Still latent like the rest of this campaign while no P2P session is ever built
+(netcode `N2`) — `SETTINGS-ROLLBACK` is simply the row that would add the first
+new field and therefore the row that had to notice. It does not block that work.
+⚠ And [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline)
+is now the likelier first customer: if a cutscene edge is ruled to be gameplay
+input, this is the arm that will speak.
 
 ⛔⛤ **AND THE PROPERTY THE EXEMPTION RESTS ON CANNOT REACH THE PEER LEDGER AT
 ALL.** Read from GGRS's own source rather than inferred:

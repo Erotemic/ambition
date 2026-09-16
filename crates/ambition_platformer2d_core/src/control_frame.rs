@@ -584,3 +584,167 @@ mod latch_authority_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod the_payload_two_peers_exchange {
+    //! ⛔⛤ **NOTHING VERSIONED THE SHAPE OF THE INPUT WIRE, AND EVERY CANDIDATE
+    //! THAT LOOKED LIKE IT DID COVERS SOMETHING ELSE.**
+    //!
+    //! `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so [`ControlFrame`] IS
+    //! what crosses between peers, serialized by the `serde` derives above —
+    //! `ggrs` requires `Config::Input: Serialize + DeserializeOwned`, so the
+    //! serde field set is the wire and not merely a debug convenience. The
+    //! state half of the wire has both an identity and a ratchet
+    //! (`GGRS_ROLLBACK_SCHEMA_VERSION` and
+    //! `scripts/tests/rollback_codec_shape.txt`). Before this module the input
+    //! half had neither:
+    //!
+    //! - `INPUT_STREAM_VERSION` versions RECORDED REPLAY FILES and exempts added
+    //!   fields **by design** — this very type's doc comment says so: *"adding a
+    //!   `ControlFrame` field does not bump `INPUT_STREAM_VERSION`"*;
+    //! - the rollback dump carries ONE row naming the type
+    //!   (`derived.control_frame`) and not its fields;
+    //! - the schema fingerprint hashes that dump, so it inherits the same blindness;
+    //! - `rollback_codec_shape.txt` has zero mentions, because `ControlFrame` has
+    //!   no `SnapshotState` impl at all — it is `derived`, rebuilt FROM the input
+    //!   stream rather than snapshotted.
+    //!
+    //! ⇒ So this is a RATCHET, not a version: it cannot tell you what to bump,
+    //! because there is nothing to bump yet. It makes a change to the peer input
+    //! payload impossible to make silently, which is the property that was
+    //! missing. See ID-PEER's fifteenth road in `docs/planning/queue.md`.
+    //!
+    //! ⚠ **LATENT, NOT HARMLESS.** Only `SyncTestSession` is built today
+    //! (netcode `N2`), and a sync test has one peer, so no mismatch can be
+    //! observed. The first real P2P session is where a silent shape change
+    //! becomes two hosts that agree on every checksum and cannot decode each
+    //! other's input.
+    //!
+    //! ⭐⛤ **WHAT THE COMPILER ALREADY CATCHES, AND WHAT IT DOES NOT — BOTH
+    //! MEASURED BY POISON RATHER THAN ASSUMED, BECAUSE A RATCHET THE COMPILER
+    //! DUPLICATES IS NOT WORTH ITS MAINTENANCE.**
+    //!
+    //! ADDING a field fails to compile: [`ControlFrame::merge_sample`] builds an
+    //! EXHAUSTIVE literal, so a new field must also declare whether it is a
+    //! LEVEL (latest wins) or an EDGE (OR-accumulated). That is a good nudge and
+    //! it is about merge semantics, not about the peer — it says nothing of the
+    //! wire, and satisfying it is one line.
+    //!
+    //! RENAMING THE WIRE NAME compiles CLEANLY. `#[serde(rename = ...)]` is
+    //! already in use on this very type — `burst_pressed` ships as
+    //! `dash_pressed` — so this is a live spelling here and not a hypothetical.
+    //! Poison-verified: changing that one attribute produces **zero compile
+    //! errors** and reddens only the assertion below. An old peer sending
+    //! `dash_pressed` to a host expecting `burst_pressed` has its value land in
+    //! NO field, and `#[serde(default)]` turns that into `false` instead of an
+    //! error. ⇒ **That gap is the whole reason this module exists.**
+
+    /// The exact payload `serde` puts on the wire for a default frame.
+    ///
+    /// ⭐ THE WHOLE JSON, NOT A FIELD-NAME LIST, and the difference is
+    /// load-bearing in two ways. A nested change (`control_frame_modes` gaining
+    /// a mode) does not alter the top-level key set but does alter this. And the
+    /// default VALUES distinguish types that a name list cannot: `false`, `0`
+    /// and `0.0` render differently, so `bool` → `u8` is caught.
+    const RECORDED: &str = r#"{
+  "axis_x": 0.0,
+  "axis_y": 0.0,
+  "jump_pressed": false,
+  "jump_held": false,
+  "jump_released": false,
+  "dash_pressed": false,
+  "left_pressed": false,
+  "right_pressed": false,
+  "up_pressed": false,
+  "down_pressed": false,
+  "fast_fall_pressed": false,
+  "blink_pressed": false,
+  "blink_held": false,
+  "blink_released": false,
+  "special_pressed": false,
+  "special_held": false,
+  "attack_pressed": false,
+  "attack_held": false,
+  "attack_released": false,
+  "attack_strength_hint": "Auto",
+  "attack_from_aim_stick": false,
+  "attack_aim_x": 0.0,
+  "attack_aim_y": 0.0,
+  "control_frame_modes": {
+    "movement": "ScreenRelative",
+    "aim": "ScreenRelative"
+  },
+  "pogo_pressed": false,
+  "fly_toggle_pressed": false,
+  "interact_pressed": false,
+  "interact_held": false,
+  "reset_pressed": false,
+  "start_pressed": false,
+  "projectile_pressed": false,
+  "projectile_held": false,
+  "projectile_released": false,
+  "shield_held": false,
+  "grab_pressed": false,
+  "taunt_pressed": false,
+  "modifier_held": false,
+  "modifier_pressed": false,
+  "aim_x": 0.0,
+  "aim_y": 0.0
+}"#;
+
+    /// Bytes of one in-memory frame. A companion to the serde shape rather than
+    /// a duplicate of it: this moves on a layout or type change that leaves the
+    /// JSON identical, and the JSON moves on a rename that leaves the size
+    /// identical. Neither implies the other.
+    const RECORDED_SIZE: usize = 60;
+
+    #[test]
+    fn the_shape_of_the_peer_input_payload_is_pinned() {
+        let actual = serde_json::to_string_pretty(&super::ControlFrame::default())
+            .expect("a ControlFrame serializes");
+        assert_eq!(
+            actual,
+            RECORDED,
+            "\nTHE PEER INPUT PAYLOAD CHANGED SHAPE.\n\n\
+             `ControlFrame` is `GgrsConfig::Input`, so this is the wire two peers \
+             exchange -- and nothing versions it. `INPUT_STREAM_VERSION` \
+             deliberately exempts added fields (see this type's own doc \
+             comment), the rollback dump names the type without its fields, and \
+             the schema fingerprint hashes that dump.\n\n\
+             If the change is deliberate: re-record `RECORDED` above, and say in \
+             the commit message what a peer running the previous shape would do \
+             with the new payload. `#[serde(default)]` means a MISSING field \
+             decodes as the default rather than failing, which is why this is \
+             silent and why a removed or renamed field is the dangerous \
+             direction -- an old peer's value lands in no field at all.\n\n\
+             If it is not deliberate, a field was added to a struct somebody \
+             thought was local."
+        );
+        assert_eq!(
+            std::mem::size_of::<super::ControlFrame>(),
+            RECORDED_SIZE,
+            "the in-memory size of the peer input payload moved while its serde \
+             shape did not. That is a layout or field-type change the JSON above \
+             cannot see; re-record both together"
+        );
+    }
+
+    /// ⚠ THE RATCHET'S OWN PREMISE: serde is really what `ggrs` uses here. If
+    /// `ControlFrame` ever gains a hand-written `Serialize`, or the transport
+    /// switches to `bytemuck`, the JSON above stops describing the wire and this
+    /// module becomes a test of a debug format.
+    #[test]
+    fn a_round_trip_through_serde_preserves_a_frame() {
+        let mut frame = super::ControlFrame::default();
+        frame.axis_x = 0.5;
+        frame.interact_pressed = true;
+        frame.reset_pressed = true;
+        let bytes = serde_json::to_vec(&frame).expect("serialize");
+        let back: super::ControlFrame = serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(
+            back, frame,
+            "a frame does not survive its own serde round trip, so the recorded \
+             shape above is not the shape a peer would decode"
+        );
+    }
+}

@@ -52,6 +52,39 @@ def warnings_from(stderr: str) -> list[str]:
     return [f"{m.group('where')}: {m.group('what').strip()}" for m in _WARNING.finditer(stderr)]
 
 
+class VacuousFreshRun(RuntimeError):
+    """`--fresh` found nothing to touch, so it would rebuild nothing."""
+
+
+def fresh_touch_targets(repo: Path) -> list[Path]:
+    """Every crate root `--fresh` should touch, in THIS checkout.
+
+    Touching every crate root is cheaper than `clean` and does not throw away the
+    dependency graph — only OUR crates recompile.
+
+    ⛔⛤ TRACKED FILES ONLY. `repo.rglob` walks `.worktrees/`, which holds full
+    checkouts belonging to OTHER SESSIONS, and this does not read them — it
+    TOUCHES them, so a `--fresh` run here would silently force a rebuild in
+    somebody else's tree. `git ls-files` answers about this checkout. (The same
+    glob defect was found in `check_headless_arms_can_fail.py`, where it only
+    mis-reported.)
+    """
+    listed = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "*/src/lib.rs", "src/lib.rs"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    # ⛔ ANTI-VACUITY: touching nothing makes `--fresh` a silent no-op, and a lane
+    # that rebuilt nothing reports no warnings for the wrong reason.
+    if not listed:
+        raise VacuousFreshRun(
+            "⛔ --fresh found no tracked `src/lib.rs` to touch, so it would "
+            "rebuild nothing and report clean for that reason"
+        )
+    return [repo / name for name in listed]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-p", "--package", action="append", default=[])
@@ -85,31 +118,13 @@ def main() -> int:
     else:
         argv.append("--workspace")
     if args.fresh:
-        # Touching every crate root is cheaper than `clean` and does not throw
-        # away the dependency graph — only OUR crates recompile.
-        # ⛔⛤ TRACKED FILES ONLY. `REPO.rglob` walks `.worktrees/`, which holds
-        # full checkouts belonging to OTHER SESSIONS, and this loop does not read
-        # them — it TOUCHES them, so a `--fresh` run here silently forces a
-        # rebuild in somebody else's tree. `git ls-files` answers about this
-        # checkout. (The same glob defect was found in
-        # `check_headless_arms_can_fail.py`, where it only mis-reported.)
-        listed = subprocess.run(
-            ["git", "-C", str(REPO), "ls-files", "*/src/lib.rs", "src/lib.rs"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split()
-        # ⛔ ANTI-VACUITY: touching nothing makes `--fresh` a silent no-op, and a
-        # lane that rebuilt nothing reports no warnings for the wrong reason.
-        if not listed:
-            print(
-                "⛔ --fresh found no tracked `src/lib.rs` to touch, so it would "
-                "rebuild nothing and report clean for that reason",
-                file=sys.stderr,
-            )
+        try:
+            targets = fresh_touch_targets(REPO)
+        except VacuousFreshRun as refusal:
+            print(refusal, file=sys.stderr)
             return 1
-        for manifest in listed:
-            (REPO / manifest).touch()
+        for manifest in targets:
+            manifest.touch()
 
     done = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
     if done.returncode != 0 and "error" in done.stderr:

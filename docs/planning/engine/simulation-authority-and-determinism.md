@@ -525,6 +525,150 @@ would inflate it with the instrument's own blind spots. Both are pinned by
 `test_an_unresolved_type_is_not_promoted_into_the_sharpest_list`, each with its
 negative case, and both were poisoned: each poison fires on its own arm only.
 
+⭐⭐ **AND THE FIRST OF THE 25 IS NOW MEASURED, WHICH REQUIRED ADDING A ROAD
+BECAUSE THE OBVIOUS INSTRUMENT IS BLIND TO ALL OF THEM.** The question the
+ranking leaves is whether a row that is outside the peer checksum, read every
+tick and float-bearing actually DIFFERS at a frame compared twice. The plan was
+to point `RollbackRestoreAudit` at it, the way S8 does. That plan was empty:
+
+> the audit compares `probes.census_all(world)`; a row registered through
+> `rollback_component_clone` gets `ChecksumProbe::presence_for::<T>`, whose census
+> is `census_presence`, which **hard-codes `xor: 0`**. It counts carriers. Every
+> float in every carrier can drift by any amount and the census is byte-identical.
+
+⇒ So "point the existing audit at the 25" was a plan to re-measure the carrier
+count. ⛔ And there was no road to strengthen a probe either: `record_probe` is
+private to registration, `RollbackChecksumProbes::probes` is a private field, and
+editing the registration site changes that row's `detail`, which changes
+`schema_dump()`, which changes `compute_schema_fingerprint`. **A purely local
+DIAGNOSTIC property was welded to the identity two peers compare** — which is
+`Q122` arrived at from the opposite direction, and a second, independent argument
+for the same split.
+
+`RollbackChecksumProbes::strengthen_with::<T>(projection)` is the road now.
+Strength is owned by the probe collection at runtime and registration is how it
+is INITIALIZED, not where it is decided — one owner, not two, and after the call
+`strength_tally()` and `presence_only_type_names()` both report `T` as a value
+probe because it now is one. Nothing a probe does reaches the GGRS aggregate,
+which is what makes strengthening one free of peer consequences. It returns
+`false` for an unregistered type rather than censusing nothing.
+
+✔ **`item.ground_item` REPRODUCES.** The largest writer of the 12 — seven `&mut
+GroundItem` sites, carrying `pos`, `vel` and `half_extent` as `Vec2`, a moving
+physical object whose position decides whether a body can pick it up. Held by
+`a_falling_ground_item_reproduces_its_value_across_every_resimulation`
+(`game/ambition_app/tests/does_a_presence_probed_row_move_when_its_value_does.rs`):
+the authored object in `blink_run` is picked up and Z-dropped on the production
+road, and across the fall the strengthened probe took **3 distinct censuses at the
+3 frames the audit compared, with 0 divergences.** Its control — the same room,
+the same release, a projection that reads the carrier and returns a constant —
+takes exactly 1 census and also reports 0, which is what separates "the value
+reproduced" from "the probe never saw the value".
+
+⛔⛤ **AND THE FLOOR THAT ARM NEEDED IS A NEW LESSON, NOT A REUSED ONE:
+`resimulations > 0` AND "THE VALUE WAS MOVING" ARE DIFFERENT CLAIMS.** The window
+is 24 steps and the audit compared THREE frames. A ground item falls for a couple
+of frames and settles, so "the value moved during the window" is satisfied by a
+run in which every compared frame holds the object at rest — and the arm would
+then have reported *"this value reproduces across a rewind"* about a stationary
+object, with a floor in place and a control passing. The number that closes it is
+how many different censuses the probe took **at the frames the audit compared**,
+which `RollbackRestoreAudit::distinct_censuses_across_compared_frames_of::<T>()`
+now answers; the audit records which frames it resaved for exactly this.
+
+⚠ **THE FIRST RUN OF THAT FILE MEASURED A POPULATION OF ZERO AND REPORTED IT
+CLEAN.** Pointed at `combat_calibration_lab` — the room every other rollback arm
+uses — it printed `carriers=0` at all 40 steps, 148 saves, 108 replay-comparable,
+and *"no component changed across a save/load of the same frame"*. That room
+authors no ground item. The only reason it was not read as an answer is that the
+probe printed the carrier count beside the verdict. `blink_run` authors exactly
+one, which is the room the arm uses.
+
+⇒ Both arms were poisoned, each firing on its own assertion and nothing else: the
+good arm run with the constant projection fails the compared-frames floor, and run
+with a projection that cannot reproduce fails the `diverging == 0` assertion. Two
+poisons, two different assertions, zero compile errors in either run, and the file
+restored byte-identical after each.
+
+✔ **AND `actor.animation_facts` REPRODUCES TOO — THE SHARPEST MEMBER OF THE 25,
+BY ITS OWN WRITER'S DESCRIPTION.** `advance_body_anim_overlays`' doc says so
+without being asked: *"Measured before the move: `BodyAnimFacts` is
+rollback-registered as `actor.animation_facts`, so everything here writes
+**canonical simulation state restored on every rewind** — this must run in the
+deterministic sim, and must not be reclassified as presentation on the strength
+of the field names."* So: `f32` timers, decayed by `frame_dt` every tick by a sim
+system, restored on every rewind, declared canonical beside the code that writes
+them — and outside the checksum two peers compare. Float accumulation is the
+exact failure mode a per-tick decay has and a carrier count is blind to all of
+it. Measured: **2 distinct censuses at the 116 frames the audit compared, 0
+divergences**, against a constant-projection control at 1 census. Its own doc
+also bounds the consequence — *"what it does NOT do is affect simulation
+GEOMETRY: authored attack volumes resolve against an animation row chosen by
+`attack_intent_animation(intent)`, a match on the attack INTENT, which never
+consults these timers"* — which is a real limit on how bad a drift would be, and
+not a reason the value reproduces.
+
+⛔⛤ **AND THE FIRST WINDOW FOR THAT ROW HAD THE SUBJECT FROZEN AT ZERO, WITH
+EVERY OTHER NUMBER LOOKING EXCELLENT.** Holding `attack` for 40 steps gave 148
+saves, 108 replay-comparable, **36 compared**, four carriers throughout — and ONE
+distinct census. Read without the floor that is *"`BodyAnimFacts` reproduces
+across 36 comparisons"*. The probe then measured four inputs across 60 steps
+each: `attack` held, `attack` pressed on the 1-in-12 edge that
+`a_move_keeps_its_occurrence_across_a_rewind` uses to start several moves,
+jump-and-land, and run-and-jump. **Under both attack inputs every field of every
+carrier read exactly `0.000` at every step.** Only a landing moved anything, and
+`land_anim_timer` is non-zero for about two frames per touchdown — so the window
+had to be 120 steps with a jump every eight.
+
+⇒ **THE GENERAL FORM, AND IT IS THE FLOOR LESSON ONE LEVEL SHARPER: THE VERB THAT
+MOVES A VALUE IS A MEASUREMENT, NOT A GUESS FROM THE FIELD NAMES.**
+`slash_anim_timer` was the obvious target for an attack press and it never left
+zero in this composition. A window chosen from a field name, with 36 clean
+comparisons and four carriers to back it, produces a verdict about rest that
+reads exactly like a verdict about motion.
+
+⛔⛔ **AND THE LIMIT ON BOTH RESULTS, WHICH IS LARGE ENOUGH THAT IT CHANGES WHAT
+THE REMAINING TEN ARE WORTH.** What that instrument measures is whether a value
+survives **one machine rewinding itself**. That is not the question S7's rows are
+dangerous for.
+
+`Session::SyncTest` is constructed in exactly ONE place in this workspace
+(`crates/ambition_platformer2d_rollback_ggrs/src/session.rs`), and `Session::P2P`
+appears exactly once, in a match arm reading `confirmed_frame()` — **no P2P
+session is ever built.** So every rollback measurement in this repository,
+including these two, is a local resimulation comparison.
+
+⇒ A value OUTSIDE the peer checksum can be perfectly reproducible under local
+resimulation and still differ between two peers, because **nothing compares it
+between peers at all.** The two questions are:
+
+| question | what answers it | the two rows' verdict |
+|---|---|---|
+| does a rewind restore this value correctly? | `RollbackRestoreAudit` + a value probe | ✔ yes, both of them |
+| do two peers agree about this value? | nothing this repository installs | ⛔ unmeasured, and unmeasurABLE here |
+
+So `item.ground_item` and `actor.animation_facts` are cleared of a LOCAL RESTORE
+defect, which is a real class and was worth ruling out — the audit's five other
+users exist because that class has bitten. They are **not** cleared of the thing
+S7 is about. A per-tick float decay that two Apps compute differently, for any
+reason, diverges silently forever, and a green SyncTest is exactly what that
+looks like from inside one App.
+
+⇒ **THAT REDIRECTS THE REMAINING TEN FROM A GRIND TO A DECISION.** Measuring each
+of them the same way would produce ten more "clean under local resimulation"
+verdicts that do not answer the question, and would read in this page as ten rows
+cleared. The question the 25 actually pose is ID-PEER's acceptance test — two Apps
+with different prior local histories entering the same peer-agreed session and
+agreeing on mechanical state — and it cannot be asked until a session exists that
+has two peers in it. **`Q128` and the absent P2P session are the same blocker
+wearing two names.** The 25 are a ranked list of what that session would need to
+compare; they are not ten more measurements waiting to be taken.
+
+ⓘ The instrument stays, because it is cheap and its class is real: one generic
+function (`measure::<T>`) plus four floors
+(`the_reading_is_about_the_subject`), so a row costs a projection, a room, and an
+input measured to move it. Spend it when a row is SUSPECTED, not to walk the list.
+
 ### S8 — the hashed entries written from a schedule that never rewinds
 
 ⛔⛤ **FOUR HASHED ENTRIES ARE WRITTEN FROM `Update`, AND ONE OF THEM IS A PROVEN

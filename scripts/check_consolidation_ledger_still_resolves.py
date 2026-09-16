@@ -47,6 +47,30 @@ IDENT = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b")
 MIN_CORPUS_KIB = 20_000
 
 
+def workspace_packages() -> set[str]:
+    """Ask cargo which crates the workspace HAS. Do not model it from globs.
+
+    ⛔⛤ **THE LEDGER KEEPS A SECOND COPY OF THE WORKSPACE AND NOTHING COMPARED
+    IT.** `workspace_crates` holds 80 rows with per-crate LOC, dependency and
+    public-surface measurements, read at `source_commit` and carrying no
+    mechanism for noticing that a crate was added, removed or renamed. MEASURED
+    2026-09-16: it is EXACT today — 80 and 80, no difference in either direction,
+    every recorded path still present. That is precisely when to install the
+    comparison, because a duplicate authority is invisible until the day it is
+    wrong, and on that day it is a confident wrong answer.
+
+    ⚠ `cargo metadata --no-deps` needs no build and takes ~45 ms here.
+    """
+    out = subprocess.run(
+        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return {pkg["name"] for pkg in json.loads(out.stdout)["packages"]}
+
+
 def main() -> int:
     ledger = json.loads(LEDGER.read_text(encoding="utf-8"))
     items = ledger["items"]
@@ -110,9 +134,43 @@ def main() -> int:
             )
         return 1
 
+    # RULE 3: the ledger's copy of the workspace must still BE the workspace.
+    try:
+        real = workspace_packages()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        # ⛔ A check that cannot reach its authority REFUSES. Skipping here would
+        # make every future run green for a reason that has nothing to do with
+        # the ledger.
+        print(f"⛔⛔ could not ask cargo for the workspace membership: {exc}")
+        return 1
+    recorded = {crate["package"] for crate in ledger.get("workspace_crates", [])}
+    if not recorded:
+        print("⛔⛔ the ledger records no workspace crates; refusing to compare "
+              "against an empty set")
+        return 1
+    added = sorted(real - recorded)
+    gone = sorted(recorded - real)
+    if added or gone:
+        print(
+            f"⛔ the ledger's workspace copy no longer matches cargo "
+            f"({len(recorded)} recorded, {len(real)} real):"
+        )
+        for name in added:
+            print(f"    IN THE WORKSPACE, NOT IN THE LEDGER: {name}")
+        for name in gone:
+            print(f"    IN THE LEDGER, NOT IN THE WORKSPACE: {name}")
+        print(
+            "⇒ Every per-crate measurement beside these rows was taken at the "
+            "ledger's `source_commit`. A crate the ledger has never seen has no "
+            "row at all, and a crate that left takes a row of numbers with it "
+            "that still reads as current."
+        )
+        return 1
+
     print(
         f"ok: {len(items)} ledger items, {paths_seen} cited source path(s) all exist, "
-        f"{len(cited_names)} name(s) in `current_truth` all resolve "
+        f"{len(cited_names)} name(s) in `current_truth` all resolve, "
+        f"{len(recorded)} workspace crate(s) match cargo exactly "
         f"({len(tracked)} tracked .rs files, {len(source)//1024} KiB)"
     )
     print(

@@ -71,10 +71,16 @@ def test_a_name_with_no_definition_is_found(monkeypatch, tmp_path, capsys) -> No
 def test_a_name_owned_by_another_crate_is_declined(monkeypatch, tmp_path) -> None:
     """⛔ THE DECLINE THAT MATTERS. `ResMut` is Bevy's; a guard reading only this
     workspace can never find its definition, and reporting it is noise."""
+    # ⚠ THE FIXTURE CARRIES THE REAL WORKSPACE because this arm asserts a GREEN
+    # result, and a green needs every other rule satisfied. Without it the arm
+    # would pass or fail on the membership rule instead of on the decline it is
+    # named for — the same "what is this actually measuring" question that the
+    # ledger's own workspace copy raises.
     ledger = {
         "items": [
             {"id": "PLANTED", "current_truth": "ResMut and TypeId are used here.", "source_paths": []}
-        ]
+        ],
+        "workspace_crates": [{"package": name} for name in guard.workspace_packages()],
     }
     planted = tmp_path / "ledger.json"
     planted.write_text(json.dumps(ledger), encoding="utf-8")
@@ -96,3 +102,26 @@ def test_a_shrunken_corpus_is_refused(monkeypatch, capsys) -> None:
     monkeypatch.setattr(guard, "MIN_CORPUS_KIB", 99_000_000)
     assert guard.main() == 1
     assert "floor is" in capsys.readouterr().out
+
+
+def test_the_ledgers_workspace_copy_is_the_workspace():
+    """⛔ THE DUPLICATE AUTHORITY THIS CHECK EXISTS FOR.
+
+    `workspace_crates` holds 80 rows of per-crate measurements taken at the
+    ledger's `source_commit`, with no mechanism for noticing a crate added,
+    removed or renamed since. It was EXACT when this arm was written — which is
+    the moment to install a comparison, because a second copy is invisible until
+    the day it is wrong, and on that day it is a confident wrong answer.
+    """
+    real = guard.workspace_packages()
+    recorded = {
+        crate["package"]
+        for crate in json.loads(guard.LEDGER.read_text(encoding="utf-8"))[
+            "workspace_crates"
+        ]
+    }
+    assert len(recorded) >= 50, f"only {len(recorded)} crates recorded; scan suspect"
+    assert real == recorded, {
+        "in the workspace, not the ledger": sorted(real - recorded),
+        "in the ledger, not the workspace": sorted(recorded - real),
+    }

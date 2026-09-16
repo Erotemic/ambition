@@ -27,6 +27,13 @@ REPO = Path(
 )
 SCRIPT = REPO / "scripts" / "check_discharged_holds_are_rewritten.py"
 
+# ⚠ The arms above run the script as a SUBPROCESS, which is the right shape for
+# its exit codes. Rule 3's arms call the predicate DIRECTLY, because what they
+# pin is which sentences it recognises, and routing a three-line fixture through
+# a whole-corpus scan would test the scan instead.
+sys.path.insert(0, str(REPO / "scripts"))
+import check_discharged_holds_are_rewritten as guard  # noqa: E402
+
 FLAGGED = [
     "## A7. Separate item custody",
     "**THE ENUMERATION THIS HOLD ASKS FOR IS DELIVERED:** page.md",
@@ -85,3 +92,36 @@ def test_it_refuses_an_empty_scan_root_instead_of_passing(tmp_path):
     )
     assert out.returncode == 1, "an empty corpus must refuse, not report clean"
     assert "POPULATION IS NOT THERE" in out.stdout, out.stdout
+
+
+def test_rule_three_catches_a_prose_gate_on_a_finished_campaign():
+    """⛔ THE KNOWN-ANSWER CONTROL FOR THE THIRD SPELLING, and it is verbatim.
+
+    `consolidation/architecture-census.md` carried exactly this sentence while
+    A10 was closed and its demolition finished. Both other rules were blind to
+    it: it is not a bold `**HOLD:**` marker, and its file announces no discharge
+    of its own. A widening that is not poisoned against the defect it was built
+    for is a wider POPULATION, not a wider REACH.
+    """
+    stale = guard.stale_gates(
+        "The current A10 implementation should finish before another agent "
+        "changes the room publication model.\n",
+        {"A10"},
+    )
+    assert [(name) for _, name, _ in stale] == ["A10"], stale
+
+
+def test_rule_three_leaves_ordinary_history_alone():
+    """⚠ The corpus is full of legitimate mentions of finished campaigns."""
+    assert guard.stale_gates(
+        "A10's room scope landed first, and a publication authority followed.\n",
+        {"A10"},
+    ) == []
+
+
+def test_rule_three_accepts_a_struck_through_rewrite():
+    """⚠ Striking the id through IS the rewrite this check asks for."""
+    assert guard.stale_gates(
+        "**DO NOT START BEFORE:** ~~A10~~ and the identity checkpoint.\n",
+        {"A10"},
+    ) == []

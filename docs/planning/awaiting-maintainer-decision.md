@@ -515,6 +515,33 @@ peers learns nothing about whether their snapshots are compatible.
 EDIT, not per row, which is why the defect is survivable and also why it goes
 unnoticed.
 
+⛔⛤ **AND THE SECOND ARGUMENT, WHICH IS NOT HYPOTHETICAL: THE WELD BLOCKED A REAL
+REPAIR AND FORCED A NEW API.** Found 2026-09-16 while measuring S7's rows. The
+localization probes are the diagnostic that says WHERE a desync is. A row
+registered through `rollback_component_clone` gets a PRESENCE probe, whose census
+hard-codes `xor: 0` — a carrier count, blind to the value. To measure whether one
+of those rows' floats actually differ across a rewind, that probe has to be given
+a value projection, and there was no road to do it:
+
+- `record_probe` is private to `registration.rs`;
+- `RollbackChecksumProbes::probes` is a private field with no public push;
+- so the only remaining route was to edit the REGISTRATION SITE, which changes
+  that row's `detail`, which changes `schema_dump()`, which changes
+  `compute_schema_fingerprint`.
+
+⇒ **STRENGTHENING A PURELY LOCAL DIAGNOSTIC WOULD HAVE CHANGED THE IDENTITY TWO
+PEERS COMPARE.** A probe contributes nothing to the GGRS aggregate; its strength
+is a fact about what a developer can see, and it was welded to peer-visible
+snapshot identity. That is this question's shape without any appeal to somebody
+rewording a comment — it is a repair that was blocked, today, by the coupling.
+
+The workaround is `RollbackChecksumProbes::strengthen_with::<T>(projection)`:
+probe strength is owned by the collection at runtime, and registration is how it
+is INITIALIZED rather than where it is decided. That keeps ONE owner and needs no
+decision here. ⚠ **It does not answer this question, it routes around it** — the
+`detail` column still carries prose into the fingerprint, and the next diagnostic
+that is not expressible as a runtime override will hit the same wall.
+
 ⓘ **WHAT DID NOT NEED A DECISION AND HAS LANDED:** those 15 sentences were spelled
 TWICE — once in `SchemaRollbackRegistrar` (the metadata recorder) and once in
 `rollback_ggrs`'s installing registrar — with nothing comparing the copies. They

@@ -530,13 +530,28 @@ beside the type, not a registration road. The poison that proves it: removing a
 GAME-side impl now reddens the ratchet, and before the widening it changed
 nothing at all.
 
-**Arms:** five in `scripts/tests/test_absence_contracts.py`
+**Arms:** six in `scripts/tests/test_absence_contracts.py`
 (`test_a_checksum_feeding_row_that_lands_without_a_version_bump_is_caught`,
 `test_the_same_row_with_the_version_moved_is_allowed`,
 `test_a_row_feeding_no_checksum_may_land_without_a_version_bump`,
 `test_the_checksum_feeding_kinds_are_read_from_the_source_not_a_list`,
-`test_the_peer_visible_schema_ratchet_holds_against_the_live_tree`). Each poisoned
-from the production side and each fired on its own arm.
+`test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not`,
+`test_the_peer_visible_schema_ratchet_holds_against_the_live_tree`) plus
+`the_shipped_app_registers_the_same_schema_as_the_sandbox` in
+`game/ambition_app/tests/rollback_schema_baseline.rs`. Each poisoned from the
+production side and each fired on its own arm.
+
+⛔⛤ **AND THE BASELINE EVERY ONE OF THEM READS WAS RECORDED FROM THE SANDBOX, NOT
+THE SHIPPED APP** — a question none of the five asked, because the sandbox arm
+stays green precisely by never asking. Measured: `build_visible_app` and
+`Platformer2dSimHarness` register byte-identical schemas, so the guarded identity
+IS the shipped identity. That is now an arm rather than an assumption, with the
+floor that two EMPTY registries are also byte-identical.
+
+⚠ Two poisons in this pass printed green because the EDIT NEVER APPLIED — a
+reword aimed at a uniform kind matched 0 rows, and an anchor shared with a
+sibling test matched 2. Both were caught only by asserting the anchor count
+before running, which every poison here now does.
 
 
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state

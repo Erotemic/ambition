@@ -76,6 +76,55 @@ def _sources(repo: Path):
             yield src, rel[0], rel[1]
 
 
+#: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A
+#: SOURCE-READING GUARD IS A CLEAN REPORT: a pattern that stops matching, a
+#: source root that moves, or a test-path rule that widens all produce FEWER
+#: findings, and fewer findings reads as good news.
+#:
+#: ⛔⛤ MEASURED ELSEWHERE IN THIS REPOSITORY, THREE TIMES, ALWAYS IN THE GREEN
+#: DIRECTION: `check_rollback_mutators_run_in_sim.py` saw 1 type of 113 for
+#: months, then hid six behind `SessionWorldMut<T>`, then thirteen behind a
+#: `#[derive(SystemParam)]` bundle. Each time the report got shorter and nobody
+#: could tell. ⇒ Raise a floor when the tree genuinely grows; a DROP is the
+#: signature of the next silent hole.
+#:
+#: ⚠ AND THIS FLOOR HAS TO LIVE HERE RATHER THAN IN A SWEEP. An external probe
+#: cannot redirect `collect(repo: Path = REPO)` by patching the module global —
+#: the default argument bound at import — so it re-scans the real tree and
+#: passes. Measured 2026-09-16 by writing that probe and getting 14 false
+#: positives out of 29 scripts.
+POPULATION_FLOOR = {
+    "sources scanned": 1300,
+    "sets defined": 120,
+    "sets pinned": 210,
+}
+
+
+def population_sizes(repo: Path = REPO) -> dict[str, int]:
+    defined: set[str] = set()
+    pinned: set[str] = set()
+    scanned = 0
+    for src, _root, _crate in _sources(repo):
+        scanned += 1
+        text = _strip_comments(src.read_text(encoding="utf-8", errors="replace"))
+        defined.update(match.group(1) for match in SET_DEF.finditer(text))
+        pinned.update(match.group(1).split("::")[-1] for match in PIN.finditer(text))
+    return {
+        "sources scanned": scanned,
+        "sets defined": len(defined),
+        "sets pinned": len(pinned),
+    }
+
+
+def population_shortfalls(repo: Path = REPO) -> list[str]:
+    sizes = population_sizes(repo)
+    return [
+        f"{label}: {sizes[label]} visible, floor is {floor}"
+        for label, floor in POPULATION_FLOOR.items()
+        if sizes[label] < floor
+    ]
+
+
 def collect(repo: Path = REPO) -> list[tuple[str, str, list[str], list[str]]]:
     """(set, defining_crate, engine crates pinning it, crates registering members)."""
     game_root = repo / GAME_ROOT
@@ -121,6 +170,22 @@ def main() -> int:
     args = parser.parse_args()
 
     findings = collect()
+
+    # ⛔ BEFORE THE FINDINGS. "No offenders" over a collapsed population is the
+    # one thing this guard cannot otherwise report, and every clean line below
+    # would be describing a scan that had stopped working.
+    shortfalls = population_shortfalls()
+    if shortfalls:
+        print(
+            "the scan lost reach — it can no longer see part of its own "
+            "population:\n\n  " + "\n  ".join(shortfalls) + "\n\n"
+            "A source-reading guard fails by reporting LESS, so find the "
+            "pattern or path rule that stopped matching before trusting any "
+            "verdict here. If the drop is legitimate, lower POPULATION_FLOOR in "
+            "the same commit that causes it.",
+            file=sys.stderr,
+        )
+        return 1
     if args.list:
         for name, owner, pinning, registering in findings:
             mark = "WAIVED" if name in WAIVERS else "OPEN  "

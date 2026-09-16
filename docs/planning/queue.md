@@ -405,11 +405,34 @@ shows the oracle reads the moved definition and not a stale copy.
 before I started: a default body naming the KIND but not the `detail` would close
 half this row and reopen the other half one crate away.
 
-**Next implementation:** collapse the two vocabularies. ⚠ This is the part that
-is design, not relocation: `RollbackRegistrar` RECORDS a descriptor while
-`AmbitionRollbackApp` INSTALLS plugins and checksum systems, so a shared default
-body needs a primitive each impl supplies. Do not add a third table mapping
-method names to kinds; that is the same duplication with an extra hop.
+**Next implementation:** collapse the two vocabularies. This is design, not
+relocation, and it is COSTED now so the next engineer does not re-derive it.
+
+MEASURED 2026-09-16: **24 trait methods, 14 distinct kinds, but ~21 distinct
+(kind, detail) PAIRS.** Where a kind is shared the details are not —
+`ComponentClone` covers 5 methods with 5 distinct sentences, `ResourceClone` 3
+with 3. Only three pairs cover two methods each. ⇒ **The pair is effectively a
+per-method constant**, so any scheme that groups methods by KIND saves nothing.
+
+⛔ **AND THAT KILLS THE OBVIOUS SHAPE.** A default body per method calling a
+per-method required primitive is ~21 defaults plus ~21 primitives — more code
+than the 24×2 call-site spellings it replaces, with an extra hop. That is the
+"third table with an extra hop" this row already forbids, wearing trait syntax.
+
+⭐ **THE SHAPE THAT DOES PAY: ONE required primitive, an action discriminant, and
+24 default bodies.** `RollbackRegistrar` gains `fn install<T>(&mut self, owner,
+name, kind, detail, ops)` as its ONLY required method; each
+`rollback_*` becomes a default body whose whole content is the (kind, detail)
+pair plus an `ops` variant naming the work. The recording impl matches `ops` and
+ignores most of it; `rollback_ggrs` matches `ops` and installs. ⇒ The kind and
+the sentence are then spelled ONCE, at the declaration, which is this row's
+acceptance — and the ggrs impl stops naming either.
+
+⚠ Cost: 24 default bodies, one `ops` enum, and two 24-arm matches replacing two
+sets of 24 bodies. Roughly size-neutral; the win is the single spelling, not
+fewer lines. ⭐ And it is cheap to VERIFY: `compute_schema_fingerprint` hashes
+the whole `schema_dump()` including `detail`, so `the_rollback_schema_matches_
+its_recorded_baseline` is a byte-exact oracle for the whole refactor.
 Give each registrar method ONE kind, named where the method is declared rather
 than at each call of `descriptor::<T>` / `record::<T>`. Do not add a third table
 mapping method names to kinds; that is the same duplication with an extra hop.

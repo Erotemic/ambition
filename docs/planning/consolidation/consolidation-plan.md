@@ -103,11 +103,28 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 ### CURRENT STATE
 
-Source explicitly groups 32 App resources as gameplay-session or activated-generation state. Activation reset is the correctness edge; retirement cleanup is hygiene.
+Source explicitly groups **36** App resources as gameplay-session or
+activated-generation state. Activation reset is the correctness edge; retirement
+cleanup is hygiene.
+
+⚠ **THAT NUMBER WAS 32 UNTIL IT WAS RE-DERIVED 2026-09-16, AND THE DRIFT IS THE
+CAMPAIGN'S OWN SUBJECT MOVING.** `SessionScopedResources` holds 29 `ResMut`
+fields, not 25 — counted field by field in
+`actor_monolith/src/session/teardown.rs`, each one a distinct App resource. The
+four that arrived are `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks`
+and `SessionMatchOrdinal`: the `MatchInstance`-stamped resources that ID-PEER
+made MEMBERS of this grouping rather than moving elsewhere, which is the correct
+outcome for them and grows C03's population by four. ⇒ **A campaign whose
+starting census is four rows stale starts by consolidating a set it has not
+enumerated.**
 
 ### INDEPENDENT TRUTHS INVOLVED
 
-`SessionScopedResources` (25), `SessionOwnedCheckpointState` (6), and `SessionMechanics` (1), plus `SessionRoot` as the current owner-scoped model.
+`SessionScopedResources` (**29**, re-derived 2026-09-16 — the row said 25),
+`SessionOwnedCheckpointState` (6, unchanged) and `SessionMechanics` (1 resource,
+unchanged — it is ONE resource with six fields, and counting its fields is how
+this total gets read as 41), plus `SessionRoot` as the current owner-scoped
+model.
 
 ### WHY COMPLEXITY EXISTS
 

@@ -5,7 +5,20 @@ It answers one question: which independent truths exist now, and which of them c
 
 The census baseline was read against `662a9b56096a`. Planning-control status was
 refreshed against `2dbd81abc50f` during the documentation consolidation; the
-architecture census itself was not rerun. It did not compile or run Rust. The
+architecture census itself was not rerun.
+
+⛔⛤ **A REFRESHED COUNT IS NOT A REFRESHED CLAIM, AND THE LEDGER NOW CARRIES THE
+TWO SEPARATELY.** `static_measurement_refresh` records when the numbers were
+re-measured (2026-09-16 at `09629b060f65`); `source_commit` still names the
+commit the 114 SEMANTIC items were read at, and they have NOT been re-read.
+Stamping one commit on the whole file would say the claims were re-verified
+because the counts were.
+
+⚠ **AND `generated_inventory_counts` HAS ITS OWN PROVENANCE AGAIN.** It is read
+out of `.agent/`, which is regenerated separately and was 50 commits behind the
+rest of the snapshot when this was found. Without `_generated_from_commit` beside
+it a reader compares source-measured numbers from one commit against inventory
+numbers from another and reads the difference as architecture. It did not compile or run Rust. The
 generated `.agent` inventory is used for counts and navigation. Source and active
 planning own semantic claims.
 

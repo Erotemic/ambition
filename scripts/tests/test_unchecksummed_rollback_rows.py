@@ -82,33 +82,40 @@ def test_the_population_is_the_KIND_and_not_the_SENTENCE():
     """⛔⛤ THE CENSUS SELECTED ON PROSE FOR SIX DAYS AND SAW A THIRD OF ITS SUBJECT.
 
     `feeds_peer_checksum()` is false for `component-clone` and `resource-clone`
-    alike, and those rows carry SIX different `detail` sentences. Selecting on
-    one of them — *"not in the session checksum"* — returned 59 of 175. The 116
-    it missed mostly say *"state checksum supplied by another authoritative
-    projection"*, which is the reassuring direction: a claim, emitted by a
-    registrar method bound only by `T: Clone`, that something else covers them.
+    alike, and those rows carry six different `detail` sentences. Selecting on one
+    of them returned 59 of 175.
 
-    This arm dies if the selector goes back to matching a sentence.
+    ⚠ REPOINTED AT SCHEMA v194, AND THE REASON IS WORTH KEEPING. This arm used to
+    pin the 99 rows that read *"state checksum supplied by another authoritative
+    projection"*, because matching that sentence was how you could tell a
+    kind-selected population from a prose-selected one. v194 removed that claim
+    and those rows now say *"not in the session checksum"* — the same words the
+    old selector matched. The discriminator died with the defect it was pinned to.
+
+    ⇒ So this recomputes the population from the baseline by a DIFFERENT
+    expression and diffs the MEMBERS, not the count. Any selector that consults
+    `detail` at all disagrees with a selector that consults only `kind`.
     """
     module = _module()
-    subjects = module.rows()
-    claiming = [r for r in subjects if "supplied by another" in r[2]]
-    probed = [r for r in subjects if module.PROBED_DETAIL in r[2]]
-    assert len(claiming) >= 80, (
-        f"only {len(claiming)} rows in this population claim another projection "
-        f"covers them; measured at 99. If this is near zero the selector is "
-        "matching prose again and the unverifiable half is invisible."
+    subjects = {name for name, _, _ in module.rows()}
+
+    independent = set()
+    for line in module.BASELINE.read_text(encoding="utf-8").splitlines()[1:]:
+        fields = line.split("\t")
+        if len(fields) >= 2 and fields[1].endswith("-clone") and "-" not in fields[1][:-6]:
+            independent.add(fields[0])
+
+    missing = sorted(independent - subjects)
+    extra = sorted(subjects - independent)
+    assert not missing, (
+        f"{len(missing)} unhashed row(s) the census does not report, e.g. "
+        f"{missing[:5]}. A selector that reads `detail` drops rows a selector "
+        "that reads `kind` keeps."
     )
-    assert len(probed) >= 40, (
-        f"only {len(probed)} rows carry the honest probe sentence; measured at 59"
-    )
-    # ⚠ AND THE TWO HALVES MUST NOT BE THE SAME ROWS, or the split above is a
-    # description of one bucket counted twice.
-    assert not (
-        {r[0] for r in claiming} & {r[0] for r in probed}
-    ), "a row cannot both claim coverage and say it is uncovered"
-    assert len(subjects) > len(probed) + 10, (
-        "the population is no wider than the old sentence-keyed one"
+    assert not extra, f"the census reports rows outside the two kinds: {extra[:5]}"
+    assert len(subjects) >= 120, (
+        f"both selectors agree on {len(subjects)} rows; measured at 175. They can "
+        "agree on an empty set."
     )
 
 

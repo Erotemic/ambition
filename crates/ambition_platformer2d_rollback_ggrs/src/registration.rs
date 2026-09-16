@@ -554,7 +554,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ComponentClone,
-                detail::CLONE_COVERED_ELSEWHERE,
+                detail::CLONE_UNHASHED,
             ),
         )
         {
@@ -930,7 +930,7 @@ impl AmbitionRollbackApp for App {
                 owner,
                 name,
                 RollbackEntryKind::ResourceClone,
-                detail::CLONE_COVERED_ELSEWHERE,
+                detail::CLONE_UNHASHED,
             ),
         )
         {

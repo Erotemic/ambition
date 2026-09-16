@@ -1324,6 +1324,48 @@ a fighter-specific exception.
 movement-transition attacks from their authored menu across the intended
 difficulty ladder, with no regression to the press/move identity contract.
 
+⚠ **MEASURED 2026-09-16 — THE LADDER HALF OF THAT ACCEPTANCE FAILS AT RUNG 5,
+AND THE FAILURE IS NOT MONOTONE IN DIFFICULTY.** Sweeping `AMBITION_DUEL_RUNG`
+over the five published rungs at HEAD, `npc_pirate_admiral` mirror, counting move
+STARTS:
+
+| rung | distinct moves (seat 0 / 1) | share that is `grapeshot` + `call_the_shark` |
+|------|------------------------------|-----------------------------------------------|
+| 1 | 11 / 12 | 48% / 49% |
+| 3 | 13 / 16 | 40% / 40% |
+| 5 | 11 / **7** | **70% / 84%** |
+| 6 | 14 / 15 | 25% / 31% |
+| 9 | 13 / 13 | 35% / 44% |
+
+And it shows up in where the damage goes, splitting each `ResolvedBodyHit` on
+whether its victim is a seat: rung 5 lands **16 of 105** damage on an opponent
+(15%) against rung 9's 51 of 95 (54%). A rung answering 70–84% of its decisions
+with two moves and putting 85% of its damage into summons is this acceptance
+failing — it is also why
+[DUEL-GUARD-RUNG](#duel-guard-rung--the-cpu-duel-guard-fails-at-rung-5-on-main-today)
+sees the shipped duel guard go red there, and that row's investigation is what
+produced these numbers.
+
+⛔ **NO MECHANISM IS CLAIMED HERE, and one plausible one was checked and
+refuted.** `FighterBrainProfile::for_level` switches rollouts on at `level >= 6`,
+which would have explained rungs 6 and 9 being the varied ones — but that
+fallback does not apply: `ambition_content` ships an `AuthoredFighterLadder`, and
+`assets/data/fighter_brain_ladder.ron` authors `rollout_depth: 0, rollout_k: 0`
+at **all nine rungs**. ⇒ Rollouts never run in the shipped game, so difficulty is
+entirely `reaction_ms`, `apm_cap`, `execution_noise`, `read_weight` and the
+utility weights — every one of which the file's own validation requires to be
+MONOTONE in level. A monotone ladder producing a non-monotone outcome with a
+large outlier at one rung is the finding, and the F6 menu/utility term is where
+it belongs.
+
+⚠ **BOUNDS, because this is one sample and cannot be resampled.**
+`fighter_cognition_seed` mixes the character id and the level with no clock and
+no external seed, so each rung is ONE deterministic stream — rung 5 returned
+bit-identical figures across three unrelated code states, which confirms the
+determinism but does not widen the sample. These rows are `npc_pirate_admiral`
+only. ⇒ Before acting, re-run across the other duel fighters; a defect at one
+(character, level) pair is not yet a defect in the rung.
+
 ### D-POTATO-ASPECT — finish low-tier sprite aspect/trim policy
 
 **Owner:** [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).

@@ -58,6 +58,31 @@ The peer-stable identity work is also a separate active campaign. This census ma
 The shell/content activation gate is atomic at this snapshot. Its A-supersedes-B hold race still needs its named witness.
 Mechanical edit admission is established as an implementation foundation: six production domains use the shared proposal, admission, and publication protocol.
 
+## What is checked mechanically, and what is not
+
+`scripts/check_consolidation_ledger_still_resolves.py` answers the two questions
+about this ledger that a machine can answer: every cited `source_paths` /
+evidence source is a file that exists, and every CamelCase name in a
+`current_truth` sentence resolves to a definition in the tracked Rust sources.
+
+MEASURED 2026-09-16, and the result is a NEGATIVE one worth recording: **114
+items, 378 cited paths all exist, 63 names all resolve.** The ledger is not stale
+by either mechanical measure, which bounds the worry that its items were read at
+`662a9b56096a` and never re-read.
+
+⚠ **AND THE FIRST RUN REPORTED FOUR UNRESOLVED NAMES, ALL FOUR FALSE.**
+`ResMut` and `TypeId` are Bevy's and std's; `LoadId` is `ambition_load`'s and
+`RunGgrsSystems` is `bevy_ggrs`'s, both live and used in dozens of places. A name
+the check cannot resolve is a name whose definition it cannot SEE — a claim about
+the scan's reach, not about the ledger. Triage every finding by hand.
+
+⛔⛤ **NEITHER CHECK SAYS THE CLAIMS ARE STILL TRUE, AND A GREEN RUN MUST NOT BE
+CITED AS A REFRESH.** A `current_truth` sentence can go completely stale while
+every path exists and every type still compiles: the owner changes, a second
+writer appears, a road is deleted and the sentence describing it survives. That
+is the refresh rule below, and it needs a human reading the source behind the
+item. ⇒ The check bounds the CHEAP failure and is silent about the expensive one.
+
 ## Refresh rule
 
 Run:

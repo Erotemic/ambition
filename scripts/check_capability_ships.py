@@ -175,8 +175,17 @@ def _without_comments(source: str) -> str:
     return "\n".join(out)
 
 
+#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
+#: was one of FIVE copies that had drifted into five different answers; this one
+#: was the narrowest, missing `test.rs` and `*_tests.rs`, and like all five it
+#: missed a file whose inner `#![cfg(test)]` compiles it out entirely.
+#: ⚠ The union sees MORE test files, so this check sees FEWER production ones —
+#: the green direction. `POPULATION_FLOOR` above is what makes that reviewable.
+from test_paths import is_test_path  # noqa: E402
+
+
 def _is_test(path: Path) -> bool:
-    return "tests" in path.parts or path.name in {"tests.rs", "test_support.rs"}
+    return is_test_path(path)
 
 
 #: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A

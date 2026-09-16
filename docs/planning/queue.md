@@ -363,6 +363,7 @@ ONE method, not five — see below. A parser's grouping is a finding about the
 parser until it is checked by hand.
 
 ⇒ **ONE ASYMMETRY WAS REAL AND IS DELETED.** `rollback_resource_cursor` was
+<!-- cite-ok: the deleted method is this paragraph's subject; a resolvable citation would mean the deletion did not happen -->
 declared and implemented on the INSTALLING road only, with no counterpart in
 `RollbackRegistrar` and ZERO callers in the workspace. A registration expressible
 on one road and not the other is worse than a kind spelled twice: it installs

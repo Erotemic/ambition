@@ -47,8 +47,29 @@ import sys
 BANNER = re.compile(r"DELIVERED|SATISFIED|DISCHARGED|✅|✔")
 # The convention's form: a BOLD marker at line start. Prose quoting an old hold
 # writes `*"HOLD …"*` and is deliberately not matched.
-LIVE = re.compile(r"^\*\*(HOLD|BLOCKED)\b")
-DISCHARGED = re.compile(r"DISCHARGED|SATISFIED|LIFTED|CLOSED|hold-ok")
+#
+# ⛔⛤ **`DO NOT START BEFORE` IS THE SAME CONVENTION UNDER A SECOND SPELLING, AND
+# IT WAS OUTSIDE THE POPULATION.** `consolidation-plan.md` states every ranked
+# row's gate that way -- ten of them -- and this check was scanning FOUR bold hold
+# lines across 1072 rows. MEASURED 2026-09-16: three of those ten named blockers
+# that had been discharged on 2026-09-15, and the check reported clean because
+# their spelling was not the one it knew. A convention spelled twice is invisible
+# to the guard that enforces it.
+LIVE = re.compile(r"^\*\*(HOLD|BLOCKED|DO NOT START BEFORE)\b")
+DISCHARGED = re.compile(r"DISCHARGED|SATISFIED|LIFTED|CLOSED|hold-ok|discharged")
+
+# ⛔⛤ **THE SECOND RULE: A HOLD MAY NAME A ROW THIS SAME FILE MARKS COMPLETE.**
+# Widening `LIVE` to reach `consolidation-plan.md` took the population from 4 to
+# 12 and caught NOTHING -- MEASURED by restoring a real stale gate line, which
+# stayed green. The banner rule needs the discharge announced INSIDE the row, and
+# that file announces it in a priority TABLE at the top. So the gate line said
+# "DO NOT START BEFORE: A10 complete" while the table two screens up already said
+# COMPLETE, and no rule connected them.
+#
+# ⚠ A wider population is not a wider REACH. Poison the widening against the
+# defect it was supposed to find before believing it.
+ROW_ID = re.compile(r"\b([A-Z]\d{1,3})\b")
+COMPLETE_HERE = re.compile(r"\b(COMPLETE|COMPLETED|CLOSED)\b")
 
 # ⛔⛔ THE KNOWN-ANSWER CONTROL, RUN ON EVERY INVOCATION. A source-text guard goes
 # blind when its pattern rots, and the symptom is a clean report — which is what a
@@ -116,6 +137,26 @@ def main() -> int:
                 rows += 1
                 body = lines[a:b]
                 holds += sum(1 for l in body if LIVE.match(l))
+                # RULE 2: a hold naming an id this same file marks complete.
+                done = {
+                    m.group(1)
+                    for l in lines
+                    if COMPLETE_HERE.search(l)
+                    for m in ROW_ID.finditer(l)
+                }
+                for n, l in enumerate(body, start=a + 1):
+                    if not LIVE.match(l) or DISCHARGED.search(l):
+                        continue
+                    # ⚠ A struck-through id is the REWRITE this check asks for.
+                    bare = re.sub(r"~~[^~]*~~", "", l)
+                    stale = sorted(set(ROW_ID.findall(bare)) & done)
+                    if stale:
+                        findings.append(
+                            f"  {path}:{n}\n"
+                            f"     HOLD names {', '.join(stale)}, which this file "
+                            f"marks COMPLETE\n"
+                            f"     :{n} {l.strip()[:78]}"
+                        )
                 banners, live = offenders(body, a)
                 if banners and live:
                     findings.append(
@@ -139,8 +180,9 @@ def main() -> int:
 
     if findings:
         print(
-            f"⛔ {len(findings)} row(s) announce a hold is discharged and still state "
-            f"it as live:\n"
+            f"⛔ {len(findings)} hold(s) state a condition this repository has "
+            f"already discharged -- either announced in the row itself, or named as "
+            f"a row this same file marks COMPLETE:\n"
         )
         print("\n".join(findings))
         print(

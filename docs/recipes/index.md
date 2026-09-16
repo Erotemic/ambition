@@ -64,9 +64,13 @@ When a command changes, update or delete the recipe in the same patch.
   error; and NO P2P SESSION IS EVER BUILT, so a green lane clears a LOCAL
   RESIMULATION defect and says nothing about two peers agreeing.
 - [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — its dual: the
-  questions that catch a check which is CORRECT and never executed. ⛔ **fifteen**
-  members now, seven of them found in one gate script and most of the first ten
-  by accident; several are still structurally live. Also holds the SIBLING
+  questions that catch a check which is CORRECT and never executed. ⛔ Its
+  members are NUMBERED IN THE PAGE and deliberately not counted here — this
+  line said "fourteen" while the page held fifteen, within an hour of the
+  fifteenth being added, which is the same rot its sibling
+  `re-measuring-a-planning-claim.md` refuses a total for. Seven were found in
+  one gate script and most of the first ten by accident; several are still
+  structurally live. Also holds the SIBLING
   family (a check that ran and could not have failed, 46 instances in
   [`../../dev/journals/blind-checks-2026-09-03.md`](../../dev/journals/blind-checks-2026-09-03.md)),
   the seven-pass audit for finding more, the four ways a search that finds

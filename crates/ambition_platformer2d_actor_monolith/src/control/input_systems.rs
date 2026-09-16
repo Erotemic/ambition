@@ -420,8 +420,20 @@ mod per_seat_gesture_tests {
     ///
     /// ⭐ **AND IT IS ALSO THE ROLLBACK FIX'S WITNESS.** The same read made a
     /// resimulation of a confirmed frame interpret that frame's stick under
-    /// whatever the settings menu says NOW. The policy is resolved once at input
-    /// capture into `SeatControlFrameModes`; simulation reads the table.
+    /// whatever the settings menu says NOW.
+    ///
+    /// ⛔⛤ **THE POLICY RIDES THE FRAME, NOT A TABLE — AND THIS FIXTURE SET THE
+    /// TABLE UNTIL 2026-09-16.** It used to write per-seat modes into
+    /// `SeatControlFrameModes` and drive both seats with one default-moded
+    /// `ControlFrame`, which was right while simulation read the table. Once
+    /// `ControlFrame` carried the policy, the table write configured a
+    /// preference nothing in the derivation could see and both seats resolved
+    /// `ScreenRelative` — seat one stopped fast-falling and this arm's own
+    /// message said so: *"the per-seat table is not reaching the derivation at
+    /// all"*. ⇒ Per-seat modes are now expressed the way `populate_seat_control_frames`
+    /// expresses them, ON EACH SEAT'S FRAME, and the table is deliberately NOT
+    /// written here: a derivation that still read it would get defaults and
+    /// redden, which is the whole point of not leaving it behind.
     ///
     /// Both seats fall SIDEWAYS (`down` = world `+x`) and both press raw-DOWN
     /// twice. Body-relative-strict maps raw-down onto local down, so seat one
@@ -447,36 +459,29 @@ mod per_seat_gesture_tests {
             app.world_mut()
                 .spawn((DrivingParticipant(PlayerSlot(slot)), sideways));
         }
-        let mut modes = ambition_characters::control::SeatControlFrameModes::default();
-        modes.set(
-            PlayerSlot(0),
-            ae::ControlFrameModes {
-                movement: ae::InputFrameMode::ScreenRelative,
-                aim: ae::InputFrameMode::ScreenRelative,
-            },
-        );
-        modes.set(
-            PlayerSlot(1),
-            ae::ControlFrameModes {
-                movement: ae::InputFrameMode::BodyRelativeStrict,
-                aim: ae::InputFrameMode::BodyRelativeStrict,
-            },
-        );
-        app.insert_resource(modes);
         app.init_resource::<ambition_time::WorldTime>();
         app.add_systems(Update, derive_slot_direction_gestures);
 
-        let tap = ControlFrame {
+        // ONE tap, TWO policies — the only thing that differs between the seats.
+        let tap_under = |mode: ae::InputFrameMode| ControlFrame {
             down_pressed: true,
             axis_y: 1.0,
+            control_frame_modes: ae::ControlFrameModes {
+                movement: mode,
+                aim: mode,
+            },
             ..Default::default()
         };
+        let seat_modes = [
+            ae::InputFrameMode::ScreenRelative,
+            ae::InputFrameMode::BodyRelativeStrict,
+        ];
         let mut fired = [false; 2];
         for _ in 0..2 {
             {
                 let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
                 for slot in [0u8, 1] {
-                    raw.set(PlayerSlot(slot), tap);
+                    raw.set(PlayerSlot(slot), tap_under(seat_modes[slot as usize]));
                 }
             }
             app.update();

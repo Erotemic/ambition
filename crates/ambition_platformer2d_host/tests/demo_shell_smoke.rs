@@ -147,6 +147,54 @@ fn fixture_setup(
 
 /// A shell with no encounter content boots. Worlds that contain encounters but
 /// provide no encounter authority still fail.
+/// PROBE: what does an UNPINNED headless app actually step?
+///
+/// `demo_shell_boots_and_ticks` below pins the frame to the tick and counts,
+/// because *"without the count, silence and success look the same"*. This is the
+/// other half of that sentence, measured rather than assumed: the same
+/// composition with `TimeUpdateStrategy` left ALONE, counting fixed steps over
+/// the same number of `update()` calls.
+///
+/// Census 2026-09-16: 24 files call `add_headless_foundation`, and NINE of them
+/// call `update()` without pinning the timestep. Whether that matters depends
+/// entirely on this number, which nobody had.
+#[test]
+#[ignore = "PROBE, print-only: how many fixed steps an UNPINNED headless app takes"]
+fn probe_how_many_fixed_steps_an_unpinned_headless_app_takes() {
+    #[derive(Resource, Default)]
+    struct Steps(u32);
+    let mut app = App::new();
+    ambition_platformer2d_runtime::add_headless_foundation(&mut app);
+    app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::default());
+    app.add_plugins(ambition_platformer2d_host::PlatformerHostPlugins);
+    app.add_plugins(FixtureContentPlugin);
+    app.init_resource::<Steps>();
+    app.add_systems(FixedUpdate, |mut s: ResMut<Steps>| s.0 += 1);
+
+    let timestep = app
+        .world()
+        .resource::<bevy::time::Time<bevy::time::Fixed>>()
+        .timestep();
+    let mut seen = Vec::new();
+    for n in 1..=10 {
+        app.update();
+        seen.push((n, app.world().resource::<Steps>().0));
+    }
+    println!(
+        "[unpinned] timestep {:?}; fixed steps after each of 10 update() calls: {:?}",
+        timestep, seen
+    );
+    println!(
+        "[unpinned] TOTAL fixed steps over 10 updates: {}",
+        app.world().resource::<Steps>().0
+    );
+    println!(
+        "[unpinned] an arm asserting about simulation state after this many \
+         update() calls is asserting over whatever this number turned out to be \
+         on the box that ran it"
+    );
+}
+
 #[test]
 fn demo_shell_boots_and_ticks() {
     let mut app = App::new();

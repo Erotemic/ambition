@@ -100,6 +100,65 @@ sections. ⛔ They are NOT repeated here: this row had grown to 694 of the queue
 1048 lines, which made the live executable queue two thirds one closed campaign's
 diary.
 
+### CUTSCENE-ROLLBACK-DECISION — two session-scoped cutscene values cross into simulation with no rollback decision
+
+**Owner:** unclaimed. Found 2026-09-16 while measuring C03 step 3; NOT fixed here.
+
+**REASONED, not measured — there is no failing arm yet, and the row says which
+experiment would make one.** What is MEASURED is the partition: of
+`SessionScopedResources`' 29 members, 22 are rollback-registered, 3 call
+`declare_rollback_derived_resource`, and **4 carry no rollback decision of any
+kind**. Reading the four, source already answers two of them:
+
+- `BossEncounterRegistry` — *"Authored boss data… Read-only at runtime"*, *"The
+  registry is a read-only DATA CATALOG (profiles only)"*, populated once behind a
+  `specs_loaded` latch from the App-local catalog. Authored content, identical on
+  both peers. ⇒ **Correctly unregistered.**
+- `CutsceneSkipHold` — *"The input-local half of the skip: an accumulator the HUD
+  draws and the sim never reads"*, stated beside its own `init_resource`.
+  ⇒ **Correctly unregistered.**
+
+⛔⛔ **THE OTHER TWO ARE WRITTEN OR CONSUMED INSIDE THE REWINDING SCHEDULE.**
+
+1. **`CutsceneAdvanceRequest`** is produced by
+   `apply_menu_frame_to_cutscene_request` (host side) and consumed by
+   `tick_active_cutscene` with `std::mem::take`, in the sim schedule. Source
+   already calls it *"the cutscene's pending SIMULATION input"* and
+   *"edges already through the door, not presentation"*. ⇒ A rewind that
+   re-simulates the consuming frame finds the latch already emptied, so the
+   player's skip/dismiss edge is dropped on resimulation — and the symmetric case
+   is an edge taken only in a branch that was discarded.
+2. **`CutsceneTriggerQueue`** is written in the sim schedule by
+   `auto_trigger_room_cutscenes` and drained by `drain_cutscene_triggers` — which
+   **returns early, without draining, while a cutscene is playing.** ⇒ It is NOT
+   a fill-and-drain-same-frame buffer: it holds across frames for the whole
+   duration of a scene. `ActiveCutscene` and `LastCutsceneRoom` both rewind
+   (`cutscene.playback`, `cutscene.last_room`); the queue between them does not.
+
+⭐⭐ **AND THIS EXACT SHAPE IS ALREADY SOLVED ONE DOMAIN OVER, WHICH IS THE
+STRONGEST ARGUMENT THAT IT IS REAL.** `OutstandingCheckpointRequest` is a request
+raised outside the frame that spends it, and its registration carries the reason:
+*"⛔⛔ A REQUEST THAT OUTLIVES ITS FRAME MUST REWIND WITH THE WORLD. The reset
+channel is cleared on rollback, so before this bit existed a rewound timeline
+simply lost the request."* Same sentence, same mechanism, different domain — and
+the cutscene pair has no equivalent.
+
+⚠ **AND `teardown.rs` ALREADY PAID FOR HALF OF IT AT A DIFFERENT BOUNDARY.** A
+2026-09-13 review found that clearing `ActiveCutscene` and the trigger queue at
+session teardown while leaving `CutsceneAdvanceRequest` let *"A's skip"* be spent
+on *"B's scene"*. ⇒ The SESSION boundary was closed. The ROLLBACK boundary, which
+is the same value crossing a different edge, was not looked at.
+
+**What would settle it (not done here):** a SyncTest arm that raises
+`skip_cutscene` on frame N, forces a rewind across N, and asserts the skip is
+still spent exactly once — the same construction the checkpoint request's arms
+use. A poison that removes the registration must redden it.
+
+⛔ **DO NOT "FIX" THIS BY REGISTERING BOTH.** `CutsceneAdvanceRequest` may belong
+on the control frame rather than in a resource — the per-seat frame-mode work
+moved a policy the same way for the same reason — and that is a design question,
+not a missing line. The decision is what is missing, not the registration.
+
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
 **Owner:** deterministic identity / rollback architecture; see the identity map in

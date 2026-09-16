@@ -158,8 +158,30 @@ matched `Res<Short>` after stripping each type to its last path segment, while
 production writes `ResMut<ambition_cutscene::LastCutsceneRoom>`. A zero from a
 name-matching scan is a claim about the QUERY.
 
-Still on the table: repeated owner guards; separate reset lists. Do not force
-state that must exist before root creation into the root.
+⛔⛤ **AND "SEPARATE RESET LISTS" IS NOT A DUPLICATED AUTHORITY EITHER, MEASURED
+2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (29)
+and `SessionOwnedCheckpointState` (6, all six checkpoint-operation types) — and
+their intersection is **EMPTY**. Both run at `SessionScopeSet::Activate`. So they
+are a PARTITION of session-owned state, not two copies of it: merging them buys
+one fewer struct, not one fewer truth.
+
+⚠ The activation and retire resets are ALSO not two lists. Both take the same
+`SessionScopedResources` bundle and call the same `reset()`; the retire one is
+declared HYGIENE at the site, and the activation one is what makes the next
+session safe.
+
+⚠ **AND `clear_transient_on_sandbox_reset` IS A DIFFERENT AXIS, not a third
+list** — it takes `Commands` and entity `Query`s and no session resource at all.
+⛔ A regex over its signature reported ZERO resource params, which is TRUE and
+would have been reported as a finding by a scan that did not open it. It is a
+correct zero for the wrong-sounding reason, which is exactly when to read the
+function.
+
+⇒ **WHAT IS LEFT FOR C03 ON THIS AXIS IS REPEATED OWNER GUARDS AND THE
+`SessionRoot`-vs-App-global ownership question itself** — both of which are
+migrations. Neither of the two cheap wins the row opened with survived
+measurement. Do not force state that must exist before root creation into the
+root.
 
 ### DEPENDENCIES / BLOCKERS
 

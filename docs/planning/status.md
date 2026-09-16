@@ -197,12 +197,31 @@ damage-policy lifetime is a product decision in
 
 ### Persistence and the peer contract
 
-⛔ **MEASURED 2026-09-16: THE SAVE FILE IS INSIDE THE PEER CHECKSUM AND IS
-DERIVED PER FRAME.** `AmbitionGameSave` is `rollback_resource_clone_checksum`, so
-its whole value is compared per TICK, while `persist_inventory_to_save` writes it
-from `Update` — per FRAME, and a rewind re-simulates ticks without re-running
-`Update`. A bag that changes every tick desyncs a GGRS sync test within six
-ticks; of 364 probed rollback entries exactly one diverges, and it is the save.
+✅ **REPAIRED 2026-09-16 (P0). THE SAVE MIRRORS NOW CROSS THE ROLLBACK
+BOUNDARY.** `persist_inventory_to_save`, `persist_occurrence_horizon_to_save` and
+`persist_minted_item_horizon_to_save` register through `app.sim_schedule()`, so a
+rewind replays them. No disk I/O moved — they derive the save RESOURCE from live
+simulation state, and autosave and the file write stay outside the simulation.
+
+⛔ **WHAT WAS WRONG:** `AmbitionGameSave` is `rollback_resource_clone_checksum`,
+so its whole value is compared per TICK, while the mirrors wrote it from `Update`
+— per FRAME — and a rewind re-simulates ticks without re-running `Update`. A bag
+that changed every tick desynced a GGRS sync test within six ticks; of 364 probed
+rollback entries exactly one diverged, and it was the save.
+
+⭐⭐ **AND THE ACCEPTANCE WAS NOT THE REPRO.** The merged-state review refused
+*"startup repro now passes"* on its own, because a checksum that stops responding
+to the state it covers turns every equality arm green in the direction that looks
+like success. ⇒ Measured both ways: the divergence set went to EMPTY, **and** the
+save's hashed projection went from **1 distinct census across 236 compared frames
+to 236** (neighbours: 238). It is no longer PINNED, so the empty set is a
+comparison that could have failed. The second measurement is guarded at a floor
+of 50 so it cannot silently return to the pinned regime.
+
+⚠ **STILL OPEN AND NOW THE ONLY HASHED-SAVE WRITER OUTSIDE THE REWIND WINDOW:**
+`dispatch_pending_dialog_requests` INCREMENTS a dialog visit count from `Update`.
+The mirrors could move because they DERIVE the save; an increment does not
+converge under replay, so it needs a different answer.
 ⚠ **WHAT MAKES IT REPRODUCE IS THE FIRST THREE TICKS, NOT THE CADENCE** —
 corrected 2026-09-16 by its owner after a sweep: an every-tick grant STARTING
 at tick 4 runs 120 steps clean, starting at tick 1 or 2 it desyncs at frames
@@ -214,10 +233,17 @@ do not re-derive them here.
 
 ⚠ This is not only a persistence question: 13 of the 19 systems that write
 `AmbitionGameSave` are registered in the SIM schedule, so the save is
-simulation-adjacent state in practice whatever it is in principle. That is what
-makes "take it out of the checksum" the large option rather than the small one.
+simulation-adjacent state in practice whatever it is in principle. ⛔ That is what
+made "take it out of the checksum" the LARGE option rather than the small one,
+and the review refused it outright — unhashing would have bought a green repro by
+discarding comparison coverage for quests, flags, switches, encounters, shrines,
+cutscenes and boss state.
 
-The ruling is
+⇒ **Q129 IS NARROWER FOR THE REPAIR AND STILL OPEN.** The desync is no longer
+the reason to answer it, and its pinned-projection half is ANSWERED for the save
+— it was pinned BECAUSE the mirrors wrote from `Update`. What remains is the
+ownership question on its own merits: should a save FILE be part of what two
+peers agree on. The ruling is
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
 the measurement and the reproduction are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay).

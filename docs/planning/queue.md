@@ -2572,6 +2572,35 @@ world with no rollback session. ⇒ "The bag lost an item" and "the REWIND took 
 item back" are indistinguishable from inside one harness; the control is the
 load-bearing half of the arm.
 
+⛔⛤ **AND THE RESET HALF IS NOW MEASURED TOO, 2026-09-16: A NEW GAME ASKED FOR
+FROM OUTSIDE THE SIMULATION COMMITS ZERO TIMES.** Held by
+`a_new_game_asked_for_from_outside_the_simulation_is_swallowed`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), which
+counts `NewGameResetCommitted` through one recorder on both roads:
+
+```text
+asked from INSIDE the sim schedule    1 commit (tick 31)
+asked from OUTSIDE it (the menu)      0 commits, and the flag reads false again
+```
+
+⇒ **Pressing New Game does nothing under a rollback host, and leaves no trace.**
+`NewGameResetRequested` is `resource-canonical` — snapshotted, restored, peer
+checksummed — so the restore returns the flag to `false` before
+`process_new_game_reset_request` (which runs INSIDE the rewinding schedule) ever
+sees it.
+
+⭐ THE IN-SIM ARM IS THE CONTROL AND IT IS WHAT MAKES THE ZERO READABLE.
+`process_new_game_reset_request` has several *"DECLINE, do not die"* roads and
+clears the flag BEFORE them, so "0 commits, flag false" is exactly what a
+declining reset prints as well. The two arms differ only in WHERE the request is
+written, so a decline would take both to zero. Poison-verified: registering the
+in-sim requester in the outside arm takes it 0 → 1.
+
+⚠ THIS IS THE WORSE HALF OF THE ROW. The `OwnedItems` defect is *"occasionally,
+only in netplay"*; this one is deterministic — the request is written outside the
+timeline every time, so the press is swallowed every time a rollback host is
+running.
+
 ⛔ **AND NOTHING ANYWHERE SAYS SO.** No desync, no error, no log line.
 `OwnedItems` is `rollback_resource_clone` — restored, not hashed — so there is no
 checksum to disagree. `session_health` was clean on all 240 frames in which the

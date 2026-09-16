@@ -2786,3 +2786,172 @@ fn probe_the_latch_as_the_opener_sees_it() {
         }
     }
 }
+
+/// Every commit of a New Game this world performed, by the `SimTick` it
+/// committed on, one entry per PASS.
+#[derive(bevy::prelude::Resource, Default)]
+struct ResetCommits(Vec<u64>);
+
+fn record_every_new_game_commit(
+    mut committed: bevy::prelude::MessageReader<
+        ambition_platformer2d::actors::session::reset::NewGameResetCommitted,
+    >,
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut commits: bevy::prelude::ResMut<ResetCommits>,
+) {
+    for _ in committed.read() {
+        commits.0.push(tick.0);
+    }
+}
+
+/// The tick the in-sim control asks for its New Game on — comfortably after
+/// durable hydration, so neither arm is racing the latch.
+const IN_SIM_NEW_GAME_AT: u64 = 30;
+
+fn request_a_new_game_from_inside_the_sim(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut reset: bevy::prelude::ResMut<
+        ambition_platformer2d::actors::session::reset::NewGameResetRequested,
+    >,
+) {
+    if tick.0 == IN_SIM_NEW_GAME_AT {
+        reset.request = true;
+    }
+}
+
+fn sim_recording_new_game_commits(with_an_in_sim_requester: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room(ROOM)
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            app.init_resource::<ResetCommits>();
+            app.add_systems(label, record_every_new_game_commit);
+            if with_an_in_sim_requester {
+                app.add_systems(label, request_a_new_game_from_inside_the_sim);
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a reset-commit recorder")
+}
+
+/// Step until the durable latch rises, then a little further.
+fn step_past_hydration(sim: &mut Platformer2dSimHarness) {
+    let mut latched = false;
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .get_resource::<SaveRestored>()
+            .is_some_and(|restored| restored.0)
+        {
+            latched = true;
+            break;
+        }
+    }
+    assert!(
+        latched,
+        "the durable latch never rose, so this world never reached the state a \
+         menu press would be made in"
+    );
+}
+
+/// ⛔⛤ **A NEW GAME ASKED FOR FROM OUTSIDE THE SIMULATION IS SILENTLY SWALLOWED,
+/// AND THE SHIPPED MENU IS OUTSIDE THE SIMULATION — MEASURED 2026-09-16.**
+///
+/// `NewGameResetRequested` is `resource-canonical` in
+/// `rollback_schema_baseline.txt`: snapshotted, restored, and in the peer
+/// checksum. `dispatch_menu_action` sets it through `ResMut` from top-level
+/// `Update` (`request_reset`, `game/ambition_app/src/menu/kaleidoscope_app.rs`),
+/// and `process_new_game_reset_request` consumes it from INSIDE the rewinding
+/// schedule. So the flag is restored to its snapshot value before the consumer
+/// ever sees it:
+///
+/// ```text
+/// asked from INSIDE the sim schedule    1 commit
+/// asked from OUTSIDE it (the menu)      0 commits, and the flag reads false again
+/// ```
+///
+/// ⇒ **Pressing New Game does nothing under a rollback host, and leaves no
+/// trace.** `false` afterwards is what makes it silent: the flag looks consumed
+/// whether the reset ran or the restore ate the request.
+///
+/// ⭐ THE IN-SIM ARM IS THE CONTROL AND IT IS WHY THIS IS NOT A FIXTURE FAULT.
+/// `process_new_game_reset_request` has several *"DECLINE, do not die"* roads and
+/// clears the flag BEFORE them, so "0 commits, flag false" is exactly what a
+/// declining reset would also print. The two arms differ only in WHERE the
+/// request is written, so a decline would take both to zero.
+///
+/// ⚠ **THE REPAIR IS A SEMANTIC REQUEST, NOT A LOUDER FLAG.** The menu should
+/// write a message the simulation consumes — the road `ItemGrantRequested` and
+/// `ShopTransactionRequested` already take — so the press survives as an intent
+/// rather than as rollback-owned state written from outside the timeline. Do not
+/// "fix" it by removing `NewGameResetRequested` from the peer checksum: the
+/// restore is installed independently of the checksum
+/// (`install_resource_clone_checksum`), so narrowing what peers compare leaves
+/// the swallow untouched.
+#[test]
+fn a_new_game_asked_for_from_outside_the_simulation_is_swallowed() {
+    // CONTROL: the same request, written from inside the timeline.
+    let mut inside = sim_recording_new_game_commits(true);
+    step_past_hydration(&mut inside);
+    for _ in 0..200 {
+        inside.step(AgentAction::default());
+    }
+    let inside_commits = inside.world().resource::<ResetCommits>().0.clone();
+    assert_eq!(
+        inside_commits.len(),
+        1,
+        "the in-sim control did not commit exactly one New Game (ticks {inside_commits:?}). \
+         0 means this fixture cannot perform a reset at all — every number below \
+         would then be measuring the fixture, not the road. More than 1 means the \
+         consumption itself is being replayed, which is a different defect in the \
+         same place"
+    );
+
+    // THE MENU'S ROAD: a `ResMut` write from outside the simulation schedule.
+    let mut outside = sim_recording_new_game_commits(false);
+    step_past_hydration(&mut outside);
+    for _ in 0..20 {
+        outside.step(AgentAction::default());
+    }
+    outside
+        .world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
+        .request();
+    assert!(
+        outside
+            .world()
+            .resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
+            .request,
+        "the request did not even land in the resource, so the arm below is not \
+         measuring what happens to a request"
+    );
+    for _ in 0..200 {
+        outside.step(AgentAction::default());
+    }
+    let outside_commits = outside.world().resource::<ResetCommits>().0.clone();
+
+    assert_eq!(
+        outside_commits.len(),
+        0,
+        "a New Game asked for from outside the simulation now commits \
+         ({outside_commits:?}) — that is the FIX this arm is waiting for, not a \
+         regression. Invert it: both arms should read 1, and the menu should be \
+         writing a semantic request the simulation consumes"
+    );
+    assert!(
+        !outside
+            .world()
+            .resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
+            .request,
+        "the request is still standing, so it was not swallowed but merely \
+         delayed — which would be a different (and much less bad) defect than \
+         the one this arm records"
+    );
+}

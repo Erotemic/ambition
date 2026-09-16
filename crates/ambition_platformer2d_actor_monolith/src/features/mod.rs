@@ -656,6 +656,55 @@ mod actor_decision_phase_tests {
         );
     }
 
+    /// `drive_boss_animators` is under the GATE and under NO PHASE.
+    ///
+    /// ⛔⛤ **THE PHASE IS THE DEFECT, NOT THE FIX.** `b9f2ece18` gave this
+    /// system `.in_set(WorldPrep)` to buy it the `simulation_authorized` gate.
+    /// It also runs `.after(project_boss_attack_state_from_move)`, which is
+    /// `.in_set(CombatSet::Playback)` — LATER in the sim schedule than
+    /// `WorldPrep`. That orders one system both before and after Playback, and
+    /// the fixed loop retries the broken schedule forever: MEASURED ~27 MB/s for
+    /// the first minute, ~234 MB/s after, 64,629,160 kB of anonymous RSS in
+    /// 316 s, global OOM.
+    ///
+    /// ⇒ So the guard is TWO-SIDED. The positive half alone would pass with the
+    /// phase re-added, because `WorldPrep` is itself inside
+    /// `GameplaySimulationRoot`.
+    ///
+    /// ⚠ **THERE IS DELIBERATELY NO POISON THAT REBUILDS THE CYCLE.** A poison
+    /// here would have to construct the runaway to prove the guard sees it, and
+    /// that costs whoever runs it their machine. The relaxation this check rests
+    /// on — transitive `phase_ancestors` — already has its poison in
+    /// `a_system_outside_the_phase_is_still_caught`, which pins that a system in
+    /// a DIFFERENT phase still fails. This test inherits that discrimination
+    /// rather than re-earning it.
+    #[test]
+    fn the_boss_animator_takes_the_gate_and_not_a_phase() {
+        use ambition_platformer2d_shared_tangle::schedule::{
+            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+        };
+
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules.get(sim).expect("sim schedule must exist").graph();
+
+        assert_membership(graph, "drive_boss_animators", GameplaySimulationRoot);
+
+        let world_prep = graph
+            .system_sets
+            .get_key(Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
+            .expect("WorldPrep must be a registered SystemSet");
+        let ancestors = phase_ancestors(graph, system_key(graph, "drive_boss_animators"));
+        assert!(
+            !ancestors.contains(&world_prep),
+            "drive_boss_animators acquired WorldPrep ancestry again. It orders \
+             .after(project_boss_attack_state_from_move), which is in \
+             CombatSet::Playback — LATER than WorldPrep — so this is a dependency \
+             cycle, and the fixed loop retries it until the machine dies."
+        );
+    }
+
     #[test]
     fn actor_movement_systems_are_members_of_named_world_prep_phases() {
         let mut app = composed_app();

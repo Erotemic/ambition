@@ -349,6 +349,30 @@ BETWEEN phases, not a fact about a build. `warm_noop` is the CONTROL and must
 read 0: a warm no-op that links something is not warm, and every duration in the
 row beside it is then timing a different build than it claims to.
 
+**VALIDATED ON TWO LANES, because a counter that only ever reports 0 in
+production cannot be told from a broken one.** Calculex VM, 6 cores, uncapped,
+at `0a8252fe8`:
+
+| scenario | warm no-op | after edit | restore | after-edit wall |
+| --- | ---: | ---: | ---: | ---: |
+| `check` (`cargo check -p ambition_app`) | 0 | **0** | 0 | 11.06 s |
+| `relink` (`cargo test --test app_it --no-run`) | 0 | **1** | 1 | 6.73 s |
+
+The `check` lane's zeros are a RESULT — the AGENTS.md gate never links, so a
+content edit measured through it cannot be hiding a host relink. The `relink`
+lane's 1 is the same instrument reporting the opposite, which is what makes the
+zero credible.
+
+⭐ **AND THE CONTROL FIRED ON ITS FIRST PRODUCTION USE.** The first `relink`
+attempt reported `warm_noop_host_link_invocations: 2` with a 346-second "warm
+no-op" — because a merge had landed between building the binary and measuring
+it, so the baseline build was doing real work. Nothing in the DURATIONS says
+that; a reader would have taken 346 s as this machine's warm cost and computed a
+meaningless ratio against it. The re-run at a settled tree reads 0 / 0.79 s.
+⇒ A row whose `warm_noop` count is nonzero is not a slow row. It is a row whose
+baseline is not a baseline, and every duration in it is timing a different build
+than it claims to.
+
 ⚠ **`null` STILL MEANS UNMEASURED, NEVER ZERO.** Every row written before
 2026-09-16 carries the old single `host_link_invocations` column at `null`, and
 this ledger is append-only, so those rows are not rewritten. A reader asking the

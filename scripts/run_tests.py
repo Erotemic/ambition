@@ -1124,7 +1124,7 @@ def build_maintenance_jobs() -> list[Job]:
         # legitimate shape — half of a two-part hold delivered, the other half
         # still live.
         Job(
-            "planning rows announcing a discharged hold while stating it (periodic)",
+            "doc rows stating a gate or an imperative a closed campaign discharged (periodic)",
             [
                 sys.executable,
                 "scripts/check_discharged_holds_are_rewritten.py",

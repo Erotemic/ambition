@@ -2058,7 +2058,7 @@ censuses across the compared frames). What is left of this row is the DIALOG
 INCREMENT and the one-shot pair. ⇒ The repaired half was: a per-FRAME write into
 a per-TICK checksum, 1 of 364 probed entries differing and it being
 `AmbitionGameSave`. Measurement, eliminations and reproduction
-are in [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test).
+are in [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay).
 ⇒ **What remains is a RULING, not an investigation:**
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
 which settles three systems rather than one. ⚠ Read Q129's pinned-projection

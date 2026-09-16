@@ -2672,42 +2672,44 @@ fn ticks_simulated_unrestored(sim: &Platformer2dSimHarness) -> Vec<u64> {
         .collect()
 }
 
-/// ⛔⛤ **A CONVERSATION OPENED ON THE FIRST TICK OF A SESSION LOSES ITS VISIT,
-/// AND WHETHER IT DOES IS DECIDED BY UNRELATED `Update` MEMBERSHIP — MEASURED
-/// 2026-09-16, BOTH ARMS IN ONE TEST.**
+/// ✔⛤ **A CONVERSATION OPENED ON THE FIRST TICK OF A SESSION IS COUNTED ONCE,
+/// AND NO LONGER DEPENDS ON UNRELATED `Update` MEMBERSHIP.**
 ///
-/// The two arms below are the same world with the same opener, the same
-/// in-schedule recorder and the same tick. The ONLY difference is whether one
-/// unrelated `Update` system — this file's own within-frame sampler — is
-/// installed:
+/// The two arms are the same world with the same opener, the same in-schedule
+/// recorder and the same tick. The only difference is whether one unrelated
+/// `Update` system — this file's own within-frame sampler — is installed. That
+/// is the variable on purpose: before the repair it DECIDED the answer.
 ///
 /// ```text
-/// sampler absent    first simulated tick = tick 0 on host frame 3, latch TRUE   -> 1 visit
-/// sampler present   first simulated tick = tick 0 on host frame 2, latch FALSE  -> 0 visits
+///                   before the gate                     after
+/// sampler absent    tick 0 simulated, latch TRUE  -> 1   unchanged -> 1
+/// sampler present   tick 0 simulated, latch FALSE -> 0   no unrestored tick -> 1
 /// ```
 ///
-/// ⇒ `count_the_dialogue_visit_when_a_conversation_opens` opens with
-/// `if !restored.0 { return; }`, so in the second arm the visit is silently
-/// dropped: the counter fires on the OPENING EDGE (`opened_at == tick`), that
-/// edge exists on exactly one tick, and on that tick the counter refuses to
-/// write. Tick 1 sees `opened_at(0) != 1` and correctly does nothing.
+/// `maintain_local_session` now refuses to CREATE a GGRS session over a world
+/// whose durable state is still loading, so no tick is simulated before
+/// `SaveRestored` rises in either composition and
+/// `count_the_dialogue_visit_when_a_conversation_opens` never has to drop a
+/// write it has nowhere to put. The counter's `if !restored.0` guard is
+/// untouched and stays correct; what changed is that it is no longer reachable
+/// with a live conversation behind it.
 ///
 /// ⭐ THE CONTROL IS THE ABSENCE OF THE PERTURBATION, not a different
-/// conversation. That is what makes the pair evidence about the ORDERING rather
-/// than about the opener: an arm reporting 0 alone could mean the stand-in never
-/// opened anything, and the first arm rules that out with the same code.
+/// conversation. An arm reporting a number alone could mean the stand-in never
+/// opened anything; the pair rules that out with the same code, and the
+/// `unrestored` assertions below rule out the arms having become the same
+/// condition measured twice.
 ///
-/// ⚠ **THIS ARM ASSERTS THE PRESENT DEFECT AND MUST BE INVERTED BY THE REPAIR.**
-/// When the simulation is made to wait for durable hydration —
-/// [Q135](../../../docs/planning/awaiting-maintainer-decision.md), the open
-/// ruling — `unrestored` must become EMPTY in both arms and both visit counts
-/// must read 1. Do not satisfy it by relaxing the counter's edge to
+/// ⚠ **THIS ARM IS THE GATE'S ONLY WITNESS, AND ITS POWER IS IN THE SECOND
+/// ASSERTION.** Deleting the gate makes `ticks_simulated_unrestored(&with)`
+/// read `[0]` and that arm's visit count read 0 — measured, both. Do not
+/// "repair" a future failure here by relaxing the counter's edge to
 /// `opened_at <= tick`: that turns an edge into a level and over-counts every
-/// tick the conversation stays live, which
+/// tick a conversation stays live, which
 /// `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind`'s
-/// more-than-two case already pins.
+/// more-than-two case pins.
 #[test]
-fn a_conversation_on_the_first_tick_is_counted_only_when_hydration_won_the_race() {
+fn a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once() {
     let mut without = sim_opening_a_conversation_on_the_first_tick(false);
     for _ in 0..12 {
         without.step(AgentAction::default());
@@ -2717,52 +2719,39 @@ fn a_conversation_on_the_first_tick_is_counted_only_when_hydration_won_the_race(
         with.step(AgentAction::default());
     }
 
-    // PREMISE: both worlds simulated tick 0 at all. A count of 0 from a world
-    // whose schedule never ran says nothing about the counter.
     for (name, sim) in [("without", &without), ("with", &with)] {
+        // PREMISE: the world simulated tick 0 at all. A visit count from a world
+        // whose schedule never ran says nothing about the counter — and it is
+        // the failure this repair could plausibly CAUSE, since the gate can
+        // refuse to start a session.
         assert!(
             sim.world()
                 .resource::<LatchInsideTheSchedule>()
                 .0
                 .iter()
                 .any(|(_, tick, _)| *tick == 0),
-            "the {name}-sampler world never simulated tick 0, so neither the \
-             opener nor the counter was reached and both counts are vacuous"
+            "the {name}-sampler world never simulated tick 0. If the durable \
+             hydration gate is now refusing to start a session at all, this is \
+             where that shows up — a world that never simulates is not a world \
+             that never loses a visit"
+        );
+        assert_eq!(
+            ticks_simulated_unrestored(sim),
+            Vec::<u64>::new(),
+            "the {name}-sampler world simulated ticks before the durable restore \
+             completed. That is the defect the session-start gate in \
+             `maintain_local_session` closes, and a non-empty list here means \
+             the timeline is starting over an unhydrated world again"
+        );
+        assert_eq!(
+            visit_count(sim),
+            1,
+            "a conversation opened on tick 0 of the {name}-sampler world was not \
+             counted exactly once. 0 is the pre-repair signature: the visit \
+             reached a counter that was still gated on the latch. More than 1 \
+             means the opening edge has become a level"
         );
     }
-
-    // PREMISE: the two arms really do disagree about the latch on tick 0. If
-    // they ever stop disagreeing this test is measuring one condition twice.
-    assert!(
-        ticks_simulated_unrestored(&without).is_empty(),
-        "the world WITHOUT the perturbing sampler simulated ticks before the \
-         durable restore completed ({:?}), so it is no longer the favourable \
-         arm and this pair has lost its control",
-        ticks_simulated_unrestored(&without)
-    );
-    assert_eq!(
-        ticks_simulated_unrestored(&with),
-        vec![0],
-        "the world WITH the perturbing sampler no longer simulates exactly \
-         tick 0 unrestored. An EMPTY list means the race is now won every time \
-         — if that is because the simulation waits for hydration, invert this \
-         whole test per its doc comment. A LONGER list means the window grew."
-    );
-
-    assert_eq!(
-        visit_count(&without),
-        1,
-        "a conversation opened on tick 0 with the durable restore ALREADY \
-         complete was not counted exactly once, so the first-tick opening edge \
-         is broken for reasons that have nothing to do with the race"
-    );
-    assert_eq!(
-        visit_count(&with),
-        0,
-        "the first-tick visit is no longer lost when the restore loses the \
-         race. If the lifecycle repair landed, this is the arm that proves it — \
-         change it to 1 together with the premise above"
-    );
 }
 
 /// Is any simulation tick ever SIMULATED while the durable-restore latch is

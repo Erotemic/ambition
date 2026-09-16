@@ -230,6 +230,50 @@ fn adopt_the_ledger(
 /// touch only their own state; this system states that every adopter in the
 /// chain has had its turn. Keeping the request here prevents an item or lifecycle
 /// domain from becoming the coordinator for its siblings.
+/// Is a durable restore IN FLIGHT in this world — as opposed to finished, or
+/// never applicable here?
+///
+/// ⛔⛤ **THREE-VALUED ON PURPOSE, AND A BOOLEAN LATCH IS THE TRAP.**
+/// [`SaveRestored`] answers "has the adventure's save been applied", and the
+/// obvious reading of `false` — "not yet, wait" — is wrong for any composition
+/// that will never apply one. [`complete_durable_restore`] below needs exactly
+/// one `PrimaryPlayerOnly` body carrying a `BodyWallet`; a smash match never has
+/// that singleton, so its latch reads `false` for the whole process. Measured:
+/// gating GGRS session start on the bare latch failed 66 app tests with *"the
+/// match seats a first fighter"* and *"the opening ceremony never released the
+/// cast"* — every smash composition hung at session start, because "nothing to
+/// hydrate" and "hydration pending" are the same bit.
+///
+/// ⇒ So the question a session-start gate must ask is PENDING, not `!restored`:
+/// the save is unapplied AND this world has the body that lets it be applied.
+///
+/// ⭐ ONE FACT, ONE OWNER. `maintain_local_session` in
+/// `ambition_platformer2d_rollback_ggrs` calls this rather than mirroring a
+/// readiness flag into a lower layer — the latch is read where it lives, over a
+/// dependency edge that already exists.
+///
+/// ⚠ **THE BODY CONDITION RESTATES `complete_durable_restore`'S OWN, AND THE
+/// DRIFT IS GUARDED BY THOSE 66 TESTS.** If this predicate ever says "pending"
+/// where the system says "cannot complete", every smash fixture in `app_it`
+/// hangs again and says so by name. Keep the two in step; do not narrow this one
+/// without narrowing that one.
+pub fn durable_hydration_is_pending(world: &mut World) -> bool {
+    if world
+        .get_resource::<SaveRestored>()
+        .is_none_or(|restored| restored.0)
+    {
+        return false;
+    }
+    world
+        .query_filtered::<
+            &ambition_characters::actor::BodyWallet,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >()
+        .iter(world)
+        .count()
+        == 1
+}
+
 pub fn complete_durable_restore(
     mut restored: ResMut<SaveRestored>,
     save: Res<AmbitionGameSave>,

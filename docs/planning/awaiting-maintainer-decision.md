@@ -1130,11 +1130,51 @@ shape of the admitted authority.
 
 ## Q135 — should GGRS start before the durable restore has finished?
 
-`maintain_local_session` starts the rollback session on
-`session_world_entity(world).is_some()`. The durable-restore chain —
-`adopt_occurrence_checkpoint_from_save`, `restore_inventory_from_save`,
-`complete_durable_restore` — waits for a primary player BODY, which is a later
-fact. Both live in top-level `Update` with **no ordering edge between them.**
+✅ **ANSWERED AND LANDED 2026-09-16: NO, AND IT NO LONGER CAN.** (The heading
+keeps the question because five other planning rows link to this anchor.)
+
+**The session-start gate is in.** `maintain_local_session` now refuses to CREATE
+a rollback session while a durable restore is pending, so no simulation tick is
+ever run over a world whose save is still being applied. Held by
+`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), which
+poison-verifies both the gate and the predicate behind it.
+
+⛔⛤ **AND THE HARD-WON PART IS THE PREDICATE, NOT THE GATE. `SaveRestored` IS
+NOT A LATCH THAT ALWAYS RISES.** The obvious implementation — wait while
+`!restored.0` — was written, measured, and **failed 66 app tests** with *"the
+match seats a first fighter"* and *"the opening ceremony never released the
+cast"*. `complete_durable_restore` needs exactly one `PrimaryPlayerOnly` body
+carrying a `BodyWallet`; a smash match never has that singleton, so **its latch
+reads false for the entire process.** Gating on the bare boolean hung every
+smash composition at session start.
+
+⇒ `SaveRestored` is a **completion fact about one domain in one experience**, not
+a readiness fact about the world, and "nothing to hydrate" and "hydration
+pending" are the same bit in it. The gate therefore asks a three-valued question
+that `session::durable_horizon::durable_hydration_is_pending` owns: the save is
+unapplied **and** this world has the body that lets it be applied. One fact, one
+owner, read over a dependency edge (`rollback_ggrs -> actor_monolith`) that
+already existed — no readiness flag mirrored into a lower layer, and no new state
+machine.
+
+⚠ **AN EARLIER NOTE IN THIS FILE SAID THE ROLLBACK-HOST CRATE COULD NOT LEGALLY
+SEE `SaveRestored`, AND THAT WAS WRONG.** `ambition_platformer2d_rollback_ggrs`
+already depends on `ambition_platformer2d_actor_monolith` and uses it heavily
+(`lifecycle_commit.rs`). That false belief was the entire reason this item was
+held for a ruling about introducing a new lower-layer capability. There was
+nothing to introduce.
+
+⚠ The predicate's body condition restates `complete_durable_restore`'s own, and
+the drift guard is those 66 tests: if it ever reports "pending" where the system
+cannot complete, every smash fixture in `app_it` hangs and names itself.
+
+**The original question, for the record.** `maintain_local_session` started the
+rollback session on `session_world_entity(world).is_some()`, while the
+durable-restore chain — `adopt_occurrence_checkpoint_from_save`,
+`restore_inventory_from_save`, `complete_durable_restore` — waited for a primary
+player BODY, a later fact. Both lived in top-level `Update` with **no ordering
+edge between them.**
 
 **MEASURED 2026-09-16**, `probe_when_the_durable_restore_latch_flips_against_ggrs_start`
 in `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`:
@@ -1169,7 +1209,8 @@ not exist. In the other, **exactly one tick — tick 0, the first tick of the
 session — is simulated with the latch false.** Same options, same recorder, same
 harness.
 
-⭐ **THAT IS THE RULING'S INPUT, AND IT IS STRONGER THAN A WINDOW WIDTH.** The
+⭐ **THAT IS WHY THE GATE EXISTS, AND IT IS A STRONGER REASON THAN A WINDOW
+WIDTH.** The
 defect is not "a window of N frames", which could be argued down by making N
 small. It is that **nothing orders durable hydration against the start of the
 synchronised timeline**, so the answer is decided by whichever systems happen to
@@ -1269,21 +1310,26 @@ declared itself derived, and a false derived declaration therefore removes its
 own subject from the guard. Same shape as the presence-probe blindness, one layer
 out.
 
-⛔⛤ **AND ONE DEPENDENT INVARIANT THIS RULING OWES, FOUND BY REVIEW RATHER THAN
-BY MEASUREMENT.** `count_the_dialogue_visit_when_a_conversation_opens` (Q134's
-repair) early-returns on `!restored.0`, and the table above shows a real interval
-where the session world exists, a primary body exists, GGRS is running and
-`SaveRestored` is still false. `interact_ecs_actors_and_switches` is NOT gated on
-the latch. ⇒ A conversation opened in that interval is counted by nobody: the
+⛔⛤ **AND ONE DEPENDENT INVARIANT, FOUND BY REVIEW RATHER THAN BY MEASUREMENT —
+NOW CLOSED BY THE SAME GATE.** `count_the_dialogue_visit_when_a_conversation_opens`
+(Q134's repair) early-returns on `!restored.0`, and the table above showed a real
+interval where the session world existed, a primary body existed, GGRS was
+running and `SaveRestored` was still false. `interact_ecs_actors_and_switches` is NOT gated on
+the latch. ⇒ A conversation opened in that interval was counted by nobody: the
 counter declines while `opened_at == tick` is true, and by the time the latch
 rises that equality is permanently false. ⚠ **The edge must not be relaxed to
 `opened_at <= tick` to paper over this** — that is poison-verified to overcount
-(6 visits for 5 openings). Option 1's gate removes the interval and with it the
-hole, which is why this belongs here rather than in Q134.
+(6 visits for 5 openings). The gate removes the interval and with it the hole,
+which is why this belonged here rather than in Q134.
 
-**Acceptance this ruling owes, beyond the ordering itself:** the first possible
-conversation opening after session activation produces exactly one visit, and
-still exactly one after a rewind across it.
+✔ **THAT ACCEPTANCE IS DISCHARGED.**
+`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once` opens a
+conversation on tick 0 — the earliest openable moment of a session, and the only
+tick the measurement ever found running unhydrated — in BOTH compositions, and
+asserts one visit in each with the unrestored-tick list empty in each. The edge
+was NOT relaxed to `opened_at <= tick`; the gate removed the interval instead,
+which is what made the counter's `!restored.0` guard unreachable with a live
+conversation behind it rather than merely tolerable.
 
 ✅⛤ **AND ONE OF THIS QUESTION'S TWO ROADS IS GONE, 2026-09-16: THERE IS NO
 MID-SESSION SAVE REPLACEMENT ANY MORE.** Censused: `SaveRestored` was lowered in

@@ -169,7 +169,13 @@ ACKNOWLEDGED: dict[str, str] = {
     "adopt_occurrence_checkpoint_from_save": "ROLLBACK-MUTATOR-POPULATION",
     "complete_durable_restore": "ROLLBACK-MUTATOR-POPULATION",
     "compute_music_intent": "ROLLBACK-MUTATOR-POPULATION",
-    "dispatch_pending_dialog_requests": "DURABLE-HORIZON-CHECKSUM",
+    # ✅ `dispatch_pending_dialog_requests` was banked here and is GONE because
+    # it was FIXED, and the distinction was checked rather than assumed: the
+    # system still exists (`ambition_dialog/src/bridge.rs`), so the scan did not
+    # lose sight of it -- it no longer touches `AmbitionGameSave` at all. The
+    # dialogue-visit increment it used to make from `Update` now lives in
+    # `session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
+    # inside the rewinding schedule, where a rewind replays it.
     "grid_menu_action_activated": "MENU-RESET-MIDSESSION",
     "kaleidoscope_menu_action_activated": "MENU-RESET-MIDSESSION",
     # ✅ The three `persist_*_to_save` mirrors were banked here and are GONE

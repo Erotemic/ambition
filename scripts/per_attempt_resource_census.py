@@ -162,10 +162,49 @@ def without_test_modules(text: str) -> str:
     return "".join(out)
 
 
+def test_only_module_files() -> set[pathlib.Path]:
+    """Files that exist only under `cfg(test)` because their PARENT says so.
+
+    ⛔⛤ **THE THIRD ROAD, AND IT COST A FALSE FINDING.** Two are already handled:
+    an inline `#[cfg(test)] mod x { .. }` body is blanked by
+    [`without_test_modules`], and a whole file behind an inner
+    `#![cfg(test)]` is skipped in [`collection_resources`]. A file declared by
+    its parent as `#[cfg(test)] mod tests;` carries NEITHER marker -- nothing in
+    the file itself says it is test-only -- so `game/ambition_app/src/headless/tests.rs`
+    arrived as an untriaged content resource (`ProbeFixedSteps`, a print-only
+    probe's step counter) demanding a per-attempt ruling.
+
+    ⚠ THE WRONG FIX WAS AVAILABLE AND THIS FILE ALREADY WARNS ABOUT IT: adding
+    the name to `NOT_PER_ATTEMPT` would have made the lane green while rotting
+    a list of decisions about SHIPPED state into a triage log for fixtures. The
+    population was wrong for the third time in the same way.
+
+    ⚠ MATCHED ON THE DECLARATION, NOT ON THE FILENAME. A rule like "skip
+    `tests.rs`" would also skip a shipped module that happens to be named that,
+    and would miss a test-only module under any other name.
+    """
+    gated: set[pathlib.Path] = set()
+    declaration = re.compile(
+        r"#\[\s*cfg\s*\(\s*test\s*\)\s*\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;"
+    )
+    for path in sorted(REPO.glob("game/*/src/**/*.rs")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for name in declaration.findall(text):
+            # `foo.rs` declares `mod bar;` as either `foo/bar.rs` or
+            # `foo/bar/mod.rs`; `foo/mod.rs` resolves them as siblings.
+            base = path.parent if path.name == "mod.rs" else path.with_suffix("")
+            gated.add(base / f"{name}.rs")
+            gated.add(base / name / "mod.rs")
+    return gated
+
+
 def collection_resources() -> list[tuple[str, int, str]]:
     """Every `#[derive(.., Resource, ..)]` struct in `game/` with a collection field."""
     found: list[tuple[str, int, str]] = []
+    gated = test_only_module_files()
     for path in sorted(REPO.glob("game/*/src/**/*.rs")):
+        if path in gated:
+            continue
         raw = path.read_text(encoding="utf-8", errors="replace")
         # ⚠ A WHOLE FILE CAN BE TEST-ONLY behind an inner attribute, invisible to
         # the inline-`mod` strip below.

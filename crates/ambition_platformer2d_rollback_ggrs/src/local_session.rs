@@ -300,6 +300,45 @@ pub fn maintain_local_session(world: &mut World) {
         return;
     }
 
+    // ⛔⛤ **THE TIMELINE DOES NOT START OVER A WORLD WHOSE DURABLE STATE IS
+    // STILL BEING LOADED.** Measured 2026-09-16: with nothing ordering the
+    // durable-restore chain against this maintainer, whether a simulation tick
+    // runs before `SaveRestored` rises was decided by unrelated `Update`
+    // membership. Two worlds differing only by one extra `Update` system gave
+    // "no tick ever runs unrestored" and "tick 0 runs unrestored" — and a
+    // conversation opening on that tick has its visit dropped by
+    // `count_the_dialogue_visit_when_a_conversation_opens`, whose `!restored.0`
+    // guard is correct and has nowhere to put the write.
+    //
+    // ⭐ ONE ROAD, NOT A MIRROR. The latch is read where it LIVES, through the
+    // `actor_monolith` dependency this crate already has. A readiness flag
+    // mirrored into a lower layer would be a second copy of one fact, which is
+    // the duplicate authority this repair exists to remove — and the ordering
+    // cannot be expressed as a schedule edge, because the condition is "the
+    // file has been applied", not "a system has run once".
+    //
+    // ⚠ **THE QUESTION IS "PENDING", NEVER "`!restored`" — MEASURED AT THE COST
+    // OF 66 TESTS.** `SaveRestored` is not a latch that always rises: it is a
+    // completion fact about one domain in one experience, and a smash match
+    // never satisfies the singleton body `complete_durable_restore` needs, so
+    // its latch reads false for the whole process. Gating on the bare latch hung
+    // every smash composition at session start. `durable_hydration_is_pending`
+    // is three-valued for exactly that reason and owns the distinction; see its
+    // doc comment.
+    //
+    // ⚠ AND IT GATES THE START ONLY. A live session is never torn down or left
+    // stopped by this: the condition is `!session_live`, so the one transition
+    // it can refuse is "no session -> session". `SaveRestored` has no
+    // mid-session `true -> false` transition left to create a stall, and the
+    // `debug_assert` in `reset_inventory_on_new_game` is what keeps that true.
+    if !session_live
+        && ambition_platformer2d_actor_monolith::session::durable_horizon::durable_hydration_is_pending(
+            world,
+        )
+    {
+        return;
+    }
+
     // a session this module did not start is AUTHORITATIVE. A Matchbox/P2P
     // session installed through `install_session` outranks the local one; the
     // owner inspects and steps aside rather than replacing it.

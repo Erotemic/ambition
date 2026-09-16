@@ -98,6 +98,9 @@ from pathlib import Path
 MARKER = "cite-ok"
 
 
+from urllib.parse import unquote
+
+
 def marker_suppresses(lines: list[str], lineno: int, marker: str = MARKER) -> bool:
     """Does `marker` silence the citation on 1-based `lineno` of `lines`?
 
@@ -927,6 +930,99 @@ def path_resolves(cite: str, by_name: dict[str, list[str]]) -> bool:
 _UNREADABLE: list[str] = []
 
 
+# ⛔⛤ **A LINK'S FRAGMENT WAS CHECKED BY NOBODY, AND THIS CHECKER'S OWN `ok`
+# WAS THE COVER.** Measured 2026-09-16: renaming one heading in
+# `awaiting-maintainer-decision.md` silently broke five inbound links while this
+# script printed *"all resolved"* — because every existing question it asks is
+# about a FILE or a NAME, and an anchor is neither. Sweeping the corpus then
+# found two links already broken by earlier heading renames
+# (`ROLLBACK-BAG-DESYNC`, `A10`), both invisible for the same reason.
+#
+# ⇒ A heading is a public interface the moment another page links to it, and a
+# rename is a breaking change no lane could see.
+ANCHOR_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]*#[^)\s]+)\)")
+
+
+def heading_slugs(text: str) -> set[str]:
+    """Every anchor GitHub would mint for this document's headings.
+
+    ⚠ THIS IS A REIMPLEMENTATION OF SOMEONE ELSE'S ALGORITHM, so it is pinned by
+    a known-answer case in `scripts/tests/test_heading_anchors_are_checked.py` rather than
+    trusted: lowercase, drop everything that is not word/space/hyphen (which is
+    what removes backticks, `?`, `/`, `:` and emoji), then spaces to hyphens.
+    An emoji dropped from the middle of a heading leaves its two surrounding
+    spaces behind as two hyphens, which is why `A10`'s live anchor reads
+    `...publication---done-...` with three.
+    """
+    found = set()
+    for line in text.splitlines():
+        m = re.match(r"^#{1,6}\s+(.*)$", line)
+        if not m:
+            continue
+        title = m.group(1).strip().replace("`", "").lower()
+        title = re.sub(r"[^\w\s-]", "", title, flags=re.UNICODE)
+        found.add(re.sub(r"\s", "-", title))
+    return found
+
+
+def anchor_findings(
+    docs: list[Path],
+) -> tuple[list[tuple[str, int, str, str]], int]:
+    """Report every in-repo markdown link whose `#fragment` names no heading.
+
+    ⚠ ONLY LINKS THIS REPOSITORY CAN ANSWER FOR. An `http(s)` target belongs to
+    someone else, and a fragment into a file this corpus does not contain is the
+    existing path check's business, not this one's -- reporting it here would
+    print the same defect twice under two names.
+    """
+    slugs: dict[Path, set[str]] = {}
+
+    def slugs_of(path: Path) -> set[str] | None:
+        if path not in slugs:
+            try:
+                slugs[path] = heading_slugs(path.read_text(encoding="utf-8"))
+            except OSError:
+                return None
+        return slugs[path]
+
+    out: list[tuple[str, int, str, str]] = []
+    examined = 0
+    for doc in docs:
+        try:
+            lines = doc.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for lineno, line in enumerate(lines, 1):
+            for m in ANCHOR_LINK.finditer(line):
+                target = m.group(1)
+                if target.startswith(("http://", "https://", "mailto:")):
+                    continue
+                filepart, _, fragment = target.partition("#")
+                fragment = unquote(fragment).lower()
+                if not fragment:
+                    continue
+                dest = doc if filepart == "" else (doc.parent / filepart)
+                if dest.suffix != ".md":
+                    continue
+                have = slugs_of(dest)
+                if have is None:
+                    # No such file. The path check owns that message.
+                    continue
+                examined += 1
+                if fragment not in have:
+                    out.append((
+                        str(doc), lineno, m.group(0),
+                        f"no heading in {dest.name} mints the anchor "
+                        f"`#{fragment}` — a heading was renamed and this link "
+                        f"was left behind",
+                    ))
+    # ⚠ THE COUNT IS LINKS EXAMINED, NOT ROWS RETURNED. The first version of
+    # this added `len(findings)` to the caller's `checked`, so a clean corpus
+    # reported the same total as before the check existed and there was no way
+    # to tell "70 anchors are fine" from "the pass never ran".
+    return out, examined
+
+
 def _note_unreadable(rel: object, err: OSError) -> None:
     """Record a read this scan could not make. See `_UNREADABLE`."""
     _UNREADABLE.append(f"{rel}: {type(err).__name__}: {err}")
@@ -1170,6 +1266,11 @@ def main() -> int:
                 if tail not in defined:
                     findings.append((str(rel), lineno, m.group(0),
                                      "nothing DEFINES this name"))
+
+    # Anchors, over the same corpus the citation pass just walked.
+    anchor_rows, anchors_examined = anchor_findings(docs)
+    checked += anchors_examined
+    findings.extend(anchor_rows)
 
     if args.roles:
         # ⚠ ITS COUNT IS NOT ADDED TO `findings`. This lane REPORTS; a role

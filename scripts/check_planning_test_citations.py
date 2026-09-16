@@ -73,12 +73,38 @@ CITED = re.compile(r"`((?:a|an|the)_[a-z0-9_]{12,})`")
 MIN_WORDS = 6
 
 
-def cited_names(path: Path) -> set[str]:
-    return {
-        name
-        for name in CITED.findall(path.read_text(encoding="utf-8"))
-        if len(name.split("_")) >= MIN_WORDS
-    }
+# A line may name something that DELIBERATELY does not exist -- a deleted API, a
+# superseded const, a pre-cut path kept as the record -- and for those a
+# resolvable citation would mean the deletion did not happen. Such a line carries
+# `<!-- cite-ok: <reason> -->`.
+#
+# ⛔⛤ **THIS IS AN AMNESTY, SO IT IS SCOPED AND IT IS PRINTED.** Five planning
+# documents were already writing `cite-ok` markers before this function existed
+# and the checker did not read them -- the convention looked honoured and did
+# nothing, so the gate went red on a name whose exemption had been written
+# months earlier. Three rules keep that from becoming a hiding place: the marker
+# exempts only names on ITS OWN LINE, it must carry a non-empty reason, and
+# every name it excuses is REPORTED on a green run. An amnesty nobody can see is
+# a way to hide what it exempts.
+EXEMPT = re.compile(r"<!--\s*cite-ok:\s*(?P<reason>[^>]*?)\s*-->")
+
+
+def cited_names(path: Path) -> tuple[set[str], set[str]]:
+    """Return (names to check, names excused by a `cite-ok` marker on their line)."""
+    checkable: set[str] = set()
+    excused: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        names = {
+            name for name in CITED.findall(line) if len(name.split("_")) >= MIN_WORDS
+        }
+        if not names:
+            continue
+        marker = EXEMPT.search(line)
+        if marker and marker.group("reason"):
+            excused |= names
+        else:
+            checkable |= names
+    return checkable, excused
 
 
 def exists(name: str) -> bool:
@@ -95,9 +121,13 @@ def exists(name: str) -> bool:
 
 def main() -> int:
     broken: list[tuple[str, str]] = []
+    excused: list[tuple[str, str]] = []
     checked = 0
     for path in sorted(DOCS.rglob("*.md")):
-        for name in sorted(cited_names(path)):
+        names, skipped = cited_names(path)
+        for name in sorted(skipped):
+            excused.append((str(path.relative_to(REPO)), name))
+        for name in sorted(names):
             checked += 1
             if not exists(name):
                 broken.append((str(path.relative_to(REPO)), name))
@@ -111,6 +141,10 @@ def main() -> int:
         )
         return 1
     print(f"ok: all {checked} test names cited in docs/planning resolve to a `fn`")
+    # ⛔ Printed on a GREEN run, not only when something fails: an exemption
+    # nobody reads is how the list grows.
+    for path, name in excused:
+        print(f"  cite-ok (not checked): {path}: `{name}`")
     return 0
 
 

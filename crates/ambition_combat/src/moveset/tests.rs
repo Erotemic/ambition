@@ -3215,8 +3215,8 @@ fn the_three_contact_outcomes_permit_three_different_cancels() {
 /// own volume — and those verdicts must STILL reach the playback. Tightening the
 /// rule to a bare `instance == Some(pb.instance)` passes every arm below while
 /// silently stopping the credit for every unclaimed verdict in the game, with
-/// nothing going red. `a_verdict_no_move_claims_still_reaches_the_playback` is
-/// the arm that refuses to let that happen.
+/// nothing going red. `a_verdict_no_move_claims_reaches_no_move` is the arm
+/// that refuses to let that happen.
 ///
 /// Both ends of the window are the code's own statements, not inferences:
 ///

@@ -708,14 +708,57 @@ impl RollbackRestoreAudit {
     /// value moved the whole time. That is not a defect here — it is the reason
     /// [`RollbackChecksumProbes::strengthen_with`] exists.
     pub fn distinct_censuses_across_compared_frames_of<T: 'static>(&self) -> usize {
+        self.censuses_across_compared_frames_of::<T>()
+            .into_iter()
+            .map(|(_, census)| (census.count, census.xor))
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
+    /// Every type whose census took MORE THAN ONE value across the frames this
+    /// audit compared, with how many — deterministically ordered.
+    ///
+    /// ⛔⛤ **THE CONTROL FOR A PER-TYPE "IT NEVER MOVED" READING, AND IT IS THE
+    /// ABSENCE OF THE SUBJECT RATHER THAN ANOTHER INSTANCE OF IT.** Finding that
+    /// one type's census is constant across two hundred compared frames means
+    /// nothing until you know that other types' censuses were not. If this list
+    /// is EMPTY the reading is about the audit — nothing was moving, or nothing
+    /// was recorded — and no per-type conclusion drawn from it survives.
+    pub fn types_whose_census_moved_across_compared_frames(&self) -> Vec<(&'static str, usize)> {
+        let mut seen: BTreeMap<&'static str, BTreeSet<(usize, u64)>> = BTreeMap::new();
+        for frame in &self.resaved {
+            let Some(census) = self.saved.get(frame) else {
+                continue;
+            };
+            for (type_name, value) in census {
+                seen.entry(type_name)
+                    .or_default()
+                    .insert((value.count, value.xor));
+            }
+        }
+        let mut moved: Vec<(&'static str, usize)> = seen
+            .into_iter()
+            .filter(|(_, values)| values.len() > 1)
+            .map(|(type_name, values)| (type_name, values.len()))
+            .collect();
+        moved.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+        moved
+    }
+
+    /// The census of `T` at each frame this audit COMPARED, in frame order.
+    ///
+    /// What [`Self::distinct_censuses_across_compared_frames_of`] counts, before
+    /// it is counted — so a caller that finds the count is `1` can ask the next
+    /// question, which is *which* value it is stuck at. A census that never moves
+    /// while the live value does is not a quiet subject; it is a snapshot that is
+    /// not tracking, and the two are indistinguishable from the count alone.
+    pub fn censuses_across_compared_frames_of<T: 'static>(&self) -> Vec<(i32, ComponentCensus)> {
         let wanted = std::any::type_name::<T>();
         self.resaved
             .iter()
-            .filter_map(|frame| self.saved.get(frame))
-            .filter_map(|census| census.get(wanted))
-            .map(|census| (census.count, census.xor))
-            .collect::<BTreeSet<_>>()
-            .len()
+            .filter_map(|frame| self.saved.get(frame).map(|census| (*frame, census)))
+            .filter_map(|(frame, census)| census.get(wanted).map(|c| (frame, *c)))
+            .collect()
     }
 
     /// The first divergence, which is the one to fix: later ones are usually

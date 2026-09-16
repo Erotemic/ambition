@@ -755,6 +755,67 @@ moves 3 → 4. Only the per-tick change reproduces — so an arm written around 
 single grant reports no divergence, which reads exactly like a repaired world. The
 pinned arm floors both audits on `resimulations > 0` for that reason.
 
+⛔⛔ **AND THE MEASUREMENT THAT CHANGES WHAT S8 IS ABOUT: `AmbitionGameSave`'S
+HASHED SNAPSHOT IS PINNED, NOT MERELY LATE.** Measured 2026-09-16 by
+`probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window`
+(`game/ambition_app/tests/which_hashed_entry_moves_when_the_bag_does.rs`), with a
+per-tick grant gated to start at tick 4 so the run stays healthy for 240 steps:
+
+```
+end tick 241, health Ok, 948 saves censused (708 replay-comparable), 236 compared
+save census at the FIRST compared frame (2):   count=1 xor=0x8f605a278dac557d
+save census at the LAST  compared frame (239): count=1 xor=0x8f605a278dac557d
+save checksum LIVE at the end:                          0x722bb3a9f4b6d72c
+items mirrored into the save by then:                   247
+```
+
+⇒ **At every one of 236 frames GGRS saved twice, the save resource held the SAME
+value — the early-game one — while the live save had moved to a completely
+different checksum with 247 items in it.** The registered projection is
+`AmbitionGameSave::checksum` itself (`rollback_resource_clone_checksum::<…>(…,
+AmbitionGameSave::checksum)`), which serialises the whole save to RON, so this is
+not a narrow projection missing the items.
+
+⛔⛤ **THE CONTROL IS THE ABSENCE OF THE SUBJECT AND IT PASSES DECISIVELY.** In the
+same run, `types_whose_census_moved_across_compared_frames()` reports **13 types
+whose census moved, nine of them taking 238 distinct values across 236 compared
+frames** — a new value essentially every frame: `SimTick`, `BodyKinematics`,
+`BodyLifetime`, `SweepSample`, `MotionModel`, `CenteredAabb`, `ActorPose`,
+`GameplayElapsed`, `PlayerProjectileState`. So "the save's census never moved" is
+a fact about the save and not about the audit, which was recording a new value
+per frame for nine neighbours at the same instants.
+
+⭐⭐ **AND THE PINNED VALUE IS A NUMBER THREE INSTRUMENTS NOW AGREE ON.**
+`0x8f605a278dac557d` is exactly what CalculexAmbition's independent per-tick
+sampler read as the LIVE save checksum at ticks 15–20 in a separate session, and
+`0xce4e4758…` — the constant replay value this file's own audit reported for
+frames 2–4 in the desyncing variant — was their tick-1 reading by the same route.
+Two sessions, three instruments, the same constants.
+
+⇒ **SO A "CLEAN" RUN HERE IS NOT EVIDENCE THE SAVE IS BEING COMPARED CORRECTLY; IT
+IS EVIDENCE THAT WHAT IS COMPARED IS FROZEN.** Two saves of one frame cannot
+disagree about a value that is the same at every frame. That reverses the reading
+of every clean result in this neighbourhood, including the ones above: the entry
+`exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save` pins is
+the entry that diverges in the ONE window — the first three ticks — where the
+snapshot is not yet pinned.
+
+⚠ **ONE LINK IN THAT CHAIN IS STATED RATHER THAN MEASURED, AND IT IS NAMED HERE
+SO NOBODY HAS TO NOTICE ITS ABSENCE.** What was measured is the resource's value
+at `record_saved_census`, which runs at GGRS `SaveWorld`. The GGRS aggregate
+computes its checksum over that same saved snapshot through the same registered
+function, so the two should be the same sample — but this probe did not read the
+GGRS aggregate, and "the probe census is constant" and "the peer checksum
+contribution is constant" are two sentences. The second is the one that matters
+and it is the one not yet directly instrumented.
+
+⇒ This is `Q129`'s subject and CalculexAmbition owns that row. The shape it
+changes: the question was *"must the save file be part of what two peers agree
+on"*, and the measured answer today is that it **is in the contract by
+registration and out of it in effect** — a hashed entry contributing a constant.
+Neither "in" nor "out" describes that, and a ruling that says "keep it in" would
+be ratifying something that is not happening.
+
 ### Host-to-host determinism witness
 
 An older two-host measurement found a duel that agreed for hundreds of ticks and

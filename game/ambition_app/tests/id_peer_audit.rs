@@ -32,14 +32,45 @@
 //! singleton's key). ⇒ Provenance defects are held by value-level arms in the
 //! crate that MINTS the identity, and this table routes to them.
 //! | rollback identity / peer checksum | the local tokens are not registered directly; the leaks are all DERIVED values, and the list is `RECORDED_DIVERGENCE` below |
-//! | construction provenance | **CLOSED** — `TransactionId` projects the content identity and the room, excluding the app-local content epoch and the session stamp. `two_hosts_with_different_local_history_project_one_transaction_identity` mints two stamps from different local history and asserts the strings DIFFER and the projections AGREE |
+//! | construction provenance | **CLOSED at the projection, AND IT WAS NOT CLOSED AT THE PRODUCTION ROADS UNTIL 2026-09-16.** `TransactionId` projects the content identity and the room, excluding the app-local content epoch and the session stamp; `two_hosts_with_different_local_history_project_one_transaction_identity` holds that. ⛔⛤ But the door transition, the reset and the neighbour prefetch all stamped their roots `content-unstated`, so the term the projection KEEPS was absent on three of the four roads that mint one. `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` (plus the death and reset arms beside it) is the production witness; `ActorConstructionContext::for_live_room_construction` is the repair |
 //!
 //! ⛔⛤ THIS TABLE HAS SAID "NARROW AND PRECISELY TWO THINGS" AND BEEN WRONG
-//! TWICE. Both times the missed leaks were real, canonical and older than the
-//! guard: the checkpoint family, because the kind that carried it was not in a
-//! hand-written list of kind names; and `SimTick`, because an absolute tick does
-//! not read as a lifecycle counter. Read `RECORDED_DIVERGENCE` for the state;
-//! a completeness word here is a hostage to the next review.
+//! THREE TIMES. Every time the missed leak was real, canonical and older than
+//! the guard: the checkpoint family, because the kind that carried it was not in
+//! a hand-written list of kind names; `SimTick`, because an absolute tick does
+//! not read as a lifecycle counter; and construction provenance, because THE
+//! LEAK WAS AN ABSENCE. Read `RECORDED_DIVERGENCE` for the state; a completeness
+//! word here is a hostage to the next review.
+//!
+//! ⭐⭐ **AND THE THIRD ONE IS THE STRUCTURAL LESSON THIS FILE SHOULD BE READ
+//! FOR.** `two_hosts_at_different_content_epochs_share_one_construction_provenance`
+//! asserts two hosts holding the same content AGREE — and
+//! `"content-unstated"` agrees with `"content-unstated"` perfectly. The defect
+//! (three ordinary roads dropping the content term) made that assertion MORE
+//! TRUE, so the arm reported the lane closed while its subject was being erased.
+//!
+//! ⇒ **AN EQUALITY ASSERTION `f(a) == f(b)` IS SATISFIED BY EVERY `f` THAT
+//! THROWS INFORMATION AWAY, THE CONSTANT FUNCTION INCLUDED.** For every
+//! agreement arm in this campaign, ask what the constant would do to it. If the
+//! constant passes, the other half of the claim is a DISAGREEMENT arm: two
+//! inputs that must differ, asserted to project differently.
+//! `a_different_agreed_configuration_draws_a_different_sequence` and
+//! `the_same_verdict_for_a_different_match_is_a_different_checksum` are the two
+//! that already have one.
+//!
+//! ⭐⭐ **CONSTRUCTION PROVENANCE NOW HAS ONE TOO, AND THE COST OF ITS ABSENCE IS
+//! MEASURED RATHER THAN ARGUED.** Poison `ContentBinding::canonical_summary` to
+//! render a STATED BUT CONSTANT content term and **all six arms in this file
+//! pass** — including `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+//! whose whole subject is that term. The only thing in the workspace that
+//! reddens is `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+//! which takes one process through two prepared fingerprints via a materially
+//! changed reload and asserts the provenance MOVED. ⚠ One process at two
+//! fingerprints is not two peers, and it is stated that way there: the
+//! projection excludes the epoch and the session, so the content term is the
+//! only thing that CAN move, which is what makes it a real test of
+//! discriminating power. Two hosts agreeing still needs the P2P session `N2`
+//! records as absent.
 use crate::common;
 
 /// Types whose VALUE is, or carries, a host-local lifecycle count. None may be

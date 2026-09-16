@@ -110,7 +110,7 @@ cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
 
-## The fourteen, and what each one teaches
+## The fifteen, and what each one teaches
 
 | # | the check | how it lied | status |
 |---|---|---|---|

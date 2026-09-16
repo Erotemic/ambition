@@ -1206,17 +1206,29 @@ pub fn begin_room_transition_load_system(
                 // content generation (same fix reset received). Plus the cast,
                 // and the policies a PLACEMENT may name: a room whose enemy
                 // spawn authors `brain_profile` resolves it against those.
-                ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
+                ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_live_room_construction(
                     &construction_services.4,
                     &construction_services.2,
                     mechanics,
-                    // A transition publishes no content, so it has no
-                    // fingerprint of its own to name; the live binding below is
-                    // what the boundary compares.
-                    ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
-                        ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
+                    // ⛔⛤ THE ACTIVE GENERATION, BECAUSE THAT IS WHAT THIS ROOM
+                    // IS MADE OF. This passed `content_unstated` and reasoned
+                    // *"a transition publishes no content, so it has no
+                    // fingerprint of its own to name"* — true about the COMMIT
+                    // BOUNDARY and false about provenance. The room behind the
+                    // door is built from the generation already running, so that
+                    // generation IS its incoming content identity and every root
+                    // it mints is stamped with it. Stating nothing left two
+                    // peers at different prepared content projecting the same
+                    // `TransactionId`.
+                    ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding::live_or(
+                        active_binding.as_deref().map(|binding| &**binding),
+                        // ⚠ And the transition-local counter is what a fixture
+                        // with no session binding has to name, nothing more: it
+                        // is a prefetch cache key, not a content generation.
+                        ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                            ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
+                        ),
                     ),
-                    active_binding.as_deref().map(|binding| &**binding),
                     brain_profiles.as_deref(),
                     // THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.
                     // This is the only construction road that can meet an

@@ -31,16 +31,31 @@ def test_the_marker_is_the_authority_the_guard_reads():
 
 
 def test_the_bundle_count_is_read_from_source_not_the_marker():
-    """⛔ THE CONTROL. If this returned the marker's number the guard could never
+    """⛔ THE CONTROL, AND IT IS A DISAGREEMENT ARM ON PURPOSE.
 
-    disagree with anything — the failure mode where a comparison compares a value
-    with itself.
+    An equality assertion is satisfied by every reader that throws information
+    away, the CONSTANT included: `bundle_members` returning a fixed 29 would
+    satisfy `real == declared[...]` forever. MEASURED 2026-09-16 by collapsing it
+    to exactly that — the arm below passed, and what caught the constant was the
+    OTHER bundle disagreeing (`SessionOwnedCheckpointState` is 6).
+
+    ⇒ So this arm now asserts the two bundles report DIFFERENT counts from the
+    same reader. Two subjects through one function means a collapsing function
+    must disagree with at least one of them.
     """
-    real = guard.bundle_members(
+    scoped = guard.bundle_members(
         guard.BUNDLES["SessionScopedResources"], "SessionScopedResources"
     )
-    assert real == guard.declared()["SessionScopedResources"]
-    assert real > 3, "the ResMut field pattern stopped matching; the scan is broken"
+    checkpoint = guard.bundle_members(
+        guard.BUNDLES["SessionOwnedCheckpointState"], "SessionOwnedCheckpointState"
+    )
+    assert scoped == guard.declared()["SessionScopedResources"]
+    assert checkpoint == guard.declared()["SessionOwnedCheckpointState"]
+    assert scoped != checkpoint, (
+        f"both bundles read as {scoped}; a reader that returns the same number "
+        "for two different structs is not reading them"
+    )
+    assert scoped > 3, "the ResMut field pattern stopped matching; the scan is broken"
 
 
 def test_session_mechanics_is_counted_as_one_resource_not_six_fields():

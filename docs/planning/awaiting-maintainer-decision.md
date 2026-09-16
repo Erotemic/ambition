@@ -1115,7 +1115,7 @@ would be wrong about the very systems this Q is named for.
 `Update` chain, so a ruling here settles three systems, not one.
 
 Reproduction, eliminations and the full harness matrix are in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--a-per-tick-change-to-an-unhashed-resource-desyncs-the-sync-test);
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
 the owner document is
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
 

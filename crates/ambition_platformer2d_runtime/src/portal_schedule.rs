@@ -128,7 +128,7 @@ mod tests {
              without guns while rooms still build authored gun pickups. If installing \
              `PortalSimulationPlugin` alone is now a composition the engine wants, the lane \
              needs a runtime capability token threaded into \
-             `ActorConstructionContext::for_room_construction` — see this module's header."
+             `ActorConstructionContext::for_live_room_construction` — see this module's header."
         );
     }
 }

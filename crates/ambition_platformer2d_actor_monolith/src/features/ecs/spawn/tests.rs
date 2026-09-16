@@ -1419,7 +1419,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     let recipes = crate::construction::engine_construction_registry();
 
     // ⛔⛤ **THE CAP IS THE GENERATION'S, NOT A PARAMETER — CHANGED 2026-09-13.**
-    // This fixture used to hand `for_room_construction` a loose
+    // This fixture used to hand the room constructor a loose
     // `Option<&AuthoredPopulationCap>`, which is exactly the shape the review
     // found in production: an identity fingerprinted over one value and a
     // construction reading another. Building the generation that OWNS the cap is
@@ -1434,14 +1434,15 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             &registry,
             &Default::default(),
             &boss_catalog,
-            crate::features::ActorConstructionContext::for_room_construction(
+            crate::features::ActorConstructionContext::for_live_room_construction(
                 &recipes,
                 &catalog,
                 &crate::session::mechanics::GenerationMechanics::of(&generation),
+                // This fixture activates no content, so `content_unstated` is
+                // its honest answer for the one binding an ordinary road states.
                 ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
                     Default::default(),
                 ),
-                None,
                 None,
                 None,
             ),

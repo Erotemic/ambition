@@ -264,6 +264,33 @@ each with its arm named in the table below: the session root's canonical `SimId`
 its eager reset at `SessionScopeSet::Activate`, `MatchInstance::random_context`,
 the checkpoint operation keys, and `TransactionId` provenance.
 
+⛔⛤ **AND THE LAST OF THOSE WAS CLOSED AT THE PROJECTION AND OPEN AT THE
+PRODUCTION ROADS FOR A DAY, WHICH IS THE CAMPAIGN'S SHARPEST STRUCTURAL LESSON.**
+The guard that reported it closed —
+`two_hosts_at_different_content_epochs_share_one_construction_provenance` —
+asserts two hosts holding the same content AGREE, and `content-unstated` agrees
+with `content-unstated` perfectly. The defect (three ordinary roads dropping the
+content term) made that assertion MORE TRUE.
+
+⇒ **AN EQUALITY ASSERTION `f(a) == f(b)` IS SATISFIED BY EVERY `f` THAT THROWS
+INFORMATION AWAY, THE CONSTANT FUNCTION INCLUDED.** For every agreement arm in
+this campaign, ask what the constant would do to it; if the constant passes, the
+other half of the claim is a DISAGREEMENT arm. `a_different_agreed_configuration_draws_a_different_sequence`
+and `the_same_verdict_for_a_different_match_is_a_different_checksum` have one.
+
+⭐⭐ **THE SIXTEENTH ROAD IS TAKEN, AND THE COST OF ITS ABSENCE IS MEASURED
+RATHER THAN ARGUED.** Poison `ContentBinding::canonical_summary` to render a
+STATED BUT CONSTANT content term and **all six arms of `id_peer_audit` pass** —
+including `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
+whose whole subject is that term. The only thing in the workspace that reddens is
+the new arm in `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+which takes one process through two prepared fingerprints via a materially
+changed reload and asserts the provenance MOVED. ⚠ One process at two
+fingerprints is not two peers and is stated that way: the projection excludes the
+epoch and the session, so the content term is the only thing that CAN move, which
+is what makes it a real test of discriminating power rather than a stand-in.
+Two hosts agreeing still needs the P2P session **N2** records as absent.
+
 ⭐ **AND THE STRONGEST EVIDENCE IS A COMMITMENT RATHER THAN AN ABSENCE.**
 `TransactionId`'s closure did NOT remove the session stamp: the rendered stamp
 still spells `{binding}\t{room}\t{session}` and MUST, because the construction
@@ -314,7 +341,7 @@ to carry it.
 | `MatchInstance::random_context` | **CLOSED** — the method moved to `ActiveMatch` and reads the ordinal. This row said OPEN while the row above said CLOSED, which the review flagged as contradictory control-plane text |
 | checkpoint operation keys | **CLOSED** (schema 188) — the peer projection is the ADMISSION SEQUENCE plus whether a scope owns the operation; the scope keeps its stale-operation job and still round-trips, because all three carriers snapshot by `Clone` |
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. Held by `two_hosts_with_different_route_histories_name_the_session_root_identically`. See below |
-| `TransactionId` provenance | **CLOSED** (schema 193) — the campaign's original finding. The stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it; the projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist |
+| `TransactionId` provenance | **CLOSED 2026-09-16 at both ends, having been closed at only one for a day.** The projection half (schema 193) was the campaign's original finding: the stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it, while the peer projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist. ⛔⛤ **But the GPT review found the term the projection KEEPS was ABSENT on three of the four roads that mint one.** `ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is what this row records --> took `content` and `active_binding` separately and applied the second to the expected-live half only, so the door transition, the reset and the neighbour prefetch each answered `content_unstated` for the INCOMING half — reasoning correctly that a transition publishes no content, which is a fact about the commit boundary and not about provenance. MEASURED: after one door transition the only peer content term anywhere in the live world was `content-unstated`, so two peers at different prepared content projected identically. ⇒ Repaired as a SHAPE: `for_live_room_construction` takes ONE binding and the split is unspellable, `for_content_replacement` takes two by name, and only a hot reload asks for it. Held by `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` plus the provenance half of the death and reset arms beside it (`5bb3cc8ea`) |
 | **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
 | **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The blocker is N2's absent P2P session, which is the same blocker `Q128` has. The list is the deliverable; the measurements are not ten more rows waiting to be taken |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |

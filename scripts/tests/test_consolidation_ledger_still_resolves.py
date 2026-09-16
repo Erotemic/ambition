@@ -158,3 +158,32 @@ def test_the_declaration_reader_tells_a_resource_from_a_component():
     # ⚠ And a type it cannot find returns NOTHING, which the rule treats as a
     # claim about the scan rather than a finding.
     assert guard.declaration_kinds(source, "DeltaThing") == []
+
+
+def test_the_ledgers_own_prose_is_swept_for_a_stale_imperative():
+    """⛔ THE LEDGER IS JSON AND THE MARKDOWN SWEEP NEVER SAW IT.
+
+    `PUB-ROOM-REPLACEMENT`'s CENSUS row already said a refusal leaves N
+    untouched while its LEDGER item still said failure could occur after partial
+    live replacement. Two copies of one claim, drifted apart, one of them swept.
+    """
+    items = json.loads(guard.LEDGER.read_text(encoding="utf-8"))["items"]
+    assert guard.stale_mood(items) == []
+
+
+def test_that_sweep_imports_its_pattern_rather_than_restating_it():
+    """⭐ ONE AUTHORITY FOR THE GRAMMAR, TWO ARTIFACTS SCANNED. If this module
+
+    grew its own copy of the mood regex, widening one would silently leave the
+    other behind — which is the defect the rule itself exists to catch.
+    """
+    import check_discharged_holds_are_rewritten as holds
+
+    planted = [
+        {
+            "id": "PLANTED",
+            "consolidation_hypothesis": "A10 should make this one publication.",
+        }
+    ]
+    assert holds.rows_marked_done(guard.REPO / "docs/planning/queue.md")
+    assert guard.stale_mood(planted), "the imported pattern no longer fires"

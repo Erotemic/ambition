@@ -797,7 +797,7 @@ one of them as neither passed nor failed because it has never heard of them. A
 reader counting test files sees coverage that does not exist.
 
 Found 2026-09-16 while resolving every name-excluded file to its declaration
-(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_rust_sources.py` so the
+(see `GUARD-CORPUS`). Pinned in `scripts/tests/test_test_paths.py` so the
 count cannot grow quietly, which is NOT the same as fixed.
 
 **Next implementation:** decide whether the arms still state something true of
@@ -811,9 +811,18 @@ a first run is evidence, not a regression. Drop the entry from the arm's
 
 **Owner:** repo tooling (`scripts/check_*.py`).
 
-**State: CLOSED 2026-09-16.** `scripts/lib/rust_sources.py` owns the rule and
-all five call sites use it. Floors landed first, in `993fdef58`; the
-consolidation followed in `51b085249` and `62cbb0fcb`.
+**State: CLOSED 2026-09-16.** `scripts/lib/test_paths.py` owns the rule and all
+five call sites use it. Floors landed first, in `993fdef58`; the consolidation
+followed in `e660c2fc4`.
+
+⚠ **TWO SESSIONS IMPLEMENTED THIS ROW AT THE SAME TIME AND NEITHER KNEW.** The
+work was done twice, independently, down to the same four measurements — one as
+`lib/test_paths.py`, one as `lib/rust_sources.py`. The duplicate was deleted and
+its two non-overlapping pieces folded in: a brace-depth guard on the
+`#![cfg(test)]` match, and `scripts/tests/test_test_paths.py`. ⇒ A row marked
+with an owner and a "next implementation" still says nothing about whether
+somebody is in it RIGHT NOW. Say so in the row, or in a message, before starting
+a step that takes hours.
 
 The five copies had drifted into five answers. `*_tests.rs` reached two of five
 even though the docstring that added it records missing "all 51 of them", and
@@ -834,7 +843,7 @@ nothing at all:
 
 ⛔ **SO FOUR GATES HAD BEEN DROPPING SHIPPING CODE FROM THEIR CORPORA BY NAME,
 AND EVERY ONE OF THEM REPORTED CLEANER FOR IT.** That is the failure this row
-predicted, found in the direction it predicted. `scripts/tests/test_rust_sources.py`
+predicted, found in the direction it predicted. `scripts/tests/test_test_paths.py`
 re-runs the comparison, so a name is trusted only for as long as it stays true;
 a second arm pins `feature = "test-support"` to `[dev-dependencies]`, since
 `#[cfg(any(test, feature = ...))]` is the one predicate the file rule cannot
@@ -845,7 +854,7 @@ after:
 
 | check | effect of adopting the owner | floor |
 | --- | --- | --- |
-| `check_rollback_mutators_run_in_sim.py` | verdict identical; the name half it gained was already covered by its attribute half | untouched |
+| `check_rollback_mutators_run_in_sim.py` | verdict identical; already the widest of the five | untouched |
 | `check_set_pins_have_engine_members.py` | 1367 → 1293 files, 225 → 222 pins | **CAUGHT IT**; lowered in the same commit |
 | `check_capability_ships.py` | 1334 → 1264 production files, 414 → 408 writer types | held |
 | `test_every_smash_technique_has_a_translator.py` | 282 → 257 ruleset files | **CAUGHT IT**; lowered |
@@ -927,10 +936,47 @@ stale `project.json`: a PARTIALLY PUBLISHED inventory, worse than the shrunken o
 it was refusing. Now nothing is written until the floor passes — measured, the
 poisoned run writes 0 files where the good run writes 162.
 
+⇒ **STEP TWO IS DONE: ONE OWNER, `scripts/lib/test_paths.py` (2026-09-16).** All
+five call sites delegate to `is_test_path`, which is the UNION of the five name
+rules plus the inner `#![cfg(test)]` fact none of them checked. The local names
+stay; only the rule moved.
+
+⭐ **AND THE FLOORS EARNED THEIR ORDER IMMEDIATELY — TWO OF THE FIVE WENT RED ON
+THE REPOINT**, which is exactly the review this row said a consolidation could
+not otherwise get:
+
+| script | reach before → after | verdict |
+| --- | --- | --- |
+| `check_capability_ships.py` | production files 1334 → 1264 | passed; floor 1250 held |
+| `check_set_pins_have_engine_members.py` | sources 1367 → 1293 | **RED**, floor lowered 1300 → 1280 with the reason |
+| `ecs_inventory.py` | 8 files newly excluded, 0 regressions | passed |
+| `test_every_smash…` | ruleset files 282 → 257 | **RED**, floor lowered 270 → 250 |
+| `check_rollback_mutators_run_in_sim.py` | unchanged (already the widest) | 14 findings before and after |
+
+Each drop was checked rather than waved through: all 74 files the set-pins check
+newly excludes are `*_tests.rs` it had never matched, plus the four whose inner
+`#![cfg(test)]` compiles them out. `sets pinned` fell 225 → 222 — three pins that
+lived in test files and were never production pins.
+
+⭐ **THE INTERESTING RESULT IS A NEGATIVE ONE.** `test_every_smash_technique…`
+still passes over its smaller haystack, so no authored technique was being kept
+"connected" by a mention in a test file. That guard is strictly stronger now and
+found nothing — worth recording, because a silent widening would have left nobody
+able to say so.
+
+⚠ **AND MY `ecs_inventory` FLOOR WAS CALIBRATED AGAINST THE WRONG READING.** I
+took 638/493/1108 from the architecture census's `generated_inventory_counts`,
+which is its snapshot of a PREVIOUS `.agent` generation, and set floors under
+numbers this scanner does not produce today (659/528/1095). They PASSED, which is
+why it would not have announced itself — a floor under a stale reading is in the
+wrong place, not broken. Re-baselined against the scanner's own output.
+
 **Acceptance:** one owner for "is this file test-only", covering both the name
 conventions and `#![cfg(test)]`; each consuming check fails when its population
 falls; and no check reports a `#![cfg(test)]` file's registrations as
-production.
+production. ⇒ **MET 2026-09-16**, except that the fifth clause is only known for
+the four files carrying an inner `#![cfg(test)]` today; a new one is covered by
+construction rather than by a test.
 
 ### TEST-LANES — keep required test lanes executable and diagnose `app_it` flake
 

@@ -60,6 +60,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from test_paths import is_test_path  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
@@ -68,7 +71,6 @@ from check_engine_systems_are_engine_installed import (  # noqa: E402
     strip_comments,
     strip_run_conditions,
 )
-from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
 
 SOURCE_ROOTS = ["crates", "game"]
 ROLLBACK_REGISTRY = REPO / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
@@ -255,6 +257,40 @@ def strip_test_modules(source: str) -> str:
     return source
 
 
+def _is_test_path(path: Path) -> bool:
+    """Is this file test-only, so its `Update` registrations are fixtures?
+
+    ⚠ **`*_tests.rs` is the repo's other test-file convention and this used to
+    miss all 51 of them.** A file named `foo_tests.rs` is always declared as
+    `#[cfg(test)] mod foo_tests;` (sometimes through a `#[path]` attribute, which
+    is why a naive parent grep does not see it), so it cannot carry a production
+    registration — the same reason `strip_test_modules` drops inline
+    `#[cfg(test)] mod` blocks out of production files. The first such file to
+    register a rollback mutator into `Update` was flagged as a real breach.
+
+    ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
+    was the WIDEST of the five copies that had drifted apart, and the one whose
+    `#![cfg(test)]` fix (`c6715b84e`) the other four never got. The owner now
+    carries both halves, so this call site is the union rather than one end of
+    a spread.
+    """
+    return is_test_path(path)
+
+
+#: A whole file compiled out of a release build. ⛔ THE NAME CONVENTIONS ABOVE
+#: ARE A PROXY AND THIS IS THE FACT. `features/ecs/fighter_harness.rs` is a test
+#: harness living beside the code it exercises, declared `mod fighter_harness;`
+#: with no `#[cfg(test)]` on the declaration and `#![cfg(test)]` INSIDE the file
+#: — so every name rule above passes it and its `Update` registrations entered
+#: the production corpus as if they shipped.
+#:
+#: ⚠ MEASURED 2026-09-16: 4 files carry this attribute and ALL FOUR were missed,
+#: so the proxy had no overlap with the fact at all. Found by chasing
+#: `materialize_projectiles_for_this_tick`, which read as a serious breach —
+#: projectile spawning is simulation, not presentation — and was a fixture.
+_FILE_IS_TEST_ONLY = re.compile(r"^[ \t]*#!\[cfg\(test\)\]", re.M)
+
+
 @functools.cache
 def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
     """Read and normalize each production Rust source once per repository.
@@ -269,10 +305,12 @@ def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
         if not (repo / root).is_dir():
             continue
         for src in sorted((repo / root).rglob("*.rs")):
-            if is_test_path(src):
+            if _is_test_path(src):
                 continue
             text = strip_test_modules(strip_comments(src.read_text(errors="replace")))
-            if file_is_test_only(text):
+            # An inner `#![cfg(test)]` compiles the WHOLE file out, so nothing in
+            # it can be a production registration whatever the file is called.
+            if _FILE_IS_TEST_ONLY.search(text):
                 continue
             found.append((src, text))
     return tuple(found)

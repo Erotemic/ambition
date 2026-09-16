@@ -27,13 +27,14 @@ of the road being connected.
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO / "scripts"))
+import sys as _sys
 
-from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
+_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
+from test_paths import is_test_path  # noqa: E402
+
+REPO = Path(__file__).resolve().parent.parent.parent
 # Where the authored vocabulary is DECLARED.
 VOCABULARY = REPO / "crates" / "ambition_entity_catalog" / "src"
 # Where a ruleset may recognise it. A key named in any of these is connected.
@@ -65,6 +66,16 @@ def _is_test_file(path: Path) -> bool:
     production reader. ⇒ A guard whose evidence can come from a test is a guard
     that passes when the feature is dead, which is the only failure mode that
     matters here.
+
+    ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. It
+    was one of FIVE drifted copies and the joint-narrowest: no `*_tests.rs`, no
+    `test.rs`, and like all five it missed a file whose inner `#![cfg(test)]`
+    compiles it out entirely.
+
+    ⚠ AND HERE A NARROW RULE IS THE DANGEROUS ONE, unlike the other four. A test
+    file left IN the haystack lets a const named only by a test read as a
+    connected technique — the defect above. Widening only shrinks the haystack,
+    which produces MORE orphans and fails loudly.
     """
     return is_test_path(path)
 
@@ -84,13 +95,16 @@ def _is_test_file(path: Path) -> bool:
 #: call site must not LOSE exclusions, and the floor below cannot see that. It
 #: is here to make the consolidation reviewable, not to make it safe.
 #:
-#: MEASURED 2026-09-16: 282 ruleset files scanned, 86 excluded as tests. Then
-#: the consolidation onto `lib.rust_sources` GAINED exclusions rather than
-#: losing them — `*_tests.rs` and `test.rs` by name, plus whole-file
-#: `#![cfg(test)]` — and the reading fell to 257 kept of 368, 109 excluded by
-#: name and 2 by the attribute. That is this guard's loud direction, and the
-#: floor is lowered to match a haystack that is correctly smaller.
-RULESET_FILE_FLOOR = 245
+#: MEASURED 2026-09-16: 282 ruleset files scanned, 86 excluded as tests.
+#:
+#: ⛔⛤ **LOWERED 282 -> 257 THE SAME DAY, DELIBERATELY.** Repointing
+#: `_is_test_file` at `scripts/lib/test_paths.py` excluded 25 more files, all of
+#: them `*_tests.rs` this copy had never matched. ⭐ AND THE INTERESTING RESULT
+#: IS THE NEGATIVE ONE: the test still passes over the smaller haystack, so no
+#: authored technique was being kept "connected" by a mention in a test file.
+#: The guard is strictly stronger now and found nothing — which is worth
+#: recording, because a silent widening would have left nobody able to say that.
+RULESET_FILE_FLOOR = 250
 
 
 def _ruleset_text() -> str:
@@ -99,10 +113,7 @@ def _ruleset_text() -> str:
         for path in sorted(root.rglob("*.rs")):
             if _is_test_file(path):
                 continue
-            text = path.read_text(encoding="utf-8")
-            if file_is_test_only(text):
-                continue
-            parts.append(text)
+            parts.append(path.read_text(encoding="utf-8"))
     assert len(parts) >= RULESET_FILE_FLOOR, (
         f"this guard now reads only {len(parts)} ruleset file(s), floor is "
         f"{RULESET_FILE_FLOOR}. Something narrowed its reach — most likely the "

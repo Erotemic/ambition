@@ -46,10 +46,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
-from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -177,8 +175,17 @@ def _without_comments(source: str) -> str:
     return "\n".join(out)
 
 
+#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This
+#: was one of FIVE copies that had drifted into five different answers; this one
+#: was the narrowest, missing `test.rs` and `*_tests.rs`, and like all five it
+#: missed a file whose inner `#![cfg(test)]` compiles it out entirely.
+#: ⚠ The union sees MORE test files, so this check sees FEWER production ones —
+#: the green direction. `POPULATION_FLOOR` above is what makes that reviewable.
+from test_paths import is_test_path  # noqa: E402
+
+
 def _is_test(path: Path) -> bool:
-    return is_test_path(path) or file_is_test_only(_source(path))
+    return is_test_path(path)
 
 
 #: What this scan must still be able to SEE. ⛔ THE FAILURE MODE OF A
@@ -187,11 +194,12 @@ def _is_test(path: Path) -> bool:
 #: intersection empties silently, which is indistinguishable from "every
 #: capability ships".
 #:
-#: ⚠ THIS SCRIPT WAS THE NARROWEST OF THE FIVE COPIES of the test-file rule and
-#: now shares `lib.rust_sources` with the rest. Adopting it REMOVED files from
-#: `production files` — 1334 to 1264, and `writer types` 414 to 408 — which is
-#: the green direction, so these floors are what made that reviewable. They held
-#: unchanged across the change and the verdict did not move.
+#: ⚠ THIS SCRIPT IS A KNOWN DIVERGENCE POINT. Its `_is_test` matches
+#: `test_support.rs` but NOT `test.rs` or `*_tests.rs` — the narrowest of the
+#: five copies of that rule in `scripts/` (see `GUARD-CORPUS` in
+#: `docs/planning/queue.md`). Widening it toward the others REMOVES files from
+#: `production files`, which is the green direction, so the floor exists to make
+#: that change reviewable rather than invisible.
 POPULATION_FLOOR = {
     "files scanned": 1450,
     "production files": 1250,

@@ -1,4 +1,4 @@
-"""The one test-file rule, now that four gates share it.
+"""The one test-file rule in `lib.test_paths`, now that five gates share it.
 
 ⛔ A DEFECT HERE IS INVISIBLE AND GREEN. Every caller uses this to REMOVE files
 from its corpus, so a rule that says "test" too often makes four gates report
@@ -14,7 +14,20 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
+from lib.test_paths import (  # noqa: E402
+    TEST_DIR_PARTS,
+    TEST_FILE_NAMES,
+    file_is_test_only,
+    is_test_path,
+)
+
+
+def named_as_test(path: Path) -> bool:
+    """The NAME half alone. The arms below compare it against the fact, so they
+    must be able to ask the two questions separately."""
+    return bool(TEST_DIR_PARTS & set(path.parts)) or (
+        path.name in TEST_FILE_NAMES or path.name.endswith("_tests.rs")
+    )
 
 SOURCE_ROOTS = ("crates", "game")
 
@@ -40,20 +53,24 @@ def test_both_test_file_conventions_are_named() -> None:
     """`*_tests.rs` is the convention one copy of this rule missed for all 51
     of them, and it is declared `#[cfg(test)] mod foo_tests;` — sometimes with
     a `#[path]` attribute, so the parent directory does not give it away."""
-    assert is_test_path(Path("crates/c/src/npc_flight_tests.rs"))
-    assert is_test_path(Path("crates/c/src/tests.rs"))
-    assert is_test_path(Path("crates/c/tests/it.rs"))
-    assert not is_test_path(Path("crates/c/src/attestation.rs"))
+    assert named_as_test(Path("crates/c/src/npc_flight_tests.rs"))
+    assert named_as_test(Path("crates/c/src/tests.rs"))
+    assert named_as_test(Path("crates/c/tests/it.rs"))
+    assert not named_as_test(Path("crates/c/src/attestation.rs"))
 
 
 def test_the_name_half_still_matches_something_in_the_tree() -> None:
     """⛔ AN EMPTY POPULATION IS A BROKEN SCAN, NOT A CLEAN TREE."""
-    named = [path for path in sources() if is_test_path(path)]
+    named = [path for path in sources() if named_as_test(path)]
     assert len(named) > 400, f"only {len(named)} test files by name — the rule stopped matching"
 
 
 def test_the_fact_half_still_matches_something_in_the_tree() -> None:
-    found = [p for p in sources() if not is_test_path(p) and file_is_test_only(p.read_text(errors="replace"))]
+    found = [
+        p
+        for p in sources()
+        if not named_as_test(p) and file_is_test_only(p.read_text(errors="replace"))
+    ]
     assert found, "no file carries a whole-file `#![cfg(test)]` — the attribute rule is dead"
 
 
@@ -133,7 +150,7 @@ def test_no_file_excluded_by_name_is_compiled_into_a_release_build() -> None:
     shipping: list[str] = []
     orphans: list[str] = []
     for path in sources():
-        if "tests" in path.parts or not is_test_path(path):
+        if "tests" in path.parts or not named_as_test(path):
             continue
         if file_is_test_only(path.read_text(errors="replace")):
             continue

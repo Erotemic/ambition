@@ -12,9 +12,6 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.rust_sources import file_is_test_only, is_test_path  # noqa: E402
-
 REPO = Path(__file__).resolve().parents[1]
 ENGINE_ROOT = "crates"
 GAME_ROOT = "game"
@@ -62,12 +59,25 @@ def _strip_comments(text: str) -> str:
     return "\n".join(line.split("//", 1)[0] for line in text.splitlines())
 
 
+#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. One
+#: of FIVE drifted copies; this one missed `*_tests.rs`, and like all five it
+#: missed a file whose inner `#![cfg(test)]` compiles it out entirely.
+#: ⚠ The union sees MORE test files, so this check sees FEWER sources — the
+#: green direction, which `POPULATION_FLOOR` above exists to make reviewable.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from test_paths import is_test_path  # noqa: E402
+
+
+def _is_test_path(path: Path) -> bool:
+    return is_test_path(path)
+
+
 def _sources(repo: Path):
     for root in SOURCE_ROOTS:
         if not (repo / root).is_dir():
             continue
         for src in sorted((repo / root).rglob("*.rs")):
-            if is_test_path(src) or file_is_test_only(src.read_text(errors="replace")):
+            if _is_test_path(src):
                 continue
             rel = src.relative_to(repo).parts
             if len(rel) < 2:
@@ -92,13 +102,19 @@ def _sources(repo: Path):
 #: the default argument bound at import — so it re-scans the real tree and
 #: passes. Measured 2026-09-16 by writing that probe and getting 14 false
 #: positives out of 29 scripts.
-#: ⚠ "sources scanned" was lowered from 1300 when this file adopted
-#: `lib.rust_sources`, which excludes the `*_tests.rs` and whole-file
-#: `#![cfg(test)]` files the local rule admitted: 1367 -> 1293 files and 225 ->
-#: 222 pins. Every file that left was checked to be compiled out of a release
-#: build. A floor may go down for that reason and no other.
+#:
+#: ⛔⛤ **LOWERED 2026-09-16 FROM 1300, DELIBERATELY, AND THE FLOOR IS WHY ANYONE
+#: KNOWS.** Repointing `_is_test_path` at the single owner in
+#: `scripts/lib/test_paths.py` took `sources scanned` 1367 -> 1293 and turned
+#: this check RED. The drop is CORRECT: this copy had never matched
+#: `*_tests.rs`, and all 74 newly excluded files are that pattern plus the four
+#: whose inner `#![cfg(test)]` compiles them out entirely. `sets pinned` fell
+#: 225 -> 222, which is three pins that lived in test files and were never
+#: production pins.
+#: ⇒ That is the consolidation this row asked for arriving VISIBLY rather than
+#: as a shorter report nobody could question.
 POPULATION_FLOOR = {
-    "sources scanned": 1230,
+    "sources scanned": 1280,
     "sets defined": 120,
     "sets pinned": 210,
 }

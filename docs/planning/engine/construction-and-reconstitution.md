@@ -289,11 +289,23 @@ ID-PEER owner, 2026-09-16):
    see it and no GGRS session starts until adoption.
 
 ⇒ Both depend on the same fact: **a candidate is not merely marked, it is
-UNFINDABLE by an ordinary query.** A demolition that relaxed hiding to a plain
-marker, or that exempted the session root from it, would leave both conclusions
-false and neither owner's tests would say so. `only-the-candidate-builder-hides-a-root`
-guards WHO may hide; nothing guards that hiding still BLINDS, so that is the
-check to write before touching this.
+UNFINDABLE by an ordinary query.**
+
+⭐ **AND THAT FACT IS ALREADY GUARDED — I nearly wrote a second authority for it.**
+`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
+(`shared_tangle/src/lifecycle/session/tests.rs`) pins all three halves: that
+`session_world_entity` must NOT see a candidate, that `session_root_for_scope`
+MUST, and that everything the candidate OWNS is hidden too — because Bevy's
+disabling components do not inherit through ownership, so hiding only the root is
+how a candidate prepared beside a live one produces two visible players. ⚠ It
+checks its PREMISES first — the root IS the live world, the body IS visible —
+so a composition that never registered the disabling filter cannot satisfy it
+while hiding nothing.
+
+⇒ The name to grep for was the QUESTION, not the word "hiding". A demolition that
+relaxed hiding to a plain marker, or exempted the session root from it, reddens
+that arm. `only-the-candidate-builder-hides-a-root` guards WHO may hide; this arm
+guards that hiding still BLINDS. Both exist; neither needs writing.
 
 ⛔⛤ **AND A CANDIDATE SESSION HAS EXACTLY FOUR EXITS — closed 2026-09-15, when
 TWO of them turned out not to exist.**

@@ -68,11 +68,28 @@ diary.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-15):** the roads by which host-local identity reached
-peer-compared state are being closed one at a time. ⛔ **A GPT architecture
-review on 2026-09-15 found that the first attempt replaced one host-local term
-with another**, and the table below is written to be re-checkable rather than
-reassuring.
+**Current state (2026-09-16): NINE OF THE TEN NAMED ROADS ARE CLOSED, and the
+tenth is the absolute `SimTick`, which is netcode and wants a maintainer decision
+before anyone starts.** A count rather than a completeness word, deliberately: a
+tenth road found tomorrow makes this row "nine closed, a tenth found" instead of
+making it false.
+
+⛔ **THE FIRST ATTEMPT AT THREE OF THEM REPLACED ONE HOST-LOCAL TERM WITH
+ANOTHER**, which two GPT architecture reviews (2026-09-15, 2026-09-16) found in
+turn — the activation tick for the session id, then the session-relative ordinal
+for the activation tick, each correct one layer up and wrong one layer down. The
+table below is written to be re-checkable rather than reassuring, and every row
+names the arm that holds it.
+
+⭐ **THE TWO THAT CLOSED LAST CLOSED WITHOUT A NEW AUTHORITY, and that is the
+pattern worth carrying into whatever is next.** The cross-session match identity
+needed a stale stamp to be impossible, not a longer checksum — and the one owner
+of "resources that must not survive a session" already existed with an exhaustive
+destructure; four types were simply not in it. The session root's identity needed
+no peer-stable session identity at all — the local count was disambiguating
+nothing, because `shell_host_lifecycle` had been asserting `session_roots == 1`
+in green for weeks. ⇒ Ask who ORDERS and who OWNS a thing before designing a type
+to carry it.
 
 | road | state |
 |---|---|

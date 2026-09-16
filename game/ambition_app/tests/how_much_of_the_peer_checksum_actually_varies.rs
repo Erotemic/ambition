@@ -310,3 +310,115 @@ fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// S8's POPULATION, MEASURED RATHER THAN READ OFF EIGHT SYSTEMS' SCHEDULES.
+//
+// ⛔⛤ S8 found its four by reading `add_systems` calls and registrations —
+// careful work that a forwarder, a set, or a `cfg` can hide from. The GGRS
+// advance runs in `PreUpdate` (`run_ggrs_schedules`), so at the END of a frame
+// the live world is the last saved frame PLUS whatever ran outside the rewinding
+// schedule. `record_live_census` compares the two, and what it names is that
+// population directly.
+//
+// ⚠ IT NAMES A POPULATION, NOT A DEFECT. Presentation state is legitimately
+// written there. What makes an entry dangerous is that it ALSO feeds the peer
+// checksum — the registry knows that and the audit does not, so the JOIN is the
+// finding and it is done here.
+
+#[test]
+#[ignore = "PROBE, print-only: which HASHED entries are written outside the rewinding schedule"]
+fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
+    let sim = run_with(playing);
+    let (hashed, _) = hashed_types(&sim);
+    let hashed: std::collections::BTreeSet<String> = hashed.into_iter().collect();
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    println!("{}", audit.coverage());
+    // ⛔ THE FLOOR. An empty set with zero comparisons reads exactly like a world
+    // where nothing is written outside the schedule.
+    println!("   live comparisons: {}", audit.live_comparisons);
+    let outside = audit.written_outside_the_rewinding_schedule();
+    println!("   types written OUTSIDE the rewinding schedule: {}", outside.len());
+    let (mut hashed_too, mut not_hashed) = (Vec::new(), Vec::new());
+    for name in &outside {
+        if hashed.contains(*name) {
+            hashed_too.push(*name);
+        } else {
+            not_hashed.push(*name);
+        }
+    }
+    println!("   ⛔ OF THOSE, FEEDING THE PEER CHECKSUM: {}", hashed_too.len());
+    for name in &hashed_too {
+        println!("       {name}");
+    }
+    println!("   ⓘ not hashed (presentation and local state live here legitimately): {}", not_hashed.len());
+    for name in not_hashed.iter().take(20) {
+        println!("       {name}");
+    }
+    println!(
+        "\n⚠ THIS CANNOT SEE A WRITE THAT PUTS THE VALUE BACK inside one frame, \
+         which is exactly why `NewGameResetRequested` satisfies S8's first two \
+         conditions and does not desync. Same blind spot as the checksum's."
+    );
+}
+
+/// ⛔⛤ **S8'S POPULATION, ASSERTED: EXACTLY ONE REGISTERED TYPE IS WRITTEN
+/// OUTSIDE THE REWINDING SCHEDULE, AND IT IS THE SAVE.**
+///
+/// S8 found four `Update`-written hashed entries by reading `add_systems` calls.
+/// Measured over 240 frames by comparing the world at the end of the GGRS advance
+/// with the world at the end of the frame, the answer is **one**:
+/// `AmbitionGameSave`. The other three are explained by this instrument's two
+/// stated blind spots rather than by disagreement — `NewGameResetRequested` is
+/// put back within the frame, and `CustodyBaseline` / `OccurrenceBaseline` are
+/// measured EMPTY for the whole run (`probe_whether_s8s_baselines_are_quiet_or_frozen`).
+///
+/// ⚠ **THE POPULATION IS "TYPES WHOSE PROBE CAN SEE A VALUE CHANGE", NOT "ALL
+/// STATE".** A presence probe counts carriers and is blind to a value, and a type
+/// that is not rollback-registered at all cannot appear here however it is
+/// written — `SeatControlFrameModes` and `PlayerDamagePolicy` are both written
+/// from `Update`, read by sim systems, and invisible to this arm because neither
+/// is registered. That is `SETTINGS-ROLLBACK`'s row, not a hole in this one.
+///
+/// ⭐ **THE POSITIVE CONTROL IS A KNOWN ANSWER ESTABLISHED BY ANOTHER ROUTE.**
+/// `AmbitionGameSave` MUST appear: S8 established independently, by reading the
+/// registration and by the pinned-snapshot measurement, that it is written from
+/// `Update`. An empty set here would otherwise read exactly like a world where
+/// nothing is written outside the schedule.
+#[test]
+fn exactly_one_registered_type_is_written_outside_the_rewinding_schedule() {
+    let sim = run_with(playing);
+    let (hashed, _) = hashed_types(&sim);
+    let hashed: std::collections::BTreeSet<String> = hashed.into_iter().collect();
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+    assert!(
+        audit.live_comparisons > 0,
+        "the live census never ran or never had a post-advance baseline to \
+         compare against, so the empty set below would be a reading about the \
+         instrument ({})",
+        audit.coverage()
+    );
+    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
+    assert!(
+        outside.contains(&"ambition_persistence::save::AmbitionGameSave"),
+        "the positive control is missing: `AmbitionGameSave` is written from \
+         `Update` — established independently by reading its registration and by \
+         its pinned snapshot — so it must appear here. It did not, and an empty \
+         or short set reads exactly like a clean world. Found: {outside:?}"
+    );
+    assert_eq!(
+        outside,
+        vec!["ambition_persistence::save::AmbitionGameSave"],
+        "a registered type other than the save is being written outside the \
+         rewinding schedule. ⇒ THAT IS THE GOOD FAILURE IF IT IS NEW WORK and the \
+         bad one if it is a regression: check whether the new entry also feeds \
+         the peer checksum, because that is what turns this population into a \
+         desync candidate. Of the {} entries that feed it, the save was the only \
+         member of this set on 2026-09-16.",
+        hashed.len()
+    );
+}

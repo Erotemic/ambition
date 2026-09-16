@@ -800,6 +800,46 @@ of every clean result in this neighbourhood, including the ones above: the entry
 the entry that diverges in the ONE window — the first three ticks — where the
 snapshot is not yet pinned.
 
+⭐⭐ **AND S8'S POPULATION IS NOW MEASURED RATHER THAN READ OFF EIGHT SYSTEMS'
+SCHEDULES — THE ANSWER IS ONE, AND IT IS THE SAVE.** This section found its four by
+reading `add_systems` calls and registrations, which is careful work that a
+forwarder, a set or a `cfg` can hide from. There is a direct measurement: the GGRS
+advance runs in `PreUpdate` (`run_ggrs_schedules`), so censusing the world at the
+END of the advance and again at the end of the frame makes the difference exactly
+what `Update`, `PostUpdate` and `Last` wrote. Over 240 frames with an acting
+agent:
+
+> **1 registered type is written outside the rewinding schedule, and it is
+> `ambition_persistence::save::AmbitionGameSave`.** 240 live comparisons; nothing
+> else, hashed or not, differs between the two censuses.
+
+⇒ The other three this section names are explained by the instrument's two STATED
+blind spots rather than by disagreement: `NewGameResetRequested` is put back
+within the frame (which is also why it satisfies the first two conditions and does
+not desync), and `CustodyBaseline` / `OccurrenceBaseline` are measured EMPTY for
+the whole run, below. Held by
+`exactly_one_registered_type_is_written_outside_the_rewinding_schedule`, whose
+positive control is that the save MUST appear — a known answer established by a
+different route, because an empty set reads exactly like a clean world.
+
+⚠ **THE POPULATION IS "TYPES WHOSE PROBE CAN SEE A VALUE CHANGE", NOT "ALL
+STATE".** A presence probe counts carriers and is blind to a value, and a type that
+is not rollback-registered cannot appear however it is written —
+`SeatControlFrameModes` and `PlayerDamagePolicy` are both written from `Update`,
+read by sim systems, and invisible here because neither is registered. That is
+`SETTINGS-ROLLBACK`'s row, not a hole in this one.
+
+⛔⛤ **THE FIRST VERSION OF THAT INSTRUMENT SAID 29 OF 144 AND WAS WRONG IN THE
+ALARMING DIRECTION.** It compared the live world against the last SAVED census —
+but GGRS saves a frame BEFORE advancing it, so the saved census is the START of
+the last advanced frame while the live world is its END, and every
+per-tick-changing type differed by construction. The list included `SimTick`,
+`BodyKinematics`, `MotionModel` and `SweepSample`. ⇒ **The number was seven times
+this section's hand-read four, which is how a broken instrument announces itself as
+a discovery.** What caught it was reading the LIST and seeing types whose answer
+was already known — not reading the number, which was the most interesting number
+of the day.
+
 ✔ **AND S8'S OWN STATED LIMIT IS NOW CLOSED, WITH THE ANSWER BEING "NO SUBJECT"
 RATHER THAN "CLEAN".** This section recorded that `CustodyBaseline` and
 `OccurrenceBaseline` were measured clean *"without being aimed at"*, and named the

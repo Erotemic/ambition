@@ -627,13 +627,27 @@ flag set by the simulation lands in the save inside the rewinding schedule, wher
 the checksum is doing real work. ⇒ On that evidence (a) is the honest option and
 (b) trades a defect for a blind spot.
 
-⚠ **THAT IS ONE CONFIRMED WRITER, NOT A CENSUS.** 19 systems take
-`ResMut<AmbitionGameSave>` workspace-wide; a crude scan puts about a dozen of them
-in a sim schedule, but the same scan also reports `persist_inventory_to_save` as
-both `Update` and `sim`, which is false — so the number is vigilance and only the
-one above is safety. ⇒ The ruling needs the real enumeration, and it is a
-half-hour of reading, not a research task. What it changes is which option is
-cheap, not which defect exists.
+**AND THE CENSUS IS NOW DONE: 13 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE.**
+Every system taking `ResMut<AmbitionGameSave>` workspace-wide, resolved to the
+`add_systems` call that registers it:
+
+| registered in the sim schedule (13) | not (6) |
+|---|---|
+| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `update_boss_encounters` | `dispatch_pending_dialog_requests`, `load_save_at_startup`, `track_room_visits`, and the three `persist_*_to_save` mirrors |
+
+⇒ **THE SAVE IS SIMULATION-ADJACENT STATE IN PRACTICE, WHATEVER IT IS IN
+PRINCIPLE.** Quest advances, boss encounter progress, switch activations, shrine
+heals and cutscene ticks all write it from inside the rewinding schedule, where
+the checksum is doing real work. Taking it out of the peer contract would stop
+comparing all thirteen. (b) is therefore not the small option; it is the largest
+one, measured by what it stops checking.
+
+⚠ Two method notes, because the count would have been wrong twice without them.
+A name inside `.after(...)` is an ORDERING EDGE, not a registration — excluding
+those is why `heal_save_shrine_system` is counted from its real `add_systems` and
+not from `checkpoint.rs:1755`. And the three `persist_*` mirrors landing on the
+`Update` side is the positive control: a classifier that put them anywhere else
+would be wrong about the very systems this Q is named for.
 
 ⚠ It also applies to more than the bag: `persist_occurrence_horizon_to_save` and
 `persist_minted_item_horizon_to_save` write the same resource from the same

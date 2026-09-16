@@ -166,8 +166,14 @@ fn probe_the_mirror_and_the_sim_do_not_share_a_clock() {
 /// registry already knows every entry that feeds the peer checksum, and
 /// `RollbackChecksumProbes::census_all` will read them all.
 ///
-/// The method is a DIFFERENCE BETWEEN TWO RUNS AT THE SAME TICK, not a
-/// difference across a rewind, which cannot be observed from outside. Both
+/// The method is a DIFFERENCE BETWEEN TWO RUNS AT THE SAME TICK. ⚠ THIS DOC
+/// CLAIMED A DIFFERENCE ACROSS A REWIND "CANNOT BE OBSERVED FROM OUTSIDE" AND
+/// THAT IS FALSE — `RollbackRestoreAudit` censuses every save and compares when
+/// GGRS saves the SAME frame twice, which is what a resimulation is, and it
+/// shipped before this probe. YardratAmbition used it to read the replay
+/// directly: the replay xor is CONSTANT across frames 2, 3, 4 while the
+/// first-pass xor moves every frame. ⇒ Two runs at one tick prove the entry
+/// FOLLOWS the bag; only the audit shows the replay stops updating it. Both
 /// harnesses take the same `ResMut<OwnedItems>` at the same schedule position and
 /// fire the same change detection; one grants 1 per tick and one grants 0. Any
 /// hashed entry whose census differs between them is a value that derives from

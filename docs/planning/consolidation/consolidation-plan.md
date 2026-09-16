@@ -223,8 +223,11 @@ three options costed. C03 should not move storage before it is answered.
 
 The sequence's step 3 says *"for rollback-registered values, record the current
 registration and restore boundary before changing storage."* MEASURED 2026-09-16
-across every `.rs` in `crates/` and `game/` — 23 `rollback_resource_clone_checksum`
-call sites, all classified — for `SessionOwnedCheckpointState`'s six members:
+across every `.rs` in `crates/` and `game/`, over all **ten** `rollback_resource_*`
+registration methods the `RollbackRegistrar` trait declares — 68 raw occurrences,
+every one classified as a state call site, an entity-mapping call site, or the
+trait's own forwarding definition, yielding **54 state-registered resource types**
+workspace-wide — for `SessionOwnedCheckpointState`'s six members:
 
 | member | rollback key | boundary |
 | --- | --- | --- |
@@ -250,6 +253,19 @@ past its branch DISCARDS it (`AbandonmentVerdict::Stale`) rather than cancelling
 healthy replacement that reused the rewound sequence number. Registering it would
 make a local preparation failure, which two peers need not agree about, into
 shared state. ⇒ **C03 must not "finish the family" by registering it.**
+
+⛔⛤ **AND THE FIRST VERSION OF THAT MEASUREMENT ASKED ABOUT ONE METHOD OF TEN.**
+It scanned only `rollback_resource_clone_checksum` while printing the verdict *"NO
+rollback registration"* — a claim its query could not support. The checkpoint
+family's answer did not change, because all five do use that method, so it was
+right BY LUCK: one resource over, `PendingLifecycleCommit` is documented as
+rollback-registered and does not appear under that name. ⇒ **When a scan's verdict
+is a NEGATIVE, the method list is the finding's real subject.** Widening it also
+surfaced two classification errors that a narrow query hid: a doc comment in
+`teardown.rs` NAMING a registration is a raw occurrence that is not a call (strip
+the comment REGION first — recognising the prose is the rule backwards), and four
+resources carry BOTH a state registration and a `map.resource.*` entity-mapping
+one, which is two registrations of different KINDS, not two authorities.
 
 ⭐ `scripts/check_session_owner_census_matches_source.py` RULE 3 now holds this:
 every member registers under a key the doc block NAMES, or source declares the

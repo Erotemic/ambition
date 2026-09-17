@@ -310,43 +310,61 @@ pub fn collect_perception_peers(
     for (entity, id, sim_id, kin, health, faction, ground, shield, combat, melee, team, facts) in
         &bodies
     {
+        // ⛔⛤ **THE MECHANICAL ROAD HAS NO FALLBACK FROM CANONICAL IDENTITY TO
+        // `Entity`, AND FOR A DAY IT HAD ONE.** This was
+        // `.unwrap_or_else(|| format!("e{}", entity.index()))`, waived on the
+        // reasoning that a shipped composition builds no body carrying neither
+        // identity. That is not an invariant the structure enforces:
+        // `ensure_sim_id` DECLINES — `error!`, `debug_assert!`, `continue` — for a
+        // `BodyKinematics` body with neither `FeatureId` nor `PrimaryPlayer`,
+        // leaving the mint to the spawn site, so a future spawn road or a
+        // downstream composition can put an allocation-order artefact straight
+        // back into peer-mechanical memory. Named by the GPT architecture review
+        // of 2026-09-16, one commit after the measured divergence was repaired.
+        //
+        // **WHY THIS IS THE KEY AND NOT JUST A LABEL.** The id becomes the KEY of
+        // `WorldMemory::actors`, a `BTreeMap<String, RememberedActor>` inside
+        // `PerceptionMemory`, which is registered `rollback_component_canonical`
+        // and therefore compared between peers whole. MEASURED: the same shipped
+        // route perceived the player as `e888` in one host and `e1026` in
+        // another. ⚠ And the checksum is the smaller half — that map's own doc
+        // says it is a `BTreeMap` because *"`last_known_hostile` takes the
+        // `max_by` confidence over these, and two hostiles both in view are both
+        // at confidence `1.0` — so the tie is broken by iteration order"*, so
+        // index-built keys make an NPC chase a different target on each peer.
+        //
+        // ⇒ **SKIPPING IS THE DETERMINISTIC ANSWER AND THE INDEX WAS NOT.** A
+        // body no peer can name is unnameable on BOTH peers, so declining to
+        // perceive it agrees; an index disagrees. `FeatureId` stays FIRST because
+        // that is what hostility and targeting look bodies up by.
+        //
+        // ⚠ `debug_assert` RATHER THAN A PANIC, the same trade
+        // `ensure_sim_id`'s decline states: a fail-closed check here would pause
+        // a working game over a body that is very likely harmless, and the
+        // population it fires on is exactly the population a test constructs.
+        // The `error!` carries it in release.
+        let Some(stable_id) = id
+            .map(|f| f.as_str().to_string())
+            .or_else(|| sim_id.map(|id| id.as_str().to_string()))
+        else {
+            bevy::log::error!(
+                "{entity:?} is a perceivable body with no `FeatureId` and no \
+                 `SimId`, so nothing can name it: it is skipped rather than \
+                 remembered under its ECS index, which is an allocation-order \
+                 artefact of one App's history and is compared between peers. \
+                 Its spawn site must mint an identity."
+            );
+            debug_assert!(
+                false,
+                "{entity:?}: a perceivable body reached perception with no \
+                 canonical identity and nothing to derive one from"
+            );
+            continue;
+        };
         let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
             entity,
-            // ⛔⛤ **THIS FELL BACK TO `format!("e{}", entity.index())`, AND THAT
-            // ENTITY INDEX REACHED A PEER CHECKSUM.** The id becomes the KEY of
-            // `WorldMemory::actors` — a `BTreeMap<String, RememberedActor>` inside
-            // `PerceptionMemory`, which is registered `rollback_component_canonical`
-            // and therefore compared between peers whole. A Bevy entity index is an
-            // allocation-order artefact of one App's history.
-            //
-            // **MEASURED 2026-09-16** by the two-host peer-visible census: the same
-            // shipped route reached first in one host and third in another perceives
-            // the player as `e888` and `e1026`. `simulation-authority-and-determinism.md`
-            // states the rule outright — *"do not mint canonical identity from ECS
-            // entity order or an App-local activation count"*.
-            //
-            // ⚠ **AND THE CHECKSUM IS THE SMALLER HALF.** `WorldMemory`'s own doc
-            // explains that it is a `BTreeMap` because *"`last_known_hostile` takes
-            // the `max_by` confidence over these, and two hostiles both in view are
-            // both at confidence `1.0` — so the tie is broken by iteration order"*.
-            // Keys built from entity indices order differently on two peers, so an
-            // NPC with two equally-confident targets chases a different one on each.
-            //
-            // ⇒ `SimId` is the canonical mechanical identity and the body already
-            // carries one (`#[require(SimIdCounter)]`), so the fallback is an
-            // identity rather than a coincidence. `FeatureId` stays FIRST: it is what
-            // hostility and targeting look bodies up by, and this is not the place to
-            // change that road.
-            id: id
-                .map(|f| f.as_str().to_string())
-                .or_else(|| sim_id.map(|id| id.as_str().to_string()))
-                // ⚠ THE LAST RESORT IS STILL THE INDEX, and it is reachable only by
-                // a body carrying NEITHER identity — which a shipped composition does
-                // not build. Left in rather than made a panic because a bare test
-                // fixture may legitimately spawn a naked body, and killing those would
-                // be a worse trade than a value no peer comparison should ever see.
-                .unwrap_or_else(|| format!("e{}", entity.index())),
+            id: stable_id,
             pos: kin.pos,
             vel: kin.vel,
             facing: kin.facing,

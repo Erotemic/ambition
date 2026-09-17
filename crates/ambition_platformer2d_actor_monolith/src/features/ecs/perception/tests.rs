@@ -463,8 +463,15 @@ fn portals_in_view_link_to_their_pair() {
 
 /// §A7 peers-wiring: `collect_perception_peers` snapshots EVERY body (player,
 /// actor, boss — all carry `BodyKinematics`) into the resource `build_world_view`
-/// reads, with its source `Entity` (so a viewer excludes itself). A body without a
-/// `FeatureId` still gets a stable non-empty id.
+/// reads, with its source `Entity` (so a viewer excludes itself).
+///
+/// ⛔⛤ **THE SECOND BODY USED TO CARRY NO IDENTITY AT ALL, AND THIS ARM ASSERTED
+/// THE DEFECT.** *"A body without a `FeatureId` still gets a stable non-empty
+/// id"* was satisfied by `format!("e{}", entity.index())` — an ECS
+/// allocation-order artefact that became the KEY of a peer-checksummed
+/// `BTreeMap`. The fallback is `SimId` now and there is no third rung, so this
+/// body carries one and the arm's subject survives: every body with an identity
+/// is snapshotted.
 #[test]
 fn collect_perception_peers_snapshots_every_body() {
     use ambition_characters::actor::{BodyHealth, Health};
@@ -488,13 +495,16 @@ fn collect_perception_peers_snapshots_every_body() {
             ActorFaction::Enemy,
         ))
         .id();
-    // No FeatureId → the snapshot derives a stable entity id.
+    // No FeatureId — named by the `SimId` every simulated body owes, which is
+    // what `ensure_sim_id` mints for one carrying an authored fact and what a
+    // dynamic spawn site mints for one that does not.
     let bob = app
         .world_mut()
         .spawn((
             kin(90.0),
             BodyHealth::new(Health::new(5)),
             ActorFaction::Boss,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(3),
         ))
         .id();
     app.update();
@@ -507,10 +517,72 @@ fn collect_perception_peers_snapshots_every_body() {
     assert_eq!(a.faction, ActorFaction::Enemy);
     assert!(a.alive);
     let b = peers.0.iter().find(|p| p.entity == bob).unwrap();
-    assert!(
-        !b.id.is_empty(),
-        "a FeatureId-less body still gets a stable id"
+    assert_eq!(
+        b.id, "slot:3",
+        "a `FeatureId`-less body is named by its `SimId`, not by its ECS index"
     );
+    // ⛔ A KEY-SPACE RATCHET: no perceived id may be an `e123`-style ECS index.
+    //
+    // ⚠ **AND IT IS BELT-AND-BRACES RATHER THAN A SECOND WITNESS — MEASURED.**
+    // Re-adding `.or_else(|| Some(format!("e{}", entity.index())))` reddens
+    // `a_perceivable_body_with_no_canonical_identity_is_refused` and does NOT
+    // redden this loop, because both bodies here HAVE identities so the fallback
+    // is unreachable from them. A poison that does not fire is a finding: what
+    // this loop actually covers is a future id source that renders an index for
+    // a body that does have an identity, which the refusal arm cannot see.
+    for peer in &peers.0 {
+        let index_shaped = peer
+            .id
+            .strip_prefix('e')
+            .is_some_and(|rest| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit()));
+        assert!(
+            !index_shaped,
+            "`{}` is an ECS-index-shaped perception key. That string becomes a \
+             key of `WorldMemory::actors` inside a peer-checksummed component, \
+             and its iteration order also breaks the tie between two \
+             equally-confident hostiles — so two peers would chase different \
+             targets. Name the body from `FeatureId` or `SimId`.",
+            peer.id
+        );
+    }
+}
+
+/// ⛔⛤ **A PERCEIVABLE BODY THAT NOTHING CAN NAME IS REFUSED, LOUDLY — AND FOR A
+/// DAY IT WAS REMEMBERED UNDER ITS ECS INDEX INSTEAD.**
+///
+/// The waiver said a shipped composition builds no such body. The structure does
+/// not enforce that: `ensure_sim_id` DECLINES for a `BodyKinematics` body with
+/// neither `FeatureId` nor `PrimaryPlayer` and leaves the mint to the spawn site,
+/// so a future spawn road can put an allocation-order artefact straight back into
+/// peer-mechanical memory. Named by the GPT architecture review of 2026-09-16.
+///
+/// ⚠ A `debug_assert`, the same trade `ensure_sim_id`'s own decline states: the
+/// guard exists exactly where a test can construct the population, and cannot
+/// pause a shipped game over a body that is very likely harmless.
+///
+/// ⭐ **AND SKIPPING IS THE DETERMINISTIC ANSWER, WHICH THE INDEX WAS NOT.** A
+/// body no peer can name is unnameable on BOTH peers, so declining to perceive it
+/// AGREES between them; an index disagrees.
+#[test]
+#[should_panic(expected = "no canonical identity and nothing to derive one from")]
+fn a_perceivable_body_with_no_canonical_identity_is_refused() {
+    use ambition_characters::actor::{BodyHealth, Health};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.init_resource::<PerceptionPeers>();
+    app.add_systems(Update, collect_perception_peers);
+    app.world_mut().spawn((
+        ambition_platformer2d_core::BodyKinematics {
+            pos: ae::Vec2::new(10.0, 20.0),
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(14.0, 22.0),
+            facing: 1.0,
+        },
+        BodyHealth::new(Health::new(5)),
+        ActorFaction::Enemy,
+    ));
+    app.update();
 }
 
 /// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots the single

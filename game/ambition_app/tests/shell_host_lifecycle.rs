@@ -1579,21 +1579,80 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
             .collect()
     }
 
+    /// One walk: where it starts, whether anything is pressed, and what it is
+    /// here to carry.
+    struct Walk {
+        room: Option<&'static str>,
+        driven: bool,
+        carries: &'static str,
+    }
+
+    /// One step of a walk.
+    ///
+    /// ⛔ **BOTH HOSTS GET THE SAME SCRIPT, WHICH IS WHAT KEEPS A DIVERGENCE A
+    /// FINDING.** The script is a pure function of the step index, so the two
+    /// hosts differ in exactly one thing — which routes each visited before this
+    /// one — and any disagreement below is about that.
+    ///
+    /// ⚠ `step % 10` is a PRESS AND A RELEASE, not a held button: the pickup and
+    /// the fire both read an edge, and a permanently-held attack is one press
+    /// followed by nothing.
+    fn advance(app: &mut App, step: usize, driven: bool) {
+        if driven {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    axis_x: 1.0,
+                    attack_pressed: step % 10 == 0,
+                    ..Default::default()
+                },
+            );
+        }
+        app.update();
+    }
+
     /// ⛔⛤ **THE ROOMS, BECAUSE A ROOM IS THE POPULATION.** This arm walked only
     /// the authored start room until 2026-09-17, and measured six of the twelve
     /// sharp rows carrying any state at all: the other six agreed the way two
     /// empty sets agree. A row that no room in the walk AUTHORS is not evidence
     /// of a host's history failing to reach it. Each entry names what it is here
     /// to carry, measured over `game/ambition_content/assets/worlds/*.ldtk`.
-    const ROOMS: &[(Option<&str>, &str)] = &[
-        (None, "the authored start room -- what pressing launch reaches"),
-        (Some("portal_lab"), "fourteen authored `Portal` placements"),
-        (Some("basement_hazards"), "three authored `DamageVolume` placements"),
+    const ROOMS: &[Walk] = &[
+        Walk {
+            room: None,
+            driven: false,
+            carries: "the authored start room -- what pressing launch reaches",
+        },
+        Walk {
+            room: Some("portal_lab"),
+            driven: false,
+            carries: "fourteen authored `Portal` placements",
+        },
+        Walk {
+            room: Some("basement_hazards"),
+            driven: false,
+            carries: "three authored `DamageVolume` placements",
+        },
+        // ⛔⛤ **THE ONE WALK THAT PRESSES ANYTHING**, and it is the only way to
+        // reach a row a room cannot author: a shot exists because somebody
+        // fired. Measured 2026-09-17 in this room — the player starts at
+        // x=94 and the pickup sits at x=180 with a 20px half-extent, so
+        // holding right reaches it, and the gun is in hand on step 20.
+        Walk {
+            room: Some("portal_bridge"),
+            driven: true,
+            carries: "an authored `PortalGunSpawn` 86px to the player's right",
+        },
     ];
 
     let mut compared = std::collections::BTreeSet::new();
     let mut registered_sharp_rows = 0usize;
-    for (room, carries) in ROOMS {
+    for Walk {
+        room,
+        driven,
+        carries,
+    } in ROOMS
+    {
         let room_label = room.unwrap_or("<authored>");
         eprintln!("[sharp-rows] room {room_label}: {carries}");
         let mut fresh = build(false, *room);
@@ -1662,9 +1721,9 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         // travels into a planning row and cannot be re-derived.
         let mut advanced = 0usize;
         for step in [0usize, 1, 30, 120] {
-            for _ in advanced..step {
-                fresh.update();
-                veteran.update();
+            for tick in advanced..step {
+                advance(&mut fresh, tick, *driven);
+                advance(&mut veteran, tick, *driven);
             }
             advanced = step;
             let ours = census(&mut fresh, &keep);
@@ -1707,11 +1766,14 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     // authoring something S7 has not counted. Either way re-derive the split
     // from the walk rather than editing this list to match it.
     //
-    // ⇒ **THE FOUR THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
-    // each would need: `portal.shot` and `portal.emission` need a portal FIRED,
-    // which is a driven-input road this walk does not have; `boss.death_animation`
-    // needs a boss to die; and `gravity.flip_switch` was measured 2026-09-17 to be
-    // placeable by no route at all. Adding a room cannot reach any of them.
+    // ⇒ **THE THREE THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
+    // each would need. `gravity.flip_switch` was measured 2026-09-17 to be
+    // placeable by no route at all (`Q137`). `boss.death_animation` needs a boss
+    // to die, which is the most expensive fixture of the set.
+    // `portal.emission` needs a body to STRADDLE an aperture: the driven walk
+    // below fires the gun and places portals, and holding right through 120
+    // steps never put the player inside one — so it wants an aimed script
+    // rather than another room, and that is a bigger instrument than this arm.
     const CARRIED_BY_THE_WALK: &[&str] = &[
         "actor.animation_facts",
         "actor.render_size",
@@ -1721,6 +1783,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "player.blink_camera_state",
         "portal.gun_pickup",
         "portal.placed",
+        "portal.shot",
     ];
     let carried: std::collections::BTreeSet<&str> =
         CARRIED_BY_THE_WALK.iter().copied().collect();
@@ -2199,3 +2262,4 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
         &differing[..differing.len().min(6)]
     );
 }
+

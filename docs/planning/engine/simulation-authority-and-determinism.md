@@ -544,8 +544,8 @@ the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
 authored constants and the ones that sound like inventory bookkeeping are the
 mutated ones. A row's NAME is not a reading of its write set.
 
-⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND THREE
-ROOMS, 2026-09-17 — EIGHT OF THEM WITH CARRIERS, ALL EIGHT AGREEING.**
+⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND FOUR
+ROOMS, 2026-09-17 — NINE OF THEM WITH CARRIERS, ALL NINE AGREEING.**
 `two_local_histories_agree_about_the_sharp_unchecksummed_rows`
 (`game/ambition_app/tests/shell_host_lifecycle.rs`) is the complement of the
 peer-visible census arm: it asserts each of these twelve rows does NOT feed the
@@ -554,10 +554,10 @@ claiming to split it — and then compares the probe census of exactly these row
 between a host that reached the shipped Ambition route first and one that reached
 it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
 `entity.transform`, `feature.hazard`, `item.ground_item`,
-`player.blink_camera_state`, `portal.gun_pickup` and `portal.placed` carried
-state and agree at steps 0, 1, 30 and 120, in every room the arm walks.** That
-eight is pinned by SET EQUALITY, not by a floor, so a row losing its carriers is
-a red rather than a quieter green.
+`player.blink_camera_state`, `portal.gun_pickup`, `portal.placed` and
+`portal.shot` carried state and agree at steps 0, 1, 30 and 120, in every room
+the arm walks.** That nine is pinned by SET EQUALITY, not by a floor, so a row
+losing its carriers is a red rather than a quieter green.
 
 ⛔⛤ **A ROOM IS THE POPULATION, AND UNTIL 2026-09-17 THIS RANKING HAD ONE OF
 THEM.** The arm walked the authored start room alone, six rows carried nothing,
@@ -567,13 +567,21 @@ two of the six it was a fact about the ROOM: `portal_lab` authors fourteen
 start room with `StartRoomOverride` — carrying `StartRoomMustResolve`, because an
 override that does not resolve boots the authored room and says so only in a log
 line — moved the measured coverage from six to eight with no new fixture, no
-input road, and no change to the simulation. ⚠ And the first attempt named the
+input road, and no change to the simulation. ⭐⭐ **AND THE NINTH CAME FROM THE
+ONE THING A ROOM CANNOT AUTHOR: A PRESS.** `portal.shot` exists because somebody
+fired, so the fourth walk starts in `portal_bridge` — the player at x=94, the
+authored `PortalGunSpawn` at x=180 with a 20px half-extent — and drives
+`axis_x: 1.0` with an attack edge every ten steps through the SHIPPED input road
+(`drive_control_frame`). The gun is in hand on step 20 and shots are live
+thereafter. Both hosts get the identical script, a pure function of the step
+index, so the two still differ in exactly one thing and a disagreement would
+still be about that. ⚠ And the first attempt named the
 wrong room: `basement_npcs`'s `HazardBlock` is a SURFACE
 (`SurfaceContact::ResetToSpawn`, `ldtk/src/surfaces.rs`), not a
 `PlacementSchema::Hazard`; the authored identifier that becomes `feature.hazard`
 is `DamageVolume`. A row's name is not a reading of what authors it, either.
 
-⛔⛤ **OF THE FOUR STILL SILENT, ONE CANNOT BE PLACED BY ANY ROUTE — MEASURED
+⛔⛤ **OF THE THREE STILL SILENT, ONE CANNOT BE PLACED BY ANY ROUTE — MEASURED
 2026-09-17, AND IT IS A CORRECTION TO THIS RANKING RATHER THAN TO THE ARM.**
 `gravity.flip_switch`'s only mutable writer, `gravity_flip_switch_system`, is
 registered in exactly one place in the workspace and that place is inside a
@@ -594,16 +602,16 @@ produce an empty vector, and a render sync that despawns and rebuilds from it
 every frame — and puts the choice as: the plate ships, or the encounter switch
 owns gravity alone.
 
-⚠ **THE OTHER THREE SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
+⚠ **THE OTHER TWO SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
 them" FROM A WISH INTO A LIST.** Read from the spawn sites, 2026-09-17:
 
 | row | what would place it |
 |---|---|
-| `portal.shot`, `portal.emission` | DRIVEN INPUT: the gun must be fired, and the transit adapter inserts the emission on a body that crosses. `portal.gun_pickup` has a carrier in the Ambition route, so the gun is placed there and never picked up in an input-free 120 steps |
-| `boss.death_animation` | a boss death, which is the most expensive fixture of the three |
+| `portal.emission` | A BODY STRADDLING AN APERTURE. The driven walk fires the gun and places portals; holding right for 120 steps never put the player inside one. So it wants an AIMED script — fire at a reachable wall, then walk into the aperture — which is a bigger instrument than a room or a held direction |
+| `boss.death_animation` | a boss death, which is the most expensive fixture of the set |
 
-⇒ Adding a room cannot reach any of the three; the authored half of the list is
-spent. The portal pair wants a driven-input road and the boss row wants a fight.
+⇒ Adding a room reaches neither, and neither does a held direction. The authored
+half of the list is spent and the cheap driven half with it.
 ⛔ Two Apps with different local histories are still not two peers — no
 transport, no input exchange, no interleaving, no rebase — so this decides
 whether a row's value depends on where the host has been, and nothing more. That

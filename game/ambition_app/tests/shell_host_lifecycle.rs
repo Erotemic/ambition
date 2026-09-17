@@ -1435,8 +1435,14 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 /// HOSTILE VERSION OF THE ARM ABOVE, AND IT FOUND SOMETHING.**
 ///
 /// The arm above compares two hand-named component types. This one asks the
-/// rollback registry which registrations FEED THE PEER CHECKSUM (145 of 488 at
-/// HEAD), censuses exactly those on both hosts, and compares. Requested by the
+/// rollback registry which registrations FEED THE PEER CHECKSUM — **146 of the
+/// baseline's 491 rows, MEASURED 2026-09-17 at `88274c3ba`** — censuses exactly
+/// those on both hosts, and compares. ⚠ Neither figure is asserted here and
+/// neither should be read as current: the arm's floor is `keep.len() >= 140`,
+/// and the way to re-derive them is to raise that floor until it fails, plus
+/// `tail -n +2 game/ambition_app/tests/rollback_schema_baseline.txt | wc -l`.
+/// This comment said `145 of 488` for a day after `Q142` added three rows.
+/// Requested by the
 /// GPT architecture review of 2026-09-16 as the last check before calling
 /// ID-PEER complete for its current scope. It was not clean.
 ///
@@ -1472,8 +1478,8 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 /// ⭐⭐ **THE OTHER HALF OF THE SURFACE: ROWS NO PEER CHECKSUM COMPARES.**
 ///
 /// `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-/// joins the probe census against the 145 registrations that feed the peer
-/// checksum. This arm asks the complement question S7 poses in
+/// joins the probe census against the registrations that feed the peer checksum
+/// (146 of 491 when last measured; the arm's own floor is the live authority). This arm asks the complement question S7 poses in
 /// [`simulation-authority-and-determinism.md`]: of the rows OUTSIDE that
 /// checksum, twenty-five are read by an unfiltered per-tick query AND carry a
 /// float-bearing field, and **twelve of those are mutably borrowed in

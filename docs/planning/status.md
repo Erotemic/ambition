@@ -134,11 +134,16 @@ the only one constructed, one machine rewinding itself, zero distance, so a desy
 canary compares a machine against its own past. ⭐ **A TEST CAN, THOUGH, AND THAT
 IS NEW.** `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
 builds two hosts with different route histories, asks the registry which of its
-registrations feed the peer checksum — 145 of 488 at HEAD, 2026-09-17 — and
+registrations feed the peer checksum — a MINORITY of the baseline's rows — and
 compares exactly those. It found three
-defects on its first run — after a JOIN that narrowed 364 probes to 145, because
-the probe collection does not know which rows peers compare and over-reported
-without it. ⭐ **The third cost two causes and one refutation.** Fixing the
+defects on its first run — after a JOIN that narrowed the probe census to those
+rows, because the probe collection does not know which rows peers compare and
+over-reported without it. ⛔ **THIS SENTENCE CARRIED `145 of 488` AND BOTH
+NUMBERS WERE STALE**: `Q142` added three baseline rows the same day (v197 →
+v198), so it is 146 of 491 as of 2026-09-17 — and this page is the one that says
+a summary of a live table is a copy corrections do not reach. ⇒ The pair lives in
+the arm's own doc comment beside the command that re-derives each, and this
+sentence deliberately states neither. ⭐ **The third cost two causes and one refutation.** Fixing the
 accumulating gameplay clock MOVED `PerceptionMemory`'s value without equalising
 it; the remaining cause was a perceived-actor id falling back to
 `format!("e{}", entity.index())`, which is the KEY of a `BTreeMap` inside a

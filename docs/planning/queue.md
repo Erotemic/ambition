@@ -515,7 +515,10 @@ restoring the over-report. Poison-verified in that direction.
 registry knows and this does not; the JOIN is the finding"* — beside a record of a
 previous instrument that over-reported by the same factor and announced itself as
 a discovery. Joining against `feeds_peer_checksum` narrows 364 probes to 145 and
-seven rows to six: one was the probe artefact above, two were already owned
+seven rows to six (⚠ **145 is THAT RUN's number; the surface is 146 of the
+baseline's 491 rows as of 2026-09-17**, after `Q142` added three — re-derive by
+raising the arm's `keep.len() >= 140` floor until it fails, and `tail -n +2
+game/ambition_app/tests/rollback_schema_baseline.txt | wc -l`): one was the probe artefact above, two were already owned
 (`SimTick`/`Q128`, `AmbitionGameSave`/`Q129`), and the remaining three are the
 three defects this pass closed — all in the table above.
 

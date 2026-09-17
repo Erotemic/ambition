@@ -913,7 +913,9 @@ pub(crate) use scrim::*;
 
 #[cfg(feature = "kaleidoscope_menu")]
 /// Directional focus navigation for the cube (keyboard / gamepad), porting the
-/// demo's `MockDemo::move_spatial` (`crates/ambition_mock_demo/src/app/state.rs`).
+/// demo's `MockDemo::move_spatial` (`ambition_mock_demo`, a crate that no longer
+/// has a tracked file — the name is kept because the sentence is about where this
+/// came FROM).
 /// The cursor lives on the [`KaleidoscopeCursor`] resource as a [`MenuFocus`], and the
 /// 6×4 item grid is flanked by two edge (page-turn) buttons. The exact rules
 /// (user spec) honoured here:

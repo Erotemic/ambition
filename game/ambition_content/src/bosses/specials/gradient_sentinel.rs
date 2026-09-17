@@ -57,11 +57,14 @@ pub struct AppleRainSpawnState {
     pub spawn_index: u32,
 }
 
-/// Apple cosmetic / collision constants reused from
-/// `content/features/bosses.rs` so the consumer doesn't re-derive
-/// them. The half-extent / gravity / lifetime stay co-authored with
-/// the legacy path until the second boss adopts the consumer
-/// pattern.
+/// Apple cosmetic / collision constants.
+///
+/// ⚠ **THIS SAID THEY WERE "reused from `content/features/bosses.rs`" AND STAYED
+/// "co-authored with the legacy path" UNTIL 2026-09-17.** That file is gone and
+/// these four are the only definitions in the tree, so the sentence described a
+/// co-authorship with nothing — the shape a carve leaves behind when it moves the
+/// other half away. They are authored here now, and a second boss adopting the
+/// consumer pattern shares THESE.
 const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(14.0, 16.0);
 const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;

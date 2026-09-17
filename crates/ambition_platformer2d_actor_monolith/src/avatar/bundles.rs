@@ -140,8 +140,8 @@ pub struct PlayerSimulationBundle {
     // clusters spawn through the shared `AncillaryMovementBundle` — the SAME
     // bundle every actor nests, so player and actor carry the identical real
     // component set. Every engine entry point reads / writes them through
-    // `BodyClustersMut`. See `engine_core/body_clusters.rs` for the
-    // per-cluster shape.
+    // `BodyClustersMut`. See `ambition_platformer2d_core/src/body_clusters.rs`
+    // — re-exported as `engine_core` — for the per-cluster shape.
     pub kinematics: BodyKinematics,
     /// Explicit swappable movement policy. Every integrated body owns one;
     /// absence is never interpreted as the axis-swept default.

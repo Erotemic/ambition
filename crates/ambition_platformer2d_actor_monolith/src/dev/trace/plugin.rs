@@ -1,8 +1,9 @@
 //! Module-local Bevy [`Plugin`] for the gameplay trace recorder.
 //!
 //! The trace runs in [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Trace`] (configured by
-//! `app/schedule.rs`), which orders after `CoreSimulation` so the
-//! per-frame snapshot captures the resolved player state. Both the
+//! `actor_monolith/src/schedule/schedule.rs`), which orders after
+//! `CoreSimulation` so the per-frame snapshot captures the resolved player
+//! state. Both the
 //! visible binary and the headless driver install this plugin via
 //! `add_simulation_plugins`, so trace dumps work in either build.
 

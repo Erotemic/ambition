@@ -78,7 +78,7 @@ impl EncounterSwitchIndex {
 // `FeatureId`, which belongs to `ambition_combat`, and this crate does not
 // depend on combat. Taking the system would have bought a dependency edge to
 // carry one field read. It stays where the vocabulary it reads lives — see
-// `encounter/switch_index.rs` in the actor monolith.
+// `ambition_encounter_features/src/switch_index.rs`.
 
 /// FIFO queue of switch activations produced by the feature systems each frame.
 /// The encounter system drains it and applies the matching reset.

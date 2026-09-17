@@ -76,17 +76,22 @@ IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
 same day, deleting a FALLBACK to see who was using it. A clean census is not
 evidence. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
 unchecksummed float rows' STATE half. The witness compares S7's twelve sharp rows
-across two local histories in four rooms, and **ten of the twelve carry state
+across two local histories in five rooms, and **eleven of the twelve carry state
 and agree** as of 2026-09-17 — six until a start room was pinned, because two of
 the silent rows were a fact about the ROOM rather than about the route, a ninth
-once one walk started pressing buttons through the shipped input road, and a
-tenth once the arm stopped sampling on a four-rung ladder. Of the two still
-silent, `gravity.flip_switch` can be placed by no route at all (`Q137`) and
-`boss.death_animation` wants a boss dead. ⛔ `portal.emission` was filed with
-them and did not belong: the aperture is AUTHORED in a room already walked, and
-the row was invisible because the component lives 11 ticks and the ladder's
-widest gap was 90. "No route places it" was a claim about the LOOK. The owner row
-prints the per-room split.
+once one walk started pressing buttons through the shipped input road, a tenth
+once the arm stopped sampling on a four-rung ladder, and an eleventh once a room
+that merely SPAWNS a boss was walked. ⛔ **The two that were filed as needing
+expensive fixtures did not need them, and the mistake was the same both times: a
+sentence describing the EVENT a field is named for instead of the code that
+inserts it.** `portal.emission` was said to want an aimed script and wanted a
+room already walked plus a denser sample — the component lives 11 ticks and the
+ladder's widest gap was 90. `boss.death_animation` was said to want a boss dead
+and wanted a `BossSpawn`: `BossDeathAnimation::default()` is inserted at spawn.
+⚠ Its carrier is constant `(1, 0)`, so what is compared there is PRESENCE, not a
+varying float; a real boss death is still the stronger observation. One row is
+left and no route can place it (`Q137`). The owner row prints the per-room
+split.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and

@@ -1650,6 +1650,21 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
             driven: true,
             carries: "an authored `PortalGunSpawn` 86px to the player's right",
         },
+        // ⛔⛤ **A BOSS DOES NOT HAVE TO DIE, WHICH IS WHY THIS WALK IS UNDRIVEN
+        // AND WHY S7 SAID THE OPPOSITE.** `BossDeathAnimation::default()` is
+        // inserted AT SPAWN (`actor_spawn/mod.rs:1141`), so a room that places a
+        // `BossSpawn` carries the row. ⚠ **AND THE CARRIER IS CONSTANT** —
+        // measured `(1, 0)` at every one of the 121 observation points, driven or
+        // not, because `remaining_s` stays `0.0` until something kills the boss
+        // and 120 driven steps of holding right do not. ⇒ What this compares is
+        // the carrier's PRESENCE and identity across two histories, not a varying
+        // float. A real boss death is still the stronger observation and still
+        // the expensive fixture; what is wrong is calling the row unreachable.
+        Walk {
+            room: Some("basement_boss"),
+            driven: false,
+            carries: "an authored `BossSpawn`, whose spawn inserts the row",
+        },
     ];
 
     let mut compared = std::collections::BTreeSet::new();
@@ -1782,10 +1797,18 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     // authoring something S7 has not counted. Either way re-derive the split
     // from the walk rather than editing this list to match it.
     //
-    // ⇒ **THE TWO THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
-    // each would need. `gravity.flip_switch` was measured 2026-09-17 to be
-    // placeable by no route at all (`Q137`). `boss.death_animation` needs a boss
-    // to die, which is the most expensive fixture of the set.
+    // ⇒ **THE ONE THAT IS NOT HERE IS NOT AN OVERSIGHT.**
+    // `gravity.flip_switch` was measured 2026-09-17 to be placeable by no route
+    // at all (`Q137`): its only mutable writer is registered once in the
+    // workspace and that registration is inside a `#[cfg(test)]` module.
+    //
+    // ⛔⛤ **`boss.death_animation` WAS A SECOND, ON THE SAME MISTAKE AS THE
+    // THIRD.** It was read as needing "a boss to die, the most expensive fixture
+    // of the set". A boss does not have to die: the component is inserted at
+    // SPAWN, so `basement_boss` carries it. Twice in one day a row read as
+    // unreachable because the sentence described the EVENT the field is named
+    // for rather than the code that inserts it — so read the insert site, not
+    // the field name.
     //
     // ⛔⛤ **`portal.emission` WAS A THIRD, AND ITS STATED REASON WAS WRONG IN
     // BOTH HALVES.** It was read as needing an aimed script because the
@@ -1797,6 +1820,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     const CARRIED_BY_THE_WALK: &[&str] = &[
         "actor.animation_facts",
         "actor.render_size",
+        "boss.death_animation",
         "entity.transform",
         "feature.hazard",
         "item.ground_item",

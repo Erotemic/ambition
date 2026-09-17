@@ -544,8 +544,8 @@ the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
 authored constants and the ones that sound like inventory bookkeeping are the
 mutated ones. A row's NAME is not a reading of its write set.
 
-⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND FOUR
-ROOMS, 2026-09-17 — TEN OF THEM WITH CARRIERS, ALL TEN AGREEING.**
+⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND FIVE
+ROOMS, 2026-09-17 — ELEVEN OF THEM WITH CARRIERS, ALL ELEVEN AGREEING.**
 `two_local_histories_agree_about_the_sharp_unchecksummed_rows`
 (`game/ambition_app/tests/shell_host_lifecycle.rs`) is the complement of the
 peer-visible census arm: it asserts each of these twelve rows does NOT feed the
@@ -553,11 +553,11 @@ peer checksum — so the two arms cannot drift into reading one surface while
 claiming to split it — and then compares the probe census of exactly these rows
 between a host that reached the shipped Ambition route first and one that reached
 it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
-`entity.transform`, `feature.hazard`, `item.ground_item`,
+`boss.death_animation`, `entity.transform`, `feature.hazard`, `item.ground_item`,
 `player.blink_camera_state`, `portal.emission`, `portal.gun_pickup`,
 `portal.placed` and `portal.shot` carried state and agree at EVERY ONE of the
 121 observation points — step 0 and after each of ticks 0..119 — in every room
-the arm walks.** That ten is pinned by SET EQUALITY, not by a floor, so a row
+the arm walks.** That eleven is pinned by SET EQUALITY, not by a floor, so a row
 losing its carriers is a red rather than a quieter green. The arm prints the
 per-room split, because a union cannot say which walk carries a row:
 
@@ -567,10 +567,11 @@ per-room split, because a union cannot say which walk carries a row:
 | `portal_lab` | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.emission`, `portal.placed` |
 | `basement_hazards` | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `feature.hazard`, `player.blink_camera_state` |
 | `portal_bridge` (driven, with the gun) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.gun_pickup`, `portal.placed`, `portal.shot` |
+| `basement_boss` | `actor.animation_facts`, `actor.render_size`, `boss.death_animation`, `entity.transform`, `player.blink_camera_state` |
 
-⇒ `item.ground_item` has exactly one carrier room and `portal.emission` exactly
-one, so either room leaving this walk costs a row — which is what the set
-equality is there to say out loud.
+⇒ `item.ground_item`, `portal.emission` and `boss.death_animation` have exactly
+one carrier room each, so any of those three rooms leaving this walk costs a row
+— which is what the set equality is there to say out loud.
 
 ⛔⛤ **A ROOM IS THE POPULATION, AND UNTIL 2026-09-17 THIS RANKING HAD ONE OF
 THEM.** The arm walked the authored start room alone, six rows carried nothing,
@@ -649,12 +650,30 @@ hand, sampled at all 121 points, still carries no `portal.emission`: firing righ
 and holding right really does put both apertures on the same wall. The error was
 reading "this walk does not reach it" as "no walk of this kind can".
 
-| row | what would place it |
-|---|---|
-| `boss.death_animation` | a boss death, which is the most expensive fixture of the set |
+⛔⛤ **AND `boss.death_animation` WAS THE LAST ONE, ON THE SAME MISTAKE, FOUND THE
+SAME DAY.** This table used to hold one more row: *"a boss death, which is the
+most expensive fixture of the set"*. **A boss does not have to die.**
+`BossDeathAnimation::default()` is inserted AT SPAWN
+(`crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1141`), so any
+room placing a `BossSpawn` carries the row — there are ELEVEN authored
+`BossSpawn` placements across nine rooms, and `basement_boss` is now the fifth
+walk. Removing that room loses exactly this row and nothing else, poison-verified.
 
-⇒ ONE row of the twelve is unreached by a route, one is unreachable by any route
-(`Q137`), and the authored half of the list is spent.
+⚠ **AND THE CARRIER IS CONSTANT, WHICH THIS PAGE WILL NOT OVERSTATE.** Measured
+`(1, 0)` at every one of the 121 observation points, driven and undriven:
+`remaining_s` stays `0.0` until something kills the boss, and 120 driven steps of
+holding right do not. ⇒ What the arm compares for this row is the carrier's
+PRESENCE and identity across two histories, not a varying float. **A real boss
+death is still the stronger observation and still the expensive fixture.** What
+was wrong was calling the row unreachable.
+
+⇒ **TWICE IN ONE DAY A ROW READ AS UNREACHABLE BECAUSE THE SENTENCE DESCRIBED THE
+EVENT THE FIELD IS NAMED FOR RATHER THAN THE CODE THAT INSERTS IT.**
+`portal.emission` was said to want an aimed script and wanted a room already
+walked plus a denser sample; `boss.death_animation` was said to want a boss death
+and wanted a `BossSpawn`. Read the insert site, not the field name. ⇒ ONE row of
+the twelve is left, and it is unreachable by any route (`Q137`); the authored
+half of the list is spent.
 ⛔ Two Apps with different local histories are still not two peers — no
 transport, no input exchange, no interleaving, no rebase — so this decides
 whether a row's value depends on where the host has been, and nothing more. That

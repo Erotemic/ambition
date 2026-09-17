@@ -79,25 +79,31 @@ said `SeatControlFrameModes` is *"read by sim systems"* while the owner had
 recorded it closed and production holds exactly one `ResMut` writer and no
 readers. A summary of a live table is a copy that corrections do not reach.
 
-**What a reader picking this up needs: three of the four open roads are blocked
-outside the campaign, and the fourth is not.**
+**What a reader picking this up needs: all three open roads are blocked outside
+the campaign.** The fourth was open here on 2026-09-16 and closed the same day —
+see the ⭐ note below the table for what it cost to close.
 
 | open road | blocked on |
 | --- | --- |
 | the snapshot schema fingerprint hashing English prose | [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — where the mechanical/presentation line falls. The naive fix is refuted in the row |
 | the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: a two-host differing-history arm measures one of them today (see the row) |
 | the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
-| perception memory differing across two local histories | **nothing** — found 2026-09-16 by the hostile two-host census and unexplained. The obvious cause was measured and refuted; the next step is a unit-level reproduction, not a ruling |
 
 ⚠ **NO SESSION IN THIS REPOSITORY CAN OBSERVE ANY OF IT** — `SyncTestSession` is
 the only one constructed, one machine rewinding itself, zero distance, so a desync
 canary compares a machine against its own past. ⭐ **A TEST CAN, THOUGH, AND THAT
 IS NEW.** `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
 builds two hosts with different route histories, asks the registry which 145 of its
-493 registrations feed the peer checksum, and compares exactly those. It found two
-defects and one unexplained divergence on its first run — after a JOIN that
-narrowed 364 probes to 145, because the probe collection does not know which rows
-peers compare and over-reported without it. That is the standing reason this seam gets review attention out of
+493 registrations feed the peer checksum, and compares exactly those. It found three
+defects on its first run — after a JOIN that narrowed 364 probes to 145, because
+the probe collection does not know which rows peers compare and over-reported
+without it. ⭐ **The third cost two causes and one refutation.** Fixing the
+accumulating gameplay clock MOVED `PerceptionMemory`'s value without equalising
+it; the remaining cause was a perceived-actor id falling back to
+`format!("e{}", entity.index())`, which is the KEY of a `BTreeMap` inside a
+checksummed component — and whose iteration order also decides which of two
+equally-confident hostiles an NPC chases. A mechanism that explains the number is
+not evidence for it. That is the standing reason this seam gets review attention out of
 proportion to what any test can currently fail on.
 
 ### Rollback-safe mechanical editing

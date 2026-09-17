@@ -1463,15 +1463,6 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
              this arm green is explicitly the wrong repair",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionMemory",
-            "OPEN, and NOT the clock — measured. `GameplayElapsed` was the first \
-             suspect and resetting it MOVED this row without equalising it \
-             (veteran `10957388069613372399` -> `5036184031634534872` while fresh \
-             held), so a second cause remains unidentified. ⛔ `WorldMemory`'s \
-             actor map is private with no accessor, so naming it needs a unit-level \
-             reproduction rather than another census — see the queue row",
-        ),
-        (
             "ambition_platformer2d_shared_tangle::construction::TransactionId",
             "NOT A DIVERGENCE — the probe measures `census_state` while the peer \
              checksum is `peer_stable_checksum`. Folded by hand, both hosts read \

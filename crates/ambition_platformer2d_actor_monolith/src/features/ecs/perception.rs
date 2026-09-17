@@ -287,6 +287,9 @@ pub fn collect_perception_peers(
     bodies: bevy::prelude::Query<(
         bevy::prelude::Entity,
         Option<&ambition_combat::components::FeatureId>,
+        // ⛔⛤ **THE PEER-STABLE FALLBACK, AND IT IS HERE BECAUSE THE OLD ONE WAS
+        // AN ECS ENTITY INDEX.** See the id assignment below.
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         &ambition_platformer2d_core::BodyKinematics,
         &ambition_characters::actor::BodyHealth,
         &ActorFaction,
@@ -304,12 +307,45 @@ pub fn collect_perception_peers(
     )>,
 ) {
     peers.0.clear();
-    for (entity, id, kin, health, faction, ground, shield, combat, melee, team, facts) in &bodies {
+    for (entity, id, sim_id, kin, health, faction, ground, shield, combat, melee, team, facts) in
+        &bodies
+    {
         let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
             entity,
+            // ⛔⛤ **THIS FELL BACK TO `format!("e{}", entity.index())`, AND THAT
+            // ENTITY INDEX REACHED A PEER CHECKSUM.** The id becomes the KEY of
+            // `WorldMemory::actors` — a `BTreeMap<String, RememberedActor>` inside
+            // `PerceptionMemory`, which is registered `rollback_component_canonical`
+            // and therefore compared between peers whole. A Bevy entity index is an
+            // allocation-order artefact of one App's history.
+            //
+            // **MEASURED 2026-09-16** by the two-host peer-visible census: the same
+            // shipped route reached first in one host and third in another perceives
+            // the player as `e888` and `e1026`. `simulation-authority-and-determinism.md`
+            // states the rule outright — *"do not mint canonical identity from ECS
+            // entity order or an App-local activation count"*.
+            //
+            // ⚠ **AND THE CHECKSUM IS THE SMALLER HALF.** `WorldMemory`'s own doc
+            // explains that it is a `BTreeMap` because *"`last_known_hostile` takes
+            // the `max_by` confidence over these, and two hostiles both in view are
+            // both at confidence `1.0` — so the tie is broken by iteration order"*.
+            // Keys built from entity indices order differently on two peers, so an
+            // NPC with two equally-confident targets chases a different one on each.
+            //
+            // ⇒ `SimId` is the canonical mechanical identity and the body already
+            // carries one (`#[require(SimIdCounter)]`), so the fallback is an
+            // identity rather than a coincidence. `FeatureId` stays FIRST: it is what
+            // hostility and targeting look bodies up by, and this is not the place to
+            // change that road.
             id: id
                 .map(|f| f.as_str().to_string())
+                .or_else(|| sim_id.map(|id| id.as_str().to_string()))
+                // ⚠ THE LAST RESORT IS STILL THE INDEX, and it is reachable only by
+                // a body carrying NEITHER identity — which a shipped composition does
+                // not build. Left in rather than made a panic because a bare test
+                // fixture may legitimately spawn a naked body, and killing those would
+                // be a worse trade than a value no peer comparison should ever see.
                 .unwrap_or_else(|| format!("e{}", entity.index())),
             pos: kin.pos,
             vel: kin.vel,

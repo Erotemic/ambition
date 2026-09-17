@@ -50,6 +50,20 @@ Use semantic identity when reconstruction, relationships, deterministic selectio
 or peer comparison need to refer to the same logical object. Do not mint canonical
 identity from ECS entity order or an App-local activation count.
 
+⛔⛤ **THAT SENTENCE HAS A WITNESS AS OF 2026-09-16, AND IT WAS VIOLATED IN
+PRODUCTION UNTIL THEN.** `collect_perception_peers` fell back to
+`format!("e{}", entity.index())`, and that string is the KEY of a `BTreeMap`
+inside `PerceptionMemory`, registered `rollback_component_canonical` — so an ECS
+allocation order was inside a peer checksum. The same shipped route reached first
+in one host and third in another perceived the player as `e888` and `e1026`. ⚠
+The checksum was the smaller half: that map's iteration order also breaks the tie
+between two equally-confident hostiles, so the two peers' NPCs would chase
+different targets. Held by
+`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+(`game/ambition_app/tests/shell_host_lifecycle.rs`), which is the arm to extend
+when this rule needs a new subject — a type census cannot see this class, because
+the offending value is a `String` field of a legitimately-registered component.
+
 Local lifecycle identities such as `SessionScopeId`, `ContentEpoch` and shell/load
 correlation ids remain useful for ownership/correlation. They are not substitutes
 for peer-stable mechanical identity. The current cross-peer cleanup is tracked by

@@ -775,3 +775,26 @@ innocuous. I want some cases to be consequences that would have been
 preventable, and some where they are just a drop in a larger system, and
 individual change does not impact the harm. Likewise I want to show cases where
 an individual change seeds a chain reaction to systemic reform.
+
+----
+
+Brainstorms are nice because nothing in them has to be codified. All ideas are
+ok, and we can take them or leave them as our ideas grow and evolve. As such,
+I'm thinking there might be a better intro sequence than opening into a huge
+action sequence, we can have a much slower opening. I don't know if this is a
+good idea or not, but its an idea, which is why I'm writing it here.
+
+The idea is that we still wake up on the cart, that idea is gold, but the
+creator sends us out on a fetch quest. The idea is the creator is having an
+agent do a task for them, similar to what is happening in the real world right
+now. Perhaps you encounter other agents, you could choose to cooperate with
+them or not, the game might test your alignment with the creator here. I like
+path to the objective being infested with puppy slugs, they are a good first
+enemy. Maybe the creator has sent other agents out after this task, and they've
+failed or gotten stuck. Maybe some of them are trying to cheat. We could parody
+the huggingface attack here, but try to have a tasteful and poignant take on
+it. Perhaps when you get back to the creator, the attack happens. Perhaps not,
+maybe it happens later. We could parody nVidia as mAudia, huggingface parodies
+itself with a big hug to the face.
+
+

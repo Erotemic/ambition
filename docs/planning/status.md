@@ -74,7 +74,13 @@ already owned by `Q128` and `Q129` — and held by
 `two_local_histories_compute_the_same_ggrs_component_checksums`. ⛔ **WHAT FOUND
 IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
 same day, deleting a FALLBACK to see who was using it. A clean census is not
-evidence. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
+evidence. ⛔⛤ **AND THE REPAIR WAS REVIEWED THE SAME DAY AND HAD A HOLE ITS OWN
+ARMS COULD NOT FAIL ON** — the rebase enumerates carriers with an ordinary query
+and `InactiveCandidate` is a disabling component, so it could not see a hidden
+construction candidate; it refuses now rather than rebasing a partial
+population. The reading, the arm and its poison are in the queue row; what
+belongs here is that a road closed the same day it was found is a road nobody
+has reviewed yet. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
 unchecksummed float rows' STATE half. The witness compares S7's twelve sharp rows
 across two local histories in five rooms, and **eleven of the twelve carry state
 and agree** as of 2026-09-17 — six until a start room was pinned, because two of

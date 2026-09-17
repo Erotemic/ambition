@@ -75,14 +75,39 @@ Test missing body, missing room, same-room placement and unchanged generation.
 The admission policy remains first-admitted-wins, not an implicit queue or
 chronological minimum of request timestamps.
 
-## F2. Boss contact paths disagree about authored hurt geometry
+## F2. ✔ CLOSED — every boss damage path reads ONE published geometry
 
-**Owner:** simulation target geometry / hit reaction integration.
-**Priority:** A2a, before any generic projectile target carve.
-**Confidence:** source-established divergent geometry derivation; gameplay
-consequences depend on authored geometry and the selected hit path.
+**Owner:** simulation target geometry / hit reaction integration; closed by
+`A2a`. **Verified against HEAD 2026-09-17** by opening the three files this
+finding names, not by reading a status elsewhere.
 
-### Evidence
+`apply_boss_hit` (`features/ecs/damage/boss_hit.rs`) took `boss_catalog`,
+`attack_state` and `animation_frame` for one purpose — building a
+`BossVolumeContext` and deriving the hurt parts, twice in that function — while
+the projectile preflight derived the same fact a third time. It now takes
+`damageable: &DamageableVolumes`, and its own comment states what the three
+inputs cost: *"a boss's authored hurtboxes governed nothing on the damage road
+and an authored EMPTY override still offered a target."* `damage_predicates.rs`
+says the same from the other side: *"Actors and BOSSES both answer from published
+`DamageableVolumes`."*
+
+**The characterization this finding asked for exists as two arms**, and both pin
+the RULE rather than the patch:
+
+* `absent_unpublished_published_and_intangible_are_four_different_answers` —
+  absent and unpublished fall back to the coarse box, published non-empty answers
+  from the silhouette, published-empty is an authored invulnerable window
+  offering no target.
+* `a_boss_is_reached_only_through_its_published_volumes` — a boss has NO coarse
+  fallback, because *"answering `hit` invents a hull nobody authored — on the
+  first eligible tick, which is exactly the frame the contact protocol forbids
+  it on."*
+
+⚠ Retained here as the review's evidence at the baseline, the way `F1` and `F9`
+are. The paragraphs below describe the tree at
+`300004d601af1e633cfaee969f079cf9bb368ca8` and are NOT a description of HEAD.
+
+### Evidence, at baseline `300004d601af1e633cfaee969f079cf9bb368ca8`
 
 `crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs`
 publishes boss damageable geometry from authored `ResolvedHurtboxes` and body
@@ -103,7 +128,10 @@ interpretation. The result can be a selected/consumed projectile whose victim
 application disagrees, or geometry-dependent differences between melee and
 projectiles. Existing authored-volume policy requires consistency.
 
-### Required characterization and repair
+### The characterization and repair that were required — both done
+
+⇒ Kept as written, because it is the specification the two arms above satisfy and
+a reader checking the close should be able to read the requirement beside it.
 
 Construct a boss whose authored hurt volume is disjoint from its fallback shape.
 Drive the production publication, selection and application order. Probe a hit

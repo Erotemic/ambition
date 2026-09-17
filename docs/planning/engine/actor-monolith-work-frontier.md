@@ -386,7 +386,26 @@ strength of its field names — that is the trap this row's own wording sets, an
 the rollback registration is the fact that settles it.
 **Acceptance:** human -> possession -> brain -> human handoff on the same body;
 competing claims, mount/dismount, removal of a controlled body, two participants,
-rollback over handoff, action continuity and no double body tick. Distinguish
+rollback over handoff, action continuity and no double body tick.
+
+⭐⭐ **FOUR OF THOSE ALREADY HAVE PRODUCTION ARMS, AND THIS LIST DID NOT KNOW —
+re-derived 2026-09-17.** The `ControlClaims` arbiter landed on 2026-09-06 (see
+[`control-authority-and-ai-policy.md`](control-authority-and-ai-policy.md)), and
+the arms came with it:
+
+| acceptance item | arm |
+|---|---|
+| competing claims | `a_seat_claimed_by_two_bodies_drives_neither_and_recovers_when_one_vacates` (`competing_control_claims.rs`) |
+| mount/dismount | `a_player_pilots_a_mount_end_to_end`, `a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule` (`player_pilots_mount_end_to_end.rs`) |
+| rollback over handoff | `possession_survives_the_real_rollback_window` (`rollback_provoked_actor.rs`) and `a_mount_dying_under_a_possession_survives_rewinds` (`carried_item_crosses_rooms.rs`) |
+| two mechanisms releasing independently | `a_mount_dying_under_a_possession_leaves_the_player_driving` |
+
+⇒ **So the "New abstraction: none until the writer map shows a missing narrow
+claim/result value" clause is SPENT: the writer map showed one, and it is
+`ControlClaims`/`ControlClaimant`.** What this packet still owes is the identity
+distinction in the next sentence — home-avatar, driver, camera and participant —
+and the items with no arm above: removal of a controlled body, two participants,
+action continuity, no double body tick. Distinguish
 home-avatar, driver, camera and participant identities. Preserve legitimate
 policy eligibility differences. Group an internal control/possession cycle if
 that makes the invariant easier to inspect; do not require it to disappear.

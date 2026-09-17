@@ -103,7 +103,7 @@
 
   ⇒ **`GravityField` is a MIRROR OF THE PRIMARY BODY'S resolved frame**, and this is
   not my inference — a sibling consumer already identified the trap and avoided it.
-  `sim_view/src/pose_view.rs:206`, verbatim:
+  `sim_view/src/pose_view.rs:219`, verbatim:
 
   > This body's own resolved basis, so the locomotion metric is measured along ITS run
   > axis. deliberately not the global `GravityField` read below: that one drives the
@@ -139,7 +139,7 @@
   (`portal2d/src/placement.rs:112,131`) — and BOTH open with
   `convention == MapConvention::Reflection`. `PortalTuning::default()` ships
   `PortalConvention::Rotation` (`portal2d/src/tuning.rs:91`), and Reflection is selectable ONLY from
-  the dev portal inspector (`dev/portal_inspector.rs:772`).
+  the dev portal inspector (`dev/portal_inspector.rs:783`).
 
   ⇒ **So the wiring asymmetry is real and the player cannot reach it.** Everything below
   — the contract, the symptom, the population — is CORRECT ABOUT THE CODE and describes

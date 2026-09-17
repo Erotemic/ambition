@@ -721,7 +721,7 @@ they disagree on exactly one kind of frame.
 stop running and the four scope-aware ones keep working. ⇒ **The correctness of
 two hundred systems rests on an invariant one test arm asserts:**
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:435`), which counts
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:519`), which counts
 roots every frame across a real shell handoff and requires the count never to
 exceed one.
 
@@ -769,7 +769,7 @@ whichever the ruling picks, the other two need saying so out loud.
 ⚠ **AND THE PANIC IS REACHABLE, which is the part a Q should have to show.** Two
 named roads get there:
 - `session_world_entity` → `live_session_world_root` → (no gate) →
-  `unique_session_world_root`. `ambition_platformer2d/src/rollback.rs:443` calls
+  `unique_session_world_root`. `ambition_platformer2d/src/rollback.rs:444` calls
   it to refuse a rollback session opened over an unbuilt world — the sim-harness
   install path.
 - `insert_session_world_component`
@@ -1183,7 +1183,7 @@ one, measured by what it stops checking.
 ⚠ Two method notes, because the count would have been wrong twice without them.
 A name inside `.after(...)` is an ORDERING EDGE, not a registration — excluding
 those is why `heal_save_shrine_system` is counted from its real `add_systems` and
-not from `checkpoint.rs:1755`. And the three `persist_*` mirrors landing on the
+not from `checkpoint.rs:1806`. And the three `persist_*` mirrors landing on the
 `Update` side is the positive control: a classifier that put them anywhere else
 would be wrong about the very systems this Q is named for.
 

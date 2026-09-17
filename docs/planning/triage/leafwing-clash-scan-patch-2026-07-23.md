@@ -34,7 +34,7 @@
 > as the low end rather than the current figure.
 >
 > Still in place and still correct: `tune_clash_strategy_to_bindings`
-> (`crates/ambition_platformer2d_host/src/lib.rs:428`) and the patch file. ⇒ The
+> (`crates/ambition_platformer2d_host/src/lib.rs:344`) and the patch file. ⇒ The
 > "When picked up" steps below need one edit before use — fork at **0.21**, not
 > 0.20 — and the patch should be re-checked against 0.21's `clashing_inputs.rs`
 > rather than assumed to apply.
@@ -106,7 +106,7 @@ a lenient one.
 
 ⇒ **The item is still LIVE and still deferred** — the Ambition side
 (`tune_clash_strategy_to_bindings`,
-`crates/ambition_platformer2d_host/src/lib.rs:428`) is present and still inert
+`crates/ambition_platformer2d_host/src/lib.rs:344`) is present and still inert
 by design. Nothing here argues for taking the fork; it argues that if it is ever
 taken, the artifact now works and targets the version actually in the lockfile.
 

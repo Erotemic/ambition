@@ -513,7 +513,7 @@ negative grep is a claim about the query.**
 ⭐⭐ **AND `movement_tuning`/`motion_model` ARE NOT ON IT AT ALL, MEASURED
 2026-09-11 IN THE SHIPPED HOST — the acceptance line "no duplicate authored
 movement/tuning authority" IS ALREADY MET.** The barrier FOLDS both
-(`crates/ambition_characters/src/prepared.rs:1338`, `:1334`), so the registry is the catalog's fold and cannot
+(`crates/ambition_characters/src/prepared.rs:1681`, `:1334`), so the registry is the catalog's fold and cannot
 disagree with it: 147 catalog rows, 58 prepared, and **zero disagreements in the
 overlap**. The read-site fall-back in `avatar/starting_character.rs` is reached
 for 89 ids per boot and the catalog authors a value for **none** of them, so it
@@ -572,7 +572,7 @@ PRESENT TENSE until 2026-09-11, fourteen lines above the linked page's own
 `✔ SEALED`, and sent an agent at work that had landed in `7108a57b1`
 (2026-09-10). The type is `#[non_exhaustive]` with `at_rest` and `released` and
 those are the only two roads. POISON-VERIFIED at `8ce24653d`: reintroducing the
-struct literal at the death-drop site (`damage_drops.rs:332`) fails
+struct literal at the death-drop site (`damage_drops.rs:415`) fails
 `cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]`.
 
 ✅ **AND THE OCCURRENCE HALF IS CLOSED 2026-09-13.** This paragraph read *"what
@@ -665,7 +665,7 @@ authored placement**. `SimId::encounter(id)` is the same shape. The four
 INHERITED ones carry whatever scope their parent had, which is none.
 
 ⭐ **THE GOOD NEWS IS THAT IT REFUSES RATHER THAN CORRUPTS.** The construction
-planner's `IdentityAlreadyLive` (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:819`) is what a second
+planner's `IdentityAlreadyLive` (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:1606`) is what a second
 instance would hit, so the failure mode today is a loud refusal — not two live
 things behind one `SimId`. That is the precondition step 1 would otherwise have
 to discover the hard way.

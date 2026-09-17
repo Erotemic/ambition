@@ -103,8 +103,8 @@ is not what it implies. Keyed on the BINDING rather than the spelling:
 
 | read | fields | site |
 |---|---|---|
-| **logic** | `kit` | `moveset_export.rs:649` and `moveset_takes.rs:716`, both `.projectable_moveset()` |
-| **logic** | `portrait` | `moveset_export.rs:624`, into `portrait_for_declared_character` |
+| **logic** | `kit` | `moveset_export.rs:654` and `moveset_takes.rs:750`, both `.projectable_moveset()` |
+| **logic** | `portrait` | `moveset_export.rs:629`, into `portrait_for_declared_character` |
 | **serialized** | `display_name`, `provider`, `vitals`, `locomotion`, `movement_tuning`, `abilities`, `mount`, `held_item`, `body` | all inside one `serde_json::json!` in `character_json` |
 
 ⇒ **`character_json` is a SERIALIZER.** It reads those nine to dump them. It does
@@ -137,7 +137,7 @@ much lighter for the other two.
 
 ⚠ **TWO INSTRUMENT FAILURES PRODUCED THIS TABLE AND BOTH ARE WORTH THE SPACE.**
 A first pass read ONE function's window and reported five fields, not eleven — an
-UNDER-report, the direction that says "already clean". And `moveset_takes.rs:1136`
+UNDER-report, the direction that says "already clean". And `moveset_takes.rs:1259`
 and `moveset_render.rs:889` bind `prepared` to a **`bool`** returned by
 `move_exercise::prepare`; a search on the word rather than the binding counts them
 as definition reads. ⇒ **A matching identifier is not the same value.**
@@ -300,7 +300,7 @@ this packet asks for. All sixteen production runtime reads were read by hand at
 nine are two readers of one authority.**
 
 ⚠ And the crate axis is a proxy for the road axis, 15 of 16 accurate:
-`actor_monolith/src/construction/mod.rs:1245` (`mount`) is materialization code
+`actor_monolith/src/construction/mod.rs:1234` (`mount`) is materialization code
 living in the runtime crate. Nothing turns on it here, but a boundary drawn on
 crate membership would put it on the wrong side.
 
@@ -411,7 +411,7 @@ number — 89 of 147 — reads like a finding until the control is run. Every id
 that reaches it is an id the catalog authors nothing for.
 
 ⛔⛔ **AND THESE TWO FIELDS ARE NOT TWO AUTHORITIES AT ALL: THE BARRIER FOLDS
-THEM.** `crates/ambition_characters/src/prepared.rs:1338` is `movement_tuning.or_else(|| catalog?.axis_tuning(&id))`
+THEM.** `crates/ambition_characters/src/prepared.rs:1681` is `movement_tuning.or_else(|| catalog?.axis_tuning(&id))`
 and `:1334` is the same shape for the motion model. The registry is the catalog's
 FOLD, which is why the overlap disagrees zero times — and it is the same
 treatment `vitals.max_health` got, with the reason written at `:1316`: *"a
@@ -436,7 +436,7 @@ as the only place the rule exists.
 
 ⚠ **AND THE 3 THAT LOOK LIKE A DISAGREEMENT ARE THE AUTHORING ROAD, NOT A BUG.**
 `Some(DEFAULT_TUNING)` against a silent catalog row, written where the character
-is CONSTRUCTED (`demo_smash/src/lib.rs:4344`), whose own comment already files it:
+is CONSTRUCTED (`demo_smash/src/lib.rs:4491`), whose own comment already files it:
 *"eleven of the fourteen fighters on the grid still play on the ACTOR baseline —
 a levelled stage where thirteen bodies are floatier than the fourteenth is half a
 decision … Filed for a later slice."*

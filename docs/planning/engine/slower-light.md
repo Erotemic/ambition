@@ -174,7 +174,7 @@ checkable state; re-checked against HEAD:
   too (`SelfView { pos, vel }`). ⇒ The schema break this obligation exists to
   prevent is not pending.
 * **#2** — `build_world_view`
-  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:583`)
+  (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:740`)
   takes eight explicit inputs and returns a `WorldView`. No resource, no global,
   no live-state alias: a history-sourced view remains constructible by handing it
   different arguments, which is the whole point of the obligation.

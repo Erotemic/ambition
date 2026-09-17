@@ -238,20 +238,31 @@ fix was to make its doc say so rather than to delete a field a tool reports.
 ⛔ do not re-file this as a migration; the falsifier does not fire.
 
 ⛔ **Two names cited in comments do not exist.** `character_id_for_display_name`
-(cited at `game/ambition_content/src/duel_arena.rs:61,81`) is really
-`id_for_display_name`; `smash_fighter_kit()` is cited as a live generic floor in
+(cited twice in `game/ambition_content/src/duel_arena.rs`, at lines that no
+longer hold it — the fix moved them) is really `id_for_display_name`; `smash_fighter_kit()` is cited as a live generic floor in
 five places and no such function exists — only the const `SMASH_FIGHTER_KIT`
 survives. `select.rs`'s "adopter count is supposed to be FALLING" note is
 therefore measuring something already at zero.
 ✔ **BOTH CITATIONS ARE FIXED** — `861cd3d95`, the same D166 work that found
 them; re-checked 2026-09-03 and neither name occurs anywhere in `*.rs` now,
-while the const `SMASH_FIGHTER_KIT` is still at
-`game/ambition_demo_smash/src/lib.rs:354`. ⚠ Kept as a receipt rather than
-deleted, because the finding is the reusable part: a comment can cite a function
-that never existed and greps to nothing, which is indistinguishable from one
-that MOVED — the same class `scripts/check_planning_citations.py` was later
-built for. ⛔ Do not re-file it as open work; the present tense above is the
-census speaking, not the tree.
+while the const `SMASH_FIGHTER_KIT` is still declared in
+`game/ambition_demo_smash/src/lib.rs` (at line 398 as of 2026-09-17; it was
+written here as `:354` on 2026-09-03 and has drifted 44 lines since). ⚠ Kept as a
+receipt rather than deleted, because the finding is the reusable part: a comment
+can cite a function that never existed and greps to nothing, which is
+indistinguishable from one that MOVED — the same class
+`scripts/check_planning_citations.py` was later built for. ⛔ Do not re-file it as
+open work; the present tense above is the census speaking, not the tree.
+
+⛔⛤ **AND THE `:354` IS ITS OWN EXAMPLE, WHICH IS WHY IT IS ANNOTATED RATHER THAN
+QUIETLY CORRECTED.** `check_planning_citations.py`'s `FILE_LINE` rule verifies
+that the path exists, that the line is not past the end of the file, and that the
+path is unambiguous — **not that the line still holds what the sentence says**.
+`scripts/citation_line_content_feasibility.py` records the measured NEGATIVE that
+pairing a `file:line` with nearby prose tokens does not recover the content check
+(23% bound at ±30 lines; a clause-bound, uniquely-defined-name narrowing was
+worse at 32% miss). ⇒ A line number inside a living file is a citation that rots
+silently, and the durable form is the SYMBOL plus its file, or a commit sha.
 
 ### A2 — keep the first fighter facet load-bearing
 

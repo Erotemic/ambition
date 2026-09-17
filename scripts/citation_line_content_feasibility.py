@@ -171,5 +171,21 @@ def main(argv: list[str]) -> int:
     return 0
 
 
+# ⭐⭐ **THE NEGATIVE THIS SCRIPT RECORDS HAS SINCE BEEN ANSWERED BY A DIFFERENT
+# METHOD, AND THE NEGATIVE IS WHY.** Both measurements here ask the same
+# question -- can the intended CONTENT of a `file:line` citation be recovered
+# from the prose around it -- and both say no (23% bound at +/-30; a
+# clause-bound, uniquely-defined-name narrowing was worse at 32% miss).
+#
+# ⇒ `scripts/check_planning_line_citations.py` does not try. `git blame` names
+# the commit that last wrote the DOC line; `git show <that commit>:<path>` is the
+# cited file exactly as its author saw it; line N then against line N now is text
+# against text with no inference at any step. 103 of 295 citations in
+# `docs/planning` were drifted on its first run, 72 of them repointable without a
+# judgement call.
+#
+# ⛔ Keep this script. It is the record of WHY that tool reads history instead of
+# prose, and re-deriving that reason would cost another evening.
+
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

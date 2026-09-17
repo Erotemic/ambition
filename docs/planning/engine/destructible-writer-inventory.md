@@ -59,7 +59,7 @@ two things can share is not an identity.**
 | `BreakableFeature { breakable }` — the ECS component | `ambition_combat` |
 
 ⭐⭐ **THE TRANSITION IS NOT IN THE MONOLITH.** `Breakable::apply_damage`
-(`ambition_interaction/src/lib.rs:255`) owns the whole state machine: it damages
+(`ambition_interaction/src/lib.rs:267`) owns the whole state machine: it damages
 the health, sets `Broken` or `Cracking`, and returns `true` on the break. Its
 `#[must_use]` says the caller owes the break its consequences. ⇒ Every ECS writer
 below is an ORCHESTRATOR of that one method, not a second interpretation of it.
@@ -110,7 +110,7 @@ helper under `#[cfg(test)]` at `:89`, in a table headed *"the complete productio
 set"*. Found by `check_planning_citations.py --roles` (`7a392427e`).
 
 It is deleted rather than re-pointed, because **both things it might have meant
-are already rows**: initial construction is `spawn_static.rs:546`, and the respawn
+are already rows**: initial construction is `spawn_static.rs:545`, and the respawn
 transition is `breakables.rs:41`. "Re-insert" was the wrong verb regardless —
 respawn is a MUTATION through the per-frame tick's `&mut BreakableFeature`, and
 nothing re-inserts the component.
@@ -145,7 +145,7 @@ around them:
 `features/ecs/mod.rs:116`.
 
 ⚠ **AND THE COLLAPSE RULE IS SPLIT ACROSS TWO CRATES.** The predicates are the
-domain's: `BreakableTrigger::allows_stand` (`ambition_interaction/src/lib.rs:185`)
+domain's: `BreakableTrigger::allows_stand` (`ambition_interaction/src/lib.rs:194`)
 and `BreakableCollision::blocks_movement` (`:209`). The threshold and the geometry
 are not: `BREAK_ON_STAND_SECONDS = 0.85` (`ambition_combat/src/lib.rs:118`) and
 `player_is_standing_on` (`ambition_combat/src/util.rs:5`). ⇒ The domain type says
@@ -245,7 +245,7 @@ disagree about a transition, they do not have the same kind of transition.
 
 ⛔⛔ **AND THE CHEST FINDING IS THE ONE WORTH THE SPACE: `Chest::state` IS
 WRITE-ONLY.** `ChestState { Closed, Opening, Opened }` is constructed, mapped from
-`ChestStateSpec` at authored spawn (`spawn_static.rs:106`), serialized — and read <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
+`ChestStateSpec` at authored spawn (`spawn_static.rs:105`), serialized — and read <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 by **nothing in production**. The only read in the repository is an assertion
 inside `ambition_interaction`'s own test module. The runtime's open-gate is the
 `Opened` marker, written at **five production sites across three crates**:

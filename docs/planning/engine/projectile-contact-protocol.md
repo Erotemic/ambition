@@ -434,7 +434,7 @@ per-target carve-out. See
 ⚠ IT IS STILL NOT REACHABLE ON THIS ROAD, WHICH IS WHAT THE WORK HAS TO CHANGE.
 A `BreakableCollision::Solid` feature publishes a `BlinkWall` into
 `FeatureEcsWorldOverlay::blocks`, but `ProjectileCollisionWorld::solids()`
-(`ambition_projectiles/src/collision_world.rs:53`, re-read 2026-09-10) composites
+(`ambition_projectiles/src/collision_world.rs:67`, re-read 2026-09-10) composites
 only `gate_solids`, `portal_carves` and `removed_block_names` — so a destructible's
 own surface is not in the world a projectile sweeps, and the tie rule has no
 compound case to get wrong yet.

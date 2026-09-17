@@ -70,13 +70,13 @@ the map is worth reading with one split made explicit, because the table does no
 say which crate each name lives in:
 
 * the **authored vocabulary** is in `ambition_entity_catalog` —
-  `MoveSpec` (`crates/ambition_entity_catalog/src/lib.rs:1097`), `MoveWindow`
+  `MoveSpec` (`crates/ambition_entity_catalog/src/lib.rs:1766`), `MoveWindow`
   (`:776`), `HitVolume` (`:332`);
 * the **runtime authority** is in `ambition_combat` — `capture`
   (`crates/ambition_combat/src/lib.rs:29`), `CapturedBy`
-  (`crates/ambition_combat/src/capture/mod.rs:20`);
+  (`crates/ambition_combat/src/capture/mod.rs:42`);
 * the **action-acceptance seam** is lower still — `BodyActionBuffer` in
-  `crates/ambition_platformer2d_core/src/body_clusters.rs:1063`.
+  `crates/ambition_platformer2d_core/src/body_clusters.rs:1091`.
 
 ⇒ That is consistent with the scope statement above rather than a drift from it:
 what a move IS is authored data in the catalog, what a hit DOES is combat's, and

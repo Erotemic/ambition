@@ -47,7 +47,7 @@ init_resources it, with no view-scoped variant.
 
 **The runtime makes the camera/view distinction concrete.** One headless frame
 in `hall_of_characters` on a no-GPU host, from `[census] views` and
-`[census] camera` (`crates/ambition_render/src/runtime_census.rs:413`):
+`[census] camera` (`crates/ambition_render/src/runtime_census.rs:423`):
 
     views  cameras=4  active=3  world_rendering=1  offscreen=0  local_views=1
 

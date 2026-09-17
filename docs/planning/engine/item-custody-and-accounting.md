@@ -350,7 +350,7 @@ YardratAmbition.** I wrote *"no shipped move authors `equips`; the only
 non-`None` writer is a test helper"*. **TWO shipped movesets author it** — the
 pirate admiral's side-B (`pirate_admiral_moveset.rs:354`, Jon's own 2026-08-27
 design, whose comment says *"THE DRAW is `MoveSpec::equips`"*) and Projectile
-Polygon's (`projectile_polygon_moveset.rs:458`).
+Polygon's (`projectile_polygon_moveset.rs:469`).
 
 ⚠ **THE METHOD IS THE LESSON.** Both write `side_b.equips = Some(..)` — an
 ASSIGNMENT — and I grepped for `equips: Some`, the struct-literal form. My
@@ -458,7 +458,7 @@ anonymous, because `OwnedItems` is their durable record and an identity there
 would be a second authority over it.
 ⛔ The gauntlet drop road has NO end-to-end coverage and the reason is worth
 keeping: every boss drop is spawned inside `apply_boss_hit`'s `killed` branch,
-which is reached from one call site (`damage/mod.rs:819`), so
+which is reached from one call site (`damage/mod.rs:858`), so
 `boss_lifecycle`'s `force_kill_boss` — writing HP to zero — produces no drops
 at all. Filed on the fighter side.
 

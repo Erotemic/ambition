@@ -416,7 +416,7 @@ table — and so are stance bodies.
 >
 > ✔ **Re-measured against `8ebae927c` (2026-09-03) and otherwise accurate.**
 > Rule 4 is still unimplemented; `TelegraphSpec` exists
-> (`brain/boss_pattern/mod.rs:205`) with no event channel beside it, which is
+> (`brain/boss_pattern/mod.rs:212`) with no event channel beside it, which is
 > exactly the "DATA + VALIDATOR half" BD3 claims. And the telegraph observation
 > below still holds: `telegraph:` is authored **zero** times anywhere under
 > `game/`, so no shipped boss authors one. ⓘ I did not reproduce the *"nine of

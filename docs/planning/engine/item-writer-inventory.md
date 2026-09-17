@@ -82,7 +82,7 @@ assemble one. `rustc` then enumerated 13 further assembly sites in test code
 across six crates — exactly the upper bound this page said a text scan could not
 give. The production count of 7 was correct as written. ⭐ **POISON-VERIFIED
 2026-09-11 at `8ce24653d`** — the seal had only ever been reported green: putting
-the struct literal back at `damage_drops.rs:332` fails
+the struct literal back at `damage_drops.rs:415` fails
 `cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]` in 2s.
 
 A7's acceptance says *"reward policy receives accepted outcomes; it does not
@@ -144,12 +144,12 @@ invisible — but **do not start work from it.**
 own comment explains that headless `Platformer2dSimHarness` runs quest reward
 systems without the presentation plugins) and again at
 `game/ambition_content/src/items/mod.rs:36` (in `AmbitionItemRosterPlugin`,
-installed from `plugins.rs:526` inside `install_menu_setup_and_hotkeys`). The
+installed from `plugins.rs:525` inside `install_menu_setup_and_hotkeys`). The
 windowed app runs both.
 
 ⚠ **NO VALUE DIVERGES TODAY and the page will not overstate it.** Both spell the
 same `ambition_items::OwnedItems::starter()` — `ambition_platformer2d::items` is
-a re-export of `ambition_items` (`crates/ambition_platformer2d/src/lib.rs:200`)
+a re-export of `ambition_items` (`crates/ambition_platformer2d/src/lib.rs:151`)
 and there is exactly one `fn starter` (`crates/ambition_items/src/lib.rs:632`).
 Both run at plugin-build time, so the later insert wins with an identical value.
 The defect is structural: **two build-time authorities for "what the game starts

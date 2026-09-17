@@ -73,7 +73,7 @@ that have been through both stages:
 | `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — remove |
 | `ambition_content_pack` | `thiserror` | STRANDED — remove (0 occurrences, and the crate has no `derive(…Error)` at all) |
 | `ambition_abilities` | `ambition_items` | DOC-ONLY — **ruled: keep both** |
-| `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1082`) |
+| `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1095`) |
 
 ⚠ **DETECTOR ONLY — classified but NOT yet confirmed, because the run was
 stopped before reaching them. Do not act on these two:**

@@ -842,7 +842,7 @@ declaration doc matching `derived|recomputed|never authored|never persisted`, an
 reading them, most say "derived" about something ELSE — `ActorRenderSize`'s
 COLLISION BOX, `CapturedBy`'s INVERSE. The ones that really do describe
 themselves that way are deliberate, and the reason is written at
-`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:428`.
+`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:436`.
 ⭐ THE RULE: a component whose PRESENCE is read by a query filter is
 AUTHORITATIVE even when its value is derived. The demotion population looks close
 to zero and nothing should be demoted on a keyword match.
@@ -1003,8 +1003,8 @@ produced inside the rewind window, is `message-clear` in the schema
 
 | | `NewGameResetCommitted` | `SessionScopeActivated` |
 |---|---|---|
-| written by | inside the rewind window | `translate_shell_session_lifecycle`, literal `Update` (`crates/ambition_game_shell/src/session.rs:425`) |
-| read by | `Update` | `reset_session_scoped_resources_on_activation`, literal `Update` (`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs:446`) |
+| written by | inside the rewind window | `translate_shell_session_lifecycle`, literal `Update` (`crates/ambition_game_shell/src/session.rs:394`) |
+| read by | `Update` | `reset_session_scoped_resources_on_activation`, literal `Update` (`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs:506`) |
 | rollback schema | `message-clear` | **absent — no registration at all** |
 
 ⇒ Both ends are outside the rewind window and the buffer never enters it, so

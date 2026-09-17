@@ -222,7 +222,7 @@ to conditions whose customers are currently served by the fork.
 
 ⚠ **AND `encounter.cleared` DOES NOT ALREADY COVER IT.** `encounters`
 (`PersistedEncounter`) and `bosses` (`PersistedBossDefeat`) are separate save
-fields (`save_data.rs:313`, `:317`), and the mirror reads `data.bosses`. Checked,
+fields (`save_data.rs:322`, `:317`), and the mirror reads `data.bosses`. Checked,
 because "the boss is an encounter" is the plausible assumption that would have
 made this look already-done.
 
@@ -260,7 +260,7 @@ visit_count(id)      2 authored calls   (4 raw — 2 are spoken prose)
 wallet_balance()     0 authored calls
 ```
 
-- `wallet` is a durable save field (`save_data.rs:331`) whose live authority is
+- `wallet` is a durable save field (`save_data.rs:340`) whose live authority is
   `BodyWallet` on the `PrimaryPlayer`;
 - `can_afford` is registered as a closure over the mirror's per-frame snapshot,
   so the boolean question *"can the player pay 25g"* has TWO authorities — the
@@ -288,7 +288,7 @@ as "NEXT" long after it shipped.
   `crates/ambition_platformer2d_actor_monolith/src/items/wallet_conditions.rs`
   (its OWN module rather than beside `inventory.holds` as planned) and registered
   through `WalletConditionsPlugin` at
-  `crates/ambition_platformer2d_runtime/src/lib.rs:538`.
+  `crates/ambition_platformer2d_runtime/src/lib.rs:584`.
 - ⭐ It went further than the plan asked: the condition reads the price through
   `ambition_items::shop::authored_price`, the same reading `<<buy_item>>` builds
   its request from ⇒ a price the guard refuses is a price the transaction

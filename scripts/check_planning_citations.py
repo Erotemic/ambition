@@ -141,6 +141,14 @@ REPO = Path(
 MISSING_TRACKED: list[Path] = []
 
 # `path/file.rs:123` or `file.rs:123`
+#
+# ⛔ THIS RULE CHECKS THE COORDINATE, NEVER THE CONTENT: the path resolves, the
+# line is not past the end of the file, the path is unambiguous. Whether line 123
+# still HOLDS what the sentence says is a different question with a different
+# owner -- `scripts/check_planning_line_citations.py`, which reads the cited file
+# as it stood at the citing doc line's own blame commit and compares text to
+# text. It found 103 of 295 citations no longer addressing their line on its
+# first run, all of them green here and correctly so.
 FILE_LINE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:rs|py|ron|toml|sh|md)):(\d+)`")
 # `module::thing` / `Type::method` -- at least one `::`, ordinary Rust idents.
 SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")

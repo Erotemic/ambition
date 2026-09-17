@@ -169,7 +169,7 @@ and, when two entities hold `DrivingParticipant(slot)`, logs an `error!` and
 returns `None`: *"refusing ambiguous authority, so this seat drives nothing until
 one of them vacates."* Measured by `git grep` when this page was written: **no
 test anywhere named `body_driving_seat`**, while four production readers depended
-on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
+on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:236`,
 `control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`. <!-- cite-test: the wrong member, kept as the record; corrected below -->
 
 ⛔⛔ **CORRECTED 2026-09-10 AT `2bf960acf`. THE COUNT IS STILL FOUR AND TWO OF
@@ -179,7 +179,7 @@ reader, and it omits one that is:
 * `control/queries.rs:224` IS A TEST. <!-- cite-test --> The `#[cfg(test)]` attribute is at
   `control/queries.rs:209`, <!-- cite-test --> and it was at line 209 in `966351e25` also. ⇒ This
   is an error at the stamp. It is not decay.
-* `avatar/systems.rs:103` IS A PRODUCTION READER AND IT IS NOT IN THE LIST. The
+* `avatar/systems.rs:106` IS A PRODUCTION READER AND IT IS NOT IN THE LIST. The
   commit `ab308504b` added it. That is the same commit this section reports as
   the fix, so the list here is older than the paragraph around it.
 
@@ -190,7 +190,7 @@ second one is cheap to write down. Read the rows.
 
 ⛔⛔ **AND THE CITATION LANE CANNOT FIND THIS CLASS. DO NOT READ A GREEN
 `check_planning_citations.py --strict` AS A CHECK ON IT.** The lane resolves a
-citation to a file and a line. It caught a bare `input_systems.rs:237` <!-- cite-ok: the ambiguous form IS the example; the marker must sit on THIS line, see below --> in the
+citation to a file and a line. It caught a bare `input_systems.rs:236` <!-- cite-ok: the ambiguous form IS the example; the marker must sit on THIS line, see below --> in the
 first draft of this correction, because two tracked files end with that suffix.
 
 ⚠ **AND THE MARKER ABOVE HAD TO MOVE ONTO THE CITATION'S OWN LINE. TWO GUARDS
@@ -207,7 +207,7 @@ and calls it production passes the lane.
 
 ⚠ The other five citations on this page were checked at the same time and all
 five resolve: `abilities/traversal/possession.rs:56`,
-`abilities/traversal/possession.rs:268`, `control/input_systems.rs:237`,
+`abilities/traversal/possession.rs:268`, `control/input_systems.rs:236`,
 `control/queries.rs:45` and `ambition_sim_view::local_view.rs:145`.
 
 ⇒ **WHAT THE FIXTURE FOUND WAS THE INVERSE OF THE DOCUMENTED BEHAVIOUR.**

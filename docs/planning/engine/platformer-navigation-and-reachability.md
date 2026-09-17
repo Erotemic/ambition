@@ -77,7 +77,7 @@ decision policy is correct.
 > `menu_kaleidoscope`. Sorting hits by CRATE makes that visible in one line.
 > ⓘ `WorldView::reachable`, the one name in the tree that sounds like a route
 > query, is cited in
-> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:877`
+> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:1034`
 > as something that USED to exist.
 >
 > ⚠ **Which makes this page the single remaining gate on another program.**
@@ -93,7 +93,7 @@ decision policy is correct.
 > just not for a physical question. `GatedLockWallVerdicts` publishes a
 > `ConditionOutcome` per authored wall every frame, and a standing wall carries
 > `WhyNot { term, subject, observed }`
-> (`shared_tangle/src/authored_logic/mod.rs:214`): the condition that said no,
+> (`shared_tangle/src/authored_logic/mod.rs:290`): the condition that said no,
 > the object it named, and that object's state **in the domain's own words**.
 > `body.can` fills it with the verb and *"no body a participant is driving has
 > it"*; `body.fits` with the opening and the body's height.

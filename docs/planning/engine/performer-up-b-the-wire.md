@@ -12,7 +12,7 @@ owner: handoff written 2026-08-29, picked up and built the same day
 > ✔ **RE-VERIFIED 2026-09-03.** All three commits resolve and say what this page
 > says they say; `wire_probe` is still a registered binary
 > (`game/ambition_app_tools/src/bin/wire_probe.rs`, 19K, `[[bin]]` at
-> `game/ambition_app_tools/Cargo.toml:83`), so the measurement above can be re-taken rather than merely
+> `game/ambition_app_tools/Cargo.toml:94`), so the measurement above can be re-taken rather than merely
 > cited. ⓘ **And `git log` answers the question this page leaves open:
 > `performer_moveset.rs` has not changed since — nobody has turned a knob.** So
 > "open for feel" is not a stale label on work that quietly moved on; it is the

@@ -21,7 +21,7 @@ The queue row stopped here deliberately, calling it "a fork with a wrong branch"
 and refusing to settle it at the end of a long session. It is settled now, and
 the answer is **D33 applied per variant, with one addition D33 does not cover.**
 
-`ItemPickupSet` (`crates/ambition_platformer2d_shared_tangle/src/schedule.rs:416`)
+`ItemPickupSet` (`crates/ambition_platformer2d_shared_tangle/src/schedule.rs:399`)
 has exactly three variants, and they split cleanly along the carve line:
 
 | Variant | Members today | After the carve |
@@ -35,7 +35,7 @@ which is exactly what D33 requires.
 
 ⛔ **THE ADDITION, AND IT IS THE PART THAT WOULD HAVE BEEN LOST.** The three
 variants are not independent — they are `.chain()`ed in a single call at
-`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:69`: <!-- cite-ok: the pre-cut path, kept as the record -->
+`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:68`: <!-- cite-ok: the pre-cut path, kept as the record -->
 
 ```text
 (CoreHeldItems, ThrownItemEffects, WieldedAbilities)
@@ -126,7 +126,7 @@ partial cut that was made and deleted: `ambition_entity_catalog`,
 feature. ⚠ RE-DERIVE by compiling — this is the one list a spec cannot fix in
 advance, and it was measured on a slightly different partition.
 
-⚠ **The `portal` feature is not optional bookkeeping.** `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:184` registers <!-- cite-ok: the pre-cut path, kept as the record -->
+⚠ **The `portal` feature is not optional bookkeeping.** `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:195` registers <!-- cite-ok: the pre-cut path, kept as the record -->
 `ambition_portal2d::arm_portal_pickups` into `CoreHeldItems` under
 `#[cfg(feature = "portal")]`, and a THIRD crate — the content layer's
 `AmbitionPortalAdaptersPlugin` — orders its own system `.after(arm_portal_pickups)`

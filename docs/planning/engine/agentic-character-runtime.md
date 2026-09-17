@@ -104,7 +104,7 @@
 >
 > The authored `Custom(String)` names a character archetype, not a behaviour —
 > e.g. `CharacterBrain::Custom("giant_gnu_hands")`
-> (`actor_monolith/src/construction/mod.rs:1846`) — and the archetype it names
+> (`actor_monolith/src/construction/mod.rs:1831`) — and the archetype it names
 > carries a `BrainProfile` whose `template` field
 > (`ambition_characters/src/brain/profile.rs:111`) is one of the same nine.
 > ⇒ **So the string-keyed openness is an AUTHORING indirection that resolves back

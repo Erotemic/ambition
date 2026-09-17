@@ -2,30 +2,43 @@
 
 **Status:** residual work only, re-verified against HEAD on 2026-08-13.
 
-> **Re-checked against `4768eb13d` (2026-09-02), three weeks on: the residual work is
-> STILL ACCURATE.** Spot-checked each candidate under "Remaining work":
-> `boss_sheets.ron` and `ambition_sprite_sheet::boss::BossSheetSpec` are both
-> still live, so the duplicate boss-sheet authority is unresolved;
-> `content_validation.rs` is still 622 lines; and the action seam's three types
-> (`SemanticActionId`, `ActionRegistry`, `InstalledActions`) are all present, in
-> `ambition_input/src/semantic.rs`.
+> **Re-checked against `4768eb13d` (2026-09-02) and again 2026-09-17: the
+> residual work is STILL ACCURATE.** Spot-checked each candidate under "Remaining
+> work": `boss_sheets.ron` and `ambition_sprite_sheet::boss::BossSheetSpec` are
+> both still live, so the duplicate boss-sheet authority is unresolved; and the
+> action seam's three types (`SemanticActionId`, `ActionRegistry`,
+> `InstalledActions`) are all present, in
+> `crates/ambition_input/src/semantic.rs`. ⚠ `content_validation.rs` is **655**
+> lines, not the 622 this line recorded — the file grew 5% while the row
+> describing it as a consolidation candidate stood still, which is the direction
+> that makes the candidate more worth doing, not less.
 >
-> ⚠ **ONE EXAMPLE HAS AGED BADLY AND SHOULD BE REPLACED WHEN THIS IS PICKED UP.**
-> §2 offers *"a provider-owned action such as `grapple`"* — but grapple now
-> exists as an ENGINE traversal ability
-> (`ambition_abilities/src/traversal/grapple.rs`, alongside blink, dive and
-> mark/recall), not as anything registered through the provider seam. ⚠ The path
-> moved in the abilities carve (D33, 2026-09-03) and the COMPANY it keeps
-> changed with it: `possession` and `flyline` did NOT move — they are
-> runtime-registered control authority that only shared the old directory name —
-> so this illustration is now four siblings, not six. The seam's point is unchanged; its illustration now names
-> something built the other way, which is exactly the sentence a later session
-> would take as evidence that the work was done.
+> ✔ **THE AGED EXAMPLE IS REPLACED, 2026-09-17 — this row asked for it "when
+> this is picked up", and it is picked up.** §2 used to offer *"a provider-owned
+> action such as `grapple`"*, and grapple is an ENGINE traversal ability
+> (`crates/ambition_abilities/src/traversal/grapple.rs`, alongside blink, dive and
+> mark/recall), not anything registered through the provider seam. ⚠ The path
+> moved in the abilities carve (D33, 2026-09-03) and the COMPANY it keeps changed
+> with it: `possession` and `flyline` did NOT move — they are runtime-registered
+> control authority that only shared the old directory name — so the illustration
+> was four siblings, not six. An illustration that names something built the
+> other way is exactly the sentence a later session takes as evidence that the
+> work was done.
+>
+> ⇒ **The replacement is a REAL one, found rather than invented:**
+> `SemanticActionId("pulse")` in `examples/capability_demo/src/lib.rs`, which the
+> SDK's own doc already uses as its example (`module.actions(&[capability_demo::PULSE_ACTION])`).
+> ⛔ And the census that found it is worth carrying: across the whole workspace,
+> `SemanticActionId` is named in **seven files**, and `capability_demo` is the
+> ONLY non-engine one. So the provider seam has exactly one provider-owned action
+> in the tree, and it lives in an example — which is the honest evidence for §2's
+> claim that the seam is present and the physical-input half is what is missing.
 
 The original 2026-07-31 program connected three goals: compiled content packs,
 participant-scoped semantic actions, and causal inspection. Most of that program
 has landed. The full execution record is archived at
-docs/archive/planning-superseded/2026-08-13/authoring-loop-program-2026-07-31.md (removed from the checkout 2026-09-05; still in git history) (docs/archive/planning-superseded/2026-08-13/authoring-loop-program-2026-07-31.md — removed from the checkout 2026-09-05; still in git history).
+`docs/archive/planning-superseded/2026-08-13/authoring-loop-program-2026-07-31.md` — <!-- cite-ok: removed from the checkout 2026-09-05; naming the path is the point -->
+removed from the checkout 2026-09-05, still in git history.
 
 Do not recreate the completed phases below. This file owns only the remaining
 authoring-loop gaps that still have a concrete implementation payoff.
@@ -87,7 +100,9 @@ deleted.
 
 The open action identity and module-contribution seam are already present:
 `SemanticActionId`, `ActionRegistry`, `InstalledActions`, and
-`ModuleDraft::actions` can register a provider-owned action such as `grapple`.
+`ModuleDraft::actions` can register a provider-owned action such as
+`capability_demo`'s `pulse` — the one provider-owned action in the tree, and the
+one the SDK's own doc uses.
 
 The remaining limitation is physical input: the Leafwing `InputMap` still bottoms
 out in the engine's finite `Platformer2dInputActionMonolith`. A provider-defined

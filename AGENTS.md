@@ -187,6 +187,21 @@ that fixes it.
 ⚠ `./run_tests.sh` refuses to start on an unbound virtiofs target for this
 reason. Do not work around it by any means other than running the script.
 
+⭐⭐ **AND WHEN A BOUND TARGET IS GENUINELY SHORT, THE CHEAPEST RECLAIM IS
+`./scripts/clean_workspace_crates.sh --incremental-only --apply`, WHICH DELETES
+NO ARTIFACT.** `target/*/incremental` is stale generations — a fresh hash per
+feature shape, none ever reaped — and dropping it invalidates no fingerprint: a
+fresh crate stays fresh and is skipped next build. The only cost is that the next
+EDIT to a crate recompiles it whole. **MEASURED 2026-09-16: 82 G across 985 crate
+sessions, in seconds, 33 G free → 115 G.** ⛔ It was documented in the script and
+in one test's failure message and NOWHERE a reader looks first, so the reclaim
+that needs no permission looked like the one that does. Run it dry (no `--apply`)
+to see the number before deciding.
+
+⚠ The floor that makes this urgent is real and it fails elsewhere: `run_tests.py`
+ABORTS under 40 GB, and three `scripts/tests` arms about job caps failed on that
+abort while saying *"this test is not about disk"*.
+
 Do not substitute `CARGO_TARGET_DIR`; it applies only to commands launched from
 that shell and does not establish the repository-wide target policy.
 

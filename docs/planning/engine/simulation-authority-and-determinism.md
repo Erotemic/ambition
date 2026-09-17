@@ -273,6 +273,18 @@ names has already hidden 25 of 29 registrations once:
 
 - **175 types CARRY state and are never peer-compared.** That is the S7
   population. Recompute it, do not copy this number.
+
+⭐ **RECOMPUTED 2026-09-17 AT SCHEMA 198, because this section says to.**
+`python3 scripts/measure_unchecksummed_rollback_rows.py` reports **177 rows
+outside the session checksum, 101 of them with no value projection** (78 read by
+an unfiltered per-tick query, 21 read only as PRESENCE, 1 gated or point reads).
+⚠ The `99` this section discusses below is that same no-projection figure at
+schema 193: **`Q142` added `ReleaseOnDeath` and `RecharacterizeBody` as
+`component-clone` markers on 2026-09-17, which is the whole of the +2.** ⇒ And
+the control that makes the +2 readable rather than alarming: **NO PROJECTION ×
+READ EVERY TICK × FLOAT-BEARING is still 25**, because both new rows are ZSTs.
+A population growing while its float-bearing subset holds still is the shape a
+reader should check for before treating a moved total as a finding.
 - Zero types are registered both cloned and checksummed, so no type is covered by
   a sibling registration of ITSELF. Every claim of coverage is a claim about a
   DIFFERENT type.

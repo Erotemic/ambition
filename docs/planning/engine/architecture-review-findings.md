@@ -561,15 +561,33 @@ new frame-zero timeline carrying every rollback order this App ever handed out �
 which is the ID-PEER defect the rebase exists to remove, the one that produced 59
 of 146 differing GGRS checksum parts between equivalent hosts.
 
-✔ **CLOSED 2026-09-17 AT THE INSTALL ROAD.** The precondition is the FIRST thing
-`install_rebased_sync_test_session` does, before any mutation; it returns
-`Err(FrameZeroRefused)` and the world is untouched. The confirmed lifecycle commit
-asks the same question beside `build_sync_test_session` — the other
-fallible-but-world-untouched step — so a refusal leaves the room and the pending
-intent alone and retries on a later confirmed frame, preserving the *"from here
-NOTHING may fail"* contract the commit is built on. One count serves both
-readers (`census_rollback_carriers`), because two spellings of "how many are
-hidden" is how the two disagree.
+✔ **CLOSED 2026-09-17 AT THE INSTALL ROAD — AND THEN CLOSED AGAIN, BECAUSE A
+FALLIBLE INSTALL WAS THE WRONG SHAPE.** The first repair made the install check
+first and return `Err(FrameZeroRefused)`. A third review pass found what that
+cost: both callers then carried a branch for a refusal arriving AFTER their
+destructive half — the room authoritative with the previous timeline's order
+history installed, or no session at all — and *"continuing execution from there
+is worse than terminating."* ⇒ The refusal moved to
+`FrameZeroEligibility::check`, whose token is the only way to reach
+`install_rebased_sync_test_session`, which **cannot fail**. Both impossible
+branches are DELETED rather than hardened into panics, because a branch that
+does not typecheck needs no handler. One count serves every reader
+(`census_rollback_carriers`), because two spellings of "how many are hidden" is
+how the two disagree.
+
+⛔⛤ **AND THE SAME REVIEW FOUND THE REFUSAL HAD SIMPLY MOVED UP ONE CALLER.**
+`maintain_local_session` stops the live session and then starts its replacement.
+With the start fallible, a hidden candidate turned *"keep the old session and
+retry"* into *"destroy the old session, fail to install its replacement, leave no
+active session"* — introduced by the new failure mode in a caller nobody
+changed. ⇒ The replacement road is PREPARE-then-COMMIT now: build the GGRS
+session, take the frame-zero token, and only then stop and install. ⚠ The
+`SessionSeatingSource::Pending` return has always had that shape and was moved
+above the stop with it. `a_hidden_candidate_keeps_the_running_session_instead_of_replacing_it`
+asserts the SESSION rather than the return value, because the session is what a
+player loses; its premise arm proves the fixture can replace at all, so the
+poison — putting the stop back ahead of the preflight — fails on *"leaving no
+active session"* and not on the fixture.
 
 ⚠ **AND THE ARM IS ON THE INSTALL ROAD, WHICH THE FIRST ONE WAS NOT.**
 `a_hidden_candidate_refuses_the_installation_and_mutates_nothing` builds a hidden

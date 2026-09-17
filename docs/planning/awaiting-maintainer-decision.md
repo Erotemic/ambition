@@ -2102,9 +2102,23 @@ to **187 px**. Tuning a blind script onto a 24 px volume that high is a search,
 not a fixture, and the whole-fight arm is priced at an authored platforming
 route. That is not what this registration owes.
 
-⚠ **STILL OWED: the same arm for `RecharacterizeBody`**, whose subject is a
-Mary-O powerup pickup. It is a registration, which is the same KIND of evidence
-this page has already said is not a reading of the number.
+✔ **AND `RecharacterizeBody` HAS ITS ARM TOO, the same day and by the same
+shape.** `a_staged_recharacterize_request_survives_every_pass_of_the_frame_that_reads_it`
+(`game/ambition_app/tests/a_recharacterize_request_crosses_a_rewind.rs`) stages
+the request from a sim-schedule system ordered AFTER the consumer — so it waits a
+frame exactly as the Mary-O producer's does — and censuses, per pass of the frame
+that reads it, whether the request is still there. Registered `[1, 1, 1, 1]`;
+poisoned by deleting `actor.recharacterize_request`, `[1, 1, 1, 1, 0]`.
+⚠ It stages rather than driving a Mary-O powerup pickup, which costs coverage of
+the PICKUP road and buys the registration's own property; the arm says so at its
+own definition.
+
+⛔⛤ **AND BUILDING IT COST AN OFF-BY-ONE WORTH KEEPING.** `advance_sim_tick` runs
+BETWEEN a system early in the frame and one late in it, so the head recorder
+reads the tick number of the frame BEFORE it while the staging system reads the
+new one. The control failed with `[0]` and looked exactly like an insert that
+never landed. What separated them was reading the same world from OUTSIDE the
+schedule: the marker is there at tick 40 and gone at 41.
 
 **The one still open, and the three that closed:**
 

@@ -198,9 +198,11 @@ pub fn start_sync_test_session_owned(
     // GGRS construction touches no world, so it runs first and a rejected
     // setting cannot leave a half-installed timeline.
     let session = build_sync_test_session(settings)?;
-    // ⛔ AND THE SECOND FAILURE IS ABOUT THE WORLD, NOT THE SETTINGS. It leaves
-    // the world untouched; see `install_rebased_sync_test_session`.
-    install_rebased_sync_test_session(world, session, settings, owner)?;
+    // ⛔ AND THE SECOND FAILURE IS ABOUT THE WORLD, NOT THE SETTINGS. Both are
+    // asked before anything is installed, so a refusal leaves the world exactly
+    // as it was.
+    let eligibility = FrameZeroEligibility::check(world)?;
+    install_rebased_sync_test_session(world, session, settings, owner, eligibility);
     Ok(())
 }
 
@@ -225,8 +227,14 @@ pub fn build_sync_test_session(
 
 /// Install an already-built sync-test session as the new frame-zero baseline.
 ///
-/// Installation only mutates world state and cannot fail. Rebase resets frame
-/// counters and `Time<GgrsTime>` before installing the session.
+/// Installation only mutates world state and cannot fail — ⚠ and that is a
+/// property of its PRECONDITION, not of the work: it takes a
+/// [`FrameZeroEligibility`], which only [`FrameZeroEligibility::check`] can
+/// hand out. ⛔ For a day this sentence read "cannot fail" while the function
+/// returned `Result`, which is the stale-authority shape this repository keeps
+/// finding; the fix was to make the sentence true again rather than to reword
+/// it. Rebase resets frame counters and `Time<GgrsTime>` before installing the
+/// session.
 ///
 /// Warn when frame zero has no constructed session world: construction via
 /// `Commands` after session start cannot be undone by rollback, so those frames
@@ -346,6 +354,58 @@ impl std::fmt::Display for FrameZeroRefused {
 }
 
 impl std::error::Error for FrameZeroRefused {}
+
+/// Proof that this world can declare frame zero, obtained BEFORE anything
+/// destructive runs.
+///
+/// ⛔⛤ **IT IS A TOKEN BECAUSE A REPORTED-BUT-UNREACHABLE FAILURE IS STILL A
+/// FAILURE SOMEBODY HAS TO HANDLE, AND EVERY HANDLER OF IT WAS WRONG.** Replacing
+/// a session is destroy-then-install. When the install itself could return
+/// `Err`, both callers had a branch for a refusal arriving AFTER the destructive
+/// half — and in that state the room is authoritative with the previous
+/// timeline's order history installed, or there is no session at all. The
+/// 2026-09-17 architecture review put it plainly: *"Continuing execution from
+/// there is worse than terminating."*
+///
+/// ⇒ So the refusal moved to where it can be acted on. [`Self::check`] is the
+/// only way to build one, its field is private, and
+/// [`install_rebased_sync_test_session`] takes one by value — which makes
+/// "install without having checked" unspellable and the install INFALLIBLE.
+/// Both callers' impossible branches are deleted rather than hardened, because a
+/// branch that cannot be written needs no panic.
+///
+/// ⚠ **WHAT IT DOES NOT PROVE** is that the world has not changed since. It
+/// proves the check HAPPENED and happened first. `&mut World` is exclusive, so
+/// nothing can intervene; the `debug_assert` in the install is what says so
+/// rather than assuming it.
+#[derive(Debug, Clone, Copy)]
+pub struct FrameZeroEligibility {
+    carriers: usize,
+}
+
+impl FrameZeroEligibility {
+    /// Ask whether frame zero can describe the whole carrier population.
+    ///
+    /// Reads the world and writes nothing, so a caller may ask while a live
+    /// session is still authoritative and keep it on a refusal.
+    pub fn check(world: &mut World) -> Result<Self, FrameZeroRefused> {
+        let census = census_rollback_carriers(world);
+        if census.hidden_candidates > 0 {
+            return Err(FrameZeroRefused {
+                hidden_candidates: census.hidden_candidates,
+                carriers: census.with_candidates,
+            });
+        }
+        Ok(Self {
+            carriers: census.with_candidates,
+        })
+    }
+
+    /// The population the check was taken over, for a caller's own logging.
+    pub fn carriers(self) -> usize {
+        self.carriers
+    }
+}
 
 /// Starting a local sync-test session has two ways to fail and they are not the
 /// same kind of thing.
@@ -543,22 +603,23 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     }
 }
 
-/// ⛔⛤ **IT REFUSES THE INSTALLATION, NOT MERELY THE REBASE, AND THE DIFFERENCE
-/// IS THE WHOLE POINT OF THE PRECONDITION.** The first version of this checked
-/// candidates inside [`rebase_rollback_carrier_order`], logged that the session
-/// *"starts on this App's earlier order history"*, and installed it anyway. That
-/// traded one defect for another: it stopped building a partial order table that
-/// would panic later, and in exchange it declared a new frame-zero timeline
-/// carrying every rollback order this App ever handed out — which is exactly the
-/// ID-PEER defect the rebase exists to remove (59 of 146 differing GGRS checksum
-/// parts between equivalent hosts). Found by the architecture review of
-/// 2026-09-17, which named the distinction precisely: *"It refuses the rebase,
-/// not the session installation."*
+/// ⛔⛤ **IT REFUSES THE INSTALLATION, NOT MERELY THE REBASE — AND THE REFUSAL
+/// NOW HAPPENS BEFORE YOU CAN CALL THIS AT ALL.** The first version of this
+/// checked candidates inside [`rebase_rollback_carrier_order`], logged that the
+/// session *"starts on this App's earlier order history"*, and installed it
+/// anyway: it stopped building a partial order table that would panic later, and
+/// in exchange declared a new frame-zero timeline carrying every rollback order
+/// this App ever handed out — the ID-PEER defect the rebase exists to remove (59
+/// of 146 differing GGRS checksum parts between equivalent hosts). The
+/// architecture review of 2026-09-17 named it: *"It refuses the rebase, not the
+/// session installation."*
 ///
-/// ⇒ The precondition is therefore checked FIRST, before `RollbackFrameCount`,
-/// the confirmation counter, the input authority or `GgrsTime` are touched, so a
-/// refusal leaves the world exactly as it was and no session is installed. A
-/// caller that wants the session must wait for the candidate to publish.
+/// The repair after that made this return `Result`, and a second review pass
+/// found the cost: both callers then had a branch for a refusal arriving after
+/// their destructive half, and neither could do anything useful in it. ⇒ The
+/// check is [`FrameZeroEligibility::check`], the token it returns is the only way
+/// to reach this function, and **this function cannot fail.** A caller that wants
+/// the session asks first and keeps what it has on a refusal.
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -566,23 +627,12 @@ pub fn install_rebased_sync_test_session(
     // Declared by the caller for the same reason as `start_sync_test_session_owned`:
     // a rebase keeps its owner, and inferring one here would guess.
     owner: SyncTestOwner,
-) -> Result<(), FrameZeroRefused> {
-    // ⛔ THE PRECONDITION, AND IT IS FIRST SO THAT A REFUSAL MUTATES NOTHING.
-    // Every line below this changes the world.
-    let census = census_rollback_carriers(world);
-    if census.hidden_candidates > 0 {
-        let refusal = FrameZeroRefused {
-            hidden_candidates: census.hidden_candidates,
-            carriers: census.with_candidates,
-        };
-        bevy::log::error!(
-            "REFUSING to install a rebased sync-test session: {refusal}. The \
-             frame counters, the input authority and `GgrsTime` are untouched and \
-             no session was installed — a timeline must declare frame zero with \
-             no candidate world in flight."
-        );
-        return Err(refusal);
-    }
+    // ⛔ THE PRECONDITION, AS A VALUE. Its field is private, so holding one is
+    // proof `FrameZeroEligibility::check` ran — and ran before whatever the
+    // caller did to get here.
+    eligibility: FrameZeroEligibility,
+) {
+    let _ = eligibility;
     warn_if_no_world_to_rewind(world);
     // A newly installed GGRS session always starts from the current live world
     // as frame zero. Snapshot stores are intentionally retained here: the first
@@ -603,8 +653,9 @@ pub fn install_rebased_sync_test_session(
     // precondition is being reached by a road that does not hold the world.
     debug_assert_eq!(
         rebase.hidden_candidates, 0,
-        "the frame-zero precondition passed and the rebase still found hidden \
-         candidates, so something mutated the world between them"
+        "the caller held a `FrameZeroEligibility` and the rebase still found \
+         hidden candidates, so the world changed between the check and here — \
+         which `&mut World` is supposed to make impossible"
     );
     bevy::log::debug!(
         target: "ambition_platformer2d::rollback",
@@ -624,7 +675,6 @@ pub fn install_rebased_sync_test_session(
         session,
         RollbackSessionOwnership::LocalSyncTest { settings, owner },
     );
-    Ok(())
 }
 
 /// Install any already-constructed GGRS session behind Ambition's exact
@@ -1744,12 +1794,20 @@ mod carrier_order_tests {
     /// a later panic for a new frame-zero timeline carrying every order this App
     /// ever handed out, which is the ID-PEER defect the rebase exists to remove.
     ///
-    /// ⇒ This arm calls the INSTALLATION and asserts the four things a refusal
-    /// must leave alone, plus that no session exists afterwards. ⚠ The counters
-    /// are asserted against values that are NOT the post-install ones, so a
-    /// refusal that reset them would fail here rather than coincide with a
-    /// plausible number: the fixture sets frame 77 and confirmed 41, and the
-    /// install road's own values are 0 and -1.
+    /// ⇒ This arm calls the road a session actually starts on and asserts the
+    /// five things a refusal must leave alone. ⚠ The counters are asserted
+    /// against values that are NOT the post-install ones, so a refusal that
+    /// reset them would fail here rather than coincide with a plausible number:
+    /// the fixture sets frame 77 and confirmed 41, and the install road's own
+    /// values are 0 and −1.
+    ///
+    /// ⚠ **AND THE INSTALL ITSELF IS NO LONGER WHAT REFUSES**, which is why this
+    /// arm drives `start_sync_test_session_owned`. A second review pass found
+    /// that a fallible install left both callers with an unactionable
+    /// post-destructive branch, so the refusal moved into
+    /// `FrameZeroEligibility::check` and the install became infallible. There is
+    /// no longer an "installed anyway" state to test for — it does not typecheck
+    /// — so what is tested is that the ROAD declines and the world is untouched.
     #[test]
     fn a_hidden_candidate_refuses_the_installation_and_mutates_nothing() {
         use ambition_platformer2d_shared_tangle::construction::{
@@ -1774,12 +1832,9 @@ mod carrier_order_tests {
         world.insert_resource(ConfirmedFrameCount(41));
         let order_before = world.resource::<RollbackOrdered>().len();
 
-        let settings = SyncTestSettings::for_players(1);
-        let session = build_sync_test_session(settings).expect("GGRS builds a 1-player session");
-        let refused = install_rebased_sync_test_session(
+        let refused = start_sync_test_session_owned(
             &mut world,
-            session,
-            settings,
+            SyncTestSettings::for_players(1),
             SyncTestOwner::Caller,
         );
 
@@ -1788,9 +1843,9 @@ mod carrier_order_tests {
         // property — instead of on the property.
         assert!(
             !session_is_active(&world),
-            "a refused installation installed a session anyway. That session's \
-             frame zero carries every rollback order this App ever handed out, \
-             which is the ID-PEER defect the rebase exists to remove"
+            "a refused start installed a session anyway. That session's frame \
+             zero carries every rollback order this App ever handed out, which is \
+             the ID-PEER defect the rebase exists to remove"
         );
         assert_eq!(
             world.resource::<RollbackFrameCount>().0,
@@ -1813,9 +1868,51 @@ mod carrier_order_tests {
             world.get_resource::<Time<GgrsTime>>().is_none(),
             "the refusal installed a GGRS clock for a session that does not exist"
         );
-        let refusal = refused.expect_err("the installation must refuse");
+        match refused.expect_err("the start road must refuse") {
+            StartSyncTestError::FrameZeroRefused(refusal) => {
+                assert_eq!(refusal.hidden_candidates, 1);
+                assert_eq!(refusal.carriers, 2, "the refusal names the WHOLE population");
+            }
+            other => panic!(
+                "the refusal came back as a GGRS construction error, so this arm \
+                 is reporting on the settings rather than on the world: {other}"
+            ),
+        }
+    }
+
+    /// ⛔ **AND THE TOKEN CANNOT BE HAD WHILE A CANDIDATE IS HIDDEN, WHICH IS
+    /// WHAT MAKES THE INSTALL'S INFALLIBILITY MEAN ANYTHING.** Without this, the
+    /// arm above could pass because `start_sync_test_session_owned` declines for
+    /// its own reasons while `FrameZeroEligibility::check` waves the world
+    /// through — and every other caller takes the token road, not that one.
+    #[test]
+    fn the_frame_zero_token_is_refused_while_a_candidate_is_hidden_and_granted_when_it_is_not() {
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, register_inactive_candidate_filter,
+        };
+
+        let mut world = world_with(0, &["alpha", "beta"]);
+        // Granted first, so "refused" below is attributable to the candidate
+        // rather than to anything else about the fixture.
+        let granted = FrameZeroEligibility::check(&mut world)
+            .expect("a world with no candidate in flight can declare frame zero");
+        assert_eq!(granted.carriers(), 2);
+
+        register_inactive_candidate_filter(&mut world);
+        let hidden = world
+            .query_filtered::<Entity, With<Rollback>>()
+            .iter(&world)
+            .next()
+            .expect("the fixture built carriers");
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, &world);
+        hide_candidate_session_root(&mut commands, hidden);
+        queue.apply(&mut world);
+
+        let refusal = FrameZeroEligibility::check(&mut world)
+            .expect_err("a hidden candidate must refuse the token");
         assert_eq!(refusal.hidden_candidates, 1);
-        assert_eq!(refusal.carriers, 2, "the refusal names the WHOLE population");
+        assert_eq!(refusal.carriers, 2);
     }
 
     /// ⚠ An unnamed carrier does not stop the rebase, and the report says so —
@@ -2072,8 +2169,15 @@ mod tests {
         world.insert_resource(old_timeline);
         world.insert_resource(RollbackFrameCount(540));
 
-        install_rebased_sync_test_session(&mut world, session, settings, SyncTestOwner::Caller)
+        let eligibility = FrameZeroEligibility::check(&mut world)
             .expect("no candidate world is in flight in this fixture");
+        install_rebased_sync_test_session(
+            &mut world,
+            session,
+            settings,
+            SyncTestOwner::Caller,
+            eligibility,
+        );
 
         assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
         assert_eq!(

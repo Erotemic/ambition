@@ -367,9 +367,20 @@ pub fn maintain_local_session(world: &mut World) {
     if session_live && owned == Some(policy) {
         return;
     }
-    if session_live {
-        super::session::stop_session(world);
-    }
+    // ⛔⛤ **THE STOP USED TO BE HERE, AND EVERY EARLY RETURN BELOW IT WAS A WAY
+    // TO END UP WITH NO SESSION AT ALL.** Replacing a live session is
+    // destroy-then-install, so anything that can decline between the two halves
+    // leaves the world with neither. The `Pending` seating return below has
+    // always had that shape; `install_rebased_sync_test_session` becoming
+    // fallible (it refuses frame zero while a construction candidate holds a
+    // rollback carrier) made a second one, which the architecture review of
+    // 2026-09-17 caught: *"destroy the old session, fail to install its
+    // replacement, leave no active session."*
+    //
+    // ⇒ PREPARE, THEN COMMIT. Everything that can decline runs while the old
+    // session is still alive and authoritative; the stop is the first
+    // irreversible act and nothing after it may fail. This is the same ordering
+    // `commit_confirmed_lifecycle` uses for the same reason.
 
     // HOW MANY PEOPLE ARE PLAYING, asked once and frozen.
     //
@@ -407,23 +418,66 @@ pub fn maintain_local_session(world: &mut World) {
         max_prediction_window: policy.max_prediction_window,
         players,
     };
-    match super::session::start_sync_test_session_owned(
+
+    // ── PREPARE: every way this can decline, while the old session still runs ──
+    let decline = |world: &mut World, reason: String| {
+        error!("{reason}");
+        let mut state = world.resource_mut::<LocalSessionOwnership>();
+        // ⚠ `started` is NOT cleared. It describes the session that is still
+        // installed, and a live session this maintainer started is exactly what
+        // it means. Clearing it would make the next call believe it owns
+        // nothing and stop a session it then failed to replace again.
+        state.last_error = Some(reason);
+    };
+
+    // Pure GGRS construction. Touches no world, so a rejected setting cannot
+    // leave a half-replaced timeline.
+    let session = match super::session::build_sync_test_session(settings) {
+        Ok(session) => session,
+        Err(error) => {
+            decline(
+                world,
+                format!("failed to BUILD the local GGRS session, keeping the running one: {error}"),
+            );
+            return;
+        }
+    };
+    // Frame-zero eligibility, asked BEFORE the stop for the same reason. A
+    // hidden construction candidate means the replacement's frame zero could not
+    // describe the whole carrier population, and the honest answer is to keep
+    // running what works and try again on a later frame.
+    let eligibility = match super::session::FrameZeroEligibility::check(world) {
+        Ok(eligibility) => eligibility,
+        Err(refusal) => {
+            decline(
+                world,
+                format!(
+                    "not replacing the local GGRS session yet: {refusal}. The running \
+                     session is kept and this retries on a later frame."
+                ),
+            );
+            return;
+        }
+    };
+
+    // ── COMMIT: from here nothing may fail ──
+    if session_live {
+        super::session::stop_session(world);
+    }
+    // ⭐ INFALLIBLE, by the token taken in PREPARE. There used to be an error
+    // branch here for a refusal arriving after the stop — no active session at
+    // all — and the honest thing to do in it was nothing. It is deleted because
+    // the signature no longer allows it to be written.
+    super::session::install_rebased_sync_test_session(
         world,
+        session,
         settings,
         super::session::SyncTestOwner::LocalMaintainer,
-    ) {
-        Ok(()) => {
-            let mut state = world.resource_mut::<LocalSessionOwnership>();
-            state.started = Some(policy);
-            state.last_error = None;
-        }
-        Err(error) => {
-            error!("failed to start the local GGRS session: {error}");
-            let mut state = world.resource_mut::<LocalSessionOwnership>();
-            state.started = None;
-            state.last_error = Some(format!("failed to start the local GGRS session: {error}"));
-        }
-    }
+        eligibility,
+    );
+    let mut state = world.resource_mut::<LocalSessionOwnership>();
+    state.started = Some(policy);
+    state.last_error = None;
 }
 
 /// The frozen seating for this gameplay session, captured once.
@@ -788,5 +842,158 @@ mod mechanical_edit_admission_tests {
                 "{what} kept refusing a staged edit after its timeline ended"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod session_replacement_tests {
+    use super::*;
+    use crate::session::{
+        session_is_active, start_sync_test_session_owned, SyncTestOwner, SyncTestSettings,
+    };
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopedEntity,
+    };
+    use bevy::prelude::{Name, World};
+
+    /// The two policies this fixture replaces between. They differ in
+    /// `check_distance`, which is what `owned == Some(policy)` compares.
+    const BEFORE: LocalSessionPolicy = LocalSessionPolicy {
+        check_distance: 2,
+        max_prediction_window: 8,
+        autostart: true,
+    };
+    const AFTER: LocalSessionPolicy = LocalSessionPolicy {
+        check_distance: 4,
+        max_prediction_window: 8,
+        autostart: true,
+    };
+
+    /// A session-gated world with gameplay active and a live session this
+    /// maintainer owns, started under [`BEFORE`].
+    fn world_running_under_the_first_policy() -> World {
+        let mut world = World::new();
+        world.init_resource::<crate::RollbackRegistry>();
+        world.init_resource::<SessionGatedSimulation>();
+        world.init_resource::<ActiveSessionScope>();
+        world.init_resource::<LocalSessionOwnership>();
+        world.init_resource::<ambition_input::LocalSeatTopology>();
+        world.init_resource::<ambition_input::LocalDeviceOrder>();
+
+        // Gameplay active: a published root under the current scope, which is
+        // what `session_world_entity` resolves.
+        let scope = world.resource_mut::<ActiveSessionScope>().begin();
+        world.spawn((
+            Name::new("session world"),
+            SessionRoot(scope),
+            SessionScopedEntity(scope),
+        ));
+
+        world.insert_resource(BEFORE);
+        start_sync_test_session_owned(
+            &mut world,
+            SyncTestSettings {
+                check_distance: BEFORE.check_distance,
+                max_prediction_window: BEFORE.max_prediction_window,
+                players: 1,
+            },
+            SyncTestOwner::LocalMaintainer,
+        )
+        .expect("the fixture starts a session with no candidate in flight");
+        world.resource_mut::<LocalSessionOwnership>().started = Some(BEFORE);
+        world
+    }
+
+    /// The PREMISE of the arm below, asserted on its own so a fixture that
+    /// cannot replace at all cannot be mistaken for a preserved session.
+    ///
+    /// ⛔ Without this, "the session is still live" passes for a world that
+    /// never took the replacement road — the policy comparison returning early
+    /// reads exactly like a preflight declining.
+    #[test]
+    fn a_policy_change_replaces_the_local_session() {
+        let mut world = world_running_under_the_first_policy();
+        world.insert_resource(AFTER);
+        maintain_local_session(&mut world);
+
+        assert!(session_is_active(&world), "the replacement did not install");
+        assert_eq!(
+            world.resource::<LocalSessionOwnership>().started,
+            Some(AFTER),
+            "the maintainer did not record the new policy, so it did not replace \
+             the session — and the arm below would then be measuring a session \
+             nothing tried to touch"
+        );
+        assert_eq!(world.resource::<LocalSessionOwnership>().last_error, None);
+    }
+
+    /// ⭐⭐ **A HIDDEN CONSTRUCTION CANDIDATE COSTS THE REPLACEMENT, NOT THE
+    /// RUNNING SESSION.**
+    ///
+    /// ⛔⛤ Replacing a live session is destroy-then-install, so any step that
+    /// can decline between the two halves leaves the world with NEITHER.
+    /// `install_rebased_sync_test_session` became fallible when it started
+    /// refusing frame zero while a construction candidate holds a rollback
+    /// carrier an ordinary query cannot see — and this caller, unchanged, turned
+    /// that into *"destroy the old session, fail to install its replacement,
+    /// leave no active session."* Named by the architecture review of
+    /// 2026-09-17, which is also where the earlier "refuse the rebase but
+    /// install anyway" defect came from: the refusal keeps moving to the caller
+    /// above the one that was fixed.
+    ///
+    /// ⇒ The preflight runs while the old session is still authoritative. What
+    /// this arm asserts is the SESSION, not the return value, because the
+    /// session is the thing a player loses.
+    #[test]
+    fn a_hidden_candidate_keeps_the_running_session_instead_of_replacing_it() {
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, register_inactive_candidate_filter,
+        };
+        use bevy_ggrs::Rollback;
+
+        let mut world = world_running_under_the_first_policy();
+        register_inactive_candidate_filter(&mut world);
+        let candidate = world.spawn(Rollback).id();
+        world.flush();
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, &world);
+        hide_candidate_session_root(&mut commands, candidate);
+        queue.apply(&mut world);
+
+        // PREMISE: the carrier is genuinely invisible to an ordinary query, or
+        // the preflight has nothing to find and this arm agrees for free.
+        let census = crate::session::census_rollback_carriers(&mut world);
+        assert_eq!(
+            census.hidden_candidates, 1,
+            "the disabling filter is not installed, so this arm would pass \
+             against a maintainer that never preflights at all"
+        );
+
+        world.insert_resource(AFTER);
+        maintain_local_session(&mut world);
+
+        // ⛔ THE DEFECT-DESCRIBING ASSERTION FIRST: what a player loses.
+        assert!(
+            session_is_active(&world),
+            "the maintainer stopped the running session and then failed to \
+             install its replacement, leaving no active session at all. The \
+             preflight has to happen while the old session is still alive"
+        );
+        assert_eq!(
+            world.resource::<LocalSessionOwnership>().started,
+            Some(BEFORE),
+            "`started` was cleared or advanced while the session running is still \
+             the one BEFORE describes — the next call would then believe it owns \
+             nothing and stop a session it cannot replace"
+        );
+        assert!(
+            world
+                .resource::<LocalSessionOwnership>()
+                .last_error
+                .as_deref()
+                .is_some_and(|error| error.contains("hidden construction candidates")),
+            "the declined replacement left no reason behind: {:?}",
+            world.resource::<LocalSessionOwnership>().last_error
+        );
     }
 }

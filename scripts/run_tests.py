@@ -1203,6 +1203,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_planning_anchors_resolve.py",
             ],
         ),
+        # ⛔⛤ THIS CHECKER EXISTED, HAD ITS OWN PYTEST AND ITS OWN SECTION IN
+        # `consolidation/README.md`, AND NO LANE RAN IT — so a collapse that
+        # DELETED a type left the ledger citing it and nothing said so for a
+        # day. Found 2026-09-16 by running it by hand while closing the row that
+        # broke it. A guard reachable only by someone who already suspects the
+        # answer is documentation, not a gate.
+        Job(
+            "the consolidation ledger's paths and names still resolve",
+            [
+                sys.executable,
+                "scripts/check_consolidation_ledger_still_resolves.py",
+            ],
+        ),
     ]
 
 

@@ -1124,13 +1124,30 @@ DEPENDENCY_CONTRACTS: list[dict] = [
             "ambition_platformer2d_runtime",
             "ambition_content",
             "ambition_platformer2d",
+            # ⛔⛤ **AND THE SHELL, ADDED 2026-09-16 TO MAKE A LAYER SPLIT THAT
+            # WAS ONLY PROSE MECHANICAL.** `ActiveSessionScope` lives here and
+            # `ActiveGameplaySession` lives in `ambition_game_shell`, and
+            # DUP-SESSION-CURRENT's acceptance says the split must survive:
+            # "which scope is current, and is it ready" is a simulation
+            # question, and the shell's route/activation identity cannot answer
+            # it. That was argued from behaviour, and behaviour changes.
+            # MEASURED before adding: `cargo tree -p
+            # ambition_platformer2d_shared_tangle -e normal` reaches
+            # `ambition_game_shell` ZERO times, so this pins today's graph
+            # rather than asking for a change.
+            "ambition_game_shell",
         ],
         "reason": (
             "Session scope, binding resolution and stable ids — the vocabulary "
             "gameplay crates USE. It sits directly above `engine_core` and "
             "below everything that has opinions about actors, so a dependency "
             "on one of those inverts the layering the refactor timeline is "
-            "built on (foundations < gameplay_core < content)."
+            "built on (foundations < gameplay_core < content). ⭐ The shell edge "
+            "is the same rule one layer over: the simulation's own session "
+            "identity must be complete without the shell's, which is what lets "
+            "`a_hidden_candidate_session_is_invisible_to_the_live_world_and_"
+            "visible_to_its_transaction` exercise a whole reserve/publish "
+            "lifecycle in this crate's own tests with no router in the world."
         ),
     },
     {

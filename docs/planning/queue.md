@@ -1004,17 +1004,41 @@ bound and never retired, which the activation assert makes unreachable. ⇒ The 
 is there to hold the behaviour still while an authority is removed from under it,
 not to witness a fix.
 
-⛔ **WHAT MUST NOT COLLAPSE, and the row said so before I started:** shell route
-identity and simulation identity stay separate. `ActiveSessionScope` answers
-*"which scope is current, and is it ready"* at the simulation layer, and the
-shell's activation identity cannot answer it — `ActiveGameplaySession` is `None`
-at launchers, credits and every non-gameplay experience, while a scope can be
-live. Two questions, two owners.
+⛔ **WHAT MUST NOT COLLAPSE:** shell route identity and simulation identity stay
+separate. `ActiveSessionScope` answers *"which scope is current, and is it
+ready"* at the simulation layer; `ActiveGameplaySession` answers which shell
+activation owns a session.
 
-**Acceptance:** the correlation has one owner and the two Components are
-projections of it; `ambition_game_shell` holds no second map from activation to
-scope; and the layer split survives, witnessed by a composition with a live scope
-and no gameplay session.
+⛔⛤ **AND THE REASON THIS ROW GAVE FOR THAT WAS NOT MEASURABLE — CORRECTED
+2026-09-16.** It said *"`ActiveGameplaySession` is `None` at launchers, credits
+and every non-gameplay experience, while a scope can be live"*, and the second
+half has no production witness: `ActiveSessionScope::publish` and
+`active_session.0 = Some(..)` happen in the SAME run of
+`translate_shell_session_lifecycle`, and the only other production caller
+(`prepare_candidate_platformer_session`) RESERVES rather than publishes. Measured
+directly: the engine-only harness composition reports
+`ActiveSessionScope::current() == None`. A behavioural argument for a structural
+rule was the wrong kind of argument.
+
+⇒ **THE TWO REASONS THAT ARE CHECKABLE, AND ONE OF THEM IS NOW MECHANICAL.**
+(1) A build-graph fact: `cargo tree -p ambition_platformer2d_shared_tangle -e
+normal` reaches `ambition_game_shell` **zero** times, so the simulation layer
+cannot name the shell's session even if someone wanted to — added to
+`platformer-primitives-stays-a-foundation` in
+`scripts/check_absence_contracts.py`, which checks the edge TRANSITIVELY and was
+poison-verified by forbidding a crate the graph does reach. (2) The reserve/publish
+split, which `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`
+exercises end to end inside `shared_tangle`'s own tests with no router in the
+world: a candidate owns a scope identity that `current()` does not report, its
+root and everything it owns are hidden from the live world and visible to its own
+transaction, and admission promotes the POPULATION.
+
+**Acceptance — all three clauses met 2026-09-16.** The correlation has one owner
+and the two Components are projections of it; `ambition_game_shell` holds no
+second map from activation to scope; and the layer split is a dependency contract
+rather than a behavioural claim. ⚠ The third clause used to ask for *"a
+composition with a live scope and no gameplay session"* — a witness that cannot
+exist, which is why it went unwritten for as long as it did.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

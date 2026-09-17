@@ -1076,9 +1076,9 @@
       "category": "duplicate_truth_family",
       "name": "Current gameplay-session identity family",
       "owner": "game_shell + shared_tangle lifecycle",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "ActiveGameplaySession, ActiveSessionScope, GameplaySessionLinks, SessionRoot, and GameplaySessionWorldRoot all carry pieces of the live session identity. Most answer different layer-specific questions, but several repeat scope/activation correlation.",
+      "current_truth": "ActiveGameplaySession, ActiveSessionScope, SessionRoot and GameplaySessionWorldRoot carry pieces of the live session identity, each answering a different layer-specific question. The correlation duplicate the row inferred was real and is GONE (2026-09-16): a one-entry Resource copy of the (activation, scope) pair the live instance already carried, with zero production readers of its query. The layer split is now a dependency contract -- shared_tangle may not reach game_shell, transitively -- rather than a behavioural claim.",
       "source_paths": [
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
@@ -1086,7 +1086,7 @@
       "evidence": [
         {
           "status": "SOURCE_INFERRED",
-          "claim": "ActiveGameplaySession, ActiveSessionScope, GameplaySessionLinks, SessionRoot, and GameplaySessionWorldRoot all carry pieces of the live session identity. Most answer different layer-specific questions, but several repeat scope/activation correlation.",
+          "claim": "ActiveGameplaySession, ActiveSessionScope, SessionRoot and GameplaySessionWorldRoot carry pieces of the live session identity, each answering a different layer-specific question. The correlation duplicate the row inferred was real and is GONE (2026-09-16): a one-entry Resource copy of the (activation, scope) pair the live instance already carried, with zero production readers of its query. The layer split is now a dependency contract -- shared_tangle may not reach game_shell, transitively -- rather than a behavioural claim.",
           "sources": [
             "crates/ambition_game_shell/src/session.rs",
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"

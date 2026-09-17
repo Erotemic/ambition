@@ -58,6 +58,22 @@ def test_the_bundle_count_is_read_from_source_not_the_marker():
     assert scoped > 3, "the ResMut field pattern stopped matching; the scan is broken"
 
 
+def _live_bundle_count() -> int:
+    """The bundle's size READ FROM SOURCE, for arms that need today's number.
+
+    ⛔⛤ **THREE ARMS HARDCODED IT AND TWO OF THEM WENT RED THE DAY THE BUNDLE
+    GAINED A MEMBER (2026-09-16, `GameplayElapsed`).** A test of a guard whose
+    whole subject is *"a number restated away from its source goes stale"*
+    restated the number away from its source. The arms are about the RULE, not
+    about the value, so they ask the same reader the guard asks.
+    """
+    return len(
+        guard.source_members(
+            guard.BUNDLES["SessionScopedResources"], "SessionScopedResources"
+        )
+    )
+
+
 def test_session_mechanics_is_counted_as_one_resource_not_six_fields():
     """⚠ THE MISTAKE THIS GUARD RECORDS. It is ONE resource with six fields, and
 
@@ -72,7 +88,7 @@ def test_a_stray_copy_of_the_bundle_count_is_found():
     in a table cell and it was still 25 after the plan's two were corrected to
     29. A rule that checks one known copy cannot find that.
     """
-    assert guard.stray_counts(29) == []
+    assert guard.stray_counts(_live_bundle_count()) == []
     found = guard.stray_counts(999)
     assert found, "no line states the bundle's count, so this arm witnesses nothing"
 
@@ -302,4 +318,4 @@ def test_the_stray_sweep_reaches_the_ledger_json_not_only_markdown():
         for path in guard.PLANNING.rglob(suffix)
     }
     assert ledger in swept, "the ledger is not in the swept population"
-    assert guard.stray_counts(29) == []
+    assert guard.stray_counts(_live_bundle_count()) == []

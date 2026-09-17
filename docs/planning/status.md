@@ -90,8 +90,10 @@ ladder's widest gap was 90. `boss.death_animation` was said to want a boss dead
 and wanted a `BossSpawn`: `BossDeathAnimation::default()` is inserted at spawn.
 ⚠ Its carrier is constant `(1, 0)`, so what is compared there is PRESENCE, not a
 varying float; a real boss death is still the stronger observation. One row is
-left and no route can place it (`Q137`). The owner row prints the per-room
-split.
+left and no route can place it (`Q137`) — ✔ asked the same way as the two that
+had just been overturned, *where is the component CONSTRUCTED*, that claim HELD:
+one construction site in the workspace, inside a `#[cfg(test)]` module. The owner
+row prints the per-room split.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and

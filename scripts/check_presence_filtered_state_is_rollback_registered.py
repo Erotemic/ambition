@@ -51,6 +51,20 @@ population.
 ⚠ It cannot see a filter spelled through a type alias (`PrimaryPlayerOnly`) or
 built in a generic. Those are filters on types this guard never learns about.
 
+# # The neighbouring question, asked and answered clean
+
+⚠ **THE SAME SHAPE EXISTS FOR MESSAGES AND IT HAS NO FINDINGS — MEASURED
+2026-09-17, recorded so nobody pays for the measurement twice.** A message
+written in a mispredicted future and not cleared is read again after the rewind,
+which is why `clear_message_on_rollback` exists. Of the 79 message types both
+written and read in production, 22 carry no `message-clear` row: twenty-one are
+shell, menu or load-presentation messages that never cross the sim, and the
+twenty-second is `BodyMovementOps`, which IS registered — through
+`clear_instrument_message_on_rollback`, whose kind `schema_dump()` deliberately
+excludes so a debugging instrument cannot move the peer schema identity. ⇒ A
+guard here would have an empty population today; the census is the evidence, not
+a second script.
+
 Usage:
     python3 scripts/check_presence_filtered_state_is_rollback_registered.py
     python3 scripts/check_presence_filtered_state_is_rollback_registered.py --list

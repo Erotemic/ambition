@@ -3247,4 +3247,3 @@ fn a_cutscene_dismiss_raised_outside_the_simulation_is_lost() {
          and record in CUTSCENE-ROLLBACK-DECISION what made the edge survive"
     );
 }
-

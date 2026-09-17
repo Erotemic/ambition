@@ -283,30 +283,55 @@ neither.
 
 ✔⛤ **THE RATCHET HALF IS LANDED, 2026-09-16 — AND IT IS A RATCHET, NOT A
 VERSION, WHICH IS THE HONEST DESCRIPTION.** `control_frame.rs`'s
-`the_payload_two_peers_exchange` module pins the exact `serde` JSON of a default
-frame plus `size_of` (60 bytes). It cannot tell an author what to BUMP, because
-there is nothing to bump yet; it makes a change to the peer input payload
-impossible to make SILENTLY, which was the missing property. A negotiated input
-version is still absent and is not obviously owed while netcode is `N2`.
+`the_bytes_two_peers_exchange` module pins the exact **bincode bytes** of one
+frame. It cannot tell an author what to BUMP, because there is nothing to bump
+yet; it makes a change to the peer input payload impossible to make SILENTLY,
+which was the missing property. A negotiated input version is still absent and is
+not obviously owed while netcode is `N2`.
 
-⭐ **THE WHOLE JSON RATHER THAN A FIELD LIST, for two measured reasons:** a
-nested change (`control_frame_modes` gaining a mode) leaves the top-level key set
-identical but moves the JSON, and the default VALUES distinguish types a name
-list cannot (`false`, `0` and `0.0` render differently, so `bool` → `u8` is
-caught). `size_of` is a companion, not a duplicate: it moves on a layout change
-the JSON cannot see, and the JSON moves on a rename the size cannot.
+⛔⛤ **AND ITS FIRST VERSION MEASURED THE WRONG FORMAT ENTIRELY — CORRECTED
+2026-09-16 AFTER A GPT ARCHITECTURE REVIEW, BY READING THE PINNED `ggrs`
+CHECKOUT.** It pinned pretty-printed `serde` JSON, described as *"the exact
+payload serde puts on the wire"*, plus `size_of::<ControlFrame>()`. The
+transport is neither: it is **bincode**, at the three `InputBytes` call sites
+this row already enumerates below, read out of the pinned `ggrs` `0.13.0`
+checkout (git `e97e3d2`), in its `network::protocol` module. Two numbers settle it: the
+serialized size is **68 bytes** and `size_of` is **60**, and the
+`#[serde(rename = "dash_pressed")]` poison the old module was built around leaves
+the encoding **byte-identical** — measured, same hex before and after. ⇒ The module's headline defect was not that
+it was weak; it was that its failure message taught the next author a wire model
+the transport does not use.
 
-⛔⛤ **AND THE RATCHET IS NOT DUPLICATING THE COMPILER — POISONED BOTH WAYS TO
-FIND OUT.** ADDING a field already fails to compile, because
-`ControlFrame::merge_sample` builds an exhaustive literal and a new field must
-declare whether it is a LEVEL or an EDGE. Good nudge, wrong subject: it is about
-merge semantics and says nothing of the wire. RENAMING the wire name compiles
-**cleanly** — `#[serde(rename = ...)]` is already live on this type
-(`burst_pressed` ships as `dash_pressed`), and changing that one attribute
-produced **zero compile errors** while reddening only the new assertion. With
-`#[serde(default)]`, an old peer's `dash_pressed` would land in no field and
-decode as `false` rather than failing. ⇒ That gap is the reason the module
-exists, and it is why the arm had to be poisoned rather than reasoned about.
+⭐ **A LEGIBLE FRAME RATHER THAN A DEFAULT ONE, and the reason is a measurement:**
+`bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO bytes. Pinning
+that would catch a length change and nothing else — every falsy field is the same
+byte as every other. The recorded frame alternates every bool, gives the floats
+distinct values and takes a NON-default variant of both enums, so field order,
+field width and each variant index are visible in the hex.
+
+⭐⭐ **AND THE ARM THE OLD MODULE COULD NOT HAVE WRITTEN IS THE ONE THE TRANSPORT
+ACTUALLY DEPENDS ON.** `protocol.rs` measures ONE default frame and then slices
+every player's input at that fixed stride, so the encoding must be FIXED-WIDTH. A
+`String`, a `Vec`, an `Option` or a data-carrying enum variant on `ControlFrame`
+would make player 2's slice start mid-way through player 1's frame, with no
+checksum anywhere to notice. `every_frame_encodes_to_the_same_width_as_the_default`
+holds that; neither JSON nor a source census can state it.
+
+⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
+FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values
+identically, so a swap between them moves nothing — the old JSON DID catch that
+(`false` vs `0`) and the bytes do not. The FIELD TYPES are carried by the
+source-level census below, which records declaration order, each field's type and
+every nested enum's variants. The two are complements: that one is the shape,
+this one is the transport actually producing bytes.
+
+⛔⛤ **THE RATCHET IS NOT DUPLICATING THE COMPILER — POISONED TO FIND OUT.**
+ADDING a field already fails to compile, because `ControlFrame::merge_sample`
+builds an exhaustive literal and a new field must declare whether it is a LEVEL or
+an EDGE. Good nudge, wrong subject: it is about merge semantics and says nothing
+of the wire. What compiles cleanly and moves the bytes is a REORDER, a width
+change, or an enum gaining a variant ahead of an existing one — poison-verified,
+swapping two adjacent `bool` fields reddens the pin with zero compile errors.
 
 ⚠ Still latent like the rest of this campaign while no P2P session is ever built
 (netcode `N2`) — `SETTINGS-ROLLBACK` is simply the row that would add the first

@@ -960,6 +960,7 @@ dependencies = [
  "ambition_geometry",
  "bevy_ecs",
  "bevy_math",
+ "bincode",
  "parry2d 0.26.1",
  "serde",
  "serde_json",

@@ -586,16 +586,13 @@ mod latch_authority_tests {
 }
 
 #[cfg(test)]
-mod the_payload_two_peers_exchange {
+mod the_bytes_two_peers_exchange {
     //! ⛔⛤ **NOTHING VERSIONED THE SHAPE OF THE INPUT WIRE, AND EVERY CANDIDATE
     //! THAT LOOKED LIKE IT DID COVERS SOMETHING ELSE.**
     //!
     //! `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so [`ControlFrame`] IS
-    //! what crosses between peers, serialized by the `serde` derives above —
-    //! `ggrs` requires `Config::Input: Serialize + DeserializeOwned`, so the
-    //! serde field set is the wire and not merely a debug convenience. The
-    //! state half of the wire has both an identity and a ratchet
-    //! (`GGRS_ROLLBACK_SCHEMA_VERSION` and
+    //! what crosses between peers. The state half of the wire has both an
+    //! identity and a ratchet (`GGRS_ROLLBACK_SCHEMA_VERSION` and
     //! `scripts/tests/rollback_codec_shape.txt`). Before this module the input
     //! half had neither:
     //!
@@ -620,131 +617,236 @@ mod the_payload_two_peers_exchange {
     //! becomes two hosts that agree on every checksum and cannot decode each
     //! other's input.
     //!
-    //! ⭐⛤ **WHAT THE COMPILER ALREADY CATCHES, AND WHAT IT DOES NOT — BOTH
-    //! MEASURED BY POISON RATHER THAN ASSUMED, BECAUSE A RATCHET THE COMPILER
-    //! DUPLICATES IS NOT WORTH ITS MAINTENANCE.**
+    //! ⛔⛤ **AND FOR A DAY THIS MODULE PINNED PRETTY-PRINTED serde JSON AND
+    //! `size_of`, CALLING THE FIRST "the exact payload serde puts on the wire".
+    //! NEITHER IS THE WIRE.** Read out of the pinned `ggrs` checkout itself
+    //! (`0.13.0`, git `e97e3d2`), not out of a changelog:
     //!
-    //! ADDING a field fails to compile: [`ControlFrame::merge_sample`] builds an
-    //! EXHAUSTIVE literal, so a new field must also declare whether it is a
-    //! LEVEL (latest wins) or an EDGE (OR-accumulated). That is a good nudge and
-    //! it is about merge semantics, not about the peer — it says nothing of the
-    //! wire, and satisfying it is one line.
+    //! ```text
+    //! network/protocol.rs:68   bincode::serialized_size(&T::Input::default())
+    //! network/protocol.rs:90   bincode::serialize_into(&mut bytes, &input.input)
+    //! network/protocol.rs:117  bincode::deserialize(player_byte_slice)
+    //! ```
     //!
-    //! RENAMING THE WIRE NAME compiles CLEANLY. `#[serde(rename = ...)]` is
-    //! already in use on this very type — `burst_pressed` ships as
-    //! `dash_pressed` — so this is a live spelling here and not a hypothetical.
-    //! Poison-verified: changing that one attribute produces **zero compile
-    //! errors** and reddens only the assertion below. An old peer sending
-    //! `dash_pressed` to a host expecting `burst_pressed` has its value land in
-    //! NO field, and `#[serde(default)]` turns that into `false` instead of an
-    //! error. ⇒ **That gap is the whole reason this module exists.**
+    //! bincode is POSITIONAL: it writes fields in declaration order and carries
+    //! no field names at all. So the old module's whole poison argument was
+    //! false. **Measured 2026-09-16 by poison:** renaming the live
+    //! `#[serde(rename = "dash_pressed")]` attribute to something else leaves
+    //! this encoding **byte-identical** — same 68 bytes, same hex — while it
+    //! reddened the JSON assertion the module was built around. And `size_of`
+    //! was **60** against a serialized size of **68**, so the companion
+    //! "neither implies the other" constant was pinning Rust's in-memory layout
+    //! and calling it the transport.
+    //!
+    //! ⭐⛤ **WHAT THE COMPILER ALREADY CATCHES.** ADDING a field fails to
+    //! compile: [`ControlFrame::merge_sample`] builds an EXHAUSTIVE literal, so a
+    //! new field must also declare whether it is a LEVEL (latest wins) or an
+    //! EDGE (OR-accumulated). That is about merge semantics, not about the peer,
+    //! and satisfying it is one line — it says nothing of the wire.
+    //!
+    //! ⚠ **AND WHAT THESE BYTES CANNOT SEE, SO THAT THE NEXT READER DOES NOT
+    //! TRUST THEM FOR IT.** `bool` and `u8` are both ONE byte in bincode and
+    //! encode the same values identically, so a type swap between them moves
+    //! nothing here. The FIELD TYPES are carried by the source-level census in
+    //! `scripts/check_absence_contracts.py::input_payload_shape`, which records
+    //! declaration order, each field's type, and the variants of every nested
+    //! enum. The two are complements: that one is the shape, this one is the
+    //! transport actually producing bytes.
 
-    /// The exact payload `serde` puts on the wire for a default frame.
+    use super::{AttackStrengthHint, ControlFrame};
+    use crate::{ControlFrameModes, InputFrameMode};
+
+    /// A frame chosen so the ENCODING is legible, because the default one is
+    /// not.
     ///
-    /// ⭐ THE WHOLE JSON, NOT A FIELD-NAME LIST, and the difference is
-    /// load-bearing in two ways. A nested change (`control_frame_modes` gaining
-    /// a mode) does not alter the top-level key set but does alter this. And the
-    /// default VALUES distinguish types that a name list cannot: `false`, `0`
-    /// and `0.0` render differently, so `bool` → `u8` is caught.
-    const RECORDED: &str = r#"{
-  "axis_x": 0.0,
-  "axis_y": 0.0,
-  "jump_pressed": false,
-  "jump_held": false,
-  "jump_released": false,
-  "dash_pressed": false,
-  "left_pressed": false,
-  "right_pressed": false,
-  "up_pressed": false,
-  "down_pressed": false,
-  "fast_fall_pressed": false,
-  "blink_pressed": false,
-  "blink_held": false,
-  "blink_released": false,
-  "special_pressed": false,
-  "special_held": false,
-  "attack_pressed": false,
-  "attack_held": false,
-  "attack_released": false,
-  "attack_strength_hint": "Auto",
-  "attack_from_aim_stick": false,
-  "attack_aim_x": 0.0,
-  "attack_aim_y": 0.0,
-  "control_frame_modes": {
-    "movement": "ScreenRelative",
-    "aim": "ScreenRelative"
-  },
-  "pogo_pressed": false,
-  "fly_toggle_pressed": false,
-  "interact_pressed": false,
-  "interact_held": false,
-  "reset_pressed": false,
-  "start_pressed": false,
-  "projectile_pressed": false,
-  "projectile_held": false,
-  "projectile_released": false,
-  "shield_held": false,
-  "grab_pressed": false,
-  "taunt_pressed": false,
-  "modifier_held": false,
-  "modifier_pressed": false,
-  "aim_x": 0.0,
-  "aim_y": 0.0
-}"#;
+    /// ⛔ `bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO
+    /// bytes. Pinning that would catch a length change and nothing else: every
+    /// falsy field is the same byte as every other, so a reordering among them,
+    /// a changed enum discriminant and a swapped float would all leave it
+    /// untouched. Every bool here alternates, the floats are distinct, and both
+    /// enums take a NON-default variant — so field order, field width and each
+    /// variant index are all visible in the hex below.
+    fn a_frame_whose_encoding_is_legible() -> ControlFrame {
+        ControlFrame {
+            axis_x: -0.75,
+            axis_y: 0.5,
+            jump_pressed: true,
+            jump_held: false,
+            jump_released: true,
+            burst_pressed: false,
+            left_pressed: true,
+            right_pressed: false,
+            up_pressed: true,
+            down_pressed: false,
+            fast_fall_pressed: true,
+            blink_pressed: false,
+            blink_held: true,
+            blink_released: false,
+            special_pressed: true,
+            special_held: false,
+            attack_pressed: true,
+            attack_held: false,
+            attack_released: true,
+            attack_strength_hint: AttackStrengthHint::Smash,
+            attack_from_aim_stick: true,
+            attack_aim_x: 0.25,
+            attack_aim_y: -1.0,
+            control_frame_modes: ControlFrameModes {
+                movement: InputFrameMode::BodyRelativeStrict,
+                aim: InputFrameMode::BodyRelativeAssist,
+            },
+            pogo_pressed: true,
+            fly_toggle_pressed: false,
+            interact_pressed: true,
+            interact_held: false,
+            reset_pressed: true,
+            start_pressed: false,
+            projectile_pressed: true,
+            projectile_held: false,
+            projectile_released: true,
+            shield_held: false,
+            grab_pressed: true,
+            taunt_pressed: false,
+            modifier_held: true,
+            modifier_pressed: false,
+            aim_x: 0.125,
+            aim_y: -0.375,
+        }
+    }
 
-    /// Bytes of one in-memory frame. A companion to the serde shape rather than
-    /// a duplicate of it: this moves on a layout or type change that leaves the
-    /// JSON identical, and the JSON moves on a rename that leaves the size
-    /// identical. Neither implies the other.
-    const RECORDED_SIZE: usize = 60;
+    /// The bytes a peer decodes for [`a_frame_whose_encoding_is_legible`].
+    ///
+    /// Readable as the struct: `000040bf` is `-0.75` little-endian, the runs of
+    /// `0100`/`0001` are the alternating bools, `02000000` is
+    /// `AttackStrengthHint::Smash` (bincode writes a unit variant as a `u32`
+    /// index), and `01000000 02000000` are the two frame modes.
+    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf010000000200000001000100010001000100010001000000003e0000c0be";
+
+    /// What `ggrs` sizes the per-player input slot by — `serialized_size` of a
+    /// DEFAULT frame, read at `network/protocol.rs:68`.
+    ///
+    /// ⛔ It is not `size_of::<ControlFrame>()`, which is 60. A previous version
+    /// of this module pinned that number and described it as the wire.
+    const RECORDED_WIRE_BYTES: u64 = 68;
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
 
     #[test]
-    fn the_shape_of_the_peer_input_payload_is_pinned() {
-        let actual = serde_json::to_string_pretty(&super::ControlFrame::default())
+    fn the_bytes_a_peer_decodes_are_pinned() {
+        let bytes = bincode::serialize(&a_frame_whose_encoding_is_legible())
             .expect("a ControlFrame serializes");
         assert_eq!(
-            actual,
+            hex(&bytes),
             RECORDED,
             "\nTHE PEER INPUT PAYLOAD CHANGED SHAPE.\n\n\
-             `ControlFrame` is `GgrsConfig::Input`, so this is the wire two peers \
-             exchange -- and nothing versions it. `INPUT_STREAM_VERSION` \
-             deliberately exempts added fields (see this type's own doc \
-             comment), the rollback dump names the type without its fields, and \
-             the schema fingerprint hashes that dump.\n\n\
-             If the change is deliberate: re-record `RECORDED` above, and say in \
-             the commit message what a peer running the previous shape would do \
-             with the new payload. `#[serde(default)]` means a MISSING field \
-             decodes as the default rather than failing, which is why this is \
-             silent and why a removed or renamed field is the dangerous \
-             direction -- an old peer's value lands in no field at all.\n\n\
-             If it is not deliberate, a field was added to a struct somebody \
-             thought was local."
-        );
-        assert_eq!(
-            std::mem::size_of::<super::ControlFrame>(),
-            RECORDED_SIZE,
-            "the in-memory size of the peer input payload moved while its serde \
-             shape did not. That is a layout or field-type change the JSON above \
-             cannot see; re-record both together"
+             `ControlFrame` is `GgrsConfig::Input`, and `ggrs` puts it on the \
+             wire with bincode -- these are the bytes the other host decodes. \
+             Nothing versions them: `INPUT_STREAM_VERSION` deliberately exempts \
+             added fields (see this type's own doc comment), the rollback dump \
+             names the type without its fields, and the schema fingerprint \
+             hashes that dump.\n\n\
+             bincode is POSITIONAL, so what moves this is a field added, \
+             removed or REORDERED, a field's width changing, or an enum gaining \
+             a variant before an existing one. A `#[serde(rename)]` does not: \
+             there are no field names in these bytes.\n\n\
+             If the change is deliberate: re-record `RECORDED`, and say in the \
+             commit message what a peer running the previous shape would decode \
+             from the new payload. bincode has no field names to miss, so \
+             `#[serde(default)]` supplies nothing here -- an inserted field \
+             shifts the meaning of every byte after it. Whether the decode then \
+             REFUSES or yields garbage is recorded as unestablished in \
+             `docs/planning/queue.md`; either way it is not a refusal that names \
+             the cause."
         );
     }
 
-    /// ⚠ THE RATCHET'S OWN PREMISE: serde is really what `ggrs` uses here. If
-    /// `ControlFrame` ever gains a hand-written `Serialize`, or the transport
-    /// switches to `bytemuck`, the JSON above stops describing the wire and this
-    /// module becomes a test of a debug format.
+    /// ⭐⭐ **THE PROPERTY `ggrs`'s TRANSPORT ACTUALLY DEPENDS ON, AND NEITHER
+    /// THE OLD JSON NOR A SOURCE CENSUS COULD STATE IT.**
+    ///
+    /// `protocol.rs` measures ONE default frame at line 68 and then slices every
+    /// player's input out of a packet at that fixed stride (line 117). That is
+    /// only correct while the encoding is FIXED-WIDTH. Give `ControlFrame` a
+    /// `String`, a `Vec`, an `Option` or a data-carrying enum variant and the
+    /// bytes stop being a constant size — at which point player 2's slice starts
+    /// mid-way through player 1's frame and every peer decodes garbage, with no
+    /// checksum anywhere to notice.
     #[test]
-    fn a_round_trip_through_serde_preserves_a_frame() {
-        let mut frame = super::ControlFrame::default();
-        frame.axis_x = 0.5;
-        frame.interact_pressed = true;
-        frame.reset_pressed = true;
-        let bytes = serde_json::to_vec(&frame).expect("serialize");
-        let back: super::ControlFrame = serde_json::from_slice(&bytes).expect("deserialize");
+    fn every_frame_encodes_to_the_same_width_as_the_default() {
+        let default_size = bincode::serialized_size(&ControlFrame::default())
+            .expect("a default ControlFrame has a serialized size");
+        assert_eq!(
+            default_size, RECORDED_WIRE_BYTES,
+            "the per-player input slot ggrs sizes from a default frame moved"
+        );
+        for (what, frame) in [
+            ("default", ControlFrame::default()),
+            ("legible", a_frame_whose_encoding_is_legible()),
+            (
+                "one float",
+                ControlFrame {
+                    axis_x: f32::MIN,
+                    ..ControlFrame::default()
+                },
+            ),
+            (
+                "last enum variant",
+                ControlFrame {
+                    attack_strength_hint: AttackStrengthHint::Smash,
+                    control_frame_modes: ControlFrameModes {
+                        movement: InputFrameMode::BodyRelativeAssist,
+                        aim: InputFrameMode::BodyRelativeAssist,
+                    },
+                    ..ControlFrame::default()
+                },
+            ),
+        ] {
+            assert_eq!(
+                bincode::serialized_size(&frame).expect("serialized size"),
+                default_size,
+                "the `{what}` frame does not encode to the width ggrs slices \
+                 by, so a packet carrying more than one player's input would be \
+                 cut in the wrong places"
+            );
+        }
+    }
+
+    /// ⚠ THE MODULE'S OWN PREMISE: bincode is really what the transport uses. If
+    /// the pinned `ggrs` ever changes serializer, or `ControlFrame` gains a
+    /// hand-written `Serialize`, these bytes stop describing the wire.
+    #[test]
+    fn a_frame_survives_the_transports_own_round_trip() {
+        let frame = a_frame_whose_encoding_is_legible();
+        let bytes = bincode::serialize(&frame).expect("serialize");
+        let back: ControlFrame = bincode::deserialize(&bytes).expect("deserialize");
         assert_eq!(
             back, frame,
-            "a frame does not survive its own serde round trip, so the recorded \
-             shape above is not the shape a peer would decode"
+            "a frame does not survive the round trip ggrs performs on it, so \
+             the recorded bytes above are not what a peer would decode"
         );
+    }
+
+    /// The fact that kills the rename argument, asserted rather than asserted
+    /// ABOUT: if a field name appeared in the encoding, a `#[serde(rename)]`
+    /// would be a wire change and the old module would have been right.
+    #[test]
+    fn the_encoding_carries_no_field_names() {
+        let bytes = bincode::serialize(&a_frame_whose_encoding_is_legible()).expect("serialize");
+        for name in [
+            &b"axis_x"[..],
+            &b"dash_pressed"[..],
+            &b"burst_pressed"[..],
+            &b"attack_strength_hint"[..],
+            &b"Smash"[..],
+            &b"movement"[..],
+        ] {
+            assert!(
+                !bytes.windows(name.len()).any(|window| window == name),
+                "`{}` appears in the encoding, so it is name-based after all and \
+                 a rename IS a wire change",
+                String::from_utf8_lossy(name)
+            );
+        }
     }
 }

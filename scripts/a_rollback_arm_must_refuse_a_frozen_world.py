@@ -87,6 +87,11 @@ ADJUDICATED: dict[str, str] = {
     "game/ambition_app/tests/how_much_of_the_peer_checksum_actually_varies.rs": "each "
     "arm opens with `audit.live_comparisons > 0`, which a stopped clock fails "
     "(read 2026-09-16)",
+    "game/ambition_app/tests/cut_rope_arena.rs": "`rollback_ticks >= "
+    "FRAMES_OF_WAITING` is asserted before anything is compared, and the "
+    "comparison itself is a RATE — the script's beat clock against the tick "
+    "count — so a frozen world fails the floor rather than satisfying the "
+    "equality with two stopped numbers (read 2026-09-17)",
 }
 
 

@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,274 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,284 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -3051,6 +3051,16 @@ prerequisites are reported as incomplete rather than pass.
 - the `BodyWallet` red (`4ccfef59c`) was a CROSSING, not a schedule choice:
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
+
+✔ **A SETTLED-TREE `cargo test --workspace --no-fail-fast` — 2026-09-17,
+`a0ac8c7a7`: 8,216 passed, 1 failed, ZERO `error[` lines, 186 test targets.**
+The one failure is the environmental published-sheet floor
+(`ambition_sprite_sheet`: *"780 sheet(s), below the floor of 800"*), which is a
+claim about THIS CHECKOUT's publish output and carries its own ⛔ DO NOT LOWER
+THE FLOOR. ⚠ Recorded with the count of TARGETS because a red lane runs a
+smaller population than a green one — 186 here against the 49-vs-79 binaries this
+row measured when a lane failed early. ⇒ It is also one more non-reproducing
+sample of OPEN 1's 2026-09-10 original, which is a non-negative, not a negative.
 
 **OPEN 1 — intermittent arms that fail only in company. FOUR instances; THREE are
 closed with measured causes and all three are the SAME SHAPE: a per-arm

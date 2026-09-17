@@ -544,8 +544,8 @@ the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
 authored constants and the ones that sound like inventory bookkeeping are the
 mutated ones. A row's NAME is not a reading of its write set.
 
-⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES, 2026-09-16 —
-SIX OF THEM WITH CARRIERS, ALL SIX AGREEING.**
+⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND THREE
+ROOMS, 2026-09-17 — EIGHT OF THEM WITH CARRIERS, ALL EIGHT AGREEING.**
 `two_local_histories_agree_about_the_sharp_unchecksummed_rows`
 (`game/ambition_app/tests/shell_host_lifecycle.rs`) is the complement of the
 peer-visible census arm: it asserts each of these twelve rows does NOT feed the
@@ -553,39 +553,51 @@ peer checksum — so the two arms cannot drift into reading one surface while
 claiming to split it — and then compares the probe census of exactly these rows
 between a host that reached the shipped Ambition route first and one that reached
 it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
-`entity.transform`, `item.ground_item`, `player.blink_camera_state` and
-`portal.gun_pickup` carried state and agree at steps 0, 1, 30 and 120.** The
-other six carry nothing at rest in that route, which is a fact about the ROUTE
-and not about the rows; the arm prints the split rather than reporting twelve.
+`entity.transform`, `feature.hazard`, `item.ground_item`,
+`player.blink_camera_state`, `portal.gun_pickup` and `portal.placed` carried
+state and agree at steps 0, 1, 30 and 120, in every room the arm walks.** That
+eight is pinned by SET EQUALITY, not by a floor, so a row losing its carriers is
+a red rather than a quieter green.
 
-⛔⛤ **AND "A FACT ABOUT THE ROUTE" IS TRUE OF FIVE OF THOSE SIX, NOT SIX —
-MEASURED 2026-09-17, AND IT IS A CORRECTION TO THIS RANKING RATHER THAN TO THE
-ARM.** `gravity.flip_switch` cannot be placed by ANY route: its only mutable
-writer, `gravity_flip_switch_system`, is registered in exactly one place in the
-workspace and that place is inside a `#[cfg(test)]` module
-(`gravity/lifecycle.rs`), and the gravity plugin says so in its own words —
-*"`gravity_flip_switch_system` is intentionally NOT registered. Nothing spawns a
-`GravityFlipSwitch` in-game (the hub flip is an LDtk-authored Switch handled by
-the encounter system); the component + system exist only for the unit test + any
-future overlap-style plate."* ⇒ So the row is rollback-registered twice
-(`component-clone` plus `require_rollback`) for a component no shipped
-composition builds, and **this ranking counted a writer no production
-composition installs** — the same defect as crediting a road nobody takes. It is
-ELEVEN rows a route could reach, not twelve, and the twelfth wants a decision
-about the registration rather than a fixture.
+⛔⛤ **A ROOM IS THE POPULATION, AND UNTIL 2026-09-17 THIS RANKING HAD ONE OF
+THEM.** The arm walked the authored start room alone, six rows carried nothing,
+and this page read that as *"a fact about the ROUTE and not about the rows"*. For
+two of the six it was a fact about the ROOM: `portal_lab` authors fourteen
+`Portal` placements and `basement_hazards` three `DamageVolume`s. Pinning the
+start room with `StartRoomOverride` — carrying `StartRoomMustResolve`, because an
+override that does not resolve boots the authored room and says so only in a log
+line — moved the measured coverage from six to eight with no new fixture, no
+input road, and no change to the simulation. ⚠ And the first attempt named the
+wrong room: `basement_npcs`'s `HazardBlock` is a SURFACE
+(`SurfaceContact::ResetToSpawn`, `ldtk/src/surfaces.rs`), not a
+`PlacementSchema::Hazard`; the authored identifier that becomes `feature.hazard`
+is `DamageVolume`. A row's name is not a reading of what authors it, either.
 
-⚠ **THE OTHER FIVE SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
+⛔⛤ **OF THE FOUR STILL SILENT, ONE CANNOT BE PLACED BY ANY ROUTE — MEASURED
+2026-09-17, AND IT IS A CORRECTION TO THIS RANKING RATHER THAN TO THE ARM.**
+`gravity.flip_switch`'s only mutable writer, `gravity_flip_switch_system`, is
+registered in exactly one place in the workspace and that place is inside a
+`#[cfg(test)]` module (`gravity/lifecycle.rs`), and the gravity plugin says so in
+its own words — *"`gravity_flip_switch_system` is intentionally NOT registered.
+Nothing spawns a `GravityFlipSwitch` in-game (the hub flip is an LDtk-authored
+Switch handled by the encounter system); the component + system exist only for
+the unit test + any future overlap-style plate."* ⇒ So the row is
+rollback-registered twice (`component-clone` plus `require_rollback`) for a
+component no shipped composition builds, and **this ranking counted a writer no
+production composition installs** — the same defect as crediting a road nobody
+takes. It is ELEVEN rows a route could reach, not twelve, and the twelfth wants a
+decision about the registration rather than a fixture.
+
+⚠ **THE OTHER THREE SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
 them" FROM A WISH INTO A LIST.** Read from the spawn sites, 2026-09-17:
 
 | row | what would place it |
 |---|---|
-| `portal.placed` | an AUTHORED placement — `PlacedPortal::fixed` is lowered from content (`features/ecs/spawn_static.rs`), so a route with a fixed portal covers it with no input at all |
-| `feature.hazard` | an authored `PlacementSchema::Hazard` placement, same shape. ⚠ Which shipped rooms carry one is NOT measured here |
 | `portal.shot`, `portal.emission` | DRIVEN INPUT: the gun must be fired, and the transit adapter inserts the emission on a body that crosses. `portal.gun_pickup` has a carrier in the Ambition route, so the gun is placed there and never picked up in an input-free 120 steps |
-| `boss.death_animation` | a boss death, which is the most expensive fixture of the five |
+| `boss.death_animation` | a boss death, which is the most expensive fixture of the three |
 
-⇒ The two authored rows are the cheap half and need no input road; the portal
-pair needs one; `boss.death_animation` needs a fight.
+⇒ Adding a room cannot reach any of the three; the authored half of the list is
+spent. The portal pair wants a driven-input road and the boss row wants a fight.
 ⛔ Two Apps with different local histories are still not two peers — no
 transport, no input exchange, no interleaving, no rebase — so this decides
 whether a row's value depends on where the host has been, and nothing more. That

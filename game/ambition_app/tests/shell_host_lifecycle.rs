@@ -49,6 +49,28 @@ use ambition_platformer2d::world::rooms::RoomSet;
 /// composes (`visible_composition.rs`), so the render-frame arm is the
 /// approximation, not the other way round.
 fn shell_host_app_hosted_by(host: ambition_platformer2d::runtime::SimulationHost) -> App {
+    shell_host_app_started_in(host, None)
+}
+
+/// The same host, with Ambition's start room PINNED.
+///
+/// ⛔ A ROOM IS A POPULATION, WHICH IS WHY A WITNESS NEEDS THIS. Several
+/// rollback registrations only ever have carriers in a room that authors them —
+/// `portal.placed` needs a fixed portal, `feature.hazard` a hazard block — so an
+/// arm that walks only the authored start room reports agreement about rows that
+/// were never present. Measured 2026-09-17: six of S7's twelve sharp rows carried
+/// state from the authored start room, and the six silent ones were not evidence
+/// of anything.
+///
+/// ⛔ `StartRoomMustResolve` travels with the override, always. A programmatic
+/// override that does not resolve falls back to the authored start room and says
+/// so only in a log line, so a renamed room would leave this comparing two hosts
+/// somewhere neither of them asked for — which is the failure `capture_scene`
+/// already paid for once.
+fn shell_host_app_started_in(
+    host: ambition_platformer2d::runtime::SimulationHost,
+    room: Option<&str>,
+) -> App {
     use ambition_platformer2d::runtime::SimulationHostAppExt as _;
 
     let mut app = App::new();
@@ -66,6 +88,11 @@ fn shell_host_app_hosted_by(host: ambition_platformer2d::runtime::SimulationHost
     app.init_state::<ambition_platformer2d::platformer::schedule::GameMode>();
     // Host configuration FIRST: the startup constructors consult it.
     app.insert_resource(shell_host::AmbitionShellHosted);
+    // Before `init_sandbox_resources`, which is what consumes both.
+    if let Some(room) = room {
+        app.insert_resource(ambition_app::app::StartRoomOverride(room.to_string()));
+        app.insert_resource(ambition_app::app::StartRoomMustResolve);
+    }
     ambition_app::app::init_sandbox_resources(&mut app);
     // Bevy seals the simulation schedule when the first simulation plugin
     // registers, so the host is chosen before `add_simulation_plugins` — the
@@ -1489,9 +1516,11 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     /// not a waiver.
     const EXPECTED_TO_DIFFER: &[(&str, &str)] = &[];
 
-    fn build(veteran: bool) -> App {
-        let mut app =
-            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    fn build(veteran: bool, room: Option<&str>) -> App {
+        let mut app = shell_host_app_started_in(
+            ambition_platformer2d::runtime::SimulationHost::Rollback,
+            room,
+        );
         settle(&mut app);
         if veteran {
             for provider in ["Sanic", "Mary-O"] {
@@ -1550,106 +1579,158 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
             .collect()
     }
 
-    let mut fresh = build(false);
-    let mut veteran = build(true);
+    /// ⛔⛤ **THE ROOMS, BECAUSE A ROOM IS THE POPULATION.** This arm walked only
+    /// the authored start room until 2026-09-17, and measured six of the twelve
+    /// sharp rows carrying any state at all: the other six agreed the way two
+    /// empty sets agree. A row that no room in the walk AUTHORS is not evidence
+    /// of a host's history failing to reach it. Each entry names what it is here
+    /// to carry, measured over `game/ambition_content/assets/worlds/*.ldtk`.
+    const ROOMS: &[(Option<&str>, &str)] = &[
+        (None, "the authored start room -- what pressing launch reaches"),
+        (Some("portal_lab"), "fourteen authored `Portal` placements"),
+        (Some("basement_hazards"), "three authored `DamageVolume` placements"),
+    ];
 
-    // The control, first.
-    let fresh_tokens = local_lifecycle_tokens(&mut fresh);
-    let veteran_tokens = local_lifecycle_tokens(&mut veteran);
-    assert_ne!(
-        fresh_tokens, veteran_tokens,
-        "the two hosts reached Ambition with the same local lifecycle state, so \
-         nothing below is about a host's history reaching its peer state"
-    );
+    let mut compared = std::collections::BTreeSet::new();
+    let mut registered_sharp_rows = 0usize;
+    for (room, carries) in ROOMS {
+        let room_label = room.unwrap_or("<authored>");
+        eprintln!("[sharp-rows] room {room_label}: {carries}");
+        let mut fresh = build(false, *room);
+        let mut veteran = build(true, *room);
 
-    let keep = sharp_types(&fresh);
+        // The control, first.
+        let fresh_tokens = local_lifecycle_tokens(&mut fresh);
+        let veteran_tokens = local_lifecycle_tokens(&mut veteran);
+        assert_ne!(
+            fresh_tokens, veteran_tokens,
+            "the two hosts reached Ambition with the same local lifecycle state, so \
+             nothing below is about a host's history reaching its peer state"
+        );
+
+        let keep = sharp_types(&fresh);
+        registered_sharp_rows = keep.len();
+        assert_eq!(
+            keep,
+            sharp_types(&veteran),
+            "the two hosts register different sharp-row sets, so the comparison below \
+             is between two different questions"
+        );
+        // ⛔⛤ **A RATCHET ON THE POPULATION, NOT A FLOOR UNDER IT — NAMED BY THE GPT
+        // ARCHITECTURE REVIEW OF 2026-09-16.** The anti-vacuity check below asks
+        // only that SOMETHING was compared, so eleven rows leaving the registry
+        // while the twelfth agreed would read green: exactly the coverage erosion
+        // this family of guards exists to stop. `SHARP_ROWS` is a named target
+        // population, so the assertion is SET EQUALITY, which also names a spelling
+        // or join mistake instead of quietly shrinking the census.
+        // ⛔⛤ **AND THE SET EQUALITY BELOW CANNOT SEE THE LIST SHRINKING, WHICH A
+        // POISON SHOWED RATHER THAN AN ARGUMENT.** Deleting `portal.shot` from
+        // `SHARP_ROWS` left the arm GREEN: both sides of that comparison are derived
+        // from the list, so editing the list moves them together. It catches the
+        // registry losing a row and nothing else. ⇒ The population's SIZE is pinned
+        // against the number S7 states, which is a constant a reviewer can check
+        // without running anything.
+        assert_eq!(
+            SHARP_ROWS.len(),
+            12,
+            "S7 ranks TWELVE rows as sharp — outside the peer checksum, read every \
+             tick, float-bearing and mutably written in production. This list has \
+             {}. If S7's census genuinely moved, re-derive it THERE first and bring \
+             the new number here with it; shrinking the list to make this arm green \
+             is how a witness quietly stops witnessing",
+            SHARP_ROWS.len()
+        );
+        let registered: std::collections::BTreeSet<&str> =
+            keep.values().map(String::as_str).collect();
+        let targeted: std::collections::BTreeSet<&str> = SHARP_ROWS.iter().copied().collect();
+        assert_eq!(
+            registered, targeted,
+            "the registry no longer spells exactly S7's twelve sharp rows. A row that \
+             LEFT is coverage this arm silently lost; a row that arrived is one S7 \
+             has not classified. Re-derive the list against \
+             `docs/planning/engine/simulation-authority-and-determinism.md` rather \
+             than editing SHARP_ROWS to match the registry"
+        );
+
+        let expected: std::collections::BTreeMap<&str, &str> =
+            EXPECTED_TO_DIFFER.iter().copied().collect();
+        // ⛔⛤ **THE LABELS ARE ABSOLUTE AND THE ADVANCE IS THE DELTA — the first
+        // version advanced by the label each time and sampled 0/1/31/151 while
+        // reporting 0/1/30/120.** Named by the GPT architecture review of
+        // 2026-09-16. The substance held either way; the checked-in evidence named
+        // observation points it had not visited, which is the kind of number that
+        // travels into a planning row and cannot be re-derived.
+        let mut advanced = 0usize;
+        for step in [0usize, 1, 30, 120] {
+            for _ in advanced..step {
+                fresh.update();
+                veteran.update();
+            }
+            advanced = step;
+            let ours = census(&mut fresh, &keep);
+            let theirs = census(&mut veteran, &keep);
+            // ⛔ ONLY ROWS WITH CARRIERS SAY ANYTHING. A row at count 0 in both hosts
+            // agrees the way two empty sets agree, so it is not counted as compared.
+            compared.extend(
+                ours.iter()
+                    .filter(|(_, (count, _))| *count > 0)
+                    .map(|(row, _)| row.clone()),
+            );
+            let unexpected: Vec<String> = ours
+                .iter()
+                .filter(|(row, reading)| {
+                    theirs.get(*row) != Some(*reading) && !expected.contains_key(row.as_str())
+                })
+                .map(|(row, reading)| {
+                    format!("{row}  fresh={reading:?} veteran={:?}", theirs.get(row))
+                })
+                .collect();
+            assert!(
+                unexpected.is_empty(),
+                "after {step} more steps, a SHARP unchecksummed row differs between \
+                 two hosts whose only difference is which routes they visited first \
+                 ({fresh_tokens} vs {veteran_tokens}).\n  {}\n\n\
+                 ⛔ Nothing two peers compare would notice this: these rows are \
+                 outside the peer checksum by construction. See S7 in \
+                 `docs/planning/engine/simulation-authority-and-determinism.md`.",
+                unexpected.join("\n  ")
+            );
+        }
+    }
+
+    // ⛔⛤ **THE COVERAGE IS PINNED AS A SET, BECAUSE THE FLOOR BELOW CANNOT SEE
+    // IT ERODE.** `!compared.is_empty()` answers only "did this compare
+    // anything", so seven rows losing their carriers while the eighth agreed
+    // would read green. A row that LEAVES this set is coverage this arm lost in
+    // silence — usually a room rename, since the override falls back to the
+    // authored start room when it cannot resolve. A row that JOINS it is a room
+    // authoring something S7 has not counted. Either way re-derive the split
+    // from the walk rather than editing this list to match it.
+    //
+    // ⇒ **THE FOUR THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
+    // each would need: `portal.shot` and `portal.emission` need a portal FIRED,
+    // which is a driven-input road this walk does not have; `boss.death_animation`
+    // needs a boss to die; and `gravity.flip_switch` was measured 2026-09-17 to be
+    // placeable by no route at all. Adding a room cannot reach any of them.
+    const CARRIED_BY_THE_WALK: &[&str] = &[
+        "actor.animation_facts",
+        "actor.render_size",
+        "entity.transform",
+        "feature.hazard",
+        "item.ground_item",
+        "player.blink_camera_state",
+        "portal.gun_pickup",
+        "portal.placed",
+    ];
+    let carried: std::collections::BTreeSet<&str> =
+        CARRIED_BY_THE_WALK.iter().copied().collect();
     assert_eq!(
-        keep,
-        sharp_types(&veteran),
-        "the two hosts register different sharp-row sets, so the comparison below \
-         is between two different questions"
-    );
-    // ⛔⛤ **A RATCHET ON THE POPULATION, NOT A FLOOR UNDER IT — NAMED BY THE GPT
-    // ARCHITECTURE REVIEW OF 2026-09-16.** The anti-vacuity check below asks
-    // only that SOMETHING was compared, so eleven rows leaving the registry
-    // while the twelfth agreed would read green: exactly the coverage erosion
-    // this family of guards exists to stop. `SHARP_ROWS` is a named target
-    // population, so the assertion is SET EQUALITY, which also names a spelling
-    // or join mistake instead of quietly shrinking the census.
-    // ⛔⛤ **AND THE SET EQUALITY BELOW CANNOT SEE THE LIST SHRINKING, WHICH A
-    // POISON SHOWED RATHER THAN AN ARGUMENT.** Deleting `portal.shot` from
-    // `SHARP_ROWS` left the arm GREEN: both sides of that comparison are derived
-    // from the list, so editing the list moves them together. It catches the
-    // registry losing a row and nothing else. ⇒ The population's SIZE is pinned
-    // against the number S7 states, which is a constant a reviewer can check
-    // without running anything.
-    assert_eq!(
-        SHARP_ROWS.len(),
-        12,
-        "S7 ranks TWELVE rows as sharp — outside the peer checksum, read every \
-         tick, float-bearing and mutably written in production. This list has \
-         {}. If S7's census genuinely moved, re-derive it THERE first and bring \
-         the new number here with it; shrinking the list to make this arm green \
-         is how a witness quietly stops witnessing",
+        compared.iter().map(String::as_str).collect::<std::collections::BTreeSet<_>>(),
+        carried,
+        "the rooms in this walk no longer carry exactly the sharp rows they were          measured to carry on 2026-09-17. {} of {} sharp rows are registered",
+        registered_sharp_rows,
         SHARP_ROWS.len()
     );
-    let registered: std::collections::BTreeSet<&str> =
-        keep.values().map(String::as_str).collect();
-    let targeted: std::collections::BTreeSet<&str> = SHARP_ROWS.iter().copied().collect();
-    assert_eq!(
-        registered, targeted,
-        "the registry no longer spells exactly S7's twelve sharp rows. A row that \
-         LEFT is coverage this arm silently lost; a row that arrived is one S7 \
-         has not classified. Re-derive the list against \
-         `docs/planning/engine/simulation-authority-and-determinism.md` rather \
-         than editing SHARP_ROWS to match the registry"
-    );
-
-    let expected: std::collections::BTreeMap<&str, &str> =
-        EXPECTED_TO_DIFFER.iter().copied().collect();
-    let mut compared = std::collections::BTreeSet::new();
-    // ⛔⛤ **THE LABELS ARE ABSOLUTE AND THE ADVANCE IS THE DELTA — the first
-    // version advanced by the label each time and sampled 0/1/31/151 while
-    // reporting 0/1/30/120.** Named by the GPT architecture review of
-    // 2026-09-16. The substance held either way; the checked-in evidence named
-    // observation points it had not visited, which is the kind of number that
-    // travels into a planning row and cannot be re-derived.
-    let mut advanced = 0usize;
-    for step in [0usize, 1, 30, 120] {
-        for _ in advanced..step {
-            fresh.update();
-            veteran.update();
-        }
-        advanced = step;
-        let ours = census(&mut fresh, &keep);
-        let theirs = census(&mut veteran, &keep);
-        // ⛔ ONLY ROWS WITH CARRIERS SAY ANYTHING. A row at count 0 in both hosts
-        // agrees the way two empty sets agree, so it is not counted as compared.
-        compared.extend(
-            ours.iter()
-                .filter(|(_, (count, _))| *count > 0)
-                .map(|(row, _)| row.clone()),
-        );
-        let unexpected: Vec<String> = ours
-            .iter()
-            .filter(|(row, reading)| {
-                theirs.get(*row) != Some(*reading) && !expected.contains_key(row.as_str())
-            })
-            .map(|(row, reading)| {
-                format!("{row}  fresh={reading:?} veteran={:?}", theirs.get(row))
-            })
-            .collect();
-        assert!(
-            unexpected.is_empty(),
-            "after {step} more steps, a SHARP unchecksummed row differs between \
-             two hosts whose only difference is which routes they visited first \
-             ({fresh_tokens} vs {veteran_tokens}).\n  {}\n\n\
-             ⛔ Nothing two peers compare would notice this: these rows are \
-             outside the peer checksum by construction. See S7 in \
-             `docs/planning/engine/simulation-authority-and-determinism.md`.",
-            unexpected.join("\n  ")
-        );
-    }
 
     // ⛔ THE ANTI-VACUITY FLOOR, ON THE INTERSECTION RATHER THAN ITS OPERANDS. A
     // join keyed wrongly — row names on one side, type names on the other —
@@ -1659,14 +1740,14 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "no sharp row had a single carrier in either host, so this arm compared \
          nothing: the registry spells {} of the {} sharp rows, and the probe \
          census matched {}",
-        keep.len(),
+        registered_sharp_rows,
         SHARP_ROWS.len(),
         compared.len()
     );
     eprintln!(
         "[sharp-rows] {} of {} sharp rows registered, {} carried state and were \
          compared: {:?}",
-        keep.len(),
+        registered_sharp_rows,
         SHARP_ROWS.len(),
         compared.len(),
         compared

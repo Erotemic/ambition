@@ -468,7 +468,8 @@ floor crate by breaking the goal the carve exists to serve.
 ⇒ **The pin stays, and it is not debt.** Cost of this decision in the terms the
 repo uses: **no schema bump** (nothing moves), **no crate gains a dependency**,
 **zero call sites touched**. The encoder is
-`crates/ambition_characters/src/snapshot_impls.rs:350-489` and discriminates
+`crates/ambition_characters/src/snapshot_impls.rs:416-555` (re-read 2026-09-17; it
+was cited at `:350-489` and the file has grown above it) and discriminates
 exactly three variants (`BossPattern`, `Fighter`, `Smash`); the registrar is
 generic over the trait, so there are no per-type call sites to migrate even if
 one wanted to.
@@ -501,7 +502,7 @@ can see. Neither is worth engineering for its own sake.
   variant (`StateMachine`), and `CharacterBrainTemplate`'s nine (`StandStill`,
   `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
   `Aerial`, `Fighter`) contain no player/human arm.
-⇒ **TWO OF THE FOUR WERE ALREADY MET and had been carrying `▢`.** And the third
+⇒ **ALL FOUR ARE SETTLED NOW: two were already met and had been carrying `▢`, and the other two are settled below — one withdrawn by the DECIDED section, one met by withdrawing it.** And the third
 is mostly met too — see the re-measured census above: the BEHAVIOUR of both
 brains left on 2026-08-27 (6,315 non-test lines in `ambition_combat` at
 2026-09-17), and the 2,255 that remain are data pinned in place by the orphan
@@ -509,11 +510,20 @@ rule. `Smash` and
 `Fighter` are still variants of `CharacterBrainTemplate`, which is what the box
 below is really still about — a template name, not 8,950 lines.
 
-- ▢ `brain/smash` and `brain/fighter` leave `ambition_characters`, and the
-  measured line count of that crate falls by roughly the 8,950 above — ⛔ a carve
-  that only re-exports them has moved nothing, and the debt ledger must not be
-  laundered: the destination joins in the SAME commit;
-- ▢ a movement-only game's linked-crate count does not rise, and preferably falls.
+- ⊘ ~~`brain/smash` and `brain/fighter` leave `ambition_characters`~~ —
+  **WITHDRAWN, by the DECIDED section on this same page.** The behaviour left on
+  2026-08-27; what remains is 2,255 non-test lines of DATA held in the floor
+  crate by the ORPHAN RULE, and all three shapes that could move it are refused —
+  two by rules this repository already holds, the third because it makes a MOUNT
+  system link a combat crate, which is the next row failing. ⛔ A reader meeting
+  this box first must not start the carve: the decision is above and it is an
+  engineering call, not a deferral.
+- ✔ a movement-only game's linked-crate count does not rise — **met by NOT doing
+  the row above.** It is the criterion that killed shape C.
+
+⚠ **BOTH ROWS CARRIED `▢` WHILE THE SECTION ABOVE THEM SAID DECIDED, and one of
+them was refuted BY the other.** That is the page disagreeing with itself in the
+direction that invents work: an open checkbox is an invitation.
 
 ## ✔ The first slice is SPENT — re-derived 2026-09-17
 

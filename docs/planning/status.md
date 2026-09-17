@@ -74,8 +74,14 @@ already owned by `Q128` and `Q129` — and held by
 `two_local_histories_compute_the_same_ggrs_component_checksums`. ⛔ **WHAT FOUND
 IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
 same day, deleting a FALLBACK to see who was using it. A clean census is not
-evidence. ⚠ **One more road that needs no ruling:** the unchecksummed float rows'
-STATE half; the owner row prints how far it reaches.
+evidence. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
+unchecksummed float rows' STATE half. The witness compares S7's twelve sharp rows
+across two local histories in three rooms, and **eight of the twelve carry state
+and agree** as of 2026-09-17 — six until a start room was pinned, because two of
+the silent rows were a fact about the ROOM rather than about the route. Of the
+four still silent, `gravity.flip_switch` can be placed by no route at all
+(`Q137`) and the other three want the portal gun fired or a boss dead, which is a
+driven-input road rather than another room. The owner row prints the split.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and

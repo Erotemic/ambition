@@ -161,40 +161,36 @@ rider, and asserts `PossessionState.possessed == Some(rider)` before carrying th
 pair through a door. ⇒ The two-mechanism poison is not blocked on new content; it
 is three lines away from a fixture that ships.
 
-⇒ The acceptance it owes is still a **two-mechanism poison** — mount a body,
-possess it, release one, assert the other still holds — but it can be written
-today, on authored content, which changes it from a design note into a bug with a
-reproduction.
+✔ **AND THE ACCEPTANCE IT OWED IS PAID. RE-DERIVED 2026-09-17 BY READING THE
+TREE, because everything above this line describes a defect that no longer
+exists.** The row asked for a two-mechanism poison — mount a body, possess it,
+release one, assert the other still holds — on the grounds that neither release
+arm asked whether the other claim was live. Both halves have landed:
 
-⛔⛔ ~~WHAT I HAVE NOT MEASURED: whether a body can be mounted and possessed in a
-shipped composition today~~ — **MEASURED: THEY CO-OCCUR IN A SHIPPING TEST.** My
-guess in this paragraph ("possession is exploration and the mount is the pirate
-admiral's shark; they may never co-occur") was wrong, and it was wrong in the
-direction that let me defer the row. The authored `pirate_sky_lookout` produces a
-mounted rider and the test above possesses it.
+* **Neither crate assigns `TemporaryControl` any more.** `ambition_mount` files
+  and drops `ControlClaimant::Mount` (`file_claim` / `drop_claim`), and
+  `abilities/traversal/possession.rs` files and drops
+  `ControlClaimant::Possession`. The effective authority is a PROJECTION over the
+  claims, which is exactly the "control-custody CLAIM, not a new component"
+  design stated at the top of this section.
+* ⛔ The `Autonomous` write that made the conflict player-visible is gone, and
+  the comment where it stood says why: *"A dead mount ends the RIDE's claim; it
+  does not make the body autonomous, and saying so erased a live possession."*
+* **The poison exists and it is the stronger version.**
+  `a_mount_dying_under_a_possession_leaves_the_player_driving` and
+  `a_mount_dying_under_a_possession_survives_rewinds`
+  (`game/ambition_app/tests/carried_item_crosses_rooms.rs`) drive the authored
+  `pirate_sky_lookout` rider, kill the mount under the possession, and assert
+  `holds(Possession) && !holds(Mount)` — the second one ACROSS A REWIND, and it
+  also asserts the projection agrees with the claims.
 
-⭐ **THE THREE WRITERS, RE-DERIVED RATHER THAN QUOTED**, because the shape of the
-bug depends on exactly which variant each one writes:
-
-| site | writes | when |
-|---|---|---|
-| `ambition_mount/src/lib.rs:1152` | `Mounted { mount }` | boarding, only if the mount carries a `SimId` |
-| `ambition_mount/src/lib.rs:1220` | `Autonomous` | the mount dies |
-| `possession.rs:262` | `Player { controller }` | possession begins |
-| `possession.rs:305` | `Autonomous` | possession releases |
-
-⇒ **Neither release arm asks whether the other claim is still live.** Possess a
-mounted rider, then let the mount die: mount writes `Autonomous` while
-`PossessionState.possessed` still names that rider and the primary driving
-participant still points at it.
-
-⛔ **AND IT IS PLAYER-VISIBLE, THROUGH A CONSUMER NEITHER WRITER KNOWS ABOUT.**
-`shared_tangle::markers::body_collects_on_touch` returns true for
-`TemporaryControl::Player { .. }` — that is how a possessed non-player body
-qualifies as a pickup collector. So after the mount dies underneath a possession,
-the player is still driving the rider and the rider silently stops picking things
-up. `TemporaryControl` is rollback-canonical, so the disagreement is saved and
-restored rather than being a presentation-only glitch.
+⛔⛤ **WHAT THE TABLE OF "THE THREE WRITERS" USED TO SAY IS DELETED RATHER THAN
+STRUCK THROUGH, and the reason is worth one line:** it cited two `lib.rs`
+coordinates for writes that no longer happen, and a line citation to a repaired
+site is worse than none — `check_planning_line_citations.py` reported one of them
+as AMBIGUOUS because the line it named had been punctuation even when it was
+written. A page that describes a fixed bug in the present tense is the rot this
+campaign is about.
 
 ## ⭐⭐ PREREQUISITE B, MEASURED 2026-09-06 — THE SIX QUESTIONS, ANSWERED FROM THE TREE
 
@@ -368,7 +364,7 @@ its remainder needs an ANSWER TO THE ORPHAN-RULE PIN rather than another move.
 Two independent things hold the remainder in the floor crate. Both were located
 rather than inferred:
 
-1. **`impl SnapshotCursor for Brain`** (`crates/ambition_characters/src/snapshot_impls.rs:350`). `SnapshotCursor`
+1. **`impl SnapshotCursor for Brain`** (`crates/ambition_characters/src/snapshot_impls.rs`). `SnapshotCursor`
    is declared in `ambition_platformer2d_core`, so it is FOREIGN here; `Brain` is
    local. The impl is therefore legal only in `ambition_characters` or in
    `ambition_platformer2d_core`, and everything the encoder reads is pinned with
@@ -406,14 +402,14 @@ in `ambition_platformer2d_core` and `Brain` in `ambition_characters`; both are
 FOREIGN to `ambition_platformer2d_rollback_ggrs`, so it may not write that impl
 either. A newtype wrapper is the usual escape and does not fit here: the
 registrar's bound is `T: Component<Mutability = Mutable> + Clone + SnapshotCursor`
-(`crates/ambition_platformer2d_runtime/src/rollback/registrar.rs:67`), so the
+(`crates/ambition_platformer2d_runtime/src/rollback/registrar.rs:77`), so the
 COMPONENT itself must implement the trait — a wrapper would have to become the
 registered component, which is a far larger change than the one being bought.
 
 **C — move `Brain` up with its encoder.** The only shape that satisfies the orphan
 rule, and the measurement kills it. Inside `ambition_characters` and outside
 `brain/`, exactly TWO sites name the type — its registration
-(`crates/ambition_characters/src/rollback_registration.rs:32`, `"actor.brain"`) and the encoder itself — so the
+(`crates/ambition_characters/src/rollback_registration.rs:43`, `"actor.brain"`) and the encoder itself — so the
 floor crate's actor model does NOT hold it back. What does is a crate above:
 `ambition_mount` stores `pub brain: ambition_characters::brain::Brain` BY VALUE
 (`crates/ambition_mount/src/lib.rs:205`) and depends on `ambition_characters`

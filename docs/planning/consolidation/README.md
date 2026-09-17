@@ -97,7 +97,7 @@ A-supersedes-B hold race is **WITNESSED IN PRODUCTION — the gate is CLOSED as 
 the ⛔ at the end keeps both, because the method errors are the transferable part.
 
 ⭐ **THE SESSION HALF.** `a_candidate_session_replaced_while_pending_is_discarded`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1320`) boots
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1404`) boots
 `build_visible_app`, issues `ShellCommand::ReplaceWith` for `ambition_gameplay`,
 waits THREE frames so the second request arrives while the first is still
 PENDING, and asserts the superseded candidate is DISCARDED: no candidate gate

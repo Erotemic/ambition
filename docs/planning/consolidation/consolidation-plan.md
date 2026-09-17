@@ -211,7 +211,7 @@ sites stop running while the four scope-aware ones resolve the live root
 correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
 production arm asserts:
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:435`), which counts
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:519`), which counts
 roots every frame across a real shell handoff.
 
 ⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias
@@ -516,7 +516,7 @@ CONTENT BINDING ALL LAND ON ONE ENTITY, DERIVED FROM ONE PREPARED SOURCE,
 BEFORE PUBLICATION.** The row's premise — six values that "do not all change
 under one current verdict" — is substantially stale.
 
-⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2241`
+⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2251`
 calls `actor_monolith::session::setup::simulation_world(..)` — the function that
 inserts `ActiveContentBinding` — from the SAME function that built the bundle at
 `:2166`, passing `session_root: world`, the root that activation just spawned.

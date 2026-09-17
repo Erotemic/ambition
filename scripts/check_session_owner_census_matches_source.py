@@ -373,6 +373,46 @@ COUNT_FORMS = [
         r"SessionScopedResources`?\s+(?:names|holds|has)\s+(?:\*\*)?(\d{1,3})"
     ),
     re.compile(r"(?:\*\*)?(\d{1,3})(?:\*\*)?[^|\n]{0,60}?accessed through one SystemParam"),
+    # ⛔⛤ **AND THE RULE STILL MISSED SIX RESTATEMENTS, FOUND 2026-09-17 BY
+    # READING THE PAGE RATHER THAN TRUSTING THE GREEN.** `consolidation-plan.md`
+    # said *"All 29 members have at least one reader"*, *"22 OF
+    # `SessionScopedResources`' 29"*, *"29 + 6 exhaustively destructured
+    # fields"*, *"22 of the 29 are rollback-registered"*, and
+    # `consolidation/README.md` said *"`SessionScopedResources` is 29, not 25"*
+    # — every one of them while this guard reported the census matching source at
+    # 30. The forms above wanted a bracket, or one of three verbs, or a
+    # SystemParam clause.
+    #
+    # ⇒ Two shapes cover all of them: the count IMMEDIATELY before the name, and
+    # the name then a copula. ⚠ The gap in the first is `\s+` and not `.{0,12}`
+    # ON PURPOSE: *"22 OF `SessionScopedResources`' 30"* states a NUMERATOR
+    # before the name, and a looser gap reads it as the bundle's own count and
+    # fires on a correct line. A false red is obeyed faster than a false green is
+    # questioned.
+    re.compile(r"(\d{1,3})\s+`?SessionScopedResources`?\s+members"),
+    re.compile(r"SessionScopedResources`?\s+(?:is|are)\s+(?:\*\*)?(\d{1,3})"),
+]
+
+#: The TOTAL across the three groupings — the number C03's prose quotes as its
+#: starting population.
+#:
+#: ⛔⛤ **IT WENT STALE THE SAME WAY, ONE INCREMENT BEHIND, AND NOTHING WATCHED
+#: IT.** MEASURED 2026-09-17: the plan said *"groups **36** App resources"*,
+#: quoted the census helper as *"semantics: 36"* and warned *"do not begin by
+#: moving all 36 values"*, while the marker plus source said 30 + 6 + 1 = 37.
+#: The bundle's own count had a rule and the SUM of the three did not.
+#:
+#: ⚠ **AN ALLOWLIST OF LIVE FORMS, NOT A NUMBER HUNT.** The first version of the
+#: bundle rule above fired on a CORRECT total because it accepted any number near
+#: "App resources"; this corpus also records what a row USED to say ("C03 starts
+#: from 32 session-owned App resources") and correcting that would destroy the
+#: evidence. So these are the four spellings in which the total is asserted as
+#: CURRENT, and a fifth spelling is invisible until someone adds it here.
+TOTAL_FORMS = [
+    re.compile(r"groups \*\*(\d{1,3})\*\* App resources"),
+    re.compile(r"session/generation semantics: (\d{1,3})"),
+    re.compile(r"moving all (\d{1,3}) values"),
+    re.compile(r"\((\d{1,3}) App resources\)"),
 ]
 
 
@@ -409,6 +449,34 @@ def stray_counts(real: int) -> list[str]:
     return out
 
 
+def stray_totals(real: int) -> list[str]:
+    """Every LIVE statement of the three-grouping total that is not `real`."""
+    out, seen = [], 0
+    paths = sorted(path for suffix in SWEPT_SUFFIXES for path in PLANNING.rglob(suffix))
+    for path in paths:
+        for n, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            for form in TOTAL_FORMS:
+                for match in form.finditer(line):
+                    seen += 1
+                    value = int(match.group(1))
+                    if value != real:
+                        out.append(
+                            f"  {path.relative_to(REPO)}:{n} states the session-owner "
+                            f"TOTAL as {value}; the marker plus source give {real}\n"
+                            f"     {line.strip()[:100]}"
+                        )
+    # ⛔ ANTI-VACUITY. Every form here is a sentence someone can rephrase, and a
+    # rule that matches nothing agrees with everything.
+    if seen < 2:
+        out.append(
+            f"  only {seen} live statement(s) of the session-owner total parsed out of "
+            f"{len(paths)} planning file(s). The prose has been rephrased and "
+            "`TOTAL_FORMS` no longer describes it, so this rule is not watching "
+            "anything."
+        )
+    return out
+
+
 def main() -> int:
     stated = declared()
     findings = []
@@ -434,6 +502,7 @@ def main() -> int:
 
     real_bundle = bundle_members(BUNDLES[BUNDLE], BUNDLE)
     findings.extend(stray_counts(real_bundle))
+    findings.extend(stray_totals(sum(stated.values())))
     findings.extend(checkpoint_partition())
     findings.extend(member_lists())
 
@@ -471,6 +540,10 @@ def main() -> int:
     print(
         "  and RULE 4: the census's member NAME LISTS equal source's members, "
         "not merely their count."
+    )
+    print(
+        f"  and RULE 5: every live restatement of the bundle's count and of the "
+        f"{total}-resource total, across the planning corpus, agrees with source."
     )
     return 0
 

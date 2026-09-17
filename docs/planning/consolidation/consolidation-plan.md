@@ -106,7 +106,7 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 ### CURRENT STATE
 
-Source explicitly groups **36** App resources as gameplay-session or
+Source explicitly groups **37** App resources as gameplay-session or
 activated-generation state. Activation reset is the correctness edge; retirement
 cleanup is hygiene.
 
@@ -143,9 +143,9 @@ Much of this state was introduced as App resources for broad system access. Sess
 
 ### WHAT COULD DISAPPEAR
 
-⛔⛤ **MEASURED 2026-09-16: THE "RESET-ONLY" POPULATION IS EMPTY.** All 29
-`SessionScopedResources` members have at least one reader outside the reset that
-owns them — `scripts/measure_session_scoped_resource_readers.py`, which prints
+⛔⛤ **MEASURED 2026-09-16, RE-RUN 2026-09-17: THE "RESET-ONLY" POPULATION IS
+EMPTY.** All 30 `SessionScopedResources` members have at least one reader outside
+the reset that owns them — `scripts/measure_session_scoped_resource_readers.py`, which prints
 its own patterns so a reader can see what it would miss. The thinnest are
 `LastCutsceneRoom` (1 system param + 2 direct accesses) and `SwitchActivationQueue`
 (2 + 2); the fattest are `ControlledSubject` (14 + 13) and `MovingPlatformSet`
@@ -277,14 +277,20 @@ derived from source rather than listed in the guard, so the review that adds a
 member is where the decision gets recorded. Poison-verified three ways in the
 shipped files, restored by md5.
 
-### AND FOR THE BIG FAMILY: 22 OF `SessionScopedResources`' 29 ARE ROLLBACK STATE
+### AND FOR THE BIG FAMILY: 24 OF `SessionScopedResources`' 30 ARE ROLLBACK STATE
 
-MEASURED 2026-09-16 with the same widened scan. **22 of 29 are state-registered**;
-seven are not. ⇒ **This is the number that prices C03**, and it says the campaign
+RE-DERIVED 2026-09-17 with the same widened scan, and the partition is three ways
+rather than two: **`SessionScopedResources` holds 30, of which 24 are
+state-registered, 2 declare themselves DERIVED (`ControlledSubject`,
+`EncounterView`) and 4 carry no rollback decision of any kind
+(`BossEncounterRegistry`, `CutsceneTriggerQueue`, `CutsceneAdvanceRequest`,
+`CutsceneSkipHold`).** ⚠ It read 22 / 3 / 4 of 29 on 2026-09-16; the move is one
+new member plus `AuthoredOccurrences`, which stopped being declared derived and
+is registered now (`f15461f52`) — not two more registrations landing. ⇒ **This is the number that prices C03**, and it says the campaign
 is mostly a rollback-state migration rather than a storage tidy-up: step 3 applies
 to three quarters of the population, and step 6 ("remove the old compensation only
 after the new owner is the sole authority") has a wire-format identity attached to
-each of those 22.
+each of those 24.
 
 ⚠ **A NARROW SCAN SAID SIX.** The first pass of this measurement asked about
 `rollback_resource_clone_checksum` only and reported 6 registered / 23 not —
@@ -354,12 +360,12 @@ storage.
 ⇒ That reframes C03's step 6. *"Remove the old reset/retirement compensation only
 after the new owner is the sole authority"* reads like cleanup; it is the campaign's
 actual deliverable, and the size of the prize is two systems plus the correctness
-argument that holds them: 29 + 6 exhaustively destructured fields whose only job is
-to undo the previous session.
+argument that holds them: `SessionScopedResources`' 30 + 6 exhaustively
+destructured fields whose only job is to undo the previous session.
 
 ⛔ **TWO CONSTRAINTS THE MIGRATION INHERITS, both already written beside the code.**
 
-1. **The rollback-mutator answer would change.** 22 of the 29 are rollback-registered
+1. **The rollback-mutator answer would change.** 24 of `SessionScopedResources`' 30 are rollback-registered
    and the reset is an ordinary `Update` system; it is currently legal because *"these
    writes land before there is a frame zero to rewind to"*. Storage on a root built
    inside the provider step sits on the OTHER side of that boundary. ⇒ Re-derive the
@@ -653,7 +659,7 @@ when a number disagrees with a baseline by 16%, suspect the instrument before th
 tree.
 
 ⭐ **AND THE CENSUS CROSS-CHECKS SOMETHING ELSE TONIGHT:** it independently
-reports *"explicit process resources with session/generation semantics: 36"*,
+reports *"explicit process resources with session/generation semantics: 37"*,
 which is C03's re-derived count, measured by a different road than the
 field-by-field read that produced it.
 
@@ -839,7 +845,7 @@ reset lists are a disjoint partition rather than two copies. The owner-by-owner
 sequence below is still the right shape; the cheap first win it implies is not
 there.
 
-Do not begin by moving all 36 values.
+Do not begin by moving all 37 values.
 Use a bounded owner-by-owner sequence:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the explicit narrower-lifetime list.

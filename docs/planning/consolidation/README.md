@@ -64,8 +64,8 @@ RE-DERIVING EIGHT OF THEM ON 2026-09-16 — SIX CAME BACK DIFFERENT, ONE HELD, A
 
 | what the row said | what source said |
 | --- | --- |
-| C03 starts from 32 session-owned App resources | **36** — `SessionScopedResources` is 29, not 25 |
-| C03 can lift out "reset-only process storage" | **no such member exists**; all 29 have a reader outside their reset |
+| C03 starts from 32 session-owned App resources | **37** — `SessionScopedResources` holds 30, not 25 (it read 29, then 30; re-derived 2026-09-17) |
+| C03 can lift out "reset-only process storage" | **no such member exists**; all 30 have a reader outside their reset |
 | C03 has "separate reset lists" to merge | the two lists' intersection is **EMPTY** — a partition, not two copies |
 | C04: a live-construction fallback is an "accidental missing-resource branch" | it is a **DECLARED** decision — `for_live_session` REFUSES a shell-routed session with no generation, discriminated by `SessionGatedSimulation` |
 | C08: "facade crates" hold compatibility re-exports | it is **ONE** crate — `ambition_platformer2d` holds 168 of the workspace's 300 cross-crate `pub use` statements |

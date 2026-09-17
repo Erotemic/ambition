@@ -135,10 +135,12 @@ used to say *"REASONED, not measured — there is no failing arm yet"*.
 `CutsceneAdvanceRequest` is now held by a failing-by-design witness;
 `CutsceneTriggerQueue` is **benign by accident**, and the row's reasoning about
 it named a real structural gap but the wrong consequence. Both are rewritten
-below. The partition that was already MEASURED: of
-`SessionScopedResources`' 29 members, 22 are rollback-registered, 3 call
+below. The partition, RE-DERIVED 2026-09-17: of
+`SessionScopedResources`' 30 members, 24 are rollback-registered, 2 call
 `declare_rollback_derived_resource`, and **4 carry no rollback decision of any
-kind**. Reading the four, source already answers two of them:
+kind** — the same four, so this row's subjects did not move. ⚠ It read 22 / 3 / 4
+of 29 a day earlier: one member joined the bundle and `AuthoredOccurrences`
+stopped being declared derived (`f15461f52`). Reading the four, source already answers two of them:
 
 - `BossEncounterRegistry` — *"Authored boss data… Read-only at runtime"*, *"The
   registry is a read-only DATA CATALOG (profiles only)"*, populated once behind a

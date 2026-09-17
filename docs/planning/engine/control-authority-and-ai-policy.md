@@ -327,16 +327,32 @@ is the correct outcome and worth stating rather than leaving inside a blanket
 way to tell whether the rest of the correction is trustworthy.
 
 ```text
-                                  planned    measured 2026-09-02
-Brain::Player                     194 sites  0 — the variant is DELETED; the 2
-                                             surviving greps are comments saying so
-Brain::StateMachine               107 sites  118
-exhaustive matches on Brain            13    moot: `Brain` has ONE variant now
-StateMachineCfg::Fighter          20 ext.    24 outside `ambition_characters`
-StateMachineCfg::Smash            13 ext.     9 outside `ambition_characters`
-brain/fighter + brain/smash    8,950 lines   2,258 non-test remain inside;
-  (non-test, inside characters)              6,491 are in `ambition_combat/src/brain`
+                                  planned    2026-09-02   2026-09-17
+Brain::Player                     194 sites   0            0 — the variant is DELETED;
+                                                           the 2 greps are comments saying so
+Brain::StateMachine               107 sites   118          122
+exhaustive matches on Brain            13     moot: `Brain` has ONE variant now
+StateMachineCfg::Fighter          20 ext.     24           28   outside `ambition_characters`
+StateMachineCfg::Smash            13 ext.      9            9   outside `ambition_characters`
+brain/fighter + brain/smash    8,950 lines   2,258        2,255 non-test remain inside;
+  (non-test, inside characters)              6,491        6,315 in `ambition_combat/src/brain`
 ```
+
+⭐ **THE 2026-09-17 COLUMN IS THE POINT OF KEEPING THREE: the remainder is not
+moving.** 2,258 → 2,255 in a fortnight is three lines, on a number the acceptance
+box treats as the work. The two that DID move are consumer counts —
+`Brain::StateMachine` 118 → 122 and `StateMachineCfg::Fighter` 24 → 28 — so the
+external surface of the policy vocabulary is growing while the floor crate's
+share of it holds still. ⚠ That is the shape the orphan-rule paragraph below
+predicts, and it is the reason a re-measurement is worth more than another carve
+attempt: the pin is structural, so effort spent on the 2,255 buys nothing until
+the pin is answered.
+
+Method, so the next column is comparable: `git ls-files` over
+`crates/ambition_characters/src/brain/fighter` and `.../brain/smash.rs`, skipping
+`*tests.rs` files and brace-matched `#[cfg(test)]` blocks; the `ext.` counts are
+`grep -rn 'StateMachineCfg::<V>' crates/ game/` minus lines under
+`crates/ambition_characters/`.
 
 ⭐ **THE CARVE LARGELY HAPPENED ON 2026-08-27 (D168)**, and the acceptance box
 below never learned. Both module headers say so in their first line: *"THE SMASH
@@ -351,9 +367,10 @@ of effort.** `Brain`'s snapshot encoder is bound to `ambition_characters` by the
 ORPHAN RULE, and `ambition_combat` depends on `ambition_characters`, so a type
 the encoder reads can never move up. `BrainSnapshot` pins more on top: `attack_kit`
 is a `Vec<AttackCandidate>` BY VALUE, which is why the whole option vocabulary
-stayed while its scoring went. ⇒ The remaining 2,258 lines are DATA the floor
-crate must own. Anyone reading the acceptance box as ~8,950 lines of pending
-carve is reading a number from before the carve.
+stayed while its scoring went. ⇒ The remaining 2,255 lines (2026-09-17; 2,258 a
+fortnight earlier) are DATA the floor crate must own. Anyone reading the
+acceptance box as ~8,950 lines of pending carve is reading a number from before
+the carve.
 
 ⚠ `ambition_characters` is still a floor crate every composition links, so the
 question the plan asks is still live — it is just much smaller than stated, and
@@ -377,10 +394,21 @@ rather than inferred:
    Nothing is upside-down; the floor crate owns a vocabulary the layer above
    reads, which is what a floor crate is for.
 
-**And the size the decision should be made against**: the remainder is **2,258 of
-`ambition_characters`' 28,234 non-test lines — 8%**, and it is DATA. The original
-concern ("a movement-only game links two platform-fighter policies") is now about
-8% of one crate in inert definitions, not about 8,950 lines of fighter AI.
+**And the size the decision should be made against**: re-derived 2026-09-17, the
+remainder is **2,255 of `ambition_characters`' 24,006 non-test lines — 9.4%**,
+and it is DATA. The original concern ("a movement-only game links two
+platform-fighter policies") is about a tenth of one crate in inert definitions,
+not about 8,950 lines of fighter AI.
+
+⚠ **THE SHARE ROSE WHILE THE REMAINDER DID NOT, AND THE TWO FIGURES DO NOT
+SUBTRACT.** This line read *"2,258 of 28,234 — 8%"* on 2026-09-02; the numerator
+moved by three lines and the denominator by four thousand, so the percentage
+moved because the CRATE shrank around a remainder that is pinned. ⛔ The earlier
+denominator's method is not recorded, so 28,234 → 24,006 is not a measured
+change: today's method is `git ls-files crates/ambition_characters/src`, skipping
+`*tests.rs` files and brace-matched `#[cfg(test)]` blocks, which reads 37,965
+total / 10,341 in test files / 24,006 non-test. Re-derive with that rule rather
+than differencing the two.
 
 ### ✔ DECIDED 2026-09-02: DO NOT SPLIT. The pin is intentional.
 
@@ -456,8 +484,9 @@ can see. Neither is worth engineering for its own sake.
   `Aerial`, `Fighter`) contain no player/human arm.
 ⇒ **TWO OF THE FOUR WERE ALREADY MET and had been carrying `▢`.** And the third
 is mostly met too — see the re-measured census above: the BEHAVIOUR of both
-brains left on 2026-08-27 (6,491 non-test lines now in `ambition_combat`), and
-the 2,258 that remain are data pinned in place by the orphan rule. `Smash` and
+brains left on 2026-08-27 (6,315 non-test lines in `ambition_combat` at
+2026-09-17), and the 2,255 that remain are data pinned in place by the orphan
+rule. `Smash` and
 `Fighter` are still variants of `CharacterBrainTemplate`, which is what the box
 below is really still about — a template name, not 8,950 lines.
 

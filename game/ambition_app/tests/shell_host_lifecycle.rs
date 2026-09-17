@@ -1569,15 +1569,58 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "the two hosts register different sharp-row sets, so the comparison below \
          is between two different questions"
     );
+    // ⛔⛤ **A RATCHET ON THE POPULATION, NOT A FLOOR UNDER IT — NAMED BY THE GPT
+    // ARCHITECTURE REVIEW OF 2026-09-16.** The anti-vacuity check below asks
+    // only that SOMETHING was compared, so eleven rows leaving the registry
+    // while the twelfth agreed would read green: exactly the coverage erosion
+    // this family of guards exists to stop. `SHARP_ROWS` is a named target
+    // population, so the assertion is SET EQUALITY, which also names a spelling
+    // or join mistake instead of quietly shrinking the census.
+    // ⛔⛤ **AND THE SET EQUALITY BELOW CANNOT SEE THE LIST SHRINKING, WHICH A
+    // POISON SHOWED RATHER THAN AN ARGUMENT.** Deleting `portal.shot` from
+    // `SHARP_ROWS` left the arm GREEN: both sides of that comparison are derived
+    // from the list, so editing the list moves them together. It catches the
+    // registry losing a row and nothing else. ⇒ The population's SIZE is pinned
+    // against the number S7 states, which is a constant a reviewer can check
+    // without running anything.
+    assert_eq!(
+        SHARP_ROWS.len(),
+        12,
+        "S7 ranks TWELVE rows as sharp — outside the peer checksum, read every \
+         tick, float-bearing and mutably written in production. This list has \
+         {}. If S7's census genuinely moved, re-derive it THERE first and bring \
+         the new number here with it; shrinking the list to make this arm green \
+         is how a witness quietly stops witnessing",
+        SHARP_ROWS.len()
+    );
+    let registered: std::collections::BTreeSet<&str> =
+        keep.values().map(String::as_str).collect();
+    let targeted: std::collections::BTreeSet<&str> = SHARP_ROWS.iter().copied().collect();
+    assert_eq!(
+        registered, targeted,
+        "the registry no longer spells exactly S7's twelve sharp rows. A row that \
+         LEFT is coverage this arm silently lost; a row that arrived is one S7 \
+         has not classified. Re-derive the list against \
+         `docs/planning/engine/simulation-authority-and-determinism.md` rather \
+         than editing SHARP_ROWS to match the registry"
+    );
 
     let expected: std::collections::BTreeMap<&str, &str> =
         EXPECTED_TO_DIFFER.iter().copied().collect();
     let mut compared = std::collections::BTreeSet::new();
+    // ⛔⛤ **THE LABELS ARE ABSOLUTE AND THE ADVANCE IS THE DELTA — the first
+    // version advanced by the label each time and sampled 0/1/31/151 while
+    // reporting 0/1/30/120.** Named by the GPT architecture review of
+    // 2026-09-16. The substance held either way; the checked-in evidence named
+    // observation points it had not visited, which is the kind of number that
+    // travels into a planning row and cannot be re-derived.
+    let mut advanced = 0usize;
     for step in [0usize, 1, 30, 120] {
-        for _ in 0..step {
+        for _ in advanced..step {
             fresh.update();
             veteran.update();
         }
+        advanced = step;
         let ours = census(&mut fresh, &keep);
         let theirs = census(&mut veteran, &keep);
         // ⛔ ONLY ROWS WITH CARRIERS SAY ANYTHING. A row at count 0 in both hosts
@@ -1650,13 +1693,16 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
              a maintainer question, and removing it from the checksum to make \
              this arm green is explicitly the wrong repair",
         ),
-        (
-            "ambition_platformer2d_shared_tangle::construction::TransactionId",
-            "NOT A DIVERGENCE — the probe measures `census_state` while the peer \
-             checksum is `peer_stable_checksum`. Folded by hand, both hosts read \
-             `(18, 5177721695145214374)`. Here so the arm stays green while the \
-             INSTRUMENT is what needs repairing",
-        ),
+        // ⛔⛤ **`TransactionId` WAS HERE AND IS NOT NOW, BECAUSE THE INSTRUMENT
+        // WAS THE DEFECT.** The waiver read *"NOT A DIVERGENCE — the probe
+        // measures `census_state` while the peer checksum is
+        // `peer_stable_checksum`"*, with both hosts' hand-folded projections
+        // recorded as `(18, 5177721695145214374)`. Three registration arms hand
+        // `projection` to GGRS and recorded the probe with the WHOLE-STATE
+        // census, so the census asked the restore question and this arm read the
+        // answer as a peer divergence. Each of those arms declares a peer census
+        // now (`ChecksumProbe::with_peer`), this arm calls
+        // `census_all_as_peers_compare`, and the row needs no waiver.
     ];
 
     fn build(veteran: bool) -> App {
@@ -1695,8 +1741,12 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
             .get_resource::<RollbackChecksumProbes>()
             .cloned()
             .expect("the rollback host registers probes");
+        // ⛔ THE PEER QUESTION, ASKED THROUGH THE PEER PROJECTION. `census_all`
+        // is the RESTORE question — whole state, local terms included, which is
+        // what a rewind must put back — and asking it here over-reports for
+        // every type whose peer checksum deliberately drops a host-local term.
         probes
-            .census_all(app.world_mut())
+            .census_all_as_peers_compare(app.world_mut())
             .into_iter()
             .filter(|(name, _)| keep.contains(*name))
             .map(|(name, reading)| (name.to_owned(), (reading.count, reading.xor)))
@@ -1722,6 +1772,26 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
         "the two hosts register different peer-visible sets, so the comparison \
          below is between two different questions"
     );
+    // ⛔⛤ **THE SPLIT THIS ARM DEPENDS ON, ASSERTED RATHER THAN ASSUMED.**
+    // `census_all_as_peers_compare` falls back to whole state for a registration
+    // that declares no peer projection, and that fallback is correct — but if the
+    // three `*_canonical_checksum` arms stopped declaring one, this arm would
+    // quietly return to asking the RESTORE question and `TransactionId` would
+    // redden with a message about a divergence that is not one. So the premise is
+    // checked here, where losing it is loud.
+    let projected = fresh
+        .world()
+        .get_resource::<RollbackChecksumProbes>()
+        .expect("the rollback host registers probes")
+        .peer_projected_type_names();
+    assert!(
+        projected.contains("ambition_platformer2d_shared_tangle::construction::TransactionId"),
+        "no registration declares a peer projection for `TransactionId`, so this \
+         arm is comparing its WHOLE state — session stamp and app-local content \
+         epoch included — and any difference it reports is the instrument. \
+         {} type(s) declare one: {projected:?}",
+        projected.len()
+    );
     assert!(
         keep.len() >= 140,
         "only {} registrations feed the peer checksum, so this arm is reading a \
@@ -1733,11 +1803,16 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
         EXPECTED_TO_DIFFER.iter().copied().collect();
     let mut moved = 0usize;
     let mut previous = None;
+    // ⛔ ABSOLUTE LABELS, DELTA ADVANCE. See the sharp-row arm above: this
+    // advanced by the label each time and sampled 0/1/31/151 while reporting
+    // 0/1/30/120.
+    let mut advanced = 0usize;
     for step in [0usize, 1, 30, 120] {
-        for _ in 0..step {
+        for _ in advanced..step {
             fresh.update();
             veteran.update();
         }
+        advanced = step;
         let ours = census(&mut fresh, &keep);
         let theirs = census(&mut veteran, &keep);
         if previous.as_ref().is_some_and(|before| before != &ours) {
@@ -1799,4 +1874,3 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
          above is about a world at rest"
     );
 }
-

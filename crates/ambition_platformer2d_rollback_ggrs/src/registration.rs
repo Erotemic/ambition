@@ -503,7 +503,9 @@ impl AmbitionRollbackApp for App {
             RollbackApp::checksum_component(self, projection);
             record_probe(
                 self,
-                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_state::<T>),
+                // See the resource twins below: TWO censuses, two questions.
+                crate::ChecksumProbe::new(std::any::type_name::<T>(), crate::census_state::<T>)
+                    .with_peer(move |world| crate::census_with::<T>(world, projection)),
             );
         }
         self
@@ -822,10 +824,18 @@ impl AmbitionRollbackApp for App {
             RollbackApp::checksum_resource(self, projection);
             record_probe(
                 self,
+                // ⛔⛤ **TWO CENSUSES, BECAUSE THERE ARE TWO QUESTIONS.** The
+                // whole-state one is what a RESTORE audit must compare — the
+                // local terms are exactly what a rewind has to put back — and
+                // `projection` is what two PEERS compare. These arms recorded
+                // only the first for a day, so a type that deliberately drops a
+                // host-local term from its peer checksum read as a divergence in
+                // a two-host arm and needed a waiver naming the instrument.
                 crate::ChecksumProbe::new(
                     std::any::type_name::<T>(),
                     crate::census_resource_state::<T>,
-                ),
+                )
+                .with_peer(move |world| crate::census_resource_with::<T>(world, projection)),
             );
         }
         self
@@ -932,10 +942,18 @@ impl AmbitionRollbackApp for App {
             );
             record_probe(
                 self,
+                // ⛔⛤ **TWO CENSUSES, BECAUSE THERE ARE TWO QUESTIONS.** The
+                // whole-state one is what a RESTORE audit must compare — the
+                // local terms are exactly what a rewind has to put back — and
+                // `projection` is what two PEERS compare. These arms recorded
+                // only the first for a day, so a type that deliberately drops a
+                // host-local term from its peer checksum read as a divergence in
+                // a two-host arm and needed a waiver naming the instrument.
                 crate::ChecksumProbe::new(
                     std::any::type_name::<T>(),
                     crate::census_resource_state::<T>,
-                ),
+                )
+                .with_peer(move |world| crate::census_resource_with::<T>(world, projection)),
             );
         }
         self

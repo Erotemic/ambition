@@ -53,6 +53,23 @@ pub enum ProbeStrength {
 pub struct ChecksumProbe {
     pub type_name: &'static str,
     census: std::sync::Arc<dyn Fn(&mut World) -> ComponentCensus + Send + Sync>,
+    /// ⛔⛤ **THE SAME TYPE THROUGH THE PROJECTION PEERS ACTUALLY COMPARE, WHERE
+    /// THAT IS A DIFFERENT QUESTION FROM `census`.**
+    ///
+    /// Three registration arms take `checksum: fn(&T) -> u64`, hand it to GGRS,
+    /// and record the probe with the WHOLE-STATE census — so a type whose peer
+    /// checksum deliberately drops host-local terms was being asked the restore
+    /// question and answered for the peer one. MEASURED 2026-09-16:
+    /// `TransactionId`'s state census differs between two hosts with different
+    /// local histories while its `peer_stable_checksum` is
+    /// `(18, 5177721695145214374)` on both, and a two-host arm had to carry a
+    /// standing waiver naming the instrument rather than a defect.
+    ///
+    /// ⭐ **IT IS A SECOND CENSUS RATHER THAN A REPLACEMENT, AND THAT IS THE
+    /// DESIGN.** A restore audit must compare WHOLE state — the local terms are
+    /// exactly what a rewind has to put back — while a peer audit must compare
+    /// only what two peers agree on. Two questions, two censuses, one probe.
+    peer: Option<std::sync::Arc<dyn Fn(&mut World) -> ComponentCensus + Send + Sync>>,
     /// True for state declared DERIVED rather than snapshotted.
     ///
     /// Derived state is legitimately absent or stale immediately after a load — that is what
@@ -64,6 +81,21 @@ pub struct ChecksumProbe {
 impl ChecksumProbe {
     pub fn census(&self, world: &mut World) -> ComponentCensus {
         (self.census)(world)
+    }
+
+    /// This type through the peer projection, when it declares one. See [`Self::peer`].
+    pub fn peer_census(&self, world: &mut World) -> Option<ComponentCensus> {
+        self.peer.as_ref().map(|census| census(world))
+    }
+
+    /// Declare the projection two peers compare. Builder form so the registration
+    /// arms that HAVE one add it on the line that already names it.
+    pub fn with_peer(
+        mut self,
+        census: impl Fn(&mut World) -> ComponentCensus + Send + Sync + 'static,
+    ) -> Self {
+        self.peer = Some(std::sync::Arc::new(census));
+        self
     }
 }
 
@@ -91,11 +123,55 @@ impl RollbackChecksumProbes {
         self.probes.iter()
     }
 
-    /// Census every registered component, keyed by type name.
+    /// Census every registered component through its WHOLE-STATE projection,
+    /// keyed by type name. ⛔ This is the RESTORE question — see
+    /// [`Self::census_all_as_peers_compare`] for the other one.
     pub fn census_all(&self, world: &mut World) -> BTreeMap<&'static str, ComponentCensus> {
         self.probes
             .iter()
             .map(|probe| (probe.type_name, probe.census(world)))
+            .collect()
+    }
+
+    /// Census every registered component through the projection PEERS COMPARE:
+    /// the declared peer census where a registration supplied one, and the
+    /// whole-state census otherwise.
+    ///
+    /// ⛔⛤ **ASKING THIS THROUGH `census_all` OVER-REPORTS, MEASURED
+    /// 2026-09-16.** A type whose peer checksum deliberately drops a host-local
+    /// term — `TransactionId` drops the session stamp and the binding's
+    /// app-local epoch — differs in whole state between two hosts with different
+    /// local histories while agreeing exactly on what peers compare. A two-host
+    /// arm read that as a divergence and had to carry a waiver naming the
+    /// instrument. ⇒ A peer-facing comparison calls THIS.
+    ///
+    /// ⚠ **AND THE FALLBACK IS THE HONEST ONE, NOT A GAP.** A registration that
+    /// supplied no projection has no narrower answer to give: whole state IS
+    /// what its peers compare, because that is what was handed to GGRS.
+    pub fn census_all_as_peers_compare(
+        &self,
+        world: &mut World,
+    ) -> BTreeMap<&'static str, ComponentCensus> {
+        self.probes
+            .iter()
+            .map(|probe| {
+                let reading = probe
+                    .peer_census(world)
+                    .unwrap_or_else(|| probe.census(world));
+                (probe.type_name, reading)
+            })
+            .collect()
+    }
+
+    /// Type names whose probe declares a peer projection DISTINCT from its
+    /// whole-state one. ⛔ A guard that asserts the split exists asks this, so
+    /// "no registration declares one" and "they all agree" stop being the same
+    /// reading.
+    pub fn peer_projected_type_names(&self) -> BTreeSet<&'static str> {
+        self.probes
+            .iter()
+            .filter(|probe| probe.peer.is_some())
+            .map(|probe| probe.type_name)
             .collect()
     }
 
@@ -187,6 +263,7 @@ impl ChecksumProbe {
         Self {
             type_name,
             census: std::sync::Arc::new(census),
+            peer: None,
             derived: false,
             strength: ProbeStrength::Value,
         }
@@ -207,6 +284,7 @@ impl ChecksumProbe {
         Self {
             type_name,
             census: std::sync::Arc::new(census),
+            peer: None,
             derived: false,
             strength: ProbeStrength::Presence,
         }
@@ -220,6 +298,7 @@ impl ChecksumProbe {
         Self {
             type_name,
             census: std::sync::Arc::new(census),
+            peer: None,
             derived: false,
             strength: ProbeStrength::Complete,
         }
@@ -260,6 +339,7 @@ impl ChecksumProbe {
         Self {
             type_name,
             census: std::sync::Arc::new(census),
+            peer: None,
             derived: true,
             strength: ProbeStrength::Presence,
         }
@@ -275,6 +355,7 @@ impl ChecksumProbe {
         Self {
             type_name,
             census: std::sync::Arc::new(census),
+            peer: None,
             derived: true,
             strength: ProbeStrength::Value,
         }
@@ -332,9 +413,19 @@ where
 /// Census a component through a CALLER-SUPPLIED checksum projection.
 ///
 /// The registration arms that take `checksum: fn(&T) -> u64` hand the same function
-/// to GGRS and to this, so the probe measures byte-for-byte what the session's
-/// aggregate measures. That is the strongest census available and it costs nothing
-/// extra — the projection is already at the call site.
+/// to GGRS and to this, so this measures byte-for-byte what the session's aggregate
+/// measures.
+///
+/// ⛔⛤ **AND THIS DOCSTRING ASSERTED THAT OF EVERY SUCH ARM WHILE BEING TRUE OF
+/// ONE — CORRECTED 2026-09-16.** `rollback_component_canonical_checksum`,
+/// `rollback_resource_canonical_checksum` and
+/// `rollback_resource_optional_canonical_checksum` each handed `projection` to
+/// GGRS and recorded the probe with the WHOLE-STATE census, so the sentence above
+/// described `rollback_component_clone_probed` and nothing else. All three now
+/// attach this as [`ChecksumProbe::with_peer`], which is a SECOND census rather
+/// than a replacement: whole state answers the restore question, this answers the
+/// peer one, and a peer-facing comparison calls
+/// [`RollbackChecksumProbes::census_all_as_peers_compare`].
 pub fn census_with<T>(world: &mut World, projection: fn(&T) -> u64) -> ComponentCensus
 where
     T: Component,

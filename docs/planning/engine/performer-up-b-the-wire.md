@@ -145,7 +145,7 @@ to a region it must keep touching and has no angular state. A canned arc has no
 motion control, and clause 6 is the whole point.
 
 ⚠ **The swing must not become a flight.** `UpSpecial::Standard(spec).into_spec()`
-stamps `gates.recovery` (`smash_repertoire.rs:188`) — an up-B that spends nothing
+stamps `gates.recovery` (`crates/ambition_entity_catalog/src/smash_repertoire.rs`, `UpSpecial::into_spec` — the ONE field where the slot overwrites the move) — an up-B that spends nothing
 is flight, and D204 already says most up-Bs should be once per airtime. Keep the
 slot lowering. Horizontal recovery is *"a bit"*, not a free traversal.
 

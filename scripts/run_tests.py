@@ -1072,6 +1072,24 @@ def build_maintenance_jobs() -> list[Job]:
         # says so. ⛔ AND A CRASH IS NOT A FAILURE: it died on a
         # `CalledProcessError` before most contracts ran once already. Read the
         # trailing `N of N absence contracts hold` line, not the exit code alone.
+        # ⛔⛤ **AND THIS ONE WAS CALLED BY NOTHING AT ALL — no lane, no
+        # workflow, no test module.** Measured 2026-09-17 over all 36
+        # `scripts/check_*.py`: seventeen are reached only by a pytest arm, and
+        # `check_declared_system_packages.py` was reached by NOTHING. Its one
+        # mention in the tree is a planning table row recording that its
+        # nonstrict exit status *"did not establish a provisioned environment"* —
+        # which is what an unrun guard always looks like. First run from a lane,
+        # on this box: one missing package (`unar`) outside the headless
+        # exemption.
+        #
+        # ⚠ REPORT-ONLY, and `--strict` is deliberately absent. A headless box
+        # legitimately lacks the windowing libraries, so making this a failure is
+        # a decision about a HOST rather than about the tree — the script says so
+        # itself and prints the non-windowing findings either way.
+        Job(
+            "declared system packages present on this host (report-only)",
+            [sys.executable, "scripts/check_declared_system_packages.py"],
+        ),
         Job(
             "architecture absence contracts (dependency edges that must stay absent)",
             [sys.executable, "scripts/check_absence_contracts.py", "--check"],

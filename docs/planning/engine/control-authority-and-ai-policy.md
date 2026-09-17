@@ -28,20 +28,26 @@ variant per mechanism:
 
 ```text
 Autonomous                      the body runs its own brain
-Player   { controller: SimId }  written by abilities::traversal::possession
-Mounted  { mount: SimId }       written by ambition_mount
+Player   { controller: SimId }  claimed by abilities::traversal::possession
+Mounted  { mount: SimId }       claimed by ambition_mount
 ```
 
-⛔⛔ **WHAT IS UNOWNED IS THE TRANSITION, AND THAT IS THE WHOLE OF PREREQUISITE B.**
+⚠ **THE WORD IS `claimed`, AND IT USED TO BE `written by`.** Since the arbiter
+landed (next section) neither crate assigns the enum: they file and drop a
+`ControlClaimant`, and `project_control_claims` writes the variant. The
+paragraphs below are the ORIGINAL statement of the defect — kept because it is
+why the arbiter exists, not because it still describes the tree.
+
+⛔⛔ **WHAT WAS UNOWNED WAS THE TRANSITION, AND THAT WAS THE WHOLE OF PREREQUISITE B — ✔ CLOSED, see the next section.**
 Two crates each `insert` their own variant directly, and **both release paths clear
 to `Autonomous` unconditionally** — `possession.rs` on ending a possession,
 `ambition_mount` on dismount — with no arbiter and no check that the other
 mechanism has let go.
 
-| failure | mechanism |
-|---|---|
-| a body both mounted and possessed | last writer wins; the other claim is silently discarded |
-| releasing either one | sets `Autonomous` while the other claim is still live, so the body reverts to its own brain mid-ride or mid-possession |
+| failure, as it stood | mechanism | ✔ what closed it |
+|---|---|---|
+| a body both mounted and possessed | last writer wins; the other claim is silently discarded | two named claim fields, both live at once |
+| releasing either one | sets `Autonomous` while the other claim is still live, so the body reverts to its own brain mid-ride or mid-possession | `drop_claim` clears ONE field; the projection re-reads what is left. Held across a rewind by `a_mount_dying_under_a_possession_survives_rewinds` |
 
 ⭐⭐ **SO IT IS A PRIORITY-CLAIM PROBLEM WEARING AN ENUM — and this repo already
 has the pattern.** The music owner (`BOSS_MUSIC_OWNER` / `SCRIPT_MUSIC_OWNER`)

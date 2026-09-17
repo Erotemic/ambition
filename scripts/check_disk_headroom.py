@@ -207,9 +207,15 @@ def main() -> int:
             # to get space without a long build. `Q77` records that reasoning
             # twice. Measured 2026-09-16 on one box: our crates' artifacts ~35 G,
             # the whole directory ~80 G, the incremental cache 82 G.
-            "     `cargo clean --workspace` reclaims our crates (~35 GB\n"
-            "     measured) and rebuilds Ambition only; plain `cargo clean`\n"
-            "     reclaims everything (~80 GB) and rebuilds Bevy too.\n"
+            # ⛔ EACH LINE NAMING THE COMMAND CARRIES THE STATE WORD, and that is
+            # a guard's requirement rather than a style: `test_disk_headroom.py`
+            # reads this message LINE BY LINE, because a blanket "free space with
+            # `cargo clean`" is the advice the 2026-09-03 incident followed. A
+            # reflow that pushed the command onto an unqualified line turned that
+            # test red on 2026-09-16 and the wording is what fixes it.
+            "     Bound, `cargo clean --workspace` reclaims our crates (~35 GB\n"
+            "     measured) and rebuilds Ambition only; bound, `cargo clean`\n"
+            "     with no flag reclaims everything (~80 GB), Bevy included.\n"
             "  2a. Space now, with nothing rebuilt:\n"
             "     ./scripts/clean_workspace_crates.sh --incremental-only\n"
             "     (add --apply). It deletes the incremental CACHE, not\n"
@@ -217,7 +223,9 @@ def main() -> int:
             "     fresh stays fresh and is skipped. Measured 82 GB across 985\n"
             "     crate sessions, 33 GB free -> 115 GB. The only cost is that\n"
             "     the next EDIT to a crate recompiles it whole. Run it without\n"
-            "     --apply first; it prints the number.\n"
+            "     --apply first; it prints the number. It REFUSES while a\n"
+            "     build holds the profile's `.cargo-lock`: deleting the cache\n"
+            "     under a live rustc can split its state or kill the compile.\n"
             "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
             "     `rm -rf` is never the tool in either state, and never prune\n"
             "     by mtime.\n"

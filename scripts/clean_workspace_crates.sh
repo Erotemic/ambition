@@ -116,12 +116,32 @@ for name in "${profiles[@]}"; do
     if [ "$incremental_only" = 1 ]; then
         inc="$target/$name/incremental"
         [ -d "$inc" ] || continue
+        # ⛔⛤ REFUSE WHILE A BUILD HOLDS THIS PROFILE'S LOCK. The comment
+        # here used to claim the atomic rename made a racing build safe:
+        # "a build racing this never sees a half-emptied session
+        # directory". That is true and it is not the hazard. A rustc
+        # already holding descriptors keeps writing through them while
+        # every later path open lands on a directory that is simply gone —
+        # split incremental state at best, a killed compile at worst.
+        # Named by the architecture review of 2026-09-17, on guidance this
+        # repository had just started advertising as the cheapest reclaim.
+        #
+        # `.cargo-lock` is cargo's own build lock for the profile
+        # directory, advisory and released when the process dies, so there
+        # is no stale-lock case to work around. MEASURED on this box: the
+        # probe exits 1 during `cargo build` and 0 once it settles.
+        lock="$target/$name/.cargo-lock"
+        if [ "$apply" = 1 ] && [ -e "$lock" ] && ! flock -n "$lock" true; then
+            echo "REFUSING: a build holds $lock." >&2
+            echo "  Deleting the incremental cache under a live rustc can" >&2
+            echo "  split its state or kill the compile. Wait for the build" >&2
+            echo "  to finish, or stop it, and run this again." >&2
+            exit 3
+        fi
         size="$(du -sh "$inc" | cut -f1)"
         dirs="$(find "$inc" -mindepth 1 -maxdepth 1 -type d | wc -l)"
         echo "$name/incremental: $verb $size across $dirs crate sessions"
         if [ "$apply" = 1 ]; then
-            # Move-then-delete: the rename is atomic, so a build racing this
-            # never sees a half-emptied session directory.
             doomed="$target/$name/.incremental-doomed-$$"
             mv "$inc" "$doomed"
             rm -rf "$doomed"

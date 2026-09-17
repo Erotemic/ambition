@@ -99,16 +99,8 @@ def _tracked_rust() -> list[str]:
     ).stdout.split()
 
 
-#: Rust line comments, block comments, and string literals — everything whose
-#: contents are PROSE rather than code.
-_COMMENTS_AND_STRINGS = re.compile(
-    r"//[^\n]*|/\*.*?\*/|r?\"(?:\\.|[^\"\\])*\"",
-    re.DOTALL,
-)
-
-
 def code_only(text: str) -> str:
-    """`text` with comments and string literals blanked out.
+    """`text` with comments and string literals blanked out, newlines preserved.
 
     ⛔⛤ **THE PATTERNS BELOW RAN AGAINST RAW SOURCE, WHICH IS A FALSE-GREEN HOLE
     IN THE UNSAFE DIRECTION — NAMED BY THE GPT ARCHITECTURE REVIEW OF
@@ -119,24 +111,97 @@ def code_only(text: str) -> str:
     // session_health should be checked here someday
     ```
 
-    satisfied the guard while checking nothing. ⚠ The sampled arms all contain
-    real calls, so this was a future hole rather than a present vacuity — which is
-    exactly when it is cheap to close.
+    satisfied the guard while checking nothing.
+
+    ⛔⛤ **AND THE FIRST REPAIR WAS A REGULAR EXPRESSION, WHICH THE SAME REVIEW
+    POISONED THROUGH THE NEXT DAY.** It handled `//`, `/* */` and `"..."`, and
+    Rust has more literal forms than that:
+
+    ```rust
+    let explanation = r#"foo" rollback_health() "bar"#;
+    ```
+
+    is a single raw string whose inner `"` ends the pattern's match, leaving
+    `rollback_health()` standing as apparent code. ⇒ **Do not extend the regex one
+    literal form at a time.** This is a scanner, and it blanks `//` comments,
+    NESTED `/* */` comments (Rust allows them), and every string form: plain,
+    byte, and raw with an arbitrary `#` count, byte-raw included.
 
     ⭐ **BOTH PATTERNS ARE STRIPPED, AND THE TWO DIRECTIONS ARE NOT SYMMETRIC.** A
-    comment mentioning `HEALTH` certifies an arm that checks nothing, which is
-    silent. A comment mentioning `SYNC_TEST` only pulls a non-arm INTO the
-    population, where it has to be adjudicated by hand — loud, and safe. The
-    stripping is applied to both anyway, because a population found by prose is
-    not the population, and `main` floors the count so a stripper that ate the
-    file cannot read as "no arms".
+    comment naming `HEALTH` certifies an arm that checks nothing, which is
+    silent. A comment naming `SYNC_TEST` only pulls a non-arm INTO the population,
+    where it has to be adjudicated by hand — loud, and safe. Both are stripped
+    anyway, because a population found by prose is not the population, and `main`
+    floors the count so a scanner that ate the file cannot read as "no arms".
 
-    Newlines are preserved so nothing downstream can mistake this for a rewrite
-    that changes line numbers.
+    ⚠ Character literals are deliberately NOT handled: no health call fits in
+    one, and `'` is also a lifetime, so recognising them costs more than it buys.
     """
-    return _COMMENTS_AND_STRINGS.sub(
-        lambda match: re.sub(r"[^\n]", " ", match.group(0)), text
-    )
+    out = []
+    i = 0
+    n = len(text)
+
+    def blank(chunk: str) -> str:
+        return "".join("\n" if ch == "\n" else " " for ch in chunk)
+
+    while i < n:
+        ch = text[i]
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            j = n if j == -1 else j
+            out.append(blank(text[i:j]))
+            i = j
+            continue
+        if text.startswith("/*", i):
+            depth = 0
+            j = i
+            while j < n:
+                if text.startswith("/*", j):
+                    depth += 1
+                    j += 2
+                elif text.startswith("*/", j):
+                    depth -= 1
+                    j += 2
+                    if depth == 0:
+                        break
+                else:
+                    j += 1
+            out.append(blank(text[i:j]))
+            i = j
+            continue
+        # A raw string: an optional `b`, then `r`, then any number of `#`, then `"`.
+        m = _RAW_OPEN.match(text, i)
+        if m:
+            hashes = m.group("hashes")
+            close = '"' + hashes
+            j = text.find(close, m.end())
+            j = n if j == -1 else j + len(close)
+            out.append(blank(text[i:j]))
+            i = j
+            continue
+        # A plain or byte string, where a backslash escapes the next character.
+        if ch == '"' or (ch == "b" and text.startswith('b"', i)):
+            j = i + (2 if ch == "b" else 1)
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append(blank(text[i:j]))
+            i = j
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+#: The opening of a raw string: `r"`, `r#"`, `br##"` and so on. The `#` run has
+#: to be captured because the CLOSER must match its length — that is the whole
+#: reason a regex over the literal cannot do this job.
+_RAW_OPEN = re.compile(r'b?r(?P<hashes>#*)"')
 
 
 def sync_test_arms(paths: list[str] | None = None) -> dict[str, bool]:

@@ -339,6 +339,21 @@ course. ⇒ `serialized_variants` now records each variant WITH its payload, and
 above is not a thing a ratchet should merely record. Three arms hold it, including
 one asked of the live tree.
 
+⛔⛤ **AND THE SAME REVIEWER WALKED THROUGH THE NESTED STRUCT ON THE NEXT PASS.**
+`poison_optional: Option<bool>` on `ControlFrameModes`, **with
+`CONTROL_FRAME_WIRE_IDENTITY` bumped**, produced no violation: the census recorded
+the field and the ratchet accepted it, because a recorded change plus a bumped
+identity is the legitimate road. The top-level field-type refusal existed;
+the types `ControlFrame` REACHES had none.
+
+⭐⭐ **THE DISTINCTION THE REPAIR TURNS ON: A WIRE IDENTITY BUMP BUYS A DIFFERENT
+FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH ONE.** `None` encoding shorter than
+`Some(false)` subdivides the packet in the wrong places however carefully the
+change was announced, so this is a refusal a ratchet cannot be talked out of.
+`refuse_variable_width` is applied at every level and refuses an UNRECOGNISED type
+as well as a known-variable one — a guard that accepts what it cannot classify is
+the same hole in a politer costume.
+
 ⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
 FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values
 identically, so a swap between them moves nothing — the old JSON DID catch that

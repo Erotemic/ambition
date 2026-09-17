@@ -1711,6 +1711,71 @@ INPUT_PAYLOAD_BASELINE = "scripts/baselines/input-payload-baseline.json"
 CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
 
 
+#: Types whose bincode encoding is the same width for every value. Bincode 1
+#: writes integers and floats fixnum, so each is its own size; `bool` is one
+#: byte. ⛔ NOTHING ELSE GOES IN HERE without measuring: the point of the set is
+#: that membership is a claim about the ENCODING, not about the Rust type being
+#: `Copy` or small.
+#: The non-primitive types this census FOLLOWS into. A field of any other type
+#: is refused rather than recorded — see `refuse_variable_width`.
+_FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode")
+
+FIXED_WIDTH_PRIMITIVES = frozenset(
+    {"bool", "f32", "f64"}
+    | {f"u{bits}" for bits in (8, 16, 32, 64)}
+    | {f"i{bits}" for bits in (8, 16, 32, 64)}
+)
+
+#: Spellings whose encoding is decided by the VALUE. Recognised only to make the
+#: refusal below say WHY; anything unrecognised is refused too.
+_VARIABLE_WIDTH_HINTS = ("Option<", "Vec<", "String", "&str", "Box<", "HashMap", "BTreeMap", "[")
+
+
+def refuse_variable_width(owner: str, fields: list[tuple[str, str]], followed: set[str]) -> None:
+    """Raise unless every field of `owner` encodes to a value-independent width.
+
+    ⛔⛤ **THIS EXISTED FOR `ControlFrame`'s OWN FIELDS AND NOT FOR THE TYPES IT
+    REACHES — POISON-VERIFIED BY THE GPT ARCHITECTURE REVIEW OF 2026-09-16, THE
+    DAY AFTER THE ENUM HALF WAS CLOSED.** Adding `poison_optional: Option<bool>`
+    to `ControlFrameModes` and BUMPING `CONTROL_FRAME_WIRE_IDENTITY` produced no
+    violation: the census recorded the new field and the ratchet accepted it,
+    because a recorded change plus a bumped identity is the legitimate road.
+
+    ⭐⭐ **AND THAT IS THE DISTINCTION THIS FUNCTION EXISTS TO MAKE. A WIRE
+    IDENTITY BUMP BUYS A DIFFERENT FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH
+    ONE.** Ambition concatenates every local player's frame into one payload and
+    the receiving side divides the received total evenly by the player count, so
+    `None` encoding shorter than `Some(false)` subdivides the packet in the wrong
+    places no matter how carefully the change was announced. A ratchet can be
+    satisfied by a bump; this cannot.
+
+    ⚠ It refuses an UNRECOGNISED type as well as a known-variable one. A guard
+    that silently accepted what it could not classify would be the same hole in a
+    politer costume; `followed` is the escape hatch, and a type enters it only
+    once someone has taught the census its shape.
+    """
+    for name, ty in fields:
+        if ty in FIXED_WIDTH_PRIMITIVES or ty in followed:
+            continue
+        why = (
+            "encodes to a width decided by its value"
+            if any(hint in ty for hint in _VARIABLE_WIDTH_HINTS)
+            else "is not a type this census can classify"
+        )
+        raise AssertionError(
+            f"`{owner}::{name}: {ty}` {why}, so `ControlFrame`'s bincode encoding "
+            "is no longer FIXED-WIDTH. Ambition packs every local player's frame "
+            "into one payload and the receiving side divides the received total "
+            "evenly by the player count, so a frame whose width depends on its "
+            "value subdivides the packet in the wrong places -- with no checksum "
+            "anywhere to notice. ⛔ BUMPING `CONTROL_FRAME_WIRE_IDENTITY` DOES "
+            "NOT MAKE THIS SAFE: the identity buys a different fixed-width "
+            "protocol, not a variable-width one. If the payload really must carry "
+            "a variable-width field, the packing has to write a per-player length "
+            "first, and THAT is the change to review."
+        )
+
+
 def serialized_variants(enum_name: str, body: str) -> list[str]:
     r"""Every variant of `enum_name` WITH ITS PAYLOAD, in declaration order.
 
@@ -1796,12 +1861,9 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     text = (root / CONTROL_FRAME_SOURCE).read_text()
     body = text.split("pub struct ControlFrame {", 1)[1].split("\n}", 1)[0]
     fields = re.findall(r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", body, re.MULTILINE)
-    uncovered = {ty for _, ty in fields} - {
-        "bool",
-        "f32",
-        "AttackStrengthHint",
-        "crate::ControlFrameModes",
-    }
+    uncovered = {ty for _, ty in fields} - FIXED_WIDTH_PRIMITIVES - set(
+        _FOLLOWED_FIELD_TYPES
+    )
     if uncovered:
         raise AssertionError(
             f"`ControlFrame` now has field types this census does not follow: "
@@ -1810,6 +1872,7 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
             "covered set AND include its shape below, or the guard stops "
             "covering what it claims to."
         )
+    refuse_variable_width("ControlFrame", fields, set(_FOLLOWED_FIELD_TYPES))
     shape = [f"{name}: {ty}" for name, ty in fields]
     hint = text.split("pub enum AttackStrengthHint {", 1)[1].split("\n}", 1)[0]
     hint_variants = serialized_variants("AttackStrengthHint", hint)
@@ -1827,12 +1890,14 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     modes_body = frame_modes.split("pub struct ControlFrameModes {", 1)[1].split(
         "\n}", 1
     )[0]
-    shape += [
-        f"ControlFrameModes::{name}: {ty}"
-        for name, ty in re.findall(
-            r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", modes_body, re.MULTILINE
-        )
-    ]
+    modes_fields = re.findall(
+        r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", modes_body, re.MULTILINE
+    )
+    # ⛔ THE TRANSITIVE HALF. `ControlFrame`'s own fields were checked and the
+    # types they REACH were not, which is the hole the second review poisoned
+    # open with `Option<bool>` on this very struct.
+    refuse_variable_width("ControlFrameModes", modes_fields, set(_FOLLOWED_FIELD_TYPES))
+    shape += [f"ControlFrameModes::{name}: {ty}" for name, ty in modes_fields]
     mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
     mode_variants = serialized_variants("InputFrameMode", mode_enum)
     shape += mode_variants

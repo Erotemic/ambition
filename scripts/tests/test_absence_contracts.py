@@ -1188,3 +1188,48 @@ def test_the_featureless_closure_is_not_silently_empty():
         "were 49 when this was written, so the walk has been truncated rather "
         "than the closure having shrunk that far"
     )
+
+
+def test_a_variable_width_field_is_refused_even_with_the_identity_bumped():
+    """⛔⛤ THE SECOND REVIEW'S POISON, AND THE DISTINCTION IT TURNS ON.
+
+    The enum half was closed on 2026-09-16 and the same reviewer walked through
+    the nested struct the next pass: `poison_optional: Option<bool>` on
+    `ControlFrameModes`, WITH `CONTROL_FRAME_WIRE_IDENTITY` bumped, produced no
+    violation. The census recorded the field and the ratchet accepted it, because
+    a recorded change plus a bumped identity is the legitimate road.
+
+    ⭐⭐ A WIRE IDENTITY BUMP BUYS A DIFFERENT FIXED-WIDTH PROTOCOL, NOT A
+    VARIABLE-WIDTH ONE. Ambition concatenates every local player's frame into one
+    payload and the receiving side divides the received total evenly by the player
+    count, so `None` encoding shorter than `Some(false)` subdivides the packet in
+    the wrong places however carefully the change was announced.
+    """
+    import check_absence_contracts as contracts
+
+    followed = set(contracts._FOLLOWED_FIELD_TYPES)
+    # The legitimate shapes pass.
+    contracts.refuse_variable_width(
+        "ControlFrameModes", [("movement", "InputFrameMode"), ("axis", "f32")], followed
+    )
+    for field in [
+        ("poison_optional", "Option<bool>"),
+        ("poison_list", "Vec<u8>"),
+        ("poison_text", "String"),
+        # ⛔ AND AN UNRECOGNISED TYPE, because a guard that accepts what it cannot
+        # classify is the same hole in a politer costume.
+        ("poison_unknown", "SomeTypeNobodyTaughtThisCensus"),
+    ]:
+        with pytest.raises(AssertionError) as caught:
+            contracts.refuse_variable_width("ControlFrameModes", [field], followed)
+        assert "FIXED-WIDTH" in str(caught.value)
+        assert "BUMPING" in str(caught.value), "the message must name the bump it refuses"
+
+
+def test_the_live_payload_is_fixed_width_at_every_level():
+    """The refusal above, asked of the tree rather than of a fixture."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    _, shape = contracts.input_payload_shape(root)
+    assert len(shape) >= 40, shape

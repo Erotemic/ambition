@@ -76,13 +76,20 @@ def test_prose_naming_the_health_api_does_not_certify_an_arm():
         "fn arm() {\n"
         "    // session_health should be checked here someday\n"
         '    let msg = "read rollback_health() before asserting";\n'
-        "    /* session_health */\n"
+        "    /* outer /* session_health */ nested */\n"
+        # ⛔⛤ THE SECOND REVIEW'S POISON, WHICH THE FIRST REPAIR'S REGEX LET
+        # THROUGH: a raw string whose inner `"` ended the pattern's match, leaving
+        # the call standing as apparent code. Every Rust literal form belongs
+        # here, because the lesson was "do not extend the regex one form at a
+        # time".
+        '    let raw = r#"foo" rollback_health() "bar"#;\n'
+        '    let bytes = br##"session_health"##;\n'
         "    let _ = with_sync_test_rollback_settings(4, 10);\n"
         "}\n"
     )
     assert module.HEALTH.search(prose), "the fixture must mention it at all"
     stripped = module.code_only(prose)
-    assert not module.HEALTH.search(stripped)
+    assert not module.HEALTH.search(stripped), stripped
     # ⭐ AND THE POPULATION SURVIVES. A stripper that ate the file would take the
     # arm out of the census instead, which reads as "nothing to check".
     assert module.SYNC_TEST.search(stripped)

@@ -617,7 +617,16 @@ one-place edit instead of a two-crate one.
 ## Q128 — should the simulation tick be rebased when peers agree to start, or stay an absolute per-App count?
 
 **The last open road of the ID-PEER campaign, and the only one that cannot be
-closed by engineering alone.** `ambition_time::SimTick` is registered
+closed by engineering alone.** ⭐ **AND "LAST" IS NOW A MEASUREMENT RATHER THAN A
+FIGURE OF SPEECH, 2026-09-17.** Two hosts that reach the shipped Ambition route
+by different shell histories now agree on **144 of the 146 real GGRS
+`ChecksumPart`s**, and the two that differ are this question and `Q129`. It was
+59 of 146 the same morning, before the rollback carrier ordering was rebased at
+frame zero. So a ruling here is not one improvement among many: with `Q129` it is
+the whole remaining peer-visible difference between two hosts whose canonical
+identities and values are identical
+(`two_local_histories_compute_the_same_ggrs_component_checksums`, which asserts
+BOTH still differ, so this line cannot go stale in the quiet direction). `ambition_time::SimTick` is registered
 `resource-canonical`, so its ABSOLUTE value is inside the checksum two peers
 compare. Measured 2026-09-15: one writer (`advance_sim_tick`, `+1` per step),
 `init_resource`'d once at App build, never rebased anywhere in the workspace, and
@@ -890,7 +899,15 @@ Owner row:
 ## Q129 — must the save file be part of what two peers agree on?
 
 **MEASURED 2026-09-16, and unlike Q128 this one announces itself today.** A bag
-that changes once per tick desyncs a GGRS sync test within six ticks. The chain:
+that changes once per tick desyncs a GGRS sync test within six ticks. ⭐ **AND A
+SECOND, INDEPENDENT MEASUREMENT REACHED IT FROM THE OTHER SIDE ON 2026-09-17:**
+two hosts that reach the shipped Ambition route by different shell histories now
+agree on 144 of the 146 real GGRS `ChecksumPart`s, and the two that differ are
+this question and `Q128`. Different instrument, different population — one App
+rewinding itself against one bag, versus two Apps with different route histories
+compared whole — and the same row. ⇒ A ruling here and on `Q128` is the whole
+remaining peer-visible difference between two hosts whose canonical identities
+and values are identical. The chain:
 `persist_inventory_to_save` sits in top-level `Update` and writes the live bag
 into `AmbitionGameSave` once per FRAME; `AmbitionGameSave` is registered
 `rollback_resource_clone_checksum`, so its value is compared once per TICK; and a

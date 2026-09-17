@@ -209,7 +209,11 @@ measured.
 ### Phase 0 — confirm the prediction before writing any code
 
 ⛔ Nothing below is worth doing if the collapsed size is not what the symbol
-union predicts, and that number has never been built.
+union predicts. ✔ **It was built on 2026-09-03 and the prediction held — better
+than held: 4.79 GB → 0.50 GB.** This sentence read *"and that number has never
+been built"* until 2026-09-17, which is the phase gate still refusing to open
+after the thing it gates was measured. The phase reads as HISTORY now, not as a
+plan.
 
 1. ✔ **The one-line lever FIRST — DONE 2026-09-03, and it does not pay.** The
    step as written: set `split-debuginfo = "unpacked"` beside the existing

@@ -15,11 +15,51 @@ installation, scheduling, prerequisites and supported absence.
 
 Executed on the baseline with the existing Python tools:
 
-| Instrument | Result | What it establishes |
+| Instrument | Result at the baseline | What it establishes |
 | --- | --- | --- |
 | `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | Syntactic installation/ordering inventory, not semantic correctness |
 | `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
 | Normal nonoptional workspace-manifest traversal from facade | 51 other workspace packages reachable | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population |
+
+⭐⭐ **RE-RUN 2026-09-17 WITH THE CONFOUND CONTROLLED, because both ordering
+instruments were REWRITTEN since the baseline** — `D-FOREIGN-ORDER-SPELLING`
+landed *"the census counted an import style, not an architecture"* and then *"a
+classifier keyed on the site"*. Reading today's number against the table above
+would have credited the instrument's change to the code. So the baseline script
+was checked out of the baseline commit and run against TODAY's tree:
+
+| ordering | capability | composition | total edges | installations |
+|---|---|---|---|---|
+| baseline script, baseline tree (the row above) | 0 | 73 | 73 | 174 |
+| **baseline script, today's tree** | **2** | **59** | **61** | **171** |
+| today's script, today's tree | 10 | 68 | 78 | 217 |
+
+⇒ **THE CODE AND THE INSTRUMENT MOVED IN OPPOSITE DIRECTIONS.** By the baseline
+measure the composition's foreign orderings fell 73 → 59 and installations 174 →
+171; the newer classifier then adds 17 edges and 46 installations that the old
+one could not see. A reader comparing 73 with 68 would conclude a small
+improvement; the truth is a larger improvement plus a wider instrument.
+
+⚠ **THE ONE ROW THAT LOOKS LIKE A REGRESSION IS NOT ONE, and checking it is the
+point of keeping the control.** Capability orderings read 0 → 2 by the baseline
+script — and both edges are in `game/ambition_app_tools/src/bin/moveset_render.rs`,
+a TOOL BINARY. The newer classifier states in its own words that *"a binary root
+is a composition whatever its package is called"*, so it does not count those two
+at all; its capability 10 is a different population drawn from real capability
+crates. ⇒ Neither number contradicts the other and neither says a capability
+newly reached into another layer's schedule. **A control that only confirms is
+still worth running: this row would otherwise have been reported as the sharp
+defect returning.**
+
+✔ **`measure_carveable_installations.py` needs no control: the baseline script
+and today's agree exactly on today's tree (5 reducible, 35 irreducible), so the
+move from 3 / 38 is entirely the CODE.** Two blocks became reducible and the
+irreducible set shrank by three; the total fell 41 → 40.
+
+ⓘ Reproduce: `python3 scripts/measure_foreign_system_ordering.py`,
+`python3 scripts/measure_carveable_installations.py`, and for the closure
+`cargo tree -e normal --no-default-features -p ambition_platformer2d` — 49 unique
+`ambition_*` names at HEAD, unchanged from the 2026-09-10 re-measure.
 
 ⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
 `300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed

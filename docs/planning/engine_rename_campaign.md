@@ -1,8 +1,11 @@
 # Engine restructuring candidates and couch multiplayer — remaining work
 
-> **Verified against `cecd01ca` (2026-08-13).** The original stale
-> `Sandbox*`/Ambition naming campaign is complete: `scripts/check_retired_crate_names.py`
-> reports no retired production names. Its full record is archived at
+> **The original stale `Sandbox*`/Ambition naming campaign is complete, and its
+> guard is re-run rather than re-dated: `scripts/check_retired_crate_names.py`
+> answers *"No retired crate name is live (14 tracked)"* at HEAD, 2026-09-17,
+> as it did at `cecd01ca` (2026-08-13) when this line was written.** ⚠ The
+> banner is what the CHECK says, not a sha this page was read against — a guard
+> that runs in one command should not be quoted from a receipt. Its full record is archived at
 > `../archive/planning-superseded/2026-08-13/engine_rename_campaign.md` (docs/archive/planning-superseded/2026-08-13/engine_rename_campaign.md — removed from the checkout 2026-09-05; still in git history).
 >
 > This live file retains only the architecture/product work that was bundled

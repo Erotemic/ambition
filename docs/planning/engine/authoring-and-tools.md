@@ -39,11 +39,16 @@ extend playback; the enclosing move clock and normal teardown remain in control.
 The focused protocol preserves those semantics while introducing checked acyclic
 flows and installed-profile admission.
 
-Two preparation gaps are source-established: the parameter-schema registry has
-no production callers, and flow validation does not establish finite timeout or
-u16 runtime-index bounds. F7/F8 in
-[review findings](architecture-review-findings.md) define the exact limits; no
-malformed shipped content or runtime hang is claimed without a reproduction.
+✔ **BOTH PREPARATION GAPS RECORDED HERE ARE CLOSED — re-verified against HEAD
+2026-09-17, and this paragraph stated them in the present tense until then.** The
+parameter-schema registry with no production callers is replaced by
+`TechniqueSupport`, declared by whoever installs the handler and refused at the
+preparation barrier through `unsupported_authored_effects`; flow validation
+requires a FINITE timeout (`f32::INFINITY` passed the old positive test) and the
+node edges are the cursor's own `u16`, so the narrowing cast that could wrap a
+terminating flow into a loop no longer exists. `F7`/`F8` in
+[review findings](architecture-review-findings.md) carry the verification and the
+baseline evidence.
 
 ## A1 - capability discovery
 

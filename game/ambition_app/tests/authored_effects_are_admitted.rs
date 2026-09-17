@@ -3,19 +3,31 @@
 //! ⛔⛔ **THE MEASUREMENT THAT DECIDES WHETHER THE STRICT PASS CAN BE TURNED ON.**
 //!
 //! `TechniqueSupport::admit` refuses an unknown key, a paramless key given
-//! params, and params that do not hydrate. It has NO production caller over
-//! authored effects — and `MoveSpec::effect_refs`, A11b's exhaustive visitor,
-//! has none outside tests either. Wiring the two together at the preparation
-//! barrier is what moves a misspelled key from a mid-fight `warn!` to a refusal.
+//! params, and params that do not hydrate. When this file was written it had NO
+//! production caller over authored effects — and `MoveSpec::effect_refs`, A11b's
+//! exhaustive visitor, had none outside tests either. Wiring the two together at
+//! the preparation barrier is what moves a misspelled key from a mid-fight
+//! `warn!` to a refusal.
 //!
-//! ⚠ IT CANNOT SIMPLY BE SWITCHED ON. If the shipped content names a key nothing
-//! declares, the pass would refuse real moves at startup. So this asks the
-//! question FIRST, as a test, against the built app: run every authored effect
-//! in the composition through the real support table and report every refusal.
+//! ✔ **THE PASS IS WIRED NOW, and the last two tests in this file are how that
+//! is known rather than assumed.** `unsupported_authored_effects` joins the two
+//! halves and `activate_staged_revision` refuses a revision on any refusal;
+//! `the_barrier_closes_through_the_checked_road_under_the_real_lifecycle` holds
+//! the ordering under `finish()`/`cleanup()`/`update()`, and
+//! `the_shipped_composition_withheld_nothing_at_its_barrier` reads the artifact
+//! instead of re-deriving the answer. ⚠ This paragraph is dated on purpose: the
+//! two below it are the reason the file exists and describe the state it was
+//! written against, not HEAD.
 //!
-//! ⭐ AND IT IS THE EVENTUAL GUARD, not scaffolding. Once the production pass
-//! lands at the barrier, this is the fixture that says the corpus still passes
-//! it — which is the acceptance row the owner document asks for
+//! ⚠ IT COULD NOT SIMPLY BE SWITCHED ON. If the shipped content names a key
+//! nothing declares, the pass would refuse real moves at startup. So this asks
+//! the question FIRST, as a test, against the built app: run every authored
+//! effect in the composition through the real support table and report every
+//! refusal.
+//!
+//! ⭐ AND IT IS THE EVENTUAL GUARD, not scaffolding. Now that the production pass
+//! is at the barrier, this is the fixture that says the corpus still passes it —
+//! which is the acceptance row the owner document asks for
 //! ("validate the actual prepared corpus before reporting completion").
 //!
 //! ⛔ A GREP WAS THE WRONG INSTRUMENT and this file exists because of it: a

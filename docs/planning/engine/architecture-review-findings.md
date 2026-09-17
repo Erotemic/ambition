@@ -315,13 +315,44 @@ Commands cannot provide that guarantee by documentation alone. Test an invalid
 recipe that changes a root and one that writes an external resource; do not hide
 the second case by checking only entity counts.
 
-## F7. Technique validation is disconnected from installed executable support
+## F7. ✔ CLOSED — installation declares support, and the barrier refuses on it
 
-**Owner:** domain preparation and technique installation; existing O4 authoring work.
-**Priority:** A11, an independent authoring-admission packet.
-**Confidence:** source-established absence of production callers of the parameter
-registry; a live flow customer/interpreter now exists. No malformed shipped
-technique was demonstrated by running the game.
+**Owner:** domain preparation and technique installation (`A11`).
+**Verified against HEAD 2026-09-17** by opening the registry, the join and the
+barrier, not by reading a status elsewhere.
+
+Every part of the repair this finding specifies is in the tree:
+
+* **One declaration per installing owner.** `ParamSchemaRegistry` is replaced by
+  `TechniqueSupport`, whose doc states the property the old one could not have:
+  *"A KEY PRESENT HERE MEANS A CAPABILITY SAID 'I install the thing that answers
+  this'; a key absent means nothing does."* The composition's table is
+  `InstalledTechniques`, and it stays in `ambition_combat` rather than moving
+  down the graph for a consumer's convenience — recorded there as *"DEPENDENCY
+  CONVENIENCE WEARING OWNERSHIP'S CLOTHES"*.
+* **Duplicates rejected, not silently overwritten** — the exact repair the
+  section below demands. `TechniqueSupport::declare` *"refuses a second claim on
+  one key instead of replacing it."*
+* **One exhaustive enumeration of effect sites.** `MoveSpec::effect_refs`
+  destructures without `..` at every level, so a fifth effect site is a compile
+  error rather than a silent gap.
+* **Validated before publishing.** `unsupported_authored_effects` joins the
+  visitor to the table, and `activate_staged_revision` returns
+  `RevisionAdmission::Refused` on any refusal — *"admitted against the WHOLE
+  candidate, not against the edit alone"*.
+
+⭐ **AND THE ORDERING IS WITNESSED, WHICH IS THE PART A REVIEW WOULD NOT HAVE
+THOUGHT TO ASK FOR.** The checked and unchecked roads were two `PreStartup`
+systems racing a flag, and a hand-driven `App::update()` does not run plugin
+`finish()` — so the fixture won a race the shipped game lost.
+`the_barrier_closes_through_the_checked_road_under_the_real_lifecycle` drives
+`finish()`/`cleanup()`/`update()` in Bevy's own order, and
+`the_shipped_composition_withheld_nothing_at_its_barrier` reads
+`AuthoredEffectRefusals` instead of re-deriving the answer.
+
+⚠ Below is the review's evidence at the baseline and is NOT a description of
+HEAD; the duplicate-policy section is kept because it is the argument the repair
+implements.
 
 `crates/ambition_entity_catalog/src/lib.rs` defines `EffectRef` with a String key
 and opaque parameters. Its `ParamSchemaRegistry` has no production register or
@@ -363,12 +394,42 @@ the planning advice. Tests: unknown key, known paramless, invalid parameters,
 missing installed handler, conflicting owners, repeated installation policy and
 invalid flow-emitted technique detected before the first tick.
 
-## F8. Flow validation does not establish runtime index/timeout bounds
+## F8. ✔ CLOSED — the cursor's width is the authored width, and the timeout must be finite
 
-**Owner:** move-scoped authored flow preparation/execution.
-**Priority:** A12, small validation fixes before broader interpreter work.
-**Confidence:** source-established validation and representation mismatch;
-no such invalid flow was observed in shipped content and Rust tests were not run.
+**Owner:** move-scoped authored flow preparation/execution (`A12`).
+**Verified against HEAD 2026-09-17** by opening `TechniqueFlow::problems` and the
+`FlowNode` definition.
+
+Both halves of the representation mismatch are gone, and each was closed at the
+place that makes the defect unspellable rather than by adding a check:
+
+* **The index.** `FlowNode`'s edges are `u16` — the cursor's own width — so the
+  interpreter's `as u16` narrowing is gone with them. Its doc states the defect
+  it removes: *"node 65,536 becoming node 0 SILENTLY, a terminating flow turned
+  into a loop by a cast, with every edge still in range and nothing for the
+  dangling-edge check to see."* Conversion now happens once, at the authoring or
+  deserialization boundary, where an out-of-range index is a hard error naming
+  the field. The 1–256 node bound still exists, as a READABILITY contract rather
+  than as a stand-in for cursor safety.
+* **The timeout.** *"⛔ FINITE, not merely positive. `f32::INFINITY > 0.0` is
+  TRUE"* — the exact value this finding named as slipping through the positive
+  test. `NaN` already failed it and is named in the diagnostic so the message
+  says which value was wrong.
+
+⭐ **AND THE FINDING'S OWN CLAIM ABOUT WHAT AN UNBOUNDED WAIT COSTS WAS
+CORRECTED, IN THE DIRECTION OF BEING SMALLER.** It is not a fighter frozen for
+the match: `MovePlayback::finished()` is `t >= spec.duration_s`, so the TIMELINE
+ends the move whatever the flow is doing. What it costs is every `Emit` after the
+wait never firing — the authored sequence silently doing half its job. This
+finding's own text already declined the larger claim (*"do not describe this as
+proof that a fighter stays stuck forever"*), and the runtime confirmed it.
+
+⚠ Two other observations here were NOT defects and are not claimed closed: the
+per-tick step limit equal to node count, and the clone before each interpretation
+pass. The node bound makes the first finite; the second is *"a visible
+allocation/copy opportunity, not a measured frame-time bottleneck"* and still is.
+
+⚠ Below is the review's evidence at the baseline and is NOT a description of HEAD.
 
 `TechniqueFlow::problems` in
 `crates/ambition_entity_catalog/src/lib.rs` checks transition targets against

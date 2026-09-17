@@ -143,6 +143,18 @@ ADJUDICATED: dict[str, str] = {
         "a dismiss press is lost across a rewind. Held by a failing-by-design "
         "witness."
     ),
+    "ClockState": (
+        "CORRECT — three policies over one smoothed value, and the coupling is "
+        "witnessed. `smooth_sim_clock_toward_target_system` ramps toward the "
+        "target, `apply_clock_reset_requests` snaps to 1.0 through the permission "
+        "table, and `apply_suspended_time_scale_system` forces 0.0 — and that "
+        "third one writes `RequestedClockScale::sim_clock` TOO, precisely so the "
+        "smoother cannot ramp back up underneath it. POISON-VERIFIED 2026-09-17: "
+        "dropping the target write fails "
+        "`suspended_frame_zeros_world_time_scaled_dt` "
+        "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
+        "makes this a verdict rather than an opinion."
+    ),
     "CutsceneTriggerQueue": (
         "CORRECT BY COINCIDENCE — CUTSCENE-ROLLBACK-DECISION item 2: every "
         "producer happens to sit inside the sim schedule, so a replay "

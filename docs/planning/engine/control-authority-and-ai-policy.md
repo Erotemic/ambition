@@ -209,12 +209,23 @@ already have one answer and the interesting finding is *where* it lives.
 them put a test fixture among the answers on the first pass, which is the same
 error `measure_kernel_module_graph.py` shipped with.
 
-| authority | crate / module | production writers |
-|---|---|---|
-| `DrivingParticipant` | `ambition_characters::control` | **1** — `actor_monolith::control::authority` |
-| `PossessionState` | `actor_monolith::abilities::traversal::possession` | 2 — `possession.rs`, `control/authority.rs` |
-| `TemporaryControl` | `shared_tangle::temporary_control` | 2 — `ambition_mount`, `possession.rs` |
-| `ControlledSubject` | `shared_tangle::markers` | 2 — `possession.rs`, ~~`ambition_abilities::test_support`~~ (gated, below) |
+| authority | crate / module | writers 2026-09-06 | writers 2026-09-17 |
+|---|---|---|---|
+| `DrivingParticipant` | `ambition_characters::control` | **1** — `actor_monolith::control::authority` | **1**, unchanged — the sole-writer claim still holds |
+| `PossessionState` | `actor_monolith::abilities::traversal::possession` | 2 — `possession.rs`, `control/authority.rs` | **3** — plus `session/teardown.rs`, which defaults it at session end |
+| `TemporaryControl` | `shared_tangle::temporary_control` | 2 — `ambition_mount`, `possession.rs` | **0** outside its own module — the claim arbiter is the only writer |
+| `ControlledSubject` | `shared_tangle::markers` | 2 — `possession.rs`, ~~`ambition_abilities::test_support`~~ (gated, below) | 2 — `possession.rs`, `session/teardown.rs` |
+
+⭐ **RE-DERIVED 2026-09-17, and the row that moved most is the one this section
+is about.** `TemporaryControl` went from two crates writing it directly to none:
+both are claimants now, and `project_control_claims` is the only writer. ⚠ The
+two rows that gained a writer gained the SAME one — `session/teardown.rs`
+defaults both resources at session end — which is a lifetime edge rather than a
+second authority, and it is worth a row because a census of "who writes this"
+cannot tell those apart on its own. Method: `git ls-files` over `crates/` and
+`game/`, skipping `*tests.rs` files and brace-matched `#[cfg(test)]` blocks, then
+reading each surviving site; `vortex.rs` and `sentry.rs` insert
+`DrivingParticipant` inside test modules and are correctly out.
 
 ### The answers
 
@@ -227,9 +238,11 @@ error `measure_kernel_module_graph.py` shipped with.
 * **Who owns the transition between bodies?** `possession.rs`, de facto: it is the
   only file that writes THREE of the four types. ⇒ That is the control-transition
   authority, and its module path does not say so.
-* **Who owns body custody when mounted / carried / possessed?** **Two crates**:
-  `ambition_mount` and `possession.rs`, both writing `TemporaryControl`. Two
-  mechanisms, one type, no arbiter — which is the question's real content.
+* **Who owns body custody when mounted / carried / possessed?** ✔ **ONE
+  ARBITER, as of the section above.** It was two crates writing `TemporaryControl`
+  directly with no arbiter — *"two mechanisms, one type"*, which was the
+  question's real content. Both are claimants now and the projection owns the
+  type; re-measured 2026-09-17, nothing outside `temporary_control` writes it.
 * **Actor simulation state vs controller state?** The split is already clean at the
   TYPE level: simulation state is on the body, controller identity is
   `DrivingParticipant`, policy is `Brain`, and `ActorControl` is a separate

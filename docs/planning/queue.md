@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,284 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,313 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -127,7 +127,8 @@ diary.
 
 ### CUTSCENE-ROLLBACK-DECISION — two session-scoped cutscene values cross into simulation with no rollback decision
 
-**Owner:** unclaimed. Found 2026-09-16 while measuring C03 step 3; NOT fixed here.
+**Owner:** unclaimed for the QUEUE half. Found 2026-09-16 while measuring C03
+step 3; NOT fixed here. ⛔ Item 1 below is blocked on `Q136`, not unowned.
 
 ✔⛤ **MEASURED 2026-09-16, AND THE TWO HALVES CAME OUT DIFFERENTLY.** This row
 used to say *"REASONED, not measured — there is no failing arm yet"*.
@@ -183,9 +184,25 @@ kind**. Reading the four, source already answers two of them:
 
    ⚠ **SO IT IS CORRECT BY COINCIDENCE, WHICH IS THE THING TO WRITE DOWN.** The
    moment any producer moves to `Update` — exactly where
-   `apply_menu_frame_to_cutscene_request` already sits — it becomes item 1. The
-   queue owes a stated invariant (*"every producer runs in the sim schedule"*) or
-   a registration; it does not owe a fix today.
+   `apply_menu_frame_to_cutscene_request` already sits — it becomes item 1.
+
+   ✔ **THE OWED INVARIANT IS STATED AND RATCHETED AS OF 2026-09-17, AND IT IS A
+   SET RATHER THAN A SCHEDULE.** The sentence lives at the type
+   (`CutsceneTriggerQueue`'s own doc) and the guard is
+   `scripts/check_sim_consumed_request_writers.py`, in `--maintenance`: it
+   enumerates every `ResMut<T>` / `&mut T` writer, requires each to carry a
+   recorded reading of WHICH SCHEDULE it runs in, and fails on a writer nobody
+   adjudicated or a recorded writer that no longer exists. **5 production writers
+   today**, all adjudicated — two producers, one consumer, one helper the boss
+   system calls, and the session-teardown bundle that CLEARS it at a different
+   boundary. ⛔ **It deliberately does NOT attribute schedules**: a schedule's
+   per-system access set is `pub(crate)` in Bevy 0.19 and `System::name()` is the
+   debug placeholder in this build, so the guard makes the question unavoidable
+   instead of answering it — and says so, because a check that looked like an
+   attribution would be trusted as one. Poison-verified in both directions: a new
+   production writer is named and fails, and a pattern that matches nothing trips
+   the floor rather than passing over an empty set. ⇒ Item 2 no longer owes
+   anything; it does not owe a fix today either.
 
 ⭐⭐ **AND THIS EXACT SHAPE IS ALREADY SOLVED ONE DOMAIN OVER, WHICH IS THE
 STRONGEST ARGUMENT THAT IT IS REAL.** `OutstandingCheckpointRequest` is a request
@@ -210,6 +227,18 @@ use. A poison that removes the registration must redden it.
 on the control frame rather than in a resource — the per-seat frame-mode work
 moved a policy the same way for the same reason — and that is a design question,
 not a missing line. The decision is what is missing, not the registration.
+
+⛔⛤ **AND THE DECISION IS ALREADY FILED, WHICH THIS ROW DID NOT SAY FOR A DAY —
+CORRECTED 2026-09-17.** It is
+[`Q136`](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline),
+*"how does a local menu intent enter the synchronised timeline?"*, and that
+question already names `CutsceneAdvanceRequest` as **the residue of its own
+census** — the one row of fifty-two cross-written resource types that uses none
+of the four shipped stand-down patterns. ⇒ Item 1 is not unowned work waiting for
+someone to notice it; it is BLOCKED on `Q136`, and the four precedents that
+ruling enumerates are what a repair would choose between. A row that states a
+missing decision without routing to the ledger that holds it leaves the decision
+unasked.
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 

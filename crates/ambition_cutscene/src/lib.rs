@@ -358,6 +358,29 @@ pub struct RoomCutsceneBindings {
 /// any gameplay domain can REQUEST a cutscene without reaching up into whatever
 /// crate happens to host the playback systems. That is what it is for: the boss
 /// domain asks for `boss_intro_<id>` and knows nothing else about cutscenes.
+///
+/// ⛔⛔ **EVERY PRODUCER MUST RUN INSIDE THE REWINDING SIMULATION SCHEDULE.**
+/// This queue is not rollback-registered and it HOLDS ACROSS FRAMES:
+/// `drain_cutscene_triggers` returns without draining while a cutscene plays, so
+/// it survives while `ActiveCutscene` and `LastCutsceneRoom` rewind around it. A
+/// producer outside that schedule therefore loses its trigger on every rewind —
+/// the restore drops the entry and nothing re-produces it. The sibling resource
+/// `CutsceneAdvanceRequest` is exactly that defect, measured: a dismiss raised on
+/// the host side does nothing (`Q136`).
+///
+/// ⚠ **THAT THIS HOLDS TODAY IS NOT A DESIGN, IT IS A COINCIDENCE THAT WAS
+/// WRITTEN DOWN ON 2026-09-17.** The two shipped producers —
+/// `auto_trigger_room_cutscenes` in the monolith's `Cutscene` phase and
+/// `update_boss_encounters` in `ProgressionSet::BossAdvance` — happen to be sim
+/// systems, so a replay re-produces whatever the rewind dropped. Nothing
+/// enforced that until `scripts/check_sim_consumed_request_writers.py`, which
+/// ratchets the WRITER SET: a new writer fails the maintenance lane until
+/// somebody reads its body and records which schedule it runs in.
+///
+/// ⚠ The ratchet is not an attribution. A schedule's per-system access set is
+/// `pub(crate)` in Bevy 0.19 and `System::name()` is the debug placeholder in
+/// this build, so no mechanical answer to *"which schedule writes this"* is
+/// available; the guard makes the question unavoidable instead of answering it.
 #[derive(Resource, Default)]
 pub struct CutsceneTriggerQueue(pub Vec<String>);
 

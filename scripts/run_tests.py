@@ -1216,6 +1216,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_consolidation_ledger_still_resolves.py",
             ],
         ),
+        # A request drained inside the rewinding schedule and written from
+        # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
+        # COINCIDENCE — every producer happens to be in the sim schedule — and
+        # that invariant was written nowhere until 2026-09-17. This is the
+        # ratchet on the writer set, not an attribution of schedules; the script
+        # says which it is and why the other is unavailable here.
+        Job(
+            "a request the simulation drains has no writer nobody adjudicated",
+            [
+                sys.executable,
+                "scripts/check_sim_consumed_request_writers.py",
+            ],
+        ),
     ]
 
 

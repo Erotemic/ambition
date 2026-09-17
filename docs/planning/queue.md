@@ -280,16 +280,11 @@ sharp. The twelfth is `gravity.flip_switch`, and it is silent because NOTHING IN
 PRODUCTION SPAWNS ITS COMPONENT — one construction site in the workspace, inside
 a `#[cfg(test)]` module — which is `Q137`'s subject, not a gap in this walk.
 
-⛔⛤ **AND THE PRICES THIS PARAGRAPH QUOTED FOR THE LAST THREE WERE ALL WRONG,
-WHICH IS THE PART TO CARRY FORWARD.** It said one wanted "a body straddling a
-portal aperture" and one wanted "a boss dead", and priced each as an aimed script
-or a fight. Both were false, and both for the same reason: the row's price had
-been read off the EVENT its field is named for rather than off the code that
-inserts the component. `portal.emission` is written by the portal gun's own
-firing path and a driven walk carries it; `boss.death_animation` is inserted when
-a boss is BUILT, defaulted, and rewound like any other row, so entering the boss
-room is enough. ⇒ **Before pricing a row as needing a fixture, read its INSERT
-SITE.** Two of the three cost a room each; the third cost a maintainer question.
+⛔⛤ **AND THE PRICES THIS PARAGRAPH QUOTED FOR THE LAST THREE WERE ALL WRONG.**
+Two of the three cost a room each and the third cost a maintainer question; the
+rule that follows from it — *price a row by its INSERT SITE, not by the event it
+is named for* — is a method and lives with the other methods, in
+[`re-measuring-a-planning-claim.md`](../recipes/re-measuring-a-planning-claim.md#price-a-row-by-its-insert-site-not-by-the-event-it-is-named-for).
 
 **Current state (2026-09-17): FIFTEEN CLOSED, THREE OPEN, EIGHTEEN LIVE —
 nineteen FILED, because the thirteenth was withdrawn the day it was filed and the

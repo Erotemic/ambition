@@ -1202,3 +1202,55 @@ folded `content ⊗ room`, so any two ROOMS differ whatever the content term say
 the collapse hid inside a value that still behaved perfectly well. The fix was to
 expose the one TERM the rule decides and assert on that. Witness the term your
 rule is about, not a hash that contains it.
+
+### Price a row by its INSERT SITE, not by the event it is named for
+
+⛔⛤ **Three rollback rows were priced as expensive fixtures and two of those
+prices were wrong — same day, same mistake (2026-09-17).** A coverage row named
+`boss.death_animation` was filed as *"the most expensive fixture of the set: it
+wants a boss dead"*, and `portal.emission` as wanting an aimed script — fire at a
+reachable wall, then walk into it.
+
+Neither was true, and the reason is one sentence: **the price had been read off
+the EVENT the field is named for rather than off the code that INSERTS the
+component.** `BossDeathAnimation::default()` is inserted when a boss is BUILT, so
+walking into a boss room is enough; `PortalEmission` is written by the portal
+gun's own firing path, which a driven walk already takes. Each cost a room. The
+third cost a maintainer question, because its only construction site in the
+workspace sits inside a `#[cfg(test)]` module.
+
+⇒ **Before pricing a row as needing a fixture, grep for what constructs its
+component.** A field named after a dramatic moment is usually defaulted at spawn.
+
+### The two worlds you are comparing do not run the same number of ticks
+
+⛔⛤ **A rewind arm compared a clock and read a harness off-by-one as a rollback
+defect (2026-09-17).** An encounter script's beat clock reached `4.0333` under a
+GGRS sync-test window and `4.0167` without — one frame, which is exactly what an
+unrestored value looks like at a glance. `SimTick` said **241 against 240**: the
+sync-test harness steps once more.
+
+⇒ **The property is a RATE, not a value.** Assert that the subject advanced the
+same amount PER TICK in both worlds, and read the tick counter as the control.
+The real defect is not subtle once the control is there: with the registration
+removed the same arm measured the clock moving **945 frames more while the world
+ran 1 tick more**, which is the resimulation multiplier of a `check_distance` of
+4 — hundreds of frames, not one.
+
+### A value your TEST writes does not survive a rewind, so it cannot be the stimulus
+
+⛔⛤ **The same arm's first version drove its subject with a message the test
+wrote, and the rewind took the write back.** `slash` publishes a `HitEvent` from
+outside the rewinding schedule; measured, the gate it should produce fired **once
+without a rollback window and zero times under one**. The script never advanced,
+the arm read `Some(0)` against `Some(2)`, and that difference says nothing about
+the subject — it is the injection being undone.
+
+⇒ **Under a rollback session, drive through the input road GGRS replays, or
+choose a subject that needs no stimulus at all.** The arm that worked drives no
+input: the script's beat clock advances every tick whether or not its trigger
+holds.
+
+⚠ And the general form: **a premise guard on the stimulus is what tells these
+apart.** Assert the thing you are injecting actually arrived, in BOTH worlds,
+before comparing anything downstream of it.

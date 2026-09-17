@@ -352,10 +352,13 @@ get wrong:
 ✅ **AND THE MOVE IS DONE, 2026-09-12 — A4's LAST NAMED TASK IS CLOSED.**
 `advance_body_anim_overlays` now lives at
 `ambition_characters::actor::advance_body_anim_overlays`, beside `BodyAnimFacts`,
-which is the component it ticks. Both callers
-(`control/input_systems.rs`, `features/ecs/anim_helpers.rs`) name the owning
-crate instead of reaching into `crate::features`, and the monolith's
-`features::movement_fx` re-export is gone. ⇒ **The function touched nothing from
+which is the component it ticks. ⚠ **RE-DERIVED 2026-09-17: there is ONE caller,
+not two.** `features/ecs/anim_helpers.rs:53` names the owning crate; the other
+end, `control/input_systems.rs`, stopped calling it at all — what is left there
+is a past-tense comment explaining that the body-generic overlays moved to
+`features::advance_body_anim_overlay_clocks` on `sim_dt`, because this system
+advanced only the PRIMARY player and a second player body was advanced by
+nobody. The monolith's `features::movement_fx` re-export is gone. ⇒ **The function touched nothing from
 the module it lived in** — only `BodyAnimFacts` fields and one local constant —
 so the import edge existed for no reason at all. ⚠ **THE ARM/DECAY PAIR IS NOW
 SPLIT ACROSS CRATES, AND BOTH ENDS SAY SO.** `arm_movement_anim_overlays` and
@@ -364,11 +367,13 @@ events (`ae::FrameEvents`, ground contact); the decay reads nothing but the
 component. **Arming is engine-specific, decaying is a property of the data**, and
 that is the line the split follows rather than convenience.
 
-⇒ **THE MOVE THIS ROW WANTED WAS A DIRECTION, NOT A PHASE.** The coupling to cut
-is the `control -> features` import (`control/input_systems.rs:334` reaching
-`crate::features::advance_body_anim_overlays`); both ends are inside the monolith,
-so this is an intra-crate module edge a census counted, not a crate edge. **The
-phase must not move.** ⛔ Do not reclassify `BodyAnimFacts` as presentation on the
+⇒ **THE MOVE THIS ROW WANTED WAS A DIRECTION, NOT A PHASE — AND IT IS SPENT.**
+The coupling to cut was the `control -> features` import, `input_systems.rs`
+reaching `crate::features::advance_body_anim_overlays`, which was an intra-crate
+module edge a census counted rather than a crate edge. ⚠ **Measured at HEAD
+2026-09-17: the whole `control` module names `crate::features` ZERO times.** The
+edge is gone, in the direction this row asked for. **The phase still must not
+move**, which is the part of this row that outlives the edge. ⛔ Do not reclassify `BodyAnimFacts` as presentation on the
 strength of its field names — that is the trap this row's own wording sets, and
 the rollback registration is the fact that settles it.
 **Acceptance:** human -> possession -> brain -> human handoff on the same body;

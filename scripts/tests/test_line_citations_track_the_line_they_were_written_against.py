@@ -143,3 +143,36 @@ def test_the_floor_fires_when_nothing_was_examined(tool, capsys):
     code = tool.main(["--quiet", "--root", str(REPO), "does-not-exist.txt"])
     assert code == 2
     assert "reporting on ITSELF" in capsys.readouterr().err
+
+
+def test_a_cite_ok_marker_silences_a_deliberately_historical_coordinate(
+    tool, fixture_repo
+):
+    """⛔ ONE KEEPER FOR "WRONG ON PURPOSE", AND USING THE TOOL IS WHAT FOUND IT.
+
+    `pickup-carve-checklist.md` cites the PRE-CUT path on purpose and says so
+    with `cite-ok`. Without this the coordinate is a permanent `gone`, and a
+    report with permanent entries is a report nobody re-reads.
+    """
+    doc = fixture_repo / "docs" / "planning" / "page.md"
+    src = fixture_repo / "src" / "thing.rs"
+    src.write_text("// one\n// two\n// gone\n// four\n")
+
+    before = _verdicts(tool, fixture_repo)[("src/thing.rs", 3)].verdict
+    assert before == "gone", "the fixture must be drifted for this arm to mean anything"
+
+    doc.write_text(
+        "The subject was at `src/thing.rs:3`.\n"
+        "<!-- cite-ok: the pre-cut path, kept as the record -->\n"
+    )
+    _git(fixture_repo, "add", "-A")
+    _git(fixture_repo, "commit", "-qm", "marker")
+
+    corpus = tool.Corpus(tool._load_citation_checker(), fixture_repo)
+    rows = tool.examine([doc], corpus)
+    assert [f.verdict for f in rows] == ["cite-ok"]
+
+    # ⛔ AND IT MUST NOT BE REPOINTED EITHER: a marker that only silenced the
+    # report while `--fix` rewrote the line would be worse than no marker.
+    assert tool.repoint(rows) == 0
+    assert "`src/thing.rs:3`" in doc.read_text()

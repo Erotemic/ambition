@@ -29,6 +29,7 @@ exact in both directions:
     no-history the path did not exist at that commit (a file move, usually)
     uncommitted the citing doc line is not committed, so it has no reference
                point yet -- commit and re-run
+    cite-ok    a `cite-ok` marker says this coordinate is wrong on purpose
 
 `--fix` repoints the `moved` ones, which is the whole population that can be
 repaired without a judgement call.
@@ -187,6 +188,19 @@ def examine(docs: list[pathlib.Path], corpus: Corpus) -> list[Finding]:
         shas = blame_shas(doc, corpus.root)
         for docline, match in hits:
             cite, lineno = match.group(1), int(match.group(2))
+            # ⛔ ONE KEEPER FOR "WRONG ON PURPOSE". `cite-ok` already marks a
+            # citation the gate must not judge, and `marker_suppresses`'s own doc
+            # says any new reader calls it rather than re-spelling the rule — a
+            # fourth spelling of it once made a documented affordance a trap.
+            # Found by using this tool: `pickup-carve-checklist.md` carries
+            # `cite-ok: the pre-cut path, kept as the record` beside a coordinate
+            # that is deliberately historical, and without this it would be a
+            # permanent `gone`.
+            if corpus.cpc.marker_suppresses(text, docline):
+                findings.append(
+                    Finding(doc, docline, cite, lineno, cite, "cite-ok", "", "", None)
+                )
+                continue
             path = corpus.resolve(cite)
             sha = shas.get(docline)
             if path is None or sha is None:
@@ -352,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         - counts["same"]
         - counts["blank-origin"]
         - counts["uncommitted"]
+        - counts["cite-ok"]
         - fixed
     )
     if args.strict and drifted:

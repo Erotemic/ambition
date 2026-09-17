@@ -143,14 +143,20 @@ place of its old insert, and `AmbitionItemRosterPlugin` keeps only the item ART.
 is the reusable part — *"each composition sees one"* is why the duplication was
 invisible — but **do not start work from it.**
 
-⛔ **AND THE STARTER ROSTER WAS INSERTED BY TWO CRATES IN THE SAME COMPOSITION.**
-`OwnedItems::starter()` is `insert_resource`d at
+⛔ **AND THE STARTER ROSTER WAS INSERTED BY TWO CRATES IN THE SAME COMPOSITION —
+PAST TENSE, AND THE COORDINATES BELOW ADDRESS THE TREE IT WAS TRUE IN.**
+`OwnedItems::starter()` WAS `insert_resource`d at
 `game/ambition_app/src/app/resources.rs:361` (in `init_sandbox_resources`, whose
 own comment explains that headless `Platformer2dSimHarness` runs quest reward
 systems without the presentation plugins) and again at
 `game/ambition_content/src/items/mod.rs:36` (in `AmbitionItemRosterPlugin`,
 installed from `plugins.rs:525` inside `install_menu_setup_and_hotkeys`). The
-windowed app runs both.
+windowed app ran both. ⚠ Re-derived 2026-09-17: the only `insert_resource` of the
+starter roster in production is `game/ambition_content/src/plugin.rs:71`, exactly
+as the ✅ above says. The one other `insert` spelling in the tree,
+`items/conditions.rs:109`, is inside that file's `#[cfg(test)] mod tests`, and
+`items/persist.rs:81` is the fresh-run RESET (`*owned = …`), not an insert —
+both are the kind of near-miss a `grep -v test` on paths would have credited.
 
 ⚠ **NO VALUE DIVERGES TODAY and the page will not overstate it.** Both spell the
 same `ambition_items::OwnedItems::starter()` — `ambition_platformer2d::items` is

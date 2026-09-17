@@ -2,13 +2,16 @@
 
 **State:** OPEN / LATER — architecture direction is useful now; implementation should wait for actor/navigation/world-fact foundations.
 
-> **RE-MEASURED against `3c3b0d695` (2026-09-03): TWO of the three stated
-> foundations now EXIST, and the wait is gated on exactly one.**
+> **RE-MEASURED against `3c3b0d695` (2026-09-03) and re-checked 2026-09-17: TWO
+> of the three stated foundations EXIST, and the wait is gated on exactly one.
+> ⚠ Every line number in this block moved in two weeks and none of the facts
+> did** — the four types are where they were, under different line numbers, which
+> is the ordinary way a citation rots.
 >
 > | foundation | state |
 > |---|---|
-> | world facts | ✔ **exists** — `world_facts` module and `WorldFactConditionsPlugin` (`crates/ambition_platformer2d_actor_monolith/src/world_facts.rs:132`), installed by `ambition_platformer2d_runtime` |
-> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:740`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:388`), plus `AgentObservation` / `CombatObservation` in the sim harness |
+> | world facts | ✔ **exists** — `world_facts` module and `WorldFactConditionsPlugin` (`crates/ambition_platformer2d_actor_monolith/src/world_facts.rs:187`), installed by `ambition_platformer2d_runtime` |
+> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:785`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:451`), plus `AgentObservation` / `CombatObservation` in the sim harness |
 > | navigation / reachability | ⛔ **absent** — no reachability type, no nav graph, no pathfinding of any kind |
 >
 > ⇒ **So "wait for the foundations" now means "wait for navigation".** The other
@@ -25,6 +28,16 @@
 > `EXTRA_STARTUP`. A pattern that matches
 > inside unrelated identifiers is not evidence either way, which is why the
 > conclusion rests on the concept sweep and not on that one.
+>
+> ⛔ **RE-CHECKED 2026-09-17, AND THE NEAR-MISSES ARE NAMED SO THE NEXT SWEEP DOES
+> NOT RE-FIND THEM AS EVIDENCE.** `ambition_entity_catalog`'s
+> `reachable_from_start` / `reaches_finish` are a real reachability algorithm over
+> an AUTHORED FLOW GRAPH — the branch validator — and `rollback_ggrs`'s session
+> module computes reachability over the SYSTEM DEPENDENCY graph. Neither is world
+> navigation. And `SolidKind::OneWay`'s doc says a one-way platform is *"treated
+> as passable for a coarse reachability test"*; there is no such test, so that
+> sentence describes a consumer that does not exist. ⇒ The absence holds: no
+> reachability type over world geometry, no nav graph, no pathfinding.
 
 > **RE-MEASURED AGAIN against `4149f26b6` (2026-09-03), one layer at a time
 > rather than one foundation at a time — and the diagram below is half built.**
@@ -38,18 +51,22 @@
 > | ordinary actor/control/interact systems | ✔ consume it today |
 >
 > ⭐ **THE ACTION SEAM IS NOT ASPIRATIONAL.** `ActionRequest`
-> (`ambition_characters/src/brain/action_set/mod.rs:1255`), carried by
+> (`ambition_characters/src/brain/action_set/mod.rs:1368`), carried by
 > `ActorActionMessage`, is consumed in production by the traversal abilities
-> (`abilities/traversal/{flyline.rs:48,trapdoor.rs:62,teleport.rs:335}`), by
-> `features/ecs/brain_effects.rs` and by `ambition_held_items/src/lib.rs:1454`.
-> Its own doc comment still describes itself as "the *shape* of the resolver
-> output" pending later wiring; that wiring landed, and the comment is stale.
+> (`abilities/traversal/{flyline.rs,trapdoor.rs,teleport.rs}`), by
+> `features/ecs/brain_effects.rs` and by `ambition_held_items/src/lib.rs`.
+> ✔ **The stale comment this row reported is FIXED.** It described itself as *"the
+> *shape* of the resolver output"* pending wiring that had already landed; it now
+> says so in situ, with this page's own misreading recorded beside it as what the
+> staleness cost.
 > ⇒ **The requirement "typed action vocabulary rather than free-form mutation"
 > is already met**, which is worth knowing before anyone designs it again.
 >
 > ⛔ **BUT THE POLICY LAYER ABOVE IT IS A CLOSED ENUM, AND THAT IS A SECOND GATE
 > THIS PAGE DOES NOT NAME.** `CharacterBrainTemplate`
-> (`ambition_characters/src/brain/mod.rs:485`) has nine variants — `StandStill`,
+> (`crates/ambition_characters/src/brain/mod.rs:511`) has nine variants — re-derived
+> 2026-09-17, and the NAMES are unchanged, which is the durable form of this
+> claim — `StandStill`,
 > `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
 > `Aerial`, `Fighter` — with **no trait object, no registry and no `Custom`
 > arm**. So a new policy provider is a new variant *inside*

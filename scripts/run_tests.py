@@ -1297,6 +1297,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_consolidation_ledger_still_resolves.py",
             ],
         ),
+        # ⛔⛤ AND THE JOB ABOVE CHECKS THAT THE LEDGER'S CITATIONS RESOLVE, NOT
+        # THAT ITS OWN STATUS FIELDS AGREE. `architecture_census.py` printed
+        # `suspect_duplicate_authority: 4` — the campaign's headline count — for
+        # a day in which the census PAGE declared three of those four families
+        # closed. The machine-readable copy was the stale one, which is the copy
+        # a reader gets from the instrument the README tells them to run. Same
+        # rule one field over: 15 of 19 `blocked_by` entries named A10, which
+        # `queue.md` had marked done.
+        Job(
+            "the consolidation ledger's status fields agree with each other",
+            [
+                sys.executable,
+                "scripts/check_consolidation_ledger_states_are_live.py",
+            ],
+        ),
         # A request drained inside the rewinding schedule and written from
         # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
         # COINCIDENCE — every producer happens to be in the sim schedule — and

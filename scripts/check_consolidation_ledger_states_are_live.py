@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""The consolidation ledger's STATUS fields must agree with each other.
+
+⛔⛤ **THE DEFECT THIS EXISTS FOR, MEASURED 2026-09-17.** `architecture_census.py`
+printed `suspect_duplicate_authority: 4` -- the number the campaign quotes for
+"how many duplicate-authority families are still open" -- while
+`architecture-census.md` declared THREE of those four closed in the same table
+that listed them, and one of the three had been closed for a day. The ledger's
+`metric_tags` was the machine-readable copy and the stale one, so a reader who
+ran the instrument the README tells them to run got the wrong answer, and a
+reader who read the page got the right one.
+
+⇒ ONE FACT, ONE OWNER, ONE ROAD: the state of a duplicate-truth family is
+`duplicate_authority_state` on its ledger item. The metric tag is carried by
+exactly the `OPEN_PRESSURE` ones, the census page's State column must equal the
+field, and the page's headline split is three numbers this check derives.
+
+⛔⛤ **AND THE SECOND RULE IS THE SAME SHAPE ONE FIELD OVER.** `blocked_by` is a
+HOLD in structured form, and `check_discharged_holds_are_rewritten` -- which
+exists precisely to find a hold that outlived what it waited for -- scans bold
+markers in markdown and cannot see a JSON list. MEASURED 2026-09-17: **15 of the
+19 `blocked_by` entries named A10**, which `queue.md` marked ✅ DONE on
+2026-09-16, and three more named a "peer-stable identity" campaign no page
+defines by that name. Fourteen ledger items described themselves as held by a
+door that was already open.
+
+⇒ `blocked_by` means a LIVE gate and must name something resolvable: a `queue.md`
+row id, or a `Q<number>` in `awaiting-maintainer-decision.md`. A discharged gate
+moves to `was_blocked_by` as a receipt carrying its discharge and its date.
+
+⚠ **WHAT THIS DOES NOT SAY.** That a gate lifted is not that the work behind it
+happened, and a `RESOLVED` state is a claim a human made by reading source. This
+check compares the ledger's copies of its own status to each other and to the
+page that publishes them; it cannot re-read the tree. See
+`check_consolidation_ledger_still_resolves.py`, which says the same about itself.
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+import re
+import sys
+
+REPO = pathlib.Path(__file__).resolve().parents[1]
+LEDGER = REPO / "docs/planning/consolidation/consolidation-ledger.json"
+CENSUS = REPO / "docs/planning/consolidation/architecture-census.md"
+QUEUE = REPO / "docs/planning/queue.md"
+QUESTIONS = REPO / "docs/planning/awaiting-maintainer-decision.md"
+
+FAMILY = "duplicate_truth_family"
+TAG = "suspect_duplicate_authority"
+OPEN = "OPEN_PRESSURE"
+
+#: The page's headline split, derived rather than counted by hand. Exactly one
+#: line may state it, because two lines stating it is the defect above.
+SPLIT = re.compile(r"(\d+) open, (\d+) resolved, (\d+) legitimate\s+separation")
+QUESTION_ID = re.compile(r"^## (Q\d+)\b")
+#: A receipt has to say it is spent, and when.
+DISCHARGED = re.compile(r"DISCHARGED \d{4}-\d{2}-\d{2}")
+
+
+def census_state_cells(text: str) -> dict[str, str]:
+    """The State column of `architecture-census.md`'s duplicate-family table."""
+    cells = {}
+    for line in text.split("\n"):
+        if not line.startswith("| DUP-"):
+            continue
+        columns = line.split("|")
+        cells[columns[1].strip()] = columns[3].strip()
+    return cells
+
+
+def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: set[str]) -> list[str]:
+    """Every disagreement between the ledger's status copies. Empty is green."""
+    bad: list[str] = []
+    states = ledger.get("duplicate_authority_states") or {}
+    if len(states) < 2:
+        bad.append(
+            "⛔⛔ the ledger declares fewer than two `duplicate_authority_states`, so "
+            "the vocabulary this check reads is not there"
+        )
+        return bad
+    families = {}
+    for item in ledger["items"]:
+        ident = item["id"]
+        tagged = TAG in item.get("metric_tags", [])
+        if item.get("category") != FAMILY:
+            if tagged:
+                bad.append(f"{ident}: carries `{TAG}` but is not a {FAMILY}")
+            continue
+        state = item.get("duplicate_authority_state")
+        families[ident] = state
+        if state not in states:
+            bad.append(f"{ident}: `duplicate_authority_state` {state!r} is not in the vocabulary")
+            continue
+        if tagged != (state == OPEN):
+            bad.append(
+                f"{ident}: state is {state} and the `{TAG}` tag is "
+                f"{'present' if tagged else 'absent'} — the tag is carried by exactly "
+                f"the {OPEN} families, so the campaign's count disagrees with its own row"
+            )
+
+    # ── the page that publishes the states
+    cells = census_state_cells(census)
+    if len(cells) != len(families):
+        bad.append(
+            f"the census table has {len(cells)} duplicate-family rows and the ledger has "
+            f"{len(families)}: {sorted(set(cells) ^ set(families))}"
+        )
+    for ident, cell in cells.items():
+        state = families.get(ident)
+        if state is None:
+            bad.append(f"{ident}: the census table has a row the ledger does not")
+            continue
+        # The token alone, or the token then a human clause. Anything else is a
+        # second spelling of the state.
+        if cell != state and not cell.startswith(f"{state} — "):
+            bad.append(
+                f"{ident}: the census State column says {cell!r} and the ledger says "
+                f"{state!r}"
+            )
+
+    counted = {
+        "open": sum(1 for s in families.values() if s == OPEN),
+        "resolved": sum(1 for s in families.values() if s == "RESOLVED"),
+        "legitimate": sum(1 for s in families.values() if s == "LEGITIMATE_SEPARATION"),
+    }
+    split = SPLIT.findall(census)
+    if len(split) != 1:
+        bad.append(
+            f"⛔ the census page states the derived split {len(split)} times; it must "
+            "state it exactly once, in the form `N open, N resolved, N legitimate "
+            "separation`"
+        )
+    else:
+        stated = tuple(int(n) for n in split[0])
+        if stated != (counted["open"], counted["resolved"], counted["legitimate"]):
+            bad.append(
+                f"the census page says {stated} open/resolved/legitimate and the ledger "
+                f"says {(counted['open'], counted['resolved'], counted['legitimate'])}"
+            )
+
+    # ── holds
+    for item in ledger["items"]:
+        ident = item["id"]
+        for hold in item.get("blocked_by", []):
+            if QUESTION_ID.match(f"## {hold}"):
+                if hold not in questions:
+                    bad.append(
+                        f"{ident}: held on {hold}, which `awaiting-maintainer-decision.md` "
+                        "does not ask"
+                    )
+            elif hold not in rows:
+                bad.append(
+                    f"{ident}: held on {hold!r}, which is neither a `queue.md` row id nor "
+                    "a `Q<number>` — a hold that names nothing cannot be discharged"
+                )
+            elif hold in done:
+                bad.append(
+                    f"{ident}: held on {hold}, which `queue.md` marks done. A discharged "
+                    "gate belongs in `was_blocked_by` with what discharged it"
+                )
+        for receipt in item.get("was_blocked_by", []):
+            if not DISCHARGED.search(receipt):
+                bad.append(
+                    f"{ident}: a `was_blocked_by` receipt does not say `DISCHARGED "
+                    f"<date>`, so it reads like a live gate: {receipt[:60]!r}"
+                )
+    return bad
+
+
+# ⛔⛔ THE KNOWN-ANSWER CONTROL, RUN ON EVERY INVOCATION. Every rule here reports
+# by staying silent, and a silent rule whose parse has rotted looks exactly like a
+# healthy ledger. Each control is the defect this check was written for, so if one
+# stops firing the check refuses to report a verdict instead of reporting a
+# comforting one.
+CONTROL_STATES = {OPEN: "open", "RESOLVED": "gone", "LEGITIMATE_SEPARATION": "fine"}
+CONTROL_CLEAN = {
+    "duplicate_authority_states": CONTROL_STATES,
+    "items": [
+        {"id": "DUP-A", "category": FAMILY, "duplicate_authority_state": OPEN,
+         "metric_tags": [TAG], "blocked_by": ["Q144"]},
+        {"id": "DUP-B", "category": FAMILY, "duplicate_authority_state": "RESOLVED",
+         "metric_tags": [], "was_blocked_by": ["A10 — DISCHARGED 2026-09-16"]},
+    ],
+}
+CONTROL_CENSUS = (
+    "text: 1 open, 1 resolved, 0 legitimate separation\n"
+    f"| DUP-A | family | {OPEN} — with a clause |\n"
+    "| DUP-B | family | RESOLVED |\n"
+)
+CONTROL_DONE = {"A10"}
+CONTROL_ROWS = {"A10", "ID-PEER"}
+CONTROL_QUESTIONS = {"Q144"}
+
+
+def self_check() -> None:
+    def run(ledger, census=CONTROL_CENSUS):
+        return check(
+            json.loads(json.dumps(ledger)), census, CONTROL_DONE, CONTROL_ROWS,
+            CONTROL_QUESTIONS,
+        )
+
+    if run(CONTROL_CLEAN):
+        raise SystemExit(
+            "⛔⛔ THE CONTROL LEDGER, WHICH IS COHERENT, WAS REPORTED AS BROKEN. This "
+            f"check would redden a correct ledger: {run(CONTROL_CLEAN)}"
+        )
+    poisons = {
+        "a resolved family that kept the tag": lambda l: l["items"][1]["metric_tags"].append(TAG),
+        "an open family that lost the tag": lambda l: l["items"][0]["metric_tags"].clear(),
+        "a state outside the vocabulary": lambda l: l["items"][0].update(
+            {"duplicate_authority_state": "PROBABLY_FINE"}
+        ),
+        "a hold on a finished campaign": lambda l: l["items"][0].update({"blocked_by": ["A10"]}),
+        "a hold that names nothing": lambda l: l["items"][0].update({"blocked_by": ["vibes"]}),
+        "an unasked question": lambda l: l["items"][0].update({"blocked_by": ["Q999"]}),
+        "a receipt with no discharge": lambda l: l["items"][1].update(
+            {"was_blocked_by": ["A10 candidate-world publication"]}
+        ),
+        "the tag on a non-family item": lambda l: l["items"].append(
+            {"id": "AUTH-X", "category": "authority", "metric_tags": [TAG]}
+        ),
+    }
+    for name, poison in poisons.items():
+        ledger = json.loads(json.dumps(CONTROL_CLEAN))
+        poison(ledger)
+        if not run(ledger):
+            raise SystemExit(
+                f"⛔⛔ THE CONTROL FOR {name!r} DID NOT FIRE, so this check is blind to "
+                "the defect it was written for and a clean run means nothing."
+            )
+    for census, why in (
+        ("1 open, 1 resolved, 0 legitimate separation\n", "a table with no rows"),
+        (CONTROL_CENSUS.replace("1 resolved", "3 resolved"), "a stated count that disagrees"),
+        (CONTROL_CENSUS.replace(f"{OPEN} — with a clause", "RESOLVED"), "a column that disagrees"),
+        (CONTROL_CENSUS + "and again: 1 open, 1 resolved, 0 legitimate separation\n",
+         "the split stated twice"),
+    ):
+        if not run(CONTROL_CLEAN, census):
+            raise SystemExit(
+                f"⛔⛔ THE CONTROL FOR {why!r} DID NOT FIRE; the census page's copy of the "
+                "states is unguarded."
+            )
+
+
+def main() -> int:
+    self_check()
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import check_discharged_holds_are_rewritten as holds
+
+    ledger = json.loads(LEDGER.read_text(encoding="utf-8"))
+    census = CENSUS.read_text(encoding="utf-8")
+    # ⚠ IMPORTED, NOT RESPELLED. `queue.md`'s row headers are the authority on
+    # which campaigns are finished, and that predicate has been respelled once
+    # per guard before now; widening it there widens it here.
+    done = holds.rows_marked_done(QUEUE)
+    rows = {
+        m.group(1)
+        for m in (holds.QUEUE_ROW.match(l) for l in QUEUE.read_text(encoding="utf-8").split("\n"))
+        if m
+    }
+    questions = {
+        m.group(1)
+        for m in (QUESTION_ID.match(l) for l in QUESTIONS.read_text(encoding="utf-8").split("\n"))
+        if m
+    }
+    # ⛔ ANTI-VACUITY, BECAUSE EVERY RULE BELOW REPORTS BY SAYING NOTHING.
+    if not done or done == rows:
+        raise SystemExit(
+            f"⛔⛔ `queue.md` parsed as {len(rows)} rows of which {len(done)} are done; "
+            "with no finished rows, or with every row finished, the hold rule cannot fire."
+        )
+    if len(questions) < 10:
+        raise SystemExit(
+            f"⛔⛔ only {len(questions)} `Q` ids parsed out of "
+            "`awaiting-maintainer-decision.md`; that is a claim about the parser."
+        )
+    bad = check(ledger, census, done, rows, questions)
+    if bad:
+        print("the consolidation ledger's status fields disagree:")
+        for line in bad:
+            print(f"  {line}")
+        return 1
+    families = [i for i in ledger["items"] if i.get("category") == FAMILY]
+    split = {
+        s: sum(1 for i in families if i["duplicate_authority_state"] == s)
+        for s in ledger["duplicate_authority_states"]
+    }
+    live = sorted({h for i in ledger["items"] for h in i.get("blocked_by", [])})
+    spent = sum(len(i.get("was_blocked_by", [])) for i in ledger["items"])
+    print(
+        f"ok: {len(families)} duplicate-truth families, {split}, the `{TAG}` tag on "
+        f"exactly the {OPEN} ones, and the census page agrees"
+    )
+    print(f"  live holds: {', '.join(live) or 'none'} ({spent} discharged receipts)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

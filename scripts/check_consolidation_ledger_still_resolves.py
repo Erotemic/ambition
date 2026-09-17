@@ -23,12 +23,15 @@ sentence describing it survives. That needs re-reading the source behind the
 item, which is what the census README asks for and what this cannot substitute
 for. ⇒ A green run here bounds the CHEAP failure and says nothing about the
 expensive one. Do not cite it as a ledger refresh.
-⚠ **DELIBERATELY NOT A `--maintenance` JOB, AND THIS SAYS SO SO NOBODY "FIXES"
-IT.** MEASURED 2026-09-16: it takes **35 s** — it reads every tracked `.rs` file
-(1,915 of them, ~34 MB) to resolve `current_truth` names. The maintenance lane is
-65 s in total, so adding this would grow it by more than half for a check that
-already runs in `pytest scripts/tests` beside its own arms. ⇒ Reachable by one
-local command was the actual requirement; running in the FASTEST lane was not.
+⛔⛤ **THIS PARAGRAPH SAID "DELIBERATELY NOT A `--maintenance` JOB, AND THIS SAYS
+SO SO NOBODY FIXES IT" WHILE `run_tests.py` HAD BEEN RUNNING IT IN THAT LANE
+SINCE `60f0ea008`.** The reasoning it gave was sound when written — a 35 s check
+against a 65 s lane — and the lane is 332 s now, so the trade changed and the
+sentence did not. ⇒ It IS a `--maintenance` job, and it costs **69 s** re-measured
+2026-09-17 (1,917 tracked `.rs` files, ~35 MB), because resolving `current_truth`
+names reads all of them. A guard's own docstring is exactly the place this
+repository keeps finding stale authority; if the cost stops being worth it, move
+the job and rewrite this, rather than leaving two answers.
 """
 
 from __future__ import annotations

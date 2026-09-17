@@ -2232,3 +2232,52 @@ across three rooms for a screen that never changes.
 different layer, and a screen-alpha consumer built for one is the obvious owner
 for the other. ⚠ **That argument is about the CONSUMER and this ruling is about
 the RAMP;** whoever takes VC5 does not inherit this decision with it.
+
+## Q144 — must every supported composition activate a prepared generation, or does direct entry keep the App-registry road?
+
+**Asked 2026-09-17, and it is the LAST open duplicate-authority family in the
+consolidation census** (`DUP-GENERATION-MECHANICS`, and the gate
+`AUTH-SESSION-MECHANICS` used to record as *"direct-entry composition
+decision"* — a hold that named no page and no question until now).
+
+**MEASURED 2026-09-17, because the ledger row said less than source does.** A
+generation's frozen values already win over anything the App holds, and a
+shell-routed session that has LOST its mechanics is refused rather than fed the
+App:
+
+| road | constructor | what it does with no active generation |
+|---|---|---|
+| reset, room transition (×2), room stage | `GenerationMechanics::for_live_session` | **refuses** when `SessionGatedSimulation` is present |
+| provider activation | `GenerationMechanics::of` | has no fallback to offer |
+| hot reload | `GenerationMechanics::new` | states `None` on purpose — it is building the generation that replaces the live one |
+
+⇒ **In the shipped composition there is no second construction source today.**
+The discriminator is `SessionGatedSimulation`, and it is `init_resource`d in
+exactly one place — `crates/ambition_game_shell/src/session.rs:348`. What is left
+is the population that has no generation BY DESIGN: direct-entry demos, headless
+harnesses and fixtures. 112 files construct through `Platformer2dSimHarness` and
+`app_it` alone is 182 test files, so the fallback is load-bearing for the test
+estate rather than for the game.
+
+**The decision is whether that stays the architecture.**
+
+1. **Keep the fallback, and make the composition distinction permanent
+   vocabulary.** The family becomes a legitimate separation: two composition
+   modes, two authorities, discriminated by a marker instead of inferred. ⚠ The
+   App registries stay a construction input forever, so the guarantee lives in
+   WHICH constructor a road picks — `for_live_session` versus `new` — and nothing
+   but review enforces that choice at a new call site.
+2. **Give every supported composition a prepared generation**, then delete the
+   fallback and the App-registry parameters entirely. ⚠ That is the measured 112
+   harness files plus the demos, each having to prepare and activate a trivial
+   generation before it can build a room.
+3. **Split the type**: a `GenerationMechanics` with no fallback, plus an explicit
+   authority for compositions that DECLARE they have none, so "which authority am
+   I reading" is in the type rather than in an `Option` field. ⚠ Two types thread
+   through the construction signature; the fixture road gains a name that says
+   what it is.
+
+⛔ **WHAT MUST NOT HAPPEN:** deleting the fallback without option 2's work (it is
+not a cleanup, it is 112 files), or closing the census row while
+`GenerationMechanics::new`'s App parameters still exist. The row is open because
+the second source is REACHABLE, not because the shipped game uses it.

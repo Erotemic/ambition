@@ -1474,7 +1474,7 @@ fn verify_and_publish(
     // generation afterwards; and a verifier with no way to validate N+1 while
     // intentionally RETAINING N. In order: `PendingWorldReplacement` stages all
     // of the first, the sweep moved inside `apply_world_replacement`,
-    // `room_publication_succeeded` gates the third, and `superseding` plus
+    // `publication_succeeded` gates the third, and `superseding` plus
     // `verify_projected_roster` answer the fourth.
     //
     // ⚠ **WHAT IS STILL OUTSIDE THE VERDICT IS NAMED IN `docs/planning/queue.md`'s

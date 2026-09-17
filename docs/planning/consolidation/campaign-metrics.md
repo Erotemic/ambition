@@ -136,3 +136,47 @@ result without naming which identifiers went.
 regenerating `.agent/` changed `files`/`symbols`/`tests` while leaving every
 `ecs.*` count identical. So the ECS deltas above are drift since the baseline,
 not an artefact of the regeneration — that was checked, not assumed.
+
+## 2026-09-17: the duplicate-authority row, re-derived
+
+⛔⛤ **THE BASELINE'S `4` WAS CORRECT WHEN IT WAS WRITTEN AND WAS BEING READ AS
+CURRENT.** `python3 scripts/architecture_census.py` prints the manual ledger
+tags, so it printed `suspect_duplicate_authority: 4` while
+[`architecture-census.md`](architecture-census.md#2-duplicate-truth-families)
+declared three of those four families closed — one of them on 2026-09-14. The
+instrument this page names was the copy that rotted, because the tag was hand-
+maintained and the prose was the only place the adjudication was written.
+
+| metric | baseline `662a9b5` | 2026-09-17 | delta |
+| --- | ---: | ---: | ---: |
+| duplicate-authority families, **open** | 4 | **1** | −3 |
+| duplicate-authority families, **resolved** | — | **3** | new state |
+| duplicate-authority families, **legitimate separation** | 4 | 4 | 0 |
+| explicit App resources with session/generation semantics | 32 | **37** | +5 |
+| `Option<Res<_>>` occurrences | 732 | 731 | −1 |
+| `Option<Res<_>>` unique types | 196 | 197 | +1 |
+| large modules (≥1000 nonblank lines) | 182 | 187 | +5 |
+| workspace nonblank Rust LOC | 777,646 | 800,844 | +23,198 |
+
+⚠ **COUNTING RULE CHANGED, AND THAT IS HALF THE DELTA.** The open count is no
+longer "how many rows carry the tag"; it is derived from one field per ledger
+item, `duplicate_authority_state`, with the tag carried by exactly the
+`OPEN_PRESSURE` ones and
+`scripts/check_consolidation_ledger_states_are_live.py` failing the
+`--maintenance` lane if the tag, the field, this page's State column or its
+headline split disagree.
+
+⛔ **THE −3 IS NOT THREE CONSOLIDATIONS LANDING TODAY, and this page's own rule 4
+says not to read it as one.** `DUP-ROOM-PUBLICATION` closed with A10,
+`DUP-CONTENT-CURRENT` closed when the hot reload's generation advance moved
+behind `publication_succeeded` on 2026-09-14, and `DUP-SESSION-CURRENT` closed on
+2026-09-16 with one deletion. What happened on 2026-09-17 is that the count
+caught up with the work and grew a guard, which is worth exactly that and no
+more.
+
+⭐ The one that is left, `DUP-GENERATION-MECHANICS`, is open for a reason the
+row did not state until today: the shipped composition has no second
+construction source — `GenerationMechanics::for_live_session` REFUSES a
+shell-routed session with no generation — and what stays reachable is the
+App-registry road for compositions that have none by design. That is a product
+decision, asked as `Q144`, not an unowned cleanup.

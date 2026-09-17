@@ -71,6 +71,25 @@ CITED = re.compile(rf"`({_NAME_BODY})`")
 # ⚠ It is a heuristic and it has a cost: a real test named in four or five words
 # is invisible to this checker. That is the trade for being gateable, and the
 # number to revisit if the convention changes.
+#
+# ⛔⛤ **AND THE COST IS MEASURED NOW, BECAUSE "JUST LOWER IT" IS THE OBVIOUS EDIT
+# AND IT DOES NOT WORK.** MEASURED 2026-09-17 over `docs/planning`: below the
+# cutoff there are **2,291 backticked names of which 1,127 do not resolve** --
+# 29/28 at one word, 858/585 at two, 944/422 at three, 351/84 at four, 109/8 at
+# five. The unresolved mass is not broken citations: it is CRATE names
+# (`ambition_platformer2d_actor_monolith`), content ids (`central_hub_main`,
+# `cutscene_lab_intro`) and Bevy/std API names, none of which has a `fn`, a `def`
+# or a tracked file with that stem. ⇒ Dropping to five costs three new roads
+# (Cargo package names, `mod NAME`, and a `cite-ok` for a name a page records as
+# NONEXISTENT on purpose) to gain 109 names, and dropping below that is a
+# different instrument.
+#
+# ⚠ **AND IT WOULD NOT HAVE CAUGHT THE DEFECT THAT PROMPTED THE MEASUREMENT.**
+# `room_publication_succeeded` -- a gate cited by that name in a source comment,
+# four ledger fields and the census page, where the function is
+# `publication_succeeded` -- is THREE words. A widening that stops at five leaves
+# it invisible, so this note exists to stop the next reader spending the roads
+# and believing the class is covered.
 MIN_WORDS = 6
 
 

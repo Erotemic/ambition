@@ -2167,8 +2167,10 @@ to be satisfiable by a frozen world, and its author gets no warning.
    COMPLAINT, AND ONE IS LANDED:**
    `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`. It routes the decision
    instead of making it — a sync-test arm either reads the health API or arrives
-   with a sentence naming what a frozen world breaks in it. Census today: **26
-   fixtures, 15 reading a health API, 9 adjudicated, 2 not arms.**
+   with a sentence naming what a frozen world breaks in it. Census 2026-09-17: **27
+   fixtures, 15 reading a health API, 10 adjudicated, 2 not arms** — re-derive
+   with `python3 scripts/a_rollback_arm_must_refuse_a_frozen_world.py`, which
+   prints the line.
    ⛔⛤ **THE POPULATION WAS ALREADY FIVE PAST THE 21 THIS ROW CERTIFIED, AND ONE
    OF THEM WAS INVISIBLE TO THE SWEEP.** Four new arms arrived in `game/`, and the
    26th is `examples/capability_demo/tests/rollback_round_trip.rs` — outside
@@ -2179,6 +2181,15 @@ to be satisfiable by a frozen world, and its author gets no warning.
    enumerates `git ls-files`.
    ⇒ Item 1 is still the real fix and still wants a maintainer (`Q138`). This only means
    the twenty-seventh arm's author gets the warning item 0 says they do not.
+   ⭐ **AND THE TWENTY-SEVENTH ARRIVED THE NEXT DAY AND THE GUARD CAUGHT IT.**
+   `cut_rope_arena`'s rewind arm compares a DELTA between two worlds — the beat
+   clock against the tick count — which a frozen rollback world satisfies
+   perfectly, because it freezes both sides of the subtraction. The only floor
+   was on the fixed-tick CONTROL, which is the half that cannot freeze. The
+   repair is a liveness assertion the arm needs for its own sake,
+   `rollback_ticks >= FRAMES_OF_WAITING`, not a health call bolted on the end.
+   ⇒ Item 0's claim is measured now rather than predicted: the twenty-seventh
+   arm WAS exposed, and its author got the warning.
 
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay
 

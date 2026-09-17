@@ -1230,6 +1230,12 @@ GGRS sync-test window and `4.0167` without — one frame, which is exactly what 
 unrestored value looks like at a glance. `SimTick` said **241 against 240**: the
 sync-test harness steps once more.
 
+⚠ **AND THE REPOSITORY HAD ALREADY MEASURED THAT OFF-BY-ONE**, in
+`queue.md`'s ROLLBACK-DEAD-SESSION row: over 240 `sim.step()` calls a sync-test
+harness reads `1, 41, 81, 121, 161, 201, 241` where a session-less one reads
+`0, 40, …, 240`. ⇒ Before treating a one-frame difference between two harnesses
+as a finding, look for the row that already counted it.
+
 ⇒ **The property is a RATE, not a value.** Assert that the subject advanced the
 same amount PER TICK in both worlds, and read the tick counter as the control.
 The real defect is not subtle once the control is there: with the registration

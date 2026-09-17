@@ -671,7 +671,7 @@ between peers at all.** The two questions are:
 | question | what answers it | the two rows' verdict |
 |---|---|---|
 | does a rewind restore this value correctly? | `RollbackRestoreAudit` + a value probe | ✔ yes, both of them |
-| do two peers agree about this value? | nothing this repository installs | ⛔ unmeasured, and unmeasurABLE here |
+| do two peers agree about this value? | no SESSION compares it; a two-HOST arm can | ⚠ see below — measured for `actor.animation_facts`, still unmeasured for the rest |
 
 So `item.ground_item` and `actor.animation_facts` are cleared of a LOCAL RESTORE
 defect, which is a real class and was worth ruling out — the audit's five other
@@ -684,11 +684,43 @@ looks like from inside one App.
 of them the same way would produce ten more "clean under local resimulation"
 verdicts that do not answer the question, and would read in this page as ten rows
 cleared. The question the 25 actually pose is ID-PEER's acceptance test — two Apps
-with different prior local histories entering the same peer-agreed session and
-agreeing on mechanical state — and it cannot be asked until a session exists that
-has two peers in it. **`Q128` and the absent P2P session are the same blocker
-wearing two names.** The 25 are a ranked list of what that session would need to
-compare; they are not ten more measurements waiting to be taken.
+with different prior local histories entering the same route and agreeing on
+mechanical state. **`Q128` and the absent P2P session are the same blocker wearing
+two names** for the TIMELINE half, and the 25 are a ranked list of what a real
+session would need to compare.
+
+⭐⭐ **BUT THE STATE HALF OF THAT ACCEPTANCE TEST CAN BE ASKED TODAY, AND THIS
+PAGE SAID IT COULD NOT — CORRECTED 2026-09-16.** The table above read
+*"unmeasured, and unmeasurABLE here"*, which conflated two different absences: no
+P2P SESSION can be built (`SyncTestSession` is the only one this workspace
+constructs), but two APPS WITH DIFFERENT LOCAL HISTORIES can, and comparing what
+they compute is a different KIND of evidence from replaying one App against its
+own past. `two_local_histories_compute_the_same_mechanical_values`
+(`game/ambition_app/tests/shell_host_lifecycle.rs`) launches the shipped Ambition
+route first in one host and third in another — scope `0` / epoch `1` against scope
+`2` / epoch `3`, asserted first so the comparison is controlled — and compares
+`BodyAnimFacts` BITWISE, keyed by canonical `SimId`, over 120 steps. It agrees.
+
+⚠ **WHAT IT IS NOT.** No transport, no input exchange, no interleaving, no
+timeline rebase — so it does not answer `Q128` and does not retire N2. And its
+strength is entirely in its floors: the census must take more than ONE value
+across the window, or it is a verdict about rest wearing a verdict about motion,
+which is the trap this page recorded one section up. The ground items in that
+route ARE at rest — measured — so their half of the arm is labelled as witnessing
+CONSTRUCTION agreement rather than per-tick agreement.
+
+⛔⛤ **AND THE FIRST ATTEMPT AT IT WAS VACUOUS.** Two `Platformer2dSimHarness`
+instances built in one process were compared and agreed — then their tokens were
+printed and both read `SessionScopeId(0)` at tick 1. A fresh App is a fresh
+counter, so a bare sim harness cannot CARRY a differing history; that comparison
+was one input against itself. ⇒ **The differing history has to live inside ONE App
+that has been somewhere first**, which is why this arm is in the shell-host file
+and not beside the probe that measured the same rows locally.
+
+⇒ So the remaining ten are still not ten more LOCAL resimulation measurements.
+They are ten more rows that the two-host arm above could be extended to, one at a
+time, each costing the same thing the first one did: a projection, and a verb
+that moves it.
 
 ⓘ The instrument stays, because it is cheap and its class is real: one generic
 function (`measure::<T>`) plus four floors

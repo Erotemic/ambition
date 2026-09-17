@@ -99,14 +99,16 @@ RULING — [`Q128`](../awaiting-maintainer-decision.md#q128--should-the-simulati
 value is inside the checksum two peers compare, and it counts every sim step this
 App has run including menu frames. Two Apps running for different lengths of time
 disagree from the first compared frame, before anything else matters. It is the
-last open road of the ID-PEER campaign and the only one engineering cannot close
+one of ID-PEER's three open roads, and the only one engineering cannot close
 alone: a projection excluding the tick would exclude the TIMELINE, so what is
 needed is a session-relative tick rebased when peers agree to start — and where
-that agreement comes from is N2's transport, not a refactor.
+that agreement comes from is N2's transport, not a refactor. ⚠ This line read
+*"the LAST open road"* while two others were open beside it, one of them the
+25 float rows below; re-derive from that row's table rather than from here.
 
 ⚠ **THE ORDERING BETWEEN N1 AND N2 IS THEREFORE NOT STRICT HERE.** This section's
 premise is that transport should not hide local deterministic defects, and that
-still holds for the other nine roads. But this one defect cannot be observed
+still holds for every road but this one. But this defect cannot be observed
 locally at all: the only sessions in use are `SyncTestSession`, one machine
 rewinding itself, and a canary comparing a machine against its own past is
 structurally incapable of catching a two-peer disagreement. So it will not
@@ -417,12 +419,26 @@ same rollback-visible state.
 than left to a guard. `game/ambition_app/tests/id_peer_audit.rs` reads the live
 rollback registry and asks whether a host-local TYPE is registered; the two
 worst instances were a canonical type whose PROVENANCE was local — a counter
-inside a constructor argument, and a counter inside a singleton's key. Those are
-held by value-level arms in the crate that MINTS each identity.
+inside a constructor argument, and a counter inside a singleton's key.
 
-⇒ Nine roads are closed and two are open; the table and the arm holding each one
-are the ID-PEER row in [`../queue.md`](../queue.md). One of the two is netcode's,
-below; the other is `Q122`, the snapshot schema fingerprint hashing prose.
+⛔⛤ **AND THIS PAGE SAID THOSE WERE HELD BY "value-level arms in the crate that
+MINTS each identity", WHICH WAS THE TRAP, NOT THE RULE.** Corrected 2026-09-16
+from `id_peer_audit.rs`'s own routing note, which was rewritten after a poison at
+the minting crate's helper did not move the census: the shipped fixture took a
+different road entirely. **The road, not the crate.** What holds each one is a
+value census over a BUILT WORLD across two local histories
+(`two_local_histories_name_every_simulated_entity_identically`, which asserts the
+local tokens DIFFER first so the comparison is controlled), or closure by SHAPE
+where no argument can carry a local term (`SimId::match_spawn`). ⇒ Ask which
+function the SHIPPED composition calls before writing either.
+
+⇒ The table and the arm holding each road are the ID-PEER row in
+[`../queue.md`](../queue.md), which is where the count is re-derived rather than
+copied. **TWO of the three open roads are netcode's own**, and neither waits on a
+refactor: the absolute `SimTick` (`Q128`, above) and the 25 unchecksummed float
+rows, which carry no host-local id at all — they are simply never compared
+between peers, so only N2 can observe them. The third is `Q122`, the snapshot
+schema fingerprint hashing prose.
 
 ## Confirmed effects
 

@@ -1115,6 +1115,35 @@ fn local_lifecycle_tokens(app: &mut App) -> String {
     format!("{scope} {epochs:?}")
 }
 
+/// The pair every differing-history arm needs: the same shipped route reached by
+/// two different local route histories.
+///
+/// ⭐ ONE ROAD, TWO QUESTIONS. The identity arm asks whether the two worlds NAME
+/// their entities the same; the value arm asks whether they COMPUTE the same
+/// numbers. Both need the same construction and the same control, and building it
+/// twice is how the control drifts out of one of them.
+///
+/// Returns `(fresh, veteran)`: Ambition launched first, and Ambition launched
+/// third after Sanic and Mary-O have each come and gone.
+fn two_hosts_with_different_route_histories() -> (App, App) {
+    let mut fresh = shell_host_app();
+    settle(&mut fresh);
+    launch_labeled(&mut fresh, "Ambition");
+    settle(&mut fresh);
+
+    let mut veteran = shell_host_app();
+    settle(&mut veteran);
+    for provider in ["Sanic", "Mary-O"] {
+        launch_labeled(&mut veteran, provider);
+        settle(&mut veteran);
+        veteran.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(&mut veteran);
+    }
+    launch_labeled(&mut veteran, "Ambition");
+    settle(&mut veteran);
+    (fresh, veteran)
+}
+
 /// ⭐⭐ **THE SAME ROUTE, REACHED BY TWO DIFFERENT LOCAL HISTORIES, NAMES EVERY
 /// SIMULATED ENTITY IDENTICALLY — measured over the whole world, not one id.**
 ///
@@ -1146,23 +1175,7 @@ fn local_lifecycle_tokens(app: &mut App) -> String {
 /// actually found would fail the floor.
 #[test]
 fn two_local_histories_name_every_simulated_entity_identically() {
-    let mut first_launch = shell_host_app();
-    settle(&mut first_launch);
-    launch_labeled(&mut first_launch, "Ambition");
-    settle(&mut first_launch);
-
-    let mut third_launch = shell_host_app();
-    settle(&mut third_launch);
-    for provider in ["Sanic", "Mary-O"] {
-        launch_labeled(&mut third_launch, provider);
-        settle(&mut third_launch);
-        third_launch
-            .world_mut()
-            .write_message(ShellCommand::QuitToHome);
-        settle(&mut third_launch);
-    }
-    launch_labeled(&mut third_launch, "Ambition");
-    settle(&mut third_launch);
+    let (mut first_launch, mut third_launch) = two_hosts_with_different_route_histories();
 
     // The comparison is only worth anything if the INPUT moved.
     let fresh_tokens = local_lifecycle_tokens(&mut first_launch);
@@ -1215,5 +1228,178 @@ fn two_local_histories_name_every_simulated_entity_identically() {
         "exactly the session root, the player slot, and the App-build encounter \
          authority are shared between two providers; anything else shared is one \
          provider's content leaking into another's identity space"
+    );
+}
+
+type BodyAnimFacts = ambition_platformer2d::characters::actor::BodyAnimFacts;
+type GroundItem = ambition_platformer2d::item::GroundItem;
+
+/// Every animation-fact carrier, BITWISE, keyed by canonical identity.
+///
+/// ⛔ `SimId`-keyed rather than entity-keyed, because two hosts that built the
+/// same world in a different order hold different `Entity` values by
+/// construction — the identity arm above is what makes this key trustworthy.
+/// ⛔ `to_bits`, not `==`: this is a peer-agreement question, and two floats that
+/// compare equal under a tolerance are still two different checksums.
+fn animation_facts(app: &mut App) -> Vec<String> {
+    let world = app.world_mut();
+    let mut rows: Vec<String> = world
+        .query::<(&ambition_platformer2d::observation::SimId, &BodyAnimFacts)>()
+        .iter(world)
+        .map(|(id, facts)| {
+            format!(
+                "{}|{:08x}|{:08x}|{}|{:08x}|{}|{:08x}|{}|{:08x}|{:08x}",
+                id.as_str(),
+                facts.slash_anim_timer.to_bits(),
+                facts.land_anim_timer.to_bits(),
+                u8::from(facts.land_anim_hard),
+                facts.dash_startup_timer.to_bits(),
+                u8::from(facts.anim_prev_dashing),
+                facts.shoot_anim_timer.to_bits(),
+                u8::from(facts.aim_anim_active),
+                facts.wall_jump_anim_timer.to_bits(),
+                facts.interact_anim_timer.to_bits(),
+            )
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// Every ground item's `pos`/`vel`/`half_extent`, bitwise, keyed the same way.
+fn ground_item_values(app: &mut App) -> Vec<String> {
+    let world = app.world_mut();
+    let mut rows: Vec<String> = world
+        .query::<(&ambition_platformer2d::observation::SimId, &GroundItem)>()
+        .iter(world)
+        .map(|(id, item)| {
+            format!(
+                "{}|{:08x},{:08x}|{:08x},{:08x}|{:08x},{:08x}",
+                id.as_str(),
+                item.pos.x.to_bits(),
+                item.pos.y.to_bits(),
+                item.vel.x.to_bits(),
+                item.vel.y.to_bits(),
+                item.half_extent.x.to_bits(),
+                item.half_extent.y.to_bits(),
+            )
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// ⭐⭐ **S7's ACCEPTANCE TEST HAS A SHAPE THAT CAN BE ASKED TODAY, AND
+/// `simulation-authority-and-determinism.md` SAID IT COULD NOT.**
+///
+/// That page ranks 25 rows that sit OUTSIDE the session checksum, are read by an
+/// unfiltered per-tick query, and carry a float. Two of them were measured clean
+/// under local resimulation, and the page then records the limit honestly: a
+/// value outside the peer checksum can be perfectly reproducible under one
+/// machine rewinding itself and still differ between two peers, *because nothing
+/// compares it between peers at all*. Its table answers *"do two peers agree
+/// about this value?"* with **"unmeasured, and unmeasurABLE here"**.
+///
+/// ⇒ The second half of that is too strong, and this arm is the counter-example.
+/// A P2P SESSION cannot be built — `SyncTestSession` is the only one this
+/// workspace constructs — but **two Apps with different local histories can**, and
+/// comparing what they compute is a different KIND of evidence from replaying one
+/// App against its own past. It does not replace N2: no transport, no input
+/// exchange, no interleaving. It answers the state half.
+///
+/// ⛔⛤ **AND THE FIRST VERSION OF THIS MEASUREMENT WAS VACUOUS, WHICH IS WHY THE
+/// CONTROL IS THE FIRST ASSERTION.** Two `Platformer2dSimHarness` instances built
+/// in one process were compared and agreed — and then the tokens were printed:
+/// both read `SessionScopeId(0)` at tick 1. A fresh App is a fresh counter, so a
+/// bare sim harness cannot CARRY a differing history; that comparison was one
+/// input against itself. The differing history has to live inside ONE App that
+/// has been somewhere first, which is what the shell host provides.
+///
+/// ⚠ **AND THE TWO HALVES BELOW ARE DIFFERENT CLAIMS, LABELLED SO NOBODY READS
+/// THE WEAKER ONE AS THE STRONGER.** The ground items are AT REST in this route
+/// — measured, not assumed: their census does not move across the window — so
+/// that half witnesses CONSTRUCTION agreement. The animation facts move, so that
+/// half witnesses PER-TICK agreement, and its motion is floored rather than
+/// hoped for.
+#[test]
+fn two_local_histories_compute_the_same_mechanical_values() {
+    const STEPS: usize = 120;
+
+    let (mut fresh, mut veteran) = two_hosts_with_different_route_histories();
+
+    // The control, first: without it every assertion below is one reading
+    // compared with itself.
+    let fresh_tokens = local_lifecycle_tokens(&mut fresh);
+    let veteran_tokens = local_lifecycle_tokens(&mut veteran);
+    assert_ne!(
+        fresh_tokens, veteran_tokens,
+        "the two hosts reached Ambition with the same local lifecycle state, so \
+         nothing below is about a host's history reaching its mechanics"
+    );
+
+    // ── The construction half: values a route builds and does not then move.
+    let fresh_items = ground_item_values(&mut fresh);
+    let veteran_items = ground_item_values(&mut veteran);
+    assert!(
+        fresh_items.len() >= 14,
+        "the ground-item census collapsed to {} rows, so it is reading a fragment \
+         of the world rather than the world",
+        fresh_items.len()
+    );
+    assert_eq!(
+        fresh_items, veteran_items,
+        "two hosts built the same route's ground items at different positions, \
+         sizes or velocities, decided by what each visited first \
+         ({fresh_tokens} vs {veteran_tokens})"
+    );
+
+    // ── The per-tick half.
+    let mut fresh_trace = Vec::with_capacity(STEPS);
+    let mut veteran_trace = Vec::with_capacity(STEPS);
+    for _ in 0..STEPS {
+        fresh.update();
+        veteran.update();
+        fresh_trace.push(animation_facts(&mut fresh));
+        veteran_trace.push(animation_facts(&mut veteran));
+    }
+
+    assert!(
+        fresh_trace.iter().all(|rows| rows.len() >= 2),
+        "the animation-fact census lost a carrier mid-window, so some steps \
+         compare fewer bodies than others"
+    );
+
+    // ⭐ THE MOTION FLOOR, AND IT IS THE ASSERTION THIS FILE'S SUBJECT MOST NEEDS.
+    // `simulation-authority-and-determinism.md` records the same trap one level
+    // down: a window chosen from a field name produced 36 clean comparisons of
+    // values that never left `0.000`, and a verdict about rest reads exactly like
+    // a verdict about motion. A census that takes ONE value across the whole
+    // window agrees with itself for free.
+    let distinct: std::collections::BTreeSet<&Vec<String>> = fresh_trace.iter().collect();
+    assert!(
+        distinct.len() > 1,
+        "the animation facts took ONE value across all {STEPS} steps, so the \
+         agreement below is about a world at rest"
+    );
+
+    // ⛔ THE FIRST DIVERGING STEP, NOT THE WHOLE TRACE. A bare `assert_eq!` over
+    // 120 steps prints both traces in full — hundreds of lines in which the one
+    // row that moved is invisible. A comparison this wide has to report where it
+    // broke, or its failure is unreadable and gets re-run rather than read.
+    let first_divergence = fresh_trace
+        .iter()
+        .zip(veteran_trace.iter())
+        .enumerate()
+        .find(|(_, (fresh_rows, veteran_rows))| fresh_rows != veteran_rows);
+    assert!(
+        first_divergence.is_none(),
+        "two hosts computed different animation facts for the same route from \
+         the same starting world, decided by what each visited first \
+         ({fresh_tokens} vs {veteran_tokens}). That is a value outside the peer \
+         checksum diverging on local history — S7's question answered as a \
+         defect.\n  step {}\n  fresh   {:?}\n  veteran {:?}",
+        first_divergence.map(|(step, _)| step).unwrap_or_default(),
+        first_divergence.map(|(_, (fresh_rows, _))| fresh_rows),
+        first_divergence.map(|(_, (_, veteran_rows))| veteran_rows),
     );
 }

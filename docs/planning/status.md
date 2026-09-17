@@ -85,7 +85,7 @@ table: every open road is blocked outside the campaign.**
 | open road | blocked on |
 | --- | --- |
 | the snapshot schema fingerprint hashing English prose | [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — where the mechanical/presentation line falls. The naive fix is refuted in the row |
-| the 25 unchecksummed float rows | netcode **N2** — they carry no host-local id and are simply never compared, which no projection fixes and no `SyncTestSession` can observe |
+| the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: a two-host differing-history arm measures one of them today (see the row) |
 | the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
 
 ⚠ **AND NOTHING IN THE REPOSITORY CAN OBSERVE ANY OF IT.** `SyncTestSession` is

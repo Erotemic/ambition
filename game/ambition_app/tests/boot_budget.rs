@@ -209,11 +209,12 @@ fn no_system_is_registered_twice_in_one_schedule() {
         "no systems at all — this is measuring an app that was never composed"
     );
 
-    // ⭐⭐ THE TEN DELIBERATE ONES, EACH WITH THE REASON ITS OWN SITE GIVES.
+    // ⭐⭐ THE DELIBERATE ONES, EACH WITH THE REASON ITS OWN SITE GIVES.
     //
     // Widening the guard to `GgrsSchedule` turned up ten duplicates, and every
-    // one of them is intentional and already argued for in the code that writes
-    // it. ⇒ The allow-list is not an exemption for them; it is the point at which
+    // one of them was intentional and already argued for in the code that wrote
+    // it. Five of the ten have since stopped existing rather than stopped being
+    // excused — see the note where they used to be listed. ⇒ The allow-list is not an exemption for them; it is the point at which
     // an accident becomes a DECISION. Anything doubled that is not on this list is
     // a system nobody decided to run twice.
     //
@@ -259,15 +260,20 @@ fn no_system_is_registered_twice_in_one_schedule() {
             "target_volumes::refresh_boss_damageable_volumes",
             "two consumers with different timing needs; damage reads the second",
         ),
-        // `ambition_portal2d/src/rollback_registration.rs` — each of these is
-        // registered under BOTH its old and its new name, deliberately, so the
-        // compatibility registration keeps the rollback schema byte-for-byte. The
-        // clear runs twice on a channel that is already empty the second time.
-        ("LoadWorld", "ClearPortals", "historical alias, schema compatibility"),
-        ("LoadWorld", "DropPortalGun", "historical alias, schema compatibility"),
-        ("LoadWorld", "FirePortalGun", "historical alias, schema compatibility"),
-        ("LoadWorld", "PickUpPortalGun", "historical alias, schema compatibility"),
-        ("LoadWorld", "TogglePortalGun", "historical alias, schema compatibility"),
+        // ⛔⛤ **FIVE `LoadWorld` ENTRIES LEFT THIS LIST ON 2026-09-17, AND THE
+        // STALE-DIRECTION CHECK IS WHAT SENT ME HERE.** `ClearPortals`,
+        // `DropPortalGun`, `FirePortalGun`, `PickUpPortalGun` and
+        // `TogglePortalGun` were each registered under both an old and a new
+        // rollback name *"so the compatibility registration keeps the rollback
+        // schema byte-for-byte"*, and this list excused the second
+        // `clear_message_channel` that came with each alias. The aliases are
+        // gone (schema v196 → v197), so the exemptions had to go in the same
+        // commit: an excuse that no longer describes anything is a hole with a
+        // comment over it, and this list's own doc says so.
+        // ⇒ What replaced them is not another exemption but an impossibility:
+        // `no_two_schema_rows_describe_the_same_type_the_same_way`
+        // (`rollback_schema_baseline.rs`) refuses a second registration of one
+        // type under one kind, which is where the duplicate systems came from.
     ];
     let excused = |schedule: &str, name: &str| {
         deliberate

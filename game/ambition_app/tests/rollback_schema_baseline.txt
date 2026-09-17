@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v196
+ggrs-rollback-schema-v197
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -356,13 +356,8 @@ message.pick_up_portal_gun	message-clear	PickUpPortalGun	clear abandoned-future 
 message.player_heal_requested	message-clear	PlayerHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_body_entered	message-clear	PortalBodyEntered	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_body_transited	message-clear	PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_clear	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_drop	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_gun_equipped	message-clear	PortalGunEquipped	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_fire	message-clear	FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_pick_up	message-clear	PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_toggle	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping

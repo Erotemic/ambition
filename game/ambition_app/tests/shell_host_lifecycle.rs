@@ -1435,7 +1435,7 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 /// HOSTILE VERSION OF THE ARM ABOVE, AND IT FOUND SOMETHING.**
 ///
 /// The arm above compares two hand-named component types. This one asks the
-/// rollback registry which registrations FEED THE PEER CHECKSUM (145 of 493 at
+/// rollback registry which registrations FEED THE PEER CHECKSUM (145 of 488 at
 /// HEAD), censuses exactly those on both hosts, and compares. Requested by the
 /// GPT architecture review of 2026-09-16 as the last check before calling
 /// ID-PEER complete for its current scope. It was not clean.

@@ -573,7 +573,21 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⚠ `OccurrenceBaseline::checksum` ALSO MOVES, though nothing about the baseline
 /// itself changed: it gained a domain. A projection's bytes are peer-visible
 /// whether or not the value behind them did anything.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 196;
+/// ⛔⛤ 196 -> 197: FIVE MESSAGE TYPES CARRIED TWO ROWS EACH, AND THE SECOND ROW
+/// WAS ALSO A SECOND SYSTEM. `ClearPortals`, `DropPortalGun`, `FirePortalGun`,
+/// `PickUpPortalGun` and `TogglePortalGun` were each registered under a canonical
+/// name and a historical alias (`message.portal_clear`, `message.portal_gun_drop`
+/// …), retained by a carve *"so the full compatibility registration keeps the
+/// existing rollback schema byte-for-byte"*. Nothing outside the definition and
+/// the baseline ever read the alias.
+/// ⚠ IT WAS NOT ONLY A DUPLICATED ROW. `should_install_backend` dedupes on the
+/// registration's stable NAME, not on its type, so each alias also installed a
+/// second `clear_message_channel::<T>` into `LoadWorld::Mapping`: ten systems
+/// doing five jobs. This is the one bump where the dump SHRINKS, by exactly the
+/// five alias rows, and no mechanical state enters or leaves the snapshot.
+/// ⇒ Held by `no_two_schema_rows_describe_the_same_type_the_same_way`, so an
+/// alias cannot come back as a compatibility kindness a second time.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 197;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -63,9 +63,6 @@ where
         "republished from the authoritative collision world each frame",
     );
     registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.clear_portals");
-    // Historical alias retained so the full compatibility registration keeps the existing
-    // rollback schema byte-for-byte.
-    registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.portal_clear");
     registrar.clear_message_on_rollback::<crate::PortalBodyEntered>(
         OWNER,
         "message.portal_body_entered",
@@ -106,21 +103,15 @@ where
         |pair| u64::from(pair.0),
     );
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.drop_portal_gun");
-    registrar.clear_message_on_rollback::<crate::DropPortalGun>(OWNER, "message.portal_gun_drop");
     registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.fire_portal_gun");
-    registrar.clear_message_on_rollback::<crate::FirePortalGun>(OWNER, "message.portal_gun_fire");
     registrar
         .clear_message_on_rollback::<crate::PickUpPortalGun>(OWNER, "message.pick_up_portal_gun");
-    registrar
-        .clear_message_on_rollback::<crate::PickUpPortalGun>(OWNER, "message.portal_gun_pick_up");
     registrar.clear_message_on_rollback::<crate::PortalGunEquipped>(
         OWNER,
         "message.portal_gun_equipped",
     );
     registrar
         .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.toggle_portal_gun");
-    registrar
-        .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.portal_gun_toggle");
 }
 
 /// Backward-compatible full portal registration used by the existing runtime.

@@ -131,9 +131,9 @@ fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
 
     // ⛔ THE PREMISE, FIRST. Two empty registries are byte-identical, and a
     // comparison between them would report the success condition while saying
-    // nothing. The recorded baseline is 493 rows; either side collapsing is a
-    // broken build, not a passing claim about composition. 494 lines today: the
-    // version header plus the 493 recorded rows.
+    // nothing. The recorded baseline is 488 rows; either side collapsing is a
+    // broken build, not a passing claim about composition. 489 lines today: the
+    // version header plus the 488 recorded rows.
     let rows = |dump: &str| dump.lines().count();
     assert!(
         rows(&shipped_dump) > 400 && rows(&sandbox_dump) > 400,
@@ -226,5 +226,81 @@ fn the_causal_instrument_is_registered_and_outside_the_peer_schema() {
          These must register through `clear_instrument_message_on_rollback`, \
          whose kind answers `in_peer_schema_identity() == false`.",
         leaked.join("\n  "),
+    );
+}
+
+/// ⛔⛤ **ONE TYPE, ONE ROW, ONE SYSTEM — AND FIVE TYPES BROKE IT FOR A CARVE'S
+/// CONVENIENCE.** Five portal message types were each registered twice, under a
+/// canonical name and a historical alias, by a comment reading *"retained so the
+/// full compatibility registration keeps the existing rollback schema
+/// byte-for-byte"*. Nothing outside the definition and the baseline read the
+/// alias.
+///
+/// ⚠ **THE COST WAS NOT ONLY A DUPLICATED ROW IN THE PEER SCHEMA.**
+/// `should_install_backend` dedupes on the registration's stable NAME rather
+/// than on its type, so each alias also installed a second
+/// `clear_message_channel::<T>` into `LoadWorld::Mapping`. A "kindness" to the
+/// dump bought ten systems doing five jobs, and the dump's own baseline could
+/// not see it because both spellings were in the recorded file.
+///
+/// ⇒ The invariant is stated over (TYPE, KIND) rather than over the type alone,
+/// because one type legitimately holds two rows of DIFFERENT kinds — a component
+/// that is both `require_rollback` and `rollback_component_clone` says two
+/// different things about itself. Two rows of the same kind say one thing twice.
+#[test]
+fn no_two_schema_rows_describe_the_same_type_the_same_way() {
+    use std::collections::BTreeMap;
+
+    let sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz()),
+    )
+    .expect("sandbox sim builds");
+
+    let dump = sim
+        .world()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
+        .expect("rollback registry is installed by the engine plugins")
+        .schema_dump();
+
+    // ⛔ THE HEADER IS NOT A ROW. `schema_dump`'s first line is the schema
+    // version, which has no tab-separated shape and would parse as a row with
+    // one field.
+    let mut seen: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    for line in dump.lines().skip(1) {
+        let mut fields = line.split('\t');
+        let (Some(name), Some(kind), Some(type_name)) =
+            (fields.next(), fields.next(), fields.next())
+        else {
+            continue;
+        };
+        seen.entry((type_name, kind)).or_default().push(name);
+    }
+
+    // ⛔ THE ANTI-VACUITY FLOOR. A parser that split on the wrong character
+    // produces an empty map, and "no duplicates" over nothing is the same green
+    // as "no duplicates" over 488 rows.
+    assert!(
+        seen.len() > 400,
+        "the dump parsed into {} (type, kind) pairs, which is far below the \
+         registry's size — this arm is reading its own parser rather than the \
+         schema",
+        seen.len()
+    );
+
+    let duplicated: Vec<String> = seen
+        .iter()
+        .filter(|(_, names)| names.len() > 1)
+        .map(|((type_name, kind), names)| format!("{type_name}  {kind}  as {names:?}"))
+        .collect();
+    assert!(
+        duplicated.is_empty(),
+        "these types are registered more than once under the SAME kind, so the \
+         peer schema describes one fact twice and the backend installs the work \
+         twice:\n  {}\n\n\
+         ⛔ An alias is not free. The dedupe in `should_install_backend` is keyed \
+         on the registration NAME, so a second spelling is a second system. Pick \
+         one name; a rename is a schema-version bump, not an addition.",
+        duplicated.join("\n  ")
     );
 }

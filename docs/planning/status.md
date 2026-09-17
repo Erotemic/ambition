@@ -115,8 +115,9 @@ live in the owner row, because a summary of them here would rot.
 the only one constructed, one machine rewinding itself, zero distance, so a desync
 canary compares a machine against its own past. ⭐ **A TEST CAN, THOUGH, AND THAT
 IS NEW.** `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-builds two hosts with different route histories, asks the registry which 145 of its
-493 registrations feed the peer checksum, and compares exactly those. It found three
+builds two hosts with different route histories, asks the registry which of its
+registrations feed the peer checksum — 145 of 488 at HEAD, 2026-09-17 — and
+compares exactly those. It found three
 defects on its first run — after a JOIN that narrowed 364 probes to 145, because
 the probe collection does not know which rows peers compare and over-reported
 without it. ⭐ **The third cost two causes and one refutation.** Fixing the

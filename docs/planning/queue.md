@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,251 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,260 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -411,26 +411,35 @@ to carry it.
 | **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The TIMELINE half's blocker is N2's absent P2P session, the same blocker `Q128` has. ⭐⭐ **THE STATE HALF IS NOT BLOCKED, AND SAYING IT WAS COST THIS ROW A ROAD — CORRECTED 2026-09-16.** No P2P SESSION can be built; two APPS WITH DIFFERENT LOCAL HISTORIES can. `two_local_histories_compute_the_same_mechanical_values` (`game/ambition_app/tests/shell_host_lifecycle.rs`) launches the shipped Ambition route first in one host and third in another (scope `0`/epoch `1` vs scope `2`/epoch `3`, asserted first), then compares `BodyAnimFacts` BITWISE by canonical `SimId` across 120 steps — and the ground items by construction, labelled as such because they are measured AT REST in that route. It agrees. ⚠ It does not retire N2: no transport, no input exchange, no interleaving, no rebase. ⛔ Its first version was VACUOUS — two `Platformer2dSimHarness` instances in one process both read `SessionScopeId(0)` at tick 1, because a fresh App is a fresh counter, so the differing history has to live inside ONE App that has been somewhere first. ⭐⭐ **AND THE STATE HALF NOW COVERS ALL TWELVE SHARP ROWS RATHER THAN TWO, MEASURED 2026-09-16.** `two_local_histories_agree_about_the_sharp_unchecksummed_rows` (same file) takes the COMPLEMENT of the peer-visible arm's join: it asserts each of S7's twelve mutably-written float rows does NOT feed the peer checksum (so the two arms cannot drift into reading the same surface), then compares the probe census of those rows across the two hosts at steps 0/1/30/120. **12 of 12 registered, 6 carried state and agree** — `actor.animation_facts`, `actor.render_size`, `entity.transform`, `item.ground_item`, `player.blink_camera_state`, `portal.gun_pickup`. ⚠ The other six carry NOTHING AT REST in the shipped Ambition route, which is a fact about the route rather than about the rows, and the arm prints the split rather than reporting twelve. ⛔ The anti-vacuity floor is on the INTERSECTION: poison-verified both ways — one row's value perturbed reddens it naming the row, and misspelling every row name trips the floor with *"the registry spells 0 of the 12"* instead of passing over nothing. ⇒ What remains for those six is a route that places them, not a projection |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
-⛔⛤ **AND THE HOSTILE RUN FOUND AN INSTRUMENT DEFECT ALONGSIDE THE THREE CODE
-ONES, WHICH IS WHY ITS FIRST NUMBER WAS NOT ITS ANSWER.** Three registration arms
-— `rollback_component_canonical_checksum`, `rollback_resource_canonical_checksum`
+✔ **AND THE HOSTILE RUN FOUND AN INSTRUMENT DEFECT ALONGSIDE THE THREE CODE
+ONES, WHICH IS WHY ITS FIRST NUMBER WAS NOT ITS ANSWER. CLOSED 2026-09-16
+(`decdb036b`).** Three registration arms —
+`rollback_component_canonical_checksum`, `rollback_resource_canonical_checksum`
 and `rollback_resource_optional_canonical_checksum` — each hand a
-`fn(&T) -> u64` to GGRS and then register the diagnostic probe with
+`fn(&T) -> u64` to GGRS and then registered the diagnostic probe with
 `census_state`: the whole canonical state, including the very local terms the
-projection exists to drop. `census_with`'s own docstring asserts the opposite —
-*"the registration arms that take `checksum: fn(&T) -> u64` hand the same function
-to GGRS and to this, so the probe measures byte-for-byte what the session's
-aggregate measures"* — and that is true of ONE of the four such arms.
+projection exists to drop. `census_with`'s docstring asserted the opposite of
+its own callers — *"the registration arms that take `checksum: fn(&T) -> u64`
+hand the same function to GGRS and to this"* — which was true of ONE of the four
+such arms. So every peer question this campaign asked through the probe was
+asked of the wrong function for every road ID-PEER projected.
 
-⇒ **`TransactionId` is the proof and the warning.** Its census differs between the
-two hosts; its ACTUAL projection, folded by hand, is `(18, 5177721695145214374)`
-on both. ID-PEER's `TransactionId` closure holds and the probe was over-reporting.
-⚠ These are exactly the arms this campaign used to close its roads, so a peer
-question asked through the probe is asked of the wrong function for every road
-ID-PEER projected. ⭐ The repair is NOT to swap `census_state` for `census_with`:
-a RESTORE audit must compare whole state, and that is what the probe is for. The
-two questions need two censuses, which is a design decision rather than a typo —
-filed here rather than guessed at.
+⇒ **The repair was NOT to swap `census_state` for `census_with`, because a
+RESTORE audit must compare whole state and that is what the probe is for.** Two
+questions, two censuses: `ChecksumProbe` now carries an optional peer projection
+(`with_peer`), the three arms attach the same closure they hand GGRS, and
+`RollbackChecksumProbes::census_all_as_peers_compare` uses it where declared and
+falls back to whole state where a registration compares whole state anyway.
+`census_all` is unchanged and still answers the restore question.
+
+⭐ **`TransactionId` is the proof, and it was the standing waiver that proved the
+instrument rather than the code.** Under the whole-state census its row differs
+between the two hosts; under the projection GGRS actually compares it agrees.
+The two-host arm no longer carries an `EXPECTED_TO_DIFFER` entry for it — it
+compares the peer-projected census and asserts, via
+`peer_projected_type_names()`, that `TransactionId` is IN the projected set, so
+dropping the `with_peer` attachment reddens the arm instead of silently
+restoring the over-report. Poison-verified in that direction.
 
 ⚠ **AND THE FIRST RUN OF THE CENSUS ITSELF REPORTED SEVEN DIFFERING ROWS OVER ALL
 364 PROBES, WHICH IS NOT THE QUESTION.** `probes.rs` says so in its own words —

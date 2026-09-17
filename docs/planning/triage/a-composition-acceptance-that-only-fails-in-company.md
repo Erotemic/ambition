@@ -243,6 +243,24 @@ a single pass is not.
 did not have on 2026-09-10 is a 16-second reproduction and a known rate to size
 the runs against.
 
+## A red in company is not automatically this class — 2026-09-17
+
+⛔ **TWO ARMS WENT RED IN ONE FULL `--test app_it` RUN AND NEITHER BELONGED
+HERE.** `edit_to_play_through_the_shell::an_edit_on_disk_reaches_the_constructed_actor_through_the_shell`
+and `id_peer_audit::two_hosts_with_different_local_history_seat_the_same_agreed_match`
+failed together at **709 passed / 2 failed / 45 ignored**, and the shape invites
+this page: two arms, only in a full run, both green the last time anyone looked.
+
+⚠ **THE TELL WAS THAT BOTH CARRIED THE SAME PANIC AT THE SAME SOURCE LINE.** An
+intermittent shared-state fault does not produce one message twice; a new
+deterministic check does. Both arms re-enter a live route, a `debug_assert` added
+the previous day fired on the player body for one frame, and each reproduced
+ALONE in ~1.5 s. Cause found, fixed, and the same suite is **711 / 0 / 45**.
+
+⇒ **Read the failure TEXT before the failure PATTERN.** "Only in the full run" is
+also what a check that only the full run exercises looks like, and this page's
+own rate makes it easy to file a real defect as another sample.
+
 ## A fourth instance, 2026-09-16 (schema v195 lane)
 
 `shipping_shared_host_executes_the_full_multi_provider_acceptance_cycle` failed

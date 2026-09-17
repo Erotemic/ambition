@@ -23,6 +23,17 @@ checks is that the WRITER SET has not changed without a human writing down which
 schedule the new writer runs in. Each entry's reason is that human's reading of
 the body, dated; the ratchet is that a writer nobody adjudicated fails the lane.
 
+⛔⛤ **AND THE LIMITATION ABOVE HAS A CONSEQUENCE THIS DOCSTRING USED TO LEAVE
+FOR THE READER: MOVING AN EXISTING WRITER FROM THE SIM SCHEDULE INTO `Update`
+LEAVES THIS GREEN.** The set is unchanged, so the ratchet sees nothing, while the
+invariant it is named after is exactly what broke. ⇒ This is a REVIEW LEDGER, not
+rollback coverage, and it should not be counted as the latter. What would replace
+it is one behavioural arm — drive a cutscene trigger across a rewind in a
+sync-test world and assert the cutscene still starts — which holds the property
+under any schedule and needs no table. Until that exists this ratchet is what
+there is; when it exists this file should go, and taking a ratchet down is part
+of landing the arm, not a separate cleanup.
+
 ⚠ **TEST PATHS ARE COUNTED AND NOT RATCHETED.** A fixture that writes the queue
 is how the in-sim control arms are built, and requiring the table to track test
 churn would make the ratchet noisy for no gain. They are printed so a production

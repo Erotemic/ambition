@@ -2107,6 +2107,12 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
 /// because `RollbackId` is the Bevy `Entity` that first received `Rollback` and
 /// ordering by it would swap insertion history for allocation order — the same
 /// defect one layer down.
+///
+/// ⚠ **AND IT REFUSES WHILE A CANDIDATE WORLD IS IN FLIGHT**, because its
+/// enumeration is an ordinary query and `InactiveCandidate` is a disabling
+/// component. A second review pass found that; the function's own doc carries
+/// the reasoning, including why INCLUDING candidates would be worse than
+/// refusing.
 #[test]
 fn two_local_histories_compute_the_same_ggrs_component_checksums() {
     use ambition_platformer2d::platformer::sim_id::SimId;

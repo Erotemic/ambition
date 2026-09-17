@@ -234,7 +234,11 @@ fn warn_if_no_world_to_rewind(world: &World) {
     }
     bevy::log::warn!(
         target: "ambition_platformer2d::rollback",
-        "starting a rollback session with no session world: frame zero is an          EMPTY world, so the construction that runs next happens inside the          rollback window. A rollback cannot undo `Commands`, so the frames that          build the room will mismatch on every resimulation and GGRS will report          it only as a checksum difference. Activate the session world first, then          start the session — it rebases onto whatever is live."
+        "starting a rollback session with no session world: frame zero is an EMPTY world, so \
+         the construction that runs next happens inside the rollback window. A rollback \
+         cannot undo `Commands`, so the frames that build the room will mismatch on every \
+         resimulation and GGRS will report it only as a checksum difference. Activate the \
+         session world first, then start the session — it rebases onto whatever is live."
     );
 }
 
@@ -271,11 +275,18 @@ pub struct RollbackOrderRebase {
     /// Live rollback carriers at the moment of the rebase.
     pub carriers: usize,
     /// How many of them carry a canonical [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId).
+    ///
+    /// ⚠ Zero and MEANINGLESS when `hidden_candidates` is non-zero: nothing was
+    /// enumerated, because nothing was rebased.
     pub identified: usize,
     /// Orders this App had handed out before the rebase — including every one
     /// belonging to an entity that has since been despawned. The gap between
     /// this and `carriers` IS the host-local history being discarded.
     pub discarded_history: usize,
+    /// Rollback carriers hidden from ordinary queries as construction
+    /// candidates. ⛔ NON-ZERO MEANS NOTHING WAS REBASED — see
+    /// [`rebase_rollback_carrier_order`].
+    pub hidden_candidates: usize,
 }
 
 /// Rebase the GGRS carrier ORDER onto the live rollback population.
@@ -299,8 +310,34 @@ pub struct RollbackOrderRebase {
 /// insertion-history dependence with allocation-order dependence — the same
 /// defect one layer down, which is the trap the architecture review named. `SimId`
 /// is the peer-stable key the live population already carries. The previous order
-/// is the TIE-BREAK, because a candidate world and the live world may legitimately
-/// carry the same canonical identity at the same moment.
+/// is the TIE-BREAK.
+///
+/// ⛔⛤ **THE REASON GIVEN FOR THAT TIE-BREAK WAS WRONG AND IS WORTH RECORDING:**
+/// *"a candidate world and the live world may legitimately carry the same
+/// canonical identity at the same moment."* True of the WORLD and false of this
+/// query, which cannot see a candidate at all — see the refusal below. The
+/// tie-break is what makes the sort total on a population that should not
+/// contain a duplicate; `rollback_populated_timeline.rs` measures that every
+/// visible anchor's `SimId` is unique, so the tie-break is a fallback for a
+/// state that arm says does not occur, and BOTH of its keys are host-local.
+///
+/// ⛔⛤ **AND IT REFUSES WHILE A CANDIDATE WORLD IS IN FLIGHT, BECAUSE THE
+/// ENUMERATION BELOW CANNOT SEE ONE.** `InactiveCandidate` is a registered
+/// DISABLING component, so an ordinary `With<Rollback>` query skips every
+/// candidate root — and this repository already proves GGRS-shaped ordinary
+/// queries cannot see them
+/// (`construction/tests.rs::a_ggrs_shaped_ordinary_query_cannot_see_a_candidate`).
+/// A rebase taken over the visible half would leave a hidden carrier holding its
+/// `RollbackId` and absent from the rebuilt table, and `RollbackOrdered::order`
+/// PANICS for an id it does not know — so the crash would arrive later, on the
+/// checksum after that candidate was published.
+///
+/// ⇒ **The fix is not to include them.** The sort key is peer-stable
+/// (`SimId`), but an INDEX is positional: a candidate present on one peer and
+/// absent on the other shifts every order after it, which is the same
+/// host-local dependence this function exists to remove, re-entered through the
+/// front door. A timeline declaring frame zero mid-construction is the thing
+/// that is wrong, so this reports it and changes nothing.
 ///
 /// ⚠ **IT REBUILDS THE RESOURCE THROUGH THE ONLY DOOR UPSTREAM LEAVES OPEN.**
 /// `RollbackOrdered::push` is private and there is no rebase API, so the order is
@@ -315,6 +352,34 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
 
     let previous = world.get_resource::<RollbackOrdered>().cloned();
     let discarded_history = previous.as_ref().map_or(0, RollbackOrdered::len);
+
+    let visible = world
+        .query_filtered::<Entity, With<Rollback>>()
+        .iter(world)
+        .count();
+    // `Allow<T>` is "with AND without", so the difference is exactly the carriers
+    // an ordinary query cannot see.
+    let with_candidates =
+        ambition_platformer2d_shared_tangle::construction::count_matching_including_hidden_candidates::<
+            With<Rollback>,
+        >(world);
+    let hidden_candidates = with_candidates.saturating_sub(visible);
+    if hidden_candidates > 0 {
+        bevy::log::error!(
+            "REFUSING to rebase the rollback carrier order: {hidden_candidates} of \
+             {with_candidates} rollback carriers are hidden construction candidates, which \
+             this enumeration cannot see. Rebasing over the visible {visible} would leave \
+             each hidden carrier holding a `RollbackId` absent from the rebuilt order, and \
+             `RollbackOrdered::order` panics for an unknown id. A session must declare frame \
+             zero with no candidate world in flight."
+        );
+        return RollbackOrderRebase {
+            carriers: with_candidates,
+            identified: 0,
+            discarded_history,
+            hidden_candidates,
+        };
+    }
     // ⚠ `RollbackId` IS OPTIONAL HERE ON PURPOSE. The `on_add` hook inserts it
     // through `Commands`, so a carrier spawned in the same frame can hold
     // `Rollback` with the id still queued. Requiring it would leave that carrier
@@ -344,6 +409,21 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
         // would leave the defect in place for the one composition that needs it
         // most. The gap is reported because a carrier the sim cannot name is the
         // same finding `ensure_sim_id` and `collect_perception_peers` report.
+        //
+        // ⛔⛤ **AND THAT ARGUMENT EXPIRES WHEN A SECOND PEER EXISTS.** A 2026-09-17
+        // review put it plainly: this manufactures a result that cannot be
+        // peer-stable, on the very population whose peer-stability is the point.
+        // It is right about the destination and the trade is different today —
+        // the alternative is not a refusal, it is KEEPING the App-lifetime
+        // history, which is wrong in the same direction and by more. ⇒ The
+        // condition that flips it is a real remote peer, not a date:
+        // `rollback_populated_timeline.rs` already measures that every VISIBLE
+        // rollback anchor in the populated world carries a unique `SimId`, so
+        // when an external session road exists this branch should refuse to
+        // install rather than fall back, and the duplicate-`SimId` tie-break
+        // below (previous order, then `Entity` — both host-local) should go with
+        // it. Doing that now would turn a diagnostic into a crash in the only
+        // lane that runs.
         bevy::log::error!(
             "{} of {total} live rollback carriers have no canonical `SimId`, so \
              their place in the peer-compared carrier order falls back to this \
@@ -367,6 +447,7 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
         carriers: total,
         identified,
         discarded_history,
+        hidden_candidates: 0,
     }
 }
 
@@ -391,14 +472,26 @@ pub fn install_rebased_sync_test_session(
     // checksum two peers compare carries every rollback entity this App ever
     // registered, retired sessions included — see `rebase_rollback_carrier_order`.
     let rebase = rebase_rollback_carrier_order(world);
-    bevy::log::debug!(
-        target: "ambition_platformer2d::rollback",
-        "carrier order rebased onto {} live carrier(s) ({} named), discarding {} \
-         order(s) from this App's earlier history",
-        rebase.carriers,
-        rebase.identified,
-        rebase.discarded_history
-    );
+    if rebase.hidden_candidates > 0 {
+        // The refusal already logged at error level with its reasoning; this
+        // line exists so the install road's own log does not read as a success.
+        bevy::log::debug!(
+            target: "ambition_platformer2d::rollback",
+            "carrier order NOT rebased: {} of {} carriers are hidden candidates, \
+             so this session starts on this App's earlier order history",
+            rebase.hidden_candidates,
+            rebase.carriers
+        );
+    } else {
+        bevy::log::debug!(
+            target: "ambition_platformer2d::rollback",
+            "carrier order rebased onto {} live carrier(s) ({} named), discarding {} \
+             order(s) from this App's earlier history",
+            rebase.carriers,
+            rebase.identified,
+            rebase.discarded_history
+        );
+    }
 
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount by calling
     // Time::advance_to.
@@ -1370,6 +1463,64 @@ mod carrier_order_tests {
             .collect();
         assert_eq!(before, after);
         assert_eq!(before.len(), 2);
+    }
+
+    /// ⛔⛤ **THE ARM THE OTHER ONES COULD NOT FAIL: `world_with` NEVER REGISTERS
+    /// THE DISABLING FILTER, so every carrier it builds is visible and no arm in
+    /// this module could tell a candidate-blind enumeration from a complete
+    /// one.** With the filter installed and one carrier hidden, an ordinary
+    /// `With<Rollback>` query returns 1 where the world holds 2 — and a rebase
+    /// taken over that 1 would leave the hidden carrier holding a `RollbackId`
+    /// absent from the rebuilt order, which `RollbackOrdered::order` panics on.
+    ///
+    /// ⛔ POISONED: with the `hidden_candidates > 0` refusal disabled the
+    /// rebuilt table holds ONE entry where the world has two carriers, which is
+    /// the state that panics later, on the checksum after the candidate is
+    /// published. ⚠ The assertions are ordered so THAT is what fails: checking
+    /// the report first made the poison fail on `hidden_candidates: 0`, which is
+    /// the field announcing the property rather than the property.
+    #[test]
+    fn a_hidden_candidate_carrier_stops_the_rebase_instead_of_being_dropped() {
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, register_inactive_candidate_filter,
+        };
+
+        let mut world = world_with(0, &["alpha", "beta"]);
+        register_inactive_candidate_filter(&mut world);
+        let hidden = world
+            .query_filtered::<Entity, With<Rollback>>()
+            .iter(&world)
+            .next()
+            .expect("the fixture built carriers");
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, &world);
+        hide_candidate_session_root(&mut commands, hidden);
+        queue.apply(&mut world);
+
+        // The premise: the ordinary query the rebase uses cannot see it.
+        assert_eq!(
+            world
+                .query_filtered::<Entity, With<Rollback>>()
+                .iter(&world)
+                .count(),
+            1,
+            "the disabling filter is not installed, so this arm would pass \
+             against a candidate-blind rebase as well as a candidate-aware one"
+        );
+
+        let before = world.resource::<RollbackOrdered>().len();
+        let report = rebase_rollback_carrier_order(&mut world);
+        // ⛔ THE DEFECT-DESCRIBING ASSERTION GOES FIRST, so the poison fails on
+        // the PROPERTY rather than on the report field that announces it.
+        assert_eq!(
+            world.resource::<RollbackOrdered>().len(),
+            before,
+            "a refused rebase must leave the order alone; replacing it drops \
+             the hidden carrier's entry, and `RollbackOrdered::order` panics \
+             for an unknown id on the next checksum"
+        );
+        assert_eq!(report.hidden_candidates, 1);
+        assert_eq!(report.carriers, 2, "the report names the WHOLE population");
     }
 
     /// ⚠ An unnamed carrier does not stop the rebase, and the report says so —

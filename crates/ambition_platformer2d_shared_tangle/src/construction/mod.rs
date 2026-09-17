@@ -1018,6 +1018,35 @@ pub fn entity_is_still_a_candidate(world: &World, entity: Entity) -> bool {
     world.get::<InactiveCandidate>(entity).is_some()
 }
 
+/// Count the entities matching `F`, hidden construction candidates INCLUDED.
+///
+/// ⛔⛤ **[`InactiveCandidate`] IS DELIBERATELY PRIVATE — a room that could
+/// `remove::<InactiveCandidate>()` could publish a candidate behind the
+/// executor's back — and that privacy also made the marker unnameable by a
+/// crate that needs to ASK about candidates without touching one.** A rollback
+/// carrier hidden as a candidate is invisible to `query_filtered::<_,
+/// With<Rollback>>`, so a caller enumerating "every live carrier" gets an answer
+/// that silently omits it. Exporting the FILTER and not the component keeps the
+/// insert/remove road closed while letting another crate see the whole
+/// population.
+///
+/// ⚠ `Allow<T>` means *"entities WITH and WITHOUT the marker"*, not "only those
+/// with it", so a count taken through this and a count taken without it differ
+/// by exactly the hidden ones.
+///
+/// ⚠ **IT IS A FUNCTION AND NOT A `pub type` ALIAS FOR THE FILTER.** The alias
+/// compiles; naming a private type in a generic position fails at the USE site,
+/// so the crate answers the question rather than handing the marker out.
+pub fn count_matching_including_hidden_candidates<F>(world: &mut World) -> usize
+where
+    F: bevy::ecs::query::QueryFilter,
+{
+    world
+        .query_filtered::<bevy::prelude::Entity, (F, bevy::ecs::query::Allow<InactiveCandidate>)>()
+        .iter(world)
+        .count()
+}
+
 /// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
 /// queries.
 ///

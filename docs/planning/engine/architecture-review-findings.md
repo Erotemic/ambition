@@ -530,6 +530,27 @@ preparation failure leave live data intact; post-destructive failure blocks
 publication without claiming arbitrary rollback. A single accepted-marker event
 is insufficient to prove that preparation and commit used the same snapshot.
 
+## A SECOND REVIEW, 2026-09-17 — six findings, and this page is not their home
+
+⛔ **THIS PAGE'S NINE ARE A BOUNDED SET AT `300004d6`; these six are a different
+review of a different window** (`90b7135..027915a`, 89 commits) and are recorded
+here only so a reader asking *"what have reviews found"* gets one answer. Each
+disposition was re-derived by opening the code before acting, and each landed
+change carries its reasoning in its own commit.
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | Q142 framed three rollback defects as a maintainer decision | ✔ FIXED — `EncounterScript`, `ReleaseOnDeath` and `RecharacterizeBody` registered, schema v197 → v198; `PostBossNpc` stays open because its question is what an admitted REPLAY sweeps |
+| 2 | the frame-zero carrier rebase cannot see a hidden construction candidate | ✔ FIXED — it now counts carriers through `count_matching_including_hidden_candidates` and REFUSES rather than rebasing a partial population; ⛔ including candidates would be worse, because an order INDEX is positional and a candidate on one peer only shifts every index after it |
+| 3 | the rebase fails open on a missing or duplicate `SimId` | ◐ FILED AT THE CODE — the alternative today is not a refusal, it is keeping the App-lifetime history, which is wrong by more. The condition that flips it is a real remote peer, and the comment says so |
+| 4 | `clean_workspace_crates.sh` released the build lock before deleting | ✔ FIXED — an open descriptor is held across `du`/`find`/`mv`/`rm`. Measured both ways on a 9,000-file tree: 0 lock steals against 12 |
+| 5 | the Fade audit counted one authored fade where three ship | ✔ FIXED — `test_intro`, `intro_wake`, `drain_market_arrival`; 2.2 s of invisible wait across three rooms. The planning page that quoted the number was the second copy and is corrected too |
+| 6 | the audit campaign is drifting into machinery `AGENTS.md` forbids | ◐ PART — the source-comment PATH gate is demoted to reporting; the writer-set ratchet keeps its ratchet and now states, at the top of the file, that moving a writer between schedules leaves it green and what behavioural arm should replace it |
+
+⚠ **WHAT IS NOT DONE:** a rewind arm per Q142 latch, and the `CutsceneTriggerQueue`
+behavioural arm that would let its ratchet be deleted. Both are named at the code
+that owes them.
+
 ## Investigation boundaries, not established bugs
 
 1. Projectile leg reconstruction currently uses current position/velocity and dt.

@@ -522,7 +522,22 @@ pub fn apply_feature_hit_events(
     // projectile spawn does; it is a menu-side (non-rollback) setting, constant
     // across a rollback window, so reading it here is deterministic.
     // The projected policy, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
-    damage_policy: Res<ambition_damage::PlayerDamagePolicy>,
+    //
+    // ⛔⛤ **THIS COMMENT SAID `Option` AND THE PARAMETER DID NOT, FOR THREE
+    // DAYS.** Required since `ef8ab19ff` (2026-09-13), it panicked
+    // `ambition_demo_mary_o`'s `her_spark_damages_a_snake_through_the_shared_hit_pipeline`
+    // with *"Resource does not exist"* on every run — an arm that builds its App
+    // by hand and adds this system directly. ⇒ The fixture could not be repaired
+    // instead: that demo's manifest states the E9 oracle outright, *"a downstream
+    // game names `ambition_platformer2d` + `bevy`, and NOTHING ELSE"*, and the
+    // facade does not export `PlayerDamagePolicy`. So a composition that cannot
+    // NAME the policy has to be able to run without it, which is what
+    // `PlayerDamagePolicy`'s own `Default` doc already promises: *"the same
+    // answer every one of the three readers gave when `UserSettings` was
+    // absent — so a composition that installs no projection behaves exactly as
+    // it did before."* Three other hand-built fixtures pay the `init_resource`
+    // tax; they are in crates that can name it.
+    damage_policy: Option<Res<ambition_damage::PlayerDamagePolicy>>,
     // Which bodies hit HEAVY. A filter-only query: it reads no components, so
     // it conflicts with nothing here, including the mutable boss query above.
     // Two questions about the ATTACKER, both filter-only so they read no
@@ -567,7 +582,11 @@ pub fn apply_feature_hit_events(
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
     // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming
     // difficulty/assist is the separate `resolve_body_hit` scale.
-    let outgoing_melee_scale = damage_policy.outgoing;
+    let outgoing_melee_scale = damage_policy
+        .as_deref()
+        .copied()
+        .unwrap_or_default()
+        .outgoing;
     for mut event in hit_events.read().cloned() {
         // The ONE seam the human's outgoing melee is scaled by their difficulty
         // slider. Scale once, before any victim reads `event.damage`; projectiles

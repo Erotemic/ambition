@@ -43,6 +43,34 @@ AFTER EDITING A FILE YOU HAVE CITED, RE-CHECK YOUR OWN CITATIONS INTO IT. Three
 citations rotted that way in one session on 2026-09-06, all by the citer's own
 later edit to the same file.
 
+⛔⛤ SECOND ATTEMPT, 2026-09-17: THE NEGATIVE HOLDS, AND NARROWING MADE IT WORSE.
+A `--cited-line-names` mode was built on `check_planning_citations.py` with three
+narrowings this script does not have -- bind within a CLAUSE rather than a line
+(split on sentence and em-dash boundaries), require exactly ONE citation in the
+clause, and require the candidate name to be defined EXACTLY ONCE in the
+workspace by an item keyword, which is what keeps `Option`, `SimId`, `gravity`
+and `target_world` out. Measured over the same corpus:
+
+    ±20 lines, clause-bound, uniquely-defined name:  44 bound, 14 miss   32%
+
+⇒ The population fell from 210 to 44 and the miss rate went UP. Hand-triaging
+four of the fourteen gave one true drift (`continuity.rs:551`, cited as *"above
+`project_custody_onto_authored_occurrences`"*, which is at 644), one documented
+false positive -- `combat-model.md`'s `lib.rs:29`, the SAME counterexample this
+script already sampled -- and two too weak to call. About half, which is what
+this script measured the first time.
+
+⭐ THE NARROWING SELECTED FOR THE WRONG THING. A uniquely-defined name is a
+function or a type in a LARGE file, and a large file is exactly where a citation
+drifts AND where a sentence names a neighbour rather than the cited line. So the
+filter that was supposed to raise precision concentrated both populations at
+once. ⇒ The mode was reverted rather than shipped; a checker at 50% precision
+teaches its reader to skim, which is the failure `role_report` is careful about.
+
+⚠ The RUN was still worth it as a one-off measurement, which is what this script
+is for. Run it, triage the list by hand, fix what is real, and do not leave a
+mode behind.
+
 Usage:  python3 scripts/citation_line_content_feasibility.py [--windows 0,3,10,30]
         python3 scripts/citation_line_content_feasibility.py --sample 5
 """

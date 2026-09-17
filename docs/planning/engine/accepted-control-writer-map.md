@@ -87,7 +87,7 @@ loader cannot answer.
 
 ⭐ **AND THE RECOMMENDED FIX ALREADY LANDED.** The 09-07 answer asked for one
 sentence at the marker. `1659e5402` put it at
-`lifecycle/continuity.rs:551`, above `project_custody_onto_authored_occurrences`.
+`lifecycle/continuity.rs:640`, above `project_custody_onto_authored_occurrences`.
 
 ⇒ **A4 HAS NO OPEN "ONE AUTHORITY PER FACT" DOUBT.** This row needs no
 investigation and no split.

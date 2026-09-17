@@ -43,10 +43,11 @@ Slices ~~FS1 (single-owner refactor + conservation test)~~ ✅ **DONE
 The spec above is the contract; the current code is small and may be boldly
 restructured to meet it.
 
-> **RE-MEASURED against `64adb1a8b` (2026-09-03), six weeks on: ✔ EVERY STATUS
+> **RE-MEASURED 2026-09-03 at `64adb1a8b` and again 2026-09-17: ✔ EVERY STATUS
 > ON THIS PAGE IS STILL TRUE, AND THE ONE THAT MATTERS IS GUARDED.** Recorded
 > rather than re-dated, because "still accurate" is a result a later reader
-> should not have to re-derive.
+> should not have to re-derive. The only thing that moved in two weeks is a line
+> number.
 >
 > - **FS1's single-owner invariant is not just done, it is defended.**
 >   `game/ambition_content/src/falling_sand/tests.rs` carries
@@ -59,14 +60,23 @@ restructured to meet it.
 >   in exactly one ledger column, a tile dense in both sand and water is owned by
 >   sand alone, and thin matter *"projects nothing but is not lost"*.
 > - **The hard blocker stands.** `bevy_falling_sand` is still the dependency
->   (`0.8`, `game/ambition_content/Cargo.toml:105`), so Jon's 2026-07-20 ruling
+>   (`0.8`, `game/ambition_content/Cargo.toml:106`), so Jon's 2026-07-20 ruling
 >   has not been overtaken by anything in this tree.
 >
 > ⓘ **One fact worth having beside the blocker: none of this is in a shipped
 > build.** The room is behind an off-by-default feature all the way up —
 > `ambition_content`'s `default = []` with `falling_sand = ["dep:bevy_falling_sand"]`,
-> reached only by `ambition_app`'s own `falling_sand` feature. ⇒ Shelving costs
-> nothing at runtime, and the determinism problem cannot reach a player today.
+> reached only by `ambition_app`'s own `falling_sand` feature, which
+> `desktop_dev` (the default) does not name and no other manifest in the
+> workspace mentions. ⇒ Shelving costs nothing at runtime, and the determinism
+> problem cannot reach a player today.
+>
+> ⭐ **ASKED OF THE RESOLVER, NOT OF THE MANIFESTS, 2026-09-17**, because a
+> feature reachable through a path nobody read is exactly what a manifest sweep
+> misses: `cargo tree -e features -i bevy_falling_sand` answers *"package ID
+> specification `bevy_falling_sand` did not match any packages"* — the crate is
+> not in the default resolve at all. That is the stronger statement and it is one
+> command.
 
 ## ⛔ HARD BLOCKER — water/oil SHELVED on `bevy_falling_sand` (Jon, 2026-07-20)
 

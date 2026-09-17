@@ -1886,3 +1886,35 @@ its shape:
 render, camera and inspection layers, not a script change, and the three shapes
 put the cost in different places — (a) is cheapest and weakest, (c) is the only
 one a future system cannot forget. Nobody should start until the shape is chosen.
+
+## Q140 — may the item menu show a stale bag for one frame?
+
+[MENU-RESET-MIDSESSION](queue.md#menu-reset-midsession--the-menu-writes-rollback-state-from-update)
+is blocked on one UI question, and the engineering half of it is already decided.
+
+The menu writes `OwnedItems` — a rollback-registered resource — from `Update`,
+outside the simulation schedule. The sanctioned road exists and the menu does not
+use it: `ItemGrantRequested` is `clear_message_on_rollback` and its consumer
+`apply_item_grants` mutates `OwnedItems` from the SIM schedule, beside
+`apply_shop_transactions`. So a conversation that gives you an item is
+rollback-correct today and the menu giving you one is not, for the same resource
+in the same crate.
+
+⇒ **THE BLOCKER IS NOT THE PATTERN, IT IS ONE FRAME.** The menu READS
+`OwnedItems` in the same frame to render the row it just changed. Deferring the
+write to the sim means the grant lands on the next tick, so the list shows the
+old bag for one frame unless the UI renders optimistically. That is a visible
+behaviour change in shipped UI.
+
+* **(a) accept the frame** — the row updates on the next tick. Simplest, and the
+  menu's read stays the single source of truth.
+* **(b) render optimistically** — the menu draws the intended bag immediately and
+  reconciles when the sim applies the grant. No visible latency, at the cost of a
+  second reading of the bag that can disagree with the authoritative one.
+
+⛔ **NOT A MECHANICAL SUBSTITUTION, WHICH IS WHY THE ROW IS FILED RATHER THAN
+DONE.** Everything else in that row is settled: a consumable USE is not a shop
+sell so the menu still needs its own message, and the hoped-for escape hatch is
+shut — the systems carry `.run_if(simulation_authorized)`, which is TRUE exactly
+when a live session scope exists, so the run condition guarantees the dangerous
+window rather than excluding it.

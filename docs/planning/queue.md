@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,334 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,336 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -2956,7 +2956,9 @@ The menu READS `OwnedItems` in the same frame to render the row it just changed.
 A deferred write means the sim applies the grant on the next tick, so the list
 shows the old bag for one frame unless the UI renders optimistically. That is a
 visible behaviour change in shipped UI and a maintainer's call, not a mechanical
-substitution. A consumable USE is also not a shop sell, so the menu still needs
+substitution — **`Q140`** in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), which puts
+it as accept the one-frame stale row or render optimistically. A consumable USE is also not a shop sell, so the menu still needs
 its own message — what it does not need is a new pattern.
 
 ⛔ **THE ESCAPE HATCH IS SHUT: the run condition GUARANTEES the dangerous window

@@ -23,8 +23,28 @@ small enabling changes when they pay for themselves now.
 > ⇒ **So the status line is accurate and should not be escalated.** The migration
 > has a working harness and one shipping character plus one proof-of-concept, on
 > a roster of 138. ⛔ That is the intended shape of a DIRECTION — the enabling
-> work paid for itself and the rewrite did not happen. A future session should
-> re-measure the 2-of-138 before treating slow adoption as a problem.
+> work paid for itself and the rewrite did not happen.
+>
+> ✔ **RE-MEASURED 2026-09-17, which is what this row asked its next reader to do,
+> and NOTHING MOVED.** The roster is still exactly **138** top-level target files;
+> the SVG-sourced set is still `charley_beagle_svg.py` and `mary_o_v2_svg_poc.py`
+> plus the two helpers; `charley_beagle` still ships, with published
+> `charley_beagle_svg_spritesheet.png` / `.ron` under
+> `crates/ambition_platformer2d_actor_monolith/assets/`; and
+> `tools/ambition_sprite2d_renderer/equivalence_harness.py` is still there. The
+> one number that moved is 22 → **23** files mentioning `svg`.
+>
+> ⚠ **THE INSTRUMENT, because the 22 nearly became a 39.** The roster is
+> `find targets/characters -maxdepth 1 -name '*.py'` — top level only, since the
+> 169 files under it include per-boss subdirectories. The mention count is
+> case-SENSITIVE lowercase `svg`: any-case gives 39, because `SVG` appears in
+> prose comments across a third of the roster. ⇒ Two flags span 23 against 39 on
+> one tree, and *"a third of the roster mentions SVG"* would have read as adoption.
+>
+> ⇒ **Fifteen days of no movement is the ANSWER to "is slow adoption a problem",
+> not the question.** A direction whose enabling work is done and whose adoption
+> is two is behaving as designed; escalate it only when a character wants the
+> road and cannot take it.
 
 ## Decision
 

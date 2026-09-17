@@ -21,31 +21,16 @@ Neither is an execution diary.
 
 ## A gate over a missing document does not fail
 
-`scripts/check_planning_docs_survive.py` asserts the SUBJECT of this tree: the
-live control-plane documents exist, are non-trivial, and still carry the headings
-that make them what they claim to be. It runs in `--maintenance`.
+`scripts/check_planning_docs_survive.py` asserts the SUBJECT of this tree — that
+the live control-plane documents exist, are non-trivial, and still carry the
+headings that make them what they claim to be. It runs in `--maintenance`.
 
-⭐ **ITS POPULATION IS ELEVEN DOCUMENTS, AND FIVE WERE ADDED 2026-09-16** —
-`roadmap.md`, which `status.md`, `queue.md` and `tracks.md` all name as their
-peer and which was the only one of the four outside the check, plus the four
-consolidation documents: — `consolidation/README.md`, `consolidation-plan.md`,
-`architecture-census.md`, `campaign-metrics.md`. They are where the
-architecture campaigns' state actually lives, they get rewritten far more often
-than this page does, and every argument for guarding `status.md` applied to them
-unchanged while they sat outside the check.
-
-⛔⛤ **IT EXISTS BECAUSE `status.md` WAS EMPTIED TO ZERO BYTES, COMMITTED AND
-PUSHED, AND THE LANE REPORTED 7/7.** That is not a hole in the other gates — a
-citation checker over a file with no citations has nothing to report, and a hold
-checker over a file with no holds has nothing to report. **The absence of
-findings and the absence of a subject look identical.** MEASURED by replaying it:
-with `status.md` empty the lane is 7/8 and the seven are all still green.
-
-⚠ It is a CATASTROPHE DETECTOR, NOT A RATCHET. Its floors sit far below today's
-sizes, because compressing a closed row to a receipt is this contract WORKING —
-`queue.md` fell 1063 → 908 lines the day it was written and must not red. And it
-cannot see a document that goes wrong while staying big; stale claims, discharged
-holds and broken citations have their own checks.
+⛔ **ITS POPULATION, ITS FLOORS AND THE REASON IT EXISTS ARE IN THE SCRIPT, NOT
+HERE.** Read its module docstring and its `LIVE_CONTROL_PLANE` table. This page
+held a copy of all three — the emptied-`status.md` origin, the floors, the
+population count — which is exactly the failure the third bullet below says the
+lane sweeps for: a number restated away from its source. The copy was accurate
+when written and is the wrong place for it to live.
 
 ## What else is mechanically enforced over this tree
 
@@ -102,36 +87,30 @@ reasoning; the queue selects work under that decision. An implementation can
 violate a ruling without overruling it. An architectural recommendation is not a
 new maintainer ruling.
 
-The [architecture reassessment](engine/architecture-reassessment.md) supersedes
-the old mandatory P2-P5 SCC sequence and identifies the changed owner contracts.
-Use its [responsibility map](engine/architecture-responsibility-map.md),
-[bounded work packets](engine/actor-monolith-work-frontier.md) and
-[review coverage](engine/architecture-review-coverage.md) together. Its source
-findings are tied to the named snapshot and must be rechecked on a newer head.
-Unchanged product decisions remain in their existing owner documents.
+⛔ **WHICH DOCUMENT SUPERSEDES WHICH IS RECORDED IN THE DOCUMENTS, NOT HERE.**
+This page routes; it does not restate their contracts, and it used to carry a
+paragraph per family repeating each one's scope, its supersession and — three
+times — the rule already stated two paragraphs up, that target behaviour is not
+a new ruling.
 
-Three protocol documents now make the highest-risk seams executable:
-[checkpoint restoration](engine/checkpoint-restoration-protocol.md),
-[projectile contacts](engine/projectile-contact-protocol.md) and
-[authored technique admission](engine/authored-technique-admission.md).
-They own the detailed state, timing, failure and acceptance rules for A1, A2 and
-A11/A12 respectively. Where the earlier broad review offered an unresolved choice,
-these focused engineering decisions supersede it. They describe target behavior,
-not completed implementation or a new maintainer ruling.
-
-[Fast content iteration and extensions](engine/extension-model.md) owns the
-runtime-loaded artifact, procedural SDK and Bevy plugin boundary. Its
-[state/execution contract](engine/extension-state-and-execution.md),
-[generation/reload protocol](engine/content-generation-and-reload.md),
-[domain call contracts](engine/extension-domain-contracts.md),
-[implementation packets](engine/fast-iteration-implementation.md),
-[acceptance fixtures](engine/fast-iteration-acceptance.md) and
-[evidence/experiments](engine/extension-iteration-evidence.md) separate architecture
-that can proceed now from backend, storage and timing decisions requiring local
-measurement. This supersedes older blanket deferral of runtime extensions until
-a public modding customer exists. I3b supplies A10's bounded safe-reconstruction
-customer; the long-term game supplies A8's two-instance proof. Neither gates I1/I2.
-These contracts refine existing owners rather than create another work queue.
+- **the architecture frontier:**
+  [reassessment](engine/architecture-reassessment.md),
+  [responsibility map](engine/architecture-responsibility-map.md),
+  [bounded work packets](engine/actor-monolith-work-frontier.md),
+  [review coverage](engine/architecture-review-coverage.md). Its source findings
+  are tied to a named snapshot and must be rechecked on a newer head;
+- **the three highest-risk seams, made executable:**
+  [checkpoint restoration](engine/checkpoint-restoration-protocol.md),
+  [projectile contacts](engine/projectile-contact-protocol.md),
+  [authored technique admission](engine/authored-technique-admission.md);
+- **fast content iteration and extensions:**
+  [the model](engine/extension-model.md) plus its
+  [state/execution contract](engine/extension-state-and-execution.md),
+  [generation/reload protocol](engine/content-generation-and-reload.md),
+  [domain call contracts](engine/extension-domain-contracts.md),
+  [implementation packets](engine/fast-iteration-implementation.md),
+  [acceptance fixtures](engine/fast-iteration-acceptance.md) and
+  [evidence/experiments](engine/extension-iteration-evidence.md).
 
 A polished crate name, older campaign, author identity or repeated commentary
 provides no additional evidence of responsibility or correctness.

@@ -15,8 +15,15 @@ like one.
 
 ⚠ **WHAT THIS DOES NOT CHECK.** Only links WITHIN `docs/planning` and only into
 files in that tree. A link out to `docs/concepts` or into source is another
-checker's job, and a bare `#anchor` with no file is a same-file link this does
-not resolve either.
+checker's job.
+
+⛔⛤ **A BARE `#anchor` WAS OUTSIDE THE POPULATION UNTIL 2026-09-17, AND IT IS THE
+EASIEST ONE TO GET WRONG.** A same-file pointer is written by hand from a heading
+the author is looking at, so it carries every punctuation trap the slug rule has
+— and this checker printed *"every intra-planning pointer resolves"* over a file
+that had just grown six of them, unexamined. MEASURED when the rule was added:
+**15 same-file links across `docs/planning`, all resolving** — so the widening
+cost nothing and closed a blind spot that reads exactly like coverage.
 """
 
 from __future__ import annotations
@@ -33,6 +40,12 @@ PLANNING = ROOT / "docs/planning"
 #: spaces to hyphens. Emoji and punctuation vanish; the hyphens they sat between
 #: remain, which is why `— ✅ DONE` becomes `--done`.
 LINK = re.compile(r"\]\(([\w./-]*?\.md)#([^)]+)\)")
+#: The same pointer with the file left out: `](#some-heading)`, resolved against
+#: the page it appears in.
+SAME_FILE_LINK = re.compile(r"\]\(#([^)]+)\)")
+#: ⛔ ANTI-VACUITY for that rule alone. The corpus had 15 when it was written;
+#: a population that collapses to nothing must refuse rather than agree.
+MIN_SAME_FILE_LINKS = 5
 
 
 def slug(heading: str) -> str:
@@ -121,10 +134,19 @@ def main() -> int:
     for path in files:
         by_name.setdefault(path.name, set()).update(anchors(path))
 
-    checked = 0
+    checked = same_file = 0
     findings: list[str] = []
     for path in files:
+        own = by_name[path.name]
         for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            for match in SAME_FILE_LINK.finditer(line):
+                same_file += 1
+                anchor = urllib.parse.unquote(match.group(1))
+                if anchor not in own and slug(anchor) not in own:
+                    findings.append(
+                        f"  {path.relative_to(ROOT)}:{number}\n"
+                        f"     -> #{match.group(1)}  (no such heading in this file)"
+                    )
             for match in LINK.finditer(line):
                 target = pathlib.Path(match.group(1)).name
                 if target not in by_name:
@@ -138,6 +160,14 @@ def main() -> int:
                         f"  {path.relative_to(ROOT)}:{number}\n"
                         f"     -> {target}#{match.group(2)}  (no such heading)"
                     )
+
+    if same_file < MIN_SAME_FILE_LINKS:
+        print(
+            f"⛔⛔ only {same_file} same-file `](#anchor)` link(s) found; there were "
+            f"{MIN_SAME_FILE_LINKS}+ when that rule was added, so this is a claim "
+            "about the scan"
+        )
+        return 1
 
     if checked < 20:
         print(
@@ -172,7 +202,8 @@ def main() -> int:
         return 1
 
     print(
-        f"Every intra-planning pointer resolves: {checked} anchor link(s) across "
+        f"Every intra-planning pointer resolves: {checked} cross-file plus "
+        f"{same_file} same-file anchor link(s) across "
         f"{len(files)} document(s); every page under "
         f"{' and '.join(REACHABLE_TREES)} is linked from somewhere."
     )

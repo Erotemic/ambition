@@ -204,11 +204,19 @@ const PEER_STABLE_PROJECTION: &[&str] = &[
     // `SessionMatchOrdinal::peer_stable_checksum` projects the count of matches
     // the session has activated, excluding its `SessionScopeId` owner tag.
     // `the_peer_projection_ignores_the_local_session_id_once_a_match_has_activated`
-    // holds the body; ⚠ and
+    // holds the body.
+    //
+    // ⚠ THE WINDOW THE PROJECTION DOES NOT CLOSE IS CLOSED BY THE COMPOSITION,
+    // NOT BY A CARVE. On its own the mint resets lazily inside `take`, so between
+    // joining a session and activating that session's first match it still holds
+    // the PREVIOUS session's `next` —
     // `two_peers_who_played_different_prior_matches_disagree_before_the_first_activation`
-    // holds the window the projection does NOT close — the mint resets lazily,
-    // so it carries the previous session's count until this session's first
-    // activation. Closing that is a carve to session-owned state.
+    // still holds that, because it is true OF THIS TYPE ALONE. The eager reset is
+    // at the session edge (`actor_monolith::session::teardown`, beside the three
+    // match-stamped mirrors), and a composition that can HAVE a previous session
+    // is one that installs it. ⇒ That arm is what makes the eager reset
+    // load-bearing rather than hygiene; this line said "closing that is a carve
+    // to session-owned state" after the composition had already closed it.
     "ambition_match::seating::SessionMatchOrdinal",
     // ⭐⭐ THE CAMPAIGN'S ORIGINAL FINDING, CLOSED. `TransactionId` renders as
     // `{binding}\t{room}\t{session}` and its projection keeps the content

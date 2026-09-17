@@ -28,16 +28,25 @@ Three examples establish the distinction.
   designs. Evidence: `crates/ambition_platformer2d_actor_spawn/src/lib.rs`,
   `crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs`, and
   `scripts/tests/test_actor_spawn_boundary.py`.
-* Checkpoint startup restoration and reset routing are implemented in
-  `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`. Item pickup installs
-  startup restoration; checkpoint-horizon composition installs reset restoration.
-  The router transacts against session lifecycle state, while occurrence and
-   item consumers can still restore directly from an unadmitted raw reset. The
-   shrine/session cycle is misplaced lifecycle ownership, and fixing it requires
-   a shared accepted operation, not a more generic shared slot.
+* Checkpoint startup restoration and reset routing WERE implemented in
+  `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`. ✔ **`A1b` MOVED
+  THEM — re-read 2026-09-17.** `shrine.rs` is 208 lines and owns the interaction
+  only (*"heal the body that touched me, and ask for a checkpoint to be
+  recorded"*); coming back to a checkpoint lives in `session::checkpoint`, 1,813
+  lines. The diagnosis stands as written — *"the shrine/session cycle is
+  misplaced lifecycle ownership, and fixing it requires a shared accepted
+  operation, not a more generic shared slot"* — and the shared accepted
+  operation is what landed. `F1` in
+  [review findings](architecture-review-findings.md) carries the evidence.
 * Projectile contact admission, boss damage application and published boss hurt
-  geometry use different paths. A marker-only extraction can hide that mismatch
-  without giving one authority responsibility for the contact decision. Evidence:
+  geometry used different paths. ✔ **THE GEOMETRY HALF IS CLOSED (`A2a`,
+  re-verified 2026-09-17): `apply_boss_hit` takes the published
+  `DamageableVolumes` instead of rebuilding a `BossVolumeContext` twice, and the
+  preflight answers from the same publication — see `F2`.** ◐ The CONTACT
+  SELECTION half is not: the obstruction model is shared now, contact-time
+  ordering over the traveled segment is still `A2c`. The point this bullet makes
+  survives both — a marker-only extraction can hide the mismatch without giving
+  one authority responsibility for the contact decision. Evidence:
   `crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs`,
   `crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs`,
   `crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/boss_hit.rs`.
@@ -51,7 +60,17 @@ of a better design, not determine the design.
 
 The workspace has 79 packages and 679,785 physical Rust lines under their `src`
 directories, including tests and comments. The actor monolith accounts for 98,464
-of those lines. Those numbers describe this archive only; they are not production
+of those lines. ⚠ **Re-derived 2026-09-17 — 80 packages, 737,522
+lines, actor monolith 114,768 — by counting every workspace member's
+`src/**/*.rs` through `cargo metadata --no-deps`. That is a DESCRIPTION of my
+instrument, not a claim that it is byte-identical to the one that produced the
+baseline; the two agree in shape and the comparison is only worth the ratio.**
+On those readings the monolith grew ~16% while the workspace grew ~8%, which is
+the direction this document argues against. ⚠ Both counts include tests and
+comments, and the A-track has been adding arms to the monolith deliberately, so
+this is a reason to re-measure with a test-excluding instrument before quoting it
+as growth of the kernel. Printed here because a baseline number left alone reads
+as a current one. Those numbers describe this archive only; they are not production
 LOC, binary footprint or a measure of engine quality. See
 [coverage and reproducibility](architecture-review-coverage.md).
 

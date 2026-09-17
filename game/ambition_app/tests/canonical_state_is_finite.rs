@@ -25,12 +25,27 @@
 //! exactly what a walk kept by discipline has to keep up with.
 //!
 //! ⚠ **WHAT THIS DOES NOT COVER, and this file will not claim otherwise:
-//! values that are never ENCODED.** MEASURED 2026-09-15 against
-//! `rollback_schema_baseline.txt` (493 rows): **167 are `component-clone` and
-//! call `encode` on nothing.** 108 of those name another authoritative
-//! projection that covers them; **59 say outright they are "not in the session
-//! checksum"**, and a non-finite float in one of those is seen by nothing at
-//! all. "The canonical state is finite" is NOT what a green run here means.
+//! values that are never ENCODED.** RE-DERIVED 2026-09-17 against
+//! `rollback_schema_baseline.txt` at schema v198 (491 rows): **169 are
+//! `component-clone` and call `encode` on nothing**, and splitting them by
+//! their `detail`:
+//!
+//! * **96 carry no probe at all** — "bevy_ggrs clone snapshot; not in the
+//!   session checksum". A non-finite float in one of these is seen by nothing.
+//! * **59 carry a localization VALUE probe** and are still outside the session
+//!   checksum.
+//! * 14 carry an entity-remapping probe (8 handle, 5 set, 1 keyed map).
+//!
+//! ⛔⛤ **THE PREVIOUS READING OF THIS WAS "108 name another authoritative
+//! projection that covers them; 59 say outright they are not in the session
+//! checksum", and the two numbers ARE NOT COMPARABLE WITH THE ONES ABOVE.** The
+//! `detail` wording for an unhashed clone changed at schema v194 — it used to
+//! claim the value was "checksummed by some other authoritative projection",
+//! which neither the registrar nor its caller could establish — so the split was
+//! measured against a sentence that no longer exists. Counted by what the rows
+//! say today, **155 of the 169 state they are outside the session checksum**,
+//! not 59. ⇒ "The canonical state is finite" is NOT what a green run here means,
+//! and it covers less than this paragraph used to imply.
 //!
 //! ⚠ `inf` / `-inf` are COUNTED but not canonicalised by the encoder. Counting
 //! without changing the encoding is deliberate: whether an infinity should

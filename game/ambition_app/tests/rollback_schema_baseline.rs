@@ -131,9 +131,13 @@ fn the_shipped_app_registers_the_same_schema_as_the_sandbox() {
 
     // ⛔ THE PREMISE, FIRST. Two empty registries are byte-identical, and a
     // comparison between them would report the success condition while saying
-    // nothing. The recorded baseline is 488 rows; either side collapsing is a
-    // broken build, not a passing claim about composition. 489 lines today: the
-    // version header plus the 488 recorded rows.
+    // nothing. Either side collapsing is a broken build, not a passing claim
+    // about composition. ⚠ The floor is 400 and the baseline is BIGGER than
+    // that by design — it was 488 rows at schema v197 and 491 at v198, so the
+    // exact figure is a fact about a commit and does not belong in an assertion.
+    // Re-derive it with
+    // `tail -n +2 tests/rollback_schema_baseline.txt | wc -l`; the file is that
+    // many rows plus one version header.
     let rows = |dump: &str| dump.lines().count();
     assert!(
         rows(&shipped_dump) > 400 && rows(&sandbox_dump) > 400,
@@ -279,7 +283,7 @@ fn no_two_schema_rows_describe_the_same_type_the_same_way() {
 
     // ⛔ THE ANTI-VACUITY FLOOR. A parser that split on the wrong character
     // produces an empty map, and "no duplicates" over nothing is the same green
-    // as "no duplicates" over 488 rows.
+    // as "no duplicates" over the whole baseline.
     assert!(
         seen.len() > 400,
         "the dump parsed into {} (type, kind) pairs, which is far below the \

@@ -196,10 +196,18 @@ are implementation-agent obligations, not executions claimed by this review.
 
 ## A2. Establish coherent projectile contacts before removing family knowledge
 
-**Ready:** A2a geometry and A2b obstruction characterization; A2c after those
-contracts. **Normative owner:** [projectile contact protocol](projectile-contact-protocol.md).
-It supplies the ownership table, exact sampling/ordering, response table, source
-anchors and acceptance cases. Do not substitute a marker-only extraction.
+**Ready:** A2c, and A2b's swept-target half. ✔ **A2a HAS LANDED and A2b's
+obstruction half with it — re-verified against HEAD 2026-09-17.** `apply_boss_hit`
+takes the published `DamageableVolumes` instead of rebuilding a
+`BossVolumeContext` twice, and both projectile branches sweep the shot's BOX
+under the shot's own `WorldHitPolicy` where the victim branch used to raycast the
+victim's CENTRE with `include_one_way = false` hard-coded. See `F2`/`F3` in
+[review findings](architecture-review-findings.md).
+**Normative owner:** [projectile contact protocol](projectile-contact-protocol.md),
+which carries the per-receipt detail and says in its own words that *"the
+swept-target half has not"* landed. It supplies the ownership table, exact
+sampling/ordering, response table, source anchors and acceptance cases. Do not
+substitute a marker-only extraction.
 
 **A2a:** one published authored/fallback/empty target geometry, including bosses
 and the first eligible tick. Do not recompute a boss hull independently at

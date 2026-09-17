@@ -197,3 +197,132 @@ fn a_replay_lets_the_rope_be_cut_again() {
          attempt's `rope_cut`, so the anvil never drops and the fight is unwinnable"
     );
 }
+
+/// ⭐⭐ **THE SCRIPT'S BEAT CLOCK, WITNESSED UNDER AN ACTUAL ROLLBACK WINDOW.**
+///
+/// `EncounterScript` became `component-clone-custom-checksum` on 2026-09-17
+/// (schema v198) because `cursor` and `elapsed` are advanced every tick by
+/// `tick_encounter_scripts`, in the sim schedule. ⛔ **THAT WAS A CLAIM ABOUT
+/// REGISTRATION, NOT A READING OF THE NUMBER**, and it was made from the shape
+/// of the code rather than from a rewind anybody had run.
+///
+/// ⚠ This room is the only place the claim can be tested through PRODUCTION:
+/// `setup_cut_rope_encounter` is the workspace's one non-test inserter of an
+/// `EncounterScript`, and it needs this room's authored anvil. A test-side
+/// insert would not do — a registered component inserted outside the rewinding
+/// schedule is taken back by the first rewind, which is a different defect
+/// wearing this one's clothes.
+///
+/// ⛔⛤ **AND THE FIRST VERSION OF THIS ARM CUT THE ROPE, WHICH MADE ITS SUBJECT
+/// DISAPPEAR.** `slash` writes a `HitEvent` from the test, outside the rewinding
+/// schedule, and the rewind takes that write back: measured **1 rope-cut gate
+/// without a rollback window and 0 under one**, so the script sat on beat 0 and
+/// the arm read `Some(0)` vs `Some(2)` — a difference that says nothing about
+/// the registration and everything about the injection. The premise guard that
+/// caught it is why the number below is worth reading.
+///
+/// ⇒ So this drives NO input at all. The script is attached by production the
+/// moment the anvil loads, and `EncounterScript::advance` adds `dt` to
+/// `beat_elapsed` on every tick whether or not its trigger holds. The clock is
+/// the half a resimulated tick inflates when nothing restores it, and it needs
+/// no gate to observe.
+const FRAMES_OF_WAITING: usize = 240;
+
+fn cut_rope_rewinding_sim() -> Platformer2dSimHarness {
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(CUT_ROPE_ROOM)
+        .with_sync_test_rollback_settings(4, 10);
+    Platformer2dSimHarness::new_with_options(opts)
+        .expect("the cut-rope room builds under a GGRS sync-test session too")
+}
+
+/// The beat the encounter's script is on and how long it has been on it.
+///
+/// `None` is a real answer and it is NOT "beat zero, zero seconds": it means no
+/// script was ever attached, which is the vacuous case this arm has to refuse.
+fn script_beat(sim: &mut Platformer2dSimHarness) -> Option<(usize, f32)> {
+    use ambition_platformer2d::boss_encounter::EncounterScript;
+    let world = sim.world_mut();
+    let mut q = world.query::<&EncounterScript>();
+    q.iter(world)
+        .next()
+        .map(|script| (script.cursor(), script.beat_elapsed()))
+}
+
+fn wait_out_the_first_beat(sim: &mut Platformer2dSimHarness) {
+    for _ in 0..FRAMES_OF_WAITING {
+        sim.step(AgentAction::default());
+    }
+}
+
+#[test]
+fn the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind() {
+    let mut fixed = cut_rope_sim();
+    wait_out_the_first_beat(&mut fixed);
+    let without_rollback = script_beat(&mut fixed);
+
+    let mut rewinding = cut_rope_rewinding_sim();
+    wait_out_the_first_beat(&mut rewinding);
+    let under_rollback = script_beat(&mut rewinding);
+
+
+    // ⛔⛔ THE FLOOR, BEFORE EITHER VALUE IS READ. `None == None` satisfies the
+    // comparison below perfectly and means this arm examined a room with no
+    // script in it.
+    let (beat, elapsed) = without_rollback.expect(
+        "no `EncounterScript` exists in the fixed-tick world, so this arm has no \
+         subject and the comparison below would pass on two absent values. \
+         `setup_cut_rope_encounter` attaches it once the authored anvil has \
+         loaded — check the room still authors one.",
+    );
+    assert!(
+        elapsed > 0.0,
+        "the script's beat clock is still {elapsed} after {FRAMES_OF_WAITING} \
+         frames on beat {beat}, so a clock that never advances would pass this \
+         arm. `tick_encounter_scripts` is not reaching this encounter."
+    );
+
+    // ⛔⛤ **THE TWO WORLDS DO NOT RUN THE SAME NUMBER OF TICKS, AND COMPARING
+    // THE CLOCKS DIRECTLY READ AS A DEFECT.** Measured: `4.0333304` under a
+    // rollback window against `4.0166636` without — one frame's worth, which
+    // looks exactly like a clock that was not restored until you ask how many
+    // ticks each world actually ran. `SimTick` says **241 against 240**: the
+    // sync-test harness steps once more, so the extra sixtieth of a second is
+    // the tick, not the rewind.
+    //
+    // ⇒ The property is therefore a RATE, not a value: the beat clock must
+    // advance exactly one `dt` per tick in each world. An unrestored clock
+    // advances again on every resimulated tick — `check_distance` 4, so four
+    // extra advances per step — and that is a difference of hundreds of frames,
+    // not one.
+    let (_, rollback_elapsed) = under_rollback.expect("the rewinding world has a script too");
+    let fixed_ticks = sim_ticks(&mut fixed) as i64;
+    let rollback_ticks = sim_ticks(&mut rewinding) as i64;
+    let clock_frames = |seconds: f32| (f64::from(seconds) * 60.0).round() as i64;
+
+    assert_eq!(
+        clock_frames(rollback_elapsed) - clock_frames(elapsed),
+        rollback_ticks - fixed_ticks,
+        "the encounter script's beat clock and the sim tick disagree about how \
+         much time passed: the clock moved {} frame(s) more under a rollback \
+         window while the world ran {} tick(s) more ({rollback_elapsed} vs \
+         {elapsed} seconds, {rollback_ticks} vs {fixed_ticks} ticks). `cursor` \
+         and `elapsed` are advanced by `tick_encounter_scripts` inside the \
+         rewinding schedule, so the component has to be restored with the world — \
+         check its registration in `ambition_encounter`'s `register_rollback_state` \
+         survived. A scripted fight whose clock ran ahead fires its timed beats \
+         early, and `ForceKill` is one of them.",
+        clock_frames(rollback_elapsed) - clock_frames(elapsed),
+        rollback_ticks - fixed_ticks
+    );
+}
+
+/// How many fixed steps this world has executed. The control the clock
+/// comparison needs: two harnesses do not run the same number.
+fn sim_ticks(sim: &mut Platformer2dSimHarness) -> u64 {
+    sim.world_mut()
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .expect("the sim tick is installed by the engine plugins")
+        .0
+}

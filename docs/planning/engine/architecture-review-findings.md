@@ -547,7 +547,9 @@ change carries its reasoning in its own commit.
 | 5 | the Fade audit counted one authored fade where three ship | ✔ FIXED — `test_intro`, `intro_wake`, `drain_market_arrival`; 2.2 s of invisible wait across three rooms. The planning page that quoted the number was the second copy and is corrected too |
 | 6 | the audit campaign is drifting into machinery `AGENTS.md` forbids | ◐ PART — the source-comment PATH gate is demoted to reporting; the writer-set ratchet keeps its ratchet and now states, at the top of the file, that moving a writer between schedules leaves it green and what behavioural arm should replace it |
 
-⚠ **WHAT IS NOT DONE:** a rewind arm per Q142 latch, and the `CutsceneTriggerQueue`
+⚠ **WHAT IS NOT DONE:** the rewind arm for `ReleaseOnDeath` and
+`RecharacterizeBody` (`EncounterScript` has one — 945 frames of clock drift
+against 1 tick when the registration is removed), and the `CutsceneTriggerQueue`
 behavioural arm that would let its ratchet be deleted. Both are named at the code
 that owes them.
 

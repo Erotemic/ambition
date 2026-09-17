@@ -145,6 +145,16 @@ impl EncounterScript {
         self.cursor
     }
 
+    /// Seconds the CURRENT beat has been waiting.
+    ///
+    /// ⭐ Public because it is the field a rewind arm can read. `cursor` only
+    /// moves when a trigger holds, so a script whose beat waits on a gate looks
+    /// frozen while its clock is running — and the clock is the half that
+    /// inflates when a resimulated tick advances state nothing restored.
+    pub fn beat_elapsed(&self) -> f32 {
+        self.elapsed
+    }
+
     /// The two fields a rewind has to restore, as one deterministic word.
     ///
     /// It lives here because `cursor` and `elapsed` are private to this module,

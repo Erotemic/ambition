@@ -2048,10 +2048,30 @@ one at a time before changing anything, and each holds:
 `the_shipped_app_registers_the_same_schema_as_the_sandbox` both pass at v198, so
 all three rows are live in the shipped app, not only in the sandbox.
 
-⚠ **WHAT IS STILL OWED AND IS NOT CLAIMED HERE: a rewind arm per latch.** These
-are registrations, which is the same KIND of evidence this page has already said
-is not a reading of the number. The subject each needs is named under "what has
-not been measured" below.
+⭐⭐ **AND `EncounterScript` NOW HAS THE REWIND ARM, WITH THE NUMBER.**
+`the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind`
+(`cut_rope_arena`) boots the one room whose PRODUCTION code attaches a script,
+waits 240 frames without driving any input, and compares the beat clock against
+the sim tick in both worlds. Registered: the clock and the tick agree exactly.
+⛔ With the registration removed: **the clock moved 945 frames more while the
+world ran 1 tick more — 19.77 s against 4.02 s** — which is the resimulation
+multiplier of a `check_distance` of 4, not a rounding difference.
+
+⛔⛤ **TWO THINGS ABOUT THAT ARM ARE WORTH MORE THAN THE RESULT.** Its first
+version CUT THE ROPE, and the slash is a `HitEvent` written by the test from
+outside the rewinding schedule: the rewind took the write back, **1 gate fired
+without a rollback window and 0 under one**, and the script sat on beat 0. The
+arm read `Some(0)` vs `Some(2)` and looked exactly like a lost cursor while it
+had never reached its subject. And the second version compared the clocks
+directly, reading `4.0333` against `4.0167` — one frame, which looks like the
+same defect until you ask how many ticks each world ran. `SimTick` said **241
+against 240**: the sync-test harness steps once more. ⇒ The property is a RATE,
+and the control is the tick count.
+
+⚠ **STILL OWED: the same arm for `ReleaseOnDeath` and `RecharacterizeBody`.**
+Both are registrations, which is the same KIND of evidence this page has already
+said is not a reading of the number. The subject each needs is named under "what
+has not been measured" below.
 
 **The one still open, and the three that closed:**
 

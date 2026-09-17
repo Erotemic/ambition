@@ -1179,19 +1179,29 @@ Until the labels are separated by whoever owns the numbering, say which subject
 you mean: *flow bounds* (here) or *contact attribution* (the queue). Compare the
 `A2` split, which `status.md` already spells out in the same way.
 
-**Ready:** ✔ **BOTH SUB-PACKETS HAVE LANDED — verified against HEAD 2026-09-17.**
+**Ready:** A12b's remaining half. **A12a has landed and A12b is TWO OF FOUR —
+verified against HEAD 2026-09-17.**
 The exact algorithm/clock/delivery rules are in
 [authored technique admission](authored-technique-admission.md).
 
 | sub-packet | state | what holds it |
 |---|---|---|
 | **A12a** | ✔ landed | `TechniqueFlow::problems` enforces `MAX_TECHNIQUE_FLOW_NODES`, in-range edges taken from `Self::successors` rather than a second copy of the match, a FINITE positive wait timeout (*"`f32::INFINITY > 0.0` is TRUE, so the positive test admitted the one value that is exactly the unbounded wait"*), reachability of `Finish` rather than its presence, and `first_cycle` for the acyclic rule |
-| **A12b** | ✔ landed, by a route this packet did not name | The packet asked for *"the private checked immutable representation"* to convert indices once. What shipped instead authors in the cursor's width: `FlowNode`'s edges ARE `u16`, so the `as u16` narrowing is gone rather than moved, and conversion happens at the authoring/deserialization boundary where an out-of-range index is a hard error naming the field. The per-tick graph clone is gone too — `Arc::clone(&pb.spec)` replaced *"a DEEP CLONE of the whole authored graph — every node, every `EffectRef` key string — on every tick of every move that authors a flow, paid again for each resimulated frame under rollback"* |
+| **A12b** | ◐ **two of four** | ✔ *Edges convert once* — `FlowNode`'s edges ARE `u16`, so the `as u16` narrowing is gone rather than moved, and conversion happens at the authoring/deserialization boundary. ✔ *The per-tick graph clone is gone* — `Arc::clone(&pb.spec)` replaced a deep copy of every node and `EffectRef` key string, on each tick of each move that authors a flow, paid again per resimulated frame. ▢ *Prepared constructors are still public and infallible.* ▢ *No prepared REVISION is pinned on the playback* — `MovePlayback` has no such field; `Arc` gives a stable reference, not an identity, and the contract says identity follows content binding rather than pointer address. ⚠ The move-START deep clone also remains: `StartingMove.spec` is a `MoveSpec` by value out of `MovesetContract::moves`, once per accepted move rather than once per tick |
+
+⛔⛤ **AND THAT SECOND ROW READ "✔ landed" FOR ONE COMMIT, WHICH IS WHY THE
+REMAINING ITEMS ARE SPELLED OUT.** The packet sentence lists FOUR things — *"the
+private checked immutable representation, pin it on MovePlayback, convert indices
+once and remove the per-tick graph clone"* — and I verified the two that are
+easy to grep, then wrote a completeness word over the other two.
+[`authored-technique-admission.md`](authored-technique-admission.md) had said so
+in as many words under its own `A12b` heading. ⇒ **Check the MEMBERS of the list
+the packet states, not the ones the code makes easy to look for.**
 
 ⇒ **The 1–256 node bound survives as a READABILITY contract, not as cursor
 safety** — its own comment says the narrowing cast it used to stand in for no
 longer exists. `F8` in [review findings](architecture-review-findings.md) carries
-the verification.
+the verification of A12a.
 
 **A12a:** a present version-1 flow has 1-256 reachable nodes, checked in-range
 indices, finite positive wait timeouts and an acyclic graph. Both branches are

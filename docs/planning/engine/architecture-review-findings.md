@@ -426,8 +426,13 @@ proof that a fighter stays stuck forever"*), and the runtime confirmed it.
 
 ⚠ Two other observations here were NOT defects and are not claimed closed: the
 per-tick step limit equal to node count, and the clone before each interpretation
-pass. The node bound makes the first finite; the second is *"a visible
-allocation/copy opportunity, not a measured frame-time bottleneck"* and still is.
+pass. The node bound makes the first finite; the PER-TICK clone is gone
+(`Arc::clone(&pb.spec)`), and a per-move-START clone remains — `StartingMove.spec`
+is a `MoveSpec` by value out of `MovesetContract::moves`.
+
+⚠ **THIS FINDING IS CLOSED; ITS PACKET IS NOT.** `A12b` still owes private
+fallible prepared constructors and a prepared REVISION pinned on the playback —
+see the frontier's sub-packet table. F8's two specific defects are what closed.
 
 ⚠ Below is the review's evidence at the baseline and is NOT a description of HEAD.
 

@@ -177,8 +177,9 @@ A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
 reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
 
 A11 and the frontier's A12 make authored technique admission and flow bounds
-reliable — ✔ **and A11a, A11b and both halves of the FLOW-BOUNDS A12 have landed,
-verified 2026-09-17; A11c, the end-to-end authoring route, is what is left.** The
+reliable — ✔ **and A11a, A11b and the flow-bounds A12a have landed, with A12b two
+of its four items done, verified 2026-09-17; A11c, the end-to-end authoring route,
+and A12b's prepared-revision half are what is left.** The
 frontier's two packets carry the sub-packet table. ⛔ *Flow-bounds* is said out
 loud because `queue.md` has a different `A12` — move-contact attribution — which
 is open. A9 proves

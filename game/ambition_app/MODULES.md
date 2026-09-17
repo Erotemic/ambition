@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`app`](src/app/mod.rs) | Sandbox app-builder: domain plugins, helpers, and gameplay systems shared between the visible binary (`src/bin/ambition_game_bin.rs`) and headless drivers (`src/headless.rs`, `src/rl_sim/runtime.rs`). |
+| [`app`](src/app/mod.rs) | Sandbox app-builder: domain plugins, helpers, and gameplay systems shared between the visible binary (`src/bin/ambition_game_bin.rs`) and headless drivers (`src/headless.rs`, `src/rl_sim/mod.rs`). |
 | [`dev`](src/dev/mod.rs) | App-level developer presentation: debug overlays, inspectors, the F6 FPS counter, and the F9 one-shot GGRS rollback proof. |
 | [`headless`](src/headless.rs) | Headless simulation entry point. |
 | [`host`](src/host/mod.rs) | Host-platform integration: per-OS plugin selection (desktop, android, …) and window/display-mode controls. |

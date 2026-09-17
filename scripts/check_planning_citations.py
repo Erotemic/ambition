@@ -11,22 +11,27 @@ MOVED. A reader cannot tell a fabricated citation from a stale one, and the
 stale/fabricated distinction is the difference between "fix the row" and "the
 row was never true".
 
-⛔⛤ **A KNOWN BLIND SPOT, DIAGNOSED AND DELIBERATELY NOT GATED: THIS SEES
-SYMBOLS, NOT THE DIRECTORY A SENTENCE NAMES.** A doc comment reading
-a doc comment naming `abilities/traversal/{blink,dive,mark_recall}.rs` resolves nothing, gates
-nothing, and reddens nothing when those files move -- and they did, to
-`crates/ambition_abilities/src/traversal/`, while the tree stayed green. ⇒ A
-carve breaks prose paths silently and IN BULK, because the prose describing
-WHERE a population lives is exactly the prose a carve invalidates.
+⭐⭐ **A BLIND SPOT THAT WAS DIAGNOSED, PARKED, AND IS NOW CLOSED: THE DIRECTORY A
+SOURCE SENTENCE NAMES.** Paths in `docs/` were always resolved here; paths in
+`.rs` comments were resolved by nobody, so a doc comment naming
+`abilities/traversal/{blink,dive,mark_recall}.rs` reddened nothing when those
+files moved to `crates/ambition_abilities/src/traversal/`. A carve breaks prose
+paths silently and IN BULK, because the prose describing WHERE a population lives
+is exactly the prose a carve invalidates.
 
-⚠ The full diagnosis, and the argument for filing rather than gating it -- prose
-paths are also written about deleted files on purpose, about other repositories,
-and about SHAPES (`crates/*/src/rollback_registration.rs`), so a checker for them
-buys a suppression list and an amnesty list is how you hide what it exempts --
-is in
-`docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`.
-⛔ That page was reachable from NOTHING until 2026-09-16, which is why this
-pointer is here: a diagnosis nobody can find is a diagnosis nobody has.
+⇒ `--comment-paths` closes it (2026-09-17), running in the default plan as *"a
+path named in a source comment exists"*. The argument that kept it parked -- that
+prose paths are also written about deleted files on purpose, so a checker buys a
+suppression list -- was measured: of 234 such citations, 20 did not resolve, 8
+were placeholders named `foo`, 6 said in their own words that the path was gone,
+and 7 were live claims pointing at nothing. Fourteen `cite-ok` markers, in a
+convention this file already had, and the gate was green the day it landed.
+
+⚠ It is a SEPARATE FLAG from `--comments` because that mode's SYMBOL half has
+standing advisory findings and cannot gate; one flag would have held the
+enforceable half hostage to the advisory one.
+`docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md` is the
+receipt, and it records the three instrument revisions the count went through.
 
 ⭐ THE POINT IS THE TRIAGE, NOT THE COUNT. Every finding here is one of:
 
@@ -1093,6 +1098,12 @@ def main() -> int:
              "name that prompted this script reached one, where nothing looks)",
     )
     parser.add_argument(
+        "--comment-paths", action="store_true",
+        help="check backticked PATH citations in Rust comments and nothing "
+             "else -- the half of --comments that is green at HEAD and can "
+             "therefore gate a lane",
+    )
+    parser.add_argument(
         "--vanished", metavar="REF_OR_RANGE",
         help="report BARE backticked citations of names that were defined at "
              "REF and are not now -- the post-carve pass. Takes `A..B` too, "
@@ -1152,7 +1163,14 @@ def main() -> int:
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
-    if args.comments:
+    # ⛔⛤ **TWO HALVES WITH DIFFERENT EVIDENCE, SO THEY ARE TWO FLAGS.** The
+    # SYMBOL half of the comment sweep has 21 standing findings at HEAD — names a
+    # macro declares, upstream types, a test function cited by its own module —
+    # so it reports and cannot gate. The PATH half is green at HEAD (2026-09-17,
+    # after seven live citations were repaired), so it CAN, and a lane runs it.
+    # Merging them would have held the enforceable half hostage to the advisory
+    # one, which is how a checker ends up run by nobody.
+    if args.comments or args.comment_paths:
         # ⭐ SAME RULE, WIDER TARGET. A comment citation is judged exactly like a
         # planning one -- there is no reason a name in prose is more real for
         # sitting next to the code. MEASURED 2026-09-02: 2,847 judged, 45
@@ -1167,7 +1185,7 @@ def main() -> int:
                     continue
                 if marker_suppresses(src_lines, lineno):
                     continue
-                for m in SYMBOL.finditer(line):
+                for m in SYMBOL.finditer(line) if args.comments else ():
                     parts = m.group(1).split("::")
                     head, tail = parts[0], parts[-1]
                     if tail in NOISE or len(tail) < 3:
@@ -1178,6 +1196,27 @@ def main() -> int:
                     if tail not in rust_defined:
                         findings.append((str(rel), lineno, m.group(0),
                                          "nothing DEFINES this name"))
+                # ⛔⛤ **THE SAME PATH RULE, ON THE SURFACE THAT HAD NOBODY.**
+                # `--comments` judged SYMBOLS in Rust comments and nothing else,
+                # while `PATH_CITE` ran only over `docs/` — so a doc comment
+                # naming a directory was checked by no lane at all. That is the
+                # gap `triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`
+                # is about, and it cost seven live citations on 2026-09-17: two
+                # sent a reader to `app/schedule.rs`, a file that does not exist,
+                # and one claimed constants were "co-authored" with a deleted
+                # file.
+                # ⇒ ONE RESOLVER, not a second script. `path_resolves` already
+                # knows the repository's abbreviation habit and `cite-ok` already
+                # means "wrong on purpose"; a sibling checker would have been a
+                # second authority on the same question.
+                for m in PATH_CITE.finditer(line):
+                    cite = m.group(1)
+                    if cite.startswith(GENERATED_PREFIXES) or "..." in cite:
+                        continue
+                    checked += 1
+                    if not path_resolves(cite, by_path_name):
+                        findings.append((str(rel), lineno, m.group(0),
+                                         "no file at this path"))
     for doc in docs:
         # ⛔ A DOC OUTSIDE THE REPO IS A LEGITIMATE TARGET -- a fixture under
         # pytest's tmp_path, or a file being checked before it is committed.

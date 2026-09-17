@@ -1604,7 +1604,7 @@ mod a12_projectile_credit_census {
 ///
 /// ⛔⛔ **AND ONE OF THE EIGHT HIDES BEHIND A DIFFERENT VOCABULARY.** The bare
 /// `ninja_shadow_oni_leader` DOES exist in the tree — as a SHEET id
-/// (`sprites_0_25x/ninja_shadow_oni_leader_actor.ron` carries
+/// (`sprites_0_25x/ninja_shadow_oni_leader_actor.ron` carries <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
 /// `sheet_id: "ninja_shadow_oni_leader"`). So a check asking *"does this name
 /// exist anywhere"* answers YES for that one and NO for the other seven. ⇒ **A
 /// key two vocabularies share is not an identity**, and the only question that

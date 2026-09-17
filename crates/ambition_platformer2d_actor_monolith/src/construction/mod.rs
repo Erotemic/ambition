@@ -628,7 +628,7 @@ fn construct_giant_host(
     };
     // ⭐ THE HOST IS AN ORDINARY ENEMY BODY PLUS THE LIMB ROUTING STATE, and
     // saying so here is the point of the move. This was `populate_giant_host_into`
-    // in `features/ecs/spawn_actors.rs` — a five-line wrapper whose only caller in
+    // in `features/ecs/spawn_actors.rs` — a five-line wrapper whose only caller in <!-- cite-ok: records a path that is GONE; naming it is the point -->
     // the tree was this function, holding GIANT-CREATURE construction knowledge
     // inside the generic spawn file. The shared call it wraps stays where it is;
     // what is gone is a name crossing the boundary to say something only

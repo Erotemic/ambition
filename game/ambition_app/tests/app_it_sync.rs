@@ -4,7 +4,7 @@
 //! `ambition_app` sets `autotests = false` and declares a single `[[test]]`
 //! (`app_it`) that `mod`-includes every integration source. That collapses ~46
 //! Bevy-linking test binaries into one — a big compile win — but it means a new
-//! `tests/foo.rs` compiles and runs ONLY if someone also adds `mod foo;` here.
+//! `tests/foo.rs` compiles and runs ONLY if someone also adds `mod foo;` here. <!-- cite-ok: an illustrative path, never a real one -->
 //! With autotests off, a forgotten `mod` line does not warn or fail: the file is
 //! simply never built, so its tests silently vanish. This test makes that a hard
 //! failure instead.

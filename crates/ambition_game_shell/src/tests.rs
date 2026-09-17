@@ -459,9 +459,11 @@ mod composed {
     /// gated, because the presentation is. `basic_presentation` is not a
     /// default feature, so a bare `cargo test -p ambition_game_shell` renders no
     /// launcher at all — the 38 tests it reports never touch this. The runner's
-    /// per-crate feature job is what runs it (and
-    /// `scripts/tests/test_no_test_module_is_dark.py` is what keeps that job
-    /// from being exempted out from under it).
+    /// per-crate feature job is what runs it, and what keeps that job honest is
+    /// `DENY_EXACT` in `scripts/run_tests.py`: the job enumerates every feature
+    /// NOT on that list, so `basic_presentation` is covered by being absent from
+    /// it. ⚠ This named a `scripts/tests/test_no_test_module_is_dark.py` until <!-- cite-ok: quotes the dead name this correction is about -->
+    /// 2026-09-17; no file by that name has ever been tracked.
     #[cfg(feature = "basic_presentation")]
     #[test]
     fn moving_the_launcher_cursor_does_not_respawn_the_ui_tree() {

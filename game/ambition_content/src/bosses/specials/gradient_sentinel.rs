@@ -59,7 +59,7 @@ pub struct AppleRainSpawnState {
 
 /// Apple cosmetic / collision constants.
 ///
-/// ⚠ **THIS SAID THEY WERE "reused from `content/features/bosses.rs`" AND STAYED
+/// ⚠ **THIS SAID THEY WERE "reused from `content/features/bosses.rs`" AND STAYED <!-- cite-ok: quotes the dead name this correction is about -->
 /// "co-authored with the legacy path" UNTIL 2026-09-17.** That file is gone and
 /// these four are the only definitions in the tree, so the sentence described a
 /// co-authorship with nothing — the shape a carve leaves behind when it moves the

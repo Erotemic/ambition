@@ -95,7 +95,7 @@ impl ContentSchemaHandler for SmashFighterSchema {
     ///
     /// ```text
     /// [duplicate-identity] `ambition:smash_fighter/george` is defined twice:
-    ///     in `fighters/george.ron` and in `fighters/george_copy.ron`
+    ///     in `fighters/george.ron` and in `fighters/george_copy.ron` <!-- cite-ok: an illustrative path, never a real one -->
     /// ```
     ///
     /// ⛔ A HANDLER THAT DEFINES A CONTENT ID PER ENTITY GETS THE COLLISION

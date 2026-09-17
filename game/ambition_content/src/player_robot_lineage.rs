@@ -80,7 +80,7 @@ pub const LINEAGE: &[&Incarnation] = &[&V0, &V2, &V3];
 /// The sheet comes through
 /// [`CatalogEntry::manifest_target`](ambition_characters::actor::character_catalog::CatalogEntry::manifest_target),
 /// the same canonical projection `audit_character_authority_parity` compares with — a catalog row
-/// names FILES (`sprites/player_robot_v2_spritesheet.ron`) and a definition names a TARGET
+/// names FILES (`sprites/player_robot_v2_spritesheet.ron`) and a definition names a TARGET <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
 /// (`player_robot_v2`).
 ///
 /// A missing row is a panic rather than a fallback: an incarnation the catalog

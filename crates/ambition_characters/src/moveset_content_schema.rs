@@ -162,7 +162,7 @@ impl ContentSchemaHandler for MovesetSchema {
     ///
     /// ```text
     /// [duplicate-identity] `test:moveset/test_duelist` is defined twice:
-    ///     in `moves/duelist.ron` and in `moves/duelist_copy.ron`
+    ///     in `moves/duelist.ron` and in `moves/duelist_copy.ron` <!-- cite-ok: an illustrative path, never a real one -->
     /// ```
     ///
     /// ⛔ A HANDLER THAT DEFINES A CONTENT ID PER ENTITY GETS THE COLLISION

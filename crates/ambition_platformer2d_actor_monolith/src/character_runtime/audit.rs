@@ -125,7 +125,7 @@ pub enum CharacterAuthorityConflict {
     /// both sheets are the CANONICAL sheet target, never the raw strings
     /// the two authorities happen to store. A registry names a target (`robot`);
     /// a catalog names files (`sprites/robot_spritesheet.png` +
-    /// `sprites/robot_spritesheet.ron`). Comparing those as strings reported a
+    /// `sprites/robot_spritesheet.ron`). Comparing those as strings reported a <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
     /// conflict for every character both authorities declare — ten of them in
     /// the shipped cast, including `sanic`, `robot` and `mary_o` — so this
     /// audit's `error!` was permanently on and therefore unreadable
@@ -265,7 +265,7 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
     // two authorities write the same logical asset in two different vocabularies
     // — a registry `with_sheet` names the baked manifest target (`robot`), a
     // catalog row names its files (`sprites/robot_spritesheet.png` and
-    // `sprites/robot_spritesheet.ron`) — and `manifest_target()` is the existing
+    // `sprites/robot_spritesheet.ron`) — and `manifest_target()` is the existing <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
     // canonical projection between them. Comparing raw strings made this fire on
     // every character both authorities declare, which is to say it fired on
     // agreement. Ten shipped characters, an `error!` on

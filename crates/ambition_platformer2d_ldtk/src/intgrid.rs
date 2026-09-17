@@ -31,10 +31,16 @@ pub(super) const CLIMBABLE_INT_GRID_LADDER: i32 = 1;
 pub(super) const CLIMBABLE_INT_GRID_VINE: i32 = 2;
 pub(super) const CLIMBABLE_INT_GRID_WALL: i32 = 3;
 
-// IntGrid value → engine block kind. Mirrors `tools/ldtk_intgrid_migration.py`;
-// the migration script is the source of truth for which value means what, but
-// any new value here that isn't covered there will fail validation at compose
-// time so authors can't silently introduce mismatched mappings.
+// IntGrid value → engine block kind.
+//
+// ⚠ THIS NAMED `tools/ldtk_intgrid_migration.py` AS THE SOURCE OF TRUTH UNTIL <!-- cite-ok: quotes the dead name this correction is about -->
+// 2026-09-17, and that script is not in the tree. The source of truth is the
+// authored LDtk project's own IntGrid layer definitions;
+// `tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/intgrid.py` mirrors them
+// for tooling, the same way this does for the engine. What has not changed is
+// the guarantee: a value here that the authored project does not cover fails
+// validation at compose time, so authors cannot silently introduce a mismatched
+// mapping.
 pub(super) const INT_GRID_SOLID: i32 = 1;
 pub(super) const INT_GRID_ONE_WAY: i32 = 2;
 pub(super) const INT_GRID_BLINK_SOFT: i32 = 3;

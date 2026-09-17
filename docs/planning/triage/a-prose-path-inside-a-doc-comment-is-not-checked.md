@@ -1,8 +1,12 @@
 # A moved directory is a citation broken in silence
 
-**Status:** open row, diagnosis complete and now COUNTED. **Not a proposal to
-wire anything.** Filed 2026-09-10; censused and its seven live instances fixed
-2026-09-17 (last section).
+**Status:** ✔ **CLOSED 2026-09-17.** Filed 2026-09-10 as a diagnosis that
+deliberately declined to wire anything. It is wired now, because the objection
+that stopped it — *"a checker that reddens on all of them buys a suppression
+list"* — was measured and did not survive: the legitimate cases announce
+themselves, the annotation cost is fourteen lines in a convention that already
+existed, and the gate is green at HEAD. Ten live citations were repaired on the
+way (last two sections).
 
 ## The mechanism
 
@@ -111,3 +115,36 @@ page describes rather than an example of it:
 
 ⇒ Five of the seven were produced by a CARVE, which is exactly the mechanism at
 the top of this page, now with instances instead of one.
+
+## What closed it
+
+`scripts/check_planning_citations.py --comment-paths --strict`, registered in
+`scripts/run_tests.py` as *"a path named in a source comment exists"* and running
+in the default plan (`slow_python_checker_jobs`, so `--rust` and `--maintenance`
+drop it and say so).
+
+⛔ **ONE RESOLVER, NOT A SECOND SCRIPT.** `path_resolves` already knew the
+repository's abbreviation habit and `cite-ok` already meant *"wrong on purpose"*;
+a sibling checker would have been a second authority on the same question, which
+is the thing this tree spends most of its hygiene budget undoing.
+
+⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` FOR A MEASURED REASON.** That
+mode's SYMBOL half has 21 standing findings at HEAD — macro-declared names,
+upstream types — so it reports and cannot gate. Folding the path half into it
+would have held the enforceable half hostage to the advisory one, which is how a
+checker ends up run by nobody. `--comments` still implies `--comment-paths`; only
+the reverse is untrue.
+
+⇒ Poison-verified: repointing one live citation at `src/rl_sim/nowhere.rs` <!-- cite-ok: this line RECORDS a path that does not resolve; that is the finding -->
+reddens it naming the file, the line and the token. Five arms in
+`scripts/tests/test_source_comment_path_citations.py` pin the reporting, the
+control, the `cite-ok` escape, the symbol/path split, and that a path inside a
+string LITERAL is data rather than a citation.
+
+⭐ **THE SWEEP FOUND THREE MORE THAN THE `.rs`-ONLY CENSUS ABOVE**, because the
+checker's suffix list is wider: a guard named
+`scripts/tests/test_no_test_module_is_dark.py` that has never been tracked under <!-- cite-ok: this line RECORDS a path that does not resolve; that is the finding -->
+that name, a `tools/ldtk_intgrid_migration.py` named as *"the source of truth for <!-- cite-ok: this line RECORDS a path that does not resolve; that is the finding -->
+which value means what"*, and a Mockingbird sprite generator cited as the thing
+you install to regenerate a shipped sheet. All three were live instructions to a
+reader, and all three are now either repointed or labelled as gone.

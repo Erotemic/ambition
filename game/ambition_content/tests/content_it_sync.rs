@@ -3,7 +3,7 @@
 //! This crate sets `autotests = false` and declares ONE `[[test]]` that
 //! `mod`-includes every integration source, collapsing 6 Bevy-linking test
 //! binaries into one. The cost of that win is a real hazard: with autotests off
-//! a new `tests/foo.rs` compiles and runs ONLY if someone also adds `mod foo;`
+//! a new `tests/foo.rs` compiles and runs ONLY if someone also adds `mod foo;` <!-- cite-ok: an illustrative path, never a real one -->
 //! to the aggregate, and a forgotten line does not warn — the file is simply
 //! never built and its tests silently vanish. This makes that a hard failure.
 //!

@@ -19,17 +19,24 @@ and its date before acting on it, and re-derive its measurement — see
 
 ## Open findings
 
+⚠ One CLOSED page is kept in this section rather than moved: its value is now the
+measurement it carries, and the index would lose that by demoting it to a link.
+
 - [`a-composition-acceptance-that-only-fails-in-company.md`](a-composition-acceptance-that-only-fails-in-company.md)
   — an isolation test that FAILS in a full run and PASSES alone, intermittently.
   ⭐ **Live:** the same signature hit a different arm on 2026-09-16, so this is a
   CLASS with at least two instances. Its named next step is `--test-threads=1`,
   and [`../queue.md`](../queue.md)'s TEST-LANES row now links it.
 - [`a-prose-path-inside-a-doc-comment-is-not-checked.md`](a-prose-path-inside-a-doc-comment-is-not-checked.md)
-  — the citation checker resolves SYMBOLS, so a doc comment naming a DIRECTORY
-  breaks silently when a carve moves it. ⚠ Filed rather than gated on purpose: a
-  checker for prose paths buys a suppression list, and an amnesty list is how you
-  hide what it exempts. `scripts/check_planning_citations.py` names this blind
-  spot in its own docstring.
+  — ✔ **CLOSED 2026-09-17, and kept here because the page is now the receipt.**
+  Nothing read the paths a `.rs` comment names, so a carve broke them in silence;
+  ten live citations were pointing at nothing when it was finally censused, two
+  of them telling a reader the simulation phase order is *"configured by
+  `app/schedule.rs`"* <!-- cite-ok: quoting the dead path the row is about -->, a
+  file that does not exist. The objection that kept it parked — a checker buys a
+  suppression list — was measured and did not survive: the legitimate cases
+  announce themselves, the annotation cost was fourteen lines in a convention
+  that already existed, and `--comment-paths` gates in the default lane.
 
 ## Design and scope pages awaiting a decision
 

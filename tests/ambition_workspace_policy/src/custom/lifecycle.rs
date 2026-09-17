@@ -5,7 +5,7 @@
 //! ⛔ THE SUBJECT IS A PATH PREFIX, NOT A FILE NAME, AND IT COST THIS GATE THREE
 //! MONTHS OF COVERAGE TO LEARN THAT. Until 2026-09-03 the filter asked whether
 //! the FILE NAME began with `spawn`, which was the same question while the module
-//! was a single `features/ecs/spawn.rs`. `cdd0a0a0d` (2026-06-14) split that file
+//! was a single `features/ecs/spawn.rs`. `cdd0a0a0d` (2026-06-14) split that file <!-- cite-ok: records a path that is GONE; naming it is the point -->
 //! into `spawn/mod.rs` + `spawn/tests.rs`; neither name begins with `spawn`, so
 //! the directory named for exactly what this gate governs became invisible to it,
 //! and six production files sat ungoverned. Nothing failed — a name-matching gate
@@ -120,7 +120,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
         for file in workspace::rust_sources_under(root) {
             // Relative to the SCAN ROOT (`features/ecs`), so `spawn_actors.rs` and
             // `spawn/portal_construction.rs` both begin with `spawn` and a future
-            // `spawn/foo/bar.rs` still would. Matching the file name instead is what
+            // `spawn/foo/bar.rs` still would. Matching the file name instead is what <!-- cite-ok: an illustrative path, never a real one -->
             // let the `spawn/` directory escape this gate for three months.
             let under = file
                 .strip_prefix(root)

@@ -7,7 +7,7 @@
 /// Dialogue identifiers consumed by the LDtk `NpcSpawn.dialogue_id`
 /// field for intro-room NPCs. Returned to the validator via
 /// [`intro_dialogue_ids`]; matches the keys in
-/// `assets/data/dialogue/registry.ron`. Used by `intro/tests.rs` as
+/// `assets/data/dialogue/registry.ron`. Used by `intro/tests.rs` as <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
 /// the canonical "intro module owns these ids" list against which
 /// the data registry is validated.
 #[allow(

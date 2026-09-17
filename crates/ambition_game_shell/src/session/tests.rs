@@ -1,5 +1,5 @@
 //! Unit tests for the session bridge, extracted to an adjacent child module
-//! (test-placement: large private test modules live in `src/foo/tests.rs`,
+//! (test-placement: large private test modules live in `src/foo/tests.rs`, <!-- cite-ok: an illustrative path, never a real one -->
 //! keeping private access via `use super::*;` without widening any API).
 
 #![allow(clippy::module_inception)]

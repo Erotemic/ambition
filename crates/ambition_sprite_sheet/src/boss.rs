@@ -186,9 +186,14 @@ pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
         authored_faces_left: false,
     });
 
-/// The Mockingbird boss sheet from the standalone Python generator
-/// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`,
-/// installed via that script's `install` command). Rows in PNG order:
+/// The Mockingbird boss sheet from a standalone Python generator
+/// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`, <!-- cite-ok: quotes the dead name this correction is about -->
+/// installed via that script's `install` command). ⚠ THAT SCRIPT IS NOT IN THE
+/// TREE — checked 2026-09-17, no tracked file by that name — so the sheet is
+/// authored art now and the row order below is its only description. The name is
+/// kept because it is where the sheet CAME FROM.
+///
+/// Rows in PNG order:
 /// hover, thrust, bite, slash, hit, death. Mapped onto the existing
 /// `BossAnim` vocabulary so the gameplay layer can issue the same
 /// verbs across both bosses:

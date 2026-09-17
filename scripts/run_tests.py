@@ -569,6 +569,25 @@ def slow_python_checker_jobs() -> list[Job]:
                 "docs/recipes",
             ],
         ),
+        # ⛔⛤ **THE SAME CHECKER, THE HALF THAT CAN GATE.** The job above is
+        # non-strict because its SYMBOL findings are a prose linter's guesses.
+        # A PATH citation is not a guess: either a file is there or it is not,
+        # and until 2026-09-17 nothing asked that question of a `.rs` comment at
+        # all. Seven live citations were pointing at nothing when it was first
+        # run — two sending a reader to an `app/schedule.rs` that does not exist.
+        # ⇒ Green at HEAD, `cite-ok` is the escape hatch for a path named
+        # BECAUSE it is gone, and this gates so a carve cannot re-break them in
+        # silence. `triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`
+        # is the row it closes.
+        Job(
+            "a path named in a source comment exists",
+            [
+                sys.executable,
+                "scripts/check_planning_citations.py",
+                "--comment-paths",
+                "--strict",
+            ],
+        ),
         Job(
             "compile-cost ratchet (frozen weights, not a stopwatch)",
             [sys.executable, "scripts/compile_ratchet.py"],

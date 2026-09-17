@@ -570,7 +570,7 @@ line — moved the measured coverage from six to eight with no new fixture, no
 input road, and no change to the simulation. ⭐⭐ **AND THE NINTH CAME FROM THE
 ONE THING A ROOM CANNOT AUTHOR: A PRESS.** `portal.shot` exists because somebody
 fired, so the fourth walk starts in `portal_bridge` — the player at x=94, the
-authored `PortalGunSpawn` at x=180 with a 20px half-extent — and drives
+authored `PortalGunSpawn` at x=180 with a 20px half-extent — and drives <!-- cite-ok: `PortalGunSpawn` is an authored LDtk entity identifier (`ldtk_entity_contract.json`), not a Rust definition; the Rust name is `PortalGunSpawnSpec` -->
 `axis_x: 1.0` with an attack edge every ten steps through the SHIPPED input road
 (`drive_control_frame`). The gun is in hand on step 20 and shots are live
 thereafter. Both hosts get the identical script, a pure function of the step

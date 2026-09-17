@@ -637,7 +637,7 @@ pub struct CharacterCatalogEntry {
     pub attack_vfx: Option<String>,
     /// Gameplay sprite tuning (collision scale / sample inset / feet
     /// anchor override). `None` = defaults. Replaces the old
-    /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs` (that
+    /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs` (that <!-- cite-ok: records a path that is GONE; naming it is the point -->
     /// path is GONE — the name is kept because the sentence is about what this
     /// field replaced, not about where to look). <!-- cite-ok -->
     #[serde(default)]
@@ -695,7 +695,7 @@ pub struct CharacterCatalogEntry {
 
 impl CharacterCatalogEntry {
     /// The sheet-manifest record key for this character: the manifest filename root (e.g.
-    /// `sprites/pirate_admiral_spritesheet.ron` -> `pirate_admiral`). Multiple catalog ids that
+    /// `sprites/pirate_admiral_spritesheet.ron` -> `pirate_admiral`). Multiple catalog ids that <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
     /// point at the SAME `manifest` path share one generated sheet (texture + record both);
     /// each character with its own art reads its own manifest.
     pub fn manifest_target(&self) -> Option<&str> {

@@ -248,7 +248,7 @@ pub fn rust_sources_under(dir: &Path) -> Vec<PathBuf> {
 /// Whether a workspace-relative `.rs` path is a TEST module rather than a
 /// production module. THE single classifier — the module-size gate uses it to
 /// keep test LOC out of the production count, so extracting a large inline test
-/// into an adjacent `src/foo/tests.rs` (Task 11) is reclassified automatically,
+/// into an adjacent `src/foo/tests.rs` (Task 11) is reclassified automatically, <!-- cite-ok: an illustrative path, never a real one -->
 /// by explicit path shape, not a filename-substring guess:
 ///   * a standalone integration test lives under a `tests/` directory;
 ///   * an adjacent unit-test module is `…/tests.rs` (or `…/tests/*.rs`).

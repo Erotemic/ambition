@@ -297,7 +297,7 @@ fn sim_spawns_player_with_brain_and_action_set() {
 /// frame, and the ActionSet resolver writes an
 /// ActorActionMessage when the input frame triggers attack.
 /// Validates the PRODUCTION wiring rather than a synthetic mini-app.
-/// (This used to contrast itself with tests in `player/systems.rs`;
+/// (This used to contrast itself with tests in `player/systems.rs`; <!-- cite-ok: records a path that is GONE; naming it is the point -->
 /// `5ba894709` ended that directory and the mini-app went with it, so
 /// there is no longer a second road to be the production half OF.)
 #[test]

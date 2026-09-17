@@ -308,8 +308,26 @@ impl Platformer2dSimHarness {
     /// settings resource is the OWNER and the seat table is the capture stage's
     /// published copy of it. Reading the copy would make this a second consumer
     /// of a projection instead of the producer standing in for its author.
+    /// ⛔⛤ **AND THE SETTINGS RESOURCE IS OPTIONAL, BECAUSE A COMPOSITION MAY
+    /// HAVE NO AUTHOR FOR THE POLICY AT ALL.** This read was
+    /// `resource::<UserSettings>()` for one day and it turned the crate's own
+    /// Track-4 exit gate red: `composes_below_the_app` links only the reusable
+    /// engine surface, `add_headless_foundation` installs no settings resource,
+    /// and every arm in that file panicked inside `step` with *"Requested
+    /// resource does not exist"*. `cargo test --workspace` runs it, so the lane
+    /// carried it.
+    ///
+    /// ⚠ **THE FALLBACK IS NOT THE DEFECT THAT PUT THE READ HERE.** That one was
+    /// stamping `Default` over a policy an author HAD set; this is answering when
+    /// there is no author to ask, and `SeatControlFrameModes`'s own doc already
+    /// states that answer — *"an unwritten row is `ControlFrameModes`'s
+    /// `Default`, which is the same answer the three readers gave when
+    /// `UserSettings` was absent"*. A composition that wants a non-default policy
+    /// installs the resource and calls [`Self::set_movement_frame_mode`].
     fn seat_frame_modes(&self) -> ambition_platformer2d::sim::ControlFrameModes {
-        let settings = self.app.world().resource::<UserSettings>();
+        let Some(settings) = self.app.world().get_resource::<UserSettings>() else {
+            return ambition_platformer2d::sim::ControlFrameModes::default();
+        };
         ambition_platformer2d::sim::ControlFrameModes {
             movement: settings.gameplay.resolved_movement_frame_mode(),
             aim: settings.gameplay.resolved_aim_frame_mode(),
@@ -686,6 +704,16 @@ impl Platformer2dSimHarness {
 
     /// Set the active input-frame mapping mode for scripted control.
     pub fn set_movement_frame_mode(&mut self, mode: InputFrameMode) {
+        // ⚠ REQUIRED HERE, OPTIONAL IN `seat_frame_modes`, and the asymmetry is
+        // the point: reading has an answer with no author (the default), and
+        // SETTING a preference nothing stores does not. A composition that
+        // installs no settings resource cannot configure one.
+        assert!(
+            self.app.world().contains_resource::<UserSettings>(),
+            "this composition installs no `UserSettings`, so there is nowhere to \
+             record a frame-mode preference — install the resource in the compose \
+             callback, or accept the default policy `seat_frame_modes` reports"
+        );
         let mut settings = self.app.world_mut().resource_mut::<UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
         let resolved = settings.gameplay.resolved_movement_frame_mode();

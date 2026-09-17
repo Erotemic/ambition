@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,158 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,174 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -28,7 +28,7 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 ```
 
 because a number stated here without its command is the next stale copy: this
-paragraph carried 2,519 for long enough that the file had grown by 639 lines
+paragraph carried 2,519 for long enough that the file had grown by 655 lines
 underneath it. Three agents worked it in one night and it more than doubled,
 which is the point — **the growth is continuous and the compression is per-row,
 so a single cleanup does not hold.** C10's regression rule is *"if a live
@@ -2939,6 +2939,23 @@ because they shared a symptom. **A symptom is not a population.**
   [the lane recipe](../recipes/running-the-heavy-app-it-lane.md);
 - ⭐ the acceptance criterion that caused both halves is now a standing principle:
   [an acceptance criterion that counts the OLD road's absence](decision-principles.md#an-acceptance-criterion-that-counts-the-old-roads-absence-is-satisfied-by-breaking-the-new-one).
+- ⛔⛤ **AND THE FIX FOR THE FIVE MADE AN OPTIONAL RESOURCE REQUIRED, WHICH
+  REDDENED A DIFFERENT CRATE'S EXIT GATE FOR A DAY.** `ce6ddcb25` read
+  `resource::<UserSettings>()` in `Platformer2dSimHarness::seat_frame_modes`, and
+  `crates/ambition_sim_harness/tests/composes_below_the_app.rs` — the Track-4
+  gate whose whole subject is that the harness composes with ONLY the reusable
+  engine surface — panicked in both arms with *"Requested resource does not
+  exist"*. `cargo test --workspace` runs it, so the Rust lane carried it.
+  ⇒ Fixed 2026-09-16: the read is optional and falls back to
+  `ControlFrameModes::default()`, which is the answer
+  `SeatControlFrameModes`'s own doc already gives for an unwritten row; setting a
+  preference still requires the resource, and now says so. Poison-verified BOTH
+  ways — forcing the fallback reproduces `ce6ddcb25`'s exact 1-passed/5-failed
+  signature, and restoring it gives 6/6 plus 41/0 across the harness crate.
+  ⭐ **The method lesson is the one this row already carries in another costume:
+  a fix verified by the arms that MEASURED the defect is verified against the
+  wrong population.** Those five arms went green and the change's reverse
+  dependency closure was never run.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
 **691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the

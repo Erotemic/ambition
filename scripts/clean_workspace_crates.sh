@@ -130,13 +130,27 @@ for name in "${profiles[@]}"; do
         # directory, advisory and released when the process dies, so there
         # is no stale-lock case to work around. MEASURED on this box: the
         # probe exits 1 during `cargo build` and 0 once it settles.
+        # ⛔⛤ AND THE LOCK MUST BE HELD THROUGH THE DELETE, NOT PROBED BEFORE
+        # IT. This read `flock -n "$lock" true`, which takes the lock for the
+        # lifetime of `true` and drops it before the next line — so a cargo
+        # starting in the window between the probe and the `rm` acquired it
+        # freely and the refusal above protected nothing. Hold an open
+        # descriptor across `du`, `find`, `mv` and `rm`, and a build that
+        # starts meanwhile waits on the lock instead of racing the deletion.
+        # `flock(2)` ignores the open mode, so a read descriptor takes the
+        # exclusive lock cargo itself waits for.
         lock="$target/$name/.cargo-lock"
-        if [ "$apply" = 1 ] && [ -e "$lock" ] && ! flock -n "$lock" true; then
-            echo "REFUSING: a build holds $lock." >&2
-            echo "  Deleting the incremental cache under a live rustc can" >&2
-            echo "  split its state or kill the compile. Wait for the build" >&2
-            echo "  to finish, or stop it, and run this again." >&2
-            exit 3
+        lockfd=
+        if [ "$apply" = 1 ] && [ -e "$lock" ]; then
+            exec {lockfd}<"$lock"
+            if ! flock -n "$lockfd"; then
+                exec {lockfd}<&-
+                echo "REFUSING: a build holds $lock." >&2
+                echo "  Deleting the incremental cache under a live rustc can" >&2
+                echo "  split its state or kill the compile. Wait for the build" >&2
+                echo "  to finish, or stop it, and run this again." >&2
+                exit 3
+            fi
         fi
         size="$(du -sh "$inc" | cut -f1)"
         dirs="$(find "$inc" -mindepth 1 -maxdepth 1 -type d | wc -l)"
@@ -146,6 +160,7 @@ for name in "${profiles[@]}"; do
             mv "$inc" "$doomed"
             rm -rf "$doomed"
         fi
+        if [ -n "$lockfd" ]; then exec {lockfd}<&-; fi
     else
         flags=(clean --workspace --profile "$(cargo_profile "$name")")
         [ "$apply" = 1 ] || flags+=(--dry-run)

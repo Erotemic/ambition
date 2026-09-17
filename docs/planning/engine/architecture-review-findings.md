@@ -9,9 +9,17 @@ Git preserves the previous diagnosis, including
 [archived epochs](../repository-history.md). Locally absent history is not proof
 of a fabricated source reference.
 
+✔ **ALL NINE RE-CHECKED AGAINST HEAD, 2026-09-17, by opening the code each
+finding names.** Seven are closed (`F1`, `F2`, `F4`, `F5`, `F7`, `F8`, `F9`), one
+is half closed (`F3` — the obstruction bypass is fixed, swept target selection is
+`A2c`), and one is an open contract limitation (`F6`). ⚠ **A CLOSED FINDING IS
+NOT A CLOSED PACKET:** `F8` closed while its packet `A12b` is two items of four,
+and `F9` closed while `A1c/3-5` remains. Each row says which.
+
 **Verification limit:** Rust/Cargo were unavailable in this review environment.
 No Rust reproduction, gameplay session, rollback run, GPU run or release build
-was executed. The distinctions below are intentional:
+was executed. That limit describes the REVIEW; the re-checks above were run
+against a working toolchain. The distinctions below are intentional:
 
 - **Source-established:** the stated control/data flow is directly visible.
 - **Conditional defect:** a supplied state can exercise a bad path; production

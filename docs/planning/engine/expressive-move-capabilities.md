@@ -316,7 +316,7 @@ unverified here and should be re-derived before anyone builds against them.
 | **Control impairment** ✔ | Sing, Disable, stun, sleep | hitstun/hard locks cover some cases | ⭐ **SHIPPED**: `BodyCombat::sleep_timer` as a fifth named cause in `hard_lock_timer`'s `max()`, plus `smash.sleep`. Two customers with unrelated fictions — the Performer's voice and the Shadow Oni's smoke — which is the test of whether a status was worth adding. ▢ Mash-escape is still unbuilt | Combat/status owner |
 | **Local time alteration** | Witch Time | `ProperTimeScale` exists; move/hurtbox clocks consume entity proper time | audit/finish propagation through locomotion and other body systems | Time + consuming domains |
 | **Timed stat modifiers** | Deep Breathing, Revenge buff, Monado arts | some independent move/character tuning; armor/invuln | scoped modifiers applied by the authority of the affected quantity | ⛔ do not create a stat-writing god system |
-| **Character meters/resources** | Limit, MP, fuel, feathers, ink, ammo, durability | `ResourceMeter`, `BodyMana`, other budgets | character-owned rollback resource state + semantic spend/gain/threshold ops | Character/provider |
+| **Character meters/resources** | Limit, MP, fuel, feathers, ink, ammo, durability | `ResourceMeter`, `BodyMana`, other budgets | content-defined resources resolved to prepared handles; explicit capability bindings and atomic costs | Character/provider + [resource owner](composable-actor-resources.md) |
 | **Conditional move variants** | Limit specials, KO Punch, Arsène | move gates and repertoire resolution | state-conditioned **move binding/resolution** in one action-selection authority | Moveset/action resolution |
 | **Transformations/forms** | Stone, alternate forms, stance swaps | some body modes; no universal form system, intentionally | eventually one `ResolvedForm` authority changing moveset/body/art/hurtboxes atomically | Character identity/form |
 | **Summoned attack actor** | Phantom, temporary monster, turret | generic summoning; the shark is summon + mount | owner relation, lifecycle, command policy, attribution | Actor/summon |
@@ -456,15 +456,16 @@ That is worth far more than a second slow-motion mechanism. ⚠ Jon's reading;
 the `scaled_dt` / `entity_dt` split is the specific claim to re-derive first,
 because the whole slice is scoped by whether it is still true.
 
-**Resources start character-local.** `ResourceMeter` and `BodyMana` exist; do
-not turn `BodyMana` into "all Smash resources". A Limit-style gauge is a meter
-plus a full-state timeout, with `gain` / `spend` / `set` / `query full` /
-`query fraction`, and its effects compose into a movement modifier and
-conditional special variants. Hero MP, Inkling ink, ROB fuel, Banjo feathers and
-Robin durability differ enough that one string-keyed global resource manager
-would hide the semantics. ⇒ Implement the FIRST as a character-owned rollback
-component over the existing meter math; extract a shared capability only if the
-second and third expose a genuinely identical lifecycle.
+**Resources now have a focused owner.** The main-game resource economy and
+optional fighter resources supply the additional customers that the older
+"generalize only after the second and third" rule was waiting for. Do not turn
+`BodyMana` into all resources, and do not replace it with a string-keyed global
+manager. [Composable actor resources](composable-actor-resources.md) owns the
+selected logical seam: stable content identity -> validated composition ->
+deterministic prepared handle -> dense actor-local state. A fighter can have no
+Limit, one resource, or several independent resources. Resource-specific fill,
+decay, stock, and efficiency policy stays with the capability or ruleset that
+owns the rule.
 
 **Forms stay deferred, with the shape written down.** When a concrete customer
 arrives, one form authority resolves the whole bundle atomically:

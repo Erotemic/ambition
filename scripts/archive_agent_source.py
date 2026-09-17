@@ -1495,6 +1495,7 @@ def build_archive(
     no_submodules: bool = False,
     archive_format: str = 'tar.gz',
     redact_local_paths: bool = False,
+    patch: str | Path | None = None,
 ) -> Path:
     log = Log(verbose)
     repo_root = coerce_repo_root(repo_arg)
@@ -1552,6 +1553,7 @@ def build_archive(
         validate=extension.validate,
         archive_root_name=prefix,
         keep_stage=keep_stage,
+        patch=patch,
     )
 
 
@@ -1616,6 +1618,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--redact-local-paths',
         action='store_true',
         help='redact local source/output paths and local clone origins',
+    )
+    parser.add_argument(
+        '--patch',
+        nargs='?',
+        const='auto',
+        default=None,
+        metavar='BASE',
+        help=(
+            'write an incremental source patch; without BASE, git-well selects '
+            'the closest compatible full archive automatically'
+        ),
     )
     parser.add_argument(
         '--skip-index',
@@ -1734,6 +1747,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             no_submodules=args.no_submodules,
             archive_format=args.archive_format,
             redact_local_paths=args.redact_local_paths,
+            patch=args.patch,
         )
     finally:
         CONFIG.update(saved)

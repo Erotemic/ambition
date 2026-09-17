@@ -1752,3 +1752,61 @@ not a balance question at all — a throw never records its own use, so the
 staleness read is structurally inert whatever is decided here. It needs a
 mechanics answer (does a throw stale the throw, or the grab?) and is recorded in
 the row.
+
+## Q137 — does the `GravityFlipSwitch` plate ship, or does the encounter switch own gravity alone?
+
+Two implementations of one player-facing mechanic — *step on a thing, gravity
+flips* — are built, and only one of them is reachable.
+
+**The one that ships.** `Switch` entities lower to
+`SwitchAction::{FlipGravity, SetGravity<Face>}` (`ambition_encounter/src/switches.rs`)
+and are applied by `ambition_encounter_features/src/systems.rs`. Authored content
+uses it: censused 2026-09-17 over `game/ambition_content/assets/worlds/*.ldtk`,
+fourteen `Switch` entities, of which `central_hub_main` authors one `FlipGravity`
+and `symmetry_room` the four `SetGravity{Down,Left,Up,Right}`.
+
+**The one that does not.** `GravityFlipSwitch`
+(`ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs`) is a tall
+overlap volume with its own edge-latched writer. Its writer is registered in
+exactly ONE place in the workspace and that place is inside a `#[cfg(test)]`
+module, which the gravity plugin states in its own words: *"`gravity_flip_switch_system`
+is intentionally NOT registered. Nothing spawns a `GravityFlipSwitch` in-game
+(the hub flip is an LDtk-authored Switch handled by the encounter system); the
+component + system exist only for the unit test + any future overlap-style
+plate."* That comment is accurate — it is the reachability above that makes it a
+decision rather than a bug.
+
+**What the unreachable half still costs, measured 2026-09-17.** It is not one
+dead component; it is a vertical slice that every other layer pays for as though
+it shipped:
+
+| layer | what it carries |
+|---|---|
+| rollback registry | TWO registrations — `require_rollback` as `entity:gravity_flip_switch` and `rollback_component_clone` as `gravity.flip_switch` (`actor_monolith/src/rollback_registration.rs`) |
+| schema fingerprint | both rows are inside `compute_schema_fingerprint`, so they are part of the peer-stable schema identity `Q122` is about |
+| sim view | `GravitySwitchesView` plus `rebuild_gravity_switches_view`, an unfiltered per-tick query that can only ever produce an empty vector (`ambition_sim_view/src/facts.rs`) |
+| render | `GravitySwitchVisual` and `sync_gravity_switch_visual`, which despawn-and-rebuild from that empty view every frame (`ambition_render/src/rendering/gravity_visuals.rs`) |
+
+⛔ **AND IT ALREADY CORRUPTED A RANKING.** S7 in
+[`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+ranked `gravity.flip_switch` among the twelve sharpest unchecksummed rows —
+*outside the peer checksum, read every tick, float-bearing, AND mutably written
+in production* — on the strength of a mutable borrow that no production
+composition installs. The honest count of reachable sharp rows is eleven, and the
+witness arm that walks them can never reach this one however many rooms it
+visits.
+
+**The decision, and it is a product one.** Either:
+
+* **(a) the plate ships** — something authors a `GravityFlipSwitch`, the system is
+  registered in the simulation schedule, and the two mechanics coexist with a
+  stated split (a plate you stand on vs. a switch you activate); or
+* **(b) the encounter switch owns gravity alone** — the component, its system,
+  its unit test, its view fact and its visual are deleted, and the two rollback
+  registrations go with them.
+
+⛔ **NOT A DEFAULT EITHER WAY.** (b) removes a documented future hook, which is a
+product call and not a cleanup; (a) is a design statement about whether the game
+wants two gravity-flip affordances. What is not tenable is the present state,
+where four layers describe a mechanic the player cannot meet and a determinism
+ranking counted it as production.

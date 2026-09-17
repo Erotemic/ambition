@@ -586,7 +586,13 @@ rollback-registered twice (`component-clone` plus `require_rollback`) for a
 component no shipped composition builds, and **this ranking counted a writer no
 production composition installs** — the same defect as crediting a road nobody
 takes. It is ELEVEN rows a route could reach, not twelve, and the twelfth wants a
-decision about the registration rather than a fixture.
+decision about the registration rather than a fixture: **`Q137`** in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), which
+measures what the unreachable half costs — two rollback registrations inside the
+schema fingerprint, an unfiltered per-tick view rebuild that can only ever
+produce an empty vector, and a render sync that despawns and rebuilds from it
+every frame — and puts the choice as: the plate ships, or the encounter switch
+owns gravity alone.
 
 ⚠ **THE OTHER THREE SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
 them" FROM A WISH INTO A LIST.** Read from the spawn sites, 2026-09-17:

@@ -34,10 +34,12 @@
 > `reachable_from_start` / `reaches_finish` are a real reachability algorithm over
 > an AUTHORED FLOW GRAPH — the branch validator — and `rollback_ggrs`'s session
 > module computes reachability over the SYSTEM DEPENDENCY graph. Neither is world
-> navigation. And `SolidKind::OneWay`'s doc says a one-way platform is *"treated
-> as passable for a coarse reachability test"*; there is no such test, so that
-> sentence describes a consumer that does not exist. ⇒ The absence holds: no
-> reachability type over world geometry, no nav graph, no pathfinding.
+> navigation. And `SolidKind`'s *"coarse reachability test"* is the closest real
+> thing: the fighter's recovery reasoning (`ambition_combat/src/brain/fighter/recovery.rs`)
+> turns each perceived kind into an `ae::Block` and lets `OneWay` be passable —
+> movement reasoning over PERCEIVED LOCAL TERRAIN, one body, one recovery, no
+> graph and no route. ⇒ The absence holds as stated: no reachability type over
+> world geometry, no nav graph, no pathfinding.
 
 > **RE-MEASURED AGAIN against `4149f26b6` (2026-09-03), one layer at a time
 > rather than one foundation at a time — and the diagram below is half built.**

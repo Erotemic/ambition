@@ -2,16 +2,33 @@
 
 Status: **OPEN — VC5 only**
 
-> **Re-checked against `008b44120` (2026-09-02): NOTHING HAD CHANGED, VC5 is still
-> open.** No launcher content-alpha ramp exists — the only presentation fade in
-> the shell is the vanity CARD's own (`basic_presentation.rs`), and the other
-> `fade_*` hits in the workspace are audio tweens and the nameplate rank
-> opacity. The "Verified landed" list below still describes the code.
+> **Re-checked 2026-09-17, and against `008b44120` (2026-09-02) before that:
+> NOTHING HAS CHANGED, VC5 is still open.** No launcher content-alpha ramp
+> exists — the only presentation fade in the shell is the vanity CARD's own
+> (`crates/ambition_game_shell/src/basic_presentation.rs`), and the other `fade`
+> hits in the workspace are audio tweens, the nameplate rank opacity, the
+> kaleidoscope menu's own `KaleidoscopeFade`, and damage-label/dizzy-star eases.
+> The "Verified landed" list below still describes the code.
+>
+> ⛔⛤ **AND THERE IS A SECOND CONSUMER-LESS FADE, WHICH WHOEVER TAKES VC5 SHOULD
+> SEE BEFORE "reuse/generalize existing shell presentation fade machinery" SENDS
+> THEM LOOKING FOR IT.** `CutsceneBeat::Fade` advances its timer and draws
+> nothing — `CutscenePresentation::fade_alpha` has zero consumers outside its own
+> crate, and neither does `camera_target` beside it. Both are labelled UNFINISHED
+> at the definition, which is honest; what the labels did not say is that
+> **shipped content authors one**: `test_intro` holds
+> `Fade { to_alpha: 0.0, seconds: 0.8 }` and is bound to `central_hub_main`, so
+> the first entry to the hub spends 0.8 s on a beat that draws nothing.
+> `CameraPan` is authored only in tests. ⇒ VC5 and the cutscene fade are the same
+> missing thing at two layers, and a screen-alpha consumer built for one is the
+> obvious owner for the other — which is an argument for building it once, not an
+> instruction to widen this card.
 
 The original shell vanity-sequence campaign is complete except for the title
 launcher fade-in. VC1–VC4 and VC6 are implemented. The full campaign history is
 archived at
-docs/archive/planning-superseded/2026-08-13/engine/shell-vanity-sequence.md (removed from the checkout 2026-09-05; still in git history) (docs/archive/planning-superseded/2026-08-13/engine/shell-vanity-sequence.md — removed from the checkout 2026-09-05; still in git history).
+`docs/archive/planning-superseded/2026-08-13/engine/shell-vanity-sequence.md` — <!-- cite-ok: removed from the checkout 2026-09-05; naming the path is the point -->
+removed from the checkout 2026-09-05, still in git history.
 
 ## Verified landed
 

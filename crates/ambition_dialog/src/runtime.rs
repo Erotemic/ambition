@@ -156,7 +156,7 @@ impl DialogSpeechStyle {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct LineRevealState {
     full_line_byte_ends: Vec<usize>,
     revealed_chars: usize,
@@ -219,12 +219,25 @@ impl DialogState {
         self.runner_done_pending_close = false;
     }
 
-    /// Close the dialogue. Hides the UI immediately and stashes a
-    /// `pending_close` request that the dispatch system drains to
-    /// call `runner.stop()`.
-    pub fn close(&mut self) {
+    /// ⭐⭐ **WHAT A CLOSED DIALOGUE LOOKS LIKE, IN ONE PLACE.**
+    ///
+    /// ⛔⛔ THERE WERE THREE ANSWERS TO THAT AND NO TWO AGREED. `close` cleared
+    /// the reveal, the speech style and the whole pointer/focus group and left
+    /// `selected_option` set; the `pending_close` drain in `bridge.rs` cleared
+    /// `selected_option` and left the pointer group set; and
+    /// `confirm_or_advance`'s runner-finished branch cleared neither, hiding the
+    /// UI and leaving the rest to whichever of the other two ran next. Neither
+    /// was a superset of another, so "is this field reset on close" had no
+    /// answer, and a FOURTH ending — a cancel, a room change, an abandoned
+    /// session — would have had to reinvent one of the three.
+    ///
+    /// ⇒ The request half deliberately stays at the call sites: what a closed
+    /// dialogue LOOKS like is one fact, and what each road asks the runner to do
+    /// is another. `close` stashes `pending_close`, the drain has already taken
+    /// it and calls `runner.stop()`, and `confirm_or_advance` is the press that
+    /// dismisses accumulated text.
+    pub(crate) fn clear_conversation_presentation(&mut self) {
         self.active = false;
-        self.pending_close = true;
         self.reset_presentation_identity();
         self.current_speaker.clear();
         self.current_line.clear();
@@ -235,9 +248,18 @@ impl DialogState {
         self.options_reveal = OptionsRevealState::default();
         #[cfg(feature = "ui")]
         self.yarn_option_ids.clear();
+        self.selected_option = 0;
         self.pointer_armed = None;
         self.focus = MenuFocusState::default();
         self.last_pointer_position = None;
+    }
+
+    /// Close the dialogue. Hides the UI immediately and stashes a
+    /// `pending_close` request that the dispatch system drains to
+    /// call `runner.stop()`.
+    pub fn close(&mut self) {
+        self.clear_conversation_presentation();
+        self.pending_close = true;
     }
 
     pub fn active(&self) -> bool {
@@ -460,9 +482,8 @@ impl DialogState {
             // Runner already finished; this press dismisses the
             // final accumulated text and closes the dialog.
             self.runner_done_pending_close = false;
+            self.clear_conversation_presentation();
             self.pending_close = true;
-            self.active = false;
-            self.reset_presentation_identity();
         } else if self.current_options.is_empty() {
             self.pending_advance = true;
         } else {
@@ -535,7 +556,7 @@ impl LineRevealState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OptionsRevealState {
     visible_count: usize,
     elapsed_s: f32,
@@ -570,5 +591,123 @@ impl OptionsRevealState {
 
     fn complete(&self, total_count: usize) -> bool {
         self.visible_count >= total_count
+    }
+}
+
+#[cfg(test)]
+mod closed_state_tests {
+    use super::*;
+    use crate::context::DialogueContext;
+
+    /// ⭐⭐ **A FIELD IS A LEAK ONLY IF SOMETHING READS IT BEFORE THE NEXT WRITER
+    /// SETS IT, so this pins BOTH writers and lets the compiler keep the list.**
+    ///
+    /// ⛔ THE EXHAUSTIVE DESTRUCTURE IS THE RATCHET, not the assertions: adding a
+    /// field to [`DialogState`] fails to compile here until somebody decides which
+    /// half it belongs to. A `..` would turn this into a description of the past.
+    ///
+    /// ⛔⛤ THIS WAS RECORDED AS "not mechanical here -- eleven judgements, several
+    /// of them survives-on-purpose". The eleven was a mis-census: five of its
+    /// members ARE cleared, two that are not were missing, and the function it
+    /// named (`close_dialogue` in `bridge.rs`) does not exist. Measured, the
+    /// survivors are SIX and every one of them is rewritten by
+    /// [`DialogState::start`] -- which is the only road back to a visible
+    /// conversation. That is what made the guard mechanical.
+    ///
+    /// ⚠ EACH SURVIVOR IS NAMED WITH ITS REASON. A guard whose arms are mostly
+    /// `// intentionally kept` reads as enforcement while encoding guesses.
+    #[test]
+    fn every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start() {
+        let mut state = DialogState::default();
+        state.start("guide", "Guide", DialogueContext::scripted());
+        // Dirty everything a live conversation touches, so a field that survives
+        // the close survives visibly rather than because it was never set.
+        state.current_speaker = "Someone Else".to_string();
+        state.current_line = "a line in flight".to_string();
+        state.speech_style = DialogSpeechStyle::Normal;
+        state.line_last_before_options = true;
+        state.selected_option = 3;
+        state.pointer_armed = Some(2);
+        state.last_pointer_position = Some(Vec2::new(4.0, 5.0));
+        state.pending_select = Some(1);
+        state.pending_advance = true;
+        state.runner_done_pending_close = true;
+
+        state.close();
+
+        let DialogState {
+            // —— cleared by `clear_conversation_presentation` ——
+            active,
+            conversation_character_id,
+            presented_speaker_character_id,
+            portrait_clip,
+            current_speaker,
+            current_line,
+            line_reveal,
+            speech_style,
+            line_last_before_options,
+            current_options,
+            options_reveal,
+            #[cfg(feature = "ui")]
+            yarn_option_ids,
+            selected_option,
+            pointer_armed,
+            focus,
+            last_pointer_position,
+            // —— the close REQUEST, which is the one thing close ADDS ——
+            pending_close,
+            // —— the six survivors ——
+            npc_name,
+            dialogue_id,
+            row_press,
+            pending_start,
+            pending_select,
+            pending_advance,
+            runner_done_pending_close,
+        } = &state;
+
+        assert!(!active, "a closed dialogue is not active");
+        assert!(conversation_character_id.is_empty());
+        assert!(presented_speaker_character_id.is_empty());
+        assert!(portrait_clip.is_empty());
+        assert!(current_speaker.is_empty());
+        assert!(current_line.is_empty());
+        assert_eq!(*line_reveal, LineRevealState::default());
+        assert_eq!(*speech_style, DialogSpeechStyle::default());
+        assert!(!line_last_before_options);
+        assert!(current_options.is_empty());
+        assert_eq!(*options_reveal, OptionsRevealState::default());
+        #[cfg(feature = "ui")]
+        assert!(yarn_option_ids.is_empty());
+        assert_eq!(*selected_option, 0);
+        assert_eq!(*pointer_armed, None);
+        assert_eq!(*focus, MenuFocusState::default());
+        assert_eq!(*last_pointer_position, None);
+
+        assert!(pending_close, "the close stashes the request the drain takes");
+
+        // `npc_name` and `dialogue_id` name the conversation that just ended.
+        // Nothing renders them while `active` is false, and `start` overwrites
+        // both unconditionally -- clearing them here would only cost the
+        // diagnostics that read the last conversation's id.
+        assert_eq!(npc_name, "Guide");
+        assert_eq!(dialogue_id, "guide");
+        // Widget-lifetime input state, cleared by `start`. It is a pointer's
+        // press bookkeeping, not a fact about a conversation.
+        let _ = row_press;
+        // A request for the NEXT dialogue. Clearing it here would drop the
+        // conversation about to begin -- this is the field that makes "reset
+        // everything on close" the WRONG rule.
+        assert_eq!(
+            pending_start.as_ref().map(|p| p.dialogue_id.as_str()),
+            Some("guide"),
+        );
+        // Drained by the dispatch system, which runs `pending_close` LAST in the
+        // same pass, so neither can outlive the frame that closed the dialogue.
+        assert_eq!(*pending_select, Some(1));
+        assert!(pending_advance);
+        // The runner-finished latch is the drain's to clear, beside the
+        // `runner.stop()` it pairs with.
+        assert!(runner_done_pending_close);
     }
 }

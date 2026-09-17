@@ -27,6 +27,15 @@ pub enum CutsceneBeat {
     /// `seconds`.
     ///  UNFINISHED: advances its timer, draws no fade. Nothing consumes
     /// [`CutscenePresentation::fade_alpha`]. See that field.
+    ///
+    /// ⛔⛤ AND SHIPPED CONTENT AUTHORS ONE, which is what separates this from an
+    /// unexercised variant. `test_intro` holds a `Fade { to_alpha: 0.0, seconds:
+    /// 0.8 }` and is bound to `central_hub_main`, so the first entry to the hub
+    /// spends 0.8 s on a beat that draws nothing — a pause where a fade was
+    /// meant. Measured 2026-09-17; `CameraPan`, the other incomplete beat, is
+    /// authored only in tests. ⇒ Either a consumer lands or the beat leaves the
+    /// script; what must not happen is the vocabulary keeping a verb the engine
+    /// does not perform while a player pays for it.
     Fade { to_alpha: f32, seconds: f32 },
     /// Set a save-game world flag. Useful for one-shot triggers
     /// (`seen_intro_cutscene = true`) and for tying cutscenes to the

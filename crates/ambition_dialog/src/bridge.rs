@@ -236,15 +236,10 @@ fn dispatch_pending_dialog_requests(
         if runner.is_running() {
             runner.stop();
         }
-        state.active = false;
-        state.reset_presentation_identity();
-        state.current_line.clear();
-        state.current_speaker.clear();
-        state.current_options.clear();
-        state.yarn_option_ids.clear();
-        state.selected_option = 0;
-        state.line_last_before_options = false;
-        state.options_reveal = crate::runtime::OptionsRevealState::default();
+        // ⭐ ONE DESCRIPTION OF A CLOSED DIALOGUE, on `DialogState`. This block
+        // used to spell out its own eleven fields, a DIFFERENT eleven from
+        // `close`'s, and neither list contained the other.
+        state.clear_conversation_presentation();
         state.runner_done_pending_close = false;
     }
 }

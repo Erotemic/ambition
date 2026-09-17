@@ -1,6 +1,7 @@
 # Dialogue continuity — a conversation is sustained, not modal
 
-> **Verified against `4dc3bef48` (2026-09-05); previously `ef2c4bd50` (2026-09-04).**
+> **Verified against `205fccd47` (2026-09-17); previously `4dc3bef48` (2026-09-05) and
+> `ef2c4bd50` (2026-09-04).**
 > ✔ RE-DERIVED at the newer SHA, not carried forward: all four claims below still
 > hold at the exact lines cited — checked by reading those lines, which is the
 > only reason this header moved. Four claims re-derived from the
@@ -223,34 +224,68 @@ script with NO `seen_flag` writes NOTHING, because ending unrecorded differs fro
 ending unmarked and a helper that invented an id would put a durable row in the
 save for every unnamed cutscene.
 
-## ◐ `DialogState`'s close path is a hand-kept list over 24 fields — measured 2026-09-06, and NOT turned into a guard
+## ✔ `DialogState` had THREE close paths and no two agreed — CLOSED 2026-09-17
 
-`close_dialogue` (`crates/ambition_dialog/src/bridge.rs:237`) resets by hand, and
-`reset_presentation_identity` covers three more. Measured against the struct: of
-**24 fields, 11 are not reset when a conversation closes** —
-`npc_name`, `dialogue_id`, `line_reveal`, `speech_style`, `pointer_armed`, `focus`,
-`last_pointer_position`, `row_press`, `pending_start`, `pending_select`,
-`pending_advance`.
+⛔⛤ **THE ROW THAT STOOD HERE WAS A MIS-CENSUS, AND THE COUNT WAS THE LEAST OF
+IT.** It said `close_dialogue` (`crates/ambition_dialog/src/bridge.rs:237`)
+resets by hand and that **11 of 24 fields are not reset**, naming
+`npc_name`, `dialogue_id`, `line_reveal`, `speech_style`, `pointer_armed`,
+`focus`, `last_pointer_position`, `row_press`, `pending_start`, `pending_select`,
+`pending_advance`. Re-derived at HEAD by parsing the struct and the close body
+rather than reading them:
 
-⛔ **THAT IS A SHORTLIST AND NOT A DEFECT LIST, and publishing it as one would be
-the mistake this page should not make.** Several are plainly CORRECT to survive a
-close: `pending_start` is a request for the NEXT dialogue and resetting it would
-drop the conversation about to begin; `line_reveal` and `speech_style` are set at
-LINE START (`crates/ambition_dialog/src/runtime.rs:194`), so a close has nothing to say about them. The
-pointer/focus group is input state whose lifetime is the widget, not the
-conversation.
+- there is no `close_dialogue`, in `bridge.rs` or anywhere else, at any commit
+  this history holds. The close is `DialogState::close`, and `DialogState` is in
+  `runtime.rs`, not `bridge.rs`;
+- **five of the eleven ARE cleared** by it — `line_reveal`, `speech_style`,
+  `pointer_armed`, `focus` and `last_pointer_position`;
+- **two that are not were missing** — `selected_option` and
+  `runner_done_pending_close`;
+- the field count, 24, was the one thing that was right.
 
-⭐ **THE DISCRIMINATOR IS THE SAME ONE THE OVERLAY CASE PRODUCED**: a field is a
-leak only if something READS it before the next writer sets it. `DialogView`'s
-rebuild already blanks its own row whenever `active` is false, so the fields that
-reach the SCREEN are covered regardless — which is why this is not a player-visible
-row today.
+⇒ **A WRONG MEMBER OF A LIST SURVIVES A COUNT OF THE LIST**, and this row is a
+worked example: it published a shortlist, warned correctly that a shortlist is
+not a defect list, prescribed *"classify the eleven FIRST"*, and seven of the
+eleven were wrong in one direction or the other. The instrument is `git grep` on
+the struct and the function, not a reading.
 
-⇒ **SO THE EXHAUSTIVE-DESTRUCTURE GUARD IS NOT MECHANICAL HERE, and that is why it
-is recorded rather than written.** The same trick that fit
-`FeatureEcsWorldOverlay`, `DialogView` and `ProjectionScratch` (five, nine and five
-fields with ONE correct answer each) needs **eleven judgements** here, several of
-which are "survives on purpose". A destructure whose arms are mostly
-`// intentionally kept` is a worse artifact than the hand list, because it reads as
-enforcement while encoding guesses. ⇒ Whoever takes it should classify the eleven
-FIRST — the guard is the cheap half.
+⛔⛔ **AND THE CENSUS HID THE ACTUAL FINDING, WHICH IS THE ONE THIS PAGE ALREADY
+KNOWS HOW TO NAME.** *"What it means for a dialogue to close"* had **three**
+authorities standing side by side:
+
+| road | fields it wrote | what it left |
+|---|---|---|
+| `DialogState::close` | 14 + the `pending_close` request | `selected_option`, `runner_done_pending_close` |
+| the `pending_close` drain in `bridge.rs` | 10 + `runner.stop()` | the whole pointer/focus group, `line_reveal`, `speech_style` |
+| `confirm_or_advance`'s runner-finished branch | 4 | everything else, to whichever of the other two ran next |
+
+**No one of the three contained another**, so "is this field reset on close" had
+no answer — and a FOURTH ending (a cancel, a room change, an abandoned session)
+would have had to reinvent one of them. It is the same shape as the cutscene
+finding two sections above, in the same page, found by measuring instead of by
+re-reading the row.
+
+✔ **COLLAPSED.** `DialogState::clear_conversation_presentation` is the one
+description of what a closed dialogue looks like, and all three roads call it.
+The REQUEST half deliberately stays at the call sites: what a closed dialogue
+LOOKS like is one fact and what each road asks the runner to do is another —
+`close` stashes `pending_close`, the drain has already taken it and calls
+`runner.stop()`, and `confirm_or_advance` is the press that dismisses accumulated
+text.
+
+⭐⭐ **AND THE GUARD IS MECHANICAL AFTER ALL, BECAUSE THE JUDGEMENTS DROPPED FROM
+ELEVEN TO SIX AND EVERY ONE OF THE SIX HAS THE SAME ANSWER.** `npc_name`,
+`dialogue_id`, `row_press`, `pending_start`, `pending_select` and
+`pending_advance` survive a close — and all six are rewritten unconditionally by
+`DialogState::start`, which is the only road back to a visible conversation. The
+discriminator this row already stated (*a field is a leak only if something READS
+it before the next writer sets it*) therefore resolves for all six, rather than
+needing eleven separate calls.
+
+`every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start`
+(`crates/ambition_dialog/src/runtime.rs`) destructures `DialogState`
+exhaustively, so a new field fails to COMPILE until somebody puts it on one side
+or the other, and each survivor carries its reason at the assertion. ⚠
+Poison-verified both ways: removing the `selected_option` clear fails the
+assertion (`left: 3, right: 0`), and adding a field fails with
+`error[E0027]: pattern does not mention field`.

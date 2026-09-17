@@ -30,7 +30,7 @@ disagreement about the same tree. Two agents nearly compared 5109 against 5110
 that way.
 
 ⇒ **Quote a pass count only from a green run, or pass `--no-fail-fast`.**
-`scripts/run_tests.py:762` already passes it for the feature-gated graph —
+`scripts/run_tests.py:781` already passes it for the feature-gated graph —
 *"preserves failures from later"* — which is the same fact, one lane over, never
 generalised to the lane a human runs by hand. The measurement is in
 [TEST-LANES](../planning/queue.md#test-lanes--keep-required-test-lanes-executable).
@@ -91,7 +91,7 @@ charge they had not answered. Name which question a green answers.
 ## What a green lane does and does not clear
 
 ⛔⛤ **NO P2P SESSION IS EVER BUILT IN THIS WORKSPACE.** `Session::P2P` appears
-EXACTLY ONCE — `crates/ambition_platformer2d_rollback_ggrs/src/session.rs:910`, a
+EXACTLY ONCE — `crates/ambition_platformer2d_rollback_ggrs/src/session.rs:1041`, a
 match arm reading `confirmed_frame()` — and there is ONE construction site for a
 session at all, `AmbitionGgrsSession::SyncTest` at `:220`. ⇒ **A green rollback
 lane clears a row of a LOCAL RESIMULATION defect and says nothing about two peers

@@ -1128,6 +1128,32 @@ def build_maintenance_jobs() -> list[Job]:
                 "--roles",
             ],
         ),
+        # ⛔⛤ AND THE ONE CITATION FORM NO GATE COULD CHECK AT ALL: `path:NN`.
+        # `check_planning_citations.py` verifies the path resolves and the line
+        # is not past the end of the file, never that line NN still holds what
+        # the sentence says, and
+        # `scripts/citation_line_content_feasibility.py` records why the obvious
+        # repair fails (prose proximity recovers 23% at +/-30 lines).
+        # `check_planning_line_citations.py` reads `git blame` for the commit
+        # that wrote the DOC line and `git show <sha>:<path>` for the file the
+        # author saw — text against text, no inference. First run, 2026-09-17:
+        # 295 citations, 103 no longer addressing their line, 72 repaired by
+        # `--fix` and the rest triaged by hand to zero `gone`.
+        #
+        # ⚠ IT REPORTS AND DOES NOT GATE, for the same reason `--roles` above
+        # does not: `moved` fires whenever ordinary code work inserts a line
+        # ABOVE a cited one, which is a correct observation and the wrong thing
+        # to redden a planning lane with. The remedy is
+        # `--fix` (it repoints only the unambiguous ones); `gone` and
+        # `ambiguous` want a reader, and a `cite-ok` marker retires a
+        # deliberately historical coordinate.
+        Job(
+            "planning rows whose `path:NN` no longer addresses its line (periodic)",
+            [
+                sys.executable,
+                "scripts/check_planning_line_citations.py",
+            ],
+        ),
         # ⛔⛤ A ROW THAT ANNOUNCES ITS HOLD IS DISCHARGED AND STILL STATES IT.
         # Three instances on 2026-09-11 by two agents, and one cost a whole
         # packet brief: A7 carried `**HOLD:** after A1, enumerate …` twenty-two

@@ -105,7 +105,7 @@ reassuring answer. "Which plan is this in" and "which branch does this compile"
 were both asked of that job, months apart, and it stayed broken.
 
 ⛔ **AND CITE THE JOB NAME, NOT THE LINE NUMBER.** The first draft of this page
-cited `run_tests.py:368`, `:588` and `:590`. One merge later they were `:375`,
+cited `run_tests.py:417`, `:588` and `:590`. One merge later they were `:375`,
 `:595` and `:597` — three dead citations in a page whose whole subject is
 claims that quietly stop being true. Grep for the job's name string or its gate
 expression; those survive edits that line numbers do not.
@@ -1212,9 +1212,11 @@ reading any prose.*
 | minus the tautologies | 8 | 6 are CROSS-PAIRING. A long table row holds several citations and many symbols; pairing all with all invents pairs no author or reader would connect |
 | symbol within 40 chars of the citation | 2 | it LOSES one of the two rows that motivated it, and one survivor is a false positive |
 
-⛔ **AND IT ACCUSES ROWS THAT ARE CORRECT.** `smash-parity-inventory.md:766`
+⛔ **AND IT ACCUSES ROWS THAT ARE CORRECT.** The `P02` row of
+`smash-parity-inventory.md` (line 782 as of 2026-09-17; it was `:766` when this
+was written)
 cites `hit_response.rs:98` for `HitReaction` — correctly — and
-`hit_reaction.rs:293` for a different claim; `hit_reaction.rs` has its
+`hit_reaction.rs:297` for a different claim; `hit_reaction.rs` has its
 `#[cfg(test)]` at 472, so that citation is production and the row is right.
 `george_grab_dash` appears only in a test because the running form is DERIVED by
 `dash_stance_verb` rather than authored, **which is what its row says.**
@@ -1227,7 +1229,13 @@ This cannot:
 > citation. So does a row that mis-cites a test as production. THE SHAPE IS HOW
 > HUMANS WRITE BOTH.**
 
-`tracks.md:125` satisfies every condition of the rule and is a correct row. ⇒
+A row of `tracks.md` satisfied every condition of the rule and was a correct
+row: it cited `lifecycle/continuity.rs:674` naming
+`a_consumed_occurrence_is_not_resurrected_by_a_placement`, deliberately, as a
+test. ⚠ **That row has since been removed from `tracks.md` and the coordinate
+here is retired with it** (re-read 2026-09-17); the test itself is still there,
+at `crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs:782`,
+which is the artifact the argument actually rests on. ⇒
 Prose is the only thing that separates the two classes, so a rule built
 specifically to need no prose **still needs prose — it just fails less visibly.**
 

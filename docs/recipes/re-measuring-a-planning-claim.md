@@ -416,7 +416,7 @@ looks like confirmation.
 
 ⇒ **They are not measuring the same thing.** `area_parallax` sums sprites by
 RENDER LAYER (`PARALLAX_BACKGROUND_LAYER`,
-`crates/ambition_render/src/runtime_census.rs:575`); the ledger's `parallax`
+`crates/ambition_render/src/runtime_census.rs:585`); the ledger's `parallax`
 groups images by the DEMAND ROAD that loaded them. A sprite drawn on the
 parallax layer whose image arrived by another road counts in the first and not
 the second, and neither number is wrong.

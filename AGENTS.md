@@ -454,6 +454,14 @@ Known advisory-by-default scripts include:
   it nearly shipped into `--maintenance` as a job that lists real problems and
   reports success (measured 2026-09-03: 13 findings, exit 0 bare, exit 1 with
   `--strict`).
+* `check_planning_line_citations.py` — enforce with `--strict`, repair with
+  `--fix`. It asks the one question the citation gate cannot: does `path:NN`
+  still hold the line it was WRITTEN against? (`git blame` for the doc line's
+  commit, `git show <sha>:<path>` for the file its author saw, text against
+  text.) ⚠ Report-only in `--maintenance` on purpose: `moved` fires whenever
+  ordinary code work inserts a line above a cited one. `--fix` repoints the
+  unambiguous ones; a deliberately historical coordinate takes a `cite-ok`
+  marker, the same one the citation gate reads.
 
 `compile_ratchet.py` is intentionally the counterexample and fails by default.
 

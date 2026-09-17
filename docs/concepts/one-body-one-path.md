@@ -154,7 +154,7 @@ the trigger looks.
 
 **The movement driver is unified at the engine entry.** Every body — driven or
 not — integrates in ONE phase, `integrate_sim_bodies`
-(`actor_monolith/src/features/ecs/actors/update.rs:1139`), and there is no
+(`actor_monolith/src/features/ecs/actors/update.rs:1156`), and there is no
 separate route for the controlled body.
 
 ⛔ **THIS PARAGRAPH DESCRIBED THE INTERMEDIATE STATE UNTIL 2026-09-03, AND THE

@@ -363,6 +363,32 @@ because it then asks about `target/`, a different filesystem. A green check afte
 a repair that freed nothing is the false comfort that makes the next deletion
 look justified.
 
+⛔⛤ **A THIRD INSTANCE, 2026-09-16 — AND IT NAMES WHAT THE MECHANISM WAS
+MISSING.** Another agent, under a lane abort at 33.8 GB, reached the same
+`target/debug/incremental` reasoning from the same first principles (it even
+carried a remembered line endorsing the cut). What redirected it was a FAILURE
+MESSAGE at the point of action — a `scripts/tests` arm that names
+`scripts/clean_workspace_crates.sh` in the assertion it fails on. ⇒ **The
+mechanism this question asks for already half-exists, and the missing half was
+that the SANCTIONED CHEAP CUT WAS NOT NAMED WHERE THE FORBIDDEN ONE IS
+FORBIDDEN.** `check_disk_headroom.py`'s refusal correctly ruled out `rm -rf` and
+then offered only `cargo clean`, which costs a full rebuild — so the one path
+that reclaims the same bytes for nothing was invisible exactly where someone is
+under pressure to find it.
+
+✔ **LANDED WITHOUT A RULING, because it needed none:**
+`./scripts/clean_workspace_crates.sh --incremental-only` is now step 2a of that
+refusal and is documented in `AGENTS.md`'s disk section. It deletes no artifact
+and invalidates no fingerprint; measured the same day, **82 G across 985 crate
+sessions, 33 G free → 115 G**, and three `scripts/tests` arms that had failed on
+the abort went 6/6.
+
+⇒ **WHAT IS STILL OPEN IS THE RULING ITSELF** — which rule wins, and whether a
+retracted instruction can be made underivable rather than merely marked. The
+2026-09-16 instance is evidence for the answer this question already proposes: a
+rule stated where it is documented lost to first-principles reasoning three
+times, and a rule named at the moment of the action won.
+
 ## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
 
 Before any blind `git submodule update`, decide which line/commit must be kept and

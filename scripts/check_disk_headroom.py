@@ -199,6 +199,21 @@ def main() -> int:
             f"  2. Is it bound, and is {where}\n"
             "     genuinely full? Bound, `cargo clean` is yours to run\n"
             "     (also `--release`, `-p <crate>`) -- AGENTS.md, Jon 2026-09-10.\n"
+            # ⛔⛤ NAME THE SANCTIONED CHEAP CUT, OR THE FORBIDDEN ONE IS THE
+            # ONLY CHEAP CUT A READER CAN SEE. This message forbids
+            # `rm -rf …/incremental` and then offered only `cargo clean`, which
+            # costs a full rebuild -- so an agent under pressure to free space
+            # reasons its way back to the forbidden cut, which is exactly what
+            # `Q77` records happening twice. The wrapper below reclaims the same
+            # bytes, deletes no artifact, and invalidates no fingerprint.
+            "  2a. THE CHEAP ONE, and it deletes nothing:\n"
+            "     ./scripts/clean_workspace_crates.sh --incremental-only\n"
+            "     (add --apply). `target/*/incremental` is stale generations,\n"
+            "     one hash per feature shape and none ever reaped; a fresh\n"
+            "     crate stays fresh and is skipped next build. Measured\n"
+            "     2026-09-16: 82 G across 985 crate sessions, 33 G -> 115 G.\n"
+            "     The only cost is that the next EDIT recompiles that crate\n"
+            "     whole. Run it without --apply first; it prints the number.\n"
             "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
             "     `rm -rf` is never the tool in either state, and never prune\n"
             "     by mtime.\n"

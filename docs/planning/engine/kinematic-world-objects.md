@@ -1,10 +1,25 @@
 # Kinematic world objects
 
-**State:** RESTING — **K2–K6 are all closed** (K5's native `path_ref` landed
-2026-08-15). ⛔ reopen only for a real kinematic customer; ⛔⛔ **and split
-`Block::velocity` into displacement + surface drag BEFORE any conveyor-like one**.
-**Sole kinematic customer: Ambition moving platforms, and that is MEASURED rather
-than assumed** — see K6 for the census that closed the second-customer question.
+**State:** RESTING — **K2, K3, K4 and K6 are closed; K5 is closed in substance
+and its one open item has no customer** (see K5). ⛔ reopen only for a real
+kinematic customer; ⛔⛔ **and split `Block::velocity` into displacement + surface
+drag BEFORE any conveyor-like one**. **Sole kinematic customer: Ambition moving
+platforms, and that is MEASURED rather than assumed** — see K6 for the census
+that closed the second-customer question.
+
+⛔⛤ **THE HEADER USED TO READ "K2–K6 are all closed (K5's native `path_ref`
+landed 2026-08-15)" AND THAT PARENTHETICAL WAS ABOUT A DIFFERENT ENTITY —
+CORRECTED 2026-09-17.** `path_ref` is a native LDtk `EntityRef`, it did land, and
+`LdtkEntityCtx::kinematic_path_ref` has exactly ONE caller in the workspace:
+`convert_enemy_spawn`. The `MovingPlatform` entity has no `path_ref` field in
+`ldtk_entity_contract.json` at all, and `convert_moving_platform` reads
+`field_string(entity, "path_id")`. So the thing that landed was ENEMY PATROL's
+path relation, and the platform's is still a string. ⚠ K2's own closure marker
+repeats the same substitution — *"Authoring is a NATIVE LDtk `EntityRef`:
+`path_ref` … used by `conversion/entity_converters.rs`"* — true of the file,
+untrue of the platform. ⇒ K2 is still correctly closed, because the defect it
+owned was the ambiguous optional field and that IS gone; it is the sentence about
+the reference that borrowed a neighbour's evidence.
 
 ## Why this exists
 
@@ -29,20 +44,25 @@ The current implementation is more capable than some old docs imply:
 - portals can attach to identified moving platform faces;
 - the Bevy visual is a read-model projection of authoritative platform state.
 
-But the module comment still calls the feature a design experiment, and several
-boundaries are not engine-1.0 quality:
+⛔⛤ **THE "NOT ENGINE-1.0 QUALITY" LIST BELOW THIS PARAGRAPH WAS SEVEN BULLETS
+AND IS NOW TWO — RE-MEASURED 2026-09-17, BULLET BY BULLET.** The page kept the
+original list while the K-slices closed underneath it, so a reader arriving here
+met an obsolete indictment before reaching the closure markers that answered it.
+Each row names what was re-read:
 
-- the Bevy visual adapter remains under the actor monolith;
-- provider lifecycle reaches through that monolith adapter to obtain platform
-  state even though the world crate owns the model;
-- `world_with_moving_platforms` builds a temporary collision world around the
-  static room representation;
-- motion authoring is an implicit precedence of `path > loop > sweep` across a
-  bag of optional fields;
-- the path relation is string-based even though LDtk `EntityRef` tooling exists;
-- `KinematicPath` point authoring is a coordinate string;
-- crush, one-way, passenger and moving-surface interaction policy is not yet a
-  deliberate general contract.
+| the original bullet | today |
+|---|---|
+| *"the module comment still calls the feature a design experiment"* | **GONE.** `platforms/mod.rs`'s module doc states the contract: *"Moving platforms are ordinary deterministic world geometry … The authoritative state lives here in the world crate; the Bevy visual is a read-model projection of it."* |
+| *"the Bevy visual adapter remains under the actor monolith"* | **GONE.** It is `ambition_render/src/rendering/moving_platforms.rs` |
+| *"provider lifecycle reaches through that monolith adapter to obtain platform state"* | **GONE, AND THERE IS NO ADAPTER.** `MovingPlatformSet` is a `ambition_platformer2d_world::collision` type taken as a resource directly by every reader — the monolith's session setup/teardown insert and reset it, which is lifecycle, not indirection |
+| *"`world_with_moving_platforms` builds a temporary collision world"* | **NARROWED, NOT CLOSED.** It still returns an owned extended world; what changed is that no CONSUMER composes one by hand. The portal host adapter was the last, and `CollisionSources::hostable_surfaces` records that at the definition |
+| *"motion authoring is an implicit precedence of `path > loop > sweep` across a bag of optional fields"* | **GONE — this is K2.** `AuthoredPlatformMotion::classify` refuses two motions by NAME (*"authors sweep_dx and loop_dy at once"*), refuses an anchor without a shaft, refuses a zero shaft, and refuses a speed beside a path |
+| *"the path relation is string-based even though LDtk `EntityRef` tooling exists"* | **STILL TRUE OF THE PLATFORM** — see the header correction, and K5 for why it has no customer |
+| *"`KinematicPath` point authoring is a coordinate string"* | **STILL TRUE.** `points` is semicolon-separated `x,y` pairs, parsed by `parse_points`; `SurfaceChain` authors the same way |
+| *"crush, one-way, passenger and moving-surface interaction policy is not yet a deliberate general contract"* | **GONE for crush and passengers — this is K4.** A crush is `AxisConstraintConflict`, REPORTED by the movement kernel and left to the owner *(`movement/events.rs`: "displacement or crush immunity are the owner's policy")*, with the ceiling-and-rising-platform case pinned as a test; riders and ledge contacts are carried by `MovingPlatformState::last_delta` |
+
+⇒ **TWO REMAIN, BOTH IN AUTHORING AND NEITHER IN THE ENGINE:** the platform's
+string path relation and coordinate-string path points.
 
 ## Target boundary
 
@@ -180,17 +200,23 @@ into a validated `MovingPlatformMotionSpec` and rejects conflicting motion field
 ⚠ **This section said PARTIAL and contradicted the page header, which says
 K2-K6 are all closed. The header was right and this marker was stale.** The
 "remaining half" it described — *"path motion still carries a string `path_id`;
-move the relationship to typed/native reference authoring"* — was satisfied at
-the layer that matters. Authoring is a NATIVE LDtk `EntityRef`: `path_ref`, read
-through `LdtkEntityCtx::kinematic_path_ref` and used by
-`conversion/entity_converters.rs`, with the path index built before any
-conversion so a reference may name a path authored later in the file.
+move the relationship to typed/native reference authoring"* — is not this item's
+defect either way. K2 owned the AMBIGUOUS OPTIONAL FIELD, and that is gone:
+`AuthoredPlatformMotion::classify` refuses every wrong combination by name.
 
-⛔ `MovingPlatformMotionSpec::Path` does still hold a `String`, and that is not
-the same defect. The reference is typed where it is AUTHORED and resolved where
-it is CONSUMED, which is the ordinary shape of a resolved reference — not the
-"ambiguous optional field" this item existed to remove. Do not reopen K2 for the
-runtime string alone.
+⛔⛤ **THIS MARKER USED TO CLOSE THE REFERENCE HALF TOO, ON A `path_ref` THAT
+BELONGS TO A DIFFERENT ENTITY — CORRECTED 2026-09-17.** It read *"Authoring is a
+NATIVE LDtk `EntityRef`: `path_ref`, read through
+`LdtkEntityCtx::kinematic_path_ref` and used by
+`conversion/entity_converters.rs`"*. Every clause is true of the FILE and none of
+it is true of `MovingPlatform`: that helper has exactly one caller,
+`convert_enemy_spawn`; the platform converter reads `field_string(entity,
+"path_id")`; and `ldtk_entity_contract.json` gives `MovingPlatform` the fields
+`sweep_dx`, `path_id`, `speed`, `loop_dy`, `loop_min_y` and no `path_ref`. Naming
+the file rather than the converter is what let a neighbour's landing read as this
+one's. ⇒ K2 stays CLOSED on its own merits; the platform's string relation is
+K5's, where it is measured to have no authored customer. Do not reopen K2 for the
+runtime string, and do not re-close K5 by citing this paragraph.
 
 ### K3 — isolate dynamic geometry ownership — CLOSED 2026-08-14
 
@@ -241,10 +267,33 @@ struck-from-below mirror), crush is an explicit reported event
 it), and rider carry is pinned by
 `a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport`.
 
-### K5 — authoring polish
+### K5 — authoring polish — CLOSED IN SUBSTANCE 2026-09-17; the open half has no customer
 
 Make the vertical slice pleasant in LDtk and the tooling, including visible path
 and semantic diagnostics.
+
+**The semantic-diagnostics half landed** and is the best part of K2: every wrong
+combination of motion fields now fails conversion with a sentence naming the
+fields and the remedy, where it used to be silent precedence.
+
+⛔⛤ **THE VISIBLE-PATH HALF LANDED ON `EnemySpawn` AND NOT ON `MovingPlatform`,
+AND THE MEASUREMENT THAT MATTERS IS THE CENSUS OF AUTHORED PLACEMENTS.** Across
+all four authored worlds there are **8 `MovingPlatform` placements and NONE of
+them authors `path_id`** — four sweeps in `mary_o_1_2`, one in `mary_o_1_3`, two
+in `vertical_shaft`, one in `central_hub_basement`. There are **2 `KinematicPath`
+entities, and both are consumed by `EnemySpawn`'s `path_ref`**, which is the
+relation that already got the EntityRef. ⇒ `MovingPlatformMotionSpec::Path` is a
+motion no shipped room authors. Migrating its string to an `EntityRef` would move
+a relation with **zero authored customers**, and the editor link it would draw
+would be drawn for nobody.
+
+⛔ So this is RESTING, not oversight: author a platform that follows a path, and
+migrate the field in the same change — the EntityRef tooling, the path index
+built before conversion, and the one-caller helper
+(`LdtkEntityCtx::kinematic_path_ref`) are all already there. ⚠ `KinematicPath`'s
+`points` string is the same shape of question and has the opposite answer: it has
+two customers today, so it is authored geometry a tool could draw, and it is the
+one of the two worth doing first.
 
 ### K6 — second consumer test — CLOSED 2026-08-15
 

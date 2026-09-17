@@ -1810,3 +1810,79 @@ product call and not a cleanup; (a) is a design statement about whether the game
 wants two gravity-flip affordances. What is not tenable is the present state,
 where four layers describe a mechanic the player cannot meet and a determinism
 ranking counted it as production.
+
+## Q138 — should `Platformer2dSimHarness::step` refuse to step an invalidated session?
+
+A sync-test session that invalidates keeps accepting `step()` and stops
+advancing `SimTick`. The step returns an observation every time, nothing panics,
+nothing prints, and every assertion after the invalidation runs over a frozen
+world — where it agrees with itself, forever. Measured 2026-09-16
+(`probe_how_far_each_harness_ticks_over_the_same_window`,
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), `SimTick`
+over 240 `step()` calls: a healthy sync-test harness reads 1, 41, 81 … 241, and
+one system writing a rollback-registered resource outside its sanctioned road
+reads 1, 6, 6, 6, 6, 6, 6 with `session_health` already saying
+`Err(checksum mismatch at frames [2, 3, 4, …])`.
+
+⇒ **THE HARNESS ALREADY KNOWS.** `rollback_health()`
+(`crates/ambition_sim_harness/src/runtime.rs`) returns exactly that error, and
+`step` does not consult it. The contract makes silence the default and leaves
+every caller to notice on its own.
+
+**The choice is what `step` does about it**, and the options are not equivalent:
+
+* **(a) refuse** — `step` panics, or returns an error, once the session is
+  invalid. Silence stops being the default and the twenty-seventh arm's author
+  gets the warning the census cannot give them.
+* **(b) leave it to callers** — the current contract, with the guard
+  (`scripts/a_rollback_arm_must_refuse_a_frozen_world.py`) routing each new arm
+  to either read a health API or arrive with a sentence naming what a frozen
+  world breaks in it.
+
+⚠ **WHAT THE MEASUREMENT DOES AND DOES NOT SETTLE.** It settles the blast radius:
+the exposed population is ZERO today. Of 26 sync-test fixtures, 15 read a health
+API and the rest already refuse a frozen world with assertions a stopped clock
+cannot satisfy (a population floor, a recorded stream length against the tick
+count, a room change after an authored hold). So (a) would red nothing at HEAD.
+It does NOT settle the policy, because a harness that panics on a dead session
+takes the choice away from a future arm that legitimately wants to step one — an
+arm testing the invalidation itself, for instance — and that is the maintainer's
+call rather than a census's.
+
+⛔ **NOT A CLEANUP, AND THE SIX ARMS MUST NOT BE EDITED EITHER WAY.** Adding
+`rollback_health()` to an arm whose assertions already cannot pass over a frozen
+world trades a strong guarantee for a visible one. Counting calls to a safety API
+measures vigilance; counting assertions a broken world fails measures safety.
+
+## Q139 — what declares that a presentation system writes `Transform`?
+
+`scripts/check_rollback_mutators_run_in_sim.py`'s component half excludes
+`Transform` BY NAME, with the count beside it: 52 of the 64 offenders it would
+otherwise surface are `Transform` writes from camera, sprite and inspection
+systems. So a green there says nothing about `Transform` — the single most
+rollback-sensitive component in the workspace.
+
+⇒ **THE OBVIOUS REPAIR IS REFUTED AND THE ROW RECORDS THE REFUTATION.** Classify
+by a property the system already states — `Camera`/`Sprite`/`Text`/`Mesh`/
+`Light`/`Node`, or a projection in the signature — and the 52 split **23 that
+declare such a marker and 29 that do not**, where the 29 are presentation only by
+NAME (`camera_follow`, `sync_parallax_layers`, `sync_hit_flash_overlays`). A
+system's name is not a reading of its write set; that classifier was wrong in
+both directions twice on 2026-09-16 alone.
+
+**So the repair is a DECLARATION, not a cleverer scanner**, and the decision is
+its shape:
+
+* **(a) a set** — presentation `Transform` writers join a named system set, and
+  the guard reads membership instead of parsing signatures;
+* **(b) a marker on the entities** — the things presentation moves carry a
+  component saying so, and the guard asks about the entity rather than the
+  system;
+* **(c) a wrapper type** — presentation writes a distinct component the render
+  layer lowers to `Transform`, which makes the mutation unspellable rather than
+  merely declared.
+
+⚠ **THE SIZE IS THE REASON THIS IS A QUESTION.** It is ~52 systems across the
+render, camera and inspection layers, not a script change, and the three shapes
+put the cost in different places — (a) is cheapest and weakest, (c) is the only
+one a future system cannot forget. Nobody should start until the shape is chosen.

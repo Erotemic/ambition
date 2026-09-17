@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,329 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,334 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -960,7 +960,10 @@ both directions twice on 2026-09-16 alone.
 systems that write `Transform` should join a set or mark the entities they move,
 turning an undecidable read of source into a fact the code states. That is ~52
 systems rather than this script, and it wants a maintainer's view on the shape
-before anybody starts.
+before anybody starts — filed as **`Q139`** in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), which puts
+the three candidate shapes (a system set, a marker on the moved entities, a
+wrapper component the render layer lowers) against where each one puts the cost.
 
 ⭐ **EVERY HOLE THIS GUARD HAS HAD FAILED IN THE GREEN DIRECTION, which is why
 `POPULATION_FLOOR` is checked BEFORE the findings.** `&mut T` alone saw 1 type of
@@ -2130,7 +2133,9 @@ to be satisfiable by a frozen world, and its author gets no warning.
    ⭐ That is the real fix: the current contract makes silence the default. It
    touches `crates/ambition_sim_harness/src/runtime.rs::step`, so it wants a
    maintainer ruling — a harness that panics on a dead session will red any arm
-   that turns out to be relying on one, and the census above says none is.
+   that turns out to be relying on one, and the census above says none is. Filed
+   as **`Q138`** in
+   [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 2. ⚠ A guard cannot DECIDE the property, and that stands: "this arm's assertions
    are unsatisfiable by a frozen world" is not readable from source — six
    mechanisms produced it in the table above and a seventh turned up when the
@@ -2151,7 +2156,7 @@ to be satisfiable by a frozen world, and its author gets no warning.
    contained it. Same defect this row records one section up about `tools/`: a scan
    root is a citation, and a member outside it reads as absent. The guard
    enumerates `git ls-files`.
-   ⇒ Item 1 is still the real fix and still wants a maintainer. This only means
+   ⇒ Item 1 is still the real fix and still wants a maintainer (`Q138`). This only means
    the twenty-seventh arm's author gets the warning item 0 says they do not.
 
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay

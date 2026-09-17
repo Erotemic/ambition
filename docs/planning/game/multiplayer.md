@@ -90,7 +90,7 @@ Ambition gameplay with one shared camera and body-owned HUD state.
 >
 > ⚠ **What A1 still has to audit has a name and a count.**
 > `PrimaryPlayerOnly` — `(With<PlayerEntity>, With<PrimaryPlayer>)`,
-> `crates/ambition_platformer2d_shared_tangle/src/markers.rs:35` — appears in
+> `crates/ambition_platformer2d_shared_tangle/src/markers.rs` — appears in
 > **35 production files** (and 28 test files). Its largest production sites are
 > the sim harness, the headless and capture-scene tools and the single-player
 > demos, where scoping to one player is correct BY CONSTRUCTION and no audit is

@@ -96,7 +96,7 @@ resident memory without a budget.
 >
 > ⭐ **The prefetch is NOT "every neighbour".**
 > `const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4`
-> (`game/ambition_app/src/app/world_flow/room_transition_assets.rs:1271`), with
+> (`game/ambition_app/src/app/world_flow/room_transition_assets.rs`), with
 > its own reasoning in place: four "covers ordinary corridor/lab branching while
 > bounding uncovered decode work at high-degree hubs", and excess neighbours are
 > skipped as WHOLE rooms because cached manifests are promoted only when

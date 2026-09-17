@@ -508,16 +508,36 @@ problem.
 
 **`Perception` is a policy, not a view.** It is the enum
 `Omniscient | Sighted { viewport_half }`, and the ONLY runtime construction of a
-value is `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:449`, always `Sighted { DEFAULT_VIEWPORT_HALF }`.
-`Omniscient` is reached exclusively through `Default` on an absent component. So
-every `Perception` in the world holds the identical value, and its presence is
-*by construction* the same fact as `PerceptionMemory`'s presence —
-`ensure_perception` inserts both together and gates on `Without<PerceptionMemory>`,
-which its own comment states: *"Missing memory ⟺ missing perception"*.
+value is in `ensure_perception`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs`).
+Its presence is *by construction* the same fact as `PerceptionMemory`'s presence
+— `ensure_perception` inserts both together and gates on
+`Without<PerceptionMemory>`, which its own comment states: *"Missing memory ⟺
+missing perception"*.
 
-The doc comment at `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:22` says *"a per-body override rides in
-`Perception::Sighted` for a character that wants"* one. Nothing overrides it.
-That sentence describes a capability, not a behaviour — treat it as a TODO.
+⛔⛤ **TWO SENTENCES THAT STOOD HERE ARE NOW FALSE, AND BOTH WERE PINNED TO A LINE
+NUMBER RATHER THAN TO A SYMBOL — RE-MEASURED 2026-09-17.** They read *"always
+`Sighted { DEFAULT_VIEWPORT_HALF }`"*, *"`Omniscient` is reached exclusively
+through `Default` on an absent component"* and *"Nothing overrides it"*:
+
+* The construction is `Perception::Sighted { viewport_half }` where
+  `viewport_half` is `extent.or_default(DEFAULT_VIEWPORT_HALF)`. The override is
+  `ambition_characters::perception::PerceptionExtentOverride`, whose only
+  production writer is `ambition_dev_tools::perception_extent::from_env`, read
+  once at App build — the density-sweep axis D33 owns. ⚠ **The uniformity claim
+  SURVIVES and the constant does not:** set or unset, every body gets the SAME
+  extent, which is what `the_perception_extent_knob_is_inert_unset_and_reaches_every_body_when_set`
+  holds. What is no longer true is that the value is a compile-time constant.
+* An ABSENT component reading as `Omniscient` was the fail-open a 2026-09-13
+  review found, and it is closed: a body whose senses cannot be decided carries
+  `SensesUndecided` and is taken out of the decision phase instead, because *"the
+  refusal was an UPGRADE"*. The `Default` path is still what an absent component
+  means to a reader of the enum — it is no longer a state the live road reaches.
+
+The doc comment on `Perception` still says *"a per-body override rides in
+`Perception::Sighted` for a character that wants"* one, and that one remains a
+TODO: the override that exists is per-WORLD, published once from the
+environment, not per-body.
 
 **`PerceptionMemory` is accumulated history** and genuinely durable: it cannot
 be re-derived from the current tick, which is the whole point of a belief store

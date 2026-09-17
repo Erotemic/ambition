@@ -420,8 +420,8 @@ pub fn drain_switch_activations(
         // ⛔⛔ IT IS NOT THE ONLY WRITER OF THE `switches` SAVE FAMILY, and this
         // comment said so until 2026-09-05 — true of this function, false of
         // the tree, and exactly what the author of a FOURTH writer would read
-        // first. Measured: `encounter_features/src/systems.rs:496` greens every
-        // switch of a completed encounter, and `content/src/falling_sand_sim.rs`
+        // first. Measured: `encounter_features`'s `apply_wave_encounter_effects`
+        // greens every switch of a completed encounter, and `content/src/falling_sand_sim.rs`
         // writes the spout switches.
         //
         // ⛔⛔ AND THEY ARE NOT DISJOINT. An earlier version of this comment

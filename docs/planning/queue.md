@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,174 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,175 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -28,7 +28,7 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 ```
 
 because a number stated here without its command is the next stale copy: this
-paragraph carried 2,519 for long enough that the file had grown by 655 lines
+paragraph carried 2,519 for long enough that the file had grown by 656 lines
 underneath it. Three agents worked it in one night and it more than doubled,
 which is the point — **the growth is continuous and the compression is per-row,
 so a single cleanup does not hold.** C10's regression rule is *"if a live

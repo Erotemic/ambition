@@ -616,6 +616,16 @@ produce an empty vector, and a render sync that despawns and rebuilds from it
 every frame — and puts the choice as: the plate ships, or the encounter switch
 owns gravity alone.
 
+✔ **AND THIS ONE SURVIVED THE LENS THAT BROKE THE OTHER TWO — CHECKED
+2026-09-17.** `portal.emission` and `boss.death_animation` were both wrongly
+called unreachable because their rows described the EVENT the field is named for
+rather than the code that inserts the component. Asked the same way — *where is
+the component SPAWNED* — `GravityFlipSwitch` has exactly one construction site in
+the workspace, `gravity/lifecycle.rs:133`, and the file's `#[cfg(test)]` opens at
+line 100. The LDtk contract declares `GravityZone` and `Switch` and neither
+converts to it. ⇒ Unlike its two neighbours, this row has no production insert
+site at all, which is the claim `Q137` rests on and it holds.
+
 ⛔⛤ **`portal.emission` WAS READ AS THE SECOND UNREACHABLE ROW, AND THAT
 READING WAS WRONG IN BOTH HALVES — CORRECTED 2026-09-17, THE SAME DAY IT WAS
 WRITTEN.** This section said the row wanted *"an AIMED script — fire at a

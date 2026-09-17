@@ -1801,6 +1801,17 @@ component + system exist only for the unit test + any future overlap-style
 plate."* That comment is accurate — it is the reachability above that makes it a
 decision rather than a bug.
 
+✔ **RE-CHECKED 2026-09-17 WITH THE LENS THAT HAD JUST OVERTURNED TWO NEIGHBOURS,
+AND IT HELD.** `portal.emission` and `boss.death_animation` were each called
+unreachable on a sentence about the EVENT the field is named for, and each was
+wrong; the question that separates them is *where is the component CONSTRUCTED*,
+which is independent of whether its system is registered. `GravityFlipSwitch` has
+exactly one construction site in the workspace — `gravity/lifecycle.rs:133` — and
+that file's `#[cfg(test)]` opens at line 100. ⇒ Even a registered writer would
+have nothing to write to. The LDtk entity contract declares `GravityZone` and
+`Switch`, and neither converts to this component, so no author can supply the
+missing spawn either.
+
 **What the unreachable half still costs, measured 2026-09-17.** It is not one
 dead component; it is a vertical slice that every other layer pays for as though
 it shipped:

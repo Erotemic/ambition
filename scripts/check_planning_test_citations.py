@@ -12,38 +12,28 @@ function has ever existed -- the real one is
 -- and the only occurrence of the cited name in the repository was the citation.
 
 ⇒ A reader following that name finds nothing and cannot tell "renamed" from
-"never written". This asks `git grep` for a matching `fn`, which is cheap and
-exact.
+"never written". This asks whether the name is DEFINED anywhere, which is cheap
+and exact.
 
-⚠ WHAT IT DOES NOT DO: it says a function with that name exists, not that the
-function says what the prose claims. See
+⚠ WHAT IT DOES NOT DO: it says something with that name exists, not that it says
+what the prose claims. See
 `reference_a_prose_location_claim_is_not_citation_checked`.
 
-⛔⛤ **IT IS NOT WIRED INTO A GATE YET, AND EXITS 1 TODAY.** Its first run over
-`docs/planning` found the A10 one above plus SEVEN more, in six documents owned by
-other campaigns:
+⛔⛤ **AND THE FIRST VERSION OF THIS CHECKER WAS KEYED ON THE AFFIXES ITS AUTHOR
+HAD SEEN, WHICH IS THE ERROR IT EXISTS TO CATCH, ONE LEVEL UP.** It matched only
+`` `(a|an|the)_…` `` because that is how this repo USUALLY names an arm. Measured
+2026-09-17, dropping the prefix takes the population from **181 names to 296**
+and the broken list from 1 to 8 -- so it was reading 61% of its own corpus, and
+two of the names it missed sat in the same paragraph as one it reported. The
+resolver grew the same way: `fn NAME` alone called twelve of this repo's own
+Python `def test_…` arms imaginary, called an integration test cited by the FILE
+a reader opens imaginary, and called `you_have_to_cut_the_rope` -- a shipped
+`.ldtk` level -- imaginary. ⇒ The question is what a READER finds, so the roads
+are `fn`, `def`, and a tracked file with that stem.
 
-    engine/actor-monolith-work-frontier.md
-        a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation
-    engine/agentic-character-runtime.md
-        the_visual_follows_a_stored_set
-    engine/authored-technique-admission.md
-        a_verdict_no_move_claims_still_reaches_the_playback
-    engine/checkpoint-restoration-protocol.md
-        the_admitted_restore_carries_only_which_operation_and_whose
-        the_admitted_restore_does_not_yet_outlive_its_own_frame
-    engine/pickup-carve-checklist.md
-        the_production_plugin_registers_the_custody_release
-    engine/project-build-and-distribution.md
-        a_possible_morning
-
-Each is a rename or an arm that was described and never written, and deciding
-which is which is the owning campaign's call rather than a mechanical fix -- a
-name pointing at nothing may mean the EVIDENCE is missing, not just the label.
-⇒ Add this to `run_tests.py --maintenance` once those SEVEN are resolved; until
-then run it by hand. (`a_possible_morning` was the eighth and is gone: it is a
-music score name, and `MIN_WORDS` below is the measured cutoff that excludes it
-without excluding any of the 136 citations that do resolve.)
+⚠ `_NAME_BODY` is shared by the citation regex and the definition scan ON
+PURPOSE. If they drift, a name becomes citable and undefinable at the same time
+and every citation of it reads as broken.
 """
 
 from __future__ import annotations
@@ -51,12 +41,15 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs" / "planning"
-# Anchored on the prefixes this repository's test names actually use.
-CITED = re.compile(r"`((?:a|an|the)_[a-z0-9_]{12,})`")
+# ⛔ NOT anchored on a prefix; the module docstring says what that cost. The
+# spellings it used to miss: `exactly_one_…`, `no_…`, `every_…`, `test_…`,
+# `possession_…`, `f9_…`.
+_NAME_BODY = r"[a-z][a-z0-9_]{12,}"
+CITED = re.compile(rf"`({_NAME_BODY})`")
 
 # ⛔⛤ **A MEASURED THRESHOLD, NOT A GUESSED ONE.** The prefix and length alone
 # also match backticked CONTENT names — `a_possible_morning` is a music score, in
@@ -129,16 +122,51 @@ def cited_names(path: Path) -> tuple[set[str], set[str]]:
     return checkable, excused
 
 
-def exists(name: str) -> bool:
-    return (
-        subprocess.run(
-            ["git", "grep", "-l", "-E", rf"fn {name}\b"],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
-        ).returncode
-        == 0
-    )
+def _tracked_stems() -> dict[str, str]:
+    """Every tracked file's basename without its extension -> the first path."""
+    listing = subprocess.run(
+        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True
+    ).stdout.split()
+    stems: dict[str, str] = {}
+    for line in listing:
+        stems.setdefault(PurePosixPath(line).stem, line)
+    return stems
+
+
+STEMS = _tracked_stems()
+
+
+def _defined_names() -> set[str]:
+    """Every `fn NAME` / `def NAME` in the tree, from ONE `git grep`.
+
+    ⚠ The per-name form was one `git grep` per citation -- 592 subprocesses for
+    296 names, and about three minutes. That is affordable by hand and not
+    affordable in a gate, which is the state this checker is trying to leave.
+    """
+    out = subprocess.run(
+        ["git", "grep", "-h", "-E", rf"\b(fn|def) {_NAME_BODY}"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return set(re.findall(rf"\b(?:fn|def) ({_NAME_BODY})", out))
+
+
+DEFINED = _defined_names()
+
+
+def resolves(name: str) -> bool:
+    """Does a reader following this name find anything?
+
+    ⛔⛤ **THREE ROADS, BECAUSE THE QUESTION IS WHAT A READER FINDS, NOT WHAT
+    LANGUAGE WROTE IT.** Asking only for `fn NAME` reported a Python checker's
+    own `def test_…` arms as imaginary (12 of them), reported an integration
+    test cited by its FILE — the unit a reader opens — as imaginary, and
+    reported `you_have_to_cut_the_rope`, a shipped `.ldtk` level, as imaginary.
+    None of those three is a broken citation; each is a name that resolves by a
+    road this checker was not looking down.
+    """
+    return name in DEFINED or name in STEMS
 
 
 def main() -> int:
@@ -151,7 +179,7 @@ def main() -> int:
             excused.append((str(path.relative_to(REPO)), name))
         for name in sorted(names):
             checked += 1
-            if not exists(name):
+            if not resolves(name):
                 broken.append((str(path.relative_to(REPO)), name))
     if broken:
         print("planning docs cite test names that do not exist:")
@@ -162,7 +190,10 @@ def main() -> int:
             "rename from a name that was never written."
         )
         return 1
-    print(f"ok: all {checked} test names cited in docs/planning resolve to a `fn`")
+    print(
+        f"ok: all {checked} names cited in docs/planning resolve to a `fn`, "
+        "a `def` or a tracked file"
+    )
     # ⛔ Printed on a GREEN run, not only when something fails: an exemption
     # nobody reads is how the list grows.
     for path, name in excused:

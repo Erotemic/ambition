@@ -1738,6 +1738,13 @@ it is discharged rather than restated.
 
 ### A12 — finish move-contact attribution and reflection identity
 
+⛔⛔ **THIS IS NOT THE ONLY `A12`.** The frontier's
+[`A12`](engine/actor-monolith-work-frontier.md#a12-align-flow-validation-prepared-representation-and-execution-bounds)
+is *"align flow validation, prepared representation and execution bounds"* — a
+different subject, and as of 2026-09-17 a CLOSED one. Both live on
+`MovePlayback`, which is how one label came to cover two packets without anybody
+noticing. ⇒ Name the subject, never the bare number.
+
 **Owner:** [`engine/authored-technique-admission.md`](engine/authored-technique-admission.md)
 and combat/projectile occurrence identity.
 

@@ -1165,6 +1165,20 @@ arbitrary last-good-world retention after destructive native failure is not.
 
 ## A12. Align flow validation, prepared representation and execution bounds
 
+⛔⛔ **`A12` NAMES TWO DIFFERENT PACKETS AND ALWAYS HAS — found 2026-09-17, by
+closing this one and finding the other still open.** THIS A12 is flow validation,
+representation and execution bounds. `queue.md`'s
+[`A12`](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity)
+is *"finish move-contact attribution and reflection identity"*, a different
+subject with a different owner, and `status.md` tracks that one. They are
+adjacent — both live on `MovePlayback` — which is why the collision survived:
+every sentence about either one reads plausibly as a sentence about the other.
+
+⇒ **A bare "A12 has landed" is ambiguous and this page cannot fix that alone.**
+Until the labels are separated by whoever owns the numbering, say which subject
+you mean: *flow bounds* (here) or *contact attribution* (the queue). Compare the
+`A2` split, which `status.md` already spells out in the same way.
+
 **Ready:** ✔ **BOTH SUB-PACKETS HAVE LANDED — verified against HEAD 2026-09-17.**
 The exact algorithm/clock/delivery rules are in
 [authored technique admission](authored-technique-admission.md).

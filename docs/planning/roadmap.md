@@ -176,10 +176,12 @@ placement bridge relocation. A4-A7 retain their packet-specific evidence gates.
 A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
 reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
 
-A11/A12 make authored technique admission and flow bounds reliable — ✔ **and all
-of A12 plus A11a/A11b have landed, verified 2026-09-17; A11c, the end-to-end
-authoring route, is what is left.** The frontier's two packets carry the
-sub-packet table. A9 proves
+A11 and the frontier's A12 make authored technique admission and flow bounds
+reliable — ✔ **and A11a, A11b and both halves of the FLOW-BOUNDS A12 have landed,
+verified 2026-09-17; A11c, the end-to-end authoring route, is what is left.** The
+frontier's two packets carry the sub-packet table. ⛔ *Flow-bounds* is said out
+loud because `queue.md` has a different `A12` — move-contact attribution — which
+is open. A9 proves
 compile/runtime optionality through real external profiles. These are independently
 staged work streams, not twelve sequential prerequisites for game development.
 The [queue](queue.md) selects current priority.

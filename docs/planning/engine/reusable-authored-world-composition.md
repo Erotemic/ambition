@@ -18,38 +18,52 @@
 > to another, and no authored grouping above them.
 >
 > **Meanwhile every pressure this page predicted has grown a large bespoke
-> implementation** (files mentioning each, at HEAD):
+> implementation.** ⭐ **RE-TAKEN 2026-09-17 WITH THE SEARCH TERM RECORDED,**
+> which this table asked for and did not have. Every row below is
+> `grep -rl <TERM> --include=*.rs crates game`, case-SENSITIVE, counting files:
 >
-> | predicted pressure | files |
-> |---|---|
-> | portal mechanisms | 264 |
-> | moving machinery (`KinematicPath` / `MovingPlatform`) | 58 |
-> | shrines | 40 |
-> | encounter assemblies | 27, in 2 crates — ⚠ **at least 3 crates since 2026-09-03**, see below |
-> | environmental hazards (`HazardSpec` / `HazardRespawn`) | 11 |
+> | predicted pressure | term | 2026-09-02 | 2026-09-17 |
+> |---|---|---:|---:|
+> | portal mechanisms | `Portal` | 264 | **182** |
+> | moving machinery | `KinematicPath\|MovingPlatform` | 58 | **70** |
+> | shrines | `Shrine` | 40 | **19** |
+> | encounter assemblies | `EncounterSpec\|EncounterId\|EncounterDefinition` | *(no term recorded)* | **20** |
+> | environmental hazards | `HazardSpec\|HazardRespawn` | 11 | **11** |
 >
-> ⚠ **THE ENCOUNTER ROW'S "2 crates" IS STALE, AND ITS COUNT CANNOT BE RE-RUN.**
-> Encounter code lives in **three** crates as of 2026-09-03 —
-> `ambition_boss_encounter`, `ambition_encounter`, and `ambition_encounter_features`,
-> the last carved out of the actor monolith that day. ⛔ But the `27` is NOT
-> corrected here, because this table records its instrument only as *"files
-> mentioning each"* and never says the term it grepped. Today a case-sensitive
-> `Encounter` across `crates/` and `game/` lands 27 files in `boss_encounter`
-> alone and dozens more across six other crates — which is either enormous
-> growth or a different question, and there is no way to tell which from what
-> the table wrote down. ⇒ Re-measuring it would mean inventing an instrument and
-> then comparing against a number taken with another one, which is the error
-> this repo's own recipe warns about. The row needs its search term recorded
-> before its number means anything again.
-
+> ⛔⛤ **THE ONLY ROWS THAT MEAN ANYTHING ARE THE ONES WHOSE INSTRUMENT WAS
+> WRITTEN DOWN, AND THAT IS THE FINDING.** Hazards and machinery named their
+> terms: hazards reproduce EXACTLY at 11 and machinery moved 58 → 70, and both of
+> those are facts about the code. Portals and shrines named none, so their 264 →
+> 182 and 40 → 19 are uninterpretable — and measurably so. A case-INSENSITIVE
+> `.rs` sweep gives 299 portals and 50 shrines, so the old numbers sit INSIDE the
+> bracket the term choice spans, and the same tree supports "it grew" or "it
+> shrank" depending on a flag nobody recorded. ⇒ Do not read the fall as a carve
+> and do not read it as rot; read it as a number that was never a measurement.
+>
+> ⚠ The encounter row is re-founded rather than corrected. It said *"27, in 2
+> crates"*, and the crates are now four — `ambition_boss_encounter`,
+> `ambition_encounter`, `ambition_encounter_features` and the monolith's own
+> features. The term above is the one this page will use from now on; its 20 is a
+> new baseline, not a comparison.
+>
+> ✔ **The two structural claims are unchanged, and they are what the hold rests
+> on.** The `*Assembly` / `*Prefab` / `*Composition` / `*Motif` type census still
+> returns exactly ONE hit — `ShellComposition`
+> (`crates/ambition_platformer2d_provider/src/composition.rs`), which holds an
+> experience id and two route ids, so it is shell composition and not world
+> composition. And `PlacementKind` still has six flat variants — `Hazard`,
+> `Interactable`, `Pickup`, `Chest`, `Breakable`, `Portal` — with no composite, no
+> reference from one placement to another, and no authored grouping above them.
+>
 > ⇒ **So the two halves of the incubation are BOTH still true, which is why it
 > stays incubating.** The pressure is real and unrelieved — five predicted
 > families, all built out, none sharing a composition abstraction. And no
 > abstraction has emerged on its own from any of them, which is the evidence the
-> page said to wait for. ⛔ A file count is pressure, not a design: 264 files
-> mentioning portals is an argument that portals are load-bearing, not an
-> argument for a prefab system. Re-take these numbers before the next
-> re-evaluation rather than trusting this row.
+> page said to wait for. ⛔ A file count is pressure, not a design: 182 files
+> mentioning `Portal` is an argument that portals are load-bearing, not an
+> argument for a prefab system. ⇒ Re-take the numbers with the terms in the table
+> above — a count taken with an unrecorded instrument cannot be compared to
+> anything, including itself.
 
 ## Goal
 

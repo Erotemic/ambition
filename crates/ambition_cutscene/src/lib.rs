@@ -28,14 +28,26 @@ pub enum CutsceneBeat {
     ///  UNFINISHED: advances its timer, draws no fade. Nothing consumes
     /// [`CutscenePresentation::fade_alpha`]. See that field.
     ///
-    /// ⛔⛤ AND SHIPPED CONTENT AUTHORS ONE, which is what separates this from an
-    /// unexercised variant. `test_intro` holds a `Fade { to_alpha: 0.0, seconds:
-    /// 0.8 }` and is bound to `central_hub_main`, so the first entry to the hub
-    /// spends 0.8 s on a beat that draws nothing — a pause where a fade was
-    /// meant. Measured 2026-09-17; `CameraPan`, the other incomplete beat, is
-    /// authored only in tests. ⇒ Either a consumer lands or the beat leaves the
-    /// script; what must not happen is the vocabulary keeping a verb the engine
-    /// does not perform while a player pays for it.
+    /// ⛔⛤ AND SHIPPED CONTENT AUTHORS THREE, which is what separates this from
+    /// an unexercised variant. Re-measured 2026-09-17 over every non-test
+    /// `CutsceneBeat::Fade` literal in `game/` and `crates/`, after a first pass
+    /// that searched only the default library and reported one:
+    ///
+    /// * `test_intro`, 0.8 s — `dialogue/cutscene_defaults.rs`, bound to
+    ///   `central_hub_main`;
+    /// * `intro_wake`, 0.8 s — `intro/cutscene.rs`, bound to `intro_wake_room`;
+    /// * `drain_market_arrival`, 0.6 s — `intro/cutscene.rs`, bound to
+    ///   `drain_alley`.
+    ///
+    /// The last two are `INTRO_ROOM_CUTSCENE_BINDINGS` rows installed by
+    /// `IntroPlugin`, which `ambition_content`'s plugin adds unconditionally, so
+    /// all three are live entry paths: 2.2 s of invisible wait across three
+    /// rooms, not 0.8 s in one. `CameraPan`, the other incomplete beat, has no
+    /// non-test literal at all — which is the difference that matters, and the
+    /// reason a count belongs here rather than a word like "one" or "only".
+    /// ⇒ Either a consumer lands or the beat leaves the script; what must not
+    /// happen is the vocabulary keeping a verb the engine does not perform while
+    /// a player pays for it.
     Fade { to_alpha: f32, seconds: f32 },
     /// Set a save-game world flag. Useful for one-shot triggers
     /// (`seen_intro_cutscene = true`) and for tying cutscenes to the

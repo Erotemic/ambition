@@ -16,10 +16,13 @@ Status: **OPEN — VC5 only**
 > nothing — `CutscenePresentation::fade_alpha` has zero consumers outside its own
 > crate, and neither does `camera_target` beside it. Both are labelled UNFINISHED
 > at the definition, which is honest; what the labels did not say is that
-> **shipped content authors one**: `test_intro` holds
-> `Fade { to_alpha: 0.0, seconds: 0.8 }` and is bound to `central_hub_main`, so
-> the first entry to the hub spends 0.8 s on a beat that draws nothing.
-> `CameraPan` is authored only in tests. ⇒ VC5 and the cutscene fade are the same
+> **shipped content authors THREE**: `test_intro` (0.8 s, `central_hub_main`),
+> `intro_wake` (0.8 s, `intro_wake_room`) and `drain_market_arrival` (0.6 s,
+> `drain_alley`), the last two installed by `IntroPlugin`. Entering any of those
+> three rooms spends that long on a beat that draws nothing — 2.2 s in total, not
+> 0.8 s in one. ⚠ The first pass here said ONE because it searched the default
+> cutscene library rather than every non-test `CutsceneBeat::Fade` literal.
+> `CameraPan` has no non-test literal at all. ⇒ VC5 and the cutscene fade are the same
 > missing thing at two layers, and a screen-alpha consumer built for one is the
 > obvious owner for the other — which is an argument for building it once, not an
 > instruction to widen this card.

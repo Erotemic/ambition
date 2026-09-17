@@ -111,6 +111,30 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         }
     };
 
+    // ⛔⛤ **THE SECOND FALLIBLE-BUT-WORLD-UNTOUCHED CHECK, AND IT HAS TO BE HERE
+    // RATHER THAN AT THE INSTALL.** `install_rebased_sync_test_session` refuses
+    // to declare frame zero while a construction candidate holds a rollback
+    // carrier an ordinary query cannot see. Below this line the comment says
+    // *"From here NOTHING may fail"* and means it: the op has run, the room is
+    // reconstructed, and a refusal at the install would leave the commit
+    // half-complete — the old ring history still restorable and no new baseline.
+    // ⇒ Asked here, a refusal costs nothing: the room is untouched, the intent
+    // stays pending, and the crossing retries on a later confirmed frame, which
+    // is exactly what `CommitOutcome::Retry` does for a room that is not
+    // preparable yet.
+    let census = crate::session::census_rollback_carriers(world);
+    if census.hidden_candidates > 0 {
+        error!(
+            "Track B: NOT committing this crossing yet — {} of {} rollback carriers \
+             are hidden construction candidates, so the new timeline could not \
+             declare frame zero over the whole population. The room and the pending \
+             intent are untouched and this retries on a later confirmed frame.",
+            census.hidden_candidates,
+            census.with_candidates
+        );
+        return;
+    }
+
     // Reconstruct atomically after fallible preparation. Wall-clock duration is
     // written only to non-rollback diagnostics; `bevy::platform::time::Instant`
     // keeps the measurement available on wasm as well.
@@ -168,7 +192,19 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // handing it to the presentation adapter rather than dropping it here.
     retire_committed_room_transition(world, commit_started.elapsed());
 
-    install_rebased_sync_test_session(world, session, settings, owner);
+    // The precondition above cleared the only way this can refuse, and nothing
+    // between them spawns a candidate. A refusal here would mean the commit has
+    // half-completed, which is the one thing this ordering exists to prevent —
+    // so it is reported as the invariant break it would be, not swallowed.
+    if let Err(refusal) = install_rebased_sync_test_session(world, session, settings, owner) {
+        error!(
+            "Track B: the crossing committed and then frame zero was REFUSED \
+             ({refusal}). The room is reconstructed with the previous timeline's \
+             order history still installed. The precondition above is supposed to \
+             make this unreachable; if it fires, a candidate appeared between the \
+             check and the install."
+        );
+    }
 }
 
 /// The authorized plan, or a reason to wait.

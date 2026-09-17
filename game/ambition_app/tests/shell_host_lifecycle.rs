@@ -2108,10 +2108,17 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
 /// ordering by it would swap insertion history for allocation order — the same
 /// defect one layer down.
 ///
-/// ⚠ **AND IT REFUSES WHILE A CANDIDATE WORLD IS IN FLIGHT**, because its
-/// enumeration is an ordinary query and `InactiveCandidate` is a disabling
-/// component. A second review pass found that; the function's own doc carries
-/// the reasoning, including why INCLUDING candidates would be worse than
+/// ⚠ **AND THE INSTALLATION REFUSES WHILE A CANDIDATE WORLD IS IN FLIGHT** —
+/// the INSTALLATION, not merely the rebase, and the distinction cost a review
+/// round. The rebase's enumeration is an ordinary query and `InactiveCandidate`
+/// is a disabling component, so a second review pass found the rebase blind to
+/// candidates; the repair for THAT left
+/// `install_rebased_sync_test_session` resetting the frame counters and
+/// installing a session on the old order history anyway, which a third pass
+/// named. The precondition is now the first thing the install road does and a
+/// refusal mutates nothing. See `install_rebased_sync_test_session` and
+/// `a_hidden_candidate_refuses_the_installation_and_mutates_nothing`; the
+/// rebase's own doc carries why INCLUDING candidates would be worse than
 /// refusing.
 #[test]
 fn two_local_histories_compute_the_same_ggrs_component_checksums() {

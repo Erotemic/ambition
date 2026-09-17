@@ -1994,7 +1994,7 @@ is the boss-reward durability boundary — a different question about a differen
 object. A route to a wrong number reads exactly like a route to a right one, and
 the row had carried it since 2026-09-04. Filed here 2026-09-17.
 
-## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED; the question is down to `PostBossNpc`
+## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED AND WITNESSED; the question is down to `PostBossNpc`
 
 The repository already states the rule, in
 [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md):
@@ -2124,15 +2124,34 @@ at all. ⇒ The two censuses are complements, and neither is the whole surface: 
 asks which registered rows are uncompared, this one asks which authoritative
 components are unregistered.
 
-⚠ **WHAT HAS NOT BEEN MEASURED, STATED SO NOBODY READS THIS AS A TRACED DEFECT.**
-No arm has been run that drives a rewind across any of these four latches. The
-finding is STRUCTURAL: presence is authoritative, and the snapshot does not know
-about it. The measurement that would settle each is the one
-`a_move_keeps_its_occurrence_across_a_rewind` already uses — the same world with
-and without a GGRS session, comparing the number the body reaches — and
-`ReleaseOnDeath` is the cheapest subject because its consumer,
-`spawn_cut_rope_victory_npc`, has a second road (`boss_is_cleared` from the save)
-that would mask the defect on room re-entry but not on the kill frame.
+✔ **THIS PARAGRAPH SAID "No arm has been run that drives a rewind across any of
+these four latches" AND THAT IS NO LONGER TRUE — three of the four now have one,
+2026-09-17.** The finding was STRUCTURAL when it was written: presence is
+authoritative and the snapshot did not know about it. It is now measured for the
+three that closed:
+
+| latch | arm | poison reading |
+|---|---|---|
+| `EncounterScript` | `the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind` | 945 frames of excess script-clock advance |
+| `ReleaseOnDeath` | `a_resimulated_kill_frame_still_carries_the_release_marker` | `[1, 1, 1, 1, 0]` — a pass that cannot re-emit |
+| `RecharacterizeBody` | `a_staged_recharacterize_request_survives_every_pass_of_the_frame_that_reads_it` | `[1, 1, 1, 1, 0]` — a pass that applies the template zero times |
+
+⛔⛤ **AND THE SHAPE THAT WORKED IS NOT THE ONE THIS PARAGRAPH PRESCRIBED.** It
+said to use the same measurement as
+`a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind` — two
+worlds, one number each. That shape cannot see a presence latch: the visible
+CONSEQUENCE is usually not itself rollback state, so it survives the rewind
+whatever the registration does. The first `ReleaseOnDeath` arm asserted the
+victory NPC's presence and its poison PASSED for exactly that reason. What works
+is a PER-PASS census of the latch itself, read by a system ordered before its
+consumer, with the state change staged from inside the sim schedule so it is
+replayed. ⚠ `spawn_cut_rope_victory_npc`'s second road (`boss_is_cleared` from
+the save) does mask the defect on room re-entry — that part of the paragraph was
+right, and it is why the arm never re-enters the room.
+
+⚠ **`PostBossNpc` STILL HAS NO ARM**, and its question is about what a LOAD does
+rather than what a tick does, so the per-pass shape above does not reach it
+either.
 
 **The decision, and it is now ONE component wide.** `PostBossNpc` is the only
 row left. Its presence decides whether the celebrant a defeated boss left behind

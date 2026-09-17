@@ -139,10 +139,20 @@ for name in "${profiles[@]}"; do
         # starts meanwhile waits on the lock instead of racing the deletion.
         # `flock(2)` ignores the open mode, so a read descriptor takes the
         # exclusive lock cargo itself waits for.
+        #
+        # AND THE SECOND HALF OF THE SAME RACE WAS THE `-e` TEST, found by the
+        # architecture review of 2026-09-17. A profile that has no `.cargo-lock`
+        # yet took NO lock at all, so cargo could create the file, acquire it,
+        # and enter the profile while this script deleted underneath it. A
+        # populated profile normally has one, which is why the exposure was
+        # small — but the safety property must not depend on that. In apply mode
+        # the file is OPENED FOR WRITING, which creates it when absent, and
+        # locked unconditionally: cargo's own `flock` on the same path then
+        # waits, whichever of the two got there first.
         lock="$target/$name/.cargo-lock"
         lockfd=
-        if [ "$apply" = 1 ] && [ -e "$lock" ]; then
-            exec {lockfd}<"$lock"
+        if [ "$apply" = 1 ]; then
+            exec {lockfd}>>"$lock"
             if ! flock -n "$lockfd"; then
                 exec {lockfd}<&-
                 echo "REFUSING: a build holds $lock." >&2

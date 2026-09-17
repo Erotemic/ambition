@@ -2168,8 +2168,9 @@ to be satisfiable by a frozen world, and its author gets no warning.
    `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`. It routes the decision
    instead of making it — a sync-test arm either reads the health API or arrives
    with a sentence naming what a frozen world breaks in it. Census 2026-09-17,
-   last re-derived after the release-marker and room-cutscene arms landed: **28
-   fixtures, 15 reading a health API, 11 adjudicated, 2 not arms** — re-derive
+   last re-derived after the release-marker, room-cutscene and
+   recharacterize-request arms landed: **29 fixtures, 15 reading a health API,
+   12 adjudicated, 2 not arms** — re-derive
    with `python3 scripts/a_rollback_arm_must_refuse_a_frozen_world.py`, which
    prints the line. ⚠ It reads `git ls-files`, so a NEW fixture is invisible to
    it until staged; both of today's were caught only because the file was added

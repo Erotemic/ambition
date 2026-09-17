@@ -542,18 +542,51 @@ change carries its reasoning in its own commit.
 
 | # | finding | disposition |
 |---|---|---|
-| 1 | Q142 framed three rollback defects as a maintainer decision | ✔ FIXED — `EncounterScript`, `ReleaseOnDeath` and `RecharacterizeBody` registered, schema v197 → v198; `PostBossNpc` stays open because its question is what an admitted REPLAY sweeps |
-| 2 | the frame-zero carrier rebase cannot see a hidden construction candidate | ✔ FIXED — it now counts carriers through `count_matching_including_hidden_candidates` and REFUSES rather than rebasing a partial population; ⛔ including candidates would be worse, because an order INDEX is positional and a candidate on one peer only shifts every index after it |
+| 1 | Q142 framed three rollback defects as a maintainer decision | ✔ FIXED — `EncounterScript`, `ReleaseOnDeath` and `RecharacterizeBody` registered, schema v197 → v198, and **all three now have a poison-verified rewind witness** (2026-09-17); `PostBossNpc` stays open because its question is what an admitted REPLAY sweeps |
+| 2 | the frame-zero carrier rebase cannot see a hidden construction candidate | ✔ FIXED, **twice — and the first fix refused the wrong thing** (see below). The INSTALLATION refuses now, before it mutates anything; ⛔ including candidates would be worse, because an order INDEX is positional and a candidate on one peer only shifts every index after it |
 | 3 | the rebase fails open on a missing or duplicate `SimId` | ◐ FILED AT THE CODE — the alternative today is not a refusal, it is keeping the App-lifetime history, which is wrong by more. The condition that flips it is a real remote peer, and the comment says so |
-| 4 | `clean_workspace_crates.sh` released the build lock before deleting | ✔ FIXED — an open descriptor is held across `du`/`find`/`mv`/`rm`. Measured both ways on a 9,000-file tree: 0 lock steals against 12 |
+| 4 | `clean_workspace_crates.sh` released the build lock before deleting | ✔ FIXED — an open descriptor is held across `du`/`find`/`mv`/`rm`. Measured both ways on a 9,000-file tree: 0 lock steals against 12. ⛔ **A second half of the same race was found by the follow-up review**: the `-e` test took NO lock when the profile had no `.cargo-lock` yet, so cargo could create and acquire it mid-delete. Apply mode now OPENS the path for append (creating it) and locks unconditionally |
 | 5 | the Fade audit counted one authored fade where three ship | ✔ FIXED — `test_intro`, `intro_wake`, `drain_market_arrival`; 2.2 s of invisible wait across three rooms. The planning page that quoted the number was the second copy and is corrected too |
 | 6 | the audit campaign is drifting into machinery `AGENTS.md` forbids | ◐ PART — the source-comment PATH gate is demoted to reporting; the writer-set ratchet keeps its ratchet and now states, at the top of the file, that moving a writer between schedules leaves it green and what behavioural arm should replace it |
 
-⚠ **WHAT IS NOT DONE:** the rewind arm for `ReleaseOnDeath` and
-`RecharacterizeBody` (`EncounterScript` has one — 945 frames of clock drift
-against 1 tick when the registration is removed), and the `CutsceneTriggerQueue`
-behavioural arm that would let its ratchet be deleted. Both are named at the code
-that owes them.
+⛔⛤ **FINDING 2 WAS MARKED FIXED WHILE THE END-TO-END INVARIANT WAS STILL NOT
+ENFORCED, AND THE FOLLOW-UP REVIEW OF 2026-09-17 CAUGHT IT IN ONE SENTENCE:
+*"It refuses the rebase, not the session installation."*** The first repair put
+the candidate check inside `rebase_rollback_carrier_order`.
+`install_rebased_sync_test_session` then reset `RollbackFrameCount`, the
+confirmation counter and the input authority, called the rebase, saw the refusal,
+logged that the session *"starts on this App's earlier order history"*, reset
+`GgrsTime`, and **installed the session anyway**. ⇒ It traded a later panic for a
+new frame-zero timeline carrying every rollback order this App ever handed out —
+which is the ID-PEER defect the rebase exists to remove, the one that produced 59
+of 146 differing GGRS checksum parts between equivalent hosts.
+
+✔ **CLOSED 2026-09-17 AT THE INSTALL ROAD.** The precondition is the FIRST thing
+`install_rebased_sync_test_session` does, before any mutation; it returns
+`Err(FrameZeroRefused)` and the world is untouched. The confirmed lifecycle commit
+asks the same question beside `build_sync_test_session` — the other
+fallible-but-world-untouched step — so a refusal leaves the room and the pending
+intent alone and retries on a later confirmed frame, preserving the *"from here
+NOTHING may fail"* contract the commit is built on. One count serves both
+readers (`census_rollback_carriers`), because two spellings of "how many are
+hidden" is how the two disagree.
+
+⚠ **AND THE ARM IS ON THE INSTALL ROAD, WHICH THE FIRST ONE WAS NOT.**
+`a_hidden_candidate_refuses_the_installation_and_mutates_nothing` builds a hidden
+candidate, sets the frame counters to distinctive values (77 and 41, neither of
+them the install road's 0 and −1), calls the installation, and asserts no session
+exists, the counters are untouched, the order table is unchanged and no
+`Time<GgrsTime>` was inserted. Poison-verified: restoring the old
+install-anyway behaviour fails on *"a refused installation installed a session
+anyway"* — the property, not the return value, because the `Err` is read last.
+
+⚠ **WHAT IS NOT DONE:** the `CutsceneTriggerQueue` behavioural arm that would let
+its ratchet be deleted. ⛔ It is now PRICED rather than pending: the arm the
+ratchet's own docstring prescribed was built, and stayed green under both
+poisons, because a room a world BOOTS into fires its binding before any rewind
+window opens. The replacement needs a room TRANSITION taken mid-session. See
+`a_room_cutscene_starts_under_a_rewind.rs`, which is kept for the weaker thing it
+does pin and says so at the top.
 
 ## Investigation boundaries, not established bugs
 

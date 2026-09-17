@@ -87,6 +87,11 @@ ADJUDICATED: dict[str, str] = {
     "game/ambition_app/tests/how_much_of_the_peer_checksum_actually_varies.rs": "each "
     "arm opens with `audit.live_comparisons > 0`, which a stopped clock fails "
     "(read 2026-09-16)",
+    "game/ambition_app/tests/a_recharacterize_request_crosses_a_rewind.rs": "the "
+    "liveness floor is asserted FIRST — `SimTick > REQUEST_TICK` — and the "
+    "per-pass assertion below it needs MORE THAN ONE pass of the reading frame, "
+    "so a world that froze before the staged request, or one that ran the frame "
+    "once, fails instead of passing over an empty log (read 2026-09-17)",
     "game/ambition_app/tests/a_room_cutscene_starts_under_a_rewind.rs": "the "
     "liveness floor is asserted FIRST — `SimTick >= steps - 2` — and it is the "
     "assertion a frozen world fails: a world that never advanced also never "

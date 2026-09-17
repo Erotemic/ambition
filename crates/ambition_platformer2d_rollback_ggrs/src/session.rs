@@ -180,7 +180,7 @@ impl SyncTestSettings {
 pub fn start_sync_test_session(
     world: &mut World,
     settings: SyncTestSettings,
-) -> Result<(), ggrs::GgrsError> {
+) -> Result<(), StartSyncTestError> {
     start_sync_test_session_owned(world, settings, SyncTestOwner::Caller)
 }
 
@@ -194,10 +194,13 @@ pub fn start_sync_test_session_owned(
     world: &mut World,
     settings: SyncTestSettings,
     owner: SyncTestOwner,
-) -> Result<(), ggrs::GgrsError> {
-    // The ONLY fallible step — pure GGRS construction, touches no world — runs first.
+) -> Result<(), StartSyncTestError> {
+    // GGRS construction touches no world, so it runs first and a rejected
+    // setting cannot leave a half-installed timeline.
     let session = build_sync_test_session(settings)?;
-    install_rebased_sync_test_session(world, session, settings, owner);
+    // ⛔ AND THE SECOND FAILURE IS ABOUT THE WORLD, NOT THE SETTINGS. It leaves
+    // the world untouched; see `install_rebased_sync_test_session`.
+    install_rebased_sync_test_session(world, session, settings, owner)?;
     Ok(())
 }
 
@@ -289,6 +292,101 @@ pub struct RollbackOrderRebase {
     pub hidden_candidates: usize,
 }
 
+/// How many rollback carriers a frame-zero enumeration can and cannot see.
+///
+/// ⛔ ONE COUNT, TWO READERS. The frame-zero PRECONDITION and the rebase itself
+/// both need this, and two spellings of "how many are hidden" is how the two
+/// disagree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CarrierCensus {
+    /// What an ordinary `With<Rollback>` query sees.
+    pub visible: usize,
+    /// What a query that also allows `InactiveCandidate` sees.
+    pub with_candidates: usize,
+    /// The difference — carriers an ordinary enumeration cannot see.
+    pub hidden_candidates: usize,
+}
+
+pub fn census_rollback_carriers(world: &mut World) -> CarrierCensus {
+    use bevy_ggrs::Rollback;
+    let visible = world
+        .query_filtered::<Entity, With<Rollback>>()
+        .iter(world)
+        .count();
+    // `Allow<T>` is "with AND without", so the difference is exactly the carriers
+    // an ordinary query cannot see.
+    let with_candidates =
+        ambition_platformer2d_shared_tangle::construction::count_matching_including_hidden_candidates::<
+            With<Rollback>,
+        >(world);
+    CarrierCensus {
+        visible,
+        with_candidates,
+        hidden_candidates: with_candidates.saturating_sub(visible),
+    }
+}
+
+/// Why a frame-zero installation refused, with the numbers that decided it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameZeroRefused {
+    pub hidden_candidates: usize,
+    pub carriers: usize,
+}
+
+impl std::fmt::Display for FrameZeroRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "refusing to declare frame zero: {} of {} rollback carriers are hidden \
+             construction candidates, so a rebased order cannot describe the whole \
+             population",
+            self.hidden_candidates, self.carriers
+        )
+    }
+}
+
+impl std::error::Error for FrameZeroRefused {}
+
+/// Starting a local sync-test session has two ways to fail and they are not the
+/// same kind of thing.
+///
+/// ⛔⛤ **GGRS CONSTRUCTION FAILING AND THE WORLD BEING UNFIT FOR FRAME ZERO ARE
+/// DIFFERENT ANSWERS, AND FOLDING THE SECOND INTO `GgrsError` WOULD HAVE MEANT
+/// INVENTING A VARIANT FOR IT.** The first is about the arguments; the second is
+/// about the world, is recoverable by waiting for the candidate to publish, and
+/// a caller that wants to retry needs to be able to tell them apart.
+#[derive(Debug)]
+pub enum StartSyncTestError {
+    /// GGRS refused the settings. Touches no world.
+    Ggrs(ggrs::GgrsError),
+    /// The world is not in a state that can declare frame zero. Nothing was
+    /// mutated and no session was installed.
+    FrameZeroRefused(FrameZeroRefused),
+}
+
+impl std::fmt::Display for StartSyncTestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ggrs(error) => write!(f, "{error}"),
+            Self::FrameZeroRefused(refusal) => write!(f, "{refusal}"),
+        }
+    }
+}
+
+impl std::error::Error for StartSyncTestError {}
+
+impl From<ggrs::GgrsError> for StartSyncTestError {
+    fn from(error: ggrs::GgrsError) -> Self {
+        Self::Ggrs(error)
+    }
+}
+
+impl From<FrameZeroRefused> for StartSyncTestError {
+    fn from(refusal: FrameZeroRefused) -> Self {
+        Self::FrameZeroRefused(refusal)
+    }
+}
+
 /// Rebase the GGRS carrier ORDER onto the live rollback population.
 ///
 /// ⛔⛔ **THE COMPONENT CHECKSUM TWO PEERS COMPARE CONTAINS AN APP-LIFETIME
@@ -353,17 +451,11 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     let previous = world.get_resource::<RollbackOrdered>().cloned();
     let discarded_history = previous.as_ref().map_or(0, RollbackOrdered::len);
 
-    let visible = world
-        .query_filtered::<Entity, With<Rollback>>()
-        .iter(world)
-        .count();
-    // `Allow<T>` is "with AND without", so the difference is exactly the carriers
-    // an ordinary query cannot see.
-    let with_candidates =
-        ambition_platformer2d_shared_tangle::construction::count_matching_including_hidden_candidates::<
-            With<Rollback>,
-        >(world);
-    let hidden_candidates = with_candidates.saturating_sub(visible);
+    let CarrierCensus {
+        visible,
+        with_candidates,
+        hidden_candidates,
+    } = census_rollback_carriers(world);
     if hidden_candidates > 0 {
         bevy::log::error!(
             "REFUSING to rebase the rollback carrier order: {hidden_candidates} of \
@@ -451,6 +543,22 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     }
 }
 
+/// ⛔⛤ **IT REFUSES THE INSTALLATION, NOT MERELY THE REBASE, AND THE DIFFERENCE
+/// IS THE WHOLE POINT OF THE PRECONDITION.** The first version of this checked
+/// candidates inside [`rebase_rollback_carrier_order`], logged that the session
+/// *"starts on this App's earlier order history"*, and installed it anyway. That
+/// traded one defect for another: it stopped building a partial order table that
+/// would panic later, and in exchange it declared a new frame-zero timeline
+/// carrying every rollback order this App ever handed out — which is exactly the
+/// ID-PEER defect the rebase exists to remove (59 of 146 differing GGRS checksum
+/// parts between equivalent hosts). Found by the architecture review of
+/// 2026-09-17, which named the distinction precisely: *"It refuses the rebase,
+/// not the session installation."*
+///
+/// ⇒ The precondition is therefore checked FIRST, before `RollbackFrameCount`,
+/// the confirmation counter, the input authority or `GgrsTime` are touched, so a
+/// refusal leaves the world exactly as it was and no session is installed. A
+/// caller that wants the session must wait for the candidate to publish.
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -458,7 +566,23 @@ pub fn install_rebased_sync_test_session(
     // Declared by the caller for the same reason as `start_sync_test_session_owned`:
     // a rebase keeps its owner, and inferring one here would guess.
     owner: SyncTestOwner,
-) {
+) -> Result<(), FrameZeroRefused> {
+    // ⛔ THE PRECONDITION, AND IT IS FIRST SO THAT A REFUSAL MUTATES NOTHING.
+    // Every line below this changes the world.
+    let census = census_rollback_carriers(world);
+    if census.hidden_candidates > 0 {
+        let refusal = FrameZeroRefused {
+            hidden_candidates: census.hidden_candidates,
+            carriers: census.with_candidates,
+        };
+        bevy::log::error!(
+            "REFUSING to install a rebased sync-test session: {refusal}. The \
+             frame counters, the input authority and `GgrsTime` are untouched and \
+             no session was installed — a timeline must declare frame zero with \
+             no candidate world in flight."
+        );
+        return Err(refusal);
+    }
     warn_if_no_world_to_rewind(world);
     // A newly installed GGRS session always starts from the current live world
     // as frame zero. Snapshot stores are intentionally retained here: the first
@@ -472,26 +596,24 @@ pub fn install_rebased_sync_test_session(
     // checksum two peers compare carries every rollback entity this App ever
     // registered, retired sessions included — see `rebase_rollback_carrier_order`.
     let rebase = rebase_rollback_carrier_order(world);
-    if rebase.hidden_candidates > 0 {
-        // The refusal already logged at error level with its reasoning; this
-        // line exists so the install road's own log does not read as a success.
-        bevy::log::debug!(
-            target: "ambition_platformer2d::rollback",
-            "carrier order NOT rebased: {} of {} carriers are hidden candidates, \
-             so this session starts on this App's earlier order history",
-            rebase.hidden_candidates,
-            rebase.carriers
-        );
-    } else {
-        bevy::log::debug!(
-            target: "ambition_platformer2d::rollback",
-            "carrier order rebased onto {} live carrier(s) ({} named), discarding {} \
-             order(s) from this App's earlier history",
-            rebase.carriers,
-            rebase.identified,
-            rebase.discarded_history
-        );
-    }
+    // ⚠ The precondition above already excluded this, so a non-zero reading here
+    // means a candidate appeared between the check and the rebase — which cannot
+    // happen under `&mut World`. It is still surfaced rather than assumed away,
+    // because the assumption is the interesting part: if this ever fires, the
+    // precondition is being reached by a road that does not hold the world.
+    debug_assert_eq!(
+        rebase.hidden_candidates, 0,
+        "the frame-zero precondition passed and the rebase still found hidden \
+         candidates, so something mutated the world between them"
+    );
+    bevy::log::debug!(
+        target: "ambition_platformer2d::rollback",
+        "carrier order rebased onto {} live carrier(s) ({} named), discarding {} \
+         order(s) from this App's earlier history",
+        rebase.carriers,
+        rebase.identified,
+        rebase.discarded_history
+    );
 
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount by calling
     // Time::advance_to.
@@ -502,6 +624,7 @@ pub fn install_rebased_sync_test_session(
         session,
         RollbackSessionOwnership::LocalSyncTest { settings, owner },
     );
+    Ok(())
 }
 
 /// Install any already-constructed GGRS session behind Ambition's exact
@@ -1612,6 +1735,89 @@ mod carrier_order_tests {
         assert_eq!(report.carriers, 2, "the report names the WHOLE population");
     }
 
+    /// ⛔⛤ **AND THE ARM ABOVE IS ABOUT THE REBASE, WHICH IS NOT THE ROAD A
+    /// SESSION TAKES.** The architecture review of 2026-09-17 named the gap
+    /// exactly: *"It refuses the rebase, not the session installation."* The
+    /// install road reset `RollbackFrameCount`, the confirmation counter, the
+    /// input authority and `GgrsTime`, saw the refusal, logged that the session
+    /// *"starts on this App's earlier order history"*, and installed it — trading
+    /// a later panic for a new frame-zero timeline carrying every order this App
+    /// ever handed out, which is the ID-PEER defect the rebase exists to remove.
+    ///
+    /// ⇒ This arm calls the INSTALLATION and asserts the four things a refusal
+    /// must leave alone, plus that no session exists afterwards. ⚠ The counters
+    /// are asserted against values that are NOT the post-install ones, so a
+    /// refusal that reset them would fail here rather than coincide with a
+    /// plausible number: the fixture sets frame 77 and confirmed 41, and the
+    /// install road's own values are 0 and -1.
+    #[test]
+    fn a_hidden_candidate_refuses_the_installation_and_mutates_nothing() {
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, register_inactive_candidate_filter,
+        };
+
+        let mut world = world_with(0, &["alpha", "beta"]);
+        register_inactive_candidate_filter(&mut world);
+        let hidden = world
+            .query_filtered::<Entity, With<Rollback>>()
+            .iter(&world)
+            .next()
+            .expect("the fixture built carriers");
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, &world);
+        hide_candidate_session_root(&mut commands, hidden);
+        queue.apply(&mut world);
+
+        // Distinctive values, so a reset is visible as a reset rather than as a
+        // number that could have been there all along.
+        world.insert_resource(RollbackFrameCount(77));
+        world.insert_resource(ConfirmedFrameCount(41));
+        let order_before = world.resource::<RollbackOrdered>().len();
+
+        let settings = SyncTestSettings::for_players(1);
+        let session = build_sync_test_session(settings).expect("GGRS builds a 1-player session");
+        let refused = install_rebased_sync_test_session(
+            &mut world,
+            session,
+            settings,
+            SyncTestOwner::Caller,
+        );
+
+        // ⛔ THE DEFECT-DESCRIBING ASSERTIONS FIRST. Reading the `Err` first would
+        // let a poison fail on the return value — the thing that ANNOUNCES the
+        // property — instead of on the property.
+        assert!(
+            !session_is_active(&world),
+            "a refused installation installed a session anyway. That session's \
+             frame zero carries every rollback order this App ever handed out, \
+             which is the ID-PEER defect the rebase exists to remove"
+        );
+        assert_eq!(
+            world.resource::<RollbackFrameCount>().0,
+            77,
+            "the refusal reset the frame counter. The check has to come BEFORE \
+             every mutation, not beside the rebase"
+        );
+        assert_eq!(
+            world.resource::<ConfirmedFrameCount>().0,
+            41,
+            "the refusal reset the confirmation counter"
+        );
+        assert_eq!(
+            world.resource::<RollbackOrdered>().len(),
+            order_before,
+            "the refusal rebuilt the order table, which drops the hidden \
+             carrier's entry and panics on the next checksum"
+        );
+        assert!(
+            world.get_resource::<Time<GgrsTime>>().is_none(),
+            "the refusal installed a GGRS clock for a session that does not exist"
+        );
+        let refusal = refused.expect_err("the installation must refuse");
+        assert_eq!(refusal.hidden_candidates, 1);
+        assert_eq!(refusal.carriers, 2, "the refusal names the WHOLE population");
+    }
+
     /// ⚠ An unnamed carrier does not stop the rebase, and the report says so —
     /// refusing would leave the whole population carrying another App's history
     /// because one body's spawn site forgot to mint an identity.
@@ -1866,7 +2072,8 @@ mod tests {
         world.insert_resource(old_timeline);
         world.insert_resource(RollbackFrameCount(540));
 
-        install_rebased_sync_test_session(&mut world, session, settings, SyncTestOwner::Caller);
+        install_rebased_sync_test_session(&mut world, session, settings, SyncTestOwner::Caller)
+            .expect("no candidate world is in flight in this fixture");
 
         assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
         assert_eq!(

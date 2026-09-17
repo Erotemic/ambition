@@ -62,135 +62,39 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 ### Deterministic identity
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
-separate active seam. `SessionScopeId` is useful as an App-local session owner,
-but local activation counts must not determine peer-stable provenance or
-canonical checksums.
+separate active seam. `SessionScopeId`, shell activation ids, content epochs and
+monotonic counters stay valid for cleanup and stale-message rejection; none of
+them may determine authoritative RNG, deterministic construction provenance,
+rollback identity, contact/projectile identity, or a peer checksum.
 
-**ELEVEN CLOSED, THREE OPEN (2026-09-16).** The per-road table and the arm that holds
-each one are in
-[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
-⭐ This page said "nine of the ten" and predicted that a tenth road found
-tomorrow would make it "nine closed, a tenth found" instead of making it false.
-An eleventh was found on 2026-09-16 and the sentence held: the count moved, the
-claim did not. A **twelfth** was found later the same day and the sentence held
-again — but this one is a DIFFERENT KIND of road, which is worth saying because
-"twelve roads" would otherwise imply twelve of the same thing. **FIFTEEN are now
-filed and FOURTEEN are live**, because the thirteenth was withdrawn the day it was
-filed and the numbering does not reuse it; the fifteenth (`ControlFrame`'s shape)
-is closed for the RATCHET and not for a negotiated input version, which does not
-exist and is not obviously owed while netcode is `N2`.
+**The per-road table, the arm that holds each closed road, and every measurement
+behind them are in
+[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).**
+⛔ This section deliberately carries no road count and no per-road narrative. It
+held both, and the corrections kept arriving here as separate hand edits AFTER
+the owner row was already right: `dada0a4c5` and `28e087f43` each re-derived its
+counts, and `86e8f9622` is titled *"the warning that a summary rots did not stop
+me rotting the line under it"*. The last copy to go was worse than stale — it
+said `SeatControlFrameModes` is *"read by sim systems"* while the owner had
+recorded it closed and production holds exactly one `ResMut` writer and no
+readers. A summary of a live table is a copy that corrections do not reach.
 
-⛔⛤ **AND THIS PARAGRAPH SAID "A FOURTEENTH … THIRTEEN LIVE" WHILE THE ROW IT
-SUMMARISES SAID FIFTEEN FILED, FOURTEEN LIVE — the same defect it congratulates
-itself for surviving, one road later.** A count in prose is a copy, and a copy in
-ANOTHER DOCUMENT is the one a correction does not reach. ⇒ Re-derive from
-[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity)'s
-table, which prints its own arithmetic beside it, rather than incrementing this
-sentence.
+**What a reader picking this up needs, and the only thing not derivable from that
+table: every open road is blocked outside the campaign.**
 
-✔ **THE FOURTEENTH WAS THE ONLY ROAD NOT BLOCKED OUTSIDE THE CAMPAIGN AND IT
-CLOSED WITHIN THE HOUR. It is the campaign's own shape in a place nobody looked:
-a LOCAL DEBUGGING INSTRUMENT is an input to the peer identity.** The same harness built with and without
-`--features causal` produces two different `schema_fingerprint()` values
-(`ssp1:7bc3233fdd0e73d8…` vs `ssp1:b90539da551339d9…`) for simulations that are
-mechanically identical — so two such peers would refuse each other for no
-mechanical reason. The repository already decided those channels are not part of
-the state schema; the decision lives in a test's filter and not in
-`compute_schema_fingerprint`, and the filter is what keeps the disagreement
-invisible by making the lane green either way.
+| open road | blocked on |
+| --- | --- |
+| the snapshot schema fingerprint hashing English prose | [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — where the mechanical/presentation line falls. The naive fix is refuted in the row |
+| the 25 unchecksummed float rows | netcode **N2** — they carry no host-local id and are simply never compared, which no projection fixes and no `SyncTestSession` can observe |
+| the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
 
-⇒ Fixed by asking the question at the KIND (`MessageClearInstrument`, which
-answers `in_peer_schema_identity() == false`) instead of by name prefix in a
-test, which let that filter be deleted as redundant. Both builds now fingerprint
-`ssp1:7bc3233fdd0e73d8…`, identical to the value before the change, so no
-version bump was owed and the baseline did not move. ⭐ The durable point is not
-that a feature leaked — it is that the fingerprint and the dump filter DISAGREED
-ABOUT WHAT COUNTS AS SCHEMA, both deliberately, with nothing comparing them.
-Measurement and the arm's built-in positive control on
-[`N3`](engine/netcode.md).
-
-⛔⛤ **AND A FIFTEENTH, FOUND BY VERIFYING A PRICE RATHER THAN A CLAIM: NOTHING
-VERSIONS THE SHAPE OF THE PAYLOAD TWO PEERS EXCHANGE.** `SETTINGS-ROLLBACK`
-priced a repair as *"adding a `ControlFrame` field does not bump
-`INPUT_STREAM_VERSION`"*. The sentence is true and was verified at both ends —
-and `INPUT_STREAM_VERSION` versions RECORDED REPLAY FILES, while the question it
-was answering is a peer one. `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so
-`ControlFrame` is literally what crosses; the rollback dump carries one row
-naming the type and not its fields, the fingerprint hashes that dump, and the
-codec-shape baseline has zero mentions because `ControlFrame` is `derived` and
-never snapshotted.
-
-✔ **HALF-CLOSED THE SAME DAY.** `CONTROL_FRAME_WIRE_IDENTITY` now names the
-shape, declared beside `INPUT_STREAM_VERSION` so each constant says what the
-other does not cover, and `the-peer-input-payload-may-not-move-without-its-
-identity` freezes 42 rows — 39 fields IN DECLARATION ORDER (bincode encodes
-positionally, so a reorder changes what every later byte means) plus the 3
-`AttackStrengthHint` variants. The transitive boundary is asserted rather than
-assumed: a SECOND non-primitive field type raises instead of reading green.
-⇒ Still open, and it is the same remainder as the state half: the identity
-exists and is ratcheted, and nothing EXCHANGES it, which waits on `N2`.
-
-⭐ **AND A THIRTEENTH WAS FILED AND WITHDRAWN THE SAME DAY, WHICH IS THE
-CAMPAIGN WORKING.** Walking `possession_trigger_system`'s inputs found an
-App-local, menu-mutable USER PREFERENCE interpreting GGRS-replayed stick input
-inside the simulation — measured and real, and already owned by
-[SETTINGS-ROLLBACK](queue.md#settings-rollback--finish-the-settingsmechanics-admission-boundary)
-with a better repair recorded than the one about to be proposed. A new row would
-have been a second owner for one fact. ⇒ What survived is the peer half (that
-owner had only the local half) and a correction to that row, which said the
-frame-mode side was *"projected"* in its done clause while the waiver eleven lines
-from the code says a resimulation still reads today's policy. **"Projected" is not
-"admitted"**, and both policies — `PlayerDamagePolicy` and
-`SeatControlFrameModes` — are written from `Update`, unregistered for rollback, and
-read by sim systems.
-
-⛔ **THE TWELFTH ROAD IS NOT A LINEAGE DEFECT AND NO PROJECTION FIXES IT.** The 25
-rows ranked by **S7** in
-[simulation-authority-and-determinism.md](engine/simulation-authority-and-determinism.md)
-are outside the session checksum, read by an unfiltered per-tick query, and
-float-bearing; 12 of them are mutably written in production. They carry no
-host-local id — they are simply never compared between peers. ⇒ And they cannot be
-measured here: `Session::SyncTest` is the only session this workspace constructs,
-so the two rows measured clean (`item.ground_item`, `actor.animation_facts`) are
-cleared of a local RESTORE defect and say nothing about two peers. The blocker is
-netcode's **N2**, the absent P2P session — the same blocker `Q128` has under
-another name.
-
-⛔ **NEITHER OF THE OTHER TWO OPEN ROADS IS A SESSION COUNT, AND BOTH ARE BLOCKED
-ON A RULING.**
-[Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
-is the absolute `SimTick`.
-[Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation)
-is the snapshot schema fingerprint hashing English prose: `compute_schema_fingerprint`
-hashes the whole `schema_dump()`, `detail` column included, so two builds of the
-same mechanical schema are two identities if somebody reworded a comment.
-Measured by poison — one pluralised word moved 83 rows.
-⚠ **AND THE REPOSITORY NOW ANSWERS THIS QUESTION TWO OPPOSITE WAYS.** The
-peer-visible schema ratchet landed 2026-09-16 drops the `detail` column
-deliberately, on the reasoning that prose is not wire format and a ratchet that
-reddens for a reworded sentence teaches people to re-freeze it without reading.
-`compute_schema_fingerprint` includes it. Both are defensible alone; holding
-both means the identity a guard protects and the identity a peer would negotiate
-are not the same identity, which is Q122's question with a second witness.
-`SimTick` is registered `resource-canonical`, so its whole value is compared
-between peers, and it is an absolute count of every sim step an App has run
-(one writer, unconditional at the head of the schedule, never rebased, menu
-frames included). Two Apps running for different lengths of time therefore
-disagree from the first compared frame. It cannot be closed the way the other
-nine were: a projection excluding the tick would exclude the TIMELINE, which is
-what a rollback comparison is about.
-
-⚠ Nothing in the repository can observe any of this: the only sessions in use are
-`SyncTestSession`, one machine rewinding itself, and a canary comparing a machine
-against its own past cannot catch a two-peer disagreement. Every road in that
-table had to be found by reading, and two of the three GPT reviews found a fix
-that had replaced one host-local term with another.
-
-⭐ **THE TWO THAT CLOSED LAST NEEDED NO NEW AUTHORITY**, which is the transferable
-part: the stale cross-session match stamp needed to be impossible rather than
-checksummed harder, and the session root's identity needed no peer-stable session
-term at all — its local count was disambiguating nothing. Ask who ORDERS and who
-OWNS a thing before designing a type to carry it.
+⚠ **AND NOTHING IN THE REPOSITORY CAN OBSERVE ANY OF IT.** `SyncTestSession` is
+the only session this workspace constructs — one machine rewinding itself, zero
+distance — so a desync canary compares a machine against its own past and cannot
+catch a two-peer disagreement. Every road in that table was found by reading, and
+two of the four GPT reviews found a "fix" that had replaced one host-local term
+with another. That is the standing reason this seam gets review attention out of
+proportion to what any test can currently fail on.
 
 ### Rollback-safe mechanical editing
 

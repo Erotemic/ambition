@@ -1,6 +1,7 @@
 # Unified movement kernel — remaining work
 
-> **Verified against `cecd01ca` (2026-08-13).** The frame-aware movement kernel,
+> **Verified against `ebdc5814c` (2026-09-17); originally `cecd01ca`
+> (2026-08-13).** The frame-aware movement kernel,
 > typed resolution seams, rollback registration, surface-momentum operations,
 > portal transit geometry, and the previously listed residual items 1–4 are
 > implemented or refuted. The full architecture/migration record is archived at
@@ -26,11 +27,27 @@
   `hall_of_characters`, `intro` and `sandbox`, none of which authors a chain in
   the same level.
 
-  ✔ **RE-MEASURED 2026-09-02 and the claim HOLDS, by entity INSTANCE rather than
-  by text.** `SurfaceChain` is *placed* in exactly two LEVELS — `sanic_sandbox`
-  and `sanic_speedway` — and neither places a crawler. Crawler placements are
-  `hall_of_characters` (6), `intro`'s three levels (12) and five levels of
-  `sandbox.ldtk` (17); none of them is `sanic_sandbox`.
+  ✔ **RE-MEASURED 2026-09-02 AND AGAIN 2026-09-17, by entity INSTANCE rather than
+  by text. THE LOAD-BEARING CLAIM HOLDS AND THE INCIDENTAL COUNTS DO NOT.**
+  `SurfaceChain` is *placed* in exactly two LEVELS — `sanic_sandbox` (2) and
+  `sanic_speedway` (2) — and neither places a crawler. **The set of levels
+  placing both is empty**, which is the claim this row rests on.
+
+  ⚠ **THE CRAWLER COUNTS ARE DIFFERENT NOW AND THE DIFFERENCE IS NOT
+  ATTRIBUTABLE.** This row recorded `hall_of_characters` (6), `intro`'s three
+  levels (12) and five levels of `sandbox.ldtk` (17). Measured 2026-09-17 over
+  the three authored ids (`npc_puppy_slug`, `npc_puppy_slug_variant2`,
+  `npc_puppy_slug_velvet`), excluding the `ground_puppy_slug_gun` ITEM that a
+  naive id match picks up: **20 placements across EIGHT levels** —
+  `hall_of_characters` (3), `intro` (`combat_calibration_lab` 3,
+  `intro_escape_shaft` 4, `under_town_pipes` 1) and FOUR levels of `sandbox.ldtk`
+  (`vertical_shaft` 6, `basement_enemies` 1, `gravity_lab` 1, `proving_grounds`
+  1). ⇒ **Do not go looking for the edit that moved them.** `game/ambition_map_assets`
+  is a submodule whose history was truncated to a single epoch commit on
+  2026-09-06, four days after the earlier reading, so the content at that reading
+  is not recoverable and the two numbers cannot be reconciled — only re-derived.
+  Either instrument may have counted a different population; what is checkable
+  today is the emptiness of the intersection, and it is empty.
 
   ⚠ **AND A FILE-LEVEL GREP SAYS THE OPPOSITE, which is worth recording because
   it is the obvious way to re-check this row.** `grep -c SurfaceChain` reports

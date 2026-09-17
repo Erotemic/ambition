@@ -494,9 +494,11 @@ reducer reads; an ordered `CheckpointRestoreStep::{Admit, Apply, Retire}` chain
 makes the answer available before any domain acts; and a refused request is
 remembered in `OutstandingCheckpointRequest` rather than dropped. **Guards:**
 `a_refused_reset_changes_no_domain_state_and_is_not_lost` (both halves
-poison-verified) and `every_checkpoint_restore_system_is_inside_one_ordered_step`
+poison-verified) and
+`domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation`
 (asks the schedule, and fails on anything installed into `CheckpointRestore`
-outside the three steps). Retained below as the review's evidence at the
+outside the three steps; renamed by A1c/3b, which moved the restore off the
+simulation schedule altogether). Retained below as the review's evidence at the
 baseline; the pinned-snapshot half remains A1c/3-5.
 
 `restore_occurrence_baseline` in

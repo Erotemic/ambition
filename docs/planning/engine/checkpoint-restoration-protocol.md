@@ -320,35 +320,45 @@ once-only routing stays pinned by the existing
 other consequence of a lifecycle request, before the slot has said yes. The
 `#[must_use]` on `record` is the reminder, not the enforcement.
 
-F9 is NOT closed by this and cannot be — see the measured witness below.
+F9 is not closed by A1a and cannot be — it was closed by A1c/1-2, below, and the
+arm that witnessed it was INVERTED rather than deleted.
 
-#### F9, measured 2026-09-08 (executed, full checkpoint-horizon composition)
+#### F9 — ✔ CLOSED by A1c/1-2; the arm now asserts the absence
 
 `game/ambition_app/tests/death_restores_the_checkpoint.rs::`
-`f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request`.
-One session banks a checkpoint, then acquires a stackable entitlement and picks
-up an authored ground item; an unrelated intent holds the lifecycle slot; a raw
-`ResetToCheckpoint` is written. On the single tick that follows, with the
-incumbent intent still in the slot and the active room unchanged:
+`a_refused_reset_changes_no_domain_state_and_is_not_lost` is the same fixture
+with the opposite claim: one session banks a checkpoint, then acquires a
+stackable entitlement and picks up an authored ground item; an unrelated intent
+holds the lifecycle slot; a raw `ResetToCheckpoint` is written. **A refused reset
+now changes nothing** — and the second half is why this is not merely "refuse
+harder": the request is REMEMBERED in `OutstandingCheckpointRequest`, so when the
+incumbent releases the slot it is admitted and the restore lands in full. A reset
+that simply evaporated on refusal would satisfy the whole first half and lose the
+player's death.
 
-| Value | On a refused reset | What A1c owes |
+**What it measured before the repair, 2026-09-08**, on the single tick after the
+write, with the incumbent still in the slot and the active room unchanged:
+
+| Value | On a refused reset, BEFORE A1c | Today |
 | --- | --- | --- |
 | `OwnedItems` count of the stackable entitlement | rolled back to the banked count | unchanged |
 | The authored object acquired after the checkpoint | **zero live occurrences — destroyed, not returned** | still in the hand |
-| `PendingLifecycleCommit` | incumbent retained (correct today) | unchanged |
-| Active room | unchanged (correct today) | unchanged |
+| `PendingLifecycleCommit` | incumbent retained (correct then) | unchanged |
+| Active room | unchanged (correct then) | unchanged |
 
-⛔ **The entity loss is the sharpest finding and it is worse than a rolled-back
-ledger.** `restore_custody_to_checkpoint` takes the object out of the hand
-because the banked custody relation did not have it there; the road that would
-put it back on its pedestal is the room reconstruction the reset asked for — and
-that is exactly what the slot refused. The two halves of one restore ran on
-opposite sides of an admission neither consulted, and the object survives in
-neither. A control arm in the same fixture runs the identical request with the
-slot free and gets the object back, so the difference is the admission alone.
+⛔ **The entity loss was the sharpest finding and it was worse than a rolled-back
+ledger.** `restore_custody_to_checkpoint` took the object out of the hand because
+the banked custody relation did not have it there; the road that would put it
+back on its pedestal is the room reconstruction the reset asked for — and that is
+exactly what the slot refused. The two halves of one restore ran on opposite
+sides of an admission neither consulted, and the object survived in neither. A
+control arm in the same fixture ran the identical request with the slot free and
+got the object back, so the difference was the admission alone.
 
-⇒ This is why an ordering edge cannot repair F9: the consumers need accepted
-operation data, not a differently ordered read of the same unaccepted request.
+⇒ That is why an ordering edge could not repair F9: the consumers did not need a
+differently ordered read of the same unaccepted request, they needed an ANSWER.
+`AdmittedCheckpointRestore` is that answer, written only by the session
+coordinator and only with an `Admission` in hand.
 
 ### A1b: perform the ownership move without semantic changes — LANDED
 
@@ -452,10 +462,13 @@ This is a coherent behavior change, implemented in buildable subcommits:
    bypass around admission: the token has one writer.
 
    The registration is guarded, not just the source:
-   `every_checkpoint_restore_system_is_inside_one_ordered_step` asks the SCHEDULE
-   which set each reducer joined and fails if anything sits in
+   `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation`
+   asks the SCHEDULE which set each reducer joined, and fails if anything sits in
    `CheckpointRestore` outside the three steps — a fourth domain installing the
-   old way is caught there rather than by a player losing an item.
+   old way is caught there rather than by a player losing an item. ⚠ Its name
+   changed with `fb5afecae` (A1c/3b), which moved the restore off the simulation
+   schedule entirely; the population it asserts is the point, since naming the
+   three reducers would pass while a fourth quietly re-added itself.
 3. **LANDED 2026-09-08 (preparation half) — preparation reads the operation's
    own population.** The session owns `AcceptedCheckpointRestore`: the accepted
    operation, the room intent it was admitted for, and the occurrence/minted

@@ -2755,32 +2755,46 @@ of green. Q135 carries the candidate second cause: `adopt_the_ledger` writes
 `AuthoredOccurrences`, declared `RollbackEntryKind::Derived` and never restored,
 and the hashed `OccurrenceBaseline` takes its value from it.
 
-✅⛤ **AND THE PER-ENTRY READING IS DONE, SAME DAY: THE DIVERGING ENTRY IS THE
-SAVE, AND THE ROAD IS A RESOURCE DECLARED EXEMPT FROM THE SNAPSHOT.** Held by
-`a_derived_resource_carries_a_mid_session_load_back_across_the_rewind`, which
-censuses all 364 probed entries per PASS of each frame. Exactly one disagrees
-between two passes of one frame outside world construction —
-`AmbitionGameSave`, at frames 38 and 39 — and **neither baseline does**, so the
-`OccurrenceBaseline` attribution this row reached by reading declarations was
-wrong about the road while right about the resource.
+✅⛤ **AND THE PER-ENTRY READING FOUND IT, SAME DAY, AND THE FIX IS LANDED — SO
+THE ARM NOW ASSERTS THE ABSENCE.** The arm is
+`a_mid_session_load_does_not_reach_back_across_the_rewind`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`); it
+censuses all 364 probed entries per PASS of each frame and reads **no entry
+disagreeing between two passes of one frame outside world construction.** When it
+was written it read exactly one — `AmbitionGameSave`, at frames 38 and 39 — and
+**neither baseline did**, so the `OccurrenceBaseline` attribution this row first
+reached by reading declarations was wrong about the road while right about the
+resource.
 
     tick 37   (0,0) (0,0) (0,0) (0,0) (1,0)      (AuthoredOccurrences rows,
     tick 38   (0,0) (0,0) (0,0) (1,1)             save occurrence rows) per pass
-    tick 39   (0,0) (0,0) (1,1)
-    tick 40   (0,1) (1,1)
+    tick 39   (0,0) (0,0) (1,1)                   BEFORE the registration below;
+    tick 40   (0,1) (1,1)                         ticks 37-39 now read (0,0) flat
 
-⇒ `AuthoredOccurrences` is `declare_rollback_derived_resource` — in no snapshot,
+`AuthoredOccurrences` was `declare_rollback_derived_resource` — in no snapshot,
 restored by no rewind — justified as *"republished from live state while its room
-is loaded"*. `adopt_the_ledger` fills it from the SAVE, no republish corrects it
+is loaded"*. `adopt_the_ledger` fills it from the SAVE, no republish corrected it
 during a rewind, and `persist_occurrence_horizon_to_save` mirrors its rows into
-the hashed save. **The load reaches backwards across the rewind**, one frame
-further than the checksum reports.
+the hashed save. **The load reached backwards across the rewind**, one frame
+further than the checksum reported.
 
-⇒ **THE FIX IS NOT A PLACEMENT.** Either `AuthoredOccurrences` rewinds, or the
-adoption stops being what fills it; the declaration's justification is what has
-to change first, because it is not true of the load path. That is a
-[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)
-consequence and it is recorded there.
+⇒ **THE FIX WAS NOT A PLACEMENT.** It was the first of the two branches this row
+named: the ledger rewinds now (the ✅ paragraph below has the registration).
+
+⛔⛤ **AND WHAT REPLACED THE DIVERGENCE IS A LOST WRITE, NOT A CLEAN LOAD.**
+`adopt_occurrence_checkpoint_from_save` runs in top-level `Update`, so now that
+the ledger rewinds its write is restored away like any other `Update` write to
+rollback state: from tick 40 the save holds the row in every pass (`saved = 1`)
+and the ledger holds none (`authored = 0`, in every pass). **A divergence became
+a deterministic loss** — two peers agree, and the durable restore does not reach
+the ledger under a rollback host. No behaviour that worked was taken away: this
+road desynced the sync test at the frames of the load, so there was no run in
+which it worked, and a fixed-tick host has no restore to lose. ⇒ That remainder
+is
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)'s
+lifecycle half rather than its checksum half, and the arm says so at its own
+definition: when the `authored = 0` half changes, the lifecycle repair has
+landed.
 
 ⛔⛤ **AND THE REASON NOBODY SAW IT IS A GAP WITH A NAME.** `AuthoredOccurrences`
 is probed and is one of the 364 — its probe is PRESENCE-ONLY, and on a RESOURCE

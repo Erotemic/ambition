@@ -2000,7 +2000,7 @@ Required regression tests for M1 — **all ten are in place**:
 | 6 | circle/OBB/convex strike geometry survives serialization | `every_volume_shape_survives_serialization`, `test_a_strike_is_drawn_in_its_real_shape` |
 | 7 | target-owned strikes are not attributed to the subject | `a_strike_belongs_to_its_owners_side_not_to_the_owner` |
 | 8 | a rendered frame and its semantic manifest name the same action tick | structural: the observation is a field OF the shot row, beside `action_tick` |
-| 9 | a stale render stays visibly stale | `test_a_cache_older_than_the_binary_is_not_served`, `test_a_cache_with_no_provenance_is_not_served_as_current` |
+| 9 | a stale render stays visibly stale | `test_a_cache_older_than_the_binary_is_not_served`, `test_a_cache_with_no_renderer_provenance_is_not_served_as_current` |
 | 10 | both drivers use `move_exercise` alone | absence contract `the-two-move-drivers-do-not-author-their-own-presses` |
 
 ⭐ #8 is deliberately a STRUCTURE rather than a test. The observation is written

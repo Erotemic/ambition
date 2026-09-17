@@ -1474,19 +1474,21 @@ share `Update` — a property no reviewer of either system can see. Adding an
 unrelated system to `Update` can open the hole; removing one can close it. A
 lifecycle that is correct by coincidence is the thing option 1 exists to end.
 
-Held by `a_conversation_on_the_first_tick_is_counted_only_when_hydration_won_the_race`
-(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`), which
-runs BOTH compositions with the same first-tick conversation opener and asserts
-the pair: **1 visit** when hydration wins the race, **0 visits** when it loses.
-Both arms were poisoned — disabling the counter's `if !restored.0` gate flips the
-losing arm 0 → 1, and silencing the opener flips the winning arm 1 → 0 — so each
-number is attributed to its own cause rather than to the fixture.
+That defect was held by an arm asserting the PAIR — **1 visit** when hydration
+won the race, **0 visits** when it lost — and the repair inverted it, as the row
+above said it had to. The arm is now
+`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`): it
+still runs BOTH compositions with the same first-tick conversation opener, and
+both now read **1 visit** with an EMPTY unrestored-tick list. It also carries a
+premise guard the pre-repair form did not need — *"a world that never simulates
+is not a world that never loses a visit"* — because the failure this repair can
+plausibly cause is a gate that refuses to start a session at all.
 
-⚠ **THE ARM ASSERTS TODAY'S DEFECT AND THE REPAIR MUST INVERT IT.** When the
-simulation is made to wait for hydration, both arms read 1 and the unrestored
-tick list is empty in both. Satisfying it by relaxing the counter's edge to
-`opened_at <= tick` is explicitly out: that turns an edge into a level and
-over-counts every tick a conversation stays live.
+⛔ The edge stays an edge. Satisfying this by relaxing the counter's
+`opened_at == tick` to `opened_at <= tick` was explicitly out then and is still
+out: that turns an edge into a level and over-counts every tick a conversation
+stays live.
 - `RollbackFrameCount` reads **1** there — timeline frame one, inside a check
   distance of four, so a resimulation reaches back past the write.
 - All three restored resources are `rollback_resource_clone_checksum`

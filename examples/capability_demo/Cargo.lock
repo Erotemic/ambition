@@ -334,7 +334,6 @@ dependencies = [
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_gameplay_trace",
- "ambition_interaction",
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",

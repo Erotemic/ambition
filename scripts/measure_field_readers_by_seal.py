@@ -223,6 +223,16 @@ def main() -> int:
             "refusing to run so a restore cannot silently discard your work."
         )
 
+    # ⛔ A REFERENCE POINT WITHOUT ITS COMMIT IS A NUMBER THAT LOST ITS METHOD.
+    # `--diff` reports what entered and left BETWEEN TWO TREES, and until the
+    # saved list carried the tree it was taken against, the only record of which
+    # tree that was lived in a planning page's prose. Read here, before the
+    # build, so it names the tree that was actually sealed.
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO, capture_output=True, text=True,
+    ).stdout.strip()
+
     original = path.read_text(encoding="utf-8")
     before = digest(path)
     by_visibility = args.private or args.visibility_seal
@@ -335,7 +345,13 @@ def main() -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(
             json.dumps(
-                {"struct": args.struct_name, "mode": how, "total": total, "members": members},
+                {
+                    "struct": args.struct_name,
+                    "mode": how,
+                    "commit": head_sha,
+                    "total": total,
+                    "members": members,
+                },
                 indent=1,
             )
             + "\n",
@@ -353,7 +369,11 @@ def main() -> int:
             return collections.Counter((f, s.rsplit(":", 1)[0]) for f, s in pairs)
         entered, left = by_file(new - old), by_file(old - new)
         moved = entered & left
-        print(f"\n⛔ MEMBER DIFF against {args.diff} ({ref['total']} -> {total})")
+        taken_at = ref.get("commit") or "(no commit recorded)"
+        print(
+            f"\n⛔ MEMBER DIFF against {args.diff} @ {taken_at} "
+            f"({ref['total']} -> {total} @ {head_sha})"
+        )
         if not (entered - moved) and not (left - moved):
             print(f"   no read entered or left a file; {sum(moved.values())} line shift(s) only")
         for key, count in sorted((left - moved).items()):

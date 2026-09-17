@@ -1,28 +1,30 @@
 {
  "struct": "PreparedCharacterDefinition",
  "mode": "deprecated",
- "total": 200,
+ "commit": "9cf7cec50be5f65857c7cfebecd014b75896d578",
+ "total": 216,
  "members": {
   "id": [
-   "crates/ambition_characters/src/prepared.rs:1428",
-   "crates/ambition_characters/src/prepared.rs:1738",
-   "crates/ambition_characters/src/prepared.rs:1810",
-   "crates/ambition_characters/src/prepared.rs:225",
-   "crates/ambition_characters/src/prepared.rs:256",
-   "crates/ambition_characters/src/prepared.rs:793",
+   "crates/ambition_characters/src/prepared.rs:1137",
+   "crates/ambition_characters/src/prepared.rs:1771",
+   "crates/ambition_characters/src/prepared.rs:2091",
+   "crates/ambition_characters/src/prepared.rs:2163",
+   "crates/ambition_characters/src/prepared.rs:224",
+   "crates/ambition_characters/src/prepared.rs:255",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:424",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/character_spawn_plan.rs:125",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1559",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1622",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1660",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:2134",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:174",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:180"
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1513",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1572",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1609",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:2071",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:165",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:171"
   ],
   "display_name": [
-   "crates/ambition_characters/src/prepared.rs:1429",
-   "crates/ambition_characters/src/prepared.rs:1737",
-   "crates/ambition_characters/src/prepared.rs:257",
+   "crates/ambition_characters/src/prepared.rs:1772",
+   "crates/ambition_characters/src/prepared.rs:2090",
+   "crates/ambition_characters/src/prepared.rs:256",
+   "crates/ambition_characters/src/prepared_tests.rs:2219",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:274",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs:219",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs:250",
@@ -34,228 +36,243 @@
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:129",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:424",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:618",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:684"
+   "game/ambition_app_tools/src/bin/moveset_export.rs:689"
   ],
   "provider": [
-   "crates/ambition_characters/src/prepared.rs:1430",
-   "crates/ambition_characters/src/prepared.rs:1812",
+   "crates/ambition_characters/src/prepared.rs:1773",
+   "crates/ambition_characters/src/prepared.rs:2165",
    "crates/ambition_match/src/prepared.rs:689",
    "crates/ambition_match/src/prepared.rs:760",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs:316",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs:319",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:207",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:208",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:31",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1551",
+   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:32",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1505",
    "game/ambition_app/tests/character_provider_namespace.rs:66",
    "game/ambition_app/tests/character_provider_namespace.rs:70",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:685"
+   "game/ambition_app_tools/src/bin/moveset_export.rs:690"
   ],
   "lineage": [
-   "crates/ambition_characters/src/prepared.rs:1431"
+   "crates/ambition_characters/src/prepared.rs:1774"
   ],
   "sheet": [
-   "crates/ambition_characters/src/prepared.rs:1432",
+   "crates/ambition_characters/src/prepared.rs:1775",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs:276",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:570",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:101",
-   "game/ambition_content/src/character_catalog.rs:251"
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:97",
+   "game/ambition_content/src/character_catalog.rs:275"
   ],
   "portrait": [
-   "crates/ambition_characters/src/prepared.rs:1433",
+   "crates/ambition_characters/src/prepared.rs:1776",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:587",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:624",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:692",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:629",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:697",
    "game/ambition_content/src/presentation/dialog.rs:973",
-   "game/ambition_demo_smash/src/lib.rs:1869",
+   "game/ambition_demo_smash/src/lib.rs:1912",
    "game/ambition_demo_smash/src/select_screen.rs:346"
   ],
   "body": [
    "crates/ambition_body_seed/src/physical_baseline.rs:159",
-   "crates/ambition_characters/src/prepared.rs:1435",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:98",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:730",
-   "game/ambition_content/src/character_catalog.rs:273",
-   "game/ambition_content/src/character_catalog.rs:282",
-   "game/ambition_content/src/character_catalog.rs:283"
+   "crates/ambition_characters/src/prepared.rs:1778",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:94",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:735",
+   "game/ambition_content/src/character_catalog.rs:297",
+   "game/ambition_content/src/character_catalog.rs:306",
+   "game/ambition_content/src/character_catalog.rs:307"
   ],
   "hurtboxes": [
-   "crates/ambition_characters/src/prepared.rs:1436",
+   "crates/ambition_characters/src/prepared.rs:1779",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:218",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:223",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:277",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:392",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:214",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:51"
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:203",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:53"
   ],
   "vitals": [
    "crates/ambition_body_seed/src/physical_baseline.rs:156",
    "crates/ambition_body_seed/src/physical_baseline.rs:157",
    "crates/ambition_body_seed/src/physical_baseline.rs:158",
-   "crates/ambition_characters/src/prepared.rs:1352",
-   "crates/ambition_characters/src/prepared.rs:262",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1676",
+   "crates/ambition_characters/src/prepared.rs:1695",
+   "crates/ambition_characters/src/prepared.rs:261",
+   "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs:332",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1624",
+   "crates/ambition_platformer2d_provider/src/lifecycle.rs:3450",
    "game/ambition_app/tests/registered_character_art_resolves.rs:115",
    "game/ambition_app/tests/smash_in_the_host.rs:1632",
    "game/ambition_app/tests/smash_in_the_host.rs:1640",
    "game/ambition_app/tests/smash_in_the_host.rs:3798",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:695",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:696",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:698",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:699",
-   "game/ambition_content/src/character_catalog.rs:255",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:700",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:701",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:703",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:704",
+   "game/ambition_content/src/character_catalog.rs:279",
    "game/ambition_demo_mary_o/src/binding_tests.rs:182",
    "game/ambition_demo_mary_o/src/binding_tests.rs:81"
   ],
   "death_traits": [
-   "crates/ambition_characters/src/prepared.rs:1366",
-   "crates/ambition_characters/src/prepared.rs:273",
+   "crates/ambition_characters/src/prepared.rs:1709",
+   "crates/ambition_characters/src/prepared.rs:272",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:545",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:550",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:36",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1602",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:2097",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1556",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:2034",
    "game/ambition_app/tests/registered_character_art_resolves.rs:108"
   ],
   "abilities": [
-   "crates/ambition_characters/src/prepared.rs:1369",
-   "crates/ambition_characters/src/prepared.rs:274",
+   "crates/ambition_characters/src/prepared.rs:1712",
+   "crates/ambition_characters/src/prepared.rs:273",
    "crates/ambition_match/src/prepared.rs:816",
    "game/ambition_app/tests/smash_roster_movesets.rs:484",
    "game/ambition_app/tests/versus_stage.rs:2756",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:715",
-   "game/ambition_content/src/character_catalog.rs:268",
-   "game/ambition_content/src/character_catalog.rs:282",
-   "game/ambition_content/src/character_catalog.rs:283"
+   "game/ambition_app_tools/src/bin/moveset_export.rs:720",
+   "game/ambition_content/src/character_catalog.rs:292",
+   "game/ambition_content/src/character_catalog.rs:306",
+   "game/ambition_content/src/character_catalog.rs:307"
   ],
   "locomotion": [
    "crates/ambition_body_seed/src/lib.rs:313",
    "crates/ambition_body_seed/src/npc_flight_tests.rs:232",
-   "crates/ambition_characters/src/prepared.rs:1377",
-   "crates/ambition_characters/src/prepared.rs:220",
-   "crates/ambition_characters/src/prepared.rs:229",
-   "crates/ambition_characters/src/prepared.rs:242",
+   "crates/ambition_characters/src/prepared.rs:1720",
+   "crates/ambition_characters/src/prepared.rs:219",
+   "crates/ambition_characters/src/prepared.rs:228",
+   "crates/ambition_characters/src/prepared.rs:241",
+   "crates/ambition_characters/src/prepared_tests.rs:724",
    "crates/ambition_characters/src/prepared_tests.rs:725",
-   "crates/ambition_characters/src/prepared_tests.rs:726",
    "crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs:61",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:701",
-   "game/ambition_content/src/character_catalog.rs:261",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:706",
+   "game/ambition_content/src/character_catalog.rs:285",
    "game/ambition_demo_mary_o/src/binding_tests.rs:183",
    "game/ambition_demo_mary_o/src/binding_tests.rs:82"
   ],
   "contact_damage": [
-   "crates/ambition_characters/src/prepared.rs:1398",
-   "crates/ambition_characters/src/prepared.rs:266",
+   "crates/ambition_characters/src/prepared.rs:1741",
+   "crates/ambition_characters/src/prepared.rs:265",
    "game/ambition_demo_mary_o/src/binding_tests.rs:91"
   ],
   "autonomous_profile": [
-   "crates/ambition_characters/src/prepared.rs:1401",
-   "crates/ambition_characters/src/prepared.rs:270",
-   "crates/ambition_characters/src/prepared_tests.rs:714",
-   "crates/ambition_characters/src/prepared_tests.rs:791",
+   "crates/ambition_characters/src/prepared.rs:1744",
+   "crates/ambition_characters/src/prepared.rs:269",
+   "crates/ambition_characters/src/prepared_tests.rs:713",
+   "crates/ambition_characters/src/prepared_tests.rs:770",
+   "crates/ambition_characters/src/prepared_tests.rs:834",
    "crates/ambition_platformer2d_actor_monolith/src/features/ecs/character_policy.rs:21",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/npc_policy.rs:82",
-   "game/ambition_content/src/character_catalog.rs:324",
+   "game/ambition_content/src/character_catalog.rs:346",
    "game/ambition_demo_mary_o/src/binding_tests.rs:200",
    "game/ambition_demo_mary_o/src/binding_tests.rs:94"
   ],
   "ranged_vfx": [
-   "crates/ambition_characters/src/prepared.rs:1408",
-   "crates/ambition_characters/src/prepared.rs:275"
+   "crates/ambition_characters/src/prepared.rs:1750",
+   "crates/ambition_characters/src/prepared.rs:274"
   ],
   "ranged_execution": [
-   "crates/ambition_characters/src/prepared.rs:1409",
+   "crates/ambition_characters/src/prepared.rs:1751",
    "crates/ambition_combat/src/worn_kit.rs:69",
    "crates/ambition_combat/src/worn_kit.rs:83",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:717"
   ],
   "provoked_profile": [
-   "crates/ambition_characters/src/prepared.rs:1410",
+   "crates/ambition_characters/src/prepared.rs:1757",
    "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/provoke.rs:134"
   ],
   "provoked_profile_id": [
-   "crates/ambition_characters/src/prepared.rs:1417",
+   "crates/ambition_characters/src/prepared.rs:1760",
    "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/provoke.rs:135"
   ],
   "practice_target": [
-   "crates/ambition_characters/src/prepared.rs:1420",
-   "crates/ambition_characters/src/prepared.rs:269",
-   "game/ambition_content/src/character_catalog.rs:320"
+   "crates/ambition_characters/src/prepared.rs:1763",
+   "crates/ambition_characters/src/prepared.rs:268",
+   "game/ambition_content/src/character_catalog.rs:342"
   ],
   "held_item": [
-   "crates/ambition_characters/src/prepared.rs:1421",
-   "crates/ambition_characters/src/prepared.rs:272",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1653",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:726"
+   "crates/ambition_characters/src/prepared.rs:1764",
+   "crates/ambition_characters/src/prepared.rs:271",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1602",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:731"
   ],
   "dream_seed": [
-   "crates/ambition_characters/src/prepared.rs:1422",
-   "crates/ambition_characters/src/prepared.rs:267"
+   "crates/ambition_characters/src/prepared.rs:1765",
+   "crates/ambition_characters/src/prepared.rs:266"
   ],
   "preserves_mirror_symmetry": [
-   "crates/ambition_characters/src/prepared.rs:1423",
-   "crates/ambition_characters/src/prepared.rs:268",
-   "crates/ambition_characters/src/prepared_tests.rs:827"
+   "crates/ambition_characters/src/prepared.rs:1766",
+   "crates/ambition_characters/src/prepared.rs:267",
+   "crates/ambition_characters/src/prepared_tests.rs:870"
   ],
   "mount": [
-   "crates/ambition_characters/src/prepared.rs:1424",
-   "crates/ambition_characters/src/prepared.rs:271",
-   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:496",
-   "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:1245",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1669",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1726",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:723"
+   "crates/ambition_characters/src/prepared.rs:1767",
+   "crates/ambition_characters/src/prepared.rs:270",
+   "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs:510",
+   "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:1234",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1618",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1674",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:728"
   ],
   "kit": [
-   "crates/ambition_characters/src/prepared.rs:1437",
-   "crates/ambition_characters/src/prepared.rs:332",
+   "crates/ambition_characters/src/prepared.rs:1780",
+   "crates/ambition_characters/src/prepared.rs:331",
+   "crates/ambition_characters/src/prepared_tests.rs:2229",
+   "crates/ambition_characters/src/prepared_tests.rs:469",
    "crates/ambition_characters/src/prepared_tests.rs:470",
-   "crates/ambition_characters/src/prepared_tests.rs:471",
    "crates/ambition_combat/src/worn_kit.rs:75",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:210",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/fight_tests.rs:211",
    "crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs:859",
    "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders.rs:313",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:678",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:196",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:205",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:655",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:187",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:194",
    "crates/ambition_sim_harness/src/move_exercise.rs:279",
-   "game/ambition_app/tests/authored_effects_are_admitted.rs:86",
+   "game/ambition_app/tests/authored_effects_are_admitted.rs:98",
    "game/ambition_app/tests/projectile_speed_stays_under_the_swept_threshold.rs:96",
-   "game/ambition_app/tests/smash_ride.rs:1869",
-   "game/ambition_app/tests/smash_ride.rs:1873",
-   "game/ambition_app/tests/smash_roster_movesets.rs:1105",
+   "game/ambition_app/tests/smash_ride.rs:1884",
+   "game/ambition_app/tests/smash_ride.rs:1888",
+   "game/ambition_app/tests/smash_roster_movesets.rs:1113",
    "game/ambition_app/tests/smash_roster_movesets.rs:754",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:649",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:653",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:830",
-   "game/ambition_app_tools/src/bin/moveset_takes.rs:747"
+   "game/ambition_app_tools/src/bin/ko_envelope.rs:2175",
+   "game/ambition_app_tools/src/bin/ko_envelope.rs:2261",
+   "game/ambition_app_tools/src/bin/ko_envelope.rs:2856",
+   "game/ambition_app_tools/src/bin/ko_envelope.rs:3222",
+   "game/ambition_app_tools/src/bin/ko_envelope.rs:3433",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:654",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:658",
+   "game/ambition_app_tools/src/bin/moveset_export.rs:835",
+   "game/ambition_app_tools/src/bin/moveset_takes.rs:750",
+   "game/ambition_content/src/pack_selection_tests.rs:79",
+   "game/ambition_content/src/reload_tests.rs:166",
+   "game/ambition_content/src/reload_tests.rs:185",
+   "game/ambition_content/src/reload_tests.rs:493",
+   "game/ambition_content/src/reload_tests.rs:537",
+   "game/ambition_content/src/reload_tests.rs:743"
   ],
   "authored_moveset": [
-   "crates/ambition_characters/src/prepared.rs:1425",
+   "crates/ambition_characters/src/prepared.rs:1768",
    "crates/ambition_combat/src/worn_kit.rs:71",
    "game/ambition_app/tests/smash_in_the_host.rs:1393",
    "game/ambition_app/tests/smash_in_the_host.rs:3740",
    "game/ambition_app/tests/smash_in_the_host.rs:3755",
    "game/ambition_app/tests/smash_roster_movesets.rs:753",
-   "game/ambition_content/src/character_catalog.rs:556",
-   "game/ambition_demo_smash/src/lib.rs:3788"
+   "game/ambition_content/src/character_catalog.rs:584",
+   "game/ambition_demo_smash/src/lib.rs:3841"
   ],
   "motion_model": [
-   "crates/ambition_characters/src/prepared.rs:1361",
+   "crates/ambition_characters/src/prepared.rs:1704",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:153",
-   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:266",
+   "crates/ambition_platformer2d_actor_spawn/src/character_body.rs:253",
    "game/ambition_app/tests/smash_roster_movesets.rs:984"
   ],
   "movement_tuning": [
-   "crates/ambition_characters/src/prepared.rs:1365",
+   "crates/ambition_characters/src/prepared.rs:1708",
    "crates/ambition_match/src/prepared.rs:867",
    "crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:186",
    "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:329",
-   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1641",
+   "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs:1590",
    "game/ambition_app/tests/smash_in_the_host.rs:1458",
    "game/ambition_app/tests/smash_roster_movesets.rs:969",
-   "game/ambition_app_tools/src/bin/moveset_export.rs:706"
+   "game/ambition_app_tools/src/bin/moveset_export.rs:711"
   ]
  }
 }

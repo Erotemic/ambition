@@ -23,8 +23,11 @@ private field is an ERROR, so the nearest dependent fails to compile and
 everything downstream is never built (measured on `GroundItem`: 8 sites against
 248). A deprecation is a WARNING and the build completes.
 
-**200 use sites across 27 fields and 9 consumer crates**, production only unless
-stated.
+**216 use sites across 27 fields, measured 2026-09-17 at `9cf7cec50`: 143 in
+production code and 73 in test code.** Nine consumer crates read the production
+population besides the owning crate. ⛔ The total was never production-only — the
+run is `--workspace --all-targets` — and this line read *"production only unless
+stated"* through four runs while the page's own split section said otherwise.
 
 ⛔ **27 IS A CLAIM ABOUT THE INSTRUMENT, NOT ABOUT THE TYPE — `PreparedCharacterDefinition`
 HAS 32 FIELDS.** The seal tags every `pub` field, so it is structurally blind to a
@@ -536,8 +539,68 @@ need the distinction and none of them can recover it.
 blind to a private one. `PreparedCharacterDefinition` has **32 fields**: the 27
 this page enumerates plus `voice`, `cue_dependencies`, `vfx_dependencies`,
 `checked` and `unresolved`, all private to `ambition_characters`. None of the nine
-dual-read fields is affected — they are all `pub` — but *"200 use sites across 27
+dual-read fields is affected — they are all `pub` — but *"216 use sites across 27
 fields"* is a claim about the instrument's population, not about the type.
+
+## Re-derived 2026-09-17 at `9cf7cec50` — the first run where the member list MOVED
+
+Fifth run of the same instrument, and the first that is a `--diff` rather than a
+rebuild read against a previous stdout:
+
+```bash
+python3 scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition \
+    --diff dev/prepared_definition_members.json
+```
+
+**200 → 216 sites. Eight groups ENTERED, NOTHING LEFT, still 27 fields.**
+
+| entered | field | file |
+|---:|---|---|
+| x5 | `kit` | `game/ambition_app_tools/src/bin/ko_envelope.rs` |
+| x5 | `kit` | `game/ambition_content/src/reload_tests.rs` |
+| x1 | `kit` | `game/ambition_content/src/pack_selection_tests.rs` |
+| x1 | `kit` | `crates/ambition_characters/src/prepared_tests.rs` |
+| x1 | `autonomous_profile` | `crates/ambition_characters/src/prepared_tests.rs` |
+| x1 | `display_name` | `crates/ambition_characters/src/prepared_tests.rs` |
+| x1 | `vitals` | `crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs` |
+| x1 | `vitals` | `crates/ambition_platformer2d_provider/src/lifecycle.rs` |
+
+⭐⭐ **THE MOVEMENT IS ALMOST ALL TEST-SIDE: FOUR PRODUCTION SITES, TWELVE TEST.**
+Twelve of the sixteen sit inside `#[cfg(test)]` — the nine in `*_tests.rs` (all
+three files are `#[cfg(test)] #[path = "..."] mod` includes, not separate targets),
+the two `vitals` reads, which are `fn health` / `fn health_of` helpers inside test
+modules, and one of the five `ko_envelope.rs` reads. ⇒ **The four production sites
+are all `kit` in `ko_envelope.rs`**, a tool binary — the `ambition_app_tools`
+constraint this page already records, landing again on the field it already ranks
+first.
+
+⚠ **AND THE PRODUCTION CRATE TABLE DID NOT MOVE.** Per-crate production FIELD
+counts at `9cf7cec50` are 27 / 15 / 13 / 11 / 3 / 3 / 3 / 2 / 1 / 1 — identical to
+"Who reads what" above, including that row's known error (`ambition_content` reads
+ONE production field, not nine). `crates/ambition_platformer2d_provider` is a
+reader that appears in no earlier run at all, and it is test-only, so it takes no
+row: **"9 consumer crates" survives the movement.**
+
+⛔⛤ **THE 136/64 SPLIT RECORDED FOR 2026-09-11 IS METHOD-SENSITIVE BY THREE SITES,
+SO DO NOT SUBTRACT IT FROM TODAY'S 143/73.** The classifier used here — `/tests/`
+and `/benches/` paths, `*_tests.rs` and `tests.rs` files, plus brace-matched
+`#[cfg(test)]` extents — reads **139 production / 61 test** when run against the
+`d7d8aaee4` BLOBS, the very tree that section measured as 136/64. So 143 − 136 is
+not the movement; 143 − 139 is, and it is exactly the four production sites above.
+⇒ A split is a SECOND instrument over the same population, and the difference
+between two of them is not a change in the code. The claim that survives is the
+per-site one, which needs no split at all: **no site in 2026-09-11's member list
+changed side, and none left.**
+
+⭐ **`kit` GOES 23 → 35 SITES AND 7 → 8 CRATES.** Every other dual-read field is
+within one — `autonomous_profile` 9 → 10, the remaining seven identical — so the
+ranking stands and its first place widens. ⚠ **Do not re-read the 23 as current.**
+
+⇒ **`dev/prepared_definition_members.json` was regenerated at `9cf7cec50`**, and
+the saved list now records the commit it was taken against. It previously carried
+`struct`, `mode`, `total` and `members` only, so the tree a `--diff` was measuring
+against lived in this page's prose and nowhere in the artifact; `--diff` prints
+both commits in its header now.
 
 ## Selected uses for the independent authoring boundary
 

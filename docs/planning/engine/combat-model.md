@@ -6,6 +6,38 @@ live in
 The completed combat campaign record is archived at
 `../../archive/planning-superseded/2026-08-13/engine/combat-model.md` (docs/archive/planning-superseded/2026-08-13/engine/combat-model.md — removed from the checkout 2026-09-05; still in git history).
 
+⛔⛤ **THE `CM<n>` SLICE LABELS ARE PRE-EPOCH AND RESOLVE TO NOTHING IN THIS
+CHECKOUT — MEASURED AND COLLAPSED 2026-09-17.** Seven references across
+[`boss-design.md`](boss-design.md), [`falling-sand.md`](falling-sand.md) and
+[`../demos/hollow-lite.md`](../demos/hollow-lite.md) named `CM5` and `CM7` as if
+this page defined them. It never has: this page has no numbered slices, the
+campaign that did is in the archived record above, and the archive was removed
+from the checkout on 2026-09-05. A reader chasing *"combat-model CM5's event
+channel"* arrived here and found no `CM` anywhere. ⇒ Every citation now names the
+thing instead of the label — `CM7` was `MoveSpec::frame_data().recovery_s` (a
+live fn, `ambition_entity_catalog/src/lib.rs`), and `CM5` was the resolved combat
+facts/events-for-presentation family whose SHIPPED/PARTIAL/ABSENT status the
+Smash inventory owns and this page deliberately does not duplicate. ⚠ **AND THIS
+IS THE SECOND INSTANCE OF THE SAME DEFECT FOUND BY ONE SWEEP THAT DAY**: the
+first was `boss-design.md` gating BD6 on *"FB1–FB4"* when the fighter-brain page
+numbers its slices `F1`–`F6`. A cross-page slice label is a citation whose target
+no tool checks, so it survives the campaign that defined it.
+
+⚠ **A GUARD FOR THIS CLASS WAS MEASURED AND NOT SHIPPED.** Over the 128 planning
+pages, `\b[A-Z]{1,4}[0-9]{1,3}\b` yields 345 distinct tokens under 33 alpha
+prefixes; grouping by prefix and flagging any prefix with no definition-shaped
+line (`^#+ …`, a leading table cell, or a `- **X1** —` bullet) leaves 10 of 33
+(measured at `1da3fee74`, before the citations below were rewritten). Three of
+those ten are real — `CM`, `FB`, and `OV1` in
+[`../demos/sanic.md`](../demos/sanic.md), which was one citation of a label no
+page defines and is now prose. The other seven are noise: `G2`/`G3` are musical
+notes in the twintrack demo, `BG3` is a game being compared to, and `CC1`–`CC8`,
+`GP1`–`GP5`, `AJ13`, `AJ14`, `H1`–`H4` and `VC1`–`VC6` each carry their own
+pointer or an inline prose definition. ⇒ A 30% flag rate for a 30%
+true-positive rate is not a gate. The
+instrument earns its keep as a SWEEP a human reads, not as a check, and it is
+recorded here rather than added to `check_planning_citations.py`.
+
 ## Scope
 
 Combat owns reusable body-to-body attack and reaction semantics. It does not own

@@ -144,7 +144,8 @@ lands, not before), and a second beat IGNITES pooled oil: flame propagates
 across connected coated cells, dealing damage volumes over time and
 consuming the oil (conservation: oil → fire → gone). After enough pooling,
 the arena is a trap; hence the brainstorm's line. Prerequisites: FS1–FS3,
-the technique params seam (landed), CM5 presentation events. Home when
+the technique params seam (landed), the combat
+presentation-facts seam ([`combat-model.md`](combat-model.md)). Home when
 built: Oiler is CONTENT (a catalog row + techniques); only the surface-
 coating movement hook is engine vocabulary.
 

@@ -4,11 +4,26 @@ Inspired by Hollow Knight's opening area (Forgotten Crossroads energy)
 ending in a real boss fight (False Knight energy). Parody-original: a
 small errant automaton in the ruins of a dead machine-colony.
 
-> **Re-checked against `008b44120` (2026-09-02): STILL ENTIRELY UNBUILT, as this
-> plan expects.** No `hollow` crate, target or module exists anywhere in the
-> workspace — the built demo customers are `ambition_demo_{mary_o,sanic,smash,twintrack}`
-> (plus `ambition_demo_pocket`, which is a provider FIXTURE and not a customer;
-> see [`README.md`](README.md)). Nothing here has been superseded by code.
+> **Re-measured 2026-09-17 (and against `008b44120` on 2026-09-02 before that):
+> STILL ENTIRELY UNBUILT, as this plan expects.** `git grep -il hollow` over
+> `crates game tools examples dev` returns 19 files and NONE of them is this
+> demo: they are a hollow shield mesh, hollow glyph boxes in two shell strings,
+> LDtk schema/tooling vocabulary, and five comments citing Hollow Knight as the
+> reference for combat feel or a wall bundle. The built demo customers are the
+> nine `game/ambition_demo_*` crates — `{mary_o,sanic,smash,twintrack}` each with
+> an `_app` sibling, plus `ambition_demo_pocket`, which is a provider FIXTURE and
+> not a customer; see [`README.md`](README.md). Nothing here has been superseded
+> by code.
+>
+> ⚠ **AND THE GATE ON H3 IS NOT ON THIS PAGE'S CRITICAL PATH BY ACCIDENT.** H3 is
+> BD8, BD8 is the acceptance test for a pipeline whose measuring half (BD6, the
+> playtester rig and its bands) is still OPEN, and BD6 is gated on **F1–F4** of
+> [`../engine/fighter-brain.md`](../engine/fighter-brain.md) — the ladder
+> authority, `read_weight`, representative rosters, and the mid-ladder utility
+> progression. ⛔ That chain was unreadable until 2026-09-17: `boss-design.md`
+> spelled the blocker `FB1–FB4` in both places it appears, and no page in `docs/`
+> defines an `FB` slice. ⇒ H1, H2 and H4 do not wait on any of it; **H3 does, and
+> it is the only slice whose exit Jon has to sign.**
 
 **Purpose:** two proofs in one. (1) The exploration-combat loop —
 interconnected rooms, melee-first combat with pogo, benches/saves,
@@ -22,8 +37,8 @@ BD8 — this demo is that pipeline's acceptance test).
 **Consumes:** [the sim assembly]+[the windowed host] · [the movement
 kernel] (axis-swept + pogo) · [the sim heart] (respawn policy: mobs
 respawn OnRest, the boss dies forever — this demo is ADR 0022's real
-consumer) · [the combat resolver] (melee/pogo/recoil, CM5 per-move
-presentation, the focus/heal channel technique seam) · [the actor
+consumer) · [the combat resolver] (melee/pogo/recoil, per-move
+presentation facts, the focus/heal channel technique seam) · [the actor
 vocabulary] (enemy brains; the boss pattern vocabulary + BD1 control-flow
 atoms) · [the set-piece kit] (arena beats, encounter/phase state) ·
 [the saved shapes] (bench saves, currency flags) · [the space IR]+[the

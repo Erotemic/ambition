@@ -72,8 +72,9 @@ moveset `MoveSpec`s. Remaining vocabulary slices:
   changes (the RoomGeometry overlay + encounter script bus both exist)
   authorable from the encounter spec, so set-piece phases don't need Rust.
 - **BD3 — telegraph channel:** a `telegraph` presentation event on
-  pattern/move rows (pose row, flash, sfx cue — combat-model CM5's event
-  channel) so anticipation is AUTHORED per attack, and the validator (§3)
+  pattern/move rows (pose row, flash, sfx cue — the resolved combat
+  facts/events-for-presentation seam,
+  [`combat-model.md`](combat-model.md)) so anticipation is AUTHORED per attack, and the validator (§3)
   can SEE it.
 
 ## 2. The seed library (attack & fight archetypes as prefabs)
@@ -121,7 +122,7 @@ data; BD7's pilot re-calibrates them against Jon's verdict):** the sim
 steps at 60 Hz, so ticks below ≈ frames. *Telegraph bands:* light
 (≤ 8 dmg, single volume) ≥ 12 ticks; medium ≥ 20; heavy (one-shot-threat
 or arena-wide) ≥ 30. *Recovery/punish floors:* heavies ≥ 24 ticks of
-recovery (CM7 `frame_data().recovery_s` is the measured value), mediums
+recovery (`MoveSpec::frame_data().recovery_s` is the measured value), mediums
 ≥ 12; `pressure`-tagged attacks exempt but capped at ≤ 10% victim HP per
 touch. *Arena assumptions the validator may rely on:* the encounter room
 declares its arena AABB + platform set; no single attack's active volumes
@@ -198,10 +199,10 @@ Jon rates as *actually fun*.
 |---|---|---|
 | BD1 | ~~Pattern control-flow atoms~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
-| BD3 | ~~Telegraph event channel (rides CM5)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
+| BD3 | ~~Telegraph event channel (rides the combat presentation seam)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | BD5 | **PARTIAL / DIAGNOSTIC — non-blocking (maintainer decision, 2026-07-11)** — per-slice DONE/OPEN/BLOCKED in §11 | [opus + Jon] |
-| BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
+| BD6 | Playtester rig + metrics + report format | [opus; needs F1–F4 of [`fighter-brain.md`](fighter-brain.md)] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
 
@@ -496,7 +497,7 @@ have made the warning go away without making a single fight more readable — th
 pilot, where the numbers get a taste pass.
 
 **The presentation consumer is likewise owed.** `BossAttackState.telegraph_spec`
-is the read-model a CM5-style emitter would fire from on the telegraph's rising
+is the read-model a presentation emitter would fire from on the telegraph's rising
 edge; the emitter and its sfx/vfx consumer land with the first boss that authors
 one. The doc's two purposes for BD3 were *"anticipation is AUTHORED per attack"*
 and *"the validator can SEE it"*. The second is done; the first has a place to go.
@@ -517,12 +518,12 @@ has a complete model of commitment, pressure, punishability, escalation, or feel
 | Rule 3 — Calibration-v0 recovery-floor diagnostic over reconstructed beats | **DONE** | measures a per-beat recovery floor against v0 bands; does NOT establish that the engine models commitment / pressure / punishability. The 8 enrage findings are a taste call for BD7 + Jon |
 | Telegraph identity data shape (`TelegraphSpec`) | **DONE** | `#[serde(default)]` field on `Telegraph`, byte-parity (rode BD3) |
 | Duplicate-telegraph-identity diagnostic | **DONE** | two attacks may not share a `(pose,cue)` identity; all-`None` reads as ABSENT |
-| Telegraph runtime / presentation consumer | **OPEN** | `BossAttackState.telegraph_spec` read-model exists; the CM5-style emitter + sfx/vfx consumer land with the first authored telegraph |
+| Telegraph runtime / presentation consumer | **OPEN** | `BossAttackState.telegraph_spec` read-model exists; the presentation emitter + sfx/vfx consumer land with the first authored telegraph |
 | Boss-content authoring of distinct telegraph identities | **OPEN** | 9/9 bosses author none today; content work, not engine |
 | Human calibration that the telegraphs are actually readable | **OPEN** | a taste pass (Jon + BD7); no diagnostic can establish it |
 | Rule 4 — simultaneity budget | **BLOCKED** | persistent threats do not yet expose authored or runtime-visible lifetimes and overlap in a form the validator can integrate (hazard lifetimes live in a technique's private consts). Candidate design, not settled: a `persists_s` on the seed fed by the spawning technique |
 | Enrage "unpunishable heavy" disposition | **OPEN** | the tightened enrage chains are either unfair or intended escalation — a per-fight taste decision (Jon + BD7), made legible per beat |
-| Playtester report / metrics rig (BD6) | **OPEN** | needs the fighter brain (FB1–FB4); not BD5 |
+| Playtester report / metrics rig (BD6) | **OPEN** | needs the fighter brain's F1–F4; not BD5. ⛔ This cell and the BD6 slice row both said *"FB1–FB4"* until 2026-09-17, and NO PAGE IN `docs/` DEFINES AN `FB` SLICE — the label was a spelling of its own, so BD6's stated blocker named nothing a reader could look up. [`fighter-brain.md`](fighter-brain.md) numbers its slices `F1`–`F6`, and it is F1–F4 that gate this rig, not the page as a whole: the report format §4 pins is keyed `per_difficulty: { 3, 6, 9 }` with *"win_rate rises with difficulty"* as its headline assertion, so it cannot be calibrated while **F1** (which ladder is the authority — the repo carries an authored ladder AND an engine floor, and a difficulty rung means different things under each), **F2** (`read_weight`, a live field whose meaning is coupled to F1), **F3** (representative rosters — the bands are read off whatever kits the rig binds) and **F4** (the mid-ladder utility progression) are open. F5 and F6 are correctness and readability and do not gate a band |
 
 Parent BD5 track: **PARTIAL / DIAGNOSTIC.** Not DONE — its intended domain still
 depends on unresolved engine expressivity (the BLOCKED slice) plus content authoring

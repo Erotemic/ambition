@@ -197,7 +197,9 @@ Deferred, in priority order:
   authored `currency:1` pickups, the shared economy credits `BodyWallet`, and
   `PlayerHudFacts` already republished that balance every tick — so the whole
   feature is `readouts.set_labelled(RINGS_HUD_SLOT, "RINGS", facts.balance)`.
-  The predicted OV1 relaxation happened as described, and both directions are
+  The predicted relaxation of the zero-engine-UI rule happened as described —
+  the label this sentence used to carry, `OV1`, is defined on no page in
+  `docs/` and named nothing a reader could look up — and both directions are
   now pinned: engine-owned UI must be exactly 0 (filtering by the demo marker
   alone would let an engine node hide by wearing it), and the demo's own HUD
   must draw exactly as many nodes as it declared. A separate test reads the

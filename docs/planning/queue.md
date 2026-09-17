@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,264 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,274 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -216,17 +216,27 @@ not a missing line. The decision is what is missing, not the registration.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-⛔ **COMPLETE FOR ITS CURRENT SCOPE (2026-09-16) — DO NOT MINE THIS ROW FOR
-WORK.** The hostile two-host peer-visible census that found the last three
-defects runs clean, and every open road's DECISION sits outside the campaign:
-`Q122`, `Q128`, and netcode's `N2` for the unchecksummed float rows' timeline
-half. A pass over the table is not work.
+⛔ **COMPLETE FOR ITS CURRENT SCOPE — DO NOT MINE THIS ROW FOR WORK, BUT DO NOT
+READ IT AS "NOTHING LEFT TO FIND" EITHER.** Every open road's DECISION sits
+outside the campaign: `Q122`, `Q128`, and netcode's `N2` for the unchecksummed
+float rows' timeline half. A pass over the TABLE is not work. ⛔⛤ **What has
+twice been work is DELETING A FALLBACK AND RUNNING THE SUITE.** This banner said
+"the census runs clean" on 2026-09-16 and on 2026-09-17 the refusal that replaced
+perception's `Entity` fallback reddened two arms on the shipped route — a defect
+the fallback had been covering, which no census over types or over frames could
+see because it opens and closes INSIDE one frame. ⇒ The move that finds these is
+removing the substitute, not re-reading the row.
 
 ⚠ **ONE EXCEPTION, NAMED BECAUSE A BLANKET "BLOCKED" WOULD SWALLOW IT.** The
 float rows' STATE half is not blocked —
-`two_local_histories_compute_the_same_mechanical_values` is the road and it
-measures two of the twenty-five today. Extending it is ordinary work with no
-ruling in front of it; the row below says which rows and what each one costs.
+`two_local_histories_compute_the_same_mechanical_values` and
+`two_local_histories_agree_about_the_sharp_unchecksummed_rows` are the road, and
+between them they now reach all TWELVE of S7's sharp rows, six of which carry
+state at rest in the shipped Ambition route and agree. ⚠ That is twelve of the
+twenty-five: the remaining thirteen are the ones S7 does NOT rank sharp, and the
+six that carry nothing need a route that places them rather than a projection.
+Extending it is ordinary work with no ruling in front of it; the row below says
+which rows and what each one costs.
 
 **Current state (2026-09-16): FOURTEEN CLOSED, THREE OPEN, SEVENTEEN LIVE —
 eighteen FILED, because the thirteenth was withdrawn the day it was filed and the

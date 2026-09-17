@@ -2070,10 +2070,41 @@ same defect until you ask how many ticks each world ran. `SimTick` said **241
 against 240**: the sync-test harness steps once more. ⇒ The property is a RATE,
 and the control is the tick count.
 
-⚠ **STILL OWED: the same arm for `ReleaseOnDeath` and `RecharacterizeBody`.**
-Both are registrations, which is the same KIND of evidence this page has already
-said is not a reading of the number. The subject each needs is named under "what
-has not been measured" below.
+✔ **`ReleaseOnDeath` NOW HAS ITS ARM, 2026-09-17, AND WHAT IT COST WAS THE
+OBSERVABLE RATHER THAN THE FIXTURE.**
+`a_resimulated_kill_frame_still_carries_the_release_marker`
+(`game/ambition_app/tests/cut_rope_arena.rs`) stages the behemoth's death from a
+system inside the sim schedule at tick 90 — replayed by every resimulation, so
+the kill lands on the same tick in every pass — and records, per PASS of that
+tick and ordered before `release_payloads_on_death`, how many hosts still carry
+the marker. Registered it reads `[1, 1, 1, 1]`; poisoned by deleting
+`encounter.release_on_death` it reads **`[1, 1, 1, 1, 0]`** — a resimulated pass
+that cannot emit what the first pass emitted.
+
+⛔⛤ **AND THE FIRST DESIGN OF THAT ARM WAS VACUOUS, WHICH IS THE PART WORTH
+KEEPING.** It asserted the VICTORY NPC's presence — the visible consequence, and
+the obvious observable — and the poison PASSED. The NPC is not rollback state:
+it spawns on the first pass of the kill frame, nothing despawns it on a rewind,
+and `spawn_cut_rope_victory_npc` then returns early on `existing`. So its
+presence answers *"did the release ever fire"*, which is true either way. ⇒ **A
+visible consequence that is not itself rollback state cannot witness a rollback
+defect**, and the property the registration buys is the marker being back at the
+head of every resimulated pass.
+
+⛔ **WHY IT STAGES A DEATH INSTEAD OF CUTTING THE ROPE — priced, so nobody pays
+for it twice.** A test-written `HitEvent` does not survive a rewind (1 `rope_cut`
+gate without a rollback window, 0 under one), so the rope must be cut by a real
+PRESS, which the harness does feed into the GGRS input stream. The obstacle is
+the ROUTE: the authored rope is at `(908, 96)` and the player spawns at
+`(110, 712)` — 798 px right and **616 px up**. A walk-and-swing script closes to
+660 px; adding a jump cadence and a held up-axis climbs to `y = 293` and closes
+to **187 px**. Tuning a blind script onto a 24 px volume that high is a search,
+not a fixture, and the whole-fight arm is priced at an authored platforming
+route. That is not what this registration owes.
+
+⚠ **STILL OWED: the same arm for `RecharacterizeBody`**, whose subject is a
+Mary-O powerup pickup. It is a registration, which is the same KIND of evidence
+this page has already said is not a reading of the number.
 
 **The one still open, and the three that closed:**
 

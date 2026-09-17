@@ -2167,10 +2167,13 @@ to be satisfiable by a frozen world, and its author gets no warning.
    COMPLAINT, AND ONE IS LANDED:**
    `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`. It routes the decision
    instead of making it — a sync-test arm either reads the health API or arrives
-   with a sentence naming what a frozen world breaks in it. Census 2026-09-17: **27
-   fixtures, 15 reading a health API, 10 adjudicated, 2 not arms** — re-derive
+   with a sentence naming what a frozen world breaks in it. Census 2026-09-17,
+   last re-derived after the release-marker and room-cutscene arms landed: **28
+   fixtures, 15 reading a health API, 11 adjudicated, 2 not arms** — re-derive
    with `python3 scripts/a_rollback_arm_must_refuse_a_frozen_world.py`, which
-   prints the line.
+   prints the line. ⚠ It reads `git ls-files`, so a NEW fixture is invisible to
+   it until staged; both of today's were caught only because the file was added
+   before the sweep was believed.
    ⛔⛤ **THE POPULATION WAS ALREADY FIVE PAST THE 21 THIS ROW CERTIFIED, AND ONE
    OF THEM WAS INVISIBLE TO THE SWEEP.** Four new arms arrived in `game/`, and the
    26th is `examples/capability_demo/tests/rollback_round_trip.rs` — outside

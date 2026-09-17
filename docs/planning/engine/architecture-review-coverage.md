@@ -344,7 +344,7 @@ Executed source instruments at this baseline report:
 
 | Instrument | Result | Limit |
 | --- | --- | --- |
-| `measure_kernel_module_graph.py --scc --cuts --edges 200` | SCCs of 9 and 2 | Textual paths, heuristic test exclusion; no semantic Rust/Cargo/state graph |
+| `measure_kernel_module_graph.py --scc --cuts --edges 200` | SCCs of 9 and 2 | Textual paths, heuristic test exclusion; no semantic Rust/Cargo/state graph. ⚠ **Re-run 2026-09-17: 10 and 2.** The 10 is not a worse 9 — `shrine` LEFT (A1b moved its checkpoint half) and `avatar` + `character_runtime` joined; the member diff is in [the reassessment](architecture-reassessment.md) |
 | `measure_foreign_system_ordering.py` | 0 capability/ruleset private orderings; 73 composition; 174 foreign installs | Locator classification, not phase visibility or ownership acceptance |
 | `measure_carveable_installations.py` | 3 reducible / 38 irreducible | Current crate-identity heuristic, not permission to move every reducible block |
 | `measure_registry_core_adoption.py` | Reference/prose classification captured | A JUSTIFIED label can still contain an incorrect rationale, as F7 demonstrates |

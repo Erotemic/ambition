@@ -1132,9 +1132,19 @@ after step 6 that is a single-site change.
 
 ## A11. Make installed technique support a preparation contract
 
-**Ready:** A11a support/handler and preparation tests, independent of A1-A10.
+**Ready:** A11c only. **A11a and A11b have LANDED — verified against HEAD
+2026-09-17 by opening the code, not by reading a status.**
 **Normative owner:** [authored technique admission](authored-technique-admission.md).
 This is a bounded validation catalog, not an executable service locator.
+
+| sub-packet | state | what holds it |
+|---|---|---|
+| **A11a** | ✔ landed | `TechniqueSupport` is declared by whoever installs the handler (*"A KEY PRESENT HERE MEANS A CAPABILITY SAID 'I install the thing that answers this'"*); `declare` *"refuses a second claim on one key instead of replacing it"*, which is the duplicate policy this packet demands instead of last-write-wins. The composition's table is `InstalledTechniques` |
+| **A11b** | ✔ landed | `MoveSpec::effect_refs` destructures without `..` at every level, so a fifth effect site is a compile error rather than a silent gap; `unsupported_authored_effects` joins it to the table; `activate_staged_revision` returns `RevisionAdmission::Refused` *"against the WHOLE candidate, not against the edit alone"*, leaving the active registry unchanged. The ORDERING has its own witness — `the_barrier_closes_through_the_checked_road_under_the_real_lifecycle` drives `finish()`/`cleanup()`/`update()`, because a hand-driven `App::update()` does not run plugin `finish()` and the checked road won a race the shipped game lost |
+| **A11c** | ▢ open | the end-to-end authoring route. ⚠ `an_edited_pack_reaches_the_cast_the_shipped_composition_plays` is ADJACENT and is not this — it takes one process through two prepared fingerprints and asserts the construction provenance moved; it does not exercise review or an explicit activation boundary |
+
+⇒ `F7` in [review findings](architecture-review-findings.md) carries the
+verification and the baseline evidence for the first two.
 
 **A11a:** each typed capability installation supplies both its native handler and
 its support declaration. Freeze the actual selected profile before semantic
@@ -1155,9 +1165,19 @@ arbitrary last-good-world retention after destructive native failure is not.
 
 ## A12. Align flow validation, prepared representation and execution bounds
 
-**Ready:** A12a raw validation now; A12b after A11's admission contract. The exact
-algorithm/clock/delivery rules are in
+**Ready:** ✔ **BOTH SUB-PACKETS HAVE LANDED — verified against HEAD 2026-09-17.**
+The exact algorithm/clock/delivery rules are in
 [authored technique admission](authored-technique-admission.md).
+
+| sub-packet | state | what holds it |
+|---|---|---|
+| **A12a** | ✔ landed | `TechniqueFlow::problems` enforces `MAX_TECHNIQUE_FLOW_NODES`, in-range edges taken from `Self::successors` rather than a second copy of the match, a FINITE positive wait timeout (*"`f32::INFINITY > 0.0` is TRUE, so the positive test admitted the one value that is exactly the unbounded wait"*), reachability of `Finish` rather than its presence, and `first_cycle` for the acyclic rule |
+| **A12b** | ✔ landed, by a route this packet did not name | The packet asked for *"the private checked immutable representation"* to convert indices once. What shipped instead authors in the cursor's width: `FlowNode`'s edges ARE `u16`, so the `as u16` narrowing is gone rather than moved, and conversion happens at the authoring/deserialization boundary where an out-of-range index is a hard error naming the field. The per-tick graph clone is gone too — `Arc::clone(&pb.spec)` replaced *"a DEEP CLONE of the whole authored graph — every node, every `EffectRef` key string — on every tick of every move that authors a flow, paid again for each resimulated frame under rollback"* |
+
+⇒ **The 1–256 node bound survives as a READABILITY contract, not as cursor
+safety** — its own comment says the narrowing cast it used to stand in for no
+longer exists. `F8` in [review findings](architecture-review-findings.md) carries
+the verification.
 
 **A12a:** a present version-1 flow has 1-256 reachable nodes, checked in-range
 indices, finite positive wait timeouts and an acyclic graph. Both branches are

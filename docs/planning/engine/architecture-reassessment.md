@@ -58,6 +58,23 @@ instrument, not an ownership proof or a complete graph of state, scheduling,
 re-exports and cross-crate dependencies. Its output should change as a consequence
 of a better design, not determine the design.
 
+⚠ **RE-RUN 2026-09-17 (`scripts/measure_kernel_module_graph.py --scc`): TEN, and
+the COUNT is the least informative thing about the change.** The members are
+`abilities, avatar, character_runtime, construction, control, features, items,
+projectile, session, world`. Diffed against the nine above:
+
+* **`shrine` LEFT**, which is the bullet two paragraphs up coming true — it is a
+  208-line interaction module now, and the checkpoint half it used to hold is in
+  `session::checkpoint`. A cycle member leaving because its authority moved is
+  exactly what this document asks for.
+* **`avatar` and `character_runtime` JOINED.** Neither has been diagnosed here,
+  and both are candidates for the same treatment rather than evidence that the
+  first one failed.
+
+⇒ 9 → 10 reads as regression and is one departure and two arrivals. The separate
+`assets`/`character_sprites` SCC of two is unchanged. ⛔ **Diff the MEMBERS; the
+count cannot tell a repair from a regression, and here it contained both.**
+
 The workspace has 79 packages and 679,785 physical Rust lines under their `src`
 directories, including tests and comments. The actor monolith accounts for 98,464
 of those lines. ⚠ **Re-derived 2026-09-17 — 80 packages, 737,522

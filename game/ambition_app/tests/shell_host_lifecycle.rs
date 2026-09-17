@@ -2083,6 +2083,20 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
         .iter()
         .filter(|(name, value)| **value != 0 && veteran_parts.get(*name) == Some(*value))
         .count();
+    // ⛔ THE PUREST ROW MUST BE IN THE POPULATION. `EntityChecksumPlugin` folds
+    // `hash(active carrier count, RollbackOrdered.len())` — upstream's own words
+    // for the second term are *"the quantity of total spawned rollback
+    // entities"* — so it is this defect with nothing else mixed in. If it ever
+    // leaves the part set, this arm keeps passing over a smaller surface and the
+    // clearest evidence goes with it.
+    assert!(
+        fresh_parts
+            .keys()
+            .any(|name| name.ends_with("ChecksumFlag<bevy_ecs::entity::Entity>")),
+        "no entity checksum part in {} part(s); the population no longer contains \
+         the row that hashes `RollbackOrdered.len()` directly",
+        fresh_parts.len()
+    );
     // ⛔ THE ANTI-VACUITY FLOOR. Two Apps that computed no checksums at all agree
     // on nothing and on everything; a run that reaches here with no non-zero
     // agreeing part measured an empty session, not a clean one.

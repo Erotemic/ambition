@@ -527,6 +527,46 @@ rows, which carry no host-local id at all — they are simply never compared
 between peers, so only N2 can observe them. The third is `Q122`, the snapshot
 schema fingerprint hashing prose.
 
+## What GGRS actually folds into the peer checksum
+
+⛔⛔ **TWO OF ITS THREE INPUTS ARE APP-LIFETIME COUNTS, AND AMBITION'S OWN
+CENSUS MODELS NEITHER.** Read from the pinned `bevy_ggrs` rev on 2026-09-17,
+because every peer-identity argument on this page rests on it:
+
+| plugin | what it folds |
+|---|---|
+| `ComponentChecksumPlugin<C>` | per carrier, `hash(RollbackOrdered.order(id), projection(value))`, XORed together, then hashed once more |
+| `ResourceChecksumPlugin<R>` | `hash(value)`. Nothing host-local |
+| `EntityChecksumPlugin` | `hash(active carrier count, RollbackOrdered.len())` — and that second term is *"the quantity of total spawned rollback entities"*, in upstream's own words |
+
+`ChecksumPlugin` then XORs every `ChecksumPart` into one `Checksum`. ⚠ Upstream
+notes that XOR cancels a value that appears an even number of times; that blind
+spot is theirs and is recorded here so nobody re-derives it as a finding.
+
+⇒ **`RollbackOrdered` is the host-local term, and it reaches the comparison
+twice.** It assigns each `RollbackId` an index the first time `Rollback` is
+added, keeps every index it ever handed out — despawned entities included — and
+is itself snapshotted. So a host on its third route enters a session with a
+higher base and a larger `len()` than a host on its first, and both are inside
+what two peers compare. **MEASURED 2026-09-17 on two hosts reaching the shipped
+Ambition route by different shell histories: `len()` 22 against 96, the same 22
+canonical identities at orders `0..21` against `74..95`, and 59 of 146
+`ChecksumPart`s disagreeing while every value agreed.**
+
+⇒ Closed by `rebase_rollback_carrier_order`, which runs where a session declares
+frame zero: the live population is re-ordered by canonical `SimId`, so the
+ordering is a fact about the session rather than about the process. 59 → 2, and
+both survivors are the two open roads above (`SimTick`, `AmbitionGameSave`).
+
+⚠ **AND A PROJECTION CENSUS CANNOT SEE ANY OF IT, WHICH IS THE READING RULE.**
+`RollbackChecksumProbes` folds `count` and a wrapping sum of each value's
+projection and deliberately ignores which entity carried it. It measures GGRS's
+PROJECTION; only an arm that reads `ChecksumPart` from a running session
+measures GGRS's CHECKSUM — that arm is
+`two_local_histories_compute_the_same_ggrs_component_checksums`. A clean census
+is not evidence about the checksum, and it said so for a day while 59 rows
+disagreed.
+
 ## Confirmed effects
 
 Irreversible host effects must not be emitted merely because a speculative tick

@@ -57,3 +57,50 @@ def test_a_file_with_no_resmut_contributes_nothing(tmp_path):
     would contribute and the shortlist would be the whole workspace."""
     a = _write(tmp_path, "a.rs", "fn s(r: Res<Foo>, q: Query<&Foo>) {}")
     assert mod.writers([a]) == {}
+
+
+def test_a_whole_test_file_is_not_a_second_authority():
+    """⛔⛤ THE HALF THE `#[cfg(test)]` CUT CANNOT DO.
+
+    An integration test under `tests/` and a `mod tests` carried in its own
+    `tests.rs` have no `#[cfg(test)]` line to cut at — the parent module carries
+    it — so every `ResMut<T>` in them counted as a writer while the module
+    docstring said the census reads non-test code. MEASURED 2026-09-17: 1,866
+    files became 1,302 and eight types left the shortlist.
+    """
+    assert mod.is_test_file("game/ambition_app/tests/a_thing.rs")
+    assert mod.is_test_file("crates/x/src/y/tests.rs")
+    assert mod.is_test_file("crates/x/src/y/hurtbox_damage_tests.rs")
+    assert mod.is_test_file("crates/x/src/projectile/tests/collision.rs")
+    # ⚠ AND NOT OVER-EXCLUDING. A production helper that tests use is production,
+    # and no directory in this tree is named `testing` or `test_support`.
+    assert not mod.is_test_file("crates/x/src/test_support.rs")
+    assert not mod.is_test_file("game/ambition_app/src/headless.rs")
+
+
+def test_production_code_after_a_test_module_is_still_read():
+    """⛔⛔ THE UNDERCOUNT, AND IT IS THE ONE A POISON FOUND BY NOT FIRING.
+
+    The cut was `src.split("#[cfg(test)]")[0]`, and a module declares its tests
+    near the TOP: `#[cfg(test)] mod tests;` at `platformer2d_runtime/src/lib.rs:25`.
+    MEASURED 2026-09-17: 777 of 1,302 production files carry the attribute and 40
+    of them held 77 `ResMut<T>` occurrences below the first one. A poison appended
+    to a file's end proved it by changing nothing.
+    """
+    src = (
+        "fn a(mut r: ResMut<Before>) {}\n"
+        "#[cfg(test)]\nmod tests;\n"
+        "fn b(mut r: ResMut<After>) {}\n"
+        "#[cfg(test)]\nmod inline {\n    fn t(mut r: ResMut<Fixture>) {}\n"
+        "    mod deeper { fn u(mut r: ResMut<AlsoFixture>) {} }\n}\n"
+        "fn c(mut r: ResMut<Last>) {}\n"
+        "#[cfg(test)]\nfn helper(mut r: ResMut<HelperOnly>) {}\n"
+        "fn d(mut r: ResMut<Final>) {}\n"
+    )
+    kept = set(mod.RESMUT.findall(mod.strip_test_modules(src)))
+    assert kept == {"Before", "After", "Last", "Final"}, kept
+
+
+def test_the_stripper_leaves_nothing_labelled_test():
+    src = "fn a(mut r: ResMut<X>) {}\n#[cfg(test)]\nmod t { fn f() {} }\n"
+    assert "#[cfg(test)]" not in mod.strip_test_modules(src)

@@ -1312,6 +1312,22 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_consolidation_ledger_states_are_live.py",
             ],
         ),
+        # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
+        # RAN IT — so the number was one somebody had to go and look at, and
+        # nothing noticed a resource joining the list. Both of its numbers were
+        # also wrong until 2026-09-17, in opposite directions: whole test FILES
+        # counted as writers, and everything after a file's first `#[cfg(test)]`
+        # — usually a `mod tests;` declaration near the top — was thrown away,
+        # hiding 77 `ResMut<T>` occurrences of production code across 40 files.
+        # ⚠ This ratchets the POPULATION. Multi-writer is not a defect by count;
+        # the script says so and prints the unadjudicated debt.
+        Job(
+            "no resource gains a writer without somebody adjudicating it",
+            [
+                sys.executable,
+                "scripts/check_multi_writer_resources_are_adjudicated.py",
+            ],
+        ),
         # A request drained inside the rewinding schedule and written from
         # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
         # COINCIDENCE — every producer happens to be in the sim schedule — and

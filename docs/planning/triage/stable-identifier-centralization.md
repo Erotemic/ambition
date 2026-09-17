@@ -10,13 +10,48 @@ macro or a universal ID crate.
 direction and its central question had been answered in another.** Over the 1601
 tracked files under `crates/*/src` and `game/*/src`:
 
-| | |
-| --- | --- |
-| `macro_rules!` in the whole workspace | 16 |
-| …that generate an identifier type | **1** — `string_id!`, in `crates/ambition_load/src/id.rs` |
-| its invocations | 11, across 3 crates (`ambition_load` 3, `ambition_game_shell` 5, `ambition_load_presentation` 3) |
-| distinct id-suffixed `struct` declarations | 67 |
-| identifiers minted by `format!` | 26 sites |
+| | | method |
+| --- | --- | --- |
+| distinct `macro_rules!` names | 16 | `macro_rules! <name>`, deduplicated |
+| …that generate an identifier TYPE | **2** | `string_id!` (`ambition_load/src/id.rs`) and `digest_type!` (`ambition_platformer2d_runtime/src/content_identity.rs`) |
+| `string_id!` invocations | 11 | across 3 crates — `ambition_load` 3, `ambition_game_shell` 5, `ambition_load_presentation` 3 |
+| `digest_type!` invocations | 2 | `ContentFingerprint` (`"cfp1:"`), `SnapshotSchemaFingerprint` (`"ssp1:"`) |
+| distinct identifier types | 67 | 54 declared as `struct`/`enum`/`type <X>Id` + the 11 + the 2 |
+| identifiers minted by `format!` | 26 sites | the class table below |
+
+⛔⛤ **THE "1" IN THAT SECOND ROW WAS WRONG, AND THE TABLE'S OWN 67 IS WHAT SAYS
+SO — RE-MEASURED 2026-09-17.** `digest_type!` declares
+`pub struct $name([u8; 32])` with `from_bytes`/`as_bytes`/`Display`/`Debug`; it
+generates identifier types exactly as `string_id!` does. And the 67 does not
+reproduce without it: distinct `struct`/`enum`/`type` declarations ending in `Id`
+come to **54**, plus the 11 `string_id!` types is 65, and only counting
+`digest_type!`'s two reaches 67. ⇒ Two rows of one table disagreed about the same
+population, and the row with no method attached was the one that was right. **A
+number published without its instrument cannot be argued with — it can only be
+re-derived**, which is why every row above now carries one.
+
+⭐⭐ **AND THE SECOND GENERATOR STRENGTHENS THIS PAGE'S THESIS RATHER THAN
+COMPLICATING IT.** The whole argument here is that two identifiers sharing a
+representation need not share a policy. `string_id!` and `digest_type!` share
+NEITHER: `String` versus `[u8; 32]`, a panic-on-empty constructor versus
+`from_bytes` with nothing to validate, transparent serde versus none, an authored
+spelling versus a digest nobody types. They are also on opposite sides of the
+authority axis above — `string_id!`'s carriers include `LoadId` and `ShellHoldId`
+(host-local lifecycle), while `digest_type!`'s `ContentFingerprint` is the
+CONTENT-DERIVED identity a construction plan is stamped against. Two generators,
+two policies, and the page counted one.
+
+⚠ **A THIRD SHAPE EXISTS AND IS THE ANSWER THIS PAGE ASKS FOR BELOW.**
+`sfx_ids!` (`ambition_sfx`, 165 entries) and `fx_ids!` (`ambition_vfx`, 6) mint
+identifier VALUES of an existing type rather than types — and each generates a
+`NAMED: &[(Id, &str)]` census **from the declarations themselves**, in declaration
+order. That is precisely the *"derived census over mint sites … that would not
+need updating by whoever adds a carrier"* named at the end of the authority
+section, already working in two crates. ⛔ It is not a template for
+`HOST_LOCAL_IDENTITIES`, because those two macros own their whole population in
+one place and host-local ids are minted across many crates — but it is the
+existence proof that the shape is idiomatic here, and it is where to start
+reading if that census is ever built.
 
 ⇒ **THE SYNTAX CONSOLIDATION IS DONE AND THIS PAGE'S "several local `string_id!`
 macros" WAS ITS PRE-STATE.** There is exactly one definition; the other two

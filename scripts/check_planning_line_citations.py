@@ -39,6 +39,15 @@ its citation against a tree where the coordinate was already wrong. That makes
 this check CONSERVATIVE -- it under-reports drift and never invents it -- which
 is the right direction for a tool that rewrites files.
 
+⛔⛤ **AND `gone` IS NOT ALWAYS A DEFECT — LEARNED FROM THE FIRST SWEEP'S OWN
+RESULTS.** Seven of the sixteen `gone` findings were one table in
+`item-writer-inventory.md` listing the struct-literal `GroundItem { .. }` sites
+that a seal REPLACED with `GroundItem::at_rest`, kept deliberately as the record
+of what was sealed. The citation is a claim about a past tree and it is doing its
+job. This tool cannot tell that from a rotted coordinate, because both look like
+"the text is not there any more" — so `gone` is a READING LIST, and the question
+to ask of each is whether the sentence is written in the past tense.
+
 ⛔ **NOT A GATE BY DEFAULT.** The first run over `docs/planning` found 103 of 295
 citations no longer addressing their line. A check that fails on a third of the
 corpus is a report wearing a gate's costume; `--strict` exists for a lane that

@@ -192,27 +192,41 @@ the engine INTENDS to support and cannot yet honour; it is the wrong answer for 
 field the engine never had a plan to read, because it preserves a public
 serializable surface whose only effect is to mislead a third-party provider.
 
-## F5. Facade render opt-out does not exclude renderer dependencies
+## F5. ✔ CLOSED — the facade's render opt-out DOES exclude the renderer
 
 **Owner:** public SDK / Cargo feature composition.
-**Priority:** A9 baseline and staged manifest work; independent of SCC count.
-**Confidence:** source-established mandatory workspace dependency path and stale
-fixture comment. Full Cargo feature closure was not resolved here.
+**Priority:** was A9 baseline and staged manifest work; independent of SCC count.
 
-`crates/ambition_platformer2d/Cargo.toml` marks its direct render dependency
-optional but keeps `ambition_platformer2d_host` nonoptional.
-`crates/ambition_platformer2d_host/Cargo.toml:15` unconditionally depends on
-`ambition_render`. A traversal of normal, nonoptional internal path dependencies
-finds 51 other workspace packages reachable from the facade. This is a lower
-bound, excluding optional edges, feature activation, external packages, build/dev
-dependencies and binary dead-code elimination.
+⛔⛤ **THIS SECTION STATED ITS DEFECT IN THE PRESENT TENSE FOR EIGHT DAYS AFTER
+THE DEFECT CLOSED, WITH THE CLOSURE WRITTEN THREE LINES BELOW IT.** The body read
+*"`crates/ambition_platformer2d_host/Cargo.toml:15` unconditionally depends on
+`ambition_render`"*, while the re-measurement note under it already said *"Three
+edges closed … the render path through host"*. A reader stopping at the heading
+and the first paragraph — which is most readers — got the opposite of the truth.
 
-⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
-`300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed
-between the two, all on 2026-09-09: the render path through host, five dead
-dependency declarations, and the map capability. ⇒ Reproduce with
-`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
-unique `ambition_*` names (49) and subtract the facade itself (48).
+**Measured at HEAD, 2026-09-17:**
+`cargo tree -e normal --no-default-features -p ambition_platformer2d` reaches
+`ambition_render` **zero** times; `-i ambition_render` reports the package is not
+in that graph at all. The closure is **48** other workspace packages (49 unique
+`ambition_*` names less the facade itself), reproducing the 2026-09-10 reading at
+`939d6aaa5` exactly. The host's manifest now says
+`ambition_render = { path = "../ambition_render", optional = true }`, and its
+`[features]` block explains the split in its own words: the facade takes the host
+with `default-features = false`, and that edge was *"the ONE path … that put the
+renderer in a no-default-features consumer's compile closure, and it was there
+because this edge was not optional."*
+
+⚠ **WHAT THE ORIGINAL FINDING GOT RIGHT AND IS WORTH KEEPING:** 48 is still a
+LOWER bound on the facade's weight — it excludes optional edges, feature
+activation, external packages, build/dev dependencies and binary dead-code
+elimination. The opt-out working for the renderer says nothing about the other
+48. ⇒ Reproduce with the command above: count the unique `ambition_*` names and
+subtract the facade.
+
+⛔ The 51 in the original reading was the
+`300004d601af1e633cfaee969f079cf9bb368ca8` baseline; three edges closed on
+2026-09-09 — the render path through host, five dead dependency declarations, and
+the map capability.
 ⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
 51 is an *other-packages* count. A number that cannot say which it is cannot be
 quoted. See `scripts/measure_minimum_profile_parentage.py`.

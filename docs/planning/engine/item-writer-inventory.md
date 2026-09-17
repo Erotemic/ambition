@@ -61,9 +61,14 @@ mentions, is written from four crates and only 3 of its 18 sites are in
 item; it is between **the crate that defines inventory and the crates that
 schedule writes to it**.
 
-⛔⛔ **OCCURRENCE HAS NO CONSTRUCTOR, SO IT HAS SEVEN.** `GroundItem` has four
-`pub` fields and no `impl GroundItem` anywhere. Every minting site builds the
-struct literal:
+⛔⛔ **OCCURRENCE HAD NO CONSTRUCTOR, SO IT HAD SEVEN — THE TABLE BELOW IS THE
+PRE-SEAL STATE AND IS KEPT AS THE RECORD OF WHAT THE SEAL REPLACED.** At the time
+of measurement `GroundItem` had four `pub` fields and no `impl GroundItem`
+anywhere, and every minting site built the struct literal. ⚠ The `file:line`
+coordinates in it address a tree that no longer exists; each one now reads
+`GroundItem::at_rest(..)` or has moved. That is the seal working, not the table
+rotting — `scripts/check_planning_line_citations.py` reports all seven as `gone`
+and is right to, which is why this paragraph is now in the past tense.
 
 | site | what mints |
 |---|---|

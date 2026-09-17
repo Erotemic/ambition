@@ -1,7 +1,7 @@
 # Declared-id resolution — remaining authoring diagnostics
 
-> **Verified against `cecd01ca` (2026-08-13).** The original silent-resolution
-> triage is mostly implemented. The complete investigation is archived at
+> **Verified against `7ae442cc7` (2026-09-17); originally `cecd01ca`
+> (2026-08-13).** The original silent-resolution triage is mostly implemented. The complete investigation is archived at
 > `../../archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md` (docs/archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md — removed from the checkout 2026-09-05; still in git history).
 
 ## What already exists
@@ -99,15 +99,26 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    to make impossible references unrepresentable. Do not open a standalone
    symbol-generation campaign merely to replace strings.
 
-> **RE-VERIFIED against `a83a40c1f` (2026-09-03) — nothing to change, and that
-> is the finding.** Both closed items name tests, and a ✔ is only worth its ink
-> if the test it points at still exists AND still runs. All three named artefacts
-> are present at HEAD — `game/ambition_app/tests/declared_art_resolves.rs`,
-> `every_catalog_character_names_a_spritesheet_that_exists` and
-> `every_catalog_character_names_a_manifest_that_exists` — and both tests carry a
-> bare `#[test]` with no `#[ignore]`, so they run in the default gate rather than
-> only under `--include-ignored`. ⇒ Items 1 and 2 stay ✔ on evidence, not on
-> memory. Item 3 is a standing principle with nothing to measure.
+> **RE-VERIFIED against `7ae442cc7` (2026-09-17); previously `a83a40c1f`
+> (2026-09-03) — nothing to change either time, and that is the finding.** Both
+> closed items name tests, and a ✔ is only worth its ink if the test it points at
+> still exists AND still runs. All three named artefacts are present at HEAD —
+> `game/ambition_app/tests/declared_art_resolves.rs`,
+> `every_catalog_character_names_a_spritesheet_that_exists` (line 281) and
+> `every_catalog_character_names_a_manifest_that_exists` (line 327) — and both
+> carry a bare `#[test]` with no `#[ignore]`, so they run in the default gate
+> rather than only under `--include-ignored`. Both silent-discard greps are still
+> empty across `crates/` and `game/`: zero
+> `resolve*(..).unwrap_or_default()`, zero `resolve*(..).unwrap_or(..)`.
+> ⇒ Items 1 and 2 stay ✔ on evidence, not on memory. Item 3 is a standing
+> principle with nothing to measure.
+>
+> ⭐ **THIS IS THE THIRD CONSECUTIVE RE-RUN OF THE PROTOCOL THIS PAGE WRITES DOWN,
+> AND ALL THREE AGREE.** That is worth one line rather than a fourth paragraph:
+> the page's own rule — *"reopen only on a named site, never on the count"* — is
+> what makes it cheap to re-check, because the check is two greps and two
+> `#[test]` attributes rather than a population figure that moves under the
+> measurer's `-A` flag.
 
 ## Exit
 

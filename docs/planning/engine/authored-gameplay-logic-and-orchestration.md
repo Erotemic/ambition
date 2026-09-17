@@ -114,11 +114,41 @@ speculatively; it wants a second consumer or a real authored mistake first.
 fixed this and the deferral is still the right call; recorded so the next reader
 does not have to re-derive it.
 
-### O2 — collapse duplicated authored-argument preparation
+### O2 — collapse duplicated authored-argument preparation — CLOSED 2026-09-17
 
-Dialogue-authored commands still have their own text-to-`AuthoredArg` conversion
-path. Reuse the shared preparation semantics if doing so removes a real duplicate
-without forcing dialogue control flow into the shared substrate.
+⛔⛤ **THE PREMISE WAS STALE AND THE REMAINING DUPLICATE WAS ONE SENTENCE, NOT A
+CONVERSION PATH.** This row said dialogue-authored commands *"still have their
+own text-to-`AuthoredArg` conversion path"*. They do not:
+`authored_commands::prepare_one` delegates to
+`ambition_platformer2d_shared_tangle::authored_logic::prepare_authored_arg` and
+keeps only a `ParamKind::Reference` refusal. And the CONDITIONS surface was never
+the same road — its input is a typed `YarnValue`, not text, so the shared
+helper's `(&str)` signature does not apply to it and its own doc explains why
+inferring the kind from the Yarn value is the lossy answer.
+
+✔ **What was actually duplicated: the refusal SENTENCE**, written as the same
+string literal in both surfaces — a sentence that can be improved in one place
+and stay stale in the other. One copy now, `dialog::reference_is_not_authorable_by_dialogue`.
+
+⭐⭐ **AND POISONING THAT REFUSAL FOUND A TEST THAT CANNOT SEE IT, WHICH IS THE
+MORE USEFUL HALF OF THIS CLOSURE.** Deleting the `ParamKind::Reference` arm from
+`prepare_argument` — the exact defect
+`a_reference_argument_is_refused_rather_than_coerced_from_a_quoted_string` is
+NAMED for — leaves `ambition_conversation` green, twice over:
+
+- the fixture evaluator answers `unanswerable` on a non-reference argument, so
+  the authored `<<else>>` prints *"Refused."* either way;
+- and even an evaluator that says YES to anything is never reached, because
+  `ConditionCatalog::evaluate` compares `arg.kind()` against the descriptor's
+  `ParamKind` and refuses the mismatch **before dispatching**.
+
+⇒ **THE CATALOG OWNS THE SAFETY; THE DIALOGUE SURFACE OWNS THE WORDING.** The
+surface arm is not a second guard, it is a better sentence written where the
+author's mistake is legible. A new arm
+(`a_reference_argument_never_reaches_the_evaluator_whatever_the_surface_does`)
+pins the load-bearing property with a counting evaluator that says yes to
+anything, and its docstring says outright that deleting the surface refusal does
+not redden it — a fact about where the guarantee lives, not a gap.
 
 ### O3 - keep sequencing with the domain that owns its occurrence
 

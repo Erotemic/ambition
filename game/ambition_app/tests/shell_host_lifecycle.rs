@@ -1623,19 +1623,26 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
             driven: false,
             carries: "the authored start room -- what pressing launch reaches",
         },
+        // ⛔⛤ **DRIVEN SINCE 2026-09-17, AND THAT IS WHAT CARRIES
+        // `portal.emission`.** S7 read this row as wanting an AIMED script — fire
+        // at a wall, then walk into the aperture. It wants neither: `portal_lab`
+        // AUTHORS the aperture (`a_purple`, a ground-ground pair at x 254..346
+        // with normal `up`, 174px to the player's right), so holding right walks
+        // the body into it and the transit emits at tick 50.
         Walk {
             room: Some("portal_lab"),
-            driven: false,
-            carries: "fourteen authored `Portal` placements",
+            driven: true,
+            carries: "fourteen authored `Portal` placements, and a ground-ground \
+                      pair holding right walks into",
         },
         Walk {
             room: Some("basement_hazards"),
             driven: false,
             carries: "three authored `DamageVolume` placements",
         },
-        // ⛔⛤ **THE ONE WALK THAT PRESSES ANYTHING**, and it is the only way to
-        // reach a row a room cannot author: a shot exists because somebody
-        // fired. Measured 2026-09-17 in this room — the player starts at
+        // ⛔⛤ **THE WALK THAT PRESSES AND CARRIES A GUN**, and it is the only way
+        // to reach a row a room cannot author AT ALL: a shot exists because
+        // somebody fired. Measured 2026-09-17 in this room — the player starts at
         // x=94 and the pickup sits at x=180 with a 20px half-extent, so
         // holding right reaches it, and the gun is in hand on step 20.
         Walk {
@@ -1713,24 +1720,31 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
 
         let expected: std::collections::BTreeMap<&str, &str> =
             EXPECTED_TO_DIFFER.iter().copied().collect();
-        // ⛔⛤ **THE LABELS ARE ABSOLUTE AND THE ADVANCE IS THE DELTA — the first
-        // version advanced by the label each time and sampled 0/1/31/151 while
-        // reporting 0/1/30/120.** Named by the GPT architecture review of
-        // 2026-09-16. The substance held either way; the checked-in evidence named
-        // observation points it had not visited, which is the kind of number that
-        // travels into a planning row and cannot be re-derived.
-        let mut advanced = 0usize;
-        for step in [0usize, 1, 30, 120] {
-            for tick in advanced..step {
-                advance(&mut fresh, tick, *driven);
-                advance(&mut veteran, tick, *driven);
+        // ⛔⛤ **EVERY TICK, BECAUSE A LADDER CANNOT SEE A SHORT-LIVED ROW — AND
+        // THAT, NOT A MISSING ROUTE, IS WHY `portal.emission` READ SILENT UNTIL
+        // 2026-09-17.** The four-rung ladder sampled 0/1/30/120. `PortalEmission`
+        // lives `PortalTuning::emission_time_s` = 0.18 s, about 11 ticks, and the
+        // driven `portal_lab` walk carries it at ticks 50-60, 68-78 and 140-150:
+        // every window falls in a gap, and the widest gap was 90 ticks. A sample
+        // point chosen to land inside an 11-tick window would be a magic number
+        // that any movement-tuning change silently retires, so the arm samples
+        // them all. ⇒ The 121 observation points are a SUPERSET of the old four,
+        // and the labels-vs-delta error the GPT review of 2026-09-16 named here
+        // (advancing by the label each time, so 0/1/30/120 were really 0/1/31/151)
+        // is now unspellable: there is one index and it is both.
+        // ⛔ PER ROOM, because the union cannot say WHICH walk carries a row —
+        // and that attribution is what turns "no route places it" into a road.
+        let mut here = std::collections::BTreeSet::new();
+        for step in 0..=120usize {
+            if step > 0 {
+                advance(&mut fresh, step - 1, *driven);
+                advance(&mut veteran, step - 1, *driven);
             }
-            advanced = step;
             let ours = census(&mut fresh, &keep);
             let theirs = census(&mut veteran, &keep);
             // ⛔ ONLY ROWS WITH CARRIERS SAY ANYTHING. A row at count 0 in both hosts
             // agrees the way two empty sets agree, so it is not counted as compared.
-            compared.extend(
+            here.extend(
                 ours.iter()
                     .filter(|(_, (count, _))| *count > 0)
                     .map(|(row, _)| row.clone()),
@@ -1746,7 +1760,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
                 .collect();
             assert!(
                 unexpected.is_empty(),
-                "after {step} more steps, a SHARP unchecksummed row differs between \
+                "after {step} steps, a SHARP unchecksummed row differs between \
                  two hosts whose only difference is which routes they visited first \
                  ({fresh_tokens} vs {veteran_tokens}).\n  {}\n\n\
                  ⛔ Nothing two peers compare would notice this: these rows are \
@@ -1755,6 +1769,8 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
                 unexpected.join("\n  ")
             );
         }
+        eprintln!("[sharp-rows] room {room_label} carried {here:?}");
+        compared.extend(here);
     }
 
     // ⛔⛤ **THE COVERAGE IS PINNED AS A SET, BECAUSE THE FLOOR BELOW CANNOT SEE
@@ -1766,14 +1782,18 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     // authoring something S7 has not counted. Either way re-derive the split
     // from the walk rather than editing this list to match it.
     //
-    // ⇒ **THE THREE THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
+    // ⇒ **THE TWO THAT ARE NOT HERE ARE NOT AN OVERSIGHT**, and S7 names what
     // each would need. `gravity.flip_switch` was measured 2026-09-17 to be
     // placeable by no route at all (`Q137`). `boss.death_animation` needs a boss
     // to die, which is the most expensive fixture of the set.
-    // `portal.emission` needs a body to STRADDLE an aperture: the driven walk
-    // below fires the gun and places portals, and holding right through 120
-    // steps never put the player inside one — so it wants an aimed script
-    // rather than another room, and that is a bigger instrument than this arm.
+    //
+    // ⛔⛤ **`portal.emission` WAS A THIRD, AND ITS STATED REASON WAS WRONG IN
+    // BOTH HALVES.** It was read as needing an aimed script because the
+    // gun-carrying walk never straddled what it shot. It needed no gun: a room
+    // already in this list AUTHORS the aperture, and the row was invisible
+    // because the observation ladder's narrowest gap was 29 ticks and the
+    // component lives 11. A row can read "no route places it" when what is
+    // missing is the LOOK, not the road.
     const CARRIED_BY_THE_WALK: &[&str] = &[
         "actor.animation_facts",
         "actor.render_size",
@@ -1781,6 +1801,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "feature.hazard",
         "item.ground_item",
         "player.blink_camera_state",
+        "portal.emission",
         "portal.gun_pickup",
         "portal.placed",
         "portal.shot",
@@ -1790,7 +1811,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     assert_eq!(
         compared.iter().map(String::as_str).collect::<std::collections::BTreeSet<_>>(),
         carried,
-        "the rooms in this walk no longer carry exactly the sharp rows they were          measured to carry on 2026-09-17. {} of {} sharp rows are registered",
+        "the rooms in this walk no longer carry exactly the sharp rows they were measured to carry on 2026-09-17. {} of {} sharp rows are registered",
         registered_sharp_rows,
         SHARP_ROWS.len()
     );

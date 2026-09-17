@@ -545,7 +545,7 @@ authored constants and the ones that sound like inventory bookkeeping are the
 mutated ones. A row's NAME is not a reading of its write set.
 
 ⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES AND FOUR
-ROOMS, 2026-09-17 — NINE OF THEM WITH CARRIERS, ALL NINE AGREEING.**
+ROOMS, 2026-09-17 — TEN OF THEM WITH CARRIERS, ALL TEN AGREEING.**
 `two_local_histories_agree_about_the_sharp_unchecksummed_rows`
 (`game/ambition_app/tests/shell_host_lifecycle.rs`) is the complement of the
 peer-visible census arm: it asserts each of these twelve rows does NOT feed the
@@ -554,10 +554,23 @@ claiming to split it — and then compares the probe census of exactly these row
 between a host that reached the shipped Ambition route first and one that reached
 it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
 `entity.transform`, `feature.hazard`, `item.ground_item`,
-`player.blink_camera_state`, `portal.gun_pickup`, `portal.placed` and
-`portal.shot` carried state and agree at steps 0, 1, 30 and 120, in every room
-the arm walks.** That nine is pinned by SET EQUALITY, not by a floor, so a row
-losing its carriers is a red rather than a quieter green.
+`player.blink_camera_state`, `portal.emission`, `portal.gun_pickup`,
+`portal.placed` and `portal.shot` carried state and agree at EVERY ONE of the
+121 observation points — step 0 and after each of ticks 0..119 — in every room
+the arm walks.** That ten is pinned by SET EQUALITY, not by a floor, so a row
+losing its carriers is a red rather than a quieter green. The arm prints the
+per-room split, because a union cannot say which walk carries a row:
+
+| room | sharp rows it carries |
+|---|---|
+| `<authored>` (what pressing launch reaches) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `item.ground_item`, `player.blink_camera_state`, `portal.gun_pickup` |
+| `portal_lab` | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.emission`, `portal.placed` |
+| `basement_hazards` | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `feature.hazard`, `player.blink_camera_state` |
+| `portal_bridge` (driven, with the gun) | `actor.animation_facts`, `actor.render_size`, `entity.transform`, `player.blink_camera_state`, `portal.gun_pickup`, `portal.placed`, `portal.shot` |
+
+⇒ `item.ground_item` has exactly one carrier room and `portal.emission` exactly
+one, so either room leaving this walk costs a row — which is what the set
+equality is there to say out loud.
 
 ⛔⛤ **A ROOM IS THE POPULATION, AND UNTIL 2026-09-17 THIS RANKING HAD ONE OF
 THEM.** The arm walked the authored start room alone, six rows carried nothing,
@@ -602,16 +615,46 @@ produce an empty vector, and a render sync that despawns and rebuilds from it
 every frame — and puts the choice as: the plate ships, or the encounter switch
 owns gravity alone.
 
-⚠ **THE OTHER TWO SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
-them" FROM A WISH INTO A LIST.** Read from the spawn sites, 2026-09-17:
+⛔⛤ **`portal.emission` WAS READ AS THE SECOND UNREACHABLE ROW, AND THAT
+READING WAS WRONG IN BOTH HALVES — CORRECTED 2026-09-17, THE SAME DAY IT WAS
+WRITTEN.** This section said the row wanted *"an AIMED script — fire at a
+reachable wall, then walk into the aperture — which is a bigger instrument than a
+room or a held direction"*. It wanted neither a gun nor an aim. What was missing
+was the LOOK, not the road, and the road was a room already in the walk:
+
+- **The aperture is AUTHORED.** `portal_lab` holds `a_purple`, a ground-ground
+  pair at x 254..346 with normal `up`, and the player starts at x=80 — 174px to
+  its left, on the same floor. Holding `axis_x: 1.0` walks the body into it and
+  the transit emits at tick 50. The room was already the second walk; it was
+  simply not driven, because it had been added to carry the AUTHORED
+  `portal.placed` and nothing asked it to press anything.
+- **The observation ladder could not see it.** `PortalEmission` lives
+  `PortalTuning::emission_time_s` = **0.18 s, about 11 ticks**. The arm sampled
+  at steps 0, 1, 30 and 120; the driven `portal_lab` walk carries the row at
+  ticks 50-60, 68-78 and 140-150. Every window falls in a gap, and the widest gap
+  was 90 ticks. ⇒ The arm now samples EVERY tick — a sample point chosen to land
+  inside an 11-tick window would be a magic number that any movement-tuning
+  change silently retires, and 121 censuses per host per room cost the arm about
+  eleven seconds.
+
+⛔ **BOTH HALVES ARE LOAD-BEARING, POISON-VERIFIED SEPARATELY.** Restoring the
+four-rung ladder with the driven room in place loses exactly `portal.emission`
+from the compared set; leaving the per-tick sampling and setting `portal_lab`
+back to undriven loses exactly `portal.emission`. Neither change reddens
+anything else.
+
+⚠ **AND THE ORIGINAL OBSERVATION ABOUT THE GUN WALK WAS ACCURATE** — it was the
+conclusion drawn from it that was not. `portal_bridge`, driven, with the gun in
+hand, sampled at all 121 points, still carries no `portal.emission`: firing right
+and holding right really does put both apertures on the same wall. The error was
+reading "this walk does not reach it" as "no walk of this kind can".
 
 | row | what would place it |
 |---|---|
-| `portal.emission` | A BODY STRADDLING AN APERTURE. The driven walk fires the gun and places portals; holding right for 120 steps never put the player inside one. So it wants an AIMED script — fire at a reachable wall, then walk into the aperture — which is a bigger instrument than a room or a held direction |
 | `boss.death_animation` | a boss death, which is the most expensive fixture of the set |
 
-⇒ Adding a room reaches neither, and neither does a held direction. The authored
-half of the list is spent and the cheap driven half with it.
+⇒ ONE row of the twelve is unreached by a route, one is unreachable by any route
+(`Q137`), and the authored half of the list is spent.
 ⛔ Two Apps with different local histories are still not two peers — no
 transport, no input exchange, no interleaving, no rebase — so this decides
 whether a row's value depends on where the host has been, and nothing more. That

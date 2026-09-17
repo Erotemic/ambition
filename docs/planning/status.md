@@ -76,14 +76,17 @@ IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
 same day, deleting a FALLBACK to see who was using it. A clean census is not
 evidence. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
 unchecksummed float rows' STATE half. The witness compares S7's twelve sharp rows
-across two local histories in four rooms, and **nine of the twelve carry state
+across two local histories in four rooms, and **ten of the twelve carry state
 and agree** as of 2026-09-17 — six until a start room was pinned, because two of
-the silent rows were a fact about the ROOM rather than about the route, and a
-ninth once one walk started pressing buttons through the shipped input road. Of
-the three still silent, `gravity.flip_switch` can be placed by no route at all
-(`Q137`), `portal.emission` wants a body straddling an aperture and
-`boss.death_animation` wants a boss dead — an aimed script or a fight, not
-another room. The owner row prints the split.
+the silent rows were a fact about the ROOM rather than about the route, a ninth
+once one walk started pressing buttons through the shipped input road, and a
+tenth once the arm stopped sampling on a four-rung ladder. Of the two still
+silent, `gravity.flip_switch` can be placed by no route at all (`Q137`) and
+`boss.death_animation` wants a boss dead. ⛔ `portal.emission` was filed with
+them and did not belong: the aperture is AUTHORED in a room already walked, and
+the row was invisible because the component lives 11 ticks and the ladder's
+widest gap was 90. "No route places it" was a claim about the LOOK. The owner row
+prints the per-room split.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and

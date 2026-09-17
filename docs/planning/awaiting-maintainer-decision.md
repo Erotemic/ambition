@@ -2112,3 +2112,59 @@ celebrant it should keep?), not a fourth registration by analogy. ⛔ Registerin
 it anyway would be the sweep this row warned against: the guard's 18 waivers each
 state a measurement, and a fourth row added because its three neighbours moved
 would be a waiver with the opposite sign and no measurement behind it.
+
+## Q143 — what does a cutscene `Fade { to_alpha: 0.0 }` fade FROM?
+
+**Asked 2026-09-17.** `CutsceneBeat::Fade` is documented as *"Fade screen to
+`alpha` (0.0 = clear, 1.0 = solid black) over `seconds`"* and labelled
+UNFINISHED at its definition, on the grounds that nothing consumes
+`CutscenePresentation::fade_alpha`. ⛔⛤ **THAT DIAGNOSIS IS INCOMPLETE, AND
+BUILDING THE CONSUMER IT ASKS FOR WOULD CLOSE THE ROW WITHOUT CHANGING WHAT A
+PLAYER SEES.**
+
+**MEASURED 2026-09-17** over every non-test `CutsceneBeat::Fade` literal in the
+workspace — all three of them:
+
+| script | `to_alpha` | `seconds` | position in script | room |
+|---|--:|--:|---|---|
+| `test_intro` | **0.0** | 0.8 | second, after a banner | `central_hub_main` |
+| `intro_wake` | **0.0** | 0.8 | **first** | `intro_wake_room` |
+| `drain_market_arrival` | **0.0** | 0.6 | **first** | `drain_alley` |
+
+Every author wrote a fade **UP** — from black to clear. And
+`CutsceneRuntime::presentation()` returns `to_alpha` unchanged, ignoring
+`elapsed`, so the projection reads **0.0 at every instant of the beat** — the
+same number a clear screen reads. ⇒ A consumer that draws `fade_alpha` draws
+nothing, for all three, for the whole 2.2 s. Held by
+`a_fade_beat_projects_its_target_at_every_instant_rather_than_a_ramp`
+(`crates/ambition_cutscene/src/lib.rs`), poison-verified: a linear ramp from 1.0
+turns the reading `[0.0, 0.0, 0.0, 0.0]` into `[1.0, 0.75, 0.5, 0.25]`.
+
+**The question is where the ramp starts, and it is about authored content, not
+about the engine.** Three answers, and they are not equivalent for the shipped
+scripts:
+
+1. **A cutscene opens BLACK; a fade ramps from the last fade's target,
+   defaulting to 1.0.** All three authored scripts then mean what their author
+   plainly wrote, and no content changes. ⚠ It gives `test_intro`'s opening
+   banner 1.4 s over a black screen before the fade up — arguably right, and
+   arguably a surprise to whoever wrote the banner first.
+2. **The screen starts CLEAR; the beat ramps from the live screen alpha.** Then
+   all three shipped fades are no-ops that correctly draw nothing, today's
+   behaviour is right, and the UNFINISHED label should come off the beat rather
+   than a consumer being built. ⚠ It also makes `Fade` unusable as an opener,
+   which is how two of the three use it.
+3. **`Fade` grows an explicit `from_alpha`.** Unambiguous, and it is a change to
+   the serialised script format plus all three authored scripts. ⚠ The
+   vocabulary gets a field to say what a convention would have said for free.
+
+⛔ **WHAT MUST NOT HAPPEN IS A CONSUMER LANDING ALONE.** It satisfies the
+UNFINISHED label, reads as the row closing, and leaves the player waiting 2.2 s
+across three rooms for a screen that never changes.
+
+⇒ This is the same missing thing as VC5, the title launcher's content-alpha ramp
+— see
+[`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md) — at a
+different layer, and a screen-alpha consumer built for one is the obvious owner
+for the other. ⚠ **That argument is about the CONSUMER and this ruling is about
+the RAMP;** whoever takes VC5 does not inherit this decision with it.

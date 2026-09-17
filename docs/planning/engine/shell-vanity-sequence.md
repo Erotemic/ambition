@@ -26,6 +26,21 @@ Status: **OPEN — VC5 only**
 > missing thing at two layers, and a screen-alpha consumer built for one is the
 > obvious owner for the other — which is an argument for building it once, not an
 > instruction to widen this card.
+>
+> ⛔⛤ **AND "nothing consumes it" IS NOT THE WHOLE DIAGNOSIS — MEASURED
+> 2026-09-17.** All three of those authored fades target `to_alpha: 0.0`, and
+> `CutsceneRuntime::presentation()` returns the target unchanged, ignoring
+> `elapsed`. The projection therefore reads **0.0 at every instant of the beat**,
+> which is the number a clear screen reads. ⇒ **A consumer built for
+> `fade_alpha` would draw nothing for every fade shipped content authors**, and
+> the row would look closed while the player still waits 2.2 s for a screen that
+> never changes. The missing piece is the RAMP and the value it ramps FROM;
+> where it starts is an authored-content question, filed as `Q143` in
+> [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+> Held by `a_fade_beat_projects_its_target_at_every_instant_rather_than_a_ramp`.
+> ⚠ **VC5 does not inherit that ruling.** The launcher fade knows both ends of
+> its own ramp — transparent to authored opacity — so the shared thing is the
+> screen-alpha CONSUMER, not the question of where a cutscene fade begins.
 
 The original shell vanity-sequence campaign is complete except for the title
 launcher fade-in. VC1–VC4 and VC6 are implemented. The full campaign history is

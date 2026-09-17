@@ -45,9 +45,20 @@ pub enum CutsceneBeat {
     /// rooms, not 0.8 s in one. `CameraPan`, the other incomplete beat, has no
     /// non-test literal at all — which is the difference that matters, and the
     /// reason a count belongs here rather than a word like "one" or "only".
-    /// ⇒ Either a consumer lands or the beat leaves the script; what must not
-    /// happen is the vocabulary keeping a verb the engine does not perform while
-    /// a player pays for it.
+    /// ⛔⛤ **AND A CONSUMER ALONE WOULD CHANGE NOTHING — measured the same day.**
+    /// All three target `to_alpha: 0.0`, a fade UP, and
+    /// [`CutsceneRuntime::presentation`] returns the target unchanged, ignoring
+    /// `elapsed`: the projection reads 0.0 at every instant of the beat, which
+    /// is the number a clear screen reads. The missing piece is the RAMP and the
+    /// value it ramps FROM. Where it starts is an authored-content question —
+    /// `Q143` in `docs/planning/awaiting-maintainer-decision.md` — because a
+    /// cutscene that opens with a fade to clear is asking to come up from black,
+    /// and nothing here says the screen was black.
+    ///
+    /// ⇒ Either the ramp and a consumer land together, or the beat leaves the
+    /// script; what must not happen is the vocabulary keeping a verb the engine
+    /// does not perform while a player pays for it — or a consumer landing alone
+    /// and reading as the row closing.
     Fade { to_alpha: f32, seconds: f32 },
     /// Set a save-game world flag. Useful for one-shot triggers
     /// (`seen_intro_cutscene = true`) and for tying cutscenes to the
@@ -79,7 +90,10 @@ pub struct CutscenePresentation {
     pub camera_target: Option<[f32; 2]>,
     /// The fade a fade beat is holding, `0.0` when no fade beat is current.
     ///
-    /// `Fade` is currently incomplete: no presentation consumer reads this field.
+    /// `Fade` is currently incomplete in TWO ways and the second is the one that
+    /// matters: no presentation consumer reads this field, AND the value is the
+    /// beat's target rather than a ramp, so it is 0.0 throughout every fade
+    /// shipped content authors. See [`CutsceneBeat::Fade`] and `Q143`.
     pub fade_alpha: f32,
 }
 
@@ -434,6 +448,69 @@ mod tests {
             ],
         )
         .with_seen_flag("intro_seen")
+    }
+
+    /// ⛔⛤ **A CONSUMER FOR `fade_alpha` WOULD DRAW NOTHING FOR EVERY FADE
+    /// SHIPPED CONTENT AUTHORS, AND THAT IS WHY "nothing consumes this field"
+    /// IS THE WRONG DIAGNOSIS.** Measured 2026-09-17 over every non-test
+    /// `CutsceneBeat::Fade` literal in the workspace: all three target
+    /// `to_alpha: 0.0` — `test_intro` (0.8 s), `intro_wake` (0.8 s) and
+    /// `drain_market_arrival` (0.6 s), two of them the FIRST beat of their
+    /// script. Every author wrote a fade UP, from black to clear.
+    ///
+    /// `presentation()` returns `to_alpha` directly, ignoring `elapsed`, so the
+    /// projection reads **0.0 at every instant of an 0.8 s beat** — the same
+    /// number a clear screen reads. ⇒ The missing piece is the RAMP and the
+    /// value it ramps FROM, not the consumer: building one and stopping would
+    /// close the row while the player still waits 2.2 s across three rooms for
+    /// nothing. Where the ramp starts is an authored-content question and is
+    /// filed as `Q143`.
+    ///
+    /// ⚠ This arm characterizes today's projection. It reddens when the ramp
+    /// lands, which is the point — repoint it at the ramp then, do not delete it.
+    #[test]
+    fn a_fade_beat_projects_its_target_at_every_instant_rather_than_a_ramp() {
+        let fade_up = CutsceneScript::new(
+            "fade_up",
+            vec![CutsceneBeat::Fade {
+                to_alpha: 0.0,
+                seconds: 0.8,
+            }],
+        );
+        let mut runtime = CutsceneRuntime::new(fade_up);
+        let mut readings = Vec::new();
+        for _ in 0..4 {
+            readings.push(runtime.presentation().fade_alpha);
+            let _ = runtime.tick(0.2, false);
+        }
+        assert_eq!(
+            readings,
+            vec![0.0, 0.0, 0.0, 0.0],
+            "the projection moved across the beat, so the ramp has landed — \
+             repoint this arm at what it now computes"
+        );
+
+        // ⭐ THE CONTROL, AND IT IS THE ABSENCE OF THE SUBJECT. A projection
+        // that returned 0.0 for everything would satisfy the assertion above
+        // forever. A fade to a NON-zero target is the shape no shipped script
+        // uses, and it reads its target immediately — which is the same defect
+        // seen from the other side.
+        let fade_down = CutsceneScript::new(
+            "fade_down",
+            vec![CutsceneBeat::Fade {
+                to_alpha: 1.0,
+                seconds: 0.8,
+            }],
+        );
+        let mut runtime = CutsceneRuntime::new(fade_down);
+        assert_eq!(
+            runtime.presentation().fade_alpha,
+            1.0,
+            "a fade DOWN reads solid on its first instant, before any time has \
+             passed in the beat"
+        );
+        let _ = runtime.tick(0.2, false);
+        assert_eq!(runtime.presentation().fade_alpha, 1.0);
     }
 
     #[test]

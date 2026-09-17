@@ -181,17 +181,28 @@ poison-verified. `cargo check -p ambition_demo_smash_app --bins` is clean in the
 default cell **and** under `--features visible,capture,causal`, so both arms of
 the feature gate type-check.
 
-✔ **PHASE 0's SIZE QUESTION IS ANSWERED** — see the measured result above:
-4.79 GB → 0.50 GB in the default cell, better than the prediction. What remains
-of Phase 0 is the `split-debuginfo` experiment and a featured-cell comparison on
-a box with headroom.
+✔ **PHASE 0 IS ANSWERED IN BOTH HALVES.** The size question: 4.79 GB → 0.50 GB
+in the default cell, better than the prediction. The one-line lever: tried the
+same day and it does not pay — the executable shrank 41% while the total on disk
+went UP by 324 MB, and the setting is left unset with the measurement written beside
+`[profile.dev]` in the workspace-root `Cargo.toml` so nobody re-runs it. Both results are above.
 
-⚠ **AND `split-debuginfo` WAS NEVER TRIED**, which the plan said to do FIRST
-because it is one line and may take most of the win. Doing the collapse before
-the cheap experiment is the wrong order; it happened because Jon asked for the
-collapse directly. The experiment is still worth running — if it is most of the
-win, that is worth knowing before the same collapse is proposed for another
-crate.
+⛔⛤ **THIS SECTION SAID `split-debuginfo` "WAS NEVER TRIED" FOR TWO WEEKS,
+FORTY-THREE LINES UNDER THE MEASUREMENT THAT TRIED IT.** The experiment was run
+on 2026-09-03; a STATUS paragraph written before it was not rewritten after. ⇒ A
+status announced away from the evidence is a second copy, and the copy nearest a
+correction is the one that survives it — this is the same failure the planning
+recipes name, in one file, about one afternoon. The queue carried the same
+outstanding item from here.
+
+⚠ **THE ORDERING CRITICISM STANDS AND IS WORTH KEEPING**: the plan said to try
+the one-line lever FIRST because it might take most of the win, and the collapse
+happened first because Jon asked for it directly. The lever turned out to be the
+smaller one, so nothing was lost — but that was luck, not method.
+
+▢ What is genuinely left of Phase 0 is only the **featured-cell comparison on a
+box with headroom** (`--features visible,capture,causal`); the default cell is
+measured.
 
 ## Phases
 
@@ -200,13 +211,15 @@ crate.
 ⛔ Nothing below is worth doing if the collapsed size is not what the symbol
 union predicts, and that number has never been built.
 
-1. **The one-line lever FIRST.** `[profile.dev]` already spends
-   `debug = "line-tables-only"`, but sets no `split-debuginfo`. Set
-   `split-debuginfo = "unpacked"`, rebuild the nine, and measure the executables
-   **plus** the `.dwo`/object output — both, because the question is whether
-   DWARF stops being COPIED per executable, not whether the binaries shrank
-   while the bytes moved. If this alone takes most of the win, stop: the answer
-   is a one-line `Cargo.toml` change and the rest of this page is unnecessary.
+1. ✔ **The one-line lever FIRST — DONE 2026-09-03, and it does not pay.** The
+   step as written: set `split-debuginfo = "unpacked"` beside the existing
+   `debug = "line-tables-only"`, rebuild, and measure the executables **plus**
+   the `.dwo`/object output — both, because the question is whether DWARF stops
+   being COPIED per executable, not whether the binaries shrank while the bytes
+   moved. ⇒ Asking both is what produced the answer: the executable shrank 41%
+   and the total on disk rose 324 MB. Result recorded above and beside
+   `[profile.dev]` in the workspace-root `Cargo.toml`; the setting is
+   deliberately unset.
 2. **Confirm the union at n=2, not n=9.** One throwaway bin dispatching to two
    existing probes' entry logic; build it and compare against those two built
    separately. ⭐ **Write the prediction down first: ~635 MB against ~1,267 MB

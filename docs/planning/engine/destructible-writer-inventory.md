@@ -77,14 +77,20 @@ citations turned out to hide a transition.
 | `monolith features/ecs/spawn_static.rs:613` | constructs `BreakableFeature` | authored placement spawn |
 | `ambition_combat/src/breakables.rs:41-42` | `state = Intact`, `health.reset()` | respawn transition |
 | ⭐ `ambition_combat/src/breakables.rs:75` | `apply_damage(health.current.max(1))` | **stand-collapse transition** |
-| `monolith features/ecs/damage/mod.rs:599` | `apply_damage(event.damage.max(1))` | damage transition, pogo-refresh path |
-| `monolith features/ecs/damage/mod.rs:966` | `apply_damage(event.damage.max(1))` | damage transition, hit-volume path |
+| `monolith features/ecs/damage/mod.rs:617` | `apply_damage(event.damage.max(1))` | damage transition, pogo-refresh path |
+| `monolith features/ecs/damage/mod.rs:984` | `apply_damage(event.damage.max(1))` | damage transition, hit-volume path |
 | `ambition_interaction/src/lib.rs:258,260` | `state = Broken` / `Cracking` | the domain state machine |
 
 **Six mutation sites, three crates.** `begin_ecs_breakable_respawn` is
-`ambition_combat`'s and is called from **three** places — `damage/mod.rs:602`,
-`damage/mod.rs:989` and `breakables.rs:77` — so the respawn authority is one
+`ambition_combat`'s and is called from **three** places — `damage/mod.rs:620`,
+`damage/mod.rs:1007` and `breakables.rs:77` — so the respawn authority is one
 place called from three, the third being the collapse this table used to miss.
+⚠ **Coordinates re-derived 2026-09-17; the membership did not move.** The two
+monolith call sites drifted (`:602` → `:620`, `:989` → `:1007`) and the four
+`apply_damage`/state rows above with them. `scripts/check_planning_line_citations.py`
+reported both respawn rows as AMBIGUOUS rather than repointing them, which is the
+right refusal: the two calls are textually identical, so nothing but reading the
+file says which row meant which.
 
 ### How the count moved, because the ladder is the point
 

@@ -113,7 +113,7 @@ says production embeds no encounter wave data. The dependency moved to
 
 | crate | dependency | where it is really used |
 |---|---|---|
-| `ambition_encounter` | `ron` | `crates/ambition_encounter/src/content_schema.rs:48`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11` |
+| `ambition_encounter` | `ron` | `crates/ambition_encounter/src/content_schema.rs:56`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11`. ⚠ Was `:48` and the parsed type was `EncounterWaveBook`; it is `AuthoredWaveTimelines` now, renamed because the crate held TWO types called `EncounterWaveBook` — the bare map this schema lowers and the Bevy `Resource` newtype an App owns |
 | `ambition_dialog` | `ambition_persistence` | `crates/ambition_dialog/src/systems.rs:18` and `:410`, behind that crate's `#[cfg(feature = "ui")]` modules. ⚠ **RE-READ 2026-09-17: the use NARROWED and the row's second site is gone.** This said `bridge.rs:26` too, for `use ambition_persistence::save::AmbitionGameSave` — `ambition_dialog` no longer names `AmbitionGameSave` anywhere, and every remaining reference is `persistence::settings` (`MenuTapMode`, `UserSettings`). The dependency is still real, so the row's verdict is unchanged; what moved is WHICH part of the dependency is load-bearing, which is the thing a later delete-list would be decided on |
 | `ambition_game_shell` | `ambition_persistence` | 11 non-test references |
 | `ambition_input` | `ambition_entity_catalog` | 5 non-test references |

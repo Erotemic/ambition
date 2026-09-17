@@ -72,13 +72,13 @@ and is right to, which is why this paragraph is now in the past tense.
 
 | site | what mints |
 |---|---|
-| `crates/ambition_held_items/src/lib.rs:1355` | the domain's own release path |
-| `crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:549` | world construction |
-| `crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage_drops.rs:332` | death drop |
-| `crates/ambition_platformer2d_actor_monolith/src/items/match_spawn.rs:127` | match spawn |
-| `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:416` | pickup/throw |
-| `game/ambition_demo_smash/src/bomb.rs:121` | a ruleset's bomb |
-| `game/ambition_demo_smash/src/mine.rs:222` | a ruleset's mine |
+| `crates/ambition_held_items/src/lib.rs:1355` | the domain's own release path | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs:549` | world construction | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage_drops.rs:332` | death drop | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `crates/ambition_platformer2d_actor_monolith/src/items/match_spawn.rs:127` | match spawn | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:416` | pickup/throw | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `game/ambition_demo_smash/src/bomb.rs:121` | a ruleset's bomb | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
+| `game/ambition_demo_smash/src/mine.rs:222` | a ruleset's mine | <!-- cite-ok: the pre-seal tree, kept as the record of what the seal replaced -->
 
 ✔ **SEALED 2026-09-10.** `GroundItem` is `#[non_exhaustive]` with
 `at_rest(spec, pos, half_extent)` and `released(spec, pos, vel, half_extent)`,
@@ -91,7 +91,7 @@ the struct literal back at `damage_drops.rs:415` fails
 `cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]` in 2s.
 
 A7's acceptance says *"reward policy receives accepted outcomes; it does not
-become an alternative item minting path."* `damage_drops.rs:332` is a drop
+become an alternative item minting path."* `damage_drops.rs:332` was a drop <!-- cite-ok: the pre-seal tree, kept as the record -->
 policy minting an occurrence directly, and the reason it can is that there is no
 narrower road to take. ⇒ **This is the "make it impossible, not checked" edge in
 the packet.**
@@ -146,10 +146,10 @@ invisible — but **do not start work from it.**
 ⛔ **AND THE STARTER ROSTER WAS INSERTED BY TWO CRATES IN THE SAME COMPOSITION —
 PAST TENSE, AND THE COORDINATES BELOW ADDRESS THE TREE IT WAS TRUE IN.**
 `OwnedItems::starter()` WAS `insert_resource`d at
-`game/ambition_app/src/app/resources.rs:361` (in `init_sandbox_resources`, whose
+`game/ambition_app/src/app/resources.rs:361` (in `init_sandbox_resources`, whose <!-- cite-ok: the pre-consolidation tree, kept as the record -->
 own comment explains that headless `Platformer2dSimHarness` runs quest reward
 systems without the presentation plugins) and again at
-`game/ambition_content/src/items/mod.rs:36` (in `AmbitionItemRosterPlugin`,
+`game/ambition_content/src/items/mod.rs:36` (in `AmbitionItemRosterPlugin`, <!-- cite-ok: the pre-consolidation tree, kept as the record -->
 installed from `plugins.rs:525` inside `install_menu_setup_and_hotkeys`). The
 windowed app ran both. ⚠ Re-derived 2026-09-17: the only `insert_resource` of the
 starter roster in production is `game/ambition_content/src/plugin.rs:71`, exactly

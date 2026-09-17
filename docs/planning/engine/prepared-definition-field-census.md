@@ -138,7 +138,7 @@ much lighter for the other two.
 ⚠ **TWO INSTRUMENT FAILURES PRODUCED THIS TABLE AND BOTH ARE WORTH THE SPACE.**
 A first pass read ONE function's window and reported five fields, not eleven — an
 UNDER-report, the direction that says "already clean". And `moveset_takes.rs:1259`
-and `moveset_render.rs:889` bind `prepared` to a **`bool`** returned by
+and `moveset_render.rs:902` bind `prepared` to a **`bool`** returned by
 `move_exercise::prepare`; a search on the word rather than the binding counts them
 as definition reads. ⇒ **A matching identifier is not the same value.**
 

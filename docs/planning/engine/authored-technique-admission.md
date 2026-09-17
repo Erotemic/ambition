@@ -8,10 +8,14 @@ screen together, so whoever adds the second does not see the first.
 
 **A11** — shipping lifecycle, empty-support checking and transitive withholding
 are REPAIRED. ✅ **Raw public activation is CLOSED, and this line was the stale
-half.** It read *"still open ... plain `pub`"*. The function now carries
+half.** It read *"still open ... plain `pub`"*.
+`close_preparation_barrier_without_admission` now carries
 `#[cfg(any(test, feature = "test-support"))]`
-(`crates/ambition_characters/src/prepared.rs:2277`), so a shipping app does not
-compile it at all.
+(`crates/ambition_characters/src/prepared.rs:2727`), so a shipping app does not
+compile it at all. ⚠ **The function is NAMED here since 2026-09-17 because the
+coordinate alone had drifted 450 lines** (`:2277` → `:2727`) and that attribute
+appears six times in the file, so nothing but the git history said which one this
+sentence meant. A `file:line` is a coordinate; the symbol is the citation.
 
 ⭐ **AND THE GATE WAS CHECKED, NOT READ.** A `cfg` on the declaration only holds
 if nothing turns the feature on for a production build. MEASURED 2026-09-10 at

@@ -40,6 +40,13 @@ its citation against a tree where the coordinate was already wrong. That makes
 this check CONSERVATIVE -- it under-reports drift and never invents it -- which
 is the right direction for a tool that rewrites files.
 
+⚠ **AND `ambiguous` HAS A THIRD READING THE FIRST SWEEP MADE OBVIOUS:** six of
+its eleven rows had a `then` text of `}`, `)`, `);`, `}),` or `///`. A citation
+whose line held only punctuation never addressed a statement to begin with --
+usually it names the closing brace of the construct the author meant -- so there
+is nothing to track and nothing to repoint. The report says so beside those rows,
+and the repair is to cite the symbol.
+
 ⛔⛤ **AND `gone` IS NOT ALWAYS A DEFECT — LEARNED FROM THE FIRST SWEEP'S OWN
 RESULTS.** Seven of the sixteen `gone` findings were one table in
 `item-writer-inventory.md` listing the struct-literal `GroundItem { .. }` sites
@@ -347,6 +354,19 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {where}  cites {target}{arrow}")
                 print(f"      then: {f.was[:100]}")
                 print(f"      now : {f.now[:100]}")
+                if f.verdict == "ambiguous" and not any(
+                    ch.isalnum() for ch in f.was
+                ):
+                    # ⚠ Six of the first sweep's eleven `ambiguous` rows had a
+                    # `then` of `}`, `)`, `);`, `}),` or `///`. Such a citation
+                    # never addressed a statement — it addressed the closing
+                    # punctuation of one — so there is nothing for this tool to
+                    # track and the repair is to cite the SYMBOL.
+                    print(
+                        "      ⚠ the cited line was punctuation when it was "
+                        "written, so the coordinate never named a statement — "
+                        "cite the symbol instead"
+                    )
 
     fixed = repoint(findings) if args.fix else 0
 

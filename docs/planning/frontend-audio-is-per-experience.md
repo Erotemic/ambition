@@ -1,16 +1,24 @@
 # Frontend audio — remaining work
 
-> **Verified against `cecd01ca` (2026-08-13).** Route-keyed frontend audio is
-> implemented: routes can declare `FrontendAudioProfile`s, composition stores
-> them in a registry, activation resolves the selected route, and Smash's select
-> route owns its own score. The full migration record is archived at
+> **Verified against `7e3510f5c` (2026-09-17); previously `008b44120`
+> (2026-09-02) and `cecd01ca` (2026-08-13), each finding the same thing.**
+> Route-keyed frontend audio is implemented and still is: `FrontendAudioProfile`
+> is declared by a route, `FrontendAudioRegistry` (`ambition_audio/src/selection.rs`)
+> holds every declaration *"keyed by the route that owns"* it in its own words,
+> and it has four readers at HEAD — provider composition, the game shell's
+> session, and two systems in the actor monolith's audio plugin. The full
+> migration record is archived at
 > `../archive/planning-superseded/2026-08-13/frontend-audio-is-per-experience.md` (docs/archive/planning-superseded/2026-08-13/frontend-audio-is-per-experience.md — removed from the checkout 2026-09-05; still in git history).
-
-> **Re-checked against `008b44120` (2026-09-02): NOTHING HAD CHANGED.**
-> `FrontendAudioRegistry` is live in `ambition_audio/src/selection.rs` and read
-> by the actor monolith's audio plugin; `selection.rs` itself records that
-> declarations are keyed by route. The remaining item below is still a
-> "when the product wants it" consumer, not missing architecture.
+>
+> ⚠ **THREE RECEIPTS WERE STACKED HERE AND ARE NOW ONE.** A receipt dates the
+> CHECK, so a page that keeps every check it ever passed makes the reader work
+> out which one is current. The dates above are the history; the sha is the
+> claim.
+>
+> ⇒ The remaining item below is unchanged and still a *"when the product wants
+> it"* consumer rather than missing architecture: nothing declares a stage theme
+> and a winner-card theme as two routes, and `MusicDirectorState` is what a
+> within-experience change goes through today.
 
 ## Remaining
 

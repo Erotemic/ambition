@@ -1,9 +1,14 @@
 # Gameplay presentation profiles — remaining work
 
-> **Verified against `cecd01ca` (2026-08-13).** GP1–GP5 are implemented: profile
-> resolution, fixed/aspect viewport policy, surround layout, provider profile
-> declaration, occupancy/control regions, touch placement, and the player HUD's
-> first surround-region consumer exist. The original design/review history is
+> **Verified against `7e3510f5c` (2026-09-17); originally `cecd01ca`
+> (2026-08-13).** GP1–GP5 are implemented: profile resolution, fixed/aspect
+> viewport policy, surround layout, provider profile declaration,
+> occupancy/control regions, touch placement, and the player HUD's first
+> surround-region consumer exist. `GameAuthored` and `DecorativeWorldExtension`
+> are still spelled (`shared_tangle/src/gameplay_presentation/mod.rs`,
+> `ambition_render/src/gameplay_surround.rs`) and the host still resolves
+> surround regions, so the remaining bullets below are the same remaining
+> bullets. The original design/review history is
 > archived at
 > `../../archive/planning-superseded/2026-08-13/triage/gameplay-presentation-profiles.md` (docs/archive/planning-superseded/2026-08-13/triage/gameplay-presentation-profiles.md — removed from the checkout 2026-09-05; still in git history).
 
@@ -12,8 +17,11 @@
 - ▢ **Bridge real platform safe-area insets.** `DisplaySafeAreaInsets` exists and
   is consumed, but the runtime still lacks a production writer that publishes
   non-zero platform insets where appropriate.
-  ✔ **RE-MEASURED 2026-09-03 — accurate, and it is a total absence rather than a
-  partial one.** The type has exactly FOUR references in the entire repository:
+  ✔ **RE-MEASURED 2026-09-03 AND AGAIN 2026-09-17 — UNCHANGED, and it is a total
+  absence rather than a partial one.** ⚠ Two weeks and several campaigns apart,
+  the count and the four sites are IDENTICAL, which is the reading that matters:
+  nothing has quietly grown a producer and nothing has quietly lost the reader.
+  The type has exactly FOUR references in the entire repository:
   the definition
   (`crates/ambition_platformer2d_shared_tangle/src/gameplay_presentation/mod.rs:262`),
   an import, one `init_resource`

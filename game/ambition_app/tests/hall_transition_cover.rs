@@ -972,14 +972,42 @@ fn settle_resident_pages(app: &mut App, what: &str) {
     }
 }
 
-/// What the character table and THIS App's resident character pages hold.
-fn residency_snapshot(app: &App) -> (usize, usize, f64) {
+/// The character table's realizations plus EVERY image resident in this App —
+/// recorded unclassified, and classified once by the caller at the end.
+///
+/// ⛔⛤ **IT CLASSIFIED AT THE MOMENT OF EACH READING UNTIL 2026-09-16, WHICH
+/// MADE TWO READINGS TWO INSTRUMENTS.** `common::character_sheet_paths` is a
+/// process-global set that only grows, so a sibling arm demanding a new
+/// character-sheet path between lap 0 and lap 1 added a page to the second
+/// reading with nothing about this App having changed. A full workspace run
+/// measured exactly that: 126 → 127 pages, 258 realizations on BOTH laps, and
+/// megapixels up by one page's worth.
+///
+/// ⚠ **AND FREEZING THE CLASSIFIER AT THE START WOULD HAVE HIDDEN THE DEFECT
+/// THIS ARM EXISTS FOR** — a page THIS App loads during lap 1 is what puts its
+/// path in the ledger late, so a start-of-arm snapshot excludes precisely the
+/// new residency the arm is hunting. ⇒ Residency is recorded per reading and
+/// classification is applied once, after both laps: a page classified in between
+/// lands in BOTH sets and cancels; a page that arrived in between does not.
+fn residency_reading(app: &App) -> (usize, Vec<(String, f64)>) {
     use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
     let assets = app.world().resource::<GameAssets>();
     let realizations = assets.characters.resident_sheets().count();
-    let pages = crate::common::resident_character_pages(app);
+    (realizations, crate::common::resident_image_paths(app))
+}
+
+/// One reading, classified: `(realizations, pages, megapixels)`.
+fn classified(
+    reading: &(usize, Vec<(String, f64)>),
+    classifier: &std::collections::BTreeSet<String>,
+) -> (usize, usize, f64) {
+    let pages: Vec<&(String, f64)> = reading
+        .1
+        .iter()
+        .filter(|(path, _)| classifier.contains(path))
+        .collect();
     let mp = pages.iter().map(|(_, mp)| mp).sum();
-    (realizations, pages.len(), mp)
+    (reading.0, pages.len(), mp)
 }
 
 /// RESIDENCY GROWTH (asset open work 4, the "measure working-set growth"
@@ -1000,20 +1028,35 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
     settle_resident_pages(&mut app, "the hub was settling after activation");
-    let start = residency_snapshot(&app);
-    let mut laps = Vec::new();
-    for lap in 0..2 {
+    let start_reading = residency_reading(&app);
+    let mut lap_readings = Vec::new();
+    let mut hall_readings = Vec::new();
+    let mut frames = Vec::new();
+    for _ in 0..2 {
         let to_hall = transit_through(&mut app, HALL_DOOR_ZONE, 900);
         settle_resident_pages(&mut app, "the hall was settling");
-        let in_hall = residency_snapshot(&app);
+        hall_readings.push(residency_reading(&app));
         let to_hub = transit_through(&mut app, "hall_of_characters_entry", 900);
         settle_resident_pages(&mut app, "the hub was settling after the return");
-        let back = residency_snapshot(&app);
+        lap_readings.push(residency_reading(&app));
+        frames.push((to_hall, to_hub));
+    }
+    // ⛔ ONE CLASSIFIER, APPLIED AFTER BOTH LAPS. See `residency_reading` for why
+    // it is neither per-reading (two instruments) nor frozen at the start (blind
+    // to this App's own new load).
+    let classifier = crate::common::character_sheet_paths();
+    let start = classified(&start_reading, &classifier);
+    let laps: Vec<(usize, usize, f64)> = lap_readings
+        .iter()
+        .map(|reading| classified(reading, &classifier))
+        .collect();
+    for (lap, ((to_hall, to_hub), in_hall)) in frames.iter().zip(hall_readings.iter()).enumerate() {
         eprintln!(
-            "[residency-lap {lap}] to hall in {to_hall} frames: {in_hall:?}; back in {to_hub} \
-             frames: {back:?}"
+            "[residency-lap {lap}] to hall in {to_hall} frames: {:?}; back in {to_hub} \
+             frames: {:?}",
+            classified(in_hall, &classifier),
+            laps[lap]
         );
-        laps.push(back);
     }
     eprintln!("[residency] at start {start:?}; after each lap {laps:?}");
     let (first, second) = (laps[0], laps[1]);

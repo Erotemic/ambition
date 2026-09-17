@@ -61,8 +61,17 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 
 ### Deterministic identity
 
+⛔ **ID-PEER IS COMPLETE FOR ITS CURRENT SCOPE AS OF 2026-09-16, WHICH IS NOT
+"DONE" AND IS NOT AN INVITATION TO MINE IT.** All three open roads are blocked
+outside the campaign — two on maintainer rulings, one on a P2P session that this
+workspace never constructs — and the hostile two-host peer-visible census that
+found the last three defects runs clean. ⇒ Nothing here is advanced by another
+pass over the table. ⚠ **One exception, named so a blanket "blocked" does not
+swallow it:** the unchecksummed float rows' STATE half has a road and measures
+two of twenty-five today; extending that arm needs no ruling.
+
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
-separate active seam. `SessionScopeId`, shell activation ids, content epochs and
+separate seam. `SessionScopeId`, shell activation ids, content epochs and
 monotonic counters stay valid for cleanup and stale-message rejection; none of
 them may determine authoritative RNG, deterministic construction provenance,
 rollback identity, contact/projectile identity, or a peer checksum.

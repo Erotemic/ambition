@@ -237,18 +237,68 @@ pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, 
 ///
 /// Returns `(path, megapixels)` for every such page.
 pub fn resident_character_pages(app: &bevy::prelude::App) -> Vec<(String, f64)> {
+    resident_character_pages_classified_by(app, &character_sheet_paths())
+}
+
+/// The classifier: every path any arm in this process has demanded on the
+/// `character-sheet` road.
+///
+/// ⛔⛤ **IT ONLY GROWS, AND AN ARM THAT SAMPLES IT TWICE IS USING TWO
+/// INSTRUMENTS.** Keying it on paths instead of asset ids fixed a census that
+/// read 29 of 149 pages; it did NOT make the set stable during one arm's
+/// window, because a sibling arm demanding a new character-sheet path mid-window
+/// adds a row, and any page of that path already resident in THIS App starts
+/// counting. `two_round_trips_through_the_gallery_return_the_same_working_set`
+/// failed a full workspace run on *"126 → 127 pages"* with its REALIZATION count
+/// identical at 258 on both laps and megapixels up by exactly one page — the
+/// signature of the instrument moving, not the App retaining.
+///
+/// ⇒ An arm that COMPARES two samples takes this once and passes it to both
+/// readings. `resident_character_pages` re-reads it, which is right for a
+/// single-sample caller.
+pub fn character_sheet_paths() -> std::collections::BTreeSet<String> {
+    let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
+    ledger
+        .rows()
+        .filter(|row| row.source == Some("character-sheet"))
+        .filter_map(|row| row.path.clone())
+        .collect()
+}
+
+/// Every image resident in THIS App, by path, with its megapixels — UNCLASSIFIED.
+///
+/// ⭐ **RESIDENCY IS A PROPERTY OF THIS APP AND CLASSIFICATION IS NOT**, so an
+/// arm that compares two moments records this at each moment and classifies ONCE
+/// at the end. Then a page classified between the two moments lands in BOTH
+/// sets and cancels, while a page that genuinely arrived between them does not —
+/// which is the separation a frozen classifier alone cannot make, because the
+/// App's own new load is exactly what puts a path in the ledger late.
+pub fn resident_image_paths(app: &bevy::prelude::App) -> Vec<(String, f64)> {
     use bevy::prelude::{Assets, Image};
     let world = app.world();
     let images = world.resource::<Assets<Image>>();
     let server = world.resource::<bevy::asset::AssetServer>();
-    let character_sheet_paths: std::collections::BTreeSet<String> = {
-        let ledger = ambition_platformer2d::sprite_sheet::game_assets::image_stages::ledger();
-        ledger
-            .rows()
-            .filter(|row| row.source == Some("character-sheet"))
-            .filter_map(|row| row.path.clone())
-            .collect()
-    };
+    let mut out = Vec::new();
+    for (id, image) in images.iter() {
+        let Some(path) = server.get_path(id).map(|path| path.to_string()) else {
+            continue;
+        };
+        let megapixels = f64::from(image.width()) * f64::from(image.height()) / 1.0e6;
+        out.push((path, megapixels));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// [`resident_character_pages`] against a classifier the caller holds still.
+pub fn resident_character_pages_classified_by(
+    app: &bevy::prelude::App,
+    character_sheet_paths: &std::collections::BTreeSet<String>,
+) -> Vec<(String, f64)> {
+    use bevy::prelude::{Assets, Image};
+    let world = app.world();
+    let images = world.resource::<Assets<Image>>();
+    let server = world.resource::<bevy::asset::AssetServer>();
     let mut out = Vec::new();
     for (id, image) in images.iter() {
         let Some(path) = server.get_path(id).map(|path| path.to_string()) else {

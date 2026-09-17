@@ -48,6 +48,20 @@ and a read-only `LazyLock` catalog, neither of which can zero a fixed-step count
 or panic a plugin build. ⇒ Its next step is still its ASSERTION, which has never
 been captured.
 
+⚠ **AND A FULL `cargo test --workspace` ON 2026-09-16 DID NOT REPRODUCE IT** —
+captured whole to a file rather than piped, so this is a negative reading with a
+method rather than an absence of notice. It is not evidence the cause is gone; it
+is one more sample of an arm whose observed rate was 25% over twenty runs.
+
+⭐ **WHAT THAT RUN DID FIND IS A DIFFERENT SHAPE, WORTH SEPARATING FROM THIS
+ONE.** Two arms were DETERMINISTICALLY red in every run and no lane had noticed:
+`ambition_sim_harness`'s Track-4 composition gate and `ambition_demo_mary_o`'s
+`her_spark_damages_a_snake_through_the_shared_hit_pipeline`, each because a
+recent change made a resource REQUIRED in a composition that does not install it
+— one red for a day, one for three. ⇒ *"Fails in company"* and *"fails wherever
+nobody looks"* are different problems, and only the second is solved by running
+the wider population. Both are receipted under `queue.md`'s TEST-LANES.
+
 ⭐ **THE MAP, MEASURED:** production code outside tests holds roughly **fifty
 `static`s with interior mutability**, concentrated in `ambition_sprite_sheet` (12),
 `ambition_characters` (7), `shared_tangle` (4) and `ambition_causal` (4). In

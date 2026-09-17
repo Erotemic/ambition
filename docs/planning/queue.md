@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,175 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,251 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -28,7 +28,7 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 ```
 
 because a number stated here without its command is the next stale copy: this
-paragraph carried 2,519 for long enough that the file had grown by 656 lines
+paragraph carried 2,519 for long enough that the file had grown by 732 lines
 underneath it. Three agents worked it in one night and it more than doubled,
 which is the point — **the growth is continuous and the compression is per-row,
 so a single cleanup does not hold.** C10's regression rule is *"if a live
@@ -215,6 +215,18 @@ not a missing line. The decision is what is missing, not the registration.
 
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
+
+⛔ **COMPLETE FOR ITS CURRENT SCOPE (2026-09-16) — DO NOT MINE THIS ROW FOR
+WORK.** The hostile two-host peer-visible census that found the last three
+defects runs clean, and every open road's DECISION sits outside the campaign:
+`Q122`, `Q128`, and netcode's `N2` for the unchecksummed float rows' timeline
+half. A pass over the table is not work.
+
+⚠ **ONE EXCEPTION, NAMED BECAUSE A BLANKET "BLOCKED" WOULD SWALLOW IT.** The
+float rows' STATE half is not blocked —
+`two_local_histories_compute_the_same_mechanical_values` is the road and it
+measures two of the twenty-five today. Extending it is ordinary work with no
+ruling in front of it; the row below says which rows and what each one costs.
 
 **Current state (2026-09-16): FOURTEEN CLOSED, THREE OPEN, SEVENTEEN LIVE —
 eighteen FILED, because the thirteenth was withdrawn the day it was filed and the
@@ -2980,6 +2992,24 @@ because they shared a symptom. **A symptom is not a population.**
   a fix verified by the arms that MEASURED the defect is verified against the
   wrong population.** Those five arms went green and the change's reverse
   dependency closure was never run.
+- ⛔⛤ **AND A SECOND OF EXACTLY THAT SHAPE, THREE DAYS OLD, FOUND IN THE SAME
+  `cargo test --workspace`.** `apply_feature_hit_events` took
+  `Res<PlayerDamagePolicy>` — required since `ef8ab19ff` (2026-09-13) — while its
+  own comment beside it read *"`Option` so minimal headless test worlds that
+  never stand up settings still run at the neutral 1.0"*, and the type's
+  `Default` doc promised the same. `ambition_demo_mary_o`'s
+  `her_spark_damages_a_snake_through_the_shared_hit_pipeline` builds its App by
+  hand, adds that system directly, and panicked *"Resource does not exist"* on
+  every run for three days. ⇒ The fixture could NOT be repaired instead: that
+  demo's manifest states the E9 oracle outright — *"a downstream game names
+  `ambition_platformer2d` + `bevy`, and NOTHING ELSE"* — and the facade does not
+  export the policy, so a composition that cannot NAME it has to run without it.
+  Fixed at the parameter (`e9f0346d8`), poison-verified both ways.
+  ⭐ **TWO DETERMINISTIC REDS IN ONE WORKSPACE RUN, NEITHER INTERMITTENT, NEITHER
+  NOTICED** — because `cargo test --workspace` is the only lane that runs either
+  arm and nobody had run it to completion. *"Fails in company"* and *"fails
+  wherever nobody looks"* are different problems; the triage page for the first
+  now says so.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
 **691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the
@@ -3174,6 +3204,28 @@ run stays at 149, byte-identical. ⛔ No retry was added.
 ⭐ **AND IT MADE THE ORPHAN GUARD STRONGER.** `orphan_character_pages` subtracts
 this App's owned sheet paths from this census, so a census that had shrunk to 29
 was checking 29 candidates for leaks. It checks 139 now, and still passes.
+
+⛔⛤ **AND THE PATH-KEYED CLASSIFIER FIXED THE VALUE WITHOUT FIXING THE
+COMPARISON — SECOND INSTANCE, 2026-09-16, FOUND BY A FULL `cargo test
+--workspace`.** Same arm, same shape: *"the hub's resident character PAGES differ
+between laps (126 → 127)"*. The arm's own printed window settles it — 258
+realizations on BOTH laps and megapixels up by exactly one page's worth — so the
+App's character table did not move and the INSTRUMENT did. The classifier is a
+process-global set that only GROWS, and a sibling arm demanding a new
+character-sheet path between lap 0 and lap 1 starts counting a page this App
+already held.
+
+⚠ **AND THE OBVIOUS REPAIR WOULD HAVE HIDDEN THE DEFECT THE ARM EXISTS FOR.**
+Freezing the classifier before lap 0 makes both readings one instrument — and a
+page THIS App loads during lap 1 is exactly what puts its path in the ledger
+late, so a start-of-arm snapshot excludes precisely the new residency being
+hunted. ⇒ The split landed instead: residency is recorded UNCLASSIFIED at each
+reading (`common::resident_image_paths`) and classification is applied ONCE after
+both laps. A page classified in between lands in both sets and cancels; a page
+that arrived in between does not. ⛔ No retry, and no floor was loosened.
+Measured: the arm now reads **149** pages in a full `app_it` run, which is the
+number three alone-runs read byte-identically before any of this. Poison-verified
+— an extra classified page on lap 1 only reddens it at 149 → 150.
 
 ⚠ **THE NEXT CANDIDATE IN THIS CLASS, NAMED NOT FIXED.**
 `hall_redecode_census.rs` reads the same process-global ledger directly, and its

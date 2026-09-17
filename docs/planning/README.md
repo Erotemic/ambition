@@ -140,15 +140,23 @@ it.
 - `P0/P1/P2/P3` are priority bands, not permanent identifiers.
 - A row names the current failure, owner, next action, and acceptance.
 - Deep reasoning belongs in the focused plan. The queue links there.
-- When a row is fixed, remove it from the live queue in the same change that
-  closes it. The commit and Git history are the receipt.
+- When a row closes, keep a short RECEIPT only where another open row depends on
+  that fact; otherwise remove it in the same change. ⚠ This bullet read *"remove
+  it… the commit and Git history are the receipt"* until 2026-09-16, while
+  `queue.md`'s own header stated the receipt rule — two authorities giving
+  different instructions about the same edit, which is what a doctrine page must
+  not do. The refined rule is the one in practice and it lives in both places
+  identically now, because it is short enough to.
 - If a finding is only a human measurement or maintainer choice, it does not
   occupy an engineering execution slot.
 - Re-measure a row before implementing it. A queue row is a claim about a
   changing tree.
 
 The queue should stay short enough that a reviewer can read the whole execution
-surface in one sitting.
+surface in one sitting. ⭐ **A row that has converged is REWRITTEN AROUND ITS
+RESULT, not appended to** — three ID-PEER blocks were collapsed on 2026-09-16 by
+moving their durable design to the owner page and leaving a receipt with its
+SHAs, and the queue's own header offers them as worked examples.
 
 ## Decision contract
 

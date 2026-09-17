@@ -5,7 +5,8 @@ and checkpoint baseline writers."** This page is that enumeration. A1 closed
 2026-09-09, so the hold is spent; the packet says the census comes before any
 type moves, so the census is the deliverable and no type has moved here.
 
-Measured 2026-09-10 against `13021f0bf`. Re-derive before acting:
+First measured 2026-09-10 against `13021f0bf`, re-run 2026-09-17 — see the
+delta under the table. Re-derive before acting:
 
 ```bash
 python3 scripts/measure_state_writers.py --domain item --sites
@@ -23,10 +24,19 @@ where to look and to see the shape; seal the one you are going to act on.
 |---|---|---|---|
 | occurrence (`GroundItem`, `SettledItem`, `WorldItem`, `ItemMotion`, `ItemEmerge`) | `ambition_held_items`, `ambition_world_items` | 26 | 10 |
 | custody (`ItemCustody`, `ItemStruckBody`, `ReleasedAs`) | `ambition_held_items` | 10 | 1 |
-| inventory (`OwnedItems`) | `ambition_items` | 16 | **13** |
-| checkpoint baseline (`MintedItemBaseline`, `OwnedItemsBaseline`, `MintedItemDescription`, `ItemCheckpointRestoreInputs`) | `ambition_platformer2d_actor_monolith` | 9 | **0** |
+| inventory (`OwnedItems`) | `ambition_items` | 18 | **15** |
+| checkpoint baseline (`MintedItemBaseline`, `OwnedItemsBaseline`, `MintedItemDescription`, `ItemCheckpointRestoreInputs`) | `ambition_platformer2d_actor_monolith` | 10 | **0** |
 
-**61 write-capable sites in total.**
+**64 write-capable sites in total.**
+
+⚠ **RE-RUN 2026-09-17: the table above is the new reading, and only two families
+moved.** Occurrence (26 / 10) and custody (10 / 1) are identical to 2026-09-10,
+site for site. Inventory went 16 → 18 and checkpoint 9 → 10, and the sentence to
+watch is that `ambition_items`'s OWN share is still 3 — so the ratio this page's
+finding rests on went from 3-of-16 to 3-of-18. **The finding got stronger, not
+stale.** The four writing crates are the same four: the monolith (6), content
+(5), the app (4) and `ambition_items` (3). Checkpoint's tenth is still inside its
+owner, so 9-of-9 reads 10-of-10 and the claim is unchanged.
 
 ⚠ **THE FIRST RUN OF THIS PAGE SAID 25 AND 60, AND THE INSTRUMENT WAS WRONG.**
 It recognised construction by a hand-kept list of blessed method names — `{ }`,
@@ -43,10 +53,10 @@ the pattern, not a re-definition of a write.
 ⭐ **THE SHAPE IS THE OPPOSITE OF THE PACKET'S FRAMING, AND THAT IS THE FINDING.**
 A7 is written as "separate item custody/accounting from lifecycle
 orchestration", which reads as *the monolith's session code has grown into the
-item domain*. Measured, the monolith's **checkpoint baseline family is 9 of 9
+item domain*. Measured, the monolith's **checkpoint baseline family is 10 of 10
 inside its own crate** — the one family the packet names as session-adjacent has
 no foreign writer at all. Meanwhile `OwnedItems`, which the packet barely
-mentions, is written from four crates and only 3 of its 16 sites are in
+mentions, is written from four crates and only 3 of its 18 sites are in
 `ambition_items`. ⇒ The separation A7 is looking for is not between session and
 item; it is between **the crate that defines inventory and the crates that
 schedule writes to it**.

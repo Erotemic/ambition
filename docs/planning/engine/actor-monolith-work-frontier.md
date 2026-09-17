@@ -562,8 +562,9 @@ page's FIRST-RUN number — retracted two lines under the total it quotes, becau
 the instrument recognised construction by a hand-kept list of method names and
 missed a whole crate minting occurrences.
 ⇒ It reports the shape as the INVERSE of this packet's framing: the checkpoint
-baseline family is 9 of 9 inside the monolith, while `OwnedItems` is written from
-four crates with 3 of 16 sites in the crate that defines it.
+baseline family is 10 of 10 inside the monolith, while `OwnedItems` is written
+from four crates with 3 of 18 sites in the crate that defines it (re-run
+2026-09-17; it was 9 of 9 and 3 of 16 on 2026-09-10).
 
 ⛔ **`GroundItem`'s SEVEN MINTING SITES ARE CLOSED; DO NOT RE-OPEN THE JOB.**
 This paragraph said *"has no constructor, so seven struct-literal sites"* in the

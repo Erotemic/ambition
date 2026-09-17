@@ -473,7 +473,18 @@ optimisation, because two of the things it would skip are rollback state:
 ```text
 PerceptionMemory   rollback_component_canonical, "actor.perception_memory"
 Perception         rollback_component_canonical, "actor.perception"
+SensesUndecided    rollback_component_clone,     "actor.senses_undecided"
 ```
+
+⚠ **THE THIRD ROW LANDED AFTER THIS SECTION WAS WRITTEN AND IT IS A DIFFERENT
+KIND — added here 2026-09-17.** `rollback_component_clone` is snapshotted and
+restored but NOT hashed into the peer checksum
+(`RollbackEntryKind::feeds_peer_checksum`), so it does not widen the
+wire-compatibility argument below; it is here because its PRESENCE is
+authoritative — a query filters on it, and a rewind that dropped it would hand a
+body with no `Perception` back to `tick_actor_brains`, which reads as
+`Omniscient`. That is the fail-open the marker exists to close, reintroduced by a
+restore. The registration says so at its own site.
 
 A `StandStill` brain that stops building a view also stops calling
 `WorldMemory::update`, so its remembered set stays empty instead of tracking the

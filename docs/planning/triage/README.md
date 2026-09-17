@@ -36,7 +36,9 @@ measurement it carries, and the index would lose that by demoting it to a link.
   file that does not exist. The objection that kept it parked — a checker buys a
   suppression list — was measured and did not survive: the legitimate cases
   announce themselves, the annotation cost was fourteen lines in a convention
-  that already existed, and `--comment-paths` gates in the default lane.
+  that already existed. ⚠ `--comment-paths` REPORTS in the default lane; it was
+  registered as a gate and demoted the same day under `AGENTS.md`'s rule against
+  permanent file-location machinery.
 
 ## Design and scope pages awaiting a decision
 

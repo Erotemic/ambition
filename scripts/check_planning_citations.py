@@ -1172,7 +1172,10 @@ def main() -> int:
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
     # ⛔⛤ **TWO HALVES WITH DIFFERENT KINDS OF EVIDENCE, SO THEY ARE TWO FLAGS.**
-    # A PATH either exists or it does not, so `--comment-paths` gates. A SYMBOL
+    # A PATH either exists or it does not, which is why `--comment-paths` is a
+    # separate flag — but it does NOT gate the lane: `AGENTS.md` rules out
+    # permanent file-location machinery for a failure no behavioural test could
+    # hold, and a stale path in a comment is exactly that. A SYMBOL
     # citation can be wrong about a name this checker cannot know — a macro
     # declaration, an upstream method reached through a type name this repo also
     # defines (`World::iter_entities` is exactly that) — and the lane's own

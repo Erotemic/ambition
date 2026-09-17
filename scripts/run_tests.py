@@ -569,23 +569,27 @@ def slow_python_checker_jobs() -> list[Job]:
                 "docs/recipes",
             ],
         ),
-        # ⛔⛤ **THE SAME CHECKER, THE HALF THAT CAN GATE.** The job above is
-        # non-strict because its SYMBOL findings are a prose linter's guesses.
-        # A PATH citation is not a guess: either a file is there or it is not,
-        # and until 2026-09-17 nothing asked that question of a `.rs` comment at
-        # all. Seven live citations were pointing at nothing when it was first
-        # run — two sending a reader to an `app/schedule.rs` that does not exist.
-        # ⇒ Green at HEAD, `cite-ok` is the escape hatch for a path named
-        # BECAUSE it is gone, and this gates so a carve cannot re-break them in
-        # silence. `triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`
-        # is the row it closes.
+        # ⛔⛤ **THE SAME CHECKER AGAIN, AND IT REPORTS RATHER THAN GATES.** A
+        # path citation is not a linter's guess — either a file is there or it
+        # is not — and the first run found seven live comments pointing at
+        # nothing, two sending a reader to an `app/schedule.rs` that does not
+        # exist. That is why the job is here at all.
+        # ⚠ It was added `--strict` on 2026-09-17 and DEMOTED the same day.
+        # `AGENTS.md` ("Avoid bullshit guardrails") rules out permanent
+        # source-text and file-location machinery unless the failure is
+        # materially harmful and unenforceable through types, APIs or
+        # behavioural tests. A stale path misleads a reader; it breaks nothing a
+        # behavioural test could hold. ⇒ The finding was worth landing, the
+        # permanent gate was not, and the escape hatch it needed (`cite-ok`, for
+        # a path named BECAUSE it is gone) is itself a sign of a check that has
+        # to argue with honest prose. `triage/a-prose-path-inside-a-doc-comment-
+        # is-not-checked.md` is the row it closes.
         Job(
-            "a path named in a source comment exists",
+            "a path named in a source comment exists (reports, does not gate)",
             [
                 sys.executable,
                 "scripts/check_planning_citations.py",
                 "--comment-paths",
-                "--strict",
             ],
         ),
         Job(

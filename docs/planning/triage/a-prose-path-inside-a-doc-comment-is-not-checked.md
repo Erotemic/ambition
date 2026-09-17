@@ -118,10 +118,23 @@ the top of this page, now with instances instead of one.
 
 ## What closed it
 
-`scripts/check_planning_citations.py --comment-paths --strict`, registered in
-`scripts/run_tests.py` as *"a path named in a source comment exists"* and running
-in the default plan (`slow_python_checker_jobs`, so `--rust` and `--maintenance`
-drop it and say so).
+`scripts/check_planning_citations.py --comment-paths`, registered in
+`scripts/run_tests.py` as *"a path named in a source comment exists (reports,
+does not gate)"* and running in the default plan (`slow_python_checker_jobs`, so
+`--rust` and `--maintenance` drop it and say so).
+
+⛔⛤ **IT WAS REGISTERED `--strict` AND DEMOTED THE SAME DAY.** A review named
+`AGENTS.md`'s *"Avoid bullshit guardrails"*, which rules out permanent
+source-text and file-location machinery *"unless it prevents a concrete,
+recurring, materially harmful failure that cannot be enforced more naturally
+through Rust types, APIs, crate boundaries, or behavioral tests."* The failure
+here is concrete and recurring — seven live comments pointing at nothing — and
+it is not materially harmful: a stale path misleads a reader and breaks nothing.
+⇒ **The census was worth running and the gate was not.** What this row closed is
+the question *"is anybody checking?"*, answered once, with the seven fixed; a
+permanent gate would have been the repository paying rent on that answer
+forever. The escape hatch it needed (`cite-ok`, for a path named BECAUSE it is
+gone) is itself the tell: a check that has to argue with honest prose.
 
 ⛔ **ONE RESOLVER, NOT A SECOND SCRIPT.** `path_resolves` already knew the
 repository's abbreviation habit and `cite-ok` already meant *"wrong on purpose"*;

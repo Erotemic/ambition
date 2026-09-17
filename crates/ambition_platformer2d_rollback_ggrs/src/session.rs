@@ -1261,6 +1261,120 @@ fn content_identity_of(
 }
 
 #[cfg(test)]
+mod carrier_order_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy_ggrs::{Rollback, RollbackId, RollbackOrdered};
+
+    /// A world holding `live` named carriers, after `retired` carriers have come
+    /// and gone — which is what a shell host looks like on its third route.
+    fn world_with(retired: usize, live: &[&str]) -> World {
+        let mut world = World::new();
+        world.init_resource::<RollbackOrdered>();
+        for index in 0..retired {
+            let entity = world.spawn((Rollback, SimId::placement(&format!("gone{index}")))).id();
+            world.flush();
+            world.despawn(entity);
+        }
+        // Spawned in REVERSE name order, so an arm that happens to agree with
+        // spawn order is not agreeing by accident.
+        for name in live.iter().rev() {
+            world.spawn((Rollback, SimId::placement(name)));
+        }
+        world.flush();
+        world
+    }
+
+    fn orders(world: &mut World) -> Vec<(String, u64)> {
+        let pairs: Vec<(String, RollbackId)> = world
+            .query::<(&SimId, &RollbackId)>()
+            .iter(&world)
+            .map(|(id, rollback)| (id.as_str().to_string(), *rollback))
+            .collect();
+        let ordered = world.resource::<RollbackOrdered>().clone();
+        let mut out: Vec<(String, u64)> = pairs
+            .into_iter()
+            .map(|(name, rollback)| (name, ordered.order(rollback)))
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// ⛔ THE WHOLE POINT: two Apps that hold the same live carriers must hold
+    /// the same ORDERS, however much history each of them threw away first.
+    #[test]
+    fn two_histories_reach_the_same_carrier_order() {
+        let live = ["alpha", "beta", "gamma"];
+        let mut fresh = world_with(0, &live);
+        let mut veteran = world_with(74, &live);
+
+        // The premise, and it is about HISTORY rather than about the defect: the
+        // veteran has handed out orders the fresh App never will.
+        assert_ne!(
+            fresh.resource::<RollbackOrdered>().len(),
+            veteran.resource::<RollbackOrdered>().len()
+        );
+        assert_ne!(orders(&mut fresh), orders(&mut veteran));
+
+        rebase_rollback_carrier_order(&mut fresh);
+        let report = rebase_rollback_carrier_order(&mut veteran);
+
+        assert_eq!(report.carriers, 3);
+        assert_eq!(report.identified, 3);
+        assert_eq!(
+            report.discarded_history, 77,
+            "the veteran had handed out 74 retired orders plus its 3 live ones"
+        );
+        assert_eq!(
+            orders(&mut fresh),
+            vec![
+                ("placement:alpha".to_string(), 0),
+                ("placement:beta".to_string(), 1),
+                ("placement:gamma".to_string(), 2),
+            ],
+            "the rebased order is the canonical-identity order, not the spawn order"
+        );
+        assert_eq!(orders(&mut fresh), orders(&mut veteran));
+        assert_eq!(veteran.resource::<RollbackOrdered>().len(), 3);
+    }
+
+    /// ⛔ A REBASE MUST NOT CHANGE ROLLBACK IDENTITY. Every snapshot in the
+    /// engine is keyed on `RollbackId`, so if the rebuild minted new ones it
+    /// would silently detach every stored component from its carrier.
+    #[test]
+    fn a_rebase_keeps_every_rollback_id() {
+        let mut world = world_with(2, &["alpha", "beta"]);
+        let before: std::collections::BTreeMap<String, RollbackId> = world
+            .query::<(&SimId, &RollbackId)>()
+            .iter(&world)
+            .map(|(id, rollback)| (id.as_str().to_string(), *rollback))
+            .collect();
+        rebase_rollback_carrier_order(&mut world);
+        let after: std::collections::BTreeMap<String, RollbackId> = world
+            .query::<(&SimId, &RollbackId)>()
+            .iter(&world)
+            .map(|(id, rollback)| (id.as_str().to_string(), *rollback))
+            .collect();
+        assert_eq!(before, after);
+        assert_eq!(before.len(), 2);
+    }
+
+    /// ⚠ An unnamed carrier does not stop the rebase, and the report says so —
+    /// refusing would leave the whole population carrying another App's history
+    /// because one body's spawn site forgot to mint an identity.
+    #[test]
+    fn an_unnamed_carrier_is_counted_and_still_ordered() {
+        let mut world = world_with(1, &["alpha"]);
+        world.spawn(Rollback);
+        world.flush();
+        let report = rebase_rollback_carrier_order(&mut world);
+        assert_eq!(report.carriers, 2);
+        assert_eq!(report.identified, 1);
+        assert_eq!(world.resource::<RollbackOrdered>().len(), 2);
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

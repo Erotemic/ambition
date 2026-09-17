@@ -412,20 +412,37 @@ where
 
 /// Census a component through a CALLER-SUPPLIED checksum projection.
 ///
-/// The registration arms that take `checksum: fn(&T) -> u64` hand the same function
-/// to GGRS and to this, so this measures byte-for-byte what the session's aggregate
-/// measures.
+/// The registration arms that take `checksum: fn(&T) -> u64` hand the same
+/// function to GGRS and to this, so this measures the same PROJECTION the
+/// session's aggregate measures.
 ///
-/// ⛔⛤ **AND THIS DOCSTRING ASSERTED THAT OF EVERY SUCH ARM WHILE BEING TRUE OF
-/// ONE — CORRECTED 2026-09-16.** `rollback_component_canonical_checksum`,
-/// `rollback_resource_canonical_checksum` and
-/// `rollback_resource_optional_canonical_checksum` each handed `projection` to
-/// GGRS and recorded the probe with the WHOLE-STATE census, so the sentence above
-/// described `rollback_component_clone_probed` and nothing else. All three now
-/// attach this as [`ChecksumProbe::with_peer`], which is a SECOND census rather
-/// than a replacement: whole state answers the restore question, this answers the
-/// peer one, and a peer-facing comparison calls
-/// [`RollbackChecksumProbes::census_all_as_peers_compare`].
+/// ⛔⛔ **THE SAME PROJECTION IS NOT THE SAME CHECKSUM, AND THIS DOCSTRING SAID
+/// IT WAS TWICE.** It first claimed *"byte-for-byte what the session's aggregate
+/// measures"* of every such arm while three of the four recorded the probe with
+/// the WHOLE-STATE census instead (corrected 2026-09-16, and those three attach
+/// this as [`ChecksumProbe::with_peer`] now). The corrected sentence was still
+/// wrong, and the architecture review of 2026-09-17 named why:
+/// `ComponentChecksumPlugin` does not fold values the way this does.
+///
+/// ```text
+/// GGRS:  result ^= hash(rollback_ordered.order(id), projection(value))   per carrier
+/// here:  count += 1;  xor = xor.wrapping_add(projection(value))          per carrier
+/// ```
+///
+/// Two differences, and both matter. GGRS hashes the CARRIER ORDER beside each
+/// value, so its checksum answers *"which entity held this"* and this census
+/// deliberately does not; and it XORs hashes where this sums projections, so
+/// even with identical inputs the two numbers are unrelated. **MEASURED: a
+/// two-host census agreed on 146 of 146 rows while the real checksum disagreed
+/// on 59**, which is the defect `rebase_rollback_carrier_order` exists for.
+///
+/// ⇒ **What this census is FOR is comparing a projection across two worlds** —
+/// restore against live, host against host — where the carrier order is either
+/// identical or the thing being repaired. The arm that measures GGRS's actual
+/// checksum reads `ChecksumPart` from the running session
+/// (`two_local_histories_compute_the_same_ggrs_component_checksums`). Whole
+/// state answers the restore question; a peer-facing comparison of projections
+/// calls [`RollbackChecksumProbes::census_all_as_peers_compare`].
 pub fn census_with<T>(world: &mut World, projection: fn(&T) -> u64) -> ComponentCensus
 where
     T: Component,

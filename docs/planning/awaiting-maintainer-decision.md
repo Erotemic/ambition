@@ -1977,3 +1977,66 @@ room-scoped, attempt-reset, and correctly not durable.
 is the boss-reward durability boundary — a different question about a different
 object. A route to a wrong number reads exactly like a route to a right one, and
 the row had carried it since 2026-09-04. Filed here 2026-09-17.
+
+## Q142 — four one-shot latches decide simulation outcomes and no rewind restores them
+
+The repository already states the rule, in
+[`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md):
+*"A COMPONENT WHOSE PRESENCE IS READ BY A QUERY FILTER IS AUTHORITATIVE EVEN WHEN
+ITS VALUE IS DERIVED."* It was written about the DEMOTION direction — registered
+rows whose doc sounds like they could be dropped. This is the inverse reading,
+and it had no instrument until 2026-09-17:
+`scripts/check_presence_filtered_state_is_rollback_registered.py`.
+
+**The population and how it was measured.** A component is in scope when it is
+defined in a crate that registers at least one rollback row AND a literal
+`With<X>` / `Without<X>` / `Has<X>` outside test code reads its presence.
+**Measured: 95 such components, 73 registered, 18 waived by name with the
+measurement beside each, 4 left.** The registered set is read from
+`rollback_schema_baseline.txt`, which `rollback_schema_baseline.rs` holds
+byte-identical against the live registry.
+
+⛔⛤ **THE INSTRUMENT'S FIRST VERSION MISSED THE COMPONENT ITS OWN DOCSTRING
+QUOTES.** Deleting `Dormant`'s row from the recorded schema left the check green:
+all three of `Dormant`'s production filter sites spell it
+`Without<crate::features::ecs::dormancy::Dormant>`, and the regex required a bare
+name. Widening it for the path prefix — and for `Has<T>`, which is the same
+presence read — took the intersection from 73 to 95 and produced six of the rows
+below. ⇒ The poison that found it is planted as
+`test_a_path_qualified_filter_is_seen`.
+
+**The four, and what each latches:**
+
+| component | the filter that reads it | why it is not hygiene |
+|---|---|---|
+| `ReleaseOnDeath` (`ambition_boss_encounter`) | `release_payloads_on_death`, `With<ReleaseOnDeath>`, registered into the SIM schedule at `ProgressionSet::BossHazards` | the system REMOVES the marker after emitting, so its absence is what stops a second emission — while the message it emits, `PayloadReleased`, IS registered `message-clear` so a resimulation can re-emit. The pair is asymmetric: the clearing is there to allow a re-emission the missing registration prevents |
+| `RecharacterizeBody` (`ambition_characters`) | `Has<>` in `avatar/starting_character.rs` | its own doc: *"One-shot request to reapply a body's character template … The request is consumed after application."* The consumption IS the state |
+| `EncounterScript` (`ambition_encounter`) | `Without<EncounterScript>` in `setup_cut_rope_encounter` | ⛔ **the sharpest of the four.** It is an idempotence gate on a component that also holds `cursor: usize` and `elapsed: f32` — the beat a scripted fight has reached and how long it has been in it — advanced every tick by `tick_encounter_scripts`, which is in the sim schedule beside `release_payloads_on_death`. A rewind restores neither |
+| `PostBossNpc` (`ambition_combat`) | `AttemptResidue` in `world/rooms/reconstitution.rs` | presence decides whether the celebrant a defeated boss left behind is swept when a replay is admitted |
+
+⛔⛤ **AND `S7`'s FLOAT-ROW CENSUS CANNOT SEE `EncounterScript.elapsed` EITHER,
+FOR THE SAME STRUCTURAL REASON.** S7 ranks the rows *outside the session
+checksum* — 99 of them, 25 float-bearing, 12 mutably written — and it derives
+that population from the REGISTRY. A float advanced every tick by a sim system on
+a component nobody registered is not a row in the 99; it is not in the population
+at all. ⇒ The two censuses are complements, and neither is the whole surface: one
+asks which registered rows are uncompared, this one asks which authoritative
+components are unregistered.
+
+⚠ **WHAT HAS NOT BEEN MEASURED, STATED SO NOBODY READS THIS AS A TRACED DEFECT.**
+No arm has been run that drives a rewind across any of these four latches. The
+finding is STRUCTURAL: presence is authoritative, and the snapshot does not know
+about it. The measurement that would settle each is the one
+`a_move_keeps_its_occurrence_across_a_rewind` already uses — the same world with
+and without a GGRS session, comparing the number the body reaches — and
+`ReleaseOnDeath` is the cheapest subject because its consumer,
+`spawn_cut_rope_victory_npc`, has a second road (`boss_is_cleared` from the save)
+that would mask the defect on room re-entry but not on the kill frame.
+
+**The decision.** Registering all four is a WIRE-FORMAT change: the schema
+fingerprint is part of content identity (`Q122`), so four new rows move the
+identity two peers must agree on. That is cheap and correct if these are
+simulation state, and wrong if any of them is a presentation or setup latch that
+merely looks sim-shaped. ⛔ **NOT A DEFAULT EITHER WAY**, and specifically not a
+sweep: the guard's 18 waivers each state a measurement, and four more waivers
+would be the same work with the opposite answer.

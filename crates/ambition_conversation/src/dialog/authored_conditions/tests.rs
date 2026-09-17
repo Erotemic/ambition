@@ -218,10 +218,16 @@ fn the_bindings_plugin_installs_the_condition_verb() {
     );
 }
 
-/// Counts calls to [`never_called`], so "refused before evaluation" and
-/// "evaluated and answered no" stop being the same observable.
-static NEVER_CALLED_CALLS: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
+// Counts calls to `never_called`, so "refused before evaluation" and "evaluated
+// and answered no" stop being the same observable.
+//
+// ⛔ THREAD-LOCAL, NOT A `static`: a shared counter is a channel between arms,
+// and the arm below would then depend on no other arm having published this
+// evaluator. The dialogue app is driven synchronously from the test thread, so
+// the evaluator runs here.
+thread_local! {
+    static NEVER_CALLED_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 /// Answers `Satisfied` for ANY argument, and records that it ran.
 ///
@@ -241,7 +247,7 @@ static NEVER_CALLED_CALLS: std::sync::atomic::AtomicUsize =
 /// written where the author's mistake is legible. That is worth keeping and worth
 /// not mistaking for the thing that makes coercion impossible.
 fn never_called(_world: &World, _args: &[AuthoredArg]) -> ConditionOutcome {
-    NEVER_CALLED_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    NEVER_CALLED_CALLS.with(|calls| calls.set(calls.get() + 1));
     ConditionOutcome::from_bool_unexplained(true)
 }
 
@@ -300,14 +306,14 @@ Refused.
 <<endif>>
 ===
 ";
-    NEVER_CALLED_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    NEVER_CALLED_CALLS.with(|calls| calls.set(0));
     let mut app = app_running(SOURCE);
     app.publish_condition(carried_descriptor(), never_called);
     app.world_mut().spawn(SimId::placement("axe"));
 
     start(&mut app, "Start");
     assert_eq!(
-        NEVER_CALLED_CALLS.load(std::sync::atomic::Ordering::SeqCst),
+        NEVER_CALLED_CALLS.with(std::cell::Cell::get),
         0,
         "the evaluator ran, so the reference was converted to SOMETHING and \
          handed over — the surface is supposed to refuse before this point"
@@ -317,5 +323,33 @@ Refused.
         vec!["Refused.".to_string()],
         "an evaluator that says yes to everything still did not make this line \
          satisfied, which is only possible if it was never asked"
+    );
+
+    // ⛔ THE POSITIVE CONTROL FOR THE COUNTER, AND IT IS NOT OPTIONAL. Zero is
+    // what this arm asserts AND what a counter nobody can reach reads — a
+    // `thread_local!` observed from the wrong thread, an evaluator published
+    // under the wrong id, a fixture that never starts. So publish the SAME
+    // counting evaluator against a `ParamKind::Name` parameter, which the
+    // surface does hand over, and require the counter to move.
+    const REACHABLE: &str = "\
+title: Start
+---
+<<if condition(\"gossip.heard\", \"the_bell\")>>
+Heard.
+<<else>>
+Silent.
+<<endif>>
+===
+";
+    NEVER_CALLED_CALLS.with(|calls| calls.set(0));
+    let mut reachable = app_running(REACHABLE);
+    reachable.publish_condition(heard_descriptor(), never_called);
+    start(&mut reachable, "Start");
+    assert_eq!(
+        NEVER_CALLED_CALLS.with(std::cell::Cell::get),
+        1,
+        "the counting evaluator was never reached even for a parameter the \
+         surface DOES pass, so the zero asserted above is a property of the \
+         counter rather than of the refusal"
     );
 }

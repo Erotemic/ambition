@@ -71,9 +71,9 @@ from test_paths import is_test_path  # noqa: E402
 BASELINE = REPO / "game/ambition_app/tests/rollback_schema_baseline.txt"
 
 #: ⛔ THE FLOORS. Chosen an order of magnitude below the readings of 2026-09-17
-#: (20 registering crates, 288 component definitions in them, 443 baseline rows,
-#: 293 distinct filtered names, 16 in the intersection) because their job is to
-#: catch an instrument going silent, not to pin a census.
+#: (20 registering crates, 443 baseline rows, 95 components in the intersection
+#: of which 73 are registered) because their job is to catch an instrument going
+#: silent, not to pin a census.
 MIN_REGISTERED = 100
 MIN_DEFINED = 50
 MIN_FILTERED = 50
@@ -109,6 +109,16 @@ WAIVERS = {
     # IS registered (`resource.active_conversation`) and whose projection is
     # idempotent — a half-applied hold falls through and is repaired.
     "HeldByConversation": "projection of the registered `ActiveConversation`; both filter sites are its own writer",
+    # The read model. `ambition_sim_view`'s fact views are rebuilt from the sim
+    # every tick, so a marker read only there decides what is DRAWN from a world
+    # the rewind has already corrected.
+    "BossRewardChest": "one site, the `ambition_sim_view/src/facts.rs` per-tick view rebuild",
+    "EncounterRewardChest": "one site, the same per-tick view rebuild",
+    "PortalInputWarp": "one site, `ambition_portal2d_presentation/src/visuals.rs`",
+    # Two sites: the view rebuild, and `declare_ambition_dormancy`, which is
+    # gated `Without<DormancyPolicy>` — so the decision this marker feeds is
+    # latched in a component that IS registered (`actor.dormancy_policy`).
+    "EncounterMob": "view rebuild + a setup gated on the registered `DormancyPolicy`",
 }
 
 #: ⚠ REAL AND OWED, not waived. A name here is a finding with somewhere to go.
@@ -121,6 +131,18 @@ ACKNOWLEDGED = {
         "cleared so a resimulation can re-emit, and the latch that would let it "
         "is not restored"
     ),
+    "PostBossNpc": (
+        "Q142 — one site is the per-tick view rebuild and the other is "
+        "`AttemptResidue` in `world/rooms/reconstitution.rs`, the set an "
+        "admitted replay retires. Presence decides whether the celebrant a "
+        "defeated boss left behind is swept"
+    ),
+    "RecharacterizeBody": (
+        "Q142 — its own doc calls it a one-shot request consumed after "
+        "application, read through `Has<>` in `avatar/starting_character.rs`. "
+        "Same shape as `ReleaseOnDeath`: the CONSUMPTION is the state, and it is "
+        "not snapshotted"
+    ),
     "EncounterScript": (
         "Q142 — attached by `setup_cut_rope_encounter` under a "
         "`Without<EncounterScript>` idempotence filter, and carries live beat "
@@ -132,7 +154,17 @@ ACKNOWLEDGED = {
 _DERIVE_COMPONENT = re.compile(
     r"#\[derive\(([^)]*)\)\]\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum)\s+([A-Z]\w*)"
 )
-_FILTER = re.compile(r"\bWith(?:out)?<([A-Z]\w*)>")
+#: ⛔⛤ **THE PATH PREFIX IS NOT OPTIONAL TO MATCH, AND LEAVING IT OUT COST THE
+#: FIRST VERSION ITS BEST POISON.** `Dormant` — the very component the doctrine
+#: paragraph above is written about — is filtered three times in
+#: `features/ecs/actors/update.rs` and every site spells it
+#: `Without<crate::features::ecs::dormancy::Dormant>`. Deleting its baseline row
+#: left the check GREEN, because a bare-name regex saw none of the three. The
+#: last `::` segment is the type.
+#:
+#: ⚠ `Has<T>` is in, and it is a presence read like the other two: it reads the
+#: marker into a `bool` the system then branches on.
+_FILTER = re.compile(r"\b(?:With(?:out)?|Has)<\s*(?:[A-Za-z_][\w]*::)*([A-Z]\w*)\s*>")
 
 
 def _git_grep(pattern: str, *paths: str) -> list[str]:
@@ -193,7 +225,7 @@ def component_definitions(crates: list[str]) -> dict[str, str]:
 
 def filter_sites() -> dict[str, list[str]]:
     sites: dict[str, list[str]] = {}
-    for line in _git_grep(r"With(out)?<[A-Z][A-Za-z0-9_]*>", "crates", "game"):
+    for line in _git_grep(r"(With(out)?|Has)<[A-Za-z_:]*[A-Z][A-Za-z0-9_]*>", "crates", "game"):
         path, _, rest = line.partition(":")
         if is_test_path(Path(path)):
             continue

@@ -450,6 +450,19 @@ Two worked examples, to show the classification is not uniform:
   something else entirely (`ActorRenderSize`'s collision box, `CapturedBy`'s
   inverse, `AuthoredHurtboxes`' absence). The demotion population looks close to
   zero; 21 is a floor of candidates, not a count of defects.
+
+  ⭐⭐ **AND THE INVERSE READING NOW HAS AN INSTRUMENT, WHICH THIS PARAGRAPH DID
+  NOT UNTIL 2026-09-17.** Everything above asks whether a REGISTERED row should
+  be demoted. The opposite question — a presence-filtered component with no row
+  at all — is invisible to the schema baseline, which member-diffs the rows that
+  exist. `scripts/check_presence_filtered_state_is_rollback_registered.py`
+  measures it: **95 components are defined in a registering crate and read
+  through `With`/`Without`/`Has` outside test code; 73 are registered, 18 are
+  waived by name with the measurement beside each, and 4 are neither.** All four
+  are one-shot latches whose CONSUMPTION is the state a rewind would have to put
+  back, and they are filed as `Q142`. ⛔ Its own first version could not see
+  `Dormant` — the component this bullet is about — because all three filter sites
+  spell it with a module path; the poison that caught that is planted as a test.
 - ❓ `PlayerSlot` (`actor.player_slot`) — the claim is UNVERIFIED and I could not
   confirm it. It carries a `u8`, its own doc calls it *"the canonical 'which
   player?' handle"*, it appears exactly once in the baseline as `component-clone`,

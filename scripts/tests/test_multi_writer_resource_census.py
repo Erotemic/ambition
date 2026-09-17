@@ -59,6 +59,34 @@ def test_a_file_with_no_resmut_contributes_nothing(tmp_path):
     assert mod.writers([a]) == {}
 
 
+def test_the_two_test_predicates_are_the_SHARED_ones():
+    """⛔⛤ NOT A RESPELLING, AND THIS CENSUS BRIEFLY HAD ONE OF EACH.
+
+    `scripts/lib/test_paths.py` exists because five scripts spelled *"is this
+    file test-only?"* five ways and gave five answers; the inline-module half has
+    its own keeper in the rollback-mutator guard. A copy here would be a sixth
+    and a second, and it missed `test.rs`, `test_support.rs` and the four files
+    whose first attribute is an inner `#![cfg(test)]`.
+
+    ⇒ This arm pins the IDENTITY of the functions rather than their behaviour,
+    because behaviour is what drifts while both copies keep passing.
+    """
+    import sys
+
+    scripts = pathlib.Path(mod.__file__).resolve().parent
+    sys.path.insert(0, str(scripts / "lib"))
+    sys.path.insert(0, str(scripts))
+    import check_rollback_mutators_run_in_sim as mutator_guard
+    import test_paths
+
+    # ⚠ THE CACHED MODULE, NOT A FRESH `exec_module`. A second execution of the
+    # same file defines new function objects, so an identity check against it
+    # fails whether or not the census respelled anything — the arm would be
+    # measuring `importlib`.
+    assert mod.is_test_path is test_paths.is_test_path
+    assert mod.strip_test_modules is mutator_guard.strip_test_modules
+
+
 def test_a_whole_test_file_is_not_a_second_authority():
     """⛔⛤ THE HALF THE `#[cfg(test)]` CUT CANNOT DO.
 
@@ -66,16 +94,22 @@ def test_a_whole_test_file_is_not_a_second_authority():
     `tests.rs` have no `#[cfg(test)]` line to cut at — the parent module carries
     it — so every `ResMut<T>` in them counted as a writer while the module
     docstring said the census reads non-test code. MEASURED 2026-09-17: 1,866
-    files became 1,302 and eight types left the shortlist.
+    tracked files became 1,294 production ones and eight types left the
+    shortlist.
     """
-    assert mod.is_test_file("game/ambition_app/tests/a_thing.rs")
-    assert mod.is_test_file("crates/x/src/y/tests.rs")
-    assert mod.is_test_file("crates/x/src/y/hurtbox_damage_tests.rs")
-    assert mod.is_test_file("crates/x/src/projectile/tests/collision.rs")
-    # ⚠ AND NOT OVER-EXCLUDING. A production helper that tests use is production,
-    # and no directory in this tree is named `testing` or `test_support`.
-    assert not mod.is_test_file("crates/x/src/test_support.rs")
-    assert not mod.is_test_file("game/ambition_app/src/headless.rs")
+    assert mod.is_test_path(pathlib.Path("game/ambition_app/tests/a_thing.rs"))
+    assert mod.is_test_path(pathlib.Path("crates/x/src/y/tests.rs"))
+    assert mod.is_test_path(pathlib.Path("crates/x/src/y/hurtbox_damage_tests.rs"))
+    assert mod.is_test_path(pathlib.Path("crates/x/src/projectile/tests/collision.rs"))
+    # ⚠ AND THE SHARED PREDICATE DISAGREES WITH WHAT I WOULD HAVE WRITTEN:
+    # `test_support.rs` IS test-only here, unioned across the five copies. That
+    # is the keeper's call to make, and a second opinion in this file would be
+    # the whole defect again.
+    assert mod.is_test_path(pathlib.Path("crates/x/src/test_support.rs"))
+    assert not mod.is_test_path(
+        pathlib.Path("game/ambition_app/src/headless.rs"),
+        source="fn main() {}\n",
+    )
 
 
 def test_production_code_after_a_test_module_is_still_read():
@@ -94,13 +128,26 @@ def test_production_code_after_a_test_module_is_still_read():
         "#[cfg(test)]\nmod inline {\n    fn t(mut r: ResMut<Fixture>) {}\n"
         "    mod deeper { fn u(mut r: ResMut<AlsoFixture>) {} }\n}\n"
         "fn c(mut r: ResMut<Last>) {}\n"
-        "#[cfg(test)]\nfn helper(mut r: ResMut<HelperOnly>) {}\n"
         "fn d(mut r: ResMut<Final>) {}\n"
     )
     kept = set(mod.RESMUT.findall(mod.strip_test_modules(src)))
     assert kept == {"Before", "After", "Last", "Final"}, kept
 
 
-def test_the_stripper_leaves_nothing_labelled_test():
+def test_the_stripper_leaves_no_inline_test_module_behind():
     src = "fn a(mut r: ResMut<X>) {}\n#[cfg(test)]\nmod t { fn f() {} }\n"
     assert "#[cfg(test)]" not in mod.strip_test_modules(src)
+
+
+def test_a_cfg_test_fn_in_a_production_file_is_a_KNOWN_residual():
+    """⚠ THE COST OF USING THE KEEPER, STATED RATHER THAN DISCOVERED.
+
+    The shared stripper removes inline `#[cfg(test)] mod X { }` blocks only, so a
+    `#[cfg(test)] fn` in a production file still reads as a writer. MEASURED
+    2026-09-17: there are none in this tree — every combination of the two test
+    rules gives 333 types and 85 multi-writer — and widening that function
+    reaches all of its consumers, which its own docstring forbids doing without
+    reading each one's counts.
+    """
+    src = "#[cfg(test)]\nfn helper(mut r: ResMut<HelperOnly>) {}\n"
+    assert mod.RESMUT.findall(mod.strip_test_modules(src)) == ["HelperOnly"]

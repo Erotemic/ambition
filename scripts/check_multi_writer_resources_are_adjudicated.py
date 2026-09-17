@@ -6,7 +6,7 @@
 more than one file"* — the writer-side shape of a duplicated authority — and its
 own tests only ever ran it over hand-built `tmp_path` corpora. So the number it
 prints was a number somebody had to go and look at, and nothing noticed when a
-resource joined the list. MEASURED 2026-09-17: **85 types** across 1,302
+resource joined the list. MEASURED 2026-09-17: **85 types** across 1,294
 production files.
 
 ⚠ **THIS IS A RATCHET ON THE POPULATION, NOT A VERDICT ON IT.** The census
@@ -153,7 +153,7 @@ ADJUDICATED: dict[str, str] = {
 
 #: ⛔ ANTI-VACUITY. Every finding below is a set difference, and two empty sets
 #: agree perfectly. These floors are an order of magnitude below the measured
-#: 1,302 files / 310 types and far above the zero a broken scan produces.
+#: 1,294 files / 333 types and far above the zero a broken scan produces.
 MIN_FILES = 500
 MIN_TYPES = 100
 

@@ -39,7 +39,31 @@ import subprocess
 import sys
 
 RESMUT = re.compile(r"ResMut<\s*([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)\s*>")
-CFG_TEST = re.compile(r"#\[cfg\(test\)\]")
+
+# ⛔⛤ **BOTH TEST PREDICATES ARE IMPORTED, NOT RESPELLED, AND THIS CENSUS BRIEFLY
+# HAD ITS OWN COPY OF EACH — 2026-09-17.** `scripts/lib/test_paths.py` exists
+# because there were FIVE spellings of *"is this Rust file test-only?"* giving
+# five different answers, and the inline-module half has its own keeper in
+# `check_rollback_mutators_run_in_sim.py`. My copies were a sixth and a second:
+# the file rule missed `test.rs`, `test_support.rs` and the four files whose
+# first attribute is an inner `#![cfg(test)]`, which no name rule can see.
+#
+# ⭐ MEASURED BEFORE COLLAPSING, all four combinations of the two rules against
+# this corpus: **333 `ResMut<T>` types and 85 multi-writer, identically.** So the
+# de-duplication changes nothing here and the keepers are strictly better
+# informed — which is the only kind of collapse worth doing without re-poisoning
+# every consumer.
+#
+# ⚠ WHAT THE KEEPER'S STRIPPER LEAVES: it removes inline `#[cfg(test)] mod X { }`
+# blocks only, so a `#[cfg(test)] fn helper(mut r: ResMut<T>)` sitting in a
+# production file still counts as a writer. There are none today (the measurement
+# above would differ), and widening that function reaches every one of its
+# consumers — its own docstring says not to do that without reading each one's
+# counts.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from test_paths import is_test_path  # noqa: E402
+from check_rollback_mutators_run_in_sim import strip_test_modules  # noqa: E402
 DEFAULT_PATHS = ("crates", "game")
 
 
@@ -50,83 +74,19 @@ def rust_files(paths: tuple[str, ...]) -> list[str]:
     return [f for f in out if f.endswith(".rs")]
 
 
-def strip_test_modules(src: str) -> str:
-    """Source with each `#[cfg(test)]` ITEM removed — and nothing after it.
-
-    ⛔⛤ **THE CUT USED TO BE `src.split("#[cfg(test)]")[0]`, WHICH THROWS AWAY
-    THE FILE TAIL, AND IN THIS TREE THE TAIL IS USUALLY PRODUCTION CODE.** A
-    module declares its tests near the top — `#[cfg(test)] mod tests;` at
-    `ambition_platformer2d_runtime/src/lib.rs:25` — so everything below that line
-    was invisible to the census. MEASURED 2026-09-17: **777 of 1,302 production
-    files carry a `#[cfg(test)]`, and 40 of them hold 77 `ResMut<T>`
-    occurrences after the first one.** The census was UNDERCOUNTING writers, in a
-    direction nobody would notice, and a poison appended to a file's end proved
-    it by not firing.
-
-    ⇒ Cut per ITEM: a declaration (`mod tests;`) ends at its semicolon, and an
-    inline module or `#[cfg(test)] fn` ends at the brace that closes it.
-
-    ⚠ The brace match is naive about braces inside string literals inside a test
-    body. Over-cutting loses production writers, which is the direction the old
-    rule already erred in; under-cutting would count a fixture as an authority.
-    Both are visible as a population change, which is why the ratchet on this
-    census records the count.
-    """
-    out: list[str] = []
-    pos = 0
-    while True:
-        match = CFG_TEST.search(src, pos)
-        if match is None:
-            out.append(src[pos:])
-            return "".join(out)
-        out.append(src[pos : match.start()])
-        rest = src[match.end() :]
-        brace = rest.find("{")
-        semi = rest.find(";")
-        if semi != -1 and (brace == -1 or semi < brace):
-            pos = match.end() + semi + 1
-            continue
-        if brace == -1:
-            return "".join(out)
-        depth = 0
-        cursor = match.end() + brace
-        while cursor < len(src):
-            if src[cursor] == "{":
-                depth += 1
-            elif src[cursor] == "}":
-                depth -= 1
-                if depth == 0:
-                    break
-            cursor += 1
-        pos = cursor + 1
-
-
-def is_test_file(path: str) -> bool:
-    """A whole FILE of tests, which has no `#[cfg(test)]` marker to cut at.
-
-    ⛔⛤ **THE `#[cfg(test)]` CUT BELOW IS HALF THE RULE, AND FOR 564 FILES IT IS
-    THE WRONG HALF.** An integration test under `tests/` and a `mod tests`
-    carried in its own `tests.rs` contain no `#[cfg(test)]` line at all — the
-    parent module carries it — so every `ResMut<T>` in them counted as a writer
-    while this module's docstring said the census reads NON-TEST code. MEASURED
-    2026-09-17: 1,866 files become 1,302; `ResMut<T>` types 368 become 310; and
-    the shortlist 83 becomes **75**. The eight that leave are multi-writer only
-    because a fixture writes them (`Captured`, `CapturedHits`, `DeathsSeen`,
-    `FixedStepsTaken`, `PortalWorldFrame`, `RoomResetsSeen`, `SaveRestored`,
-    `SeatMenuFrames`).
-
-    ⚠ The three shapes are measured, not guessed: 284 files under a `tests/`
-    directory, 214 named `tests.rs`, 66 named `*_tests.rs`. No production
-    directory in this tree is named `tests`, and nothing named `test_*` is
-    excluded — a production helper used by tests is production.
-    """
-    parts = pathlib.PurePosixPath(path).parts
-    name = parts[-1] if parts else ""
-    return "tests" in parts or name == "tests.rs" or name.endswith("_tests.rs")
-
-
 def production_files(paths: tuple[str, ...] = DEFAULT_PATHS) -> list[str]:
-    return [f for f in rust_files(paths) if not is_test_file(f)]
+    """Every tracked Rust file that is not test-only, by the shared predicate.
+
+    ⛔⛤ **THE CENSUS COUNTED WHOLE TEST FILES AS WRITERS UNTIL 2026-09-17**, and
+    its docstring said it read NON-TEST code the whole time: a `mod tests` in its
+    own `tests.rs` and an integration test under `tests/` carry no
+    `#[cfg(test)]` line for the stripper to cut at — the parent module carries
+    it. MEASURED: 1,866 tracked files, **1,294 production**, and eight types left
+    the shortlist (`Captured`, `CapturedHits`, `DeathsSeen`, `FixedStepsTaken`,
+    `PortalWorldFrame`, `RoomResetsSeen`, `SaveRestored`, `SeatMenuFrames`), each
+    multi-writer only because a fixture wrote it.
+    """
+    return [f for f in rust_files(paths) if not is_test_path(pathlib.Path(f))]
 
 
 def writers(files: list[str]) -> dict[str, set[str]]:
@@ -137,7 +97,7 @@ def writers(files: list[str]) -> dict[str, set[str]]:
     fixtures is how a census manufactures findings nobody can act on.
 
     ⛔ **A WHOLE TEST FILE HAS NO SUCH MARKER**, so the caller filters those out
-    with [`is_test_file`] — see what that cost when it did not.
+    with [`production_files`] — see what that cost when it did not.
     """
     found: dict[str, set[str]] = collections.defaultdict(set)
     for f in files:
@@ -153,7 +113,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("paths", nargs="*", default=list(DEFAULT_PATHS))
     args = ap.parse_args(argv)
 
-    files = [f for f in rust_files(tuple(args.paths)) if not is_test_file(f)]
+    files = production_files(tuple(args.paths))
     if not files:
         # ⛔ An empty corpus would print "0 multi-writer types" and read as a
         # clean bill of health.

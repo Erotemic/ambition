@@ -502,13 +502,13 @@ can see. Neither is worth engineering for its own sake.
   variant (`StateMachine`), and `CharacterBrainTemplate`'s nine (`StandStill`,
   `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
   `Aerial`, `Fighter`) contain no player/human arm.
-⇒ **ALL FOUR ARE SETTLED NOW: two were already met and had been carrying `▢`, and the other two are settled below — one withdrawn by the DECIDED section, one met by withdrawing it.** And the third
-is mostly met too — see the re-measured census above: the BEHAVIOUR of both
-brains left on 2026-08-27 (6,315 non-test lines in `ambition_combat` at
-2026-09-17), and the 2,255 that remain are data pinned in place by the orphan
-rule. `Smash` and
-`Fighter` are still variants of `CharacterBrainTemplate`, which is what the box
-below is really still about — a template name, not 8,950 lines.
+⇒ **ALL FOUR ARE SETTLED NOW.** Two were already met and had been carrying `▢`;
+the other two are settled in the box below — one WITHDRAWN by the DECIDED
+section, one met BY withdrawing it. The substance of the third is in the
+re-measured census above: the BEHAVIOUR of both brains left on 2026-08-27
+(6,315 non-test lines in `ambition_combat` at 2026-09-17), and the 2,255 that
+remain are data pinned in place by the orphan rule. `Smash` and `Fighter` are
+still variants of `CharacterBrainTemplate` — a template name, not 8,950 lines.
 
 - ⊘ ~~`brain/smash` and `brain/fighter` leave `ambition_characters`~~ —
   **WITHDRAWN, by the DECIDED section on this same page.** The behaviour left on
@@ -554,9 +554,10 @@ this page's original instruction would find that type and wire control custody
 into seat binding. The custody arbiter is `ControlClaims`; the seat's driver is
 `ControlAuthority`; they are not two names for one thing.
 
-⇒ What remains of this page's plan is the two `▢` rows in Acceptance — the
-`brain/smash` and `brain/fighter` carve — and those are priced by the census
-above, not by this section.
+⇒ And nothing is left of this page's plan to start. The Acceptance box is four
+settled rows; the open question the page still owns is the ORPHAN-RULE PIN — not
+a carve, an answer to why the floor crate must hold 2,255 lines of policy data —
+and the DECIDED section states the three shapes that cannot supply one.
 
 ## Authority-first decomposition constraint
 

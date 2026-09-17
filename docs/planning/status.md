@@ -61,17 +61,21 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 
 ### Deterministic identity
 
-⛔ **ID-PEER IS COMPLETE FOR ITS CURRENT SCOPE, WHICH IS NOT "DONE" AND IS NOT AN
-INVITATION TO MINE IT.** All three open roads are blocked outside the campaign —
-two on maintainer rulings, one on a P2P session that this workspace never
-constructs. ⇒ Nothing here is advanced by another pass over the table. ⛔⛤ **AND
-"THE CENSUS RUNS CLEAN" IS NOT WHAT KEEPS FINDING THE REMAINING DEFECTS** — this
-sentence said so on 2026-09-16 and on 2026-09-17 deleting a FALLBACK reddened two
-shipped-route arms with a defect the fallback had been covering. The move that
-finds them is removing a substitute and running the suite, not re-reading the
-table. ⚠ **One exception, named so a blanket "blocked" does not swallow it:** the
-unchecksummed float rows' STATE half has a road and needs no ruling; the owner row
-prints how far it reaches.
+⛔⛤ **ID-PEER IS NOT COMPLETE, AND THIS SECTION SAID IT WAS FOR A DAY.** Of four
+open roads three are blocked outside the campaign — two on maintainer rulings,
+one on a P2P session this workspace never constructs — and the FOURTH is ordinary
+engineering with nothing in front of it: the GGRS component checksum hashes
+`RollbackOrdered.order(..)`, an App-lifetime rollback insertion index nothing
+rebases at a session boundary, so two hosts with different shell histories
+disagree on **59 of 146 checksum parts while every canonical identity and value
+agrees** (measured 2026-09-17, held by an `#[ignore]`d witness in
+`shell_host_lifecycle`). ⛔ **AND "THE CENSUS RUNS CLEAN" IS NOT WHAT FINDS
+THESE** — the value census could not see it, because it folds a per-value
+projection and ignores which entity carried each value. What found the two
+defects of 2026-09-17 was deleting a FALLBACK and running the suite, and reading
+what the pinned dependency actually hashes. ⚠ **One more road that needs no
+ruling:** the unchecksummed float rows' STATE half; the owner row prints how far
+it reaches.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and
@@ -91,9 +95,10 @@ said `SeatControlFrameModes` is *"read by sim systems"* while the owner had
 recorded it closed and production holds exactly one `ResMut` writer and no
 readers. A summary of a live table is a copy that corrections do not reach.
 
-**What a reader picking this up needs: all three open roads are blocked outside
-the campaign.** The fourth was open here on 2026-09-16 and closed the same day —
-see the ⭐ note below the table for what it cost to close.
+**What a reader picking this up needs: three of the four open roads are blocked
+outside the campaign, and the fourth is the work.** The table below carries the
+three blocked ones; the carrier-order road is in the owner row, because it has
+measurements a summary would rot.
 
 | open road | blocked on |
 | --- | --- |

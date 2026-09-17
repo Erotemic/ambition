@@ -249,6 +249,24 @@ pub struct SessionScopedResources<'w> {
     /// session and activating its first match. The eager edge closes it: a new
     /// session's mint is new, because a new session's state is new.
     match_ordinal: ResMut<'w, ambition_match::seating::SessionMatchOrdinal>,
+    /// ⛔⛤ **AN ABSOLUTE PER-APP ACCUMULATOR THAT WAS INSIDE THE PEER CHECKSUM,
+    /// FOUND 2026-09-16 BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed`
+    /// has exactly one writer — `advance_gameplay_elapsed`, `+= scaled_dt` every
+    /// frame — is `init_resource`'d once at App build, and was reset nowhere. It
+    /// is registered `rollback_resource_canonical`, so its WHOLE value is
+    /// compared between peers. Two hosts that reached the same route by different
+    /// shell histories therefore disagreed about it on the frame they arrived,
+    /// and about every perception memory derived from it
+    /// (`actors/update.rs` hands it to the brain as the reaction-latency
+    /// lookback, which is its only consumer).
+    ///
+    /// ⭐ **AND UNLIKE `SimTick` IT NEEDS NO RULING, WHICH IS THE WHOLE
+    /// DIFFERENCE.** `Q128` is open because a projection excluding the tick would
+    /// exclude the TIMELINE — the thing a rollback comparison is about. This is a
+    /// lookback clock: its consumer asks how long ago something was seen, which a
+    /// session-relative clock answers identically. So the repair is the one this
+    /// group already is, rather than a new authority or a maintainer decision.
+    gameplay_elapsed: ResMut<'w, crate::features::GameplayElapsed>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -441,6 +459,7 @@ fn reset(resources: SessionScopedResources) {
         mut sudden_death,
         mut live_match_ticks,
         mut match_ordinal,
+        mut gameplay_elapsed,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -473,6 +492,7 @@ fn reset(resources: SessionScopedResources) {
     *live_match_ticks =
         crate::character_runtime::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
+    *gameplay_elapsed = crate::features::GameplayElapsed::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

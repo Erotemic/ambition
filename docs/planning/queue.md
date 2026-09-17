@@ -207,17 +207,21 @@ not a missing line. The decision is what is missing, not the registration.
 **Owner:** deterministic identity / rollback architecture; see the identity map in
 [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 
-**Current state (2026-09-16): ELEVEN CLOSED, THREE OPEN, FOURTEEN LIVE — fifteen
-FILED, because the thirteenth was withdrawn the day it was filed and the
-numbering does not reuse it. The fourteenth closed within the hour (it was the
+**Current state (2026-09-16): THIRTEEN CLOSED, FOUR OPEN, SEVENTEEN LIVE —
+eighteen FILED, because the thirteenth was withdrawn the day it was filed and the
+numbering does not reuse it. ⛔⛤ The count moved by THREE in one pass because the
+hostile two-host peer-visible census (below) found two defects and one unexplained
+divergence that no type census could see — which is the honest reading of "ID-PEER
+is complete for its current scope": it was not, and the instrument that says so
+now exists. The fourteenth closed within the hour (it was the
 only one not blocked outside the campaign); the fifteenth was found by verifying
 a price another row had quoted, and closed the same day for what is owed today.**
 
 ⭐ **RE-DERIVE THE COUNT FROM THE TABLE RATHER THAN TRUSTING THIS SENTENCE** —
 the row asks that of its own prose for the reason the next paragraph gives. The
-table below holds TWELVE roads (nine closed, three open); the fourteenth and
-fifteenth are described in prose beneath it, both closed. 9 + 2 = eleven closed,
-and the three open are all in the table.
+table below holds FIFTEEN roads (eleven closed, four open); the fourteenth and
+fifteenth roads are described in prose beneath it, both closed. 11 + 2 = thirteen
+closed, and the four open are all in the table.
 
 ⚠ **AND THE ELEVENTH CARRIES A HEDGE A READER SHOULD NOT LOSE.** The fifteenth
 (`ControlFrame`'s shape) is closed for the RATCHET — a silent change is now
@@ -550,6 +554,40 @@ to carry it.
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. ⛔⛤ **And the arm that was cited for it held the road production does not take** — `spawn_world_for` has no production caller; A10's candidate road builds its own root and hands it to `adopt_world`. Poisoning each mint separately (2026-09-16): the candidate poison left the pre-existing app suite green at **705 passed / 0 failed**. Held on the shipped road by `two_local_histories_name_every_simulated_entity_identically` (`shell_host_lifecycle`), which censuses all 22 canonical identities in a built world. ⭐⭐ And there is ONE mint now: the unreachable primitive is deleted, and the arm that certified this class through it is retired with it. See below |
 | `TransactionId` provenance | **CLOSED 2026-09-16 at both ends, having been closed at only one for a day.** The projection half (schema 193) was the campaign's original finding: the stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it, while the peer projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist. ⛔⛤ **But the GPT review found the term the projection KEEPS was ABSENT on three of the four roads that mint one.** `ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is what this row records --> took `content` and `active_binding` separately and applied the second to the expected-live half only, so the door transition, the reset and the neighbour prefetch each answered `content_unstated` for the INCOMING half — reasoning correctly that a transition publishes no content, which is a fact about the commit boundary and not about provenance. MEASURED: after one door transition the only peer content term anywhere in the live world was `content-unstated`, so two peers at different prepared content projected identically. ⇒ Repaired as a SHAPE: `for_live_room_construction` takes ONE binding and the split is unspellable, `for_content_replacement` takes two by name, and only a hot reload asks for it. Held by `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` plus the provenance half of the death and reset arms beside it (`5bb3cc8ea`) |
 | **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
+⛔⛤ **AND THE HOSTILE RUN FOUND AN INSTRUMENT DEFECT ALONGSIDE THE TWO CODE
+ONES, WHICH IS WHY ITS FIRST NUMBER WAS NOT ITS ANSWER.** Three registration arms
+— `rollback_component_canonical_checksum`, `rollback_resource_canonical_checksum`
+and `rollback_resource_optional_canonical_checksum` — each hand a
+`fn(&T) -> u64` to GGRS and then register the diagnostic probe with
+`census_state`: the whole canonical state, including the very local terms the
+projection exists to drop. `census_with`'s own docstring asserts the opposite —
+*"the registration arms that take `checksum: fn(&T) -> u64` hand the same function
+to GGRS and to this, so the probe measures byte-for-byte what the session's
+aggregate measures"* — and that is true of ONE of the four such arms.
+
+⇒ **`TransactionId` is the proof and the warning.** Its census differs between the
+two hosts; its ACTUAL projection, folded by hand, is `(18, 5177721695145214374)`
+on both. ID-PEER's `TransactionId` closure holds and the probe was over-reporting.
+⚠ These are exactly the arms this campaign used to close its roads, so a peer
+question asked through the probe is asked of the wrong function for every road
+ID-PEER projected. ⭐ The repair is NOT to swap `census_state` for `census_with`:
+a RESTORE audit must compare whole state, and that is what the probe is for. The
+two questions need two censuses, which is a design decision rather than a typo —
+filed here rather than guessed at.
+
+⚠ **AND THE FIRST RUN OF THE CENSUS ITSELF REPORTED SEVEN DIFFERING ROWS OVER ALL
+364 PROBES, WHICH IS NOT THE QUESTION.** `probes.rs` says so in its own words —
+*"what makes an entry dangerous is that it ALSO feeds the peer checksum, which the
+registry knows and this does not; the JOIN is the finding"* — beside a record of a
+previous instrument that over-reported by the same factor and announced itself as
+a discovery. Joining against `feeds_peer_checksum` narrows 364 probes to 145 and
+seven rows to six, of which one was the probe artefact above, two were already
+owned (`SimTick`/`Q128`, `AmbitionGameSave`/`Q129`), two are closed above and one
+is open above.
+
+| **the accumulating gameplay clock** | ✔ **CLOSED 2026-09-16, FOUND BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed(f32)` has ONE writer — `advance_gameplay_elapsed`, `+= scaled_dt` every frame — is `init_resource`'d at App build, and was reset nowhere, while registered `rollback_resource_canonical` so its WHOLE value is compared between peers. Two hosts that reached the same route by different shell histories disagreed about it on the frame they arrived. ⭐ **UNLIKE `SimTick` IT NEEDED NO RULING, WHICH IS THE WHOLE DIFFERENCE**: `Q128` is open because a projection excluding the tick would exclude the TIMELINE, and this is a lookback clock whose only consumer is the brain's reaction-latency window (`actors/update.rs`), which a session-relative clock answers identically. ⇒ Added to `SessionScopedResources`, reset at `SessionScopeSet::Activate` — the group that already existed for exactly this. Held by `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first` |
+| **the startup-resume checksum** | ✔ **CLOSED 2026-09-16, SAME CENSUS.** `SessionStartupResume::checksum` — the projection handed to `rollback_resource_clone_checksum`, i.e. the function peers compare — hashed the session generation itself, and that generation is `SessionScopeId.0` (`restore_checkpoint_on_session_start`: `let generation = scope_id.map(\|id\| id.0)`). Measured `4354685564936845353` against `4354685564936845357`, scope `0` against scope `2`. ⇒ The projection now tags the generation's PRESENCE and drops its value. ⭐ **THAT IS ONLY SAFE BECAUSE THE ANTECEDENT IS ALREADY SHUT**, which is the `MatchInstance` lesson applied rather than repeated: excluding a local stamp with nothing identifying WHICH session the value describes is false-NEGATIVE, and `reset_checkpoint_coordinator_on_activation` already defaults this resource at the activation edge, so a foreign generation cannot be alive to compare. The generation STAYS in the value — `state_for` filters on it |
+| **perception memory across two histories** | ⛔ **OPEN, FOUND 2026-09-16 AND NOT YET EXPLAINED.** `PerceptionMemory` differs between two hosts whose only difference is which routes they visited first. ⛔⛤ `GameplayElapsed` was the obvious cause — `actors/update.rs` hands it to perception as the lookback clock, and `RememberedActor::last_seen` is *"sim time the actor was last directly in view"*. **Measured: fixing the clock MOVED this row without equalising it** (veteran `10957388069613372399` → `5036184031634534872` while fresh held), so a mechanism that explains the number is not evidence for it and a second cause remains. ⚠ `WorldMemory`'s actor map is private with no accessor, so the next step is a unit-level reproduction of `update_from_seen` across two histories, not another census. Listed in the hostile arm's `EXPECTED_TO_DIFFER` with this reason, so it cannot hide a NEW divergence |
 | **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The TIMELINE half's blocker is N2's absent P2P session, the same blocker `Q128` has. ⭐⭐ **THE STATE HALF IS NOT BLOCKED, AND SAYING IT WAS COST THIS ROW A ROAD — CORRECTED 2026-09-16.** No P2P SESSION can be built; two APPS WITH DIFFERENT LOCAL HISTORIES can. `two_local_histories_compute_the_same_mechanical_values` (`game/ambition_app/tests/shell_host_lifecycle.rs`) launches the shipped Ambition route first in one host and third in another (scope `0`/epoch `1` vs scope `2`/epoch `3`, asserted first), then compares `BodyAnimFacts` BITWISE by canonical `SimId` across 120 steps — and the ground items by construction, labelled as such because they are measured AT REST in that route. It agrees. ⚠ It does not retire N2: no transport, no input exchange, no interleaving, no rebase. ⛔ Its first version was VACUOUS — two `Platformer2dSimHarness` instances in one process both read `SessionScopeId(0)` at tick 1, because a fresh App is a fresh counter, so the differing history has to live inside ONE App that has been somewhere first. ⇒ The remaining rows are one projection and one moving verb each, on a road that now exists |
 | the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 

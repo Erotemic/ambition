@@ -70,6 +70,9 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_match::SuddenDeathEntered>();
     app.init_resource::<crate::character_runtime::live_match_clock::LiveMatchTicks>();
     app.init_resource::<ambition_match::seating::SessionMatchOrdinal>();
+    // The accumulating gameplay clock. Session-scoped since 2026-09-16: it was an
+    // absolute per-App accumulator inside the peer checksum.
+    app.init_resource::<crate::features::GameplayElapsed>();
     app.add_systems(
         Update,
         (

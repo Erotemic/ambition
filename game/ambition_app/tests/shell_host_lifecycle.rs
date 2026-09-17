@@ -1403,3 +1403,221 @@ fn two_local_histories_compute_the_same_mechanical_values() {
         first_divergence.map(|(_, (_, veteran_rows))| veteran_rows),
     );
 }
+
+/// ⭐⭐ **THE WHOLE PEER-VISIBLE SURFACE, ACROSS TWO LOCAL HISTORIES — THE
+/// HOSTILE VERSION OF THE ARM ABOVE, AND IT FOUND SOMETHING.**
+///
+/// The arm above compares two hand-named component types. This one asks the
+/// rollback registry which registrations FEED THE PEER CHECKSUM (145 of 493 at
+/// HEAD), censuses exactly those on both hosts, and compares. Requested by the
+/// GPT architecture review of 2026-09-16 as the last check before calling
+/// ID-PEER complete for its current scope. It was not clean.
+///
+/// ⛔⛤ **THE FIRST VERSION CENSUSED ALL 364 PROBES AND REPORTED SEVEN DIFFERING
+/// ROWS, WHICH IS NOT THE QUESTION.** `probes.rs` says so in its own words —
+/// *"what makes an entry dangerous is that it ALSO feeds the peer checksum,
+/// which the registry knows and this does not; the JOIN is the finding"* — and
+/// records a previous instance of exactly this over-reporting. Seven was also
+/// what that earlier broken instrument produced. ⇒ The join against
+/// `RollbackEntryKind::feeds_peer_checksum` is what makes the number mean
+/// anything.
+///
+/// ⛔⛤ **AND THE PROBE IS STILL NOT THE PEER PROJECTION FOR THREE REGISTRATION
+/// ARMS.** `rollback_component_canonical_checksum`,
+/// `rollback_resource_canonical_checksum` and
+/// `rollback_resource_optional_canonical_checksum` each hand a
+/// `fn(&T) -> u64` to GGRS and then register the probe with `census_state` —
+/// the whole canonical state, including the local terms the projection exists to
+/// drop. `census_with`'s own doc claims the opposite: *"the registration arms
+/// that take `checksum: fn(&T) -> u64` hand the same function to GGRS and to
+/// this, so the probe measures byte-for-byte what the session's aggregate
+/// measures"*. Measured false for three of the four such arms.
+///
+/// ⇒ **`TransactionId` is the proof and the warning.** Its census differs
+/// between the two hosts; its ACTUAL projection, folded by hand, is
+/// `(18, 5177721695145214374)` on both. ID-PEER's closure holds and the probe
+/// was over-reporting. So a row in `EXPECTED_TO_DIFFER` below is only a finding
+/// once its real projection has been read.
+///
+/// ⚠ **WHAT THIS IS NOT.** No transport, no input exchange, no interleaving, no
+/// timeline rebase. It answers the state half of ID-PEER's acceptance test and
+/// does not retire netcode's `N2`.
+#[test]
+fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first() {
+    use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
+
+    /// Rows that differ for a reason already owned elsewhere. ⛔ A row here is a
+    /// reading, not a waiver: each names the owner that has it, so a NEW
+    /// divergence cannot hide among them.
+    const EXPECTED_TO_DIFFER: &[(&str, &str)] = &[
+        (
+            "ambition_time::SimTick",
+            "ID-PEER's open `canonical timeline` road — an absolute per-App step \
+             count, registered `resource-canonical`. Blocked on Q128, and a \
+             projection excluding it would exclude the TIMELINE",
+        ),
+        (
+            "ambition_persistence::save::AmbitionGameSave",
+            "Q129 — whether the save file is part of what two peers agree on is \
+             a maintainer question, and removing it from the checksum to make \
+             this arm green is explicitly the wrong repair",
+        ),
+        (
+            "ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionMemory",
+            "OPEN, and NOT the clock — measured. `GameplayElapsed` was the first \
+             suspect and resetting it MOVED this row without equalising it \
+             (veteran `10957388069613372399` -> `5036184031634534872` while fresh \
+             held), so a second cause remains unidentified. ⛔ `WorldMemory`'s \
+             actor map is private with no accessor, so naming it needs a unit-level \
+             reproduction rather than another census — see the queue row",
+        ),
+        (
+            "ambition_platformer2d_shared_tangle::construction::TransactionId",
+            "NOT A DIVERGENCE — the probe measures `census_state` while the peer \
+             checksum is `peer_stable_checksum`. Folded by hand, both hosts read \
+             `(18, 5177721695145214374)`. Here so the arm stays green while the \
+             INSTRUMENT is what needs repairing",
+        ),
+    ];
+
+    fn build(veteran: bool) -> App {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        if veteran {
+            for provider in ["Sanic", "Mary-O"] {
+                launch_labeled(&mut app, provider);
+                settle(&mut app);
+                app.world_mut().write_message(ShellCommand::QuitToHome);
+                settle(&mut app);
+            }
+        }
+        launch_labeled(&mut app, "Ambition");
+        settle(&mut app);
+        app
+    }
+
+    fn peer_types(app: &App) -> std::collections::BTreeSet<String> {
+        app.world()
+            .get_resource::<RollbackRegistry>()
+            .expect("the rollback host installs a registry")
+            .descriptors()
+            .filter(|descriptor| descriptor.kind.feeds_peer_checksum())
+            .map(|descriptor| descriptor.type_name.clone())
+            .collect()
+    }
+
+    fn census(
+        app: &mut App,
+        keep: &std::collections::BTreeSet<String>,
+    ) -> std::collections::BTreeMap<String, (usize, u64)> {
+        let probes = app
+            .world()
+            .get_resource::<RollbackChecksumProbes>()
+            .cloned()
+            .expect("the rollback host registers probes");
+        probes
+            .census_all(app.world_mut())
+            .into_iter()
+            .filter(|(name, _)| keep.contains(*name))
+            .map(|(name, reading)| (name.to_owned(), (reading.count, reading.xor)))
+            .collect()
+    }
+
+    let mut fresh = build(false);
+    let mut veteran = build(true);
+
+    // The control, first.
+    let fresh_tokens = local_lifecycle_tokens(&mut fresh);
+    let veteran_tokens = local_lifecycle_tokens(&mut veteran);
+    assert_ne!(
+        fresh_tokens, veteran_tokens,
+        "the two hosts reached Ambition with the same local lifecycle state, so \
+         nothing below is about a host's history reaching its peer state"
+    );
+
+    let keep = peer_types(&fresh);
+    assert_eq!(
+        keep,
+        peer_types(&veteran),
+        "the two hosts register different peer-visible sets, so the comparison \
+         below is between two different questions"
+    );
+    assert!(
+        keep.len() >= 140,
+        "only {} registrations feed the peer checksum, so this arm is reading a \
+         fragment of the surface rather than the surface",
+        keep.len()
+    );
+
+    let expected: std::collections::BTreeMap<&str, &str> =
+        EXPECTED_TO_DIFFER.iter().copied().collect();
+    let mut moved = 0usize;
+    let mut previous = None;
+    for step in [0usize, 1, 30, 120] {
+        for _ in 0..step {
+            fresh.update();
+            veteran.update();
+        }
+        let ours = census(&mut fresh, &keep);
+        let theirs = census(&mut veteran, &keep);
+        if previous.as_ref().is_some_and(|before| before != &ours) {
+            moved += 1;
+        }
+        previous = Some(ours.clone());
+
+        let differing: Vec<&String> = ours
+            .iter()
+            .filter(|(name, reading)| theirs.get(*name) != Some(*reading))
+            .map(|(name, _)| name)
+            .collect();
+        let unexpected: Vec<String> = differing
+            .iter()
+            .filter(|name| !expected.contains_key(name.as_str()))
+            .map(|name| {
+                format!(
+                    "{name}  fresh={:?} veteran={:?}",
+                    ours.get(*name),
+                    theirs.get(*name)
+                )
+            })
+            .collect();
+        assert!(
+            unexpected.is_empty(),
+            "after {step} more steps, peer-visible state differs between two \
+             hosts whose only difference is which routes they visited first \
+             ({fresh_tokens} vs {veteran_tokens}).\n  {}\n\n\
+             Before treating one as a defect, read its registration kind: for the \
+             three `*_canonical_checksum` arms the probe censuses `census_state`, \
+             not the projection peers compare, and `TransactionId` is the \
+             standing example of a row that differs here and agrees there.",
+            unexpected.join("\n  ")
+        );
+
+        // ⛔ AND THE ROWS WE EXPECT TO DIFFER MUST STILL DIFFER. Each is a live
+        // finding or an open question; one going quiet means it was closed and
+        // nobody deleted its row, and the next reader would inherit a list that
+        // no longer describes anything.
+        if step == 0 {
+            for (name, why) in EXPECTED_TO_DIFFER {
+                assert!(
+                    differing.iter().any(|found| found.as_str() == *name),
+                    "`{name}` no longer differs between the two hosts. If that is \
+                     a repair, delete its row here; if it is an accident, the \
+                     reason it was listed is: {why}"
+                );
+            }
+        }
+    }
+
+    // ⭐ THE MOTION FLOOR. A census that takes one value across the whole window
+    // agrees with itself for free — the trap
+    // `simulation-authority-and-determinism.md` records one section below its S7
+    // table, where 36 clean comparisons were all of `0.000`.
+    assert!(
+        moved > 0,
+        "the peer-visible census never moved across the window, so the agreement \
+         above is about a world at rest"
+    );
+}
+

@@ -85,18 +85,49 @@ impl SessionStartupResume {
         self.state = Some((generation, state));
     }
 
-    /// ⭐ WHICH GENERATION AND HOW FAR, not merely "a memory exists". A presence
-    /// probe satisfies the coverage oracle while seeing nothing of the value, and
-    /// the value here is the whole decision: a restore that brought back the
-    /// wrong generation makes one timeline re-ask for a crossing the other
-    /// already spent.
+    /// ⭐ HOW FAR, not merely "a memory exists". A presence probe satisfies the
+    /// coverage oracle while seeing nothing of the value, and the value here is a
+    /// decision: a restore that brought back the wrong resume state makes one
+    /// timeline re-ask for a crossing the other already spent.
+    ///
+    /// ⛔⛤ **AND IT HASHED THE GENERATION ITSELF UNTIL 2026-09-16, WHICH PUT AN
+    /// APP-LOCAL ACTIVATION COUNT INSIDE A PEER CHECKSUM.** The generation is
+    /// `SessionScopeId.0` (`restore_checkpoint_on_session_start`: `let generation
+    /// = scope_id.map(|id| id.0)`), so two hosts that reached the SAME route by
+    /// different shell histories checksummed this resource differently on the
+    /// frame they arrived — measured `4354685564936845353` against
+    /// `4354685564936845357`, scope `0` against scope `2`. That is the exact rule
+    /// ID-PEER exists for: a local activation count may not determine a peer
+    /// checksum.
+    ///
+    /// ⭐ **DROPPING IT IS SAFE ONLY BECAUSE THE ANTECEDENT IS ALREADY SHUT, AND
+    /// THAT IS THE WHOLE ARGUMENT.** The `MatchInstance` correction of 2026-09-15
+    /// records what happens otherwise: excluding a local stamp with nothing
+    /// identifying WHICH session the value describes is FALSE-NEGATIVE, because
+    /// two peers can then hold the same state stamped for different sessions and
+    /// agree. Here `reset_checkpoint_coordinator_on_activation` runs in
+    /// [`SessionScopeSet::Activate`] and defaults this resource before the
+    /// incoming session's provider builds anything, so a generation from another
+    /// session cannot be alive to be compared. The stored generation is the live
+    /// one, always.
+    ///
+    /// ⚠ **PRESENCE IS KEPT, VALUE IS DROPPED.** `None` means a composition with
+    /// no session lifecycle at all, which is a real distinction from "session
+    /// number N" and costs nothing to preserve — the same tagging
+    /// `MatchInstance::peer_match_digest` uses so a bare fixture cannot agree with
+    /// the first session of a real run.
+    ///
+    /// ⚠ The generation STAYS IN THE VALUE. `state_for` filters on it and that is
+    /// what makes a leftover memory self-disqualify; this is a projection, not a
+    /// field removal.
     pub fn checksum(&self) -> u64 {
         let Some((generation, state)) = &self.state else {
             return 0;
         };
-        let mut hash = match generation {
-            None => 1,
-            Some(generation) => generation ^ 0x9e37_79b9_7f4a_7c15,
+        let mut hash: u64 = if generation.is_some() {
+            0x9e37_79b9_7f4a_7c15
+        } else {
+            1
         };
         hash = hash.rotate_left(1)
             ^ match state {

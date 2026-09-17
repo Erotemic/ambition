@@ -623,10 +623,19 @@ mod the_bytes_two_peers_exchange {
     //! (`0.13.0`, git `e97e3d2`), not out of a changelog:
     //!
     //! ```text
-    //! network/protocol.rs:68   bincode::serialized_size(&T::Input::default())
-    //! network/protocol.rs:90   bincode::serialize_into(&mut bytes, &input.input)
-    //! network/protocol.rs:117  bincode::deserialize(player_byte_slice)
+    //! InputBytes::zeroed          bincode::serialized_size(&T::Input::default())
+    //! InputBytes::from_inputs     bincode::serialize_into(&mut bytes, &input.input)
+    //! InputBytes::to_player_inputs   bincode::deserialize(player_byte_slice)
     //! ```
+    //!
+    //! ⚠ **AND `serialized_size(&Default)` IS NOT THE WIRE STRIDE — CORRECTED
+    //! 2026-09-16 AFTER A SECOND GPT REVIEW, BY READING `InputBytes` RATHER THAN
+    //! ITS THREE CALLS.** `zeroed` uses it to size a ZEROED buffer for
+    //! `NULL_FRAME` placeholders. `from_inputs` appends each player's ACTUAL
+    //! encoding to one `Vec` with no per-player length, and `to_player_inputs`
+    //! recovers the stride as `self.bytes.len() / num_players` — the SENDER's
+    //! total, divided evenly. See [`every_frame_encodes_to_the_same_width`] for
+    //! what that makes Ambition responsible for.
     //!
     //! bincode is POSITIONAL: it writes fields in declaration order and carries
     //! no field names at all. So the old module's whole poison argument was
@@ -722,11 +731,15 @@ mod the_bytes_two_peers_exchange {
     /// index), and `01000000 02000000` are the two frame modes.
     const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf010000000200000001000100010001000100010001000000003e0000c0be";
 
-    /// What `ggrs` sizes the per-player input slot by — `serialized_size` of a
-    /// DEFAULT frame, read at `network/protocol.rs:68`.
+    /// One frame's bincode encoding, in bytes.
     ///
     /// ⛔ It is not `size_of::<ControlFrame>()`, which is 60. A previous version
     /// of this module pinned that number and described it as the wire.
+    /// ⚠ Nor is it a stride `ggrs` stores anywhere: `InputBytes::zeroed` uses
+    /// `serialized_size(&Default)` for placeholder buffers, and the decode side
+    /// divides the received total by the player count. This constant is here so
+    /// the width below is compared against a RECORDED number rather than against
+    /// itself.
     const RECORDED_WIRE_BYTES: u64 = 68;
 
     fn hex(bytes: &[u8]) -> String {
@@ -762,23 +775,39 @@ mod the_bytes_two_peers_exchange {
         );
     }
 
-    /// ⭐⭐ **THE PROPERTY `ggrs`'s TRANSPORT ACTUALLY DEPENDS ON, AND NEITHER
-    /// THE OLD JSON NOR A SOURCE CENSUS COULD STATE IT.**
+    /// ⭐⭐ **AMBITION'S OWN CONTRACT, NOT A `ggrs` GUARANTEE — AND THE
+    /// DIFFERENCE MATTERS BECAUSE IT DECIDES WHO HAS TO HOLD IT.**
     ///
-    /// `protocol.rs` measures ONE default frame at line 68 and then slices every
-    /// player's input out of a packet at that fixed stride (line 117). That is
-    /// only correct while the encoding is FIXED-WIDTH. Give `ControlFrame` a
-    /// `String`, a `Vec`, an `Option` or a data-carrying enum variant and the
-    /// bytes stop being a constant size — at which point player 2's slice starts
-    /// mid-way through player 1's frame and every peer decodes garbage, with no
-    /// checksum anywhere to notice.
+    /// `InputBytes::from_inputs` concatenates every local player's ACTUAL
+    /// encoding into one payload and writes no per-player length.
+    /// `to_player_inputs` therefore recovers the stride by dividing the received
+    /// total by the player count. Its only validation is that the total IS
+    /// divisible — so unequal widths are caught when the arithmetic happens not
+    /// to work out, and are silent when it does.
+    ///
+    /// ⇒ Equal subdivision is only correct while every frame in a payload
+    /// encodes to the SAME width, and nothing in `ggrs` enforces that: it is a
+    /// property of `Config::Input`, which is this type. Give `ControlFrame` a
+    /// `String`, a `Vec`, an `Option` or a data-carrying enum variant and one
+    /// player's width starts depending on what they pressed — at which point
+    /// player 2's slice begins mid-way through player 1's frame, with no checksum
+    /// anywhere to notice.
+    ///
+    /// ⚠ A single-player payload is immune (the whole buffer is player zero's),
+    /// which is exactly why this cannot wait for a witness: local multiplayer
+    /// sharing one packet is where it would first appear.
+    /// ⭐ The SOURCE half of the same contract is
+    /// `check_absence_contracts.py::variants_carrying_data`, which refuses a
+    /// data-carrying variant outright rather than recording it — a corpus-based
+    /// byte test cannot construct a variant nobody has written yet.
     #[test]
-    fn every_frame_encodes_to_the_same_width_as_the_default() {
+    fn every_frame_encodes_to_the_same_width() {
         let default_size = bincode::serialized_size(&ControlFrame::default())
             .expect("a default ControlFrame has a serialized size");
         assert_eq!(
             default_size, RECORDED_WIRE_BYTES,
-            "the per-player input slot ggrs sizes from a default frame moved"
+            "one frame's bincode width moved; every other frame is compared \
+             against this one, so re-record it deliberately"
         );
         for (what, frame) in [
             ("default", ControlFrame::default()),
@@ -805,9 +834,9 @@ mod the_bytes_two_peers_exchange {
             assert_eq!(
                 bincode::serialized_size(&frame).expect("serialized size"),
                 default_size,
-                "the `{what}` frame does not encode to the width ggrs slices \
-                 by, so a packet carrying more than one player's input would be \
-                 cut in the wrong places"
+                "the `{what}` frame does not encode to the same width as the \
+                 others, so a payload carrying more than one local player would \
+                 be subdivided in the wrong places"
             );
         }
     }

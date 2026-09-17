@@ -311,13 +311,33 @@ byte as every other. The recorded frame alternates every bool, gives the floats
 distinct values and takes a NON-default variant of both enums, so field order,
 field width and each variant index are visible in the hex.
 
-⭐⭐ **AND THE ARM THE OLD MODULE COULD NOT HAVE WRITTEN IS THE ONE THE TRANSPORT
-ACTUALLY DEPENDS ON.** `protocol.rs` measures ONE default frame and then slices
-every player's input at that fixed stride, so the encoding must be FIXED-WIDTH. A
-`String`, a `Vec`, an `Option` or a data-carrying enum variant on `ControlFrame`
-would make player 2's slice start mid-way through player 1's frame, with no
-checksum anywhere to notice. `every_frame_encodes_to_the_same_width_as_the_default`
-holds that; neither JSON nor a source census can state it.
+⭐⭐ **AND THE ARM THE OLD MODULE COULD NOT HAVE WRITTEN IS AMBITION'S OWN
+CONTRACT, NOT A `ggrs` GUARANTEE.** `InputBytes::from_inputs` concatenates every
+local player's ACTUAL encoding into one payload and writes no per-player length;
+`to_player_inputs` recovers the stride by dividing the received total by the
+player count, validating only that it divides. ⇒ Equal subdivision is correct
+only while every frame encodes to the SAME width, and nothing in `ggrs` enforces
+that — it is a property of `Config::Input`, which is our type. A `String`, a
+`Vec`, an `Option` or a data-carrying enum variant makes one player's width
+depend on what they pressed, and player 2's slice then begins mid-way through
+player 1's frame with no checksum to notice. `every_frame_encodes_to_the_same_width`
+holds it.
+
+⚠ **AND A SINGLE-PLAYER PAYLOAD IS IMMUNE** — the whole buffer is player zero's —
+which is why this cannot wait for a witness: local multiplayer sharing one packet
+is where it would first appear.
+
+⛔⛤ **THE ROW SAID "a silent payload-shape change is impossible" AND THAT WAS
+FALSE FOR A DAY, POISON-VERIFIED BY THE GPT REVIEW OF 2026-09-16.** The source
+census read variants with `^\s*(\w+),` — a bare identifier and a comma — so
+adding `Charged(u8)` to `AttackStrengthHint` changed the encoding and the census
+reported the same three rows and NO violation. The byte pin does not necessarily
+catch it either: its corpus never constructs a variant nobody has written yet,
+and a developer adding one would repair the exhaustive Rust matches as a matter of
+course. ⇒ `serialized_variants` now records each variant WITH its payload, and
+`variants_carrying_data` REFUSES one outright, because the fixed-width contract
+above is not a thing a ratchet should merely record. Three arms hold it, including
+one asked of the live tree.
 
 ⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
 FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values

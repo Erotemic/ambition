@@ -875,6 +875,71 @@ def test_an_unfollowed_field_type_raises_instead_of_reading_green():
     }, sorted(types)
 
 
+def test_a_data_carrying_variant_is_recorded_rather_than_skipped():
+    """⛔⛤ THE HOLE THE GPT ARCHITECTURE REVIEW OF 2026-09-16 POISONED OPEN.
+
+    The variant scan was `^\\s*(\\w+),` — a bare identifier and a comma — so
+    adding `Charged(u8)` to `AttackStrengthHint` changed the peer input encoding
+    and this census reported the same three rows and NO violation. The byte pin
+    next door does not necessarily catch it either: its corpus never constructs
+    the new variant, and a developer adding one would repair the exhaustive Rust
+    matches as a matter of course, leaving the tree green with the recorded input
+    identity unbumped. ⇒ The closure claim *"a silent payload-shape change is
+    impossible"* was false while this held.
+    """
+    import check_absence_contracts as contracts
+
+    body = """
+    /// A doc comment, which the scan must not read as a variant.
+    #[default]
+    Auto,
+    Tilt,
+    Charged(u8),
+    Aimed { x: f32, y: f32 },
+    Smash,
+"""
+    rows = contracts.serialized_variants("E", body)
+    assert rows == [
+        "E::Auto",
+        "E::Tilt",
+        "E::Charged(u8)",
+        "E::Aimed { x: f32, y: f32 }",
+        "E::Smash",
+    ], rows
+
+
+def test_a_data_carrying_variant_is_refused_because_the_encoding_must_be_fixed_width():
+    """⭐⭐ A REFUSAL RATHER THAN A RECORDING, and the reason is the transport.
+
+    Ambition packs every local player's frame into one payload and the receiving
+    side divides the total byte count evenly among the player count. A variant
+    whose payload differs from its siblings' makes one frame's width depend on
+    what the player pressed, so the subdivision lands in the wrong places with no
+    checksum anywhere to notice.
+    """
+    import check_absence_contracts as contracts
+
+    assert contracts.variants_carrying_data(["E::Auto", "E::Smash"]) == []
+    assert contracts.variants_carrying_data(
+        ["E::Auto", "E::Charged(u8)", "E::Aimed { x: f32 }"]
+    ) == ["E::Charged(u8)", "E::Aimed { x: f32 }"]
+
+
+def test_the_live_input_enums_are_all_fieldless():
+    """The refusal above, asked of the tree rather than of a fixture."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    _, shape = contracts.input_payload_shape(root)
+    variants = [
+        row
+        for row in shape
+        if "::" in row and ": " not in row.split("::", 1)[1]
+    ]
+    assert len(variants) >= 6, variants
+    assert contracts.variants_carrying_data(variants) == []
+
+
 def test_the_printed_total_equals_the_contracts_actually_printed():
     """⛔⛤ THE TOTAL IS HAND-COUNTED, AND THE HAND WAS WRONG FOR A DAY.
 

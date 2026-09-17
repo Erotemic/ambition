@@ -99,6 +99,46 @@ def _tracked_rust() -> list[str]:
     ).stdout.split()
 
 
+#: Rust line comments, block comments, and string literals — everything whose
+#: contents are PROSE rather than code.
+_COMMENTS_AND_STRINGS = re.compile(
+    r"//[^\n]*|/\*.*?\*/|r?\"(?:\\.|[^\"\\])*\"",
+    re.DOTALL,
+)
+
+
+def code_only(text: str) -> str:
+    """`text` with comments and string literals blanked out.
+
+    ⛔⛤ **THE PATTERNS BELOW RAN AGAINST RAW SOURCE, WHICH IS A FALSE-GREEN HOLE
+    IN THE UNSAFE DIRECTION — NAMED BY THE GPT ARCHITECTURE REVIEW OF
+    2026-09-16.** `HEALTH` is what CERTIFIES an arm as non-vacuous, so a file
+    containing only
+
+    ```text
+    // session_health should be checked here someday
+    ```
+
+    satisfied the guard while checking nothing. ⚠ The sampled arms all contain
+    real calls, so this was a future hole rather than a present vacuity — which is
+    exactly when it is cheap to close.
+
+    ⭐ **BOTH PATTERNS ARE STRIPPED, AND THE TWO DIRECTIONS ARE NOT SYMMETRIC.** A
+    comment mentioning `HEALTH` certifies an arm that checks nothing, which is
+    silent. A comment mentioning `SYNC_TEST` only pulls a non-arm INTO the
+    population, where it has to be adjudicated by hand — loud, and safe. The
+    stripping is applied to both anyway, because a population found by prose is
+    not the population, and `main` floors the count so a stripper that ate the
+    file cannot read as "no arms".
+
+    Newlines are preserved so nothing downstream can mistake this for a rewrite
+    that changes line numbers.
+    """
+    return _COMMENTS_AND_STRINGS.sub(
+        lambda match: re.sub(r"[^\n]", " ", match.group(0)), text
+    )
+
+
 def sync_test_arms(paths: list[str] | None = None) -> dict[str, bool]:
     """`{repo-relative path: reads a health API}` for every sync-test fixture."""
     found: dict[str, bool] = {}
@@ -109,6 +149,7 @@ def sync_test_arms(paths: list[str] | None = None) -> dict[str, bool]:
             text = (REPO / rel).read_text(errors="replace")
         except OSError:
             continue
+        text = code_only(text)
         if SYNC_TEST.search(text):
             found[rel] = bool(HEALTH.search(text))
     return found

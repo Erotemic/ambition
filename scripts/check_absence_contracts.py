@@ -1711,6 +1711,66 @@ INPUT_PAYLOAD_BASELINE = "scripts/baselines/input-payload-baseline.json"
 CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
 
 
+def serialized_variants(enum_name: str, body: str) -> list[str]:
+    r"""Every variant of `enum_name` WITH ITS PAYLOAD, in declaration order.
+
+    ⛔⛤ **IT READ ONLY FIELDLESS VARIANTS AND THAT WAS A HOLE, POISON-VERIFIED BY
+    THE GPT ARCHITECTURE REVIEW OF 2026-09-16.** The pattern was
+    `^\s*(\w+),` — a bare identifier followed by a comma — so adding
+    `Charged(u8)` to `AttackStrengthHint` changed the peer input encoding and the
+    census still reported the same three rows and NO violation. The executable
+    byte pin next door does not necessarily catch it either: its corpus never
+    constructs the new variant, and a developer adding one would naturally repair
+    the exhaustive Rust matches, leaving the repository green with the recorded
+    input identity unbumped.
+
+    ⚠ Bincode writes a variant INDEX and then the variant's own payload, so a
+    data-carrying variant changes both what the bytes mean and — crucially for
+    this type — how MANY there are.
+    """
+    rows = []
+    depth = 0
+    item = ""
+    for raw in body.splitlines():
+        line = raw.split("//", 1)[0].strip()
+        if not line or line.startswith("#["):
+            continue
+        for char in line:
+            if char in "({[":
+                depth += 1
+            elif char in ")}]":
+                depth -= 1
+            if char == "," and depth == 0:
+                rows.append(item.strip())
+                item = ""
+            else:
+                item += char
+        item += " "
+    if item.strip():
+        rows.append(item.strip())
+    out = []
+    for row in rows:
+        row = re.sub(r"\s+", " ", row).strip()
+        if not row or not re.match(r"[A-Za-z_]", row):
+            continue
+        out.append(f"{enum_name}::{row}")
+    return out
+
+
+def variants_carrying_data(rows: list[str]) -> list[str]:
+    """Which of `rows` are not unit variants.
+
+    ⭐⭐ **A REFUSAL, NOT A RECORDING, BECAUSE `ControlFrame`'s ENCODING MUST BE
+    FIXED-WIDTH AND A DATA-CARRYING VARIANT BREAKS THAT.** Ambition packs every
+    local player's input into one payload and the receiving side divides the
+    total byte count evenly among the player count, so two players whose frames
+    encode to different widths are subdivided in the wrong places — with no
+    checksum anywhere to notice. A variant whose payload differs from its
+    siblings' makes one frame's width depend on what the player pressed.
+    """
+    return [row for row in rows if re.search(r"[({]", row)]
+
+
 def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     """`version, shape` — what two peers exchange, and the identity that names it.
 
@@ -1752,10 +1812,8 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
         )
     shape = [f"{name}: {ty}" for name, ty in fields]
     hint = text.split("pub enum AttackStrengthHint {", 1)[1].split("\n}", 1)[0]
-    shape += [
-        f"AttackStrengthHint::{variant}"
-        for variant in re.findall(r"^\s*(\w+),", hint, re.MULTILINE)
-    ]
+    hint_variants = serialized_variants("AttackStrengthHint", hint)
+    shape += hint_variants
     # ⭐ THE TRANSITIVE EDGE FIRED WITHIN HOURS OF BEING BUILT, and it fired on
     # the change this ratchet was built in anticipation of: `SETTINGS-ROLLBACK`
     # moved the seat's frame-mode policy onto `ControlFrame`, and
@@ -1776,10 +1834,22 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
         )
     ]
     mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
-    shape += [
-        f"InputFrameMode::{variant}"
-        for variant in re.findall(r"^\s*(\w+),", mode_enum, re.MULTILINE)
-    ]
+    mode_variants = serialized_variants("InputFrameMode", mode_enum)
+    shape += mode_variants
+    # ⛔ THE ENUM ROWS ONLY. `shape` also holds `Struct::field: Type` rows, and a
+    # refusal that read those would be answering a different question.
+    carrying = variants_carrying_data(hint_variants + mode_variants)
+    if carrying:
+        raise AssertionError(
+            f"the peer input payload now has data-carrying enum variant(s): "
+            f"{carrying}. `ControlFrame`'s bincode encoding must be FIXED-WIDTH "
+            "-- every local player's frame is packed into one payload and the "
+            "receiving side divides the total byte count evenly among the player "
+            "count, so a frame whose width depends on which variant was chosen "
+            "is subdivided in the wrong places, with no checksum to notice. If "
+            "this is deliberate, the packing has to carry a per-player length "
+            "first, and THAT is the change to review -- not this line."
+        )
     version = re.search(
         r"pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = (\d+);",
         (root / "crates/ambition_platformer2d_core/src/input_stream.rs").read_text(),

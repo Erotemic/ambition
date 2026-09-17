@@ -61,3 +61,38 @@ def test_the_adjudications_all_name_a_mechanism():
     """⛔ A row whose reason is blank is a waiver wearing a decision's clothes."""
     for rel, reason in CHECK.ADJUDICATED.items():
         assert len(reason) > 20, f"{rel} carries no mechanism: {reason!r}"
+
+
+def test_prose_naming_the_health_api_does_not_certify_an_arm():
+    """⛔⛤ THE FALSE-GREEN HOLE THE GPT REVIEW OF 2026-09-16 NAMED.
+
+    `HEALTH` is what CERTIFIES an arm as non-vacuous, and it ran against raw
+    source — so a file whose only mention is a comment satisfied the guard while
+    checking nothing. The sampled arms all held real calls, so this was a FUTURE
+    hole rather than a present vacuity, which is the cheapest moment to close it.
+    """
+    module = CHECK
+    prose = (
+        "fn arm() {\n"
+        "    // session_health should be checked here someday\n"
+        '    let msg = "read rollback_health() before asserting";\n'
+        "    /* session_health */\n"
+        "    let _ = with_sync_test_rollback_settings(4, 10);\n"
+        "}\n"
+    )
+    assert module.HEALTH.search(prose), "the fixture must mention it at all"
+    stripped = module.code_only(prose)
+    assert not module.HEALTH.search(stripped)
+    # ⭐ AND THE POPULATION SURVIVES. A stripper that ate the file would take the
+    # arm out of the census instead, which reads as "nothing to check".
+    assert module.SYNC_TEST.search(stripped)
+    assert prose.count("\n") == stripped.count("\n"), "line numbers must not move"
+
+
+def test_a_real_health_call_still_reads_as_one():
+    """The positive control: the strip must not be a way to fail everything."""
+    module = CHECK
+    real = "fn arm() { assert!(sim.rollback_health().is_ok()); }"
+    assert module.HEALTH.search(module.code_only(real))
+    other = "fn arm() { let h = session_health(world); }"
+    assert module.HEALTH.search(module.code_only(other))

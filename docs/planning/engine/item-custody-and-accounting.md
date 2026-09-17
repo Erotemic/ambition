@@ -10,9 +10,19 @@ an occurrence; it is `#[non_exhaustive]` with two constructors as of `7108a57b1`
 
 **State:** OPEN / NARROW — and as of 2026-09-04 the exploration side of every
 migration row is CLOSED. I1 (2026-09-02) and I4 are done; I2's exploration half
-is done and its one residual (`match_spawn.rs:113`) belongs to the fighter lane;
-I3 is a maintainer DECISION rather than an implementation (question 45). What is
-left on this page is that decision and that one fighter call site.
+is done; I3 is a maintainer DECISION rather than an implementation
+([Q45](../awaiting-maintainer-decision.md)). ⇒ **Re-derived 2026-09-17: what is
+left on this page is two maintainer decisions and one repair.** The decisions are
+Q45 and [Q141](../awaiting-maintainer-decision.md) — may a runtime-spawned ground
+item ever be durable — which I4 had claimed was filed and was not. The repair is
+folding minted items into `set_durable_horizon` so the write is atomic rather
+than guarded.
+
+⚠ The residual this line used to name — a "fighter call site" at
+`match_spawn.rs:113` — is gone: it was the WIDE-versus-NARROW registry lookup,
+and I2b left one registry, so the call is correct and only its comment was
+describing a distinction that no longer exists. Corrected in place, with the
+same stale comment at `features/ecs/spawn/mod.rs:753`.
 
 ⛔⛔ **THE THIRD ITEM WAS FALSE AND HAD BEEN FOR SOME TIME — re-derived 2026-09-06.**
 This sentence used to end *"and the gauntlet-drop road's missing end-to-end arm,
@@ -129,7 +139,7 @@ entity.
 - participant entitlement and physical custody are not inferred from each other.
 
 ⚠ **TWO OF THESE ARE WRITTEN AS UNIVERSALS AND HOLD ONLY FOR OCCURRENCE-MODEL
-ITEMS** — noticed while measuring I3, and worth fixing when question 45 is
+ITEMS** — noticed while measuring I3, and worth fixing when [Q45](../awaiting-maintainer-decision.md) is
 answered rather than guessed at now:
 
 - *"drop/rematerialization … not by fabricating an unrelated replacement"* — the
@@ -145,7 +155,7 @@ answered rather than guessed at now:
   the SIMULATION only.
 
 ⇒ Neither is a defect to fix today; both are the same under-specification, and
-answering question 45 is what makes them precise.
+answering Q45 is what makes them precise.
 
 ⭐⭐ **AND THE LAST INVARIANT GAINED A SHIPPED CASE WHERE IT GENUINELY DIVIDES
 (2026-09-05), which is the strongest evidence it is a real distinction and not an
@@ -181,7 +191,7 @@ found four that reached a runtime representation and stopped there. Three went o
 
 ⛔⛔ **THE RULING THEY WERE WAITING ON WAS NOT THE ONE BLOCKING THEM.** Each was
 recorded as *"wiring it or deleting it is a design call"* and routed to
-[question 63](../awaiting-maintainer-decision.md). That framing kept three no-op
+[Q63](../awaiting-maintainer-decision.md). That framing kept three no-op
 fields alive in ONE crate. **Deciding what the future feature should do is a
 different question from making the field impossible to misuse**, and only the
 first was ever blocked on anything. The questions themselves stay open on Q63;
@@ -579,20 +589,21 @@ reader to infer them from unrelated components.
 
 - Which item classes are rematerializable entitlements versus lossable physical
   occurrences?
-  ⓘ **The population is ONE, measured 2026-09-05.** The catalog holds 24 items
-  (Ability 7, Weapon 6, KeyItem 5, Consumable 5, Reserved 1) and exactly one —
-  the portal gun — takes the ENTITLEMENT road: `equip_portal_gun` /
-  `unequip_portal_gun` (`ambition_held_items/src/lib.rs:955`,
+  ⓘ **The population is ONE, measured 2026-09-05 and re-derived 2026-09-17 with
+  the same split.** The catalog holds 24 items (Ability 7, Weapon 6, KeyItem 5,
+  Consumable 5, Reserved 1 — counted off `ITEM_META`'s rows, one per `Item`) and
+  exactly one — the portal gun — takes the ENTITLEMENT road: `equip_portal_gun` /
+  `unequip_portal_gun` (`crates/ambition_held_items/src/lib.rs:996`, `:1016`,
   `#[cfg(feature = "portal")]`), with `OwnedPortalGunPair` deliberately
   outliving the hand. The other 23 are ordinary held items on the occurrence
   road, which is the one measured above as a complete write/read/build round
   trip.
   ⇒ So this is not *"classify 24 items"*; it is *"decide what the second one
   does"*, and it is cheap while there is no second one. Filed as
-  [question 45](../awaiting-maintainer-decision.md).
+  [Q45](../awaiting-maintainer-decision.md).
   ⛔ ⚠ **And "unique" already names two different properties, which will confuse
   any classification made in its terms.** `ItemCategory::is_unique()` is
-  `!matches!(self, Consumable)` (`ambition_items/src/lib.rs:43`), so all 19
+  `!matches!(self, Consumable)` (`crates/ambition_items/src/lib.rs:42`), so all 19
   non-consumables clamp at 1 in `OwnedItems::grant` — you can never hold two
   axes. That is a STACKING property. The portal gun's uniqueness is a LIFECYCLE
   property: acquired once, never revoked, re-equipped from `OwnedItems`. One
@@ -604,13 +615,14 @@ reader to infer them from unrelated components.
   remembered and reinstated where it lies:
 
 ```text
-  WRITE    session/durable_horizon.rs:246  `Placed { room, at }` crosses the durable
+  WRITE    session/durable_horizon.rs:556  `Placed { room, at }` crosses the durable
                                            horizon UNCONDITIONALLY — "a fact about the
                                            world itself"; only `InCustody` is filtered,
                                            to a hand the file can reconstruct
-  READ     session/durable_horizon.rs:130  restored to `OccurrenceWhereabouts::Placed`
-  BUILD    lifecycle/continuity.rs:207     placed in THIS room → `Reinstated { at }`;
+  READ     session/durable_horizon.rs:188  restored to `OccurrenceWhereabouts::Placed`
+  BUILD    lifecycle/continuity.rs:205     placed in THIS room → `Reinstated { at }`;
                                            placed elsewhere    → `Suppressed`
+           ⚠ line numbers re-derived 2026-09-17; the three roads are unchanged
 ```
 
   The construction rule states itself in place: *"Lying in some OTHER room. Not
@@ -636,7 +648,7 @@ reader to infer them from unrelated components.
 
 | layer | where it lives | scope |
 |---|---|---|
-| entitlements (`OwnedItems`) | a Bevy **`Resource`** (`ambition_items/src/lib.rs:529`) | the SESSION — one per world, not per body |
+| entitlements (`OwnedItems`) | a Bevy **`Resource`** (`crates/ambition_items/src/lib.rs:530`) | the SESSION — one per world, not per body |
 | the physical hand | per-body components; *"the hand is read where it lives"* | the BODY |
 
   ⇒ **Possession moves the DRIVER, not the goods.** `OwnedItems` never belonged
@@ -645,7 +657,7 @@ reader to infer them from unrelated components.
   `abilities/traversal/possession.rs` nor `control/authority.rs` names
   `OwnedItems` at all — checked, not assumed.
 
-  ⭐ **And this is [question 45](../awaiting-maintainer-decision.md)'s split
+  ⭐ **And this is [Q45](../awaiting-maintainer-decision.md)'s split
   visible at the STORAGE level.** An entitlement is session-scoped and an
   occurrence is world/body-scoped, and the portal gun is exactly the item that is
   BOTH — `Item::PortalGun` in the global `OwnedItems` and a `PortalGun` component
@@ -655,80 +667,71 @@ reader to infer them from unrelated components.
 - What is authoritative/predicted for item custody in online multiplayer?
 
 
-## Two writers of the durable horizon apply DIFFERENT filters (2026-09-06, REASONED)
+## Two writers of the durable horizon — RE-MEASURED 2026-09-17, and the code moved under this section
 
-⭐ **The invariant is already written down, on `set_durable_horizon`:** it takes
-occurrences and custody TOGETHER because *"a custody row without its occurrence row
-names nothing"*. `PersistedMintedItem` carries the same `occurrence` key and gets NO
-equivalent protection — its own setter (`set_minted_items`), its own production writer
-(`items/pickup/minted_horizon.rs`), separate from the writer that owns occurrences and
-custody (`session/durable_horizon.rs`). Each compares only its OWN field before writing,
-so nothing reconciles them, and no reader of `occurrences()` cross-checks either.
+⭐ **The invariant is written down on `set_durable_horizon`** (`ambition_persistence/src/save_data.rs:583`):
+it takes occurrences and custody TOGETHER because *"a custody row without its occurrence row
+names nothing"*. `PersistedMintedItem` carries the same `occurrence` key and still has NO
+equivalent protection — its own setter (`set_minted_items`, `:598`), its own production
+writer (`items/pickup/minted_horizon.rs:383`), separate from the writer that owns occurrences
+and custody (`session/durable_horizon.rs:603`). Each compares only its OWN field before
+writing, so nothing reconciles them, and no reader of `occurrences()` cross-checks either.
+**That half is unchanged.**
 
-⚠ **AND THE TWO FILTERS DIFFER, which is the mechanism a divergence would use:**
+⛔⛔ **THE FILTER TABLE THIS SECTION CARRIED IS NOW WRONG, AND IT WAS THE PREMISE.** It said
+the minted writer applies *"`SpawnOrigin::Dynamic` — no custody check at all"*. Measured at
+HEAD: `live_minted_descriptions` (`minted_horizon.rs:433`) runs over
+`Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>`, so
+`ItemCustody` is REQUIRED to be in the population at all — the same component
+`durably_held` matches. ⇒ The two filters gate on the same custody component by two
+spellings, one `With<>` and one a fetched tuple member, so the divergence this section was
+named after does not exist in the code today.
 
-| writer | keeps a row when |
-|---|---|
-| `durable_horizon.rs:255` | not `InCustody`, **or** its `SimId` is in `durably_held` — `Query<&SimId, With<ItemCustody>>`. Its comment: *"the file may only make that claim about a hand it can reconstruct"* |
-| `minted_horizon.rs:319` | `SpawnOrigin::Dynamic` — **no custody check at all** |
+⚠ **A REQUIRED QUERY MEMBER IS A FILTER THAT DOES NOT LOOK LIKE ONE**, which is how it was
+read as absent: the `SpawnOrigin::Dynamic` test is visible in the body and the custody
+requirement is in the signature. Read the whole query, not the `filter_map`.
 
-⇒ A minted item whose occurrence is `InCustody` in a hand the file cannot reconstruct
-would have its OCCURRENCE row dropped and its MINTED row kept: an orphan pointing at
-nothing.
+✔ **AND THE SENTENCE THIS SECTION DEFERRED WAS LANDED AS A FIELD, which is better.** It
+ended *"`InCustodyOf` has TWO producers with different durability. Nothing marks that
+difference at the marker itself … worth a sentence at
+`project_custody_onto_authored_occurrences` if anyone touches it, and is not worth a change
+today."* The marker now STATES it: `CustodyDurability { Restored, SessionOnly }`
+(`shared_tangle/src/lifecycle/markers.rs:25`) is a required field on `InCustodyOf` (`:54`)
+with no `Default`, so a third producer cannot inherit a durability by omission. Item pickup
+and custody restore write `Restored`; `body_custody.rs:111` writes `SessionOnly` for riders,
+limbs and possessions, exactly the reading traced here.
 
-✔ **ANSWERED THE SAME DAY, by tracing both components to their writers.** The two
-filters read DIFFERENT components:
+⇒ **The custody rows now ask the RELATION, not the subject's domain**
+(`durable_horizon.rs:586`): `custody.durability == CustodyDurability::Restored`. The
+OCCURRENCE rows above it still ask `restorable` — `With<ItemCustody>` — and the code says why
+in place: the two run over different populations (rows versus live entities), and an
+occurrence recorded `InCustody` whose entity carries no `InCustodyOf` is kept by the wider
+marker and would be DROPPED by the field. **Dropping a save row is the dangerous direction.**
 
-* `InCustody` is published by `project_custody_onto_authored_occurrences` from
-  `Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>`;
-* restorable is `Query<&SimId, With<ambition_held_items::ItemCustody>>`.
+⚠ **The component-versus-variant observation this section recorded is now a comment at the
+query** (`durable_horizon.rs:521-529`), and it cites this page. `durably_held` matches
+`ItemCustody` the COMPONENT, and `ItemCustody::InWorld` is a variant, so the set also holds
+items lying on the ground — wider than the filter comment's *"a hand it can reconstruct"*.
+Wider drops FEWER occurrence rows, so it cannot strand anything; narrowing it to `Held` is a
+durability decision, not a tidy-up.
 
-⇒ **The minted-item orphan looks UNREACHABLE**: `InCustodyOf` is inserted for held items
-by `ambition_held_items` (lib.rs:666), which is the crate that owns `ItemCustody`, so a
-minted ITEM carries both and survives both filters. The divergence needs a subject with
-`InCustodyOf` and no `ItemCustody`.
-
-✔ **AND THERE IS SUCH A SUBJECT — a CARRIED BODY — BUT THE BEHAVIOUR IS CORRECT, traced
-2026-09-06 rather than left as a question.** `project_body_custody` writes `InCustodyOf`
-for riders, limbs and possessed bodies, explicitly `Without<GroundItem>` because *"the
-item domain owns its custody projection"*. So a carried BODY does get an `InCustody`
-occurrence row from `project_custody_onto_authored_occurrences`, and is then dropped by
-`durable_horizon`'s filter for having no `ItemCustody`.
-
-⇒ **That is the filter doing exactly what its comment says**: *"the file may only make
-that claim about a hand it can reconstruct."* A mount's grip or a possession is session
-state — the save does not restore a rider onto a mount — so a durable row claiming
-"somebody is holding this body" would be a claim the loader cannot honour. ⇒ Dropping it
-is the correct answer, and the two custody projections (bodies vs items) writing ONE
-marker while only one of them is durable is the design rather than an accident.
-
-⚠ **What this does confirm: `InCustodyOf` has TWO producers with different durability.**
-Nothing marks that difference at the marker itself, so the durability of an `InCustody`
-row depends on which projection wrote it — recoverable only by knowing that
-`durably_held` filters on `ItemCustody`. That is worth a sentence at
-`project_custody_onto_authored_occurrences` if anyone touches it, and is not worth a
-change today.
-
-⚠ **A SECOND, SMALLER OBSERVATION while tracing:** `durably_held` matches
-`With<ItemCustody>` — the COMPONENT, not the `Held { holder }` VARIANT — and
-`ItemCustody::InWorld` is also a variant. So the filter admits items lying in the world,
-which is wider than its own comment claims (*"a hand it can reconstruct"*). ⇒ Wider means
-FEWER occurrences dropped, so it cannot cause the orphan above; it is a mismatch between
-a comment and a query rather than a defect, and is recorded so a future tightening of
-that filter knows the comment is the stricter of the two.
-
-⛔ **ORIGINAL FRAMING, kept because the reasoning is the useful part:** It requires an
-occurrence marked `InCustody` whose entity lacks `ItemCustody` (or its `SimId`). If those
-two are always written together, the divergence is structural and unreachable — the same
-shape as the portal `Reflection` finding, where a real asymmetry sat behind a branch
-shipped play never enters. ⇒ **The question for whoever owns custody: can an occurrence
-be `InCustody` while its holder carries no `ItemCustody`?**
+⛔ **THE ORIGINAL QUESTION, kept because the reasoning is the useful part:** can an
+occurrence be `InCustody` while its holder carries no `ItemCustody`? The orphan needs that
+state. `InCustodyOf` is inserted for held items by `ambition_held_items` (`crates/ambition_held_items/src/lib.rs:716`), the
+crate that owns `ItemCustody`, so a minted ITEM carries both. The subject that has
+`InCustodyOf` without `ItemCustody` is a carried BODY — `project_body_custody` writes it
+`Without<GroundItem>` because *"the item domain owns its custody projection"* — and dropping
+it is correct: the loader does not put a rider back on a mount, so a durable row claiming
+somebody holds that body is a claim the file cannot honour. ⇒ Two custody projections
+writing ONE marker with different durability is the design, and since 2026-09-06 the marker
+says which is which.
 
 ✔ **A guard exists meanwhile** —
-`no_durable_row_names_an_occurrence_the_save_does_not_hold` (`save_data.rs`,
-poison-verified) — but it is a unit test over a fixture, not a production check. If the
-answer above is "yes, reachable", the real repair is folding minted items into
-`set_durable_horizon` so the WRITE is atomic rather than guarded.
+`no_durable_row_names_an_occurrence_the_save_does_not_hold` (`ambition_persistence/src/save_data.rs:1262`,
+poison-verified) — but it is a unit test over a fixture, not a production check. The repair
+that would remove the class is folding minted items into `set_durable_horizon` so the WRITE
+is atomic rather than guarded; that is still not done, and it is what remains of this
+section.
 
 ## Checkpoint and construction integration boundary
 

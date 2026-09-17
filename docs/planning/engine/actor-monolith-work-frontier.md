@@ -556,7 +556,11 @@ revisions. Record current unsupported combinations instead of defaulting them.
 ## A7. Separate item custody/accounting from lifecycle orchestration
 
 **THE ENUMERATION THIS HOLD ASKS FOR IS DELIVERED:**
-[`item-writer-inventory.md`](item-writer-inventory.md) (2026-09-10, 60 sites).
+[`item-writer-inventory.md`](item-writer-inventory.md) (2026-09-10, **61**
+write-capable sites). ⚠ This row said 60 until 2026-09-17, which is the linked
+page's FIRST-RUN number — retracted two lines under the total it quotes, because
+the instrument recognised construction by a hand-kept list of method names and
+missed a whole crate minting occurrences.
 ⇒ It reports the shape as the INVERSE of this packet's framing: the checkpoint
 baseline family is 9 of 9 inside the monolith, while `OwnedItems` is written from
 four crates with 3 of 16 sites in the crate that defines it.

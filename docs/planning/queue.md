@@ -3137,6 +3137,12 @@ long and the compared frames are few."*
 ⇒ **MEASURED, same commit and box:** 3 of 3 runs of that arm alone PASS; 4 of 4
 arms of its file pass together; a second full lane came back 691/0/41. One
 failure in two full runs of 731 arms, zero in seven targeted runs.
+⇒ **FOUR MORE FULL `app_it` LANES, 2026-09-17, all `713 passed / 0 failed / 45
+ignored`** (417.30 s, 417.12 s, 412.45 s, 505.69 s). ⚠ Only the first two are
+attributable to `9df7991e1`: the loop was started there and the tree was edited
+under it while runs 3 and 4 were still going, so those two are full-lane passes
+at a tree this row cannot name. A non-reproduction is weak evidence either way,
+so the distinction costs nothing to keep and would have mattered for a RED.
 ⇒ **AND THE SIX-DAY-OLD NAMED NEXT STEP IS NOW TAKEN: a full lane at
 `--test-threads=1` came back 691 passed / 0 failed / 41 ignored in 1053.40 s**
 (at `23a0d21a6`, same box). ⚠ **That is WEAK evidence and must not be read as a

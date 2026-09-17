@@ -107,9 +107,9 @@ pub fn spawn_match_items(
         return;
     };
     let id = &rules.table[chosen].0;
-    // `held_spec_by_id`, the WIDE lookup — the same one the checkpoint rebuild
-    // uses, and for the same reason: an id that came from the item catalog
-    // rather than the brain's registry answers `None` to the narrow one.
+    // `held_spec_by_id`, the same lookup the checkpoint rebuild uses. ⚠ It was
+    // once the WIDE one of two, for ids the brain's registry did not hold; there
+    // is one registry since 2026-09-05 and this is now a pass-through to it.
     let Some(spec) = ambition_held_items::held_spec_by_id(id) else {
         // ⛔ A ROW NAMING AN ITEM THAT DOES NOT EXIST DROPS NOTHING, and says so
         // once rather than every interval: an authored table is content, and

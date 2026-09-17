@@ -750,12 +750,14 @@ impl RoomFeatureConstructionPlan {
                     .minted
                     .and_then(|minted| minted.description_of(&sim_id));
                 if let Some(description) = described {
-                    // `held_spec_by_id`, NOT `ambition_characters::brain::held_item_by_id`.
-                    // The narrow one knows only the brain's registry; a mint that
-                    // came out of the INVENTORY resolves through the item catalog
-                    // (`Item::from_held_item_id`) and the narrow lookup answers
-                    // `None` for it — which sent a javelin down the "no item spec
-                    // answers to that id" arm and lost it a second time.
+                    // ⚠ THE TWO LOOKUPS ARE ONE LOOKUP SINCE 2026-09-05 --
+                    // `held_spec_by_id` is a pass-through to
+                    // `ambition_characters::brain::held_item_by_id` and there is one
+                    // registry. Before that they differed, and this line named which:
+                    // a mint that came out of the INVENTORY resolved through the item
+                    // catalog (`Item::from_held_item_id`), the narrow lookup answered
+                    // `None`, and a javelin went down the "no item spec answers to
+                    // that id" arm and was lost a second time.
                     match ambition_held_items::held_spec_by_id(&description.held_item) {
                         Some(held) => {
                             requests.push(crate::construction::ActorConstructionRequest {

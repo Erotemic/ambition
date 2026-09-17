@@ -557,6 +557,35 @@ it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
 `portal.gun_pickup` carried state and agree at steps 0, 1, 30 and 120.** The
 other six carry nothing at rest in that route, which is a fact about the ROUTE
 and not about the rows; the arm prints the split rather than reporting twelve.
+
+⛔⛤ **AND "A FACT ABOUT THE ROUTE" IS TRUE OF FIVE OF THOSE SIX, NOT SIX —
+MEASURED 2026-09-17, AND IT IS A CORRECTION TO THIS RANKING RATHER THAN TO THE
+ARM.** `gravity.flip_switch` cannot be placed by ANY route: its only mutable
+writer, `gravity_flip_switch_system`, is registered in exactly one place in the
+workspace and that place is inside a `#[cfg(test)]` module
+(`gravity/lifecycle.rs`), and the gravity plugin says so in its own words —
+*"`gravity_flip_switch_system` is intentionally NOT registered. Nothing spawns a
+`GravityFlipSwitch` in-game (the hub flip is an LDtk-authored Switch handled by
+the encounter system); the component + system exist only for the unit test + any
+future overlap-style plate."* ⇒ So the row is rollback-registered twice
+(`component-clone` plus `require_rollback`) for a component no shipped
+composition builds, and **this ranking counted a writer no production
+composition installs** — the same defect as crediting a road nobody takes. It is
+ELEVEN rows a route could reach, not twelve, and the twelfth wants a decision
+about the registration rather than a fixture.
+
+⚠ **THE OTHER FIVE SPLIT BY WHAT THEY NEED, WHICH TURNS "a route that places
+them" FROM A WISH INTO A LIST.** Read from the spawn sites, 2026-09-17:
+
+| row | what would place it |
+|---|---|
+| `portal.placed` | an AUTHORED placement — `PlacedPortal::fixed` is lowered from content (`features/ecs/spawn_static.rs`), so a route with a fixed portal covers it with no input at all |
+| `feature.hazard` | an authored `PlacementSchema::Hazard` placement, same shape. ⚠ Which shipped rooms carry one is NOT measured here |
+| `portal.shot`, `portal.emission` | DRIVEN INPUT: the gun must be fired, and the transit adapter inserts the emission on a body that crosses. `portal.gun_pickup` has a carrier in the Ambition route, so the gun is placed there and never picked up in an input-free 120 steps |
+| `boss.death_animation` | a boss death, which is the most expensive fixture of the five |
+
+⇒ The two authored rows are the cheap half and need no input road; the portal
+pair needs one; `boss.death_animation` needs a fight.
 ⛔ Two Apps with different local histories are still not two peers — no
 transport, no input exchange, no interleaving, no rebase — so this decides
 whether a row's value depends on where the host has been, and nothing more. That

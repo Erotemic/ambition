@@ -61,21 +61,21 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 
 ### Deterministic identity
 
-⛔⛤ **ID-PEER IS NOT COMPLETE, AND THIS SECTION SAID IT WAS FOR A DAY.** Of four
-open roads three are blocked outside the campaign — two on maintainer rulings,
-one on a P2P session this workspace never constructs — and the FOURTH is ordinary
-engineering with nothing in front of it: the GGRS component checksum hashes
-`RollbackOrdered.order(..)`, an App-lifetime rollback insertion index nothing
-rebases at a session boundary, so two hosts with different shell histories
-disagree on **59 of 146 checksum parts while every canonical identity and value
-agrees** (measured 2026-09-17, held by an `#[ignore]`d witness in
-`shell_host_lifecycle`). ⛔ **AND "THE CENSUS RUNS CLEAN" IS NOT WHAT FINDS
-THESE** — the value census could not see it, because it folds a per-value
-projection and ignores which entity carried each value. What found the two
-defects of 2026-09-17 was deleting a FALLBACK and running the suite, and reading
-what the pinned dependency actually hashes. ⚠ **One more road that needs no
-ruling:** the unchecksummed float rows' STATE half; the owner row prints how far
-it reaches.
+⛔ **ID-PEER'S THREE OPEN ROADS ARE BLOCKED OUTSIDE THE CAMPAIGN — two on
+maintainer rulings, one on a P2P session this workspace never constructs — AND
+THAT SENTENCE HAS BEEN WRONG TWICE, SO IT IS NOT AN INVITATION TO TRUST IT.** On
+2026-09-17 the review found a P0 the value census structurally could not see: the
+GGRS component checksum hashes `RollbackOrdered.order(..)`, an App-lifetime
+rollback insertion index nothing rebased at a session boundary, so two hosts with
+different shell histories disagreed on **59 of 146 checksum parts while every
+canonical identity and value agreed**. It is closed the same day by rebasing the
+carrier order where a session declares frame zero — 59 → 2, both survivors
+already owned by `Q128` and `Q129` — and held by
+`two_local_histories_compute_the_same_ggrs_component_checksums`. ⛔ **WHAT FOUND
+IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
+same day, deleting a FALLBACK to see who was using it. A clean census is not
+evidence. ⚠ **One more road that needs no ruling:** the unchecksummed float rows'
+STATE half; the owner row prints how far it reaches.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and
@@ -95,10 +95,9 @@ said `SeatControlFrameModes` is *"read by sim systems"* while the owner had
 recorded it closed and production holds exactly one `ResMut` writer and no
 readers. A summary of a live table is a copy that corrections do not reach.
 
-**What a reader picking this up needs: three of the four open roads are blocked
-outside the campaign, and the fourth is the work.** The table below carries the
-three blocked ones; the carrier-order road is in the owner row, because it has
-measurements a summary would rot.
+**What a reader picking this up needs: all three open roads are blocked outside
+the campaign.** A fourth was opened and closed on 2026-09-17; its measurements
+live in the owner row, because a summary of them here would rot.
 
 | open road | blocked on |
 | --- | --- |

@@ -465,10 +465,21 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
     // Put one seated fighter well past 100% under the stocks policy, and make
     // THAT the rollback baseline — a direct `world_mut` write behind the cursor
     // is the harness's one documented way to lie to itself.
-    let (before_percent, before_policy) = {
+    // ⛔⛤ **THE SUBJECT IS PINNED BY ENTITY, AND FOR MONTHS IT WAS PINNED BY
+    // QUERY ORDER.** This arm damaged `.next()`'s fighter and then read
+    // `.next()`'s fighter again, which is the same body only while Bevy's
+    // iteration order happens not to move. This roster seats TWO. Measured
+    // 2026-09-17, when a session-install change moved entities between
+    // archetypes: the damaged fighter still came out of the rewind at 188% and
+    // the arm read the OTHER seat at 0%, reporting *"a fighter that launches
+    // like a fresh one after every rollback"* about a rollback that had worked.
+    // ⇒ An arm about rollback must not identify its subject the way rollback
+    // forbids.
+    let (subject, before_percent, before_policy) = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<&mut BodyHealth, bevy::prelude::With<MatchSeat>>();
-        let mut health = q
+        let mut q = world
+            .query_filtered::<(bevy::prelude::Entity, &mut BodyHealth), bevy::prelude::With<MatchSeat>>();
+        let (subject, mut health) = q
             .iter_mut(world)
             .next()
             .expect("the roster seated at least one fighter");
@@ -481,7 +492,7 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
         // the meter is not the pool.
         health.health.max = 100;
         health.damage(188);
-        (health.damage_percent(), health.policy())
+        (subject, health.damage_percent(), health.policy())
     };
     sim.rebase_rollback_history()
         .expect("the damaged fighter becomes the rollback baseline");
@@ -510,12 +521,10 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
     }
 
     let (after_percent, after_policy) = {
-        let world = sim.world_mut();
-        let mut q = world.query_filtered::<&BodyHealth, bevy::prelude::With<MatchSeat>>();
-        let health = *q
-            .iter(world)
-            .next()
-            .expect("the seated fighter is still there");
+        let health = *sim
+            .world()
+            .get::<BodyHealth>(subject)
+            .expect("the fighter this arm damaged is still the fighter it reads");
         (health.damage_percent(), health.policy())
     };
     assert!(

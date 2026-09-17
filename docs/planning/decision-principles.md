@@ -181,6 +181,33 @@ counter of the old road's ABSENCE, this one is a comparison whose two sides can
 both collapse. Both are green because the instrument's discriminating power was
 never measured, only its verdict.
 
+## A test must not identify its subject the way its subject forbids
+
+⛔ **AN ARM ABOUT DETERMINISTIC IDENTITY THAT PICKS ITS SUBJECT WITH
+`query.iter().next()` IS ONE ARCHETYPE MOVE FROM LYING IN EITHER DIRECTION.**
+Bevy's iteration order is an allocation-and-archetype artefact — the same
+artefact a rollback comparison exists to eliminate — so `.next()` names *a*
+body, never *the* body.
+
+⭐ **MEASURED 2026-09-17.** `a_fighters_percent_and_policy_survive_a_rewind`
+damaged `.next()`'s seated fighter to 188%, rewound, and read `.next()` again.
+A session-install change that moved entities between archetypes flipped the
+order, and the arm reported *"went into the rewind at 188% and came out at
+0%"* — about a rollback that had worked perfectly: the damaged fighter still
+held 188% and the arm was reading the second seat. The roster seats TWO.
+
+⚠ **THE FAILING DIRECTION IS THE HARMLESS ONE.** A false red costs an hour and
+announces itself. The same arm would have gone GREEN if the undamaged seat had
+happened to sort first before the change and the damaged one after — a
+determinism arm passing because two bodies swapped places.
+
+⇒ Capture the subject's `Entity` (or better, its canonical `SimId`) at the
+moment the fixture acts on it, and read THAT back. A fixture that cannot name
+its subject cannot witness anything about identity. ⚠ And when a change to
+production code reddens an arm like this, the finding is the ARM: three
+mechanisms were proposed for that red and two were measured false before the
+iteration order was even considered.
+
 ## Low-weight criteria
 
 Do not choose a solution merely because it is easier to implement right now. Ease of implementation has very little weight compared with elegance, maintainability, clarity, runtime behavior, and architectural fit.

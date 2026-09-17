@@ -264,6 +264,112 @@ fn reset_input_authority(world: &mut World) {
     }
 }
 
+/// What a carrier-order rebase found and did. Returned so a caller can assert on
+/// it rather than read a log line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RollbackOrderRebase {
+    /// Live rollback carriers at the moment of the rebase.
+    pub carriers: usize,
+    /// How many of them carry a canonical [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId).
+    pub identified: usize,
+    /// Orders this App had handed out before the rebase — including every one
+    /// belonging to an entity that has since been despawned. The gap between
+    /// this and `carriers` IS the host-local history being discarded.
+    pub discarded_history: usize,
+}
+
+/// Rebase the GGRS carrier ORDER onto the live rollback population.
+///
+/// ⛔⛔ **THE COMPONENT CHECKSUM TWO PEERS COMPARE CONTAINS AN APP-LIFETIME
+/// INSERTION INDEX, AND WITHOUT THIS IT NEVER RESETS.** `ComponentChecksumPlugin`
+/// hashes `RollbackOrdered.order(rollback_id)` together with the value projection
+/// before XORing carriers together, and `RollbackOrdered` assigns each
+/// `RollbackId` an index the first time `Rollback` is added and keeps every index
+/// it ever handed out — despawned entities included. MEASURED 2026-09-17 on two
+/// hosts that reach the shipped Ambition route by different shell histories: the
+/// same 22 canonical identities at orders `0..21` against `74..95`, and **59 of
+/// 146 real `ChecksumPart`s disagreeing** while every value agreed.
+///
+/// ⇒ A session declaring frame zero is exactly where that history must stop
+/// contributing, which is why this runs beside the frame counters rather than at
+/// teardown: the rebase is a property of the timeline being STARTED.
+///
+/// ⚠ **THE KEY IS THE CANONICAL IDENTITY, NOT `RollbackId`.** `RollbackId` is the
+/// Bevy `Entity` that first received `Rollback`, so ordering by it would replace
+/// insertion-history dependence with allocation-order dependence — the same
+/// defect one layer down, which is the trap the architecture review named. `SimId`
+/// is the peer-stable key the live population already carries. The previous order
+/// is the TIE-BREAK, because a candidate world and the live world may legitimately
+/// carry the same canonical identity at the same moment.
+///
+/// ⚠ **IT REBUILDS THE RESOURCE THROUGH THE ONLY DOOR UPSTREAM LEAVES OPEN.**
+/// `RollbackOrdered::push` is private and there is no rebase API, so the order is
+/// re-established by removing `RollbackId` and `Rollback` and re-adding
+/// `Rollback`, whose `on_add` hook mints the id and pushes. The minted
+/// `RollbackId` is `RollbackId::new(entity)` — the SAME value, for the same
+/// entity — so nothing keyed on it moves; only the ordering changes. A small
+/// upstream primitive would be better and this is what exists.
+pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy_ggrs::{Rollback, RollbackId, RollbackOrdered};
+
+    let previous = world.get_resource::<RollbackOrdered>().cloned();
+    let discarded_history = previous.as_ref().map_or(0, RollbackOrdered::len);
+    // ⚠ `RollbackId` IS OPTIONAL HERE ON PURPOSE. The `on_add` hook inserts it
+    // through `Commands`, so a carrier spawned in the same frame can hold
+    // `Rollback` with the id still queued. Requiring it would leave that carrier
+    // out of the rebuilt ordering entirely, and `RollbackOrdered::order` PANICS
+    // for an id it does not know — a crash on the next checksum rather than a
+    // wrong number.
+    let mut carriers: Vec<(Option<String>, u64, Entity)> = world
+        .query_filtered::<(Entity, Option<&SimId>, Option<&RollbackId>), With<Rollback>>()
+        .iter(world)
+        .map(|(entity, sim_id, rollback)| {
+            let previous_order = match (previous.as_ref(), rollback) {
+                (Some(order), Some(rollback)) => order.order(*rollback),
+                _ => 0,
+            };
+            (
+                sim_id.map(|id| id.as_str().to_string()),
+                previous_order,
+                entity,
+            )
+        })
+        .collect();
+    let total = carriers.len();
+    let identified = carriers.iter().filter(|(id, _, _)| id.is_some()).count();
+    if identified != total {
+        // ⚠ NOT A REFUSAL. Rebasing on a partly-unnamed population is still
+        // strictly better than carrying another App's history, and refusing here
+        // would leave the defect in place for the one composition that needs it
+        // most. The gap is reported because a carrier the sim cannot name is the
+        // same finding `ensure_sim_id` and `collect_perception_peers` report.
+        bevy::log::error!(
+            "{} of {total} live rollback carriers have no canonical `SimId`, so \
+             their place in the peer-compared carrier order falls back to this \
+             App's construction order. Their spawn sites must mint an identity.",
+            total - identified
+        );
+    }
+    carriers.sort();
+    world.insert_resource(RollbackOrdered::default());
+    for (_, _, entity) in &carriers {
+        let mut carrier = world.entity_mut(*entity);
+        carrier.remove::<RollbackId>();
+        carrier.remove::<Rollback>();
+        carrier.insert(Rollback);
+    }
+    // The hook pushes into `RollbackOrdered` immediately and inserts the id
+    // through `Commands`, so the ordering is already correct here and the ids
+    // land on the entities at this flush.
+    world.flush();
+    RollbackOrderRebase {
+        carriers: total,
+        identified,
+        discarded_history,
+    }
+}
+
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -281,6 +387,18 @@ pub fn install_rebased_sync_test_session(
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
     reset_input_authority(world);
+    // ⛔ THE CARRIER ORDER IS PART OF WHAT FRAME ZERO REBASES. Without this the
+    // checksum two peers compare carries every rollback entity this App ever
+    // registered, retired sessions included — see `rebase_rollback_carrier_order`.
+    let rebase = rebase_rollback_carrier_order(world);
+    bevy::log::debug!(
+        target: "ambition_platformer2d::rollback",
+        "carrier order rebased onto {} live carrier(s) ({} named), discarding {} \
+         order(s) from this App's earlier history",
+        rebase.carriers,
+        rebase.identified,
+        rebase.discarded_history
+    );
 
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount by calling
     // Time::advance_to.

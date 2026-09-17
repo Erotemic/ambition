@@ -1875,11 +1875,10 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
     );
 }
 
-/// ⛔⛔ **THE CHECKSUM GGRS ACTUALLY COMPUTES CARRIES THIS APP'S ROLLBACK
-/// INSERTION HISTORY, AND THAT IS HOST-LOCAL LINEAGE INSIDE PEER-STABLE STATE.**
+/// ⭐⭐ **THE CHECKSUM GGRS ACTUALLY COMPUTES IS THE SAME ON TWO HOSTS WITH
+/// DIFFERENT SHELL HISTORIES — AND IT WAS NOT UNTIL 2026-09-17.**
 ///
-/// Found by the GPT architecture review of 2026-09-17 and reproduced here the
-/// same day. `ComponentChecksumPlugin` does not hash a component's value alone:
+/// `ComponentChecksumPlugin` does not hash a component's value alone:
 ///
 /// ```text
 /// for (rollback_id, component) in carriers {
@@ -1890,50 +1889,35 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
 /// }
 /// ```
 ///
-/// `RollbackOrdered` assigns each `RollbackId` an insertion-order index the
-/// first time `Rollback` is added, keeps every index ever handed out — deleted
-/// entities included — and is itself snapshotted. Nothing in Ambition's session
-/// teardown or in `install_rebased_sync_test_session` resets it: that function
-/// rebases `RollbackFrameCount`, `ConfirmedFrameCount`, the input authority and
-/// `Time<GgrsTime>`, and deliberately retains the snapshot infrastructure.
+/// `RollbackOrdered` assigns each `RollbackId` an insertion-order index the first
+/// time `Rollback` is added and keeps every index ever handed out — despawned
+/// entities included. Nothing rebased it: `install_rebased_sync_test_session`
+/// reset `RollbackFrameCount`, `ConfirmedFrameCount`, the input authority and
+/// `Time<GgrsTime>`, and deliberately retained the snapshot infrastructure. So
+/// the peer-compared checksum carried this App's whole rollback lineage.
 ///
-/// ⭐ **MEASURED, 2026-09-17, by this arm's own fixture.** Two hosts that reach
-/// the shipped Ambition route by different shell histories:
+/// ⛔⛤ **MEASURED BEFORE THE REPAIR, and the numbers are why this arm exists.**
+/// Two hosts reaching the shipped Ambition route by different shell histories
+/// held the SAME 22 canonical identities at orders `0..21` against `74..95` — a
+/// constant offset of 74, the rollback entities Sanic and Mary-O registered and
+/// retired — and **59 of 146 real `ChecksumPart`s disagreed**, `BodyHealth`,
+/// `ActorPose`, `Brain` and `WornCharacter` among them. After the rebase: **2**,
+/// and both are open roads somebody else owns (`SimTick`/`Q128`,
+/// `AmbitionGameSave`/`Q129`), each named below with its reading.
 ///
-/// ```text
-/// fresh   RollbackOrdered.len() = 22   session:root -> 0 … goblin_encounter -> 21
-/// veteran RollbackOrdered.len() = 96   session:root -> 74 … goblin_encounter -> 95
-/// ```
+/// ⚠ **A VALUE CENSUS CANNOT SEE ANY OF THIS, WHICH IS THE LESSON.**
+/// `RollbackChecksumProbes` folds `count` and a wrapping sum of the per-value
+/// projection and deliberately ignores which entity carried each value — so the
+/// two-host value census agreed throughout. The probe measures GGRS's
+/// PROJECTION; only this arm measures GGRS's CHECKSUM. Found by the GPT
+/// architecture review of 2026-09-17, one day after the probe was corrected to
+/// use the right projection.
 ///
-/// Every one of the 22 live carriers has a canonical `SimId`, the two sets of
-/// identities are EQUAL, and the orders differ by a constant offset of 74 — the
-/// rollback entities Sanic and Mary-O registered and retired. ⇒ The relative
-/// construction order survives; only the base moves. **And 59 of the 146 real
-/// `ChecksumPart`s disagree between the two hosts** (81 agree and are non-zero,
-/// so the comparison is not vacuous), including `BodyHealth`, `ActorPose`,
-/// `Brain` and `WornCharacter`.
-///
-/// ⚠ **THIS IS WHY A VALUE CENSUS CANNOT SEE IT.** `RollbackChecksumProbes`
-/// folds `count` and a wrapping sum of the per-value projection, deliberately
-/// ignoring which entity carried each value — so the two-host value census
-/// agrees while the checksum GGRS computes does not. The probe measures the same
-/// PROJECTION as GGRS; it does not measure the same CHECKSUM.
-///
-/// ⇒ **The repair is a session-relative carrier ordering**, established where a
-/// synchronised session declares frame zero, and it must not be "sort by
-/// `RollbackId`" — that is the Bevy `Entity` again, one layer down. `SimId` is
-/// the peer-stable key the live population already carries, and this fixture
-/// measures that every live carrier has one. `RollbackOrdered::push` is private
-/// upstream, so the repair needs either a small bevy_ggrs primitive or an
-/// Ambition-side reconstruction at that edge.
-///
-/// ⛔ **IGNORED, NOT DELETED, AND NOT INVERTED.** It asserts the property the
-/// timeline must have, so it fails today by design; inverting it into "the parts
-/// differ" would have to be deleted by whoever fixes this, and a witness that
-/// must be deleted is a witness that gets deleted quietly. Un-ignore it with the
-/// repair.
-#[ignore = "reproduces the open ID-PEER defect: 59 of 146 GGRS ChecksumParts \
-            differ between two hosts whose canonical identities and values agree"]
+/// ⇒ The repair is `rebase_rollback_carrier_order`, called where a session
+/// declares frame zero. It keys on canonical `SimId` rather than `RollbackId`,
+/// because `RollbackId` is the Bevy `Entity` that first received `Rollback` and
+/// ordering by it would swap insertion history for allocation order — the same
+/// defect one layer down.
 #[test]
 fn two_local_histories_compute_the_same_ggrs_component_checksums() {
     use ambition_platformer2d::platformer::sim_id::SimId;
@@ -2023,10 +2007,26 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
 
     // ⛔ THE PREMISE, ASSERTED FIRST. Without differing histories the comparison
     // below is between two identical Apps and proves nothing.
+    //
+    // ⛔⛤ **AND THE PREMISE MUST NOT BE THE DEFECT.** It was
+    // `fresh_total != veteran_total` — the two Apps having handed out different
+    // numbers of rollback orders — which is exactly what a carrier-order rebase
+    // makes false. The first run against the repair failed on the PREMISE, not
+    // on the subject: an arm whose control dies when the bug is fixed cannot
+    // witness the fix. The local lifecycle tokens are the same premise every
+    // sibling arm here uses and they survive it.
+    let fresh_tokens = local_lifecycle_tokens(&mut fresh);
+    let veteran_tokens = local_lifecycle_tokens(&mut veteran);
     assert_ne!(
-        fresh_total, veteran_total,
-        "both hosts have handed out {fresh_total} rollback orders, so this arm is \
-         not about prior local history at all"
+        fresh_tokens, veteran_tokens,
+        "the two hosts reached Ambition with the same local lifecycle state, so \
+         nothing below is about a host's history reaching its peer state"
+    );
+    // ⚠ Reported, not asserted: after a rebase both Apps hand out one order per
+    // live carrier, so this pair is EQUAL on a repaired timeline and unequal on a
+    // broken one. It is the diagnosis a failure wants, not the control.
+    println!(
+        "[carrier order] orders handed out: fresh {fresh_total}, veteran {veteran_total}"
     );
     // ⭐ AND THE CONTROL: the canonical layer AGREES. A checksum difference under
     // differing identities would be an ordinary desync, not this finding.
@@ -2039,11 +2039,46 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
 
     let fresh_parts = parts(&mut fresh);
     let veteran_parts = parts(&mut veteran);
+    /// The two rows that still differ, each with the OPEN question that owns it.
+    /// ⛔ A row here is a reading, not a waiver: both are already open roads with
+    /// a ruling in front of them, and neither is about carrier order.
+    const OWNED_ELSEWHERE: &[(&str, &str)] = &[
+        (
+            "ambition_time::SimTick",
+            "`Q128` — the absolute tick is `resource-canonical`, so two Apps that              have run for different lengths of time disagree from the first              compared frame. A projection excluding it would exclude the TIMELINE",
+        ),
+        (
+            "ambition_persistence::save::AmbitionGameSave",
+            "`Q129` — whether a save FILE is part of what two peers agree on.              Thirteen of its nineteen writers are sim systems, so it is              simulation-adjacent in practice whatever it is in principle",
+        ),
+    ];
+
+    let owned = |name: &str| {
+        OWNED_ELSEWHERE
+            .iter()
+            .any(|(ty, _)| name.contains(ty))
+    };
     let differing: Vec<&String> = fresh_parts
         .iter()
         .filter(|(name, value)| veteran_parts.get(*name) != Some(*value))
         .map(|(name, _)| name)
+        .filter(|name| !owned(name))
         .collect();
+    // ⛔⛤ **A STALE WAIVER IS A HOLE WITH A COMMENT OVER IT.** Each row above is
+    // excused because it differs for a reason somebody else owns; the day one of
+    // them stops differing, the excuse must go rather than sit here covering
+    // whatever moves in next.
+    for (ty, why) in OWNED_ELSEWHERE {
+        let still_differs = fresh_parts
+            .iter()
+            .any(|(name, value)| name.contains(ty) && veteran_parts.get(name) != Some(value));
+        assert!(
+            still_differs,
+            "`{ty}` no longer differs between the two hosts, so the reading that \
+             excuses it here is spent: {why}. Delete the row rather than leaving \
+             it to cover the next type that lands on this surface"
+        );
+    }
     let agreeing_nonzero = fresh_parts
         .iter()
         .filter(|(name, value)| **value != 0 && veteran_parts.get(*name) == Some(*value))
@@ -2058,9 +2093,11 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
     assert!(
         differing.is_empty(),
         "{} of {} GGRS checksum parts differ between two hosts whose canonical \
-         identities and values are identical, because `RollbackOrdered` carries \
-         this App's whole rollback insertion history into the hash: \
-         {fresh_total} orders handed out here against {veteran_total} there. \
+         identities and values are identical. The usual cause is the CARRIER \
+         ORDER: `ComponentChecksumPlugin` hashes `RollbackOrdered.order(..)` \
+         beside each value, and that index is App-lifetime unless a session \
+         rebases it — {fresh_total} orders handed out here against \
+         {veteran_total} there, which are equal on a rebased timeline. \
          First few: {:?}",
         differing.len(),
         fresh_parts.len(),

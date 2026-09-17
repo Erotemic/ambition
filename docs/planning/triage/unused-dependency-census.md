@@ -44,6 +44,22 @@ cargo rustc -p <crate> --lib --all-features -- -W unused_crate_dependencies
 ⇒ **Only a dependency reported unused under BOTH is unused.** Run the confirmer
 over the HITS, not over every crate: two runs on the hits, not two runs on 75.
 
+⛔⛤ **AND THAT RULE HAS AN EXCEPTION THAT POINTS THE OTHER WAY — MEASURED
+2026-09-17 BY DELETING THE LINE.** The confirmer assumes a WIDER build can only
+REVEAL a use the narrow one hid. For a dependency declared to activate a feature,
+the wider build can SUPPLY that feature from somewhere else and hide the need
+instead. `ambition_input`'s `bevy_input` is the worked case: unused by NAME in
+both stages, so this page's rule calls it removable — and removing it fails the
+DEFAULT build with `the trait bound KeyCode: serde::Serialize is not satisfied`,
+the exact error its manifest comment predicts. Under `--all-features` it compiles
+without the line, because `leafwing-input-manager` turns on `bevy_input/serialize`
+itself.
+
+⇒ **THE ONLY SETTLING INSTRUMENT FOR A ZERO-NAME DEPENDENCY IS DELETING THE LINE
+AND BUILDING — at default features, not only at `--all-features`.** A lint that
+answers "is this crate named" cannot answer "does this crate's feature have to be
+on", and a confirmer that only widens can be wrong in the removable direction.
+
 ## What a hit means — five outcomes, not one
 
 A confirmed hit is not automatically a deletion. Sorting them is the actual work:
@@ -55,6 +71,7 @@ A confirmed hit is not automatically a deletion. Sorting them is the actual work
 | **DOC-ONLY** | named only in a doc comment / intra-doc link | **two edits**, the dep line and the link — and see the ruling below |
 | **MISFILED** | used only in test code | move to `[dev-dependencies]`; if it is ALSO doc-linked, the lib's rustdoc is not given dev-deps, so expect the link to break — confirm with `cargo doc -p <crate>` |
 | **FEATURE-GATED** | named in the crate's own `[features]` table (`causal = ["dep:ambition_causal"]`) | **not a delete** — it is public feature surface, and removing it changes what downstream crates can enable |
+| **FEATURE-ACTIVATION** | declared in order to TURN A FEATURE ON, never to be named (`bevy_input = { features = ["serialize"] }`) | ⛔ **not a delete, and the detector cannot see it in either stage** — the lint reports whether a crate is NAMED, and this dependency exists so that somebody else's derive exists |
 
 ⭐ **Maintainer ruling, 2026-09-03 (coordinator), on DOC-ONLY:** *keep the
 dependency and keep the doc link.* A dep whose only use is an intra-doc
@@ -75,17 +92,25 @@ that have been through both stages:
 | `ambition_abilities` | `ambition_items` | DOC-ONLY — **ruled: keep both** |
 | `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1095`) |
 
-⚠ **DETECTOR ONLY — classified but NOT yet confirmed, because the run was
-stopped before reaching them. Do not act on these two:**
+✔ **THE TWO DETECTOR-ONLY ROWS ARE SETTLED, 2026-09-17 — and they settled in
+OPPOSITE directions, which is why the sentence below them was right to refuse
+"both look safe":**
 
-| crate | dependency | provisional class |
-|---|---|---|
-| `ambition_input` | `bevy_input` | REDUNDANT-UMBRELLA — never named, `bevy::input` used 11× |
-| `ambition_encounter_features` | `ambition_interaction` | MISFILED — both uses in `tests.rs` |
+| crate | dependency | provisional class | settled |
+|---|---|---|---|
+| `ambition_input` | `bevy_input` | REDUNDANT-UMBRELLA — never named, `bevy::input` used 11× | ⛔ **WRONG, AND NOT REMOVABLE.** It is **FEATURE-ACTIVATION**: `features = ["serialize"]` is why the line exists. Deleting it and running `cargo check -p ambition_input` (DEFAULT features) fails on `KeyCode: serde::Serialize`. At `--all-features` it compiles, because leafwing turns the feature on |
+| `ambition_encounter_features` | `ambition_interaction` | MISFILED — both uses in `tests.rs` | ✔ **CONFIRMED** unused under default AND `--all-features`; the two uses are `PickupKind` and `Chest` in `src/tests.rs`. Moved to `[dev-dependencies]` |
 
-⇒ Both look safe and neither is a guess, but "looks safe" is what the
-default-features detector said about `ron` too. One `cargo rustc -p <crate>
---lib --all-features -- -W unused_crate_dependencies` each settles them.
+⇒ **"Looks safe" is what the default-features detector said about `ron` too**, and
+one of these two was a wrong class rather than a wrong confidence. The confirmer
+settled the second; only a DELETION settled the first.
+
+⭐ **AND THE MOVE IS VISIBLE IN A SHIPPED PROFILE'S CLOSURE, which is the argument
+for doing it at all.** `fixtures/minimal_game`'s sentinel lockfile — the one
+`capability-footprint-sentinel-lockfile-is-stale` exists to keep honest — lost
+`ambition_interaction` from `ambition_encounter_features`'s dependency list when
+the line moved. A misfiled dev-dependency is not tidiness: it is a crate the
+minimal profile linked in order to run nobody's tests.
 
 ⭐ **`ambition_abilities` is the carve-strandage case and it is worth its own
 sentence.** Its two stranded deps are in the crate carved that same night, it

@@ -44,6 +44,33 @@ source responsibility, not a certification of architectural completeness.
 | `ambition_boss_encounter` | Encounter patterns, phase/state machines, authored geometry, ECS runtime, sprites and rewards | Bosses, actor feature damage and content providers | Distinguish encounter orchestration and authored assets from body/action execution. Preserve encounter/cutscene separation and characterize existing boss paths before convergence |
 | `ambition_body_seed` / `ambition_mount` / `ambition_match` | Shared body construction; mount relations; match/seat/settlement semantics, respectively | One-body construction and control, plus ruleset/match lifecycle | These are useful bounded directions, but each remains subject to its own writer, scope and absence tests |
 
+⛔⛤ **THE TABLE ABOVE HAD NO PRESENTATION OR HOST AXIS AT ALL, AND `T13`/`T14`
+BELOW DESCRIBE TARGET AUTHORITIES FOR IT — MEASURED AND REPAIRED 2026-09-17.**
+Seven `crates/` members holding **92,321 lines of source between them** were
+named nowhere on this page, while `ambition_interaction` (363 lines) was in the
+"major containers" table. ⇒ A target authority whose CURRENT owner the map does
+not name cannot be planned against; that is the gap these rows close. ⚠ The
+`Target disposition` column is deliberately thin here: stating what a crate does
+today is a measurement, and deciding where its responsibility should end is a
+design call this page's other rows were given by the review that wrote them.
+
+| Container | State, behavior and current authority | Important consumers / invariant | Target disposition |
+| --- | --- | --- | --- |
+| `ambition_render` | The sandbox's default Bevy presentation layer: mirrors read models into sprites and UI | Its own header states the invariant — *"no module on the gameplay critical path lives in this crate … it never mutates the sim"* | The current owner of most of `T13`. Whether it stays one crate or becomes the several services `T13` describes is undecided |
+| `ambition_sim_view` | The plain-data observation boundary: read models rebuilt from authoritative state in the sim tail | Every observer consumes these snapshots instead of querying live simulation ECS; `camera_snapshot` is per-rendered-frame and follows the same one-way rule | `T13`'s *"stable simulation read models"* dependency has a name, and it is this crate |
+| `ambition_sprite_sheet` | The runtime sprite-sheet metadata registry over generated `*_spritesheet.ron` manifests | Sprite dimensions, row layout and body metrics stay aligned with generated sheets through one `SheetRegistry` | Asset preparation under `T13`; the generator side is a submodule and out of this map's scope |
+| `ambition_game_shell` | Top-level route/experience routing with no game-specific route names and no rendering | Registered experiences get scoped activation identities and report semantic completion; they never hard-code the menu that launched them | Part of `T14`'s composition half, and the crate that owns `ShellActivationId` — a host-local identity `ID-PEER` keeps out of canonical state |
+| `ambition_input` | Device → engine-owned `ControlFrame` adapter | Movement physics stays independent of keyboards, gamepads, UI rebinding and replay input — the seam `T14` calls *"authoritative input"* | `T14`'s input selection; the `ControlFrame` shape itself is versioned separately |
+| `ambition_portal2d_presentation` | The default renderer for the headless `ambition_portal2d` mechanic | Hosts sync the crate-owned seams; the mechanic stays headless without it | The worked example of `T13`'s *"separate services connected by explicit facts, not one presentation crate mandate"* |
+| `ambition_platformer2d_rollback_ggrs` | The concrete `bevy_ggrs` schedule, snapshot/history machinery, session lifecycle, checksum probes and post-load repair | Domains declare rollback state through the backend-neutral registrar; only this crate knows the backend | `T14`'s backend adapter. The split from `ambition_platformer2d_runtime`'s neutral registrar already exists |
+
+⚠ **STILL ABSENT AND DELIBERATELY SO:** `game/` members (`ambition_content`,
+`ambition_app`, the demos, `ambition_app_tools`). This page's own preamble scopes
+it to `crates/`, and four of them are larger than most rows above —
+`ambition_content` alone is 52,807 lines, the third-largest tree in the
+workspace. That is a scope statement, not an omission, and it is written here so
+the next reader does not re-derive the same census to find out.
+
 ### Source entry points for corroboration
 
 The following are sufficient starting points, not a claim to enumerate every

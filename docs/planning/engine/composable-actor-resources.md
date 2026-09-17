@@ -235,14 +235,37 @@ set creates a new layout.
 A transition to a new layout is an explicit state migration. It maps stable
 resource identities, not old slot numbers.
 
-### R10. Rollback has one complete authority
+### R10. Rollback restores the values AND the plan they are read through
 
-Current resource values and any per-instance capacities are rollback state.
-Layout identity is rollback state when an actor can change layouts during a
-session.
+Rollback state is: current resource values, any per-instance capacities, **and
+the identity of the actor's ACTIVE PREPARED PLAN.**
 
-Prepared definitions and immutable layout metadata are generation data. Do not
-copy them into every snapshot.
+Everything else the plan holds — the layout metadata, the capability-role
+handles, the prepared move costs — is immutable generation data, looked up BY
+that identity. Do not copy it into a snapshot, and do not leave the pointer to it
+out of one.
+
+⛔⛤ **THIS RULE SAID "LAYOUT IDENTITY IS ROLLBACK STATE WHEN AN ACTOR CAN CHANGE
+LAYOUTS DURING A SESSION", AND A 2026-09-17 REVIEW SHOWED THAT IS NOT ENOUGH.**
+The values were rollback state and the active binding set was classified as
+generation data, so a build change that switches plans mid-session is restorable
+in one half and not the other: the rewind puts layout A's bank back while the
+capability still presents layout B's handle, and R4's *"a stale handle must fail
+clearly"* cannot save it — both sides believe they agree. A handle check compares
+the LAYOUT, and two plans can share one layout.
+
+⇒ **ONE POINTER, NOT TWO.** The active plan identity is the single restored
+pointer; the layout identity is a PROJECTION of it, because the plan determines
+the layout (many plans may share one layout, never the reverse). If the bank
+carries a layout id for its handle check, that copy is DERIVED and registers
+through the `declare_rollback_derived_*` road rather than being restored
+independently — two independently restored copies of one fact is how the two come
+to disagree.
+
+⚠ **AND THE CONDITIONAL IS DELETED ON PURPOSE.** *"…when an actor can change
+layouts"* asks an implementer to decide whether this session can do the thing the
+progression section of this same page describes. A pointer that is sometimes
+rollback state is a pointer whose absence nobody can witness.
 
 ### R11. Peer layout is deterministic
 
@@ -259,6 +282,39 @@ not move into the resource bank because they are numeric.
 
 A second state family can reuse the prepare-and-bind pattern later if it has a
 real customer and the same semantics.
+
+### R13. A layout or plan identity is CONTENT-DERIVED, never an allocation order
+
+The identity two peers exchange must be a function of the layout's canonical
+CONTENT: either a digest over the canonical bytes, or a dense ordinal assigned
+from the canonically sorted set of layouts an admitted generation declares.
+
+It must not be the order in which a cache, an intern table or a preparation queue
+first saw the layout.
+
+⛔⛤ **R11 FORBIDS UNORDERED ITERATION IN CONSTRUCTION AND SAYS NOTHING ABOUT THE
+ID, WHICH IS A DIFFERENT FACT.** Two peers can derive byte-identical layouts and
+still disagree: peer 1 prepared this layout second and peer 2 prepared it first,
+so an intern-table ordinal gives them different ids, and the id is what the
+checksum sees. The layouts agree; the session desynchronises. ⚠ Nothing about the
+layout is wrong in that failure, which is why a layout-equality test cannot find
+it.
+
+⭐ **THIS REPOSITORY HAS ALREADY PAID FOR THIS EXACT CLASS, WHICH IS WHY IT IS A
+RULE AND NOT A NOTE.** `RollbackOrdered.order(rollback_id)` is an App-lifetime
+INSERTION INDEX that GGRS hashes beside each value, so a registration road that
+inserted its carriers in a different order produced a different checksum over
+identical state — see
+[simulation authority](simulation-authority-and-determinism.md) and `queue.md`'s
+ID-PEER row, whose whole subject is that host-local lineage must not reach
+peer-stable identity. An interned layout ordinal is host-local lineage with a
+mechanical-sounding name.
+
+⇒ The acceptance arm is NOT "two peers prepare the same layout". It is **two
+peers prepare the same layout after DIFFERENT IRRELEVANT HISTORIES** — a
+different set of other characters prepared first, in a different order — and
+agree on the identity. A test whose peers do the same things in the same order
+cannot distinguish a content digest from a counter.
 
 ## Authoring model
 
@@ -623,9 +679,19 @@ dynamic.
 
 The resource bank is authoritative mutable simulation state.
 
-Snapshot data contains the live resource values and the instance data required
-to interpret them. If layout can change in the session, snapshot the layout
-identity too.
+Snapshot data contains the live resource values, the instance data required to
+interpret them, **and the actor's active prepared-plan identity** — see
+[R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through). The
+plan's contents are generation data reached THROUGH that identity, so the
+snapshot carries one small pointer rather than a copy of the layout.
+
+⛔ **THE FAILURE THIS ORDERING PREVENTS IS NOT A LOST VALUE, IT IS A COHERENT-
+LOOKING PAIR.** Restore the bank without the pointer and the actor holds layout
+A's values while its capabilities hold layout B's handles; both sides pass their
+own checks and the reads are silently wrong. A test that asserts *"rewind
+restores exact resource values"* passes in that state, which is why the arm in
+[acceptance](#rollback-and-peer-determinism) reads a value THROUGH a capability
+handle after a rewind across a plan change.
 
 Decode must validate bounded numeric invariants before it creates live state.
 
@@ -635,8 +701,16 @@ The admitted mechanical content identity covers resource declarations, resource
 bindings, prepared costs, and the rules that can change mechanics.
 
 Two peers that admit the same content must derive byte-equivalent canonical
-layouts. Add a poison that changes unordered input iteration and proves the
-prepared layout does not change.
+layouts, AND the same identity for them —
+[R13](#r13-a-layout-or-plan-identity-is-content-derived-never-an-allocation-order).
+Two poisons, because they fail differently:
+
+1. change unordered input iteration and prove the prepared LAYOUT does not
+   change;
+2. prepare the same layout on two peers after DIFFERENT irrelevant histories —
+   other characters prepared, in a different order — and prove the IDENTITY does
+   not change. An intern-table ordinal passes (1) and fails (2), and (2) is the
+   one that reaches the checksum.
 
 ### Save data
 
@@ -818,6 +892,27 @@ content-pack and runtime dependency direction.
 
 Build a small vertical prototype against real Ambition paths. Do not start with a
 large `BodyMana` migration.
+
+⛔⛔ **TWO CONTRACTS ARE DECIDED BEFORE 0A, NOT DISCOVERED DURING IT**, because
+both are cheap to state now and expensive to retrofit under a live save format
+and a live checksum:
+
+1. **What the snapshot carries** — values, capacities and the ACTIVE PLAN
+   IDENTITY, with layout metadata, capability-role handles and prepared move
+   costs as generation data keyed by it
+   ([R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)).
+   A prototype that snapshots only values will pass its own rewind arm and hide
+   the defect until an actor changes build mid-session.
+2. **How the identity is derived** — content digest, or a dense ordinal over a
+   canonically sorted set inside the admitted generation; never the order a cache
+   first saw the layout
+   ([R13](#r13-a-layout-or-plan-identity-is-content-derived-never-an-allocation-order)).
+   This one is not a prototype detail: the id is what two peers exchange, and the
+   repository has already shipped one App-lifetime insertion index into a peer
+   checksum (`RollbackOrdered`).
+
+⇒ Phase 0 may choose the TYPE, the field names and the cache owner. It does not
+get to choose these two, and 0B/0C are where they are exercised.
 
 ### 0A. Three character compositions
 
@@ -1072,6 +1167,12 @@ Do not combine those families into one mutable map only to reuse lookup code.
   rollback registry;
 - two peers prepare the same slots from the same canonical content;
 - permuting unordered source insertion does not change prepared layout;
+- **two peers that prepare the same layout after different irrelevant
+  preparation histories agree on its IDENTITY** (R13);
+- **a rewind across a plan change restores the active plan identity with the
+  values**, witnessed by reading a resource THROUGH a capability-role handle
+  after the rewind rather than by comparing the bank — a bank comparison passes
+  while the handles belong to the other layout (R10);
 - invalid decode refuses instead of constructing an invalid pool.
 
 ### Content iteration
@@ -1098,7 +1199,13 @@ Add poisons that:
 7. give every Smash fighter a dummy Limit resource;
 8. make a new content resource require a new Rust semantic component;
 9. persist a local slot number as the semantic save identity;
-10. create a second mutable projection for HUD or capability-role state.
+10. create a second mutable projection for HUD or capability-role state;
+11. leave the active plan identity out of the snapshot and rewind across a plan
+    change (R10);
+12. derive the layout identity from an intern-table or cache ordinal instead of
+    the layout's content (R13);
+13. restore the bank's own layout-id copy independently instead of declaring it
+    derived (R10) — two restored copies of one fact.
 
 Each poison must have a nonempty control that proves the witness exercised the
 subject.

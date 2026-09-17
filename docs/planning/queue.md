@@ -797,6 +797,18 @@ production strings moved.
 nearest canonical-looking value. `SimTick` is why: it looks canonical, it
 rewinds, it is already checksummed, and it is host-local.
 
+⛔⛤ **A DESIGN CAN ACQUIRE THIS DEFECT BEFORE IT HAS ANY CODE, AND ONE DID ON
+2026-09-17.** [Composable actor resources](engine/composable-actor-resources.md)
+forbade unordered iteration in layout CONSTRUCTION and said nothing about how the
+layout's IDENTITY is derived — so an intern-table ordinal would have satisfied
+every rule on the page while giving two peers different ids for byte-identical
+layouts, which is `RollbackOrdered` again under a mechanical-sounding name. Its
+`R13` now requires a content-derived key or a dense ordinal over a canonically
+sorted set inside the admitted generation, and its acceptance arm is this row's
+acceptance shape: **the same layout prepared after DIFFERENT irrelevant
+histories**. ⇒ When a page names a new id that crosses to a peer, the question is
+not whether its construction is ordered; it is what the id is a function OF.
+
 **Acceptance:** two Apps that have burned different numbers of local session
 activations can enter the same deterministic match and produce the same canonical
 mechanical identity/checksum. The witness must first assert that their local

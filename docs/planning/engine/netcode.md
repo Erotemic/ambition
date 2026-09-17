@@ -125,13 +125,26 @@ Do not build signaling/deployment infrastructure solely to satisfy this plan.
 ⛔⛤ **AND N2 NOW HAS A COUNTED POPULATION WAITING ON IT, NOT ONLY A DEFECT.**
 `simulation-authority-and-determinism.md`'s **S7** ranks the rollback rows that
 are outside the peer checksum, read every unfiltered tick, and float-bearing: 25
-rows, 12 of them mutably written in production. Two have been measured clean
-against a local resimulation and that is ALL a `SyncTestSession` can establish
-about them — a value nothing compares between peers is reproducible locally and
-divergent across peers at the same time, and the second half is invisible from
-inside one App. ⇒ So N2 is not only what makes an online slice possible; it is
-the only thing that can ask the question those 25 rows pose. S7 owns the list and
-this row owns the session; neither duplicates the other.
+rows, 12 of them mutably written in production — and eleven of those twelve,
+because one is registered for a component no shipped composition builds. ⚠ **The
+count of what has been MEASURED lives in S7 and in the ID-PEER row, not here**:
+this sentence carried "two have been measured clean" while both of those had
+moved. What does not move is the shape: a `SyncTestSession` can establish that a
+value is reproducible under a local resimulation, and a value nothing compares
+between peers is reproducible locally and divergent across peers at the same
+time. The second half is invisible from inside one App. ⇒ So N2 is not only what
+makes an online slice possible; it is the only thing that can ask the question
+those rows pose. S7 owns the list and this row owns the session; neither
+duplicates the other.
+
+⛔ **AND N2 INHERITS ONE CONCRETE OBLIGATION FROM 2026-09-17, stated here because
+it is invisible at the transport layer.** A P2P session that negotiates a start
+tick is declaring frame zero, so it must rebase the rollback carrier ordering the
+way `install_rebased_sync_test_session` does — see *What GGRS actually folds into
+the peer checksum* below. `install_session`, the seam a transport hands a session
+to, deliberately does NOT rebase, because a session continuing an agreed timeline
+must not have the ground moved under it. Choosing between those two is part of
+N2, not a detail of it.
 
 ### N3 — content/schema negotiation
 

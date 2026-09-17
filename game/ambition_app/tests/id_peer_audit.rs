@@ -31,6 +31,26 @@
 //! match-spawn tick (in a constructor's argument) and the session root (in a
 //! singleton's key).
 //!
+//! ⛔⛤ **AND A THIRD CLASS, WHICH IS NEITHER A TYPE NOR A PROVENANCE: THE
+//! CHECKSUM'S OWN INDEXING.** `ComponentChecksumPlugin` hashes
+//! `RollbackOrdered.order(rollback_id)` alongside each value, and
+//! `RollbackOrdered` hands out an App-lifetime insertion index it never
+//! forgets — despawned entities included. So the compared checksum contained a
+//! host-local count that is not registered, not derived from a registered
+//! value, and belongs to no type this file could name. MEASURED on two hosts
+//! reaching the same shipped route by different shell histories: the same 22
+//! canonical identities at orders `0..21` against `74..95`, and **59 of 146
+//! real `ChecksumPart`s disagreeing while every value agreed.** Closed by
+//! `rebase_rollback_carrier_order`; held by
+//! `two_local_histories_compute_the_same_ggrs_component_checksums`
+//! (`shell_host_lifecycle`), not by anything in this file.
+//!
+//! ⇒ **So a green run here is a claim about REGISTERED TYPE NAMES and nothing
+//! else.** Three classes have been found outside it and each needed a different
+//! KIND of instrument: a value census over a built world for a provenance, a
+//! reading of what the pinned dependency computes for the index, and this file
+//! for the names. A fourth will not announce itself as one.
+//!
 //! ⛔⛤ **AND "A VALUE-LEVEL ARM IN THE CRATE THAT MINTS IT" IS WHAT THIS
 //! PARAGRAPH USED TO SAY, WHICH IS HOW THE SESSION ROOT SPENT A DAY GUARDED ON A
 //! ROAD NOTHING SHIPS.** The minting crate's arm called

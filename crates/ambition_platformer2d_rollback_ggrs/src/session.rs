@@ -414,6 +414,19 @@ pub fn install_rebased_sync_test_session(
 /// Install any already-constructed GGRS session behind Ambition's exact
 /// content/schema contract. Matchbox will eventually construct a P2P session
 /// and hand it to this same seam; the harness uses [`start_sync_test_session`].
+///
+/// ⛔⛔ **THIS ROAD DOES NOT DECLARE FRAME ZERO, SO IT DOES NOT REBASE — AND
+/// WHOEVER BUILDS THE P2P ROAD MUST DECIDE WHICH IT IS.** A session installed
+/// here inherits the frame counters and the carrier ordering as they stand,
+/// deliberately: rebasing either one under a session that continues somebody
+/// else's timeline would move the ground under the frames already agreed. ⇒ If
+/// the P2P path starts a NEW synchronised timeline — which is what negotiating
+/// a start tick means — it wants
+/// [`install_rebased_sync_test_session`]'s shape, including
+/// [`rebase_rollback_carrier_order`]. Without that call the peer-compared
+/// checksum carries every rollback entity this App ever registered: measured
+/// 2026-09-17 at 59 of 146 differing parts between two hosts whose canonical
+/// identities and values were identical.
 pub fn install_session(world: &mut World, session: AmbitionGgrsSession) {
     install_session_with_ownership(world, session, RollbackSessionOwnership::External);
 }

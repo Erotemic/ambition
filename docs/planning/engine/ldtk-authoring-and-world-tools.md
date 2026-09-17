@@ -41,13 +41,59 @@ The next phase should consolidate these into a coherent authoring product.
 ## Current weaknesses
 
 1. Some authored relationships remain strings even though the toolchain already
-   supports native LDtk `EntityRef` values.
+   supports native LDtk `EntityRef` values. ⚠ **Measured 2026-09-17: ONE remains,
+   and it has no customer.** `MovingPlatform.path_id` is the last string
+   relation; `EnemySpawn.path_ref` is a native `EntityRef` and
+   `LdtkEntityCtx::kinematic_path_ref` has exactly one caller. Across the six
+   distinct `.ldtk` projects there are **8 `MovingPlatform` placements and none
+   authors `path_id`**, while both authored `KinematicPath` entities are consumed by
+   `path_ref`. See K5 in
+   [`kinematic-world-objects.md`](kinematic-world-objects.md) — author a
+   path-following platform and migrate the field in the same change.
 2. `KinematicPath` points are currently parsed from an opaque string such as
    `"10,20; 30,40"` rather than an editor-native point/path representation.
+   ⚠ **This is the one of the two worth doing first**: unlike `path_id` it has
+   two authored customers today, and `SurfaceChain` authors its polyline the same
+   way.
 3. Runtime converters contain field defaults and precedence rules that are hard
    to discover from the LDtk editor alone.
 4. Engine/provider vocabulary, editor entity definitions, validation and docs can
    drift because they are not generated/checked from one declarative schema.
+   ⭐⭐ **THIS STOPPED BEING A HYPOTHESIS ON 2026-09-17: IT HAS DRIFTED, AND HALF
+   THE GAP NOW HAS A CHECK.** `ldtk_entity_contract.json` is pinned against the
+   Rust converters in both directions by `contract::prover`, and
+   `entity_contract_issues` reads authored PLACEMENTS against it — but a
+   placement can only ever disagree about a field the editor offered in the first
+   place, and **nothing compared the contract to `defs.entities`**. Measured
+   across the six distinct projects:
+
+   | contract rule | projects whose editor definition has the field |
+   |---|---|
+   | `CameraZone.scroll_policy` | **0 of 6** |
+   | `PortalGunSpawn.pair` | **0 of 6** |
+   | `EnemySpawn.facing` | **1 of 6** |
+   | `EnemySpawn.path_ref` | **2 of 6** (`intro`, `sandbox`) |
+   | `EnemySpawn.disposition` | 2 of 6 |
+   | `EnemySpawn.respawn` | 3 of 6 |
+   | `MovingPlatform.loop_dy` / `loop_min_y` | 3 of 6 |
+
+   ⚠ **THE POPULATION IS SIX, AND A GLOB SAYS EIGHT.**
+   `game/ambition_demo_{mary_o,sanic}/assets/worlds/*.ldtk` are SYMLINKS into
+   `game/ambition_map_assets/ambition_demo_*/worlds/`, so a naive
+   `game/**/worlds/*.ldtk` counts two files twice and moves every ratio. Resolve
+   the real path before counting.
+
+   ⇒ A capability lands in the converter, the contract records it truthfully, and
+   the projects that never grew the field cannot author it — which is how the
+   flagship `path_ref` landing reaches two worlds out of six.
+   `contract_authorability_issues` (`validate_rules/entity_contract.py`) now
+   warns per field, wired into `validate_issues` so the CLI actually runs it.
+   ⛔ **WARNINGS, NOT ERRORS**, because a project that authors no vertical loops
+   is not broken by having no `loop_dy`; escalating would fail every world on
+   a run, which is a report wearing a gate's costume. ⛔ And the ENTITY-level half
+   is deliberately NOT in the new rule: `validate.py`'s `missing_known_defs`
+   already warns it (that is how `SurfaceRamp` is reported today), and the first
+   version of the rule said it a second time under a second code.
 5. Some useful errors arrive only at runtime conversion rather than as immediate
    authoring diagnostics.
 6. The tools know many intent-level operations, but capability-specific recipes

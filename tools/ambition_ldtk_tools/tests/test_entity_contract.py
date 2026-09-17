@@ -24,6 +24,7 @@ import pytest
 from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk
 from ambition_ldtk_tools.validate import validate_issues
 from ambition_ldtk_tools.validate_rules.entity_contract import (
+    contract_authorability_issues,
     contract_identifiers,
     entity_contract_issues,
     entity_contracts,
@@ -367,9 +368,15 @@ def test_the_validate_command_goes_red_on_real_content_missing_a_required_field(
     before = {
         (i.severity, i.code, i.entity_iid, i.field) for i in validate_issues(healthy)
     }
-    assert not any(code.startswith("contract.") for _, code, _, _ in before), (
-        "the shipped world already violates the contract; fix the world, not the test"
-    )
+    assert not any(
+        severity == "error" and code.startswith("contract.")
+        for severity, code, _, _ in before
+    ), "the shipped world already violates the contract; fix the world, not the test"
+    # ⚠ SEVERITY-AWARE SINCE 2026-09-17, and the widening is deliberate.
+    # `contract.field_absent_from_defs` is a standing WARNING on every shipped
+    # world — a rule exists for a field that project's editor definition does not
+    # offer — so a bare `startswith("contract.")` would have made this arm assert
+    # that no such drift exists anywhere, which is not what "goes red" means.
 
     poisoned_project = copy.deepcopy(project)
     victim = None
@@ -403,3 +410,105 @@ def test_the_validate_command_goes_red_on_real_content_missing_a_required_field(
         ("error", "contract.required_field_missing", victim, "character_id")
     }
     assert before - after == set()
+
+
+# ---------------------------------------------------------------------------
+# The other direction: a rule for a field no author can write
+
+
+def _defs_project(*entity_defs):
+    """A project whose only interesting content is its entity DEFINITIONS."""
+    return {"levels": [], "defs": {"entities": list(entity_defs)}}
+
+
+def _def(identifier: str, *field_names: str):
+    return {
+        "identifier": identifier,
+        "fieldDefs": [{"identifier": name} for name in field_names],
+    }
+
+
+def _authorability(project) -> set[tuple[str, str, str | None]]:
+    return {
+        (i.code, i.entity, i.field) for i in contract_authorability_issues(project)
+    }
+
+
+def test_a_contract_rule_for_a_field_the_editor_lacks_warns_and_a_present_one_does_not():
+    """Both terms, on the SAME field, so the rule cannot be shouting at everything."""
+    declared = [field["name"] for field in entity_contracts()["MovingPlatform"]["fields"]]
+    assert "sweep_dx" in declared, "the contract stopped declaring MovingPlatform.sweep_dx"
+
+    without = _defs_project(_def("MovingPlatform", *[n for n in declared if n != "sweep_dx"]))
+    with_it = _defs_project(_def("MovingPlatform", *declared))
+
+    missing = {f for (code, e, f) in _authorability(without) if e == "MovingPlatform"}
+    present = {f for (code, e, f) in _authorability(with_it) if e == "MovingPlatform"}
+    assert missing == {"sweep_dx"}
+    assert present == set()
+
+
+def test_a_field_the_contract_declares_no_rule_for_is_not_this_rules_business():
+    """⛔ THE POPULATION IS THE CONTRACT'S RULES, AND A POISON IS WHY THIS TEST EXISTS.
+
+    Dropping `CameraZone.mode` fired nothing, because the contract declares only
+    `scroll_policy` and `clamp_mode` for `CameraZone` — it is a grammar table,
+    not a field inventory. Without this arm the first reader would read the
+    warning as "the engine reads it" and be wrong about every other field.
+    """
+    declared = [field["name"] for field in entity_contracts()["CameraZone"]["fields"]]
+    assert "mode" not in declared, (
+        "the contract now declares a rule for CameraZone.mode, so this test's "
+        "subject moved: pick another field the contract has no rule for"
+    )
+    full = _defs_project(_def("CameraZone", *declared, "mode"))
+    without_mode = _defs_project(_def("CameraZone", *declared))
+    # Only this entity's rows; a one-entity project makes every OTHER contract
+    # entity absent from defs, which is a different (correct) finding.
+    mine = lambda p: {key for key in _authorability(p) if key[1] == "CameraZone"}
+    assert mine(full) == set()
+    assert mine(without_mode) == set()
+
+
+def test_an_entity_missing_from_defs_is_left_to_its_existing_owner():
+    """⛔ ONE FACT, ONE OWNER — and the first version of this rule broke that.
+
+    `validate.py` already warns `KNOWN_ENTITIES - entity_defs` (*"defs.entities is
+    missing editor definitions for supported Ambition entities"*), so an entity
+    absent from defs was about to be reported twice under two codes. This rule
+    says nothing about it, and the arm below is what keeps it that way.
+    """
+    every = sorted(contract_identifiers())
+    dropped = _defs_project(*[_def(name) for name in every if name != "SurfaceRamp"])
+    assert not [
+        key for key in _authorability(dropped) if key[1] == "SurfaceRamp"
+    ], "the field rule started reporting a whole missing entity again"
+
+
+def test_the_shipped_sandbox_drift_is_a_ratchet_rather_than_a_floor():
+    """⛔ A SET, NOT A COUNT. Closing drift is green; NEW drift reddens.
+
+    Measured 2026-09-17 over `sandbox.ldtk`. A submodule bump that grows this set
+    is the finding — the worlds live in `game/ambition_map_assets`, so an entity
+    definition can gain a field there without anything in this repo noticing.
+
+    ⛔ **A SUBSET ASSERTION IS BLIND TO THE RULE GOING SILENT** — stubbing
+    `contract_authorability_issues` to `return []` leaves this arm GREEN, and a
+    floor here would instead redden the day somebody legitimately closes the
+    drift. So the anti-vacuity control is NOT in this test: it is the two
+    synthetic arms above, which assert PRESENCE against hand-built defs and both
+    fail under that stub. Keep them.
+    """
+    project = json.loads(default_sandbox_ldtk().read_text())
+    measured = {
+        ("contract.field_absent_from_defs", "CameraZone", "scroll_policy"),
+        ("contract.field_absent_from_defs", "EnemySpawn", "facing"),
+        ("contract.field_absent_from_defs", "PortalGunSpawn", "pair"),
+    }
+    found = _authorability(project)
+    assert found <= measured, (
+        f"sandbox.ldtk grew authoring drift the contract did not have on "
+        f"2026-09-17: {sorted(found - measured)}. Either the editor definition "
+        f"lost a field the contract rules on, or the contract grew a rule for a "
+        f"field the editor never offered"
+    )

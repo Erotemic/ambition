@@ -37,10 +37,11 @@ two different sources.
 > file.
 >
 > ⭐⭐ **AND RESIDUAL (b) — "every room that is NOT the Hall" — IS TWO
-> PLACEMENTS.** Measured over all four authored worlds
-> (`hall_of_characters`, `intro`, `sandbox`, `you_have_to_cut_the_rope`): **163
-> authored `NpcSpawn` placements, 161 with a non-blank `dialogue_id` and 2
-> without** — `npc_puppy_slug` in `gravity_lab` and `npc_viking_warrior` in
+> PLACEMENTS.** Measured over the six distinct `.ldtk` projects (the two demo
+> `assets/worlds/` paths are symlinks into `ambition_map_assets`, so resolve
+> before counting); three of the six author an `NpcSpawn` at all —
+> `hall_of_characters` 129, `sandbox` 26, `intro` 8. **163 placements, 161 with a
+> non-blank `dialogue_id` and 2 without** — `npc_puppy_slug` in `gravity_lab` and `npc_viking_warrior` in
 > `sanic_sandbox`. Both of those characters already have an authored Hall node
 > (`hall_npc_puppy_slug`, `hall_npc_viking_warrior`); the id is simply not
 > carried into the LDtk placement. Neither has a `fallback_dialogue` either —

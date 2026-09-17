@@ -278,11 +278,15 @@ fields and the remedy, where it used to be silent precedence.
 
 ⛔⛤ **THE VISIBLE-PATH HALF LANDED ON `EnemySpawn` AND NOT ON `MovingPlatform`,
 AND THE MEASUREMENT THAT MATTERS IS THE CENSUS OF AUTHORED PLACEMENTS.** Across
-all four authored worlds there are **8 `MovingPlatform` placements and NONE of
-them authors `path_id`** — four sweeps in `mary_o_1_2`, one in `mary_o_1_3`, two
-in `vertical_shaft`, one in `central_hub_basement`. There are **2 `KinematicPath`
-entities, and both are consumed by `EnemySpawn`'s `path_ref`**, which is the
-relation that already got the EntityRef. ⇒ `MovingPlatformMotionSpec::Path` is a
+the **six distinct `.ldtk` projects** — `game/**/worlds/*.ldtk` resolved through
+its symlinks, because the two demo `assets/worlds/` paths point into
+`ambition_map_assets` and a naive glob counts them twice — there are **8
+`MovingPlatform` placements and NONE of them authors `path_id`**: five in
+`mary_o.ldtk` (four in `mary_o_1_2`, one in `mary_o_1_3`) and three in
+`sandbox.ldtk` (two in `vertical_shaft`, one in `central_hub_basement`). There
+are **2 `KinematicPath` entities, one in `intro` and one in `sandbox`, and both
+are consumed by `EnemySpawn`'s `path_ref`**, which is the relation that already
+got the EntityRef. ⇒ `MovingPlatformMotionSpec::Path` is a
 motion no shipped room authors. Migrating its string to an `EntityRef` would move
 a relation with **zero authored customers**, and the editor link it would draw
 would be drawn for nobody.

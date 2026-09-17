@@ -545,3 +545,89 @@ def _entity_ref_issues(
             hint=f"point it at a {target_kind} in {where}, or clear it",
         )
     ]
+
+
+# ---------------------------------------------------------------------------
+# The other direction: can an author even TYPE what the engine accepts?
+
+
+def contract_authorability_issues(
+    project: dict[str, Any],
+    *,
+    contract_path: Path | None = None,
+) -> list[Issue]:
+    """Contract FIELD RULES this project's editor definitions cannot produce.
+
+    ⛔ **THE ENTITY-LEVEL HALF IS NOT HERE, BECAUSE IT ALREADY HAS AN OWNER.**
+    `validate.py` computes `KNOWN_ENTITIES - entity_defs` and warns *"defs.entities
+    is missing editor definitions for supported Ambition entities"*; the first
+    version of this rule emitted the same finding under a second code, which is
+    how `SurfaceRamp` would have been reported twice. This rule owns the FIELD
+    direction only, which nothing checked.
+
+    ⛔⛤ **`entity_contract_issues` reads placements, and a placement can only
+    ever disagree about a field the editor offered in the first place.** The
+    contract is proved against the Rust converters in both directions by
+    `contract::prover`, so engine and contract cannot drift — but nothing proved
+    either against `defs.entities`, which is what decides whether an author can
+    write the field at all. Measured 2026-09-17 over the SIX distinct `.ldtk`
+    projects — the two demo `assets/worlds/*.ldtk` paths are symlinks into
+    `ambition_map_assets`, so a glob counts them twice — `CameraZone`'s
+    `scroll_policy` and `PortalGunSpawn`'s `pair` are offered by none of them, and
+    `EnemySpawn.path_ref`, a landed native `EntityRef`, by two. A capability lands
+    in the converter, the contract records it truthfully, and the projects that
+    never grew the field cannot author it.
+
+    ⚠ **WARNINGS, NOT ERRORS.** A project that authors no vertical loops is not
+    broken by having no `loop_dy`; it just cannot grow one without an edit.
+    Escalating this to an error would fail every shipped world on a run, which is a
+    report wearing a gate's costume.
+
+    ⛔⛤ **THE POPULATION IS THE CONTRACT'S RULES, NOT EVERY FIELD A
+    CONVERTER READS — A POISON SAID SO.** Deleting `CameraZone.mode` from a
+    project's defs fired NOTHING, because the contract declares only
+    `scroll_policy` and `clamp_mode` for `CameraZone`: it is a grammar/refusal
+    table, and `def register-entity` writes an entity there with an EMPTY field
+    list on purpose. So a warning here says *a rule exists for a field nobody can
+    author*, which is narrower than "the engine reads it" and is the honest
+    claim.
+    """
+
+    contracts = entity_contracts(contract_path)
+    defs = {
+        entity.get("identifier"): {
+            field.get("identifier")
+            for field in (entity.get("fieldDefs") or [])
+        }
+        for entity in ((project.get("defs") or {}).get("entities") or [])
+    }
+
+    issues: list[Issue] = []
+    for identifier in sorted(contracts):
+        contract = contracts[identifier]
+        declared = [field["name"] for field in contract.get("fields") or []]
+        if identifier not in defs:
+            # `validate.py`'s `missing_known_defs` owns this one. Saying it again
+            # here would be a second authority for one fact.
+            continue
+        absent = [name for name in declared if name not in defs[identifier]]
+        for name in absent:
+            issues.append(
+                Issue(
+                    severity="warning",
+                    code="contract.field_absent_from_defs",
+                    message=(
+                        f"the entity contract declares a rule for "
+                        f"{identifier}.{name}, but this project's {identifier} "
+                        f"definition has no such field — the rule guards "
+                        f"something no author here can write"
+                    ),
+                    entity=identifier,
+                    field=name,
+                    fix_hint=(
+                        f"`ambition_ldtk_tools def update-entity {identifier} "
+                        f"<ldtk> --add-field {name}:<type>`"
+                    ),
+                )
+            )
+    return issues

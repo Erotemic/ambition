@@ -21,6 +21,7 @@ from pathlib import Path
 from ambition_ldtk_tools.ldtk.issues import Issue, format_issue_lines, has_errors
 from ambition_ldtk_tools.validate_rules.authoring_hygiene import authoring_hygiene_issues
 from ambition_ldtk_tools.validate_rules.entity_contract import (
+    contract_authorability_issues,
     contract_identifiers,
     entity_contract_issues,
 )
@@ -1270,7 +1271,12 @@ def validate(
     # the structured adapter. `validate_issues` passes `include_entity_contract=
     # False` and re-runs the rule itself, keeping the richer Issue codes.
     if include_entity_contract:
-        for issue in entity_contract_issues(project):
+        # ⛔ BOTH DIRECTIONS. The first reads placements, which can only ever
+        # disagree about a field the editor offered; the second asks whether the
+        # editor offers what the engine reads at all.
+        for issue in list(entity_contract_issues(project)) + list(
+            contract_authorability_issues(project)
+        ):
             where = f"{issue.location}: " if issue.location else ""
             text = f"{where}{issue.message}"
             if issue.fix_hint:
@@ -1355,6 +1361,10 @@ def validate_issues(
         if project is not None:
             issues.extend(authoring_hygiene_issues(project))
             issues.extend(entity_contract_issues(project))
+            # ⛔ THE CLI READS THIS PATH, NOT `validate()`'s. Wiring the rule only
+            # into `validate()` left it switched off for every command a person
+            # runs — `include_entity_contract=False` above is exactly the switch.
+            issues.extend(contract_authorability_issues(project))
     return issues
 
 

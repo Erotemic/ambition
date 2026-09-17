@@ -78,19 +78,11 @@ fn registered_gameplay_route_mints_and_retires_one_scope() {
         .as_ref()
         .expect("game active")
         .activation_id;
-    let scope = app
-        .world()
-        .resource::<GameplaySessionLinks>()
-        .scope_for(activation)
-        .expect("activation owns session scope");
-    assert_eq!(
-        app.world()
-            .resource::<ActiveGameplaySession>()
-            .0
-            .as_ref()
-            .map(|session| session.scope),
-        Some(scope),
-    );
+    // ⭐ ONE AUTHORITY. This read the scope out of `GameplaySessionLinks` and
+    // then asserted it equalled `ActiveGameplaySession`'s — an assertion that two
+    // copies of one pair agreed, which is the duplication stated as a test rather
+    // than removed.
+    let scope = live_scope_of(&app, activation).expect("activation owns session scope");
 
     app.world_mut()
         .run_system_once(move |mut commands: Commands| {
@@ -102,11 +94,7 @@ fn registered_gameplay_route_mints_and_retires_one_scope() {
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
 
-    assert!(app
-        .world()
-        .resource::<GameplaySessionLinks>()
-        .scope_for(activation)
-        .is_none());
+    assert!(live_scope_of(&app, activation).is_none());
     assert!(app.world().resource::<ActiveGameplaySession>().0.is_none());
     let mut query = app.world_mut().query::<&SessionScopedEntity>();
     assert_eq!(query.iter(app.world()).count(), 0);
@@ -307,11 +295,7 @@ fn relaunch_receives_a_fresh_scope() {
         .as_ref()
         .unwrap()
         .activation_id;
-    let first_scope = app
-        .world()
-        .resource::<GameplaySessionLinks>()
-        .scope_for(first_activation)
-        .unwrap();
+    let first_scope = live_scope_of(&app, first_activation).unwrap();
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
@@ -326,13 +310,122 @@ fn relaunch_receives_a_fresh_scope() {
         .as_ref()
         .unwrap()
         .activation_id;
-    let second_scope = app
-        .world()
-        .resource::<GameplaySessionLinks>()
-        .scope_for(second_activation)
-        .unwrap();
+    let second_scope = live_scope_of(&app, second_activation).unwrap();
     assert_ne!(first_activation, second_activation);
     assert_ne!(first_scope, second_scope);
+}
+
+/// **A RETIREMENT THAT ARRIVES AFTER ITS SESSION ALREADY ENDED CHANGES NOTHING.**
+///
+/// Inside the retirement block sits a `GameMode` reset that is deliberately
+/// unconditional — the comment beside it explains why, and it is right for a
+/// retirement of the LIVE session: `QuitToHome` has four writers and *"the
+/// lifecycle that ended the session is the one place that cannot forget"*.
+/// Delivered for a session that already ended, the same line would reach into one
+/// that is still being played — the shape
+/// `reset_session_scoped_resources_on_retire` was corrected for on 2026-09-13,
+/// where *"a delayed `SessionScopeRetired(A)` delivered after B became current
+/// wiped B's mechanics"*.
+///
+/// ⛔⛤ **AND THIS ARM WAS WRITTEN EXPECTING TO WITNESS THAT DEFECT, WHICH DOES
+/// NOT EXIST. MEASURED, NOT ARGUED: IT PASSES AGAINST THE PRE-COLLAPSE CODE
+/// TOO.** The suspicion was that `GameplaySessionLinks` gated the block more
+/// loosely than the live session would. It does not — `unbind` REMOVES the
+/// binding, so a re-delivered retirement found nothing and skipped, exactly as
+/// the live instance now does. The hazard needs an activation that was bound and
+/// never retired, and the assert at activation makes that unreachable.
+///
+/// ⇒ So its job is not to show a repair. It is to hold the behaviour still while
+/// a duplicate authority is removed from underneath it, which is the assertion a
+/// collapse most needs and most often does not have.
+///
+/// ⭐ THE STALE ACTIVATION IS A REAL ONE, not a synthetic id: this fixture's boot
+/// spec activates the route, retires it and activates it again, so the first
+/// activation is genuinely retired while the second is live. Re-delivering its
+/// retirement is the delayed event, spelled the way the shell spells it.
+#[test]
+fn a_retirement_that_arrives_after_its_session_ended_changes_nothing() {
+    let mut app = app();
+    // ⚠ `GameMode` is a Bevy `States`, and the bridge takes it as
+    // `Option<ResMut<NextState<_>>>` precisely so a composition without one still
+    // runs — so this arm installs the state machine, or it would be asserting
+    // about a reset that could never have fired.
+    app.add_plugins(bevy::state::app::StatesPlugin);
+    app.init_state::<GameMode>();
+    settle(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(GAME_ROUTE.into()));
+    settle(&mut app);
+
+    let live = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .as_ref()
+        .expect("the game route is active")
+        .activation_id;
+    let scope = live_scope_of(&app, live).expect("the live activation owns a scope");
+    // The premise: an activation that ran BEFORE the live one. Without it this
+    // arm would be about the live session retiring, which must not be a no-op.
+    let stale = ShellActivationId(live.0 - 1);
+    assert_ne!(stale, live);
+    assert_eq!(
+        live_scope_of(&app, stale),
+        None,
+        "setup: the earlier activation must already be retired"
+    );
+
+    // A mode the session is legitimately in, so a reset to `Playing` is visible.
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Paused);
+    app.update();
+    assert_eq!(
+        *app.world().resource::<State<GameMode>>().get(),
+        GameMode::Paused,
+        "setup: the arm cannot see a reset unless the mode starts away from its \
+         default"
+    );
+
+    app.world_mut()
+        .write_message(ShellEvent::RouteDeactivated(activation(stale.0, GAME)));
+    app.update();
+
+    assert_eq!(
+        live_scope_of(&app, live),
+        Some(scope),
+        "a retirement for a session that already ended retired the live one"
+    );
+    assert_eq!(
+        app.world().resource::<ActiveSessionScope>().current(),
+        Some(scope),
+        "the live session's scope was cleared by an earlier activation's \
+         retirement"
+    );
+    assert_eq!(
+        *app.world().resource::<State<GameMode>>().get(),
+        GameMode::Paused,
+        "the delayed retirement reached the unconditional `GameMode` reset and \
+         handed a session that is still being played back to `Playing`"
+    );
+}
+
+/// The scope `activation` owns, or `None` when it is not the live session.
+///
+/// ⛔⛤ **`GameplaySessionLinks` USED TO ANSWER THIS AND IT WAS A SECOND COPY OF
+/// THE PAIR.** Activation asserts `active_session.0.is_none()`, so at most one
+/// binding could ever exist; the map's `scope_for` had no production reader at
+/// all, and the retirement path asked BOTH authorities in the same block. The
+/// live instance is now the only one that answers, which also makes a retirement
+/// naming a stale activation a no-op rather than something that reaches the
+/// unguarded `GameMode` reset.
+fn live_scope_of(app: &App, activation: ShellActivationId) -> Option<SessionScopeId> {
+    app.world()
+        .resource::<ActiveGameplaySession>()
+        .0
+        .as_ref()
+        .filter(|session| session.activation.activation_id == activation)
+        .map(|session| session.scope)
 }
 
 fn activation(id: u64, experience: &str) -> ActiveShellExperience {

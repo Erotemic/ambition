@@ -301,36 +301,6 @@ impl ActiveGameplaySession {
     }
 }
 
-/// Exact shell-activation to session-scope bindings.
-#[derive(Resource, Default)]
-pub struct GameplaySessionLinks {
-    bindings: Vec<(ShellActivationId, SessionScopeId)>,
-}
-
-impl GameplaySessionLinks {
-    pub fn scope_for(&self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        self.bindings
-            .iter()
-            .find_map(|(candidate, scope)| (*candidate == activation).then_some(*scope))
-    }
-
-    fn bind(&mut self, activation: ShellActivationId, scope: SessionScopeId) {
-        assert!(
-            self.scope_for(activation).is_none(),
-            "shell activation {activation:?} already owns a gameplay session"
-        );
-        self.bindings.push((activation, scope));
-    }
-
-    fn unbind(&mut self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        let index = self
-            .bindings
-            .iter()
-            .position(|(candidate, _)| *candidate == activation)?;
-        Some(self.bindings.remove(index).1)
-    }
-}
-
 /// Stable schedule seams for the bridge and game-specific session construction.
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GameplaySessionSet {
@@ -377,7 +347,6 @@ impl Plugin for GameplaySessionBridgePlugin {
             // session scope is live (launcher/title/loading frames).
             .init_resource::<SessionGatedSimulation>()
             .init_resource::<GameplaySessionRegistry>()
-            .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
             .init_resource::<ReservedGameplayScopes>()
             .init_resource::<ActiveFrontendAuthority>()
@@ -594,7 +563,6 @@ fn translate_shell_session_lifecycle(
     // What a provider claimed for this activation before it happened — see
     // [`ReservedGameplayScopes`].
     mut reserved: ResMut<ReservedGameplayScopes>,
-    mut links: ResMut<GameplaySessionLinks>,
     mut active_session: ResMut<ActiveGameplaySession>,
     mut loads: ResMut<ambition_load::LoadCoordinator>,
     mut session_events: MessageWriter<GameplaySessionEvent>,
@@ -605,13 +573,40 @@ fn translate_shell_session_lifecycle(
     for event in shell_events.read() {
         match event {
             ShellEvent::RouteDeactivated(activation) => {
-                if let Some(scope) = links.unbind(activation.activation_id) {
-                    let retired_session =
-                        active_session.retire_if_activation(activation.activation_id);
-                    if let Some(load) = retired_session
-                        .as_ref()
-                        .and_then(|session| session.load.as_ref())
-                    {
+                // ⛔⛤ **THIS ASKED TWO AUTHORITIES THE SAME QUESTION AND
+                // BELIEVED THE WEAKER ONE.** `GameplaySessionLinks` held
+                // `Vec<(ShellActivationId, SessionScopeId)>` and gated this whole
+                // block; `retire_if_activation` was then asked the SAME question
+                // and its answer used only for the load barrier. The map could
+                // hold at most one binding — activation asserts
+                // `active_session.0.is_none()` — so it was a one-entry copy of a
+                // pair the live instance already carries, with a query API
+                // (`scope_for`) that no production caller read.
+                //
+                // ⭐ BEHAVIOUR-IDENTICAL, MEASURED RATHER THAN ARGUED. A probe
+                // asserting the two answers agree ran the whole app suite green
+                // (709/0/45), and
+                // `a_retirement_that_arrives_after_its_session_ended_changes_nothing`
+                // passes against BOTH the old code and this one.
+                //
+                // ⛔ I expected a behaviour fix here and there is none. The
+                // suspicion was that the map's gate was looser — that a delayed
+                // retirement could pass it and reach the `GameMode` reset below,
+                // which is NOT scope-guarded the way `clear_if_current` is, the
+                // shape the session teardown was corrected for on 2026-09-13.
+                // It cannot: `unbind` REMOVES the binding, so a re-delivered
+                // retirement found nothing and skipped, exactly as this does. The
+                // hazard needs an activation that was bound and never retired,
+                // and the assert at activation makes that unreachable.
+                //
+                // ⇒ So this is a duplicate authority removed, not a defect fixed,
+                // and the arm's job is to keep the behaviour pinned across the
+                // change rather than to witness a repair.
+                if let Some(retired_session) =
+                    active_session.retire_if_activation(activation.activation_id)
+                {
+                    let scope = retired_session.scope;
+                    if let Some(load) = retired_session.load.as_ref() {
                         loads.retire(&load.load_id);
                     }
                     // `GameMode` is a Bevy `States` global, and pausing is the one thing that
@@ -688,7 +683,6 @@ fn translate_shell_session_lifecycle(
                 // process globals be re-established by their owner rather than
                 // by a teardown somebody has to remember.
                 activated.write(SessionScopeActivated(scope));
-                links.bind(activation.activation_id, scope);
                 let audio_provider = registry
                     .profile(&activation.experience_id)
                     .and_then(|profile| profile.audio_provider.clone())

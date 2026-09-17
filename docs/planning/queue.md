@@ -1095,6 +1095,64 @@ registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
 being deleted; a poison that respells a write in any supported param form still
 reddens the guard; and the population floor fails when a spelling stops matching.
 
+### DUP-SESSION-CURRENT — one owner per session-identity question
+
+**Owner:** session lifecycle / shell-to-simulation boundary. The classification
+ledger row is in
+[`consolidation/architecture-census.md`](consolidation/architecture-census.md);
+this is where the execution lives.
+
+**Why it is here:** `consolidation/architecture-census.md` carried it as
+`NEEDS_SEMANTIC_REVIEW` / `SOURCE_INFERRED` with the mitigation *"audit writers
+and readers AFTER A10"*. A10 closed 2026-09-15, so the gate was discharged and
+nothing said so. Jon named it the highest-value consolidation target after
+ID-PEER; it was picked up opportunistically because two of its five members
+(`ActiveSessionScope`, `SessionRoot`) are ID-PEER's own tokens.
+
+**The audit, measured 2026-09-16.** Four types carried the
+`(ShellActivationId, SessionScopeId)` correlation, which is the row's inferred
+"several repeat scope/activation correlation" turned into a count:
+
+| carrier | kind | verdict |
+| --- | --- | --- |
+| `GameplaySessionInstance` (in `ActiveGameplaySession`) | Resource | **THE OWNER.** One live session at a time |
+| `GameplaySessionLinks` <!-- cite-ok: this row RECORDS the deleted type --> | Resource | **DELETED** — see below |
+| `GameplaySessionWorldRoot` | Component | KEPT: a captured correlation on the entity it describes, which is what this row's own direction asks for |
+| `GameplayInputOwner` | Component | KEPT, same shape |
+
+⇒ **`GameplaySessionLinks` was a one-entry copy of a pair the owner already
+carried.** <!-- cite-ok: named because it is GONE, along with its `scope_for` --> Three measurements, not one reading: activation asserts
+`active_session.0.is_none()`, so its `Vec` could never hold more than one binding
+and that binding was always the live session's; `scope_for` had **zero**
+production readers <!-- cite-ok: `scope_for` is deleted --> (four test assertions, one of which literally asserted that
+its answer equalled `ActiveGameplaySession`'s — the duplication written down as a
+test); and the retirement block asked BOTH authorities in the same statement,
+gating on the map and using the live instance's answer only for the load barrier.
+
+⭐ **BEHAVIOUR-IDENTICAL, AND THAT IS A MEASUREMENT.** A probe asserting the two
+answers agree ran the whole app suite green (709/0/45) BEFORE the deletion, and
+`a_retirement_that_arrives_after_its_session_ended_changes_nothing` passes against
+both the old code and the new. ⛔ I expected a repair here and there is none: the
+suspicion was that the map gated the block more loosely than the live session
+would, letting a delayed retirement reach the unconditional `GameMode` reset — the
+2026-09-13 teardown shape. It cannot, because `unbind` <!-- cite-ok: the deleted method is what this sentence is about --> REMOVES the binding, so a
+re-delivered retirement found nothing and skipped. The hazard needs an activation
+bound and never retired, which the activation assert makes unreachable. ⇒ The arm
+is there to hold the behaviour still while an authority is removed from under it,
+not to witness a fix.
+
+⛔ **WHAT MUST NOT COLLAPSE, and the row said so before I started:** shell route
+identity and simulation identity stay separate. `ActiveSessionScope` answers
+*"which scope is current, and is it ready"* at the simulation layer, and the
+shell's activation identity cannot answer it — `ActiveGameplaySession` is `None`
+at launchers, credits and every non-gameplay experience, while a scope can be
+live. Two questions, two owners.
+
+**Acceptance:** the correlation has one owner and the two Components are
+projections of it; `ambition_game_shell` holds no second map from activation to
+scope; and the layer split survives, witnessed by a composition with a live scope
+and no gameplay session.
+
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
 **Owner:** rollback/mechanical-policy owners.

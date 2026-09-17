@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,341 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,345 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -3089,10 +3089,14 @@ because they shared a symptom. **A symptom is not a population.**
   now says so.
 
 **Current state:** the lane RUNS. `cargo test -p ambition_app --test app_it` →
-**691 passed / 0 failed / 41 ignored**, 250.90 s at `041b07158` on the
-ToothbrushAmbition box, tree frozen. Earlier the same night, same box: 690/1/41
-(see the open item below), 690/0/41, 688/0/35, 683/0/31, 677/0/25. Missing
-prerequisites are reported as incomplete rather than pass.
+**713 passed / 0 failed / 45 ignored**, 420.09 s at `e18abd272`, 2026-09-17, on
+the CalculexAmbition box with the tree settled. ⚠ **THE POPULATION GREW BY 22 AND
+THE IGNORED SET BY 4 SINCE THE READING THIS LINE USED TO CARRY** (691/0/41 at
+`041b07158`, 250.90 s, ToothbrushAmbition box) — two boxes, two campaigns'
+worth of new arms, and the wall-clock is not comparable between them. Earlier
+that night, same box: 690/1/41 (see the open item below), 690/0/41, 688/0/35,
+683/0/31, 677/0/25. Missing prerequisites are reported as incomplete rather than
+pass.
 
 **Closed 2026-09-16, receipts only — the stories are in git:**
 - the long-running `app_it` runaway was a sim-schedule CYCLE, not a flake:

@@ -147,14 +147,30 @@ require them; do not replace all boss behavior with body damage as part of this
 repair. Include authored override, fallback absence, empty override, phase
 invulnerability, environmental kill and per-frame animation changes.
 
-## F3. Feature contact can run before a nearer blocking world contact
+## F3. ◐ HALF CLOSED — the obstruction bypass is fixed; swept target selection is not
 
-**Owner:** projectile travel/contact selection.
-**Priority:** A2b, before claiming a family-free contact seam is behaviorally sound.
-**Confidence:** source-established ordering and bypass; concrete production-path
-reproduction still required.
+**Owner:** projectile travel/contact selection. **Live status is owned by
+[`projectile-contact-protocol.md`](projectile-contact-protocol.md), not by this
+page** — checked 2026-09-17, and this heading routes there rather than carrying a
+second copy that can drift out of step with it.
 
-### Evidence
+**A2b landed the half this finding leads with.** Both branches now sweep the
+SHOT'S BOX under the shot's own `WorldHitPolicy`: the victim branch used to cast
+`raycast_solids` at the victim's CENTRE with `include_one_way = false` hard-coded,
+so a wall covering a body but not its centre did not block, a corner clip did not
+block, and an `ExpireOnContact` shot damaged through a one-way its own contract
+says ends it. The travel leg is captured once before integration, so the segment
+cannot describe space the shot never crossed. Witness:
+`a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other`.
+
+**What this finding asked for that is still open:** contact selection over the
+traveled segment with a contact-time ordering — the protocol page's own words are
+*"the swept-target half has not"* landed, and `A2c` is open there. ⇒ The
+counterexamples below are still the specification for that half.
+
+⚠ Below is the review's evidence at the baseline and is NOT a description of HEAD.
+
+### Evidence, at baseline `300004d601af1e633cfaee969f079cf9bb368ca8`
 
 In `crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs`, the
 `UnresolvedFeatures` branch checks endpoint boss/breakable contact, emits a hit,

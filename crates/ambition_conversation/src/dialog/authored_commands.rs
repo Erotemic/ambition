@@ -147,11 +147,9 @@ fn prepare_arguments(
 /// for a road that can mint them.
 fn prepare_one(id: &CommandId, param: &ParamSpec, text: &str) -> Result<AuthoredArg, String> {
     if matches!(param.kind, ParamKind::Reference) {
-        return Err(format!(
-            "`{id}` argument `{}` is a prepared reference to an occurrence, and \
-             authored dialogue can only pass names, numbers and truths — a quoted \
-             string is not an identity",
-            param.name
+        return Err(crate::dialog::reference_is_not_authorable_by_dialogue(
+            id.as_str(),
+            param.name,
         ));
     }
     ambition_platformer2d_shared_tangle::authored_logic::prepare_authored_arg(

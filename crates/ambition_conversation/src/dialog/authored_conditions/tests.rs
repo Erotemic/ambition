@@ -218,6 +218,33 @@ fn the_bindings_plugin_installs_the_condition_verb() {
     );
 }
 
+/// Counts calls to [`never_called`], so "refused before evaluation" and
+/// "evaluated and answered no" stop being the same observable.
+static NEVER_CALLED_CALLS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// Answers `Satisfied` for ANY argument, and records that it ran.
+///
+/// ⛔⛤ **NO ARM IN THIS FILE CAN WITNESS THE SURFACE'S REFUSAL, AND A POISON IS
+/// HOW THAT WAS FOUND RATHER THAN AN ARGUMENT.** Deleting the
+/// `ParamKind::Reference` arm from `prepare_argument` — the exact defect the test
+/// above is NAMED for — leaves the whole crate GREEN. Twice over:
+///
+/// 1. `carried` itself answers `unanswerable` on a non-reference argument, so the
+///    authored `<<else>>` prints "Refused." either way;
+/// 2. and even an evaluator that says yes to everything is never reached, because
+///    `ConditionCatalog::evaluate` compares `arg.kind()` against the descriptor's
+///    `ParamKind` and refuses the mismatch BEFORE dispatching.
+///
+/// ⇒ **THE CATALOG OWNS THE SAFETY AND THE DIALOGUE SURFACE OWNS THE WORDING.**
+/// The arm in `prepare_argument` is not a second guard; it is a better sentence,
+/// written where the author's mistake is legible. That is worth keeping and worth
+/// not mistaking for the thing that makes coercion impossible.
+fn never_called(_world: &World, _args: &[AuthoredArg]) -> ConditionOutcome {
+    NEVER_CALLED_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    ConditionOutcome::from_bool_unexplained(true)
+}
+
 /// A PREPARED REFERENCE IS REFUSED RATHER THAN GUESSED.
 ///
 /// the fixture is poisoned so that only the WRONG implementation can pass
@@ -249,5 +276,46 @@ Refused.
         vec!["Refused.".to_string()],
         "a quoted string is not an identity; coercing one would answer \
          confidently about whichever occurrence happened to share the spelling"
+    );
+}
+
+/// NO AUTHORED STRING EVER REACHES AN EVALUATOR THAT DECLARED A REFERENCE.
+///
+/// ⛔ This is the SAFETY property, and it belongs to `ConditionCatalog::evaluate`
+/// rather than to this surface — see [`never_called`]. The evaluator here says
+/// YES to anything and counts its calls, so a coerced identity getting through
+/// would be loud: the counter would be 1 and the line would read "Carried.".
+/// Pinned here because the dialogue surface is the road an author actually takes,
+/// and because deleting the surface's own refusal does NOT redden it — which is a
+/// fact about where the guarantee lives, not a gap.
+#[test]
+fn a_reference_argument_never_reaches_the_evaluator_whatever_the_surface_does() {
+    const SOURCE: &str = "\
+title: Start
+---
+<<if condition(\"gossip.carried\", \"axe\")>>
+Carried.
+<<else>>
+Refused.
+<<endif>>
+===
+";
+    NEVER_CALLED_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    let mut app = app_running(SOURCE);
+    app.publish_condition(carried_descriptor(), never_called);
+    app.world_mut().spawn(SimId::placement("axe"));
+
+    start(&mut app, "Start");
+    assert_eq!(
+        NEVER_CALLED_CALLS.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "the evaluator ran, so the reference was converted to SOMETHING and \
+         handed over — the surface is supposed to refuse before this point"
+    );
+    assert_eq!(
+        lines(&app),
+        vec!["Refused.".to_string()],
+        "an evaluator that says yes to everything still did not make this line \
+         satisfied, which is only possible if it was never asked"
     );
 }

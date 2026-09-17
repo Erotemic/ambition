@@ -119,12 +119,12 @@ fn prepare_argument(
         (ParamKind::Number, YarnValue::Number(number)) => AuthoredArg::Number(number as f64),
         (ParamKind::Truth, YarnValue::Boolean(truth)) => AuthoredArg::Truth(truth),
         (ParamKind::Reference, _) => {
-            return Err(ConditionOutcome::unanswerable(format!(
-                "`{id}` argument `{}` is a prepared reference to an occurrence, and \
-                 authored dialogue can only pass names, numbers and truths — a \
-                 quoted string is not an identity",
-                param.name
-            )));
+            return Err(ConditionOutcome::unanswerable(
+                crate::dialog::reference_is_not_authorable_by_dialogue(
+                    id.as_str(),
+                    param.name,
+                ),
+            ));
         }
         (kind, other) => {
             return Err(ConditionOutcome::unanswerable(format!(

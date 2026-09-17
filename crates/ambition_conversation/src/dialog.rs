@@ -84,6 +84,26 @@ impl Plugin for YarnBindingsPlugin {
 
 pub mod authored_commands;
 pub mod authored_conditions;
+
+/// Why authored dialogue cannot pass a [`ParamKind::Reference`], in the one
+/// place both of its surfaces read it from.
+///
+/// ⛔ **ONE SENTENCE, ONE COPY.** The condition and command surfaces refuse a
+/// reference for the SAME reason and were saying so in two identical string
+/// literals — which is a sentence that can be improved in one place and stay
+/// stale in the other. The refusal itself stays with dialogue rather than moving
+/// to the shared preparation road, because it is a CAPABILITY statement about
+/// this surface: Yarn hands a parameter as quoted text or a typed scalar, and
+/// neither is an identity. A road that can mint references says something else.
+///
+/// [`ParamKind::Reference`]: ambition_platformer2d_shared_tangle::authored_logic::ParamKind::Reference
+pub(crate) fn reference_is_not_authorable_by_dialogue(id: &str, param_name: &str) -> String {
+    format!(
+        "`{id}` argument `{param_name}` is a prepared reference to an occurrence, \
+         and authored dialogue can only pass names, numbers and truths — a quoted \
+         string is not an identity"
+    )
+}
 #[cfg(test)]
 mod yarn_harness;
 

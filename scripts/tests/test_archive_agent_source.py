@@ -99,9 +99,48 @@ def test_build_archive_delegates_to_git_well(monkeypatch, tmp_path: Path):
     assert captured["redact_local_paths"] is True
     assert captured["archive_root_name"] == "custom-root"
     assert captured["keep_stage"] is True
+    assert captured["patch"] is None
     assert callable(captured["prepare"])
     assert callable(captured["validate"])
 
+
+
+def test_build_archive_forwards_patch_to_git_well(monkeypatch, tmp_path: Path):
+    captured = {}
+    base = tmp_path / "base.tar.gz"
+
+    def fake_git(_root, *args, **_kwargs):
+        values = {
+            ("rev-parse", "HEAD"): "c" * 40,
+            ("rev-parse", "--short=12", "HEAD"): "c" * 12,
+            ("status", "--short"): "",
+        }
+        return values[args]
+
+    def fake_archive_source(**kwargs):
+        captured.update(kwargs)
+        return tmp_path / "out-patch.tar.gz"
+
+    monkeypatch.setattr(archiver, "coerce_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(archiver, "git", fake_git)
+    monkeypatch.setattr(
+        archiver,
+        "_load_git_well_archive_api",
+        lambda: (fake_archive_source, object),
+    )
+
+    archiver.build_archive(
+        tmp_path,
+        None,
+        None,
+        keep_stage=False,
+        verbose=0,
+        patch=base,
+    )
+
+    assert captured["patch"] == base
+    assert callable(captured["prepare"])
+    assert callable(captured["validate"])
 
 def test_build_archive_uses_repo_depth_defaults(monkeypatch, tmp_path: Path):
     captured = {}
@@ -180,6 +219,7 @@ def test_main_forwards_git_well_cli_options(monkeypatch, tmp_path: Path):
             "--format",
             "zip",
             "--redact-local-paths",
+            "--patch",
             "--slim",
             "--keep-stage",
             "--quiet",
@@ -195,10 +235,27 @@ def test_main_forwards_git_well_cli_options(monkeypatch, tmp_path: Path):
     assert kwargs["no_submodules"] is True
     assert kwargs["archive_format"] == "zip"
     assert kwargs["redact_local_paths"] is True
+    assert kwargs["patch"] == "auto"
     assert kwargs["verbose"] == 0
     assert kwargs["full_reports"] is False
     assert all(value is False for value in captured["toggles"].values())
 
+
+
+def test_main_forwards_explicit_patch_base(monkeypatch, tmp_path: Path):
+    captured = {}
+    output = tmp_path / "agent.tar.gz"
+    base = tmp_path / "base.tar.gz"
+
+    def fake_build(*args, **kwargs):
+        captured.update(kwargs)
+        return output
+
+    monkeypatch.setattr(archiver, "build_archive", fake_build)
+    monkeypatch.setattr(archiver, "print_output_location", lambda path: None)
+
+    assert archiver.main([str(tmp_path), "--patch", str(base)]) == 0
+    assert captured["patch"] == str(base)
 
 def test_prepare_registers_excludes_and_refreshes_stamp(monkeypatch, tmp_path: Path):
     events = []

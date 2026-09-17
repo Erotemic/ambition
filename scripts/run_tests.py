@@ -1270,6 +1270,20 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_planning_anchors_resolve.py",
             ],
         ),
+        # ⛔⛤ THE PATH CHECKERS ABOVE RESOLVE PATHS, SYMBOLS AND ANCHORS; A
+        # BACKTICKED TEST NAME IN PROSE IS NONE OF THOSE. Five planning
+        # citations named arms that had been INVERTED when their defect was
+        # repaired -- the rename reversed the polarity of the name and the docs
+        # kept the old name AND the old claim, so a reader met a live defect
+        # report standing over a landed fix. This is the only check that sees
+        # that class.
+        Job(
+            "planning docs cite test names that exist",
+            [
+                sys.executable,
+                "scripts/check_planning_test_citations.py",
+            ],
+        ),
         # ⛔⛤ THIS CHECKER EXISTED, HAD ITS OWN PYTEST AND ITS OWN SECTION IN
         # `consolidation/README.md`, AND NO LANE RAN IT — so a collapse that
         # DELETED a type left the ledger citing it and nothing said so for a

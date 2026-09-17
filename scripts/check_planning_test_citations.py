@@ -19,6 +19,14 @@ and exact.
 what the prose claims. See
 `reference_a_prose_location_claim_is_not_citation_checked`.
 
+✔ **WIRED INTO `run_tests.py --maintenance` 2026-09-17**, once its corpus was
+green and it ran in 0.6 s. The eight names its first widened run found are
+resolved in the same commit that gated it. Of the seven its FIRST run found on
+2026-09-15: five had their citation removed by the owning campaign, one
+(`the_production_plugin_registers_the_custody_release`) carries a `cite-ok`
+marker recording a deliberately pre-cut path, and `a_possible_morning` is
+excluded by `MIN_WORDS` below.
+
 ⛔⛤ **AND THE FIRST VERSION OF THIS CHECKER WAS KEYED ON THE AFFIXES ITS AUTHOR
 HAD SEEN, WHICH IS THE ERROR IT EXISTS TO CATCH, ONE LEVEL UP.** It matched only
 `` `(a|an|the)_…` `` because that is how this repo USUALLY names an arm. Measured

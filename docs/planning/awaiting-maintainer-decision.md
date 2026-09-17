@@ -1224,6 +1224,20 @@ carry an IN-SIM control arm that succeeds (1 commit; bag 3 → 4), and both are
 poison-verified. The control is what makes the zeroes readable: a declining reset
 and a composition without `apply_item_grants` print the same zero.
 
+⭐ **HOW MANY RESOURCES THIS RULING IS RESPONSIBLE FOR IS MEASURED, NOT
+ESTIMATED.** `scripts/resources_crossing_the_rewind_boundary.py` sweeps every
+`Resource` written on both sides of the boundary — 53 of them at 2026-09-17 — and
+sorts them: 29 rollback-registered, 20 adjudicated harmless with the argument
+beside each, 3 crossing only at a session edge, **1 FILED against this question
+(`CutsceneAdvanceRequest` — a dismiss raised on the host side does nothing), and
+0 that nobody has examined.** ⛔ The filed bucket exists BECAUSE of this row: a
+subject with a question in front of it and a subject nobody has looked at were
+the same pile until 2026-09-17, so the census could not report the number this
+ruling's scope depends on. A filed row that stops crossing reddens the script.
+
+⇒ The third measured subject, `OwnedItems`, is a message rather than a resource
+and is covered by the second table row above, not by that census.
+
 ⇒ **The recommendation both prior reviews gave — "make it a semantic request the
 simulation consumes, reusing `ItemGrantRequested`" — is necessary but not
 sufficient.** Those messages work because their shipped producer is a

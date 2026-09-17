@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import functools
 import importlib.util
 import re
 import sys
@@ -173,6 +174,22 @@ SESSION_EDGE_WRITERS = frozenset({
     "reset_session_scoped_resources_on_retire",
 })
 
+# ⛔ FILED, NOT UNEXAMINED. A row here crosses the boundary in the defect's own
+# shape AND has a question in front of it, so it prints as owed rather than as a
+# new finding. This census's stated job is to say *how many resources that ruling
+# is responsible for*; a bucket called UNCLASSIFIED could not report that number,
+# because the filed rows and the unlooked-at ones were the same pile.
+#
+# ⚠ It is NOT a waiver: the count of filed rows is the number a ruling has to
+# cover, and a filed row leaving the crossing set is checked below the same way a
+# stale harmless row is.
+FILED: dict[str, str] = {
+    "CutsceneAdvanceRequest": (
+        "Q136 — a dismiss raised on the host side does nothing; the producer is "
+        "outside the timeline and the consumer inside it"
+    ),
+}
+
 
 def resource_types() -> set[str]:
     found: set[str] = set()
@@ -201,6 +218,22 @@ def mutable_types_by_system() -> dict[str, set[str]]:
     return out
 
 
+# ⭐ MEMOISED, AND THE COST IS THE REASON. This re-reads every production source
+# and re-runs the writer sweep; its own test file calls it once per arm. The tree
+# does not change inside one process — a one-shot CLI, a pytest module — so the
+# second call is the same answer at no price.
+#
+# ⛔⛤ **IT DOES NOTHING WITHOUT THE TEST FILE'S OWN CACHE, AND THAT IS MEASURED
+# RATHER THAN ARGUED.** A fresh `importlib` module per arm threw this cache away
+# every time. Three readings of `pytest scripts/tests/test_resources_crossing_the_rewind_boundary.py`:
+# neither cache **271 s**, this cache alone **271 s** (the module is rebuilt, so
+# it never gets a second call), the test's `load()` cache alone **260 s** (one
+# module, but the sweep still re-runs per arm), **both 117 s**. Two changes that
+# are each a no-op on their own and 2.3× together.
+#
+# ⚠ It returns a MUTABLE dict; callers read it and must not edit it, which is
+# what every caller does today.
+@functools.lru_cache(maxsize=1)
 def crossings() -> dict[str, dict[str, set[str]]]:
     """resource → {"update": {sites}, "sim": {sites}} for types written on both."""
     by_system = mutable_types_by_system()
@@ -253,10 +286,11 @@ def main() -> int:
     session_edge_only = sorted(
         name for name in candidates if only_at_a_session_edge(found[name])
     )
-    unclassified = sorted(
-        name for name in candidates if not only_at_a_session_edge(found[name])
-    )
+    per_frame = [name for name in candidates if not only_at_a_session_edge(found[name])]
+    filed = sorted(name for name in per_frame if name in FILED)
+    unclassified = sorted(name for name in per_frame if name not in FILED)
     stale = sorted(name for name in CROSSING_IS_HARMLESS if name not in found)
+    stale_filed = sorted(name for name in FILED if name not in found)
 
     print(f"`Resource` types written on BOTH sides of the rewind boundary: {len(found)}")
     print(f"  rollback-registered: {sum(1 for n in found if n in registered)}")
@@ -264,6 +298,9 @@ def main() -> int:
     print(f"  crossing ONLY at a session edge: {len(session_edge_only)}")
     for name in session_edge_only:
         print(f"    {name} — `Update` side is session teardown only")
+    print(f"  FILED, awaiting a ruling: {len(filed)}")
+    for name in filed:
+        print(f"    {name} — {FILED[name]}")
     print(f"  UNCLASSIFIED with a per-frame `Update` writer: {len(unclassified)}")
     for name in unclassified:
         sides = found[name]
@@ -276,6 +313,13 @@ def main() -> int:
             if name in found:
                 print(f"    {name} — {why}")
 
+    if stale_filed:
+        print(
+            "\n⛔ FILED names types that no longer cross the boundary: "
+            f"{stale_filed}. Either the question was answered and the code changed "
+            "— delete the row and the question — or the sweep lost sight of it."
+        )
+        return 1
     if stale:
         print(
             "\n⛔ CROSSING_IS_HARMLESS names types that no longer cross the "

@@ -21,6 +21,7 @@ mutator guard can see them) and one carries no registration at all (so it cannot
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import subprocess
 import sys
@@ -44,6 +45,16 @@ MEASURED_DEFECTS = {
 }
 
 
+# ⭐ ONE MODULE INSTANCE FOR THE WHOLE FILE, and it is HALF of a 2.3× the other
+# half of which lives in the script. `crossings()` re-reads every production
+# source and is `lru_cache`d there; a fresh `importlib` module per arm threw that
+# cache away every time. Measured: neither cache 271 s, either one alone 260-271 s,
+# both 117 s.
+#
+# ⚠ SAFE because the two arms that mutate the module's tables use
+# `monkeypatch.setitem`, which restores them at teardown — a plain assignment
+# here would leak into the next arm.
+@functools.lru_cache(maxsize=1)
 def load():
     spec = importlib.util.spec_from_file_location("boundary", SCRIPT)
     module = importlib.util.module_from_spec(spec)
@@ -91,6 +102,39 @@ def test_a_stale_harmless_entry_fails(monkeypatch, capsys):
     )
     assert module.main() == 1
     assert "AResourceThatNeverCrossed" in capsys.readouterr().out
+
+
+def test_a_stale_filed_entry_fails(monkeypatch, capsys):
+    """`FILED` must not outlive its subject either, and for a sharper reason.
+
+    A stale `CROSSING_IS_HARMLESS` row absorbs the next type to take its name. A
+    stale `FILED` row does that AND keeps a question alive that the code has
+    already answered — so the ruling's own subject count is wrong in the
+    direction of asking a maintainer for a decision nobody needs.
+    """
+    module = load()
+    monkeypatch.setattr(sys, "argv", ["resources_crossing_the_rewind_boundary.py"])
+    monkeypatch.setitem(module.FILED, "AResourceThatNeverCrossed", "Q000 — invented")
+    assert module.main() == 1
+    assert "AResourceThatNeverCrossed" in capsys.readouterr().out
+
+
+def test_a_filed_row_is_reported_apart_from_an_unexamined_one(capsys):
+    """⛔ THE DISTINCTION IS THE POINT. `CutsceneAdvanceRequest` crosses in the
+    defect's own shape and has `Q136` in front of it; a row nobody has looked at
+    does not. Reporting both as UNCLASSIFIED made the census unable to answer the
+    question its own docstring says it exists for — how many resources a ruling
+    is responsible for."""
+    module = load()
+    found = module.crossings()
+    for name, why in module.FILED.items():
+        assert name in found, f"{name} is FILED and no longer crosses the boundary"
+        assert "Q" in why, f"{name}'s FILED entry names no question: {why!r}"
+    out = subprocess.run(
+        [sys.executable, str(SCRIPT)], capture_output=True, text=True
+    ).stdout
+    assert "FILED, awaiting a ruling: " in out
+    assert "UNCLASSIFIED with a per-frame `Update` writer: " in out
 
 
 def test_it_is_green_against_the_tree():

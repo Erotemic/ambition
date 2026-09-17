@@ -544,6 +544,24 @@ the whole set. The names that sound like state (`spawn_baseline`, `mass`) are
 authored constants and the ones that sound like inventory bookkeeping are the
 mutated ones. A row's NAME is not a reading of its write set.
 
+⭐⭐ **AND THE TWELVE ARE NOW MEASURED ACROSS TWO LOCAL HISTORIES, 2026-09-16 —
+SIX OF THEM WITH CARRIERS, ALL SIX AGREEING.**
+`two_local_histories_agree_about_the_sharp_unchecksummed_rows`
+(`game/ambition_app/tests/shell_host_lifecycle.rs`) is the complement of the
+peer-visible census arm: it asserts each of these twelve rows does NOT feed the
+peer checksum — so the two arms cannot drift into reading one surface while
+claiming to split it — and then compares the probe census of exactly these rows
+between a host that reached the shipped Ambition route first and one that reached
+it third. **12 of 12 registered; `actor.animation_facts`, `actor.render_size`,
+`entity.transform`, `item.ground_item`, `player.blink_camera_state` and
+`portal.gun_pickup` carried state and agree at steps 0, 1, 30 and 120.** The
+other six carry nothing at rest in that route, which is a fact about the ROUTE
+and not about the rows; the arm prints the split rather than reporting twelve.
+⛔ Two Apps with different local histories are still not two peers — no
+transport, no input exchange, no interleaving, no rebase — so this decides
+whether a row's value depends on where the host has been, and nothing more. That
+is the half `N2` cannot reach and a type census cannot see.
+
 ⚠ **AND THE CENSUS'S OWN LIMIT, STATED BECAUSE THE NUMBER LOOKS DECISIVE.** A
 `&mut` census cannot see a component REPLACED by re-insertion, which is also a
 write. I probed for that and my `insert(T…)` pattern returned 0 or 1 for every

@@ -1442,6 +1442,194 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 /// ⚠ **WHAT THIS IS NOT.** No transport, no input exchange, no interleaving, no
 /// timeline rebase. It answers the state half of ID-PEER's acceptance test and
 /// does not retire netcode's `N2`.
+/// ⭐⭐ **THE OTHER HALF OF THE SURFACE: ROWS NO PEER CHECKSUM COMPARES.**
+///
+/// `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+/// joins the probe census against the 145 registrations that feed the peer
+/// checksum. This arm asks the complement question S7 poses in
+/// [`simulation-authority-and-determinism.md`]: of the rows OUTSIDE that
+/// checksum, twenty-five are read by an unfiltered per-tick query AND carry a
+/// float-bearing field, and **twelve of those are mutably borrowed in
+/// production**. A value nothing compares is reproducible locally and divergent
+/// across peers at the same time, and only the second half is invisible from
+/// inside one App.
+///
+/// ⛔ **THIS IS NOT N2 AND DOES NOT RETIRE IT.** Two Apps with different local
+/// histories is not two peers: no transport, no input exchange, no interleaving,
+/// no rebase. What it CAN decide is whether a row's value depends on where this
+/// host has been — which is the failure mode ID-PEER exists for, and the one a
+/// type census cannot see.
+///
+/// ⚠ **AND A DIFFERENCE HERE IS A FINDING, NOT AUTOMATICALLY A DEFECT.** These
+/// rows are outside the checksum for reasons; `EXPECTED_TO_DIFFER` names each
+/// one that legitimately moves, so a NEW divergence cannot hide among them.
+#[test]
+fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
+    use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
+
+    /// The twelve rows S7 ranks sharpest: outside the peer checksum, read by an
+    /// unfiltered per-tick query, float-bearing, AND mutably borrowed in
+    /// production. Row names, as the registry spells them.
+    const SHARP_ROWS: &[&str] = &[
+        "item.ground_item",
+        "actor.animation_facts",
+        "portal.placed",
+        "boss.death_animation",
+        "actor.render_size",
+        "feature.hazard",
+        "gravity.flip_switch",
+        "player.blink_camera_state",
+        "portal.emission",
+        "portal.gun_pickup",
+        "portal.shot",
+        "entity.transform",
+    ];
+
+    /// Rows measured to differ, each with the reason. ⛔ A row here is a reading,
+    /// not a waiver.
+    const EXPECTED_TO_DIFFER: &[(&str, &str)] = &[];
+
+    fn build(veteran: bool) -> App {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        if veteran {
+            for provider in ["Sanic", "Mary-O"] {
+                launch_labeled(&mut app, provider);
+                settle(&mut app);
+                app.world_mut().write_message(ShellCommand::QuitToHome);
+                settle(&mut app);
+            }
+        }
+        launch_labeled(&mut app, "Ambition");
+        settle(&mut app);
+        app
+    }
+
+    /// `{type name: row name}` for the sharp rows this App actually registers.
+    fn sharp_types(app: &App) -> std::collections::BTreeMap<String, String> {
+        let registry = app
+            .world()
+            .get_resource::<RollbackRegistry>()
+            .expect("the rollback host installs a registry");
+        let mut out = std::collections::BTreeMap::new();
+        for descriptor in registry.descriptors() {
+            if SHARP_ROWS.contains(&descriptor.name.as_str()) {
+                // ⛔ THE PREMISE OF THE JOIN, ASSERTED RATHER THAN ASSUMED. A row
+                // that started feeding the peer checksum is covered by the other
+                // arm and must leave this one, or both arms drift into reading
+                // the same thing while claiming to split the surface.
+                assert!(
+                    !descriptor.kind.feeds_peer_checksum(),
+                    "`{}` feeds the peer checksum now, so it belongs to the \
+                     peer-visible arm rather than to this one",
+                    descriptor.name
+                );
+                out.insert(descriptor.type_name.clone(), descriptor.name.clone());
+            }
+        }
+        out
+    }
+
+    fn census(
+        app: &mut App,
+        keep: &std::collections::BTreeMap<String, String>,
+    ) -> std::collections::BTreeMap<String, (usize, u64)> {
+        let probes = app
+            .world()
+            .get_resource::<RollbackChecksumProbes>()
+            .cloned()
+            .expect("the rollback host registers probes");
+        probes
+            .census_all(app.world_mut())
+            .into_iter()
+            .filter_map(|(name, reading)| {
+                keep.get(name)
+                    .map(|row| (row.clone(), (reading.count, reading.xor)))
+            })
+            .collect()
+    }
+
+    let mut fresh = build(false);
+    let mut veteran = build(true);
+
+    // The control, first.
+    let fresh_tokens = local_lifecycle_tokens(&mut fresh);
+    let veteran_tokens = local_lifecycle_tokens(&mut veteran);
+    assert_ne!(
+        fresh_tokens, veteran_tokens,
+        "the two hosts reached Ambition with the same local lifecycle state, so \
+         nothing below is about a host's history reaching its peer state"
+    );
+
+    let keep = sharp_types(&fresh);
+    assert_eq!(
+        keep,
+        sharp_types(&veteran),
+        "the two hosts register different sharp-row sets, so the comparison below \
+         is between two different questions"
+    );
+
+    let expected: std::collections::BTreeMap<&str, &str> =
+        EXPECTED_TO_DIFFER.iter().copied().collect();
+    let mut compared = std::collections::BTreeSet::new();
+    for step in [0usize, 1, 30, 120] {
+        for _ in 0..step {
+            fresh.update();
+            veteran.update();
+        }
+        let ours = census(&mut fresh, &keep);
+        let theirs = census(&mut veteran, &keep);
+        // ⛔ ONLY ROWS WITH CARRIERS SAY ANYTHING. A row at count 0 in both hosts
+        // agrees the way two empty sets agree, so it is not counted as compared.
+        compared.extend(
+            ours.iter()
+                .filter(|(_, (count, _))| *count > 0)
+                .map(|(row, _)| row.clone()),
+        );
+        let unexpected: Vec<String> = ours
+            .iter()
+            .filter(|(row, reading)| {
+                theirs.get(*row) != Some(*reading) && !expected.contains_key(row.as_str())
+            })
+            .map(|(row, reading)| {
+                format!("{row}  fresh={reading:?} veteran={:?}", theirs.get(row))
+            })
+            .collect();
+        assert!(
+            unexpected.is_empty(),
+            "after {step} more steps, a SHARP unchecksummed row differs between \
+             two hosts whose only difference is which routes they visited first \
+             ({fresh_tokens} vs {veteran_tokens}).\n  {}\n\n\
+             ⛔ Nothing two peers compare would notice this: these rows are \
+             outside the peer checksum by construction. See S7 in \
+             `docs/planning/engine/simulation-authority-and-determinism.md`.",
+            unexpected.join("\n  ")
+        );
+    }
+
+    // ⛔ THE ANTI-VACUITY FLOOR, ON THE INTERSECTION RATHER THAN ITS OPERANDS. A
+    // join keyed wrongly — row names on one side, type names on the other —
+    // returns an empty map, and every assertion above then passes over nothing.
+    assert!(
+        !compared.is_empty(),
+        "no sharp row had a single carrier in either host, so this arm compared \
+         nothing: the registry spells {} of the {} sharp rows, and the probe \
+         census matched {}",
+        keep.len(),
+        SHARP_ROWS.len(),
+        compared.len()
+    );
+    eprintln!(
+        "[sharp-rows] {} of {} sharp rows registered, {} carried state and were \
+         compared: {:?}",
+        keep.len(),
+        SHARP_ROWS.len(),
+        compared.len(),
+        compared
+    );
+}
+
 #[test]
 fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first() {
     use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};

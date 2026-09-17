@@ -152,6 +152,21 @@ Unscanned: `ambition_app`, `ambition_content`, `ambition_demo_mary_o`,
 running as a cheap smoke test at carve time — but over the WHOLE crate, never
 `src/` alone, and understood as a detector whose hits go through the confirmer.
 
+⛔⛤ **AND THE COVERAGE LINE CANNOT BE RE-DERIVED FROM THIS PAGE — MEASURED
+2026-09-17.** The workspace now holds **78 members with a `src/lib.rs`** (66 in
+`crates/`, 12 in `game/`), not 75. The `Unscanned:` list above is the half that
+IS re-derivable: it names 41 crates and all 41 still exist. The other half is
+not — the 34 SCANNED crates are nowhere enumerated, only the ones that produced
+hits, so "34 of 75" cannot be checked against the tree and 34 + 41 is three short
+of the population either way. **22 live lib crates are named nowhere on this
+page at all**, among them `ambition_combat`, `ambition_characters`,
+`ambition_match`, `ambition_conversation` and `ambition_menu`.
+
+⇒ The repair is not a bigger number. It is to make the SCANNED set the recorded
+one, or to treat the unscanned list as the authority and derive coverage from it
+— a coverage claim whose complement cannot be listed is a claim nobody can
+falsify, which is the failure this page was written to end one level up.
+
 ⚠ **Why this page states its coverage in the first line.** The row it replaces
 said "six", and six was neither the number of unused declarations nor a number
 any single instrument had produced. See

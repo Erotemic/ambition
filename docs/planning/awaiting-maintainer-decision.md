@@ -363,25 +363,34 @@ because it then asks about `target/`, a different filesystem. A green check afte
 a repair that freed nothing is the false comfort that makes the next deletion
 look justified.
 
-⛔⛤ **A THIRD INSTANCE, 2026-09-16 — AND IT NAMES WHAT THE MECHANISM WAS
-MISSING.** Another agent, under a lane abort at 33.8 GB, reached the same
-`target/debug/incremental` reasoning from the same first principles (it even
-carried a remembered line endorsing the cut). What redirected it was a FAILURE
-MESSAGE at the point of action — a `scripts/tests` arm that names
-`scripts/clean_workspace_crates.sh` in the assertion it fails on. ⇒ **The
-mechanism this question asks for already half-exists, and the missing half was
-that the SANCTIONED CHEAP CUT WAS NOT NAMED WHERE THE FORBIDDEN ONE IS
-FORBIDDEN.** `check_disk_headroom.py`'s refusal correctly ruled out `rm -rf` and
-then offered only `cargo clean`, which costs a full rebuild — so the one path
-that reclaims the same bytes for nothing was invisible exactly where someone is
-under pressure to find it.
+⛔⛤ **A THIRD INSTANCE, 2026-09-16.** Another agent, under a lane abort at
+33.8 GB, reached the same `target/debug/incremental` reasoning from the same
+first principles. What redirected it was a failure message at the point of
+action: a `scripts/tests` arm names `scripts/clean_workspace_crates.sh` in the
+assertion it fails on. ⇒ So the mechanism this question asks for already
+half-exists, and the missing half was that **the guidance did not say what each
+sanctioned reclaim COSTS.** `check_disk_headroom.py`'s refusal named
+`cargo clean` without saying it forces a rebuild, and never mentioned the
+incremental-cache wrapper — so the option that frees space without a long build
+was invisible exactly where somebody needs it, and the `rm -rf` cut looked like
+the only way to get it.
 
-✔ **LANDED WITHOUT A RULING, because it needed none:**
-`./scripts/clean_workspace_crates.sh --incremental-only` is now step 2a of that
-refusal and is documented in `AGENTS.md`'s disk section. It deletes no artifact
-and invalidates no fingerprint; measured the same day, **82 G across 985 crate
-sessions, 33 G free → 115 G**, and three `scripts/tests` arms that had failed on
-the abort went 6/6.
+✔ **LANDED WITHOUT A RULING, because it needed none.** The refusal and
+`AGENTS.md` now carry all three reclaims with what each costs, measured the same
+day on one box:
+
+| command | reclaimed | what you pay |
+| --- | --- | --- |
+| `cargo clean --workspace` | ~35 GB | rebuild Ambition; dependencies stay built |
+| `cargo clean` | ~80 GB | rebuild everything, Bevy included |
+| `clean_workspace_crates.sh --incremental-only` | 82 GB, 13 GB an hour later | nothing rebuilt |
+
+The third deletes the incremental CACHE rather than artifacts, so no fingerprint
+is invalidated. Three `scripts/tests` arms that had failed on the abort went 6/6
+after it. ⚠ **Jon's correction, same day: `cargo clean --workspace` plus plain
+`cargo clean` is the ordinary answer, and the first write-up here read as a riddle
+about a "forbidden" option instead of a table of trades.** The prose is the fix as
+much as the content was.
 
 ⇒ **WHAT IS STILL OPEN IS THE RULING ITSELF** — which rule wins, and whether a
 retracted instruction can be made underivable rather than merely marked. The

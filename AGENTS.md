@@ -187,20 +187,35 @@ that fixes it.
 ⚠ `./run_tests.sh` refuses to start on an unbound virtiofs target for this
 reason. Do not work around it by any means other than running the script.
 
-⭐⭐ **AND WHEN A BOUND TARGET IS GENUINELY SHORT, THE CHEAPEST RECLAIM IS
-`./scripts/clean_workspace_crates.sh --incremental-only --apply`, WHICH DELETES
-NO ARTIFACT.** `target/*/incremental` is stale generations — a fresh hash per
-feature shape, none ever reaped — and dropping it invalidates no fingerprint: a
-fresh crate stays fresh and is skipped next build. The only cost is that the next
-EDIT to a crate recompiles it whole. **MEASURED 2026-09-16: 82 G across 985 crate
-sessions, in seconds, 33 G free → 115 G.** ⛔ It was documented in the script and
-in one test's failure message and NOWHERE a reader looks first, so the reclaim
-that needs no permission looked like the one that does. Run it dry (no `--apply`)
-to see the number before deciding.
+⭐ **WHEN A BOUND TARGET IS SHORT, THERE ARE THREE RECLAIMS AND THEY TRADE SPACE
+AGAINST REBUILD TIME.** All three are `cargo clean` or a wrapper around it.
+Measured on one box, 2026-09-16:
 
-⚠ The floor that makes this urgent is real and it fails elsewhere: `run_tests.py`
-ABORTS under 40 GB, and three `scripts/tests` arms about job caps failed on that
-abort while saying *"this test is not about disk"*.
+| command | reclaimed | what you pay |
+| --- | --- | --- |
+| `cargo clean --workspace` | ~35 GB (our crates' artifacts) | rebuild Ambition; dependencies stay built |
+| `cargo clean` | ~80 GB (everything) | rebuild everything, Bevy included |
+| `./scripts/clean_workspace_crates.sh --incremental-only --apply` | 82 GB when measured, 13 GB an hour later | nothing is rebuilt |
+
+⇒ **Start with the third when you just need headroom now.** It deletes the
+incremental cache, not artifacts, so no fingerprint is invalidated: a crate that
+was fresh stays fresh and is skipped on the next build. The only cost is that the
+next EDIT to a crate recompiles it whole instead of incrementally. Run it without
+`--apply` and it prints the number first. ⚠ It regrows: 82 GB → 13 GB in an hour
+of building.
+
+⇒ **Use `cargo clean --workspace` when you want our crates rebuilt from source**
+and the dependency wall left standing, and plain `cargo clean` when you want the
+whole directory back and can afford a full rebuild.
+
+⛔ **`rm -rf` is still not one of the options, in any of those states**, and the
+reason it keeps getting proposed is that it looks like the surgical version of the
+third row. It is not: the wrapper reclaims the same bytes, and `cargo clean` is
+what AGENTS.md and Jon's 2026-09-10 note sanction.
+
+⚠ The floor that makes this urgent is real: `run_tests.py` ABORTS under 40 GB,
+and three `scripts/tests` arms about job caps failed on that abort while their own
+message said *"this test is not about disk"*.
 
 Do not substitute `CARGO_TARGET_DIR`; it applies only to commands launched from
 that shell and does not establish the repository-wide target policy.

@@ -199,21 +199,25 @@ def main() -> int:
             f"  2. Is it bound, and is {where}\n"
             "     genuinely full? Bound, `cargo clean` is yours to run\n"
             "     (also `--release`, `-p <crate>`) -- AGENTS.md, Jon 2026-09-10.\n"
-            # ⛔⛤ NAME THE SANCTIONED CHEAP CUT, OR THE FORBIDDEN ONE IS THE
-            # ONLY CHEAP CUT A READER CAN SEE. This message forbids
-            # `rm -rf …/incremental` and then offered only `cargo clean`, which
-            # costs a full rebuild -- so an agent under pressure to free space
-            # reasons its way back to the forbidden cut, which is exactly what
-            # `Q77` records happening twice. The wrapper below reclaims the same
-            # bytes, deletes no artifact, and invalidates no fingerprint.
-            "  2a. THE CHEAP ONE, and it deletes nothing:\n"
+            # ⛔⛤ SAY WHAT EACH RECLAIM COSTS, so a reader under pressure can
+            # pick one instead of inventing a cut. This message named
+            # `cargo clean` without saying it forces a rebuild, and never
+            # mentioned the incremental-cache wrapper -- so the cheapest option
+            # was invisible and `rm -rf …/incremental` looked like the only way
+            # to get space without a long build. `Q77` records that reasoning
+            # twice. Measured 2026-09-16 on one box: our crates' artifacts ~35 G,
+            # the whole directory ~80 G, the incremental cache 82 G.
+            "     `cargo clean --workspace` reclaims our crates (~35 GB\n"
+            "     measured) and rebuilds Ambition only; plain `cargo clean`\n"
+            "     reclaims everything (~80 GB) and rebuilds Bevy too.\n"
+            "  2a. Space now, with nothing rebuilt:\n"
             "     ./scripts/clean_workspace_crates.sh --incremental-only\n"
-            "     (add --apply). `target/*/incremental` is stale generations,\n"
-            "     one hash per feature shape and none ever reaped; a fresh\n"
-            "     crate stays fresh and is skipped next build. Measured\n"
-            "     2026-09-16: 82 G across 985 crate sessions, 33 G -> 115 G.\n"
-            "     The only cost is that the next EDIT recompiles that crate\n"
-            "     whole. Run it without --apply first; it prints the number.\n"
+            "     (add --apply). It deletes the incremental CACHE, not\n"
+            "     artifacts, so no fingerprint is invalidated: a crate that was\n"
+            "     fresh stays fresh and is skipped. Measured 82 GB across 985\n"
+            "     crate sessions, 33 GB free -> 115 GB. The only cost is that\n"
+            "     the next EDIT to a crate recompiles it whole. Run it without\n"
+            "     --apply first; it prints the number.\n"
             "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
             "     `rm -rf` is never the tool in either state, and never prune\n"
             "     by mtime.\n"

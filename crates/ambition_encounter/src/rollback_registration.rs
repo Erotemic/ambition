@@ -81,11 +81,11 @@ where
         .clear_message_on_rollback::<crate::EncounterCommand>(OWNER, "message.encounter_command");
     registrar
         .clear_message_on_rollback::<crate::EncounterEventMsg>(OWNER, "message.encounter_event");
+    // ⛔⛤ THIS WAS DECLARED TWICE — once as `crate::EncounterGate` and once as
+    // `crate::timeline::EncounterGate`, which are ONE type reached by two paths.
+    // Two spellings of one import read as two subjects, and the schema emitted a
+    // single row for the single stable name, so nothing downstream could tell.
     registrar.clear_message_on_rollback::<crate::EncounterGate>(OWNER, "message.encounter_gate");
-    registrar.clear_message_on_rollback::<crate::timeline::EncounterGate>(
-        OWNER,
-        "message.encounter_gate",
-    );
     // ⭐ THE SWITCH STATE, MOVED HERE 2026-08-26 WITH THE TYPES IT DECLARES.
     // This is the fourth thing a type move owes — the type, its consumers, any
     // orphan-rule impls, and THE DECLARATION — and it is the only one nothing

@@ -390,24 +390,14 @@ where
         OWNER,
         "message.set_flag_requested",
     );
-    registrar
-        .clear_message_on_rollback::<crate::events::ActorStimulus>(OWNER, "message.actor_stimulus");
-    registrar.clear_message_on_rollback::<crate::events::GameplayBannerRequested>(
-        OWNER,
-        "message.gameplay_banner_requested",
-    );
-    registrar.clear_message_on_rollback::<crate::events::GameplaySfxRequested>(
-        OWNER,
-        "message.gameplay_sfx_requested",
-    );
-    registrar.clear_message_on_rollback::<crate::events::RoomReplayAdmitted>(
-        OWNER,
-        "message.room_replay_admitted",
-    );
-    registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
-        OWNER,
-        "message.set_flag_requested",
-    );
+    // ⛔⛤ FIVE OF THESE WERE DECLARED TWICE, VERBATIM, AND NOTHING COULD SEE IT.
+    // `ActorStimulus`, `GameplayBannerRequested`, `GameplaySfxRequested`,
+    // `RoomReplayAdmitted` and `SetFlagRequested` each had a second
+    // `clear_message_on_rollback` call with the same type AND the same stable
+    // name, so `schema_dump()` emitted one row per name and the baseline — the
+    // one guard that member-diffs every row — was byte-identical either way.
+    // A duplicate DECLARATION is invisible to a census of what is DECLARED.
+    // Removed 2026-09-17; the schema is unchanged, so no version moves.
     // Strike entities and hit-once bookkeeping are combat state even when their
     // presentation is VFX-driven.
     registrar.require_rollback::<crate::strike::Hitbox>(OWNER, "entity:hitbox");

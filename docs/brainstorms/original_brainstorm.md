@@ -796,5 +796,3 @@ the huggingface attack here, but try to have a tasteful and poignant take on
 it. Perhaps when you get back to the creator, the attack happens. Perhaps not,
 maybe it happens later. We could parody nVidia as mAudia, huggingface parodies
 itself with a big hug to the face.
-
-

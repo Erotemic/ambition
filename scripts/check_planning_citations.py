@@ -1163,13 +1163,20 @@ def main() -> int:
 
     findings: list[tuple[str, int, str, str]] = []
     checked = 0
-    # ⛔⛤ **TWO HALVES WITH DIFFERENT EVIDENCE, SO THEY ARE TWO FLAGS.** The
-    # SYMBOL half of the comment sweep has 21 standing findings at HEAD — names a
-    # macro declares, upstream types, a test function cited by its own module —
-    # so it reports and cannot gate. The PATH half is green at HEAD (2026-09-17,
-    # after seven live citations were repaired), so it CAN, and a lane runs it.
-    # Merging them would have held the enforceable half hostage to the advisory
-    # one, which is how a checker ends up run by nobody.
+    # ⛔⛤ **TWO HALVES WITH DIFFERENT KINDS OF EVIDENCE, SO THEY ARE TWO FLAGS.**
+    # A PATH either exists or it does not, so `--comment-paths` gates. A SYMBOL
+    # citation can be wrong about a name this checker cannot know — a macro
+    # declaration, an upstream method reached through a type name this repo also
+    # defines (`World::iter_entities` is exactly that) — and the lane's own
+    # non-strict citation job argues the case: *"failing the lane on one would
+    # train everybody to pass --no-verify."*
+    # ⚠ **BOTH HALVES ARE NEVERTHELESS CLEAN AT HEAD, 2026-09-17.** The symbol
+    # half reported 21; five were live and were repointed (a merged
+    # `CharacterDefinition` field, a renamed room sweep, a gravity function that
+    # never existed under that name), and the other sixteen are comments RECORDING
+    # a name that is gone on purpose, now carrying `cite-ok`. So
+    # `--comments --strict` exits 0 today; what stops it gating is the class of
+    # mistake it can make, not a backlog.
     if args.comments or args.comment_paths:
         # ⭐ SAME RULE, WIDER TARGET. A comment citation is judged exactly like a
         # planning one -- there is no reason a name in prose is more real for

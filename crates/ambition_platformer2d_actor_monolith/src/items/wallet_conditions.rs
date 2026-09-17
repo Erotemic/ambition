@@ -2,7 +2,7 @@
 //!
 //! ⛔⛔ THIS RETIRES A SECOND AUTHORITY, and the fork had more authored callers
 //! than any condition the engine publishes. `can_afford(price)` was a bespoke
-//! Yarn function closed over `YarnStateMirrorData::wallet_balance`, a per-frame
+//! Yarn function closed over `YarnStateMirrorData::wallet_balance`, a per-frame <!-- cite-ok: records the second authority this retired; the name is gone by design -->
 //! snapshot — and `kernel.yarn`'s shop menu calls it **ten** times, against
 //! `inventory.holds`' seven and `boss.cleared`'s five.
 //!

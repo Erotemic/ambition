@@ -146,7 +146,7 @@ pub enum InteractionKindSpec {
 ///
 /// ⛔⛤ **`collected: bool` WAS DELETED 2026-09-12, AND IT IS THE SAME DEFECT
 /// `ChestSpec.state` WAS.** It was a public, serializable, documented authoring
-/// field that the lowering faithfully copied into `Pickup::collected` — and
+/// field that the lowering faithfully copied into `Pickup::collected` — and <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
 /// production collection logic never read either one. The live authority is the
 /// `ambition_combat::components::Collected` MARKER, which `pickups.rs` inserts
 /// and queries (`Without<Collected>`).

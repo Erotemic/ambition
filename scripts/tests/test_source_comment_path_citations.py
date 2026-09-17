@@ -9,10 +9,11 @@ claims pointing at nothing, two telling a reader the simulation phase order is
 `docs/planning/triage/a-prose-path-inside-a-doc-comment-is-not-checked.md` is the
 row.
 
-⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` FOR A MEASURED REASON.** The
-symbol half has 21 standing findings at HEAD — macro-declared names, upstream
-types — so it reports and cannot gate. The path half is green, so it gates. One
-flag would have held the enforceable half hostage to the advisory one.
+⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` BECAUSE THE TWO CAN BE WRONG IN
+DIFFERENT WAYS.** A path either exists or it does not. A symbol citation can name
+something this checker cannot see — a macro declaration, or an upstream method
+reached through a type name the repo also defines. Both halves happen to be clean
+at HEAD (2026-09-17), so the split is about the class of mistake, not a backlog.
 """
 
 from __future__ import annotations

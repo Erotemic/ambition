@@ -340,7 +340,7 @@ pub struct EnemySpawnSpec {
     ///
     /// `None` = the character's own profile, which is every level authored so
     /// far.  a name that resolves to nothing is a construction ERROR, the same
-    /// contract `CharacterDefinition::autonomous_profile_ref` carries — an
+    /// contract `CharacterDefinition::autonomous_policy` carries — an
     /// explicit reference that misses must never read as silence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub brain_profile: Option<ambition_entity_catalog::BrainProfileRef>,

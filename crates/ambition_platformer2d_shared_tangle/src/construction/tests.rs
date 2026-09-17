@@ -2909,7 +2909,7 @@ fn a_candidate_is_hidden_from_queries_and_from_nothing_else() {
     );
 
     // ⛔⛔ **AND `iter_entities` SEES IT.** This is the escape named, not a
-    // defect being asserted as correct: `World::iter_entities` walks the entity
+    // defect being asserted as correct: `World::iter_entities` walks the entity <!-- cite-ok: an upstream bevy method; `World` also names a type this repo defines, which is the only reason this is judged here -->
     // store and `DefaultQueryFilters` never enters into it. A global gatherer
     // written this way WOULD observe an unpublished candidate.
     let walked: Vec<Entity> = world.iter_entities().map(|entity| entity.id()).collect();

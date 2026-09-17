@@ -97,8 +97,8 @@ pub enum InteractionKind {
 ///
 /// ⛔⛤ **`collected: bool` IS GONE, 2026-09-12.** This comment used to say it was
 /// *"not the authority and nothing reads it"*, note that it was the same shape as
-/// `Chest::persistent`, and leave wiring-or-deleting as a design call. Leaving it
-/// there was the wrong half of that choice: `Pickup::collected` was a SECOND
+/// `Chest::persistent`, and leave wiring-or-deleting as a design call. Leaving it <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
+/// there was the wrong half of that choice: `Pickup::collected` was a SECOND <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
 /// REPRESENTATION of a fact whose only live authority is the
 /// `ambition_combat::components::Collected` marker — the one `pickups.rs` inserts
 /// and queries as `Without<Collected>` — and a spec that said `collected: true`

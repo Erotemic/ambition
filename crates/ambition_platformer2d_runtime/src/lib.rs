@@ -596,7 +596,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_encounter_features::conditions::EncounterConditionsPlugin)
             // The boss capability's own provider — `boss.cleared(id)`. SIXTH
             // provider, and the first published to RETIRE a second authority
-            // rather than to fill a gap: `YarnStateMirrorData::bosses_cleared`
+            // rather than to fill a gap: `YarnStateMirrorData::bosses_cleared` <!-- cite-ok: records the second authority this retired; the name is gone by design -->
             // held a per-frame projection of this exact fact so a bespoke Yarn
             // function could answer it synchronously, which both modules already
             // named as the thing this project refuses. Same move the mirror's

@@ -9,7 +9,7 @@
 //! catalog is extensible by a GAME and not only by the engine — a composition
 //! without Ambition's quests simply never sees the question.
 //!
-//! ⛔⛔ IT RETIRES A SECOND AUTHORITY. `YarnStateMirrorData::quests_active` held
+//! ⛔⛔ IT RETIRES A SECOND AUTHORITY. `YarnStateMirrorData::quests_active` held <!-- cite-ok: records the second authority this retired; the name is gone by design -->
 //! a per-frame projection of exactly this fact so a bespoke Yarn function
 //! `quest_active(id)` could answer it synchronously. That is the shape both
 //! `authored_conditions.rs` and `yarn_vocabulary.rs` already name as refused,

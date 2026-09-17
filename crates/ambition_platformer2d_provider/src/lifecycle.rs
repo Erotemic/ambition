@@ -2133,7 +2133,7 @@ impl PlatformerSessionBuilder<'_, '_> {
     /// admission will owe the world, none of it authoritative yet.
     ///
     /// ⛔⛤ **IT SPAWNS ITS OWN ROOT, AND THE PRIMITIVE THAT USED TO OFFER AN
-    /// ALTERNATIVE IS GONE.** `ActiveGameplaySession::spawn_world_for` validated
+    /// ALTERNATIVE IS GONE.** `ActiveGameplaySession::spawn_world_for` validated <!-- cite-ok: records a primitive that is gone -->
     /// against the already-published session, which is useless here — a
     /// candidate is deliberately not that session yet, and may be prepared while
     /// a DIFFERENT session is still live — so nothing ever called it and it has
@@ -2213,7 +2213,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         // `shell_host_lifecycle` pins exactly one visible session root at every
         // point of a four-session walk.
         //
-        // ⛔⛤ `ActiveGameplaySession::spawn_world_for` minted the same identity
+        // ⛔⛤ `ActiveGameplaySession::spawn_world_for` minted the same identity <!-- cite-ok: records a primitive that is gone -->
         // and nothing called it; the arm that certified this class ran against
         // THAT copy, so the road the game takes was unguarded for a day. Held
         // now by `two_local_histories_name_every_simulated_entity_identically`

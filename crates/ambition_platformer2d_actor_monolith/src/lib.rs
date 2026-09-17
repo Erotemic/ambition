@@ -25,7 +25,7 @@ mod character_roster;
 /// Actor SPAWN PRIMITIVES — the layer `construction`'s recipes are built out of.
 ///
 /// ⭐⭐ IT SITS BELOW `construction` DELIBERATELY, AND THAT IS THE WHOLE F1 CUT.
-/// These functions were in `features::ecs::spawn_actors`, which made
+/// These functions were in `features::ecs::spawn_actors`, which made <!-- cite-ok: records where these functions were before the carve -->
 /// `construction/mod.rs` name `crate::features` fifteen times — the reverse
 /// dependency the work frontier's F1 packet exists to remove. They are not
 /// feature systems: nothing here reads a message, owns a schedule slot or

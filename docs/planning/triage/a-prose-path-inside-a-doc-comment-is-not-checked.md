@@ -128,12 +128,26 @@ repository's abbreviation habit and `cite-ok` already meant *"wrong on purpose"*
 a sibling checker would have been a second authority on the same question, which
 is the thing this tree spends most of its hygiene budget undoing.
 
-⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` FOR A MEASURED REASON.** That
-mode's SYMBOL half has 21 standing findings at HEAD — macro-declared names,
-upstream types — so it reports and cannot gate. Folding the path half into it
-would have held the enforceable half hostage to the advisory one, which is how a
-checker ends up run by nobody. `--comments` still implies `--comment-paths`; only
-the reverse is untrue.
+⚠ **AND IT IS A SEPARATE FLAG FROM `--comments` BECAUSE THE TWO CAN BE WRONG IN
+DIFFERENT WAYS.** A path either exists or it does not; a symbol citation can name
+something the checker cannot see, and the lane's non-strict citation job argues
+that case in its own words — *"failing the lane on one would train everybody to
+pass `--no-verify`."* `--comments` still implies `--comment-paths`; only the
+reverse is untrue.
+
+⭐⭐ **THE SYMBOL HALF WAS CLEARED THE SAME DAY, WHICH WAS NOT THE PLAN.** It
+reported 21 findings and the first reading of that number was "a backlog that
+stops it gating". Read one at a time, FIVE were live and repointable — a
+`CharacterDefinition::autonomous_profile_ref` that was merged into <!-- cite-ok: this line RECORDS a citation that does not resolve; that is the finding -->
+`autonomous_policy` (cited as a live contract in three places), a
+`RoomConstructionPlan::retire_outgoing` that does not exist (the room sweep is <!-- cite-ok: this line RECORDS a citation that does not resolve; that is the finding -->
+`room_transition::commit` over the `RoomResident` roster), and an
+`integration::apply_gravity` that never existed under that name. The other <!-- cite-ok: this line RECORDS a citation that does not resolve; that is the finding -->
+sixteen are comments RECORDING a retired authority on purpose and now say so with
+`cite-ok`. ⇒ `--comments --strict` exits 0 at HEAD too. What keeps it advisory is
+the CLASS of mistake it can make — `World::iter_entities` is an upstream method <!-- cite-ok: this line RECORDS a citation that does not resolve; that is the finding -->
+the checker only judges because this repo also defines a `World` — not a
+backlog.
 
 ⇒ Poison-verified: repointing one live citation at `src/rl_sim/nowhere.rs` <!-- cite-ok: this line RECORDS a path that does not resolve; that is the finding -->
 reddens it naming the file, the line and the token. Five arms in

@@ -4038,7 +4038,7 @@ pub fn apply_special_turn_flicks(
 ///   bitset [`crate::util::body_vulnerable`] already reads — so the damage
 ///   resolver honours it and the `unhittable` fact presentation blinks on shows
 ///   it, with nothing new taught to either;
-/// * armor becomes `BodyCombat::armored`, read by `apply_body_hit_reaction`,
+/// * armor becomes `BodyCombat::armored`, read by `apply_body_hit_reaction`, <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
 ///   which already holds that component on both damage roads.
 ///
 /// ⭐ Both are written EVERY tick for every combat body, present move or not.

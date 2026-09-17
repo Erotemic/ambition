@@ -308,7 +308,7 @@ pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
 ///
 /// ⭐⭐ THE OTHER HALF OF [`invuln`]'S STORY, and it is REACHED NOW.
 /// `WindowTag::Armor` is consumed end to end — `MovePlayback` republishes
-/// `BodyCombat::armored` from the live window every tick, and `hit_reaction`
+/// `BodyCombat::armored` from the live window every tick, and `hit_reaction` <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
 /// gates the launch on `!combat.armored` with tests either side of it.
 ///
 /// ⛔⛤ **THIS COMMENT SAID *"no authored move in the tree has ever opened one"*

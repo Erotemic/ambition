@@ -4,7 +4,7 @@
 //! vocabulary, from its own plugin, beside the systems that write the fact.
 //!
 //! ⛔⛔ THIS RETIRES A SECOND AUTHORITY RATHER THAN ADDING A VERB, and that is
-//! the whole justification. `YarnStateMirrorData::bosses_cleared`
+//! the whole justification. `YarnStateMirrorData::bosses_cleared` <!-- cite-ok: records the second authority this retired; the name is gone by design -->
 //! (`ambition_dialog/src/bindings.rs`) held a per-frame projection of exactly
 //! this fact so a bespoke Yarn function `boss_cleared(id)` could answer it
 //! synchronously — and both modules already named that as the thing this

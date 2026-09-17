@@ -34,7 +34,7 @@
 //! ⛔⛤ **AND "A VALUE-LEVEL ARM IN THE CRATE THAT MINTS IT" IS WHAT THIS
 //! PARAGRAPH USED TO SAY, WHICH IS HOW THE SESSION ROOT SPENT A DAY GUARDED ON A
 //! ROAD NOTHING SHIPS.** The minting crate's arm called
-//! `ActiveGameplaySession::spawn_world_for`, which had no production caller at
+//! `ActiveGameplaySession::spawn_world_for`, which had no production caller at <!-- cite-ok: records a primitive that is gone -->
 //! all — A10's candidate road builds its own root. Re-keying the LIVE mint on
 //! the session scope counter left the whole app suite green at 705 passed / 0
 //! failed. ⇒ **The road, not the crate.** The two resolutions that actually

@@ -199,8 +199,9 @@ pub struct AxisManeuverState {
     pub blink_grace_timer: f32,
     /// A TIMED GRAVITY MULTIPLIER this body is under: a parasol, a float, a
     /// slow-fall. Applied by the movement kernel as a THIRD FACTOR beside
-    /// `water_gravity_scale` and `jump_gravity_scale` — see
-    /// `integration::apply_gravity`.
+    /// `water_gravity_scale` and `jump_gravity_scale`, which
+    /// `integration::integrate_normal_spine` resolves together. ⚠ This named an
+    /// `integration::apply_gravity` until 2026-09-17; no such function exists. <!-- cite-ok: quotes the dead name this correction is about -->
     ///
     /// ⭐⭐ A MOVE ASKS FOR THIS AND NEVER OWNS IT. That is this campaign's rule
     /// stated as a data layout: the move writes a scale and a duration, and the

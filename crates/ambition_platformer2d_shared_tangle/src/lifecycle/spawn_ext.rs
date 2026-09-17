@@ -8,8 +8,11 @@ use super::{ModeScopedEntity, RoomScopedEntity};
 /// Spawn helpers that make entity lifecycle policy part of the call site.
 pub trait SpawnScopedExt {
     /// Spawn an entity whose lifetime is scoped to the active authored room:
-    /// retired by `RoomConstructionPlan::retire_outgoing` when the room unloads,
-    /// and by the sandbox reset.
+    /// swept when the room unloads by `room_transition::commit`, whose roster is
+    /// the `RoomResident` alias — `(With<RoomScopedEntity>, Without<InCustodyOf>)`,
+    /// so an object in a hand is not the room's to retire — and by the sandbox
+    /// reset. ⚠ This named a `RoomConstructionPlan::retire_outgoing` until <!-- cite-ok: quotes the dead name this correction is about -->
+    /// 2026-09-17; no such method exists.
     fn spawn_room_scoped<B: Bundle>(&mut self, bundle: B) -> EntityCommands<'_>;
 
     /// Spawn an entity whose lifetime is scoped to the named game mode: it

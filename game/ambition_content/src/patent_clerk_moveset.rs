@@ -363,7 +363,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     });
     let side_b = impulse(side_b, 0.20, (640.0, 0.0), ImpulseMode::Set);
     // ⭐⭐ AND HE GOES THROUGH YOU. `WindowTag::Armor` is consumed end to end —
-    // `MovePlayback` republishes `BodyCombat::armored` from the live window every
+    // `MovePlayback` republishes `BodyCombat::armored` from the live window every <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
     // tick and `hit_reaction` gates the launch on `!combat.armored` — and until
     // now NO AUTHORED MOVE IN THE TREE HAD EVER OPENED ONE. Measured 2026-09-05:
     // the engine has had super armour for a while and the roster had no way to

@@ -825,7 +825,7 @@ mod authored_enemy_reads_its_character {
 
     /// A placement that names a policy nobody published is a REFUSAL.
     ///
-    /// the same contract `CharacterDefinition::autonomous_profile_ref`
+    /// the same contract `CharacterDefinition::autonomous_policy`
     /// carries, one authority over: an explicit reference that misses must never
     /// read as silence, or the level says "guard this door" and the body
     /// patrols, with everything green.

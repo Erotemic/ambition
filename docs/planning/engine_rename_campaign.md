@@ -10,11 +10,23 @@
 > flag-day refactor. The focused actor carve remains
 > [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03), three weeks on, and the page is still true — with
-> ONE candidate half-built that it does not know about.** A page that is
-> accurate and looks stale costs a reader the same hour as one that is wrong, so
-> the numbers are here rather than the date alone. Each was measured with the
-> method the claim it checks already uses.
+> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03) and again against
+> `bb149b0f3` (2026-09-17). Every candidate is still where it was; one number has
+> reversed direction and it is the interesting one.** A page that is accurate and
+> looks stale costs a reader the same hour as one that is wrong, so the numbers
+> are here rather than the date alone. Each was measured with the method the claim
+> it checks already uses.
+>
+> ⛔⛤ **THE MONOLITH GREW BACK, AND THE PAGE'S OWN RULE IS WHY THAT IS NOT A
+> CONTRADICTION.** Measured 2026-09-17 by the same `src/**/*.rs` count: **241
+> files, 114,767 lines**, against 101,042 on 2026-09-03 — **+13,725 in two
+> weeks**, while the `ambition_*` dependency table went 33 → **34**. So the
+> anti-metric went up by one and the metric that was supposed to fall went up by
+> thirteen thousand. ⚠ **That is a reading, not an accusation:** this count
+> includes tests, and two weeks of ID-PEER and A10 work added guards and their
+> fixtures to this crate on purpose. ⇒ What it does refute is treating the source
+> figure as a carve scoreboard. The number that means "a domain left" is a
+> DOMAIN, not a line count, and neither number here names one.
 >
 > - **The rename campaign is still closed.** `scripts/check_retired_crate_names.py`:
 >   *"No retired crate name is live (14 tracked)."*
@@ -22,7 +34,8 @@
 >   `ambition_user_settings` nor `ambition_game_save` does.
 > - **Feel tuning — not started, and the page never said where it lives.**
 >   `Platformer2dFeelTuningMonolith` is in `crates/ambition_combat/src/feel.rs`
->   and is named 135 times.
+>   and is named 135 times; **154 on 2026-09-17**, so the type is spreading rather
+>   than being split.
 > - **Snapshot vocabulary — not started.** `ambition_snapshot` does not exist.
 > - **The actor carve is live, and ⛔ ITS TRACKED METRIC IS AN ANTI-METRIC.**
 >   This line used to read "has not moved", with the monolith's

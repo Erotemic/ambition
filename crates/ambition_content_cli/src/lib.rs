@@ -20,7 +20,7 @@ use ambition_content_pack::{
 ///
 /// ⛔⛤ IT USED TO BE A SECOND HAND-KEPT COPY OF `engine_schemas()`. Twelve
 /// registrations, in a different order, in a different crate, with
-/// `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set`
+/// `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set` <!-- cite-ok: records the test that held two copies equal before the duplicate was removed -->
 /// holding the two equal and this comment stating the rule that test enforced:
 /// *"A schema added to one belongs in the other in the same commit."* A rule
 /// about keeping two lists identical is a rule that should not need stating.

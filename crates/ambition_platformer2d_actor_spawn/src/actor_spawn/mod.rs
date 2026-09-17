@@ -1498,7 +1498,7 @@ pub fn spawn_enemy_with_faction_into(
         // creature had exactly one way to be played everywhere it appeared.
         //
         //  a name that resolves to nothing is a REFUSAL, the same contract
-        // `CharacterDefinition::autonomous_profile_ref` carries. An explicit
+        // `CharacterDefinition::autonomous_policy` carries. An explicit
         // reference that misses must never read as silence, or the level says
         // "guard this door" and the body patrols.
         if let Some(reference) = &authored.payload.brain_profile {

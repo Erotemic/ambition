@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,336 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,340 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -265,12 +265,16 @@ removing the substitute, not re-reading the row.
 float rows' STATE half is not blocked —
 `two_local_histories_compute_the_same_mechanical_values` and
 `two_local_histories_agree_about_the_sharp_unchecksummed_rows` are the road, and
-between them they now reach all TWELVE of S7's sharp rows, six of which carry
-state at rest in the shipped Ambition route and agree. ⚠ That is twelve of the
-twenty-five: the remaining thirteen are the ones S7 does NOT rank sharp, and the
-six that carry nothing need a route that places them rather than a projection.
-Extending it is ordinary work with no ruling in front of it; the row below says
-which rows and what each one costs.
+between them they now reach all TWELVE of S7's sharp rows, EIGHT of which carry
+state and agree — measured 2026-09-17 across three rooms. ⚠ That is twelve of the
+twenty-five: the remaining thirteen are the ones S7 does NOT rank sharp. ⛔⛤ **AND
+THE CHEAP HALF OF THE REST IS SPENT.** Six carried nothing while the arm walked
+one room, which this paragraph read as needing "a route that places them"; for
+two of the six it was the ROOM, and pinning the start room covered them with no
+new fixture. Of the four still silent, one can be placed by no route at all
+(`Q137`) and three want the portal gun fired or a boss dead. Extending it is still
+ordinary work with no ruling in front of it, but it is now a driven-input road
+rather than a room; the row below says which rows and what each one costs.
 
 **Current state (2026-09-17): FIFTEEN CLOSED, THREE OPEN, EIGHTEEN LIVE —
 nineteen FILED, because the thirteenth was withdrawn the day it was filed and the

@@ -27,6 +27,7 @@ mod latched_input_reaches_the_tick;
 mod a_game_governs_only_its_own_rooms;
 mod a_hit_on_the_player_freezes_the_match;
 mod a_move_keeps_its_occurrence_across_a_rewind;
+mod a_room_cutscene_starts_under_a_rewind;
 mod which_hashed_entry_moves_when_the_bag_does;
 mod does_a_presence_probed_row_move_when_its_value_does;
 mod how_much_of_the_peer_checksum_actually_varies;

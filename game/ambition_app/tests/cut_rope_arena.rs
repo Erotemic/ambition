@@ -341,3 +341,194 @@ fn sim_ticks(sim: &mut Platformer2dSimHarness) -> u64 {
         .expect("the sim tick is installed by the engine plugins")
         .0
 }
+
+/// The tick the staging system kills the behemoth on. Far enough in that the
+/// room, the boss and its `ReleaseOnDeath` marker all exist, and far enough
+/// from the end that the rewind window closes over the death frame.
+const DEATH_TICK: u64 = 90;
+
+/// ⛔⛤ **WHY THIS ARM STAGES A DEATH INSTEAD OF CUTTING THE ROPE, MEASURED
+/// 2026-09-17 SO THE NEXT READER DOES NOT PAY FOR IT AGAIN.** A test-written
+/// `HitEvent` does not survive a rewind — 1 `rope_cut` gate without a rollback
+/// window, 0 under one — so the rope has to be cut by a real PRESS, which the
+/// harness does feed into the GGRS input stream and which therefore replays.
+/// The obstacle is the ROUTE, not the input road: the authored rope sits at
+/// `(908, 96)` and the player spawns at `(110, 712)`, **798 px right and 616 px
+/// up**. A walk-and-swing script closes to 660 px; adding a jump cadence and a
+/// held up-axis climbs to `y = 293` and closes to **187 px**, and tuning a blind
+/// script onto a 24 px hit volume that high is a search, not a fixture. ⇒ The
+/// whole-fight arm is priced at an authored platforming route and is not what
+/// this registration owes.
+///
+/// What it owes is the RELEASE half, and a sim-schedule staging system is the
+/// road this repo already uses for a deterministic mid-window event: it is
+/// replayed by every resimulation, so the kill happens on the same tick in every
+/// pass. `release_payloads_on_death` keys on `BodyHealth::alive()` alone.
+fn kill_the_behemoth_at_the_death_tick(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut hosts: bevy::prelude::Query<
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
+        bevy::prelude::With<ambition_platformer2d::boss_encounter::ReleaseOnDeath>,
+    >,
+) {
+    if tick.0 < DEATH_TICK {
+        return;
+    }
+    for mut health in &mut hosts {
+        health.health.current = 0;
+    }
+}
+
+/// Per `SimTick`, the marker count each PASS of that tick saw at the head of
+/// the release system.
+///
+/// ⛔⛤ **THE OBSERVABLE HAD TO MOVE HERE, AND THE FIRST CHOICE WAS VACUOUS.**
+/// This arm first asserted the victory NPC's PRESENCE, and the poison — deleting
+/// `encounter.release_on_death` — passed. The NPC is not rollback state: it
+/// spawns on the FIRST pass of the death frame, nothing despawns it on a rewind,
+/// and `spawn_cut_rope_victory_npc` then returns early on `existing`. So its
+/// presence answers "did the release ever fire", which is true either way, and
+/// says nothing about whether a resimulation can fire it AGAIN. The property the
+/// registration actually buys is the marker being BACK at the head of every
+/// resimulated pass.
+#[derive(bevy::prelude::Resource, Default)]
+struct MarkersByPass(std::collections::BTreeMap<u64, Vec<usize>>);
+
+fn record_the_markers_each_pass_sees(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    hosts: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d::boss_encounter::ReleaseOnDeath>,
+    >,
+    mut log: bevy::prelude::ResMut<MarkersByPass>,
+) {
+    let seen = hosts.iter().count();
+    log.0.entry(tick.0).or_default().push(seen);
+}
+
+/// Whether any behemoth still carries the release marker, read from outside the
+/// schedule.
+fn release_markers(sim: &mut Platformer2dSimHarness) -> usize {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        bevy::prelude::Entity,
+        bevy::prelude::With<ambition_platformer2d::boss_encounter::ReleaseOnDeath>,
+    >();
+    q.iter(world).count()
+}
+
+fn arena_killing_the_boss(rollback: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(CUT_ROPE_ROOM);
+    if rollback {
+        options = options.with_sync_test_rollback_settings(4, 10);
+    }
+    Platformer2dSimHarness::build(options, |app, options| {
+        use bevy::prelude::IntoScheduleConfigs as _;
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        let label = app.sim_schedule();
+        app.init_resource::<MarkersByPass>();
+        // ⚠ The recorder reads the marker as the RELEASER sees it, so it is
+        // ordered before it. Unordered, it could read the world after the
+        // removal and report 0 for a pass that did emit.
+        app.add_systems(
+            label,
+            (
+                record_the_markers_each_pass_sees,
+                kill_the_behemoth_at_the_death_tick,
+            )
+                .chain()
+                .before(ambition_platformer2d::boss_encounter::release_payloads_on_death),
+        );
+        Ok(())
+    })
+    .expect("the cut-rope room builds with a staged boss death")
+}
+
+/// ⭐⭐ **A RESIMULATED KILL FRAME STILL CARRIES THE RELEASE MARKER — WHICH IS
+/// WHAT `encounter.release_on_death`'s ROLLBACK REGISTRATION BUYS.**
+///
+/// `ReleaseOnDeath` is a presence marker: `release_payloads_on_death` emits
+/// `PayloadReleased` for a dead host and REMOVES the marker so it fires once.
+/// `PayloadReleased` is `clear_message_on_rollback`, so the message does not
+/// survive a rewind — restoring the marker is the only thing that lets a
+/// resimulation emit it again. ⛔ Unregistered, the removal is permanent across
+/// a rewind: the second pass of the kill frame sees no marker, emits nothing,
+/// and the frame is not the frame it was the first time.
+///
+/// ⚠ **THE FIXED-TICK HOST IS THE CONTROL AND IT IS THE ABSENCE OF THE
+/// SUBJECT.** It has one pass per tick, so "every pass saw the marker" is
+/// trivially true there; what it establishes is that the staged death reaches
+/// the releaser at all.
+#[test]
+fn a_resimulated_kill_frame_still_carries_the_release_marker() {
+    let mut fixed = arena_killing_the_boss(false);
+    let mut rewinding = arena_killing_the_boss(true);
+
+    // PREMISE, before any comparison: the marker EXISTS to be removed. A room
+    // whose boss carries no `ReleaseOnDeath` compares two zeroes and says
+    // nothing about the registration.
+    for (label, sim) in [("fixed-tick", &mut fixed), ("rewinding", &mut rewinding)] {
+        sim.step(AgentAction::default());
+        assert_eq!(
+            release_markers(sim),
+            1,
+            "the {label} arena did not attach ReleaseOnDeath to a behemoth, so \
+             there is no marker for a rewind to restore and this arm has no \
+             subject"
+        );
+    }
+
+    for _ in 0..(DEATH_TICK as usize + 60) {
+        fixed.step(AgentAction::default());
+        rewinding.step(AgentAction::default());
+    }
+
+    // ⛔ THE LIVENESS FLOOR. A frozen rollback world freezes both sides of a
+    // comparison, and a sync-test harness that never advanced would report the
+    // same numbers as one that did.
+    assert!(
+        sim_ticks(&mut rewinding) > DEATH_TICK,
+        "the rewinding arena reached tick {} and the staged death is at {DEATH_TICK}, \
+         so nothing in this arm was exercised",
+        sim_ticks(&mut rewinding)
+    );
+
+    let passes_at_death = |sim: &Platformer2dSimHarness| -> Vec<usize> {
+        sim.world()
+            .resource::<MarkersByPass>()
+            .0
+            .get(&DEATH_TICK)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let fixed_passes = passes_at_death(&fixed);
+    let rewinding_passes = passes_at_death(&rewinding);
+
+    assert_eq!(
+        fixed_passes,
+        vec![1],
+        "the fixed-tick control read {fixed_passes:?} at the kill frame. One \
+         pass holding one marker is the whole control: it says the staged death \
+         reaches the releaser with the marker still on"
+    );
+
+    // ⛔ THE ANTI-VACUITY FLOOR, and it is on the ROLLBACK side specifically: a
+    // rewinding host that happened to run the kill frame once would satisfy the
+    // per-pass assertion below by having nothing to disagree with.
+    assert!(
+        rewinding_passes.len() > 1,
+        "the rewinding arena ran the kill frame {} time(s), so no resimulation \
+         of it was ever compared. Check distance 4 should give several",
+        rewinding_passes.len()
+    );
+    assert!(
+        rewinding_passes.iter().all(|seen| *seen == 1),
+        "a resimulated pass of the kill frame saw no release marker: {rewinding_passes:?}. \
+         A 0 after a 1 is the pre-registration signature — the removal was not \
+         restored, PayloadReleased was cleared, and that pass of the frame \
+         cannot emit what the first pass emitted"
+    );
+}

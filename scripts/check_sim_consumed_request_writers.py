@@ -27,12 +27,39 @@ the body, dated; the ratchet is that a writer nobody adjudicated fails the lane.
 FOR THE READER: MOVING AN EXISTING WRITER FROM THE SIM SCHEDULE INTO `Update`
 LEAVES THIS GREEN.** The set is unchanged, so the ratchet sees nothing, while the
 invariant it is named after is exactly what broke. ⇒ This is a REVIEW LEDGER, not
-rollback coverage, and it should not be counted as the latter. What would replace
-it is one behavioural arm — drive a cutscene trigger across a rewind in a
-sync-test world and assert the cutscene still starts — which holds the property
-under any schedule and needs no table. Until that exists this ratchet is what
-there is; when it exists this file should go, and taking a ratchet down is part
-of landing the arm, not a separate cleanup.
+rollback coverage, and it should not be counted as the latter.
+
+⛔⛔ **THE REPLACEMENT ARM THIS DOCSTRING PRESCRIBED WAS BUILT ON 2026-09-17 AND
+DOES NOT HOLD THE PROPERTY. THE PRICE IS A MID-SESSION ROOM TRANSITION.** The
+prescription was *"drive a cutscene trigger across a rewind in a sync-test world
+and assert the cutscene still starts"*.
+`an_authored_room_cutscene_starts_with_and_without_a_rewind`
+(`game/ambition_app/tests/a_room_cutscene_starts_under_a_rewind.rs`) does exactly
+that and is green — and stayed green under BOTH poisons: moving
+`auto_trigger_room_cutscenes` into `Update`, and deleting the `cutscene.last_room`
+registration. The reason is a layer neither poison touches: the room a world
+BOOTS into fires its binding at the first tick, before any rewind window has
+opened, and `ActiveCutscene` is itself rollback state, so once playing every
+rewind restores it playing and the drain returns early. The queue's cross-frame
+life in that fixture is one frame, at boot, outside the window. ⇒ The arm that
+replaces this ratchet has to take a room TRANSITION mid-session, well inside the
+check distance. That arm is kept for what it does pin — the binding resolving
+under a rollback composition — and is explicitly NOT this ratchet's replacement.
+
+⛔⛤ **AND THIS DOCSTRING'S MECHANISM IS WRONG FOR ITS OWN FIRST SUBJECT.** *"The
+restore puts the resource back and nothing re-produces the request"* is the
+failure mode of a REGISTERED resource drained in-sim. Measured against
+`game/ambition_app/tests/rollback_schema_baseline.txt`: `CutsceneTriggerQueue` is
+**not registered at all** — only `cutscene.playback` (`ActiveCutscene`) and
+`cutscene.last_room` (`LastCutsceneRoom`) are. A rewind therefore does not put
+the queue back; it leaves both the write and the DRAIN where the rolled-forward
+frames left them, which is a different hazard in the opposite direction: a
+request drained on a frame that is then rolled back is simply gone, and only a
+producer whose own edge state rewinds will re-make it. ⚠ The ratchet is still
+worth having — a new writer is still worth a human reading — but it must not be
+cited for the mechanism above. Until the transition arm exists this ratchet is
+what there is; when it exists this file should go, and taking a ratchet down is
+part of landing the arm, not a separate cleanup.
 
 ⚠ **TEST PATHS ARE COUNTED AND NOT RATCHETED.** A fixture that writes the queue
 is how the in-sim control arms are built, and requiring the table to track test

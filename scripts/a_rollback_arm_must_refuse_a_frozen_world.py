@@ -87,11 +87,20 @@ ADJUDICATED: dict[str, str] = {
     "game/ambition_app/tests/how_much_of_the_peer_checksum_actually_varies.rs": "each "
     "arm opens with `audit.live_comparisons > 0`, which a stopped clock fails "
     "(read 2026-09-16)",
-    "game/ambition_app/tests/cut_rope_arena.rs": "`rollback_ticks >= "
-    "FRAMES_OF_WAITING` is asserted before anything is compared, and the "
-    "comparison itself is a RATE — the script's beat clock against the tick "
-    "count — so a frozen world fails the floor rather than satisfying the "
-    "equality with two stopped numbers (read 2026-09-17)",
+    "game/ambition_app/tests/a_room_cutscene_starts_under_a_rewind.rs": "the "
+    "liveness floor is asserted FIRST — `SimTick >= steps - 2` — and it is the "
+    "assertion a frozen world fails: a world that never advanced also never "
+    "triggered the room binding, so its `None` cutscene and a lost request read "
+    "identically without it (read 2026-09-17)",
+    "game/ambition_app/tests/cut_rope_arena.rs": "both rollback arms here floor "
+    "the tick count before comparing anything. The clock arm asserts "
+    "`rollback_ticks >= FRAMES_OF_WAITING` and then compares a RATE — the "
+    "script's beat clock against the tick count — so a frozen world fails the "
+    "floor rather than satisfying an equality with two stopped numbers. The "
+    "release-marker arm asserts `sim_ticks > DEATH_TICK` (its staged death "
+    "cannot have happened otherwise) and then that the kill frame ran MORE THAN "
+    "ONE pass, so a world that never resimulated fails instead of passing over "
+    "nothing (read 2026-09-17)",
 }
 
 

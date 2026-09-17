@@ -467,19 +467,38 @@ below is really still about — a template name, not 8,950 lines.
   laundered: the destination joins in the SAME commit;
 - ▢ a movement-only game's linked-crate count does not rise, and preferably falls.
 
-## ⛔ How to sequence it, because the review said so twice
+## ✔ The first slice is SPENT — re-derived 2026-09-17
 
 > Evidence-driven carve; do not redesign the brain stack at once.
 
-The first slice is the SEAM, not the migration: introduce `ControlAuthority`,
-make possession use it, retire `restore_brain`. Nothing moves crates. Only then
-is there evidence about what a domain-owned policy component costs, and the
-Smash/Fighter move is priced by measurement rather than by intent — the way
-gravity priced the construction federation and produced
-`capability_lanes::CapabilityLanes` instead of a third hand-written lane.
+The sequencing this section prescribed was: *"introduce `ControlAuthority`, make
+possession use it, retire `restore_brain`. Nothing moves crates."* All three have
+landed, and this section had been describing them as next steps.
 
-⚠ **`Brain::Player` is named 194 times in 14 crates.** That is the real size of
-the first slice and it is why it is its own slice.
+* The seam is `ControlClaims` / `ControlClaimant` in
+  `shared_tangle::temporary_control`, with `project_control_claims` as the
+  arbiter — the ✔ LANDED section above is its receipt.
+* Possession and the mount are both consumers: they file and drop claims and
+  assign `TemporaryControl` nowhere.
+* `PossessionState::restore_brain` <!-- cite-ok: names a DELETED field --> is gone; the Acceptance list records it.
+* **`Brain::Player` is named TWICE in the whole workspace, both times in a
+  comment explaining what replaced it** (`avatar/bundles.rs`,
+  `characters/src/control.rs`). This section carried *"named 194 times in 14
+  crates. That is the real size of the first slice"* — that measurement is
+  spent, and a size estimate for finished work reads as a warning about work
+  ahead.
+
+⛔⛤ **AND THE NAME THIS SECTION CHOSE IS TAKEN BY SOMETHING ELSE, which is the
+one thing a reader still needs from it.** `ControlAuthority` EXISTS — in
+`ambition_match::prepared` — and it is a different fact: which driver a SEAT
+binds (`LocalInput` vs `Brain`), decided at match preparation. A reader following
+this page's original instruction would find that type and wire control custody
+into seat binding. The custody arbiter is `ControlClaims`; the seat's driver is
+`ControlAuthority`; they are not two names for one thing.
+
+⇒ What remains of this page's plan is the two `▢` rows in Acceptance — the
+`brain/smash` and `brain/fighter` carve — and those are priced by the census
+above, not by this section.
 
 ## Authority-first decomposition constraint
 

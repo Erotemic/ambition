@@ -18,7 +18,7 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **THIS FILE IS 3,320 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+⚠ **THIS FILE IS 3,323 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
 2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
 mass with
 
@@ -3088,9 +3088,12 @@ prerequisites are reported as incomplete rather than pass.
   `NewGameResetCommitted` is produced in the sim schedule and is
   `clear_message_on_rollback`, so no waiver existed.
 
-✔ **A SETTLED-TREE `cargo test --workspace --no-fail-fast` — 2026-09-17,
-`a0ac8c7a7`: 8,216 passed, 1 failed, ZERO `error[` lines, 186 test targets.**
-The one failure is the environmental published-sheet floor
+✔ **TWO SETTLED-TREE `cargo test --workspace --no-fail-fast` RUNS — 2026-09-17,
+`a0ac8c7a7`: 8,216 passed, 1 failed; and `f25e21458` after the carrier-order
+rebase: 8,217 passed, 1 failed. ZERO `error[` lines and 186 test targets in
+both.** The +1 is this campaign's new witness; the failure is the same one in
+both runs.
+That failure is the environmental published-sheet floor
 (`ambition_sprite_sheet`: *"780 sheet(s), below the floor of 800"*), which is a
 claim about THIS CHECKOUT's publish output and carries its own ⛔ DO NOT LOWER
 THE FLOOR. ⚠ Recorded with the count of TARGETS because a red lane runs a

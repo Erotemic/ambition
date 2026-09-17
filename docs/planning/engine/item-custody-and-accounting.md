@@ -166,58 +166,51 @@ up. Custody answers *"who is holding this"*; entitlement answers *"whose is
 it"*. A held item whose owner is elsewhere is exactly the case that makes the
 difference visible, and until this it had no shipped instance.
 
-## ⛔⛔ AUTHORED FIELDS CARRIED END TO END WITH NO CONSUMER (2026-09-05)
+## ✔ AUTHORED FIELDS CARRIED END TO END WITH NO CONSUMER — CLOSED 2026-09-17
 
-ⓘ **THE FULL POPULATION LIVES ON [question 63](../awaiting-maintainer-decision.md),
-not here — FOUR fields, found by sweeping every field `spawn_static.rs` threads
-(13 distinct, nine of them read).** This section keeps the three that are
-custody- and interaction-shaped, because they are what this program owns; the
-fourth (`BreakableSpec.debris_cue`, whose value is hardcoded at the consumer) is
-breakable VFX and belongs to the decision rather than to this page. ⇒ one
-population, one home, and this row cites it rather than carrying a second copy
-that will disagree.
+⭐⭐ **ALL FOUR ARE DELETED.** A sweep of every field `spawn_static.rs` threads
+found four that reached a runtime representation and stopped there. Three went on
+2026-09-12 and the fourth on 2026-09-17:
 
-Found by investigating hits of `scripts/authored_parameter_modes.py` one at a
-time rather than publishing its list. Both are in `ambition_interaction`, both
-are the SAME SHAPE, and neither is dormant-in-the-census sense:
+| field | what it claimed | what actually decided it |
+|---|---|---|
+| `InteractableSpec.requires_facing` | this interactable must be faced | nothing — it could be used from behind |
+| `PickupSpec.collected` | this pickup is already taken | the `ambition_combat::components::Collected` marker |
+| `ChestSpec.persistent` | the save system remembers this chest | `encounter_reward_looted_flag`, which never read it |
+| `BreakableSpec.debris_cue` | which debris/SFX a break emits | `emit_breakable_destroyed`, which writes `PhysicsDebrisCue::Breakable` and `WORLD_CRATE_BREAK` as literals |
 
-| field | authored | threaded to | read by |
-|---|---|---|---|
-| `ChestSpec.persistent` → `Chest.persistent` | ✔ | `spawn_static.rs:108` | **nothing** (one test asserts the default) |
-| `PickupSpec.collected` → `Pickup.collected` | ✔ | `spawn_static.rs:79` | **nothing** |
-| `InteractableSpec.requires_facing` → `Interactable.requires_facing` | ✔ (content sets it) | `spawn_static.rs:231` | **nothing** |
+⛔⛔ **THE RULING THEY WERE WAITING ON WAS NOT THE ONE BLOCKING THEM.** Each was
+recorded as *"wiring it or deleting it is a design call"* and routed to
+[question 63](../awaiting-maintainer-decision.md). That framing kept three no-op
+fields alive in ONE crate. **Deciding what the future feature should do is a
+different question from making the field impossible to misuse**, and only the
+first was ever blocked on anything. The questions themselves stay open on Q63;
+the false capabilities do not wait for them.
 
-⭐ **THREE NOW, AND THE THIRD IS THE ONE WITH A CONSEQUENCE A PLAYER COULD SEE:**
-`requires_facing` is set by content (`cut_rope/victory.rs`) and read by nothing,
-so **an interactable that declares it must be faced can be used from behind.**
-The other two are bookkeeping; this one is a rule that does not exist.
-⚠ Its sibling `pogo_refresh` is NOT in this table and was checked: it IS read
-(`features/ecs/damage/mod.rs:592`, `:938`), so it is merely dormant — never set
-true by content — not stranded. The difference took reading the consumer, which
-is the only way to tell them apart.
+⚠ **THIS IS THE STRANDED CATEGORY, not "dead" and not "restraint."** The value
+was authored, validated, threaded through construction and stored, and only the
+last hop was missing. A census of unused symbols cannot see it — every hop has a
+caller — and the dormancy census
+(`scripts/authored_parameter_modes.py`) cannot either, because the field IS named
+in content. Finding them took reading the consumer side, one hit at a time.
 
-⇒ **ONE FACT, TWO REPRESENTATIONS, and in the first two cases the live one is elsewhere.**
-Whether a pickup was collected is the `Collected` MARKER COMPONENT
-(`ambition_combat::components::Collected`, rollback-registered as
-`feature.collected`, inserted and queried by `pickups.rs`). Whether an opened
-chest is remembered is `encounter_reward_looted_flag`, a per-encounter save flag
-that never consults `Chest.persistent`. ⇒ **setting `persistent: false` on an
-authored chest changes nothing today.**
+⭐ **AND ONE OF THE FOUR HAD A CONSEQUENCE A PLAYER COULD SEE**, which is why
+"bookkeeping" is not a safe default reading: `requires_facing` was set by content
+(`game/ambition_content/src/bosses/cut_rope/victory.rs`) and read by nothing, so an interactable that declared it
+must be faced could be used from behind. `persistent: false` on a chest and
+`collected: true` on a pickup changed nothing; `debris_cue` was never authored at
+all, in any format, which makes it the weakest of the four and the last found.
 
-⛔ **AND BOTH CARRIED PROSE ASSERTING A CONSUMER.** The chest's test comment said
-it defaults true *"so the save system records them automatically"*. That is the
-expensive part: a field with no reader is cheap, and a COMMENT promising a reader
-is what makes the next author build on it. Both corrected in place.
+⛔ **THE CHEST AND THE PICKUP CARRIED PROSE ASSERTING A CONSUMER.** The chest's test
+comment said it defaults true *"so the save system records them automatically."*
+That is the expensive part: a field with no reader is cheap, and a COMMENT
+promising a reader is what makes the next author build on it.
 
-⚠ **This is the STRANDED category, not "dead" and not "restraint"** — the value
-is authored, validated, threaded through construction and stored, and only the
-last hop is missing. A census of unused symbols cannot see it (every hop has a
-caller) and the dormancy census cannot either (the field IS named in content).
-It took reading the consumer side.
-
-ⓘ **Not deleted here.** Removing them changes the authored spec schema, and
-whether the intent is per-chest persistence and per-pickup collected state is a
-design question. Recorded so the answer is made rather than inherited.
+⇒ Sibling check, and it is why the table is four rows and not five: `pogo_refresh`
+is the same shape and IS read (`features/ecs/damage/mod.rs:611`, `:978`,
+`damage_predicates.rs:52`, `target_volumes.rs:122`, `world/overlay.rs:58`), so it
+is merely dormant — never set true by content — not stranded. The difference took
+reading the consumer, which is the only way to tell them apart.
 
 ## Remaining migration pressure
 
@@ -468,9 +461,10 @@ Special pickup roads that despawn on pickup and manufacture a replacement on
 drop should converge toward the same occurrence/custody model as ordinary held
 items when that model can express their semantics.
 
-⭐⭐ **MEASURED 2026-09-02, and the row's own escape clause — *"when that model
-can express their semantics"* — is the whole answer. It cannot, because the
-portal gun is not an occurrence.** Read side by side:
+⭐⭐ **MEASURED 2026-09-02, re-checked 2026-09-17 — every road below is still
+spelled the same way — and the row's own escape clause — *"when that model can
+express their semantics"* — is the whole answer. It cannot, because the portal
+gun is not an occurrence.** Read side by side:
 
 | | ordinary held item | portal gun |
 |---|---|---|
@@ -497,8 +491,8 @@ harmless today precisely BECAUSE the gun is an entitlement.
 ⛔ **SO I3 IS A DECISION, NOT AN IMPLEMENTATION.** Converging the gun onto the
 occurrence/custody model would give it an identity its semantics never use, and
 would make "drop" mean something it does not mean for this item. The question —
-is a unique capability item an ENTITLEMENT or an OCCURRENCE? — is recorded in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+is a unique capability item an ENTITLEMENT or an OCCURRENCE? — is
+[Q45](../awaiting-maintainer-decision.md).
 ⚠ Whoever answers it should note that the two readings differ observably in one
 place only: whether dropping the gun and walking away can ever lose it.
 
@@ -548,8 +542,12 @@ runtime-spawned ground item ever be durable, and if so it needs a road into
 custody or a second entry point stated as deliberately as this one — and an
 object that gains one must stop carrying `SpawnedThisAttempt`, since "the
 attempt reclaims it" and "the durable world remembers it" are contradictory
-answers about the same object. Recorded as question 51 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+answers about the same object. Filed as
+[Q141](../awaiting-maintainer-decision.md) on 2026-09-17.
+⚠ This row said "question 51" for thirteen days, and Q51 is the boss-reward
+durability boundary — an unrelated question. The question I4 describes had never
+been filed at all. A route to a wrong number reads exactly like a route to a
+right one; checking the route means reading the TARGET, not the number.
 
 ## Relationship to session and possession
 

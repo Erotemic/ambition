@@ -226,6 +226,11 @@ impl BreakableCollision {
 }
 
 /// Breakable wall/platform/object semantics.
+///
+/// ⛔⛤ **`debris_cue: Option<String>` IS GONE, 2026-09-17.** See `BreakableSpec`
+/// for the measurement: threaded here from the authored spec, read by nothing,
+/// and never set by any content in any format. The cue a breaking object emits
+/// is a literal at `ambition_combat::breakables::emit_breakable_destroyed`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Breakable {
     pub id: String,
@@ -235,7 +240,6 @@ pub struct Breakable {
     /// Collision shape contributed while the breakable is intact.
     pub collision: BreakableCollision,
     pub trigger: BreakableTrigger,
-    pub debris_cue: Option<String>,
     /// True for breakable pogo orbs: while intact the breakable contributes
     /// a `BlockKind::PogoOrb` to the collision world, and each successful
     /// pogo bounce damages it. Doesn't change collision/trigger semantics.
@@ -251,7 +255,6 @@ impl Breakable {
             respawn: HazardRespawn::Never,
             collision: BreakableCollision::None,
             trigger: BreakableTrigger::OnHit,
-            debris_cue: None,
             pogo_refresh: false,
         }
     }

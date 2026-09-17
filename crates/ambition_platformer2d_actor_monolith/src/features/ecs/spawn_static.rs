@@ -165,7 +165,6 @@ fn breakable_from_authored(
         respawn: authored.payload.respawn,
         collision: breakable_collision_from_spec(authored.payload.collision),
         trigger: breakable_trigger_from_spec(authored.payload.trigger),
-        debris_cue: authored.payload.debris_cue.clone(),
         pogo_refresh: authored.payload.pogo_refresh,
     }
 }

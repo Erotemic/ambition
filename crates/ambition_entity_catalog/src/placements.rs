@@ -277,7 +277,22 @@ impl BreakableCollisionSpec {
     }
 }
 
-/// Authored breakable health, collision, trigger, respawn, and debris behavior.
+/// Authored breakable health, collision, trigger, and respawn behavior.
+///
+/// ⛔⛤ **`debris_cue: Option<String>` IS GONE, 2026-09-17 — the LAST of the four
+/// fields the custody sweep found threaded end to end with no reader.** It was
+/// weaker than the three deleted on 2026-09-12: those were at least SET by
+/// content, while this one was never authored anywhere in the tree, in any
+/// format. What a breaking wall actually emits is fixed at the emitter —
+/// `ambition_combat::breakables::emit_breakable_destroyed` writes
+/// `PhysicsDebrisCue::Breakable` and `WORLD_CRATE_BREAK` as literals and takes no
+/// cue argument — so `debris_cue: Some("glass")` on an authored breakable named a
+/// cue that nothing could have looked up.
+///
+/// ⇒ Same argument as its siblings: **making the field impossible to misuse is a
+/// different question from deciding what per-breakable debris SHOULD do**, and
+/// only the second was ever blocked on a ruling. Whoever wants authored debris
+/// adds the field and the lookup at `emit_breakable_destroyed` together.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BreakableSpec {
     pub state: BreakableStateSpec,
@@ -286,7 +301,6 @@ pub struct BreakableSpec {
     pub respawn: HazardRespawn,
     pub collision: BreakableCollisionSpec,
     pub trigger: BreakableTriggerSpec,
-    pub debris_cue: Option<String>,
     pub pogo_refresh: bool,
 }
 
@@ -300,7 +314,6 @@ impl BreakableSpec {
             respawn: HazardRespawn::Never,
             collision: BreakableCollisionSpec::None,
             trigger: BreakableTriggerSpec::OnHit,
-            debris_cue: None,
             pogo_refresh: false,
         }
     }

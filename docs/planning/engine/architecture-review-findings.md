@@ -176,13 +176,21 @@ copies those fields into runtime representations. Search across `crates` and
 separate live `Collected` state instead of the copied `Pickup.collected` value.
 Tests that inspect a copied value do not prove it changes gameplay.
 
-Reproduce the authoring gap with two otherwise identical inputs differing only
-in the relevant nondefault field; inspect the prepared diagnostic and resulting
-behavior. For a known unsupported nondefault semantic value, preparation should
-report an unsupported-field diagnostic rather than imply the behavior is active.
-Do not delete authored values or start gating Interact without the relevant
-maintainer decision. Supporting the field and rejecting unsupported use are
-separate choices. Preserve existing default content behavior while resolving Q63.
+✔ **RESOLVED BY DELETION 2026-09-12 (all three), and a fourth sibling
+`BreakableSpec.debris_cue` on 2026-09-17.** None of the three is declared any
+more, so preparation cannot accept a value it will ignore. The measurement of all
+four, and why the "wiring-or-deleting is a design call" framing was the thing
+keeping them alive, is on
+[item custody](item-custody-and-accounting.md). The product choices — whether
+facing-gating, per-chest persistence and per-pickup collected state are intended
+capabilities — stay open on Q63, which is now phrased as those choices rather
+than as the fields.
+
+⚠ The original remedy recorded here was *"do not delete authored values ... report
+an unsupported-field diagnostic."* A diagnostic is the right answer for a field
+the engine INTENDS to support and cannot yet honour; it is the wrong answer for a
+field the engine never had a plan to read, because it preserves a public
+serializable surface whose only effect is to mislead a third-party provider.
 
 ## F5. Facade render opt-out does not exclude renderer dependencies
 

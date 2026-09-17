@@ -58,6 +58,15 @@ is reusable; do not churn names solely for aesthetics.
 Choose whether losing/dropping the physical object also loses the capability.
 Keep occurrence, custody and entitlement separate in either answer.
 
+⇒ **The one shipped instance is measured, side by side with an ordinary held
+item, at I3 in [item custody](engine/item-custody-and-accounting.md).** Today the
+portal gun is an ENTITLEMENT with a cosmetic world token: `OwnedItems` is granted
+on pickup and never revoked on drop, the dropped token is room-scoped, and the
+menu re-equips from the entitlement without checking that a token exists. So the
+two readings differ observably in exactly one place — whether dropping the gun
+and walking away can ever lose it — and a ruling for "occurrence" is a behaviour
+change, not a cleanup.
+
 ## Q46 — does Mary-O 1-1 want a fourth question block over floor?
 
 Content-layout choice needed to make the floor-refusal behavior of the fire form
@@ -274,15 +283,31 @@ visibility; a public set by itself cannot decide between competing writes. See
 This is the explicit history/content decision. Do not modify the retained LDtk
 files until the ruling is made.
 
-## Q63 — five authored fields still have no runtime consumer: wire them or delete them?
+## Q63 — should interactables gate on facing, chests persist per-chest, pickups carry collected state, breakables author a debris cue?
 
-For each field, choose intended capability versus obsolete authoring. Do not keep
-permanent knobs that decide nothing. The review traced three examples end-to-end:
-`requires_facing`, pickup `collected`, and chest `persistent`; see finding F4 in
-[the source findings](engine/architecture-review-findings.md). The five-field
-label is the earlier inventory, not a new claim that all five were revalidated.
-Until policy is chosen, unsupported nondefault values should receive diagnostics,
-not an invented runtime meaning.
+⚠ **THE FIELDS ARE GONE; THE FEATURES ARE THE QUESTION.** This question used to
+read *"five authored fields still have no runtime consumer: wire them or delete
+them?"* — and that phrasing kept four no-op authoring fields alive while it
+waited. All four are now deleted:
+`InteractableSpec.requires_facing`, `PickupSpec.collected` and
+`ChestSpec.persistent` on 2026-09-12, `BreakableSpec.debris_cue` on 2026-09-17.
+Each was serializable, documented, threaded through construction into a runtime
+representation, and consulted by nothing. See
+[item custody](engine/item-custody-and-accounting.md) for the measurement of all
+four and F4 in [the source findings](engine/architecture-review-findings.md) for
+the three traced by review.
+
+⇒ **Deleting a false capability did not answer this question and was never
+blocked on it.** What remains for a maintainer is the product choice: whether
+facing-gated interaction, per-chest persistence, per-pickup collected state and
+per-breakable debris cues are intended capabilities. Whoever wants one adds the
+field and its consumer together — an authoring field alone is what this question
+was originally filed about.
+
+ⓘ The "five-field" label was an inherited inventory with no surviving list; the
+traceable population is the four above, found by sweeping every field
+`spawn_static.rs` threads. Until a capability is chosen, unsupported nondefault
+values should receive diagnostics, not an invented runtime meaning.
 
 ## Q66 — should the citation checker become a ratcheted gate now that its baseline is zero?
 
@@ -1918,3 +1943,26 @@ sell so the menu still needs its own message, and the hoped-for escape hatch is
 shut — the systems carry `.run_if(simulation_authorized)`, which is TRUE exactly
 when a live session scope exists, so the run condition guarantees the dangerous
 window rather than excluding it.
+
+## Q141 — may a runtime-spawned ground item ever be durable?
+
+⭐ **THE MECHANISM EXISTS AND THE ENTRY RULE IS NOW ENFORCED; this is the one
+question left over it.** `AuthoredOccurrences` has exactly ONE entry road —
+custody, via `project_custody_onto_authored_occurrences` reading `InCustodyOf` —
+so an object that enters the world already lying on the ground and is never
+picked up cannot be remembered, and `republish_placements` refuses any id whose
+current row is not `InCustody` or `Placed`. The measurement and the guard are at
+I4 in [item custody](engine/item-custody-and-accounting.md).
+
+⇒ Choose whether a runtime-spawned ground item may be durable at all. If yes it
+needs either a road into custody or a SECOND entry point stated as deliberately
+as the first — and an object that gains one **must stop carrying
+`SpawnedThisAttempt`**, because "the attempt reclaims it" and "the durable world
+remembers it" are contradictory answers about the same object. The clearest
+member of the population is the death drop, whose two answers agree today: it is
+room-scoped, attempt-reset, and correctly not durable.
+
+⛔ **I4 CLAIMED THIS WAS ALREADY FILED, AS "question 51", AND IT WAS NOT.** Q51
+is the boss-reward durability boundary — a different question about a different
+object. A route to a wrong number reads exactly like a route to a right one, and
+the row had carried it since 2026-09-04. Filed here 2026-09-17.

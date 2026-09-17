@@ -61,14 +61,17 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 
 ### Deterministic identity
 
-⛔ **ID-PEER IS COMPLETE FOR ITS CURRENT SCOPE AS OF 2026-09-16, WHICH IS NOT
-"DONE" AND IS NOT AN INVITATION TO MINE IT.** All three open roads are blocked
-outside the campaign — two on maintainer rulings, one on a P2P session that this
-workspace never constructs — and the hostile two-host peer-visible census that
-found the last three defects runs clean. ⇒ Nothing here is advanced by another
-pass over the table. ⚠ **One exception, named so a blanket "blocked" does not
-swallow it:** the unchecksummed float rows' STATE half has a road and measures
-two of twenty-five today; extending that arm needs no ruling.
+⛔ **ID-PEER IS COMPLETE FOR ITS CURRENT SCOPE, WHICH IS NOT "DONE" AND IS NOT AN
+INVITATION TO MINE IT.** All three open roads are blocked outside the campaign —
+two on maintainer rulings, one on a P2P session that this workspace never
+constructs. ⇒ Nothing here is advanced by another pass over the table. ⛔⛤ **AND
+"THE CENSUS RUNS CLEAN" IS NOT WHAT KEEPS FINDING THE REMAINING DEFECTS** — this
+sentence said so on 2026-09-16 and on 2026-09-17 deleting a FALLBACK reddened two
+shipped-route arms with a defect the fallback had been covering. The move that
+finds them is removing a substitute and running the suite, not re-reading the
+table. ⚠ **One exception, named so a blanket "blocked" does not swallow it:** the
+unchecksummed float rows' STATE half has a road and needs no ruling; the owner row
+prints how far it reaches.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and
@@ -95,7 +98,7 @@ see the ⭐ note below the table for what it cost to close.
 | open road | blocked on |
 | --- | --- |
 | the snapshot schema fingerprint hashing English prose | [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — where the mechanical/presentation line falls. The naive fix is refuted in the row |
-| the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: a two-host differing-history arm measures one of them today (see the row) |
+| the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: two-host differing-history arms measure it, and **the count is in the owner row, not here** — this cell said "one of them" while the row said twelve |
 | the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
 
 ⚠ **NO SESSION IN THIS REPOSITORY CAN OBSERVE ANY OF IT** — `SyncTestSession` is
@@ -244,13 +247,15 @@ does not have to trust a sentence anywhere — including that one.
   selection, low-tier sprite policy, Smash parity, character authoring and
   scenario identity. ⚠ Test-lane reliability is no longer a standing P1 theme:
   the long-running `app_it` failure was a sim-schedule cycle, not a flake, and
-  the lane runs. What remains in TEST-LANES is the fails-in-company class —
-  THREE instances, of which the third is closed with a measured cause (a per-App
-  page census keyed on a process-global's colliding asset id) that does NOT
-  explain the other two — plus one older non-reproducing session-root handoff
-  failure whose assertion was never captured. ⇒ Read the rows: `queue.md`'s OPEN
-  1 states which candidates are refuted (CPU contention; a settle loop going
-  quiet over a growing set) so nobody re-measures them.
+  the lane runs. What remains in TEST-LANES is the fails-in-company class, whose
+  instances, measured cause and open remainder are in
+  [its triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)
+  — ⚠ this bullet carried a WRONG summary of that cause for a day (it named a
+  page census keyed on a colliding asset id; the measured channel was the test
+  file's own input cadence in a `static AtomicUsize`), which is what a restated
+  cause does. ⇒ Read the rows: `queue.md`'s OPEN 1 states which candidates are
+  refuted (CPU contention; a settle loop going quiet over a growing set) so
+  nobody re-measures them.
 - **P2:** product/authoring work that has an executable owner after a maintainer
   rule.
 - **P3:** measurements that require a particular machine, device or interactive

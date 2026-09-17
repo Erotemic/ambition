@@ -11,7 +11,11 @@ do not maintain a parallel running architecture diary.
 
 The review inventoried all **79 workspace packages**, their manifests and Rust
 source regions, and considered the disposition of all **102 original planning
-Markdown files**. It traced selected state, caller, scheduling and lifetime paths
+Markdown files**. ⚠ **BOTH NUMBERS ARE STAMPED TO THE SOURCE COMMIT ABOVE AND
+NEITHER IS TODAY'S — re-derived 2026-09-17: 80 workspace packages
+(`cargo metadata --no-deps`) and 128 tracked `docs/planning/*.md`.** They are
+printed here so a reader can tell "the receipt is old" from "the receipt is
+wrong"; the receipt is not wrong, and it does not describe the present tree. It traced selected state, caller, scheduling and lifetime paths
 across the platformer spine and the concrete defects below. The first broad overlay
 changed **67 existing planning files** and added **4 planning files**;
 the other 35 original files retain their focused product/owner contracts.
@@ -344,7 +348,7 @@ Executed source instruments at this baseline report:
 | `measure_foreign_system_ordering.py` | 0 capability/ruleset private orderings; 73 composition; 174 foreign installs | Locator classification, not phase visibility or ownership acceptance |
 | `measure_carveable_installations.py` | 3 reducible / 38 irreducible | Current crate-identity heuristic, not permission to move every reducible block |
 | `measure_registry_core_adoption.py` | Reference/prose classification captured | A JUSTIFIED label can still contain an incorrect rationale, as F7 demonstrates |
-| `check_declared_system_packages.py` | 33 declared; 21 missing | Nonstrict exit status did not establish a provisioned Rust/GPU/audio environment |
+| `check_declared_system_packages.py` | 33 declared; 21 missing **on the review's own box** | Nonstrict exit status did not establish a provisioned Rust/GPU/audio environment. ⛔ **THIS NUMBER IS ABOUT A HOST, NOT ABOUT THE REPOSITORY**, which is the one way it can be misread — re-run on the development box 2026-09-17: **34 declared, 1 missing** (`unar`, outside the headless exemption). The instrument is unchanged; the machine is not. ⚠ Nothing ran it between those two dates because it was called by no lane at all until the same day |
 
 Rust and Cargo were unavailable. No Rust build/test, rendered game, rollback
 execution, P2P transport, hardware benchmark or packaged-platform acceptance was

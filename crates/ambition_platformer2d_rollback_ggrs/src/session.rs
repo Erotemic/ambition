@@ -1465,6 +1465,95 @@ mod carrier_order_tests {
         assert_eq!(before.len(), 2);
     }
 
+    /// ⛔⛤ **TWO CARRIERS SHARING A `SimId` FALL BACK TO THIS APP'S SPAWN ORDER,
+    /// AND THAT IS STABLE BY COINCIDENCE RATHER THAN BY CONSTRUCTION.** The sort
+    /// is `(SimId, previous order, Entity)`: the first key is peer-stable and the
+    /// other two are not. On a duplicate the result is decided entirely by the
+    /// two host-local keys.
+    ///
+    /// ⚠ **I FIRST WROTE THIS AS A DISAGREEMENT ARM AND IT WAS VACUOUS.** It
+    /// compared raw `Entity` values from two different `World`s, which differ
+    /// whatever the ordering does — and the claim was wrong as well as
+    /// unmeasured: `previous order` is monotonic in spawn order, so a fresh App
+    /// and a veteran one put the same duplicate first. The disagreement needs a
+    /// history where the relative previous order INVERTS, which plain spawning
+    /// cannot produce.
+    ///
+    /// ⇒ So this pins what is actually true: the tie-break is TOTAL (nothing is
+    /// dropped, no index is shared) and it reproduces the local spawn order. Two
+    /// peers running the same construction agree because their construction
+    /// order matches, not because anything compared here is peer-stable — the
+    /// same shape as an invariant held by coincidence, recorded so the next
+    /// reader does not mistake the agreement for a guarantee.
+    ///
+    /// ⚠ `rollback_populated_timeline.rs` measures that every visible rollback
+    /// anchor in the populated world carries a UNIQUE `SimId`, so this state does
+    /// not occur today. When frame-zero installation refuses on a duplicate
+    /// instead of tie-breaking, this arm is what says what is being replaced.
+    #[test]
+    fn two_carriers_sharing_one_sim_id_keep_this_app_s_spawn_order() {
+        /// Returns the two same-named carriers in SPAWN order, which is the only
+        /// fact that distinguishes them inside one world.
+        fn world_with_duplicates(retired: usize) -> (World, Entity, Entity) {
+            let mut world = World::new();
+            world.init_resource::<RollbackOrdered>();
+            for index in 0..retired {
+                let entity = world
+                    .spawn((Rollback, SimId::placement(&format!("gone{index}"))))
+                    .id();
+                world.flush();
+                world.despawn(entity);
+            }
+            let first = world.spawn((Rollback, SimId::placement("alpha"))).id();
+            world.flush();
+            let second = world.spawn((Rollback, SimId::placement("alpha"))).id();
+            world.flush();
+            (world, first, second)
+        }
+
+        fn index_of(world: &mut World, entity: Entity) -> u64 {
+            let table = world.resource::<RollbackOrdered>().clone();
+            let id = *world
+                .get::<RollbackId>(entity)
+                .expect("the rebase re-adds `Rollback`, whose hook mints the id");
+            table.order(id)
+        }
+
+        let (mut fresh, fresh_first, fresh_second) = world_with_duplicates(0);
+        let (mut veteran, veteran_first, veteran_second) = world_with_duplicates(7);
+
+        let report = rebase_rollback_carrier_order(&mut fresh);
+        assert_eq!(report.carriers, 2);
+        assert_eq!(
+            report.identified, 2,
+            "both carriers are named; the ambiguity is that they are named the SAME"
+        );
+        rebase_rollback_carrier_order(&mut veteran);
+
+        // TOTAL: nothing dropped, and the two indices are distinct.
+        assert_eq!(fresh.resource::<RollbackOrdered>().len(), 2);
+        assert_eq!(veteran.resource::<RollbackOrdered>().len(), 2);
+        assert_eq!(
+            (
+                index_of(&mut fresh, fresh_first),
+                index_of(&mut fresh, fresh_second)
+            ),
+            (0, 1),
+            "the duplicate pair must occupy distinct indices; sharing one would \
+             make two carriers one row of the peer checksum"
+        );
+        assert_eq!(
+            (
+                index_of(&mut veteran, veteran_first),
+                index_of(&mut veteran, veteran_second)
+            ),
+            (0, 1),
+            "the veteran App reproduces the SAME relative order — and it does so \
+             because `previous order` is monotonic in spawn order, not because \
+             either key is peer-stable"
+        );
+    }
+
     /// ⛔⛤ **THE ARM THE OTHER ONES COULD NOT FAIL: `world_with` NEVER REGISTERS
     /// THE DISABLING FILTER, so every carrier it builds is visible and no arm in
     /// this module could tell a candidate-blind enumeration from a complete

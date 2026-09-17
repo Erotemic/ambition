@@ -442,6 +442,31 @@ ABSENCE_CONTRACTS: list[dict] = [
             # exemption moved with the writer, it did not widen.
             ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
+            # ⛔⛤ THE THIRD WRITER ARRIVED 2026-09-16, AND THE REVIEW THIS
+            # CONTRACT EXISTS TO FORCE IS WHAT PUT IT HERE: a GPT architecture
+            # review found that the session-activation edge reset the three
+            # `MatchInstance`-stamped mirrors and left the authority they mirror
+            # standing. `ActiveMatch`'s peer projection is `(seat count,
+            # ordinal)`, both written by the PREVIOUS session, so two hosts
+            # entering one new session after different histories began it with
+            # different checksummed state.
+            #
+            # ⭐ THE OWNERSHIP ANSWER, which is what this list is for. This
+            # writer never claims a match and never needs to know whose match it
+            # is deleting: it asserts that NO match is live, at the one boundary
+            # where no owner can still have a claim. A receipt alive when
+            # `SessionScopeActivated` fires belongs to an EARLIER scope by
+            # construction — `active_scope.begin()` mints a fresh monotonic id
+            # per activation, and `activate_the_prepared_match` refuses a plan
+            # whose session differs from the live one, so no match spans two
+            # sessions. A composition with no session lifecycle never writes the
+            # message and never reaches this code.
+            #
+            # ⇒ So it does not need `published_by` to answer, and adding one
+            # would not change what it does. The VALUE still has exactly one
+            # writer (activation). A fourth writer that PUBLISHES rather than
+            # clears is still the graduation this contract is watching for.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         ],
         "patterns": [
             r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch)",

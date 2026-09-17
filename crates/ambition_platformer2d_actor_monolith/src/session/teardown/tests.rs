@@ -701,3 +701,135 @@ fn a_match_stamp_from_the_previous_session_cannot_reach_the_next_ones_first_matc
          not match 0 to this peer and is to the other one"
     );
 }
+
+/// A host that ended its last session on `prior_ordinal` with `seats` seats, and
+/// is about to enter a new one.
+///
+/// The ordinal is drawn from the REAL mint rather than handed to the receipt, so
+/// the fixture cannot state a count the mint would not have produced.
+fn a_host_that_played(prior: SessionScopeId, prior_matches: u64, seats: usize) -> App {
+    use ambition_match::seating::{ActiveMatch, SessionMatchOrdinal};
+
+    let mut app = app_with_populated_mirrors();
+    let mut last = 0;
+    for _ in 0..prior_matches {
+        last = app
+            .world_mut()
+            .resource_mut::<SessionMatchOrdinal>()
+            .take(Some(prior));
+    }
+    app.insert_resource(ActiveMatch::activated(
+        seats,
+        None,
+        Some(prior),
+        // A local wall-clock-ish stamp; the two hosts differ here by
+        // construction and nothing peer-compared may read it.
+        Some(900 + last),
+        Some(last),
+    ));
+    app
+}
+
+/// The receipt's peer projection, or `None` where there is no receipt.
+fn peer_receipt(app: &App) -> Option<u64> {
+    app.world()
+        .get_resource::<ambition_match::seating::ActiveMatch>()
+        .map(ambition_match::seating::ActiveMatch::peer_stable_checksum)
+}
+
+/// ⛔⛤ **THE THREE MIRRORS WERE RESET AND THE AUTHORITY THEY MIRROR WAS NOT.**
+///
+/// `ActiveMatch` is rollback-registered peer state whose projection is
+/// `(seat count, ordinal)` — and a PREVIOUS session wrote both. Two hosts that
+/// enter the same new session after different histories therefore began it with
+/// different checksummed state, which is precisely what ID-PEER forbids:
+///
+/// ```text
+/// host A   previous session ended on match 0, 2 seats   ⇒ (2, ordinal 0)
+/// host B   previous session ended on match 3, 4 seats   ⇒ (4, ordinal 3)
+/// ```
+///
+/// ⚠ AND IT IS NOT ONLY A CHECKSUM. `count_the_live_match_ticks` treats any
+/// `ActiveMatch` as a live match, `spawn_match_items` reads it for match identity
+/// and random context, and settlement reads it — so before the new session's
+/// first match activates, two hosts are running different simulations.
+///
+/// ⛔ THE SHELL ROUTE DOES NOT COVER IT: Versus and Smash register the receipt
+/// for removal when the shell EXPERIENCE exits, and a gameplay `SessionScopeId`
+/// can change without leaving that route. Two boundaries, and this is the one
+/// that resets the mirrors.
+///
+/// Named by the GPT architecture review of 2026-09-16.
+#[test]
+fn two_hosts_with_different_prior_match_histories_enter_a_session_with_the_same_peer_state() {
+    use ambition_match::seating::{ActiveMatch, SessionMatchOrdinal};
+
+    let mut host_a = a_host_that_played(SessionScopeId(1), 1, 2);
+    let mut host_b = a_host_that_played(SessionScopeId(5), 4, 4);
+
+    // The premise: before activation these two hosts DO disagree. Without it
+    // this arm would pass for two hosts that never differed.
+    assert_ne!(
+        peer_receipt(&host_a),
+        peer_receipt(&host_b),
+        "the fixture no longer builds two different prior histories, so nothing \
+         below is about a host's history reaching the next session"
+    );
+
+    // One agreed new session; two different LOCAL ids for it, because a
+    // `SessionScopeId` is a per-App activation count.
+    host_a
+        .world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(7)));
+    host_b
+        .world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(2)));
+    host_a.update();
+    host_b.update();
+
+    assert!(
+        host_a
+            .world()
+            .get_resource::<ActiveMatch>()
+            .is_none(),
+        "host A entered the new session still holding the receipt for a match of \
+         its previous one"
+    );
+    assert!(
+        host_b
+            .world()
+            .get_resource::<ActiveMatch>()
+            .is_none(),
+        "host B entered the new session still holding the receipt for a match of \
+         its previous one"
+    );
+    assert_eq!(
+        peer_receipt(&host_a),
+        peer_receipt(&host_b),
+        "the new synchronised session starts with different checksummed match \
+         state on the two hosts, decided entirely by what each played before"
+    );
+
+    // And the first match of the new session is match 0 to BOTH, drawn from each
+    // host's own mint rather than asserted of one shared value.
+    let a_ordinal = host_a
+        .world_mut()
+        .resource_mut::<SessionMatchOrdinal>()
+        .take(Some(SessionScopeId(7)));
+    let b_ordinal = host_b
+        .world_mut()
+        .resource_mut::<SessionMatchOrdinal>()
+        .take(Some(SessionScopeId(2)));
+    let a_receipt = ActiveMatch::activated(3, None, Some(SessionScopeId(7)), Some(4_000), Some(a_ordinal));
+    let b_receipt = ActiveMatch::activated(3, None, Some(SessionScopeId(2)), Some(11), Some(b_ordinal));
+    assert_ne!(
+        a_receipt, b_receipt,
+        "the two receipts no longer differ locally, so their projections agreeing \
+         says nothing about what the projection drops"
+    );
+    assert_eq!(
+        a_receipt.peer_stable_checksum(),
+        b_receipt.peer_stable_checksum(),
+        "the new session's first match projects differently on the two hosts"
+    );
+}

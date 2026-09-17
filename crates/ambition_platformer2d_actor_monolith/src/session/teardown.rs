@@ -201,7 +201,7 @@ pub struct SessionScopedResources<'w> {
     /// simulation state"*, and that is why it is the last member rather than the
     /// reason for this group.
     cutscene_skip_hold: ResMut<'w, ambition_cutscene::CutsceneSkipHold>,
-    /// ⛔⛤ **THE FOUR MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
+    /// ⛔⛤ **THE MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
     /// CHECKSUM RATHER THAN FOR HYGIENE.** Each of the three below is stamped
     /// with a whole [`MatchInstance`] and decides whether it belongs to the live
     /// match by comparing it — but the PEER projection of that stamp is the
@@ -216,6 +216,28 @@ pub struct SessionScopedResources<'w> {
     /// impossible. Resetting at [`SessionScopeSet::Activate`] — the correctness
     /// edge, before any provider builds the world — is what makes it impossible,
     /// and it is the road this crate already had. Named by the GPT architecture
+    /// review of 2026-09-16.
+    ///
+    /// ⛔⛤ **AND FOR A DAY THAT RESET THE MIRRORS AND LEFT THE THING THEY
+    /// MIRROR.** [`ambition_match::ActiveMatch`] is the match authority these
+    /// three compare themselves against, it is rollback-registered peer state in
+    /// its own right, and its peer projection is `(seat count, ordinal)` — both
+    /// of which a PREVIOUS session wrote. Two hosts entering the same new session
+    /// after different histories (`match 0 / 2 seats` and `match 3 / 4 seats`)
+    /// therefore began that session with DIFFERENT checksummed state, which is
+    /// the exact failure this group exists to prevent. Worse than checksum
+    /// hygiene: `count_the_live_match_ticks` treats any `ActiveMatch` as a live
+    /// match, `spawn_match_items` reads it for match identity and random context,
+    /// and settlement reads it — so the stale receipt is mechanically observable
+    /// before the new session's first match activates.
+    ///
+    /// ⚠ The shell-experience route does register it for removal
+    /// (`releasing_witnessed` in Versus/Smash), and that is a DIFFERENT boundary:
+    /// a gameplay `SessionScopeId` can change without leaving the shell route.
+    /// Route cleanup is still useful; it does not stand in for session cleanup.
+    ///
+    /// ⇒ It is removed rather than defaulted, in the system body, because it has
+    /// no meaningful default — see the note there. Named by the GPT architecture
     /// review of 2026-09-16.
     settled: ResMut<'w, ambition_match::StocksMatchSettled>,
     sudden_death: ResMut<'w, ambition_match::SuddenDeathEntered>,
@@ -281,11 +303,29 @@ pub struct SessionScopedResources<'w> {
 pub fn reset_session_scoped_resources_on_activation(
     mut activated: MessageReader<SessionScopeActivated>,
     resources: SessionScopedResources,
+    mut commands: bevy::prelude::Commands,
 ) {
     if activated.read().count() == 0 {
         return;
     }
     reset(resources);
+    // ⛔⛤ **REMOVED, NOT DEFAULTED — THERE IS NO SUCH THING AS A DEFAULT LIVE
+    // MATCH.** Every other member of this group answers "nothing has happened
+    // yet" with a default value; `ActiveMatch` is a RECEIPT, and the honest state
+    // between sessions is that no match has been activated. `Default` would have
+    // to invent a seat count, and a zero-seat receipt is still a receipt — it
+    // reads as a live match to `count_the_live_match_ticks` and to `MatchScoped`.
+    //
+    // ⭐ ABSENCE IS ALREADY A STATE THE ROLLBACK LAYER CARRIES: the registration
+    // is `rollback_resource_optional_canonical_checksum` and
+    // `ResourceSnapshotPlugin::load` maps `(Some(_), None)` to `remove_resource`,
+    // so a rewind across activation restores the same absence this writes.
+    //
+    // ⚠ The removal lands at the sync point the `Activate -> Providers` chain
+    // inserts, not at this statement — a set edge orders when a system RUNS.
+    // Nothing between here and that flush reads `ActiveMatch`, and
+    // `activate_the_prepared_match` (which would replace it anyway) runs after.
+    commands.remove_resource::<ambition_match::ActiveMatch>();
 }
 
 /// Release the session mirrors of a scope that has ended.

@@ -31,8 +31,17 @@ REPORT = REPO / "docs/planning/engine/runtime-frame-history.md"
 
 
 def normalise(text: str) -> list[str]:
-    """Drop the generated-from path, which is absolute and per-checkout."""
-    return [line for line in text.splitlines() if "runtime_frame_cost.jsonl" not in line]
+    """Every line, including the generated-from path.
+
+    ⛔⛤ **THIS USED TO DROP THE PATH LINE, and the exemption was covering a real
+    defect rather than an unavoidable one.** Its reason read *"which is absolute
+    and per-checkout"* — true, and the fix belonged in the generator: the
+    committed page named `/home/joncrall/code/ambition/...`, a directory that
+    does not exist on the machine that would next regenerate it. `cmd_report`
+    prints the ledger repo-relative when it is inside the repo, so the whole file
+    is comparable now and this filter would only hide the next such line.
+    """
+    return text.splitlines()
 
 
 def test_the_committed_report_matches_a_fresh_generation():

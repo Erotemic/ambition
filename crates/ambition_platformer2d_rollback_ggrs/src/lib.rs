@@ -22,8 +22,9 @@ pub use ambition_platformer2d_runtime::rollback::{
 pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaFingerprint};
 
 pub use bevy_ggrs::{
-    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
-    LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems, SaveWorld,
+    AdvanceWorld, AdvanceWorldSystems, Checksum, ChecksumPart, ConfirmedFrameCount, GgrsSchedule,
+    LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, RollbackId, RollbackOrdered,
+    RunGgrsSystems, SaveWorld,
 };
 
 pub mod codec;

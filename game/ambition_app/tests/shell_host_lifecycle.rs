@@ -1874,3 +1874,196 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
          above is about a world at rest"
     );
 }
+
+/// ⛔⛔ **THE CHECKSUM GGRS ACTUALLY COMPUTES CARRIES THIS APP'S ROLLBACK
+/// INSERTION HISTORY, AND THAT IS HOST-LOCAL LINEAGE INSIDE PEER-STABLE STATE.**
+///
+/// Found by the GPT architecture review of 2026-09-17 and reproduced here the
+/// same day. `ComponentChecksumPlugin` does not hash a component's value alone:
+///
+/// ```text
+/// for (rollback_id, component) in carriers {
+///     hasher = fresh;
+///     rollback_ordered.order(rollback_id).hash(&mut hasher);
+///     projection(component).hash(&mut hasher);
+///     result ^= hasher.finish();
+/// }
+/// ```
+///
+/// `RollbackOrdered` assigns each `RollbackId` an insertion-order index the
+/// first time `Rollback` is added, keeps every index ever handed out — deleted
+/// entities included — and is itself snapshotted. Nothing in Ambition's session
+/// teardown or in `install_rebased_sync_test_session` resets it: that function
+/// rebases `RollbackFrameCount`, `ConfirmedFrameCount`, the input authority and
+/// `Time<GgrsTime>`, and deliberately retains the snapshot infrastructure.
+///
+/// ⭐ **MEASURED, 2026-09-17, by this arm's own fixture.** Two hosts that reach
+/// the shipped Ambition route by different shell histories:
+///
+/// ```text
+/// fresh   RollbackOrdered.len() = 22   session:root -> 0 … goblin_encounter -> 21
+/// veteran RollbackOrdered.len() = 96   session:root -> 74 … goblin_encounter -> 95
+/// ```
+///
+/// Every one of the 22 live carriers has a canonical `SimId`, the two sets of
+/// identities are EQUAL, and the orders differ by a constant offset of 74 — the
+/// rollback entities Sanic and Mary-O registered and retired. ⇒ The relative
+/// construction order survives; only the base moves. **And 59 of the 146 real
+/// `ChecksumPart`s disagree between the two hosts** (81 agree and are non-zero,
+/// so the comparison is not vacuous), including `BodyHealth`, `ActorPose`,
+/// `Brain` and `WornCharacter`.
+///
+/// ⚠ **THIS IS WHY A VALUE CENSUS CANNOT SEE IT.** `RollbackChecksumProbes`
+/// folds `count` and a wrapping sum of the per-value projection, deliberately
+/// ignoring which entity carried each value — so the two-host value census
+/// agrees while the checksum GGRS computes does not. The probe measures the same
+/// PROJECTION as GGRS; it does not measure the same CHECKSUM.
+///
+/// ⇒ **The repair is a session-relative carrier ordering**, established where a
+/// synchronised session declares frame zero, and it must not be "sort by
+/// `RollbackId`" — that is the Bevy `Entity` again, one layer down. `SimId` is
+/// the peer-stable key the live population already carries, and this fixture
+/// measures that every live carrier has one. `RollbackOrdered::push` is private
+/// upstream, so the repair needs either a small bevy_ggrs primitive or an
+/// Ambition-side reconstruction at that edge.
+///
+/// ⛔ **IGNORED, NOT DELETED, AND NOT INVERTED.** It asserts the property the
+/// timeline must have, so it fails today by design; inverting it into "the parts
+/// differ" would have to be deleted by whoever fixes this, and a witness that
+/// must be deleted is a witness that gets deleted quietly. Un-ignore it with the
+/// repair.
+#[ignore = "reproduces the open ID-PEER defect: 59 of 146 GGRS ChecksumParts \
+            differ between two hosts whose canonical identities and values agree"]
+#[test]
+fn two_local_histories_compute_the_same_ggrs_component_checksums() {
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::rollback::{ChecksumPart, RollbackId, RollbackOrdered};
+
+    fn build(veteran: bool) -> App {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        if veteran {
+            for provider in ["Sanic", "Mary-O"] {
+                launch_labeled(&mut app, provider);
+                settle(&mut app);
+                app.world_mut().write_message(ShellCommand::QuitToHome);
+                settle(&mut app);
+            }
+        }
+        launch_labeled(&mut app, "Ambition");
+        settle(&mut app);
+        // ⛔ THE SHELL FIXTURE COMPOSES FOR ROLLBACK AND DECLARES NO
+        // PARTICIPANTS, so `rollback::start` refuses it with
+        // `NotComposedForRollback` and NO CHECKSUM IS EVER COMPUTED — measured:
+        // zero `ChecksumPart` entities exist until a session runs. A composition
+        // built through `PlatformerApp::rollback(n)` inserts this; the shell host
+        // is driven by the launcher instead, so the declaration is made here.
+        app.insert_resource(ambition_platformer2d::rollback::DeclaredParticipants(1));
+        let session = ambition_platformer2d::rollback::start(
+            &mut app,
+            ambition_platformer2d::rollback::RollbackPlan::new(),
+        )
+        .expect("the shipped Ambition route must reach a running rollback session");
+        assert_eq!(session.participants(), 1);
+        for _ in 0..8 {
+            app.update();
+        }
+        app
+    }
+
+    /// `{canonical identity: carrier order}` for every live rollback entity the
+    /// sim can name, plus how many orders this App has ever handed out.
+    fn ordering(app: &mut App) -> (usize, std::collections::BTreeMap<String, u64>) {
+        let world = app.world_mut();
+        let pairs: Vec<(String, RollbackId)> = world
+            .query::<(&SimId, &RollbackId)>()
+            .iter(world)
+            .map(|(id, rb)| (id.as_str().to_string(), *rb))
+            .collect();
+        let ordered = world.resource::<RollbackOrdered>().clone();
+        let total = ordered.len();
+        (
+            total,
+            pairs
+                .into_iter()
+                .map(|(sim, rb)| (sim, ordered.order(rb)))
+                .collect(),
+        )
+    }
+
+    /// `{checksummed type: its ChecksumPart}`, labelled by the `ChecksumFlag<T>`
+    /// the part entity carries. ⛔ A bare list of 146 numbers cannot say WHICH
+    /// type disagreed, and that is the half a repair needs.
+    fn parts(app: &mut App) -> std::collections::BTreeMap<String, u128> {
+        let world = app.world_mut();
+        let raw: Vec<(bevy::prelude::Entity, u128)> = world
+            .query::<(bevy::prelude::Entity, &ChecksumPart)>()
+            .iter(world)
+            .map(|(e, p)| (e, p.0))
+            .collect();
+        raw.into_iter()
+            .map(|(entity, value)| {
+                let flag = world
+                    .inspect_entity(entity)
+                    .expect("a part entity this query just yielded is live")
+                    .map(|c| c.name().to_string())
+                    .find(|name| name.contains("ChecksumFlag"))
+                    .unwrap_or_else(|| format!("<unflagged {entity:?}>"));
+                (flag, value)
+            })
+            .collect()
+    }
+
+    let mut fresh = build(false);
+    let mut veteran = build(true);
+
+    let (fresh_total, fresh_order) = ordering(&mut fresh);
+    let (veteran_total, veteran_order) = ordering(&mut veteran);
+
+    // ⛔ THE PREMISE, ASSERTED FIRST. Without differing histories the comparison
+    // below is between two identical Apps and proves nothing.
+    assert_ne!(
+        fresh_total, veteran_total,
+        "both hosts have handed out {fresh_total} rollback orders, so this arm is \
+         not about prior local history at all"
+    );
+    // ⭐ AND THE CONTROL: the canonical layer AGREES. A checksum difference under
+    // differing identities would be an ordinary desync, not this finding.
+    assert_eq!(
+        fresh_order.keys().collect::<Vec<_>>(),
+        veteran_order.keys().collect::<Vec<_>>(),
+        "the two hosts name different entities, so a checksum difference below \
+         would not be about carrier ORDER"
+    );
+
+    let fresh_parts = parts(&mut fresh);
+    let veteran_parts = parts(&mut veteran);
+    let differing: Vec<&String> = fresh_parts
+        .iter()
+        .filter(|(name, value)| veteran_parts.get(*name) != Some(*value))
+        .map(|(name, _)| name)
+        .collect();
+    let agreeing_nonzero = fresh_parts
+        .iter()
+        .filter(|(name, value)| **value != 0 && veteran_parts.get(*name) == Some(*value))
+        .count();
+    // ⛔ THE ANTI-VACUITY FLOOR. Two Apps that computed no checksums at all agree
+    // on nothing and on everything; a run that reaches here with no non-zero
+    // agreeing part measured an empty session, not a clean one.
+    assert!(
+        agreeing_nonzero > 0,
+        "no checksum part is both non-zero and equal, so no comparison happened"
+    );
+    assert!(
+        differing.is_empty(),
+        "{} of {} GGRS checksum parts differ between two hosts whose canonical \
+         identities and values are identical, because `RollbackOrdered` carries \
+         this App's whole rollback insertion history into the hash: \
+         {fresh_total} orders handed out here against {veteran_total} there. \
+         First few: {:?}",
+        differing.len(),
+        fresh_parts.len(),
+        &differing[..differing.len().min(6)]
+    );
+}

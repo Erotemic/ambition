@@ -1,20 +1,29 @@
 # Sprite renderer
 
-The asset pipeline (a large Python tool — ~38k LOC of imperative PIL + ~12k of
-drawer code) is tamed behind a small publishing surface. The principle that
+The asset pipeline (a large Python tool — re-derived 2026-09-17 at the submodule
+pin `7b8e845`: **103k lines across 169 files under `targets/characters/`**, plus
+**25k** of drawer props/tiles/icons across 50, against the ~38k and ~12k this
+line carried) is tamed behind a small publishing surface. The principle that
 matters to the *engine* is **measure-by-default**: a sprite ships the geometry
 the gameplay layer needs, so the body and its hitbox cannot silently disagree.
 
 ---
 
-> **Guard pointer, added 0ac499bb1 (2026-09-02).**
+> **Guard pointer, added `0ac499bb1` (2026-09-02); re-run 2026-09-17 and still
+> green at all 173 rostered targets.**
 > `scripts/check_published_sheets_are_present.py` checks that every sheet the
-> publish roster claims is actually on disk. Green at `0ac499bb1`: **all 173 rostered
-> targets have published art.** ⛔ Its docstring records why it exists, and the
-> reason generalises: a missing ASSET failed a test in a way that READ LIKE A
-> CODE BUG (`a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`
+> publish roster claims is actually on disk. ⛔ Its docstring records why it
+> exists, and the reason generalises: a missing ASSET failed a test in a way that
+> READ LIKE A CODE BUG
+> (`a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one`
 > depends on `goblin_cave_dagger` being present). A roster/disk mismatch should
 > fail as itself, not as whatever behaviour happened to need the file.
+>
+> ⚠ **DIFFERENT POPULATION FROM THE `ambition_sprite_sheet` FLOOR** that the
+> queue's lane row reports red (*"780 sheet(s), below the floor of 800"*). This
+> one asks whether every ROSTERED TARGET has art; that one counts published
+> SHEETS in this checkout. Two numbers, two units, and neither is evidence about
+> the other.
 
 ## The thesis
 
@@ -26,11 +35,11 @@ review output. A character's internal construction is deliberately not part of
 that contract.
 
 The tool preserves distinct authoring families because they express different
-artistic needs: imperative per-character PIL (~38k LOC, each character
-0.7–2.4k), YAML/config-driven generators, shared procedural family helpers,
+artistic needs: imperative per-character PIL (103k lines over 169
+files, the largest single character 2.8k), YAML/config-driven generators, shared procedural family helpers,
 bone/rig documents and SVG parts (a clean island around `skeleton.py` + rigdoc +
 GUI + codegen), scene-graph or multipart targets, and drawer props/tiles/icons
-(~12k).
+(25k: props 18.5k, tiles 5.2k, icons 1.5k).
 
 A small **Pillow + stdlib core** (`core/`) owns portable operations that are
 truly common, such as draw/composite helpers, measurement, packing support, and
@@ -82,9 +91,24 @@ Their presence does not imply that the source character is rigged.
   renders silently break. The fix is a scratch layer + `Image.alpha_composite`,
   wrapped as the canonical `core/draw.overlay_draw`. Use it; never draw a
   translucent fill straight onto a content image.
-- **~139 un-audited `ImageDraw.Draw(img)` sites** may have this clobber. **The
-  parity harness CANNOT catch them** — they render consistently wrong, so there
-  is no before/after drift. Needs eyeball/heuristic, not the harness.
+- ✔ **THE "~139 UN-AUDITED SITES" ARE GONE, AND THE HEURISTIC THIS BULLET ASKED
+  FOR IS NOW A TEST.** Re-derived 2026-09-17 against the submodule pin
+  `7b8e845`: `ImageDraw.Draw(` appears **69** times in the whole tool, **39 of
+  them in its own tests**, and **ZERO** anywhere under `targets/characters/` —
+  the population this bullet was written about. `tests/test_no_raw_imagedraw.py`
+  scans `targets` and `authoring`, requires a `# raw-draw-ok` marker with a
+  justification, and poisons its own regex (28 markers, each with a reason). The
+  one shipped-art site left is `targets/props/robot_slash.py`, marked and
+  correct: the destination is mode `"L"`, which has no alpha to clobber.
+  ⚠ **ONE GAP, RECORDED RATHER THAN FIXED BECAUSE THE TOOL IS A SUBMODULE**
+  (`github.com/Erotemic/ambition_sprite2d_renderer`, and this repo holds only the
+  pin): the guard's `SCANNED = ("targets", "authoring")` does not reach `core`,
+  and `core/pipeline.py`'s supersampling seam hands a raw `ImageDraw.Draw(img)` to a caller-supplied
+  content callback on a fresh supersample canvas — the class the bullet describes,
+  outside the scan root and carrying no marker. `core/draw.py`'s five sites are
+  the fix itself. ⇒ Whoever owns the submodule should widen the root and mark the
+  legitimate sites, not exempt `draw.py` by BASENAME the way `ALLOWED` already
+  does — a basename exemption applies to every file with that name.
 - **The `*_spritesheet.yaml` sidecar is LOAD-BEARING** (discovery / install /
   actor-sidecar generation / CLI freshness / ~10 tests). The *manifest write* is
   yaml-free (RON), but **removing the sidecar is a separate, larger rewire** —
@@ -173,9 +197,14 @@ asking:
   alone cannot say which frame it means -- the HUD had been drawing whole
   portrait pages into 56px panels.
 
-Twelve rig-backed characters publish a looping default and a named still.
-Whether a character SHOULD is a content decision, not a gate: there is
-deliberately no check that every target animates its portrait.
+⚠ **RE-DERIVED 2026-09-17: it is TWENTY-ONE, not twelve, and the population is
+the PUBLISHED manifests rather than the source.** Of 146 `*_portraits.ron` under
+`crates/ambition_platformer2d_actor_monolith/assets/sprites`, 40 declare a
+looping clip and 21 name a `still_clip` — and the two sets nest exactly, so "a
+looping default and a named still" is the 21. Whether a character SHOULD is a
+content decision, not a gate: there is deliberately no check that every target
+animates its portrait, which is why this number moves with content and has to be
+re-derived rather than quoted.
 
 Native portrait production must continue to use family-specific or bespoke
 rerendering, never crops enlarged from gameplay sheets. A character whose

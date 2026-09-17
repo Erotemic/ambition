@@ -587,7 +587,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// five alias rows, and no mechanical state enters or leaves the snapshot.
 /// ⇒ Held by `no_two_schema_rows_describe_the_same_type_the_same_way`, so an
 /// alias cannot come back as a compatibility kindness a second time.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 197;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 198;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -145,6 +145,14 @@ impl EncounterScript {
         self.cursor
     }
 
+    /// The two fields a rewind has to restore, as one deterministic word.
+    ///
+    /// It lives here because `cursor` and `elapsed` are private to this module,
+    /// and the rollback declaration is the only caller that needs both at once.
+    pub(crate) fn progress_bits(&self) -> u64 {
+        ((self.cursor as u64) << 32) ^ u64::from(self.elapsed.to_bits())
+    }
+
     /// Advance the beat clock and, if the current beat's trigger holds, return
     /// its effects for the host to execute + step the cursor. The generic step
     /// of the script; the host applies the returned effects.

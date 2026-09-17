@@ -19,6 +19,17 @@ where
         .rollback_component_canonical::<crate::actor::WornCharacter>(OWNER, "actor.worn_character");
     registrar
         .rollback_component_clone::<crate::equipment::WornEquipment>(OWNER, "actor.worn_equipment");
+    // ⛔⛤ A ONE-SHOT REQUEST THAT DELIBERATELY CROSSES A FRAME BOUNDARY, so its
+    // presence IS simulation state. Mary-O inserts it in `FeatureInteraction`;
+    // `apply_worn_character_gameplay` consumes it in `PlayerInputSet::Persona`,
+    // which is an EARLIER phase, so the request always waits a frame before it
+    // is read and removed. A rewind across that frame that did not put the
+    // request back would apply the template zero times or twice, and the
+    // component's only state is whether it is there.
+    registrar.rollback_component_clone::<crate::actor::RecharacterizeBody>(
+        OWNER,
+        "actor.recharacterize_request",
+    );
     registrar
         .rollback_component_canonical::<crate::actor::body::BodyCombat>(OWNER, "actor.body_combat");
     registrar.rollback_component_canonical::<crate::brain::boss_pattern::BossAttackState>(

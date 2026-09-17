@@ -1992,7 +1992,7 @@ is the boss-reward durability boundary — a different question about a differen
 object. A route to a wrong number reads exactly like a route to a right one, and
 the row had carried it since 2026-09-04. Filed here 2026-09-17.
 
-## Q142 — four one-shot latches decide simulation outcomes and no rewind restores them
+## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED; the question is down to `PostBossNpc`
 
 The repository already states the rule, in
 [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md):
@@ -2005,8 +2005,10 @@ and it had no instrument until 2026-09-17:
 **The population and how it was measured.** A component is in scope when it is
 defined in a crate that registers at least one rollback row AND a literal
 `With<X>` / `Without<X>` / `Has<X>` outside test code reads its presence.
-**Measured: 95 such components, 73 registered, 18 waived by name with the
-measurement beside each, 4 left.** The registered set is read from
+**Measured 2026-09-17 when this row was filed: 95 such components, 73
+registered, 18 waived by name with the measurement beside each, 4 left. After
+the three fixes below, the same run reads 76 registered and 1 left** — the count
+moved because the code did, not because the instrument or a waiver did. The registered set is read from
 `rollback_schema_baseline.txt`, which `rollback_schema_baseline.rs` holds
 byte-identical against the live registry.
 
@@ -2019,7 +2021,39 @@ presence read — took the intersection from 73 to 95 and produced six of the ro
 below. ⇒ The poison that found it is planted as
 `test_a_path_qualified_filter_is_seen`.
 
-**The four, and what each latches:**
+⛔⛤ **AND THREE OF THE FOUR WERE NEVER A DECISION. FIXED 2026-09-17, schema
+v197 → v198.** This row was filed as a policy question — *"registering all four
+is a wire-format change"* — and a review read the evidence back and pointed out
+that the framing was wrong for three of them: an unregistered component that a
+sim system mutates every tick is a rollback defect, not an option. Re-checked
+one at a time before changing anything, and each holds:
+
+* **`EncounterScript`** — `cursor` and `elapsed` are advanced by
+  `EncounterScript::advance` (`timeline.rs`), called from `tick_encounter_scripts`,
+  which `ambition_boss_encounter` registers into the sim schedule at
+  `ProgressionSet::BossHazards`. Now `component-clone-custom-checksum`, projecting
+  `cursor` and the beat-elapsed bits; `beats` is authored content and stays out of
+  the projection.
+* **`ReleaseOnDeath`** — `release_payloads_on_death` writes `PayloadReleased` and
+  removes the marker in the same loop, and `PayloadReleased` is registered
+  `message-clear` so a resimulation may re-emit it. The pair was asymmetric in the
+  direction that loses the release entirely. Now `component-clone`.
+* **`RecharacterizeBody`** — Mary-O inserts it in `FeatureInteraction`;
+  `apply_worn_character_gameplay` consumes and removes it in
+  `PlayerInputSet::Persona`, an EARLIER phase of the next frame. It is a request
+  that deliberately waits a frame, so a rewind across that frame decides whether
+  the template is applied nought, one or two times. Now `component-clone`.
+
+⇒ `the_rollback_schema_matches_its_recorded_baseline` and
+`the_shipped_app_registers_the_same_schema_as_the_sandbox` both pass at v198, so
+all three rows are live in the shipped app, not only in the sandbox.
+
+⚠ **WHAT IS STILL OWED AND IS NOT CLAIMED HERE: a rewind arm per latch.** These
+are registrations, which is the same KIND of evidence this page has already said
+is not a reading of the number. The subject each needs is named under "what has
+not been measured" below.
+
+**The one still open, and the three that closed:**
 
 | component | the filter that reads it | why it is not hygiene |
 |---|---|---|
@@ -2047,10 +2081,12 @@ and without a GGRS session, comparing the number the body reaches — and
 `spawn_cut_rope_victory_npc`, has a second road (`boss_is_cleared` from the save)
 that would mask the defect on room re-entry but not on the kill frame.
 
-**The decision.** Registering all four is a WIRE-FORMAT change: the schema
-fingerprint is part of content identity (`Q122`), so four new rows move the
-identity two peers must agree on. That is cheap and correct if these are
-simulation state, and wrong if any of them is a presentation or setup latch that
-merely looks sim-shaped. ⛔ **NOT A DEFAULT EITHER WAY**, and specifically not a
-sweep: the guard's 18 waivers each state a measurement, and four more waivers
-would be the same work with the opposite answer.
+**The decision, and it is now ONE component wide.** `PostBossNpc` is the only
+row left. Its presence decides whether the celebrant a defeated boss left behind
+is swept when a replay is admitted — which is a question about what a LOAD does,
+not about what a tick does, and none of the three arguments above reaches it.
+⇒ It wants a targeted behavioural arm (does an admitted replay sweep the
+celebrant it should keep?), not a fourth registration by analogy. ⛔ Registering
+it anyway would be the sweep this row warned against: the guard's 18 waivers each
+state a measurement, and a fourth row added because its three neighbours moved
+would be a waiver with the opposite sign and no measurement behind it.

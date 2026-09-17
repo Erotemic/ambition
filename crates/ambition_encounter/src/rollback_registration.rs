@@ -42,6 +42,23 @@ where
     registrar
         .rollback_map_entities::<crate::EncounterParticipants>(OWNER, "map.encounter_participants");
     registrar.rollback_component_resolved::<crate::EncounterWaves>(OWNER, "encounter.waves");
+    // ⛔⛤ THE SCRIPT IS A CLOCK, NOT A DEFINITION. `beats` is authored and
+    // immutable, but `cursor` and `elapsed` are advanced every tick by
+    // `tick_encounter_scripts`, which runs in the SIM schedule
+    // (`ProgressionSet::BossHazards`). Unregistered, a rewind resumed a scripted
+    // fight from the beat and the beat-clock the abandoned branch had reached.
+    // Its presence is authoritative too — `Without<EncounterScript>` is the
+    // idempotence gate that decides whether content attaches a script at all.
+    //
+    // The projection is the two mutable fields, so a divergence in WHICH beat a
+    // peer is on is a desync report rather than a silent difference; `beats` is
+    // deliberately out of it, being authored content that cannot drift.
+    registrar.rollback_component_clone_checksum::<crate::EncounterScript>(
+        OWNER,
+        "encounter.script",
+        "cursor and beat-elapsed bits",
+        |script| script.progress_bits(),
+    );
     registrar.declare_rollback_derived_resource::<crate::entity::EncounterView>(
         OWNER,
         "derived.encounter_view",

@@ -59,6 +59,14 @@ where
         "map.falling_hazard",
     );
 
+    // ⛔⛤ THE LATCH AND ITS MESSAGE WERE REGISTERED ASYMMETRICALLY, WHICH IS
+    // WORSE THAN NEITHER. `release_payloads_on_death` emits `PayloadReleased`
+    // and then REMOVES this marker, so the marker's absence is the whole reason
+    // a second emission cannot happen. The message below is cleared on rollback
+    // precisely so a resimulation can emit it again — and the resimulation could
+    // not, because nothing put the marker back. A rewind across the kill frame
+    // dropped the release entirely.
+    registrar.rollback_component_clone::<crate::ReleaseOnDeath>(OWNER, "encounter.release_on_death");
     registrar.clear_message_on_rollback::<crate::PayloadReleased>(
         OWNER,
         "message.payload_released",

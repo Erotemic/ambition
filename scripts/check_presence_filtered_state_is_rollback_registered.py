@@ -137,31 +137,20 @@ WAIVERS = {
 
 #: ⚠ REAL AND OWED, not waived. A name here is a finding with somewhere to go.
 ACKNOWLEDGED = {
-    "ReleaseOnDeath": (
-        "Q142 — a once-only latch in the sim schedule "
-        "(`release_payloads_on_death`, `ProgressionSet::BossHazards`) whose "
-        "REMOVAL is what stops a second emission, while the message it emits "
-        "IS registered `message-clear`. The pair is asymmetric: the message is "
-        "cleared so a resimulation can re-emit, and the latch that would let it "
-        "is not restored"
-    ),
+    # ⭐ THREE LEFT THIS DICT BY BEING FIXED, 2026-09-17, schema v197 -> v198.
+    # `ReleaseOnDeath`, `RecharacterizeBody` and `EncounterScript` were filed
+    # here as Q142's open question and turned out not to be a question: each is
+    # mutated or consumed by a system in the REWINDING schedule, so each is now
+    # registered and falls out of this list by satisfying the check rather than
+    # by being excused. The remaining entry is the one none of those arguments
+    # reached.
     "PostBossNpc": (
         "Q142 — one site is the per-tick view rebuild and the other is "
         "`AttemptResidue` in `world/rooms/reconstitution.rs`, the set an "
         "admitted replay retires. Presence decides whether the celebrant a "
-        "defeated boss left behind is swept"
-    ),
-    "RecharacterizeBody": (
-        "Q142 — its own doc calls it a one-shot request consumed after "
-        "application, read through `Has<>` in `avatar/starting_character.rs`. "
-        "Same shape as `ReleaseOnDeath`: the CONSUMPTION is the state, and it is "
-        "not snapshotted"
-    ),
-    "EncounterScript": (
-        "Q142 — attached by `setup_cut_rope_encounter` under a "
-        "`Without<EncounterScript>` idempotence filter, and carries live beat "
-        "state; unregistered, so what a rewind does to a mid-fight script is "
-        "unmeasured"
+        "defeated boss left behind is swept — a question about what a LOAD "
+        "does, not what a tick does, so it wants a behavioural arm rather than "
+        "a registration by analogy with its three former neighbours"
     ),
 }
 

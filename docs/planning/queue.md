@@ -295,7 +295,9 @@ CHECKOUT.** It pinned pretty-printed `serde` JSON, described as *"the exact
 payload serde puts on the wire"*, plus `size_of::<ControlFrame>()`. The
 transport is neither: it is **bincode**, at the three `InputBytes` call sites
 this row already enumerates below, read out of the pinned `ggrs` `0.13.0`
-checkout (git `e97e3d2`), in its `network::protocol` module. Two numbers settle it: the
+checkout — the `gschup/ggrs` commit `Cargo.lock` names, e97e3d2, in its
+`network::protocol` module. (Unbackticked deliberately: it is a THIRD-PARTY sha,
+and this repository's object store cannot resolve it.) Two numbers settle it: the
 serialized size is **68 bytes** and `size_of` is **60**, and the
 `#[serde(rename = "dash_pressed")]` poison the old module was built around leaves
 the encoding **byte-identical** — measured, same hex before and after. ⇒ The module's headline defect was not that

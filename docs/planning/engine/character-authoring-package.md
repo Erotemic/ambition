@@ -74,6 +74,13 @@ make every fighter fact use one file format.
 
 A game should not become a second character database.
 
+[Composable actor resources](composable-actor-resources.md) applies this same
+ownership split to resources. Character authoring can state which optional
+resources a character has. A capability owns the meaning of a resource role and
+its fill/spend policy. Composition binds the capability role to the character's
+resource. The final prepared actor/resource composition carries the resolved
+layout and bindings; runtime systems do not search authored names again.
+
 ## Current execution work
 
 ### A1 — re-measure bypasses before migrating another field

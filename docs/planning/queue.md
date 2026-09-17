@@ -2331,15 +2331,18 @@ row COUNT is 7 in both arms at every step while the summed quantity climbs, so
 even the right string would have said "not changing". Finding one cause and
 stopping would still have been wrong.
 
-**What holds it in place.**
-`exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
-(`which_hashed_entry_moves_when_the_bag_does.rs`) asserts the diverging set is
-exactly `{AmbitionGameSave}`, floors the control audit's `resimulations > 0`
-before reading its silence, and names which failure direction is the good one: no
-divergence means the repair landed, a second type is a new finding, and a
-diverging CONTROL means the cause is no longer the bag and every elimination
-needs redoing. The probes beside it are `#[ignore]`d and print-only, so they cost
-the lane nothing.
+**What holds it in place — and ✔ the good failure arrived, so the arm was
+INVERTED rather than deleted.** It said no divergence means the repair landed;
+the repair landed 2026-09-16 (`f95d49ce6`, the three live→save mirrors into the
+sim schedule). `no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves`
+(`which_hashed_entry_moves_when_the_bag_does.rs`) now asserts the diverging set
+is EMPTY, still floors the control audit's `resimulations > 0` before reading its
+silence, and is paired with
+`the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at` because an empty
+set from a PINNED projection is `f = const` and looks exactly like success. A
+diverging CONTROL still means the cause is no longer the bag and every
+elimination needs redoing. The probes beside it are `#[ignore]`d and print-only,
+so they cost the lane nothing.
 
 ⚠ **SCOPE.** Measured only for `OwnedItems`; whether other `ResourceClone`
 entries behave the same way is unmeasured, and the same probe answers it for any

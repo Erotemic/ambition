@@ -913,8 +913,58 @@ input measured to move it. Spend it when a row is SUSPECTED, not to walk the lis
 
 ### S8 — the hashed entries written from a schedule that never rewinds
 
-⛔⛤ **FOUR HASHED ENTRIES ARE WRITTEN FROM `Update`, AND ONE OF THEM IS A PROVEN
-SYNC-TEST DESYNC.** Measured 2026-09-16 by crossing
+✔✔ **CLOSED 2026-09-16, AND RE-VERIFIED 2026-09-17: NO REGISTERED TYPE IS
+WRITTEN OUTSIDE THE REWINDING SCHEDULE, AND THE SAVE IS NO LONGER PINNED.** The
+repair was the three live→save mirrors — `persist_inventory_to_save`,
+`persist_occurrence_horizon_to_save`, `persist_minted_item_horizon_to_save` —
+registering through `app.sim_schedule()` instead of top-level `Update`, so a
+rewind replays them and one historical frame stops seeing two different saves
+(`f95d49ce6`). ⛔ **NOT by unhashing `AmbitionGameSave`**, which is what this
+section recommended on both sides for days; the writer census below is why.
+
+Three arms hold it, and **all three were INVERTED rather than deleted** even
+though both this file and the arms' own docs said to delete them on this
+outcome — deleting them would have retired the only instruments that can notice
+the mirrors drifting back out of the rewind window:
+
+| arm | asserts today | was |
+|---|---|---|
+| `no_registered_type_is_written_outside_the_rewinding_schedule` | the outside set is EMPTY | `exactly_one_…`, and it was the save |
+| `no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves` | the diverging set is EMPTY, floored on the projection varying so an empty set cannot pass vacuously | `exactly_one_hashed_entry_diverges_…` |
+| `the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at` | the save's projection takes **≥ 50** distinct censuses across the compared frames | `…_holds_one_value_across_every_compared_frame` |
+
+⇒ **The floor is 50 and not `> 1` on purpose.** The pinned regime read 1 idle and
+2 with an acting agent, so `> 1` would accept the effectively-frozen state the
+arm exists to refuse; the repaired regime read 236 against neighbours' 238. ⭐ An
+empty divergence set from a PINNED projection is `f = const`: every equality arm
+goes green the moment the projection stops responding to the state it covers, in
+the direction that looks like success. That is why the un-pinning is asserted
+beside the emptiness rather than inferred from it.
+
+✔ Verified 2026-09-17 at `b8ad12f2a`: all three pass
+(`cargo test -p ambition_app --test app_it -- <name>`), and the un-pinning
+re-derived the same day by
+`probe_whether_the_saves_snapshot_tracks_its_frame_after_the_window`:
+
+```
+coverage: 948 save(s) censused (708 repeats, so replay-comparable), 236 compared
+distinct save censuses across COMPARED frames:  236
+save census at the FIRST compared frame   (2):  0x8f605a278dac557d
+save census at the LAST  compared frame (239):  0xd93f11239a89c3b1
+CONTROL — types whose census moved: 14, nine of them at 238
+```
+
+⛔ `0x8f605a278dac557d` is the constant the pinned regime held at EVERY compared
+frame; it is now only the first one. That is the tell reversing, read off the
+same instrument that found it.
+
+**What follows is the baseline record: the measurement chain that found it.** It
+is kept because the eliminations in it are reusable and several of them were
+wrong in instructive ways; every claim in it is about the world BEFORE
+`f95d49ce6`.
+
+⛔⛤ **FOUR HASHED ENTRIES WERE WRITTEN FROM `Update`, AND ONE OF THEM WAS A
+PROVEN SYNC-TEST DESYNC.** Measured 2026-09-16 by crossing
 `check_rollback_mutators_run_in_sim.py`'s offender list against the registration
 KIND of each type it names. The guard reports systems; it does not ask whether the
 value they touch is compared between peers, and that is the question that turns a
@@ -992,8 +1042,9 @@ loop names the missing member. The ruling it wants is
 [Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
 
 ⭐⭐ **AND THE OTHER TWO WERE MEASURED WITHOUT BEING AIMED AT, WHICH IS WHAT A
-PER-ENTRY CENSUS BUYS.** `exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save`
-asserts the diverging set is EXACTLY `{AmbitionGameSave}`, over 364 probed
+PER-ENTRY CENSUS BUYS.** The arm now called
+`no_hashed_entry_disagrees_with_its_replay_when_the_bag_moves` then asserted the
+diverging set was EXACTLY `{AmbitionGameSave}`, over 364 probed
 entries. `CustodyBaseline` and `OccurrenceBaseline` are in that population and did
 not diverge — ⛔ **and 2026-09-16 showed why, which is not the reason this
 paragraph gives: both were EMPTY, and a load that seeds BOTH halves makes both
@@ -1080,9 +1131,11 @@ Two sessions, three instruments, the same constants.
 IS EVIDENCE THAT WHAT IS COMPARED IS FROZEN.** Two saves of one frame cannot
 disagree about a value that is the same at every frame. That reverses the reading
 of every clean result in this neighbourhood, including the ones above: the entry
-`exactly_one_hashed_entry_diverges_when_the_bag_moves_and_it_is_the_save` pins is
-the entry that diverges in the ONE window — the first three ticks — where the
-snapshot is not yet pinned.
+the divergence arm pinned was the entry that diverges in the ONE window — the
+first three ticks — where the snapshot was not yet pinned. ⇒ That is the reading
+that made the un-pinning floor in
+`the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at` a separate
+assertion instead of a corollary of the empty set.
 
 ⭐⭐ **AND S8'S POPULATION IS NOW MEASURED RATHER THAN READ OFF EIGHT SYSTEMS'
 SCHEDULES — THE ANSWER IS ONE, AND IT IS THE SAVE.** This section found its four by
@@ -1103,10 +1156,13 @@ within the frame (which is also why it satisfies the first two conditions and do
 not desync), and `CustodyBaseline` / `OccurrenceBaseline` are measured EMPTY for
 the whole run, below — ⛔ which is a statement about the FIXTURE, not about the
 code: seed BOTH halves of the durable horizon and BOTH baselines appear in this
-very set. Held by
-`exactly_one_registered_type_is_written_outside_the_rewinding_schedule`, whose
-positive control is that the save MUST appear — a known answer established by a
-different route, because an empty set reads exactly like a clean world.
+very set. Held by the arm now called
+`no_registered_type_is_written_outside_the_rewinding_schedule`, which then
+asserted the set was exactly `{AmbitionGameSave}` and whose positive control was
+that the save MUST appear — a known answer established by a different route,
+because an empty set reads exactly like a clean world. ⚠ The repair emptied the
+set, so the arm asserts the emptiness now; the control is what keeps that empty
+answer meaningful.
 
 ⚠ **THE POPULATION IS "TYPES WHOSE PROBE CAN SEE A VALUE CHANGE", NOT "ALL
 STATE".** A presence probe counts carriers and is blind to a value, and a type that
@@ -1176,12 +1232,12 @@ the same run:
 | `BodyMelee` | 65 |
 | **`AmbitionGameSave`** | **2**, while its live value reached 247 mirrored items |
 
-⇒ The finding survives the correction and is better stated by it: a hashed entry
-whose live value changes on every one of 240 ticks contributes **two** values to
-what two peers would compare, in a run where ten of its neighbours contribute 238.
-`the_saves_hashed_snapshot_holds_one_value_across_every_compared_frame` asserts the
-idle number, which is the reproducible one, and its message says which failure
-direction is the good one.
+⇒ The finding survived the correction and was better stated by it: a hashed entry
+whose live value changes on every one of 240 ticks contributed **two** values to
+what two peers would compare, in a run where ten of its neighbours contributed
+238. The arm pinned the idle number because it was the reproducible one. ✔ It
+reads 236 now and is floored at 50 — see the header of this section for why that
+floor, and not `> 1`.
 
 ✔ **THE LINK TO THE PEER CHECKSUM IS CLOSED BY CONSTRUCTION, NOT BY A SECOND
 MEASUREMENT — AND THAT IS THE STRONGER CLOSURE.** The worry was that *"the probe

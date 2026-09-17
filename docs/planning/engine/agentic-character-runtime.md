@@ -86,9 +86,14 @@
 > ([`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)).
 > The policy seam is not. ⓘ
 > [`control-authority-and-ai-policy.md`](control-authority-and-ai-policy.md)
-> knows this enum and tracks moving `Smash` and `Fighter` behaviour out of the
-> crate — but that is a placement question, and a carve that relocates two
-> variants leaves the enum exactly as closed as it is now. Opening the seam is
+> knows this enum. ⚠ **It no longer tracks moving `Smash` and `Fighter` out of
+> the crate, and this sentence said it did** — the BEHAVIOUR left on 2026-08-27,
+> and the remaining 2,255 non-test lines of data are ⊘ WITHDRAWN as a carve by
+> that page's DECIDED section, because every shape that could move them either
+> needs a runtime registry or makes a mount system link a combat crate. That
+> strengthens the point being made here rather than weakening it: a carve that
+> relocates two variants would have left the enum exactly as closed as it is
+> now, and the carve is not even available. Opening the seam is
 > unowned work, and unlike navigation it is cheap to prototype: it changes a
 > type, not a subsystem.
 >

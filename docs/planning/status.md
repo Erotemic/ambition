@@ -206,11 +206,12 @@ fails silently.
 
 The queue is intentionally compact. Its current groups are:
 
-- **P0:** A10 publication (CLOSED), peer-stable identity (ELEVEN roads closed of
-  fourteen live; the THREE open are `Q128`, `Q122` and the 25 unchecksummed float
-  rows — a different kind, with no host-local id, never compared between peers,
-  blocked on netcode's N2. All three want a maintainer or a P2P session, so none
-  is pickable here), settings/rollback
+- **P0:** A10 publication (CLOSED), peer-stable identity (**no road count here —
+  the owner row re-derives it, and this copy read "eleven of fourteen" after the
+  owner had moved to fourteen of seventeen.** The three open roads are `Q128`,
+  `Q122` and the unchecksummed float rows — the last a different kind, with no
+  host-local id, never compared between peers, blocked on netcode's N2. All three
+  want a maintainer or a P2P session, so none is pickable here), settings/rollback
   policy, throw modifier
   consistency, A2 projectile identity (CLOSED — the construction-identity hole
   only; A2a/A2b/A2c geometry and contact contracts are a different subject and

@@ -1079,7 +1079,10 @@ impl TransactionId {
     /// ⛔⛤ **IT READS THE STAMP RATHER THAN THE PARTS, AND THAT IS A DELIBERATE
     /// TRADE.** A checksum registrar hands the projection only `&TransactionId`,
     /// which is a bare `String` — so the alternative is restructuring this type
-    /// into its parts across 61 uses plus the codec. The string is already the
+    /// into its parts across every use plus the codec (124 lines name it, 55 of
+    /// them under a test path: `grep -rn "TransactionId" --include=*.rs crates/
+    /// game/ examples/`, re-derived 2026-09-16 — the bare "61 uses" this said
+    /// before could not be checked by a reader). The string is already the
     /// canonical serialized form (`from_raw` is the codec's decode half), so
     /// reading it is what the codec does too. ⚠ The cost is that the formatter in
     /// [`ConstructionScope::transaction`] and the reader here can drift; the

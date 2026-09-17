@@ -155,6 +155,32 @@ failure message — *"the per-seat table is not reaching the derivation at all, 
 the seat-zero claim below proves nothing."* **An arm that names what its own green
 would NOT have proven is the arm you want failing.**
 
+## An equality assertion `f(a) == f(b)` is satisfied by every `f` that throws information away
+
+⛔⛤ **THE CONSTANT FUNCTION PASSES EVERY AGREEMENT ARM.** MEASURED 2026-09-16 in
+ID-PEER: `two_hosts_at_different_content_epochs_share_one_construction_provenance`
+asserts two hosts holding the same content agree about a construction stamp, and
+for a day it reported closed while three ordinary production roads were dropping
+the content term altogether. `content-unstated` agrees with `content-unstated`
+perfectly — **the defect made the assertion MORE true.**
+
+⇒ The price of the missing term was then measured rather than argued: poisoning
+`ContentBinding::canonical_summary` to render a STATED BUT CONSTANT content term
+leaves **all six** arms of `id_peer_audit` green, the one whose whole subject is
+that term included. The only arm in the workspace that reddens is one that takes
+a single process through two prepared fingerprints and asserts the provenance
+MOVED.
+
+⇒ **THE RULE: for every agreement arm, ask what the constant function would do to
+it. If the constant passes, the other half of the claim is a DISAGREEMENT arm**,
+and it is owed in the same commit —
+`a_different_agreed_configuration_draws_a_different_sequence` and
+`the_same_verdict_for_a_different_match_is_a_different_checksum` are the shape.
+⚠ This is the same family as the section above, from the other end: that one is a
+counter of the old road's ABSENCE, this one is a comparison whose two sides can
+both collapse. Both are green because the instrument's discriminating power was
+never measured, only its verdict.
+
 ## Low-weight criteria
 
 Do not choose a solution merely because it is easier to implement right now. Ease of implementation has very little weight compared with elegance, maintainability, clarity, runtime behavior, and architectural fit.

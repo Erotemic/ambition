@@ -1322,14 +1322,14 @@
       "owner": "ambition_platformer2d_actor_monolith::session::teardown",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
+      "current_truth": "SessionScopedResources names 30 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionScopedResources names 29 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
+          "claim": "SessionScopedResources names 30 App resources that source states belong to one gameplay session (re-derived 2026-09-16; this read 25 until the bundle was counted field by field). Activation resets them for correctness and retirement resets them for hygiene.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
           ]

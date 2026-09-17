@@ -18,28 +18,37 @@ section and `scripts/measure_test_arm_rss.py` are UNOWNED** — they are not
 finished, they are unattended. ⇒ Check a row's owner against who is actually
 running before waiting on them.
 
-⚠ **MEASURED 2026-09-16: THIS FILE IS 2,519 LINES AGAINST THE 908 THE C10 CLEANUP
-LEFT ON 2026-09-14.** Three agents worked it in one night and it more than
-doubled. It touched 2,572 the same day before TEST-LANES was compressed a second
-time, which is the point: **the growth is continuous and the compression is
-per-row, so a single cleanup does not hold.** C10's regression rule is *"if a live control-plane file starts
-accumulating closed case files again, delete/compress the history IN PLACE"*, so
-this is a note to every owner rather than a complaint: **the growth is per-row
-and only its owner can tell a receipt from live work.**
+⚠ **THIS FILE IS 3,158 LINES AGAINST THE 908 THE C10 CLEANUP LEFT ON
+2026-09-14** — re-derive with `wc -l docs/planning/queue.md` and the per-campaign
+mass with
 
-The mass, largest first: ID-PEER 439, DURABLE-HORIZON-CHECKSUM 192,
-MENU-RESET-MIDSESSION 188, ROLLBACK-MUTATOR-POPULATION 187, SETTINGS-ROLLBACK
-176, ROLLBACK-BAG-DESYNC 172, A2 154. ⭐ TEST-LANES was second at 193, went to 66, grew back to 159 in one
-night of real findings, and is now 106: everything in it that was a RULE rather
-than open work moved to
-[`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md),
-and the closed items became one-line receipts with their SHAs. That is the shape
-the contract asks for, and it is offered as a worked example rather than as a
-request. ⭐ A second one, same night: HEADLESS-STEP-COUNT closed at 242 lines and
-is now 54, with the mechanism, the classifier and the repair moved to
-[`docs/recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md)
-— a closed row keeps its RECEIPT and its prohibitions, and the reusable half
-belongs on a page people read before they have the bug.
+```sh
+awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n", c, n}' \
+  docs/planning/queue.md | sort -rn | head
+```
+
+because a number stated here without its command is the next stale copy: this
+paragraph carried 2,519 for long enough that the file had grown by 639 lines
+underneath it. Three agents worked it in one night and it more than doubled,
+which is the point — **the growth is continuous and the compression is per-row,
+so a single cleanup does not hold.** C10's regression rule is *"if a live
+control-plane file starts accumulating closed case files again, delete/compress
+the history IN PLACE"*, so this is a note to every owner rather than a complaint:
+**only a row's owner can tell a receipt from live work.**
+
+⭐ **THREE WORKED EXAMPLES OF THE SHAPE THE CONTRACT ASKS FOR, offered rather
+than requested.** TEST-LANES went 193 → 66, grew back to 159 in one night of real
+findings, and everything in it that was a RULE rather than open work moved to
+[`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
+HEADLESS-STEP-COUNT closed at 242 lines and is now 54, its mechanism, classifier
+and repair moved to
+[`docs/recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
+ID-PEER went 702 → 543 by moving the peer input-payload contract to
+[`engine/netcode.md`](engine/netcode.md#the-input-payload-two-peers-exchange) and
+the schema-instrument exclusion to that page's
+[`N3`](engine/netcode.md#n3--contentschema-negotiation), keeping a receipt with
+its SHAs. ⇒ A closed row keeps its RECEIPT and its prohibitions; the reusable
+half belongs on a page people read before they have the bug.
 
 ## P0 — architecture and correctness
 
@@ -209,231 +218,72 @@ not a missing line. The decision is what is missing, not the registration.
 
 **Current state (2026-09-16): FOURTEEN CLOSED, THREE OPEN, SEVENTEEN LIVE —
 eighteen FILED, because the thirteenth was withdrawn the day it was filed and the
-numbering does not reuse it. ⛔⛤ The count moved by THREE in one pass because the
-hostile two-host peer-visible census (below) found THREE defects that no type
-census could see — which is the honest reading of "ID-PEER is complete for its
-current scope": it was not, and the instrument that says so now exists. ⭐ The
-third took two causes and one refutation: the obvious explanation was measured,
-moved the number, and did not close it. The fourteenth closed within the hour (it was the
-only one not blocked outside the campaign); the fifteenth was found by verifying
-a price another row had quoted, and closed the same day for what is owed today.**
+numbering does not reuse it.** ⭐ **RE-DERIVE THAT FROM THE TABLE RATHER THAN
+TRUSTING THIS SENTENCE:** the table below holds fifteen roads, twelve closed and
+three open, and the fourteenth and fifteenth are the two prose receipts beneath
+it, both closed. 12 + 2 = fourteen, and all three open roads are in the table.
+⛔⛤ **A count in prose is a copy, and the copy nearest a correction is the one
+that survives it** — this paragraph replaced four that each re-stated the count
+in a different tense, the last of them still reading "eleven closed" beneath a
+headline saying fourteen.
 
-⭐ **RE-DERIVE THE COUNT FROM THE TABLE RATHER THAN TRUSTING THIS SENTENCE** —
-the row asks that of its own prose for the reason the next paragraph gives. The
-table below holds FIFTEEN roads (twelve closed, three open); the fourteenth and
-fifteenth roads are described in prose beneath it, both closed. 12 + 2 = fourteen
-closed, and the three open are all in the table.
+⛔ **ALL THREE OPEN ROADS ARE BLOCKED OUTSIDE THIS CAMPAIGN, so none is in
+flight.** Two want a maintainer decision before anyone starts — the absolute
+`SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing English
+prose (`Q122`) — and the third, the 25 unchecksummed float rows, is a DIFFERENT
+KIND of road: those carry no host-local id at all, they are simply never compared
+between peers, so no projection can fix them and only netcode's `N2` can observe
+them.
 
-⚠ **AND THE ELEVENTH CARRIES A HEDGE A READER SHOULD NOT LOSE.** The fifteenth
+⚠ **AND ONE CLOSED ROAD CARRIES A HEDGE A READER SHOULD NOT LOSE.** The fifteenth
 (`ControlFrame`'s shape) is closed for the RATCHET — a silent change is now
 impossible — and NOT for a negotiated input version, which does not exist and is
 not obviously owed while netcode is `N2`. If a P2P session is ever built, that
 half returns as new work rather than as a correction to this count.
-The
-count is written this way deliberately, and this is the sentence earning it: the
-row used to say "nine of the ten", predicting that "a tenth road found tomorrow
-makes this row 'nine closed, a tenth found' instead of making it false". It has
-now absorbed a twelfth, a withdrawn thirteenth and a fourteenth without ever
-being wrong. **TWO of the three open roads want a maintainer decision** before
-anyone starts — the
-absolute `SimTick` (`Q128`, netcode) and the snapshot schema fingerprint hashing
-English prose (`Q122`, found 2026-09-16). ⚠ This sentence said *"BOTH open roads"*
-until the twelfth road was filed beneath it, which is the smaller version of the
-same defect `status.md`'s P0 summary suffered on the same day: **a count in prose
-is a copy, and the copy nearest the correction is the one that survives it.**
-⚠ **A TWELFTH ROAD WAS FOUND 2026-09-16 AND IT
-IS A DIFFERENT KIND** — the 25 unchecksummed float rows carry no host-local id at
-all; they are simply never compared between peers, so no projection can fix them
-and no local session can measure them. Eleven closed, three open.
 
-⛔⛤ **A FOURTEENTH, FOUND 2026-09-16 AND MEASURED THE SAME HOUR: A LOCAL
-DEBUGGING INSTRUMENT IS AN INPUT TO THE PEER IDENTITY.** Building the same
-sandbox harness twice — default and `--features causal` — gives 494 vs 497 dump
-lines and two different `schema_fingerprint()` values
-(`ssp1:7bc3233fdd0e73d8…` vs `ssp1:b90539da551339d9…`). The two simulations are
-identical: `message-clear` rows carry no value of their own and the causal
-channels feed a recorder, so both peers would compute the same snapshots and the
-same checksums, then refuse to play each other. ⭐ THE REPOSITORY ALREADY MADE
-THIS DECISION AND PUT IT IN THE WRONG PLACE — `rollback_schema_baseline.rs`
-filters those rows with the reason stated outright, and
-`compute_schema_fingerprint` never learned it; the filter is also what keeps the
-disagreement invisible, by making the lane green in both configurations.
+⛔⛤ **THE COUNT MOVED BY THREE IN ONE PASS, WHICH IS THE HONEST READING OF
+"ID-PEER IS COMPLETE FOR ITS CURRENT SCOPE": IT WAS NOT.** The hostile two-host
+peer-visible census (below) found three defects no type census could see, and the
+instrument that says so now exists. ⭐ The third took two causes and one
+refutation: the obvious explanation was measured, moved the number, and did not
+close it.
 
-✔ **CLOSED THE SAME DAY.** `RollbackEntryKind::MessageClearInstrument` answers
-`in_peer_schema_identity() == false`, `schema_dump()` filters on that predicate,
-the three registrations go through `clear_instrument_message_on_rollback`, and
-the test's name-prefix filter is DELETED as redundant. Both builds now
-fingerprint `ssp1:7bc3233fdd0e73d8…` — identical to each other and to the value
-before the change, so no version bump was owed and the baseline did not move.
-The instrument is still registered (`deterministic_dump` 497 vs 494) and still
-cleared on rewind; the exclusion is about peer IDENTITY, never about whether the
-rewind happens. ⭐ THE DURABLE POINT IS NOT THAT A FEATURE LEAKED — it is that
-the fingerprint and the dump filter DISAGREED ABOUT WHAT COUNTS AS SCHEMA, both
-deliberately, with nothing comparing them. Measurement and the arm's built-in
-positive control on netcode's [`N3`](engine/netcode.md).
+⛔⛤ **A FOURTEENTH, FOUND AND CLOSED 2026-09-16: A LOCAL DEBUGGING INSTRUMENT
+WAS AN INPUT TO THE PEER IDENTITY.** The same sandbox built default and with
+`--features causal` produced two different `schema_fingerprint()` values from two
+identical simulations, so both peers would compute the same checksums and then
+refuse to play each other. Found `5967c98a7`, closed `190830022` with
+`RollbackEntryKind::MessageClearInstrument` answering
+`in_peer_schema_identity() == false`. ⇒ **The durable point is not that a feature
+leaked — it is that the fingerprint and the dump filter DISAGREED about what
+counts as schema, both deliberately, with nothing comparing them.** That, the
+predicate, the arm and its positive control are owned by netcode's
+[`N3`](engine/netcode.md#n3--contentschema-negotiation); this row does not
+restate them.
 
 ⛔⛤ **A FIFTEENTH, FOUND 2026-09-16 BY VERIFYING A PRICE RATHER THAN A CLAIM:
-NOTHING VERSIONS THE SHAPE OF THE PAYLOAD TWO PEERS EXCHANGE.**
-`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` IS what
-crosses between peers — and every candidate that could cover its shape was
-checked and covers something else: `INPUT_STREAM_VERSION` versions recorded
-replay files and exempts added fields BY DESIGN, the rollback dump carries one
-row naming the TYPE (`derived.control_frame`) and not its fields, the fingerprint
-hashes that dump, and `rollback_codec_shape.txt` has zero mentions because
-`ControlFrame` has no `SnapshotState` impl at all — it is `derived`, rebuilt from
-the input stream rather than snapshotted.
+NOTHING VERSIONED THE SHAPE OF THE PAYLOAD TWO PEERS EXCHANGE.** `ControlFrame`
+IS the wire, and every candidate that looked like it covered this covers
+something else.
 
-⇒ The state half of the wire has an identity AND a ratchet. The INPUT half had
-neither.
+✔ **THE RATCHET HALF IS LANDED** (`2bfa6e011`, `b1a380e63`, `224f65009`): the
+exact bincode bytes of one legible frame are pinned, every frame is asserted to
+encode to the same width, and the source census refuses a variable-width field
+type at every level `ControlFrame` reaches. A change to the peer input payload is
+now impossible to make silently. ⛔ **The CONTRACT, the GGRS reading it rests on,
+what the bytes cannot see, and why a wire-identity bump buys a different
+fixed-width protocol rather than a variable one are owned by
+[`engine/netcode.md`](engine/netcode.md#the-input-payload-two-peers-exchange)** —
+this row does not restate them, because it used to, at 162 lines, and a queue row
+is not where a transport contract lives.
 
-✔⛤ **THE RATCHET HALF IS LANDED, 2026-09-16 — AND IT IS A RATCHET, NOT A
-VERSION, WHICH IS THE HONEST DESCRIPTION.** `control_frame.rs`'s
-`the_bytes_two_peers_exchange` module pins the exact **bincode bytes** of one
-frame. It cannot tell an author what to BUMP, because there is nothing to bump
-yet; it makes a change to the peer input payload impossible to make SILENTLY,
-which was the missing property. A negotiated input version is still absent and is
-not obviously owed while netcode is `N2`.
-
-⛔⛤ **AND ITS FIRST VERSION MEASURED THE WRONG FORMAT ENTIRELY — CORRECTED
-2026-09-16 AFTER A GPT ARCHITECTURE REVIEW, BY READING THE PINNED `ggrs`
-CHECKOUT.** It pinned pretty-printed `serde` JSON, described as *"the exact
-payload serde puts on the wire"*, plus `size_of::<ControlFrame>()`. The
-transport is neither: it is **bincode**, at the three `InputBytes` call sites
-this row already enumerates below, read out of the pinned `ggrs` `0.13.0`
-checkout — the `gschup/ggrs` commit `Cargo.lock` names, e97e3d2, in its
-`network::protocol` module. (Unbackticked deliberately: it is a THIRD-PARTY sha,
-and this repository's object store cannot resolve it.) Two numbers settle it: the
-serialized size is **68 bytes** and `size_of` is **60**, and the
-`#[serde(rename = "dash_pressed")]` poison the old module was built around leaves
-the encoding **byte-identical** — measured, same hex before and after. ⇒ The module's headline defect was not that
-it was weak; it was that its failure message taught the next author a wire model
-the transport does not use.
-
-⭐ **A LEGIBLE FRAME RATHER THAN A DEFAULT ONE, and the reason is a measurement:**
-`bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO bytes. Pinning
-that would catch a length change and nothing else — every falsy field is the same
-byte as every other. The recorded frame alternates every bool, gives the floats
-distinct values and takes a NON-default variant of both enums, so field order,
-field width and each variant index are visible in the hex.
-
-⭐⭐ **AND THE ARM THE OLD MODULE COULD NOT HAVE WRITTEN IS AMBITION'S OWN
-CONTRACT, NOT A `ggrs` GUARANTEE.** `InputBytes::from_inputs` concatenates every
-local player's ACTUAL encoding into one payload and writes no per-player length;
-`to_player_inputs` recovers the stride by dividing the received total by the
-player count, validating only that it divides. ⇒ Equal subdivision is correct
-only while every frame encodes to the SAME width, and nothing in `ggrs` enforces
-that — it is a property of `Config::Input`, which is our type. A `String`, a
-`Vec`, an `Option` or a data-carrying enum variant makes one player's width
-depend on what they pressed, and player 2's slice then begins mid-way through
-player 1's frame with no checksum to notice. `every_frame_encodes_to_the_same_width`
-holds it.
-
-⚠ **AND A SINGLE-PLAYER PAYLOAD IS IMMUNE** — the whole buffer is player zero's —
-which is why this cannot wait for a witness: local multiplayer sharing one packet
-is where it would first appear.
-
-⛔⛤ **THE ROW SAID "a silent payload-shape change is impossible" AND THAT WAS
-FALSE FOR A DAY, POISON-VERIFIED BY THE GPT REVIEW OF 2026-09-16.** The source
-census read variants with `^\s*(\w+),` — a bare identifier and a comma — so
-adding `Charged(u8)` to `AttackStrengthHint` changed the encoding and the census
-reported the same three rows and NO violation. The byte pin does not necessarily
-catch it either: its corpus never constructs a variant nobody has written yet,
-and a developer adding one would repair the exhaustive Rust matches as a matter of
-course. ⇒ `serialized_variants` now records each variant WITH its payload, and
-`variants_carrying_data` REFUSES one outright, because the fixed-width contract
-above is not a thing a ratchet should merely record. Three arms hold it, including
-one asked of the live tree.
-
-⛔⛤ **AND THE SAME REVIEWER WALKED THROUGH THE NESTED STRUCT ON THE NEXT PASS.**
-`poison_optional: Option<bool>` on `ControlFrameModes`, **with
-`CONTROL_FRAME_WIRE_IDENTITY` bumped**, produced no violation: the census recorded
-the field and the ratchet accepted it, because a recorded change plus a bumped
-identity is the legitimate road. The top-level field-type refusal existed;
-the types `ControlFrame` REACHES had none.
-
-⭐⭐ **THE DISTINCTION THE REPAIR TURNS ON: A WIRE IDENTITY BUMP BUYS A DIFFERENT
-FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH ONE.** `None` encoding shorter than
-`Some(false)` subdivides the packet in the wrong places however carefully the
-change was announced, so this is a refusal a ratchet cannot be talked out of.
-`refuse_variable_width` is applied at every level and refuses an UNRECOGNISED type
-as well as a known-variable one — a guard that accepts what it cannot classify is
-the same hole in a politer costume.
-
-⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
-FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values
-identically, so a swap between them moves nothing — the old JSON DID catch that
-(`false` vs `0`) and the bytes do not. The FIELD TYPES are carried by the
-source-level census below, which records declaration order, each field's type and
-every nested enum's variants. The two are complements: that one is the shape,
-this one is the transport actually producing bytes.
-
-⛔⛤ **THE RATCHET IS NOT DUPLICATING THE COMPILER — POISONED TO FIND OUT.**
-ADDING a field already fails to compile, because `ControlFrame::merge_sample`
-builds an exhaustive literal and a new field must declare whether it is a LEVEL or
-an EDGE. Good nudge, wrong subject: it is about merge semantics and says nothing
-of the wire. What compiles cleanly and moves the bytes is a REORDER, a width
-change, or an enum gaining a variant ahead of an existing one — poison-verified,
-swapping two adjacent `bool` fields reddens the pin with zero compile errors.
-
-⚠ Still latent like the rest of this campaign while no P2P session is ever built
-(netcode `N2`) — `SETTINGS-ROLLBACK` is simply the row that would add the first
-new field and therefore the row that had to notice. It does not block that work.
+⇒ **STILL OPEN AND NOT OBVIOUSLY OWED:** a negotiated input version. Nothing
+EXCHANGES the identity — the same remainder the state half has, waiting on `N2`.
+⚠ `SETTINGS-ROLLBACK` is the row that would add the first new field and therefore
+the row that had to notice; it is not blocked by this.
 ⚠ And [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline)
-is now the likelier first customer: if a cutscene edge is ruled to be gameplay
-input, this is the arm that will speak.
-
-⛔⛤ **AND THE PROPERTY THE EXEMPTION RESTS ON CANNOT REACH THE PEER LEDGER AT
-ALL.** Read from GGRS's own source rather than inferred:
-
-- `Config::Input` is documented there as *"the only game-related data transmitted
-  over the network"*, bounded `Copy + Clone + PartialEq + Default + Serialize +
-  DeserializeOwned` — serde, not `Pod`.
-- `InputBytes::from_inputs` packs every player's input into ONE buffer with
-  `bincode::serialize_into`, and `InputBytes::zeroed` sizes it
-  `bincode::serialized_size(&T::Input::default()) * num_players`.
-- `to_player_inputs` splits that buffer by `self.bytes.len() / num_players` —
-  **the size is taken from the SENDER's buffer**, and the only validation is that
-  the length divides by the player count.
-
-⇒ **`#[serde(default)]` provides nothing here.** Bincode is non-self-describing:
-there are no field names on the wire, so a field is never "missing" and a default
-is never supplied. The attribute gives `INPUT_STREAM_VERSION` its replay-compat
-exemption honestly and gives the peer question nothing — the same attribute,
-load-bearing in one ledger and inert in the other, which is why quoting across
-them was wrong in a way that survived checking.
-
-⚠ **WHAT IS NOT ESTABLISHED:** whether a mismatched field set fails loudly or
-decodes into garbage. It depends on bincode's trailing-byte behaviour and on
-which side is larger, and nothing here executes today because the network path is
-P2P-only. What IS established is that no layer compares the two builds' input
-SHAPE, so whatever happens, it will not be a refusal that names the cause.
-
-✔ **HALF-CLOSED THE SAME DAY: THE INPUT PAYLOAD NOW HAS AN IDENTITY AND A
-RATCHET.** `CONTROL_FRAME_WIRE_IDENTITY` sits beside `INPUT_STREAM_VERSION`, in
-the file where the two ledgers were confused, and each now says what the other
-does not cover. `the-peer-input-payload-may-not-move-without-its-identity`
-freezes 42 rows — 39 `ControlFrame` fields IN DECLARATION ORDER plus the 3
-`AttackStrengthHint` variants — and reddens if the shape moves while the identity
-holds.
-
-⭐ **ORDER IS PART OF THE SHAPE**, because bincode encodes positionally and
-carries no field names; a census returning a set would not notice a reorder that
-changes what every byte after it means. The poison for that is an arm: making the
-census return a sorted set reddens the ratchet.
-
-⭐ **A SOURCE SCAN IS THE RIGHT OWNER HERE AND WAS THE WRONG ONE THIS MORNING**,
-and the guard says why in its own docstring: a registration is a runtime CALL
-with four spellings and no way to enumerate them from text, while a struct's
-fields are ONE authoritative declaration in ONE file.
-
-⚠ **THE TRANSITIVE BOUNDARY IS ASSERTED, NOT ASSUMED.** A field whose type is not
-primitive can change the bincode shape without `ControlFrame`'s text moving.
-Exactly one such type exists (`AttackStrengthHint`) and its variants are
-censused; a SECOND appearing raises rather than reading green, because a guard
-that quietly stops covering its own subject is worse than no guard.
-
-⇒ **STILL OPEN:** the identity exists and is ratcheted, and nothing EXCHANGES it
-— same remainder as the state half, waiting on `N2`.
+is the likelier first customer: if a cutscene edge is ruled to be gameplay input,
+this is the arm that will speak.
 
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
@@ -477,31 +327,19 @@ its eager reset at `SessionScopeSet::Activate`, `MatchInstance::random_context`,
 the checkpoint operation keys, and `TransactionId` provenance.
 
 ⛔⛤ **AND THE LAST OF THOSE WAS CLOSED AT THE PROJECTION AND OPEN AT THE
-PRODUCTION ROADS FOR A DAY, WHICH IS THE CAMPAIGN'S SHARPEST STRUCTURAL LESSON.**
-The guard that reported it closed —
+PRODUCTION ROADS FOR A DAY.** The guard that reported it closed —
 `two_hosts_at_different_content_epochs_share_one_construction_provenance` —
-asserts two hosts holding the same content AGREE, and `content-unstated` agrees
-with `content-unstated` perfectly. The defect (three ordinary roads dropping the
-content term) made that assertion MORE TRUE.
-
-⇒ **AN EQUALITY ASSERTION `f(a) == f(b)` IS SATISFIED BY EVERY `f` THAT THROWS
-INFORMATION AWAY, THE CONSTANT FUNCTION INCLUDED.** For every agreement arm in
-this campaign, ask what the constant would do to it; if the constant passes, the
-other half of the claim is a DISAGREEMENT arm. `a_different_agreed_configuration_draws_a_different_sequence`
-and `the_same_verdict_for_a_different_match_is_a_different_checksum` have one.
-
-⭐⭐ **THE SIXTEENTH ROAD IS TAKEN, AND THE COST OF ITS ABSENCE IS MEASURED
-RATHER THAN ARGUED.** Poison `ContentBinding::canonical_summary` to render a
-STATED BUT CONSTANT content term and **all six arms of `id_peer_audit` pass** —
-including `two_hosts_at_different_content_epochs_share_one_construction_provenance`,
-whose whole subject is that term. The only thing in the workspace that reddens is
-the new arm in `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
-which takes one process through two prepared fingerprints via a materially
-changed reload and asserts the provenance MOVED. ⚠ One process at two
-fingerprints is not two peers and is stated that way: the projection excludes the
-epoch and the session, so the content term is the only thing that CAN move, which
-is what makes it a real test of discriminating power rather than a stand-in.
-Two hosts agreeing still needs the P2P session **N2** records as absent.
+asserts two hosts holding the SAME content agree, and `content-unstated` agrees
+with `content-unstated` perfectly, so three ordinary roads dropping the content
+term made that assertion MORE true. ⇒ The sixteenth road is taken:
+`ContentBinding::canonical_summary` states the term, and poisoning it to a
+constant leaves all six `id_peer_audit` arms green while the one arm that takes a
+process through two prepared fingerprints and asserts the provenance MOVED
+reddens. ⚠ One process at two fingerprints is not two peers, and is stated that
+way; two hosts agreeing still needs `N2`. **The method rule this produced now
+lives in
+[`decision-principles.md`](decision-principles.md#an-equality-assertion-fa--fb-is-satisfied-by-every-f-that-throws-information-away),
+which is its owner**; this row keeps the instance.
 
 ⭐ **AND THE STRONGEST EVIDENCE IS A COMMITMENT RATHER THAN AN ABSENCE.**
 `TransactionId`'s closure did NOT remove the session stamp: the rendered stamp
@@ -555,7 +393,13 @@ to carry it.
 | **the session root's canonical `SimId`** | **CLOSED 2026-09-16** — it was `SimId::singleton("session", activation_id)` on BOTH mints, and `ShellActivationId` is a per-App route count inside a `component-canonical` comparison. ⭐ The count was disambiguating NOTHING: a canonical identity only needs to be unique inside the world a checksum compares, and `shell_host_lifecycle` already pins `session_roots == 1` in game and `== 0` at home across a four-session lifecycle, rollback variant included. Both mints are `SimId::singleton("session", "root")`. ⛔⛤ **And the arm that was cited for it held the road production does not take** — `spawn_world_for` has no production caller; A10's candidate road builds its own root and hands it to `adopt_world`. Poisoning each mint separately (2026-09-16): the candidate poison left the pre-existing app suite green at **705 passed / 0 failed**. Held on the shipped road by `two_local_histories_name_every_simulated_entity_identically` (`shell_host_lifecycle`), which censuses all 22 canonical identities in a built world. ⭐⭐ And there is ONE mint now: the unreachable primitive is deleted, and the arm that certified this class through it is retired with it. See below |
 | `TransactionId` provenance | **CLOSED 2026-09-16 at both ends, having been closed at only one for a day.** The projection half (schema 193) was the campaign's original finding: the stamp still renders `{binding}\t{room}\t{session}` and MUST, because the construction scope's gather filter and A10's candidate-vs-live separation read it, while the peer projection keeps the content identity and the room and drops the app-local epoch and the session stamp. It is the first COMPONENT to state a projection, which needed `rollback_component_canonical_checksum` to exist. ⛔⛤ **But the GPT review found the term the projection KEEPS was ABSENT on three of the four roads that mint one.** `ActorConstructionContext::for_room_construction` <!-- cite-ok: the removed signature is what this row records --> took `content` and `active_binding` separately and applied the second to the expected-live half only, so the door transition, the reset and the neighbour prefetch each answered `content_unstated` for the INCOMING half — reasoning correctly that a transition publishes no content, which is a fact about the commit boundary and not about provenance. MEASURED: after one door transition the only peer content term anywhere in the live world was `content-unstated`, so two peers at different prepared content projected identically. ⇒ Repaired as a SHAPE: `for_live_room_construction` takes ONE binding and the split is unspellable, `for_content_replacement` takes two by name, and only a hot reload asks for it. Held by `an_ordinary_room_transition_stamps_its_roots_with_the_session_content` plus the provenance half of the death and reset arms beside it (`5bb3cc8ea`) |
 | **the snapshot schema fingerprint** | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q122`.** `schema_dump()` emits a prose `detail` per row and `compute_schema_fingerprint` hashes the whole dump, so English wording is inside the identity `ActiveRollbackAuthority::installed` gives a timeline. Measured by poison: pluralising ONE WORD in `detail::MESSAGE_CLEAR` turns the baseline red with 166 diff lines, 83 added and 83 removed. That is host-local lineage in a peer-stable identity in its purest form — two builds of the SAME mechanical schema are two identities if somebody reworded a comment. ⚠ The naive fix is refuted: of 493 rows, 268 carry facts `kind` does not encode (entity handle vs SET vs keyed MAP remapping, identical vs presence-aware canonical checksums, 22 custom-checksum descriptions), so dropping `detail` would stop the fingerprint seeing an entity-remapping change. The shape is a split, and where the line falls is the decision. ⇒ Landed meanwhile without needing it: the 15 sentences had TWO owners across two crates with nothing comparing them, and now have one (`879a5a1a3`, dump byte-identical) |
-⛔⛤ **AND THE HOSTILE RUN FOUND AN INSTRUMENT DEFECT ALONGSIDE THE TWO CODE
+| **the accumulating gameplay clock** | ✔ **CLOSED 2026-09-16, FOUND BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed(f32)` has ONE writer — `advance_gameplay_elapsed`, `+= scaled_dt` every frame — is `init_resource`'d at App build, and was reset nowhere, while registered `rollback_resource_canonical` so its WHOLE value is compared between peers. Two hosts that reached the same route by different shell histories disagreed about it on the frame they arrived. ⭐ **UNLIKE `SimTick` IT NEEDED NO RULING, WHICH IS THE WHOLE DIFFERENCE**: `Q128` is open because a projection excluding the tick would exclude the TIMELINE, and this is a lookback clock whose only consumer is the brain's reaction-latency window (`actors/update.rs`), which a session-relative clock answers identically. ⇒ Added to `SessionScopedResources`, reset at `SessionScopeSet::Activate` — the group that already existed for exactly this. Held by `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first` |
+| **the startup-resume checksum** | ✔ **CLOSED 2026-09-16, SAME CENSUS.** `SessionStartupResume::checksum` — the projection handed to `rollback_resource_clone_checksum`, i.e. the function peers compare — hashed the session generation itself, and that generation is `SessionScopeId.0` (`restore_checkpoint_on_session_start`: `let generation = scope_id.map(\|id\| id.0)`). Measured `4354685564936845353` against `4354685564936845357`, scope `0` against scope `2`. ⇒ The projection now tags the generation's PRESENCE and drops its value. ⭐ **THAT IS ONLY SAFE BECAUSE THE ANTECEDENT IS ALREADY SHUT**, which is the `MatchInstance` lesson applied rather than repeated: excluding a local stamp with nothing identifying WHICH session the value describes is false-NEGATIVE, and `reset_checkpoint_coordinator_on_activation` already defaults this resource at the activation edge, so a foreign generation cannot be alive to compare. The generation STAYS in the value — `state_for` filters on it |
+| **an ECS entity index in a peer checksum** | ✔ **CLOSED 2026-09-16, AND IT TOOK TWO CAUSES AND ONE REFUTATION TO GET THERE.** `PerceptionMemory` differed between two hosts whose only difference was which routes they visited first. ⛔⛤ `GameplayElapsed` was the obvious cause — perception is handed that clock and `RememberedActor::last_seen` is *"sim time the actor was last directly in view"* — and **fixing the clock MOVED the row without equalising it** (veteran `10957388069613372399` → `5036184031634534872` while fresh held). A mechanism that explains the number is not evidence for it. ⇒ The second cause was `collect_perception_peers`, whose id fell back to `format!("e{}", entity.index())` for a body with no `FeatureId`. That string is the KEY of `WorldMemory::actors`, a `BTreeMap` inside a `rollback_component_canonical` component — so a Bevy allocation-order artefact was compared between peers. **Measured: the same route perceives the player as `e888` in one host and `e1026` in the other.** ⚠ AND THE CHECKSUM IS THE SMALLER HALF: `WorldMemory`'s own doc says it is a `BTreeMap` because *"`last_known_hostile` takes the `max_by` confidence over these… so the tie is broken by iteration order"*, so two peers with index-built keys order their memory differently and an NPC with two equally-confident targets chases a different one on each. ⇒ The fallback is now `SimId`, which the body already carries; `FeatureId` stays first because that is what hostility and targeting look bodies up by. Held by the hostile arm, poison-verified in both directions |
+| **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The TIMELINE half's blocker is N2's absent P2P session, the same blocker `Q128` has. ⭐⭐ **THE STATE HALF IS NOT BLOCKED, AND SAYING IT WAS COST THIS ROW A ROAD — CORRECTED 2026-09-16.** No P2P SESSION can be built; two APPS WITH DIFFERENT LOCAL HISTORIES can. `two_local_histories_compute_the_same_mechanical_values` (`game/ambition_app/tests/shell_host_lifecycle.rs`) launches the shipped Ambition route first in one host and third in another (scope `0`/epoch `1` vs scope `2`/epoch `3`, asserted first), then compares `BodyAnimFacts` BITWISE by canonical `SimId` across 120 steps — and the ground items by construction, labelled as such because they are measured AT REST in that route. It agrees. ⚠ It does not retire N2: no transport, no input exchange, no interleaving, no rebase. ⛔ Its first version was VACUOUS — two `Platformer2dSimHarness` instances in one process both read `SessionScopeId(0)` at tick 1, because a fresh App is a fresh counter, so the differing history has to live inside ONE App that has been somewhere first. ⇒ The remaining rows are one projection and one moving verb each, on a road that now exists |
+| the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
+
+⛔⛤ **AND THE HOSTILE RUN FOUND AN INSTRUMENT DEFECT ALONGSIDE THE THREE CODE
 ONES, WHICH IS WHY ITS FIRST NUMBER WAS NOT ITS ANSWER.** Three registration arms
 — `rollback_component_canonical_checksum`, `rollback_resource_canonical_checksum`
 and `rollback_resource_optional_canonical_checksum` — each hand a
@@ -582,15 +426,10 @@ filed here rather than guessed at.
 registry knows and this does not; the JOIN is the finding"* — beside a record of a
 previous instrument that over-reported by the same factor and announced itself as
 a discovery. Joining against `feeds_peer_checksum` narrows 364 probes to 145 and
-seven rows to six, of which one was the probe artefact above, two were already
-owned (`SimTick`/`Q128`, `AmbitionGameSave`/`Q129`), two are closed above and one
-is open above.
+seven rows to six: one was the probe artefact above, two were already owned
+(`SimTick`/`Q128`, `AmbitionGameSave`/`Q129`), and the remaining three are the
+three defects this pass closed — all in the table above.
 
-| **the accumulating gameplay clock** | ✔ **CLOSED 2026-09-16, FOUND BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed(f32)` has ONE writer — `advance_gameplay_elapsed`, `+= scaled_dt` every frame — is `init_resource`'d at App build, and was reset nowhere, while registered `rollback_resource_canonical` so its WHOLE value is compared between peers. Two hosts that reached the same route by different shell histories disagreed about it on the frame they arrived. ⭐ **UNLIKE `SimTick` IT NEEDED NO RULING, WHICH IS THE WHOLE DIFFERENCE**: `Q128` is open because a projection excluding the tick would exclude the TIMELINE, and this is a lookback clock whose only consumer is the brain's reaction-latency window (`actors/update.rs`), which a session-relative clock answers identically. ⇒ Added to `SessionScopedResources`, reset at `SessionScopeSet::Activate` — the group that already existed for exactly this. Held by `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first` |
-| **the startup-resume checksum** | ✔ **CLOSED 2026-09-16, SAME CENSUS.** `SessionStartupResume::checksum` — the projection handed to `rollback_resource_clone_checksum`, i.e. the function peers compare — hashed the session generation itself, and that generation is `SessionScopeId.0` (`restore_checkpoint_on_session_start`: `let generation = scope_id.map(\|id\| id.0)`). Measured `4354685564936845353` against `4354685564936845357`, scope `0` against scope `2`. ⇒ The projection now tags the generation's PRESENCE and drops its value. ⭐ **THAT IS ONLY SAFE BECAUSE THE ANTECEDENT IS ALREADY SHUT**, which is the `MatchInstance` lesson applied rather than repeated: excluding a local stamp with nothing identifying WHICH session the value describes is false-NEGATIVE, and `reset_checkpoint_coordinator_on_activation` already defaults this resource at the activation edge, so a foreign generation cannot be alive to compare. The generation STAYS in the value — `state_for` filters on it |
-| **an ECS entity index in a peer checksum** | ✔ **CLOSED 2026-09-16, AND IT TOOK TWO CAUSES AND ONE REFUTATION TO GET THERE.** `PerceptionMemory` differed between two hosts whose only difference was which routes they visited first. ⛔⛤ `GameplayElapsed` was the obvious cause — perception is handed that clock and `RememberedActor::last_seen` is *"sim time the actor was last directly in view"* — and **fixing the clock MOVED the row without equalising it** (veteran `10957388069613372399` → `5036184031634534872` while fresh held). A mechanism that explains the number is not evidence for it. ⇒ The second cause was `collect_perception_peers`, whose id fell back to `format!("e{}", entity.index())` for a body with no `FeatureId`. That string is the KEY of `WorldMemory::actors`, a `BTreeMap` inside a `rollback_component_canonical` component — so a Bevy allocation-order artefact was compared between peers. **Measured: the same route perceives the player as `e888` in one host and `e1026` in the other.** ⚠ AND THE CHECKSUM IS THE SMALLER HALF: `WorldMemory`'s own doc says it is a `BTreeMap` because *"`last_known_hostile` takes the `max_by` confidence over these… so the tie is broken by iteration order"*, so two peers with index-built keys order their memory differently and an NPC with two equally-confident targets chases a different one on each. ⇒ The fallback is now `SimId`, which the body already carries; `FeatureId` stays first because that is what hostility and targeting look bodies up by. Held by the hostile arm, poison-verified in both directions |
-| **the 25 unchecksummed float rows** | ⛔ **OPEN, AND NOT ANSWERABLE IN THIS WORKSPACE.** Not a lineage road like the ten above — these carry no host-local id; they are simply never compared between peers. **S7** in [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md) ranks them: of the 99 rows outside the session checksum, 25 are also read by an unfiltered per-tick query AND carry a float-bearing field, and 12 of those are mutably written in production. Two (`item.ground_item`, `actor.animation_facts`) are measured clean — but `Session::SyncTest` is the only session this workspace constructs, so that clears them of a LOCAL RESTORE defect and says nothing about two peers. ⇒ The TIMELINE half's blocker is N2's absent P2P session, the same blocker `Q128` has. ⭐⭐ **THE STATE HALF IS NOT BLOCKED, AND SAYING IT WAS COST THIS ROW A ROAD — CORRECTED 2026-09-16.** No P2P SESSION can be built; two APPS WITH DIFFERENT LOCAL HISTORIES can. `two_local_histories_compute_the_same_mechanical_values` (`game/ambition_app/tests/shell_host_lifecycle.rs`) launches the shipped Ambition route first in one host and third in another (scope `0`/epoch `1` vs scope `2`/epoch `3`, asserted first), then compares `BodyAnimFacts` BITWISE by canonical `SimId` across 120 steps — and the ground items by construction, labelled as such because they are measured AT REST in that route. It agrees. ⚠ It does not retire N2: no transport, no input exchange, no interleaving, no rebase. ⛔ Its first version was VACUOUS — two `Platformer2dSimHarness` instances in one process both read `SessionScopeId(0)` at tick 1, because a fresh App is a fresh counter, so the differing history has to live inside ONE App that has been somewhere first. ⇒ The remaining rows are one projection and one moving verb each, on a road that now exists |
-| the canonical timeline itself | ⛔ **OPEN, AND BLOCKED ON A MAINTAINER — `Q128`** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The absolute `SimTick` is `resource-canonical`, so two Apps running for different lengths of time disagree from the first compared frame. It cannot be closed the way the other nine were: a projection excluding the tick would exclude the TIMELINE, which is what a rollback comparison is about. It needs a session-relative tick rebased when peers agree to start, and where that agreement comes from is netcode. See below |
 
 ✔ **THE SESSION ROOT'S IDENTITY WAS A HOST-LOCAL ROUTE COUNTER, AND IS NOT NOW.**
 Found by the GPT review of 2026-09-15 and closed 2026-09-16. It was
@@ -800,100 +639,70 @@ against the deduped set. Found by reading what the POISON printed — the passin
 run could not show it, because an `assert_eq` over two equal vectors says nothing
 about their structure.
 
-**Next implementation, in order.** (1) ✔ **DONE** — the peer-agreed match
-ordinal; `ActiveMatch` carries which match of its session it is, minted by a
-rollback-registered `SessionMatchOrdinal` that restarts at zero on a session
-change. It closed `random_context` AND `SimId::match_spawn`, which was embedding
-the absolute tick in a `component-canonical` identity string. Schema 187.
-(2) The peer/local split on `CheckpointOperationKey` — the scope's
-stale-operation job is local and real and must NOT simply be deleted;
-`SessionCheckpointOperations` already advances its sequence only on ADMISSION for
-exactly this reason. (3) `TransactionId` — see the measured shape below.
-(4) The timeline itself — a session-relative tick, which is netcode work and
-wants a maintainer decision before anyone starts.
+⛔⛤ **THIS BLOCK WAS A FOUR-STEP IMPLEMENTATION ORDER UNTIL 2026-09-16, AND
+THREE OF ITS FOUR STEPS HAD LANDED WHILE IT STILL READ AS FUTURE WORK** — the
+worst of them saying *"THE PROJECTION IS STILL NOT LANDED"* about a projection
+that is registered in production, two screens below a table row recording the
+same road CLOSED. Re-derived against source:
 
-⛔ **STEP 3 IS BLOCKED ON A VOCABULARY-PLACEMENT DECISION, MEASURED 2026-09-15 —
-and it is NOT "drop the session term", which was this row's previous
-instruction.** `TransactionId` is
-`{epoch}\t{room}\t{session}` (`ConstructionScope::transaction`,
-`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:716`) and is registered `component-canonical`, so the whole
-string is compared between peers.
+1. ✔ **The peer-agreed match ordinal** (schema 187). `ActiveMatch` carries which
+   match of its session it is, minted by a rollback-registered
+   `SessionMatchOrdinal` that restarts at zero on a session change. It closed
+   `random_context` AND `SimId::match_spawn`, which was embedding the absolute
+   tick in a `component-canonical` identity string.
+2. ✔ **The peer/local split on `CheckpointOperationKey`** (schema 188). The peer
+   projection is the admission sequence plus whether a scope owns the operation;
+   the scope keeps its local stale-operation job, which was never to be deleted —
+   `SessionCheckpointOperations` advances its sequence only on ADMISSION for
+   exactly that reason.
+3. ✔ **`TransactionId`** — registered
+   `rollback_component_canonical_checksum::<TransactionId>` with
+   `TransactionId::peer_stable_checksum`, which folds the content identity and
+   the room and drops the session stamp and the binding's app-local epoch. The
+   type still snapshots WHOLE, because a rewind must restore the local ownership
+   A10's candidate-vs-live separation and the construction scope's gather filter
+   both read; **only the COMPARISON narrows**, and
+   `a_transaction_stamp_depends_on_host_local_lineage_and_must_keep_doing_so`
+   holds that half.
+4. ⛔ **The timeline itself** — a session-relative tick. Netcode work, and it
+   wants `Q128` answered before anyone starts.
 
-- **The session term must STAY.** Measured: the construction scope's gather
-  filter is what isolates one session's entities from another's, so removing it
-  would break A10's candidate-vs-live separation. This is the split the campaign
-  header warns about — A10 needs exact LOCAL ownership, ID-PEER needs the token
-  out of the peer COMPARISON. ⇒ The shape is `ActiveMatch`'s: keep the whole
-  string, and give `TransactionId` a projected checksum that excludes the local
-  terms.
-- **A projection alone is not enough**, which is why the epoch has to move too.
-  The only peer-stable term in the string today is `{room}`, and projecting to
-  that would give every entity in a room one identity — a worse defect than the
-  one being fixed. The projection needs a peer-stable CONTENT term to survive.
-- ✔ **THE PLACEMENT DECISION IS MADE (2026-09-15) and the vocabulary is
-  landed:** `ambition_platformer2d_core::PeerContentIdentity`, beside
-  `ContentEpoch` in `content_epoch.rs`, as the PEER half of a pair whose LOCAL
-  half was already there. ⭐ Decided from that module's OWN stated principle
-  rather than by convenience: the epoch lives in the neutral foundation because
-  *"several layers that must not name each other all need to state it"*, with
-  preparation ALLOCATING and construction planning only STAMPING. The peer term
-  has exactly that shape — planning must stamp WHICH CONTENT a plan was built
-  against, and `ambition_platformer2d_runtime`'s content identity renders the
-  value. Same split, same reason, same home.
-  ⚠ Measured correction to this row's own earlier reasoning: it said the
-  `content_pack` edge "is legal". It is not available —
-  `ambition_content_pack` declares NO ambition dependencies at all, so it cannot
-  construct a type from `platformer2d_core`, and `platformer2d_core` naming it
-  would invert the graph.
-  ⛔⛤ **AND A SECOND CORRECTION: THIS ROW NAMED THE WRONG
-  `ContentFingerprint`.** There are TWO types with that spelling.
-  `ambition_content_pack::prepared::ContentFingerprint` is `(pub u64)`;
-  `ambition_platformer2d_runtime`'s is `digest_type!(ContentFingerprint, "cfp1:")`
-  — a `[u8; 32]` with a private field. `PreparedContent::fingerprint()`, the
-  accessor sitting beside `epoch()` and therefore the one any binding site can
-  reach, returns the SECOND. The row named the first because a search for the
-  name found the definition with the public field. ⇒ `PeerContentIdentity`
-  carries 32 bytes, not a `u64`: folding a 256-bit digest into 64 is defensible
-  for a checksum term and not for an identity string, and this is destined for
-  both.
-- ⚠ The plumbing is also real: the production binding site
-  (`session/setup.rs`) receives `construction.binding` already built and never
-  sees `PreparedContent`, so a fingerprint has to travel with the epoch from
-  wherever content is prepared. 19 `ContentBinding::Content(` sites, against 45
-  `.transaction(` callers — so the change belongs in what the BINDING renders,
-  not in the transaction signature.
-  ✔ **THE BINDING NOW CARRIES IT (2026-09-16).** `ContentBinding::Content` is a
-  struct variant with `epoch` (local, staleness) and `content` (peer), all 19
-  sites are migrated, and the two PRODUCTION sites are populated from
-  `PreparedContent::fingerprint()` — which sits beside `epoch()`, so a site that
-  can state the local generation can always state which content it is a
-  generation OF. ⚠ `canonical_summary()` still renders the epoch ALONE, and an
-  arm pinned that two bindings differing only in content summarised identically,
-  so that the change could not happen silently.
-  ✔ **AND THAT CHANGE HAS NOW BEEN MADE (schema 192).** `canonical_summary`
-  renders `epoch:N|content:<64 hex>` when a content identity is STATED, so
-  `TransactionId` carries a peer-stable term for the first time. ⚠ The segment is
-  ABSENT rather than zero-filled when unstated, so a binding built outside a
-  prepared session renders `epoch:N` exactly as before and every fixture's
-  identity is byte-identical — only production strings moved.
-  ⛔ **THE PROJECTION IS STILL NOT LANDED, and the reason is structural rather
-  than pending work.** `TransactionId` is a bare `String` whose `from_raw` is the
-  codec's decode half, so a checksum function — which receives only
-  `&TransactionId` — must either PARSE the string or store a second field. The
-  string cannot be parsed unambiguously: an unstated `epoch:4` and a
-  `runtime-dynamic` binding both lack the `|content:` segment while meaning
-  different things, and `from_raw` is called with synthetic values like
-  `"t/candidate"` in tests, over which any parser returns something rather than
-  refusing. ⇒ The honest shape is to restructure `TransactionId` into its parts
-  with two renderings over one mint — the `MatchInstance` pattern — which is a
-  61-use change and the next reviewable step. `ContentBinding::peer_stable_summary`
-  is the term it will project, and it is landed and poisoned already.
+⚠ **ONE KNOWN TRADE, RECORDED AT THE CODE AND REPEATED HERE BECAUSE IT IS THE
+THING THAT COULD ROT.** `peer_stable_checksum` reads the rendered stamp rather
+than structured parts, because a checksum registrar hands a projection only
+`&TransactionId` and that is a bare `String` whose `from_raw` is the codec's
+decode half. So the formatter in `ConstructionScope::transaction` and the reader
+in `peer_binding_term` can drift; what holds them together is the round-trip arm
+in that module's tests, which mints a real stamp and projects it. ⇒ Restructuring
+the type into its parts with two renderings over one mint — the `MatchInstance`
+pattern — remains the cleaner shape and is NOT owed: it buys removal of a drift
+risk one arm already covers, at 124 `TransactionId` lines (55 of them under a
+test path, `grep -rn "TransactionId" --include=*.rs crates/ game/ examples/`).
+⛔ Its precondition is unambiguous parsing, and that is what the three-shape match
+on `runtime-dynamic` / `epoch|content:` / bare-epoch buys today.
 
-⭐ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15.** It
-said *"an epoch is not rollback-registered. Two peers never compare sequences, so
-a gap on one host is invisible"* — the stated justification for letting a refused
-reload BURN a number. The chain above is the refutation: not registered, compared
-anyway, through whatever embeds it. Corrected at the definition.
+⚠ **AND THE EPOCH'S OWN MODULE DOC ARGUED THE OPPOSITE UNTIL 2026-09-15** — *"an
+epoch is not rollback-registered. Two peers never compare sequences, so a gap on
+one host is invisible"*, which was the stated justification for letting a refused
+reload BURN a number. Not registered, compared anyway, through whatever embeds
+it. Corrected at the definition.
+
+⛔ **THREE PROHIBITIONS THAT MUST SURVIVE ANY FURTHER WORK HERE, each measured
+rather than argued.** (1) **The session term STAYS in the string** — the
+construction scope's gather filter is what isolates one session's entities from
+another's, so removing it breaks A10's candidate-vs-live separation. That is the
+split the campaign header warns about: A10 needs exact LOCAL ownership, ID-PEER
+needs the token out of the peer COMPARISON. (2) **A projection to `{room}` alone
+is worse than the defect** — every entity in a room would share one identity;
+this is why the peer-stable CONTENT term had to land first, as
+`ambition_platformer2d_core::PeerContentIdentity` beside `ContentEpoch`, with
+`canonical_summary` rendering `epoch:N|content:<64 hex>`. ⛔ Why that pair is one
+pair and must be minted together is owned by
+[`engine/content-generation-and-reload.md`](engine/content-generation-and-reload.md),
+not by this row. (3) **The content segment is ABSENT rather than zero-filled when
+unstated**, so a binding built outside a prepared session renders `epoch:N`
+exactly as before; that is what kept every fixture's identity byte-identical when
+production strings moved.
 
 ⛔ Do NOT continue by mechanically replacing each raw `SessionScopeId` with the
 nearest canonical-looking value. `SimTick` is why: it looks canonical, it

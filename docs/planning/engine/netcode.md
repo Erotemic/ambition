@@ -385,6 +385,93 @@ Defer until the first two-peer deterministic lifecycle path is green. These are
 product/network-service concerns and should not distort the simulation model in
 advance.
 
+## The input payload two peers exchange
+
+`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` **is** the
+wire. The STATE half of the wire has both an identity and a ratchet; the INPUT
+half had neither until 2026-09-16, and every candidate that looked like it
+covered this was checked and covers something else — `INPUT_STREAM_VERSION`
+versions recorded replay files and exempts added fields by design, the rollback
+dump carries one row naming the TYPE (`derived.control_frame`) and not its
+fields, the fingerprint hashes that dump, and `rollback_codec_shape.txt` never
+mentions it because `ControlFrame` has no `SnapshotState` impl at all: it is
+`derived`, rebuilt from the input stream rather than snapshotted.
+
+⛔⛤ **A FIXED ENCODED WIDTH IS AMBITION'S CONTRACT, NOT A GGRS GUARANTEE — READ
+OUT OF THE PINNED `ggrs` `0.13.0` CHECKOUT (the `gschup/ggrs` commit
+`Cargo.lock` names, e97e3d2, unbackticked because it is a third-party sha this
+object store cannot resolve).** `InputBytes::from_inputs` concatenates every
+local player's ACTUAL encoding into one payload and writes no per-player length;
+`to_player_inputs` recovers the stride by dividing the received total by the
+player count, validating only that it divides. ⇒ Equal subdivision is correct
+only while every frame encodes to the same width, and that is a property of
+`Config::Input` — our type. A `String`, a `Vec`, an `Option` or a data-carrying
+enum variant makes one player's width depend on what they pressed, and player
+two's slice then begins mid-way through player one's frame with no checksum to
+notice. ⚠ **A SINGLE-PLAYER PAYLOAD IS IMMUNE**, the whole buffer being player
+zero's, which is why this could not wait for a witness: local multiplayer
+sharing one packet is where it would first appear.
+
+⭐⭐ **AND THE DISTINCTION ANY REPAIR HERE TURNS ON: A WIRE IDENTITY BUMP BUYS A
+DIFFERENT FIXED-WIDTH PROTOCOL, NOT A VARIABLE-WIDTH ONE.** `None` encoding
+shorter than `Some(false)` subdivides the packet in the wrong places however
+carefully the change was announced. So `refuse_variable_width` in
+`scripts/check_absence_contracts.py` applies at every level `ControlFrame`
+reaches, and refuses an UNRECOGNISED field type as well as a known-variable one:
+a guard that accepts what it cannot classify is the same hole in a politer
+costume.
+
+⚠ **WHAT IS HELD IS A RATCHET, NOT A NEGOTIATED VERSION, AND THAT IS THE HONEST
+DESCRIPTION.** `control_frame.rs`'s `the_bytes_two_peers_exchange` pins the exact
+bincode bytes of one deliberately legible frame — every bool alternating, the
+floats distinct, a non-default variant of both enums, because
+`bincode::serialize(&ControlFrame::default())` is sixty-eight ZERO bytes and
+pinning that would catch a length change and nothing else. A change to the peer
+input payload is now impossible to make SILENTLY. It cannot tell an author what
+to BUMP, because there is nothing to bump yet; a negotiated input version is
+absent and is not obviously owed while this page's own **N2** holds. If a P2P
+session is built, that half returns as new work.
+
+⚠ **AND WHAT THE BYTES CANNOT SEE, STATED SO THE NEXT READER DOES NOT TRUST THEM
+FOR IT.** `bool` and `u8` are both one byte in bincode and encode the same values
+identically, so a swap between them moves nothing. The FIELD TYPES are carried by
+the source-level census in `check_absence_contracts.py`, which records
+declaration order, each field's type and every nested enum's variants WITH its
+payload. The two are complements: one is the shape, the other is the transport
+actually producing bytes. ⛔ Neither duplicates the compiler, which was
+poison-checked: ADDING a field already fails to compile, because
+`ControlFrame::merge_sample` builds an exhaustive literal and a new field must
+declare whether it is a LEVEL or an EDGE — a good nudge about merge semantics
+that says nothing of the wire. What compiles cleanly and moves the bytes is a
+REORDER, a width change, or an enum gaining a variant ahead of an existing one.
+
+⛔⛤ **AND `#[serde(default)]` PROVIDES NOTHING HERE, WHICH IS THE ONE FACT MOST
+LIKELY TO BE QUOTED WRONG.** Bincode is non-self-describing: there are no field
+names on the wire, so a field is never "missing" and a default is never supplied.
+The attribute gives `INPUT_STREAM_VERSION` its replay-compatibility exemption
+honestly and gives the peer question nothing — the same attribute, load-bearing
+in one ledger and inert in the other. That is why the two ledgers now sit beside
+each other in one file, `CONTROL_FRAME_WIRE_IDENTITY` next to
+`INPUT_STREAM_VERSION`, each stating what the other does not cover.
+
+⚠ **WHAT IS NOT ESTABLISHED:** whether a mismatched field set fails loudly or
+decodes into garbage. It depends on bincode's trailing-byte behaviour and on
+which side is larger, and nothing here executes while the network path is
+P2P-only. What IS established is that no layer compares the two builds' input
+SHAPE, so whatever happens will not be a refusal that names the cause.
+
+⭐ **ORDER IS PART OF THE SHAPE**, because bincode encodes positionally; a census
+returning a set would not notice a reorder that changes what every byte after it
+means. Poison-verified: making the census return a sorted set reddens the
+ratchet. ⚠ **AND THE TRANSITIVE BOUNDARY IS ASSERTED, NOT ASSUMED** — a field
+whose type is not primitive can move the encoding without `ControlFrame`'s own
+text moving, so an unrecognised field type RAISES instead of reading green.
+
+⇒ **THE REMAINDER IS THE SAME AS THE STATE HALF'S:** the identity exists and is
+ratcheted, and nothing EXCHANGES it. That waits on **N2**. Landed
+`2bfa6e011`, `b1a380e63`, `224f65009`; the ID-PEER row in
+[`../queue.md`](../queue.md) keeps the receipt and this page owns the contract.
+
 ## Identity rules
 
 - `RollbackId` is GGRS frame-history identity.

@@ -12,7 +12,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | Rank | ID | Opportunity | State | Campaign size | Do not start before |
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
-| 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), nine of twelve roads closed (2026-09-16) | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
+| 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which re-derives its own road count from its table — this cell deliberately states none, having carried "nine of twelve" while the owner said fourteen of seventeen | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged, but RE-SCOPE FIRST: premise measured substantially stale the same day** | large | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
@@ -58,9 +58,12 @@ find roads whose replacement now exists.
 
 **STATE:** ACTIVE, and it IS the campaign the other rows were told to wait for —
 [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity)
-in the queue, **nine of twelve roads closed as of 2026-09-16**, three open and each
-blocked outside this campaign (`Q122`, `Q128`, and the 25 unchecksummed float rows
-which wait on netcode's N2).
+in the queue. ⛔ **THE ROAD COUNT IS NOT RESTATED HERE.** It read "nine of twelve"
+while the owner row said fourteen of seventeen, which is the failure this whole
+plan exists to remove: a summary of a live table is a copy corrections do not
+reach. What is durable and worth stating is the SHAPE — every open road is
+blocked outside this campaign (`Q122`, `Q128`, and the unchecksummed float rows,
+which wait on netcode's N2), so nothing here is in flight.
 **IMPLEMENTATION CAMPAIGN SIZE:** large
 **DO NOT START BEFORE:** — ⛔ **THIS LINE USED TO READ "do not start before the
 active identity campaign checkpoint", WHICH GATED THIS ROW ON ITSELF.** C02 is that
@@ -108,7 +111,7 @@ activated-generation state. Activation reset is the correctness edge; retirement
 cleanup is hygiene.
 
 ⚠ **THAT NUMBER WAS 32 UNTIL IT WAS RE-DERIVED 2026-09-16, AND THE DRIFT IS THE
-CAMPAIGN'S OWN SUBJECT MOVING.** `SessionScopedResources` holds 29 `ResMut`
+CAMPAIGN'S OWN SUBJECT MOVING.** `SessionScopedResources` holds 30 `ResMut`
 fields, not 25 — counted field by field in
 `actor_monolith/src/session/teardown.rs`, each one a distinct App resource. The
 four that arrived are `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks`
@@ -120,7 +123,7 @@ enumerated.**
 
 ### INDEPENDENT TRUTHS INVOLVED
 
-<!-- session-owner-census: SessionScopedResources=29 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=30 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
 ⭐ **THE LINE ABOVE IS THE MACHINE-READABLE COPY AND
 `scripts/check_session_owner_census_matches_source.py` COMPARES IT TO SOURCE.**
 It exists because this census drifted by four while C03 waited on its gates, and
@@ -128,7 +131,7 @@ a number in prose has no way to notice that. The prose below is for readers; the
 comment is for the guard, and the guard fails if they stop agreeing with
 `teardown.rs` and `checkpoint.rs`.
 
-`SessionScopedResources` (**29**, re-derived 2026-09-16 — the row said 25),
+`SessionScopedResources` (**30**, re-derived 2026-09-16 — the row said 25, then 29),
 `SessionOwnedCheckpointState` (6, unchanged) and `SessionMechanics` (1 resource,
 unchanged — it is ONE resource with six fields, and counting its fields is how
 this total gets read as 41), plus `SessionRoot` as the current owner-scoped
@@ -159,7 +162,7 @@ production writes `ResMut<ambition_cutscene::LastCutsceneRoom>`. A zero from a
 name-matching scan is a claim about the QUERY.
 
 ⛔⛤ **AND "SEPARATE RESET LISTS" IS NOT A DUPLICATED AUTHORITY EITHER, MEASURED
-2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (29)
+2026-09-16.** There are TWO resource-reset lists — `SessionScopedResources` (30)
 and `SessionOwnedCheckpointState` (6, all six checkpoint-operation types) — and
 their intersection is **EMPTY**. Both run at `SessionScopeSet::Activate`. So they
 are a PARTITION of session-owned state, not two copies of it: merging them buys

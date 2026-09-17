@@ -241,44 +241,45 @@ schema bump: the clone snapshot lost a field the session checksum never saw.
 
 ### I2 — held weapon/ability occurrence continuity
 
-> **Verified against `06b25ee87` (2026-09-04).**
+> **Re-derived against `9df7991e1` (2026-09-17). Every number below is a
+> measurement taken that day, not a claim carried forward.**
 
-⭐ **RE-MEASURED 2026-09-04, and both of this row's own numbers were wrong — in
-opposite directions.**
+⭐ **THE POPULATION IS 22 IDS IN ONE TABLE.** `HELD_ITEMS`
+(`crates/ambition_characters/src/brain/action_set/mod.rs:210`, read by
+`held_item_by_id` at `:569`) is the whole registry, and
+`ambition_held_items::held_spec_by_id` / `held_spec_for_item` are pass-throughs
+to it. ⇒ **the CLAIM is the durable part and the number is not**: this population
+moves whenever content lands a held item, so re-derive it rather than quoting
+this line.
 
-⛔ **THE POPULATION IS 21, NOT NINE.** `Item::held_item_id()` answers `Some` for
-nine rows, but that is the ITEM CATALOG's view and the road's resolver is
-`held_spec_by_id`, which consults the catalog AND
-`ambition_characters::brain::held_item_by_id`. Its own doc comment says why:
-*"both registries, in that order, because there are two … Consulting one alone
-silently loses half the items."* `HELD_ITEMS` holds the bulk; `axe` and
-`javelin` are built separately in `held_spec_for_item`
-(`ambition_held_items/src/lib.rs:802`, `:820`). This row consulted one registry —
-the exact failure that comment warns about.
+⛔⛔ **AND DO NOT RESTATE THE SHAPE EITHER.** This row first said the population
+was NINE — the count `Item::held_item_id()` answers, which is the item catalog's
+view and not the resolver's — and the true figure was 21, then 22 the next day
+when the map gained `polygon_mine`. Having caught that, the row closed with what
+it called the permanent half: *"there are TWO registries and consulting one
+silently halves the answer."* The second table was DELETED the same day — see
+I2b. ⇒ A restatement can survive re-measurement because nobody has yet tried to
+REMOVE the thing it describes; correctly identifying which half of a row is
+durable is not the same as that half being true.
 
-⚠ **RE-DERIVED 2026-09-05: it is 20 + 2 = 22 now, and it was 19 + 2 = 21 when
-written — the map gained `polygon_mine` the same day.** ⇒ **the CLAIM is the
-durable part and the number is not**: this population moves whenever content
-lands a held item, so re-derive it rather than quoting this line.
+⛔ **THE GAUNTLET ABILITIES ARE NOT A SEPARATE CLASS.** The row's hypothesis was
+that an ability may have no world form. It does: 14 of the 22 ids are authored as
+`GroundItem` placements under
+`game/ambition_map_assets/ambition_content/worlds/` — 16 placements, all of them
+in `sandbox.ldtk`, with the two demo worlds authoring none. That set includes all
+seven boss signature gauntlets (`volley`, `meteor`, `beam`, `shockwave`,
+`vortex`, `sentry`, `dive`) and the four gauntlet abilities `blink`, `grapple`,
+`mark_recall` and `bomb`.
 
-⛔⛔ **AND THE CLAIM I CALLED PERMANENT WAS THE FIXABLE PART.** This row ended
-*"the claim that does not move is that there are TWO registries and consulting
-one silently halves the answer."* It moved the same day: **the second registry is
-DELETED** — see I2b. ⇒ A restatement that survives re-measurement can survive
-because nobody has tried to REMOVE the thing it describes. This row identified
-correctly which half of itself was durable (the claim, not the count) and still
-enshrined a DEFECT as the durable half.
-
-⛔ **AND THE FOUR GAUNTLET ABILITIES ARE NOT A SEPARATE CLASS.** The row's
-hypothesis was that an ability may have no world form. It does:
-`sandbox.ldtk` authors `GroundItem` placements whose `held_item` is `blink`,
-`grapple`, `mark_recall` and `bomb`, and two shipped fixtures already use
-`ground_grapple` as their subject. A census of authored `GroundItem` entities
-across `game/ambition_map_assets/ambition_content/worlds/` gives **14 distinct
-`held_item` values**, including all seven boss signature gauntlets (`volley`,
-`meteor`, `beam`, `shockwave`, `vortex`, `sentry`, `dive`). ⚠ `axe`, `javelin`
-and `fireball` are authored nowhere, so those three reach a hand only through
-the menu/grant road.
+⚠ The other eight — `admiral_gun_sword`, `axe`, `fireball`, `gun_sword_heavy`,
+`javelin`, `polygon_bomb`, `polygon_mine`, `polygon_ponytail` — are an AUTHORING
+fact and nothing more. Two of them used to be a construction refusal wearing a
+design decision's clothes: `authored_ground_item_requests` refuses an unknown id
+with `UnknownHeldItem`, and `axe`/`javelin` were built in a crate it could not
+reach. Since I2b they resolve, pinned by
+`a_room_may_author_the_weapons_that_used_to_live_in_the_other_registry`. The rest
+reach a hand through a moveset's `equips` or the menu/grant road, not off the
+ground.
 
 ### I2b — there is ONE held-item registry now — ✔ CLOSED 2026-09-05
 

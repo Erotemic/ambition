@@ -47,17 +47,17 @@ pub struct MoveBrandishedItem {
     ///
     /// ⛔⛔ THIS WAS THE ID, AND RE-RESOLVING IT COULD DESTROY THE ITEM. The
     /// restore looked the id up through `ambition_characters::brain::held_item_by_id`
-    /// -- ONE of the two held-item registries -- and on `None` it removed the
-    /// body's `HeldItem` entirely. `axe` and `javelin` live only in the OTHER
-    /// registry (`ambition_held_items::held_spec_for_item`), so a body carrying
-    /// one and playing a move that brandishes would have had it deleted rather
-    /// than returned. Per item custody I1 the hand IS the record, so that is not
-    /// a cosmetic loss: the axe is not in the bag either. It is gone.
+    /// and on `None` it removed the body's `HeldItem` entirely. Per item custody
+    /// I1 the hand IS the record, so that is not a cosmetic loss: the axe is not
+    /// in the bag either. It is gone.
     ///
-    /// ⛔ AND THE WIDE RESOLVER CANNOT BE CALLED FROM HERE. `held_spec_by_id`
-    /// consults both registries, but it lives in `ambition_held_items`, which
-    /// DEPENDS on this crate; calling it would be a cycle. The split is forced by
-    /// the layering, so no amount of care at the call site fixes it.
+    /// ⚠ A SECOND REGISTRY IS WHAT MADE THE `None` REACHABLE, and it is gone as
+    /// of 2026-09-05 -- `axe` and `javelin` were built in `ambition_held_items`,
+    /// a crate that DEPENDS on this one, so the wide resolver could not be called
+    /// from here without a cycle and no care at the call site could fix it. That
+    /// is history, not the reason this field holds a spec: a registry with ONE
+    /// table still answers `None` for an id nobody registered, and the test below
+    /// uses exactly such an id.
     ///
     /// ⚠ TWO SHIPPED MOVESETS AUTHOR `equips` -- the pirate admiral's side-B and
     /// Projectile Polygon's -- so this path is LIVE, not theoretical. Both
@@ -260,21 +260,17 @@ mod tests {
     /// ⛔⛔ A WEAPON THIS REGISTRY HAS NEVER HEARD OF STILL COMES BACK.
     ///
     /// The restore used to resolve `previous` through
-    /// `ambition_characters::brain::held_item_by_id` -- ONE of the two
-    /// held-item registries -- and remove the body's `HeldItem` when that
-    /// returned `None`. `axe` and `javelin` live ONLY in the other registry
-    /// (`ambition_held_items::held_spec_for_item`), so a body carrying one and
-    /// playing a move that brandishes had it DELETED rather than handed back.
-    /// Per item-custody I1 the hand is the record, so the axe was not in the bag
-    /// either.
+    /// `ambition_characters::brain::held_item_by_id` and remove the body's
+    /// `HeldItem` when that returned `None`. Per item-custody I1 the hand is the
+    /// record, so a weapon lost there was not in the bag either.
     ///
-    /// ⭐ This test uses an id NO registry answers to, deliberately. Pinning it
-    /// with `axe` would pass again the moment somebody adds `axe` to the narrow
-    /// table -- which would fix this one weapon and leave the SHAPE, because the
-    /// two registries are forced apart by a dependency edge
-    /// (`ambition_held_items` depends on this crate, so the wide resolver cannot
-    /// be called from here). The property is "the restore consults nothing", and
-    /// an unresolvable id is the only way to state it.
+    /// ⭐ This test uses an id NO registry answers to, deliberately, and that
+    /// choice is what let it outlive its own occasion. The defect was found while
+    /// `axe` and `javelin` were rows in a SECOND table upstream of this crate;
+    /// pinning the test on `axe` would have gone green in 2026-09-05's merge of
+    /// the two registries while the shape it guards -- a restore that consults a
+    /// registry at all -- survived untouched. The property is "the restore
+    /// consults nothing", and an unresolvable id is the only way to state it.
     #[test]
     fn a_carried_weapon_no_registry_knows_is_returned_and_not_destroyed() {
         let mut app = app();

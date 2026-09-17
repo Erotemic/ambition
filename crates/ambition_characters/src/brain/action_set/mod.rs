@@ -531,10 +531,10 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
         // crate that DEPENDS on this one, so every consumer upstream of it could
         // reach only half the items and no discipline at the call site could fix
         // that. `ambition_combat`'s brandish restore resolved through this table
-        // alone and DELETED a carried axe it could not find; the LDtk ground-item
-        // path still refuses `held_item: "axe"` as an unknown id for the same
-        // reason. Both are rows, not code: nothing about them needed the item
-        // catalog.
+        // alone and DELETED a carried axe it could not find, and the LDtk
+        // ground-item path refused `held_item: "axe"` as an unknown id for the
+        // same reason -- both roads closed when these two rows landed here. Both
+        // are rows, not code: nothing about them needed the item catalog.
         items.insert(
             "axe",
             HeldItemSpec {

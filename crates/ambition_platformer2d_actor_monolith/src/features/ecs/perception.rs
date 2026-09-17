@@ -340,9 +340,18 @@ pub fn collect_perception_peers(
         //
         // ⚠ `debug_assert` RATHER THAN A PANIC, the same trade
         // `ensure_sim_id`'s decline states: a fail-closed check here would pause
-        // a working game over a body that is very likely harmless, and the
-        // population it fires on is exactly the population a test constructs.
-        // The `error!` carries it in release.
+        // a working game over a body that is very likely harmless. The `error!`
+        // carries it in release.
+        //
+        // ⛔⛤ **AND THE POPULATION IT FIRES ON WAS NOT ONLY WHAT A TEST
+        // CONSTRUCTS — THAT SENTENCE STOOD HERE FOR A DAY AND THE FIRST FULL APP
+        // RUN REFUTED IT.** `ensure_sim_id` sweeps at the HEAD of the frame and
+        // again at the TAIL; this system runs between them, so a body spawned
+        // mid-frame is unnameable HERE and named by the end of the tick. The
+        // shipped player was exactly that on a route re-entry. Fixed where the
+        // rule points — `PlayerIdentityBundle` mints `SimId::player_slot(slot)`
+        // at construction — so what this assert pins now is the general claim:
+        // nothing reaches perception unnameable, mid-frame arrivals included.
         let Some(stable_id) = id
             .map(|f| f.as_str().to_string())
             .or_else(|| sim_id.map(|id| id.as_str().to_string()))

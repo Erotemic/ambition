@@ -42,6 +42,15 @@ pub fn ensure_sim_id(
     for (entity, feature_id, primary, aabb, faction) in &unidentified {
         let id = match (feature_id, primary) {
             (Some(id), _) => SimId::placement(&id.0),
+            // ⚠ **THE NET, NOT THE ROAD, SINCE 2026-09-17.** A player body built
+            // through `PlayerIdentityBundle` mints `SimId::player_slot(slot)` at
+            // construction, because this system runs at the head of the sim and a
+            // body spawned after it carried no canonical identity for the rest of
+            // its first frame — measured on the shipped route, where perception
+            // reached the freshly spawned player and could not name it. What is
+            // left for this arm is a body that BECOMES primary later, and it
+            // answers `slot:0` for it, which is right only while one body at a
+            // time is primary.
             (None, Some(_)) => SimId::player_slot(0),
             // Not identifiable from an authored fact. Its spawn site must mint it.
             //

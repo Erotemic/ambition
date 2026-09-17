@@ -40,6 +40,28 @@ use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 pub struct PlayerIdentityBundle {
     pub marker: PlayerEntity,
     pub slot: PlayerSlot,
+    /// ⛔⛤ **THE CANONICAL IDENTITY IS MINTED HERE, AT CONSTRUCTION, AND FOR A
+    /// LONG TIME THE ONLY ROAD TO IT WAS A BACKFILL ONE FRAME LATER.**
+    /// `ensure_sim_id` gives a `PrimaryPlayer` body `SimId::player_slot(0)` at
+    /// the head of the sim — so a body spawned AFTER that system ran carried no
+    /// canonical identity for the rest of its first frame. MEASURED 2026-09-17
+    /// on the shipped Ambition route: re-entering the live route spawns the
+    /// player into `SessionScopeId(1)` and `collect_perception_peers` reaches it
+    /// the same frame with `PrimaryPlayer` present and no `SimId`, so perception
+    /// skipped the player for one frame — and before the `Entity` fallback was
+    /// deleted it remembered the player under its allocation index instead.
+    ///
+    /// ⇒ The slot is a fact the spawn site already holds, so it mints the
+    /// identity rather than asking a system to notice the body later.
+    /// `ensure_sim_id`'s `PrimaryPlayer` arm stays as the net for a body that
+    /// BECOMES primary after construction (a marker inserted onto an existing
+    /// body); it is no longer the road a player body takes.
+    ///
+    /// ⚠ Keyed on THIS bundle's slot, not on `PlayerSlot::PRIMARY`: a second
+    /// local player composed through `PlayerIdentityBundle::new(PlayerSlot(1))`
+    /// gets `slot:1`, where the backfill would have given it `slot:0` and
+    /// collided with the primary.
+    pub sim_id: ambition_platformer2d_shared_tangle::sim_id::SimId,
 }
 
 impl PlayerIdentityBundle {
@@ -47,6 +69,7 @@ impl PlayerIdentityBundle {
         Self {
             marker: PlayerEntity,
             slot,
+            sim_id: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(slot.0),
         }
     }
 }
@@ -315,6 +338,32 @@ mod tests {
                 "../../../../game/ambition_content/assets/data/character_catalog.ron"
             )),
         )
+    }
+
+    /// ⛔ **THE FRAME IS THE CLAIM, NOT THE VALUE.** `ensure_sim_id` would give a
+    /// `PrimaryPlayer` body `slot:0` eventually — but it runs at the head of the
+    /// sim, so a body spawned after it went its whole first frame with no
+    /// canonical identity, and `collect_perception_peers` reaches it there.
+    /// Measured on the shipped Ambition route 2026-09-17, where re-entering the
+    /// live route spawns the player into the new session mid-frame.
+    #[test]
+    fn a_player_body_carries_its_canonical_identity_from_the_bundle_that_built_it() {
+        assert_eq!(
+            PlayerSimulationBundle::from_scratch(player_scratch(), Health::new(20))
+                .identity
+                .sim_id
+                .as_str(),
+            "slot:0",
+            "the production player bundle must mint its identity at construction, \
+             not wait for a system to notice the body next frame"
+        );
+        // Keyed on the bundle's OWN slot. The backfill answers a fixed `slot:0`
+        // for anything carrying `PrimaryPlayer`, so a second local player
+        // composed here would have collided with the primary.
+        assert_eq!(
+            PlayerIdentityBundle::new(PlayerSlot(1)).sim_id.as_str(),
+            "slot:1"
+        );
     }
 
     #[test]

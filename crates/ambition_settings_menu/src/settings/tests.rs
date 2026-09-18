@@ -35,10 +35,15 @@ fn shader_rows_cover_every_shader_id() {
     );
 }
 
-/// Pins every row's (step, min, max) to its expected value. `shader_rows_-
-/// cover_every_shader_id` above only checks that every id is PRESENT; the
-/// actual risk is two PRESENT rows disagreeing on step (e.g. one using
-/// FINE_STEP, the other UNIT_STEP) -- only this test catches that.
+/// Pins every row's (step, min, max) against the values `build.rs` and
+/// `apply.rs` hard-coded PER ROW before the collapse, transcribed by hand from
+/// that code. ⛔ THAT REFERENCE POINT IS THE TEST'S WHOLE AUTHORITY: the
+/// `expected` table below is a literal, so without it "the measured step and
+/// range" in this test's name means nothing but "whatever this table says".
+/// `shader_rows_cover_every_shader_id` above only checks that every id is
+/// PRESENT; the risk the collapse carried is two PRESENT rows disagreeing on
+/// step (one side `FINE_STEP`, the other `UNIT_STEP`) -- only this test catches
+/// a value the collapse changed silently.
 #[test]
 fn shader_rows_have_the_measured_step_and_range() {
     let unit = ScreenShaderSettings::UNIT_STEP;

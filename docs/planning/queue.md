@@ -1099,12 +1099,23 @@ helpers. Measured 2026-09-18 by bare-name matching: **19 pairs, 8 already banked
 or waived and 11 FALSE**, because the helper side collapses to three names —
 `tick`, `apply`, `install` — and a `\bname\s*\(` search cannot tell
 `adopt_the_ledger(world)` from `self.timer.tick(dt)`. ⛔ A NAME IS NOT A CALL,
-and the sharpest of the eleven is sharper than that: `spawn_dialogue_runner
-<- install [AuthoredOccurrences, CustodyBaseline, MintedItemBaseline,
-OccurrenceBaseline]` matches `crates/ambition_dialog/src/bridge.rs:87`, where
-`install` is a LOOP VARIABLE — `for install in &content_bindings.installers` —
-so the matched token is not a function name at all. The other ten are `&mut
-self` methods on timers, a shop transaction and a load coordinator. ⇒ The hop
+and TEN of the eleven are `&mut self` methods on a timer, an animator, a grid,
+a shop transaction, a load coordinator or a router — `playback.tick(..)`,
+`coordinator.apply(..)`. ⭐ THE ELEVENTH FAILS DIFFERENTLY AND IS WORTH STATING
+PRECISELY, because "method collision" is not what happened to it.
+`spawn_dialogue_runner <- install [AuthoredOccurrences, CustodyBaseline,
+MintedItemBaseline, OccurrenceBaseline]` matches
+`crates/ambition_dialog/src/bridge.rs:87`, where `install` is a LOOP VARIABLE —
+`for install in &content_bindings.installers` — bound to a
+`YarnBindingInstaller = fn(&mut Commands, &mut DialogueRunner, &YarnStateMirror)`
+(`bindings.rs:80`). So it IS a genuine call to a genuine function, of a
+same-named family whose three-argument signature cannot be the one-argument
+`install(world)` that mutates those four baselines — and none of
+`ambition_dialog`, `ambition_conversation` or `game/ambition_content` names any
+of the four at all. ⚠ A signature-incompatible namesake and a method call are
+two different ways a bare name lies, and a hop that fixed only one of them would
+still import this pair. (Independently re-read by CalculexAmbition, who found
+the mechanism this paragraph originally got wrong.) ⇒ The hop
 wants real call resolution; a version built on the bare name would import
 eleven fabricated findings on its first run.
 

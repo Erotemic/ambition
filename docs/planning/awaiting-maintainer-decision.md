@@ -1768,18 +1768,19 @@ schedule that accumulates into a `Local` or into an unregistered resource is the
 shape, and all three instances were invisible to every existing census because
 none of them is a *multi-writer* and none of them crosses a schedule boundary.
 
-⚠ **AND THE SECOND OF THOSE TWO NAMES NO LONGER EXISTS, WHICH IS A FINDING
+⚠ **AND THE SECOND OF THOSE TWO NAMES DID NOT EXIST, WHICH WAS A FINDING
 ABOUT TEN SOURCE COMMENTS RATHER THAN ABOUT THIS ROW.**
-`sync_live_player_dev_edits_system` has no definition anywhere in the tree — <!-- cite-ok: this sentence REPORTS that the name has no definition -->
-measured 2026-09-18 — yet ten sites still name it as a live system, including
-an intra-doc link in `crates/ambition_dev_tools/src/lib.rs:15` calling it *"the
+`sync_live_player_dev_edits_system` had no definition anywhere in the tree — <!-- cite-ok: this sentence REPORTS that the name had no definition -->
+measured 2026-09-18 — yet ten sites named it as a live system, including an
+intra-doc link in `crates/ambition_dev_tools/src/lib.rs` calling it *"the
 host-scheduled system that applies live ability/tuning edits to the player each
-frame"*. The work it described now lives in
-`sync_live_ability_edits_clusters`
-(`crates/ambition_dev_tools/src/dev_tools/editable.rs:802`), which mutates
-exactly the five clusters the quote counts — but it is a plain helper taking
-`&mut` arguments, NOT a scheduled system, so the decomposition changed the
-shape and the comments were left describing the old one.
+frame"*. ✅ **REPAIRED THE SAME DAY** (`651d265e7`, by CalculexAmbition): the
+system that actually carries that sentence is `project_editable_abilities`, and
+it calls the plain helper `sync_live_ability_edits_clusters`
+(`crates/ambition_dev_tools/src/dev_tools/editable.rs:802`) to do the cluster
+mutation — so the decomposition had changed the SHAPE as well as the name, and
+a straight rename onto the helper would have left every sentence claiming a
+schedule for a function that has none.
 
 ⛔⛤ **AND THE MOST TRANSFERABLE FINDING IS ABOUT THE FIXTURE, NOT THE FIX: NO
 TEST IN THIS WORKSPACE EXERCISED THE OWNERSHIP MODE THE GAME ACTUALLY RUNS IN.**

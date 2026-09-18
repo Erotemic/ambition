@@ -1342,6 +1342,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_consumed_request_writers.py",
             ],
         ),
+        # ⛔ `const ALL` is a hand-written copy of an enum's variant list and
+        # nothing in Rust holds the two together: adding a variant compiles, and
+        # the array keeps its old length. Every consumer that ITERATES `ALL`
+        # then cannot see the new variant, and the symptom is an ABSENCE — a
+        # settings row that never renders, a developer toggle nothing reaches.
+        # ⚠ 41 of 41 agreed when this was written, which is the argument FOR the
+        # ratchet: there is nothing to repair, so the whole value is that the
+        # next divergence cannot land quietly.
+        Job(
+            "every `const ALL` lists every variant its enum declares",
+            [
+                sys.executable,
+                "scripts/check_enum_all_constants_are_complete.py",
+            ],
+        ),
     ]
 
 

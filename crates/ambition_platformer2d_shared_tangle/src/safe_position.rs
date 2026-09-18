@@ -26,6 +26,13 @@ use bevy::prelude::Resource;
 /// Per-player "last known safe spot" used by hazard knockback and debug
 /// respawn helpers. Stored on each player so future co-op builds keep safe
 /// anchors independent.
+///
+/// ⚠ **THE PUBLIC SDK EXPORTS THIS AS `BodySafetyState`**
+/// (`ambition_platformer2d::sim`), whose own note says the implementation type
+/// *"still carries its historical player-centric name; the SDK does not"*. The
+/// state is body-local — any body a reset or hazard observer watches has one. ⇒
+/// Written here too: a rename recorded at one end only is a fact the other end
+/// cannot see, and this one has a consumer-facing name nobody could grep back.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerSafetyState {
     /// Last grounded, gameplay-safe position the safety gate approved (see

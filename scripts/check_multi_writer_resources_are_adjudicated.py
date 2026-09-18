@@ -316,6 +316,72 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    # ── ONE SELECTOR, TWO PRESENTATIONS ──────────────────────────────────────
+    #
+    # The menu ships TWO backends — the flat Bevy-UI grid and the 3D cube — and
+    # they write the same host-side menu state from two files. That is not two
+    # authorities while ONE resource decides which of them is effective:
+    # `InventoryUiBackend::effective()` (`ambition_menu/src/backend.rs`) returns
+    # exactly one variant, `grid_backend_active` is
+    # `BEVY_UI_MENU_BACKEND_ENABLED && effective() == Grid`, and every cube
+    # writer is gated by `kaleidoscope_backend_active` or
+    # `kaleidoscope_menu_visible`, both of which include
+    # `effective() == LunexKaleidoscope`. ⇒ At most one of the two files writes
+    # in any frame.
+    #
+    # ⛔ THE GATE IS PER-SYSTEM, SO THE VERDICT IS TOO. `menu/mod.rs` states the
+    # architecture — the two navs are ordered against each other because either
+    # order is correct, *"at most one backend is effective in a frame, and each
+    # nav is gated on its own backend"* — and an OBSERVER takes no `run_if`, so
+    # the cube's and grid's pointer observers carry the same test in their
+    # bodies instead. A writer that carries neither is the way this verdict
+    # fails, which is why `KaleidoscopeCursor` is a separate row.
+    "InventoryUiState": (
+        "CORRECT — ONE SELECTOR, TWO PRESENTATIONS. Grid writers: "
+        "`grid_menu_action_activated`, `grid_menu_nav`, `grid_menu_open_routing` "
+        "(`ambition_app/src/menu/grid_backend.rs`), all registered "
+        "`.run_if(grid_backend_active)`. Cube writers: `kaleidoscope_focus_nav`, "
+        "`kaleidoscope_menu_action_activated` (`.run_if(kaleidoscope_menu_visible)`) "
+        "and `kaleidoscope_menu_open_routing` "
+        "(`.run_if(kaleidoscope_backend_active)`), in "
+        "`ambition_app/src/menu/kaleidoscope_app.rs`. ⇒ Six writers, two files, "
+        "one live at a time. ⚠ `visible` is the field both open-routing systems "
+        "raise, and they are ALSO gated on `simulation_authorized` + "
+        "`in_base_mode` — *\"the mirror of the Grid backend gate\"* — because "
+        "without it the inventory toggle leaked onto the title screen and into a "
+        "hosted demo's session. Two gates, same pair, stated on both sides."
+    ),
+    "KaleidoscopeSystemNav": (
+        "CORRECT — the same selector and the same four/three writers as "
+        "`InventoryUiState`, plus `grid_menu_tab_activated` on the grid side "
+        "(also `.run_if(grid_backend_active)`). ⛔ THE NAME IS A LIE ABOUT "
+        "OWNERSHIP AND THE SOURCE SAYS SO: `grid_backend.rs` documents that the "
+        "*\"shared cursor and drill state stay on `KaleidoscopeCursor` / "
+        "`KaleidoscopeSystemNav`\"* — the `Kaleidoscope` prefix is where the "
+        "state was born, not who owns it. A reader who takes the prefix for the "
+        "owner will misread every row in this family."
+    ),
+    "VisualQualityConfirmState": (
+        "CORRECT — the same selector. On the cube side the three gated writers "
+        "above; on the grid side `grid_menu_tab_activated` plus the "
+        "`MenuDispatchParams` bundle, which is how the census names a mutable "
+        "reach it cannot attribute to one system. ⚠ THE BUNDLE IS THE REASON "
+        "THIS ROW IS NOT INTERESTING AND THE REASON IT COULD HAVE BEEN: a bundle "
+        "grants its `ResMut` to every system that takes it, and the mutator "
+        "guard has already found five menu systems holding "
+        "`ResMut<NewGameResetRequested>` through `SystemMenuParams` that cannot "
+        "reach the write at all. ⇒ So this was followed to the expressions, and "
+        "the first answer was wrong: the confirm state is NOT written only "
+        "through `dispatch_menu_action`. That road owns the ARM and the SPEND — "
+        "`step_from`, `take_confirmed`, `cancel` (`menu/dispatch.rs`) — and each "
+        "backend ALSO calls `quality_confirm.cancel()` directly at its own "
+        "navigation points, five sites in `grid_backend.rs` and one in "
+        "`kaleidoscope_app.rs`. ⭐ That is still one authority: `cancel` writes "
+        "the ABSENCE of a pending confirmation and is idempotent, so a backend "
+        "leaving the screen cannot disagree with the road that armed it — but "
+        "the census's two files are two files for a second reason the gate "
+        "argument alone does not cover."
+    ),
     "KaleidoscopeScroll": (
         "CORRECT — AN OVERRIDE AND ITS RELEASE, one field, one backend. The type "
         "is `system_window_start: Option<usize>` and its doc states the contract: "

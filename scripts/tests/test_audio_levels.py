@@ -141,6 +141,50 @@ def test_every_source_that_authors_a_spec_yields_at_least_one_resolved_spec():
         assert spec.sample_rate >= 8000, (spec.owner, spec.sfx_id, spec.sample_rate)
 
 
+#: `"...//..."` — a `//` sitting inside a double-quoted string on one line.
+#: An approximation of "the stripper would eat a live token here", not a Rust
+#: lexer: it cannot see a string spanning lines, and it does not try to.
+_SLASHES_INSIDE_A_STRING = re.compile(r'"[^"\n]*//[^"\n]*"')
+
+
+def test_no_spec_source_hides_a_slash_pair_inside_a_string():
+    """⛔ `strip_comments` DELIBERATELY DOES NOT KNOW A STRING LITERAL, and this
+    script's own question lives inside one.
+
+    `lib/rust_source.strip_comments` says so in its own docstring: *"A consumer
+    whose question can be answered inside a string literal — a URL census, an
+    asset-path audit — must not use this, and should say so where it declines
+    to."* `audio_levels` does not decline; it reads a cue's id and source path,
+    both string literals, out of files it hands to that stripper first. So the
+    boundary is asserted here instead.
+
+    The damage is an ABSENCE, which is why a floor does not catch it. `cue:
+    "game://sfx/hit.wav"` strips to `cue: "game:` — an unterminated literal
+    whose spec then falls out of the report entirely, and the
+    `len(everything) >= 40` floor above only notices a catastrophe, never one
+    sound going missing. This repository already writes asset URIs in exactly
+    that form: MEASURED 2026-09-18, 23 `scheme://` literals across 10 files
+    (`game://worlds/{file}`, `embedded://…/puppy_slug_deep_dream.wgsl`). None
+    is in a spec-authoring file today — that is what this pins, not luck.
+    """
+    ron = sorted((REPO_ROOT / 'game').rglob('*.ron'))
+    providers = _provider_files_that_author_specs()
+    # Anti-vacuity: an empty population would pass this test perfectly.
+    assert len(providers) >= 4, f'only {len(providers)} spec-authoring providers found'
+    assert len(ron) >= 20, f'only {len(ron)} RON files found under game/'
+
+    offenders = []
+    for path in providers + ron:
+        for number, line in enumerate(path.read_text(errors='replace').splitlines(), 1):
+            if _SLASHES_INSIDE_A_STRING.search(line):
+                offenders.append(f'{path.relative_to(REPO_ROOT)}:{number}: {line.strip()}')
+    assert not offenders, (
+        'a `//` inside a string literal in a file audio_levels strips comments from; '
+        'the spec on that line will silently vanish from the report:\n  '
+        + '\n  '.join(offenders)
+    )
+
+
 def _probe(waveform: str, volume: float) -> al.ProceduralSpec:
     return al.ProceduralSpec(
         sfx_id='probe',

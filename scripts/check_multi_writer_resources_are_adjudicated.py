@@ -61,9 +61,15 @@ owner's helper, and only the call sites say which. Check it by hand when
 adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 37 of the 121 are rollback-registered, 31 of them
-unadjudicated** — re-derived 2026-09-18, and this read "21 of the 102" against a
-population that has since grown twice. Those are the ones where a second writer
+HAND.** **At least 37 of the 121 are rollback-registered, and EIGHT of
+those are still unadjudicated** — `AuthoredOccurrences` (5 files), `BaseGravity`
+(6), `MovingPlatformSet` (4), `OwnedItems` (10), `QuestRegistry` (8),
+`RoomTransitionCooldown` (7), `SlotControls` (6), `VersusMatch` (2). That is the
+whole remaining shortlist and it is short enough to name, which is the point of
+spending verdicts here first. ⚠ This line said "31 of them unadjudicated" for
+part of one afternoon and "21 of the 102" the day before; the 37 did not move,
+the verdicts did — 23 of the 25 written on 2026-09-18 landed inside this
+intersection on purpose. Those are the ones where a second writer
 is a divergence rather than a design smell. The 37 is a LOWER BOUND and carries
 its instrument: it is the intersection with the type names in `rollback_*::<T>` /
 `declare_rollback_derived_*::<T>` turbofish calls across `crates/` and `game/`,
@@ -159,6 +165,21 @@ import multi_writer_resource_census as census  # noqa: E402
 #: `fb2cde38f` with the corrected test-region cut. The count is part of the baseline because a set alone cannot see
 #: a 15-writer resource becoming a 16-writer one, which is the growth that
 #: matters most.
+#:
+#: ⭐ One row has moved since: `SeatRawFrames` 7 -> 6 on 2026-09-18, when the two
+#: `drive_slot_frame` bodies (`rollback_ggrs/src/session.rs` and
+#: `runtime/src/input_drive.rs`, picked apart by `#[cfg(feature = "rollback")]`)
+#: were collapsed onto the lower one.
+#:
+#: ⚠⛤ **AND THAT IS WHAT A COLLAPSE LOOKS LIKE THROUGH A FILE-GRANULAR
+#: INSTRUMENT: SMALLER THAN IT WAS.** Two duplicated arms were removed and
+#: exactly ONE row moved. `SlotControls` and `SlotControlLatches` did not,
+#: because the same `session.rs` still writes them from `publish_ggrs_input` and
+#: `capture_latched_local_input` — the backend's own roads, which were never the
+#: duplicate. ⇒ A ratchet on file counts cannot score a de-duplication, and a
+#: flat row here is not evidence that nothing was collapsed. The warning this
+#: script prints about one-other-FILE versus one-other-WRITER is the same
+#: sentence read from the other end.
 BASELINE: dict[str, int] = {
     "AmbitionGameSave": 18,
     "GameAssets": 13,
@@ -173,7 +194,7 @@ BASELINE: dict[str, int] = {
     "PendingLifecycleCommit": 8,
     "QuestRegistry": 8,
     "RoomTransitionCooldown": 7,
-    "SeatRawFrames": 7,
+    "SeatRawFrames": 6,
     "BaseGravity": 6,
     "DeveloperTools": 6,
     "SlotControls": 6,
@@ -301,6 +322,52 @@ ADJUDICATED: dict[str, str] = {
         "mirror on ANY host\"* under both hosts, because under GGRS this is an "
         "OUTPUT and a driver writing it would feed resimulated input back in as "
         "new input. The input side there is handle zero of `PendingSeatInputs`."
+    ),
+    "SlotControlLatches": (
+        "CORRECT — FIVE SITES, FIVE ROLES, AND THE TWO DESTRUCTIVE ONES CANNOT "
+        "BOTH BE INSTALLED. Three files, five sites by `write_sites`. ONE "
+        "accumulator from the shaped table: `commit_seat_raw_frames` "
+        "(`actor_monolith/src/schedule/input_systems.rs`), which folds every "
+        "seat's `SeatRawFrames` row in *\"once the shaping stages have all "
+        "run\"*. ONE out-of-band accumulator: "
+        "`ambition_platformer2d_runtime::input_drive::drive_slot_frame`, the "
+        "driver seam, and since 2026-09-18 the only copy of it. ONE clear that "
+        "contributes no value: `populate_seat_control_frames` reaches the table "
+        "mutably but its single use is `latches.reset(slot)` on the PAUSED "
+        "branch — *\"a seat that has stopped being driven must not hand a held "
+        "direction to the tick after the pause\"*. Then TWO destructive drains, "
+        "both `latches.take(slot)`: `publish_latched_slot_controls` into "
+        "`SlotControls`, and `capture_latched_local_input` "
+        "(`rollback_ggrs/src/session.rs`) into `PendingSeatInputs` at "
+        "`ReadInputs`.\n"
+        "    ⇒ The two drains are the whole question, because whichever ran "
+        "first would leave the other a neutral table. They are mutually "
+        "exclusive: `install_latched_slot_publication` opens with `if "
+        "!app.sim_is_fixed_tick() { return; }`, and a rollback host's sim "
+        "schedule is `GgrsSchedule`. ENFORCED BY A SCHEDULE-LABEL COMPARISON, "
+        "not by convention.\n"
+        "    ⛔⛤ AND THE PREDICATE'S NAME NEARLY COST THIS VERDICT. "
+        "`sim_is_fixed_tick()` is `self.is(FixedUpdate)` "
+        "(`shared_tangle/src/schedule.rs`), NOT *\"the host steps on a fixed "
+        "tick\"* — and a rollback host IS fixed-tick in that second sense. "
+        "`latched_input_reaches_the_tick.rs`'s own header says so in as many "
+        "words: *\"Fixed60Hz, NOT Rollback. Both are fixed-tick.\"* Read the "
+        "way the name reads, both drains install under rollback, "
+        "`capture_latched_local_input` empties the table at `ReadInputs`, and "
+        "`publish_latched_slot_controls` then writes NEUTRAL over every seat in "
+        "`Platformer2dSimulationPhaseMonolith::PlayerInput` — which is "
+        "`.in_set(CoreSimulation)`, while `publish_ggrs_input` is "
+        "`.before(CoreSimulation)`, so nothing would put the confirmed input "
+        "back. That reading predicts total input loss under rollback. It is "
+        "wrong, and it is one line of code away from being right.\n"
+        "    ⭐ WITNESSED, and the witness had to be built because the shipped "
+        "suite could not see it: "
+        "`latched_input_reaches_the_tick.rs` accumulates into the latch on the "
+        "FRAME clock and never calls the driver helper, so the drain is the only "
+        "road. Its header records the poison — all 602 `app_it` tests survived "
+        "deleting the installer outright, because `drive_slot_frame` writes "
+        "`SlotControls` directly when the composition has no latch, so a test "
+        "that introduces input that way cannot witness the seam either way."
     ),
     "EncounterRegistry": (
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "
@@ -690,7 +757,10 @@ ADJUDICATED: dict[str, str] = {
         "this direct `close()`, on the crossing tick; (2) "
         "`break_dialogue_on_hit_or_separation`, whose own comment calls a room "
         "swapping under a conversation *\"a separation of the most literal "
-        "kind\"*; (3) `stamp_conversation_end_when_the_box_closes` -> "
+        "kind\"*; (3) `publish_the_narrative_end` -> "
+        "(⛔ this cited \"stamp conversation end when the box closes\", which is that "
+        "function's DOC SENTENCE and not an identifier — caught by "
+        "`test_every_system_a_verdict_names_exists`) "
         "`close_conversation_on_narrative_end`, because the line ABOVE the poison "
         "closes `DialogState`. Roads 2 and 3 are reactive and land a tick or more "
         "later. ⇒ Do NOT read the passing poison as licence to delete the close: "

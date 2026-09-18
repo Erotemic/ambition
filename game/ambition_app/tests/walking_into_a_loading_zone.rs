@@ -707,8 +707,11 @@ fn the_shipped_apps_own_first_room_publishes() {
 /// ⇒ **Every third frame — one SIM TICK — and `apply_crossing` never ran at
 /// all**, which the decaying `preset_flash` proves: that system sets it to 1.0
 /// on its first line, above the conversation close. The closer is
-/// `stamp_conversation_end_when_the_box_closes` →
-/// `close_conversation_on_narrative_end` (`ambition_conversation/src/ui_bridge.rs`):
+/// `publish_the_narrative_end` → `close_conversation_on_narrative_end`
+/// (`ambition_conversation/src/ui_bridge.rs`):
+/// ⛔ This named the first half "stamp conversation end when the box closes",
+/// which is that function's DOC SENTENCE and not an identifier in this tree.
+/// A paraphrase in backticks reads exactly like a citation.
 /// a live conversation whose `DialogState` is not active is ENDED, and a
 /// conversation seated from outside the schedule has no Yarn node, so its box
 /// never opens. Production is right; the fixture was wrong.

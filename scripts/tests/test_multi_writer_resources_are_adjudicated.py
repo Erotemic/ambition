@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -281,3 +284,88 @@ def test_every_sole_owner_claim_carries_a_verdict():
     # satisfied by a type nobody adjudicated.
     for ty in guard.SOLE_IN_SESSION_OWNER:
         assert ty in guard.ADJUDICATED, ty
+
+
+#: Backticked snake_case tokens that appear in verdicts and are NOT declarations
+#: in this tree. Every one needs a reason on the line, because the arm below
+#: exists precisely so that an unresolvable name cannot be left behind.
+NOT_TREE_NAMES: dict[str, str] = {
+    "ambition_conversation": "a crate, not a system",
+    "ambition_platformer2d_runtime": "a crate, not a system",
+    "app_it": "the app's integration-test TARGET, not a function",
+    "configure_sets": "bevy's `App::configure_sets`, declared outside this tree",
+    "in_set": "bevy's `IntoScheduleConfigs::in_set`, same",
+    "resource_mut": "bevy's `World::resource_mut`, same",
+    "write_sites": "a python function in `multi_writer_resource_census.py`",
+    "this_tick": "prose shorthand for `materialize_projectiles_for_this_tick`",
+}
+
+_DECLARED = re.compile(
+    # A function, or a struct/enum FIELD declaration. A field counts because a
+    # verdict legitimately names the one field a clear skips.
+    r"\bfn\s+([a-z_][a-z0-9_]*)"
+    r"|^\s*(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z0-9_]*)\s*:\s*[A-Za-z&<\[(]",
+    re.MULTILINE,
+)
+#: `snake_case` inside backticks — the shape a verdict uses to name a system.
+#: One underscore minimum, so `slots` and `sim` are not candidates.
+_CITED = re.compile(r"`([a-z][a-z0-9_]*_[a-z0-9_]*)`")
+
+
+def test_every_system_a_verdict_names_exists():
+    # ⛔⛤ THIS ARM CAUGHT A FABRICATED SYSTEM NAME IN A VERDICT THE DAY IT WAS
+    # WRITTEN. `ActiveConversation` cited
+    # `stamp_conversation_end_when_the_box_closes` as one of the three roads that
+    # end a conversation. No such identifier exists: it is the DOC SENTENCE above
+    # `publish_the_narrative_end`, promoted to an identifier and then cited twice
+    # — here and in `walking_into_a_loading_zone.rs` — as if it had been read.
+    #
+    # ⇒ A paraphrase in backticks is indistinguishable from a citation to every
+    # reader, including the one who wrote it. The chain it described was real and
+    # the verdict's conclusion survived; only the name was invented, which is the
+    # failure mode that cannot be caught by re-reading the argument.
+    # ⚠ NOT `production_files()`. A verdict's strongest citation is the TEST ARM
+    # that witnesses it, and those live in exactly the files that predicate cuts.
+    # Aimed at production only, this arm reported nine real arm names as
+    # fabricated — a corpus narrower than the claim it checks.
+    declared: set[str] = set()
+    for path in census.rust_files(("crates", "game", "fixtures", "examples", "tools")):
+        for match in _DECLARED.finditer(pathlib.Path(path).read_text(errors="replace")):
+            declared.add(match.group(1) or match.group(2))
+    for path in pathlib.Path(__file__).resolve().parents[1].rglob("*.py"):
+        for match in re.finditer(r"^def\s+([a-z_][a-z0-9_]*)", path.read_text(errors="replace"), re.M):
+            declared.add(match.group(1))
+
+    unresolved: dict[str, list[str]] = {}
+    for name, reason in guard.ADJUDICATED.items():
+        for match in _CITED.finditer(reason):
+            token = match.group(1)
+            if token in declared or token in NOT_TREE_NAMES:
+                continue
+            unresolved.setdefault(token, []).append(name)
+    assert not unresolved, (
+        "a verdict names something this tree does not declare — either the name "
+        "is wrong or it belongs in NOT_TREE_NAMES with its reason: "
+        f"{ {k: sorted(set(v)) for k, v in sorted(unresolved.items())} }"
+    )
+
+
+def test_the_name_check_can_fail(monkeypatch):
+    # ⚠ The arm above reads a 1,300-file corpus, so "it passed" is the answer it
+    # gives when its regex matches nothing at all. Poison the verdict, not the
+    # corpus: a name shaped like a system and spelled like nothing in the tree.
+    poisoned = dict(guard.ADJUDICATED)
+    poisoned["ControlFrame"] = "CORRECT — see `a_system_that_was_never_written`."
+    monkeypatch.setattr(guard, "ADJUDICATED", poisoned)
+    with pytest.raises(AssertionError, match="a_system_that_was_never_written"):
+        test_every_system_a_verdict_names_exists()
+
+
+def test_a_declaration_the_corpus_hides_is_not_accepted(monkeypatch):
+    # ⚠ And the corpus itself is a premise. If `production_files()` returned
+    # nothing the arm would report every token as unresolved rather than pass, so
+    # an empty scan is loud — the opposite failure from the one above.
+    monkeypatch.setattr(census, "production_files", lambda *a, **k: [])
+    monkeypatch.setattr(census, "rust_files", lambda *a, **k: [])
+    with pytest.raises(AssertionError, match="does not declare"):
+        test_every_system_a_verdict_names_exists()

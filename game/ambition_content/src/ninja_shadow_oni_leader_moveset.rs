@@ -425,7 +425,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // is its second customer with a completely unrelated fiction: she holds the
     // room with her voice, he drops a smoke seal and you wake up on the floor.
     // ⇒ Distinct from both counters already on the roster — George's answers
-    // with a GRAB, the Author's with an ambush TELEPORT — which is the point of
+    // with a GRAB, the Director's with an ambush TELEPORT — which is the point of
     // the response being an arbitrary technique rather than a fixed reaction.
     //
     // ⛔ SHORT SLEEP, AND THE REASON IS THE GUARANTEE. The Performer earns 1.4s
@@ -950,7 +950,7 @@ mod tests {
         );
 
         // ⭐ THE ANSWER IS SMOKE, not a grab (George's) and not a teleport
-        // (the Author's). The response being an arbitrary technique is the whole
+        // (the Director's). The response being an arbitrary technique is the whole
         // reason three counters on one roster are three different moves.
         assert_eq!(
             params.response,

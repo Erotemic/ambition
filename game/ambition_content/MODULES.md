@@ -9,7 +9,6 @@
 | [`alice_moveset`](src/alice_moveset.rs) | Alice's repertoire — the cryptographer, and the one who SENDS. |
 | [`archetype_moveset`](src/archetype_moveset.rs) | One fighter borrowing another's TIMINGS, under its own name. |
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
-| [`author_moveset`](src/author_moveset.rs) | The Author — the sword archetype's table, wielded with a pen. |
 | [`authored`](src/authored/mod.rs) | Every character this provider AUTHORS, one file each. |
 | [`authored_movesets`](src/authored_movesets.rs) | Every moveset THIS CRATE authors, in one list. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
@@ -20,6 +19,7 @@
 | [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog DATA + the curated playable cast — CONTENT, evicted from the engine core (R3.2, violations #3 and #10). |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
+| [`director_moveset`](src/director_moveset.rs) | The Director — the sword archetype's table, wielded with a pen. |
 | [`dormancy`](src/dormancy.rs) | Dormancy policy for Ambition-authored actors. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`emmy_noether_moveset`](src/emmy_noether_moveset.rs) | Emmy Ethereal's authored Smash repertoire. |

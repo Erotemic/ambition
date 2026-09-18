@@ -187,7 +187,7 @@ const REACH_TOLERANCE: f32 = 2.0;
 /// ⭐⭐ THE FILTER IS THE ROUTE, NOT THE LIFT. This asked `lift_speed > 0.0`,
 /// which is the shape of exactly one route kind — the genre's ordinary up-B —
 /// and so it could not see the pirate's shark (seconds of movement authority)
-/// or the Author's teleport (a discontinuity). Both author a real way home and
+/// or the Director's teleport (a discontinuity). Both author a real way home and
 /// both read `0.0` here, so the CPU saw a fighter with no recovery at all
 /// (D250). `MoveFrameData::recovery_route` is the resolved answer and this asks
 /// it.

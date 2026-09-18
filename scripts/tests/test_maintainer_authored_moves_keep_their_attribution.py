@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FLOOR: dict[str, int] = {
     "game/ambition_content/src/pirate_admiral_moveset.rs": 3,
     "game/ambition_content/src/performer_moveset.rs": 9,
-    "game/ambition_content/src/author_moveset.rs": 1,
+    "game/ambition_content/src/director_moveset.rs": 1,
     "game/ambition_content/src/officer_moveset.rs": 1,
     "game/ambition_content/src/projectile_polygon_moveset.rs": 2,
     "game/ambition_content/src/player_robot_moveset.rs": 1,

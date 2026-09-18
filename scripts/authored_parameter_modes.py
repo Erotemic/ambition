@@ -426,7 +426,7 @@ def main() -> int:
     #     dormant is by construction a thing somebody is about to author, so the
     #     moment the list is useful the point FLIPS. Three have flipped while
     #     this script was being written: `behind_nearest_foe` (authored by the
-    #     Author's counter), `VolumeReaction::Windbox` (the Officer's neutral
+    #     Director's counter), `VolumeReaction::Windbox` (the Officer's neutral
     #     special, the first on the roster), and `close_on_transit` (implemented
     #     rather than authored). Each flip is the instrument working.
     # ⛔ A HELPER-ONLY MARKER. `forbidden_while_held` is NAMED in `game/` too, so

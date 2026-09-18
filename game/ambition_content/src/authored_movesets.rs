@@ -9,7 +9,7 @@
 //!
 //! ⚠ **AND IT HAD NARROWED, EXACTLY AS THAT SENTENCE PREDICTED — 12 of 19,
 //! found 2026-09-05 and completed the same day.** This paragraph used to name
-//! Pointed, Projectile and Pugnacious Polygon, the Author, the Performer, the
+//! Pointed, Projectile and Pugnacious Polygon, the Director, the Performer, the
 //! Officer and the Medic as fighters the roster seats and this list does not
 //! hold. Six of those seven have their moveset file in this crate, so they were
 //! never examples of the cast/list distinction — they were the gap, sitting
@@ -76,7 +76,7 @@ pub fn tables() -> Vec<(&'static str, MovesetContract)> {
         // moveset files are in this crate. So the header's "every moveset THIS
         // CRATE authors" was the accurate sentence and the list was the thing
         // out of step: 12 of 19.
-        ("author", crate::author_moveset::author_moveset()),
+        ("director", crate::director_moveset::director_moveset()),
         ("medic", crate::medic_moveset::medic_moveset()),
         ("officer", crate::officer_moveset::officer_moveset()),
         ("performer", crate::performer_moveset::performer_moveset()),
@@ -1647,7 +1647,7 @@ pub const TABLE_CHARACTERS: &[(&str, &[&str])] = &[
     ("oiler", &["npc_oiler"]),
     ("patent_clerk", &["special_patent_clerk"]),
     ("pirate_admiral", &["npc_pirate_admiral"]),
-    ("author", &["author"]),
+    ("director", &["author"]),
     ("medic", &["medic"]),
     ("officer", &["officer"]),
     ("performer", &["performer"]),

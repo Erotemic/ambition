@@ -8,7 +8,7 @@
 //! ⭐ AND THE REACH IS REAL BUT TEMPORARY. Her forward smash conjures a blade of
 //! stage light for exactly the frames the role calls for it, authored as the
 //! swing's own axis extended past her hand — so the archetype's frame data
-//! retargets onto her for the same reason it retargets onto the Author's pen.
+//! retargets onto her for the same reason it retargets onto the Director's pen.
 //! Outside those frames her hands are empty and short.
 //!
 //! ⚠ HER SPECIALS ARE STAGE MACHINERY WITH NO RULES YET. The trap door moves
@@ -40,7 +40,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         // ⛔ The Rust table still exists as the EXPORTER's source and the parity
         // oracle's subject. The host reads NEITHER, so editing it changes nothing
         // until it is re-exported.
-    // Medium, and one point over the Author's: the reach she conjures is worth
+    // Medium, and one point over the Director's: the reach she conjures is worth
     // less than his pen because it is only there while she commits to it, and
     // she eats the recovery either way.
     definition.vitals.max_health = Some(6);

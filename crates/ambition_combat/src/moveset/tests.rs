@@ -9333,7 +9333,7 @@ fn latch_after(
 
 /// ⛔⛔ THE DEFECT, NAMED. A committed move damps `locomotion` to zero for its
 /// whole duration, so the latch has to read the UNDAMPED axis or an aimed
-/// special cannot be aimed at all — which is what shipped: the Author's
+/// special cannot be aimed at all — which is what shipped: the Director's
 /// teleport read `locomotion`, found nothing, fell back to FACING and fired him
 /// sideways off the stage every time.
 #[test]

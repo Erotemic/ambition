@@ -44,10 +44,10 @@
         // `ambition_content::authored_movesets::TABLE_CHARACTERS` is the one
         // place that mapping lives.
         (path: "data/movesets/alice.ron", schema: "moveset", version: 1),
-        (path: "data/movesets/author.ron", schema: "moveset", version: 1),
         (path: "data/movesets/bob.ron", schema: "moveset", version: 1),
         (path: "data/movesets/carl_stargan.ron", schema: "moveset", version: 1),
         (path: "data/movesets/cellular_automaton.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/director.ron", schema: "moveset", version: 1),
         (path: "data/movesets/emmy_noether.ron", schema: "moveset", version: 1),
         (path: "data/movesets/goblin.ron", schema: "moveset", version: 1),
         (path: "data/movesets/medic.ron", schema: "moveset", version: 1),

@@ -1,4 +1,4 @@
-//! The Author — the sword archetype's table, wielded with a pen.
+//! The Director — the sword archetype's table, wielded with a pen.
 //!
 //! His rig is the Pointed Polygon's, retargeted: the pen occupies the arming
 //! sword's exact axis and length, which is why every one of the archetype's
@@ -7,7 +7,7 @@
 //! frame data IS the archetype's rather than a copy of it that will drift.
 //!
 //! What is his own is the NAME on it — and, since 2026-08-27, his RECOVERY.
-//! See [`author_moveset`].
+//! See [`director_moveset`].
 
 use ambition_entity_catalog::MovesetContract;
 
@@ -26,7 +26,7 @@ const TELEPORT_AT_S: f32 = 0.18;
 /// When the move ends. The tail is him being drawn back in.
 const TELEPORT_ENDS_S: f32 = 0.48;
 
-/// Complete sword-fundamentals repertoire, attributed to the Author.
+/// Complete sword-fundamentals repertoire, attributed to the Director.
 ///
 /// ⭐⭐ HIS UP-B IS HIS OWN, and it is the one place he departs from the
 /// archetype. Jon, 2026-08-27: *"Mewtwo / Palutena / Zelda style teleports…
@@ -49,13 +49,13 @@ const TELEPORT_ENDS_S: f32 = 0.48;
 /// bursting — is a sheet row that does not exist. Drawing it is an art job, and
 /// pointing both ends at the row that DOES exist is honest in the meantime;
 /// pointing the arrival at some unrelated effect would not be.
-pub fn author_moveset() -> MovesetContract {
+pub fn director_moveset() -> MovesetContract {
     let mut set = crate::archetype_moveset::under_own_name(
         crate::pointed_polygon_moveset::pointed_polygon_moveset(),
         &["polygon", "pointed_polygon"],
         "author",
     );
-    crate::special_slots::replace_special(&mut set, "special_up", authors_teleport());
+    crate::special_slots::replace_special(&mut set, "special_up", directors_teleport());
     crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
     crate::special_slots::replace_special(&mut set, "special_forward", a_train_of_thought());
 
@@ -168,9 +168,9 @@ fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
     spec
 }
 
-/// The Author's counter: you land the blow, and it is revised out of the scene.
+/// The Director's counter: you land the blow, and it is revised out of the scene.
 ///
-/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"Swordies will get a counter."* The Author
+/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"Swordies will get a counter."* The Director
 /// IS the sword archetype — this module's own first line says so — and until now
 /// the counter's only authored customers were demo stand-ins. This puts it on a
 /// fighter somebody picks.
@@ -239,8 +239,8 @@ fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
     )
 }
 
-/// The Author's recovery: he edits himself out and back in somewhere else.
-fn authors_teleport() -> ambition_entity_catalog::MoveSpec {
+/// The Director's recovery: he edits himself out and back in somewhere else.
+fn directors_teleport() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
         "author_revision",
         "special_up",
@@ -281,7 +281,7 @@ fn authors_teleport() -> ambition_entity_catalog::MoveSpec {
     // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
     // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
     // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same
-    // cue down a second road, and Author's Revision requested it twice
+    // cue down a second road, and Director's Revision requested it twice
     //. The executor is the one authority, which is what it already
     // is for every other teleport in the game.
     //
@@ -307,8 +307,8 @@ mod tests {
     /// new move, the new move is IN the table, and the archetype's rise is gone
     /// rather than left unreachable.
     #[test]
-    fn the_author_recovers_by_teleporting_and_the_archetypes_rise_is_gone() {
-        let set = author_moveset();
+    fn the_director_recovers_by_teleporting_and_the_archetypes_rise_is_gone() {
+        let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_up").map(String::as_str),
             Some("author_revision"),
@@ -334,7 +334,7 @@ mod tests {
     /// number.
     #[test]
     fn his_thought_outlives_the_move_that_threw_it() {
-        let set = author_moveset();
+        let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_forward").map(String::as_str),
             Some("author_train_of_thought"),
@@ -387,10 +387,10 @@ mod tests {
     /// ⛔⛔ THE COUNTER IS HIS, AND THE AMBUSH IS THE PART WORTH GUARDING. A test
     /// that only found a `smash.counter` on his down-B would pass against a
     /// second copy of George's riposte — the whole reason this move is the
-    /// Author's is that its response is a teleport that arrives BEHIND you.
+    /// Director's is that its response is a teleport that arrives BEHIND you.
     #[test]
-    fn the_authors_counter_answers_by_arriving_behind_whoever_swung() {
-        let set = author_moveset();
+    fn the_directors_counter_answers_by_arriving_behind_whoever_swung() {
+        let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_down").map(String::as_str),
             Some("author_second_draft"),
@@ -442,7 +442,7 @@ mod tests {
     /// two verbs; replacing `special_down` must not take his air-down with it.
     #[test]
     fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
-        let set = author_moveset();
+        let set = director_moveset();
         // ⛔⛔ THE INHERITED ID, NOT A HISTORICAL ONE, AND THIS ASSERTION WENT
         // VACUOUS ONCE ALREADY. It named `author_low_arc`, which is what the
         // Pointed Polygon's grounded down-B was called until that fighter's
@@ -463,11 +463,11 @@ mod tests {
 
     /// ⛔ AND IT IS STILL A RECOVERY. `UpSpecial::Standard` set
     /// `gates.recovery` on the move it lowered; a replacement inserted after
-    /// that lowering has to carry the cost itself, or the Author gets an
+    /// that lowering has to carry the cost itself, or the Director gets an
     /// unlimited teleport.
     #[test]
     fn the_replacement_still_spends_the_airtimes_recovery() {
-        let set = author_moveset();
+        let set = director_moveset();
         let up = set
             .moves
             .iter()

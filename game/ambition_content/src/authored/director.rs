@@ -1,4 +1,4 @@
-//! The Author — easter-egg sword humanoid, armed with a pen.
+//! The Director — easter-egg sword humanoid, armed with a pen.
 //!
 //! The person writing the game, standing in it. He is the Pointed Polygon's
 //! archetype wearing a different person: same skeleton, same clip vocabulary,
@@ -20,7 +20,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         });
         // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
-        // The table this line compiled in is `assets/data/movesets/author.ron`,
+        // The table this line compiled in is `assets/data/movesets/director.ron`,
         // declared in `pack.ron`, validated by the `moveset` schema and applied
         // in `crate::character_catalog::authored_intrinsics` — the one seam
         // every buildable character passes through.

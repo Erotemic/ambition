@@ -108,12 +108,12 @@ UpSpecial::Standard(spec).into_spec()
 
 `WIRE_AT_S = 0.12`, `WIRE_ENDS_S = 0.46`.
 
-It is **literally the Author's teleport with a different comment**. One beat, one
+It is **literally the Director's teleport with a different comment**. One beat, one
 placement, 215px, and `apply_authored_teleports`
 (`abilities/traversal/teleport.rs:470`) emits `PLAYER_BLINK` at every transit —
 that is the teleport sound Jon hears, and it comes from the executor, not from
 this timeline, so deleting a cue here will not silence it. The `four_point_glint`
-on both ends is the Author's blink flash.
+on both ends is the Director's blink flash.
 
 ⛔ **Do not "fix" this by muting the executor's cue.** A move that runs the
 teleport executor IS a teleport; the cue is telling the truth. The move has to

@@ -212,8 +212,8 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     // FIRST-AUTHORED volume that reaches and no other"). Nothing could SAY it
     // until `tipper`.
     //
-    // ⚠ AND THIS ONE EDIT REACHES TWO FIGHTERS. `author_moveset` borrows this
-    // whole table and renames the prefix, so the Author's `author_point` is this
+    // ⚠ AND THIS ONE EDIT REACHES TWO FIGHTERS. `director_moveset` borrows this
+    // whole table and renames the prefix, so the Director's `author_point` is this
     // move — which is why it was worth doing here rather than authoring a
     // separate thrust for each.
     let neutral_special = committed_tail(
@@ -377,7 +377,7 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 
     // DOWN (grounded) — `polygon_riposte`. ⭐⭐ JON, IN AS MANY WORDS:
     // *"Swordies will get a counter."* The mechanic shipped on the stand-ins and
-    // on the Author last week; the sword archetype it was assigned to never got
+    // on the Director last week; the sword archetype it was assigned to never got
     // one, and this table's five specials were five plain hitboxes. It replaces
     // `polygon_low_arc`, a conventional low swipe that said nothing about him —
     // and a counter IS the conventional answer for this archetype, so the

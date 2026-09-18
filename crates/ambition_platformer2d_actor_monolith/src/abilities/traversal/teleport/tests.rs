@@ -544,7 +544,7 @@ fn the_ledge_assist_follows_gravity_into_every_frame() {
 // WHERE AN AIMED TELEPORT GOES.
 //
 // ⭐⭐ THE STYLE THESE ARMS PIN is the genre's aimed teleport — Mewtwo's, and
-// what Jon asked the Author's up-B to be: *"a small window to input any
+// what Jon asked the Director's up-B to be: *"a small window to input any
 // direction and the user can aim the teleport like that but it defaults to
 // up."* They are written against the TECHNIQUE and not against a fighter: every
 // authored `smash.teleport` gets this, so a second fighter authoring one cannot

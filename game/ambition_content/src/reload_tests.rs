@@ -123,7 +123,7 @@ fn pack_of(text: &str) -> Result<ambition_content_pack::PreparedContentPack, Str
 ///
 /// ⛔⛤ **THE REMOVED-SECTION TRANSITION CANNOT BE AUTHORED INTO THE SHIPPED
 /// PACK, WHICH IS WHY THIS EXISTS.** MEASURED 2026-09-12: emptying a table is
-/// refused (`data/movesets/author.ron` declares the `moveset` schema and carries
+/// refused (`data/movesets/director.ron` declares the `moveset` schema and carries
 /// no move contract for any of its 0 entities), and so is removing a table's only
 /// entity — the compiler closes both. What it does NOT close is a manifest that
 /// stops declaring the family, and `game/ambition_demo_smash/assets/pack.ron`

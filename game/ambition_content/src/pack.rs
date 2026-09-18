@@ -65,10 +65,6 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
         "alice",
         Some(include_str!("../assets/data/movesets/alice.ron")),
     ),
-    (
-        "author",
-        Some(include_str!("../assets/data/movesets/author.ron")),
-    ),
     ("bob", Some(include_str!("../assets/data/movesets/bob.ron"))),
     (
         "carl_stargan",
@@ -79,6 +75,10 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
         Some(include_str!(
             "../assets/data/movesets/cellular_automaton.ron"
         )),
+    ),
+    (
+        "director",
+        Some(include_str!("../assets/data/movesets/director.ron")),
     ),
     (
         "emmy_noether",
@@ -138,10 +138,10 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
 #[cfg(not(feature = "static_content"))]
 const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("alice", None),
-    ("author", None),
     ("bob", None),
     ("carl_stargan", None),
     ("cellular_automaton", None),
+    ("director", None),
     ("emmy_noether", None),
     ("goblin", None),
     ("medic", None),

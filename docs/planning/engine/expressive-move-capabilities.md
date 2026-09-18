@@ -43,7 +43,7 @@ came out the same way — the primitive existed and the coordination did not.
   movement and body semantics own what submerged means.
 * **Flyline** establishes the wire only; the movement kernel owns the swing and
   the winch. ⭐ This is the template the rest should copy.
-* **Author's blink** is already a generic teleport technique with authored
+* **Director's blink** is already a generic teleport technique with authored
   destination policy, wall clamping, ledge assist, intangibility and
   presentation parameters.
 * **Grounded command grabs** already reduce to an authored
@@ -305,7 +305,7 @@ unverified here and should be re-derived before anyone builds against them.
 | **Tether / spatial link** ◐ | ledge tether, fishing rod, whip grab, reel, swing | grapple traversal, flyline wire, capture reach volumes | ✔ **GROUND HALF SHIPPED (B2)** — one read-model field and a line on both roads. ▢ The LEDGE tether is open, and mostly assembled: `TeleportParams::ledge_assist` already places an arrival standing on a ledge, so what a tether adds is the visible line. shared tether constraint ONLY when real reeling/swinging needs it | Movement/spatial constraint |
 | **Capture / command grab** | Flying Slam, Inhale, Egg Lay, Ridley drag | `CapturedBy` is already the sole capture relation; grounded command grab is authoring-only | aerial eligibility, targeted hit-grab request, cargo movement, richer escape/release | Capture |
 | **Carry / drag** ✔ | DK cargo, Ridley Rush, Bowser carry | capture relation and pose constraint | ⭐ **SHIPPED 2026-09-05 (goblin's down-throw), AND NO CONTRACT WAS NEEDED.** `restrict_captor_control` zeroed `locomotion` for every captor; a carry is a hold that does not. One bool on `SmashHoldState` — the RULESET's half — and one branch. ⇒ Movement was never touched: capture simply restricts LESS | Capture + Movement |
-| **Guided/steerable projectiles** ✔ | PK Thunder, Nikita, Din's Fire | unified projectile entities; ballistic `ProjectileFlight`; bouncing and returning shots | ⭐⭐ **SHIPPED 2026-09-05 (the Author's side-B) AND THE INPUT LEASE WAS NOT NEEDED.** `ActorControlFrame::steer_axis()` publishes *"what the PLAYER is HOLDING, as opposed to what this body is ALLOWED to move by"* — it exists because a rooted move reads `locomotion` as zero. ⇒ The caster stays rooted and keeps his seat; a move-scoped system reads his live stick. **Steering is not possession** | Projectile |
+| **Guided/steerable projectiles** ✔ | PK Thunder, Nikita, Din's Fire | unified projectile entities; ballistic `ProjectileFlight`; bouncing and returning shots | ⭐⭐ **SHIPPED 2026-09-05 (the Director's side-B) AND THE INPUT LEASE WAS NOT NEEDED.** `ActorControlFrame::steer_axis()` publishes *"what the PLAYER is HOLDING, as opposed to what this body is ALLOWED to move by"* — it exists because a rooted move reads `locomotion` as zero. ⇒ The caster stays rooted and keeps his seat; a move-scoped system reads his live stick. **Steering is not possession** | Projectile |
 | **Homing projectiles** | missiles, auto-target shots | deterministic target machinery exists elsewhere | target acquisition/lock/retarget policy inside the projectile owner | Projectile |
 | **Owner-relative return** | boomerangs, crowns | ✔ analytic boomerang, deliberately owner-free | true owner-relative return/catch for a MOVING owner | Projectile |
 | **Projectile interception** ✔ | reflector, cape redirect, absorber | parry already re-owns a projectile: rewrites allegiance, reverses/boosts velocity | ⭐ **SHIPPED as Track B's B3** — `ProjectileInterception::{Reflect, Consume}` and one shield field. ⛔ And the REFLECTOR cost nothing at all: `step_projectiles` and the melee seam gate on the same `parrying()` window, so a stance that could counter could already return shots | Projectile |
@@ -533,7 +533,7 @@ variable-duration state, and the current art is built to disguise that).
 **Blink is likely the same story**: the teleport technique already supports aim
 latching over startup, an upward default, destination collision resolution,
 ledge assist, "behind nearest foe" targeting, intangibility and authored
-departure/arrival effects. If Author still does not read like Mewtwo, diagnose
+departure/arrival effects. If Director still does not read like Mewtwo, diagnose
 missing teleport POLICY parameters or presentation sequencing before writing a
 second teleport.
 

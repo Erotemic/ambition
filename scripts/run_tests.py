@@ -1342,6 +1342,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_consumed_request_writers.py",
             ],
         ),
+        # `CheckpointDomainApply`'s authorization is made out of WHEN its
+        # reducers run: the commit executor runs that schedule and nothing else
+        # does, so a reducer living in it cannot act on an unadmitted request.
+        # That replaced a one-frame `AdmittedCheckpointRestore` token every
+        # reducer had to remember to read — so a second runner reintroduces the
+        # token's PROBLEM with none of its visibility, because no reducer has a
+        # value left to consult. The existing arm holds the schedule's
+        # MEMBERSHIP and stays green through exactly that change.
+        Job(
+            "a commit-only schedule has exactly one production runner",
+            [
+                sys.executable,
+                "scripts/check_commit_only_schedules_have_one_runner.py",
+            ],
+        ),
         # ⛔ `const ALL` is a hand-written copy of an enum's variant list and
         # nothing in Rust holds the two together: adding a variant compiles, and
         # the array keeps its old length. Every consumer that ITERATES `ALL`

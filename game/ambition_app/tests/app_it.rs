@@ -150,6 +150,7 @@ mod the_developer_hud_flash_still_winds_down;
 mod the_dev_tool_publishes_the_brain_override;
 mod rollback_seat_devices;
 mod room_boundary_unclaimed_views;
+mod room_cutscene_bindings_resolve;
 mod room_replay_seam;
 mod room_spatial_integrity;
 mod save_mirror_flips_a_persisted_npc;

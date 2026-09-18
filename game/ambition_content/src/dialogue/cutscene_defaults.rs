@@ -82,7 +82,15 @@ pub fn default_room_cutscene_bindings() -> RoomCutsceneBindings {
     RoomCutsceneBindings {
         bindings: vec![
             // Plays the first time the player enters the hub.
-            ("central_hub_main".into(), "test_intro".into()),
+            //
+            // ⛔ `central_hub_main` (an LDtk LEVEL id) was named here until
+            // 2026-09-18: `auto_trigger_room_cutscenes` compares against the
+            // RUNTIME room id, `central_hub_main` and `central_hub_basement`
+            // both merge into `central_hub_complex` at LDtk conversion, and
+            // the row could never match — see `resources.rs`'s panic message
+            // for the same trap. Caught by inspection, not by a test; the
+            // guard for this is `room_cutscene_bindings_resolve.rs`.
+            ("central_hub_complex".into(), "test_intro".into()),
             // Plays the first time the player enters the (existing)
             // basement boss arena. The `seen_flag` guards against replays.
             (
@@ -116,10 +124,12 @@ mod tests {
     #[test]
     fn default_room_cutscene_bindings_link_hub_to_test_intro() {
         let bindings = default_room_cutscene_bindings();
-        // Hub plays the test_intro cutscene on first entry.
+        // Hub plays the test_intro cutscene on first entry. `central_hub_complex`
+        // is the RUNTIME room id `auto_trigger_room_cutscenes` compares against
+        // -- not `central_hub_main`, which is only the LDtk level identifier.
         assert!(bindings
             .bindings
             .iter()
-            .any(|(room, cs)| room == "central_hub_main" && cs == "test_intro"));
+            .any(|(room, cs)| room == "central_hub_complex" && cs == "test_intro"));
     }
 }

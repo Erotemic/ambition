@@ -34,7 +34,7 @@ pub enum CutsceneBeat {
     /// that searched only the default library and reported one:
     ///
     /// * `test_intro`, 0.8 s — `dialogue/cutscene_defaults.rs`, bound to
-    ///   `central_hub_main`;
+    ///   `central_hub_complex`;
     /// * `intro_wake`, 0.8 s — `intro/cutscene.rs`, bound to `intro_wake_room`;
     /// * `drain_market_arrival`, 0.6 s — `intro/cutscene.rs`, bound to
     ///   `drain_alley`.
@@ -45,6 +45,13 @@ pub enum CutsceneBeat {
     /// rooms, not 0.8 s in one. `CameraPan`, the other incomplete beat, has no
     /// non-test literal at all — which is the difference that matters, and the
     /// reason a count belongs here rather than a word like "one" or "only".
+    ///
+    /// ⛔ **AND "ALL THREE" WAS WRONG THE DAY IT WAS WRITTEN.** `test_intro` was
+    /// bound to `central_hub_main` — an LDtk LEVEL id, not the runtime room id
+    /// `auto_trigger_room_cutscenes` compares against — so that row could never
+    /// fire; only two of the three were live entry paths (1.4 s, not 2.2 s).
+    /// Found and repointed to `central_hub_complex` 2026-09-18; the citation
+    /// above is corrected in place rather than left to describe a dead row.
     /// ⛔⛤ **AND A CONSUMER ALONE WOULD CHANGE NOTHING — measured the same day.**
     /// All three target `to_alpha: 0.0`, a fade UP, and
     /// [`CutsceneRuntime::presentation`] returns the target unchanged, ignoring

@@ -189,12 +189,14 @@ had at least one hit; every hit below has been through the detector, the
 `--all-features` confirmer, and (where the finding wasn't already settled by
 those two) the `--all-targets` confirmer or a direct delete-and-build test.
 
-### Manifest changed (17 edges, across 9 crates)
+### Manifest changed (16 edges, across 8 crates)
 
 ⚠ This heading read *"11 edges, across 7 crates"* until 2026-09-18 while the
 table under it held 17 rows across 9 crates. A count of a list that sits
 directly above the list is the cheapest of all numbers to check and was never
-checked. Recounted by parsing the table rather than by re-reading it.
+checked. Recounted by parsing the table rather than by re-reading it — and
+recounted AGAIN the same day, down to 16/8, once `ambition_content_pack`
+turned out not to belong here at all (see the note on its row, moved below).
 
 | crate | dependency | class | evidence |
 |---|---|---|---|
@@ -202,7 +204,6 @@ checked. Recounted by parsing the table rather than by re-reading it.
 | `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — removed | 0 occurrences. Both this and the row above are the carve-strandage case: the crate carved that same night has **zero** `cfg(feature` in its entire `src/` (no conditional path can hide a use), and `--all-targets` checks clean in both default (17.06s) and `--features test-support` (1.72s) configurations — a carve moves code out and leaves the source crate's declaration behind, because nothing fails when a dependency stops being named |
 | `ambition_damage` | `ambition_projectiles` | MISFILED — moved to `[dev-dependencies]` | only `crates/ambition_damage/src/tests.rs` names `ProjectileKind`; `crates/ambition_damage/src/lib.rs:1099` is backtick prose (`` `ambition_projectiles::kind::ProjectileKind::spec` ``), not an intra-doc link — no rustdoc risk, so this needed only the one edit |
 | `ambition_encounter_features` | `ambition_interaction` | MISFILED — moved to `[dev-dependencies]` | both uses (`PickupKind`, `Chest`) in `src/tests.rs`. Visible in `fixtures/minimal_game`'s sentinel lockfile: the crate dropped out of the minimal profile's closure once the edge moved — a misfiled dev-dependency is not tidiness, it is a crate a shipped profile linked in order to run nobody's tests |
-| `ambition_content_pack` | `thiserror` | STRANDED — removed | 0 occurrences, and the crate has no `derive(…Error)` at all |
 | `ambition_app` | `serde` | MISFILED — moved to `[dev-dependencies]` | only `tests/replay_fixture_regression.rs` (a submodule of the aggregated `tests/app_it.rs` binary) names it |
 | `ambition_app` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | only `tests/gravity_symmetry_room.rs` (same aggregate binary) names it |
 | `ambition_app` | `ron` | STRANDED — removed | 0 occurrences anywhere (`lib`, `bin`, `tests/`, `examples/`); plain, not optional, not wired through any `dep:ron` feature entry. Delete-and-build clean at default (5m51s) and `--all-features` (5m26s) |
@@ -231,6 +232,7 @@ as of the commits this page cites.
 
 | crate | dependency | class | evidence |
 |---|---|---|---|
+| `ambition_content_pack` | `thiserror` | real use, no edit | ⛔⛤ **THIS ROW READ "STRANDED — removed, 0 occurrences, no `derive(…Error)` at all" UNTIL 2026-09-18, AND IT WAS NEVER TRUE.** `crates/ambition_content_pack/src/artifact.rs:35` has carried `#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]` since `fd50efde7`, 2026-09-11 — a week before this page's own dated measurement. The manifest edge was never actually deleted (checked: still a plain `[dependencies]` entry, unconditional, no `[features]` table in this crate at all), so nothing shipped broken; only the write-up was wrong, and it said "removed" about an edit that was never made. Found re-verifying this table against the tree it describes, not by a bug report. Moved out of "Manifest changed" into this table, where it always belonged |
 | `ambition_abilities` | `ambition_items` | DOC-ONLY | named once, in an intra-doc link inside a `//!` comment. **Ruled 2026-09-03: keep both** |
 | `ambition_input` | `bevy_input` | FEATURE-ACTIVATION | `features = ["serialize"]` is why the line exists. Deleting it and building DEFAULT features fails on `KeyCode: serde::Serialize` — the ambition_input/bevy_input worked trap this page's methodology section cites throughout |
 | `ambition_input` | `ambition_entity_catalog` | FEATURE-GATED, real use | 5 non-test references |

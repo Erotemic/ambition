@@ -2348,7 +2348,7 @@ to be satisfiable by a frozen world, and its author gets no warning.
    ⇒ Item 0's claim is measured now rather than predicted: the twenty-seventh
    arm WAS exposed, and its author got the warning.
 
-### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay
+### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay — ✅ REPAIRED 2026-09-16, acceptance MET; the authority/representation split is DEFERRED and Q129 is open
 
 **P0 — ✅ REPAIRED 2026-09-16. The acceptance bar below is MET, including the
 half that is not the repro.**
@@ -2541,7 +2541,7 @@ and the save's hashed projection tracks (1 → 236 distinct censuses across the
 compared frames). ⇒ The repaired mirror half was a per-FRAME write into a
 per-TICK checksum, 1 of 364 probed entries differing and it being
 `AmbitionGameSave`; measurement, eliminations and reproduction are in
-[ROLLBACK-BAG-DESYNC](#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay).
+[ROLLBACK-BAG-DESYNC](#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
 ⛔ **WHAT IS LEFT IS NOT A SAVE WRITER AT ALL.** It is the DURABLE RESTORE
 CHAIN's placement against GGRS start —

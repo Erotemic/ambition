@@ -1257,7 +1257,7 @@ the three that do reset describe world placement. That reason is now stated at
 `session/teardown.rs` beside the three, where its absence used to be a default.
 
 Reproduction, eliminations and the full harness matrix are in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open);
 the owner document is
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
 

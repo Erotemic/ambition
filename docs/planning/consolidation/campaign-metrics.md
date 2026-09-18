@@ -211,6 +211,30 @@ page as the left-hand column's rule, and do not subtract across the change: this
 page's rule 2 asks for the same counting rules, and this is the case it exists
 for.
 
+⛔⛤ **AND THERE IS A THIRD RULE SINCE 2026-09-18: COMMENTS ARE STRIPPED BEFORE
+THE SHAPE REGEXES.** Recorded here rather than folded into the table above, for
+the reason that table exists — do not subtract across a rule change. Measured at
+`52bd95d34`, both columns under the per-item strip, the right-hand one with
+comments removed as well:
+
+| metric | comments counted | comments stripped | Δ |
+| --- | ---: | ---: | ---: |
+| `Option<Res<_>>` occurrences | 821 | **808** | −13 |
+| `Option<Res<_>>` unique types | 206 | **203** | −3 |
+| `#[derive(Resource)]` declarations | 543 | **544** | +1 |
+| `#[derive(Component)]` declarations | 659 | **660** | +1 |
+
+⭐ **THE TWO DIRECTIONS HAVE DIFFERENT CAUSES AND THE POSITIVE ONE IS THE
+INTERESTING HALF.** Downward is prose being counted: `ActiveContentBinding` is
+named in a doc comment and never actually `Option`'d anywhere, and `R` and `_`
+come out of doc examples. Upward is a WINDOW: `DERIVE_COMPONENT` allows 360
+characters between the derive and its `struct`, and a doc comment longer than
+that pushes the struct out of range — so `ActorControl` and `ButtonVerb` were
+invisible to this census for no reason but how much somebody wrote about them,
+and `GatedLockWallVerdicts` the same on the resource side. `DamageTeam` leaves in
+the other direction, a prose-only match. ⇒ A discovery surface that counts
+comments is not cheaper; it is wrong in whichever direction the prose falls.
+
 ⭐ **THE ONE THAT MATTERS MOST IS NOT THE BIGGEST.** `raw .before/.after edges`
 moved 24%, and it is the population C07's *"correctness-sensitive ordering
 relationships"* row samples from; the optional-resource row C07 is COSTED from

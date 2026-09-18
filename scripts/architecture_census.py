@@ -26,6 +26,8 @@ from typing import Any, Iterable
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
 from test_paths import is_test_path, strip_test_modules  # noqa: E402
+
+from lib import rust_source
 LEDGER = REPO / "docs/planning/consolidation/consolidation-ledger.json"
 SOURCE_ROOTS = ("crates", "game", "tests", "tools")
 LARGE_MODULE_NONBLANK_LINES = 1000
@@ -294,6 +296,24 @@ def source_pattern_metrics() -> dict[str, Any]:
     for path in production_rust_files():
         rel = str(path.relative_to(REPO))
         text = strip_cfg_test_tail(path.read_text(encoding="utf-8", errors="replace"))
+        # ⛔⛤ **COMMENTS OUT BEFORE THE SHAPE REGEXES, AND IT MOVED THE NUMBERS
+        # IN BOTH DIRECTIONS — 2026-09-18.** This read raw text, so every count
+        # below included prose.
+        #   `OPTIONAL_RES`     821 -> 808 occurrences, 206 -> 203 types. The
+        #     three that go are `ActiveContentBinding` — named in a doc comment
+        #     and never actually `Option`'d anywhere — plus `R` and `_` picked
+        #     out of doc examples.
+        #   `DERIVE_COMPONENT` 659 -> 660, and the direction is the surprise.
+        #     The pattern allows 360 characters between the derive and its
+        #     `struct`, and a doc comment longer than that pushes the struct out
+        #     of range: `ActorControl` and `ButtonVerb` were INVISIBLE to this
+        #     census for that reason alone, while `DamageTeam` was a prose-only
+        #     match that leaves. A window measured in characters is a window
+        #     measured in how much somebody wrote.
+        #   `DERIVE_RESOURCE`  543 -> 544, same cause, `GatedLockWallVerdicts`.
+        # ⇒ A discovery surface that counts comments is not cheaper, it is
+        #   wrong in whichever direction the prose happens to fall.
+        text = rust_source.strip_comments(text)
         for match in OPTIONAL_RES.finditer(text):
             optional_occurrences.append({"path": rel, "kind": match.group("kind"), "type": match.group("type")})
         for match in DERIVE_RESOURCE.finditer(text):

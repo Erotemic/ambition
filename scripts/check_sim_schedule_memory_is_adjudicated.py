@@ -32,8 +32,14 @@ so it appears in none of them:
 different spelling, and this scan cannot see it. Answering for the resource half
 needs "is this `ResMut<T>` accumulating, and is `T` unregistered", where the
 accumulating test is the hard part: most host-local resources are written
-wholesale every frame and are perfectly safe. That instrument does not exist.
+wholesale every frame and are perfectly safe.
 ⇒ A green here is a statement about `Local`, not about memory.
+
+✅ **THAT INSTRUMENT NOW EXISTS**, built 2026-09-18:
+`scripts/check_sim_schedule_resource_memory_is_adjudicated.py`, also in
+`--maintenance`. Its discriminator for "accumulating" is SELF-REFERENCE — a
+write that reads its own previous value — and it reports 11 accumulators, all
+read. The two guards are siblings and neither subsumes the other.
 
 ⭐ **ALL 13 CURRENT MEMBERS ADJUDICATE HARMLESS, AND THE FIVE REASONS ARE THE
 USEFUL PART** — they are what a reader should check a fourteenth against:

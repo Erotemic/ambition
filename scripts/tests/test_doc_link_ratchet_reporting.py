@@ -69,7 +69,14 @@ def rig(tmp_path, monkeypatch):
         monkeypatch.setattr(
             module,
             "measure",
-            lambda crate: (links(crate, counts[crate]), "Documenting x\nFinished"),
+            # ⛔ THE THIRD MEMBER IS CARGO'S EXIT STATUS, and it is part of the
+            # measurement: see `measure`'s own comment. The evidence line has to
+            # name the CRATE now, because the acceptance is per-crate.
+            lambda crate: (
+                links(crate, counts[crate]),
+                f"Documenting {crate}\nFinished",
+                0,
+            ),
         )
 
     configure.links = links
@@ -137,10 +144,93 @@ def test_a_crate_that_produced_no_rustdoc_output_is_not_scored_zero(rig, capsys)
     zero warnings from a build that did not happen is not a score."""
     module, configure, _ = rig
     configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
-    # no "Documenting"/"Finished" in the output: the build did not happen
-    object.__setattr__(module, "measure", lambda crate: ([], ""))
+    # nothing naming this crate in the output: the build did not happen
+    object.__setattr__(module, "measure", lambda crate: ([], "", 0))
     assert run(module, []) == 1
     assert "produced no rustdoc output at all" in capsys.readouterr().out
+
+
+def test_finished_without_this_crate_is_not_evidence(rig, capsys):
+    """⛔⛤ **THE ARM THAT WAS TOO WEAK, MEASURED 2026-09-18.** The acceptance
+    was `"Documenting" in output or "Finished" in output`, over ONE crate's
+    output. `Finished` prints whether or not anything was documented, so a run
+    that did nothing for this crate still cleared the arm — which is how thirteen
+    crates read zero and printed *"repaired"*."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], "    Finished `dev` profile", 0)
+    )
+    assert run(module, []) == 1
+    assert "produced no rustdoc output at all" in capsys.readouterr().out
+
+
+def test_a_warm_run_that_only_replays_is_still_a_measurement(rig, capsys):
+    """⭐ AND THE CONTROL, because the arm above must not refuse a real run.
+    A fresh doc unit prints no `Documenting` line and cargo replays its cached
+    diagnostics under `Generated .../doc/<crate>/index.html` — measured, warm,
+    on `ambition_body_seed`: one warning, no `Documenting`."""
+    module, configure, _ = rig
+    configure({"alpha": 3, "beta": 1}, {"alpha": 3, "beta": 1})
+    recorded = {
+        crate: configure.links(crate, n) for crate, n in {"alpha": 3, "beta": 1}.items()
+    }
+    object.__setattr__(
+        module,
+        "measure",
+        lambda crate: (
+            recorded[crate],
+            f"   Generated /repo/target/doc/{crate}/index.html",
+            0,
+        ),
+    )
+    assert run(module, ["--check"]) == 0
+    assert "produced no rustdoc output" not in capsys.readouterr().out
+
+
+def test_a_cargo_doc_that_failed_is_refused_rather_than_scored(rig, capsys):
+    """⛔ A NON-ZERO EXIT IS NOT AN EMPTY WARNING LIST. The status was discarded,
+    so a failed build scored zero and read as a total repair."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module,
+        "measure",
+        lambda crate: ([], "error: could not compile `alpha`", 101),
+    )
+    assert run(module, []) == 1
+    out = capsys.readouterr().out
+    assert "`cargo doc` FAILED" in out
+    # and it must NAME the failure, because the operator has to act on it
+    assert "could not compile" in out
+
+
+def test_every_crate_at_zero_against_a_banked_baseline_is_refused(rig, capsys):
+    """⛔⛔ THE SHAPE OF 2026-09-18: `TOTAL 0`, a *"repaired"* mark on every row,
+    and exit 0. Even with cargo exiting 0 and naming each crate, a simultaneous
+    repair of every tracked crate is an instrument failure, not a landing."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], f"Documenting {crate}\nFinished", 0)
+    )
+    assert run(module, []) == 1
+    assert "every tracked crate measured ZERO" in capsys.readouterr().out
+
+
+def test_a_deliberate_universal_repair_can_still_be_banked(rig, capsys):
+    """⭐ AND ITS ESCAPE HATCH, so the guard cannot forbid its own remedy — the
+    lesson the stale-baseline arm above already learned. `--update` is a human
+    act and is exempt."""
+    module, configure, baseline = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], f"Documenting {crate}\nFinished", 0)
+    )
+    assert run(module, ["--update"]) == 0
+    import json as _json
+
+    assert _json.loads(baseline.read_text())["crates"] == {"alpha": [], "beta": []}
 
 
 def test_a_repair_and_a_new_break_in_one_crate_is_a_RISE(rig, capsys):
@@ -165,7 +255,7 @@ def test_a_repair_and_a_new_break_in_one_crate_is_a_RISE(rig, capsys):
     object.__setattr__(
         module, "measure",
         lambda crate: ((swapped if crate == "alpha" else links("beta", 1)),
-                       "Documenting x\nFinished"),
+                       f"Documenting {crate}\nFinished", 0),
     )
     assert len(swapped) == 3, "the swap must not change the count, or it proves nothing"
 
@@ -208,7 +298,7 @@ def test_update_can_actually_perform_the_migration_it_recommends(rig, capsys):
     baseline.write_text(json.dumps({"crates": {"alpha": 3, "beta": 1}}))
     object.__setattr__(
         module, "measure",
-        lambda crate: (links(crate, 2), "Documenting x\nFinished"),
+        lambda crate: (links(crate, 2), f"Documenting {crate}\nFinished", 0),
     )
     assert run(module, ["--update"]) == 0, capsys.readouterr().out
     written = json.loads(baseline.read_text())["crates"]

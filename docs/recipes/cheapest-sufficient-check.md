@@ -633,6 +633,25 @@ open it; when you follow a citation and it looks wrong, fix it and say so.
   field, `wait` on a known pid, or the runner's own exit — and if you must use
   `pgrep`, `pgrep -f "[r]un_tests.py"` keeps the bracket out of the match. Better still, don't poll — a backgrounded command reports its exit.
 
+  ⛔⛤ **AND FOUR MORE ON 2026-09-18, FROM A SUBAGENT OF THE SESSION THAT HAD
+  JUST READ THIS PARAGRAPH.** Two `until ! pgrep -f 'cargo check --workspace'`
+  waiters and two `until ! pgrep -f 'cargo test -p ambition_content'` waiters,
+  all four alive after **3 h 10 m** with nothing compiling. The pattern was
+  inside the waiter's own command line, so `pgrep` matched the waiter and the
+  loop could not end. ⚠ A SUBAGENT INHERITS THE SHELL AND NOT THE PAGE, which is
+  where this family will keep coming from: the parent had the rule and the four
+  waiters were not the parent's. And asked about them afterwards, the subagent
+  reported that they *"just timed out (exit 144 = killed)"* — they had not, and
+  a waiter of this shape cannot: `ps -o etime` said 3 h 10 m, and they ended
+  because the parent killed them.
+  ⚠ They also poisoned a later measurement: `pgrep -c -f "cargo (check|test|
+  build|doc)"` reported 4 with no compiles running, and *that* count was then
+  read as "somebody else is building here" — a false positive caused by a false
+  positive, which is how a stranded waiter turns from free into expensive.
+  ⇒ The cheapest check that would have caught all four at birth is
+  `pgrep -af '<your pattern>'` ONCE, looking for your own shell in the output.
+  If your waiter appears in its own match, it can never exit.
+
 ### When the suite REFUSES on headroom (2026-08-05)
 
 `check_disk_headroom.py` blocks a run below 40 GB free, and it has fired four
@@ -656,6 +675,26 @@ is the UNBOUND rule and it still stands there: unbound, `target/` is Jon's
 filesystem, so report the numbers and STOP. `rm -rf` is never the tool in either
 state. ⇒ `--status` decides which rule you are under, so run it before reclaiming
 as well as before building.
+
+⛔⛤ **AND THE PRECISE RECLAIM NEEDS THE HEADROOM IT IS RECLAIMING — measured
+2026-09-18 at 36 GB free.** `scripts/sweep_target.py` is the sharper tool: it
+MARKS the live graph from `cargo build --message-format=json` and sweeps only
+what no artifact names, so a warm test lane survives the reclaim. But the mark
+IS a build. With the workspace test graph cold — `--tests-only` marks
+`test --no-run --workspace` — the marking build ate **13 GB in three minutes**,
+29 GB free down to 16 GB, having freed nothing: the sweep runs only after the
+mark succeeds, and `--drop-incremental` is applied after that again. ⇒ **On a
+short volume run AGENTS.md's THIRD row first.**
+`./scripts/clean_workspace_crates.sh --incremental-only --apply` reclaimed
+**59 GB in 7 seconds** (56 GB `debug/incremental` plus 3 GB
+`release/incremental`), invalidated no fingerprint and rebuilt nothing. Then the
+precise tool has room to measure.
+
+⚠ The ORDER is the finding, not the tools. A reclaim whose first step is a build
+can only be afforded from a volume that is not yet short — which is exactly the
+volume that does not need it. And a watchdog is worth the four lines it costs:
+the marking build was killed at an 8 GB floor rather than at zero, because the
+measurement was filling the directory it was measuring.
 
 ⭐ **What is still worth knowing here is WHICH object is large, since that is
 what you report**: `fixtures/external_consumer` has its own

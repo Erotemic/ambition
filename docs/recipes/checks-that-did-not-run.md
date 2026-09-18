@@ -512,6 +512,60 @@ it matched nothing?* For the inert subject, ask *who reads this outside the
 test?* A guard can be neither, either, or — as `SeatCredit`'s tests are — sound
 about a subject that does no work.
 
+### ⛔⛔ A GREEN THAT CLAIMS AN IMPROVEMENT — the ratchet that reported 144 repairs and measured nothing
+
+**2026-09-18, and it is the worst-shaped green on this page: the guard did not
+merely pass, it congratulated the tree.** `check_doc_link_ratchet.py --check`
+ran inside `--maintenance`, printed a `⭐ N repaired` mark on every one of its
+thirteen rows, printed `TOTAL 0` against a baseline of 144 named broken links,
+exited 0 — and the lane counted it among `18/18 jobs passed`.
+
+```text
+ambition_platformer2d_actor_monolith        0  ⭐ 42 repaired (was 42)
+ambition_characters                         0  ⭐ 19 repaired (was 19)
+...
+TOTAL                                       0
+   run --update to bank it, in this commit.
+```
+
+⛔ **AND ITS ADVICE WAS THE RETIREMENT OF THE RATCHET.** `--update` rewrites
+every count, so following the last line would have written an all-empty
+baseline. A guard that measures nothing and then tells you to bank the result
+does not fail closed; it deletes itself and reports success.
+
+⭐ **THE REAL NUMBER, MEASURED BY HAND THE SAME HOUR: 45 for
+`ambition_platformer2d_actor_monolith`, three MORE than the baseline's 42** —
+`ConstructionScope::in_generation`, `ConstructionScope::replacing` and
+`SessionScopeSet::Activate`, all three doc comments citing a type from another
+crate by its short name. So the tree had regressed while the guard reported a
+total repair, which is the same green pointing in two wrong directions at once.
+
+⇒ **The cause was two missing halves of one measurement**, and both are now
+arms with poisons (`scripts/tests/test_doc_link_ratchet_reporting.py`):
+
+- `measure()` returned `(links, output)` and **threw away cargo's exit status**,
+  so a `cargo doc` that failed scored an empty warning list. An empty list from
+  a command that exited non-zero is not a repair.
+- the "observed nothing" arm asked whether `Documenting` **or** `Finished`
+  appeared anywhere in one crate's output. `Finished` prints either way, so the
+  arm could not separate *"fresh, diagnostics replayed"* from *"this command did
+  nothing"*. It now demands positive per-crate evidence — `Documenting <crate>`
+  or `Generated .../doc/<crate>/index.html` — and a warm replay satisfies it,
+  which is the control that keeps the arm honest.
+
+⭐ **AND ONE ARM THAT CATCHES THE CLASS RATHER THAN THE MECHANISM:** every
+tracked crate reading zero against a banked baseline is now a refusal. Thirteen
+crates are not repaired at once. A genuine universal repair is a deliberate act
+and says so with `--update`, which stays exempt so the guard cannot forbid its
+own remedy.
+
+⚠ **THE TRANSFERABLE PART IS THE DIRECTION OF THE SURPRISE.** This page's other
+rows are about a green that hides a failure. This one is about a green that
+hides an ABSENCE by dressing it as a win — and an improvement is exactly the
+result nobody re-checks. ⇒ When a ratchet reports that a number got better, ask
+what it would have printed had the measurement not happened at all. If the
+answer is the same page, the improvement is not evidence of anything.
+
 ### Running this audit yourself
 
 It found eight real defects in one evening, so it is worth repeating rather than

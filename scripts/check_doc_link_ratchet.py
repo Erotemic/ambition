@@ -114,8 +114,18 @@ def identities(output: str) -> list[str]:
     return sorted(found)
 
 
-def measure(crate: str) -> tuple[list[str], str]:
-    """`(broken links, raw output)` for one crate."""
+def measure(crate: str) -> tuple[list[str], str, int]:
+    """`(broken links, raw output, cargo's exit status)` for one crate.
+
+    ⛔⛔ **THE EXIT STATUS IS PART OF THE MEASUREMENT, AND IT WAS THROWN AWAY —
+    2026-09-18.** This returned two values and `main` scored the first of them
+    whatever cargo had done. On 2026-09-18 a `--maintenance` run of this guard
+    measured ZERO for all thirteen crates, printed *"⭐ 42 repaired"* down the
+    table with `TOTAL 0`, exited 0, and advised `--update` — which would have
+    written an all-empty baseline and retired the ratchet. Nothing was repaired:
+    the thirteen `cargo doc` invocations produced no warnings, and a build that
+    did not report cannot report a zero.
+    """
     result = subprocess.run(
         [cargo_binary(), "doc", "-p", crate, "--no-deps"],
         cwd=REPO,
@@ -123,7 +133,23 @@ def measure(crate: str) -> tuple[list[str], str]:
         text=True,
     )
     output = result.stdout + result.stderr
-    return identities(output), output
+    return identities(output), output, result.returncode
+
+
+def documented(crate: str, output: str) -> bool:
+    """Positive evidence that THIS crate's doc unit was accounted for.
+
+    ⭐ PER CRATE, AND POSITIVE. The arm this replaces asked whether `Documenting`
+    or `Finished` appeared ANYWHERE in one crate's output, and a warm unit
+    prints no `Documenting` line at all while `Finished` prints either way — so
+    it could not separate *"fresh, diagnostics replayed"* from *"this command
+    did nothing"*. Both spellings are accepted because both are real: cargo
+    prints `Documenting <crate>` when it re-documents and
+    `Generated .../doc/<crate>/index.html` in both cases. ⚠ If a future cargo
+    stops printing both, every crate reads as silent and this guard REFUSES
+    rather than scoring a zero, which is the safe direction to fail in.
+    """
+    return f"Documenting {crate}" in output or f"/doc/{crate}/index.html" in output
 
 
 def _difference(left: list[str], right: list[str]) -> list[str]:
@@ -212,6 +238,8 @@ def main() -> int:
         return 1
 
     counts: dict[str, list[str]] = {}
+    # (crate, cargo's output) for every crate whose `cargo doc` did not succeed.
+    refused: list[tuple[str, str]] = []
     risen: list[str] = []
     fell: list[str] = []
     silent: list[str] = []
@@ -219,10 +247,13 @@ def main() -> int:
     repaired: dict[str, list[str]] = {}
 
     for crate in CRATES:
-        links, output = measure(crate)
+        links, output, code = measure(crate)
+        if code != 0:
+            refused.append((crate, output))
+            continue
         # the "observed nothing" guard: a doc build that failed, or a crate
         # that no longer exists, emits no warnings and would read as zero.
-        if "Documenting" not in output and "Finished" not in output:
+        if not documented(crate, output):
             silent.append(crate)
         counts[crate] = links
         previous = baseline.get(crate)
@@ -248,11 +279,40 @@ def main() -> int:
     total = sum(len(v) for v in counts.values())
     print(f"{'TOTAL':40s} {total:4d}")
 
+    if refused:
+        print()
+        print(f"⛔ `cargo doc` FAILED for {', '.join(c for c, _ in refused)} — so")
+        print("   there is no measurement to compare, and an empty warning list")
+        print("   from a command that exited non-zero is not a repair.")
+        for crate, output in refused:
+            tail = [line for line in output.strip().splitlines() if line.strip()][-4:]
+            print(f"   {crate}:")
+            for line in tail:
+                print(f"     {line}")
+        return 1
+
     if silent:
         print()
         print(f"⛔ {', '.join(silent)} produced no rustdoc output at all — the")
         print("   build failed or the crate is gone, and zero warnings from a")
         print("   build that did not happen is not a score.")
+        return 1
+
+    # ⛔⛔ A REPAIR NOBODY MADE. Every tracked crate reading zero against a
+    # baseline that records links is the shape of an instrument failure, not of
+    # thirteen simultaneous repairs — it is what 2026-09-18 printed, and the two
+    # arms above would not have caught it if cargo had exited 0 while replaying
+    # no diagnostics. A genuine universal repair is a deliberate act and can say
+    # so with `--update`; this refuses to infer one.
+    banked = sum(len(v) for v in baseline.values() if isinstance(v, list))
+    if baseline and banked and total == 0 and not (args.update or args.adopt):
+        print()
+        print(f"⛔ every tracked crate measured ZERO against a baseline of {banked}")
+        print("   broken link(s). Thirteen crates are not repaired at once: this is")
+        print("   the shape of a measurement that did not happen. Run one crate by")
+        print("   hand (`cargo doc -p <crate> --no-deps`) and read its warnings")
+        print("   before believing the table. A real universal repair is banked")
+        print("   deliberately with --update.")
         return 1
 
 

@@ -509,11 +509,20 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "so the stakes are the clone's rather than a player's (read 2026-09-18)"
     ),
     "PlayerHealRequested": (
-        "⛔ LIVE, AND PLAYER-VISIBLE. Raised by "
+        "⛔ LIVE, PLAYER-VISIBLE, AND WITNESSED. Raised by "
         "`kaleidoscope_menu_action_activated`, which is also one of the two real "
         "`NewGameResetRequested` producers — the menu has two lost-intent roads. "
-        "A heal chosen in the menu can be accepted at the UI and vanish before "
-        "`apply_player_heal_requests` applies it (read 2026-09-18)"
+        "Held by `a_player_heal_requested_outside_the_simulation_is_lost` "
+        "(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`) "
+        "with an in-sim control that heals and holds. ⚠ AND THE LOSS IS NOT A "
+        "FLAT ZERO LIKE THE ITEM GRANT'S: on a LocalMaintainer-owned timeline "
+        "the heal LANDS, is visible for about two frames, and is then revoked "
+        "by GGRS's first correction — the write reaches the live `Events` buffer "
+        "before any `LoadWorld`, then the rollback restores `BodyHealth` from a "
+        "pre-heal confirmed frame and resimulates with the channel already "
+        "cleared. The arm asserts BOTH ends, because a composition that could "
+        "not heal at all would print the same final number "
+        "(read 2026-09-18, witnessed 2026-09-18)"
     ),
     "ResetToCheckpoint": (
         "✅ BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES ON PURPOSE. "

@@ -2863,13 +2863,40 @@ otherwise surface are `Transform` writes from camera, sprite and inspection
 systems. So a green there says nothing about `Transform` — the single most
 rollback-sensitive component in the workspace.
 
+⛤ **RE-MEASURED 2026-09-18 AND THE DENOMINATOR MOVED WHILE THE NUMERATOR DID
+NOT: 52 of 60.** Dropping `PRESENTATION_SHARED` in a throwaway process takes the
+offender list from 8 to 60, and all 52 of the delta write `Transform` and
+NOTHING else — so the exclusion is still doing exactly one job and the guard's
+green still says nothing about this component. The four that left the other
+bucket left by being repaired or banked, not by changing what `Transform` hides.
+
 ⇒ **THE OBVIOUS REPAIR IS REFUTED AND THE ROW RECORDS THE REFUTATION.** Classify
 by a property the system already states — `Camera`/`Sprite`/`Text`/`Mesh`/
-`Light`/`Node`, or a projection in the signature — and the 52 split **23 that
-declare such a marker and 29 that do not**, where the 29 are presentation only by
-NAME (`camera_follow`, `sync_parallax_layers`, `sync_hit_flash_overlays`). A
-system's name is not a reading of its write set; that classifier was wrong in
-both directions twice on 2026-09-16 alone.
+`Light`/`Node`, or a projection in the signature — and on 2026-09-16 the 52 split
+**23 that declare such a marker and 29 that do not**, where the 29 are
+presentation only by NAME (`camera_follow`, `sync_parallax_layers`,
+`sync_hit_flash_overlays`). A system's name is not a reading of its write set;
+that classifier was wrong in both directions twice on 2026-09-16 alone.
+
+⭐⭐ **AND THE SPLIT HAS MOVED A LONG WAY SINCE, WHICH CHANGES WHAT OPTION (a)
+COSTS.** Re-measured 2026-09-18 over the same 52, reading each system's
+parameter list with comments blanked:
+
+| marker set | declares | bare |
+|---|--:|--:|
+| exactly this row's list (`Camera`, `Sprite`, `Text`, `Mesh`, `Light`, `Node` and the `2d`/`3d` spellings) | **36** | **16** |
+| that, plus prefix matching and `Visibility` (e.g. `SpotLight`, `TextFont`, `InheritedVisibility`) | **47** | **5** |
+
+⇒ **Option (a)'s work is 16 systems, not 29** — and 5 if the marker vocabulary
+is allowed to include visibility and the light variants, which is a vocabulary
+choice this ruling would be making anyway. The carve work of the last two days
+is what moved it: systems gained the presentation components they were always
+projecting to. ⚠ The page's three named examples all survive the re-measurement
+as still-bare, so the SHAPE of the argument is unchanged and only its size is:
+`camera_follow`, `frame_the_inspection`, `sync_ldtk_world_transform`,
+`apply_capture_snapshot` and `restore_sprites_without_effects` are among the 16.
+⚠ And the two readings differ by 11 systems, so quoting one number without its
+marker set is the error this row already made once.
 
 **So the repair is a DECLARATION, not a cleverer scanner**, and the decision is
 its shape:
@@ -2883,10 +2910,14 @@ its shape:
   layer lowers to `Transform`, which makes the mutation unspellable rather than
   merely declared.
 
-⚠ **THE SIZE IS THE REASON THIS IS A QUESTION.** It is ~52 systems across the
-render, camera and inspection layers, not a script change, and the three shapes
-put the cost in different places — (a) is cheapest and weakest, (c) is the only
-one a future system cannot forget. Nobody should start until the shape is chosen.
+⚠ **THE SIZE IS THE REASON THIS IS A QUESTION**, and it is smaller than it was.
+It is 52 systems across the render, camera and inspection layers, not a script
+change, and the three shapes put the cost in different places — (a) is cheapest
+and weakest, (c) is the only one a future system cannot forget. But (a) now
+touches 16 of the 52 rather than 29, because the other 36 already declare what
+they are; under (a) the remaining work is the 16, and under (c) it is still all
+52 because a wrapper type has to be written to, not merely declared. Nobody
+should start until the shape is chosen.
 
 ## Q140 — may the item menu show a stale bag for one frame?
 

@@ -3384,9 +3384,22 @@ fn damage_the_player_and_reassert_local_maintainer(
 /// PRODUCER IS OUTSIDE THE SIMULATION — MEASURED 2026-09-18, [Q136].**
 ///
 /// `PlayerHealRequested` declares `clear_message_on_rollback`
-/// (`crates/ambition_items/src/rollback_registration.rs`), which adds
-/// `clear_message_channel::<PlayerHealRequested>` to `LoadWorld` — every rewind
-/// empties the channel. The shipped producer,
+/// (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:630`),
+/// which adds `clear_message_channel::<PlayerHealRequested>` to `LoadWorld` —
+/// every rewind empties the channel.
+///
+/// ⛔⛤ **BUT THAT IS NOT WHY THIS ARM IS RED-SHAPED, AND SAYING IT WAS COST A
+/// POISON TO FIND OUT.** Removing that registration on 2026-09-18 changed this
+/// arm's outcome not at all — the poison was verified applied, announcing
+/// itself four times in the test binary. Two other candidates survive: the
+/// reader's `Local<MessageCursor<PlayerHealRequested>>`, which no rewind
+/// restores because `MessageReader` IS a `Local`, and bevy's own double-buffer
+/// expiry, which drops a message after two frames on its own — and the
+/// transient below lasts about two frames. ⇒ Whoever designs the ingress road
+/// has to separate those three first; this arm holds the SYMPTOM, and the
+/// symptom is all it holds.
+///
+/// The shipped producer,
 /// `kaleidoscope_menu_action_activated`
 /// (`game/ambition_app/src/menu/kaleidoscope_app.rs`), writes it from `Update`;
 /// the only reader, `apply_player_heal_requests`
@@ -3453,13 +3466,15 @@ fn a_player_heal_requested_outside_the_simulation_is_lost() {
         ambition_platformer2d::actors::avatar::PlayerHealRequested::new(PLAYER_HEAL_AMOUNT),
     );
 
-    // Sampled every frame, not just the endpoint: a diagnostic for whoever
-    // reads this red. ⛔ MEASURED 2026-09-18: under this `LocalMaintainer`-owned
-    // session the loss is NOT a flat zero — the write lands in the live
-    // `Events` buffer for a couple of frames before GGRS's first correction,
-    // then the rollback restores `BodyHealth` from the last confirmed
-    // (pre-heal) frame and resimulates with the channel already cleared, so
-    // the transient gain does not return. Different shape from the flat-zero
+    // ⛔⛤ SAMPLED EVERY FRAME, AND THE SAMPLE IS AN ASSERTION RATHER THAN A
+    // PRINTOUT. Under this `LocalMaintainer`-owned session the loss is NOT a
+    // flat zero: the write lands in the live `Events` buffer for a couple of
+    // frames before GGRS's first correction, then the rollback restores
+    // `BodyHealth` from the last confirmed (pre-heal) frame and resimulates
+    // with the channel already cleared, so the transient gain never returns.
+    // ⇒ That transient is what separates THIS defect from a fixture that could
+    // not heal at all, and both end at `before`. Different shape from the flat
+    // zero
     // `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`
     // measures for `ItemGrantRequested` on the caller-owned fixture — a
     // different ownership mode's timing, not a different message.
@@ -3470,21 +3485,27 @@ fn a_player_heal_requested_outside_the_simulation_is_lost() {
             ever_rose = true;
         }
     }
-    // ⛔⛤ **THIS ASSERTS THE DESIRED BEHAVIOR, NOT THE SHIPPED ONE, AND IS
-    // EXPECTED TO FAIL UNTIL [Q136]'S INGRESS ROAD REACHES THIS MESSAGE.** Per
-    // YardratAmbition's guidance: `PlayerHealRequested` is a LIVE, player-visible
-    // crossing (`docs/planning/awaiting-maintainer-decision.md`), so this arm is
-    // a standing red witness for the open defect rather than a snapshot of
-    // today's (broken) behavior awaiting inversion later.
+    assert!(
+        ever_rose,
+        "the heal never reached the world at all, so this arm is not measuring a \
+         REVOKED heal — it is measuring a composition that cannot heal. Suspect \
+         `apply_player_heal_requests` missing from the maintainer-owned fixture, or \
+         a `write_message` that the first `LoadWorld` drained before any reader ran"
+    );
+    // ⛔⛤ **THIS ASSERTS THE SHIPPED BEHAVIOUR AND FIRES WHEN THE DEFECT IS
+    // FIXED**, which is the convention its two siblings in this file already
+    // use. My first draft asserted the DESIRED outcome and stood red on
+    // purpose, on my guidance — and a permanently red arm is not a witness:
+    // it makes the suite red for every other session and for CI, so the next
+    // reader learns to scroll past exactly the line that carries the finding.
+    // The assertion above is what keeps this one honest.
     assert_eq!(
         player_health(&mut outside),
-        before + PLAYER_HEAL_AMOUNT,
-        "a heal requested from outside the simulation does not survive the \
-         rewind (ever transiently rose above baseline: {ever_rose}) — \
-         `PlayerHealRequested` declares `clear_message_on_rollback`, so the \
-         host-raised message is drained by the very first `LoadWorld` and \
-         nothing re-produces it. This is [Q136]'s open finding; the arm turns \
-         green once a real ingress road (a mechanical edit, or riding the \
-         synchronised control frame) reaches this message"
+        before,
+        "a heal requested from outside the simulation now SURVIVES the rewind — \
+         that is the FIX this arm is waiting for, not a regression. Invert it to \
+         `before + PLAYER_HEAL_AMOUNT`, drop the transient assertion above (a \
+         heal that holds never needs to have risen transiently), and record in \
+         [Q136] which ingress road reached this message"
     );
 }

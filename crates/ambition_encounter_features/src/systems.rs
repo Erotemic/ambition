@@ -525,7 +525,7 @@ pub fn apply_wave_encounter_effects(
             None
         }
     });
-    music_request.base_track = active_track;
+    music_request.set_base_track(active_track);
 
     if player_body_q.is_empty() {
         return;

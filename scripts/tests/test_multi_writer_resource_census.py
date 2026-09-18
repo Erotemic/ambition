@@ -427,3 +427,155 @@ def test_a_lifetime_is_not_mistaken_for_the_type(tmp_path):
     b = _write(tmp_path, "b.rs", "struct P<'w> { a: ResMut<'w, Assets<Image>> }")
     c = _write(tmp_path, "c.rs", "struct Q<'w> { a: ResMut<'w, Assets<Image>> }")
     assert mod.writers([b, c]) == {}
+
+
+def test_a_session_world_component_is_its_own_population(tmp_path):
+    """⛔⛤ THE POPULATION A10 CREATED AND THE INSTRUMENT DID NOT FOLLOW.
+
+    A session world component lives on the session root and is reached through
+    `SessionWorldMut<T>`, not `ResMut<T>`. MEASURED 2026-09-17: none of the eight
+    types carrying that accessor has `#[derive(Resource)]`, so the resource
+    census is silent about them BY CONSTRUCTION — while four have more than one
+    production writer and `EncounterMusicRequest` has eight.
+
+    ⭐ The spelling came from `check_rollback_mutators_run_in_sim.py`, whose
+    docstring had already recorded both lessons this census needed: that
+    `SessionWorldMut<T>` is a mutable param, and that *"a guard keyed on how a
+    write is SPELLED goes blind when a refactor respells it, and the direction is
+    the dangerous one — it reports no offenders."*
+    """
+    a = _write(tmp_path, "a.rs", "fn s(mut r: SessionWorldMut<RoomSet>) {}")
+    b = _write(
+        tmp_path,
+        "b.rs",
+        "#[derive(SystemParam)]\nstruct P<'w> {\n"
+        "    rooms: SessionWorldMut<'w, a::b::RoomSet>,\n}\n",
+    )
+    assert mod.session_world_writers([a, b])["RoomSet"] == {a, b}
+    # ⛔ AND THE TWO POPULATIONS MUST NOT LEAK INTO EACH OTHER. Folding them
+    # would make "two writers" mean two different things in one number: a
+    # resource's lifetime is the App's, a session world component's is the
+    # session's, and a session boundary reclaims the second.
+    assert mod.writers([a, b]) == {}
+    c = _write(tmp_path, "c.rs", "fn t(mut r: ResMut<RoomSet>) {}")
+    assert mod.session_world_writers([c]) == {}
+
+
+def test_a_session_world_fixture_is_not_a_writer(tmp_path):
+    """⚠ Same rule as the resource side, and worth its own arm because this
+    population is small: with only eight types, one counted fixture is a
+    12% error."""
+    a = _write(tmp_path, "a.rs", "fn s(mut r: SessionWorldMut<RoomSet>) {}")
+    b = _write(
+        tmp_path,
+        "b.rs",
+        "fn t() {}\n#[cfg(all(test, feature = \"x\"))]\nmod fix {\n"
+        "    fn u(mut r: SessionWorldMut<RoomSet>) {}\n}\n"
+        "// a comment about `SessionWorldMut<RoomSet>` is not a writer either\n",
+    )
+    assert mod.session_world_writers([a, b])["RoomSet"] == {a}
+
+
+def test_a_write_site_is_attributed_to_its_enclosing_item(tmp_path):
+    """⭐ `write_sites` answers *"how many ITEMS in this file write it"*, which is
+    the question a verdict saying "one owner" is actually making."""
+    f = tmp_path / "two_systems.rs"
+    f.write_text(
+        "fn one(mut a: ResMut<Shared>) { a.x = 1; }\n"
+        "fn two(mut b: ResMut<Shared>) { b.x = 2; }\n"
+        "fn reads_only(c: Res<Shared>) {}\n",
+        encoding="utf-8",
+    )
+    sites = mod.write_sites("Shared", [str(f)])
+    assert sites[str(f)] == ["one", "two"]
+
+
+def test_a_bundle_field_is_not_attributed_to_the_function_above_it(tmp_path):
+    """⛔⛤ THE CORRECTION THAT MADE THIS FUNCTION USABLE, 2026-09-18.
+
+    With only `fn` headers, a `ResMut` FIELD of a `SystemParam` bundle was
+    attributed to the nearest `fn` above it — and in the real tree that named
+    `capture_armed_rebind` as the writer of `NewGameResetRequested`, a function
+    that does not touch it. ⇒ **A site-level instrument that names the WRONG
+    system is worse than a file-level one that names none**, because a verdict
+    quoting it reads as measured. The honest answer for a bundle is the bundle.
+    """
+    f = tmp_path / "bundle.rs"
+    f.write_text(
+        "fn something_else(q: Query<&T>) {}\n"
+        "\n"
+        "#[derive(SystemParam)]\n"
+        "pub struct MenuParams<'w> {\n"
+        "    reset: ResMut<'w, Shared>,\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    sites = mod.write_sites("Shared", [str(f)])
+    assert sites[str(f)] == ["<param bundle: MenuParams>"]
+    assert "something_else" not in sites[str(f)]
+
+
+def test_write_sites_and_writers_agree_about_what_counts_as_code(tmp_path):
+    """⚠ TWO INSTRUMENTS OVER ONE POPULATION. A `write_sites` that saw a test
+    module or a comment that `writers` does not would make a per-system verdict
+    disagree with the per-file census it is written against."""
+    f = tmp_path / "mixed.rs"
+    f.write_text(
+        "fn live(mut a: ResMut<Shared>) {}\n"
+        "// fn commented(mut a: ResMut<Shared>) {}\n"
+        "#[cfg(test)]\n"
+        "mod tests {\n"
+        "    fn fixture(mut a: ResMut<Shared>) {}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    assert mod.write_sites("Shared", [str(f)])[str(f)] == ["live"]
+    assert mod.writers([str(f)])["Shared"] == {str(f)}
+
+
+def test_write_sites_sees_every_spelling_writers_does(tmp_path):
+    """⛔⛤ THE ARM THAT WOULD HAVE CAUGHT A REAL MISS, ADDED AFTER IT DID NOT.
+
+    `write_sites` first spelled its own turbofish regex and left out the optional
+    trailing comma, so this shape — real, in
+    `world/gated_lock_walls.rs` — was a writer to `writers` and invisible to
+    `write_sites`. The per-file census said 10 files for
+    `FeatureEcsWorldOverlay`; the per-system view showed 9, and NOTHING
+    complained. ⇒ Two instruments over one population must SHARE the pattern.
+    """
+    f = tmp_path / "spellings.rs"
+    f.write_text(
+        "fn a(mut r: ResMut<Shared>) {}\n"
+        "fn b(mut r: ResMut<'w, Shared>) {}\n"
+        "fn c(mut r: ResMut<some::path::Shared>) {}\n"
+        "fn d(world: &mut World) {\n"
+        "    let _ = world.resource_mut::<Shared>();\n"
+        "}\n"
+        "fn e(world: &mut World) {\n"
+        "    let _ = world.get_resource_mut::<\n"
+        "        some::long::path::Shared,\n"
+        "    >();\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    assert mod.writers([str(f)])["Shared"] == {str(f)}
+    assert mod.write_sites("Shared", [str(f)])[str(f)] == ["a", "b", "c", "d", "e"]
+
+
+def test_the_two_instruments_agree_across_the_whole_tree():
+    """⭐ NOT A UNIT TEST, AND DELIBERATELY: the hand-built corpus above cannot
+    enumerate the spellings this repository actually uses. For every multi-writer
+    type, the FILES `write_sites` finds must be exactly the files `writers`
+    found — a disagreement means one of the two is reading a different
+    population, and a per-system verdict written against the smaller one names
+    the wrong owner."""
+    files = mod.production_files()
+    found = mod.writers(files)
+    multi = {t: fs for t, fs in found.items() if len(fs) > 1}
+    assert len(multi) > 50, "the corpus collapsed; this arm would pass over nothing"
+    disagree = {
+        t: (sorted(fs), sorted(mod.write_sites(t, fs)))
+        for t, fs in multi.items()
+        if set(mod.write_sites(t, fs)) != set(fs)
+    }
+    assert not disagree, disagree

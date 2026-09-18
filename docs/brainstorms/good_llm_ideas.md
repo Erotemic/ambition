@@ -51,13 +51,6 @@ the UI replaces “Talk” with “Interrogate”;
 some movement tech becomes unavailable because “unauthorized improvisation” is disabled;
 your map becomes full of borders that were not there before.
 
-But the cost is immediate and ugly:
-your dialogue options narrow;
-NPC names become categories like DISSIDENT, ASSET, CONTAMINANT;
-the UI replaces “Talk” with “Interrogate”;
-some movement tech becomes unavailable because “unauthorized improvisation” is disabled;
-your map becomes full of borders that were not there before.
-
 NOTE: The devolvement into a Nazi should be gradual and have an escape hatch,
 but at some point you do get to a point of no return. Your reputation becomes
 too tarnished.

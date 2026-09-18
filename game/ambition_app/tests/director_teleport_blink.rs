@@ -1,4 +1,4 @@
-//! D255/R17: the Author's Revision is ONE teleport, so it is one blink.
+//! D255/R17: the Director's Revision is ONE teleport, so it is one blink.
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
@@ -7,7 +7,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// ⛔⛔ IT WAS TWO, AND BOTH ROADS WERE RIGHT ON THEIR OWN.
 /// `apply_authored_teleports` emits `player.blink` at the transit for EVERY
 /// authored teleport — that is the executor being the one authority, which is
-/// what it already is for every other teleport in the game. The Author's
+/// what it already is for every other teleport in the game. The Director's
 /// up-B ALSO carried a `player.blink` on its own move timeline at the same
 /// instant, so the same frame asked for the same cue down two roads
 ///. The authored one is gone; nothing counted the result.
@@ -25,7 +25,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// (`the_wire_is_a_flyline_and_never_reaches_the_teleport_executor` is what
 /// keeps it true).
 #[test]
-fn the_authors_revision_asks_for_exactly_one_blink() {
+fn the_directors_revision_asks_for_exactly_one_blink() {
     use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
     use bevy::ecs::message::{MessageCursor, Messages};
@@ -60,7 +60,7 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
             break;
         }
     }
-    let author = {
+    let director = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
         q.iter(world)
@@ -68,7 +68,7 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
             .map(|(entity, _)| entity)
             .expect("the match seats a first fighter")
     };
-    // ⛔ THE CUE IS COUNTED FOR THIS BODY ONLY. Seat 1 is an Author too and
+    // ⛔ THE CUE IS COUNTED FOR THIS BODY ONLY. Seat 1 is a Director too and
     // teleports on its own schedule; counting every blink on the stage would
     // measure the CPU.
     let mut cursor = MessageCursor::<OwnedSfxMessage>::default();
@@ -93,9 +93,9 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
     };
     let before = app
         .world()
-        .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)
         .map(|kin| kin.pos)
-        .expect("the author has kinematics");
+        .expect("the director has kinematics");
     ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
     app.update();
     let mut blinks = drain(&mut app, &mut cursor);
@@ -112,7 +112,7 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
         blinks += drain(&mut app, &mut cursor);
         moved = moved.max(
             app.world()
-                .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)
                 .map_or(0.0, |kin| kin.pos.distance(before)),
         );
     }
@@ -121,12 +121,12 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
     // never fired is a count of zero dressed up.
     assert!(
         moved > 120.0,
-        "the author moved {moved:.0}px, which is not a 250px teleport — so the \
+        "the director moved {moved:.0}px, which is not a 250px teleport — so the \
          cue count below is about a move that did not happen"
     );
     assert_eq!(
         blinks, 1,
-        "the author's Revision asked for {blinks} blink cues. The teleport \
+        "the director's Revision asked for {blinks} blink cues. The teleport \
          executor emits one for every authored teleport; a move that authors \
          its own on the same instant makes it two, and two of one sound on one \
          frame is a flam nobody wrote"
@@ -148,7 +148,7 @@ fn the_authors_revision_asks_for_exactly_one_blink() {
 /// commitment a recovery is supposed to cost. The tail after the window is what
 /// an edgeguarder who reads the move still wins.
 #[test]
-fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_landing() {
+fn the_directors_revision_is_intangible_through_the_vanish_and_not_through_the_landing() {
     use ambition_platformer2d::actor::MatchSeat;
     use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
     use bevy::prelude::*;
@@ -180,7 +180,7 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
             break;
         }
     }
-    let author = {
+    let director = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
         q.iter(world)
@@ -190,14 +190,14 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
     };
     let held_by_move = |app: &App| -> bool {
         app.world()
-            .get::<BodyHealth>(author)
+            .get::<BodyHealth>(director)
             .is_some_and(|h| h.health.invulnerable.holds(Invulnerability::MOVE))
     };
     // ⛔ THE FLOOR. A fighter standing on the stage is hittable; if this were
     // already true the arms below would be measuring something else entirely.
     assert!(
         !held_by_move(&app),
-        "the author is already move-intangible before pressing anything"
+        "the director is already move-intangible before pressing anything"
     );
 
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
@@ -208,9 +208,9 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
     };
     let before = app
         .world()
-        .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)
         .map(|kin| kin.pos)
-        .expect("the author has kinematics");
+        .expect("the director has kinematics");
     ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
     app.update();
 
@@ -232,7 +232,7 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
         }
         moved = moved.max(
             app.world()
-                .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)
                 .map_or(0.0, |kin| kin.pos.distance(before)),
         );
     }
@@ -240,24 +240,24 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
     // ⛔ THE PREMISE, the same one the blink count needs: he actually teleported.
     assert!(
         moved > 120.0,
-        "the author moved {moved:.0}px, which is not a 250px teleport — so the \
+        "the director moved {moved:.0}px, which is not a 250px teleport — so the \
          intangibility below is about a move that did not happen"
     );
     assert!(
         intangible_ticks > 0,
-        "the author's Revision granted no move intangibility at all: the \
+        "the director's Revision granted no move intangibility at all: the \
          authored `WindowTag::Invuln` is not reaching `Invulnerability::MOVE`"
     );
     assert!(
         !held_by_move(&app),
-        "the author is STILL move-intangible sixty ticks after the transit — a \
+        "the director is STILL move-intangible sixty ticks after the transit — a \
          window that does not close is a recovery with no commitment"
     );
 }
 
 /// A RELEASED STICK IS A RECOVERY THAT GOES UP.
 ///
-/// ⭐⭐ THE STYLE, END TO END. Jon, on what the Author's up-B should be:
+/// ⭐⭐ THE STYLE, END TO END. Jon, on what the Director's up-B should be:
 /// *"there is a small window to input any direction and the user can aim the
 /// teleport like that but it defaults to up."* Every other arm in this file
 /// HOLDS up for the whole move, which is not what a player does — the stick
@@ -275,7 +275,7 @@ fn the_authors_revision_is_intangible_through_the_vanish_and_not_through_the_lan
 /// by a diagonal that also carries him 250px off the side of the stage, which is
 /// the failure being fixed.
 #[test]
-fn the_authors_revision_rises_when_the_stick_is_released_after_the_press() {
+fn the_directors_revision_rises_when_the_stick_is_released_after_the_press() {
     use ambition_platformer2d::actor::MatchSeat;
     use bevy::prelude::*;
 
@@ -306,7 +306,7 @@ fn the_authors_revision_rises_when_the_stick_is_released_after_the_press() {
             break;
         }
     }
-    let author = {
+    let director = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
         q.iter(world)
@@ -316,9 +316,9 @@ fn the_authors_revision_rises_when_the_stick_is_released_after_the_press() {
     };
     let position = |app: &App| -> ambition_platformer2d::engine_core::Vec2 {
         app.world()
-            .get::<ambition_platformer2d::engine_core::BodyKinematics>(author)
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(director)
             .map(|kin| kin.pos)
-            .expect("the author has kinematics")
+            .expect("the director has kinematics")
     };
 
     let before = position(&app);
@@ -356,13 +356,13 @@ fn the_authors_revision_rises_when_the_stick_is_released_after_the_press() {
     let drift = widest;
     assert!(
         rise > 120.0,
-        "the author rose {rise:.0}px from a teleport that carries 250 — a \
+        "the director rose {rise:.0}px from a teleport that carries 250 — a \
          recovery nobody aimed must go UP, and this one went {drift:.0}px \
          sideways instead"
     );
     assert!(
         drift < 60.0,
-        "the author drifted {drift:.0}px sideways on a teleport nobody aimed. \
+        "the director drifted {drift:.0}px sideways on a teleport nobody aimed. \
          The default is UP; a fighter who asked for nothing has not asked to be \
          fired off whichever side of the stage he happens to be facing"
     );

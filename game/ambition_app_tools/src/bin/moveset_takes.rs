@@ -1684,7 +1684,7 @@ mod tests {
     fn shipped_author_moves() -> Vec<ambition_entity_catalog::MoveSpec> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../ambition_content/assets/data/movesets/author.ron"
+            "/../ambition_content/assets/data/movesets/director.ron"
         );
         let text = std::fs::read_to_string(path)
             .unwrap_or_else(|why| panic!("the shipped author table is readable ({path}): {why}"));

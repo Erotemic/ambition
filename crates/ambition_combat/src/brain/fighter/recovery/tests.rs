@@ -503,7 +503,7 @@ fn a_lens_probes_at_most_the_bounded_prefix_of_routes() {
 ///
 /// ⛔⛔ D250: the planner modelled every way home as one thrown velocity. The
 /// pirate's up-B summons a steerable flying shark and hands its rider seconds of
-/// movement authority; the Author teleports. Neither commands an impulse, so
+/// movement authority; the Director teleports. Neither commands an impulse, so
 /// `lift_speed` reads `0.0` for both and a fighter whose ONLY recovery is one of
 /// them looked to the CPU like a fighter with none. ⛔ Faking a lift would have
 /// made the search certify a rise the move does not throw.

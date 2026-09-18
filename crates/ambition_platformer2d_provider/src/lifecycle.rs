@@ -3284,7 +3284,9 @@ mod tests {
         let before = content.identity();
         let mut live = content.source().instantiate_live();
         live.requests.room_music.desired_track = Some("runtime-track".to_owned());
-        live.requests.encounter_music.priority_track = Some("runtime-boss".to_owned());
+        live.requests
+            .encounter_music
+            .claim_priority("test", "runtime-boss");
         assert_eq!(content.identity(), before);
     }
 

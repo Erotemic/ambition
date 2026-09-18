@@ -31,7 +31,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(REPO / "scripts" / "lib"))
 
+from cargo_output import COLOR_NEVER, plain_env, strip_ansi  # noqa: E402
 from check_disk_headroom import free_gb_on_target, target_dir  # noqa: E402
 
 # A `cargo check` of this workspace, not a suite. The suite floor is 40 GB; this
@@ -48,8 +50,23 @@ _WARNING = re.compile(r"^(?P<where>\S+?:\d+:\d+): warning: (?P<what>.*)$", re.M)
 
 
 def warnings_from(stderr: str) -> list[str]:
-    """Real diagnostics only — never cargo's per-crate summary lines."""
-    return [f"{m.group('where')}: {m.group('what').strip()}" for m in _WARNING.finditer(stderr)]
+    """Real diagnostics only — never cargo's per-crate summary lines.
+
+    ⛔⛤ **THE STRIP IS LOAD-BEARING, AND THIS GATE RUNS IN EXACTLY THE PLACE
+    THAT NEEDS IT.** `_WARNING` requires a literal `: warning: ` after the
+    `path:line:col`, and `scripts/run_tests.py` — the ONLY lane that invokes
+    this checker — exports `CARGO_TERM_COLOR=always`, which makes cargo emit
+    `src/lib.rs:1:18: ESC[1m ESC[33m warning ESC[0m: unused variable`. Measured
+    2026-09-18 on a one-file probe crate: the pattern matched the plain form and
+    not the coloured one, so the workspace warning gate reported clean from
+    inside the runner whatever the build had said. See
+    `scripts/lib/cargo_output.py`; the sibling that was CAUGHT doing this is
+    `check_doc_link_ratchet.py`.
+    """
+    return [
+        f"{m.group('where')}: {m.group('what').strip()}"
+        for m in _WARNING.finditer(strip_ansi(stderr))
+    ]
 
 
 class VacuousFreshRun(RuntimeError):
@@ -111,7 +128,7 @@ def main() -> int:
         )
         return 1
 
-    argv = [CARGO, "check", "--all-targets", "--message-format=short"]
+    argv = [CARGO, "check", "--all-targets", "--message-format=short", *COLOR_NEVER]
     if args.package:
         for name in args.package:
             argv += ["-p", name]
@@ -126,7 +143,7 @@ def main() -> int:
         for manifest in targets:
             manifest.touch()
 
-    done = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
+    done = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, env=plain_env())
     if done.returncode != 0 and "error" in done.stderr:
         print(done.stderr[-4000:], file=sys.stderr)
         return done.returncode

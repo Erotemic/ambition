@@ -745,6 +745,21 @@ pub fn compose_versus_experience(app: &mut App) {
     // so the restored score depended on presentation-frame history that
     // resimulation does not replay. Calling a system "the presentation half"
     // does not make the resource it writes presentational.
+    //
+    // ⛔⛤ "ALL OF THEM" IS STILL NOT TRUE, AND THE SURVIVOR IS FORTY LINES DOWN
+    // THIS FILE. `track_versus_roster` is registered into `Update` and writes
+    // `*match_state = VersusMatch::opening()` on the arm that opens a match. It
+    // stays in `Update` for a stated reason — the teardown it shares a chain
+    // with must outlive `GameplaySimulationRoot` — so this is not a line to
+    // move; it is a claim to stop making. The guard knows: it is banked as
+    // MENU-RESET-MIDSESSION in `scripts/check_rollback_mutators_run_in_sim.py`,
+    // and what it owes is a probe showing the write PRECEDES the timeline. Until
+    // then it is an `Update` write to a `rollback_resource_clone_checksum` row,
+    // so the exposure is PEER-COMPARED and not merely restore-local.
+    //
+    // ⇒ The repair that earned this comment removed one `Update` writer of one
+    // resource and read as removing the class. A completeness word is a hostage
+    // to the next reader who greps.
     {
         use ambition_platformer2d::platformer::schedule::{CombatSet, SimScheduleExt};
         let sim = app.sim_schedule();

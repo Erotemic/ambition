@@ -42,6 +42,16 @@
 //! ⚠ **And release only your OWN claim.** [`Self::release_priority`] is
 //! owner-checked for this reason: clearing the tier outright silences whoever
 //! legitimately holds it, which that crate's comments record having shipped once.
+//!
+//! ⛤ **AND THE FIELDS ARE PRIVATE SINCE 2026-09-18, so the owner check is the
+//! compiler's rule rather than a habit.** EIGHT production files write this
+//! component and it is the largest multi-writer population in the session-world
+//! census. MEASURED with comments stripped before the change: six of the eight
+//! touched `claim_priority`/`release_priority` and NOTHING else, one wrote only
+//! the base tier, and one wrote only `last_applied` — a perfect separation held
+//! entirely by convention over `pub` fields. ⇒ The discipline was already
+//! universal; what was missing was anything to keep it that way. The priority
+//! tier can now only be reached through the owner check.
 
 use bevy::prelude::Component;
 
@@ -53,17 +63,17 @@ use bevy::prelude::Component;
 pub struct EncounterMusicRequest {
     /// Higher-priority encounter track (a focused fight — e.g. a boss).
     /// Overrides `base_track` while set.
-    pub priority_track: Option<String>,
+    priority_track: Option<String>,
     /// Lower-priority encounter track (a wave / arena lockdown). Written every
     /// frame — `Some(track)` while in flight, `None` otherwise — so its
     /// per-frame `None` can never override `priority_track`.
-    pub base_track: Option<String>,
+    base_track: Option<String>,
     /// Who claimed [`Self::priority_track`], so a source can release only its
     /// own claim without cancelling another writer's higher-priority request.
-    pub priority_owner: Option<&'static str>,
+    priority_owner: Option<&'static str>,
     /// The track id last applied by the music-intent adapter, so it can detect
     /// transitions (None ↔ Some(other) ↔ Some(other2)) and for tests.
-    pub last_applied: Option<String>,
+    last_applied: Option<String>,
 }
 
 impl EncounterMusicRequest {
@@ -96,5 +106,33 @@ impl EncounterMusicRequest {
             self.priority_track = None;
             self.priority_owner = None;
         }
+    }
+
+    /// The claimed priority track, if any, and WHO is not on offer: a caller
+    /// that wants to change the tier goes through [`Self::claim_priority`] or
+    /// [`Self::release_priority`] so the owner check cannot be skipped.
+    pub fn priority_track(&self) -> Option<&str> {
+        self.priority_track.as_deref()
+    }
+
+    /// Publish the BASE tier. Unowned on purpose: it is rewritten every frame,
+    /// including `None`, and [`Self::desired_track`] ranks the priority tier
+    /// above it, so a per-frame `None` here can never silence a focused fight.
+    pub fn set_base_track(&mut self, track: Option<String>) {
+        self.base_track = track;
+    }
+
+    pub fn base_track(&self) -> Option<&str> {
+        self.base_track.as_deref()
+    }
+
+    /// The music-intent adapter's mirror of the winner it actually applied.
+    /// Diagnostics and transition detection read it; nothing else writes it.
+    pub fn mark_applied(&mut self, track: Option<String>) {
+        self.last_applied = track;
+    }
+
+    pub fn last_applied(&self) -> Option<&str> {
+        self.last_applied.as_deref()
     }
 }

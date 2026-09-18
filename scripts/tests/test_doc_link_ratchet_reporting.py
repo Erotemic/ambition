@@ -69,7 +69,14 @@ def rig(tmp_path, monkeypatch):
         monkeypatch.setattr(
             module,
             "measure",
-            lambda crate: (links(crate, counts[crate]), "Documenting x\nFinished"),
+            # ⛔ THE THIRD MEMBER IS CARGO'S EXIT STATUS, and it is part of the
+            # measurement: see `measure`'s own comment. The evidence line has to
+            # name the CRATE now, because the acceptance is per-crate.
+            lambda crate: (
+                links(crate, counts[crate]),
+                f"Documenting {crate}\nFinished",
+                0,
+            ),
         )
 
     configure.links = links
@@ -137,10 +144,93 @@ def test_a_crate_that_produced_no_rustdoc_output_is_not_scored_zero(rig, capsys)
     zero warnings from a build that did not happen is not a score."""
     module, configure, _ = rig
     configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
-    # no "Documenting"/"Finished" in the output: the build did not happen
-    object.__setattr__(module, "measure", lambda crate: ([], ""))
+    # nothing naming this crate in the output: the build did not happen
+    object.__setattr__(module, "measure", lambda crate: ([], "", 0))
     assert run(module, []) == 1
     assert "produced no rustdoc output at all" in capsys.readouterr().out
+
+
+def test_finished_without_this_crate_is_not_evidence(rig, capsys):
+    """⛔⛤ **THE ARM THAT WAS TOO WEAK, MEASURED 2026-09-18.** The acceptance
+    was `"Documenting" in output or "Finished" in output`, over ONE crate's
+    output. `Finished` prints whether or not anything was documented, so a run
+    that did nothing for this crate still cleared the arm — which is how thirteen
+    crates read zero and printed *"repaired"*."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], "    Finished `dev` profile", 0)
+    )
+    assert run(module, []) == 1
+    assert "produced no rustdoc output at all" in capsys.readouterr().out
+
+
+def test_a_warm_run_that_only_replays_is_still_a_measurement(rig, capsys):
+    """⭐ AND THE CONTROL, because the arm above must not refuse a real run.
+    A fresh doc unit prints no `Documenting` line and cargo replays its cached
+    diagnostics under `Generated .../doc/<crate>/index.html` — measured, warm,
+    on `ambition_body_seed`: one warning, no `Documenting`."""
+    module, configure, _ = rig
+    configure({"alpha": 3, "beta": 1}, {"alpha": 3, "beta": 1})
+    recorded = {
+        crate: configure.links(crate, n) for crate, n in {"alpha": 3, "beta": 1}.items()
+    }
+    object.__setattr__(
+        module,
+        "measure",
+        lambda crate: (
+            recorded[crate],
+            f"   Generated /repo/target/doc/{crate}/index.html",
+            0,
+        ),
+    )
+    assert run(module, ["--check"]) == 0
+    assert "produced no rustdoc output" not in capsys.readouterr().out
+
+
+def test_a_cargo_doc_that_failed_is_refused_rather_than_scored(rig, capsys):
+    """⛔ A NON-ZERO EXIT IS NOT AN EMPTY WARNING LIST. The status was discarded,
+    so a failed build scored zero and read as a total repair."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module,
+        "measure",
+        lambda crate: ([], "error: could not compile `alpha`", 101),
+    )
+    assert run(module, []) == 1
+    out = capsys.readouterr().out
+    assert "`cargo doc` FAILED" in out
+    # and it must NAME the failure, because the operator has to act on it
+    assert "could not compile" in out
+
+
+def test_every_crate_at_zero_against_a_banked_baseline_is_refused(rig, capsys):
+    """⛔⛔ THE SHAPE OF 2026-09-18: `TOTAL 0`, a *"repaired"* mark on every row,
+    and exit 0. Even with cargo exiting 0 and naming each crate, a simultaneous
+    repair of every tracked crate is an instrument failure, not a landing."""
+    module, configure, _ = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], f"Documenting {crate}\nFinished", 0)
+    )
+    assert run(module, []) == 1
+    assert "every tracked crate measured ZERO" in capsys.readouterr().out
+
+
+def test_a_deliberate_universal_repair_can_still_be_banked(rig, capsys):
+    """⭐ AND ITS ESCAPE HATCH, so the guard cannot forbid its own remedy — the
+    lesson the stale-baseline arm above already learned. `--update` is a human
+    act and is exempt."""
+    module, configure, baseline = rig
+    configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
+    object.__setattr__(
+        module, "measure", lambda crate: ([], f"Documenting {crate}\nFinished", 0)
+    )
+    assert run(module, ["--update"]) == 0
+    import json as _json
+
+    assert _json.loads(baseline.read_text())["crates"] == {"alpha": [], "beta": []}
 
 
 def test_a_repair_and_a_new_break_in_one_crate_is_a_RISE(rig, capsys):
@@ -165,7 +255,7 @@ def test_a_repair_and_a_new_break_in_one_crate_is_a_RISE(rig, capsys):
     object.__setattr__(
         module, "measure",
         lambda crate: ((swapped if crate == "alpha" else links("beta", 1)),
-                       "Documenting x\nFinished"),
+                       f"Documenting {crate}\nFinished", 0),
     )
     assert len(swapped) == 3, "the swap must not change the count, or it proves nothing"
 
@@ -208,7 +298,7 @@ def test_update_can_actually_perform_the_migration_it_recommends(rig, capsys):
     baseline.write_text(json.dumps({"crates": {"alpha": 3, "beta": 1}}))
     object.__setattr__(
         module, "measure",
-        lambda crate: (links(crate, 2), "Documenting x\nFinished"),
+        lambda crate: (links(crate, 2), f"Documenting {crate}\nFinished", 0),
     )
     assert run(module, ["--update"]) == 0, capsys.readouterr().out
     written = json.loads(baseline.read_text())["crates"]
@@ -249,6 +339,75 @@ def test_identities_are_parsed_out_of_real_rustdoc_output():
     # ⚠ ANTI-VACUITY: an unrelated rustdoc warning must NOT become an identity,
     # or the parser is counting the wrong population.
     assert module.identities("warning: unused variable: `x`\n") == []
+
+
+def test_a_coloured_rustdoc_stream_is_still_counted():
+    """⛔⛔ **THE BYTES BELOW ARE WHY THIS GUARD READ 0/13 INSIDE `--maintenance`
+    ON 2026-09-18.** Every pattern in the parser is line-anchored on
+    `^warning:`, and `scripts/run_tests.py` exports `CARGO_TERM_COLOR=always`
+    to every child job — so the anchor sat behind `ESC[1mESC[33m` and matched
+    nothing. Thirteen crates scored zero, the table printed *"⭐ 42 repaired"*,
+    and the advice was `--update`, which would have banked an empty baseline.
+
+    ⚠ COPIED FROM A REAL RUN, not composed: `cargo doc -p ambition_characters
+    --no-deps` under the variable, 2026-09-18. A hand-written escape is a guess
+    about which codes rustdoc picks and where it puts the reset.
+
+    The assertion is EQUALITY WITH THE PLAIN FORM, not merely non-empty: a
+    parser that counted the coloured lines but lost the `-->` path would still
+    be scoring the wrong identities.
+    """
+    module = load()
+    plain = (
+        "warning: unresolved link to `resolve_worn_control`\n"
+        "  --> crates/ambition_characters/src/action_scheme.rs:60:46\n"
+        "   |\n"
+        "warning: public documentation for `derive_action_scheme` links to "
+        "private item `combat_actions`\n"
+        "   --> crates/ambition_characters/src/action_scheme.rs:449:9\n"
+        "    |\n"
+    )
+    coloured = (
+        "\x1b[1m\x1b[33mwarning\x1b[0m\x1b[1m: unresolved link to "
+        "`resolve_worn_control`\x1b[0m\n"
+        "  \x1b[1m\x1b[94m--> \x1b[0mcrates/ambition_characters/src/action_scheme.rs:60:46\n"
+        "   \x1b[1m\x1b[94m|\x1b[0m\n"
+        "\x1b[1m\x1b[33mwarning\x1b[0m\x1b[1m: public documentation for "
+        "`derive_action_scheme` links to private item `combat_actions`\x1b[0m\n"
+        "   \x1b[1m\x1b[94m--> \x1b[0mcrates/ambition_characters/src/action_scheme.rs:449:9\n"
+        "    \x1b[1m\x1b[94m|\x1b[0m\n"
+    )
+    assert module.identities(plain) == module.identities(coloured) != []
+
+
+def test_the_measurement_asks_cargo_for_plain_output(monkeypatch):
+    """⭐ THE FIRST LINE OF DEFENCE, AND IT IS SEPARATELY POISONABLE.
+
+    Stripping in the parser fixes the reading; asking cargo not to colour fixes
+    the stream. Both, because each covers a source the other does not — an
+    ambient `CARGO_TERM_COLOR` for the flag, a `RUSTDOCFLAGS=--color=always` for
+    the strip.
+    """
+    module = load()
+    seen = {}
+
+    class Result:
+        stdout = ""
+        stderr = ""
+        returncode = 0
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = list(argv)
+        seen["env"] = kwargs.get("env")
+        return Result()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setenv("CARGO_TERM_COLOR", "always")
+    module.measure("ambition_characters")
+
+    assert seen["argv"][-2:] == ["--color", "never"], seen["argv"]
+    assert seen["env"] is not None, "the child inherited the caller's environment"
+    assert seen["env"]["CARGO_TERM_COLOR"] == "never", seen["env"]["CARGO_TERM_COLOR"]
 
 
 def test_the_tracked_crates_all_exist(rig):

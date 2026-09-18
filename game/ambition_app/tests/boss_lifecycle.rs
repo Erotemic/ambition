@@ -245,8 +245,8 @@ fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
         sim.world(),
     )
     .expect("live encounter-music request")
-    .priority_track
-    .clone()
+    .priority_track()
+    .map(str::to_owned)
 }
 
 /// R4: "cleared" is keyed by the boss PLACEMENT id (its runtime/LDtk id), not

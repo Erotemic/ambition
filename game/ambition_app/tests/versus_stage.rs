@@ -2765,3 +2765,309 @@ fn every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows() {
          move, jump or attack, with nothing anywhere refusing it"
     );
 }
+
+/// What the roster arm will read, sampled at the START of the frame it reads it.
+///
+/// ⭐ `First`, NOT `Last`, AND THAT IS THE WHOLE INSTRUMENT. `track_versus_roster`
+/// runs in `Update` and its `(on_versus, mine) == (true, false)` arm PUBLISHES the
+/// roster that makes `mine` true — so a sample taken after `Update` sees the arm's
+/// own output and can never witness the arm firing. The state at the start of the
+/// same frame is the state the arm will act on.
+#[derive(Resource, Default)]
+struct RosterArmSamples(Vec<RosterArmSample>);
+
+#[derive(Debug, Clone, Copy)]
+struct RosterArmSample {
+    frame: u64,
+    /// The router says this route is the one being played.
+    on_versus: bool,
+    /// A roster exists AND versus published it — the arm's own second condition.
+    mine: bool,
+    /// A GGRS session resource is installed: the timeline exists.
+    ggrs_live: bool,
+    /// What `maintain_local_session` actually gates on. The waiver named a live
+    /// primary player body; the maintainer never mentions one.
+    session_world: bool,
+    /// Which arm of `SessionSeatingSource` stands. Versus never claims
+    /// `Pending`, so this is `Devices` right up to the frame it decides.
+    seating: &'static str,
+    /// `VersusMatch::opening()` counts into round one.
+    round: u32,
+}
+
+/// The same frame, at its END — after `Update` has run both systems.
+#[derive(Resource, Default)]
+struct FrameEndSamples(Vec<FrameEndSample>);
+
+#[derive(Debug, Clone, Copy)]
+struct FrameEndSample {
+    frame: u64,
+    /// The change tick of the scoreboard write, and the tick the session was
+    /// installed at.
+    ///
+    /// ⭐⭐ THIS PAIR IS THE VERDICT, AND IT NEEDS NO SCHEDULE ORDERING TO READ.
+    /// Bevy advances the world's change tick per system run, so two ticks taken
+    /// from the same frame say which of the two systems ran first. Sampling
+    /// `contains_resource` cannot: both systems are in `Update`, so a session
+    /// installed on the firing frame is invisible at the frame's start and
+    /// indistinguishable at its end from one installed before the write.
+    versus_match_changed: u32,
+    session_added: Option<u32>,
+}
+
+#[derive(Resource, Default)]
+struct ProbeHostFrame(u64);
+
+fn sample_what_the_roster_arm_will_read(world: &mut World) {
+    let frame = {
+        let mut frame = world.resource_mut::<ProbeHostFrame>();
+        frame.0 += 1;
+        frame.0
+    };
+    let on_versus = world
+        .get_resource::<ShellRouter>()
+        .and_then(|router| router.active.as_ref())
+        .is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE);
+    let mine = world
+        .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
+        .is_some_and(|roster| {
+            roster.is_published_by(ambition_app::app::versus::VERSUS_EXPERIENCE)
+        });
+    let ggrs_live =
+        world.contains_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>();
+    let session_world = ambition_platformer2d::session::session_world_entity(world).is_some();
+    let seating = match world.get_resource::<ambition_platformer2d::input::SessionSeatingSource>() {
+        None => "absent",
+        Some(ambition_platformer2d::input::SessionSeatingSource::Devices) => "Devices",
+        Some(ambition_platformer2d::input::SessionSeatingSource::Pending { .. }) => "Pending",
+        Some(ambition_platformer2d::input::SessionSeatingSource::Decided { .. }) => "Decided",
+    };
+    let round = world
+        .get_resource::<VersusMatch>()
+        .map(|state| state.round)
+        .unwrap_or(0);
+    world
+        .resource_mut::<RosterArmSamples>()
+        .0
+        .push(RosterArmSample {
+            frame,
+            on_versus,
+            mine,
+            ggrs_live,
+            session_world,
+            seating,
+            round,
+        });
+}
+
+fn sample_the_order_the_frame_resolved_to(world: &mut World) {
+    let frame = world.resource::<ProbeHostFrame>().0;
+    let versus_match_changed = world
+        .get_resource_change_ticks::<VersusMatch>()
+        .map(|ticks| ticks.changed.get())
+        .unwrap_or(0);
+    let session_added = world
+        .get_resource_change_ticks::<ambition_platformer2d::rollback::AmbitionGgrsSession>()
+        .map(|ticks| ticks.added.get());
+    world.resource_mut::<FrameEndSamples>().0.push(FrameEndSample {
+        frame,
+        versus_match_changed,
+        session_added,
+    });
+}
+
+/// Print one phase's frames, so the table can be read rather than argued.
+fn report_roster_arm(app: &App, label: &str, from: usize) -> usize {
+    let samples = &app.world().resource::<RosterArmSamples>().0;
+    let window = &samples[from..];
+    let first = |pred: &dyn Fn(&RosterArmSample) -> bool| {
+        window
+            .iter()
+            .position(|sample| pred(sample))
+            .map(|index| index as i64)
+            .unwrap_or(-1)
+    };
+    eprintln!(
+        "PROBE [{label}] frames={} first on_versus@{} mine@{} session_world@{} ggrs_live@{}",
+        window.len(),
+        first(&|sample| sample.on_versus),
+        first(&|sample| sample.mine),
+        first(&|sample| sample.session_world),
+        first(&|sample| sample.ggrs_live),
+    );
+    for sample in window
+        .iter()
+        .filter(|sample| sample.on_versus && !sample.mine)
+    {
+        let end = app
+            .world()
+            .resource::<FrameEndSamples>()
+            .0
+            .iter()
+            .find(|end| end.frame == sample.frame)
+            .copied();
+        eprintln!("PROBE [{label}]   FIRED {sample:?}");
+        eprintln!("PROBE [{label}]     at frame end: {end:?}");
+    }
+    samples.len()
+}
+
+fn arm_fired(app: &App) -> Vec<RosterArmSample> {
+    app.world()
+        .resource::<RosterArmSamples>()
+        .0
+        .iter()
+        .filter(|sample| sample.on_versus && !sample.mine)
+        .copied()
+        .collect()
+}
+
+fn versus_roster_is_ours(app: &App) -> bool {
+    app.world()
+        .get_resource::<ambition_platformer2d::versus_match::MatchParticipantRoster>()
+        .is_some_and(|roster| {
+            roster.is_published_by(ambition_app::app::versus::VERSUS_EXPERIENCE)
+        })
+}
+
+/// ⛔ WHAT MENU-RESET-MIDSESSION OWED FOR ITS THIRD OFFENDER, and the answer is
+/// that the write precedes the timeline BY A SCHEDULE EDGE — not by the reason
+/// the waiver gave.
+///
+/// `track_versus_roster` is registered into `Update` and writes `*match_state =
+/// VersusMatch::opening()` on the arm that opens a match. `VersusMatch` is
+/// `rollback_resource_clone_checksum` — restored AND peer-compared — so an
+/// `Update` write to it is exposure unless no timeline exists at the moment it
+/// happens.
+///
+/// ⛔ THE WAIVER NAMED THE WRONG CONDITION. It argued that GGRS cannot have
+/// started *"only once a live primary player body exists"*; `maintain_local_session`
+/// mentions no body at all, and gates on `session_world_entity(world).is_some()`.
+/// Measured here: on the frame the arm fires, **the session world already
+/// exists** — so the body argument is not what protects the write, and the gate
+/// the maintainer really reads is already open.
+///
+/// ⭐ WHAT DOES PROTECT IT is forty lines above the arm in `versus.rs`: the pair
+/// is registered `.before(LocalSessionSet::Maintain)`, a real same-schedule
+/// edge, because the maintainer would otherwise size the session from connected
+/// DEVICES on the frame this route opens. That edge was installed for the SEAT
+/// COUNT; this test is the second thing hanging from it, and the change ticks
+/// below are what make the dependency visible instead of incidental.
+///
+/// ⇒ Widening or dropping that `.before(...)` reopens an `Update` write to
+/// peer-compared rollback state over a live timeline, and nothing else would
+/// say so: `OwnedItems`' sibling defect is silent for exactly this reason.
+#[test]
+fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
+    let mut app = versus_app();
+    app.init_resource::<ProbeHostFrame>();
+    app.init_resource::<RosterArmSamples>();
+    app.init_resource::<FrameEndSamples>();
+    app.add_systems(First, sample_what_the_roster_arm_will_read);
+    app.add_systems(Last, sample_the_order_the_frame_resolved_to);
+
+    settle_to_launcher(&mut app);
+    let routes: Vec<String> = app
+        .world()
+        .resource::<ShellRouteCatalog>()
+        .ids()
+        .map(str::to_string)
+        .collect();
+    eprintln!("PROBE routes in the shipped host: {routes:?}");
+    let cursor = report_roster_arm(&app, "launcher", 0);
+
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        if versus_roster_is_ours(&app) {
+            break;
+        }
+    }
+    let cursor = report_roster_arm(&app, "first entry", cursor);
+
+    // A LIVE ROUND, so the timeline is certainly up before anything below asks
+    // what happens over one.
+    settle_into_a_live_round(&mut app);
+    let cursor = report_roster_arm(&app, "settling into the round", cursor);
+
+    // Leave the way the launcher's ReturnHome does, then come back. Re-entry is
+    // the shipped road on which the arm fires a SECOND time, and it is the one
+    // the single-write argument has to survive.
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    for _ in 0..300 {
+        app.update();
+        if !versus_roster_is_ours(&app) {
+            break;
+        }
+    }
+    let cursor = report_roster_arm(&app, "quit to home", cursor);
+
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        if versus_roster_is_ours(&app) {
+            break;
+        }
+    }
+    report_roster_arm(&app, "re-entry", cursor);
+
+    let fired = arm_fired(&app);
+    // ONE WRITE PER ROUTE ENTRY, which is the half of the waiver that survived
+    // review: every other combination of `(on_versus, mine)` falls through
+    // `_ => {}`, and only the route EXIT can make `mine` false again. Two
+    // entries were driven above, so two firings is the whole exposure — a
+    // per-frame write would be a different and much wider one.
+    assert_eq!(
+        fired.len(),
+        2,
+        "two route entries must fire the arm exactly twice; fired on {:?}",
+        fired.iter().map(|sample| sample.frame).collect::<Vec<_>>()
+    );
+
+    let ends = app.world().resource::<FrameEndSamples>().0.clone();
+    let mut installed_on_a_firing_frame = 0;
+    for sample in &fired {
+        assert!(
+            !sample.ggrs_live,
+            "the scoreboard write landed on a frame that STARTED with a live \
+             rollback session: {sample:?}. `VersusMatch` is \
+             `rollback_resource_clone_checksum`, so this is an `Update` write to \
+             peer-compared rollback state inside the rewind window"
+        );
+        let end = ends
+            .iter()
+            .find(|end| end.frame == sample.frame)
+            .unwrap_or_else(|| panic!("no frame-end sample for frame {}", sample.frame));
+        if let Some(added) = end.session_added {
+            assert!(
+                added > end.versus_match_changed,
+                "the session was installed at tick {added} and the scoreboard was \
+                 written at tick {}, so on frame {} the timeline came up FIRST and \
+                 the write landed inside it. The `.before(LocalSessionSet::Maintain)` \
+                 edge in versus.rs is what orders these two; if it is still there, \
+                 read the possibility that bevy_ggrs restored `VersusMatch` later in \
+                 the same frame, which would move the changed tick without being a \
+                 defect",
+                end.versus_match_changed,
+                sample.frame
+            );
+            installed_on_a_firing_frame += 1;
+        }
+    }
+    // ⭐ THE ANTI-VACUITY FLOOR. If the session came up on some LATER frame
+    // every time, the ordering above would be trivially satisfied and this test
+    // would pass with the edge deleted. It does not: the maintainer installs the
+    // session in the SAME `Update` as the write, after it, which is precisely
+    // what the edge decides.
+    assert!(
+        installed_on_a_firing_frame > 0,
+        "no firing frame installed the session, so the tick comparison above \
+         never ran and this test cannot see the ordering it exists to pin. \
+         Frame-end samples: {:?}",
+        ends.iter()
+            .filter(|end| fired.iter().any(|sample| sample.frame == end.frame))
+            .collect::<Vec<_>>()
+    );
+}

@@ -94,7 +94,7 @@ pub fn compute_music_intent(
     // `last_applied` for diagnostics and tests. The director itself never
     // touches this gameplay resource.
     if let Some(top) = candidates.first().cloned() {
-        encounter_music.last_applied = Some(top);
+        encounter_music.mark_applied(Some(top));
     }
 
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);

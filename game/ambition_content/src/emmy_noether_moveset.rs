@@ -423,7 +423,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // invention: `smash.counter` carries `CounterParams { response,
     // absorbs_projectiles }`, where the response is an ARBITRARY technique and
     // the flag chooses absorb-versus-reflect. Three fighters author one — George
-    // answers a parry with a grab, the Author with an ambush teleport, the Shadow
+    // answers a parry with a grab, the Director with an ambush teleport, the Shadow
     // Oni with a sleep pulse — so the "wrong shape" objection is answered by the
     // thing being shared rather than bespoke.
     //
@@ -612,7 +612,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // ⭐⭐ AND THE RESPONSE IS THE THEOREM. Noether's is that a symmetry implies
     // a CONSERVED QUANTITY: put energy in and it is not destroyed. So the answer
     // to being struck is `smash.vitality` — she keeps it. ⇒ Four counters on this
-    // roster and no two alike: George grabs, the Author arrives behind you, the
+    // roster and no two alike: George grabs, the Director arrives behind you, the
     // Shadow Oni puts you out, and she is simply better off for having been hit.
     //
     // ⛔ SHE ABSORBS RATHER THAN REFLECTS, which is the same idea and not a

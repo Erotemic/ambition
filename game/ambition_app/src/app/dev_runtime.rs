@@ -70,11 +70,21 @@ pub(super) fn handle_ldtk_hot_reload(
     // geometry (A10 stages it behind the room transaction's verdict — see
     // `replace_live_world`), but a reload in a world whose session root carries
     // no room authority is still refused, and this `Single` is what refuses it.
-    _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
-    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-        world_rooms::RoomSet,
-    >,
-    mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+    //
+    // ⛤ SO IT ASKS FOR `Ref` AND THE TYPE NOW SAYS SO — 2026-09-18. Both
+    // aliases are `Single<_, With<SessionRoot>>`, so the refusal is identical;
+    // what the mutable one added was an exclusive borrow on a session-world
+    // component and a second entry in the multi-writer census for a system that
+    // writes nothing. A comment saying "not a write target" beside a `&mut` is
+    // the weakest form that statement can take.
+    _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
+    // ⛤ NO `mut` ON EITHER BINDING SINCE 2026-09-18, while the TYPES
+    // deliberately keep their mutable reach. rustc reported both `mut`s as dead
+    // the moment the handoff below became a shared borrow, and a dead `mut` is
+    // the one part of this signature nothing was arguing for — see the note at
+    // the `reload_ldtk_world_from_disk` call for why the reach itself stays.
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ldtk_world::LdtkRuntimeIndex,
     >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
@@ -127,7 +137,11 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::runtime::PreparedContent,
         >,
-        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        // ⛤ A GUARD TOO, and `Ref` for the same reason as `_room_geometry`
+        // above: the note at the call site already says this one is *"no longer
+        // handed in"* because a `&mut` there *"would be a second road to the same
+        // component"* — and it was still asking for one here.
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::runtime::PreparedContentIdentity,
         >,
         ResMut<ambition_platformer2d::runtime::ContentEpochSequence>,
@@ -211,11 +225,20 @@ pub(super) fn handle_ldtk_hot_reload(
             .cloned()
             .unwrap_or_default()
             .schema_fingerprint();
+        // ⛔⛤ `room_set` AND `ldtk_index` STAY `SessionWorldMut` AT THIS SYSTEM'S
+        // SIGNATURE, DELIBERATELY, even though both are handed on as shared
+        // borrows now. The reload's real writes happen in the staged closure
+        // below through `session_world_component_mut`, and demoting the
+        // signature would take `RoomSet` to ZERO mutable-reach sites in the
+        // session-world census while the room publication still replaces it —
+        // a smaller number for an unchanged fact. ⇒ The instrument has to be
+        // able to see the publication's write before a demotion here is allowed
+        // to reduce the count.
         let result = reload_ldtk_world_from_disk(
             &mut commands,
-            &mut room_set,
+            &room_set,
             &mut clusters,
-            &mut ldtk_index,
+            &ldtk_index,
             tuning.0 .0,
             *tuning.1,
             &room_visuals,
@@ -358,11 +381,19 @@ pub(super) fn prepare_ldtk_reload_transaction(
 /// BEFORE anyone knew whether the candidate room published. They are reached from
 /// the staged closure now, which runs only on this publication's own verdict, so
 /// the SIGNATURE no longer claims a reload that has not been verified.
+///
+/// ⛤ `room_set` AND `ldtk_index` ARE SHARED BORROWS SINCE 2026-09-18, for the
+/// same reason as the list above: this function reads the current room's id off
+/// one and CLONES the other into a candidate, and every write lands in the
+/// staged closure on the publication's own verdict. A `&mut` here claimed a
+/// write that happens somewhere else. ⚠ The system's `SessionWorldMut` params
+/// that feed them are deliberately NOT demoted with them — see the note at the
+/// call site.
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
-    room_set: &mut world_rooms::RoomSet,
+    room_set: &world_rooms::RoomSet,
     clusters: &mut ae::BodyClustersMut<'_>,
-    ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
+    ldtk_index: &ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     room_visuals: &Query<

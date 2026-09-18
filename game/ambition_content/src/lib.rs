@@ -75,7 +75,7 @@ pub use ambition_platformer2d_actor_monolith::features;
 pub mod alice_moveset;
 /// How a fighter borrows an archetype's timings under its own name.
 pub mod archetype_moveset;
-pub mod author_moveset;
+pub mod director_moveset;
 pub mod bob_moveset;
 pub mod carl_stargan_moveset;
 pub mod cellular_automaton_moveset;

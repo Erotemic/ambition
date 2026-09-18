@@ -50,8 +50,8 @@ execution, not to change the idea.
 | **Performer** | up-B | *"She doesn't teleport up, she gets lifted up by the wire"*; *"It is not a teleport and should not get the teleport sound"*; *"her up-b uses the trap door, and I don't think it should"* | shipped |
 | **Performer** | neutral-B | *"performer gets sing."* | shipped |
 | **Performer** | tilts, smashes, aerials | *"attacks rarely ever feel like they connect"*; larger, longer-lived hitboxes and posing/sequencing closer to Smash Ultimate; little existing posing to preserve | First normal pass: 40 ms authored poses, extended stage-light blades, 160–280 ms active time, and contiguous runtime shape samples following each sweep. Source: renderer `performer_stage_v1` clips/specs and `performer_moveset.rs`. Timing agreement: `normal_contact_windows_match_the_authored_light_and_pose_clock`. Continue evaluating feel in the Smash demo. |
-| **Author** | up-B | *"Mewtwo / Palutena / Zelda style teleports"* — his idea, and he has said the execution *"isn't great right now"* and that polishing it is an agent's to do, low priority | shipped, **polish invited** |
-| **Author** | side-B | *"I want the author to have side-b be the pk-thunder style 'mind' attack."* | shipped |
+| **Director** | up-B | *"Mewtwo / Palutena / Zelda style teleports"* — his idea, and he has said the execution *"isn't great right now"* and that polishing it is an agent's to do, low priority | shipped, **polish invited** |
+| **Director** | side-B | *"I want the director to have side-b be the pk-thunder style 'mind' attack."* | shipped |
 | **Officer** | side-B | *"we should also polish the officer and give him a side b that pulls out and shoots a gun."* | shipped |
 | **Projectile Polygon** | neutral-B | *"This should have parity with samus / mewtwo 'b', so that means it needs to be able to store a charge and fire at different sizes."* | shipped |
 | **Projectile Polygon** | side-B | *"I think the projectile polygon should be able to use her ponytail as a boomarang for her side-b."* | shipped |
@@ -62,7 +62,7 @@ execution, not to change the idea.
 | **Alice** | up-B | *"up b opens a portal under him, and a portal at the very top of the stage"*; *"we can even exercise angled portals with directional input on the up b"* | shipped, both halves |
 | **Goblin** | Limit | *"Give the limit ability to the goblin maybe? […] And give whoever gets the limit meter some move they can use when it fills."* | shipped — and he called the numbers *"just an example, you can tweak things"* |
 | **PCA** | ranged | *"PCA needs to shoot a glider, but beyond that i don't really care."* | satisfied |
-| **Swordies** | counter | *"Swordies will get a counter."* | ⛔ **"shipped" WAS FALSE FOR THE SWORDIE, and a census caught it 2026-09-06.** The counter MECHANIC shipped — on the stand-ins' `riposte` and the Author's second draft — and this row was marked from the mechanic rather than from the fighter. `pointed_polygon` was five-for-five BARE specials: not one carried a technique. ⇒ **NOW SHIPPED FOR REAL** as `polygon_riposte`, his grounded down-B, replacing the `polygon_low_arc` swipe. ⭐ It needed a new answer to exist: all six shipped counters respond with a grab, a teleport, a sleep, a heal, an absorb or a slow, and NONE of them hits back — `counter_move` builds a stance with no volumes, so the genre's plainest counter was inexpressible. `smash.riposte_strike` is that missing answer and he is its first customer. ⚠ The lesson for this page: a row that reads "shipped" from the MECHANISM says nothing about the FIGHTER, and `the_census_of_specials_that_carry_no_technique` is now the instrument that tells the difference |
+| **Swordies** | counter | *"Swordies will get a counter."* | ⛔ **"shipped" WAS FALSE FOR THE SWORDIE, and a census caught it 2026-09-06.** The counter MECHANIC shipped — on the stand-ins' `riposte` and the Director's second draft — and this row was marked from the mechanic rather than from the fighter. `pointed_polygon` was five-for-five BARE specials: not one carried a technique. ⇒ **NOW SHIPPED FOR REAL** as `polygon_riposte`, his grounded down-B, replacing the `polygon_low_arc` swipe. ⭐ It needed a new answer to exist: all six shipped counters respond with a grab, a teleport, a sleep, a heal, an absorb or a slow, and NONE of them hits back — `counter_move` builds a stance with no volumes, so the genre's plainest counter was inexpressible. `smash.riposte_strike` is that missing answer and he is its first customer. ⚠ The lesson for this page: a row that reads "shipped" from the MECHANISM says nothing about the FIGHTER, and `the_census_of_specials_that_carry_no_technique` is now the instrument that tells the difference |
 | **Officer** | shield | *"this is a push, not a hit"* | shipped |
 | **Patent Clerk** | Witch-Time | *"no take-backs"* | shipped |
 | **Oiler** | geyser | *"so the column reads as continuous rather than as one puff"* | shipped |
@@ -96,7 +96,7 @@ against the code so it cannot go quietly stale.
 
 | what he asked for | why it is still open |
 |---|---|
-| the **Author's up-B** execution | his idea, shipped, and he says it *"isn't great right now"*. Polishing it is an agent's to do and he marked it low priority |
+| the **Director's up-B** execution | his idea, shipped, and he says it *"isn't great right now"*. Polishing it is an agent's to do and he marked it low priority |
 | the **polygons' up-air and basic attacks** | he helped author them and calls them unpolished |
 | three item icons — the **mine**, the **bomb**, the **ponytail** | Jon: *"Worth three icons"*. ✔ **DONE 2026-09-06.** ⛔ Two claims in this row were wrong and both were cheap to check. They did NOT "draw the placeholder quad": all three were registered in `items/held_visuals.rs` and BORROWED real art (`gauntlet_bomb.png`, `mark_beacon.png`, and the javelin for the tress, which the code's own comment called "honestly a placeholder"). And the generator is `targets/icons/**item_icons**.py`, not `hud_icons.py` — a neighbouring module whose own docstring says it is "distinct from `item_icons` next door". ⇒ The submodule blocker was real when written and is gone: the pointer matches HEAD after the epoch reset. Landed: three drawers + `HELD_ITEM_ICON_SPECS` in the renderer, installed by the `write_gauntlet_props` call `scripts/regen/sprites.sh` already makes, `held_visuals.rs` repointed (the ponytail's extent went square — a borrowed `44×6` is the javelin's shape, not hers), and `check_held_item_props_are_rendered.py` holds the two lists together with 5 poisons run red |
 
@@ -110,7 +110,7 @@ code as SETS. Every `*_moveset.rs` must appear in exactly one of them, which is
 what forces a NEW fighter to be classified rather than silently defaulting to
 "free to change".
 
-<!-- reviewed-fighters: alice, author, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
+<!-- reviewed-fighters: alice, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
 <!-- free-fighters: archetype, bob, carl_stargan, cellular_automaton, emmy_noether, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
 
 ## The guard

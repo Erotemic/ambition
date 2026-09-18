@@ -606,3 +606,155 @@ def test_the_session_world_helper_spellings_are_both_read() -> None:
     )
     found = {a or b for a, b in matches}
     assert found == {"RoomSet", "RoomGeometry", "LdtkRuntimeIndex"}, found
+
+
+# ── the SIXTH spelling: the schedule LABEL, 2026-09-18 ──────────────────────
+#
+# The five spellings above are all ways a WRITE can be written. This one was in
+# the test itself: `collect` compared the schedule label against a tuple of four
+# BARE names, and the workspace spells a non-rewinding schedule in QUALIFIED form
+# 39 times. Every such registration was skipped — the guard reported FEWER
+# offenders, which is the direction that reads as green.
+
+
+def test_a_qualified_schedule_label_is_the_same_schedule(tmp_path):
+    """⛔⛤ THE DEFECT ITSELF. `bevy::prelude::Update` IS `Update`.
+
+    Measured on the day this was found: the tree spells them qualified 39 times
+    and two live offenders were invisible — `publish_player_stats_edits`
+    (`bevy::app::PreUpdate`) and `reset_checkpoint_coordinator_on_activation`
+    (`bevy::prelude::Update`). Both now carry waivers; neither could be ASKED
+    about while the label did not match.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn regen(mut m: Query<&mut BodyMana>) {}",
+            "fn build(app: &mut App) {",
+            "    app.add_systems(bevy::prelude::Update, regen);",
+            "}",
+        ]),
+    })
+    found = guard.collect(root)
+    assert len(found) == 1, f"a qualified label hid the mutator: {found}"
+    name, _file, schedule, hits = found[0]
+    assert (name, schedule, hits) == ("regen", "Update", ["BodyMana"]), (
+        "the reported schedule is NORMALIZED, so two spellings of one schedule "
+        "do not read as two different findings"
+    )
+
+
+def test_every_qualified_spelling_in_the_tree_normalizes(tmp_path):
+    """Not one prefix — the two the workspace actually uses, plus a third.
+
+    `bevy::app::` and `bevy::prelude::` both appear at real registration sites;
+    a guard keyed on either one alone would still be half blind.
+    """
+    for prefix in ("bevy::app::", "bevy::prelude::", "some::deep::path::"):
+        root = _tree(tmp_path / prefix.replace(":", "_"), {
+            "crates/ambition_x/src/lib.rs": "\n".join([
+                "pub fn regen(mut m: Query<&mut BodyMana>) {}",
+                "fn build(app: &mut App) {",
+                f"    app.add_systems({prefix}PreUpdate, regen);",
+                "}",
+            ]),
+        })
+        found = guard.collect(root)
+        assert [(r[0], r[2]) for r in found] == [("regen", "PreUpdate")], (
+            f"{prefix}PreUpdate did not normalize: {found}"
+        )
+
+
+def test_a_qualified_rewinding_label_is_still_not_a_finding(tmp_path):
+    """The inversion must not swing the other way and flag the sim schedule.
+
+    ⚠ this is the control for the test above: normalization that only ever adds
+    rows would pass that one while making the guard useless.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn regen(mut m: Query<&mut BodyMana>) {}",
+            "fn build(app: &mut App) {",
+            "    app.add_systems(bevy_ggrs::GgrsSchedule, regen);",
+            "    app.add_systems(bevy::app::Startup, regen);",
+            "}",
+        ]),
+    })
+    assert guard.collect(root) == []
+
+
+def test_an_unanticipated_schedule_arrives_as_a_finding(tmp_path):
+    """⭐ WHY THE TEST IS INVERTED RATHER THAN THE LIST WIDENED.
+
+    The set of schedules that do NOT rewind is open — it grows with every crate
+    and every third-party plugin, and an omission is silent. The set that DOES
+    rewind is closed. A label nobody anticipated must therefore land in the
+    population, where somebody is forced to adjudicate it.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn regen(mut m: Query<&mut BodyMana>) {}",
+            "fn build(app: &mut App) {",
+            "    app.add_systems(SomeThirdPartyPlugin::RenderPass, regen);",
+            "}",
+        ]),
+    })
+    found = guard.collect(root)
+    assert [(r[0], r[2]) for r in found] == [("regen", "RenderPass")]
+
+
+def test_a_variable_schedule_label_is_skipped_and_that_is_the_residual(tmp_path):
+    """⛔ THE RESIDUAL, EXECUTABLE SO IT CANNOT BE FORGOTTEN.
+
+    `app.add_systems(sim, …)` is the sanctioned idiom and 258 calls use it, but
+    a source scan cannot tell `sim` from `load_schedule` or any other binding.
+    A variable label is SKIPPED — so a mutator behind a variable that is NOT the
+    sim schedule is invisible here. This test asserts the blind spot rather than
+    a capability, and it fails the day dataflow makes it resolvable.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn regen(mut m: Query<&mut BodyMana>) {}",
+            "fn build(app: &mut App) {",
+            "    let not_the_sim = PostUpdate;",
+            "    app.add_systems(not_the_sim, regen);",
+            "}",
+        ]),
+    })
+    assert guard.collect(root) == [], (
+        "if this now reports, the residual documented on `is_schedule_variable` "
+        "has been closed — delete the blind-spot note with this test"
+    )
+
+
+def test_every_schedule_exemption_says_why(tmp_path):
+    """An exemption is a claim, so it carries an argument, like a waiver."""
+    for label, why in guard.REWINDING_OR_NOT_A_TIMELINE.items():
+        assert len(why) > 20, f"{label}'s exemption is a placeholder: {why!r}"
+
+
+def test_the_load_bearing_schedule_exemptions_are_measured():
+    """⚠ WHICH EXEMPTIONS DO WORK TODAY, AND WHICH ARE ANTICIPATORY.
+
+    Measured 2026-09-18 by dropping each entry and re-running the real tree:
+    three change the verdict — `SaveWorld` (`update`), `Startup`
+    (`load_save_at_startup`) and `CheckpointDomainApply` (the commit executor's
+    three domain reducers). The other six carry no current population and are
+    therefore claims about the future, not measured exemptions.
+
+    This test pins the three that are load-bearing. It does NOT require the
+    other six to stay empty — it requires nobody to delete a working one while
+    believing it was decorative.
+    """
+    load_bearing = ("SaveWorld", "Startup", "CheckpointDomainApply")
+    base = {r[0] for r in guard.collect()}
+    for label in load_bearing:
+        saved = guard.REWINDING_OR_NOT_A_TIMELINE.pop(label)
+        try:
+            exposed = {r[0] for r in guard.collect()} - base
+        finally:
+            guard.REWINDING_OR_NOT_A_TIMELINE[label] = saved
+        assert exposed, (
+            f"{label} was measured load-bearing on 2026-09-18 and now exempts "
+            "nothing — either its systems moved, in which case say so here, or "
+            "the scan stopped seeing them"
+        )

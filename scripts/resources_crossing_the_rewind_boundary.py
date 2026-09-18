@@ -266,9 +266,18 @@ def crossings() -> dict[str, dict[str, set[str]]]:
         for body in GUARD.add_systems_bodies(text):
             schedule, _, rest = body.partition(",")
             schedule = schedule.strip()
-            if schedule in GUARD.NON_REWINDING:
+            # ⛔⛤ THE HOST SIDE IS ASKED, NOT ENUMERATED, SINCE 2026-09-18. This
+            # used to test `schedule in GUARD.NON_REWINDING`, a tuple of BARE
+            # labels, while the tree spells a non-rewinding schedule in QUALIFIED
+            # form 39 times — so `bevy::app::PreUpdate` fell through to `continue`
+            # and the write was counted on NEITHER side. A crossing needs both
+            # sides to be seen, so a missed host write reads as "sim only": the
+            # same failure direction the guard itself had, one step further
+            # downstream. Measured across the repair: 50 crossings before, and the
+            # rows it adds are host writes that were previously invisible.
+            if GUARD.is_non_rewinding(schedule):
                 side = "update"
-            elif schedule in SIM_LABELS:
+            elif GUARD.normalize_schedule(schedule) in SIM_LABELS:
                 side = "sim"
             else:
                 continue

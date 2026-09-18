@@ -205,9 +205,14 @@ SESSION_WORLD_MUT = re.compile(
 #: only `ResMut<T>` parameters, and the note there says why it mattered: an
 #: exclusive-world system is what a COMMIT EXECUTOR is, so the road that spelling
 #: hid was the destructive one. This population had exactly the same hole.
-#: `apply_world_replacement` and the dev reload's staged closure write through
-#: this, and both are verdict-gated room publications — the most load-bearing
-#: writes these components get.
+#: The dev reload's staged closure writes through this. ⛔ THIS PARAGRAPH ALSO
+#: NAMED `apply_world_replacement` AND WAS WRONG ABOUT IT — caught by a review
+#: the same week. That function asks the *"which root did this publication verify
+#: against"* question instead, which is a DIFFERENT road with a different name
+#: (`session_world_component_mut_at`, matched by the `(?:_at)?` above). Getting
+#: that wrong in a census's own commentary is the failure this file keeps warning
+#: about in other people's prose: a sentence that sounds measured, beside a
+#: number that was.
 #:
 #: ⚠ FOUND BY DISTRUSTING A NUMBER THAT GOT BETTER. Two read-only
 #: `SessionWorldMut` bindings were demoted to `SessionWorldRef` the same day and

@@ -606,7 +606,7 @@ Moving-target CCD remains out of scope by the protocol's own slice.
 ### A2 construction-identity receipt, 2026-09-15
 
 **A shipped road built a mechanical body that nothing could name, and both
-censuses were structurally blind to it.** `spawn_requested_player_clone`
+censuses were structurally blind to it.** `spawn_requested_player_clone` <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 (`game/ambition_app/src/app/player_clone.rs`)
 <!-- cite-ok: the specimen road was DELETED in `89d78a4a5`; this paragraph records what it did -->
 spawned `BodyKinematics` +

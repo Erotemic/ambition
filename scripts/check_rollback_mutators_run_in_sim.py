@@ -68,6 +68,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
 from rust_source import strip_comments  # noqa: E402
+import measure_user_settings_in_simulation as _settings  # noqa: E402
 from check_engine_systems_are_engine_installed import (  # noqa: E402
     add_systems_bodies,
     strip_run_conditions,
@@ -156,6 +157,54 @@ def is_schedule_variable(label: str) -> bool:
     """
     head = normalize_schedule(label).split("(")[0].split(".")[0].strip()
     return bool(head) and not head[0].isupper()
+
+
+@functools.cache
+def wrapper_registered_systems(repo: Path = REPO) -> frozenset[str]:
+    """Systems a REGISTRATION WRAPPER hands to the simulation schedule.
+
+    ⭐ **THE HELPERS ARE BORROWED, NOT RESPELLED.** `install_technique` /
+    `install_techniques` are the whole wrapper family in this workspace — the
+    only two functions in `crates/`, `game/` and `tools/` that take
+    `impl IntoScheduleConfigs` — and `measure_user_settings_in_simulation.py`
+    already owns finding them and the fixpoint over them. This calls
+    `find_sim_forwarders`, `schedule_parameter_installers` and
+    `identifiers_in_call` against the sources THIS module already holds, so the
+    tree is read once and the forwarder rule has one keeper. See
+    `check_host_produced_sim_consumed_requests.unlocated_message_systems` for what believing the other diagnosis cost.
+
+    ⚠ The population is narrower than the owner's on purpose: `_production_sources`
+    excludes tests, and a registration that only a test performs is not a
+    schedule fact about the shipped game.
+
+    ⚠ Comments are blanked first because the owner's helpers expect that, and
+    because prose is 72% of `combat_schedule.rs`: unblanked, the direct
+    `add_systems` scan below admits 16 names that exist only inside comments.
+    """
+    sources = {
+        str(path): _settings.without_comments(text)
+        for path, text in _production_sources(repo)
+    }
+    # ⚠ **DISCOVERY IS NARROWED AND THE CALL-SITE SCAN IS NOT**, because the two
+    # halves cost differently. `find_sim_forwarders` closes a fixpoint with an
+    # `enclosing_fn` walk per match, so over every production source it runs for
+    # minutes; restricted to files that mention `add_systems` -- the owner's own
+    # population -- it is seconds, and a wrapper that never names the call it
+    # forwards into cannot be found by either. Reading the RESULT back out is a
+    # regex per forwarder, so that half sweeps everything and no call site in a
+    # file without `add_systems` is missed.
+    declaring = {
+        path: text for path, text in sources.items() if "add_systems" in text
+    }
+    names = set(_settings.schedule_parameter_installers(declaring))
+    forwarders = _settings.find_sim_forwarders(declaring)
+    for text in sources.values():
+        for forwarder in forwarders:
+            for match in re.finditer(rf"\b{re.escape(forwarder)}\s*\(", text):
+                names.update(_settings.identifiers_in_call(text, match.end()))
+    return frozenset(names)
+
+
 
 
 def is_non_rewinding(label: str) -> bool:

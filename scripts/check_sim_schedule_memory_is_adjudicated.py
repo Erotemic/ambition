@@ -312,6 +312,13 @@ ADJUDICATED: dict[str, str] = {
 #: healthy; what proves them load-bearing is poisoning the SCAN. Anchoring
 #: `_LOCAL` on the bare name (so the two qualified spellings the tree uses stop
 #: matching) takes three arms red at once, this floor among them.
+#:
+#: ⛤ THE REGISTRATION POPULATION JUMPED 589 -> 694 on 2026-09-18 when
+#: `_sim_schedule_systems` started following registration WRAPPERS, and the
+#: floor deliberately did NOT move with it. 450 was already chosen far under
+#: 589 so ordinary churn could not trip it; raising it to hug 694 would make
+#: the floor a second, worse copy of the population reading, which is the shape
+#: this repository has been collapsing all week.
 FLOORS = {"sim-schedule registrations": 450, "systems with a Local": 10}
 
 
@@ -334,7 +341,21 @@ def _sim_schedule_systems(repo: Path) -> set[str]:
                 continue
             rest = sim.strip_run_conditions(rest)
             found |= set(re.findall(r"\b([a-z_][a-z0-9_]*)\b", rest))
-    return found
+    # ⛔⛤ **A REGISTRATION WRAPPER IS STILL A REGISTRATION, and leaving it out
+    # shrank the wrong number.** `install_technique(app, KEY, offer,
+    # (..systems..))` ends in `app.add_systems(sim, systems)`, so a scan for the
+    # literal call answers *"not in the simulation"* about systems that ship in
+    # it. MEASURED 2026-09-18: 103 wrapper-registered names sat outside this
+    # population and 30 of them carry a `Local` or a `MessageReader`.
+    #
+    # ⭐ **AND THE WIDENING MOVES NO ADJUDICATION ROW**, which is why it is one
+    # commit rather than a campaign: `remembering_systems` — the population this
+    # module actually adjudicates — stays at 14, because none of the 103 carries
+    # a bare `Local`. What grows is `hidden_cursor_systems`, 99 systems/107
+    # cursors -> 129/138, and that is the number this module prints to say how
+    # much it CANNOT adjudicate. A lower bound getting bigger is the honest
+    # direction for it to move.
+    return found | set(sim.wrapper_registered_systems(repo))
 
 
 @functools.cache

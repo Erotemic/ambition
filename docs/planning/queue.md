@@ -306,8 +306,9 @@ unasked.
 things changed under this row without changing what it owes:
 
 1. **`Q136`'s population is enumerated and one member is FIXED.**
-   `scripts/check_host_produced_sim_consumed_requests.py` reports 4 of 57 spent
-   types crossing, and `SpawnPlayerCloneRequest` was repaired by putting the
+   `scripts/check_host_produced_sim_consumed_requests.py` reports 3 of 56 spent
+   types crossing (2026-09-18; it read 4 of 57 until the player-clone road was
+   deleted), and `SpawnPlayerCloneRequest` had been repaired by putting the <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
    spawn on the `MechanicalEditSet` road (a developer edit stands the local
    baseline down and rebases it, and a foreign timeline refuses with the
    proposal left PENDING). ⇒ The ruling is no longer choosing between four
@@ -326,7 +327,7 @@ things changed under this row without changing what it owes:
 `reset_held` beside the five `*_held` fields that already exist and move the
 hold accumulation inside the timeline behind `WorldTime::sim_dt()`, or keep
 accumulating outside and keep losing the completed edge. ⚠ Moving the hold
-inside while leaving it on `Res<Time>` is the `tick_player_clone_brains` defect
+inside while leaving it on `Res<Time>` is the `tick_player_clone_brains` defect <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 measured the same day — `scripts/check_sim_schedule_memory_is_adjudicated.py`
 exists to catch that, and `CutsceneSkipHold`'s census row would have to change
 with the code rather than stay as it is.
@@ -1871,7 +1872,7 @@ visible edge of the unclosed inventory leg on `ItemCustody`. They belong to that
 leg, not to this row. ⇒ A sixth bare-`match` site found tomorrow makes this
 "five closed, a sixth found" rather than making the row false.
 
-✅ **THE PLAYER-CLONE ROAD IS CLOSED.** `spawn_requested_player_clone` built a
+✅ **THE PLAYER-CLONE ROAD IS CLOSED.** `spawn_requested_player_clone` built a <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 body with `BodyKinematics`, `PlayerEntity` and the full movement clusters, and
 with no `SimId`, no `FeatureId` and deliberately no `PrimaryPlayer` — so
 `ensure_sim_id` matched neither arm and skipped it on every tick, forever. The

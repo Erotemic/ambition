@@ -1363,7 +1363,7 @@ rewind restores the pre-write value and erases the menu's press. The broad
 census is right to exclude it and the ingress census is right to name it. ⇒ **Q136
 covers two resources, and the ingress census owns that count.** The page said 50 /
 29 / 17 / 3 / 1 at 2026-09-17 with only `CutsceneAdvanceRequest` filed, which
-represented neither `NewGameResetRequested` nor the `SpawnPlayerCloneRequest`
+represented neither `NewGameResetRequested` nor the `SpawnPlayerCloneRequest` <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 specimen found and fixed the next day.
 
 ⛔⛤ **THE THREE THAT LEFT WERE NEVER CROSSING, AND THE RULING NEVER OWED THEM.**
@@ -1586,7 +1586,7 @@ input-local wall time. That adjudication is a consequence of the current design,
 not an argument for it: if the hold moves inside the timeline it must rewind, and
 the census row changes with the code. ⛔ What must NOT happen is moving the hold
 inside while leaving it accumulating from `Res<Time>` — that is precisely the
-`tick_player_clone_brains` defect measured the same day, and
+`tick_player_clone_brains` defect measured the same day, and <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 `scripts/check_sim_schedule_memory_is_adjudicated.py` now exists to catch it.
 
 ⭐ **WHICH REFRAMES OPTION 1 FROM "INVENT A CHANNEL" TO "USE THE ONE THIS ALREADY
@@ -1938,13 +1938,22 @@ spent types, all read:
 |---|---|---|
 | `CutsceneAdvanceRequest` | no | the sim's take stands through the rewind; nothing re-produces the press |
 | `NewGameResetRequested` | yes | the rewind restores `false` and ERASES the menu's write |
-| `SpawnPlayerCloneRequest` | no | same as the cutscene; newly visible |
 | `VersusMatch` | yes | filed under `Q140`, not new |
+
+⛤ **A FOURTH ROW STOOD HERE AND THE FEATURE UNDER IT WAS DELETED.**
+`SpawnPlayerCloneRequest` (*"no; same as the cutscene; newly visible"*) went with <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
+the player-clone hotkey on 2026-09-18 (`89d78a4a5`), whose `KeyCode::KeyK`
+trigger collided with two shipped input presets.
+<!-- cite-ok: the deleted row is quoted here as the record of what this table used to claim -->
+⇒ Worth keeping visible rather than quietly deleting, because the row was
+carrying an argument that turned out to be false in BOTH directions: it was
+chosen as the specimen precisely for being low-stakes, and its trigger was the
+most reachable of the four.
 
 ⛔ The prose above ("the residue is one") was measured before `c215d6a37`, when
 both censuses tested the host side against a tuple of BARE schedule labels
 (`"Update"`, `"PreUpdate"`, …). The tree spells a non-rewinding schedule in
-QUALIFIED form 39 times, so `request_player_clone_on_key`
+QUALIFIED form 39 times, so `request_player_clone_on_key` <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 (`bevy::app::Update`) was on NEITHER side of the boundary and its crossing did
 not exist. ⚠ The block above is that day's reading and is not edited; this is
 the live one.
@@ -2006,11 +2015,25 @@ genuinely open:**
 | who raises it | road | rows |
 |---|---|---|
 | a PLAYER pressing a control | the device latch → `ControlFrame` → GGRS replays it | `CutsceneAdvanceRequest` |
-| an AUTHOR or DEVELOPER editing the world | `MechanicalEditSet` + the admission | `SpawnPlayerCloneRequest` |
+| an AUTHOR or DEVELOPER editing the world | `MechanicalEditSet` + the admission | *(none — see below)* |
 | a MENU ending the match | option 3, session-level | `NewGameResetRequested` |
 
-⭐ **AND `SpawnPlayerCloneRequest` IS THE SPECIMEN TO LAND FIRST**, for a reason
-that is about risk rather than about it being easy: `plugins.rs:194`
+⚠ **THE MIDDLE ROAD HAS NO ROW LEFT, AND THAT IS A FACT ABOUT THE ROAD RATHER
+THAN ABOUT THE TAXONOMY.** Its only example was `SpawnPlayerCloneRequest`, <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
+deleted with the clone on 2026-09-18.
+<!-- cite-ok: the deleted example is named as the row this road has lost -->
+The road itself is not hypothetical — three production sites register into
+`MechanicalEditSet::Publish` (`platformer2d_runtime/src/player_schedule.rs:308`,
+`ambition_portal2d/src/plugin.rs:138`, `ambition_dev_tools/src/sim_plugin.rs:139`,
+each a tuple, so the SYSTEM count is at least three) and the admission decider is
+held by `the_admission_road_answers_for_the_shipped_ownership_mode.rs` — but no Q136
+intent currently takes it, so it cannot be the road a ruling picks by pointing
+at a working instance.
+
+⛤ **THIS PARAGRAPH CHOSE `SpawnPlayerCloneRequest` AS THE SPECIMEN TO LAND <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
+FIRST, AND THE SPECIMEN NO LONGER EXISTS** — kept because the REASONING is the
+part a ruling still needs, and because the way the choice went wrong is the
+lesson. The reason given was risk rather than ease: `plugins.rs:194`
 <!-- cite-ok: the comment went with the clone's plugin registration on 2026-09-18; the coordinate is kept because the ARGUMENT it made is what this paragraph is about -->
 explains the
 Update/sim split in its own comment and the explanation is CORRECT — `ButtonInput`
@@ -2025,7 +2048,7 @@ without a mis-step costing a timeline.
 ### 2026-09-18 (later) — and the specimen is being DELETED, not preserved
 
 ⛔⛤ **THE CLONE HOTKEY IS NOT ISOLATED FROM REAL CONTROLS, AND THAT ALONE ENDS
-THE ARGUMENT BELOW.** `request_player_clone_on_key` reads raw `KeyCode::KeyK`
+THE ARGUMENT BELOW.** `request_player_clone_on_key` reads raw `KeyCode::KeyK` <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 unconditionally in `Update`, while two SHIPPED input presets bind K to ordinary
 gameplay: `wasd_jkl()` gives it to `burst` and `wasd_uipo()` to `utility`
 (`crates/ambition_input/src/presets.rs:175`, `:252`). ⇒ **A player on either
@@ -2043,7 +2066,7 @@ its low stakes has to have its trigger checked as carefully as its consumer.
 this list is a RECORD of removed names rather than a set of live pointers:
 `game/ambition_app/src/app/player_clone.rs`, its plugin registration, both live
 <!-- cite-ok: the deleted module — this list is the deletion's manifest -->
-clone tests, the `PlayerClone` / `SpawnPlayerCloneRequest` exports,
+clone tests, the `PlayerClone` / `SpawnPlayerCloneRequest` exports, <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 `avatar/clone_probe_tests.rs`, and the demo state-machine brain
 <!-- cite-ok: the deleted probe module, likewise part of the manifest -->
 `StateMachineCfg::PlayerDemo` with its `PlayerDemoCfg` / `State` / `Phase` and
@@ -2051,8 +2074,8 @@ dispatch arms. <!-- cite-ok: the deletion's own manifest — every name here is
 gone BY INTENT, which is the fact the row records -->
 ⛔ NOT the real player-brain path (`tick_player_brain`), and NOT the generic
 mechanical-edit infrastructure — that has legitimate author/dev-edit customers
-and only the clone's USE of it disappeared. Verified at HEAD: `PlayerClone`,
-`SpawnPlayerCloneRequest` and `PlayerDemo` have zero occurrences in
+and only the clone's USE of it disappeared. Verified at HEAD: `PlayerClone`, <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
+`SpawnPlayerCloneRequest` and `PlayerDemo` have zero occurrences in <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 `crates/`, `game/` and `tools/`.
 
 ⛔⛤ **AND THE DELETION TOOK ONE THING IT SHOULD NOT HAVE, WHICH IS THE LESSON
@@ -2101,7 +2124,7 @@ subject no longer exists.
 ### 2026-09-18 — the first road is landed, and the fixture was the hard part
 
 ⛔⛤ **ITS SUBJECT WAS DELETED LATER THE SAME DAY (`89d78a4a5`), AND THE SECTION
-STAYS ANYWAY.** `SpawnPlayerCloneRequest` and both of its witnesses are gone
+STAYS ANYWAY.** `SpawnPlayerCloneRequest` and both of its witnesses are gone <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 with the clone. What this section actually found is not about a clone: it is
 about the ADMISSION ROAD, the ownership stamp, and how a rollback fixture can
 spend a whole run measuring nothing. Those findings have a live holder —
@@ -2112,7 +2135,7 @@ the clone witness was, because a decider that refused everything forever would
 have satisfied the clone arm alone.
 
 ⭐⭐ **THE ROAD ITSELF WORKED, WHICH IS THE PART THAT GENERALISES.**
-`spawn_requested_player_clone` stopped running in `app.sim_schedule()`: the
+`spawn_requested_player_clone` stopped running in `app.sim_schedule()`: the <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 request was proposed in `MechanicalEditSet::Propose` and the spawn published in
 `Publish`, both in `PreUpdate`, with `decide_mechanical_edit_admission` between
 them — and poisoning the registration back into the sim schedule reddened the
@@ -2142,7 +2165,7 @@ were deleted with their subject.
 TIMELINE, AND NOTHING COULD SEE IT BECAUSE NOTHING COULD SPAWN ONE UNDER
 ROLLBACK.** With the press finally arriving, the witness's health read came back
 `GGRS sync-test checksum mismatch at frames [14, 15, ..]` on every run.
-`tick_player_clone_brains` is registered into the SIM schedule and read
+`tick_player_clone_brains` is registered into the SIM schedule and read <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 `time.delta_secs()` — the app's WALL dt — accumulating it into a
 `PlayerCloneClock` resource that was `init_resource`d and never registered for <!-- cite-ok: this block RECORDS the deletion of `PlayerCloneClock`; the name is gone by intent -->
 rollback. A resimulated frame therefore added dt AGAIN to a value no rewind

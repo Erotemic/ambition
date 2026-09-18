@@ -235,52 +235,6 @@ def unlocated_message_systems(repo: Path = REPO) -> list[str]:
     return sorted(missing)
 
 
-@functools.cache
-def _wrapper_registered(repo: Path = REPO) -> frozenset[str]:
-    """Systems a REGISTRATION WRAPPER hands to the simulation schedule.
-
-    ⭐ **THE HELPERS ARE BORROWED, NOT RESPELLED.** `install_technique` /
-    `install_techniques` are the whole wrapper family in this workspace — the
-    only two functions in `crates/`, `game/` and `tools/` that take
-    `impl IntoScheduleConfigs` — and `measure_user_settings_in_simulation.py`
-    already owns finding them and the fixpoint over them. This calls
-    `find_sim_forwarders`, `schedule_parameter_installers` and
-    `identifiers_in_call` against the sources THIS module already holds, so the
-    tree is read once and the forwarder rule has one keeper. See
-    [`unlocated_message_systems`] for what believing the other diagnosis cost.
-
-    ⚠ The population is narrower than the owner's on purpose: `_production_sources`
-    excludes tests, and a registration that only a test performs is not a
-    schedule fact about the shipped game.
-
-    ⚠ Comments are blanked first because the owner's helpers expect that, and
-    because prose is 72% of `combat_schedule.rs`: unblanked, the direct
-    `add_systems` scan below admits 16 names that exist only inside comments.
-    """
-    sources = {
-        str(path): settings.without_comments(text)
-        for path, text in sim._production_sources(repo)
-    }
-    # ⚠ **DISCOVERY IS NARROWED AND THE CALL-SITE SCAN IS NOT**, because the two
-    # halves cost differently. `find_sim_forwarders` closes a fixpoint with an
-    # `enclosing_fn` walk per match, so over every production source it runs for
-    # minutes; restricted to files that mention `add_systems` -- the owner's own
-    # population -- it is seconds, and a wrapper that never names the call it
-    # forwards into cannot be found by either. Reading the RESULT back out is a
-    # regex per forwarder, so that half sweeps everything and no call site in a
-    # file without `add_systems` is missed.
-    declaring = {
-        path: text for path, text in sources.items() if "add_systems" in text
-    }
-    names = set(settings.schedule_parameter_installers(declaring))
-    forwarders = settings.find_sim_forwarders(declaring)
-    for text in sources.values():
-        for forwarder in forwarders:
-            for match in re.finditer(rf"\b{re.escape(forwarder)}\s*\(", text):
-                names.update(settings.identifiers_in_call(text, match.end()))
-    return frozenset(names)
-
-
 def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
     """`{system name: {schedule label, ..}}` from every registration in the tree.
 
@@ -305,7 +259,7 @@ def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
     # A wrapper registers into `app.sim_schedule()`, which every caller here
     # reads through `sim.is_non_rewinding` — and a schedule VARIABLE is
     # rewinding by that predicate, which is the answer this label needs.
-    for name in _wrapper_registered(repo):
+    for name in sim.wrapper_registered_systems(repo):
         found.setdefault(name, set()).add("sim")
     return found
 

@@ -335,14 +335,24 @@ It is the block this plan calls "the number to look at", so it is corrected here
 rather than left for a reader to act on. Most of what it counts has already
 happened.
 
-⚠ **The exception, checked separately at `f563aa973`: `StateMachineCfg` still has
-exactly 12 variants and the same twelve names** — `StandStill`, `Patrol`,
-`Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `BossPattern`,
-`Smash`, `Fighter`, `Aerial`, `PlayerDemo`
+⚠ **The exception, checked separately at `f563aa973`: `StateMachineCfg` had
+exactly 12 variants and the carve changed none of them** — `StandStill`,
+`Patrol`, `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`,
+`BossPattern`, `Smash`, `Fighter`, `Aerial`, `PlayerDemo` <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
 (`crates/ambition_characters/src/brain/state_machine/mod.rs:26`). The carve moved
 the brains' IMPLEMENTATIONS out; it did not change the policy vocabulary, which
 is the correct outcome and worth stating rather than leaving inside a blanket
-"every line". A reader who spot-checks that one line and finds it right has no
+"every line".
+
+⛤ **RE-MEASURED 2026-09-18: ELEVEN, and the one that went is the interesting
+part.** `PlayerDemo` was deleted with the player-clone hotkey (`89d78a4a5`) — <!-- cite-ok: the player-clone road was deleted in `89d78a4a5`; this line RECORDS the name, it does not point at one -->
+it was the clone's brain and had no other user — so the live list is
+`StandStill`, `Patrol`, `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`,
+`ChargeCrash`, `BossPattern`, `Smash`, `Fighter`, `Aerial`.
+<!-- cite-ok: `PlayerDemo` is named above as the variant that was REMOVED; the sentence is the record of it -->
+⇒ The paragraph's POINT survives and is strengthened: the carve did not change
+the policy vocabulary, and the only thing that has changed it since was deleting
+a feature outright, which is the one change that should. A reader who spot-checks that one line and finds it right has no
 way to tell whether the rest of the correction is trustworthy.
 
 ```text

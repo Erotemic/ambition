@@ -1141,7 +1141,7 @@ MintedItemBaseline, OccurrenceBaseline]` matches
 `crates/ambition_dialog/src/bridge.rs:87`, where `install` is a LOOP VARIABLE —
 `for install in &content_bindings.installers` — bound to a
 `YarnBindingInstaller = fn(&mut Commands, &mut DialogueRunner, &YarnStateMirror)`
-(`bindings.rs:80`). So it IS a genuine call to a genuine function, of a
+(`crates/ambition_dialog/src/bindings.rs:80`). So it IS a genuine call to a genuine function, of a
 same-named family whose three-argument signature cannot be the one-argument
 `install(world)` that mutates those four baselines — and none of
 `ambition_dialog`, `ambition_conversation` or `game/ambition_content` names any
@@ -1237,7 +1237,7 @@ ID-PEER; it was picked up opportunistically because two of its five members
 | `GameplaySessionWorldRoot` | Component | KEPT: a captured correlation on the entity it describes, which is what this row's own direction asks for |
 | `GameplayInputOwner` | Component | KEPT, same shape |
 
-⇒ **`GameplaySessionLinks` was a one-entry copy of a pair the owner already
+⇒ **`GameplaySessionLinks` <!-- cite-ok: this row RECORDS the deleted resource; removed by `2ca6469a3` --> was a one-entry copy of a pair the owner already
 carried.** <!-- cite-ok: named because it is GONE, along with its `scope_for` --> Three measurements, not one reading: activation asserts
 `active_session.0.is_none()`, so its `Vec` could never hold more than one binding
 and that binding was always the live session's; `scope_for` had **zero**
@@ -1288,7 +1288,7 @@ root and everything it owns are hidden from the live world and visible to its ow
 transaction, and admission promotes the POPULATION.
 
 **Acceptance — all three clauses met 2026-09-16, and each re-measured 2026-09-18
-rather than recalled.** (1) `GameplaySessionLinks` is gone from the tree: the
+rather than recalled.** (1) `GameplaySessionLinks` <!-- cite-ok: the sentence's subject is that this name is GONE --> is gone from the tree: the
 name survives only inside comments recording its deletion. (2) `ambition_game_shell`
 holds no second map from activation to scope — see the correction below, because
 the literal words of this clause are now false and the fact is still true.
@@ -1304,7 +1304,7 @@ RATHER THAN WITH THE TREE — 2026-09-18.** `ReservedGameplayScopes` is a
 literally a second map from activation to scope, in the crate this clause says
 holds none. It is not a second OWNER, and the reason is its LIFETIME rather than
 its shape. A reservation exists only before the activation it is for: `take`
-removes it at adoption (`session.rs:672`) and `release` removes it when a later
+removes it at adoption (`crates/ambition_game_shell/src/session.rs:672`) and `release` removes it when a later
 pending route supersedes the candidate — two spellings on purpose, because *"a
 shared spelling would let a discard read as an adoption"*. So a reservation never
 coexists with the live answer it would otherwise contradict. ⇒ Held by

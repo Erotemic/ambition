@@ -56,7 +56,7 @@ There is no requirement to split accepted control across crates to make A4 green
 The [extension packet catalog](fast-iteration-implementation.md) is the bounded
 continuation for pure authoring, portable artifacts and procedural state. It uses
 A6's field census, A9's resolved-closure method and A11/A12's existing admission.
-Only specific domain ports wait on A2/A4 contracts. A8 now starts with the
+Only specific domain ports wait on A2/A4 contracts <!-- hold-ok: the half still held is A2a/A2b/A2c, the geometry, obstruction and recipient-naming contracts owned here; A2's construction-identity hole is closed and is a different subject -->. A8 now starts with the
 long-term world's two-instance proof; A10 supplies I3b's bounded safe reconstruction.
 Neither blocks I1/I2, and arbitrary-world undo is not the requirement. Do not expand I1's
 pure helper move into an actor SCC extraction. The extension catalog and this

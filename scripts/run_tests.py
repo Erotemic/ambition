@@ -1905,7 +1905,15 @@ def coverage_notice(
             "\n      `--maintenance`. If you edited anything under `scripts/`, this"
             "\n      lane has not tested it:\n"
             "      ./run_tests.sh --tool-tests   # detached tools\n"
-            "      python3 -m pytest scripts/tests -q   # the checkers' own tests"
+            f"      {sys.executable} -m pytest scripts/tests -q   # the checkers' own tests"
+            "\n      ⚠ THE INTERPRETER IS PART OF THE COMMAND. This line printed a"
+            "\n      bare `python3` until 2026-09-18, and on a host where that"
+            "\n      resolves outside the tool venv it fails with `No module named"
+            "\n      pytest` — or, worse, runs an interpreter missing"
+            "\n      `tree_sitter_rust` and degrades (see"
+            "\n      docs/recipes/checks-that-did-not-run.md, member 11). It now"
+            "\n      prints the interpreter running THIS lane, which by"
+            "\n      construction is one that can."
         )
 
     notices: list[str] = [

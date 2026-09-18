@@ -21,7 +21,7 @@ The queue row stopped here deliberately, calling it "a fork with a wrong branch"
 and refusing to settle it at the end of a long session. It is settled now, and
 the answer is **D33 applied per variant, with one addition D33 does not cover.**
 
-`ItemPickupSet` (`crates/ambition_platformer2d_shared_tangle/src/schedule.rs:460`)
+`ItemPickupSet` (`crates/ambition_platformer2d_shared_tangle/src/schedule.rs:487`)
 has exactly three variants, and they split cleanly along the carve line:
 
 | Variant | Members today | After the carve |

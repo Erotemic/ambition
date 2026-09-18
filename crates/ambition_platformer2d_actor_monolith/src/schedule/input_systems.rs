@@ -18,10 +18,10 @@ use leafwing_input_manager::prelude::ActionState;
 
 use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
-    analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
-    MenuInputState, ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT,
-    GAMEPLAY_CONTEXT,
+    analog_to_dir, InputParticipant, KeyboardPreset, MenuControlFrame, MenuInputState,
+    ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
 };
+use ambition_platformer2d_core::ControlFrame;
 #[cfg(feature = "input")]
 use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame,
@@ -1572,7 +1572,7 @@ mod focus_gate_tests {
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
-        app.init_resource::<ambition_input::ControlFrame>();
+        app.init_resource::<ambition_platformer2d_core::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
@@ -1659,10 +1659,10 @@ mod focus_gate_tests {
             // `BrainPlugin` installs both, and a hand-built fixture that takes
             // only the destination is describing a composition that cannot exist.
             app.init_resource::<ambition_characters::control::SeatRawFrames>();
-            app.init_resource::<ambition_input::ControlFrame>();
+            app.init_resource::<ambition_platformer2d_core::ControlFrame>();
             // Seat zero's destination: every real composition has it, and the merged
             // producer writes row zero there. See its delivery branch.
-            app.init_resource::<ambition_input::ControlFrame>();
+            app.init_resource::<ambition_platformer2d_core::ControlFrame>();
             let mut settings = ambition_persistence::settings::UserSettings::default();
             settings.gameplay.pause_input_when_unfocused = pause_when_unfocused;
             app.insert_resource(settings);
@@ -1778,7 +1778,7 @@ mod focus_gate_tests {
         app.init_resource::<SlotControls>();
         app.init_resource::<SeatControlFrameModes>();
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
-        app.init_resource::<ambition_input::ControlFrame>();
+        app.init_resource::<ambition_platformer2d_core::ControlFrame>();
         let mut settings = ambition_persistence::settings::UserSettings::default();
         settings.gameplay.movement_frame_mode =
             ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
@@ -1859,7 +1859,7 @@ mod focus_gate_tests {
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
-        app.init_resource::<ambition_input::ControlFrame>();
+        app.init_resource::<ambition_platformer2d_core::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
         app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -1984,7 +1984,7 @@ mod focus_gate_tests {
         app.init_resource::<ambition_characters::control::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
-        app.init_resource::<ambition_input::ControlFrame>();
+        app.init_resource::<ambition_platformer2d_core::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Dialogue);

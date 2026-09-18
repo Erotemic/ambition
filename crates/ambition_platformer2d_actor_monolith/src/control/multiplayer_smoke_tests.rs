@@ -342,7 +342,7 @@ fn untargeted_heal_routes_to_primary() {
 #[test]
 fn two_slots_have_independent_control_frames() {
     use ambition_characters::control::SlotControls;
-    use ambition_input::ControlFrame;
+    use ambition_platformer2d_core::ControlFrame;
 
     let mut slots = SlotControls::default();
     let mut first = ControlFrame::default();

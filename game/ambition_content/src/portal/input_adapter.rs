@@ -17,8 +17,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
-use ambition_input::ControlFrame;
-use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::{BodyKinematics, ControlFrame};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{

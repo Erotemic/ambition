@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
-use ambition_input::ControlFrame;
 use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_core::ControlFrame;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};

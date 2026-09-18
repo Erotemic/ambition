@@ -194,6 +194,18 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # overwrites with an equal-or-refined one, never a value read as authority in
     # between.
     "CausalRecording": "`stamp_causal_frame` re-registered into `sim` after `First`; both calls are a pure derived setter, confirmed idempotent by reading the body",
+    # ⭐ A SIXTH SPELLING, AND BOTH SIDES SAY IT OUT LOUD. `publish_frontend_context_prompt`
+    # (Update) and `rebuild_control_prompt` (sim) each carry a doc comment
+    # asserting "one writer per frame by construction": the Update side writes
+    # only when a non-gameplay context (menu/launcher) owns input and returns
+    # otherwise; the sim side's own opening comment says it yields on exactly
+    # those frames. Verified rather than trusted: when the Update side does
+    # write, it sets `entries: Vec::new()` (an empty prompt) — so the third
+    # writer, `project_prompt_readiness` (sim, `.after(rebuild_control_prompt)`),
+    # which mutates `entry.ready` in a `for entry in &mut prompt.entries` loop,
+    # iterates zero times on exactly those frames. No writer ever reads or
+    # refines a value one of the others owns.
+    "ControlPrompt": "`publish_frontend_context_prompt`/`rebuild_control_prompt` are a documented one-writer-per-frame handoff; `project_prompt_readiness` refines an empty entry list on the frames the other side owns",
 }
 
 

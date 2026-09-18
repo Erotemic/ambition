@@ -146,39 +146,12 @@ _LOCAL = re.compile(r"(?:mut\s+)?([a-z_][a-z0-9_]*)\s*:\s*(?:[A-Za-z_][A-Za-z_0-
 #: `system_param_mutable_fields` for it. This is the same concept for `Local`,
 #: reusing the same bundle enumeration and the same dotted-path nesting, so the
 #: two agree about what a bundle IS.
-_LOCAL_FIELD = re.compile(
-    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
-    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*Local\s*<\s*(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
-    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
-)
+_LOCAL_FIELD = sim.bundle_field_pattern("Local")
 
 
-@functools.cache
 def _bundle_local_fields(repo: Path) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     """`bundle -> ((field path, Local's type), ..)`, nested paths included."""
-    direct: dict[str, list[tuple[str, str]]] = {}
-    nested: dict[str, list[tuple[str, str]]] = {}
-    for _path, text in sim._production_sources(repo):
-        for match in sim._SYSTEM_PARAM_STRUCT.finditer(text):
-            brace = text.find("{", match.end())
-            if brace < 0:
-                continue
-            body = sim._braced(text, brace)
-            direct[match.group(1)] = _LOCAL_FIELD.findall(body)
-            nested[match.group(1)] = sim._NESTED_FIELD.findall(body)
-
-    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
-        out = {field: ty for field, ty in direct.get(name, ())}
-        for field, candidate in nested.get(name, ()):
-            if candidate == name or candidate in seen or candidate not in direct:
-                continue
-            for path, ty in resolve(candidate, seen | {name}).items():
-                out.setdefault(f"{field}.{path}", ty)
-        return out
-
-    return tuple(
-        (name, tuple(sorted(resolve(name, frozenset()).items()))) for name in sorted(direct)
-    )
+    return sim.bundle_fields_matching(_LOCAL_FIELD, repo)
 
 
 def bundle_local_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
@@ -398,15 +371,9 @@ _MESSAGE_READER = re.compile(r"\bMessageReader\s*<")
 #: type. Same shape as `_LOCAL_FIELD` and for the same reason — a bundle field
 #: cannot elide its lifetimes, so the parameter spelling and the field spelling
 #: are different strings for one thing.
-_MESSAGE_READER_FIELD = re.compile(
-    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
-    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*MessageReader\s*<\s*"
-    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)*"
-    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
-)
+_MESSAGE_READER_FIELD = sim.bundle_field_pattern("MessageReader")
 
 
-@functools.cache
 def _bundle_cursor_fields(repo: Path) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     """`bundle -> ((field path, message type), ..)`, nested paths included.
 
@@ -426,30 +393,10 @@ def _bundle_cursor_fields(repo: Path) -> tuple[tuple[str, tuple[tuple[str, str],
     direction a number can be wrong in, because it makes the adjudicated part
     look more complete than it is.
     """
-    direct: dict[str, list[tuple[str, str]]] = {}
-    nested: dict[str, list[tuple[str, str]]] = {}
-    for _path, text in sim._production_sources(repo):
-        for match in sim._SYSTEM_PARAM_STRUCT.finditer(text):
-            brace = text.find("{", match.end())
-            if brace < 0:
-                continue
-            body = sim._braced(text, brace)
-            direct[match.group(1)] = _MESSAGE_READER_FIELD.findall(body)
-            nested[match.group(1)] = sim._NESTED_FIELD.findall(body)
-
-    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
-        out = {field: ty for field, ty in direct.get(name, ())}
-        for field, candidate in nested.get(name, ()):
-            if candidate == name or candidate in seen or candidate not in direct:
-                continue
-            for path, ty in resolve(candidate, seen | {name}).items():
-                out.setdefault(f"{field}.{path}", ty)
-        return out
-
     return tuple(
-        (name, tuple(sorted(resolve(name, frozenset()).items())))
-        for name in sorted(direct)
-        if resolve(name, frozenset())
+        (name, fields)
+        for name, fields in sim.bundle_fields_matching(_MESSAGE_READER_FIELD, repo)
+        if fields
     )
 
 

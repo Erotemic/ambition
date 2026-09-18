@@ -1308,11 +1308,52 @@ not: each answers a different question, and the Q136 count is the second one's.
 
           * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
-          * 4 of 90 written MESSAGE types, **AND THIS ONE IS STILL A LOWER
-            BOUND, NOW BY A THIRD LESS** — 47 of the 320 distinct message
-            writers and readers sit in no registration the instrument can
-            follow, touching **18 of the 90 types**, down from 77 and 24 on
-            2026-09-18. ⇒ Any of those 18 could be a crossing nobody has seen.
+          * 4 of **95** written MESSAGE types, **AND THIS ONE IS STILL A
+            LOWER BOUND** — 61 distinct message writers and readers sit in no
+            registration the instrument can follow, touching **20 of the 95
+            types**. ⇒ Any of those 20 could be a crossing nobody has seen.
+
+            ⛤ **THE THREE READINGS ARE 77/24, THEN 47/18, THEN 61/20, AND ONLY
+            THE FIRST MOVE WAS THE INSTRUMENT GETTING BETTER AT THE SAME
+            QUESTION.** The wrapper road took 77 to 47. The rise to 61 is a
+            WIDENING: `MessageReader` and `MessageWriter` fields inside
+            `#[derive(SystemParam)]` bundles joined the population, so fourteen
+            systems that were never counted became countable and most of them
+            are still unplaceable. A census that grows its population and its
+            residual together is behaving correctly; reading the 61 as a
+            regression against the 47 would be comparing two different
+            populations, which is what the arm holding this number now says in
+            so many words.
+
+            ⛔⛤ **AND THE WIDENING FOUND FIVE MESSAGE TYPES THAT HAD NO WRITER
+            AT ALL.** `BodyKnockedOut`, `LandedBodyHit`, `OwnedSfxMessage`,
+            `ParriedBodyHit` and `WalletShieldSpent` are written ONLY through a
+            bundle field, so they were absent from the written universe rather
+            than merely misattributed — 90 was never the population. Predicted
+            by the 2026-09-18 review from one production specimen
+            (`FreshAttempt`, `crates/ambition_combat/src/events.rs:193`, two
+            cursors, taken by a registered sim system), not from a poison.
+
+            ⚠ **THE WRITE SIDE IS AN UPPER BOUND AND THE OUTPUT SAYS SO PER
+            ROW.** Possession is not use — `grid_menu_nav` takes
+            `MenuDispatchParams` and writes only its own menu message — and
+            reducing a bundle to the types it holds is exactly what produced
+            the retracted *"seven kaleidoscope systems raise
+            `NewGameResetRequested`"*. So the TYPE is admitted (or the
+            population is wrong), the NAME is kept for detection (possession is
+            a sound upper bound on who can write), and the printed producer
+            list marks it `(holds a writer)`.
+
+            ⭐ **ONE CONSEQUENCE WAS A REPAIR RATHER THAN A NUMBER.** The wider
+            population put `refuse_a_weaker_form_pickup` into the census, and it
+            became the first message system placed by an OPAQUE SCHEDULE LABEL
+            alone — registered through a local named `pre_collect_sim`
+            (`game/ambition_demo_mary_o/src/lib.rs:1893`) rather than the
+            workspace's `sim`. `is_schedule_variable` had deferred that to
+            *"dataflow, which is a different instrument"*; measured, every local
+            ever bound to a `sim_schedule()` call is one of TWO names — `sim` in
+            45 files and `pre_collect_sim` in one. One idiom with a single
+            exception is not dataflow, and resolving it closed the guess.
 
             ⛤ **WHAT CLOSED THE OTHER 30 IS WORTH MORE THAN THE NUMBER.** This
             page said the cause was the shared `add_systems_bodies` parser

@@ -544,14 +544,28 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     direction, because a FALL is a road landing (say which) and a RISE is the
     attribution losing ground.
 
-    ⭐ 77 on 2026-09-18 before registration wrappers were followed, 47 after.
+    ⭐ 77 on 2026-09-18 before registration wrappers were followed, 47 after,
+    **61** once `MessageReader`/`MessageWriter` fields inside
+    `#[derive(SystemParam)]` bundles joined the population later the same day.
+
+    ⛔⛤ **AND THAT THIRD READING IS A CAUSE THIS ARM DID NOT HAVE A CATEGORY
+    FOR.** It offered two — a fall is a road landing, a rise is the scan losing
+    ground — and the rise from 47 to 61 is neither: the SCAN did not change, the
+    POPULATION did. Fourteen systems that were never counted became countable
+    and most of them are still unplaceable, which is the honest shape of
+    widening a census. ⇒ A rise now has to say WHICH of the two it is, because a
+    band that treats them alike would have read a 30% growth in what the
+    instrument admits it cannot see as a regression, and a real regression
+    hiding under a simultaneous widening would read as neither.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 38 <= len(unlocated) <= 58, (
-        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading after the "
-        "wrapper road was 47, down from 77 before it. A fall means another attribution "
-        "road landed — name it here and re-measure the exposed-type count in the same "
-        "commit. A rise means the scan lost ground."
+    assert 50 <= len(unlocated) <= 72, (
+        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading after "
+        "bundle fields joined the population was 61 (47 before them, 77 before the "
+        "wrapper road). A fall means another attribution road landed — name it here "
+        "and re-measure the exposed-type count in the same commit. A rise is either "
+        "the scan losing ground or the population widening, and the two are not the "
+        "same finding: say which."
     )
 
 
@@ -706,3 +720,60 @@ def test_no_message_system_is_classified_only_by_an_opaque_schedule_parameter():
         "site's real schedule argument, or report them with the other lower bounds "
         "rather than classifying them."
     )
+
+
+def test_a_message_channel_inside_a_bundle_reaches_the_population():
+    """⛔⛤ THE SPECIMEN THE REVIEW NAMED, AND THE FIVE TYPES IT WAS HIDING.
+
+    Both sides of this census read a system's OWN parameter list, so a
+    `MessageReader` or `MessageWriter` one level down inside a
+    `#[derive(SystemParam)]` bundle was invisible. Two consequences, and only
+    the second was predictable from the first: a real sim reader read as no
+    reader, AND five registered message types — `BodyKnockedOut`,
+    `LandedBodyHit`, `OwnedSfxMessage`, `ParriedBodyHit`, `WalletShieldSpent` —
+    were written ONLY through a bundle field and so had no writer at all, which
+    drops a type out of the population entirely rather than merely misattributing
+    it.
+
+    ⚠ THE WRITE SIDE IS AN UPPER BOUND AND THE ROW SAYS SO. Possession is not
+    use: `grid_menu_nav` takes `MenuDispatchParams` and never writes the heal.
+    The type is admitted so the population is right, the name is kept so
+    detection stays conservative, and the printed row labels it — see
+    `held_writer`.
+    """
+    bundles = {name: (w, r) for name, w, r in guard._bundle_message_fields(guard.REPO)}
+    assert "FreshAttempt" in bundles, "the review's specimen left the tree"
+    assert set(bundles["FreshAttempt"][1]) == {"RoomLoaded", "RoomReplayAdmitted"}
+
+    sides = {ty: (w, r) for ty, w, r in guard._message_sides(guard.REPO)}
+    assert "void_pending_player_hits_at_lifecycle_boundaries" in sides["RoomLoaded"][1]
+
+    for ty in (
+        "BodyKnockedOut",
+        "LandedBodyHit",
+        "OwnedSfxMessage",
+        "ParriedBodyHit",
+        "WalletShieldSpent",
+    ):
+        assert ty in sides, f"{ty} is written only through a bundle field and left again"
+
+    # Possession is labelled, a real write is not.
+    assert guard.held_writer("PlayerHealRequested", "grid_menu_nav")
+    assert not guard.held_writer(
+        "PlayerHealRequested", "kaleidoscope_menu_action_activated"
+    )
+
+
+def test_a_sim_schedule_bound_to_an_unusual_name_is_still_the_sim_schedule():
+    """⭐ `is_schedule_variable` DEFERRED THIS TO "DATAFLOW"; IT IS ONE IDIOM.
+
+    Measured 2026-09-18: every local ever bound to a `sim_schedule()` call in
+    the production corpus is `sim` (45 files) or `pre_collect_sim` (one). The
+    exception is the one that mattered — `refuse_a_weaker_form_pickup` is
+    registered through it (`game/ambition_demo_mary_o/src/lib.rs:1893`) and
+    entered this census through `BodySfxWriter`, where it became the first
+    message system placed by an opaque label alone.
+    """
+    text = (REPO / "game/ambition_demo_mary_o/src/lib.rs").read_text()
+    assert "pre_collect_sim" in sim.sim_schedule_bindings(text)
+    assert "sim" in guard.schedules_by_system()["refuse_a_weaker_form_pickup"]

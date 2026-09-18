@@ -137,6 +137,31 @@ def normalize_schedule(label: str) -> str:
     return label.rsplit("::", 1)[-1].strip()
 
 
+#: `let <name> = ..sim_schedule(..)` — the ONE binding idiom worth resolving.
+_SIM_SCHEDULE_BINDING = re.compile(
+    r"\blet\s+([a-z_][a-z_0-9]*)\s*=\s*[^;]*?\bsim_schedule\s*\("
+)
+
+
+def sim_schedule_bindings(text: str) -> set[str]:
+    """Local names bound to `app.sim_schedule()` in `text`.
+
+    ⭐ **[`is_schedule_variable`] SAYS RESOLVING A LABEL "NEEDS DATAFLOW, WHICH
+    IS A DIFFERENT INSTRUMENT", AND THAT IS TRUE IN GENERAL AND FALSE FOR THIS
+    ONE SHAPE.** MEASURED 2026-09-18 over the production corpus, every local
+    ever bound to a `sim_schedule()` call is one of TWO names: `sim` in 45 files
+    and `pre_collect_sim` in one. That is not dataflow, it is an idiom with a
+    single exception, and the exception is the interesting one — the label
+    `pre_collect_sim` reads as opaque, so a message system registered through it
+    was classified by a guess rather than by a reading.
+
+    ⚠ Deliberately one level and same-file: a binding whose right-hand side is
+    a helper returning a schedule is NOT resolved, and stays opaque so it is
+    reported rather than assumed.
+    """
+    return set(_SIM_SCHEDULE_BINDING.findall(_settings.without_comments(text)))
+
+
 def is_schedule_variable(label: str) -> bool:
     """Is this label a VARIABLE rather than a literal the scan can resolve?
 
@@ -904,9 +929,30 @@ _NESTED_FIELD = re.compile(
 
 
 @functools.cache
-def _system_param_mutable_fields_cached(
-    repo: Path,
+def bundle_fields_matching(
+    field: re.Pattern[str], repo: Path = REPO
 ) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    """`bundle -> ((dotted field path, captured type), ..)` for one field shape.
+
+    `field` captures two groups — the field name and the type it carries — and
+    is matched against each `#[derive(SystemParam)]` struct body. A field
+    holding ANOTHER bundle is followed, so a cursor two levels down arrives as
+    `outer.inner`.
+
+    ⭐ **ONE WALK, THREE CALLERS, AND IT WAS THREE COPIES UNTIL 2026-09-18.**
+    `Local` fields, `MessageReader` cursors and mutable-resource fields were
+    each resolved by their own byte-identical twenty lines — two of them in the
+    same file. They agreed only because nobody had edited one yet: the cursor
+    copy was written because the `Local` copy already existed and the reviewer
+    who found the gap had to name a production specimen rather than a poison,
+    since no arm could see that one road had grown and the others had not.
+    Collapsing them puts "what a bundle IS" in the module that owns
+    `_SYSTEM_PARAM_STRUCT`, `_NESTED_FIELD` and `_braced`, which is where the
+    next caller will look.
+
+    ⚠ The `field` pattern stays with the CALLER, because the three differ in
+    what they mean, not in how they are found. Only the walk is shared.
+    """
     direct: dict[str, list[tuple[str, str]]] = {}
     nested: dict[str, list[tuple[str, str]]] = {}
     for _path, text in _production_sources(repo):
@@ -915,22 +961,43 @@ def _system_param_mutable_fields_cached(
             if brace < 0:
                 continue
             body = _braced(text, brace)
-            direct[match.group(1)] = _MUTABLE_FIELD.findall(body)
+            direct[match.group(1)] = field.findall(body)
             nested[match.group(1)] = _NESTED_FIELD.findall(body)
 
     def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
-        out = {field: ty for field, ty in direct.get(name, ())}
-        for field, candidate in nested.get(name, ()):
+        out = {field_name: ty for field_name, ty in direct.get(name, ())}
+        for field_name, candidate in nested.get(name, ()):
             if candidate == name or candidate in seen or candidate not in direct:
                 continue
             for path, ty in resolve(candidate, seen | {name}).items():
-                out.setdefault(f"{field}.{path}", ty)
+                out.setdefault(f"{field_name}.{path}", ty)
         return out
 
     return tuple(
         (name, tuple(sorted(resolve(name, frozenset()).items())))
         for name in sorted(direct)
     )
+
+
+def bundle_field_pattern(wrapper: str) -> re.Pattern[str]:
+    """A bundle FIELD holding `Wrapper<'lifetimes.., Payload>`, both captured.
+
+    ⚠ Lifetime-tolerant by construction (`(?:'a\\s*,\\s*)*`). The `Local` copy
+    accepted at most one and the cursor copy accepted any number, which is the
+    kind of silent divergence three hand-written twins produce.
+    """
+    return re.compile(
+        r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+        r"(?:[A-Za-z_][A-Za-z_0-9]*::)*" + wrapper + r"\s*<\s*"
+        r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)*"
+        r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    )
+
+
+def _system_param_mutable_fields_cached(
+    repo: Path,
+) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    return bundle_fields_matching(_MUTABLE_FIELD, repo)
 
 
 def system_param_mutable_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:

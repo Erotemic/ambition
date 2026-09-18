@@ -250,9 +250,16 @@ def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
     """
     found: dict[str, set[str]] = {}
     for _src, text in sim._production_sources(repo):
+        bound_to_sim = sim.sim_schedule_bindings(text)
         for body in sim.add_systems_bodies(settings.without_comments(text)):
             schedule, _, rest = body.partition(",")
             schedule = schedule.strip()
+            # A local bound to `app.sim_schedule()` IS the sim schedule, whatever
+            # it was named. Only `sim` and `pre_collect_sim` exist today, and the
+            # second is why this resolution is here — see
+            # `sim.sim_schedule_bindings`.
+            if schedule in bound_to_sim:
+                schedule = "sim"
             rest = sim.strip_run_conditions(rest)
             for name in re.findall(r"\b([a-z_][a-z0-9_]*)\b", rest):
                 found.setdefault(name, set()).add(schedule)
@@ -514,6 +521,43 @@ _MSG_READER = re.compile(
     r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageReader\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
 )
 
+#: The same two, as FIELDS of a `#[derive(SystemParam)]` bundle.
+#:
+#: ⛔⛤ **A `MessageReader` ONE LEVEL DOWN WAS INVISIBLE TO BOTH SIDES OF THIS
+#: CENSUS UNTIL 2026-09-18.** The two patterns above are matched against a
+#: system's own parameter list, so a bundle holding the cursor hid the reading
+#: entirely: `FreshAttempt` (`crates/ambition_combat/src/events.rs:193`) carries
+#: two, and `void_pending_player_hits_at_lifecycle_boundaries`
+#: (`crates/ambition_damage/src/lib.rs:1249`) takes it. Found by review with a
+#: production specimen, not a poison — the twin census learned the same lesson
+#: the same day, which is why the bundle walk now has one owner
+#: (`sim.bundle_fields_matching`) instead of three.
+#:
+#: ⚠ AND THE UNDERCOUNT RAN THE UNSAFE WAY. A missing READER makes a real
+#: host→sim crossing look like a write nobody consumes, which is the shape this
+#: script drops rather than reports.
+_BUNDLE_WRITER_FIELD = sim.bundle_field_pattern("MessageWriter")
+_BUNDLE_READER_FIELD = sim.bundle_field_pattern("MessageReader")
+
+#: A bundle named as a system parameter, by type, path-qualified or not.
+_BUNDLE_PARAM = r":\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*{}\b"
+
+
+@functools.cache
+def _bundle_message_fields(
+    repo: Path,
+) -> tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...]:
+    """`(bundle, written types, read types)` for each bundle carrying either."""
+    written = dict(sim.bundle_fields_matching(_BUNDLE_WRITER_FIELD, repo))
+    read = dict(sim.bundle_fields_matching(_BUNDLE_READER_FIELD, repo))
+    out = []
+    for bundle in sorted(set(written) | set(read)):
+        ws = tuple(sorted({ty for _field, ty in written.get(bundle, ())}))
+        rs = tuple(sorted({ty for _field, ty in read.get(bundle, ())}))
+        if ws or rs:
+            out.append((bundle, ws, rs))
+    return tuple(out)
+
 
 #: `add_message::<T>()` — the type universe a `.write_message(..)` argument is
 #: resolved against. 103 registrations at 2026-09-18.
@@ -685,11 +729,25 @@ UNRESOLVED_ADJUDICATED: dict[str, str] = {
 }
 
 
+#: `(message type, system)` pairs whose only evidence is that the system takes a
+#: `#[derive(SystemParam)]` bundle holding a `MessageWriter` for it. Filled by
+#: [`_message_sides`], read only when a row is PRINTED: the detection above uses
+#: the real name, because possession is a sound upper bound on who can write —
+#: but a printed producer list is read as an assertion, and this one is not.
+_HELD_WRITERS: set[tuple[str, str]] = set()
+
+
+def held_writer(ty: str, system: str) -> bool:
+    """True when `system`'s claim on `ty` is bundle POSSESSION, not a write."""
+    return (ty, system) in _HELD_WRITERS
+
+
 @functools.cache
 def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...]:
     universe = _registered_messages(repo)
     writers: dict[str, set[str]] = {}
     readers: dict[str, set[str]] = {}
+    held: set[tuple[str, str]] = set()
     for _src, text in sim._production_sources(repo):
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
@@ -698,12 +756,43 @@ def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, .
                 writers.setdefault(ty.split("::")[-1], set()).add(name)
             for ty in _MSG_READER.findall(params):
                 readers.setdefault(ty.split("::")[-1], set()).add(name)
+            for bundle, bundle_writes, bundle_reads in _bundle_message_fields(repo):
+                if not re.search(_BUNDLE_PARAM.format(re.escape(bundle)), params):
+                    continue
+                # ⛔⛤ **POSSESSION IS NOT USE, AND THIS SCRIPT ALREADY PAID FOR
+                # CONFLATING THEM ONCE.** Reducing a bundle to the set of types
+                # it holds is what produced *"seven kaleidoscope systems raise
+                # `NewGameResetRequested`"* — most of them merely TOOK
+                # `SystemMenuParams`. The same shape is live here:
+                # `MenuDispatchParams` carries a `MessageWriter
+                # <PlayerHealRequested>` and `grid_menu_nav`
+                # (`game/ambition_app/src/menu/grid_backend.rs:494`) takes the
+                # bundle and writes only its own `MenuActionActivated`.
+                #
+                # ⇒ The TYPE still has to enter the universe, or a message
+                # written ONLY through a bundle field has no writer at all and
+                # drops out of the population — an undercount in the direction
+                # that hides crossings. So the type is admitted and the NAME is
+                # labelled, because "this system can write it" and "this system
+                # writes it" are different claims and only the first is
+                # readable from a parameter list.
+                for ty in bundle_writes:
+                    writers.setdefault(ty.split("::")[-1], set()).add(name)
+                    held.add((ty.split("::")[-1], name))
+                # ⚠ THE READ SIDE IS NOT LABELLED, AND THE ASYMMETRY IS THE
+                # POINT. An over-named WRITER invents a producer; an unnamed
+                # READER hides a crossing. A cursor in a bundle is consumed by
+                # whoever holds it or by nobody, and either way the channel is
+                # reachable from the rewinding schedule, which is the question.
+                for ty in bundle_reads:
+                    readers.setdefault(ty.split("::")[-1], set()).add(name)
             brace = text.find("{", match.end())
             if brace != -1:
                 for ty in _written_by_call(
                     params + sim._braced(text, brace), universe, repo
                 ):
                     writers.setdefault(ty, set()).add(name)
+    _HELD_WRITERS.update(held)
     return tuple(
         (ty, tuple(sorted(ws)), tuple(sorted(readers.get(ty, ()))))
         for ty, ws in sorted(writers.items())
@@ -976,7 +1065,10 @@ def main() -> int:
     for ty in sorted(messages):
         host, in_sim = messages[ty]
         print(f"`{ty}`  [message]")
-        print(f"    host writers: {', '.join(host)}")
+        print(
+            "    host writers: "
+            + ", ".join(f"{h} (holds a writer)" if held_writer(ty, h) else h for h in host)
+        )
         print(f"    sim readers : {', '.join(in_sim)}")
         print(f"    {MESSAGE_ADJUDICATED.get(ty, '⛔ UNADJUDICATED')}\n")
 

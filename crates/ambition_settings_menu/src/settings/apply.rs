@@ -1,6 +1,19 @@
+use super::shader_rows::{ShaderRow, ShaderStep, SHADER_ROWS};
 use super::*;
-use ambition_persistence::settings::video::CameraZoomPreset;
+use ambition_persistence::settings::video::{CameraZoomPreset, ScreenShaderSettings};
 use ambition_persistence::settings::UserSettings;
+
+/// Step `row`'s field by `dir` (`+1`/`-1`/confirm-as-up), clamped the same way
+/// `ScreenShaderSettings::nudge_unit`/`nudge_range` do.
+fn apply_shader_row(row: &ShaderRow, dir: i32, shaders: &mut ScreenShaderSettings) {
+    let s = if dir < 0 { -1.0 } else { 1.0 };
+    let value = (row.get)(shaders);
+    let stepped = match row.step {
+        ShaderStep::Unit(step) => (value + s * step).clamp(0.0, 1.0),
+        ShaderStep::Range { min, max, step, .. } => (value + s * step).clamp(min, max),
+    };
+    (row.set)(shaders, stepped);
+}
 
 pub fn close_menu_option() -> SettingsOption {
     SettingsOption {
@@ -27,7 +40,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
-        ScreenShaderSettings, SerializableDisplayMode, VisualQualityProfile, VsyncMode,
+        SerializableDisplayMode, VisualQualityProfile, VsyncMode,
     };
 
     // Cycle helper: dir<0 -> prev, otherwise next (confirm advances like next).
@@ -73,103 +86,46 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             cyc!(settings.video.quality.profile, VisualQualityProfile)
         }
 
-        // Shaders. Each nudge replicates the pause menu's `nudge_shader_unit` /
-        // `nudge_shader_range` with the SAME step (UNIT_STEP / FINE_STEP, or the
-        // grain ranges). Confirm (dir 0) steps up, matching the pause menu's
-        // "Confirm behaves like Next" rule.
-        SettingsOptionId::ShaderStrength => settings
-            .video
-            .shaders
-            .nudge_strength(s * ScreenShaderSettings::UNIT_STEP),
-        SettingsOptionId::ShaderCrtStrength => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_strength,
-            s * ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsOptionId::ShaderCrtScanlines => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_scanlines,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderCrtMask => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_mask,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderCrtCurvature => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_curvature,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderCrtBloom => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_bloom,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderCrtChroma => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.crt_chroma,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderFilmGrainStrength => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.film_grain_strength,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderFilmGrainSize => ScreenShaderSettings::nudge_range(
-            &mut settings.video.shaders.film_grain_size,
-            s * ScreenShaderSettings::GRAIN_SIZE_STEP,
-            1.0,
-            8.0,
-        ),
-        SettingsOptionId::ShaderFilmGrainFps => ScreenShaderSettings::nudge_range(
-            &mut settings.video.shaders.film_grain_fps,
-            s * ScreenShaderSettings::GRAIN_FPS_STEP,
-            1.0,
-            60.0,
-        ),
-        SettingsOptionId::ShaderFilmGrainLumaBias => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.film_grain_luma_bias,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderRobotDeathStrength => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.robot_death_strength,
-            s * ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsOptionId::ShaderRobotStatic => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.robot_static,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderRobotTear => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.robot_tear,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderRobotDesaturate => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.robot_desaturate,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderRobotScanlines => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.robot_scanlines,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderUnderwaterStrength => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.underwater_strength,
-            s * ScreenShaderSettings::UNIT_STEP,
-        ),
-        SettingsOptionId::ShaderUnderwaterDistortion => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.underwater_distortion,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
-        SettingsOptionId::ShaderDeepDreamStrength => {
-            ScreenShaderSettings::nudge_unit(
-                &mut settings.video.shaders.deep_dream_strength,
-                s * ScreenShaderSettings::UNIT_STEP,
-            );
-            // Pause-menu side-effect: enabling deep-dream while the global
-            // strength is off auto-arms the master strength so the effect shows.
-            if settings.video.shaders.deep_dream_strength > 0.001
+        // Shaders: every row's (field, step, min/max) lives once in SHADER_ROWS,
+        // read by both this dispatch and `build.rs`. This arm still names every
+        // `SettingsOptionId::Shader*` variant explicitly, so a new variant not
+        // added here is still a non-exhaustive-match compile error, same as
+        // before the collapse.
+        id @ (SettingsOptionId::ShaderStrength
+        | SettingsOptionId::ShaderCrtStrength
+        | SettingsOptionId::ShaderCrtScanlines
+        | SettingsOptionId::ShaderCrtMask
+        | SettingsOptionId::ShaderCrtCurvature
+        | SettingsOptionId::ShaderCrtBloom
+        | SettingsOptionId::ShaderCrtChroma
+        | SettingsOptionId::ShaderFilmGrainStrength
+        | SettingsOptionId::ShaderFilmGrainSize
+        | SettingsOptionId::ShaderFilmGrainFps
+        | SettingsOptionId::ShaderFilmGrainLumaBias
+        | SettingsOptionId::ShaderRobotDeathStrength
+        | SettingsOptionId::ShaderRobotStatic
+        | SettingsOptionId::ShaderRobotTear
+        | SettingsOptionId::ShaderRobotDesaturate
+        | SettingsOptionId::ShaderRobotScanlines
+        | SettingsOptionId::ShaderUnderwaterStrength
+        | SettingsOptionId::ShaderUnderwaterDistortion
+        | SettingsOptionId::ShaderDeepDreamStrength
+        | SettingsOptionId::ShaderVignetteStrength) => {
+            let row = SHADER_ROWS
+                .iter()
+                .find(|r| r.id == id)
+                .unwrap_or_else(|| panic!("{id:?} missing from SHADER_ROWS"));
+            apply_shader_row(row, dir, &mut settings.video.shaders);
+            // Side-effect kept OUTSIDE the shared row shape: enabling deep-dream
+            // while the global strength is off auto-arms the master strength so
+            // the effect shows.
+            if id == SettingsOptionId::ShaderDeepDreamStrength
+                && settings.video.shaders.deep_dream_strength > 0.001
                 && settings.video.shaders.strength <= 0.001
             {
                 settings.video.shaders.strength = 1.0;
             }
         }
-        SettingsOptionId::ShaderVignetteStrength => ScreenShaderSettings::nudge_unit(
-            &mut settings.video.shaders.vignette_strength,
-            s * ScreenShaderSettings::FINE_STEP,
-        ),
 
         SettingsOptionId::MasterVolume => {
             settings.audio.nudge_master(s * AudioSettings::VOLUME_STEP)

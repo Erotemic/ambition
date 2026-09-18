@@ -1,8 +1,38 @@
 //! Unit tests for the settings IR: model build (category order, live value
 //! labels) and `apply_settings_option` mutation/close behaviour.
 
+use super::shader_rows::SHADER_ROWS;
 use super::*;
 use ambition_persistence::settings::UserSettings;
+
+/// `SHADER_ROWS` is the single source `build.rs` and `apply.rs` both read.
+/// `apply.rs`'s grouped match arm forces every `SettingsOptionId::Shader*`
+/// variant to be named there (non-exhaustive match is a compile error), but
+/// nothing forces that same variant into `SHADER_ROWS` too -- this closes
+/// that half by checking the two lists against each other.
+#[test]
+fn shader_rows_cover_every_shader_id() {
+    let shader_ids_in_all: Vec<SettingsOptionId> = SettingsOptionId::ALL
+        .into_iter()
+        .filter(|id| format!("{id:?}").starts_with("Shader"))
+        .collect();
+    assert_eq!(
+        shader_ids_in_all.len(),
+        20,
+        "SettingsOptionId::ALL's Shader* count changed -- update SHADER_ROWS too"
+    );
+    for id in shader_ids_in_all {
+        assert!(
+            SHADER_ROWS.iter().any(|row| row.id == id),
+            "{id:?} is a SettingsOptionId::Shader* variant missing from SHADER_ROWS"
+        );
+    }
+    assert_eq!(
+        SHADER_ROWS.len(),
+        20,
+        "SHADER_ROWS has an entry not named in SettingsOptionId::ALL, or a duplicate"
+    );
+}
 
 #[test]
 fn model_has_the_four_categories_in_order() {

@@ -384,6 +384,7 @@ pub(super) fn enum_index<T: PartialEq + Copy>(all: &[T], value: T) -> (usize, us
 
 mod apply;
 mod build;
+mod shader_rows;
 
 #[cfg(test)]
 mod tests;

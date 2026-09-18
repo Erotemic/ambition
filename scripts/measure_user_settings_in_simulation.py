@@ -88,14 +88,29 @@ def code_of(line: str) -> str:
 def without_comments(text: str) -> str:
     """The file with every comment blanked to spaces, offsets preserved.
 
-    ⛔⛤ **RUST COMMENTS CONTAIN UNBALANCED PARENTHESES, AND THAT IS WHAT MADE 45
-    READERS `UNATTRIBUTED`.** The schedule attribution below walks the balanced
-    parentheses of an `add_systems(sim, …)` call. A prose `)` inside a comment
-    closes the call early: MEASURED, the `add_systems(sim, …)` at
+    ⛔⛤ **RUST COMMENTS CONTAIN UNBALANCED PARENTHESES**, and the schedule
+    attribution below walks the balanced parentheses of an `add_systems(sim, …)`
+    call, so a prose `)` inside a comment closes the call early. Comments are
+    28% of `combat_schedule.rs` by non-whitespace character, which is how much
+    prose the walk would otherwise be reading as code.
+
+    ⛔ **THE REPRODUCER THIS DOCSTRING USED TO NAME WAS WRONG, AND IT TRAVELLED.**
+    It said the `add_systems(sim, …)` at
     `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:640` is a
-    ~14,000-character block and the scanner read 435 characters of it, which is
-    why `apply_feature_hit_events` — a system the architecture review names by
-    hand as a simulation reader — was reported as not scheduled anywhere.
+    ~14,000-character block of which the scanner read 435, and that this is why
+    `apply_feature_hit_events` was unattributed. Re-measured 2026-09-18: that
+    body is 452 characters and closes correctly at `:648`; **0 of 639**
+    `add_systems` bodies in the whole tree get longer when comments are blanked
+    first; and at `ac27d1718~1`, `ac27d1718` and HEAD alike no `add_systems`
+    body in that file has EVER contained that name. The real reason is the
+    forwarder below, which this module found and fixed — the docstring simply
+    kept an earlier guess beside the correct repair.
+
+    ⚠ It travelled because a second census copied it:
+    `check_host_produced_sim_consumed_requests.py` cited this paragraph to argue
+    that widening a SHARED parser was owed, and deferred the work as a campaign
+    on that basis. The blanking below is still right, and the reason it is right
+    is prevention, not a defect anyone has measured in this tree.
 
     ⚠ Blanking rather than deleting, so every offset this function's caller
     computes still points at the same byte of the original. And `//` preceded by

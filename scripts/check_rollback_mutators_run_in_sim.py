@@ -307,38 +307,83 @@ ACKNOWLEDGED: dict[str, str] = {
 }
 
 
+# ⛤ **FOUR ROWS LEFT ON 2026-09-18 AND ONLY ONE OF THEM WAS A DELETION.** The
+# stale-row check below (`stale_waivers` in `main`) was added the same day and
+# named all four on its first run, against a review that had spotted one. Each
+# was triaged before the row was touched, because "delete the row until it
+# passes" is the failure mode this table has:
+#
+#   * `spawn_requested_player_clone` -- the system is GONE, deleted with the
+#     clone hotkey in `89d78a4a5`. The reviewer's specimen.
+#   * `materialize_projectiles_for_this_tick`, `spawn_projectiles_from_brain_actions`
+#     -- both still mutate rollback state and both now register inside the sim
+#     schedule (`crates/ambition_platformer2d_runtime/src/combat_schedule.rs:332`,
+#     `:357`). The waiver is DISCHARGED, which is the outcome it was waiting for.
+#   * `handle_ldtk_hot_reload` -- KEPT, and the first pass over this list was
+#     wrong to drop it. The demotion of its `SessionWorldMut<RoomSet>` /
+#     `SessionWorldMut<LdtkRuntimeIndex>` to `SessionWorldRef` on 2026-09-18 was
+#     an honest repair that took the system out of this guard's
+#     SIGNATURE-KEYED population, but the write it causes is still there, in the
+#     staged closure inside `reload_ldtk_world_from_disk` -- a HELPER, which
+#     `collect` cannot attribute a schedule to. `BLIND_SPOTS` below says so, and
+#     is exactly the argument that must be re-read rather than deleted when the
+#     scan goes quiet.
+#
+# ⇒ Two of the four were good news that no instrument was reporting, one was a
+#   deletion, and one was the trap.
+# ⛔⛤ **A WAIVER WHOSE SUBJECT THE SCAN CANNOT SEE, WITH THE ARGUMENT FOR WHY IT
+# STAYS.** `stale_waivers` in `main` refuses a waiver that names nothing this
+# scan reports. That is the right default and it has exactly one legitimate
+# exception: the scan lost the system while the WRITE is still there. Such an
+# entry is not a second waiver — it is the evidence that the first one is still
+# load-bearing, and deleting it because the guard went quiet is the move the
+# whole table exists to refuse.
+#
+# ⚠ **IT LIVES HERE RATHER THAN IN THE TEST BECAUSE IT IS PRODUCTION KNOWLEDGE
+# ABOUT THIS GUARD.** It was declared in
+# `scripts/tests/test_rollback_mutators_run_in_sim.py` until 2026-09-18, which
+# meant the SCRIPT could not honour its own escape: a review found the script
+# exiting 0 on a waiver whose system had been deleted, while the arm that would
+# have caught it sat red in a suite the maintenance lane does not run. Two
+# owners, and the one with the exit code had neither half.
+#: name → (file that defines it, why the waiver survives the scan losing it)
+BLIND_SPOTS: dict[str, tuple[str, str]] = {
+    "handle_ldtk_hot_reload": (
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "⛔⛤ THE SCANNER LOST IT, THE TREE DID NOT — and the thing that hid it "
+        "was an honest repair. Until 2026-09-18 this system carried "
+        "`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on "
+        "two parameters it only READS, kept mutable so a session-world writer "
+        "census would not undercount. Demoting them to `SessionWorldRef` was "
+        "right, and it took the system out of THIS guard's signature-keyed "
+        "population in the same stroke: the write it still causes happens in a "
+        "staged closure inside `reload_ldtk_world_from_disk`, which the "
+        "exclusive-world spelling added the same day DOES see "
+        "(`LdtkRuntimeIndex`, `RoomTransitionCooldown`) — but that function is a "
+        "HELPER, and `collect` attributes a schedule by finding a name inside an "
+        "`add_systems` body.\n"
+        "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "
+        "the scan went quiet is the exact move this table exists to refuse: the "
+        "next system to take this name would inherit an argument nobody re-read.\n"
+        "    ⇒ THE INSTRUMENT THAT WOULD CLOSE IT IS NAMED AND MEASURED: one hop "
+        "of caller attribution — a registered system inherits what the helpers it "
+        "calls mutate. MEASURED 2026-09-18 by bare-name matching: 19 pairs, of "
+        "which 8 are already banked or waived (this one among them) and 11 are "
+        "FALSE, because the helpers are called `tick`, `apply` and `install` and a "
+        "`\\bname\\s*\\(` search cannot tell `adopt_the_ledger(world)` from "
+        "`self.timer.tick(dt)`. ⛔ So the hop needs real call resolution, not a "
+        "name match — which is why it is not in this commit."
+    ),
+}
+
+
 WAIVERS: dict[str, str] = {
-    # -- added 2026-09-18, and THIS GUARD IS WHY THE WAIVER EXISTS -------------
-    # ⭐ It was not found by review. Moving `spawn_requested_player_clone` out of
-    # the simulation schedule to fix `Q136` put a `SimIdCounter` increment in
-    # `PreUpdate`, and this guard reported it as a NEW offender on the first run
-    # after the move — before the change was committed. That is the whole point
-    # of a population instrument: the repair's own side effect arrived as a
-    # finding rather than as a surprise.
-    "spawn_requested_player_clone": (
-        "\u2b50 IT IS THE SAME ADMISSION ARGUMENT AS THE FOUR OTHER MECHANICAL-EDIT "
-        "PUBLISHERS, AND IT IS THE ARGUMENT RATHER THAN THE SCHEDULE. The write is "
-        "`parent_counter.next()` on the PRIMARY's `SimIdCounter`, minting the "
-        "clone's descendant identity. It runs in `MechanicalEditSet::Publish`, "
-        "downstream of `decide_mechanical_edit_admission` in `Admit`, so every "
-        "path that reaches it has established there is no ring holding a frame to "
-        "restore the counter from: `NoTimeline` has none, `LocallyRebasable` calls "
-        "`stop_session(world)` FIRST and the counter is published into the gap "
-        "before `maintain_local_session` rebuilds frame zero from it, and "
-        "`ForeignTimeline`/unhealthy REFUSE with the proposal left pending.\n"
-        "    \u26d4 MEASURED, NOT ASSUMED, AND THE FIRST FIXTURE GOT IT WRONG. "
-        "`a_dev_clone_survives_a_rewind` printed `boundary=ForeignTimeline "
-        "admission=Refuse` on every tick until the fixture re-owned its session: "
-        "`with_sync_test_rollback_settings` installs through "
-        "`start_sync_test_session`, which stamps `SyncTestOwner::Caller`, and "
-        "`locally_rebasable_timeline` answers only for `LocalMaintainer`. With the "
-        "shipped ownership mode the same arm reads "
-        "`boundary=LocallyRebasable admission=Publish` and the clone survives.\n"
-        "    \u26a0 THE RESIDUAL IS THE SAME ONE `publish_player_stats_edits` "
-        "CARRIES: this depends on the decider staying registered by "
-        "`install_session_bridge`, the call that also installs the GGRS session, "
-        "so a composition cannot hold a timeline without holding the decider. If "
-        "that registration ever moves, this entry is void."
+    "handle_ldtk_hot_reload": (
+        "⛔ a hot reload DISCARDS the rollback timeline rather than continuing "
+        "it. `restart_local_ggrs_after_hot_reload` runs in the same module and "
+        "calls `stop_session` then `start_sync_test_session`, so there is no "
+        "history for the mutation to be inconsistent with. Checked at that "
+        "function, not inferred from the word 'reload'."
     ),
     # -- added 2026-09-18, the SIXTH SPELLING's two findings -------------------
     # Both were invisible while this file tested a tuple of BARE schedule labels
@@ -462,21 +507,6 @@ WAIVERS: dict[str, str] = {
         "its own app to record a comparison; it starts no GGRS session, so "
         "`TwinTrackExperiment` has no timeline to be inconsistent with."
     ),
-    "materialize_projectiles_for_this_tick": (
-        "⛔ the FIGHTER HARNESS builds its OWN app and cannot be composed into a "
-        "rollback host. Checked rather than inferred: `fighter_harness.rs` does "
-        "`App::new()` + `MinimalPlugins` and steps it with `self.app.update()`; "
-        "the file contains no GGRS/rollback reference of any kind; and "
-        "`FighterHarness` appears in exactly ONE file in the workspace — its own "
-        "— so no composition can hand it a session. `ProjectileSeqCounter` "
-        "therefore never rewinds under it. One reason for all three harness "
-        "systems."
-    ),
-    "spawn_projectiles_from_brain_actions": (
-        "⛔ fighter harness — same composition as "
-        "`materialize_projectiles_for_this_tick`: it steps the sim from `Update` "
-        "with no rollback host, so `BodyKinematics`/`BodyMelee` do not rewind."
-    ),
     # ── added 2026-09-16, the menu bundle ──────────────────────────
     # Five systems, ONE cause: a `#[derive(SystemParam)]` bundle that grants a
     # rollback `ResMut` to every taker. ⚠ The scanner is right to report them —
@@ -583,13 +613,6 @@ WAIVERS: dict[str, str] = {
         "code and is not asserted here. Idempotence makes the write consistent "
         "with itself, which is not the same as consistent with a peer that never "
         "applied it. Queue row owes the mid-session question."
-    ),
-    "handle_ldtk_hot_reload": (
-        "⛔ a hot reload DISCARDS the rollback timeline rather than continuing "
-        "it. `restart_local_ggrs_after_hot_reload` runs in the same module and "
-        "calls `stop_session` then `start_sync_test_session`, so there is no "
-        "history for the mutation to be inconsistent with. Checked at that "
-        "function, not inferred from the word 'reload'."
     ),
     "refresh_world_time": (
         "⛔ NOT installed by any composition. `ambition_time::TimePlugin` — the "
@@ -937,8 +960,15 @@ def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
     return found
 
 
-def collect(repo: Path = REPO) -> list[tuple[str, str, str, list[str]]]:
-    """(system, file, schedule, mutated types) registered outside the rewind."""
+def collect(
+    repo: Path = REPO, honour_waivers: bool = True
+) -> list[tuple[str, str, str, list[str]]]:
+    """(system, file, schedule, mutated types) registered outside the rewind.
+
+    `honour_waivers=False` returns what the scan sees BEFORE `WAIVERS` is
+    applied, which is the only way to ask whether a waiver still has a subject
+    — see [`stale_waivers`].
+    """
     mutators = mutating_systems(repo)
     findings: list[tuple[str, str, str, list[str]]] = []
     seen: set[tuple[str, str]] = set()
@@ -951,7 +981,7 @@ def collect(repo: Path = REPO) -> list[tuple[str, str, str, list[str]]]:
             schedule = normalize_schedule(schedule)
             rest = strip_run_conditions(rest)
             for name, hits in mutators.items():
-                if name in WAIVERS:
+                if honour_waivers and name in WAIVERS:
                     continue
                 if re.search(rf"\b{name}\b", rest):
                     key = (name, str(src))
@@ -991,6 +1021,38 @@ def main() -> int:
             "trust any verdict from this file. If the drop is legitimate — "
             "registrations really were deleted — lower POPULATION_FLOOR in the "
             "same commit that deletes them.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # ⛔⛤ **AND THE SAME RULE FOR THE OTHER TABLE, WHICH IT DID NOT HAVE.**
+    # `ACKNOWLEDGED` has been protected against a stale row since it was
+    # written; `WAIVERS` never was, and the asymmetry is invisible from inside
+    # because `collect` SKIPS a waived name before it can become a finding, so
+    # no later check can notice the subject is gone. Found by review 2026-09-18,
+    # with a live specimen: `spawn_requested_player_clone` was deleted with the
+    # clone in `89d78a4a5` and its waiver — a long, carefully argued one — sat
+    # here pre-approving whatever took that name, while this script exited 0.
+    # Same defect class as the `rollback_coverage.rs` waiver rows, one table
+    # over.
+    stale_waivers = sorted(
+        set(WAIVERS)
+        - {name for name, *_ in collect(honour_waivers=False)}
+        - set(BLIND_SPOTS)
+    )
+    if stale_waivers:
+        print(
+            "WAIVERS names systems this scan no longer reports:\n\n  "
+            + "\n  ".join(stale_waivers)
+            + "\n\nA waiver is an argument about a SPECIFIC system's write. "
+            "With the subject gone the argument cannot be true or false, and "
+            "the row silently pre-approves the next system to be given that "
+            "name. Three readings, and they want different fixes: the system "
+            "was DELETED (delete the row, in the commit that deletes it); it "
+            "MOVED into the rewinding schedule (delete the row and say so — "
+            "that is the waiver being discharged, the outcome it was waiting "
+            "for); or the scan stopped seeing it, which is the dangerous one "
+            "and the one to rule out first.",
             file=sys.stderr,
         )
         return 1

@@ -69,8 +69,13 @@ def test_a_raise_inside_the_sim_is_not_a_crossing(tmp_path):
 def test_a_qualified_host_label_is_still_the_host_side(tmp_path):
     """Inherited from the sibling guard's sixth spelling, and it matters here.
 
-    `request_player_clone_on_key` is registered into `bevy::app::Update`; while
-    the label test compared bare names this crossing did not exist.
+    A fully-qualified label is not rare and not synthetic: while the label test
+    compared bare names, every system registered this way was invisible as a
+    host producer. The specimen that first showed it, `request_player_clone_on_key`,
+    was deleted with the clone hotkey in `89d78a4a5` — so the arm is re-pointed
+    at a LIVE one that is also one of this script's four current crossings,
+    `apply_ambient_gravity_requests`
+    (`crates/ambition_platformer2d_shared_tangle/src/gravity.rs:753`).
     """
     root = _tree(tmp_path, {
         "crates/ambition_x/src/lib.rs": _CROSSING.replace(
@@ -120,8 +125,11 @@ def test_a_clear_hidden_in_a_helper_is_still_a_clear(tmp_path):
 def test_a_write_through_a_binding_that_never_names_the_type_is_a_production(tmp_path):
     """⚠ THE LOAD-BEARING HALF OF `_only_clears`, and the easy way to break it.
 
-    A real producer writes `request.0 = true` and never mentions
-    `SpawnPlayerCloneRequest` at all. So "no assignment names the type" must
+    A real producer writes `request.0 = true` and never mentions the type at
+    all — `outstanding.0 = true` in
+    `crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs:414`
+    is the shape, and it is what the deleted `SpawnPlayerCloneRequest` producer
+    looked like too. So "no assignment names the type" must
     mean CANNOT DEMOTE, not "clears" — a `_only_clears` that returned True on an
     empty match would silently empty this script's whole population.
     """
@@ -527,33 +535,70 @@ def test_the_escape_vocabulary_covers_an_answer_that_does_not_exist_yet():
 
 
 def test_the_schedule_map_gap_is_measured_not_assumed():
-    """⛔⛤ 24% OF MESSAGE WRITERS/READERS CANNOT BE PLACED IN A SCHEDULE.
+    """⛔⛤ THE CROSSING SET IS A LOWER BOUND AND THE BOUND IS MEASURED.
 
     A system absent from `schedules_by_system` reads as "no schedule", which
     `message_crossings` treats as unclassifiable and drops — safe for a verdict
-    and unsafe for a POPULATION. This arm fails if that number moves in either
-    direction, because a FALL is the fix landing (say so) and a RISE is the
-    parser losing more ground.
+    and unsafe for a POPULATION. This arm fails if the number moves in either
+    direction, because a FALL is a road landing (say which) and a RISE is the
+    attribution losing ground.
+
+    ⭐ 77 on 2026-09-18 before registration wrappers were followed, 47 after.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 60 <= len(unlocated) <= 95, (
-        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading was 77. "
-        "A fall means the shared `add_systems_bodies` parser improved — re-measure every "
-        "consumer's floors in the same commit. A rise means it lost ground."
+    assert 38 <= len(unlocated) <= 58, (
+        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading after the "
+        "wrapper road was 47, down from 77 before it. A fall means another attribution "
+        "road landed — name it here and re-measure the exposed-type count in the same "
+        "commit. A rise means the scan lost ground."
     )
 
 
-def test_the_reproducer_for_the_parser_gap_still_reproduces():
-    """⭐ THE NAMED SPECIMEN, so the claim is checkable rather than a count.
+def test_the_wrapper_road_still_reaches_its_specimen():
+    """⭐ THE REGRESSION GUARD ON THE ROAD THAT CLOSED 39% OF THE GAP.
 
-    `apply_feature_hit_events` IS registered in the sim schedule at
-    `combat_schedule.rs:695`; the parser returns a truncated body for the
-    `add_systems` that contains it. If this ever resolves, the gap narrowed and
-    the docstring's reproducer needs replacing — not deleting.
+    `apply_feature_hit_events` is registered into the simulation schedule
+    through `install_technique(app, KEY, offer, (..systems..))`
+    (`crates/ambition_platformer2d_runtime/src/combat_schedule.rs:650`), whose
+    body is `app.add_systems(sim, systems)` (`:78`). It appears in no
+    `add_systems` argument list anywhere in the tree and never has, so it is
+    exactly the shape a literal-call scan reports as unscheduled.
+
+    ⛔⛤ THIS ARM REPLACES ONE THAT ASSERTED THE OPPOSITE, and the swap is the
+    point. The previous version held the name as PROOF OF A PARSER DEFECT, on a
+    docstring claiming `add_systems_bodies` truncated the call at `:640` to 272
+    characters. Measured when the fix was attempted: that body is 452 characters
+    and closes correctly, 0 of 639 bodies in the tree grow when comments are
+    blanked, and no `add_systems` body in that file has ever contained this
+    name. The arm was right to be specific and its reason was wrong — which is
+    how the wrong reason got caught, because a named specimen can be re-read.
     """
     by_system = guard.schedules_by_system()
-    assert "apply_feature_hit_events" not in by_system, (
-        "the reproducer resolved: `add_systems_bodies` now reaches "
-        "`combat_schedule.rs:695`. Re-measure `unlocated_message_systems` and pick a new "
-        "specimen from whatever is still missing, or close the gap for good."
+    assert by_system.get("apply_feature_hit_events") == {"sim"}, (
+        "the wrapper road stopped reaching `apply_feature_hit_events`: it is registered "
+        "through `install_technique`, so either `find_sim_forwarders` no longer finds that "
+        f"wrapper or the call site moved. Got {by_system.get('apply_feature_hit_events')!r}."
+    )
+
+
+def test_the_residual_is_a_different_shape_than_the_wrapper_gap():
+    """⚠ WHAT IS LEFT IS MOSTLY NOT A REGISTRATION PROBLEM AT ALL.
+
+    Measured 2026-09-18 over the 47: **35 appear in no `add_systems` body
+    anywhere in the tree**, tests included — `main`, `fire`,
+    `finalize_room_publication`, `dispatch_menu_action` are plain functions a
+    system CALLS, not systems. Attributing those needs a call graph, not a
+    better registration parser. The other 12 are registered only inside
+    `#[cfg(test)]` modules, which `_production_sources` strips on purpose: a
+    test-only registration is not a schedule fact about the shipped game.
+
+    ⇒ So the honest residual exposure is smaller than the raw count suggests,
+    and this arm keeps a specimen of the REAL remaining shape so the next person
+    widens the right thing.
+    """
+    unlocated = set(guard.unlocated_message_systems())
+    assert "finalize_room_publication" in unlocated, (
+        "the residual specimen resolved. `finalize_room_publication` is called from "
+        "`world/rooms/transaction.rs`, not registered — if it now has a schedule, either a "
+        "call-graph road landed (say so) or something is attributing a non-system."
     )

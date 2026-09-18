@@ -64,6 +64,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import check_rollback_mutators_run_in_sim as sim  # noqa: E402
+import measure_user_settings_in_simulation as settings  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -183,30 +184,47 @@ def _raises_through(body: str, path: str) -> bool:
 def unlocated_message_systems(repo: Path = REPO) -> list[str]:
     """Message writers/readers this module cannot place in any schedule.
 
-    ⛔⛤ **24% OF THEM, AND IT MAKES THE CROSSING SET A LOWER BOUND.** MEASURED
-    2026-09-18: of 320 distinct message writers and readers, **77** appear in no
-    `add_systems` body [`schedules_by_system`] can find, so [`message_crossings`]
-    cannot call them `host` or `sim` and drops them. **24 of the 90 written
-    message types are touched by at least one** — any of those could be a
-    crossing nobody has seen.
+    ⛔⛤ **IT MAKES THE CROSSING SET A LOWER BOUND, AND THE BOUND WAS 24% BEFORE
+    THE WRAPPER ROAD LANDED.** MEASURED 2026-09-18: of 320 distinct message
+    writers and readers, **77** appeared in no registration
+    [`schedules_by_system`] could find — 24 of the 90 written message types
+    exposed. Following registration wrappers [`_wrapper_registered`] took that
+    to **47 and 18**, a 39% cut, and left the four crossings unchanged: the
+    adjudication below did not move, the confidence in its completeness did.
 
-    ⭐ **THE REPRODUCER IS ONE LINE, AND IT IS NOT A NAME-SPELLING PROBLEM.**
-    `apply_feature_hit_events` is registered at
-    `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:695`, inside an
-    `app.add_systems(sim, ..)` opening at `:640` — a fully-qualified cross-crate
-    path, which the name regex here matches happily. The block never reaches
-    that regex: `add_systems_bodies`
-    (`scripts/check_engine_systems_are_engine_installed.py:228`) balances
-    parentheses and returns 272 characters for that call, stopping at
-    `.in_set(CombatSet::Settle),` while the real argument list runs past `:695`.
-    ⇒ The defect is in the shared body parser, not in this module.
+    ⛔⛔ **AND THE DIAGNOSIS THIS DOCSTRING CARRIED FOR A DAY WAS WRONG, WHICH
+    IS WHY THE FIX LOOKED LIKE A CAMPAIGN.** It said `add_systems_bodies`
+    truncates the `app.add_systems(sim, ..)` at
+    `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:640` to 272
+    characters, stopping short of `apply_feature_hit_events` at `:695`, and
+    therefore that widening a parser shared by several censuses was owed.
+    MEASURED 2026-09-18, all three claims fail:
 
-    ⚠ **DECLARED RATHER THAN FIXED, DELIBERATELY.** `add_systems_bodies` is
-    shared by several censuses, and widening it makes every one of them see MORE
-    — the opposite direction from the test-module stripper, and every consumer's
-    floors and adjudication tables would have to be re-measured in the same
-    commit. That is a campaign, not a patch. What is owed meanwhile is that this
-    module stop implying completeness, which `main()` now prints every run.
+      * that body is 452 characters and closes correctly at `:648`;
+      * across the tree, **0 of 639** `add_systems` bodies get longer when
+        every comment is blanked first — no body in this workspace is truncated
+        by a prose paren today;
+      * and at `ac27d1718~1`, `ac27d1718` and HEAD alike, no `add_systems` body
+        in that file has EVER contained `apply_feature_hit_events`.
+
+    ⇒ **THE REAL MECHANISM IS A REGISTRATION WRAPPER, and it was already solved
+    in another script.** `:695` is not inside an `add_systems` call at all; it is
+    an argument to `install_technique(app, KEY, offer, (..systems..))`
+    (`combat_schedule.rs:650`), whose own body is `app.add_systems(sim,
+    systems)` (`:78`). A scan for the literal call answers *"not scheduled"*
+    about a system that ships. `measure_user_settings_in_simulation.py` found
+    this first, wrote the mechanism down, and built the fixpoint that follows it
+    — `find_sim_forwarders` is a fixpoint precisely because the chain is two
+    deep, the singular delegating to the plural. Two owners of one fact, and the
+    blind one had the confident wrong reason. [`schedules_by_system`] now calls
+    the owner's helpers; nothing was copied and no shared parser moved.
+
+    ⚠ **47 REMAIN, AND THEY ARE A DIFFERENT SHAPE** — registration this module
+    still cannot follow: a schedule assembled from a table, a `cfg`-gated
+    install, a plugin whose systems are named in a `const`. Naming the next
+    mechanism needs the same treatment this one got: a specimen, measured, not a
+    guess about the parser. `main()` prints the remainder every run, because the
+    number that matters to Q136 is the one that is still unread.
     """
     by_system = schedules_by_system(repo)
     missing: set[str] = set()
@@ -217,24 +235,78 @@ def unlocated_message_systems(repo: Path = REPO) -> list[str]:
     return sorted(missing)
 
 
-def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
-    """`{system name: {schedule label, ..}}` from every `add_systems` in the tree.
+@functools.cache
+def _wrapper_registered(repo: Path = REPO) -> frozenset[str]:
+    """Systems a REGISTRATION WRAPPER hands to the simulation schedule.
 
-    ⚠ INCOMPLETE, and by how much is measured in
-    [`unlocated_message_systems`]: the shared `add_systems_bodies` parser
-    truncates some argument lists, so a registered system can be absent here.
-    A missing entry reads as *"no schedule"*, which every caller treats as
-    *"cannot classify"* rather than as *"host"* or *"sim"* — the safe direction
-    for a verdict and the unsafe one for a POPULATION.
+    ⭐ **THE HELPERS ARE BORROWED, NOT RESPELLED.** `install_technique` /
+    `install_techniques` are the whole wrapper family in this workspace — the
+    only two functions in `crates/`, `game/` and `tools/` that take
+    `impl IntoScheduleConfigs` — and `measure_user_settings_in_simulation.py`
+    already owns finding them and the fixpoint over them. This calls
+    `find_sim_forwarders`, `schedule_parameter_installers` and
+    `identifiers_in_call` against the sources THIS module already holds, so the
+    tree is read once and the forwarder rule has one keeper. See
+    [`unlocated_message_systems`] for what believing the other diagnosis cost.
+
+    ⚠ The population is narrower than the owner's on purpose: `_production_sources`
+    excludes tests, and a registration that only a test performs is not a
+    schedule fact about the shipped game.
+
+    ⚠ Comments are blanked first because the owner's helpers expect that, and
+    because prose is 72% of `combat_schedule.rs`: unblanked, the direct
+    `add_systems` scan below admits 16 names that exist only inside comments.
+    """
+    sources = {
+        str(path): settings.without_comments(text)
+        for path, text in sim._production_sources(repo)
+    }
+    # ⚠ **DISCOVERY IS NARROWED AND THE CALL-SITE SCAN IS NOT**, because the two
+    # halves cost differently. `find_sim_forwarders` closes a fixpoint with an
+    # `enclosing_fn` walk per match, so over every production source it runs for
+    # minutes; restricted to files that mention `add_systems` -- the owner's own
+    # population -- it is seconds, and a wrapper that never names the call it
+    # forwards into cannot be found by either. Reading the RESULT back out is a
+    # regex per forwarder, so that half sweeps everything and no call site in a
+    # file without `add_systems` is missed.
+    declaring = {
+        path: text for path, text in sources.items() if "add_systems" in text
+    }
+    names = set(settings.schedule_parameter_installers(declaring))
+    forwarders = settings.find_sim_forwarders(declaring)
+    for text in sources.values():
+        for forwarder in forwarders:
+            for match in re.finditer(rf"\b{re.escape(forwarder)}\s*\(", text):
+                names.update(settings.identifiers_in_call(text, match.end()))
+    return frozenset(names)
+
+
+def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
+    """`{system name: {schedule label, ..}}` from every registration in the tree.
+
+    Two roads, because registration takes two shapes: the literal
+    `add_systems(schedule, ..)` call, and a wrapper that forwards its systems
+    parameter into one [`_wrapper_registered`].
+
+    ⚠ STILL INCOMPLETE, and by how much is measured in
+    [`unlocated_message_systems`] rather than guessed at. A missing entry reads
+    as *"no schedule"*, which every caller treats as *"cannot classify"* rather
+    than as *"host"* or *"sim"* — the safe direction for a verdict and the
+    unsafe one for a POPULATION.
     """
     found: dict[str, set[str]] = {}
     for _src, text in sim._production_sources(repo):
-        for body in sim.add_systems_bodies(text):
+        for body in sim.add_systems_bodies(settings.without_comments(text)):
             schedule, _, rest = body.partition(",")
             schedule = schedule.strip()
             rest = sim.strip_run_conditions(rest)
             for name in re.findall(r"\b([a-z_][a-z0-9_]*)\b", rest):
                 found.setdefault(name, set()).add(schedule)
+    # A wrapper registers into `app.sim_schedule()`, which every caller here
+    # reads through `sim.is_non_rewinding` — and a schedule VARIABLE is
+    # rewinding by that predicate, which is the answer this label needs.
+    for name in _wrapper_registered(repo):
+        found.setdefault(name, set()).add("sim")
     return found
 
 
@@ -413,16 +485,19 @@ ADJUDICATED: dict[str, str] = {
         "New Game can be pressed successfully at the UI and vanish before the "
         "simulation sees it (read 2026-09-18)"
     ),
-    # ✅ `SpawnPlayerCloneRequest` was adjudicated here on 2026-09-18 and is GONE
-    # because it was FIXED, and the distinction was checked rather than assumed:
-    # `spawn_requested_player_clone` still exists and still spends the flag, so
-    # this script has not lost sight of it — the spend now runs in
-    # `MechanicalEditSet::Publish` (`PreUpdate`), on the HOST side, so there is no
-    # host-produced/sim-consumed crossing left to lose. It was Q136's first
-    # landed road; the witness is
-    # `a_dev_clone_survives_a_rewind::a_clone_asked_for_outside_the_simulation_is_not_lost_to_a_rewind`,
-    # and poisoning it back into `app.sim_schedule()` reddens both of that file's
-    # arms while the fixed-tick control stays green.
+    # ✅ `SpawnPlayerCloneRequest` IS GONE FROM THIS TABLE FOR THE SECOND REASON,
+    # and the sentence here used to give the first. It was adjudicated on
+    # 2026-09-18 as FIXED — the spend moved to `MechanicalEditSet::Publish`
+    # (`PreUpdate`), leaving no host-produced/sim-consumed crossing — and that
+    # note ended *"`spawn_requested_player_clone` still exists and still spends
+    # the flag, so this script has not lost sight of it"*, which was true when
+    # written and false by the end of the same day: `89d78a4a5` deleted the whole
+    # clone road, its trigger having collided with two shipped input presets.
+    # ⇒ The distinction the old note drew is the right one to keep — a type
+    # leaving this table because it was repaired and a type leaving because the
+    # scan went blind look identical from here — but a prose claim that a name
+    # "still exists" rots in a day. `check_rollback_mutators_run_in_sim.py` now
+    # holds the machine-checked version for its own waiver table.
     "VersusMatch": (
         "⛔ FILED ELSEWHERE, NOT A NEW FINDING: banked as MENU-RESET-MIDSESSION in "
         "`check_rollback_mutators_run_in_sim.py` and blocked on `Q140`. "
@@ -923,7 +998,8 @@ def main() -> int:
         }
         print(
             f"⚠ LOWER BOUND: {len(unlocated)} message writer(s)/reader(s) are in no "
-            f"`add_systems` body this script can parse, touching {len(exposed)} of the "
+            f"registration this script can follow — neither an `add_systems` body nor a "
+            f"wrapper that forwards into one — touching {len(exposed)} of the "
             f"{len(_message_sides(REPO))} written message types. Any of those could be an "
             "unseen crossing — see `unlocated_message_systems` for the reproducer."
         )

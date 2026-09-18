@@ -213,56 +213,6 @@ def test_the_two_tables_never_name_the_same_system():
     )
 
 
-#: Waived systems this scanner no longer SEES mutate, for a reason that is about
-#: the SCANNER and not about the system. ⛔ AN ENTRY HERE IS A KNOWN BLIND SPOT,
-#: NOT A CLEAN BILL — deleting the waiver would let the system straight through
-#: on the day the blind spot closes, which is the one day nobody is looking.
-#:
-#: `handle_ldtk_hot_reload` reaches `RoomSet`, `LdtkRuntimeIndex` and
-#: `RoomGeometry` through `SessionWorldMut`, and all three are registered with
-#: `rollback_component_clone{,_checksum}` — the form `_ROLLBACK_REGISTRATION`
-#: deliberately does not match. The mutation is untouched; the regex is narrow.
-#: Waivers whose system the SCANNER stopped seeing, as opposed to systems that
-#: genuinely stopped mutating. The distinction matters because deleting a live
-#: waiver on the strength of a blind scan is how a real mutation becomes
-#: invisible twice over.
-#:
-#: ⭐ EMPTY SINCE 2026-09-16, and it emptied by being CURED rather than by being
-#: cleaned up. Its only entry was `handle_ldtk_hot_reload`, waived and then
-#: unseen because `RoomSet` and `LdtkRuntimeIndex` are registered through
-#: component clone, which the guard's population did not include. Landing the
-#: component half made the waiver live again. ⇒ Keep the mechanism: an empty dict
-#: here still asserts something, because a newly stale waiver reddens the arm
-#: below.
-BLIND_SPOT_NOT_CLEAN_BILL: dict[str, tuple[str, str]] = {
-    "handle_ldtk_hot_reload": (
-        "game/ambition_app/src/app/dev_runtime.rs",
-        "⛔⛤ THE SCANNER LOST IT, THE TREE DID NOT — and the thing that hid it "
-        "was an honest repair. Until 2026-09-18 this system carried "
-        "`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on "
-        "two parameters it only READS, kept mutable so a session-world writer "
-        "census would not undercount. Demoting them to `SessionWorldRef` was "
-        "right, and it took the system out of THIS guard's signature-keyed "
-        "population in the same stroke: the write it still causes happens in a "
-        "staged closure inside `reload_ldtk_world_from_disk`, which the "
-        "exclusive-world spelling added the same day DOES see "
-        "(`LdtkRuntimeIndex`, `RoomTransitionCooldown`) — but that function is a "
-        "HELPER, and `collect` attributes a schedule by finding a name inside an "
-        "`add_systems` body.\n"
-        "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "
-        "the scan went quiet is the exact move this table exists to refuse: the "
-        "next system to take this name would inherit an argument nobody re-read.\n"
-        "    ⇒ THE INSTRUMENT THAT WOULD CLOSE IT IS NAMED AND MEASURED: one hop "
-        "of caller attribution — a registered system inherits what the helpers it "
-        "calls mutate. MEASURED 2026-09-18 by bare-name matching: 19 pairs, of "
-        "which 8 are already banked or waived (this one among them) and 11 are "
-        "FALSE, because the helpers are called `tick`, `apply` and `install` and a "
-        "`\\bname\\s*\\(` search cannot tell `adopt_the_ledger(world)` from "
-        "`self.timer.tick(dt)`. ⛔ So the hop needs real call resolution, not a "
-        "name match — which is why it is not in this commit."
-    ),
-}
-
 
 def test_every_waiver_cites_the_code_that_makes_it_true():
     """A waiver here claims a value may drift across a rewind. That is a strong
@@ -340,17 +290,17 @@ def test_no_waiver_names_a_system_that_no_longer_mutates_rollback_state():
     """
     mutators = set(guard.mutating_systems())
     stale = sorted(name for name in guard.WAIVERS if name not in mutators)
-    for name, (relative, _why) in sorted(BLIND_SPOT_NOT_CLEAN_BILL.items()):
+    for name, (relative, _why) in sorted(guard.BLIND_SPOTS.items()):
         source = guard.REPO / relative
         assert source.exists() and f"fn {name}" in source.read_text(errors="replace"), (
             f"{name} is recorded as a scanner blind spot but is gone from "
-            f"{relative}; drop it from BLIND_SPOT_NOT_CLEAN_BILL and from WAIVERS"
+            f"{relative}; drop it from guard.BLIND_SPOTS and from WAIVERS"
         )
-    assert stale == sorted(BLIND_SPOT_NOT_CLEAN_BILL), (
+    assert stale == sorted(guard.BLIND_SPOTS), (
         f"{stale} are waived but no longer seen mutating rollback state — remove "
         "them, so the waiver cannot cover a future system that reuses the name. "
         "If the scanner is what stopped seeing it, say so in "
-        "BLIND_SPOT_NOT_CLEAN_BILL rather than deleting a live waiver"
+        "guard.BLIND_SPOTS rather than deleting a live waiver"
     )
 
 

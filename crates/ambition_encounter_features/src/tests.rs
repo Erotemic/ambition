@@ -1145,7 +1145,7 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
         .entity_mut(root)
         .get_mut::<ambition_encounter::EncounterMusicRequest>()
         .unwrap()
-        .base_track = Some("first_goblin_tune_v2".to_string());
+        .set_base_track(Some("first_goblin_tune_v2".to_string()));
 
     app.add_systems(Update, crate::apply_wave_encounter_effects);
     app.update();
@@ -1155,7 +1155,7 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
             .entity(root)
             .get::<ambition_encounter::EncounterMusicRequest>()
             .expect("the session root carries the request")
-            .base_track,
+            .base_track(),
         None,
         "the encounter track survived a frame with no player body, so it latches \
          through a death and a room transition and plays on into the next room"

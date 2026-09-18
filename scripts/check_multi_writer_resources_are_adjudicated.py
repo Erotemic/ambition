@@ -1290,11 +1290,85 @@ ADJUDICATED: dict[str, str] = {
 #: from its resting state — still applies; what changes is that a session
 #: boundary reclaims the whole thing, so a stale write cannot outlive it.
 SESSION_WORLD_BASELINE: dict[str, int] = {
-    "EncounterMusicRequest": 8,
+    "EncounterMusicRequest": 9,
     "LdtkRuntimeIndex": 2,
-    "RoomGeometry": 2,
-    "RoomSet": 2,
 }
+
+#: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
+#: `RoomGeometry` and `RoomSet` left because their second writer was never a
+#: writer: `process_new_game_reset_request` bound both without `mut` — one an
+#: explicit *"A GUARD, NOT A WRITE TARGET"*, the other reading `.start` and
+#: passing `&room_set` on — and `handle_ldtk_hot_reload` did the same for
+#: geometry. All three now ask for `SessionWorldRef`, which is the identical
+#: `Single<_, With<SessionRoot>>` refusal without the exclusive borrow.
+#: `EncounterMusicRequest` went 8 -> 9 the same day, in the opposite direction:
+#: the census learned `session_world_component_mut::<T>(world)` and found the
+#: session reset writing it that way.
+
+#: ⭐⛤ **VERDICTS FOR THE OTHER POPULATION, which had a ratchet and no way to
+#: record an answer until 2026-09-18.** Same rule as [`ADJUDICATED`] and a
+#: different lifetime: a session boundary reclaims these, so "two writers" is a
+#: question about one session's state rather than about the App's.
+SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "EncounterMusicRequest": (
+        "CORRECT — NINE WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
+        "OWNER-CHECKED BY THE COMPILER SINCE 2026-09-18. The component is built "
+        "for many writers on purpose: `priority_track` is a focused fight's "
+        "claim, `base_track` is the wave/arena tier rewritten EVERY FRAME "
+        "including `None`, `priority_owner` names who holds the claim, and "
+        "`last_applied` is the intent adapter's mirror. `desired_track()` ranks "
+        "priority above base, so the per-frame `None` cannot silence a boss.\n"
+        "    MEASURED with comments stripped, which matters because the naive "
+        "grep reads a comment MENTIONING `priority_track` as a write: SIX of the "
+        "nine files call `claim_priority`/`release_priority` and touch no field "
+        "at all (`ambition_boss_encounter/src/{encounter_script,systems}.rs`, "
+        "`game/ambition_content/src/bosses/cut_rope/mod.rs`, and "
+        "`game/ambition_demo_mary_o/src/{death,flag,star}.rs`); ONE writes only "
+        "`base_track` (`ambition_encounter_features/src/systems.rs`); ONE writes "
+        "only `last_applied` (`actor_monolith/src/music/intent.rs`); and ONE is "
+        "the session reset clearing it at a boundary "
+        "(`actor_monolith/src/session/reset/mod.rs`). ⇒ Nobody wrote "
+        "`priority_track` or `priority_owner` directly. A perfect separation, "
+        "held entirely by convention over `pub` fields.\n"
+        "    ⛤ SO THE FIELDS ARE PRIVATE NOW. The tier can only be reached "
+        "through `claim_priority` (a later claim wins outright — *\"two focused "
+        "fights at once is not a state worth arbitrating\"*) and "
+        "`release_priority` (which no-ops unless the caller still owns it — *\"a "
+        "source with nothing to say says nothing, rather than silencing whoever "
+        "does\"*). `set_base_track` and `mark_applied` carry the other two roads. "
+        "Poison-verified: assigning `priority_track` from the base-tier writer "
+        "fails with `error[E0616]`. The module doc had already recorded shipping "
+        "the un-owned clear once; the discipline was universal and nothing kept "
+        "it that way."
+    ),
+    "LdtkRuntimeIndex": (
+        "CORRECT — ONE PER-FRAME SYNC AND ONE VERDICT-GATED REBUILD, AND THEY ARE "
+        "NOT THE SAME FACT. `sync_ldtk_level_set` "
+        "(`ambition_platformer2d_ldtk/src/bevy_runtime/asset.rs`) sets the ACTIVE "
+        "AREA, early-returning unless `needs_level_set_sync(&active_area)`, and "
+        "then hands the same `LevelSet` to both LDtk bundles. The dev hot reload "
+        "(`game/ambition_app/src/app/dev_runtime.rs`) REPLACES the whole index "
+        "with a candidate built from the reloaded project, and it does that "
+        "inside the staged closure — `session_world_component_mut::<LdtkRuntimeIndex>` "
+        "under exclusive world access, on the room publication's own verdict. ⇒ "
+        "A replacement and an active-area sync cannot interleave: the closure "
+        "runs at a command flush, and the sync re-derives from whatever index it "
+        "then finds.\n"
+        "    ⚠ `sync_ldtk_level_set` IS ONE OF THE NINE ACKNOWLEDGED OFFENDERS in "
+        "`scripts/check_rollback_mutators_run_in_sim.py`, owed to "
+        "ROLLBACK-MUTATOR-POPULATION — it mutates rollback-registered state from "
+        "a schedule that does not rewind. That is a SCHEDULE question and is "
+        "banked there; it is not an authority dispute between these two, which is "
+        "what this verdict answers.\n"
+        "    ⛔⛤ AND THE SECOND WRITER WAS ONLY VISIBLE AFTER THE CENSUS LEARNED A "
+        "SECOND SPELLING. Until 2026-09-18 it read `SessionWorldMut<T>` alone, so "
+        "the dev reload counted through its SYSTEM signature — where the "
+        "parameter is now a shared borrow — while the write it actually performs, "
+        "through `session_world_component_mut`, was invisible. The count was "
+        "right for the wrong reason, which is the worst kind of right."
+    ),
+}
+
 
 #: ⛔ Its own floor, for its own reason: this population is small enough that a
 #: broken scan and a clean tree look identical. Eight types carry the accessor
@@ -1306,7 +1380,13 @@ MIN_SESSION_WORLD_TYPES = 4
 #: ⭐ **NAMING IT IS NOT WAIVING IT.** `SessionScopedResources::reset` replaces
 #: every session-scoped resource with its default at a session boundary, from one
 #: function, so it appears in this census as a writer of thirty of the 121 —
-#: MEASURED 2026-09-17 — and thirteen of those would be SINGLE-writer without it
+#: MEASURED 2026-09-17 — and thirteen of those are written from exactly one OTHER
+#: FILE. ⛔ That is not "would be single-writer without it", which is what this
+#: comment said until 2026-09-18 and is false for two of the thirteen:
+#: `ActiveCutscene` has two writing systems in that other file and
+#: `ProjectileSeqCounter` three. The green line was corrected and this paragraph
+#: kept the wrong phrasing, twenty lines above the note explaining it. The
+#: thirteen are
 #: (`ActiveCutscene`, `ControlledSubject`, `CutsceneSkipHold`, `EncounterView`,
 #: `GameplayElapsed`, `LastCutsceneRoom`, `LastQuestRoom`, `LiveMatchTicks`,
 #: `ProjectileSeqCounter`, `SaveRestored`, `SessionMatchOrdinal`,
@@ -1503,6 +1583,15 @@ def main() -> int:
                 f"  {ty} moved: {SESSION_WORLD_BASELINE[ty]} -> {len(world[ty])} "
                 "writer file(s)."
             )
+    # ⛔ THE SAME PHANTOM RULE AS THE RESOURCE SIDE, for the same reason: the debt
+    # line below is a SUBTRACTION, and a verdict on a type that has since become
+    # single-writer would understate the unread half while looking settled.
+    for ty in sorted(set(SESSION_WORLD_ADJUDICATED) - set(world)):
+        world_moves.append(
+            f"  {ty} carries a SESSION_WORLD_ADJUDICATED verdict and is no longer "
+            "a multi-writer session-world component. Remove the verdict — a "
+            "repair is not an amnesty, and the debt count below depends on it."
+        )
     if world_moves:
         print("the session-world component writer population moved:\n")
         for line in world_moves:
@@ -1580,10 +1669,17 @@ def main() -> int:
         "  ⚠ ONE OTHER FILE IS NOT ONE OTHER WRITER — this census is file-granular. "
         "Re-read the file per SYSTEM before writing a verdict that says \"one owner\"."
     )
+    world_owed = sorted(set(world) - set(SESSION_WORLD_ADJUDICATED))
     print(
         f"  + {len(world)} session-world component(s) written from more than one "
-        f"file, of {len(world_all)} carrying a `SessionWorldMut<T>` accessor — a "
-        "population the resource census is silent about by construction."
+        f"file, of {len(world_all)} reached mutably at all — a population the "
+        "resource census is silent about by construction. "
+        + (
+            f"{len(SESSION_WORLD_ADJUDICATED)} adjudicated, UNADJUDICATED: "
+            f"{', '.join(world_owed)}."
+            if world_owed
+            else f"All {len(SESSION_WORLD_ADJUDICATED)} carry a verdict."
+        )
     )
     # ⭐ WHERE TO SPEND THE NEXT VERDICT, MEASURED ON EVERY RUN rather than
     # quoted. See `rollback_registered_shortlist` for why it stopped being prose.

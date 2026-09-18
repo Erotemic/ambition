@@ -184,6 +184,40 @@ SESSION_WORLD_MUT = re.compile(
     r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
 )
 
+#: `session_world_component_mut::<T>(world)` — the EXCLUSIVE-WORLD spelling of
+#: the same reach, for a system or a staged closure that holds `&mut World`.
+#:
+#: ⛔⛤ **THE THIRD SPELLING, AND THE CENSUS WAS BLIND TO IT UNTIL 2026-09-18 —
+#: WHICH IS THE SAME DEFECT AS THE RESOURCE SIDE'S, ONE POPULATION LATER.**
+#: [`writers`] learned `world.resource_mut::<T>()` on 2026-09-17 after reading
+#: only `ResMut<T>` parameters, and the note there says why it mattered: an
+#: exclusive-world system is what a COMMIT EXECUTOR is, so the road that spelling
+#: hid was the destructive one. This population had exactly the same hole.
+#: `apply_world_replacement` and the dev reload's staged closure write through
+#: this, and both are verdict-gated room publications — the most load-bearing
+#: writes these components get.
+#:
+#: ⚠ FOUND BY DISTRUSTING A NUMBER THAT GOT BETTER. Two read-only
+#: `SessionWorldMut` bindings were demoted to `SessionWorldRef` the same day and
+#: `RoomGeometry` and `RoomSet` promptly left this census, which looked like a
+#: collapse bought too cheaply — so the spelling below was added to check whether
+#: the writers had merely moved out of view. MEASURED: they had not. Both read 1
+#: under BOTH spellings, so the reduction was real; what the check found instead
+#: was `EncounterMusicRequest` at NINE rather than eight — the session reset
+#: writes it this way and no `SessionWorldMut` census could see it.
+#:
+#: ⛔ AND ONE SPELLING REMAINS UNREADABLE BY CONSTRUCTION.
+#: `insert_session_world_component(world, T(..))` REPLACES the component, and its
+#: type appears only in the argument expression, so no regex can name it without
+#: type inference. MEASURED 2026-09-18: exactly ONE production call site, in
+#: `game/ambition_app/src/app/dev_runtime.rs`, which this census already counts
+#: through the other two. ⇒ A stated limit with a number on it, not a silent one,
+#: and the number is what makes it safe to leave.
+SESSION_WORLD_COMPONENT_MUT = re.compile(
+    r"session_world_component_mut\s*::\s*<\s*"
+    r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
+)
+
 
 def session_world_writers(files: list[str]) -> dict[str, set[str]]:
     """`{short type name: {file, ...}}` for SESSION WORLD components.
@@ -191,13 +225,20 @@ def session_world_writers(files: list[str]) -> dict[str, set[str]]:
     Same test and comment stripping as [`writers`], different question: these are
     components on the session root, not resources, so they never appear in that
     function's population. See [`SESSION_WORLD_MUT`] for why that mattered.
+
+    TWO spellings, for the same reason [`writers`] reads two: a system takes
+    `SessionWorldMut<T>`, and an exclusive-world system or a staged closure calls
+    `session_world_component_mut::<T>(world)`. See
+    [`SESSION_WORLD_COMPONENT_MUT`] — reading only the first hid the
+    verdict-gated room publications, which are the writes that matter most.
     """
     found: dict[str, set[str]] = collections.defaultdict(set)
     for f in files:
         src = pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
         src = strip_test_modules(strip_comments(src))
-        for m in SESSION_WORLD_MUT.finditer(src):
-            found[m.group(1).split("::")[-1]].add(f)
+        for pattern in (SESSION_WORLD_MUT, SESSION_WORLD_COMPONENT_MUT):
+            for m in pattern.finditer(src):
+                found[m.group(1).split("::")[-1]].add(f)
     return found
 
 

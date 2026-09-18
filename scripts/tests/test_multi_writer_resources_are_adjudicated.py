@@ -344,7 +344,11 @@ def test_every_system_a_verdict_names_exists():
             declared.add(match.group(1))
 
     unresolved: dict[str, list[str]] = {}
-    for name, reason in guard.ADJUDICATED.items():
+    # ⚠ BOTH TABLES. The session-world verdicts arrived after this arm and would
+    # have been exempt from it by omission, which is the shape of exemption this
+    # repository keeps paying for.
+    verdicts = {**guard.ADJUDICATED, **guard.SESSION_WORLD_ADJUDICATED}
+    for name, reason in verdicts.items():
         for match in _CITED.finditer(reason):
             token = match.group(1)
             if token in declared or token in NOT_TREE_NAMES:
@@ -392,3 +396,34 @@ def test_the_printed_shortlist_is_not_empty_by_accident():
     )
     assert set(owed).isdisjoint(guard.ADJUDICATED), owed
     assert set(owed) <= set(multi), owed
+
+
+def test_every_session_world_adjudication_cites_something():
+    # Same rule as the resource table: a verdict is a CITATION, not an opinion.
+    for name, reason in guard.SESSION_WORLD_ADJUDICATED.items():
+        assert name in guard.SESSION_WORLD_BASELINE, name
+        assert len(reason) > 60, name
+        assert "`" in reason, f"{name}: no system or field cited"
+
+
+def test_a_session_world_verdict_whose_duplication_was_repaired_is_refused(
+    monkeypatch, capsys
+):
+    # ⛔ The debt line for this population is a subtraction too. A verdict left
+    # behind after its subject became single-writer reads as one more thing
+    # settled while shrinking the unread half.
+    monkeypatch.setattr(
+        census,
+        "session_world_writers",
+        lambda files: {
+            **{t: {"a.rs", "b.rs"} for t in guard.SESSION_WORLD_BASELINE},
+            "LdtkRuntimeIndex": {"only.rs"},
+            "Spare": {"x.rs"},
+            "Spare2": {"y.rs"},
+            "Spare3": {"z.rs"},
+        },
+    )
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "LdtkRuntimeIndex" in out
+    assert "a repair is not an amnesty" in out

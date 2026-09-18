@@ -12,8 +12,7 @@ use ambition_combat::moveset::{ActorMoveset, MovePlayback};
 use ambition_entity_catalog::{
     ClipBinding, MoveGates, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
-use ambition_input::ControlFrame;
-use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_core::{BodyBaseSize, ControlFrame};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use std::collections::BTreeMap;
 

@@ -120,11 +120,44 @@ call `save.data_mut().set_switch(&activation.id, …)`.
 content road keys off the switch ID. The content road says in place that it means
 to win: *"without this write the save's switch flag stays whatever the encounter
 pipeline set it to"*. **Nothing makes it last.**
-⚠ A behavioural test passes either way: the executor's order is stable but
-arbitrary, which is the same shape as the finishing-zoom edge the fighter lane
-found. ⇒ **The fix is an ordering edge, and placing it is a content/engine
-boundary decision** — the content road cannot name a set the engine owns without
-taking a dependency, and the engine cannot name content.
+⚠ A behavioural test passes either way, which is the same shape as the
+finishing-zoom edge the fighter lane found. ⇒ **The fix is an ordering edge, and
+placing it is a content/engine boundary decision** — the content road cannot name
+a set the engine owns without taking a dependency, and the engine cannot name
+content.
+
+⛔⛤ **BUT "THE EXECUTOR'S ORDER IS STABLE BUT ARBITRARY" IS WRONG, AND THE ORDER
+IS DERIVABLE — 2026-09-18.** `SwitchActivationDrained` is in no phase, so nothing
+orders it DIRECTLY; its position is pinned by its CONSUMERS.
+`drive_wave_encounters` is
+`.in_set(EncounterSimulation).after(SwitchActivationDrained)`
+(`ambition_encounter_features/src/lib.rs`), and the monolith phase chain is
+`... EncounterSimulation → Cutscene → GameplayEffects → Progression`
+(`actor_monolith/src/schedule/schedule.rs`). ⇒ **The drain is forced before
+`EncounterSimulation`, therefore before `GameplayEffects`, therefore before
+`capture_falling_sand_switch_interactions` — every frame, by construction.** The
+content road always writes last and always wins; the order cannot flip without
+somebody moving a phase, a set membership or that `.after` edge.
+
+⚠ **THAT IS DERIVED FROM THE EDGES, NOT OBSERVED BY AN ARM**, and the distinction
+is the point: it says the ORDER is determined, not that the resulting save value
+is the intended one. Two writers of one durable fact is still two authorities, and
+"the later one happens to be the one that means to win" is a coincidence of the
+phase chain rather than a stated contract. ⇒ What would settle it is a
+falling-sand spout fixture reading `data().switch(id)` after the frame in which
+both roads write — the shape
+`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed`
+(`game/ambition_app/tests/symmetry_attunement.rs`) uses for the queue's own
+latency, which IS measured.
+
+⭐ **AND THE SAME EDGE TOPOLOGY MAKES THE ACTIVATION QUEUE A CROSS-TICK CHANNEL,
+which nothing said either.** `apply_switch_effects` pushes in `GameplayEffects`
+and the drain is forced two phases earlier, so an activation is always resolved on
+the FOLLOWING tick. Measured through the shipped composition: `(queued, resolved)`
+reads `(1, 0)` one step after a real `SwitchActivated` and `(0, 1)` the step after
+— a delay, not a loss, poison-verified by unregistering the drain (the second
+reading then stays `(1, 0)`). ⛔ The obvious repair is a schedule CYCLE: the drain
+cannot be `.after(apply_switch_effects)` and also before `drive_wave_encounters`.
 
 ⛔ **AND I GOT THE ID FACT WRONG FIRST, so the correction is on the record.** I
 reported *"Switch: 14 placements, 0 authored, 14 iids"*. **False** — a `Switch`

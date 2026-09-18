@@ -1495,6 +1495,52 @@ sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
 
+### 2026-09-18 — the cutscene half is TWO fields, and only one of them is the blocked decision
+
+⭐⭐ **`CutsceneAdvanceRequest` HAS TWO BOOLS AND EVERYTHING ABOVE IS ABOUT ONE
+OF THEM.** Read at the producer
+(`update_cutscene_request_from_menu`,
+`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:1078-1091`):
+
+| field | produced from | shape |
+|---|---|---|
+| `dismiss_dialogue` | `menu_frame.select` | a pure PRESS EDGE — `MenuInputFrame::select` is `select_pressed` (`crates/ambition_input/src/menu.rs:240`), no accumulation anywhere |
+| `skip_cutscene` | `menu_frame.back_held`, accumulated in `CutsceneSkipHold` in WALL time past `SKIP_HOLD_THRESHOLD_SECS` | an edge DERIVED FROM A HOLD |
+
+⇒ The `reset_held` question, the *"the hold accumulation then moves into the sim
+and must use `WorldTime::sim_dt()` with a rollback-registered accumulator"* cost,
+and the census consequence for `CutsceneSkipHold` are **all about
+`skip_cutscene` only**. `dismiss_dialogue` carries no hold, no accumulator and no
+clock, so none of it applies. The consumer agrees: `tick_active_cutscene` passes
+`dismiss` straight into `runtime.tick(dt, dismiss)` and handles `skip` in a
+separate branch above it.
+
+⭐ **AND THE DISMISS ALREADY HAS ITS SYNCHRONISED CHANNEL, WITH NO NEW BIT AT
+ALL.** `select_held` is fed by `MenuSelect || Jump || Interact`
+(`input_systems.rs:962-964`), and `ControlFrame` already carries
+`interact_pressed` and `start_pressed`
+(`crates/ambition_platformer2d_core/src/control_frame.rs:186,193`) —
+synchronised, re-fed
+by GGRS on a rewind, and consumed this exact way elsewhere. So option 1 for the
+DISMISS is not *"add `reset_held`"*; it is *"read an edge the frame already
+has"*. The design tension quoted above (*"cutscene controls are UI/menu intent,
+not gameplay movement"*) still applies and is still the maintainer's call — but
+it is the WHOLE cost for this field, with no wire change and no rollback-state
+consequence behind it.
+
+⛔⛤ **WHY THIS SPLIT IS NOW URGENT RATHER THAN TIDY: THE SHIPPED CONSEQUENCE
+LANDED ON THE UNBLOCKED HALF.** `queue.md`'s `CUTSCENE-ROLLBACK-DECISION` records
+that on 2026-09-18 `479d5a028` made the hub's boot cutscene real, and
+`test_intro`'s third beat is a `CutsceneBeat::Dialogue` with no duration. Getting
+past it is a DISMISS, not a skip. So the first-boot risk sits entirely on
+`dismiss_dialogue` and does **not** wait on the `reset_held` ruling; the ruling
+governs a convenience press on a cutscene the player has already seen.
+
+⚠ The shipped dialogue text *"Hold Reset to skip cutscenes"* was checked and is
+accurate: `back_held` is `MenuBack.pressed() || Reset.pressed()`
+(`input_systems.rs:965-966`), so the instruction names a button the code really
+reads. The page's Reset reasoning is sound — for the skip.
+
 ### 2026-09-18 — the population is enumerated, and option 1 costs no new wire bit
 
 ⭐⭐ **THE RESIDUE IS FOUR, NOT ONE, AND THE OTHER THREE WERE HIDDEN BY A GUARD'S

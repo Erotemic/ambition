@@ -180,6 +180,20 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # rollback input. Its own doc: *"Writing the table that is not authoritative
     # is harmless -- it is overwritten by the authority that owns it."*
     "SeatRawFrames": "host-aware read predicate picks the authoritative table (`seat_frame_this_tick`)",
+    # ⭐ A FIFTH SPELLING, AND THE SOURCE ALREADY SAYS SO. `CausalPlugin` registers
+    # `stamp_causal_frame` into `bevy::app::First` ("provides a host frame stamp");
+    # `player_schedule.rs` registers the SAME function again into `sim`, with its
+    # own comment: "the simulation schedule stamps again when replay state is
+    # available. The writes are idempotent." Read the body to check that claim
+    # rather than take it: it is a pure setter derived from fresh `Res` reads each
+    # call (tick, `replaying_history`, session generation) plus a per-registration
+    # `Local<RollbackEpoch>` that does not leak between the two registrations —
+    # nothing it writes depends on a PRIOR write to `CausalRecording` from either
+    # side. Sim runs after `First` in frame order, so its stamp is simply the last
+    # write of the frame; `First`'s write is a value the sim call immediately
+    # overwrites with an equal-or-refined one, never a value read as authority in
+    # between.
+    "CausalRecording": "`stamp_causal_frame` re-registered into `sim` after `First`; both calls are a pure derived setter, confirmed idempotent by reading the body",
 }
 
 

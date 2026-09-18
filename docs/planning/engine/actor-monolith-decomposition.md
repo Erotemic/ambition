@@ -29,11 +29,59 @@ The measured nontrivial SCCs are:
 2: assets, character_sprites
 ```
 
+⚠ **RE-MEASURED 2026-09-18 — TEN AND TWO, and the membership moved rather than
+growing:** `shrine` LEFT (A1b took its checkpoint half) and `avatar` +
+`character_runtime` joined. The member diff is owned by
+[the reassessment](architecture-reassessment.md); this page owns the rules.
+
+```text
+10: abilities, avatar, character_runtime, construction, control, features,
+    items, projectile, session, world
+ 2: assets, character_sprites
+```
+
 Reproduce with:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
+
+⭐⛤ **AND THE `--cuts` HALF OF THAT COMMAND HAS NEVER BEEN RECORDED ANYWHERE,
+WHICH IS THE ONE THING THIS PAGE WAS MISSING.** Every page that names this
+instrument passes `--cuts` and then quotes only the component sizes. Measured
+2026-09-18, the single edges whose removal shrinks the largest component:
+
+```text
+-> 6    1 ref    abilities -> features
+-> 7    3 refs   control -> abilities
+-> 8    1 ref    avatar -> control
+-> 9    1 ref    character_runtime -> avatar
+-> 9    1 ref    features -> projectile
+-> 9    4 refs   construction -> world
+```
+
+⇒ The first line is the striking one: **ONE production reference collapses the
+largest component from ten modules to six.** It is
+`abilities/thrown/puppy_slug_gun.rs:113` calling
+`crate::features::spawn_runtime_minion`, and `abilities/mod.rs:17` already names
+that seam in its own module doc.
+
+⛔⛔ **AND THIS IS RECORDED AS A FACT, NOT AS A MANDATE — READ THE NEXT SENTENCE
+BEFORE ACTING ON THE TABLE.** The frontier page states the stance outright:
+*"A1–A12 name responsibilities, not SCC scores"*
+([work frontier](actor-monolith-work-frontier.md)), and this page's own
+paragraph below says the spawn extraction proved *"the same SCC result can
+accompany both a wrong and a corrected ownership boundary."* ⇒ A one-reference
+cut that moves a number by four is precisely the change this repository has
+decided NOT to make for the number's sake: `puppy_slug_gun` spawning a minion IS
+an ability using a spawn service, and inverting it to satisfy a graph metric
+would buy a worse boundary and a better score.
+
+⇒ **So why write it down at all?** Because the alternative is that the next
+reader runs `--cuts`, sees `1 ref` beside a four-module win, and re-derives the
+enthusiasm from scratch — and because if a RESPONSIBILITY argument ever lands on
+that seam, this table says what it would also be worth. The number is the
+consequence, never the reason.
 
 This is a textual intra-crate module graph. It does not see Cargo-crossing query
 ownership, shared writers, message timing, plugin prerequisites or all Rust

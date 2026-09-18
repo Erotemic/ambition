@@ -1517,6 +1517,50 @@ sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
 
+### 2026-09-18 — Q136's population has a SECOND CHANNEL, and the instrument cannot see it
+
+⛔⛔ **THE INSTRUMENT IS KEYED ON `Resource`, AND FOUR CROSSINGS ARE `Message`s.**
+`check_host_produced_sim_consumed_requests.py` requires the `Resource` derive —
+deliberately, because the first version reported 67 rows including `App`,
+`Commands` and `Sprite`. That filter also excludes an entire ingress channel.
+Measured by asking the same question of `MessageWriter`/`MessageReader`
+signatures across 87 message types written in the tree, and confirming each
+side's schedule from `add_systems`:
+
+| message | host writer (`Update`) | sim reader (`sim`) |
+|---|---|---|
+| `AmbientGravityRequest` | `cycle_dev_gravity` | `apply_ambient_gravity_requests` |
+| `PlayerHealRequested` | `kaleidoscope_menu_action_activated` | `apply_player_heal_requests` |
+| `ResetToCheckpoint` | `complete_durable_restore` | `resume_at_checkpoint_on_reset` |
+| `SetFlagRequested` | `emit_intro_flag_chains` | `apply_flag_effects` |
+
+⚠ `kaleidoscope_menu_action_activated` is already on this page as one of the two
+real `NewGameResetRequested` producers. The menu has a SECOND lost-intent road
+beside the one this row has been discussing.
+
+⛔⛤ **AND THE MECHANISM IS NOT AN OVERSIGHT — IT IS A DECLARED ROLLBACK
+DECISION DOING EXACTLY WHAT IT SAYS, WHICH IS WHY THIS IS SHARP.** All four
+declare `clear_message_on_rollback`, and so do 82 channels in total. That
+registration adds `clear_message_channel::<T>` to **`LoadWorld`**, in
+`LoadWorldSystems::Mapping`
+(`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs:1149-1151`,
+`:1312-1316`) — so every rewind EMPTIES the channel. For a message raised inside
+the simulation that is precisely right: the resimulation re-raises it, and
+leaving the old copy would double it. For a message raised by the HOST there is
+no resimulation to re-raise it, so the clear is the loss. ⇒ **The same
+declaration that makes the 78 sim-side channels correct is the deletion
+mechanism for the 4 host-side ones.**
+
+⇒ **SO THE ANSWER TO "HOW MANY RESOURCES IS THIS RULING RESPONSIBLE FOR" IS
+STILL TWO, AND IT WAS THE WRONG QUESTION.** Two resources plus four messages,
+and the resource count was only ever complete for the channel the instrument
+looks at. ⚠ **What is NOT yet measured** is whether each of the four is a live
+defect or benign for a reason of its own — the resource rows each needed a
+reading, and these have had none. `ResetToCheckpoint`'s writer is
+`complete_durable_restore`, which plausibly runs while no session is live at
+all, in which case there is no rewind to lose it to; that is the shape of
+argument each row needs and none of them has yet.
+
 ### 2026-09-18 — Q136 needs TWO roads, not one abstraction, and registration picks
 
 ⛔⛤ **THE PAGE AND THE REVIEW BOTH ASK FOR "THE EVENTUAL INGRESS ABSTRACTION",

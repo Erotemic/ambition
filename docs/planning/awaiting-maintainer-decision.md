@@ -2399,3 +2399,73 @@ estate rather than for the game.
 not a cleanup, it is 112 files), or closing the census row while
 `GenerationMechanics::new`'s App parameters still exist. The row is open because
 the second source is REACHABLE, not because the shipped game uses it.
+
+## Q145 — which way round do the room-transition readiness chain and the presentation chain go in `Update`?
+
+**Asked 2026-09-18, and it is ONE decision rather than the sixteen it first
+looked like.** `RoomTransitionLoadState::active` is a single
+`Option<ActiveRoomTransitionLoad>` whose own doc
+(`crates/ambition_platformer2d_runtime/src/room_transition/loading.rs:293`) says
+*"There is exactly one active transition."* Bevy's own `conflicting_systems()`
+reports **16 unordered pairs** writing it in the shipped app, held as a ratchet
+by `room_transition_load_state_writers_are_ordered_against_each_other_in_the_shipped_app`
+(`game/ambition_app/tests/update_schedule_census.rs`) with a positive and a
+negative control, so the number is a fact about the app rather than about a
+detector that never fires.
+
+**The sixteen are one missing edge, and the arithmetic closes exactly.**
+`name_the_room_transition_conflicts` attributes every pair as
+`ReadinessSet(Update)` × `NO ROOM-TRANSITION SET`:
+
+| group | members | ordered internally? |
+|---|---|---|
+| `RoomTransitionReadinessSet` (`Update`) | `begin_room_transition_load_system`, `authorize_ready_room_transition_system`, `abandon_failed_checkpoint_restore_system`, `finalize_unpresented_room_transition_failure_system` | yes — one `.chain()`, membership asserted by `the_readiness_chain_still_carries_the_checkpoint_terminalization` |
+| the app's `Update` writers | `contribute_room_transition_assets_system`, `poll_room_transition_asset_readiness_system`, `drive_room_transition_presentation`, `handle_room_transition_presentation_events` | yes — the first three are one `.chain()`; the fourth is pinned between `LoadPresentationSet::Actions` and `::Finalize` |
+
+4 × 4 = 16, with nothing left over. Both chains are ordered inside themselves
+and neither is ordered against the other.
+
+⛔⛤ **AND THE READINESS SET'S ONLY ORDERING IS GATED ON A HOST THE SHIPPED GAME
+IS NOT.** `crates/ambition_platformer2d_runtime/src/room_transition/mod.rs:126`
+wraps its `configure_sets` in `if app.sim_is(Update)`, with a comment explaining
+that on a `FixedUpdate` or GGRS host the sim is its own schedule and *"there is
+no edge to draw"*. That is right about `RoomTransitionSet::Detect`/`Apply`, which
+have no members in `Update` on such a host — but it means that on the shipped
+GGRS host `RoomTransitionReadinessSet` carries **no ordering in `Update` at
+all**, including against the four app-side systems that write the very resource
+it owns. The conditional is correct about the sets it names and silent about the
+ones it does not.
+
+**The decision is which order, and it is a real one because the two mean
+different things about what a transaction opened this frame may observe.**
+
+1. **Readiness BEFORE the app chain.** `begin` opens a transaction, then the same
+   frame contributes its assets and polls readiness. ⚠ `authorize` then runs
+   before this frame's poll, so authorization always reads the PREVIOUS frame's
+   readiness — one frame of latency on every crossing, paid always.
+2. **Readiness AFTER the app chain.** Contribute and poll advance the transaction
+   that is already live, and `authorize` sees this frame's readiness. ⚠ A
+   crossing detected this frame does not open its transaction until the tail of
+   `Update`, so the cover cannot be raised until the next frame — the latency
+   moves rather than disappearing.
+3. **Split the readiness chain** so `begin` leads and `authorize` trails the app
+   chain. ⚠ It is currently one `.chain()` whose membership a test asserts at
+   four, and the terminalization's position inside it is load-bearing (its own
+   comment: *"BEFORE THE TEARDOWN, and before the next frame's `begin` can open a
+   replacement transaction"*). Splitting it means that comment has to be
+   re-derived, not just moved.
+
+⇒ Whichever is chosen, the ratchet falls 16 → 0 in one edit and the guard says
+so at its own definition.
+
+⛔ **WHAT MUST NOT HAPPEN:** lowering the ratchet without adding the edge. The
+number is measured on the shipped composition every run; editing it to match a
+smaller reading is how a guard stops describing the tree.
+
+⚠ **AND THE 16 IS A LOWER BOUND.** `retire_committed_room_transition` and
+`retire_cancelled_room_transition`
+(`crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs:305`,
+`:366`) are plain `fn(&mut World, ..)` the commit executor CALLS, not registered
+systems, so no schedule graph holds a node for them and no ordering question
+about them can reach the detector. Only the second of those compare-matches
+`active.intent` before clearing; the rest clear whatever is active.

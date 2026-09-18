@@ -448,6 +448,35 @@ one `python -c` away and neither has prose in it.
 all: the cost ledger showed that job failing at one commit, passing at the next,
 and failing again — three data points that no footer would have given.
 
+⛔⛤ **AND A RATIO IS NOT A COMPLETION EITHER — A SECOND INSTANCE, 2026-09-18.**
+The `--maintenance` lane printed
+
+> `16/16 jobs passed in 188s  [lane: --maintenance]`
+
+**beside `exit=1`**, because the plan had EIGHTEEN jobs and two of them never
+ran: the broken-intra-doc-links ratchet (a cold `cargo doc`, minutes) and one
+sibling. Every job that ran did pass, so `16/16` is literally true — and it is a
+statement about the jobs that RAN, with the denominator supplied by the same set.
+A ratio whose denominator is "what I attempted" cannot report an attempt that
+never happened.
+
+⇒ The runner is not at fault here and that is the point worth keeping: it DID
+print `INCOMPLETE: ... did not run — 2 job(s) of the plan never ran`, in red, two
+lines below. What nearly landed was reading the ratio and stopping, exactly as
+member 7 and the footer above describe. **Read the exit status first and the
+prose second**; `18/18` and `16/16` differ by one character in a place the eye
+does not go.
+
+⚠ The CAUSE is worth stating because it will recur: the lane had gone under its
+own **40 GB disk floor** (`disk: 35 GB free … the NEXT suite run will refuse`),
+so the expensive jobs were dropped rather than attempted. ⇒ A resource limit
+turns a suite into a smaller suite that still reports a clean ratio, which is the
+same species as a missing `tree_sitter_rust` in member 11 — the lane degrades to
+a subset and the subset reports on itself. Check `scripts/setup/target_bindmount.sh
+--status` before reclaiming anything: bound, `target/` is the agent's and
+`cargo clean` is the tool; unbound, it is the maintainer's filesystem and the
+answer is to report and stop.
+
 ### ⛔⛔ And the mirror image: the guard is PERFECT and the SUBJECT is inert
 
 **The two produce the same passing green from opposite causes, and the remedies

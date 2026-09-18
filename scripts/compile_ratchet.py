@@ -1598,6 +1598,17 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     # settled below is inherited from the CURRENT snapshot, so a metric nobody
     # thought about is adopted by default -- which is the failure direction.
     merged["unpriced_crates"] = frozen.get("unpriced_crates", [])
+    # ⛔⛔ A PREVIOUSLY-ACCEPTED REASON IS NOT A METRIC THIS FUNCTION ADOPTS OR
+    # HOLDS -- IT IS PROVENANCE FOR ONE, AND `merged` STARTS FROM `current`,
+    # WHICH NEVER CARRIES ONE. Measured 2026-09-18: running `--adopt-wins`
+    # against a baseline whose `accepted_reasons` recorded WHY
+    # `critical_path_crates` was let through silently dropped that record --
+    # the metric itself was correctly held frozen, but the sentence explaining
+    # it vanished, because nothing here copies `frozen["accepted_reasons"]`
+    # forward the way `unit_weights` and `unpriced_crates` two lines up are.
+    # Same rule as those two: enumerate what is KEPT, or a field nobody
+    # thought about is lost by default.
+    merged["accepted_reasons"] = frozen.get("accepted_reasons", {})
     # ⛔⛔ AND THE PROVENANCE FIELD IS PART OF `current`, SO IT ADVANCES FOR
     # NUMBERS THAT DID NOT. Measured 2026-09-05: `f507fcb91` advanced `commit`
     # (11ef33c5b5a5 -> c4a51a1b76a9) and re-recorded the whole per-crate table at

@@ -1788,6 +1788,41 @@ four answers, of which exactly one costs nothing and is already in the tree.
 ⇒ A latched edge is what makes an intent losable, and so is a latch re-armed on
 the wrong side of the boundary.
 
+⭐⭐ **AND THE ONE THING THAT COULD HAVE MADE THAT ESCAPE UNAVAILABLE IS
+MEASURED, 2026-09-18: IT CANNOT.** The obvious objection is that the producer is
+CHANGE-GATED — `run_if(resource_exists_and_changed::<AmbitionGameSave>)` — and
+Bevy change ticks are not rollback state, so a derivation moved into the
+rewinding schedule might simply not re-run on the resimulated frame and the move
+would buy nothing. Read in `bevy_ggrs` 0.22 (`src/snapshot/resource_snapshot.rs:82-95`):
+the restore arm is `S::update(resource.as_mut(), snapshot)`, and `ResMut::as_mut`
+marks the resource changed UNCONDITIONALLY. ⇒ Every rollback restore of
+`AmbitionGameSave` re-arms the gate, so the derivation runs on the replayed
+frame.
+
+⚠ **THE SAME READING SAYS THE OVER-FIRE IS HARMLESS, which is the other half a
+maintainer would want.** The restore marks the save changed on a frame the
+original timeline may not have changed it, so the replay can run the derivation
+where the original did not. `emit_intro_flag_chains` skips any target already
+present (`game/ambition_content/src/intro/route_state.rs:36`), so an extra run
+writes nothing — the operation is idempotent by construction, and the page's own
+module docstring says so for a different reason.
+
+⇒ **SO THIS ROW'S COST IS NOW KNOWN AND IT IS SMALL:** a registration move from
+`Update` to `app.sim_schedule()`, ordered relative to
+`Platformer2dSimulationPhaseMonolith::GameplayEffects` (where `apply_flag_effects`
+runs, chained, `features/mod.rs:216`) — after it, to keep today's next-tick
+semantics.
+
+⚠ **AND THE COMPOSITION OBJECTION DISSOLVED ON THE SAME PASS**, which is why it
+is written down rather than left as a caution: *"may a CONTENT crate register
+into the simulation schedule at all"* has an answer in the tree — `ambition_content`
+already calls `app.sim_schedule()` in **8** places (`falling_sand.rs:93`,
+`encounters.rs:159`, `quests/mod.rs:19`,
+`game/ambition_content/src/dormancy.rs:142`,
+`falling_sand_sim.rs:223`, and three more). The intro plugin would be doing what
+its sibling modules already do. ⇒ Both halves of this row's cost are now
+measured, and neither is a blocker.
+
 ### 2026-09-18 — this needs TWO roads, not one abstraction, and registration picks
 
 ⛔⛤ **THE PAGE AND THE REVIEW BOTH ASK FOR "THE EVENTUAL INGRESS ABSTRACTION",

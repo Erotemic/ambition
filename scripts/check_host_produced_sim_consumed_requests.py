@@ -869,29 +869,17 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "latch and it re-raises\" is reasoning from the wrong fact "
         "(read 2026-09-18)"
     ),
-    "SetFlagRequested": (
-        "⛔ LIVE, AND IT WAS FILED BENIGN ON TWO WRONG CLAIMS UNTIL A "
-        "2026-09-18 REVIEW. `emit_intro_flag_chains` "
-        "(`game/ambition_content/src/intro/route_state.rs:29-41`) recomputes "
-        "`data.flag(trigger) && !data.flag(target)` from the save — but (a) NOT "
-        "every host frame: it is registered with "
-        "`run_if(resource_exists_and_changed::<AmbitionGameSave>)` "
-        "(`game/ambition_content/src/intro/plugin.rs:111-117`), and (b) even "
-        "every frame would not save it, because the producer is in `Update` and "
-        "re-deriving on a LATER host frame does not re-run the HISTORICAL tick "
-        "being resimulated. ⇒ The replay of that tick has no message, and "
-        "`apply_flag_effects` (`features/ecs/effect_bus.rs:16-29`) writes "
-        "`AmbitionGameSave` and `QuestRegistry`, BOTH "
-        "`rollback_resource_clone_checksum`-registered "
-        "(`ambition_persistence/src/rollback_registration.rs:31`, `:37`) — so "
-        "the replayed frame diverges on a checksummed value and the flag is set "
-        "at a different tick. ⭐ AND IT IS THE EASIEST OF THE LIVE ROWS TO "
-        "REPAIR: unlike a menu press this is a PURE DERIVED CONDITION over "
-        "rollback state, so moving the derivation into the rewinding schedule "
-        "needs no synchronised input channel — which is the "
-        "RE-DERIVED IN THE SIM escape, and would be its first instance "
-        "(read 2026-09-18, reclassified 2026-09-18)"
-    ),
+    # ✅ `SetFlagRequested` IS REPAIRED AND ITS ROW IS GONE, 2026-09-18 — the
+    # first use of the RE-DERIVED IN THE SIM escape this table named and had no
+    # instance of. `emit_intro_flag_chains` moved from `Update` to
+    # `app.sim_schedule()`, after `GameplayEffects`, so the derivation runs on
+    # the resimulated tick and the message is re-raised past the reader's
+    # cursor. The two things that could have blocked it were measured, not
+    # assumed: `bevy_ggrs` restores with `ResMut::as_mut`, which re-arms the
+    # `resource_exists_and_changed` gate on every rollback, and the derivation
+    # skips targets already present, so the extra fire a restore can cause
+    # writes nothing. ⇒ THIS SCRIPT IS WHAT NOTICED: the crossing count fell 4
+    # -> 3 and the stale-adjudication check named the row on the next run.
 }
 
 

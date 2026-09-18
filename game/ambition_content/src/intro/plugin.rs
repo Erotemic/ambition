@@ -108,14 +108,53 @@ impl Plugin for IntroPlugin {
             // fire when the flags they read have moved, and a flag this system
             // writes marks the save changed again, so a chain-of-chains still
             // resolves on the following frame.
-            .add_systems(
-                Update,
-                super::route_state::emit_intro_flag_chains.run_if(
+            ;
+        // ⛔⛤ **IN THE REWINDING SCHEDULE, NOT `Update`, BECAUSE THIS PRODUCER'S
+        // CONSUMER REWINDS AND ITS MESSAGE DOES NOT.** `SetFlagRequested` is read
+        // by `apply_flag_effects`, which writes `AmbitionGameSave` and
+        // `QuestRegistry` — both `rollback_resource_clone_checksum`-registered. A
+        // message raised from `Update` is raised OUTSIDE the frame being
+        // resimulated, so the replay of that tick has no message and the replayed
+        // frame diverges on a checksummed value: the flag ends up set at a
+        // different tick than the one the timeline agreed on. Re-deriving INSIDE
+        // the schedule is the repair, and it is available here only because this
+        // producer is a pure derivation over rollback state rather than a latched
+        // input edge — see `Q136` in `docs/planning/awaiting-maintainer-decision.md`
+        // for the three intents that do NOT have this option.
+        //
+        // ⭐ THE CHANGE GATE SURVIVES THE REWIND, MEASURED rather than assumed:
+        // `bevy_ggrs` 0.22 restores a resource with
+        // `S::update(resource.as_mut(), snapshot)`
+        // (`src/snapshot/resource_snapshot.rs:82-95`), and `ResMut::as_mut` marks
+        // it changed unconditionally — so every restore re-arms this condition.
+        // The gate is worth keeping: `SaveData::flag` is a linear scan with a
+        // string compare over a vector that lengthens as the player progresses,
+        // and this asks it twice per table row.
+        //
+        // ⚠ A restore can therefore fire the derivation on a tick the original
+        // timeline did not, and that is harmless BY CONSTRUCTION: the system
+        // skips any target already present, so an extra run writes nothing.
+        //
+        // AFTER `GameplayEffects`, which is where `apply_flag_effects` runs
+        // (`ambition_platformer2d_actor_monolith/src/features/mod.rs:216`),
+        // because the shipped behaviour is next-tick — a target flows through the
+        // ordinary flag-effect path on the following tick, including its quest
+        // notification. Ordering it BEFORE would collapse a chain into one tick
+        // and change when notifications fire.
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+        let sim = app.sim_schedule();
+        app.add_systems(
+            sim,
+            super::route_state::emit_intro_flag_chains
+                .after(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects,
+                )
+                .run_if(
                     bevy::prelude::resource_exists_and_changed::<
                         ambition_persistence::save::AmbitionGameSave,
                     >,
                 ),
-            );
+        );
         // ⭐ INTRO DIALOG REDIRECTS ARE AUTHORED NOW, NOT SYSTEMATISED — which is
         // why nothing is registered here.
         //

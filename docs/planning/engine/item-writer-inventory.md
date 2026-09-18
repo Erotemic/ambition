@@ -150,7 +150,7 @@ PAST TENSE, AND THE COORDINATES BELOW ADDRESS THE TREE IT WAS TRUE IN.**
 own comment explains that headless `Platformer2dSimHarness` runs quest reward
 systems without the presentation plugins) and again at
 `game/ambition_content/src/items/mod.rs:36` (in `AmbitionItemRosterPlugin`, <!-- cite-ok: the pre-consolidation tree, kept as the record -->
-installed from `plugins.rs:461` inside `install_menu_setup_and_hotkeys`). The
+installed from `plugins.rs:502` inside `install_menu_setup_and_hotkeys`). The
 windowed app ran both. ⚠ Re-derived 2026-09-17: the only `insert_resource` of the
 starter roster in production is `game/ambition_content/src/plugin.rs:71`, exactly
 as the ✅ above says. The one other `insert` spelling in the tree,

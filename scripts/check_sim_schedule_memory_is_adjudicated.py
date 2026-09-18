@@ -53,6 +53,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import functools
 import re
 import sys
 from pathlib import Path
@@ -185,8 +186,17 @@ ADJUDICATED: dict[str, str] = {
 FLOORS = {"sim-schedule registrations": 450, "systems with a Local": 10}
 
 
+@functools.cache
+def _sim_schedule_systems_cached(repo: Path) -> frozenset[str]:
+    return frozenset(_sim_schedule_systems(repo))
+
+
 def sim_schedule_systems(repo: Path = REPO) -> set[str]:
     """Every name appearing in an `add_systems` whose label IS the sim schedule."""
+    return set(_sim_schedule_systems_cached(repo))
+
+
+def _sim_schedule_systems(repo: Path) -> set[str]:
     found: set[str] = set()
     for _src, text in sim._production_sources(repo):
         for body in sim.add_systems_bodies(text):
@@ -198,8 +208,20 @@ def sim_schedule_systems(repo: Path = REPO) -> set[str]:
     return found
 
 
+@functools.cache
+def _remembering_cached(repo: Path) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    return tuple(
+        (name, rel, tuple(binds))
+        for name, (rel, binds) in sorted(_remembering_systems(repo).items())
+    )
+
+
 def remembering_systems(repo: Path = REPO) -> dict[str, tuple[str, list[str]]]:
     """`{system: (file, [Local binding, ..])}` for sim-schedule systems with a `Local`."""
+    return {n: (rel, list(b)) for n, rel, b in _remembering_cached(repo)}
+
+
+def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
     registered = sim_schedule_systems(repo)
     found: dict[str, tuple[str, list[str]]] = {}
     for src, text in sim._production_sources(repo):

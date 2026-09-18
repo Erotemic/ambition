@@ -994,7 +994,11 @@ mirrors moved into the sim schedule and `dispatch_pending_dialog_requests` stopp
 taking the resource (the count is now
 `count_the_dialogue_visit_when_a_conversation_opens`, in the schedule, keyed on
 `ActiveConversation`'s opening tick). What the guard reports today is **8
-acknowledged offenders over 518 mutating systems**, none of them writing the save:
+acknowledged offenders over 523 mutating systems** — 518 when this paragraph was
+written earlier the same day; the population grew as the guard learned two more
+ways a write can be spelled (an exclusive-world body write, then a QUALIFIED
+schedule label, which alone had been hiding 39 registrations) — none of them
+writing the save:
 `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
 `compute_music_intent`, `grid_menu_action_activated`,
 `kaleidoscope_menu_action_activated`, `portal_dev_toggle_system`,

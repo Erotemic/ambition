@@ -1256,3 +1256,147 @@ fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
          against the old one: {missing_geometry:?}"
     );
 }
+
+/// A door crossing CONSUMES the buffered press; it does not leave it to decay.
+///
+/// ⛔⛤ **THE LINE THIS ARM HOLDS HAD NO WITNESS, MEASURED BY POISON 2026-09-17.**
+/// `detect_room_transition_system` ends with `slot_gestures.primary_mut().clear()`
+/// under the comment *"Consume the gesture only after every invariant required to
+/// describe the crossing has been validated"*, and deleting that line left **1,207
+/// arms in this crate and all 11 room-transition integration arms green.** The
+/// reason is uniform across every existing door test: they HOLD interact
+/// (`interact_held: true`, thirty frames), so the producer refills the buffer on
+/// the next tick and the clear is invisible. A tap is the only shape that can see
+/// it.
+///
+/// ⚠ **WHAT THE ABSENCE WOULD COST IS SMALL AND REAL**, which is why this is an
+/// arm rather than a waiver: `interact_buffer_timer` decays on its own, so a
+/// missing clear leaves a live press for the rest of the buffer WINDOW — long
+/// enough to describe a second crossing the player did not ask for if the body
+/// lands on another zone. The `PendingLifecycleCommit` dedupe covers one window,
+/// not the frame after the commit empties the slot.
+///
+/// ⭐ The CONTROL is the same fixture with the body OUT of the zone: no crossing,
+/// and the press still buffered. Without it this arm would pass against a system
+/// that cleared the buffer unconditionally, which is a different behaviour with
+/// the same reading.
+#[test]
+fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
+
+    /// A door zone needs the press, which is the whole point of this fixture:
+    /// `LoadingZoneActivation::Walk` fires on overlap and would never read the
+    /// buffer at all.
+    fn app_with_a_door(body_in_the_zone: bool) -> App {
+        let zone_center = ae::Vec2::new(100.0, 100.0);
+        let mut room_a = spec_with(RoomMetadata::default(), "a");
+        room_a.loading_zones = vec![LoadingZone {
+            id: "door_a".into(),
+            name: "east door".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
+        }];
+        let mut room_b = spec_with(RoomMetadata::default(), "b");
+        room_b.loading_zones = vec![LoadingZone {
+            id: "entry_b".into(),
+            name: "west".into(),
+            activation: LoadingZoneActivation::Door,
+            aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+        }];
+        let set = RoomSet::from_parts(
+            "a",
+            vec![room_a, room_b],
+            vec![RoomLink {
+                from_room: "a".into(),
+                from_zone: "door_a".into(),
+                to_room: "b".into(),
+                to_zone: "entry_b".into(),
+                bidirectional: false,
+            }],
+        );
+
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            set,
+        );
+        app.insert_resource(
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+        );
+        app.insert_resource(GatePortalRegistry::default());
+        app.init_resource::<GatePortalPhases>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.add_systems(Update, detect_room_transition_system);
+
+        // The press is armed directly rather than by running the input producer:
+        // the subject here is what the CONSUMER does with a live buffer, and
+        // driving the producer would put the refill this arm is about back in.
+        app.world_mut()
+            .resource_mut::<SlotInteractionState>()
+            .primary_mut()
+            .buffered_interact(true, 0.0, 0.2);
+        assert!(
+            app.world().resource::<SlotInteractionState>().primary().buffered(),
+            "the fixture failed to arm the press, so nothing below is measuring a crossing",
+        );
+
+        let pos = if body_in_the_zone {
+            zone_center
+        } else {
+            ae::Vec2::new(1000.0, 1000.0)
+        };
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+            BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+        ));
+        app
+    }
+
+    fn crossed(app: &App) -> bool {
+        app.world()
+            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .pending
+            .is_some()
+    }
+    fn still_buffered(app: &App) -> bool {
+        app.world().resource::<SlotInteractionState>().primary().buffered()
+    }
+
+    // ── THE CONTROL: no zone under the body, so no crossing and no consumption.
+    let mut control = app_with_a_door(false);
+    control.update();
+    assert!(!crossed(&control), "the control body is nowhere near the door");
+    assert!(
+        still_buffered(&control),
+        "the press was cleared WITHOUT a crossing, so this system is not consuming \
+         a gesture it spent — it is just emptying the buffer, and the arm below \
+         would pass for the wrong reason",
+    );
+
+    // ── THE SUBJECT: the body stands in the door with the same live press.
+    let mut subject = app_with_a_door(true);
+    subject.update();
+    assert!(
+        crossed(&subject),
+        "a body standing in a `Door` zone with a buffered interact must record the \
+         crossing; without that this arm cannot say anything about the press",
+    );
+    assert!(
+        !still_buffered(&subject),
+        "the crossing was described and the press it spent is STILL BUFFERED. It \
+         would go on being live for the rest of the buffer window, which is long \
+         enough to describe a second crossing the player never asked for",
+    );
+}

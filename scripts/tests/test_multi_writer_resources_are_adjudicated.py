@@ -109,3 +109,43 @@ def test_a_type_that_left_the_population_must_be_removed(monkeypatch, capsys):
     monkeypatch.setattr(census, "writers", with_one_writer)
     assert guard.main() == 1
     assert "no longer written from more than one file" in capsys.readouterr().out
+
+
+def test_an_adjudication_of_a_type_that_is_not_multi_writer_is_refused(
+    monkeypatch, capsys
+):
+    """⛔⛤ THE RULE MOVED INTO THE GUARD 2026-09-17, AND WHY IT HAD TO.
+
+    `test_every_adjudication_cites_something` already asserts `name in BASELINE`
+    — but `pytest scripts/tests` is NOT in `--maintenance`, so the lane that runs
+    this guard could not see a verdict whose subject does not exist. That matters
+    because the green line prints `len(multi) - len(ADJUDICATED)` as the unread
+    debt, and a phantom verdict makes that subtraction understate the debt while
+    reading as one more thing settled.
+    """
+    monkeypatch.setitem(guard.ADJUDICATED, "AResourceNobodyWrites", "a citation `X`")
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "AResourceNobodyWrites is adjudicated but has 0 production writer" in out
+
+
+def test_a_verdict_whose_duplication_was_repaired_is_refused(monkeypatch, capsys):
+    """⭐ THE OTHER HALF, AND IT IS THE LIKELIER ONE: somebody collapses the
+    second writer and leaves the verdict describing a tree that no longer has the
+    shape. The type is still written — just from one file — so this is distinct
+    from the misspelling above."""
+    real = census.writers
+    subject = next(t for t in guard.ADJUDICATED if guard.BASELINE.get(t) == 2)
+
+    def with_one_writer(files):
+        found = real(files)
+        found[subject] = {sorted(found[subject])[0]}
+        return found
+
+    monkeypatch.setattr(census, "writers", with_one_writer)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert f"{subject} is adjudicated but has 1 production writer file(s)" in out
+    # ⚠ AND IT MUST BEAT THE `left` RULE TO THE VERDICT, because "remove it from
+    # the baseline" alone would leave the stale reason behind.
+    assert "no longer written from more than one file" not in out

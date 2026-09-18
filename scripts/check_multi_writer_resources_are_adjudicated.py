@@ -11,10 +11,11 @@ production files.
 
 ⚠ **THIS IS A RATCHET ON THE POPULATION, NOT A VERDICT ON IT.** The census
 docstring is emphatic that multi-writer is NOT a defect by count, with two
-measured cases that came out opposite ways, and nothing here contradicts that. 72
-of the 75 are UNADJUDICATED and this check says so on every green run: what it
-enforces is that the set and the per-type writer counts cannot move without
-somebody editing this file.
+measured cases that came out opposite ways, and nothing here contradicts that. 78
+of the 85 are UNADJUDICATED and this check says so on every green run — the split
+is printed by the run itself, so read it there rather than from this paragraph.
+What the check enforces is that the set and the per-type writer counts cannot
+move without somebody editing this file.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, MEASURED RATHER THAN GUESSED.** Of the
 85, **18 are rollback-registered**, and those are the ones where a second writer
@@ -22,24 +23,32 @@ is a divergence rather than a design smell. Joining the writers' WRITE TARGETS
 narrows it again — fields or methods touched by two or more of a type's writer
 files:
 
-    AmbitionGameSave        14 writers  ->  data() / data_mut()
+    AmbitionGameSave        14 writers  ->  data() / data_mut()      ROUTED (see below)
     OwnedItems               4 writers  ->  grant()
     QuestRegistry            6 writers  ->  push_event()
     PendingLifecycleCommit   3 writers  ->  record()
-    SlotInteractionState     4 writers  ->  get_mut() / primary_mut()
-    ActiveConversation       2 writers  ->  close()
-    ClockState               2 writers  ->  time_scale
-    PossessionState          2 writers  ->  home
+    SlotInteractionState     4 writers  ->  get_mut() / primary_mut() ADJUDICATED
+    ActiveConversation       2 writers  ->  close()                  ADJUDICATED
+    ClockState               2 writers  ->  time_scale               ADJUDICATED
+    PossessionState          2 writers  ->  home                     ADJUDICATED
     BaseGravity, RoomTransitionCooldown, VersusMatch  ->  nothing shared
 
 ⚠ **AND THE OBVIOUS READING OF THAT TABLE IS WRONG.** *"They all go through one
 method, so it is one authority"* holds for `grant`, which clamps unique items —
-the policy is INSIDE the method. It does not hold for `data_mut()` or `get_mut()`,
-which hand out `&mut` to everything: that is fourteen authorities with one door.
-And it does not hold for a thin setter either: `close()` is `self.live = None`,
-so what makes `ActiveConversation` correct is that its two callers fire on
-DIFFERENT EVENTS and each has its own witness — which is the
-`CutRopeBossArenaState` test, not the accessor count.
+the policy is INSIDE the method. It does not hold for `data_mut()`, which hands
+out `&mut` to the whole save: that is fourteen authorities with one door. And it
+does not hold for a thin setter either: `close()` is `self.live = None`, so what
+makes `ActiveConversation` correct is that its two callers fire on DIFFERENT
+EVENTS and each has its own witness — which is the `CutRopeBossArenaState` test,
+not the accessor count.
+
+⭐ **ASK WHAT THE DOOR HANDS OUT, THOUGH, BECAUSE `get_mut()` CAME OUT THE OTHER
+WAY.** `SlotInteractionState::get_mut(seat)` hands out ONE SEAT'S ROW, so the
+resource is a partitioned bag and its writers are adjudicated per row rather than
+per type — four writers, no two of which arm and consume the same row in a tick.
+`data_mut()` hands out the whole save and partitions nothing. The distinction is
+the UNIT OF THE FACT, not the arity of the accessor, and it is why the verdicts
+below cite a row or an event rather than a call count.
 
 ⇒ **WHAT TO DO WHEN IT REDDENS**, in the census's own words: ask what READS the
 fact and whether an ambiguity in it can reach a DECISION; then poison one writer
@@ -208,6 +217,30 @@ ADJUDICATED: dict[str, str] = {
         "re-produces what a rewind dropped. The invariant is ratcheted by "
         "`check_sim_consumed_request_writers.py`, not by this baseline."
     ),
+    "SlotInteractionState": (
+        "CORRECT — ONE PRODUCER AND THREE CONSUMERS OF A PER-SEAT ROW, and the "
+        "`get_mut()` / `primary_mut()` door is not the reason. `control/"
+        "input_systems.rs` is the only writer that ARMS a buffer, once per seat "
+        "from that seat's raw frame; `body_mode/mechanics/mod.rs` consumes seat "
+        "`n`'s row for the body seat `n` drives; `world/rooms/systems.rs` "
+        "consumes row zero only, and its subject genuinely IS the primary "
+        "(`ControlledSubject`, else the `PrimaryPlayerOnly` single) rather than a "
+        "leftover of the D175 *producer filled row zero* bug; "
+        "`runtime/src/sandbox_reset.rs` writes a default at the reset boundary, "
+        "where owning the whole resource is the point. No two of them can arm "
+        "and consume the same row in one tick. "
+        "⛔⛤ POISONED 2026-09-17 AND THE POISON PASSED: deleting the "
+        "`slot_gestures.primary_mut().clear()` that the source calls *consuming "
+        "the gesture* left 1,207 crate arms and all 11 room-transition "
+        "integration arms green, because every authored door arm HOLDS interact "
+        "for thirty frames and the producer refills the buffer underneath the "
+        "clear. That is a finding about the arms: a tap is the only shape that "
+        "can see a consumption. Witnessed now by "
+        "`a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_"
+        "decay` (`actor_monolith/src/world/rooms/tests.rs`), which reddens on "
+        "that deletion and — through its out-of-zone control — on hoisting the "
+        "clear above the validation too."
+    ),
 }
 
 #: ⛔ ANTI-VACUITY. Every finding below is a set difference, and two empty sets
@@ -233,6 +266,26 @@ def main() -> int:
         )
         return 1
     multi = {t: sorted(fs) for t, fs in found.items() if len(fs) > 1}
+
+    # ⛔⛤ THE VERDICTS MUST NAME LIVE SUBJECTS, AND THIS RULE USED TO LIVE IN
+    # `scripts/tests/` ONLY — which `--maintenance` does not run. The debt line
+    # below prints `len(multi) - len(ADJUDICATED)`, and that subtraction is a
+    # claim: a verdict on a type that is not on the shortlist would understate
+    # the unread half while looking like one more thing settled.
+    phantom = sorted(set(ADJUDICATED) - set(multi))
+    if phantom:
+        print(
+            "an adjudication names a type that is not a multi-writer resource "
+            "today:\n"
+        )
+        for ty in phantom:
+            where = len(found.get(ty, ())) or 0
+            print(
+                f"  {ty} is adjudicated but has {where} production writer file(s). "
+                "Either the name is misspelled, or the duplication is gone and the "
+                "verdict should go with it."
+            )
+        return 1
 
     arrived = sorted(set(multi) - set(BASELINE))
     left = sorted(set(BASELINE) - set(multi))
@@ -274,7 +327,9 @@ def main() -> int:
         f"({len(files)} files, {len(found)} `ResMut<T>` types)"
     )
     # ⛔ THE DEBT IS PRINTED, NOT IMPLIED. A baseline whose unread half is
-    # invisible is an amnesty, and this one is mostly unread.
+    # invisible is an amnesty, and this one is mostly unread. The subtraction is
+    # sound because the phantom rule above has already refused any verdict whose
+    # subject is not in `multi`.
     print(
         f"  adjudicated: {len(ADJUDICATED)} "
         f"({', '.join(sorted(ADJUDICATED))}); UNADJUDICATED: "

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pathlib
 import re
 import sys
+from unittest import mock
 
 import pytest
 
@@ -512,13 +513,16 @@ def test_a_name_collision_claim_that_stopped_being_local_is_refused(tmp_path, mo
     )
     monkeypatch.chdir(tmp_path)
     problems = guard.name_collision_shortfalls(
-        {"FixedStepsTaken": [str(module.relative_to(tmp_path))]}
+        {"FixedStepsTaken": [str(module.relative_to(tmp_path))]},
+        [str(module.relative_to(tmp_path))],
     )
     # The file exists relative to the REPO, not to tmp_path, so this arm asserts
-    # the refusal a MISSING or module-scope declaration produces — both are the
-    # same failure for this check's purpose: no function-local declaration.
-    assert problems, "a claim whose declaration is not function-local must be refused"
-    assert "function-local" in problems[0]
+    # the refusal a MISSING declaration produces — the per-tabled-entry check is
+    # anchored to THIS SCRIPT's own location, not to `files` or the caller's
+    # cwd, precisely so a claim about the repository stays one no matter what
+    # corpus the unlisted-collision scan below it is given.
+    assert problems, "a claim whose declaration cannot be found must be refused"
+    assert "no declaration" in problems[0]
 
 
 def test_the_name_collision_claim_holds_on_the_real_tree():
@@ -526,7 +530,39 @@ def test_the_name_collision_claim_holds_on_the_real_tree():
     always refused. Run it against the tree as it is."""
     files = census.production_files()
     multi = {t: sorted(fs) for t, fs in census.writers(files).items() if len(fs) > 1}
-    assert guard.name_collision_shortfalls(multi) == []
+    assert guard.name_collision_shortfalls(multi, files) == []
+
+
+def test_an_unlisted_name_collision_is_refused():
+    """⭐ THE OTHER DIRECTION: a multi-writer type NOT in the table whose name
+    still matches more than one struct/enum declaration in the tree.
+
+    Warmup's collision used to live in ADJUDICATED prose alone, with ZERO
+    automated re-check — a fourth `struct Warmup`, or the three declarations
+    collapsing into a shared type without the writer-file set changing, would
+    have passed everything this file checked before this row existed. The
+    positive control here is what makes the empty result on the real tree mean
+    something: emptying the table must recover EXACTLY the two known cases and
+    nothing else, not merely produce SOME problems.
+    """
+    files = census.production_files()
+    multi = {t: sorted(fs) for t, fs in census.writers(files).items() if len(fs) > 1}
+    with mock.patch.object(guard, "NAME_COLLISION_NOT_ONE_TYPE", {}):
+        problems = guard.name_collision_shortfalls(multi, files)
+    flagged = sorted(p.split()[0] for p in problems if "matches" in p)
+    assert flagged == ["FixedStepsTaken", "Warmup"], flagged
+
+
+def test_a_vacuous_declaration_scan_is_refused_not_silently_clean():
+    """⛔ ANTI-VACUITY. A regex that stopped matching declarations would find
+    zero types with 2+ declarations and report a clean tree — the same failure
+    `MIN_FILES`/`MIN_TYPES` exist to catch on the file/type side of this
+    module, now covered on the declaration-count side too."""
+    files = census.production_files()
+    multi = {t: sorted(fs) for t, fs in census.writers(files).items() if len(fs) > 1}
+    with mock.patch.object(guard, "MIN_DECLARATIONS", 10**9):
+        problems = guard.name_collision_shortfalls(multi, files)
+    assert problems and "declaration" in problems[0], problems
 
 
 def test_a_session_world_verdict_whose_duplication_was_repaired_is_refused(

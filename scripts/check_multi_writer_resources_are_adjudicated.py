@@ -189,128 +189,696 @@ import multi_writer_resource_census as census  # noqa: E402
 #: flat row here is not evidence that nothing was collapsed. The warning this
 #: script prints about one-other-FILE versus one-other-WRITER is the same
 #: sentence read from the other end.
-BASELINE: dict[str, int] = {
-    "AmbitionGameSave": 18,
-    "GameAssets": 13,
-    "GameplayBanner": 11,
-    "FeatureEcsWorldOverlay": 10,
-    "OwnedItems": 10,
-    "CausalRecording": 9,
-    "ClassBRemapLog": 9,
-    "DeveloperRuntimeState": 9,
-    "LoadCoordinator": 9,
-    "UserSettings": 9,
-    "PendingLifecycleCommit": 8,
-    "QuestRegistry": 8,
-    "RoomTransitionCooldown": 6,
-    "SeatRawFrames": 6,
-    "BaseGravity": 6,
-    "DeveloperTools": 6,
-    "SlotControls": 6,
-    "SlotInteractionState": 6,
-    "ActiveConversation": 5,
-    "AuthoredOccurrences": 5,
-    "CaptureProgress": 5,
-    "DialogState": 5,
-    "HudReadouts": 5,
-    "PendingMechanicalEdits": 5,
-    "RoomTransitionLoadState": 5,
-    "ActiveAudioSelection": 4,
-    "AudioLibrary": 4,
-    "CharacterLoadDemand": 4,
-    "MapMenuState": 4,
-    "MenuControlFrame": 4,
-    "MintedItemBaseline": 4,
-    "MovingPlatformSet": 4,
-    "SessionSeatingSource": 4,
-    "ShellHostConfiguration": 4,
-    "ShellRouteCatalog": 4,
-    "ShellRouteHolds": 4,
-    "YarnContentBindings": 4,
-    "ActiveSessionScope": 3,
-    "ActiveUiCues": 3,
-    "BossEncounterRegistry": 3,
-    "CharacterLoadStates": 3,
-    "ConstructionSchemaCatalog": 3,
-    "CustodyBaseline": 3,
-    "CutsceneAdvanceRequest": 3,
-    "CutsceneTriggerQueue": 3,
-    "EncounterRegistry": 3,
-    "GameplayTraceBuffer": 3,
-    "KaleidoscopeCursor": 3,
-    "LocalSessionOwnership": 3,
-    "MusicPlaybackState": 3,
-    "NarrativeMusicRequest": 3,
-    "OccurrenceBaseline": 3,
-    "PossessionState": 3,
-    "PreparedSessionRegistry": 3,
-    "SelectCursors": 3,
-    "SlotControlLatches": 3,
-    "SwitchActivationQueue": 3,
-    "Warmup": 3,
-    "WorldSourceHotReload": 3,
-    "AbandonedCheckpointOperation": 2,
-    "ActiveCutscene": 2,
-    "ActiveGameplaySession": 2,
-    "BodyClocksView": 2,
-    "CameraShakeState": 2,
-    "ClockState": 2,
-    "ContentEpochSequence": 2,
-    "ControlFrame": 2,
-    "ControlledSubject": 2,
-    "CutsceneSkipHold": 2,
-    "DefaultMusicStarted": 2,
-    "EditablePortalTuning": 2,
-    "EncounterView": 2,
-    "FallingSandRoomState": 2,
-    "FixedStepsTaken": 2,
-    "GameplayElapsed": 2,
-    "InventoryUiState": 2,
-    "KaleidoscopeOpenState": 2,
-    "KaleidoscopeScroll": 2,
-    "KaleidoscopeSystemNav": 2,
-    "LastCutsceneRoom": 2,
-    "LastQuestRoom": 2,
-    "LeaveRequested": 2,
-    "LiveMatchTicks": 2,
-    "LocalSeatOffer": 2,
-    "LocalSeatTopology": 2,
-    "MobileTouchState": 2,
-    "MusicDirectorState": 2,
-    "MusicIntent": 2,
-    "NewGameResetRequested": 2,
-    "OwnedItemsBaseline": 2,
-    "PortalCameraContinuitySelection": 2,
-    "PortalCameraContinuityState": 2,
-    "PortalEffectSelection": 2,
-    "PortalViewConeDebugDumpRequest": 2,
-    "PresentationPhase": 2,
-    "ProjectileSeqCounter": 2,
-    "RadioStationState": 2,
-    "ReservedGameplayScopes": 2,
-    "RoomConstructionPlanPrefetch": 2,
-    "RoomContentStagingRegistry": 2,
-    "SaveRestored": 2,
-    "ScrollbarDragState": 2,
-    "SeatActiveDevices": 2,
-    "SeatControlFrameModes": 2,
-    "SeatMenuFrames": 2,
-    "SelectPage": 2,
-    "SessionMatchOrdinal": 2,
-    "SfxBankRegistry": 2,
-    "SfxPlaybackState": 2,
-    "ShellActivationGates": 2,
-    "ShellRouter": 2,
-    "ShellSequenceCatalog": 2,
-    "ShrineActivationPulse": 2,
-    "SmashSelect": 2,
-    "StartRequested": 2,
-    "StocksMatchSettled": 2,
-    "SuddenDeathEntered": 2,
-    "VersusMatch": 2,
-    "VisualQualityConfirmState": 2,
-    "WorldlineHistoryView2d": 2,
-    "YarnPresentationCue": 2,
+#: ⛔⛤ **A COUNT IS NOT AN IDENTITY, AND THIS TABLE HELD ONLY COUNTS UNTIL
+#: 2026-09-18.** `dict[str, int]` let a type lose one real writer and gain a
+#: different, unrelated one in the same run — the count held, so the ratchet read
+#: clean forever. DEMONSTRATED, not argued: replacing one of `AmbitionGameSave`'s
+#: 18 writer files with a fabricated path left this guard green, printing the same
+#: `ok` line and the same `UNADJUDICATED: 0`. That matters because EVERY verdict
+#: in [`ADJUDICATED`] argues from the SPECIFIC files it names, so a silent
+#: substitution at constant cardinality rots the citations with nothing to flag
+#: it. The existing arms could not see it either: both change the COUNT
+#: (add-without-remove, remove-without-add), and neither tests a same-cardinality
+#: swap. Found by CalculexAmbition.
+#:
+#: ⭐ THE FILE SET IS NOW THE ONE OWNER and the count is `len()` of it, rather
+#: than a second recorded fact that can disagree with the first — which is the
+#: rule this whole census exists to enforce, applied to the census.
+BASELINE: dict[str, tuple[str, ...]] = {
+    "AmbitionGameSave": (
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_encounter/src/switches.rs",
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_menu/src/map/systems.rs",
+        "crates/ambition_persistence/src/quest/registry.rs",
+        "crates/ambition_persistence/src/save.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
+        "game/ambition_content/src/bosses/cut_rope/mod.rs",
+        "game/ambition_content/src/encounters.rs",
+        "game/ambition_content/src/falling_sand_sim.rs",
+        "game/ambition_content/src/quest.rs",
+    ),
+    "GameAssets": (
+        "crates/ambition_platformer2d/src/game_assets.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_render/src/rendering/parallax.rs",
+        "game/ambition_app/src/app/setup_systems.rs",
+        "game/ambition_app/src/app/startup_loading.rs",
+        "game/ambition_app/src/app/world_flow/parallax_residency.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "game/ambition_content/src/intro/plugin.rs",
+        "game/ambition_demo_mary_o/src/ai_slop.rs",
+        "game/ambition_demo_mary_o/src/plane.rs",
+        "game/ambition_demo_mary_o/src/scenery.rs",
+        "game/ambition_demo_mary_o/src/snake.rs",
+        "game/ambition_demo_sanic/src/lib.rs",
+    ),
+    "GameplayBanner": (
+        "crates/ambition_boss_encounter/src/encounter_script.rs",
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_combat/src/banner.rs",
+        "crates/ambition_combat/src/breakables.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/interact.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "game/ambition_content/src/bosses/cut_rope/arena.rs",
+        "game/ambition_content/src/quest.rs",
+    ),
+    "FeatureEcsWorldOverlay": (
+        "crates/ambition_encounter_features/src/lock_walls.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/overlay.rs",
+        "game/ambition_content/src/bosses/gnu_ton.rs",
+        "game/ambition_content/src/falling_sand.rs",
+        "game/ambition_content/src/falling_sand_sim.rs",
+        "game/ambition_content/src/portal/carve_adapter.rs",
+        "game/ambition_demo_mary_o/src/bricks.rs",
+        "game/ambition_demo_mary_o/src/powerups.rs",
+        "game/ambition_demo_sanic/src/monitors.rs",
+    ),
+    "OwnedItems": (
+        "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/narrative.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_content/src/portal/inventory_adapter.rs",
+        "game/ambition_content/src/quest.rs",
+    ),
+    "CausalRecording": (
+        "crates/ambition_combat/src/causal.rs",
+        "crates/ambition_combat/src/moveset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/causal.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs",
+        "crates/ambition_platformer2d_runtime/src/causal.rs",
+        "game/ambition_app_tools/src/bin/moveset_takes.rs",
+        "game/ambition_app_tools/src/bin/rl_random_walker.rs",
+        "game/ambition_demo_smash_app/src/tools/ladder_probe.rs",
+    ),
+    "ClassBRemapLog": (
+        "crates/ambition_abilities/src/traversal/blink.rs",
+        "crates/ambition_abilities/src/traversal/dive.rs",
+        "crates/ambition_abilities/src/traversal/mark_recall.rs",
+        "crates/ambition_damage/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/trapdoor.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/class_b.rs",
+        "crates/ambition_portal2d/src/transit.rs",
+    ),
+    "DeveloperRuntimeState": (
+        "crates/ambition_dev_tools/src/lib.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_render/src/rendering/debug_viz.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "game/ambition_app/src/dev/frame_step.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+        "game/ambition_app_tools/src/bin/moveset_render.rs",
+        "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
+    ),
+    "LoadCoordinator": (
+        "crates/ambition_game_shell/src/plugin.rs",
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_load/src/plugin.rs",
+        "crates/ambition_load_presentation/src/shell_adapter.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
+    ),
+    "UserSettings": (
+        "crates/ambition_game_shell/src/pause_menu.rs",
+        "crates/ambition_game_shell/src/plugin.rs",
+        "crates/ambition_persistence/src/settings/persistence.rs",
+        "crates/ambition_render/src/quality.rs",
+        "crates/ambition_sim_harness/src/runtime.rs",
+        "game/ambition_app/src/dev/fps_overlay.rs",
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "PendingLifecycleCommit": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/death.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+        "game/ambition_demo_mary_o/src/lib.rs",
+    ),
+    "QuestRegistry": (
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_persistence/src/quest/registry.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/quest/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "game/ambition_content/src/quest.rs",
+    ),
+    "RoomTransitionCooldown": (
+        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+    ),
+    "SeatRawFrames": (
+        "crates/ambition_platformer2d/src/scripted_input.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+        "game/ambition_app/src/app/sim_systems.rs",
+        "game/ambition_content/src/portal/ability_adapter.rs",
+    ),
+    "BaseGravity": (
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/gravity.rs",
+        "crates/ambition_sim_harness/src/runtime.rs",
+    ),
+    "DeveloperTools": (
+        "crates/ambition_dev_tools/src/persistence.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "game/ambition_app/src/dev/mod.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app_tools/src/bin/capture_scene.rs",
+        "game/ambition_app_tools/src/bin/moveset_render.rs",
+    ),
+    "SlotControls": (
+        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+        "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+        "game/ambition_app/src/app/sim_systems.rs",
+        "game/ambition_content/src/portal/ability_adapter.rs",
+    ),
+    "SlotInteractionState": (
+        "crates/ambition_platformer2d_actor_monolith/src/body_mode/mechanics/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/acting.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+    ),
+    "ActiveConversation": (
+        "crates/ambition_conversation/src/opening.rs",
+        "crates/ambition_conversation/src/rules.rs",
+        "crates/ambition_conversation/src/ui_bridge.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+    ),
+    "AuthoredOccurrences": (
+        "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
+    ),
+    "CaptureProgress": (
+        "crates/ambition_render/src/capture.rs",
+        "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
+        "game/ambition_demo_sanic_app/src/bin/capture_sanic.rs",
+        "game/ambition_demo_smash_app/src/tools/match_shots.rs",
+        "game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs",
+    ),
+    "DialogState": (
+        "crates/ambition_conversation/src/ui_bridge.rs",
+        "crates/ambition_dialog/src/bridge.rs",
+        "crates/ambition_dialog/src/systems.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+    ),
+    "HudReadouts": (
+        "game/ambition_app/src/app/versus_rules.rs",
+        "game/ambition_demo_mary_o/src/provider.rs",
+        "game/ambition_demo_sanic/src/provider.rs",
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_twintrack/src/lib.rs",
+    ),
+    "PendingMechanicalEdits": (
+        "crates/ambition_combat/src/feel.rs",
+        "crates/ambition_dev_tools/src/dev_tools/editable.rs",
+        "crates/ambition_dev_tools/src/lib.rs",
+        "crates/ambition_portal2d/src/tuning.rs",
+        "game/ambition_content/src/portal/transit_body_adapter.rs",
+    ),
+    "RoomTransitionLoadState": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
+    ),
+    "ActiveAudioSelection": (
+        "crates/ambition_audio/src/bank_asset.rs",
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
+        "game/ambition_app/src/app/setup_systems.rs",
+    ),
+    "AudioLibrary": (
+        "crates/ambition_audio/src/library.rs",
+        "crates/ambition_audio/src/music/director/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "CharacterLoadDemand": (
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "game/ambition_app/src/app/startup_loading.rs",
+        "game/ambition_app/src/app/versus.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+    ),
+    "MapMenuState": (
+        "crates/ambition_menu/src/map/input.rs",
+        "crates/ambition_menu/src/map/pointer.rs",
+        "crates/ambition_menu/src/map/systems.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "MenuControlFrame": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_touch_input/src/menu_bridge.rs",
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "MintedItemBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "MovingPlatformSet": (
+        "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs",
+        "game/ambition_demo_smash/src/lib.rs",
+    ),
+    "SessionSeatingSource": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
+        "game/ambition_app/src/app/versus.rs",
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_twintrack/src/participants.rs",
+    ),
+    "ShellHostConfiguration": (
+        "crates/ambition_platformer2d/src/app.rs",
+        "crates/ambition_platformer2d_provider/src/composition.rs",
+        "game/ambition_app/src/app/shell_host.rs",
+        "game/ambition_app_tools/src/bin/preview_vanity_card.rs",
+    ),
+    "ShellRouteCatalog": (
+        "crates/ambition_platformer2d/src/app.rs",
+        "crates/ambition_platformer2d_provider/src/composition.rs",
+        "game/ambition_app/src/app/shell_host.rs",
+        "game/ambition_app_tools/src/bin/preview_vanity_card.rs",
+    ),
+    "ShellRouteHolds": (
+        "crates/ambition_game_shell/src/plugin.rs",
+        "crates/ambition_load_presentation/src/shell_adapter.rs",
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        "game/ambition_content/src/reload.rs",
+    ),
+    "YarnContentBindings": (
+        "crates/ambition_conversation/src/dialog.rs",
+        "crates/ambition_conversation/src/dialog/yarn_harness.rs",
+        "game/ambition_content/src/bosses/mod.rs",
+        "game/ambition_content/src/plugin.rs",
+    ),
+    "ActiveSessionScope": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
+    ),
+    "ActiveUiCues": (
+        "crates/ambition_game_shell/src/basic_presentation.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_demo_smash/src/lib.rs",
+    ),
+    "BossEncounterRegistry": (
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "CharacterLoadStates": (
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "game/ambition_app/src/app/startup_loading.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+    ),
+    "ConstructionSchemaCatalog": (
+        "crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs",
+        "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
+        "crates/ambition_portal2d/src/plugin.rs",
+    ),
+    "CustodyBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
+    ),
+    "CutsceneAdvanceRequest": (
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "CutsceneTriggerQueue": (
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "EncounterRegistry": (
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "GameplayTraceBuffer": (
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/dev/trace/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+    ),
+    "KaleidoscopeCursor": (
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app/pointer.rs",
+    ),
+    "LocalSessionOwnership": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "game/ambition_content/src/reload.rs",
+    ),
+    "MusicPlaybackState": (
+        "crates/ambition_audio/src/music/director/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "NarrativeMusicRequest": (
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
+        "game/ambition_content/src/yarn_vocabulary.rs",
+    ),
+    "OccurrenceBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
+    ),
+    "PossessionState": (
+        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "PreparedSessionRegistry": (
+        "crates/ambition_game_shell/src/plugin.rs",
+        "crates/ambition_load_presentation/src/shell_adapter.rs",
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+    ),
+    "SelectCursors": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_smash/src/select_screen.rs",
+        "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
+    ),
+    "SlotControlLatches": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+        "crates/ambition_platformer2d_runtime/src/input_drive.rs",
+    ),
+    "SwitchActivationQueue": (
+        "crates/ambition_encounter/src/switches.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "Warmup": (
+        "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
+        "game/ambition_demo_sanic_app/src/bin/capture_sanic.rs",
+        "game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs",
+    ),
+    "WorldSourceHotReload": (
+        "crates/ambition_dev_tools/src/hot_reload.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "AbandonedCheckpointOperation": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
+    ),
+    "ActiveCutscene": (
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "ActiveGameplaySession": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+    ),
+    "BodyClocksView": (
+        "crates/ambition_sim_view/src/facts.rs",
+        "game/ambition_demo_smash/src/mark.rs",
+    ),
+    "CameraShakeState": (
+        "crates/ambition_platformer2d_shared_tangle/src/camera_ease.rs",
+        "game/ambition_app/src/app/player_tick.rs",
+    ),
+    "ClockState": (
+        "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs",
+        "crates/ambition_time/src/time_control/mod.rs",
+    ),
+    "ContentEpochSequence": (
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+    ),
+    "ControlFrame": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
+    ),
+    "ControlledSubject": (
+        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "CutsceneSkipHold": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "DefaultMusicStarted": (
+        "crates/ambition_audio/src/library.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+    ),
+    "EditablePortalTuning": (
+        "game/ambition_app/src/dev/portal_inspector.rs",
+        "game/ambition_content/src/portal/transit_body_adapter.rs",
+    ),
+    "EncounterView": (
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "FallingSandRoomState": (
+        "game/ambition_content/src/falling_sand.rs",
+        "game/ambition_content/src/falling_sand_sim.rs",
+    ),
+    "FixedStepsTaken": (
+        "game/ambition_app/src/app/cli.rs",
+        "game/ambition_app/src/headless.rs",
+    ),
+    "GameplayElapsed": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "InventoryUiState": (
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "KaleidoscopeOpenState": (
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_menu_kaleidoscope/src/lib.rs",
+    ),
+    "KaleidoscopeScroll": (
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app/scroll.rs",
+    ),
+    "KaleidoscopeSystemNav": (
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "LastCutsceneRoom": (
+        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "LastQuestRoom": (
+        "crates/ambition_platformer2d_actor_monolith/src/quest/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "LeaveRequested": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_smash/src/select_screen.rs",
+    ),
+    "LiveMatchTicks": (
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "LocalSeatOffer": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_twintrack/src/participants.rs",
+    ),
+    "LocalSeatTopology": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
+        "crates/ambition_sim_harness/src/runtime.rs",
+    ),
+    "MobileTouchState": (
+        "crates/ambition_touch_input/src/bevy_plugin.rs",
+        "crates/ambition_touch_input/src/virtual_device.rs",
+    ),
+    "MusicDirectorState": (
+        "crates/ambition_audio/src/music/director/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+    ),
+    "MusicIntent": (
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
+    ),
+    "NewGameResetRequested": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "OwnedItemsBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+    ),
+    "PortalCameraContinuitySelection": (
+        "game/ambition_app/src/dev/portal_inspector.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "PortalCameraContinuityState": (
+        "crates/ambition_platformer2d_host/src/portal.rs",
+        "crates/ambition_render/src/rendering/camera.rs",
+    ),
+    "PortalEffectSelection": (
+        "game/ambition_app/src/dev/portal_inspector.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "PortalViewConeDebugDumpRequest": (
+        "crates/ambition_portal2d_presentation/src/view_cones/debug.rs",
+        "game/ambition_app/src/dev/portal_inspector.rs",
+    ),
+    "PresentationPhase": (
+        "crates/ambition_platformer2d_rollback_ggrs/src/lib.rs",
+        "crates/ambition_sim_view/src/presented_pose.rs",
+    ),
+    "ProjectileSeqCounter": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_projectiles/src/materialize.rs",
+    ),
+    "RadioStationState": (
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "ReservedGameplayScopes": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+    ),
+    "RoomConstructionPlanPrefetch": (
+        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
+        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
+    ),
+    "RoomContentStagingRegistry": (
+        "crates/ambition_sim_harness/src/runtime.rs",
+        "game/ambition_content/src/plugin.rs",
+    ),
+    "SaveRestored": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "ScrollbarDragState": (
+        "crates/ambition_menu/src/render/bevy_ui/mod.rs",
+        "game/ambition_menu_kaleidoscope/src/lib.rs",
+    ),
+    "SeatActiveDevices": (
+        "crates/ambition_input/src/active_input.rs",
+        "crates/ambition_touch_input/src/menu_bridge.rs",
+    ),
+    "SeatControlFrameModes": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "crates/ambition_sim_harness/src/runtime.rs",
+    ),
+    "SeatMenuFrames": (
+        "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
+        "game/ambition_demo_smash_app/src/tools/select_walkthrough.rs",
+    ),
+    "SelectPage": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_smash/src/select_screen.rs",
+    ),
+    "SessionMatchOrdinal": (
+        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "SfxBankRegistry": (
+        "crates/ambition_audio/src/bank_asset.rs",
+        "game/ambition_app/src/app/setup_systems.rs",
+    ),
+    "SfxPlaybackState": (
+        "crates/ambition_audio/src/bank_asset.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
+    ),
+    "ShellActivationGates": (
+        "crates/ambition_platformer2d_provider/src/lifecycle.rs",
+        "game/ambition_content/src/reload.rs",
+    ),
+    "ShellRouter": (
+        "crates/ambition_game_shell/src/plugin.rs",
+        "crates/ambition_load_presentation/src/shell_adapter.rs",
+    ),
+    "ShellSequenceCatalog": (
+        "game/ambition_app/src/app/shell_host.rs",
+        "game/ambition_app_tools/src/bin/preview_vanity_card.rs",
+    ),
+    "ShrineActivationPulse": (
+        "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
+        "crates/ambition_sim_view/src/facts.rs",
+    ),
+    "SmashSelect": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_smash/src/select_screen.rs",
+    ),
+    "StartRequested": (
+        "game/ambition_demo_smash/src/lib.rs",
+        "game/ambition_demo_smash/src/select_screen.rs",
+    ),
+    "StocksMatchSettled": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "SuddenDeathEntered": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/stocks_match.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "VersusMatch": (
+        "game/ambition_app/src/app/versus.rs",
+        "game/ambition_app/src/app/versus_rules.rs",
+    ),
+    "VisualQualityConfirmState": (
+        "game/ambition_app/src/menu/grid_backend.rs",
+        "game/ambition_app/src/menu/kaleidoscope_app.rs",
+    ),
+    "WorldlineHistoryView2d": (
+        "crates/ambition_relativity2d/src/telemetry.rs",
+        "game/ambition_demo_twintrack/src/lib.rs",
+    ),
+    "YarnPresentationCue": (
+        "crates/ambition_dialog/src/bindings.rs",
+        "crates/ambition_dialog/src/bridge.rs",
+    ),
 }
 
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
@@ -2889,9 +3457,25 @@ ADJUDICATED: dict[str, str] = {
 #: discriminator this census leads with — which writers can move the value away
 #: from its resting state — still applies; what changes is that a session
 #: boundary reclaims the whole thing, so a stale write cannot outlive it.
-SESSION_WORLD_BASELINE: dict[str, int] = {
-    "EncounterMusicRequest": 9,
-    "LdtkRuntimeIndex": 2,
+#: ⛔ SAME SHAPE, SAME GAP, SAME FIX as [`BASELINE`] above: this was
+#: `dict[str, int]` and a same-cardinality writer swap on
+#: `EncounterMusicRequest` left the guard green. The file set is the owner.
+SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
+    "EncounterMusicRequest": (
+        "crates/ambition_boss_encounter/src/encounter_script.rs",
+        "crates/ambition_boss_encounter/src/systems.rs",
+        "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
+        "game/ambition_content/src/bosses/cut_rope/mod.rs",
+        "game/ambition_demo_mary_o/src/death.rs",
+        "game/ambition_demo_mary_o/src/flag.rs",
+        "game/ambition_demo_mary_o/src/star.rs",
+    ),
+    "LdtkRuntimeIndex": (
+        "crates/ambition_platformer2d_ldtk/src/bevy_runtime/asset.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
+    ),
 }
 
 #: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
@@ -3242,10 +3826,19 @@ def main() -> int:
             "from SESSION_WORLD_BASELINE in this commit."
         )
     for ty in sorted(t for t in world if t in SESSION_WORLD_BASELINE):
-        if len(world[ty]) != SESSION_WORLD_BASELINE[ty]:
+        recorded = SESSION_WORLD_BASELINE[ty]
+        if len(world[ty]) != len(recorded):
             world_moves.append(
-                f"  {ty} moved: {SESSION_WORLD_BASELINE[ty]} -> {len(world[ty])} "
-                "writer file(s)."
+                f"  {ty} moved: {len(recorded)} -> {len(world[ty])} writer file(s)."
+            )
+        elif set(world[ty]) != set(recorded):
+            gone = sorted(set(recorded) - set(world[ty]))
+            new_files = sorted(set(world[ty]) - set(recorded))
+            world_moves.append(
+                f"  {ty} kept {len(world[ty])} writer file(s) and CHANGED WHICH ONES:\n"
+                + "\n".join(f"      LEFT    {f}" for f in gone)
+                + ("\n" if gone and new_files else "")
+                + "\n".join(f"      ARRIVED {f}" for f in new_files)
             )
     # ⛔ THE SAME PHANTOM RULE AS THE RESOURCE SIDE, for the same reason: the debt
     # line below is a SUBTRACTION, and a verdict on a type that has since become
@@ -3268,10 +3861,21 @@ def main() -> int:
 
     arrived = sorted(set(multi) - set(BASELINE))
     left = sorted(set(BASELINE) - set(multi))
-    grew = sorted(t for t in multi if t in BASELINE and len(multi[t]) > BASELINE[t])
-    shrank = sorted(t for t in multi if t in BASELINE and len(multi[t]) < BASELINE[t])
+    grew = sorted(t for t in multi if t in BASELINE and len(multi[t]) > len(BASELINE[t]))
+    shrank = sorted(t for t in multi if t in BASELINE and len(multi[t]) < len(BASELINE[t]))
+    # ⛔⛤ THE SAME-CARDINALITY SWAP, which `grew`/`shrank` cannot see by
+    # construction: one writer file replaced by another leaves the count exactly
+    # where it was. Every verdict argues from the files it NAMES, so this is the
+    # axis that rots citations silently.
+    swapped = sorted(
+        t
+        for t in multi
+        if t in BASELINE
+        and len(multi[t]) == len(BASELINE[t])
+        and set(multi[t]) != set(BASELINE[t])
+    )
 
-    if arrived or left or grew or shrank:
+    if arrived or left or grew or shrank or swapped:
         print("the multi-writer resource population moved:\n")
         for ty in arrived:
             print(f"  NEW multi-writer authority: {ty} ({len(multi[ty])} files)")
@@ -3291,6 +3895,18 @@ def main() -> int:
                 f"  {ty} is no longer written from more than one file. Remove it from "
                 "the baseline in this commit."
             )
+        for ty in swapped:
+            gone = sorted(set(BASELINE[ty]) - set(multi[ty]))
+            new_files = sorted(set(multi[ty]) - set(BASELINE[ty]))
+            print(
+                f"  {ty} kept {len(multi[ty])} writer file(s) and CHANGED WHICH ONES. "
+                "Its verdict argues from the files it names, so re-read it before "
+                "moving the baseline:"
+            )
+            for f in gone:
+                print(f"      LEFT    {f}")
+            for f in new_files:
+                print(f"      ARRIVED {f}")
         print(
             "\n⇒ A NEW ENTRY IS NOT AUTOMATICALLY A DEFECT — see the module "
             "docstring.\n"

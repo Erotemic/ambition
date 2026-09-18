@@ -197,7 +197,14 @@ def main() -> int:
         return 1
 
     scope = ", ".join(args.package) if args.package else "workspace"
-    print(f"OK: {scope} --all-targets compiled with no warnings, under DEFAULT features.")
+    # ⛔ NOT "default features". A `--workspace` build resolves ONE feature
+    # graph, so every crate is compiled with the UNION of what its dependents
+    # ask for -- which is not the configuration any of them declares as its
+    # own default, and not the one `cargo check -p <crate>` uses.
+    basis = "the crate's own DEFAULT features" if args.package else (
+        "the WORKSPACE-UNIFIED feature set (NOT any crate's defaults)"
+    )
+    print(f"OK: {scope} --all-targets compiled with no warnings, under {basis}.")
     print(
         "   \u26a0 Code behind a NON-DEFAULT `#[cfg(feature = ...)]` is not compiled by "
         "this run and is not covered by that OK.\n"
@@ -206,6 +213,23 @@ def main() -> int:
         "     'one graph, every gated test'. Three warnings were living there on "
         "2026-09-03 while this line read clean (`170d4293d`)."
     )
+    if not args.package:
+        print(
+            "   \u26a0 AND FEATURE UNIFICATION HIDES THE OPPOSITE CASE: a crate whose\n"
+            "     dependents turn a feature ON is never built here the way it builds "
+            "ALONE.\n"
+            "     MEASURED 2026-09-18: `cargo check -p ambition_dialog --all-targets` "
+            "emits 4 dead-code\n"
+            "     warnings (`reveal_full_line`, `reveal_full_options`, `select_delta`, "
+            "`select_delta_clamped`,\n"
+            "     `confirm_or_advance`) while this workspace run reads clean, because "
+            "ambition_platformer2d and\n"
+            "     ambition_platformer2d_runtime both declare "
+            "`ambition_dialog = { features = [\"input\"] }`.\n"
+            "     Adding `input` takes it from 4 warnings to 0. A per-crate check is a "
+            "DIFFERENT question,\n"
+            "     and it is the one a developer types."
+        )
     return 0
 
 

@@ -27,6 +27,32 @@ so it appears in none of them:
                                         sync-test checksum mismatch at frames
                                         [14, 15, ..]` on the first clone press
 
+⛔⛤ **AND THIS CENSUS SEES 13 OF 112, BECAUSE A `MessageReader` IS A `Local`
+AND DOES NOT SPELL IT.** In `bevy_ecs` 0.19.1 the type is literally
+`struct MessageReader<'w, 's, M> { reader: Local<'s, MessageCursor<M>>, messages:
+Res<'w, Messages<M>> }` (`message/message_reader.rs:34-38`) — the cursor saying
+*"I have already read up to here"* is per-system host storage, exactly the thing
+this file's opening paragraph is about, and the detector matches the literal
+token `Local<` in a parameter list. MEASURED 2026-09-18 over the same 594
+sim-schedule registrations:
+
+    systems with a literal `Local<`          13   ← what this census adjudicates
+    systems with a `MessageReader` cursor    99   (106 cursors)
+    overlap                                   1
+
+⚠ **THIS IS DECLARED AND NOT FIXED, AND THE REASON IS NOT EFFORT.** Widening the
+population to 112 would demand 99 readings, and the mechanism is not settled
+enough to write them: a stale cursor is one of at least three candidates for why
+a host-raised message does not survive a rewind, alongside
+`clear_message_on_rollback` and `bevy`'s own double-buffer expiry. ⛤ The first
+of those was the recorded answer until 2026-09-18, when removing
+`clear_message_on_rollback::<PlayerHealRequested>` (poison verified applied — it
+announced itself four times in the test binary) changed the outcome NOT AT ALL.
+⇒ Until an experiment separates the three, a reading here would be a guess with
+a date on it. What this census owes meanwhile is to say the number out loud
+every run, which `main()` does, rather than to let a clean `13/13` imply 13 is
+the population.
+
 ⚠ **THE THIRD ONE IS WHY THIS FILE'S POPULATION IS A FLOOR AND SAYS SO.**
 `PlayerCloneClock` was a `Resource`, not a `Local` — the same failure with a
 different spelling, and this scan cannot see it. Answering for the resource half
@@ -241,6 +267,27 @@ def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
     return found
 
 
+#: `MessageReader<T>` — a `Local<MessageCursor<T>>` that does not say `Local`.
+#: See the blind-spot block in this module's docstring.
+_MESSAGE_READER = re.compile(r"\bMessageReader\s*<")
+
+
+def hidden_cursor_systems(repo: Path = REPO) -> dict[str, tuple[str, int]]:
+    """`{system: (file, cursor count)}` — the part of the population this census
+    cannot adjudicate, measured so a clean run cannot imply it does not exist."""
+    registered = sim_schedule_systems(repo)
+    found: dict[str, tuple[str, int]] = {}
+    for src, text in sim._production_sources(repo):
+        for match in sim._PUB_FN.finditer(text):
+            name = match.group(1)
+            if name not in registered:
+                continue
+            count = len(_MESSAGE_READER.findall(sim._params(text, match.end())))
+            if count:
+                found[name] = (str(src.relative_to(repo)), count)
+    return found
+
+
 def population_sizes(repo: Path = REPO) -> dict[str, int]:
     return {
         "sim-schedule registrations": len(sim_schedule_systems(repo)),
@@ -293,9 +340,19 @@ def main() -> int:
     if problems:
         print("\n".join(f"\n⛔ {p}" for p in problems))
         return 1
+    hidden = hidden_cursor_systems()
     print(
         f"ok: {len(found)} system(s) in the rewinding schedule carry a `Local`, every one read "
         f"(of {sizes['sim-schedule registrations']} sim-schedule registrations)"
+    )
+    # ⛔⛤ SAID OUT LOUD EVERY RUN, BECAUSE AN INSTRUMENT THAT CANNOT SEE
+    # SOMETHING MUST BE THE ONE TO SAY SO. A clean `13/13` above would otherwise
+    # read as "13 is the population", and it is not.
+    print(
+        f"⚠ NOT ADJUDICATED HERE: {len(hidden)} further system(s) carry a "
+        f"`MessageReader`, which IS a `Local<MessageCursor<T>>` and does not say so "
+        f"({sum(c for _, c in hidden.values())} cursors). See this module's "
+        "blind-spot block; the mechanism is unsettled, so a reading would be a guess."
     )
     return 0
 

@@ -470,12 +470,24 @@ def message_crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]
     schedule and read by one inside the rewinding schedule, which is Q136's
     first mechanism on a second channel.
 
-    ⚠ **AND THE LOSS MECHANISM IS A DECLARED ROLLBACK DECISION DOING WHAT IT
-    SAYS.** `clear_message_on_rollback` adds `clear_message_channel::<T>` to
-    `LoadWorld`, so every rewind EMPTIES the channel. For a message raised
+    ⚠ **AND ONE CANDIDATE LOSS MECHANISM IS A DECLARED ROLLBACK DECISION DOING
+    WHAT IT SAYS.** `clear_message_on_rollback` adds `clear_message_channel::<T>`
+    to `LoadWorld`, so every rewind EMPTIES the channel. For a message raised
     inside the simulation that is right: the resimulation re-raises it, and
     keeping the old copy would double it. For a host-raised message there is no
-    resimulation to re-raise it, so the clear is the loss.
+    resimulation to re-raise it, so the clear would be the loss.
+
+    ⛔⛤ **THAT WAS WRITTEN AS THE MECHANISM AND IT IS NOT, OR NOT ALONE.**
+    Removing the registration for `PlayerHealRequested` on 2026-09-18 changed
+    its witness's outcome not at all, and the poison was verified applied — it
+    announced itself four times in the test binary. Two other candidates survive
+    and neither is ruled out: the reader's `Local<MessageCursor<T>>`, which no
+    rewind restores (`MessageReader` IS a `Local`, see
+    `check_sim_schedule_memory_is_adjudicated.py`'s blind-spot block), and
+    `bevy`'s own double-buffer expiry, which drops a message after two frames
+    regardless — and the measured transient lasted about two frames. ⇒ The
+    readings below say WHICH crossings are live; they do not yet say WHY, and
+    saying why is what an ingress road has to be designed against.
     """
     by_system = schedules_by_system(repo)
 
@@ -521,8 +533,15 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "before any `LoadWorld`, then the rollback restores `BodyHealth` from a "
         "pre-heal confirmed frame and resimulates with the channel already "
         "cleared. The arm asserts BOTH ends, because a composition that could "
-        "not heal at all would print the same final number "
-        "(read 2026-09-18, witnessed 2026-09-18)"
+        "not heal at all would print the same final number. "
+        "⛤ AND THE MECHANISM IS NOT SETTLED: removing "
+        "`clear_message_on_rollback::<PlayerHealRequested>` changed the outcome "
+        "NOT AT ALL (poison verified applied — it announced itself four times in "
+        "the test binary), so the channel clear is at most part of it. The other "
+        "two candidates are the reader's `Local<MessageCursor>`, which no rewind "
+        "restores, and bevy's own double-buffer expiry, which would drop the "
+        "message after two frames on its own — and the transient lasted about two "
+        "frames (read 2026-09-18, witnessed 2026-09-18, mechanism OPEN)"
     ),
     "ResetToCheckpoint": (
         "✅ BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES ON PURPOSE. "

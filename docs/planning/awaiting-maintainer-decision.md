@@ -2895,9 +2895,32 @@ App:
 
 | road | constructor | what it does with no active generation |
 |---|---|---|
-| reset, room transition (×2), room stage | `GenerationMechanics::for_live_session` | **refuses** when `SessionGatedSimulation` is present |
+| reset, room transition (×2) | `GenerationMechanics::for_live_session` | **refuses** when `SessionGatedSimulation` is present |
 | provider activation | `GenerationMechanics::of` | has no fallback to offer |
 | hot reload | `GenerationMechanics::new` | states `None` on purpose — it is building the generation that replaces the live one |
+
+⛔⛤ **RE-MEASURED 2026-09-18 WITH COMMENTS STRIPPED, AND THE FIRST ROW LOST A
+ROAD.** It read *"reset, room transition (×2), room stage"* — four. There is no
+room-stage construction: `world/rooms/stage.rs` owns the ERROR VARIANT
+`RoomConstructionError::LiveGenerationMechanicsMissing`, whose doc comment names
+the constructor, and `construct_room_candidate` is HANDED an
+`ActorConstructionContext` its caller already built. The only producer of that
+variant is `room_transition/loading.rs:1193`, which is already row one's second
+entry. ⇒ **A file that names a constructor in prose reads exactly like a file
+that calls it, and the table was assembled by grep.** The live population is
+FIVE construction sites, not six.
+
+⭐ **AND OPTION 1'S NAMED WEAKNESS IS NOW HELD, WHICHEVER OPTION WINS.**
+`scripts/check_generation_mechanics_construction_is_declared.py` requires every
+one of those five sites to carry a reading saying which composition it is and
+why its constructor is right; an undeclared sixth fails the check. It is
+deliberately option-independent — under option 1 it is the missing enforcement,
+under option 2 the `::new` and `::of` rows are the progress meter that must
+reach zero, under option 3 it is the list of signatures to change. ⚠ Its floor
+is 1 rather than 5 for exactly that reason: **a falling count is what option 2
+succeeding looks like**, and a floor pinned to today's reading would report the
+progress as an instrument failure. Eight arms, and the doc-comment control is
+the one that reproduces the miscount above.
 
 ⇒ **In the shipped composition there is no second construction source today.**
 The discriminator is `SessionGatedSimulation`, and it is `init_resource`d in

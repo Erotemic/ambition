@@ -1428,6 +1428,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_dev_dependencies_are_used.py",
             ],
         ),
+        # ⛔ Q144 IS THE LAST OPEN DUPLICATE-AUTHORITY FAMILY, AND ITS OPTION 1
+        # NAMES ITS OWN WEAKNESS: "nothing but review enforces that choice at a
+        # new call site". Five live sites pick between a generation's frozen
+        # mechanics and the App registries by choosing a CONSTRUCTOR, and the
+        # choice is invisible in the type. ⚠ The floor is 1, not 5: a falling
+        # count is what option 2 succeeding looks like, so a real removal must
+        # reach the branch that names the row rather than the one that accuses
+        # the instrument.
+        Job(
+            "every live `GenerationMechanics` construction declares its road",
+            [
+                sys.executable,
+                "scripts/check_generation_mechanics_construction_is_declared.py",
+            ],
+        ),
     ]
 
 

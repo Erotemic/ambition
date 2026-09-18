@@ -271,9 +271,21 @@ BASELINE: dict[str, int] = {
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
     "AmbitionGameSave": (
-        "OPEN — `queue.md`'s ROLLBACK-BAG-DESYNC row owns it: the save mirrors "
-        "disagree with their own rollback replay. The 17 writers are that row's "
-        "subject, not a separate finding."
+        "OPEN — AND THE REASON IT IS OPEN CHANGED, 2026-09-18. The verdict here "
+        "used to be \"the save mirrors disagree with their own rollback replay\", "
+        "and that defect is REPAIRED: the three `persist_*_to_save` mirrors and "
+        "`count_the_dialogue_visit_when_a_conversation_opens` all register "
+        "through `app.sim_schedule()`, the divergence set is empty, and "
+        "`resources_crossing_the_rewind_boundary.py` reports this type DOES NOT "
+        "CROSS the rewind boundary. ⇒ The 18 writer FILES are no longer a "
+        "rollback finding at all; what keeps this unadjudicated is the split "
+        "`queue.md`'s ROLLBACK-BAG-DESYNC row records as deliberately deferred — "
+        "is `AmbitionGameSave` both simulation authority and disk "
+        "representation? Until that is answered, 18 files writing one resource "
+        "is the shape of the question, not the answer. ⛔ Do NOT read this as "
+        "settled because the checksum is quiet: 19 `ResMut<AmbitionGameSave>` "
+        "parameters in 17 production files is the widest shared write in the "
+        "tree."
     ),
     "CutsceneAdvanceRequest": (
         "OPEN — CUTSCENE-ROLLBACK-DECISION item 1: produced on the HOST side in "

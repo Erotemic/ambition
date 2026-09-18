@@ -1165,31 +1165,53 @@ flag set by the simulation lands in the save inside the rewinding schedule, wher
 the checksum is doing real work. ⇒ On that evidence (a) is the honest option and
 (b) trades a defect for a blind spot.
 
-**AND THE CENSUS IS NOW DONE: 13 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE.**
-Every system taking `ResMut<AmbitionGameSave>` workspace-wide, resolved to the
-`add_systems` call that registers it:
+**AND THE CENSUS IS NOW DONE: 18 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE —
+RE-DERIVED 2026-09-18.** Every system taking `ResMut<AmbitionGameSave>`
+workspace-wide, resolved to the `add_systems` call that registers it and that
+call's first argument:
 
-| registered in the sim schedule (13) | not (6) |
+| registered in the sim schedule (18) | not (1) |
 |---|---|
-| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `update_boss_encounters` | `dispatch_pending_dialog_requests`, `load_save_at_startup`, `track_room_visits`, and the three `persist_*_to_save` mirrors |
+| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `count_the_dialogue_visit_when_a_conversation_opens`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`, `persist_occurrence_horizon_to_save`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `track_room_visits`, `update_boss_encounters` | `load_save_at_startup` (`Startup`) |
 
-⇒ **THE SAVE IS SIMULATION-ADJACENT STATE IN PRACTICE, WHATEVER IT IS IN
-PRINCIPLE.** Quest advances, boss encounter progress, switch activations, shrine
-heals and cutscene ticks all write it from inside the rewinding schedule, where
-the checksum is doing real work. Taking it out of the peer contract would stop
-comparing all thirteen. (b) is therefore not the small option; it is the largest
-one, measured by what it stops checking.
+⛔⛤ **THIS TABLE READ "13 of the 19" AND NAMED SIX OUTSIDERS UNTIL 2026-09-18, AND
+EVERY ONE OF THE FIVE THAT LEFT THAT COLUMN LEFT FOR A DIFFERENT REASON.** The
+three `persist_*_to_save` mirrors and `track_room_visits` are registered in the
+sim schedule now; `dispatch_pending_dialog_requests` left the POPULATION rather
+than the column — it no longer takes the resource at all — and
+`count_the_dialogue_visit_when_a_conversation_opens` arrived inside the schedule
+as its replacement. ⇒ A census kept as a static table is a duplicate of the tree;
+this one now carries the command that rebuilds it.
 
-⚠ Two method notes, because the count would have been wrong twice without them.
-A name inside `.after(...)` is an ORDERING EDGE, not a registration — excluding
-those is why `heal_save_shrine_system` is counted from its real `add_systems` and
-not from `checkpoint.rs:1806`. And the three `persist_*` mirrors landing on the
-`Update` side is the positive control: a classifier that put them anywhere else
-would be wrong about the very systems this Q is named for.
+⇒ **THE SAVE IS SIMULATION STATE IN PRACTICE, WHATEVER IT IS IN PRINCIPLE**, and
+the margin is no longer arguable: quest advances, boss encounter progress, switch
+activations, shrine heals, cutscene ticks, the map's visit stamp, the three save
+mirrors and the dialogue visit counter all write it from inside the rewinding
+schedule, where the checksum is doing real work. Taking it out of the peer
+contract would stop comparing all eighteen. (b) is therefore not the small
+option; it is the largest one, measured by what it stops checking. ⚠ The single
+outsider is `Startup`, before any timeline exists — so there is no longer a
+"writes it from `Update`" tail to point at.
 
-⚠ It also applies to more than the bag: `persist_occurrence_horizon_to_save` and
-`persist_minted_item_horizon_to_save` write the same resource from the same
-`Update` chain, so a ruling here settles three systems, not one.
+**Method, so the next reader redoes it rather than trusting it.**
+`ResMut<'?, AmbitionGameSave>` parameter occurrences over
+`multi_writer_resource_census.production_files()` with comments and test modules
+stripped: 19 occurrences in 17 files, 19 distinct enclosing `fn`s. Each name is
+then found inside an `add_systems(..)` call in a production file and the call's
+first argument read.
+⚠ Three method notes, because the count would have been wrong without them.
+(1) A name inside `.after(...)` is an ORDERING EDGE, not a registration — two
+systems appear in a second `add_systems` call for that reason
+(`heal_save_shrine_system` at `checkpoint.rs:1802`,
+`capture_falling_sand_switch_interactions` at `falling_sand.rs:141`), and both
+resolve to `sim` either way, so the classification does not turn on it here.
+(2) A schedule can be a PARAMETER: `track_room_visits` is registered with
+`install_map_simulation_systems(app, schedule)`, and the one production caller
+(`progression_schedule.rs:99`) passes `sim`. A classifier that read the callee
+alone would have said "unknown" and a careless one "not sim".
+(3) The three `persist_*` mirrors landing on the sim side is now the positive
+control — while they were in `Update` it was the other way round, which is why
+this note changed direction rather than being deleted.
 
 Reproduction, eliminations and the full harness matrix are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
@@ -1628,12 +1650,19 @@ defect live. Held by
 
 ## Q134 — is a dialog visit count something two peers must agree on?
 
+✅ **THE DEFECT THIS QUESTION WAS BLOCKING IS CLOSED; WHAT IS LEFT IS THE PRODUCT
+QUESTION IN THE TITLE.** Read the ✅⛤ paragraph before the ruling below — the
+increment is in the rewinding schedule and a visit survives a rewind. This entry
+keeps its measurements because they are what made Option 1 refusable.
+
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
 repaired the three `persist_*_to_save` mirrors by moving them into the rewinding
 schedule: they DERIVE the save from simulation state, so a replay reproduces the
-value. `dispatch_pending_dialog_requests` is a fourth writer of the same hashed
-resource and that answer is not available to it — it calls
-`save.data_mut().increment_dialog_visit(&dialogue_id)`.
+value. `dispatch_pending_dialog_requests` WAS a fourth writer of the same hashed
+resource and that answer was not available to it — it called
+`save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`. ⚠ It no
+longer does; re-measured 2026-09-18, that method has exactly one production call
+site and it is in the sim schedule.
 
 ⛔⛤ **THIS QUESTION USED TO ARGUE FROM "AN INCREMENT IS NEITHER IDEMPOTENT NOR
 DERIVABLE". BOTH HALVES ARE NOW MEASURED FALSE, AND BOTH OF ITS OPTIONS CHANGE
@@ -1642,7 +1671,7 @@ SHAPE AS A RESULT.** Measured 2026-09-16 by three arms in
 
 | placement of the increment | after 200 frames of sync test |
 |---|---|
-| `Update` (today) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
+| `Update` (as it shipped) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
 | inside the sim schedule, 5 known ticks | **exactly 5** — `an_increment_inside_the_tick_is_made_idempotent_by_the_restore` |
 | inside the sim schedule, no rollback session | exactly 5 — the control |
 
@@ -1661,7 +1690,7 @@ COUNTED TWICE. It can only be lost:
 
 - `ambition_dialog` contains the string `rollback` **zero times**. `DialogState`
   is a plain `#[derive(Resource)]`, registered on no road.
-- The dispatcher consumes the request with `state.pending_start.take()`, in
+- The dispatcher consumed the request with `state.pending_start.take()`, in
   `Update`.
 - ⇒ A rewind restores `AmbitionGameSave` to its pre-increment value. The request
   that produced the increment was consumed from a resource that does not rewind,

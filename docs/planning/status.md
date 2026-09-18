@@ -188,10 +188,16 @@ to 236** (neighbours: 238). It is no longer PINNED, so the empty set is a
 comparison that could have failed. The second measurement is guarded at a floor
 of 50 so it cannot silently return to the pinned regime.
 
-⚠ **STILL OPEN AND NOW THE ONLY HASHED-SAVE WRITER OUTSIDE THE REWIND WINDOW:**
-`dispatch_pending_dialog_requests` INCREMENTS a dialog visit count from `Update`.
-The mirrors could move because they DERIVE the save; an increment does not
-converge under replay, so it needs a different answer.
+✅ **AND THE FOURTH WRITER IS CLOSED TOO — this page said it was "STILL OPEN AND
+NOW THE ONLY HASHED-SAVE WRITER OUTSIDE THE REWIND WINDOW".**
+`dispatch_pending_dialog_requests` incremented a dialog visit count from
+`Update`, and the mirrors' answer did not transfer: an increment does not
+converge under replay. It got its own — the count is now
+`count_the_dialogue_visit_when_a_conversation_opens`, in the sim schedule, keyed
+on `ActiveConversation`'s opening tick, where the RESTORE is what makes an
+increment idempotent. ⇒ Re-measured 2026-09-18: zero hashed-save writers remain
+outside the rewind window. The measurement and the repair live ONCE, in
+[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
 ⚠ **WHAT MAKES IT REPRODUCE IS THE FIRST THREE TICKS, NOT THE CADENCE** —
 corrected 2026-09-16 by its owner after a sweep: an every-tick grant STARTING
 at tick 4 runs 120 steps clean, starting at tick 1 or 2 it desyncs at frames
@@ -201,9 +207,13 @@ three framings. ⇒ The measurement and the correction live ONCE, in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
 do not re-derive them here.
 
-⚠ This is not only a persistence question: 13 of the 19 systems that write
-`AmbitionGameSave` are registered in the SIM schedule, so the save is
-simulation-adjacent state in practice whatever it is in principle. ⛔ That is what
+⚠ This is not only a persistence question: **18 of the 19** systems that write
+`AmbitionGameSave` are registered in the SIM schedule — this page said 13 until
+2026-09-18 — so the save is simulation state in practice whatever it is in
+principle, and the single outsider is `load_save_at_startup` in `Startup`. ⇒ The
+census and its method are owned by
+[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
+do not re-derive the pair here. ⛔ That is what
 made "take it out of the checksum" the LARGE option rather than the small one,
 and the review refused it outright — unhashing would have bought a green repro by
 discarding comparison coverage for quests, flags, switches, encounters, shrines,

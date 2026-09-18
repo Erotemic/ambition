@@ -979,13 +979,34 @@ placement note into a defect.
 | `OwnedItems` | `resource-clone` | no |
 | `SaveRestored` | `resource-clone` | no |
 
-Eight systems, six types, four hashed. The writers:
+Eight systems, six types, four hashed. The writers AS MEASURED THAT DAY:
 `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`,
 `persist_occurrence_horizon_to_save` and `dispatch_pending_dialog_requests`
 (`AmbitionGameSave`); `adopt_occurrence_checkpoint_from_save` (`CustodyBaseline`,
 `OccurrenceBaseline`); `grid_menu_action_activated` and
 `kaleidoscope_menu_action_activated` (`NewGameResetRequested`, `OwnedItems`);
 `complete_durable_restore` (`SaveRestored`).
+
+✅⛤ **AND `AmbitionGameSave` IS OUT OF THAT LIST — re-run 2026-09-18, the table
+above is history and is dated for that reason.** All four of its `Update` writers
+are gone from `check_rollback_mutators_run_in_sim.py`'s offender list: the three
+mirrors moved into the sim schedule and `dispatch_pending_dialog_requests` stopped
+taking the resource (the count is now
+`count_the_dialogue_visit_when_a_conversation_opens`, in the schedule, keyed on
+`ActiveConversation`'s opening tick). What the guard reports today is **8
+acknowledged offenders over 518 mutating systems**, none of them writing the save:
+`adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
+`compute_music_intent`, `grid_menu_action_activated`,
+`kaleidoscope_menu_action_activated`, `portal_dev_toggle_system`,
+`reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set`.
+⇒ Of the four hashed entries, `AmbitionGameSave` is repaired and the two
+baselines are the open half — a LIFECYCLE question rather than a placement one,
+owned by
+[DURABLE-HORIZON-CHECKSUM](../queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
+and ruled on by
+[Q135](../awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished).
+⚠ The three-part predicate below is the durable part of this section and is
+unchanged by any of that.
 
 ⚠ **BEING HASHED AND WRITTEN FROM `Update` IS NOT SUFFICIENT, AND THAT IS
 MEASURED, NOT ARGUED.** The predicate has three parts:

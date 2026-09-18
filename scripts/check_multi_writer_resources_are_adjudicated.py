@@ -16,6 +16,31 @@ of the 75 are UNADJUDICATED and this check says so on every green run: what it
 enforces is that the set and the per-type writer counts cannot move without
 somebody editing this file.
 
+⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, MEASURED RATHER THAN GUESSED.** Of the
+85, **18 are rollback-registered**, and those are the ones where a second writer
+is a divergence rather than a design smell. Joining the writers' WRITE TARGETS
+narrows it again — fields or methods touched by two or more of a type's writer
+files:
+
+    AmbitionGameSave        14 writers  ->  data() / data_mut()
+    OwnedItems               4 writers  ->  grant()
+    QuestRegistry            6 writers  ->  push_event()
+    PendingLifecycleCommit   3 writers  ->  record()
+    SlotInteractionState     4 writers  ->  get_mut() / primary_mut()
+    ActiveConversation       2 writers  ->  close()
+    ClockState               2 writers  ->  time_scale
+    PossessionState          2 writers  ->  home
+    BaseGravity, RoomTransitionCooldown, VersusMatch  ->  nothing shared
+
+⚠ **AND THE OBVIOUS READING OF THAT TABLE IS WRONG.** *"They all go through one
+method, so it is one authority"* holds for `grant`, which clamps unique items —
+the policy is INSIDE the method. It does not hold for `data_mut()` or `get_mut()`,
+which hand out `&mut` to everything: that is fourteen authorities with one door.
+And it does not hold for a thin setter either: `close()` is `self.live = None`,
+so what makes `ActiveConversation` correct is that its two callers fire on
+DIFFERENT EVENTS and each has its own witness — which is the
+`CutRopeBossArenaState` test, not the accessor count.
+
 ⇒ **WHAT TO DO WHEN IT REDDENS**, in the census's own words: ask what READS the
 fact and whether an ambiguity in it can reach a DECISION; then poison one writer
 and run the test that should care. A green poison means nothing tests the fact OR
@@ -142,6 +167,28 @@ ADJUDICATED: dict[str, str] = {
         "`Update` and consumed with `std::mem::take` inside the sim schedule, so "
         "a dismiss press is lost across a rewind. Held by a failing-by-design "
         "witness."
+    ),
+    "ActiveConversation": (
+        "CORRECT — two END CONDITIONS, not two retractors of one event. "
+        "`break_dialogue_on_hit_or_separation` closes on knockback, separation "
+        "or a despawned participant; `close_conversation_on_narrative_end` "
+        "closes on a stamped `ConversationEnded` input whose instance matches. "
+        "POISON-VERIFIED 2026-09-17 in both directions: removing the first fails "
+        "`a_conversation_breaks_on_knockback_or_on_the_bodies_separating`, "
+        "removing the second fails three arms including "
+        "`a_rewind_past_the_end_replays_it_at_the_same_tick`. Neither hides the "
+        "other's absence, which is the `CutRopeBossArenaState` test."
+    ),
+    "PossessionState": (
+        "CORRECT — one protocol deliberately split across two systems, and the "
+        "source says so at the seam: `release_possession` clears `possessed` and "
+        "*\"`state.home` is deliberately NOT cleared here\"*, because the seat "
+        "still has to travel back; `project_driving_participant` clears `home` "
+        "once it has retracted the vacated seat and restored the home one. "
+        "POISON-VERIFIED 2026-09-17: deleting `state.home = None` from the "
+        "production half fails "
+        "`releasing_the_possession_returns_the_seat_to_the_body_that_owns_it` "
+        "and nothing else in 1,207 arms."
     ),
     "ClockState": (
         "CORRECT — three policies over one smoothed value, and the coupling is "

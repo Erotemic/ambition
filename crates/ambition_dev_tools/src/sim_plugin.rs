@@ -94,15 +94,7 @@ impl Plugin for DevToolsSimPlugin {
         // which tied admission to a primary player existing. See
         // `ActiveEditableAbilityMask`.
         app.init_resource::<crate::dev_tools::ActiveEditableAbilityMask>();
-        app.configure_sets(
-            bevy::app::PreUpdate,
-            (
-                ambition_platformer2d_core::MechanicalEditSet::Propose,
-                ambition_platformer2d_core::MechanicalEditSet::Admit,
-                ambition_platformer2d_core::MechanicalEditSet::Publish,
-            )
-                .chain(),
-        );
+        ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets(app);
         app.add_systems(
             bevy::app::PreUpdate,
             (

@@ -128,15 +128,7 @@ impl Plugin for PortalSimulationPlugin {
         app.init_resource::<crate::tuning::EditablePortalTuning>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
-        app.configure_sets(
-            bevy::app::PreUpdate,
-            (
-                ambition_platformer2d_core::MechanicalEditSet::Propose,
-                ambition_platformer2d_core::MechanicalEditSet::Admit,
-                ambition_platformer2d_core::MechanicalEditSet::Publish,
-            )
-                .chain(),
-        );
+        ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets(app);
         app.add_systems(
             bevy::app::PreUpdate,
             (

@@ -19,7 +19,19 @@ pub struct QuestRegistry {
     pub quests: BTreeMap<String, crate::quest::QuestState>,
     /// Pending advance events queued by the simulation half. Drained
     /// by `apply_quest_advance_events` each frame.
-    pub pending_events: Vec<crate::quest::QuestAdvanceEvent>,
+    ///
+    /// ⛤ **PRIVATE, SO THE APPEND-ONLY SPLIT IS THE COMPILER'S RULE AND NOT A
+    /// CONVENTION — 2026-09-18.** Five production systems in four crates queue
+    /// into this (`update_boss_encounters`, `drive_wave_encounters`,
+    /// `apply_wave_encounter_effects`, `apply_flag_effects`/`apply_quest_effects`,
+    /// `push_room_entered_quest_events`) and exactly one drains it
+    /// (`apply_quest_advance_events`, below). MEASURED before the change: every
+    /// one of those producers already reached only [`Self::push_event`] and the
+    /// field was touched outside this module in ONE place, a `#[cfg(test)]`
+    /// helper. ⇒ The discipline was already real; what it lacked was enforcement,
+    /// which is the difference between `ClassBRemapLog` (private `Vec`, adjudicated
+    /// enforced) and a `pub` field that happens to be used correctly.
+    pending_events: Vec<crate::quest::QuestAdvanceEvent>,
     pub initialized: bool,
 }
 
@@ -112,8 +124,15 @@ impl QuestRegistry {
         }
     }
 
+    /// QUEUE an advance event for the one drain. The only way in.
     pub fn push_event(&mut self, event: crate::quest::QuestAdvanceEvent) {
         self.pending_events.push(event);
+    }
+
+    /// What is queued and not yet drained — READ ONLY, for tests and probes
+    /// that need to see a producer fire without stepping the reducer.
+    pub fn pending_events(&self) -> &[crate::quest::QuestAdvanceEvent] {
+        &self.pending_events
     }
 
     pub fn quest_log_lines(&self) -> Vec<String> {

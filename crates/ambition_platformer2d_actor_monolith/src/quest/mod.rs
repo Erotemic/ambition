@@ -67,7 +67,7 @@ mod tests {
     fn room_entered_pushes(app: &mut App) -> usize {
         app.world()
             .resource::<QuestRegistry>()
-            .pending_events
+            .pending_events()
             .iter()
             .filter(|event| matches!(event, QuestAdvanceEvent::RoomEntered(_)))
             .count()

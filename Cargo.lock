@@ -635,7 +635,6 @@ dependencies = [
 name = "ambition_gameplay_trace"
 version = "0.1.0"
 dependencies = [
- "ambition_input",
  "ambition_platformer2d_core",
  "bevy",
  "serde",
@@ -659,7 +658,6 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_entity_catalog",
- "ambition_input",
  "ambition_items",
  "ambition_mount",
  "ambition_platformer2d_core",

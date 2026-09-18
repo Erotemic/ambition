@@ -29,5 +29,4 @@ bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"]
 
 [dev-dependencies]
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_input = { path = "../ambition_input" }
 ambition_sfx = { path = "../ambition_sfx" }

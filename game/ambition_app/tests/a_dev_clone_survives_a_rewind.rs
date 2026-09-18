@@ -37,61 +37,50 @@ use ambition_app::rl_sim::{
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
 use bevy::prelude::With;
 
+/// ⛔⛤ **THE ROLLBACK ARM'S SETTINGS HAVE ONE OWNER, AND THEY DID NOT.** This
+/// function used to build its own options with its own `(4, 10)` beside the
+/// shared fixture's copy of the same pair. Poisoning the shared pair therefore
+/// left this file running the old one: all three arms stayed GREEN, which reads
+/// as an insensitive witness and was really a poison that never applied.
+///
+/// ⚠ The settle is ZERO frames here, unlike most callers: two arms below need
+/// frame zero, before the primary carries a `SimId`.
 fn arena(rollback: bool) -> Platformer2dSimHarness {
-    let mut options =
-        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
     if rollback {
-        // The same settings every other rollback arm in this suite uses: a
-        // prediction window of 4 and a check distance of 10, so GGRS rewinds and
-        // resimulates on every update rather than occasionally.
-        options = options.with_sync_test_rollback_settings(4, 10);
+        return crate::common::maintainer_owned_rollback_sim(0);
     }
-    let mut sim =
-        Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds headlessly");
-    if rollback {
-        hand_the_timeline_to_the_local_maintainer(&mut sim);
-    }
-    sim
+    Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+    )
+    .expect("the sandbox builds headlessly")
 }
 
-/// Re-own the harness's sync-test session the way the SHIPPED GAME owns it.
+/// ⛔⛤ **ANTI-VACUITY, AND A POISON FOUND THAT IT WAS MISSING.** Inverting the
+/// shared fixture's `(check_distance, max_prediction_window)` leaves NO session
+/// installed — `maintain_local_session` records `Invalid Request: Check distance
+/// too big` and carries on — and every arm in this file stayed GREEN: with no
+/// timeline the admission is `NoTimeline`, the clone spawns, one clone is counted
+/// and `rollback_health()` on a world with no session reports fine. A rollback
+/// arm that passes when there is no rollback is measuring nothing.
 ///
-/// ⛔⛔ **WITHOUT THIS THE ROLLBACK ARM MEASURES THE FIXTURE, AND IT DID.** The
-/// first run of this file reported 0 clones under rollback and 1 under fixed
-/// tick, which reads exactly like the defect. It was not: the diagnostic printed
-/// `boundary=ForeignTimeline admission=Refuse` on every tick, forever.
-/// `with_sync_test_rollback_settings` installs the session through
-/// `start_sync_test_session`, which stamps `SyncTestOwner::Caller`, and
-/// `locally_rebasable_timeline` answers only for `SyncTestOwner::
-/// LocalMaintainer` — so a mechanical edit is REFUSED, correctly, because a
-/// harness that installed its own timeline did not ask for it to be rebased.
-///
-/// ⇒ The shipped game does not run that way: `LocalSessionPolicy` is armed (the
-/// rollback observatory does it) and `maintain_local_session` installs the
-/// session as `LocalMaintainer`. Measured 2026-09-18: NO test in this workspace
-/// touched `LocalSessionPolicy`, so no arm anywhere exercised the ownership mode
-/// the game actually uses — every rollback test was on the refusing side of the
-/// admission road without saying so.
-///
-/// ⚠ It stops the caller-owned session first and then lets the maintainer build
-/// its own, rather than editing the ownership resource: the owner stamp and the
-/// installed session are one fact, and writing half of it is how a fixture comes
-/// to describe a world that cannot exist.
-fn hand_the_timeline_to_the_local_maintainer(sim: &mut Platformer2dSimHarness) {
-    use ambition_platformer2d::rollback::local_session::LocalSessionPolicy;
-
-    let world = sim.world_mut();
-    ambition_platformer2d::rollback::stop_session(world);
-    // ⚠ THE ORDER IS `(check_distance, max_prediction_window)` AND GGRS REQUIRES
-    // THE FIRST TO BE SMALLER. Inverting them does not fail loudly here — the
-    // maintainer catches `Invalid Request: Check distance too big`, records it in
-    // `LocalSessionOwnership::last_error` and carries on with NO session, so the
-    // arm silently becomes a no-rollback arm that passes.
-    world.insert_resource(LocalSessionPolicy {
-        check_distance: 4,
-        max_prediction_window: 10,
-        autostart: true,
-    });
+/// ⇒ So the arms ASK, rather than assuming the fixture worked. `LocallyRebasable`
+/// is the specific answer they need: `NoTimeline` means no session, and
+/// `ForeignTimeline` means the session is there but this host may not rebase it,
+/// which is the caller-owned mode the first draft of this file measured by
+/// accident.
+fn assert_the_timeline_is_ours(sim: &mut Platformer2dSimHarness, when: &str) {
+    let boundary = format!(
+        "{:?}",
+        ambition_platformer2d::rollback::mechanical_mutation_boundary(sim.world())
+    );
+    assert_eq!(
+        boundary, "LocallyRebasable",
+        "{when}: this arm needs a live timeline THIS host owns and the \
+         boundary reports `{boundary}`. `NoTimeline` means no session is \
+         installed — either the settings order was inverted, or this is being \
+         asked before the first step installs one; `ForeignTimeline` means the \
+         session is caller-owned and every mechanical edit is refused"
+    );
 }
 
 fn clones(sim: &mut Platformer2dSimHarness) -> usize {
@@ -120,6 +109,7 @@ fn clones_after_asking_from_outside(rollback: bool) -> usize {
     // to do with the rewind this arm is about, and the failure message would send
     // the next reader after the wrong defect.
     if rollback {
+        assert_the_timeline_is_ours(&mut sim, "before the press");
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("the baseline was not healthy when the press landed: {error}"));
     }
@@ -185,7 +175,11 @@ fn a_clone_asked_for_outside_the_simulation_is_not_lost_to_a_rewind() {
 fn a_press_the_spawn_cannot_honour_yet_is_kept_rather_than_consumed() {
     let mut sim = arena(true);
     // Deliberately BEFORE settling: frame zero, when the primary may not yet
-    // carry the `SimId` the clone descends from.
+    // carry the `SimId` the clone descends from. ⚠ There is no timeline yet
+    // either — `maintain_local_session` installs GGRS on the first step, once
+    // gameplay is active — so this press is raised into a `NoTimeline` world and
+    // the anti-vacuity question is asked after the run instead, about the 120
+    // steps that actually did the measuring.
     sim.world_mut().resource_mut::<SpawnPlayerCloneRequest>().0 = true;
     assert!(
         sim.world().resource::<SpawnPlayerCloneRequest>().0,
@@ -195,6 +189,7 @@ fn a_press_the_spawn_cannot_honour_yet_is_kept_rather_than_consumed() {
     for _ in 0..120 {
         sim.step(AgentAction::default());
     }
+    assert_the_timeline_is_ours(&mut sim, "after the run this arm measures");
     sim.rollback_health()
         .unwrap_or_else(|error| panic!("the timeline this arm measures is not healthy: {error}"));
     let count = clones(&mut sim);
@@ -224,6 +219,11 @@ fn the_maintainer_owned_timeline_is_healthy_with_no_press() {
     let mut sim = arena(true);
     for step in 0..120 {
         sim.step(AgentAction::default());
+        if step == 0 {
+            // The first step is what installs the session, so this is the
+            // earliest moment the question has an answer.
+            assert_the_timeline_is_ours(&mut sim, "once the first step had run");
+        }
         sim.rollback_health().unwrap_or_else(|error| {
             panic!(
                 "a maintainer-owned timeline desynced at step {step} with no clone press \

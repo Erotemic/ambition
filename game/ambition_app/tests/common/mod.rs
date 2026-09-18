@@ -336,3 +336,64 @@ pub fn orphan_character_pages(app: &bevy::prelude::App) -> Vec<String> {
         .filter(|path| !owned.contains(path))
         .collect()
 }
+
+/// A sync-test rollback sim owned the way the SHIPPED GAME owns it.
+///
+/// ⛔⛔ **THE DEFAULT ROLLBACK FIXTURE IS NOT THE SHIPPED OWNERSHIP MODE, AND
+/// UNTIL 2026-09-18 NOTHING IN THIS WORKSPACE EXERCISED THE ONE THAT IS.**
+/// `with_sync_test_rollback_settings` installs the session through
+/// `start_sync_test_session`, which stamps `SyncTestOwner::Caller`;
+/// `locally_rebasable_timeline` answers only for `SyncTestOwner::LocalMaintainer`.
+/// So on the ordinary fixture `mechanical_mutation_boundary` reports
+/// `ForeignTimeline` and `decide_mechanical_edit_admission` REFUSES every
+/// developer edit — correctly, because a harness that installed its own timeline
+/// did not ask for it to be rebased. The shipped game arms `LocalSessionPolicy`
+/// (the rollback observatory does it) and `maintain_local_session` installs the
+/// session as `LocalMaintainer`, where the same edit is ADMITTED and the baseline
+/// is stood down and rebased.
+///
+/// ⇒ Measured when this was written: `LocalSessionPolicy` appeared NOWHERE in
+/// `game/ambition_app/tests/` or `crates/ambition_sim_harness/src/`, so every
+/// rollback arm in the suite sat on the refusing side of the admission road
+/// without saying so. Reach for this whenever an arm's subject involves a
+/// mechanical edit, a session rebase, or anything that asks whether this host may
+/// stop its own timeline.
+///
+/// ⚠ **IT STOPS THE CALLER-OWNED SESSION AND LETS THE MAINTAINER BUILD ITS OWN**,
+/// rather than editing `RollbackSessionOwnership` in place: the owner stamp and
+/// the installed session are ONE FACT, and writing half of it is how a fixture
+/// comes to describe a world that cannot exist.
+pub fn hand_the_timeline_to_the_local_maintainer(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::rollback::local_session::LocalSessionPolicy;
+
+    let world = sim.world_mut();
+    ambition_platformer2d::rollback::stop_session(world);
+    // ⚠ THE ORDER IS `(check_distance, max_prediction_window)` AND GGRS REQUIRES
+    // THE FIRST TO BE SMALLER — the same 4 and 10 every rollback arm here uses.
+    // Inverting them does not fail loudly: `maintain_local_session` catches
+    // `Invalid Request: Check distance too big`, records it in
+    // `LocalSessionOwnership::last_error` and carries on with NO session, so the
+    // arm silently becomes a no-rollback arm that PASSES.
+    world.insert_resource(LocalSessionPolicy {
+        check_distance: 4,
+        max_prediction_window: 10,
+        autostart: true,
+    });
+}
+
+/// A rollback sim whose timeline this host owns, settled for `frames`.
+///
+/// The settle matters: `maintain_local_session` starts GGRS only once gameplay is
+/// active (`session_world_entity(world).is_some()`), so a fixture that asserts
+/// immediately after construction is asserting about a world with no timeline.
+pub fn maintainer_owned_rollback_sim(frames: usize) -> Platformer2dSimHarness {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_options().with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the sandbox builds headlessly under a sync-test session");
+    hand_the_timeline_to_the_local_maintainer(&mut sim);
+    for _ in 0..frames {
+        sim.step(base());
+    }
+    sim
+}

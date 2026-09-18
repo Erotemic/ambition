@@ -316,6 +316,126 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "KaleidoscopeScroll": (
+        "CORRECT — AN OVERRIDE AND ITS RELEASE, one field, one backend. The type "
+        "is `system_window_start: Option<usize>` and its doc states the contract: "
+        "*\"explicit System scroll-window start, or `None` to follow the "
+        "cursor\"*. The pointer road SETS the override — `kaleidoscope_scroll_wheel` "
+        "and `kaleidoscope_apply_scroll_drag` "
+        "(`ambition_app/src/menu/kaleidoscope_app/scroll.rs`) — and the keyboard "
+        "road RELEASES it: `kaleidoscope_focus_nav` "
+        "(`ambition_app/src/menu/kaleidoscope_app.rs`) assigns "
+        "`scroll.system_window_start = None` when `dx != 0 || dy != 0 || "
+        "menu.select`, so *\"the window snaps to follow the cursor again\"*. "
+        "⇒ `None` is not a competing value, it is the absence of one; whichever "
+        "input last acted owns the window, which is the arbitration this field "
+        "exists to express. ⛔ All three are cube-only AND each re-checks "
+        "`backend.effective() == LunexKaleidoscope` in its own body on top of its "
+        "`run_if` — a double gate that is the house style for this backend's "
+        "writers, and the reason a missing one stands out."
+    ),
+    # ── two SURFACES, one SETTING ────────────────────────────────────────────
+    #
+    # ⭐ THE ARGUMENT IS ONLY SAFE WHILE NOTHING DERIVES THE VALUE. A control is
+    # not an authority because it writes what a human asked for and nothing
+    # recomputes it; add one system that DERIVES either of these and the second
+    # surface becomes a fight, not a duplicate. The census staying at exactly
+    # these two files is what keeps that true, which is why the verdicts name the
+    # files rather than only the systems.
+    "PortalEffectSelection": (
+        "CORRECT — TWO DEVELOPER SURFACES, ONE SETTING, NO DERIVATION. The type "
+        "is one field (`active: PortalVisualEffect`) and its own doc says who "
+        "moves it: *\"the host's developer menu cycles it\"*. Surface one is the "
+        "egui portal inspector's `effects_section` "
+        "(`ambition_app/src/dev/portal_inspector.rs`), which hands "
+        "`&mut selection.active` to a row widget; surface two is the cube system "
+        "menu, which reaches it through the `SystemMenuParams` bundle "
+        "(`ambition_app/src/menu/kaleidoscope_app.rs`). ⇒ Both write what a human "
+        "asked for, neither derives the value from anything, and a human drives "
+        "one surface at a time. ⛔ Both are `#[cfg(feature = \"portal_render\")]` "
+        "and the inspector prints `missing_resource` rather than inserting a "
+        "default when the resource is absent — a surface that INSERTED one would "
+        "be a third opinion about the initial value."
+    ),
+    "PortalCameraContinuitySelection": (
+        "CORRECT — the same pair, the same argument, and the same one-field "
+        "shape as `PortalEffectSelection`: `camera_continuity_section` "
+        "(`ambition_app/src/dev/portal_inspector.rs`) and the `SystemMenuParams` "
+        "bundle (`ambition_app/src/menu/kaleidoscope_app.rs`) each offer "
+        "`selection.mode` to a human. Written as its own row rather than folded "
+        "into its neighbour because the two resources' writer FILES agreeing "
+        "today is a measurement, not a shared definition."
+    ),
+    "MobileTouchState": (
+        "CORRECT — ONE PRODUCTION ROAD, AND THE SECOND FILE IS A TRAIT'S MOCK "
+        "SEAM RATHER THAN A SYSTEM. ⛔ THE CENSUS NAMES FUNCTIONS, AND FOUR OF "
+        "THESE SIX ARE NOT SYSTEMS AT ALL: `press`, `release`, `set_axis_pair` "
+        "and `set_touch_button` (`ambition_touch_input/src/virtual_device.rs`) "
+        "are `leafwing_input_manager` trait impls taking `&mut World`, and the "
+        "trait requires them — `Buttonlike` and `DualAxislike` each demand a "
+        "setter so an input kind can be simulated. Their own docs say which road "
+        "they are: *\"Test/mocking seam: press the underlying touch state "
+        "directly\"*. `set_touch_button` is a private free function with exactly "
+        "two callers, both of them those impls.\n"
+        "    ⇒ The production writers are the two systems in "
+        "`ambition_touch_input/src/bevy_plugin.rs`: "
+        "`update_buttons_from_interactions` (the overlay's `Interaction`s and "
+        "raw touches) and `read_joystick_messages` (the stick's messages). And "
+        "the module doc states the architecture this resource exists to keep: "
+        "touch resolves through the participant's `InputMap` *\"exactly like a "
+        "keyboard or gamepad — never as a second system writing gameplay/menu "
+        "resources directly\"*. ⚠ A mock seam IS a second writer in any world "
+        "that calls it; what makes this a verdict rather than a hope is that its "
+        "callers are leafwing's simulation entry points, not this repo's "
+        "systems."
+    ),
+    "FallingSandRoomState": (
+        "CORRECT — ONE ROOM-CHANGE BOUNDARY PLUS THREE PER-FIELD OWNERS, read "
+        "field by field rather than system by system, because the struct has "
+        "five fields and the file-granular count says nothing about which. "
+        "`sync_falling_sand_room_state` (`ambition_content/src/falling_sand_sim.rs`) "
+        "is the boundary: on a change of active room id it writes "
+        "`last_room_id`, `active_room`, clears `seeded_boundaries` and RE-DERIVES "
+        "`spouts` — `FallingSandSpoutState::from_save(save.data())` on entry, "
+        "`default()` otherwise. The three others each own one field: "
+        "`seed_falling_sand_room_boundaries` "
+        "(`ambition_content/src/falling_sand.rs`) sets `seeded_boundaries` once "
+        "and is guarded by it, `grant_room_swim_controls` owns `swim_snapshot`, "
+        "and `capture_falling_sand_switch_interactions` owns `spouts` through "
+        "`state.spouts.toggle(..)`. ⇒ The only field two systems write is "
+        "`seeded_boundaries`, and they write it as a SET and a CLEAR, which is a "
+        "latch and its boundary.\n"
+        "    ⛔ AND THE REAL SECOND AUTHORITY IS NOT IN THIS RESOURCE, WHICH IS "
+        "WHY THE CENSUS COULD NOT SEE IT. `spouts` mirrors a DURABLE fact: the "
+        "toggle writes `save.data_mut().set_switch(&id, on)` on every activation, "
+        "and the boundary reads it back with `from_save` on the next entry. The "
+        "system's own comment says why the mirror exists — *\"without this write "
+        "the save's switch flag stays whatever the encounter pipeline set it to "
+        "(which is 'true on first activation' only when the switch's `action` is "
+        "`ResetEncounter`)\"* — so the save's switch flag has TWO writers, one of "
+        "which exists to compensate for the other's conditionality. That is a "
+        "duplicate authority over `AmbitionGameSave`, not over this resource, and "
+        "it is what a falling-sand spout fixture would settle."
+    ),
+    "YarnPresentationCue": (
+        "CORRECT ABOUT THE VALUE, AND IT NAMES WHAT IT DOES NOT COVER. Two "
+        "writers, one per role: `on_present_line` (`ambition_dialog/src/bridge.rs`) "
+        "sets `cue.shout` / `cue.whisper` from the line's markup, and "
+        "`clear_yarn_presentation_cue` (`ambition_dialog/src/bindings.rs`) is "
+        "three lines that assign `false` to both. The clear is a FRAME BOUNDARY, "
+        "not a second opinion — its own doc says *\"reset markup cues before the "
+        "bridge writes cues for the current frame\"* — and the repo publishes it "
+        "as an ordering seam, `YarnPresentationCueCleared`, which "
+        "`refresh_yarn_state_mirror` (`ambition_content/src/plugin.rs`) is "
+        "registered `.after(..)`.\n"
+        "    ⚠ WHAT THIS VERDICT DOES NOT SETTLE, stated so the next reader does "
+        "not assume it did: `on_present_line` is an OBSERVER "
+        "(`app.add_observer`), so it carries no set and nothing orders it against "
+        "the clear. The seam above orders a CONSUMER after the clear; the "
+        "PRODUCER's position in the frame is whatever triggers the line event. "
+        "⇒ One owner of the value, and an open question about the moment — which "
+        "is a different row from this one."
+    ),
     # ── the smash select screen: ONE DRIVER, ONE ARRIVAL RESET ───────────────
     #
     # ⭐ THE FOUR BELOW SHARE ONE ARGUMENT AND ARE WRITTEN OUT FOUR TIMES ON

@@ -617,17 +617,27 @@ pub fn session_world_component_mut<T: Component<Mutability = Mutable>>(
 /// it. An instrument that cannot see the real writer makes a reader pretend to
 /// be one. ⇒ Naming the road is what let that pretence be removed.
 ///
-/// ⚠ The debug assertion is the invariant, not decoration: a target that is not
-/// a [`SessionRoot`] means the resolution upstream went wrong, and writing
-/// world-defining state onto some other entity would publish into nowhere while
-/// reporting success.
+/// ⛔⛤ **THE ASSERTION IS THE INVARIANT, NOT DECORATION — AND IT WAS A
+/// `debug_assert!` UNTIL 2026-09-18, WHICH MADE THOSE TWO SENTENCES
+/// CONTRADICT EACH OTHER.** Review finding: an invariant a release build does
+/// not check is not an invariant, and this one guards a PUBLICATION BOUNDARY. A
+/// target that is not a [`SessionRoot`] means the resolution upstream went
+/// wrong, and in release the write would land on whatever entity was named —
+/// publishing world-defining state into nowhere while reporting success.
+///
+/// ⚠ There is no performance argument for the debug-only form here: this runs
+/// once per published component per publication, not per body per frame, and
+/// the check is one `get`. ⇒ It is a plain `assert!`, and reaching it is a
+/// crash rather than a silent wrong-entity write.
 pub fn session_world_component_mut_at<T: Component<Mutability = Mutable>>(
     world: &mut World,
     root: Entity,
 ) -> Option<Mut<'_, T>> {
-    debug_assert!(
+    assert!(
         world.get::<SessionRoot>(root).is_some(),
-        "session-world state was written onto {root:?}, which carries no `SessionRoot`"
+        "session-world state was written onto {root:?}, which carries no `SessionRoot`. \
+         The publication resolved a target that is not a session root, so this write \
+         would land on an unrelated entity and report success"
     );
     world.get_mut::<T>(root)
 }

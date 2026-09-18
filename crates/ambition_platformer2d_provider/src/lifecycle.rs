@@ -2495,6 +2495,137 @@ mod tests {
     use super::*;
     use crate::authoring::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 
+    /// ⛔⛔ **THE FUNCTION THAT DECIDES WHETHER A PLAYING SESSION IS RETIRED,
+    /// AND IT HAD NO ARM AT ALL.** Measured 2026-09-18: `candidate_session_gate`
+    /// has four verdict paths and nothing in the tree exercised any of them. The
+    /// two `Refuse` arms are the session-scope last-good-world guarantee — *"the
+    /// session that is playing right now was not retired, because the retirement
+    /// is an effect of an activation that is not going to happen"* — and both
+    /// were reasoned into existence on 2026-09-15 rather than witnessed.
+    ///
+    /// ⭐ **THE EMPTY-SLOT ARM USED TO ANSWER `Admit`**, on the reasoning that
+    /// holding forever would wedge a route this provider does not own. It owns
+    /// every route it is asked about: the evaluator is registered ONLY against
+    /// `candidate_session_hold(activation_id)`, a hold this provider created
+    /// beside its own candidate. Flipping it back to `Admit` is a one-word edit
+    /// that retires a live session for a world nobody built, and until now it was
+    /// a one-word edit nothing caught.
+    ///
+    /// ⚠ **`Hold` IS THE CONTROL, not a fourth case bolted on.** Without it,
+    /// "refuses when unpublished" is satisfied by a gate that refuses ALWAYS —
+    /// which would wedge every route in the game and still pass the two `Refuse`
+    /// assertions.
+    #[test]
+    fn the_candidate_gate_refuses_rather_than_retiring_a_playing_session() {
+        use ambition_game_shell::{
+            ReservedGameplayScopes, ShellActivationId, ShellActivationGates, ShellGateVerdict,
+            ShellRouteHolds, ShellRouteId,
+        };
+        use ambition_platformer2d_actor_monolith::rooms::{PublicationHandle, PublicationVerdict};
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+        const ACTIVATION: ShellActivationId = ShellActivationId(7);
+
+        /// A world holding one prepared candidate whose first room's receipt is
+        /// `verdict`, with the route HELD and the scope RESERVED exactly as
+        /// `prepare_candidate_platformer_session` leaves them.
+        fn world_with_a_candidate(verdict: Option<bool>) -> (bevy::prelude::World, ShellRouteId) {
+            let mut world = bevy::prelude::World::new();
+            let route = ShellRouteId::new("gated");
+            let publication = PublicationHandle(world.spawn_empty().id());
+            if let Some(published) = verdict {
+                world
+                    .entity_mut(publication.0)
+                    .insert(PublicationVerdict { published });
+            }
+            let root = world.spawn_empty().id();
+
+            let mut reserved = ReservedGameplayScopes::default();
+            reserved.reserve(ACTIVATION, SessionScopeId(1));
+            world.insert_resource(reserved);
+            let mut holds = ShellRouteHolds::default();
+            holds.hold(route.clone(), candidate_session_hold(ACTIVATION));
+            world.insert_resource(holds);
+            world.insert_resource(ShellActivationGates::default());
+
+            world.insert_resource(CandidateSessionSlot(Some(PreparedCandidateSession {
+                scope: SessionScopeId(1),
+                root,
+                activation_id: ACTIVATION,
+                experience: "gated_experience".into(),
+                publication,
+                route: route.clone(),
+                horizon: Default::default(),
+                mechanics: Default::default(),
+                moving_platforms: Default::default(),
+            })));
+            (world, route)
+        }
+
+        // ── 1. NO CANDIDATE. The arm that used to say `Admit`.
+        let mut empty = bevy::prelude::World::new();
+        empty.insert_resource(CandidateSessionSlot(None));
+        assert_eq!(
+            candidate_session_gate(&mut empty),
+            ShellGateVerdict::Refuse,
+            "an activation this provider is HOLDING has no prepared candidate, and the \
+             gate admitted it. The route activates, the shell retires the session that \
+             is playing, and nothing was ever built to replace it",
+        );
+
+        // ── 2. THE CONTROL: in flight. A gate that refuses everything passes
+        //       arms 1 and 4 and wedges every route in the game.
+        let (mut in_flight, _) = world_with_a_candidate(None);
+        assert_eq!(
+            candidate_session_gate(&mut in_flight),
+            ShellGateVerdict::Hold,
+            "the first room's transaction has not closed and the gate gave a final \
+             answer. `Hold` is what lets it be asked again next frame",
+        );
+        assert!(
+            in_flight.resource::<CandidateSessionSlot>().0.is_some(),
+            "a `Hold` consumed the candidate it is still waiting on",
+        );
+
+        // ── 3. THE POSITIVE CONTROL: published.
+        let (mut good, _) = world_with_a_candidate(Some(true));
+        assert_eq!(
+            candidate_session_gate(&mut good),
+            ShellGateVerdict::Admit,
+            "the first room published and the gate refused it anyway, so no verified \
+             candidate could ever activate",
+        );
+
+        // ── 4. REFUSED, AND EVERY RESERVATION RELEASED WITH IT.
+        let (mut refused, route) = world_with_a_candidate(Some(false));
+        assert_eq!(
+            candidate_session_gate(&mut refused),
+            ShellGateVerdict::Refuse,
+            "the first room FAILED to publish and the gate admitted it: the shell \
+             retires the playing session for a world that did not build",
+        );
+        // ⛔ REVIEW FINDING 3, 2026-09-15: this exit used to release neither the
+        // reserved SCOPE nor the route HOLD, and the reservation leaked
+        // permanently — the route never activates, so nothing calls `take`.
+        assert!(
+            refused.resource::<CandidateSessionSlot>().0.is_none(),
+            "the refused candidate is still in the slot",
+        );
+        assert!(
+            !refused.resource::<ShellRouteHolds>().is_held(&route),
+            "the route is still HELD by a candidate that will never activate, so it \
+             is wedged forever rather than free to be asked again",
+        );
+        assert!(
+            refused
+                .resource_mut::<ReservedGameplayScopes>()
+                .take(ACTIVATION)
+                .is_none(),
+            "the reserved session scope outlived the candidate that reserved it; \
+             nothing calls `take` for a route that never activates, so it leaks",
+        );
+    }
+
     fn active(line: &str) -> ambition_platformer2d_runtime::SelectedContentIdentity {
         ambition_platformer2d_runtime::SelectedContentIdentity(line.to_string())
     }

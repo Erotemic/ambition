@@ -234,7 +234,34 @@ def test_the_two_tables_never_name_the_same_system():
 #: component half made the waiver live again. ⇒ Keep the mechanism: an empty dict
 #: here still asserts something, because a newly stale waiver reddens the arm
 #: below.
-BLIND_SPOT_NOT_CLEAN_BILL: dict[str, tuple[str, str]] = {}
+BLIND_SPOT_NOT_CLEAN_BILL: dict[str, tuple[str, str]] = {
+    "handle_ldtk_hot_reload": (
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "⛔⛤ THE SCANNER LOST IT, THE TREE DID NOT — and the thing that hid it "
+        "was an honest repair. Until 2026-09-18 this system carried "
+        "`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on "
+        "two parameters it only READS, kept mutable so a session-world writer "
+        "census would not undercount. Demoting them to `SessionWorldRef` was "
+        "right, and it took the system out of THIS guard's signature-keyed "
+        "population in the same stroke: the write it still causes happens in a "
+        "staged closure inside `reload_ldtk_world_from_disk`, which the "
+        "exclusive-world spelling added the same day DOES see "
+        "(`LdtkRuntimeIndex`, `RoomTransitionCooldown`) — but that function is a "
+        "HELPER, and `collect` attributes a schedule by finding a name inside an "
+        "`add_systems` body.\n"
+        "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "
+        "the scan went quiet is the exact move this table exists to refuse: the "
+        "next system to take this name would inherit an argument nobody re-read.\n"
+        "    ⇒ THE INSTRUMENT THAT WOULD CLOSE IT IS NAMED AND MEASURED: one hop "
+        "of caller attribution — a registered system inherits what the helpers it "
+        "calls mutate. MEASURED 2026-09-18 by bare-name matching: 19 pairs, of "
+        "which 8 are already banked or waived (this one among them) and 11 are "
+        "FALSE, because the helpers are called `tick`, `apply` and `install` and a "
+        "`\\bname\\s*\\(` search cannot tell `adopt_the_ledger(world)` from "
+        "`self.timer.tick(dt)`. ⛔ So the hop needs real call resolution, not a "
+        "name match — which is why it is not in this commit."
+    ),
+}
 
 
 def test_every_waiver_cites_the_code_that_makes_it_true():
@@ -470,3 +497,112 @@ def test_a_whole_file_compiled_out_is_not_production(tmp_path, monkeypatch) -> N
     assert "fixture_writer" not in names, (
         "a file compiled out by `#![cfg(test)]` cannot hold a production registration"
     )
+
+
+def test_an_exclusive_world_write_is_not_hidden_by_an_empty_signature(
+    tmp_path, monkeypatch
+) -> None:
+    """⛔⛤ THE FIFTH SPELLING. An exclusive-world system's signature is
+    `fn f(world: &mut World)`: `_MUTABLE_PARAM_TYPE` matches it and extracts
+    `World`, which is not registered, so the scan moved on and every write in
+    the BODY was invisible. Measured 2026-09-18 on the real tree: nine functions
+    reach a registered type this way, seven of them unseen — including
+    `MovingPlatformSet`, which this guard's own docstring records as the ENTIRE
+    population it could see before 2026-09-02 and which the `SystemParam` hole
+    had already hidden once.
+
+    ⚠ The `World` test in the scanner is a NARROWING, not the subject: without
+    it every helper's body would be read, and a `&mut T` parameter is already
+    covered by the signature pass.
+    """
+    crate = tmp_path / "crates" / "demo" / "src"
+    crate.mkdir(parents=True)
+    (crate / "lib.rs").write_text(
+        """
+        registrar.rollback_resource_canonical::<MovingPlatformSet>(OWNER, "x");
+
+        pub fn commit_it(world: &mut World) {
+            if let Some(mut set) = world.get_resource_mut::<MovingPlatformSet>() {
+                set.0.clear();
+            }
+        }
+
+        app.add_systems(PreUpdate, commit_it);
+        """
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    for cached in (
+        guard.rollback_types,
+        guard.mutating_systems,
+        guard.system_param_mutables,
+        guard._production_sources,
+    ):
+        cached.cache_clear()
+
+    assert guard.mutating_systems(tmp_path)["commit_it"] == ["MovingPlatformSet"]
+    assert [(n, s, t) for n, _f, s, t in guard.collect(tmp_path)] == [
+        ("commit_it", "PreUpdate", ["MovingPlatformSet"])
+    ]
+
+
+def test_the_exclusive_world_spelling_would_be_missed_without_the_body_read(
+    tmp_path, monkeypatch
+) -> None:
+    """⭐ THE POISON, and it is pointed at the SPELLING rather than at the count.
+
+    `POPULATION_FLOOR` catches a collapse; it cannot catch this, and saying so
+    is the point. The exclusive-world widening moved the real tree by SEVEN
+    systems out of 523 — well inside any floor anybody would set — so the floor
+    is not what holds this spelling. This arm is. Break
+    `_EXCLUSIVE_WORLD_WRITE` and the subject below goes quiet while every other
+    number in this file stays exactly where it was.
+    """
+    crate = tmp_path / "crates" / "demo" / "src"
+    crate.mkdir(parents=True)
+    (crate / "lib.rs").write_text(
+        """
+        registrar.rollback_resource_canonical::<MovingPlatformSet>(OWNER, "x");
+
+        pub fn commit_it(world: &mut World) {
+            world.resource_mut::<MovingPlatformSet>().0.clear();
+        }
+
+        app.add_systems(PreUpdate, commit_it);
+        """
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    import re as _re
+
+    monkeypatch.setattr(
+        guard, "_EXCLUSIVE_WORLD_WRITE", _re.compile(r"(a)(b)(?!x)(?<!y)\bzzz_no_such_write\b")
+    )
+    for cached in (
+        guard.rollback_types,
+        guard.mutating_systems,
+        guard.system_param_mutables,
+        guard._production_sources,
+    ):
+        cached.cache_clear()
+
+    assert "commit_it" not in guard.mutating_systems(tmp_path), (
+        "the body read is not what finds this write, so the arm above proves "
+        "nothing about the fifth spelling"
+    )
+
+
+def test_the_session_world_helper_spellings_are_both_read() -> None:
+    """Both session-world roads, and the `_at` one is not optional.
+
+    `session_world_component_mut` asks *"which root is LIVE"*;
+    `session_world_component_mut_at` takes the root the caller resolved, and the
+    room publication moved onto it in September 2026. A pattern that read only
+    the first would have gone blind on the authoritative writer the week it was
+    introduced — which is exactly what happened to the multi-writer census.
+    """
+    matches = guard._EXCLUSIVE_WORLD_WRITE.findall(
+        "session_world_component_mut::<RoomSet>(world); "
+        "session_world_component_mut_at::<world::rooms::RoomGeometry>(world, root); "
+        "world.get_mut::<LdtkRuntimeIndex>(root);"
+    )
+    found = {a or b for a, b in matches}
+    assert found == {"RoomSet", "RoomGeometry", "LdtkRuntimeIndex"}, found

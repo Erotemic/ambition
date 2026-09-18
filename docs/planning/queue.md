@@ -961,8 +961,11 @@ guard exits 0 again as of `c1ffa812d`. What is open is the `Transform` blind
 spot; the two findings that owed an argument have it (the ✅ block below).
 ⚠ What `--list` prints today, 2026-09-18, so the widening's number is not read
 off this page a month from now: **342 rollback types** (floor 300), **60 system
-param bundles** (floor 55), **518 systems** taking one mutably. The 338 above is
-the widening's own reference point and is left as history.
+param bundles** (floor 55), **523 systems** taking one mutably (floor 470, added
+the same day — see the fifth-spelling block below for why that third floor was
+missing). The 338 above is the widening's own reference point and is left as
+history; the systems count read 518 earlier on 2026-09-18 and 516 immediately
+before the exclusive-world spelling landed.
 
 ⛔ **THE EXIT CODE MEANS "NO NEW OFFENDER", NOT "CLEAN" — read this before
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
@@ -1042,8 +1045,62 @@ wrapper component the render layer lowers) against where each one puts the cost.
 last one blind to `MovingPlatformSet`, the single type the guard was originally
 written around, because a bundle is one identifier in a signature and a struct
 field cannot elide the lifetime the pattern required. Each time the report got
-SHORTER and CLEANER, which reads as good news. A fifth spelling cannot announce
-itself, but it cannot avoid making the count fall.
+SHORTER and CLEANER, which reads as good news.
+
+⛔⛤ **THE FIFTH SPELLING ARRIVED 2026-09-18, AND THE PARAGRAPH ABOVE PREDICTED
+ITS SHAPE WITHOUT PREDICTING ITS SITE.** Everything in that list reads a
+SIGNATURE. An exclusive-world system's signature is `fn f(world: &mut World)`:
+the pattern matches it, extracts the type `World`, finds it unregistered and
+moves on — so every write in the BODY, through `world.resource_mut::<T>()`,
+`world.get_mut::<T>(entity)` or the session-world helpers, was invisible. **An
+exclusive-world system is what a COMMIT EXECUTOR is**, so the writes this hid are
+the destructive ones.
+
+MEASURED before the widening: NINE functions reach a registered type that way and
+SEVEN were unseen. **`MovingPlatformSet` is among them, for the second time** —
+`apply_world_replacement` writes it through an exclusive world. A type that keeps
+disappearing is a fact about how many ways a write can be spelled, not about that
+type. Population 516 → 523 systems; one new finding,
+`commit_confirmed_lifecycle` in `PreUpdate` writing the rollback-registered
+`PendingLifecycleCommit`, now WAIVED on a two-part structural argument (the
+intent is only taken for a CONFIRMED frame, and the same call installs a newly
+built GGRS session, dropping the old ring so no pre-commit frame is restorable).
+
+⭐ **AND THE COUNT THIS ROW KEPT APPEALING TO WAS FLOORED BY NOTHING.** "A fifth
+spelling cannot avoid making the count fall" — the count it moves is the MUTATING
+SYSTEMS count, which `--list` printed and `POPULATION_FLOOR` did not check. It
+does now (floor 470 against 523), so the argument this row has been making in
+prose is finally an assertion.
+
+⚠ **BUT THE FLOOR IS NOT WHAT HOLDS THE SPELLING, AND SAYING SO IS THE POINT.**
+The widening moved the real tree by SEVEN systems out of 523 — inside any floor
+anybody would set. `test_an_exclusive_world_write_is_not_hidden_by_an_empty_signature`
+and its poison are what hold it; the floor catches a COLLAPSE. The same reading
+that closed the presence-filter guard's `game/*` hole the same day: a floor
+defends against a broken instrument, never against one pointed at part of the
+tree.
+
+⛔⛤ **ONE WAIVER WENT QUIET BECAUSE A DIFFERENT REPAIR WAS CORRECT, AND IT IS
+BANKED RATHER THAN DELETED.** `handle_ldtk_hot_reload` held
+`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on parameters
+it only READS — kept mutable so a session-world writer census would not
+undercount, which was a program bent to keep an instrument's number up. Demoting
+them was right and took the system out of THIS guard's signature-keyed population
+in the same stroke. The write it still causes is in a staged closure inside
+`reload_ldtk_world_from_disk`, which the new spelling DOES see — but that is a
+HELPER, and `collect` attributes a schedule by finding a name inside an
+`add_systems` body. ⇒ Recorded in `BLIND_SPOT_NOT_CLEAN_BILL`, because a waiver
+deleted for going quiet would cover the next system to take the name.
+
+⇒ **THE NEXT INSTRUMENT IS NAMED AND ITS COST IS MEASURED, WHICH IS WHY IT IS NOT
+HERE YET.** One hop of caller attribution — a registered system inherits what the
+helpers it calls mutate — would close `handle_ldtk_hot_reload` and the other five
+helpers. Measured 2026-09-18 by bare-name matching: **19 pairs, 8 already banked
+or waived and 11 FALSE**, because the helpers in question are named `tick`, `apply`
+and `install`, and a `\bname\s*\(` search cannot tell `adopt_the_ledger(world)`
+from `self.timer.tick(dt)`. ⛔ A NAME IS NOT A CALL. The hop wants real call
+resolution, and a version built on the bare name would import eleven fabricated
+findings on its first run.
 
 **✅ Two findings owed their own argument, and it is now MEASURED.**
 `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` are

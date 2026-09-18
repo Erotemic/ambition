@@ -284,25 +284,48 @@ A future live mechanical editor domain should be added to the stable ledger with
 | ID-CONTENT-EPOCH | ContentEpoch | LOCAL_LIFETIME | App activation lineage | ContentEpoch is an App-local gap-tolerant activation lineage token. It is equality-only and is not a content fingerprint. | — | SOURCE_CONFIRMED |
 | ID-PREPARED-CONTENT | PreparedContentIdentity | MIXED_RESPONSIBILITY | prepared activation | PreparedContentIdentity packages canonical fingerprints with the local ContentEpoch. It is exact for one App activation, but the local epoch is not peer-stable by contract. | Do not use the local epoch half where peer-stable canonical identity is required. Keep exact local activation identity separate from peer comparison. | SOURCE_CONFIRMED |
 | ID-SESSION-SCOPE | SessionScopeId | LOCAL_LIFETIME | gameplay session | SessionScopeId is minted by an App-local monotonic allocator for gameplay-session ownership. Planning notes identify prior-session count as a source of cross-peer divergence when this local token enters canonical construction identity. | — | SOURCE_CONFIRMED |
-| ID-SHELL-ACTIVATION | ShellActivationId | LOCAL_LIFETIME | shell activation | ShellActivationId names one local shell activation. Planning notes flag using it to mint canonical session SimId as a local-history leak into peer identity. | — | SOURCE_CONFIRMED |
+| ID-SHELL-ACTIVATION | ShellActivationId | LOCAL_LIFETIME | shell activation | ShellActivationId names one local shell activation. ⭐ **The leak this row flagged is CLOSED — re-derived against source 2026-09-18.** Both mints of the session root's canonical SimId keyed it on this per-App activation count; there is now ONE mint and it is `SimId::singleton("session", "root")` (`ambition_platformer2d_provider`'s `lifecycle.rs`), because exactly one session root is ever visible and the count disambiguated nothing. What the reservation is for now is host-local correlation — the candidate slot is keyed on it, which is how an abandoned candidate is found. | — | SOURCE_CONFIRMED |
 | ID-SHELL-REQUEST | ShellRequestId | LOCAL_CORRELATION | shell request transaction | ShellRequestId is caller-minted transaction correlation for shell requests. Content reload uses it before the router later assigns LoadId. | — | SOURCE_CONFIRMED |
 | ID-LOAD | LoadId | LOCAL_CORRELATION | load transaction | LoadId is router-minted load transaction correlation. PendingGenerationInputs keys candidate preparation inputs by this id. | — | SOURCE_INFERRED |
 | ID-ROLLBACK-TIMELINE | RollbackTimelineGeneration | LOCAL_LIFETIME | rollback timeline | RollbackTimelineGeneration is a process-monotonic identity for one rollback timeline. It distinguishes restarted timelines whose frame numbers begin at zero. | — | SOURCE_CONFIRMED |
 | ID-SIM | SimId | CANONICAL_MECHANICAL / PEER_STABLE | logical simulation object | SimId is stable semantic simulation identity used for snapshot, replay, netcode, and deterministic ordering. Dynamic descendants derive from stable parent SimId plus rollback state counter. | — | SOURCE_CONFIRMED |
-| ID-TRANSACTION | TransactionId | MIXED_RESPONSIBILITY | construction transaction / rollback-visible provenance | TransactionId stamps authoritative construction roots. The current construction identity includes incoming content binding and SessionScopeId. Active planning records that host-local ContentEpoch and SessionScopeId can therefore change canonical transaction identity for mechanically identical peer worlds. | Split local correlation from peer-stable construction provenance. Build canonical provenance from content fingerprints, stable world/room identity, canonical SimIds, and shared match/session identity where needed. | SOURCE_CONFIRMED |
+| ID-TRANSACTION | TransactionId | LOCAL stamp with a PEER PROJECTION | construction transaction / rollback-visible provenance | TransactionId stamps authoritative construction roots and still renders as `{binding}\t{room}\t{session}`, so the WHOLE stamp remains host-local by construction. ⭐ **Re-derived against source 2026-09-18: the split this row asked for LANDED at the comparison.** It is registered `rollback_component_canonical_checksum` with `TransactionId::peer_stable_checksum`, which drops the session field outright and reduces the binding through `peer_binding_term` to the content digest — so two peers compare content ⊗ room and nothing else. The type still snapshots whole, because a rewind must restore the local ownership the candidate-vs-live separation reads. | None on the peer axis. ⚠ The one live trade is recorded at the code and in queue.md: the projection reads the RENDERED stamp rather than structured parts, so the formatter and the reader can drift, and a round-trip arm is what holds them together. | SOURCE_CONFIRMED |
 | ID-ROOM-PLAN | RoomConstructionPlanId | CANONICAL_MECHANICAL within same-build plan semantics | prepared room plan | RoomConstructionPlanId is a stable same-build identity from the frozen room spec and deterministic construction plan. It excludes SessionSpawnScope, TransactionId, Entity, and process-local values. | — | SOURCE_CONFIRMED |
 | ID-MECHANICAL-DOMAIN | MechanicalDomain | LOCAL_CORRELATION | host editor proposal batch | MechanicalDomain uses TypeId as a host-local editor-domain key. Source explicitly states that this is valid because PendingMechanicalEdits is host-side and outside rollback. | — | SOURCE_CONFIRMED |
 
-Three local values are known to feed canonical/peer-visible provenance on some current path:
+⭐⭐ **THIS PARAGRAPH LISTED THREE LOCAL VALUES FEEDING PEER-VISIBLE PROVENANCE
+"on some current path", AND ALL THREE PATHS ARE NOW CLOSED — re-derived against
+source 2026-09-18 rather than restated.** What closed each is a PROJECTION or a
+re-key, not the deletion of a local identity:
 
-- `ContentEpoch` — App-local generation lineage;
-- `SessionScopeId` — App-local gameplay-session ownership;
-- `ShellActivationId` — App-local shell activation.
+- `ContentEpoch` — `ContentBinding` carries the local epoch beside a
+  `PeerContentIdentity` (a 32-byte digest), and `peer_binding_term` folds the
+  digest while the epoch stays local. ⚠ `PeerContentIdentity::unstated()` is
+  spelled rather than defaulted, so *"nobody named the content"* reads as a
+  decision at the call site instead of as a zero.
+- `SessionScopeId` — the session field of the transaction stamp is dropped by
+  `TransactionId::peer_stable_checksum`, with the comment `THE SESSION FIELD IS
+  DROPPED ON THE FLOOR, which is the point` at the line that does it.
+- `ShellActivationId` — the session root's canonical SimId no longer names it;
+  there is one mint and it is `SimId::singleton("session", "root")`.
 
-This does **not** make those local types wrong. They are useful local lifetime/correlation identities.
-The correction is to stop using them as substitutes for peer-stable mechanical identity.
-`PreparedContentIdentity` and `TransactionId` are the two current mixed-responsibility types in the manual ledger.
-The active identity campaign owns the fix.
+This never made those local types wrong. They are useful local
+lifetime/correlation identities, and each is still load-bearing in that role —
+the candidate session slot is keyed on the activation id, the construction scope
+reads the session stamp, and a rewind restores both.
+
+⇒ **The remaining mixed-responsibility type is `PreparedContentIdentity`**, which
+packages canonical fingerprints WITH the local epoch in one value: the packaging
+is the risk, and the correction is unchanged — do not use the local half where
+peer-stable identity is required. `TransactionId` has moved off that list: its
+stamp is local and its COMPARISON is peer-stable, which is a split rather than a
+mixture.
+
+⚠ **AND THE LIVE OWNER OF THIS ROAD IS `queue.md`, NOT THIS PAGE.** Its
+peer/local-split block records each step with the schema version it landed at and
+the arm that holds it; this table describes the architecture that resulted. When
+the two disagree, the queue is measured against source more often — which is how
+this paragraph came to be a day's worth of work behind.
 
 ## 8. Optional canonical authorities and capability composition
 

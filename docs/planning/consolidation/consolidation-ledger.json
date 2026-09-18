@@ -4608,7 +4608,7 @@
       "owner": "ambition_platformer2d_core::content_epoch",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "ContentEpoch is an App-local gap-tolerant activation lineage token. It is equality-only and is not a content fingerprint.",
+      "current_truth": "ContentEpoch is an App-local gap-tolerant activation lineage token. It is equality-only and is not a content fingerprint. Re-derived 2026-09-18: it no longer reaches a peer comparison. ContentBinding carries it beside a PeerContentIdentity digest, and TransactionId::peer_binding_term folds the digest while the epoch stays local.",
       "source_paths": [
         "crates/ambition_platformer2d_core/src/content_epoch.rs",
         "crates/ambition_platformer2d_runtime/src/content_identity.rs"
@@ -4616,7 +4616,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "ContentEpoch is an App-local gap-tolerant activation lineage token. It is equality-only and is not a content fingerprint.",
+          "claim": "ContentEpoch is an App-local gap-tolerant activation lineage token. It is equality-only and is not a content fingerprint. Re-derived 2026-09-18: it no longer reaches a peer comparison. ContentBinding carries it beside a PeerContentIdentity digest, and TransactionId::peer_binding_term folds the digest while the epoch stays local.",
           "sources": [
             "crates/ambition_platformer2d_core/src/content_epoch.rs",
             "crates/ambition_platformer2d_runtime/src/content_identity.rs"
@@ -4626,9 +4626,7 @@
       "semantic_lifetime": "App activation lineage",
       "representation": "u64 newtype",
       "classification": "LOCAL_LIFETIME",
-      "metric_tags": [
-        "local_identity_feeding_canonical_provenance"
-      ]
+      "metric_tags": []
     },
     {
       "id": "ID-PREPARED-CONTENT",
@@ -4670,7 +4668,7 @@
       "owner": "shared_tangle lifecycle",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "SessionScopeId is minted by an App-local monotonic allocator for gameplay-session ownership. Planning notes identify prior-session count as a source of cross-peer divergence when this local token enters canonical construction identity.",
+      "current_truth": "SessionScopeId is minted by an App-local monotonic allocator for gameplay-session ownership. Re-derived 2026-09-18: the prior-session count no longer reaches a peer comparison. The session field of the construction stamp is dropped by TransactionId::peer_stable_checksum, at a line whose own comment says so.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
         "docs/planning/queue.md"
@@ -4678,7 +4676,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionScopeId is minted by an App-local monotonic allocator for gameplay-session ownership. Planning notes identify prior-session count as a source of cross-peer divergence when this local token enters canonical construction identity.",
+          "claim": "SessionScopeId is minted by an App-local monotonic allocator for gameplay-session ownership. Re-derived 2026-09-18: the prior-session count no longer reaches a peer comparison. The session field of the construction stamp is dropped by TransactionId::peer_stable_checksum, at a line whose own comment says so.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs",
             "docs/planning/queue.md"
@@ -4688,9 +4686,7 @@
       "semantic_lifetime": "gameplay session",
       "representation": "u64 Component/newtype",
       "classification": "LOCAL_LIFETIME",
-      "metric_tags": [
-        "local_identity_feeding_canonical_provenance"
-      ]
+      "metric_tags": []
     },
     {
       "id": "ID-SHELL-ACTIVATION",
@@ -4699,7 +4695,7 @@
       "owner": "ambition_game_shell",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "ShellActivationId names one local shell activation. Planning notes flag using it to mint canonical session SimId as a local-history leak into peer identity.",
+      "current_truth": "ShellActivationId names one local shell activation. Re-derived 2026-09-18: the canonical session SimId no longer names it. There is one mint and it is SimId::singleton(\"session\", \"root\"), because exactly one session root is ever visible and the per-App count disambiguated nothing. Its live job is host-local correlation: the candidate session slot is keyed on it, which is how an abandoned candidate is found and released.",
       "source_paths": [
         "crates/ambition_game_shell/src/id.rs",
         "crates/ambition_game_shell/src/session.rs",
@@ -4708,7 +4704,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "ShellActivationId names one local shell activation. Planning notes flag using it to mint canonical session SimId as a local-history leak into peer identity.",
+          "claim": "ShellActivationId names one local shell activation. Re-derived 2026-09-18: the canonical session SimId no longer names it. There is one mint and it is SimId::singleton(\"session\", \"root\"), because exactly one session root is ever visible and the per-App count disambiguated nothing. Its live job is host-local correlation: the candidate session slot is keyed on it, which is how an abandoned candidate is found and released.",
           "sources": [
             "crates/ambition_game_shell/src/id.rs",
             "crates/ambition_game_shell/src/session.rs",
@@ -4719,9 +4715,7 @@
       "semantic_lifetime": "shell activation",
       "representation": "u64 newtype",
       "classification": "LOCAL_LIFETIME",
-      "metric_tags": [
-        "local_identity_feeding_canonical_provenance"
-      ]
+      "metric_tags": []
     },
     {
       "id": "ID-SHELL-REQUEST",
@@ -4831,7 +4825,7 @@
       "owner": "shared_tangle construction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "TransactionId stamps authoritative construction roots. The current construction identity includes incoming content binding and SessionScopeId. Active planning records that host-local ContentEpoch and SessionScopeId can therefore change canonical transaction identity for mechanically identical peer worlds.",
+      "current_truth": "TransactionId stamps authoritative construction roots and renders as {binding}TAB{room}TAB{session}, so the whole stamp is host-local by construction. Re-derived 2026-09-18: the peer/local split landed at the COMPARISON. It registers rollback_component_canonical_checksum with TransactionId::peer_stable_checksum, which drops the session field and reduces the binding to the content digest, so two peers compare content and room. The type still snapshots whole, because a rewind must restore the local ownership the candidate-vs-live separation reads.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
         "docs/planning/queue.md"
@@ -4839,7 +4833,7 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "TransactionId stamps authoritative construction roots. The current construction identity includes incoming content binding and SessionScopeId. Active planning records that host-local ContentEpoch and SessionScopeId can therefore change canonical transaction identity for mechanically identical peer worlds.",
+          "claim": "TransactionId stamps authoritative construction roots and renders as {binding}TAB{room}TAB{session}, so the whole stamp is host-local by construction. Re-derived 2026-09-18: the peer/local split landed at the COMPARISON. It registers rollback_component_canonical_checksum with TransactionId::peer_stable_checksum, which drops the session field and reduces the binding to the content digest, so two peers compare content and room. The type still snapshots whole, because a rewind must restore the local ownership the candidate-vs-live separation reads.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs",
             "docs/planning/queue.md"
@@ -4853,9 +4847,7 @@
       "blocked_by": [
         "ID-PEER"
       ],
-      "metric_tags": [
-        "mixed_local_canonical_identity"
-      ]
+      "metric_tags": []
     },
     {
       "id": "ID-ROOM-PLAN",

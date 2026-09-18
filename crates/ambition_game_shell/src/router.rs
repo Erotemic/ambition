@@ -126,16 +126,26 @@ pub struct ActiveShellExperience {
 pub struct PendingShellRoute {
     /// ⛔⛤ **THE ACTIVATION IDENTITY, DECIDED WHEN THE ROUTE GOES PENDING —
     /// A10.5, 2026-09-14.** It was minted inside [`ShellRouter::activate`], in
-    /// the same statement that deactivates the outgoing route. A participant that
-    /// must PREPARE its material for this activation before the activation
-    /// happens — A10's candidate session, whose root carries
-    /// `SimId::singleton("session", activation_id)` — could not name the
-    /// activation it was preparing for.
+    /// the same statement that deactivates the outgoing route, so a participant
+    /// that must PREPARE its material for an activation BEFORE that activation
+    /// happens — A10's candidate session — could not name the activation it was
+    /// preparing for.
     ///
-    /// ⚠ **THIS DECIDES AN EXISTING ID EARLIER; IT DOES NOT INVENT ONE.** The
-    /// source and the sequence are unchanged, and A10 deliberately does not
-    /// re-key that `SimId` to something it finds more convenient — that question
-    /// belongs to the peer-stable identity campaign.
+    /// ⚠ **WHAT THE CANDIDATE ACTUALLY NEEDS IT FOR, re-derived 2026-09-18,
+    /// because this comment used to answer with a SimId that no longer exists.**
+    /// It said the candidate's root carries `SimId::singleton("session",
+    /// activation_id)`. It does not: the one live mint is
+    /// `SimId::singleton("session", "root")` (`ambition_platformer2d_provider`'s
+    /// `lifecycle.rs`), because exactly one session root is ever visible and the
+    /// per-App activation count disambiguated nothing while leaking local
+    /// history into a `component-canonical` comparison. ⇒ The reservation's job
+    /// is HOST-LOCAL CORRELATION, and it is load-bearing there: the candidate
+    /// slot is keyed on it, so `pending_activation() != candidate.activation_id`
+    /// is how an abandoned candidate is found and released, and how a candidate
+    /// already prepared for this exact activation avoids being rebuilt.
+    ///
+    /// ⭐ **THIS DECIDES AN EXISTING ID EARLIER; IT DOES NOT INVENT ONE.** The
+    /// source and the sequence are unchanged.
     ///
     /// ⭐ A pending route that never activates BURNS an id, and gaps are legal:
     /// nothing derives meaning from consecutive activation ids.

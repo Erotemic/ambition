@@ -1065,11 +1065,21 @@ guard exits 0 again as of `c1ffa812d`. What is open is the `Transform` blind
 spot; the two findings that owed an argument have it (the ✅ block below).
 ⚠ What `--list` prints today, 2026-09-18, so the widening's number is not read
 off this page a month from now: **342 rollback types** (floor 300), **60 system
-param bundles** (floor 55), **523 systems** taking one mutably (floor 470, added
+param bundles** (floor 55), **521 systems** taking one mutably (floor 470, added
 the same day — see the fifth-spelling block below for why that third floor was
 missing). The 338 above is the widening's own reference point and is left as
-history; the systems count read 518 earlier on 2026-09-18 and 516 immediately
-before the exclusive-world spelling landed.
+history; the systems count read 518 earlier on 2026-09-18, 516 immediately
+before the exclusive-world spelling landed, and 523 before the clone deletion.
+
+⛤ **THAT LAST STEP IS A DECREASE AND ITS CAUSE IS MEASURED, NOT INFERRED.**
+523 → 521 is the player-clone relic going: checked out `c1ba8227a` (the commit
+before the merge) and `--list` printed 523, then `main` printed 521, so two of
+the seven functions in the deleted `app/player_clone.rs` took a rollback type
+mutably. ⇒ A FALLING population is the one direction this row's floors cannot
+catch — the floor is 470 — and it is also the only direction that can be either
+progress or a blinded scanner. Re-measuring at both commits is what tells them
+apart, and it is cheap enough that a bare *"it went down"* is never the right
+note to leave.
 
 ⛔ **THE EXIT CODE MEANS "NO NEW OFFENDER", NOT "CLEAN" — read this before
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
@@ -3381,7 +3391,7 @@ CAUSED AND FIXED 2026-09-18.** `--maintenance`'s doc-link job scored **0 broken
 links for all thirteen tracked crates against a banked baseline of 141**, marked
 every row *"⭐ repaired"*, and advised `--update`, which would have written an
 empty baseline and retired the ratchet. The cause is the lane itself:
-`scripts/run_tests.py:2143` exports `CARGO_TERM_COLOR=always` to every child
+`scripts/run_tests.py:2158` exports `CARGO_TERM_COLOR=always` to every child
 job, so rustdoc writes `ESC[1m ESC[33m warning ESC[0m: unresolved link to …`
 and the guard's `^warning:` anchor matches nothing. Same crate, same target
 directory, one minute apart: `cargo doc -p ambition_characters --no-deps`

@@ -1535,14 +1535,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::rooms::transaction::",
         "construction transaction bookkeeping (verification record, live binding)",
     ),
-    (
-        "::world_flow::room_transition_loading::",
-        "room-load coordination, outside the sim frame",
-    ),
-    (
-        "::app::player_clone::",
-        "dev clone-spawn bookkeeping; the spawned clone's body is registered component state",
-    ),
     // Install-once content latches: set exactly once when the intro content
     // plugin installs its fragments, never advanced inside a GGRS frame.
     (

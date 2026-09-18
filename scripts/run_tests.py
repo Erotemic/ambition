@@ -1457,6 +1457,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_facade_dependency_closure.py",
             ],
         ),
+        # ⛔⛤ A WAIVER WHOSE SUBJECT IS GONE PRE-APPROVES WHATEVER TAKES ITS
+        # NAME. `rollback_coverage.rs` asks whether each swept resource matches
+        # a waiver row; nothing asked whether a row still matches anything. The
+        # player-clone deletion turned `"::app::player_clone::"` into a waiver
+        # for a module that does not exist and every arm in that file stayed
+        # green. ⚠ This asks the SOURCE, not a live world: a resource absent
+        # one frame after boot is usually lazily inserted, which is why the
+        # first version of this check named fifteen live rows as dead.
+        Job(
+            "every rollback-coverage waiver still names a subject",
+            [
+                sys.executable,
+                "scripts/check_rollback_waivers_have_subjects.py",
+            ],
+        ),
     ]
 
 

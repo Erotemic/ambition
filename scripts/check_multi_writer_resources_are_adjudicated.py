@@ -440,6 +440,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_dev_tools/src/dev_tools/editable.rs",
         "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_portal2d/src/tuning.rs",
+        "game/ambition_app/src/app/player_clone.rs",
         "game/ambition_content/src/portal/transit_body_adapter.rs",
     ),
     "RoomTransitionLoadState": (
@@ -2917,12 +2918,23 @@ ADJUDICATED: dict[str, str] = {
         "(`:408-410`) is `self.0.remove(&domain)`, provably scoped to the "
         "caller's own key by the `Eq`/`Ord`/`Hash` impls over `TypeId` "
         "(`:362-381`), which the type's doc (`:324-340`) explains was itself "
-        "a fix for a string-label collision hazard the first draft had. Six "
-        "of the seven proposer call sites use distinct marker types "
-        "(`FeelTuningDomain`, `DeveloperBodyProfileDomain`, "
+        "a fix for a string-label collision hazard the first draft had. "
+        "RE-MEASURED 2026-09-18 by grepping the DEFINITION side "
+        "(`MechanicalDomain::of::<`) rather than the writer list: SEVEN "
+        "production domains, seven distinct markers — "
+        "`FeelTuningDomain`, `DeveloperBodyProfileDomain`, "
         "`EditablePlayerStatsDomain`, `MovementTuningDomain`, "
-        "`EditableAbilitySetDomain`, `PortalTuningDomain`); the remaining "
-        "writer, "
+        "`EditableAbilitySetDomain`, `PortalTuningDomain`, and "
+        "`SpawnPlayerCloneDomain` "
+        "(`game/ambition_app/src/app/player_clone.rs:55`, added with Q136's "
+        "first landed ingress road). An eighth `of::<>` site, `FixtureDomain` "
+        "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:658`), "
+        "sits under the `#[cfg(test)]` at `:610` and is not in this "
+        "population. ⚠ The clone domain's first draft keyed on the live "
+        "`SpawnPlayerCloneRequest` resource instead of a marker; unique by "
+        "`TypeId`, but it would have stood as a precedent for keying on any "
+        "type in scope, against the contract at `:333`. Changed to a marker "
+        "before landing. The remaining writer, "
         "`game/ambition_content/src/portal/transit_body_adapter.rs:137`, "
         "deliberately reuses `PortalTuningDomain` alongside "
         "`crates/ambition_portal2d/src/tuning.rs:168` — inserting the same "

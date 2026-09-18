@@ -46,8 +46,16 @@ pub struct SpawnPlayerCloneRequest(pub bool);
 /// mechanical-edit road says the author changed the world, so the local baseline
 /// is stood down and rebased, and a FOREIGN timeline refuses outright with the
 /// proposal left pending. That is the honest answer for a dev tool.
+/// ⚠ THE KEY IS A DEDICATED MARKER, NOT `SpawnPlayerCloneRequest`. Keying on
+/// the request resource would be unique too — identity is the `TypeId` — but
+/// `MechanicalDomain`'s own contract asks each crate for "its own zero-sized
+/// marker beside the value it owns", and a domain keyed on a live public
+/// resource is a precedent that reads as permission to key on any type in
+/// scope. Seven production domains, seven markers, one rule.
+pub struct SpawnPlayerCloneDomain;
+
 pub fn player_clone_domain() -> ae::MechanicalDomain {
-    ae::MechanicalDomain::of::<SpawnPlayerCloneRequest>("spawn_player_clone")
+    ae::MechanicalDomain::of::<SpawnPlayerCloneDomain>("spawn_player_clone")
 }
 
 /// Raise a requested clone spawn as a mechanical-edit PROPOSAL.

@@ -1179,7 +1179,7 @@ registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
 being deleted; a poison that respells a write in any supported param form still
 reddens the guard; and the population floor fails when a spelling stops matching.
 
-### DUP-SESSION-CURRENT — one owner per session-identity question
+### DUP-SESSION-CURRENT — one owner per session-identity question — ✅ DONE 2026-09-16, RE-MEASURED 2026-09-18
 
 **Owner:** session lifecycle / shell-to-simulation boundary. The classification
 ledger row is in
@@ -1254,12 +1254,34 @@ world: a candidate owns a scope identity that `current()` does not report, its
 root and everything it owns are hidden from the live world and visible to its own
 transaction, and admission promotes the POPULATION.
 
-**Acceptance — all three clauses met 2026-09-16.** The correlation has one owner
-and the two Components are projections of it; `ambition_game_shell` holds no
-second map from activation to scope; and the layer split is a dependency contract
-rather than a behavioural claim. ⚠ The third clause used to ask for *"a
-composition with a live scope and no gameplay session"* — a witness that cannot
-exist, which is why it went unwritten for as long as it did.
+**Acceptance — all three clauses met 2026-09-16, and each re-measured 2026-09-18
+rather than recalled.** (1) `GameplaySessionLinks` is gone from the tree: the
+name survives only inside comments recording its deletion. (2) `ambition_game_shell`
+holds no second map from activation to scope — see the correction below, because
+the literal words of this clause are now false and the fact is still true.
+(3) All 46 absence contracts hold, including
+`platformer-primitives-stays-a-foundation`, which is the mechanical form of the
+layer split. ⚠ The third clause used to ask for *"a composition with a live scope
+and no gameplay session"* — a witness that cannot exist, which is why it went
+unwritten for as long as it did.
+
+⛔⛤ **AND CLAUSE (2) DOES NOT SURVIVE A GREP, WHICH IS A PROBLEM WITH THE CLAUSE
+RATHER THAN WITH THE TREE — 2026-09-18.** `ReservedGameplayScopes` is a
+`BTreeMap<ShellActivationId, SessionScopeId>` living in `game_shell/src/session.rs:151`:
+literally a second map from activation to scope, in the crate this clause says
+holds none. It is not a second OWNER, and the reason is its LIFETIME rather than
+its shape. A reservation exists only before the activation it is for: `take`
+removes it at adoption (`session.rs:672`) and `release` removes it when a later
+pending route supersedes the candidate — two spellings on purpose, because *"a
+shared spelling would let a discard read as an adoption"*. So a reservation never
+coexists with the live answer it would otherwise contradict. ⇒ Held by
+`a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`,
+which asserts `outstanding() == 0` after a refused candidate — the arm that
+exists because this ledger once leaked one row per refusal, permanently.
+⚠ The lesson is about the clause: *"holds no second map"* is a claim about SHAPE,
+and the fact worth protecting is about lifetime. A future reader greps, finds
+`ReservedGameplayScopes`, and concludes the acceptance was wrong — so the clause
+now says which fact it means.
 
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 

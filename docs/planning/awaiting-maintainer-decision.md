@@ -1790,7 +1790,11 @@ the live world's ROLLBACK-REGISTERED state. Therefore:
                                window; a rewind undoes the effect and nothing
                                restores the flag. That is the original defect
                                rebuilt one window later, which is why the clone
-                               road moved its consumer to the host side.
+                               road moved its consumer to the host side. ⚠ That
+                               road is being deleted (see the later 2026-09-18
+                               section); the REASONING is unaffected — it is
+                               about registration, not about the clone — and the
+                               cutscene dismiss is now its live specimen.
 
     a REGISTERED request      IS in frame zero, so every resimulation restores
     (`NewGameResetRequested`)  the host's write and the spend is retried until
@@ -1947,6 +1951,52 @@ swallowed press are the same problem from its two sides, which is why this is on
 ingress question and not three fixes. The stakes are a dev hotkey — no save data,
 no peer checksum, no progression — so the road can be built and witnessed here
 without a mis-step costing a timeline.
+
+### 2026-09-18 (later) — and the specimen is being DELETED, not preserved
+
+⛔⛤ **THE CLONE HOTKEY IS NOT ISOLATED FROM REAL CONTROLS, AND THAT ALONE ENDS
+THE ARGUMENT BELOW.** `request_player_clone_on_key` reads raw `KeyCode::KeyK`
+unconditionally in `Update`, while two SHIPPED input presets bind K to ordinary
+gameplay: `wasd_jkl()` gives it to `burst` and `wasd_uipo()` to `utility`
+(`crates/ambition_input/src/presets.rs:175`, `:252`). ⇒ **A player on either
+preset requests a debug clone every time they use that action.** Found by a
+2026-09-18 review; the section below reasoned carefully about the ingress road
+for a feature whose trigger was never safe to ship.
+
+⚠ **AND THE "STAKES ARE A DEV HOTKEY" PREMISE IS THEREFORE FALSE**, which is
+the part worth keeping as a lesson: I argued this was the right specimen because
+*"no save data, no peer checksum, no progression"*. That was a claim about the
+INTENT, and the hotkey's reachability was never measured. A specimen chosen for
+its low stakes has to have its trigger checked as carefully as its consumer.
+
+⇒ So the clone goes: `game/ambition_app/src/app/player_clone.rs`, its plugin
+registration, both live clone tests, the `PlayerClone` /
+`SpawnPlayerCloneRequest` exports, `avatar/clone_probe_tests.rs`, and the demo
+state-machine brain `StateMachineCfg::PlayerDemo` with its `PlayerDemoCfg` /
+`State` / `Phase` and dispatch arms. ⛔ NOT the real player-brain path
+(`tick_player_brain`), and NOT the generic mechanical-edit infrastructure —
+that has legitimate author/dev-edit customers and only the clone's USE of it
+disappears.
+
+⭐ **WHAT SURVIVES IS THE GENERAL CONCLUSION, AND IT IS THE USEFUL HALF:**
+author and developer world mutations belong at the mechanical-edit boundary;
+player intent does not automatically belong there. The clone was evidence for
+that sentence and the sentence does not need it — the properties the demo brain
+existed to demonstrate are independently pinned by
+`player_brain_seam_translates_control_frame_to_actor_control` (the player
+brain → `ActorControl` seam) and by `multiplayer_smoke_tests.rs` (several
+`PlayerEntity`s, exactly one `PrimaryPlayer`, independent per-player state).
+
+⇒ **AND Q136 IS A CLEANER QUESTION WITHOUT IT.** The live rows are the menu,
+cutscene and player-intent roads — `CutsceneAdvanceRequest`,
+`NewGameResetRequested`, `PlayerHealRequested`, `AmbientGravityRequest` — plus
+the derived `SetFlagRequested`. A dev hotkey nobody ships was distorting the
+design discussion by being the easiest thing to reason about.
+
+⚠ The section below is kept as the record of how the road was built and what the
+fixture cost, because the FIXTURE lessons are general (the anti-vacuity arms,
+the ownership stamp, the poison that did not apply). Read it as history: its
+subject no longer exists.
 
 ### 2026-09-18 — the first road is landed, and the fixture was the hard part
 

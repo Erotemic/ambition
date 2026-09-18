@@ -44,29 +44,63 @@ CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
 
-# In `--message-format=short`, real diagnostics carry a `path:line:col:` prefix.
-# Column-zero `warning:` lines are Cargo summaries and would double-count.
-_WARNING = re.compile(r"^(?P<where>\S+?:\d+:\d+): warning: (?P<what>.*)$", re.M)
+# In `--message-format=short`, a real diagnostic carries a `path:line:col:` prefix.
+_SHORT = re.compile(r"^(?P<where>\S+?:\d+:\d+): warning: (?P<what>.*)$")
+# The DEFAULT rendering puts the message at column zero and the location on a
+# following line. So does cargo's own per-crate summary, which is why the
+# location is what separates them — see [`warnings_from`].
+_FULL = re.compile(r"^warning: (?P<what>.*)$")
+_LOCATION = re.compile(r"^\s*--> (?P<where>\S+?:\d+:\d+)\s*$")
 
 
 def warnings_from(stderr: str) -> list[str]:
     """Real diagnostics only — never cargo's per-crate summary lines.
 
-    ⛔⛤ **THE STRIP IS LOAD-BEARING, AND THIS GATE RUNS IN EXACTLY THE PLACE
-    THAT NEEDS IT.** `_WARNING` requires a literal `: warning: ` after the
-    `path:line:col`, and `scripts/run_tests.py` — the ONLY lane that invokes
-    this checker — exports `CARGO_TERM_COLOR=always`, which makes cargo emit
+    ⛔⛤ **TWO RENDERINGS, AND THIS GATE DOES NOT CONTROL WHICH ONE ARRIVES.**
+    It asks for `--message-format=short`, and for a unit cargo actually
+    compiles it gets it. But a FRESH unit REPLAYS ITS CACHED `rendered` STRING,
+    which was produced under whatever format built it — so an ordinary
+    `cargo check` at the terminal (default format) followed by this gate hands
+    the short-format parser the FULL rendering, and the old single pattern saw
+    ZERO. Measured 2026-09-18 on `ambition_app`, one dead-code warning, the
+    three runs one minute apart:
+
+        cold --message-format=short   `tests/versus_stage.rs:2793:5: warning: …`  seen
+        warm --message-format=short   the same line                               seen
+        cold default, warm short      `warning: …` + `  --> tests/…:2793:5`       MISSED
+
+    ⇒ The location is what separates a diagnostic from cargo's
+    ``warning: `crate` (lib) generated 1 warning`` summary, in BOTH renderings —
+    so that is what this reads, instead of a prefix only one of them has.
+
+    ⛔⛤ **AND THE STRIP IS LOAD-BEARING FOR THE SAME REASON.**
+    `scripts/run_tests.py` — the ONLY lane that invokes this checker — exports
+    `CARGO_TERM_COLOR=always`, which makes cargo emit
     `src/lib.rs:1:18: ESC[1m ESC[33m warning ESC[0m: unused variable`. Measured
-    2026-09-18 on a one-file probe crate: the pattern matched the plain form and
-    not the coloured one, so the workspace warning gate reported clean from
-    inside the runner whatever the build had said. See
-    `scripts/lib/cargo_output.py`; the sibling that was CAUGHT doing this is
-    `check_doc_link_ratchet.py`.
+    the same day on a one-file probe crate: the pattern matched the plain form
+    and not the coloured one. See `scripts/lib/cargo_output.py`; the sibling
+    that was CAUGHT doing this is `check_doc_link_ratchet.py`.
     """
-    return [
-        f"{m.group('where')}: {m.group('what').strip()}"
-        for m in _WARNING.finditer(strip_ansi(stderr))
-    ]
+    found: list[str] = []
+    lines = strip_ansi(stderr).splitlines()
+    for index, line in enumerate(lines):
+        short = _SHORT.match(line)
+        if short:
+            found.append(f"{short.group('where')}: {short.group('what').strip()}")
+            continue
+        full = _FULL.match(line)
+        if not full:
+            continue
+        # ⚠ A SUMMARY HAS NO LOCATION, and that is the whole test. Look only a
+        # few lines ahead: rustc puts the `-->` immediately after the message,
+        # and a wider window would let one diagnostic's location adopt the
+        # summary above it.
+        for ahead in lines[index + 1 : index + 3]:
+            located = _LOCATION.match(ahead)
+            if located:
+                found.append(f"{located.group('where')}: {full.group('what').strip()}")
+                break
+    return found
 
 
 class VacuousFreshRun(RuntimeError):

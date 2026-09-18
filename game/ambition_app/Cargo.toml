@@ -256,8 +256,6 @@ path = "tests/app_it.rs"
 # character, and decline to declare presentation. That proof is worth keeping and
 # the crate is not worth shipping, so it builds for tests and not for the game.
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
-insta = { version = "1", features = ["ron"] }
-proptest = "1"
 # Compiler-confirmed unused under default AND --all-features at [dependencies]
 # (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
 # 2026-09-18): only tests/replay_fixture_regression.rs (serde) and

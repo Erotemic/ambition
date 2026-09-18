@@ -10,9 +10,36 @@ outright that *"nothing but review enforces that choice at a new call site."*
 This is the enforcement, and it is deliberately option-INDEPENDENT:
 
   * under option 1 it is the missing guard;
-  * under option 2 (every composition prepares a generation) it is the progress
-    meter — the `new`/`of` rows are exactly what has to reach zero;
+  * under option 2 (every composition prepares a generation) it is a CENSUS of
+    which road each site is on — but see the limit below, because the quantity
+    option 2 drives to zero is not one this instrument counts;
   * under option 3 (split the type) it is the list of signatures to change.
+
+⛔⛤ **WHAT THIS CANNOT WITNESS, AND IT USED TO CLAIM OTHERWISE.** Until
+2026-09-18 the three places below said option 2 drives the `new`/`of` rows to
+zero. Both halves are wrong, and `session/mechanics.rs` — the constructors' own
+doc comments — already said so:
+
+  * `::of` is *"a generation's values with NO App fallback"* (`mechanics.rs:206`),
+    for activation, which *"cannot be without a generation"*. Under option 2
+    every composition has one, so `::of` is the TARGET STATE, not the thing to
+    delete.
+  * the one production `::new` is the hot reload, and `mechanics.rs:174-177`
+    carves it out by name: a reload *"legitimately has no active generation to
+    read: it is building the one that replaces it, and states `None` on
+    purpose. Those keep [`Self::new`]."* Option 2 deletes a FALLBACK, and that
+    `None` is not one.
+
+⇒ What option 2 actually drives to zero is the `shell_routed == false &&
+active.is_none()` branch INSIDE `for_live_session` (`mechanics.rs:185-188`),
+which returns `Some(Self::new(None, ..))` and is how a direct-entry demo or a
+headless harness reaches the App registries. This script counts which
+CONSTRUCTOR a site picked; it does not and statically cannot count which BRANCH
+that constructor took at runtime, because every `for_live_session` site passes
+an `active` whose emptiness is a property of the composition, not of the call.
+⇒ The `::new` row is a reading of the reload's intent, not a progress meter.
+Q144's option-2 cost is sized by the composition population (see `Q144`), not by
+these rows.
 
 ⭐ **THE POPULATION IS FIVE, WHICH IS WHY A DECLARED BASELINE IS THE RIGHT
 INSTRUMENT.** MEASURED 2026-09-18 over the production corpus, comments and
@@ -140,9 +167,13 @@ DECLARED: dict[tuple[str, str], tuple[int, str]] = {
         "passes `None` for the generation ON PURPOSE: it is building the "
         "generation that REPLACES the live one, and reading the session's "
         "frozen mechanics here would rebuild the world from the generation "
-        "being replaced. ⇒ This is the row `Q144`'s option 2 has to delete, and "
-        "it is the row that makes the duplicate authority reachable rather than "
-        "theoretical (read 2026-09-18)",
+        "being replaced. ⛔ THIS ROW SAID IT WAS THE ONE OPTION 2 DELETES UNTIL "
+        "2026-09-18, AND `mechanics.rs:174-177` SAYS THE OPPOSITE IN SO MANY "
+        "WORDS — *\"Those keep `Self::new`\"*. A reload states `None` because it "
+        "is PREPARING a generation, which is not the fallback option 2 removes; "
+        "it survives every option. See the module docstring for what this "
+        "instrument can and cannot witness (read 2026-09-18, corrected "
+        "2026-09-18)",
     ),
 }
 
@@ -250,7 +281,9 @@ def main() -> int:
     for ctor in CONSTRUCTORS:
         print(f"  ::{ctor:<17} {by_ctor.get(ctor, 0)}")
     print(
-        "  ⚠ the `::new` count is Q144's live duplicate authority: option 2 drives it to 0"
+        "  ⚠ these are CONSTRUCTOR choices, not fallback USES. The quantity Q144's\n"
+        "    option 2 drives to zero is `for_live_session`'s `active.is_none()` branch,\n"
+        "    which no static count reaches — see this script's docstring."
     )
     return 0
 

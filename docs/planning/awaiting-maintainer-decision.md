@@ -3365,12 +3365,33 @@ FIVE construction sites, not six.
 one of those five sites to carry a reading saying which composition it is and
 why its constructor is right; an undeclared sixth fails the check. It is
 deliberately option-independent — under option 1 it is the missing enforcement,
-under option 2 the `::new` and `::of` rows are the progress meter that must
-reach zero, under option 3 it is the list of signatures to change. ⚠ Its floor
-is 1 rather than 5 for exactly that reason: **a falling count is what option 2
-succeeding looks like**, and a floor pinned to today's reading would report the
-progress as an instrument failure. Eight arms, and the doc-comment control is
-the one that reproduces the miscount above.
+under option 2 a census of which road each site is on, under option 3 the list
+of signatures to change. Eight arms, and the doc-comment control is the one
+that reproduces the miscount above.
+
+⛔⛤ **AND THIS PARAGRAPH SAID "THE `::new` AND `::of` ROWS ARE THE PROGRESS
+METER THAT MUST REACH ZERO", WHICH THE CONSTRUCTORS' OWN DOC COMMENTS REFUTE ON
+BOTH HALVES (corrected 2026-09-18).** `::of` is *"a generation's values with NO
+App fallback"*
+(`crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs:206`),
+for the activation road that *"cannot be without a generation"* — under option 2
+every composition has one, so `::of` is the TARGET STATE rather than the thing
+to delete. And the single production `::new` is the hot reload, which
+`mechanics.rs:174-177` carves out by name: a reload *"legitimately has no active
+generation to read: it is building the one that replaces it, and states `None`
+on purpose. Those keep [`Self::new`]."* Option 2 deletes a FALLBACK; that `None`
+is not one, and the row survives every option.
+
+⇒ **WHAT OPTION 2 DRIVES TO ZERO IS A BRANCH, AND NO STATIC COUNT REACHES IT.**
+It is `for_live_session`'s `shell_routed == false && active.is_none()` path
+(`mechanics.rs:185-188`), which returns `Some(Self::new(None, ..))` and is how a
+direct-entry demo or a headless harness reaches the App registries. The guard
+counts which CONSTRUCTOR a site picked, and every `for_live_session` site passes
+an `active` whose emptiness is a property of the COMPOSITION rather than of the
+call — so the quantity that would fall is invisible to it. ⇒ Its floor of 1
+still earns its place, because a site can legitimately disappear; but it is a
+floor against scan loss, not a progress meter, and option 2's cost is sized by
+the composition population below rather than by these rows.
 
 ⇒ **In the shipped composition there is no second construction source today.**
 The discriminator is `SessionGatedSimulation`, and it is `init_resource`d in
@@ -3417,10 +3438,21 @@ is load-bearing for the TEST ESTATE rather than for the game.
    through the construction signature; the fixture road gains a name that says
    what it is.
 
-⛔ **WHAT MUST NOT HAPPEN:** deleting the fallback without option 2's work (it is
-not a cleanup, it is 112 files), or closing the census row while
-`GenerationMechanics::new`'s App parameters still exist. The row is open because
-the second source is REACHABLE, not because the shipped game uses it.
+⛔ **WHAT MUST NOT HAPPEN:** deleting the fallback without option 2's work — it
+is not a cleanup, it is 83 to 113 files by the two methods in the table above,
+plus the demos. The row is open because the second source is REACHABLE, not
+because the shipped game uses it.
+
+⚠ **AND THE CLOSURE GATE IS NOT WHAT THIS ROW USED TO SAY.** It read *"or
+closing the census row while `GenerationMechanics::new`'s App parameters still
+exist"*, which would keep the row open forever: the hot reload passes the App's
+live `PreparedCharacterRegistry` through exactly those parameters
+(`game/ambition_app/src/app/dev_runtime.rs:124`) and keeps doing so under every
+option, because it is preparing the next generation rather than rebuilding a
+live room from a stale one. The gate that actually matches option 2 is
+`for_live_session` no longer having a branch that returns `Some` with
+`active.is_none()` — the App-fallback path at `mechanics.rs:185-188`. Corrected
+2026-09-18 together with the progress-meter claim above.
 
 ## Q145 — which way round do the room-transition readiness chain and the presentation chain go in `Update`?
 

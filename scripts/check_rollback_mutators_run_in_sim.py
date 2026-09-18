@@ -186,35 +186,6 @@ ACKNOWLEDGED: dict[str, str] = {
     "portal_dev_toggle_system": "ROLLBACK-MUTATOR-POPULATION",
     "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
     "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",
-    # ⛔⛤ **MOVED HERE FROM `WAIVERS` ON 2026-09-18 BECAUSE ITS PREMISE IS
-    # MEASURED FALSE.** The waiver read: *"this waiver rests entirely on the write
-    # preceding the timeline: `maintain_local_session` starts GGRS only once a live
-    # primary player body exists, and at route entry the roster is still
-    # `RosterSeating::Proposed` with no bodies seated."*
-    #
-    # `maintain_local_session` (`rollback_ggrs/src/local_session.rs:249`) opens with
-    #     let gameplay_active = session_world_entity(world).is_some();
-    # and its three start gates are a SESSION WORLD, `durable_hydration_is_pending`
-    # and `SessionSeatingSource::Pending`. **There is no body condition anywhere in
-    # it.** `queue.md`'s DURABLE-HORIZON-CHECKSUM row recorded this on 2026-09-16
-    # for a different waiver in the same class: *"the two are NOT gated on the same
-    # fact ... the body is the later fact, not the shared one."*
-    #
-    # ⚠ WHAT SURVIVES OF THE WAIVER: the single-write argument is unaffected and
-    # still measured — `*match_state = VersusMatch::opening()` is alone in the
-    # `(on_versus, mine) == (true, false)` arm, every other combination falls
-    # through `_ => {}`, and in production only the route EXIT can make `mine`
-    # false again. So this is ONE write at route entry, not a per-frame one.
-    # ⛔ What does NOT survive is "and the timeline cannot have started yet".
-    #
-    # ⇒ WHAT WOULD RESTORE A WAIVER, and it is an instrument this repo already
-    # has the shape of: sample `session_world_entity`, `SessionSeatingSource` and
-    # `AmbitionGgrsSession` on the frame this arm fires, the way
-    # `probe_when_the_durable_restore_latch_flips_against_ggrs_start` samples the
-    # restore chain. Until then `VersusMatch` is
-    # `rollback_resource_clone_checksum` and this is an `Update` write to peer-
-    # compared rollback state with no proof it precedes the timeline.
-    "track_versus_roster": "MENU-RESET-MIDSESSION",
 }
 
 
@@ -348,6 +319,31 @@ WAIVERS: dict[str, str] = {
         "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
         "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
         "faces. ⚠ Same nesting as `grid_menu_nav`."
+    ),
+    "track_versus_roster": (
+        "⛔ WAIVED ON A SCHEDULE EDGE, MEASURED 2026-09-18 — NOT on the body "
+        "condition its first waiver claimed. That waiver said GGRS cannot have "
+        "started *'only once a live primary player body exists'*; "
+        "`maintain_local_session` (`rollback_ggrs/src/local_session.rs:249`) "
+        "has no body condition anywhere in it, and measured, the SESSION WORLD "
+        "it does gate on is already there on the frame the arm fires. ⇒ The "
+        "premise was false and this sat in ACKNOWLEDGED for part of one day. "
+        "What holds is an ordering: "
+        "`(track_versus_roster, reconcile_roster_with_frozen_topology).chain()` "
+        "is registered `.before(LocalSessionSet::Maintain)` "
+        "(`game/ambition_app/src/app/versus.rs`), the maintainer is the only "
+        "system in this host that installs a session, and so no timeline can "
+        "exist while the arm runs. Held by "
+        "`the_roster_arm_writes_the_scoreboard_before_the_timeline_starts` "
+        "(`game/ambition_app/tests/versus_stage.rs`), which compares the "
+        "world's CHANGE TICKS at frame end — write at 4458, session installed "
+        "at 4927 on first entry — because both systems are in `Update` and "
+        "`contains_resource` cannot tell the two orders apart. Poison-verified: "
+        "`.before` -> `.after` puts the install one tick BEFORE the write and "
+        "the arm fails. ⚠ TWO FACTS NOW HANG FROM AN EDGE WRITTEN FOR THE "
+        "FIRST OF THEM — the seat count and a `rollback_resource_clone_checksum` "
+        "row — so widening or dropping it reopens a peer-compared write inside "
+        "the rewind window."
     ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "

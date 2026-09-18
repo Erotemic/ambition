@@ -968,35 +968,38 @@ the widening's own reference point and is left as history.
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
 `WAIVERS`: a waiver says this system's drift across a rewind does not matter and
 carries the argument; an acknowledgement says the drift is REAL and names the row
-that owes it. **NINE** are banked — six here and three to
-MENU-RESET-MIDSESSION — and they print to stderr every run. Re-run 2026-09-18,
-the whole bank, so this number is measured rather than carried:
-`adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
-`compute_music_intent`, `portal_dev_toggle_system`,
+that owes it. **EIGHT** are banked — six here and two to
+MENU-RESET-MIDSESSION — and they print to stderr every run. Re-run 2026-09-18
+after the ninth was settled, the whole bank, so this number is measured rather
+than carried: `adopt_occurrence_checkpoint_from_save`,
+`complete_durable_restore`, `compute_music_intent`, `portal_dev_toggle_system`,
 `reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set` here;
-`grid_menu_action_activated`, `kaleidoscope_menu_action_activated` and
-`track_versus_roster` there; over 518 mutating systems.
+`grid_menu_action_activated` and `kaleidoscope_menu_action_activated` there —
+the guard's own last line, over **517** mutating systems.
 
-⛔⛤ **AND THE NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE —
-2026-09-18.** `track_versus_roster` was WAIVED, and the waiver said in its own
-words that it *"rests entirely on the write preceding the timeline:
-`maintain_local_session` starts GGRS only once a live primary player body exists,
-and at route entry the roster is still `RosterSeating::Proposed` with no bodies
-seated."* Read at the source: `maintain_local_session`
-(`rollback_ggrs/src/local_session.rs:249`) opens with
+⛔⛤ **A NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE, AND
+LEFT AGAIN THE SAME DAY BY EARNING A BETTER ONE — 2026-09-18.**
+`track_versus_roster`'s waiver said in its own words that it *"rests entirely on
+the write preceding the timeline: `maintain_local_session` starts GGRS only once
+a live primary player body exists, and at route entry the roster is still
+`RosterSeating::Proposed` with no bodies seated."* Read at the source:
+`maintain_local_session` (`rollback_ggrs/src/local_session.rs:249`) opens with
 `session_world_entity(world).is_some()`, and its three start gates are a SESSION
-WORLD, `durable_hydration_is_pending` and `SessionSeatingSource::Pending`. **There
-is no body condition anywhere in it.** ⇒ The premise was false, and
-DURABLE-HORIZON-CHECKSUM had already recorded the same correction for a sibling
-waiver two days earlier — *"the body is the later fact, not the shared one."*
-⚠ What survives of the waiver is the single-write half, which is still measured:
-one write at route entry, and in production only the route EXIT can arm it again.
-What does not survive is *"and the timeline cannot have started yet"*, and
-`VersusMatch` is `rollback_resource_clone_checksum`, so the write it is about is
-peer-compared. ⇒ **A WAIVER IS A CLAIM ABOUT THE TREE AND ROTS LIKE ANY OTHER.**
-This one was written when it was true of something and never re-read against the
-system it names; the guard cannot check a prose premise, so the only defence is
-re-reading the cited function when the row is touched.
+WORLD, `durable_hydration_is_pending` and `SessionSeatingSource::Pending`.
+**There is no body condition anywhere in it**, and measured, the session world
+is ALREADY THERE on the frame the arm fires. ⇒ The premise was false, and
+DURABLE-HORIZON-CHECKSUM had recorded the same correction for a sibling waiver
+two days earlier — *"the body is the later fact, not the shared one."*
+
+⇒ **A WAIVER IS A CLAIM ABOUT THE TREE AND ROTS LIKE ANY OTHER.** This one was
+written when it was true of something and never re-read against the system it
+names; the guard cannot check a prose premise, so the only defence is re-reading
+the cited function when the row is touched. ⭐ What settled it was not the
+argument but an instrument: the write is ordered `.before(LocalSessionSet::
+Maintain)` and the CHANGE TICKS at frame end say so, which is a fact a guard can
+hold. The witness and the tick numbers are in
+[MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update);
+the entry is back in `WAIVERS` on that argument and the bank is eight.
 ⭐ **IT WAS TWELVE, AND ALL FOUR DEPARTURES WERE REPAIRS RATHER THAN AMNESTIES.**
 The three `persist_*_to_save` mirrors left by being FIXED (into the sim
 schedule), and `dispatch_pending_dialog_requests` left at `0f1edee92` by ceasing
@@ -2863,22 +2866,59 @@ guard stays banked-but-owed on all of these — see
 Filed off a harness that demonstrated it; `check_rollback_mutators_run_in_sim.py`
 independently names both from source.
 
-⛔⛤ **AND A THIRD ARRIVED 2026-09-18, FROM A WAIVER RATHER THAN FROM A NEW
-WRITE: `track_versus_roster`.** It writes `*match_state =
-VersusMatch::opening()` from top-level `Update` — deliberately outside
-`GameplaySimulationRoot`, so route teardown survives leaving gameplay — and
-`VersusMatch` is `rollback_resource_clone_checksum`, peer-compared. It was
-waived on the argument that GGRS cannot have started yet *"only once a live
-primary player body exists"*; `maintain_local_session` has no body condition at
-all (session world, `durable_hydration_is_pending`, `SessionSeatingSource::
-Pending`). ⇒ It is the SAME class as the two menu writers and it is banked to
-this row. ⚠ It differs from them in one way that matters to the acceptance
-below: theirs is a per-press write and this is ONE write at route entry, so the
-window is narrower and the instrument has to sample the frame the
-`(on_versus, mine) == (true, false)` arm fires — the shape
-`probe_when_the_durable_restore_latch_flips_against_ggrs_start` uses, not the
-240-frame harness the other two took. The full correction is in
-[ROLLBACK-MUTATOR-POPULATION](#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
+⭐⭐ **A THIRD ARRIVED FROM A WAIVER ON 2026-09-18 AND IS SETTLED THE SAME DAY —
+`track_versus_roster` IS NOT IN THIS ROW'S CLASS, AND THE REASON IS NOT THE ONE
+ITS WAIVER GAVE.** It writes `*match_state = VersusMatch::opening()` from
+top-level `Update` — deliberately outside `GameplaySimulationRoot`, so route
+teardown survives leaving gameplay — and `VersusMatch` is
+`rollback_resource_clone_checksum`, restored AND peer-compared.
+
+⛔ **THE WAIVER'S ARGUMENT WAS FALSE.** It said GGRS cannot have started
+*"only once a live primary player body exists"*; `maintain_local_session` has no
+body condition anywhere in it, and its start gates are a session world,
+`durable_hydration_is_pending` and `SessionSeatingSource::Pending`. Worse than
+stale: **measured, the session world ALREADY EXISTS on the frame the arm
+fires**, so the gate the maintainer really reads is open.
+
+⭐ **WHAT PROTECTS THE WRITE IS A SCHEDULE EDGE THAT WAS INSTALLED FOR SOMETHING
+ELSE.** `(track_versus_roster, reconcile_roster_with_frozen_topology).chain()`
+is registered `.before(LocalSessionSet::Maintain)`
+(`game/ambition_app/src/app/versus.rs`) because the maintainer would otherwise
+size the session from connected DEVICES on the frame the route opens — a
+SEAT-COUNT repair. `maintain_local_session` is the only system in this host that
+installs a session, so within the firing frame no timeline can exist while the
+arm runs. Held by
+`the_roster_arm_writes_the_scoreboard_before_the_timeline_starts`
+(`game/ambition_app/tests/versus_stage.rs`):
+
+```text
+                 frame  on_versus  mine  session_world  ggrs_live  seating
+first entry          5       true false           true      false  Devices
+  same frame's end:  scoreboard written at tick 4458, session installed at 4927
+re-entry (QuitToHome
+ then GoTo again)  102       true false           true      false  Devices
+  same frame's end:  scoreboard written at tick 156191, session installed at 156666
+```
+
+⭐ **AND THE INSTRUMENT IS THE CHANGE TICK, NOT `contains_resource`.** Both
+systems are in `Update`, so a session installed on the firing frame is invisible
+at the frame's start and indistinguishable at its end from one installed
+earlier. Bevy advances the world's change tick per system run, so two
+`ComponentTicks` read at frame end say which system ran first — and they say the
+scoreboard write came first, in the same `Update` the session came up in. The
+arm asserts that ordering AND that the session really was installed on a firing
+frame, because otherwise the comparison never runs and the test would pass with
+the edge deleted. Poison-verified: `.before` → `.after` on that one line.
+
+⇒ **The conclusion of the old waiver survives and its argument does not**, so it
+is back in `WAIVERS` in `scripts/check_rollback_mutators_run_in_sim.py` on the
+edge argument with the witness cited. ⚠ TWO FACTS NOW HANG FROM ONE EDGE that
+was written for the first of them — the seat count and a peer-compared rollback
+row — and the other half of the acceptance below survives too: this is ONE write
+at route entry (every other `(on_versus, mine)` falls through `_ => {}` and only
+the route EXIT can make `mine` false again), not the per-press write the two
+menu writers make. **The menu writers have no such edge.** They are ordered by
+nothing and stay open.
 
 ⛔ **MEASURED, WITH THE CONTROL THAT MAKES IT READABLE.** An item granted from
 outside the rewinding schedule is **GONE AT FRAME 0** under

@@ -78,10 +78,13 @@ pub(super) fn handle_ldtk_hot_reload(
     // writes nothing. A comment saying "not a write target" beside a `&mut` is
     // the weakest form that statement can take.
     _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-        world_rooms::RoomSet,
-    >,
-    mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+    // ⛤ NO `mut` ON EITHER BINDING SINCE 2026-09-18, while the TYPES
+    // deliberately keep their mutable reach. rustc reported both `mut`s as dead
+    // the moment the handoff below became a shared borrow, and a dead `mut` is
+    // the one part of this signature nothing was arguing for — see the note at
+    // the `reload_ldtk_world_from_disk` call for why the reach itself stays.
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ldtk_world::LdtkRuntimeIndex,
     >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,

@@ -512,12 +512,12 @@ it matched nothing?* For the inert subject, ask *who reads this outside the
 test?* A guard can be neither, either, or — as `SeatCredit`'s tests are — sound
 about a subject that does no work.
 
-### ⛔⛔ A GREEN THAT CLAIMS AN IMPROVEMENT — the ratchet that reported 144 repairs and measured nothing
+### ⛔⛔ A GREEN THAT CLAIMS AN IMPROVEMENT — the ratchet that reported 141 repairs and measured nothing
 
 **2026-09-18, and it is the worst-shaped green on this page: the guard did not
 merely pass, it congratulated the tree.** `check_doc_link_ratchet.py --check`
 ran inside `--maintenance`, printed a `⭐ N repaired` mark on every one of its
-thirteen rows, printed `TOTAL 0` against a baseline of 144 named broken links,
+thirteen rows, printed `TOTAL 0` against a baseline of 141 named broken links,
 exited 0 — and the lane counted it among `18/18 jobs passed`.
 
 ```text
@@ -558,6 +558,18 @@ tracked crate reading zero against a banked baseline is now a refusal. Thirteen
 crates are not repaired at once. A genuine universal repair is a deliberate act
 and says so with `--update`, which stays exempt so the guard cannot forbid its
 own remedy.
+
+⚠ **THE RULE ALREADY EXISTED IN A NOTE AND NOTHING ENFORCED IT — and taken
+literally it was too strict.** *"An incremental `cargo doc` emits warnings only
+for crates it RECOMPILES … confirm the crate appears under `Documenting` before
+believing a zero"* was written down on 2026-09-10, eight days earlier. Measured
+on 2026-09-18, the first half is not quite true: a FRESH doc unit replays its
+cached diagnostics — `ambition_body_seed` printed its one warning with no
+`Documenting` line anywhere in the output — so demanding `Documenting` would
+refuse every warm run, and a guard that refuses valid measurements gets
+`--update`-ed out of the way. ⇒ The acceptance had to be *positive evidence that
+this crate was accounted for*, in either spelling. A prose rule and an arm are
+not the same artifact, and the prose was both unenforced AND slightly wrong.
 
 ⚠ **THE TRANSFERABLE PART IS THE DIRECTION OF THE SURPRISE.** This page's other
 rows are about a green that hides a failure. This one is about a green that

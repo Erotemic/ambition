@@ -1080,7 +1080,14 @@ def build_maintenance_jobs() -> list[Job]:
         # ⛔⛤ **AND THIS ONE WAS CALLED BY NOTHING AT ALL — no lane, no
         # workflow, no test module.** Measured 2026-09-17 over all 36
         # `scripts/check_*.py`: seventeen are reached only by a pytest arm, and
-        # `check_declared_system_packages.py` was reached by NOTHING. Its one
+        # `check_declared_system_packages.py` was reached by NOTHING.
+        # ⛤ RE-COUNTED 2026-09-18, now 48 scripts: no check is reached by
+        # nothing any more, but "reached by a pytest arm" turned out to be the
+        # wrong question — an arm can import a check to use it as a LIBRARY and
+        # never call its `main()`, which is the state two ratchets were in (see
+        # the two jobs added at the end of this list). The useful question is
+        # whether anything runs the VERDICT, and that one cannot be answered by
+        # grep because some arms load a check through `importlib`. Its one
         # mention in the tree is a planning table row recording that its
         # nonstrict exit status *"did not establish a provisioned environment"* —
         # which is what an unrun guard always looks like. First run from a lane,
@@ -1481,6 +1488,38 @@ def build_maintenance_jobs() -> list[Job]:
                 sys.executable,
                 "scripts/check_raw_key_reads_do_not_collide_with_presets.py",
             ],
+        ),
+        # ⛔⛤ **A RATCHET THAT ONLY THE SLOW SUITE RAN.** This script's `main()`
+        # carries "no NEW unregistered filter subject", and until 2026-09-18 the
+        # only thing that invoked it was `assert guard.main() == 0` inside
+        # `scripts/tests/` — which this lane does not run and which takes twelve
+        # minutes. That is exactly how the day's other two defects hid: an arm
+        # sat red in a suite nobody ran between a deletion and a branch. A
+        # ratchet is worth what it costs to run, and this one is 3 seconds.
+        Job(
+            "presence-filtered state is rollback registered",
+            [
+                sys.executable,
+                "scripts/check_presence_filtered_state_is_rollback_registered.py",
+            ],
+        ),
+        # ⛔⛤ **AND ITS SIBLING WAS IN THE SAME STATE, holding more.**
+        # `check_rollback_mutators_run_in_sim.py` carries the 521-system
+        # population, its `POPULATION_FLOOR`s, the `ACKNOWLEDGED` bank and the
+        # `WAIVERS` table — and no lane named it and no arm called its `main()`.
+        # Its unit module tests the PARTS (13 of them) and never the verdict, so
+        # the shortfall check that exists precisely to catch a scan losing reach
+        # ran only when somebody typed the command. 10 seconds.
+        #
+        # ⚠ MEASURED 2026-09-18 and the honest answer took three tries, which is
+        # why this comment names a method: a static census of "which guards
+        # nothing runs" gave 8, 16 and 11 depending on how an import was
+        # recognised, because `scripts/tests/` loads some checks through
+        # `importlib.util.spec_from_file_location` and no regex sees that. These
+        # two were confirmed by hand instead.
+        Job(
+            "rollback state is not mutated outside the rewinding schedule",
+            [sys.executable, "scripts/check_rollback_mutators_run_in_sim.py"],
         ),
     ]
 

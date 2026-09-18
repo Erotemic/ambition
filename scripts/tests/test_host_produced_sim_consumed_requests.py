@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
 import check_host_produced_sim_consumed_requests as guard  # noqa: E402
+import check_rollback_mutators_run_in_sim as sim  # noqa: E402
 
 ROLLBACK_REGISTRY_REL = "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
 
@@ -601,4 +602,107 @@ def test_the_residual_is_a_different_shape_than_the_wrapper_gap():
         "the residual specimen resolved. `finalize_room_publication` is called from "
         "`world/rooms/transaction.rs`, not registered — if it now has a schedule, either a "
         "call-graph road landed (say so) or something is attributing a non-system."
+    )
+
+
+def test_a_write_bound_to_a_local_first_is_still_in_the_population(tmp_path):
+    """⛔⛤ THE REVIEW POISON THAT USED TO PASS, kept as an arm.
+
+    A 2026-09-18 review wrote `let event = Heal; world.write_message(event);`
+    into the tree, watched the crossing leave `message_crossings` for
+    `unresolved_message_writes`, and watched this script print `ok:` anyway. An
+    argument the parser cannot read was a write that silently left the
+    population — the one failure mode a population instrument may not have.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": _CROSSING,
+        "crates/ambition_y/src/lib.rs": (
+            "pub fn smuggle(world: &mut World) {\n"
+            "    let hidden = Unregistered::default();\n"
+            "    world.write_message(hidden);\n"
+            "}\n"
+        ),
+    })
+    unresolved = guard.unresolved_message_writes(root)
+    assert ("crates/ambition_y/src/lib.rs", "hidden") in unresolved, (
+        f"a bare local argument is no longer reported as unresolved: {unresolved}"
+    )
+    assert guard.unresolved_head("hidden") not in guard.UNRESOLVED_ADJUDICATED, (
+        "the fixture's name is adjudicated, so this arm cannot show the failure"
+    )
+
+
+def test_the_three_resolvable_binding_shapes_resolve():
+    """⭐ AGAINST PRODUCTION, because all three shapes are in the tree.
+
+    `for event in router.advance_pending(..)` -> `ShellEvent` by the callee's
+    `-> Vec<ShellEvent>` (`crates/ambition_game_shell/src/plugin.rs:369`,
+    `router.rs:703`), and `fn stage_actor(&mut self, request: SpawnActorRequest)`
+    -> `SpawnActorRequest` by the PARAMETER
+    (`crates/ambition_sim_harness/src/runtime.rs:833`). Both were in the
+    unresolved list until 2026-09-18; the list went 21 -> 18 and the remainder
+    is one adjudicated type.
+    """
+    universe = guard._registered_messages(guard.REPO)
+    shell = (guard.REPO / "crates/ambition_game_shell/src/plugin.rs").read_text()
+    assert guard._resolve_binding(shell, "event", universe, guard.REPO) == "ShellEvent"
+    harness = (guard.REPO / "crates/ambition_sim_harness/src/runtime.rs").read_text()
+    assert (
+        guard._resolve_binding(harness, "request", universe, guard.REPO)
+        == "SpawnActorRequest"
+    )
+
+
+def test_every_unresolved_write_left_in_the_tree_is_adjudicated():
+    """⚠ THE RATCHET. A new unreadable spelling must be resolved or argued for.
+
+    Today's remainder is one type across 18 sites: `AppExit`, which this
+    workspace never passes to `add_message`, so it cannot be in the universe
+    however it is spelled.
+    """
+    heads = {guard.unresolved_head(arg) for _file, arg in guard.unresolved_message_writes()}
+    assert heads <= set(guard.UNRESOLVED_ADJUDICATED), (
+        f"unadjudicated unresolved write head(s): {sorted(heads - set(guard.UNRESOLVED_ADJUDICATED))}"
+    )
+    assert heads == {"AppExit"}, (
+        f"the remainder changed to {sorted(heads)}; re-read UNRESOLVED_ADJUDICATED "
+        "rather than widening it"
+    )
+
+
+def test_no_message_system_is_classified_only_by_an_opaque_schedule_parameter():
+    """⚠ THE THIRD WAY A SIDE COULD BE WRONG, and today it is closed.
+
+    `schedules_by_system` records the LABEL as written, so a generic installer
+    such as `install_attempt_scoped(app, schedule, when)`
+    (`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:125`)
+    contributes the parameter's NAME. `is_non_rewinding` treats any schedule
+    variable as rewinding, so an opaque label reads as `sim` — the safe
+    direction for a sim READER and the unsafe one for a host WRITER, which
+    would be dropped from the crossing set.
+
+    ⭐ MEASURED 2026-09-18: of 172 message writers/readers whose every label is
+    a variable, 164 are labelled `sim` (the workspace spelling of
+    `let sim = app.sim_schedule()`) and the other 8 carry an opaque `schedule`
+    or `schedule.clone()` BESIDE `sim`. None is classified by an opaque label
+    alone, so nothing rests on the guess. This arm fails the day one does.
+    """
+    by_system = guard.schedules_by_system()
+    sides = {
+        name
+        for _ty, writers, readers in guard._message_sides(guard.REPO)
+        for name in list(writers) + list(readers)
+    }
+    opaque_only = sorted(
+        name
+        for name in sides
+        if (labels := by_system.get(name))
+        and all(sim.is_schedule_variable(label) for label in labels)
+        and "sim" not in labels
+    )
+    assert not opaque_only, (
+        "these message systems are placed ONLY by a generic installer's parameter "
+        f"name, so their host/sim side is a guess: {opaque_only}. Resolve the call "
+        "site's real schedule argument, or report them with the other lower bounds "
+        "rather than classifying them."
     )

@@ -373,19 +373,92 @@ def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
 #: `MessageReader<T>` — a `Local<MessageCursor<T>>` that does not say `Local`.
 #: See the blind-spot block in this module's docstring.
 _MESSAGE_READER = re.compile(r"\bMessageReader\s*<")
+#: A `MessageReader` FIELD of a `#[derive(SystemParam)]` bundle, with its message
+#: type. Same shape as `_LOCAL_FIELD` and for the same reason — a bundle field
+#: cannot elide its lifetimes, so the parameter spelling and the field spelling
+#: are different strings for one thing.
+_MESSAGE_READER_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*MessageReader\s*<\s*"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+
+@functools.cache
+def _bundle_cursor_fields(repo: Path) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    """`bundle -> ((field path, message type), ..)`, nested paths included.
+
+    ⛔⛤ **THE CURSOR HALF OF THE BUNDLE EXPANSION, AND IT WAS MISSING WHILE THE
+    `Local` HALF SHIPPED.** `_bundle_local_fields` has expanded `Local` through
+    `#[derive(SystemParam)]` structs since 2026-09-18; `hidden_cursor_systems`
+    read only a system's own parameter list on the same day, so a cursor one
+    level down was invisible to the number this module prints to say how much it
+    cannot see. Found by review with a production specimen rather than a syntax
+    poison: `FreshAttempt` (`crates/ambition_combat/src/events.rs:194`) carries
+    two `MessageReader` fields and
+    `void_pending_player_hits_at_lifecycle_boundaries`
+    (`crates/ambition_damage/src/lib.rs:1249`) takes it — a registered sim system
+    whose two cursors this census reported as zero.
+
+    ⇒ An UNDERCOUNT in the "what I cannot adjudicate" number is the worst
+    direction a number can be wrong in, because it makes the adjudicated part
+    look more complete than it is.
+    """
+    direct: dict[str, list[tuple[str, str]]] = {}
+    nested: dict[str, list[tuple[str, str]]] = {}
+    for _path, text in sim._production_sources(repo):
+        for match in sim._SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = sim._braced(text, brace)
+            direct[match.group(1)] = _MESSAGE_READER_FIELD.findall(body)
+            nested[match.group(1)] = sim._NESTED_FIELD.findall(body)
+
+    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
+        out = {field: ty for field, ty in direct.get(name, ())}
+        for field, candidate in nested.get(name, ()):
+            if candidate == name or candidate in seen or candidate not in direct:
+                continue
+            for path, ty in resolve(candidate, seen | {name}).items():
+                out.setdefault(f"{field}.{path}", ty)
+        return out
+
+    return tuple(
+        (name, tuple(sorted(resolve(name, frozenset()).items())))
+        for name in sorted(direct)
+        if resolve(name, frozenset())
+    )
+
+
+def bundle_cursor_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
+    """`{bundle: {field path: message type}}` for every bundle holding a cursor."""
+    return {name: dict(fields) for name, fields in _bundle_cursor_fields(repo)}
 
 
 def hidden_cursor_systems(repo: Path = REPO) -> dict[str, tuple[str, int]]:
     """`{system: (file, cursor count)}` — the part of the population this census
-    cannot adjudicate, measured so a clean run cannot imply it does not exist."""
+    cannot adjudicate, measured so a clean run cannot imply it does not exist.
+
+    Counts a system's own `MessageReader` parameters AND the cursors inside any
+    `#[derive(SystemParam)]` bundle it takes [`_bundle_cursor_fields`].
+    """
     registered = sim_schedule_systems(repo)
+    bundles = bundle_cursor_fields(repo)
     found: dict[str, tuple[str, int]] = {}
     for src, text in sim._production_sources(repo):
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
             if name not in registered:
                 continue
-            count = len(_MESSAGE_READER.findall(sim._params(text, match.end())))
+            params = sim._params(text, match.end())
+            count = len(_MESSAGE_READER.findall(params))
+            for bundle, fields in bundles.items():
+                if re.search(
+                    rf":\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*{re.escape(bundle)}\b", params
+                ):
+                    count += len(fields)
             if count:
                 found[name] = (str(src.relative_to(repo)), count)
     return found

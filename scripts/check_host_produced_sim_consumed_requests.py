@@ -597,7 +597,63 @@ def _registered_messages(repo: Path) -> frozenset[str]:
     return frozenset(found)
 
 
-def _written_by_call(body: str, universe: frozenset[str]) -> set[str]:
+#: `let NAME = …;` / `for NAME in …`, used to give a bare argument a type.
+_BINDS = (
+    re.compile(r"\blet\s+(?:mut\s+)?{name}\s*(?::\s*([^=;]+?))?\s*=\s*([^;]+);"),
+    re.compile(r"\bfor\s+{name}\s+in\s+([^\{{]+)\{{"),
+    # A FUNCTION PARAMETER, which is how `stage_actor(&mut self, request:
+    # SpawnActorRequest)` carries the harness's only bare write.
+    re.compile(r"\b{name}\s*:\s*&?\s*(?:mut\s+)?([A-Za-z_][\w:]*)\s*[,)]"),
+)
+#: `fn NAME( … ) -> T`, to read a call's element type out of its signature.
+_RETURNS = re.compile(r"\bfn\s+{name}\s*(?:<[^>()]*>)?\s*\([^;]*?\)\s*->\s*([^\{{;]+)")
+
+
+def _resolve_binding(body: str, name: str, universe: frozenset[str], repo: Path) -> str | None:
+    """The registered message type a BARE `write_message(x)` argument carries.
+
+    ⛔⛤ **A LOCAL BINDING HID A CROSSING FROM THIS SCRIPT, AND A REVIEW PROVED IT
+    BY POISON.** `let event = Heal; world.write_message(event);` took a real
+    host→sim crossing out of [`message_crossings`] and into
+    [`unresolved_message_writes`], and the guard stayed GREEN — an argument this
+    parser cannot read was silently not part of the population. The shape is not
+    hypothetical: `crates/ambition_game_shell/src/plugin.rs:349,369` writes
+    `ShellEvent` through `for event in …`.
+
+    Four spellings are resolved: a `let` with an explicit type, a `let` whose
+    right-hand side names a type, a `for` over a call whose `fn … -> Vec<T>`
+    signature names one, and a function PARAMETER. Anything else stays
+    unresolved and must be adjudicated — see [`UNRESOLVED_ADJUDICATED`].
+    """
+    for pattern in _BINDS:
+        match = re.search(pattern.pattern.format(name=re.escape(name)), body)
+        if not match:
+            continue
+        for group in match.groups():
+            if not group:
+                continue
+            for word in re.findall(r"[A-Za-z_]\w*", group):
+                if word in universe:
+                    return word
+            # `for x in router.advance_pending(..)` — read the callee's return.
+            call = re.search(r"\.\s*([a-z_]\w*)\s*\(", group)
+            if call:
+                signature = re.compile(
+                    _RETURNS.pattern.format(name=re.escape(call.group(1)))
+                )
+                for _src, other in sim._production_sources(repo):
+                    found = signature.search(other)
+                    if not found:
+                        continue
+                    for word in re.findall(r"[A-Za-z_]\w*", found.group(1)):
+                        if word in universe:
+                            return word
+    return None
+
+
+def _written_by_call(
+    body: str, universe: frozenset[str], repo: Path | None = None
+) -> set[str]:
     """Registered message types this body writes through `.write_message(..)`.
 
     ⚠ The argument is resolved by taking the first path segment that names a
@@ -609,11 +665,31 @@ def _written_by_call(body: str, universe: frozenset[str]) -> set[str]:
     """
     found: set[str] = set()
     for match in _WRITE_MESSAGE.finditer(body):
-        for part in (p.strip() for p in match.group(1).split("::")):
+        parts = [p.strip() for p in match.group(1).split("::")]
+        for part in parts:
             if part in universe:
                 found.add(part)
                 break
+        else:
+            if len(parts) == 1 and repo is not None:
+                resolved = _resolve_binding(body, parts[0], universe, repo)
+                if resolved:
+                    found.add(resolved)
     return found
+
+
+def unresolved_head(argument: str) -> str:
+    """The type name an unattributable argument is spelled with.
+
+    `bevy::app::AppExit::from_code` and `AppExit::Success` are one type and two
+    spellings; `UNRESOLVED_ADJUDICATED` is keyed on the type so a row is an
+    argument about a TYPE rather than about a punctuation style.
+    """
+    parts = [p.strip() for p in argument.split("::")]
+    for part in parts:
+        if part[:1].isupper():
+            return part
+    return parts[-1]
 
 
 def unresolved_message_writes(repo: Path = REPO) -> list[tuple[str, str]]:
@@ -623,9 +699,36 @@ def unresolved_message_writes(repo: Path = REPO) -> list[tuple[str, str]]:
     for src, text in sim._production_sources(repo):
         for match in _WRITE_MESSAGE.finditer(text):
             parts = [p.strip() for p in match.group(1).split("::")]
-            if not any(p in universe for p in parts):
-                out.append((src.relative_to(repo).as_posix(), match.group(1)))
+            if any(p in universe for p in parts):
+                continue
+            if len(parts) == 1 and _resolve_binding(text, parts[0], universe, repo):
+                continue
+            out.append((src.relative_to(repo).as_posix(), match.group(1)))
     return out
+
+
+#: The head of a `.write_message(..)` argument this script cannot attribute to a
+#: registered message type → why that is correct rather than a hole.
+#:
+#: ⛔⛤ **AN ENTRY IS REQUIRED, AND THAT IS THE POINT.** Until 2026-09-18 an
+#: unattributable write was merely COUNTED: a review poisoned the tree with
+#: `let event = Heal; world.write_message(event);`, watched the crossing move
+#: out of `message_crossings` and into `unresolved_message_writes`, and watched
+#: this script print `ok:` anyway. A population that quietly drops what it
+#: cannot read is not a population. `main()` now fails on any head not named
+#: here, so the next unreadable spelling has to be resolved or argued for.
+UNRESOLVED_ADJUDICATED: dict[str, str] = {
+    "AppExit": (
+        "⭐ OUT OF THE POPULATION BY DEFINITION, not tolerated. `AppExit` is "
+        "Bevy's own message and this workspace never calls `add_message::"
+        "<AppExit>()` — `_registered_messages` is built from that call, so the "
+        "type cannot be in `universe` no matter how the argument is spelled. "
+        "All 18 sites are `AppExit::Success` / `::from_code` / `::error` in "
+        "capture tools, the render-recovery host and the menu's quit path: a "
+        "process exiting is not an intent the simulation can consume, so there "
+        "is no rewind for it to be lost to (read 2026-09-18)"
+    ),
+}
 
 
 @functools.cache
@@ -643,7 +746,9 @@ def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, .
                 readers.setdefault(ty.split("::")[-1], set()).add(name)
             brace = text.find("{", match.end())
             if brace != -1:
-                for ty in _written_by_call(sim._braced(text, brace), universe):
+                for ty in _written_by_call(
+                    params + sim._braced(text, brace), universe, repo
+                ):
                     writers.setdefault(ty, set()).add(name)
     return tuple(
         (ty, tuple(sorted(ws)), tuple(sorted(readers.get(ty, ()))))
@@ -1005,12 +1110,32 @@ def main() -> int:
         )
 
     unresolved = unresolved_message_writes()
+    unadjudicated = sorted(
+        {
+            (file, arg)
+            for file, arg in unresolved
+            if unresolved_head(arg) not in UNRESOLVED_ADJUDICATED
+        }
+    )
+    if unadjudicated:
+        print(
+            f"{len(unadjudicated)} `.write_message(..)` call(s) name no registered "
+            "message type and nobody has said why:\n\n  "
+            + "\n  ".join(f"{file}: {arg}" for file, arg in unadjudicated)
+            + "\n\nThis script attributes a write by reading its argument, so an "
+            "argument it cannot read is a write that silently leaves the population — "
+            "a crossing can be hidden from every count above by binding it to a local "
+            "first. Resolve it (`_resolve_binding` handles a `let`, a `for` over a "
+            "call, and a parameter) or add the head to UNRESOLVED_ADJUDICATED with the "
+            "argument for why it is out of scope.",
+            file=sys.stderr,
+        )
+        return 1
     if unresolved:
         print(
             f"⚠ {len(unresolved)} `.write_message(..)` call(s) name no registered message "
-            f"type and are therefore NOT attributed: "
-            + ", ".join(sorted({arg for _file, arg in unresolved})[:6])
-            + (" ..." if len({a for _f, a in unresolved}) > 6 else "")
+            f"type and are adjudicated as out of scope: "
+            + ", ".join(sorted({unresolved_head(a) for _f, a in unresolved}))
         )
     return 0
 

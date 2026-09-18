@@ -205,3 +205,33 @@ def test_the_never_written_claim_is_verified_not_trusted():
         "`PerceivedWorld.empty_relations` is written now, so `tick_actor_brains`'"
         f"s NEVER WRITTEN reading no longer holds: {writes}"
     )
+
+
+def test_a_cursor_inside_a_system_param_bundle_is_counted():
+    """⛔⛤ THE UNDERCOUNT WAS IN THE "WHAT I CANNOT SEE" NUMBER, which is the
+    worst place for one: it makes the adjudicated part look more complete.
+
+    `_bundle_local_fields` expanded `Local` through `#[derive(SystemParam)]`
+    bundles from the day it was written; `hidden_cursor_systems` read only a
+    system's own parameter list. Found by review 2026-09-18 with a PRODUCTION
+    specimen rather than a syntax poison, which is why this arm names it instead
+    of building a fixture: `FreshAttempt` carries two `MessageReader` fields and
+    `void_pending_player_hits_at_lifecycle_boundaries` takes it — a registered
+    sim system this census reported as carrying zero cursors.
+    """
+    bundles = guard.bundle_cursor_fields()
+    assert bundles.get("FreshAttempt") == {
+        "loads": "RoomLoaded",
+        "replays": "RoomReplayAdmitted",
+    }, (
+        "`FreshAttempt`'s cursor fields no longer parse — the bundle is in "
+        "`crates/ambition_combat/src/events.rs` and spells its lifetimes across "
+        f"several lines, which is what the field regex is for. Got {bundles.get('FreshAttempt')!r}"
+    )
+
+    hidden = guard.hidden_cursor_systems()
+    assert hidden.get("void_pending_player_hits_at_lifecycle_boundaries", (None, 0))[1] == 2, (
+        "the bundle's two cursors stopped reaching their consumer "
+        "(`crates/ambition_damage/src/lib.rs`). Either the expansion regressed or "
+        "the system stopped being registered — the second is the quiet one."
+    )

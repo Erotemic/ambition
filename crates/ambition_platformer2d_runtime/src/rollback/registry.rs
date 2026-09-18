@@ -587,7 +587,27 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// five alias rows, and no mechanical state enters or leaves the snapshot.
 /// ⇒ Held by `no_two_schema_rows_describe_the_same_type_the_same_way`, so an
 /// alias cannot come back as a compatibility kindness a second time.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 198;
+/// ⛔⛤ 198 -> 199: A PEER PROJECTION WAS READING A RENDERED STRING AND STOPPED
+/// ONE FIELD TOO EARLY. `TransactionId::peer_stable_checksum` folded the content
+/// identity and the room and then quit; `ConstructionLane::transaction` appends
+/// a FOURTH field, `lane:{name}`, to the three `ConstructionScope::transaction`
+/// renders, and that field never reached the digest. So two roots in one room,
+/// at one content, on the gravity lane and on the portal-gun lane contributed
+/// the SAME value — measured at `4192778953073586539` for both before the fix.
+/// ⭐ THE LANE IS PEER-STABLE, unlike the session and the binding's epoch beside
+/// it: `ConstructionLane::named` takes an authored domain constant (a capability
+/// name such as `PORTAL_GUN_CONSTRUCTION_DOMAIN`), not a per-App counter. Two
+/// peers running one content render one lane name or they disagree about
+/// something real, which is exactly the thing a peer checksum is for.
+/// ⚠ NO MECHANICAL STATE ENTERS OR LEAVES THE SNAPSHOT. `TransactionId` still
+/// snapshots WHOLE; only the comparison widens, and the row's description moves
+/// with it. The bytes move for every transaction stamp, including primary-lane
+/// ones, because the absent lane now folds in as the literal `primary`.
+/// ⇒ Held by `two_construction_lanes_do_not_share_one_peer_projection` (primary
+/// vs named AND named vs named) and `the_primary_lane_projects_as_the_name_no_
+/// named_lane_may_take`, which pins the absent-lane default to the one name
+/// `ConstructionLane::named` refuses.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 199;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -1207,7 +1207,7 @@ mod tests {
     /// SILENT about the cue is the shape of the bug, not the fix. What has to be
     /// true is that the move never reaches that executor.
     ///
-    /// ⛔ THE EXEMPTION IN `author_teleport_blink.rs` NAMED THIS MOVE as one that
+    /// ⛔ THE EXEMPTION IN `director_teleport_blink.rs` NAMED THIS MOVE as one that
     /// *"never runs the teleport executor"* while it plainly did. That sentence
     /// is true now, and this arm is what keeps it true.
     #[test]

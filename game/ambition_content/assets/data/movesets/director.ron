@@ -12,36 +12,36 @@
                 presentation: None,
                 moveset: Some((
                     verbs: {
-                        "attack": "author_jab",
-                        "attack_air": "author_air_neutral",
-                        "attack_air_back": "author_air_back",
-                        "attack_air_down": "author_air_down",
-                        "attack_air_forward": "author_air_forward",
-                        "attack_air_up": "author_air_up",
-                        "attack_dash": "author_dash_attack",
-                        "attack_down": "author_tilt_down",
-                        "attack_forward": "author_tilt_forward",
-                        "attack_up": "author_tilt_up",
-                        "capture_pummel": "author_pummel",
-                        "capture_throw_back": "author_throw_back",
-                        "capture_throw_down": "author_throw_down",
-                        "capture_throw_forward": "author_throw_forward",
-                        "capture_throw_up": "author_throw_up",
-                        "grab": "author_grab",
-                        "grab_dash": "author_grab_dash",
-                        "smash_down": "author_smash_down",
-                        "smash_forward": "author_smash_forward",
-                        "smash_up": "author_smash_up",
-                        "special": "author_point",
-                        "special_air_down": "author_falling_edge",
-                        "special_down": "author_second_draft",
-                        "special_forward": "author_train_of_thought",
-                        "special_up": "author_revision",
-                        "taunt": "author_taunt",
+                        "attack": "director_jab",
+                        "attack_air": "director_air_neutral",
+                        "attack_air_back": "director_air_back",
+                        "attack_air_down": "director_air_down",
+                        "attack_air_forward": "director_air_forward",
+                        "attack_air_up": "director_air_up",
+                        "attack_dash": "director_dash_attack",
+                        "attack_down": "director_tilt_down",
+                        "attack_forward": "director_tilt_forward",
+                        "attack_up": "director_tilt_up",
+                        "capture_pummel": "director_pummel",
+                        "capture_throw_back": "director_throw_back",
+                        "capture_throw_down": "director_throw_down",
+                        "capture_throw_forward": "director_throw_forward",
+                        "capture_throw_up": "director_throw_up",
+                        "grab": "director_grab",
+                        "grab_dash": "director_grab_dash",
+                        "smash_down": "director_smash_down",
+                        "smash_forward": "director_smash_forward",
+                        "smash_up": "director_smash_up",
+                        "special": "director_point",
+                        "special_air_down": "director_falling_edge",
+                        "special_down": "director_second_draft",
+                        "special_forward": "director_train_of_thought",
+                        "special_up": "director_revision",
+                        "taunt": "director_taunt",
                     },
                     moves: [
                         (
-                            id: "author_jab",
+                            id: "director_jab",
                             display_name: None,
                             clip: (
                                 clip: "jab",
@@ -116,7 +116,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_tilt_forward",
+                            id: "director_tilt_forward",
                             display_name: None,
                             clip: (
                                 clip: "attack_side",
@@ -191,7 +191,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_tilt_up",
+                            id: "director_tilt_up",
                             display_name: None,
                             clip: (
                                 clip: "attack_up",
@@ -266,7 +266,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_tilt_down",
+                            id: "director_tilt_down",
                             display_name: None,
                             clip: (
                                 clip: "attack_down",
@@ -349,7 +349,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_smash_forward",
+                            id: "director_smash_forward",
                             display_name: None,
                             clip: (
                                 clip: "smash_forward",
@@ -424,7 +424,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_smash_up",
+                            id: "director_smash_up",
                             display_name: None,
                             clip: (
                                 clip: "smash_up",
@@ -499,7 +499,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_smash_down",
+                            id: "director_smash_down",
                             display_name: None,
                             clip: (
                                 clip: "smash_down",
@@ -574,7 +574,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_air_neutral",
+                            id: "director_air_neutral",
                             display_name: None,
                             clip: (
                                 clip: "air_neutral",
@@ -649,7 +649,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_air_forward",
+                            id: "director_air_forward",
                             display_name: None,
                             clip: (
                                 clip: "air_forward",
@@ -724,7 +724,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_air_back",
+                            id: "director_air_back",
                             display_name: None,
                             clip: (
                                 clip: "air_back",
@@ -799,7 +799,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_air_up",
+                            id: "director_air_up",
                             display_name: None,
                             clip: (
                                 clip: "air_up",
@@ -874,7 +874,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_air_down",
+                            id: "director_air_down",
                             display_name: None,
                             clip: (
                                 clip: "air_down",
@@ -949,7 +949,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_taunt",
+                            id: "director_taunt",
                             display_name: None,
                             clip: (
                                 clip: "taunt",
@@ -990,7 +990,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_dash_attack",
+                            id: "director_dash_attack",
                             display_name: None,
                             clip: (
                                 clip: "dash_attack",
@@ -1073,7 +1073,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_point",
+                            id: "director_point",
                             display_name: None,
                             clip: (
                                 clip: "slash",
@@ -1170,7 +1170,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_falling_edge",
+                            id: "director_falling_edge",
                             display_name: None,
                             clip: (
                                 clip: "air_down",
@@ -1253,7 +1253,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_grab",
+                            id: "director_grab",
                             display_name: None,
                             clip: (
                                 clip: "grab",
@@ -1337,7 +1337,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_grab_dash",
+                            id: "director_grab_dash",
                             display_name: None,
                             clip: (
                                 clip: "grab",
@@ -1421,7 +1421,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_pummel",
+                            id: "director_pummel",
                             display_name: None,
                             clip: (
                                 clip: "pummel",
@@ -1473,7 +1473,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_throw_forward",
+                            id: "director_throw_forward",
                             display_name: None,
                             clip: (
                                 clip: "throw_forward",
@@ -1532,7 +1532,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_throw_back",
+                            id: "director_throw_back",
                             display_name: None,
                             clip: (
                                 clip: "throw_back",
@@ -1591,7 +1591,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_throw_up",
+                            id: "director_throw_up",
                             display_name: None,
                             clip: (
                                 clip: "throw_up",
@@ -1650,7 +1650,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_throw_down",
+                            id: "director_throw_down",
                             display_name: None,
                             clip: (
                                 clip: "throw_down",
@@ -1709,7 +1709,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_revision",
+                            id: "director_revision",
                             display_name: Some("Revision"),
                             clip: (
                                 clip: "special_up",
@@ -1790,7 +1790,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_second_draft",
+                            id: "director_second_draft",
                             display_name: None,
                             clip: (
                                 clip: "special",
@@ -1867,7 +1867,7 @@
                             flow: None,
                         ),
                         (
-                            id: "author_train_of_thought",
+                            id: "director_train_of_thought",
                             display_name: None,
                             clip: (
                                 clip: "special_forward",

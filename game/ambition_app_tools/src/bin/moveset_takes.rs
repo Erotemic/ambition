@@ -763,7 +763,7 @@ fn moveset_of(app: &mut App, character: &str) -> Option<ambition_entity_catalog:
 /// pack are authored. MEASURED 2026-09-12 over the shipped tables: of 470
 /// authored moves, **161 author no volume and no `Ranged` event, and 98 of those
 /// DO carry an `Effect` event** — every one of them classified "fires nothing".
-/// `author`'s `author_train_of_thought` is one; the grid take refused on it, with
+/// `author`'s `director_train_of_thought` is one; the grid take refused on it, with
 /// the engine's own log reading `bolt fired: seat=0 speed=300 turn=220deg/s` four
 /// lines above the panic.
 ///
@@ -1707,7 +1707,7 @@ mod tests {
     /// ⛔⛔ **A MOVE THAT FIRES THROUGH A TECHNIQUE AUTHORS OFFENCE.**
     ///
     /// ⛤ `authors_offense` used to match only `MoveEventKind::Ranged`, and that
-    /// scope killed a roster-wide recording: `author_train_of_thought` carries no
+    /// scope killed a roster-wide recording: `director_train_of_thought` carries no
     /// volumes and one `Effect("smash.steered_bolt")`, so the hitless refusal
     /// fired on a move the engine had just logged `bolt fired: seat=0 speed=300
     /// turn=220deg/s` for, four lines above the panic. MEASURED over the shipped
@@ -1715,12 +1715,12 @@ mod tests {
     /// and **98 of those DO carry an `Effect`** — every one mis-classified.
     #[test]
     fn a_move_that_fires_a_technique_effect_authors_offense() {
-        let spec = shipped("author_train_of_thought");
+        let spec = shipped("director_train_of_thought");
         // ⛔ THE PREMISE, or this arm is about a move that authors a volume and
         // proves nothing about the `Effect` road.
         assert!(
             spec.windows.iter().all(|w| w.volumes.is_empty()),
-            "`author_train_of_thought` now authors a strike volume, so it no \
+            "`director_train_of_thought` now authors a strike volume, so it no \
              longer exercises the effect-only case this arm exists for"
         );
         assert!(
@@ -1728,14 +1728,14 @@ mod tests {
                 .events
                 .iter()
                 .any(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Ranged)),
-            "`author_train_of_thought` now carries a `Ranged` event, so the OLD \
+            "`director_train_of_thought` now carries a `Ranged` event, so the OLD \
              predicate would already classify it and this arm is vacuous"
         );
         assert!(
             spec.events
                 .iter()
                 .any(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Effect(_))),
-            "`author_train_of_thought` no longer fires a technique effect"
+            "`director_train_of_thought` no longer fires a technique effect"
         );
 
         assert!(

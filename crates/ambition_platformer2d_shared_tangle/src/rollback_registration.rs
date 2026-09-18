@@ -112,8 +112,8 @@ where
     registrar.rollback_component_canonical_checksum::<crate::construction::TransactionId>(
         OWNER,
         "component.construction_transaction_id",
-        "bevy_ggrs canonical codec snapshot + checksum over the content identity and the room \
-         only, excluding the host-local content epoch and session stamps",
+        "bevy_ggrs canonical codec snapshot + checksum over the content identity, the room and \
+         the construction lane, excluding the host-local content epoch and session stamps",
         crate::construction::TransactionId::peer_stable_checksum,
     );
     registrar.rollback_component_canonical::<crate::construction::SpawnOrigin>(

@@ -313,6 +313,12 @@ def source_pattern_metrics() -> dict[str, Any]:
         #   `DERIVE_RESOURCE`  543 -> 544, same cause, `GatedLockWallVerdicts`.
         # ⇒ A discovery surface that counts comments is not cheaper, it is
         #   wrong in whichever direction the prose happens to fall.
+        # ⚠ RECORDED NEGATIVE, so nobody re-does it: with comments gone the
+        # 360-character window is no longer the limiting factor. An
+        # attribute-aware pattern — derive, then any run of further `#[..]`
+        # attributes, then the item — was measured against it here and finds
+        # EXACTLY the same 536 resources and 660 components, neither more nor
+        # fewer. The window was only ever failing on prose.
         text = rust_source.strip_comments(text)
         for match in OPTIONAL_RES.finditer(text):
             optional_occurrences.append({"path": rel, "kind": match.group("kind"), "type": match.group("type")})

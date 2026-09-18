@@ -6,18 +6,20 @@
 > through the detector on 2026-09-18 at `455b35876`+. Reproducible: `find
 > crates game -name lib.rs -path '*/src/lib.rs'` names exactly this
 > population — verified zero-diff against the sweep's own crate list the day
-> this page was finished. 64 crates produced zero hits under the
-> default-features detector.
+> this page was finished. 61 crates never produced a hit under the
+> default-features detector, and 17 had at least one (one of those 17,
+> `ambition_encounter_features`, is now ALSO clean after its fix — see
+> "Clean crates" below for why it is listed in both places on purpose).
 >
 > ⛔⛤ **AND "NO FURTHER WORK" IS WHAT THIS PAGE GOT WRONG.** The section "an
 > `--all-targets` run answers a different question" below states the gap in
 > this page's own words — *a `[dev-dependencies]` entry can be STRANDED with
 > zero signal from any `--lib` run* — and the page then declared the census
 > complete anyway. A zero from an instrument that cannot see a table is not a
-> zero about that table. The 64 were never asked the dev-dependency question,
-> and neither were the 14 called "fully settled": both halves are scoped to
+> zero about that table. The 61 were never asked the dev-dependency question,
+> and neither were the 17 called "fully settled": both halves are scoped to
 > `[dependencies]`. Seven stranded dev-dependencies were found the moment the
-> question was actually asked — see "Stranded dev-dependencies" below. The other 14 are
+> question was actually asked — see "Stranded dev-dependencies" below. The other 17 are
 > each fully classified below: every hit is either a compiler-and-deletion-
 > confirmed manifest fix (applied) or a confirmed real use this page names
 > the evidence for (kept, unchanged). This page replaces an earlier partial
@@ -166,10 +168,23 @@ cross-reference is not debt — the link is a real service to a reader, the cost
 is one manifest line, and deleting both to satisfy a lint trades documentation
 for tidiness.
 
-## Confirmed results — all 14 hit-crates, fully settled
+## Confirmed results — all 17 hit-crates, fully settled
 
-64 of 78 crates produced zero hits under the default-features detector and
-needed no further work (listed at the bottom, "Clean crates"). These 14 each
+⚠ This heading and the paragraph below it read **"14 hit-crates"** and
+**"64 of 78... needed no further work"** until 2026-09-18. Counted by
+parsing both tables below rather than by re-reading them: the union of
+crate names across "Manifest changed" (9) and "Confirmed real use... kept"
+(12, four crates shared with the first table) is **17**, not 14, and the
+"Clean crates" list beneath carried an eighteenth name —
+`ambition_game_shell` — with no annotation explaining the overlap, even
+though its own row above (`ambition_persistence`, FEATURE-GATED, real use)
+means it is not zero-hit. Removed from that list; it belongs only here.
+`ambition_encounter_features` is the one crate legitimately in both places,
+because its one stranded edge was fixed and the crate is now clean under a
+fresh run — see its note in "Clean crates".
+
+61 of 78 crates produced zero hits under the default-features detector and
+needed no further work (listed at the bottom, "Clean crates"). These 17 each
 had at least one hit; every hit below has been through the detector, the
 `--all-features` confirmer, and (where the finding wasn't already settled by
 those two) the `--all-targets` confirmer or a direct delete-and-build test.
@@ -251,7 +266,7 @@ one to check first.
 
 ⛔⛤ **THIS SECTION EXISTS BECAUSE THE PAGE CLOSED WITHOUT IT.** The detector is
 a `--lib` run, and a `[dev-dependencies]` entry never enters one. The page said
-so, in the section above, and then reported 64 crates as needing "no further
+so, in the section above, and then reported 61 crates as needing "no further
 work" on the strength of a measurement that was never pointed at their
 dev-dependency tables. Raised in an outside review, 2026-09-18.
 
@@ -267,6 +282,16 @@ reported five deps from the wrong crate's `[dependencies]` block), collects both
 the plain table and every `[target.'cfg(..)'.dev-dependencies]`, and asks whether
 any `.rs` under `src/`, `tests/`, `benches/` or `examples/` contains a
 `name::`/`name!` reference, following a `package = ` rename.
+
+⇒ **This is no longer a one-off sweep: `scripts/check_dev_dependencies_are_used.py`
+(landed `9bfc20cab`) is the same method as a standing guard**, and it covers a
+WIDER population than this page's 78 — every `Cargo.toml` in the tree (88
+manifests, 18 with a `[dev-dependencies]` table), not only crates with a
+`src/lib.rs`. Re-run against HEAD while writing this correction:
+`ok: every dev-dependency is named by its own crate (18 crate(s) with a
+[dev-dependencies] table, 88 manifest(s) scanned)` — the seven fixes below are
+what took it from red to that green, and it is the instrument that now backs
+this section's completeness claim, not a re-reading of this table.
 
 ⚠ **A substring is not a reference, and this is where the sweep would have
 lied.** A loose grep for `insta` in `game/ambition_app` returns 562 hits and in
@@ -301,7 +326,13 @@ repository's warning gate reads clean over code that warns — the other two
 (non-default `cfg(feature)`, and workspace feature unification) are disclosed in
 the gate's own output.
 
-## Clean crates — 64, zero hits under the default-features detector
+## Clean crates — 62, zero hits under the default-features detector
+
+⚠ Read 64 until 2026-09-18 and carried `ambition_game_shell` with no
+annotation — it has a real, kept `ambition_persistence` hit above and is not
+zero-hit; moved out (see "Confirmed results" for the recount). 61 of these
+62 never produced a hit; `ambition_encounter_features` is the other one,
+listed here because its hit was fixed rather than kept.
 
 `ambition_asset_manager`, `ambition_audio`, `ambition_binding`,
 `ambition_body_seed`, `ambition_boss_encounter`, `ambition_causal`,
@@ -311,7 +342,7 @@ the gate's own output.
 `ambition_demo_sanic`, `ambition_demo_sanic_app`, `ambition_demo_smash_app`,
 `ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
 `ambition_dev_tools`, `ambition_encounter_features` (after its move above),
-`ambition_engine_schemas`, `ambition_entity_catalog`, `ambition_game_shell`,
+`ambition_engine_schemas`, `ambition_entity_catalog`,
 `ambition_gameplay_trace`, `ambition_geometry`, `ambition_held_items`,
 `ambition_interaction`, `ambition_inventory_ui`, `ambition_items`,
 `ambition_load`, `ambition_match`, `ambition_menu`,

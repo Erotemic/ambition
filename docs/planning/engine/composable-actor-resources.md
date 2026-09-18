@@ -50,6 +50,22 @@ needs. A simulation system must not hash a resource name on each tick. The
 preparation step resolves names and roles once. The runtime uses a prepared
 handle and direct indexed access.
 
+⭐ **AND THERE ARE THREE IDENTITIES IN THAT FLOW, NOT ONE**, which is the
+distinction a 2026-09-17 review found this page collapsing:
+
+```text
+stable authored resource identity  portable, durable, in save data    (R4)
+ResourceLayoutId                   which slots, in what order         (R13)
+PreparedActorResourcePlanId        that layout + costs + bindings      (R13)
+prepared slot / handle             a local runtime address, never saved (R4)
+```
+
+Rollback restores the PLAN id ([R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through));
+the layout id is a projection of it, because many plans may share one layout and
+never the reverse. The store behind a restored plan id is an arena with a
+generation lifetime, not a cache
+([R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache)).
+
 A character with no resources is valid. A Smash fighter with no Limit is valid.
 A fighter with Limit has the Limit resource and the capability that owns its
 fill policy. Another fighter can have a different resource. The main game can
@@ -202,6 +218,14 @@ a local runtime address.
 
 Do not put slot numbers in authoring or durable save data.
 
+⚠ **AND A LAYOUT OR PLAN IDENTITY IS NEITHER OF THOSE TWO THINGS.** It is not a
+runtime address — it is content-derived and peer-stable, so it may cross to a
+peer and into a snapshot. It is not an authored identity either, so it must not
+appear in durable save data, which outlives the generation that gave it meaning.
+[R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)
+owns how each is derived; [R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache)
+owns how long what it names survives.
+
 ### R5. One mutable authority per resource
 
 A resource has one live mutable value. HUD state, a capability role, a prepared
@@ -283,14 +307,45 @@ not move into the resource bank because they are numeric.
 A second state family can reuse the prepare-and-bind pattern later if it has a
 real customer and the same semantics.
 
-### R13. A layout or plan identity is CONTENT-DERIVED, never an allocation order
+### R13. There are TWO identities, and each is content-derived over its OWN content
 
-The identity two peers exchange must be a function of the layout's canonical
-CONTENT: either a digest over the canonical bytes, or a dense ordinal assigned
-from the canonically sorted set of layouts an admitted generation declares.
+```text
+ResourceLayoutId            = identity of the canonical SLOT LAYOUT
+                              (which resources, in which order, with what
+                              per-slot metadata)
 
-It must not be the order in which a cache, an intern table or a preparation queue
-first saw the layout.
+PreparedActorResourcePlanId = identity of the WHOLE PREPARED PLAN
+                              (that layout, plus the prepared move costs, the
+                              capability-role bindings, and every other piece of
+                              immutable generation data the plan selects)
+```
+
+Each must be a function of ITS OWN canonical content: either a digest over the
+canonical bytes, or a dense ordinal assigned from the canonically sorted set an
+admitted generation declares. Neither may be the order in which a cache, an
+intern table or a preparation queue first saw the thing.
+
+⛔⛤ **THIS RULE SAID "A LAYOUT OR PLAN IDENTITY … IS A FUNCTION OF THE LAYOUT'S
+CANONICAL CONTENT", AND A 2026-09-17 REVIEW CAUGHT THE `OR`.** [R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
+makes the PLAN id the one restored pointer, precisely because many plans may
+share one layout. Deriving the plan id from the layout's content makes those
+plans INDISTINGUISHABLE — which is the defect R10 was written to close, arriving
+back through the identity rule:
+
+```text
+plan A:  fuel -> slot 0, stamina -> slot 1    dash costs 3 fuel
+plan B:  fuel -> slot 0, stamina -> slot 1    dash costs 7 fuel
+```
+
+Same layout, same `ResourceLayoutId`, and they MUST NOT share a
+`PreparedActorResourcePlanId`: a rewind that restores the id has to say which
+cost and binding set to read the values through. ⚠ Two plans that differ only in
+a capability-role binding are the same shape of failure and are harder to see,
+because nothing about the numbers looks wrong.
+
+⇒ So the plan id's content is the plan's, not the layout's. The layout id remains
+a PROJECTION of the plan id, exactly as R10 says — derived, not independently
+restored.
 
 ⛔⛤ **R11 FORBIDS UNORDERED ITERATION IN CONSTRUCTION AND SAYS NOTHING ABOUT THE
 ID, WHICH IS A DIFFERENT FACT.** Two peers can derive byte-identical layouts and
@@ -311,10 +366,77 @@ peer-stable identity. An interned layout ordinal is host-local lineage with a
 mechanical-sounding name.
 
 ⇒ The acceptance arm is NOT "two peers prepare the same layout". It is **two
-peers prepare the same layout after DIFFERENT IRRELEVANT HISTORIES** — a
-different set of other characters prepared first, in a different order — and
-agree on the identity. A test whose peers do the same things in the same order
-cannot distinguish a content digest from a counter.
+peers prepare the same PLAN after DIFFERENT IRRELEVANT HISTORIES** — a different
+set of other characters prepared first, in a different order — and agree on the
+identity. A test whose peers do the same things in the same order cannot
+distinguish a content digest from a counter.
+
+⛔⛔ **AND IT TAKES TWO ARMS POINTING OPPOSITE WAYS, BECAUSE ONE OF THEM PASSES
+FOR THE WRONG REASON ALONE.**
+
+1. **Agreement across irrelevant history.** Two peers reach the same full
+   prepared plan by different preparation orders and agree on both ids. This arm
+   alone is satisfied by returning a constant.
+2. **Separation within one layout.** Two plans that share a layout but differ in
+   a prepared move cost, and two that differ only in a capability-role binding,
+   have the SAME `ResourceLayoutId` and DIFFERENT
+   `PreparedActorResourcePlanId`s. This arm alone is satisfied by a counter.
+
+⚠ A dense-ordinal scheme must satisfy both too: ordinals are assigned from a
+canonical ordering of the full plan, not of the layout and not of the encounter
+or cache order.
+
+### R14. A prepared plan a snapshot can name is an ARENA, not a cache
+
+Prepared plans are immutable and APPEND-ONLY within a rollback generation. A plan
+may not be replaced, mutated or evicted while any rollback snapshot, checkpoint,
+save or other admitted state can still name it. The reclamation boundary is a
+GENERATION OR TIMELINE RESET, which is the moment nothing admitted can point
+backwards any more.
+
+⛔⛤ **THIS FOLLOWS FROM [R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
+AND WAS NOWHERE ON THIS PAGE UNTIL A 2026-09-17 REVIEW ASKED FOR IT.** The moment
+the restored pointer is a plan ID rather than a copy of the plan, the store
+behind it acquires a lifetime contract — and this page had left that store's
+lifetime unstated while calling it a cache in three places: *"this plan can be
+CACHED as part of character preparation"*, *"finish and CACHE it at that later
+composition boundary"*, and, twice, *"the exact type name, fields, CACHE OWNER
+and crate placement are Phase 0 outputs"*. Naming the owner but not the lifetime
+is what grants permission to evict:
+
+```text
+actor progresses A -> B, the cache replaces A
+rewind restores PreparedActorResourcePlanId(A)
+A is gone
+```
+
+The values come back correct and there is nothing to read them through. ⚠ A
+dangling plan id is strictly worse than the desync R10 closed, because the
+failure is not a disagreement between two peers — it is one peer unable to
+describe its own restored state, and it is reachable on a single machine.
+
+⇒ **SO THE QUESTION IS SETTLED BEFORE PHASE 0, NOT DISCOVERED IN IT.** *Is the
+plan store a cache that may evict, or an authoritative immutable arena whose
+lifetime is tied to a session/generation?* It is the arena. That answer changes
+what Phase 0 builds, which is why it is a rule here rather than a note in the
+progression section: a cache with an eviction policy and an arena with a
+generation boundary are different objects, and retrofitting the second onto the
+first means finding every place that assumed a miss was recoverable.
+
+⭐ **THE WITNESS IS A REWIND ACROSS A PROGRESSION, AND IT MUST NAME THE PLAN
+RATHER THAN THE VALUES.** Advance an actor from plan A to plan B, rewind past the
+change, and assert the restored `PreparedActorResourcePlanId` RESOLVES — not
+merely that the resource values are right. A visible consequence that is not
+itself the restored pointer cannot witness this: values restored under B's
+bindings can read plausibly, which is the same trap
+[R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
+records.
+
+⚠ **WHAT THIS DOES NOT SAY** is that plans are never reclaimed. Append-only
+within a generation with a reset boundary is a bounded arena, not a leak; the
+population is the set of plans an admitted generation can declare, which
+[R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)
+already requires be canonically enumerable for its dense-ordinal option.
 
 ## Authoring model
 
@@ -433,12 +555,18 @@ PreparedActorResourcePlan
 ```
 
 If the character definition already contains all required inputs, this plan can
-be cached as part of character preparation. If a ruleset or build supplies more
-inputs, finish and cache it at that later composition boundary. Do not resolve a
+be prepared once as part of character preparation. If a ruleset or build supplies
+more inputs, finish it at that later composition boundary. Do not resolve a
 resource slot before all facts that can change the layout are known.
 
-The exact type name, fields, cache owner, and crate placement are Phase 0
-outputs.
+⛔ **"CACHED" IS THE WRONG WORD FOR THIS STORE AND THIS PARAGRAPH USED IT TWICE.**
+A rollback snapshot names a plan by identity, so a plan is append-only within a
+generation and may not be evicted or replaced while anything admitted can still
+point at it — see [R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache).
+Prepare-once is the behaviour; a cache's freedom to miss is not.
+
+The exact type name, fields, arena owner, and crate placement are Phase 0
+outputs. Its RETENTION is not: R14 fixes that.
 
 ### Deterministic layout
 
@@ -702,15 +830,22 @@ bindings, prepared costs, and the rules that can change mechanics.
 
 Two peers that admit the same content must derive byte-equivalent canonical
 layouts, AND the same identity for them —
-[R13](#r13-a-layout-or-plan-identity-is-content-derived-never-an-allocation-order).
+[R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content).
 Two poisons, because they fail differently:
 
 1. change unordered input iteration and prove the prepared LAYOUT does not
    change;
-2. prepare the same layout on two peers after DIFFERENT irrelevant histories —
-   other characters prepared, in a different order — and prove the IDENTITY does
-   not change. An intern-table ordinal passes (1) and fails (2), and (2) is the
-   one that reaches the checksum.
+2. prepare the same PLAN on two peers after DIFFERENT irrelevant histories —
+   other characters prepared, in a different order — and prove BOTH identities
+   are unchanged. An intern-table ordinal passes (1) and fails (2), and (2) is
+   the one that reaches the checksum;
+3. prepare two plans that share a layout and differ in one prepared move cost,
+   and two that differ only in a capability-role binding, and prove the
+   `ResourceLayoutId`s MATCH while the `PreparedActorResourcePlanId`s DIFFER. ⛔
+   Without this one, (1) and (2) are both satisfied by deriving the plan id from
+   the layout — which is what this page said to do until 2026-09-17, and which
+   makes a rewind unable to say which cost set to read the restored values
+   through.
 
 ### Save data
 
@@ -906,13 +1041,21 @@ and a live checksum:
 2. **How the identity is derived** — content digest, or a dense ordinal over a
    canonically sorted set inside the admitted generation; never the order a cache
    first saw the layout
-   ([R13](#r13-a-layout-or-plan-identity-is-content-derived-never-an-allocation-order)).
+   ([R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)).
    This one is not a prototype detail: the id is what two peers exchange, and the
    repository has already shipped one App-lifetime insertion index into a peer
    checksum (`RollbackOrdered`).
 
-⇒ Phase 0 may choose the TYPE, the field names and the cache owner. It does not
-get to choose these two, and 0B/0C are where they are exercised.
+3. **How long a named plan survives** — append-only within a rollback
+   generation, never evicted or replaced while a snapshot, checkpoint or save can
+   still name it, with a generation/timeline reset as the reclamation boundary
+   ([R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache)).
+   ⛔ This decides whether the store is a cache or an arena, which is a different
+   OBJECT rather than a different policy — so a Phase 0 that builds the cache
+   first has to find every place that assumed a miss was recoverable.
+
+⇒ Phase 0 may choose the TYPE, the field names and the arena owner. It does not
+get to choose these three, and 0B/0C are where they are exercised.
 
 ### 0A. Three character compositions
 
@@ -1167,12 +1310,22 @@ Do not combine those families into one mutable map only to reuse lookup code.
   rollback registry;
 - two peers prepare the same slots from the same canonical content;
 - permuting unordered source insertion does not change prepared layout;
-- **two peers that prepare the same layout after different irrelevant
-  preparation histories agree on its IDENTITY** (R13);
+- **two peers that prepare the same PLAN after different irrelevant preparation
+  histories agree on BOTH identities** (R13);
+- **two plans that share a layout and differ only in a prepared move cost — and
+  two that differ only in a capability-role binding — have the same
+  `ResourceLayoutId` and DIFFERENT `PreparedActorResourcePlanId`s** (R13). ⛔ The
+  arm above alone is satisfied by returning a constant, and this one alone by a
+  counter; deriving the plan id from the layout satisfies both and still makes a
+  rewind unable to say which cost set to read the restored values through;
 - **a rewind across a plan change restores the active plan identity with the
   values**, witnessed by reading a resource THROUGH a capability-role handle
   after the rewind rather than by comparing the bank — a bank comparison passes
   while the handles belong to the other layout (R10);
+- **a rewind across a PROGRESSION resolves the restored plan identity** — advance
+  an actor from plan A to plan B, rewind past the change, and assert the restored
+  `PreparedActorResourcePlanId` still names a live plan (R14). ⚠ Its control is
+  a generation reset, after which reclaiming A is correct;
 - invalid decode refuses instead of constructing an invalid pool.
 
 ### Content iteration
@@ -1205,7 +1358,16 @@ Add poisons that:
 12. derive the layout identity from an intern-table or cache ordinal instead of
     the layout's content (R13);
 13. restore the bank's own layout-id copy independently instead of declaring it
-    derived (R10) — two restored copies of one fact.
+    derived (R10) — two restored copies of one fact;
+14. derive the PLAN identity from the layout's content, then rewind an actor
+    whose two plans share a layout and differ in a prepared move cost (R13) —
+    the values come back and are read through the wrong costs;
+15. evict or replace a prepared plan when the actor progresses past it, then
+    rewind to a frame whose snapshot names it (R14). ⚠ This poison must be run
+    with the plan store's own miss path INSTRUMENTED: a store that silently
+    re-prepares an equivalent plan on a miss hides it, and re-preparing is only
+    equivalent if the generation has not changed — which is exactly the case the
+    arm is not testing.
 
 Each poison must have a nonempty control that proves the witness exercised the
 subject.

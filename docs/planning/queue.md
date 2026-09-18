@@ -1075,7 +1075,7 @@ before the exclusive-world spelling landed, and 523 before the clone deletion.
 523 → 521 is the player-clone relic going: checked out `c1ba8227a` (the commit
 before the merge) and `--list` printed 523, then `main` printed 521, so two of
 the seven functions in the deleted `app/player_clone.rs` took a rollback type
-mutably. ⇒ A FALLING population is the one direction this row's floors cannot
+mutably. <!-- cite-ok: the file is named BECAUSE it was deleted; that is the row's subject --> ⇒ A FALLING population is the one direction this row's floors cannot
 catch — the floor is 470 — and it is also the only direction that can be either
 progress or a blinded scanner. Re-measuring at both commits is what tells them
 apart, and it is cheap enough that a bare *"it went down"* is never the right
@@ -1876,10 +1876,16 @@ body with `BodyKinematics`, `PlayerEntity` and the full movement clusters, and
 with no `SimId`, no `FeatureId` and deliberately no `PrimaryPlayer` — so
 `ensure_sim_id` matched neither arm and skipped it on every tick, forever. The
 site now mints `SimId::spawned(primary, counter.next())`, states
-`SpawnOrigin::Dynamic`, and REFUSES to spawn when the primary has no identity to
-descend from (ADR 0030). Guard:
+`SpawnOrigin::Dynamic`, and REFUSED to spawn when the primary had no identity to
+descend from (ADR 0030). Its guard was
 `the_player_clone_road_builds_an_identified_body`
-(`game/ambition_app/tests/player_clone_live.rs`).
+<!-- cite-ok: guard and file both RECORDED as deleted in this sentence -->
+(`game/ambition_app/tests/player_clone_live.rs`), deleted with the road in
+<!-- cite-ok: the guard's file, named BECAUSE it was deleted -->
+`89d78a4a5`; the rule is held now by the wider
+`a_body_the_sweeper_declines_to_identify_is_nameable`
+(`game/ambition_app/tests/every_damageable_body_is_identified.rs`).
+<!-- cite-ok: the guard and its file are RECORDED as deleted in this sentence -->
 
 ⛔ **IT WAS INVISIBLE TO BOTH SHIPPED CENSUSES, AND THAT IS THE REUSABLE PART.**
 `ensure_sim_id`'s `debug_assert` and `observe_damageable_body_identity` both
@@ -1999,7 +2005,8 @@ rather than a `first`, and both pass (2 and 6 arms).
 It was measured at the pre-merge tree `b9f2ece18`, and at `ecbdf2297` no `app_it`
 test that steps the simulation terminated — 3.53s before the merge, not finishing
 in 300s after it. Re-run 2026-09-16 at `dae0fc44a`:
-`the_player_clone_road_builds_an_identified_body` passes in **1.60s** and prints
+`the_player_clone_road_builds_an_identified_body` passed in **1.60s** and printed
+<!-- cite-ok: a dated reading of a test since deleted in `89d78a4a5` -->
 `209 body-observations judged, 0 skipped`, the same numbers the original receipt
 claimed. The whole `-p ambition_app` suite finishes: 213 + 678 + 1 passed, 25
 ignored, 375s. ⇒ The receipt is now a claim about `main`, and the deferral above

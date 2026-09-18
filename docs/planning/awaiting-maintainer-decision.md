@@ -1984,14 +1984,21 @@ the part worth keeping as a lesson: I argued this was the right specimen because
 INTENT, and the hotkey's reachability was never measured. A specimen chosen for
 its low stakes has to have its trigger checked as carefully as its consumer.
 
-⇒ So the clone goes: `game/ambition_app/src/app/player_clone.rs`, its plugin
-registration, both live clone tests, the `PlayerClone` /
-`SpawnPlayerCloneRequest` exports, `avatar/clone_probe_tests.rs`, and the demo
-state-machine brain `StateMachineCfg::PlayerDemo` with its `PlayerDemoCfg` /
-`State` / `Phase` and dispatch arms. ⛔ NOT the real player-brain path
-(`tick_player_brain`), and NOT the generic mechanical-edit infrastructure —
-that has legitimate author/dev-edit customers and only the clone's USE of it
-disappears.
+⇒ **AND IT IS GONE, in `89d78a4a5` (2026-09-18).** What the deletion took, and
+this list is a RECORD of removed names rather than a set of live pointers:
+`game/ambition_app/src/app/player_clone.rs`, its plugin registration, both live
+<!-- cite-ok: the deleted module — this list is the deletion's manifest -->
+clone tests, the `PlayerClone` / `SpawnPlayerCloneRequest` exports,
+`avatar/clone_probe_tests.rs`, and the demo state-machine brain
+<!-- cite-ok: the deleted probe module, likewise part of the manifest -->
+`StateMachineCfg::PlayerDemo` with its `PlayerDemoCfg` / `State` / `Phase` and
+dispatch arms. <!-- cite-ok: the deletion's own manifest — every name here is
+gone BY INTENT, which is the fact the row records -->
+⛔ NOT the real player-brain path (`tick_player_brain`), and NOT the generic
+mechanical-edit infrastructure — that has legitimate author/dev-edit customers
+and only the clone's USE of it disappeared. Verified at HEAD: `PlayerClone`,
+`SpawnPlayerCloneRequest` and `PlayerDemo` have zero occurrences in
+`crates/`, `game/` and `tools/`.
 
 ⭐ **WHAT SURVIVES IS THE GENERAL CONCLUSION, AND IT IS THE USEFUL HALF:**
 author and developer world mutations belong at the mechanical-edit boundary;
@@ -2015,22 +2022,37 @@ subject no longer exists.
 
 ### 2026-09-18 — the first road is landed, and the fixture was the hard part
 
-⭐⭐ **`SpawnPlayerCloneRequest` IS FIXED, BY THE MECHANICAL-EDIT ROAD, AND BOTH
-CENSUSES AGREE IT IS GONE.** `spawn_requested_player_clone` no longer runs in
-`app.sim_schedule()`: the request is proposed in `MechanicalEditSet::Propose` and
-the spawn published in `Publish`, both in `PreUpdate`, with
-`decide_mechanical_edit_admission` between them. Witnessed by
-`a_dev_clone_survives_a_rewind`, which carries a fixed-tick control arm (1 clone)
-beside the rollback arm — and poisoning the registration back into the sim
-schedule reddens both arms while the control stays green.
+⛔⛤ **ITS SUBJECT WAS DELETED LATER THE SAME DAY (`89d78a4a5`), AND THE SECTION
+STAYS ANYWAY.** `SpawnPlayerCloneRequest` and both of its witnesses are gone
+with the clone. What this section actually found is not about a clone: it is
+about the ADMISSION ROAD, the ownership stamp, and how a rollback fixture can
+spend a whole run measuring nothing. Those findings have a live holder —
+`game/ambition_app/tests/the_admission_road_answers_for_the_shipped_ownership_mode.rs`,
+which keeps BOTH arms of the fold (`Caller` → `ForeignTimeline` → refuse;
+`LocalMaintainer` → `LocallyRebasable` → publish) and is strictly better than
+the clone witness was, because a decider that refused everything forever would
+have satisfied the clone arm alone.
+
+⭐⭐ **THE ROAD ITSELF WORKED, WHICH IS THE PART THAT GENERALISES.**
+`spawn_requested_player_clone` stopped running in `app.sim_schedule()`: the
+request was proposed in `MechanicalEditSet::Propose` and the spawn published in
+`Publish`, both in `PreUpdate`, with `decide_mechanical_edit_admission` between
+them — and poisoning the registration back into the sim schedule reddened the
+rollback arm while the fixed-tick control stayed green. The two witnesses that
+recorded it, `a_dev_clone_survives_a_rewind`
+<!-- cite-ok: the test is RECORDED as deleted in this sentence, not offered as a pointer -->
+and `a_press_the_spawn_cannot_honour_yet_is_kept_rather_than_consumed`
+<!-- cite-ok: likewise deleted with its subject in `89d78a4a5` -->
+were deleted with their subject.
 
 ⇒ Two repairs came with it, each a separate defect the move exposed:
 
 - **the press is spent LAST now.** `request.0 = false` stood above every refusal
   in the spawn, so a press arriving on a frame with no resolvable primary — or
   with a primary not yet carrying a `SimId` — was consumed and the clone never
-  appeared. Refusing a sub-step is not refusing the operation. Held by
-  `a_press_the_spawn_cannot_honour_yet_is_kept_rather_than_consumed`.
+  appeared. Refusing a sub-step is not refusing the operation — the one line of
+  this section that outlived its subject, and it is now in the run's standing
+  DISCIPLINE rather than in a test.
 - **`check_rollback_mutators_run_in_sim.py` caught the repair's own side effect
   before it was committed.** Minting the clone's identity increments the
   primary's `SimIdCounter`, which is rollback state, now from `PreUpdate`. It
@@ -2105,11 +2127,14 @@ so. Measured 2026-09-18: `grep -rn LocalSessionPolicy` over
 **nothing**, and the dev-tools unit fixtures insert
 `MechanicalEditAdmission::Publish` directly, bypassing the decider. So the
 `LocallyRebasable` arm — the one the game takes — had no coverage at all.
-`a_dev_clone_survives_a_rewind::hand_the_timeline_to_the_local_maintainer` is the
-first fixture that re-owns its session the shipped way; it stops the
-caller-owned session and lets the maintainer build its own, because the owner
+The first fixture that re-owned its session the shipped way stopped the
+caller-owned session and let the maintainer build its own, because the owner
 stamp and the installed session are one fact and writing half of it describes a
-world that cannot exist.
+world that cannot exist. ⇒ That helper is what survived the clone's deletion:
+it is now `maintainer_owned_rollback_sim` in
+`game/ambition_app/tests/common/mod.rs:389`,
+used by the admission-road test above — the gap this paragraph measured is
+still closed, by a holder that does not depend on a debug hotkey.
 
 ⚠ **TWO SMALLER THINGS WORTH A READER'S TIME, both met while building that
 fixture.** `LocalSessionPolicy`'s DEFAULT is `check_distance: 0` — rollback

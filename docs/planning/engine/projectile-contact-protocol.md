@@ -607,11 +607,20 @@ Moving-target CCD remains out of scope by the protocol's own slice.
 
 **A shipped road built a mechanical body that nothing could name, and both
 censuses were structurally blind to it.** `spawn_requested_player_clone`
-(`game/ambition_app/src/app/player_clone.rs`) spawned `BodyKinematics` +
+(`game/ambition_app/src/app/player_clone.rs`)
+<!-- cite-ok: the specimen road was DELETED in `89d78a4a5`; this paragraph records what it did -->
+spawned `BodyKinematics` +
 `PlayerEntity` + the full movement clusters + a `CenteredAabb`, with no `SimId`,
 no `FeatureId`, and deliberately no `PrimaryPlayer` — so `ensure_sim_id` matched
-neither of its arms and passed the body over on every tick. It is registered
+neither of its arms and passed the body over on every tick. It was registered
 unconditionally into the sim schedule (`WorldPrep`), with no feature gate.
+<!-- cite-ok: the specimen road was DELETED in `89d78a4a5`; this paragraph records what it did -->
+
+⛔ **THE SPECIMEN IS GONE AND THE BLINDNESS FINDING IS NOT.** That whole road was
+deleted on 2026-09-18 (`89d78a4a5`) because its `KeyCode::KeyK` trigger collided
+with two shipped input presets — a trigger defect, nothing to do with identity.
+What this section is actually about is the CENSUS PAIR below, which is unchanged
+and still shipping, so the section stays and the specimen is past tense.
 
 ⛔⛤ **WHY NEITHER CENSUS SAW IT, which is the part that generalises.**
 `ensure_sim_id`'s `debug_assert` and `observe_damageable_body_identity` both
@@ -632,22 +641,31 @@ body, so no flush shows the body without its identity. A clone whose parent has
 no identity is REFUSED: ADR 0030 rules that *"dynamic, parent unknown"* is not a
 state worth being able to spell.
 
-Witness: `the_player_clone_road_builds_an_identified_body`. It failed before the
+Its witness, `the_player_clone_road_builds_an_identified_body`,
+<!-- cite-ok: the witness is RECORDED as deleted here, not offered as a pointer -->
+failed before the
 repair, naming the body — `537v0 (Player Clone (brain-driven))`, `sim_id=None`,
-`origin=None` — and passes after, at `slot:0/0` with
-`Dynamic { parent: slot:0, sequence: 0 }`.
+`origin=None` — and passed after, at `slot:0/0` with
+`Dynamic { parent: slot:0, sequence: 0 }`. It was deleted with the road.
 
-⛔ **BOTH READINGS NAME THE PRE-MERGE TREE `b9f2ece18`, AND CANNOT BE REPRODUCED
-AT `ecbdf2297` TODAY.** Every `app_it` test that steps the simulation stops
-terminating at the merged tree: this lane ran `2 passed ... finished in 3.53s`
-before the merge, and after it a single test does not finish in 300s while its
-world grows about 10 MB per second. Startup is healthy (638ms, 790 systems), so
-the defect is in stepping, not construction. Matched probes — the same
-pre-existing test, same flags, same budget, with and without this repair stashed
-— both hung (`124`/`124`, 3.1 GB vs 3.3 GB), so the cause is in committed `main`
-and not in this work. ⇒ A reader who cannot reproduce the numbers above is
-looking at that regression, not at a false receipt. Re-measure once stepping
-terminates again. ⚠ Its arms are ordered
+⇒ **WHAT STILL HOLDS THE RULE** is the wider arm, which never depended on the
+clone: `a_body_the_sweeper_declines_to_identify_is_nameable` in
+`game/ambition_app/tests/every_damageable_body_is_identified.rs`, against
+`UnmintedBodyCensus` (`crates/ambition_platformer2d_runtime/src/sim_identity.rs:255`).
+The specimen was convenient, not load-bearing.
+
+✔ **THE DEFERRAL THIS PARAGRAPH USED TO CARRY IS DISCHARGED, and `queue.md` was
+the owner that knew.** Both readings were taken at the pre-merge tree
+`b9f2ece18`, and at `ecbdf2297` no `app_it` test that steps the simulation
+terminated: 3.53s before the merge, not finishing in 300s after it, world growing
+about 10 MB per second with startup healthy (638ms, 790 systems), and matched
+probes with and without the repair stashed both hung (`124`/`124`, 3.1 GB vs
+3.3 GB) — so the cause was in committed `main`, not in this work. It was
+re-measured 2026-09-16 at `dae0fc44a`: the receipt reproduced (1.60s,
+`209 body-observations judged, 0 skipped`) and `-p ambition_app` finished whole.
+⇒ This page asked a reader to *"re-measure once stepping terminates again"* for
+two days after somebody had. That is the cost of a deferral with two owners: the
+one a reader lands on is not the one that gets updated. ⚠ Its arms are ordered
 SPECIFIC-before-POPULATION on purpose: an arm placed behind a wider one can never
 be shown to fire, which is the correction `a_body_the_sweeper_declines_to_identify_is_nameable`
 already had to make once.

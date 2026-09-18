@@ -1374,6 +1374,42 @@ channel with a deterministic, agreed arrival tick. Options:
    MENU-RESET-MIDSESSION.
 
 ⚠ **NOT AN OPTION:** removing either type from the peer checksum.
+
+⭐⭐ **AND THE MECHANISM MEASURED ON 2026-09-18 ADDS ONE TEST THAT ALL THREE
+OPTIONS MUST PASS, WHICH THEY WERE NOT WRITTEN AGAINST.** The loss is the
+CONSUMPTION record, not the intent: a `MessageReader`'s cursor is a `Local` that
+no rewind restores, so the resimulation asks *"anything new?"* and is told no —
+whether or not the intent is still sitting there (see the cursor block below for
+the arithmetic). ⇒ Restated as a requirement:
+
+> A host→sim handoff is safe only when the fact *"this has already been
+> consumed"* is either rollback state or re-derived every frame. Carrying the
+> INTENT across the boundary is not enough.
+
+Against that test:
+
+* **Option 1 passes by construction**, and this is the strongest argument for
+  it: the input is re-fed on every resimulated frame, so consumption is
+  re-derived rather than remembered. It is the same property that makes the
+  shipped input road correct.
+* **Option 2 passes only with an addition its description does not have.** A
+  host-local buffer that is *"never in a snapshot or checksum"* is precisely a
+  `Local` cursor with more steps: the drain marks it consumed, the rewind does
+  not un-mark it, and the resimulated drain finds nothing. ⛔ So the drain's
+  bookkeeping must be registered, or the buffer must re-present its contents on
+  every resimulated frame. ⚠ That is a SECOND requirement beside the agreed
+  drain tick this page already names, and it is the one that was invisible
+  before the mechanism was measured.
+* **Option 3 sidesteps the test** by leaving the timeline, which is why it stays
+  the honest answer for New Game specifically.
+
+⇒ **THE TWO BENIGN ESCAPES ALREADY ON THIS PAGE ARE THE SAME RULE, WHICH IS THE
+CHECK ON IT.** `SetFlagRequested` is safe because `emit_intro_flag_chains`
+recomputes its condition from the save EVERY host frame — consumption
+re-derived. `ResetToCheckpoint` is safe because its ordering lives outside the
+timeline — consumption never replayed. Neither was chosen with this rule in
+mind, and both satisfy it; a rule that only the options satisfy would be a rule
+fitted to the options.
 `install_resource_clone_checksum` installs the snapshot/restore and the checksum
 projection INDEPENDENTLY, so narrowing what peers compare leaves the swallow
 exactly as it is. This has now been the wrong answer to three separate questions

@@ -2840,20 +2840,51 @@ every caller to notice on its own.
   to either read a health API or arrive with a sentence naming what a frozen
   world breaks in it.
 
-⚠ **WHAT THE MEASUREMENT DOES AND DOES NOT SETTLE.** It settles the blast radius:
-the exposed population is ZERO today. Of 26 sync-test fixtures, 15 read a health
-API and the rest already refuse a frozen world with assertions a stopped clock
-cannot satisfy (a population floor, a recorded stream length against the tick
-count, a room change after an authored hold). So (a) would red nothing at HEAD.
+⚠ **WHAT THE MEASUREMENT DOES AND DOES NOT SETTLE.** It settles the blast radius
+for the TEST population: no arm at HEAD is silently stepping a dead session, so
+(a) would red nothing in CI. Every arm either reads a health API or carries a
+named mechanism a stopped clock cannot satisfy — a population floor, a recorded
+stream length against the tick count, a room change after an authored hold. ⇒
+**The cardinalities are not restated here.** They moved four times in three days
+and this page held a copy that rotted each time; the census lives in
+`docs/planning/queue.md`'s ROLLBACK-DEAD-SESSION with its reference point, and
+the one road that cannot be stale is
+`python3 scripts/a_rollback_arm_must_refuse_a_frozen_world.py`, which prints the
+line. It runs in the maintenance lane as of 2026-09-18.
+
 It does NOT settle the policy, because a harness that panics on a dead session
 takes the choice away from a future arm that legitimately wants to step one — an
 arm testing the invalidation itself, for instance — and that is the maintainer's
 call rather than a census's.
 
-⛔ **NOT A CLEANUP, AND THE SIX ARMS MUST NOT BE EDITED EITHER WAY.** Adding
-`rollback_health()` to an arm whose assertions already cannot pass over a frozen
-world trades a strong guarantee for a visible one. Counting calls to a safety API
-measures vigilance; counting assertions a broken world fails measures safety.
+⛔⛤ **AND "THE EXPOSED POPULATION IS ZERO" WAS TRUE ONLY BECAUSE THE COUNT PUT
+ONE MEMBER IN THE WRONG COLUMN — WHICH IS AN ARGUMENT *FOR* (a).** This row used
+to read *"15 read a health API and the rest already refuse a frozen world"*,
+folding the guard's two `NOT_AN_ARM` exemptions into the safe limb. One of them
+is not safe. `game/ambition_app/examples/hall_bench.rs:45-68` builds the shipped
+sync-test session and steps it 3,300 times with no health read and no liveness
+floor, so an invalidated session there prints per-tick timings for a world that
+stopped advancing — a benchmark reporting the cost of doing nothing, in the
+shape of a number somebody would then put in a document. It is an example rather
+than a test, so it still reds nothing in CI; it is also the only caller in the
+tree that consumes a frozen world SILENTLY, and it is the one the census
+exempted. ⇒ Under (a) it would abort instead, which is what a benchmark wants.
+
+⚠ **THE EXEMPTION'S STATED REASON WAS ALSO FALSE, AND CHECKABLE.** It read *"it
+asserts nothing, so there is no verdict for a frozen world to falsify"*, while
+`hall_bench.rs:55` asserts the active room after warmup. The conclusion survived
+— `with_required_start_room` refuses to boot unless the room resolved
+(`crates/ambition_sim_harness/src/options.rs:77-81`), so `active_room` already
+equals it at tick 0 and a frozen world satisfies that `assert_eq!` — but the
+reason did not, and the reason is what the next reader re-checks. Corrected in
+the guard 2026-09-18 with the mechanism that actually carries it.
+
+⛔ **NOT A CLEANUP, AND THE ADJUDICATED ARMS MUST NOT BE EDITED EITHER WAY.**
+(There were six when this was written and there are twelve now, which is why the
+sentence no longer names a count.) Adding `rollback_health()` to an arm whose
+assertions already cannot pass over a frozen world trades a strong guarantee for
+a visible one. Counting calls to a safety API measures vigilance; counting
+assertions a broken world fails measures safety.
 
 ## Q139 — what declares that a presentation system writes `Transform`?
 

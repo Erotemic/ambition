@@ -56,8 +56,16 @@ HEALTH = re.compile(r"\brollback_health\s*\(\s*\)|\bsession_health\b")
 #: Files that build the fixture without being an arm.
 NOT_AN_ARM = {
     "crates/ambition_sim_harness/src/options.rs": "the API definition itself",
-    "game/ambition_app/examples/hall_bench.rs": "a benchmark example: it asserts "
-    "nothing, so there is no verdict for a frozen world to falsify",
+    "game/ambition_app/examples/hall_bench.rs": "a benchmark: its ONE assertion "
+    "cannot falsify a stopped clock, because `with_required_start_room` refuses "
+    "to boot unless the room resolved (`options.rs:77-81`), so `active_room` "
+    "already equals it at tick 0 and the post-warmup `assert_eq!` reads the "
+    "same either way. ⚠ THIS SAID \"it asserts nothing\" UNTIL 2026-09-18, WHICH "
+    "WAS FALSE AT `hall_bench.rs:55` — a checkable reason nobody re-checked. The "
+    "conclusion survived the correction; the reason did not. ⇒ This is also the "
+    "one member of the population a frozen world harms SILENTLY: no health read "
+    "and no liveness floor, so an invalidated session here prints per-tick "
+    "timings for a world that stopped advancing (read 2026-09-18)",
 }
 
 #: Arms with no health call whose assertions a frozen world cannot satisfy, each

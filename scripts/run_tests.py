@@ -1521,6 +1521,36 @@ def build_maintenance_jobs() -> list[Job]:
             "rollback state is not mutated outside the rewinding schedule",
             [sys.executable, "scripts/check_rollback_mutators_run_in_sim.py"],
         ),
+        # ⛔⛤ **AND THE CENSUS THAT FOUND THOSE TWO USED `check_*.py` AS ITS
+        # POPULATION, SO IT COULD NOT SEE THESE THREE.** Two of them are named
+        # for the sentence they assert rather than for the verb `check`, and the
+        # third is a `check_` that simply was not listed. A scan root is a
+        # citation: a member outside it reads as absent rather than as unlooked-
+        # at — which is the exact defect
+        # `a_rollback_arm_must_refuse_a_frozen_world.py` records in its own
+        # docstring about `crates/` and `game/`, committed here by the instrument
+        # hunting it. Re-derived 2026-09-18 over every `scripts/*.py` ending in
+        # `raise SystemExit(main())`, not over a name prefix.
+        #
+        # This one holds the sync-test frozen-world accounting: the 31-fixture
+        # population, the 12 `ADJUDICATED` readings and the 2 exemptions, plus
+        # the stale-row checks either side. 12 seconds.
+        Job(
+            "a rollback arm must refuse a frozen world",
+            [sys.executable, "scripts/a_rollback_arm_must_refuse_a_frozen_world.py"],
+        ),
+        # The 10 interior-mutable test statics and their adjudications. 3 seconds.
+        Job(
+            "a test static is a channel between arms",
+            [sys.executable, "scripts/a_test_static_is_a_channel_between_arms.py"],
+        ),
+        # Every authored door lands in a real area with a real arrival zone, and
+        # no area is a trap. Content, not architecture — and at 0.15 s the
+        # cheapest verdict in the lane. 0.2 seconds.
+        Job(
+            "the world graph is navigable",
+            [sys.executable, "scripts/check_world_graph_is_navigable.py"],
+        ),
     ]
 
 

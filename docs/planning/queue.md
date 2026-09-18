@@ -2442,14 +2442,32 @@ to be satisfiable by a frozen world, and its author gets no warning.
    COMPLAINT, AND ONE IS LANDED:**
    `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`. It routes the decision
    instead of making it — a sync-test arm either reads the health API or arrives
-   with a sentence naming what a frozen world breaks in it. Census 2026-09-17,
-   last re-derived after the release-marker, room-cutscene and
-   recharacterize-request arms landed: **29 fixtures, 15 reading a health API,
-   12 adjudicated, 2 not arms** — re-derive
+   with a sentence naming what a frozen world breaks in it. ⭐ **THIS ITEM IS THE
+   CENSUS'S ONE OWNER.** `awaiting-maintainer-decision.md`'s Q138 kept a second
+   copy and the two disagreed by 2026-09-18 — it still said 26/15 while this
+   said 29/15/12/2 and the guard said 31/17/12/2. Q138 now carries the
+   derivation and points here for the count.
+   Re-derived **2026-09-18**: **31 fixtures, 17 reading a health API, 12
+   adjudicated, 2 not arms** — re-derive
    with `python3 scripts/a_rollback_arm_must_refuse_a_frozen_world.py`, which
    prints the line. ⚠ It reads `git ls-files`, so a NEW fixture is invisible to
-   it until staged; both of today's were caught only because the file was added
-   before the sweep was believed.
+   it until staged; both of 2026-09-17's were caught only because the file was
+   added before the sweep was believed.
+   ✔ **AND THE VERDICT IS NOW HELD BY SOMETHING THAT RUNS** (2026-09-18): until
+   then its `main()` was reached only by hand, because `scripts/tests/` tests
+   the PARTS and no lane named the script. It is a `--maintenance` job at 12 s.
+   The census that found the day's other two unheld ratchets missed this one by
+   using `check_*.py` as its population — a scan root is a citation, the same
+   defect this guard's own docstring records about `crates/` and `game/`.
+   ⛔ **ONE `NOT_AN_ARM` EXEMPTION WAS WRONG IN ITS REASON AND HALF-WRONG IN ITS
+   EFFECT.** `game/ambition_app/examples/hall_bench.rs` was exempted as *"it
+   asserts nothing"*, which is false at `hall_bench.rs:55`. The exemption stands
+   on a different mechanism (`with_required_start_room` guarantees the asserted
+   room at tick 0, so a frozen world satisfies it) — but that also makes the
+   bench the one caller in the tree that consumes a frozen world SILENTLY, with
+   3,300 steps, no health read and no liveness floor. Not a test, so it reds
+   nothing; it is still a benchmark that would report the cost of a world that
+   stopped advancing.
    ⛔⛤ **THE POPULATION WAS ALREADY FIVE PAST THE 21 THIS ROW CERTIFIED, AND ONE
    OF THEM WAS INVISIBLE TO THE SWEEP.** Four new arms arrived in `game/`, and the
    26th is `examples/capability_demo/tests/rollback_round_trip.rs` — outside
@@ -3399,7 +3417,7 @@ CAUSED AND FIXED 2026-09-18.** `--maintenance`'s doc-link job scored **0 broken
 links for all thirteen tracked crates against a banked baseline of 141**, marked
 every row *"⭐ repaired"*, and advised `--update`, which would have written an
 empty baseline and retired the ratchet. The cause is the lane itself:
-`scripts/run_tests.py:2178` exports `CARGO_TERM_COLOR=always` to every child
+`scripts/run_tests.py:2247` exports `CARGO_TERM_COLOR=always` to every child
 job, so rustdoc writes `ESC[1m ESC[33m warning ESC[0m: unresolved link to …`
 and the guard's `^warning:` anchor matches nothing. Same crate, same target
 directory, one minute apart: `cargo doc -p ambition_characters --no-deps`

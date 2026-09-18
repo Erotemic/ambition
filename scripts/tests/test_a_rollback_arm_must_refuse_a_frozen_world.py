@@ -103,3 +103,25 @@ def test_a_real_health_call_still_reads_as_one():
     assert module.HEALTH.search(module.code_only(real))
     other = "fn arm() { let h = session_health(world); }"
     assert module.HEALTH.search(module.code_only(other))
+
+
+def test_the_bench_exemption_still_rests_on_the_mechanism_it_names():
+    """⛔⛤ The reason was false and the conclusion was right, which is the worst pair.
+
+    `hall_bench.rs` was exempted as *"it asserts nothing"* until 2026-09-18,
+    while it asserts the active room at `hall_bench.rs:55`. The exemption
+    survives on a different fact — `with_required_start_room` refuses to boot
+    unless the room resolved, so `active_room` already equals the asserted value
+    at tick 0 and a stopped clock satisfies it — and THAT is the fact worth
+    pinning, because it is the one that could stop being true. If the bench
+    stops requiring its room, or the option stops being fallible, the bench's
+    one assertion may start falsifying a frozen world and the exemption needs
+    re-reading rather than re-approving.
+    """
+    bench = (REPO / "game/ambition_app/examples/hall_bench.rs").read_text()
+    assert "game/ambition_app/examples/hall_bench.rs" in CHECK.NOT_AN_ARM
+    assert "with_required_start_room" in CHECK.code_only(bench)
+    options = CHECK.code_only(
+        (REPO / "crates/ambition_sim_harness/src/options.rs").read_text()
+    )
+    assert "start_room_must_resolve = true" in options

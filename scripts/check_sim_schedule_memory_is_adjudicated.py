@@ -36,9 +36,17 @@ this file's opening paragraph is about, and the detector matches the literal
 token `Local<` in a parameter list. MEASURED 2026-09-18 over the same 594
 sim-schedule registrations:
 
-    systems with a literal `Local<`          13   ← what this census adjudicates
+    systems with a literal `Local<`          13
+    plus one reached through a `SystemParam`   1   ← `tick_actor_brains`, added
+                                                    2026-09-18 after a review
+                                                    named the miss
     systems with a `MessageReader` cursor    99   (106 cursors)
     overlap                                   1
+
+⇒ 14 adjudicated here and 99 owned by the ingress census. ⚠ The 13 stood in this
+block for part of a day as *"what this census adjudicates"*, which was true and
+was not the population — the number and the population are different claims and
+this file had been making the second while measuring the first.
 
 ⭐⭐ **AND ALL 99 ARE ADJUDICATED BY ONE RULE, WHICH IS WHY THEY ARE NOT LISTED
 HERE.** Read 2026-09-18 in `bevy_ecs` 0.19.1: `Messages::clear`
@@ -122,10 +130,82 @@ SIM_LABELS = frozenset(
 
 _LOCAL = re.compile(r"(?:mut\s+)?([a-z_][a-z0-9_]*)\s*:\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*Local\s*<")
 
+#: A `#[derive(SystemParam)]` field holding a `Local`.
+#:
+#: ⛔⛤ **A `Local` REACHED THROUGH A BUNDLE IS STILL PER-SYSTEM MEMORY, AND THIS
+#: CENSUS COULD NOT SEE ONE UNTIL 2026-09-18.** A review named the miss:
+#: `tick_actor_brains` runs in the rewinding schedule and takes `PerceivedWorld`,
+#: whose `empty_relations: Local<'s, FactionRelations>`
+#: (`features/ecs/perception.rs:1191`) never appeared in this file's population.
+#: ⇒ It is harmless — an immutable all-peaceful fallback returned by
+#: `unwrap_or(&self.empty_relations)` — but *"13 systems with a `Local`, every
+#: one read"* was not the population, and a green that names the wrong
+#: population is the failure mode this file's own docstring is about.
+#:
+#: ⭐ The Q136 checker had already learned this lesson for `ResMut` and grew
+#: `system_param_mutable_fields` for it. This is the same concept for `Local`,
+#: reusing the same bundle enumeration and the same dotted-path nesting, so the
+#: two agree about what a bundle IS.
+_LOCAL_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*Local\s*<\s*(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+
+@functools.cache
+def _bundle_local_fields(repo: Path) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    """`bundle -> ((field path, Local's type), ..)`, nested paths included."""
+    direct: dict[str, list[tuple[str, str]]] = {}
+    nested: dict[str, list[tuple[str, str]]] = {}
+    for _path, text in sim._production_sources(repo):
+        for match in sim._SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = sim._braced(text, brace)
+            direct[match.group(1)] = _LOCAL_FIELD.findall(body)
+            nested[match.group(1)] = sim._NESTED_FIELD.findall(body)
+
+    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
+        out = {field: ty for field, ty in direct.get(name, ())}
+        for field, candidate in nested.get(name, ()):
+            if candidate == name or candidate in seen or candidate not in direct:
+                continue
+            for path, ty in resolve(candidate, seen | {name}).items():
+                out.setdefault(f"{field}.{path}", ty)
+        return out
+
+    return tuple(
+        (name, tuple(sorted(resolve(name, frozenset()).items()))) for name in sorted(direct)
+    )
+
+
+def bundle_local_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
+    return {name: dict(fields) for name, fields in _bundle_local_fields(repo) if fields}
+
 #: system -> the reading, dated. ⛔ NOT a waiver list: each row names the
 #: MECHANISM that makes remembering harmless here, so the next reader can check
 #: that it still holds rather than trusting the row.
 ADJUDICATED: dict[str, str] = {
+    # ── NEVER WRITTEN: a sixth mechanism, and the strongest one ─────────────
+    "tick_actor_brains": (
+        "NEVER WRITTEN, which is a stronger reason than any of the five below "
+        "and arrived with the first bundle-reached `Local` this census could "
+        "see. The binding is `PerceivedWorld.empty_relations: "
+        "Local<'s, FactionRelations>` "
+        "(`features/ecs/perception.rs:1191`), and its only use is "
+        "`self.relations.as_deref().unwrap_or(&self.empty_relations)` at `:1197` "
+        "— a borrowable all-peaceful table so `relations()` can hand out a "
+        "reference whether or not the live resource is registered. ⇒ A `Local` "
+        "nothing ever writes holds `Default::default()` on the speculative run "
+        "and on every replay, so there is no value for a rewind to fail to "
+        "restore. ⚠ THE CLAIM IS MECHANICAL AND IS CHECKED: "
+        "`test_the_never_written_claim_is_verified_not_trusted` fails if any "
+        "production line writes that path, because *\"never written\"* is exactly "
+        "the kind of true-today sentence a later edit falsifies in silence "
+        "(read 2026-09-18, found by a review 2026-09-18)"
+    ),
     # ── SCRATCH: cleared or reset before use ────────────────────────────────
     "integrate_sim_bodies": (
         "SCRATCH. `contact_scratch` is handed to `BodyContactField::field_for`, "
@@ -272,13 +352,19 @@ def remembering_systems(repo: Path = REPO) -> dict[str, tuple[str, list[str]]]:
 
 def _remembering_systems(repo: Path) -> dict[str, tuple[str, list[str]]]:
     registered = sim_schedule_systems(repo)
+    bundles = bundle_local_fields(repo)
     found: dict[str, tuple[str, list[str]]] = {}
     for src, text in sim._production_sources(repo):
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
             if name not in registered:
                 continue
-            binds = _LOCAL.findall(sim._params(text, match.end()))
+            params = sim._params(text, match.end())
+            binds = _LOCAL.findall(params)
+            # ⇒ And the same question asked of every bundle the signature holds.
+            for bundle, fields in bundles.items():
+                if re.search(rf":\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*{re.escape(bundle)}\b", params):
+                    binds.extend(f"{bundle}.{path}" for path in fields)
             if binds:
                 found[name] = (str(src.relative_to(repo)), sorted(binds))
     return found

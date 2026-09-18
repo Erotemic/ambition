@@ -27,7 +27,6 @@ mod dev_runtime;
 mod feedback;
 mod hud;
 mod phases;
-mod player_clone;
 mod player_tick;
 mod plugins;
 mod resources;
@@ -65,7 +64,6 @@ pub use cli::{
 };
 pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
 pub use hud::update_quest_panel;
-pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 // Re-exported here so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep
 // working.
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;

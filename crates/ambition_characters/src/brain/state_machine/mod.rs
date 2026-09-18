@@ -82,13 +82,6 @@ pub enum StateMachineCfg {
     /// Lively flyer: peaceful (perch/fly/walk/land-by-player) or hostile
     /// (stalk/dive/recover), selected by `cfg.aggressiveness`.
     Aerial { cfg: AerialCfg, state: AerialState },
-    /// Drives the PLAYER's own movement verbs (run/jump/dash/fly) in a cycle —
-    /// proves a brain can control a full player body through the shared
-    /// `ActorControlFrame`. Peaceful (it only moves).
-    PlayerDemo {
-        cfg: PlayerDemoCfg,
-        state: PlayerDemoState,
-    },
 }
 
 impl StateMachineCfg {
@@ -114,7 +107,6 @@ impl StateMachineCfg {
             // gate moves into `SmashCfg`.
             Self::Smash { .. } => true,
             Self::Aerial { cfg, .. } => cfg.aggressiveness > 0.0,
-            Self::PlayerDemo { .. } => false,
         }
     }
 }
@@ -141,8 +133,6 @@ impl StateMachineCfg {
             Self::StandStill => Need::None,
             // Steers by wall contact and its own facing; names no target.
             Self::Wanderer { .. } => Need::None,
-            // A scripted demo puppet: its own clock, no foe.
-            Self::PlayerDemo { .. } => Need::None,
 
             // Reads the belief directly (`target_pos` / `target_alive`).
             Self::Patrol { .. }
@@ -183,7 +173,6 @@ pub fn tick_simple_state_machine(
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
         StateMachineCfg::ChargeCrash { cfg, state } => tick_charge_crash(cfg, state, snapshot, out),
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
-        StateMachineCfg::PlayerDemo { cfg, state } => tick_player_demo(cfg, state, snapshot, out),
         // ⚠ NAMED, not a `_` arm. A new variant has to come here and say which
         // side of the split it is on, instead of silently becoming somebody
         // else's problem at runtime.
@@ -1082,131 +1071,6 @@ fn tick_aerial_hostile(
         }
         // Lively phases can't occur on a hostile bird; reset defensively.
         _ => state.phase = AerialPhase::Stalk,
-    }
-}
-
-// ===== PlayerDemo =====
-//
-// A brain that drives the PLAYER's own movement verbs — run, jump, dash, fly —
-// in a repeating cycle. It exists to PROVE the universal-brain seam: an entity
-// carrying the player movement clusters + this brain is driven through the exact
-// same `update_player_control_with_clusters` integration the human player uses,
-// with no player-specific code path. It emits `jump_pressed` / `burst_pressed` /
-// `fly_toggle_pressed` on the shared [`ActorControlFrame`] — byte-identical to a
-// human pressing those buttons. The clock comes from `snapshot.sim_time`.
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PlayerDemoCfg {
-    /// Horizontal run AXIS intent in `[-1, 1]` (NOT px/s), written straight to
-    /// `locomotion`. Every self-locomoting brain — player and enemy alike — now
-    /// emits normalized `locomotion` intent and the integrator scales by the
-    /// body's `max_run_speed`; the old px/s-velocity-vs-axis dual meaning of
-    /// `desired_vel` is gone.
-    pub run_axis: f32,
-    /// Seconds spent in each verb phase before cycling to the next.
-    pub phase_secs: f32,
-}
-
-impl Default for PlayerDemoCfg {
-    fn default() -> Self {
-        Self {
-            run_axis: 1.0,
-            phase_secs: 1.0,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PlayerDemoPhase {
-    /// Walk to the right.
-    #[default]
-    Run,
-    /// Jump (and keep moving).
-    Jump,
-    /// Ground dash.
-    Dash,
-    /// Toggle fly on and climb; toggles off again on exit.
-    Fly,
-}
-
-impl PlayerDemoPhase {
-    fn next(self) -> Self {
-        match self {
-            Self::Run => Self::Jump,
-            Self::Jump => Self::Dash,
-            Self::Dash => Self::Fly,
-            Self::Fly => Self::Run,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct PlayerDemoState {
-    pub phase: PlayerDemoPhase,
-    pub phase_until: f32,
-    /// Whether the demo currently has fly toggled on (so it can toggle off when
-    /// it leaves the Fly phase).
-    pub fly_on: bool,
-    pub initialized: bool,
-}
-
-fn tick_player_demo(
-    cfg: &PlayerDemoCfg,
-    state: &mut PlayerDemoState,
-    snapshot: &BrainSnapshot,
-    out: &mut crate::actor::control::ActorControlFrame,
-) {
-    *out = crate::actor::control::ActorControlFrame::neutral();
-    let now = snapshot.sim_time;
-
-    if !state.initialized {
-        state.initialized = true;
-        state.phase = PlayerDemoPhase::Run;
-        state.phase_until = now + cfg.phase_secs;
-    }
-
-    let mut just_entered = false;
-    if now >= state.phase_until {
-        state.phase = state.phase.next();
-        state.phase_until = now + cfg.phase_secs;
-        just_entered = true;
-    }
-
-    let run = cfg.run_axis;
-    match state.phase {
-        PlayerDemoPhase::Run => {
-            out.facing = 1.0;
-            out.locomotion = ae::LocalAxes::new(run, 0.0);
-        }
-        PlayerDemoPhase::Jump => {
-            out.facing = 1.0;
-            out.locomotion = ae::LocalAxes::new(run, 0.0);
-            // Rising edge on entry; sustain the hold for a variable-height jump.
-            out.jump_pressed = just_entered;
-            out.jump_held = true;
-        }
-        PlayerDemoPhase::Dash => {
-            out.facing = 1.0;
-            out.locomotion = ae::LocalAxes::new(run, 0.0);
-            out.burst_pressed = just_entered;
-        }
-        PlayerDemoPhase::Fly => {
-            // Toggle fly ON when entering the phase, then climb (engine `+y` is
-            // down, so up is negative). Forward drift too, to read as flight.
-            if just_entered && !state.fly_on {
-                out.fly_toggle_pressed = true;
-                state.fly_on = true;
-            }
-            out.facing = 1.0;
-            out.locomotion = ae::LocalAxes::new(run * 0.4, -1.0);
-        }
-    }
-
-    // Toggle fly back OFF whenever we're not in the Fly phase, so the body
-    // falls + walks again (a controller turning the ability off near ground).
-    if !matches!(state.phase, PlayerDemoPhase::Fly) && state.fly_on {
-        out.fly_toggle_pressed = true;
-        state.fly_on = false;
     }
 }
 

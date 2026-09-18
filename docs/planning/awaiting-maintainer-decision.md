@@ -1579,7 +1579,7 @@ genuinely open:**
 | a MENU ending the match | option 3, session-level | `NewGameResetRequested` |
 
 ⭐ **AND `SpawnPlayerCloneRequest` IS THE SPECIMEN TO LAND FIRST**, for a reason
-that is about risk rather than about it being easy: `plugins.rs:189` explains the
+that is about risk rather than about it being easy: `plugins.rs:194` explains the
 Update/sim split in its own comment and the explanation is CORRECT — `ButtonInput`
 is winit frame state, so reading `just_pressed` on the deterministic tick sees one
 physical press once per SIM RUN and a frame that steps the sim twice spawns two

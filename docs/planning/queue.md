@@ -265,6 +265,35 @@ ruling enumerates are what a repair would choose between. A row that states a
 missing decision without routing to the ledger that holds it leaves the decision
 unasked.
 
+⭐⛤ **AND `Q136` NOW HAS A LANDED ROAD AND A NARROWER BLOCKER — 2026-09-18.** Two
+things changed under this row without changing what it owes:
+
+1. **`Q136`'s population is enumerated and one member is FIXED.**
+   `scripts/check_host_produced_sim_consumed_requests.py` reports 4 of 57 spent
+   types crossing, and `SpawnPlayerCloneRequest` was repaired by putting the
+   spawn on the `MechanicalEditSet` road (a developer edit stands the local
+   baseline down and rebases it, and a foreign timeline refuses with the
+   proposal left PENDING). ⇒ The ruling is no longer choosing between four
+   precedents in the abstract; one of them has been driven through a witness.
+   ⚠ That road is the AUTHOR/DEVELOPER one and is NOT what this row's item 1
+   should take — a cutscene dismiss is a player action, not an authoring act.
+2. **The reason this row's item 1 could not simply ride the input payload was
+   measured FALSE.** `Q136` recorded *"touch Confirm/Back has no seat frame"*;
+   `ambition_touch_input` in fact feeds the same
+   `ActionState<Platformer2dInputActionMonolith>` the desktop side does and binds
+   `Reset` outright, which `ambition_input/src/control.rs:247` turns into
+   `reset_pressed` on the `ControlFrame` GGRS carries. ⇒ What is left is one
+   bool: `ControlFrame` has the EDGE and not the LEVEL, and the skip is a HOLD.
+
+⛔ SO THE ROW STAYS BLOCKED, DELIBERATELY, AND ON A SMALLER QUESTION: add
+`reset_held` beside the five `*_held` fields that already exist and move the
+hold accumulation inside the timeline behind `WorldTime::sim_dt()`, or keep
+accumulating outside and keep losing the completed edge. ⚠ Moving the hold
+inside while leaving it on `Res<Time>` is the `tick_player_clone_brains` defect
+measured the same day — `scripts/check_sim_schedule_memory_is_adjudicated.py`
+exists to catch that, and `CutsceneSkipHold`'s census row would have to change
+with the code rather than stay as it is.
+
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
 **Owner:** deterministic identity / rollback architecture; see the identity map in
@@ -379,7 +408,12 @@ EXCHANGES the identity — the same remainder the state half has, waiting on `N2
 the row that had to notice; it is not blocked by this.
 ⚠ And [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline)
 is the likelier first customer: if a cutscene edge is ruled to be gameplay input,
-this is the arm that will speak.
+this is the arm that will speak. ⭐ NARROWED 2026-09-18 to one named field: the
+cutscene SKIP is a hold and `ControlFrame` carries `reset_pressed` without a
+`reset_held`, so what that ruling would add is one bool beside the five `*_held`
+fields already there — not a renegotiated payload. Touch is not an obstacle
+either; it feeds the same `ActionState<Platformer2dInputActionMonolith>` and
+binds `Reset` outright (`ambition_touch_input/src/virtual_device.rs:304`).
 
 ⛔⛤ **AND A THIRTEENTH WAS FILED THE SAME DAY AND WITHDRAWN WITHIN THE HOUR,
 BECAUSE IT ALREADY HAD AN OWNER.** Walking the inputs of `possession_trigger_system`
@@ -3280,7 +3314,7 @@ CAUSED AND FIXED 2026-09-18.** `--maintenance`'s doc-link job scored **0 broken
 links for all thirteen tracked crates against a banked baseline of 141**, marked
 every row *"⭐ repaired"*, and advised `--update`, which would have written an
 empty baseline and retired the ratchet. The cause is the lane itself:
-`scripts/run_tests.py:2087` exports `CARGO_TERM_COLOR=always` to every child
+`scripts/run_tests.py:2104` exports `CARGO_TERM_COLOR=always` to every child
 job, so rustdoc writes `ESC[1m ESC[33m warning ESC[0m: unresolved link to …`
 and the guard's `^warning:` anchor matches nothing. Same crate, same target
 directory, one minute apart: `cargo doc -p ambition_characters --no-deps`

@@ -17,15 +17,37 @@ def _questions() -> list[tuple[str, str]]:
     return [(number, rest.strip()) for number, rest in QUESTION.findall(text)]
 
 
+def _non_canonical_q_headings(text: str) -> list[str]:
+    """Every heading naming a Q number that is not a `## Q<n>` declaration.
+
+    ⚠ **REPORTING THE OFFENDING HEADING IS THE WHOLE POINT.** The first version
+    compared two lists of NUMBERS, so a real failure printed ninety numbers
+    twice and left the reader to diff them by eye — and the number a heading
+    repeats is never the number that identifies it. The line and the text are.
+    """
+    canonical = {m.group(0) for m in QUESTION.finditer(text)}
+    return [
+        f"{text[: m.start()].count(chr(10)) + 1}: {m.group(0)}"
+        for m in ANY_Q_HEADING.finditer(text)
+        if m.group(0) not in canonical
+    ]
+
+
 def test_live_questions_use_one_canonical_heading_shape() -> None:
     text = DECISIONS.read_text(encoding="utf-8")
-    canonical = [m.group(1) for m in QUESTION.finditer(text)]
-    all_q_numbers = [m.group(1) for m in ANY_Q_HEADING.finditer(text)]
-    assert canonical, "no live maintainer questions were parsed"
-    assert all_q_numbers == canonical, (
-        "maintainer questions must use `## Q<number> — ...`; mixed heading "
-        "dialects made duplicate-number checks miss real collisions in the past. "
-        f"canonical={canonical}, all={all_q_numbers}"
+    assert QUESTION.search(text), "no live maintainer questions were parsed"
+    offenders = _non_canonical_q_headings(text)
+    assert not offenders, (
+        "these headings name a maintainer question number without being a "
+        "`## Q<number> — ...` declaration, and there are two ways to arrive "
+        "here:\n  "
+        + "\n  ".join(offenders)
+        + "\n\nEither this IS a question and it is written in a second "
+        "dialect — mixed dialects made duplicate-number checks miss real "
+        "collisions in the past, so give it the canonical shape; or it is a "
+        "dated note inside a question's body, in which case DROP THE NUMBER "
+        "FROM THE HEADING. It already sits under the question, and every other "
+        "dated subsection in this file omits it."
     )
 
 

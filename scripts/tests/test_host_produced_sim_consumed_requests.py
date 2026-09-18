@@ -270,6 +270,85 @@ def test_the_by_inspection_table_is_load_bearing_and_says_why():
         assert ty in guard.ADJUDICATED, f"{ty} is declared but never read"
 
 
+# ── the message channel ─────────────────────────────────────────────────────
+#
+# ⚠ **THE THREE ARMS BELOW SHARE ONE GATE, `message_crossings`'s `side()`, AND
+# EACH POISON OF IT REDDENS EXACTLY ONE OF THEM** (verified 2026-09-18):
+#
+#   * swap the two sides (`"sim" if all(is_non_rewinding) else "host"`)
+#     → the crossing arm reports no crossing, and the real tree's four vanish;
+#   * count any writer, not only a host one → the in-sim control fires;
+#   * count any reader, not only a sim one  → the host→host control fires.
+#
+# The real-tree completeness arm reddens under all three, which is the point of
+# having the synthetic arms: they say WHICH half of the gate moved.
+
+
+def test_a_host_written_sim_read_message_is_a_crossing(tmp_path):
+    """⛔⛤ THE CHANNEL THIS SCRIPT'S `Resource` FILTER EXCLUDED ENTIRELY.
+
+    The filter is right — the first version reported 67 rows because `App`,
+    `Commands` and `Sprite` are not resources — but an intent raised as a
+    `Message` is the same defect on another road, and four of them exist.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn raise_it(mut w: MessageWriter<Heal>) { w.write(Heal); }",
+            "pub fn apply_it(mut r: MessageReader<Heal>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, apply_it);",
+            "}",
+        ]),
+    })
+    assert guard.message_crossings(root) == {"Heal": (["raise_it"], ["apply_it"])}
+
+
+def test_a_message_raised_INSIDE_the_simulation_is_not_a_crossing(tmp_path):
+    """⭐ THE CONTROL, and it is the majority case: two of the three spawn-request
+    seams in the tree are messages raised and read inside the simulation, so the
+    resimulation re-raises them and nothing crosses the boundary."""
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn raise_it(mut w: MessageWriter<Shot>) { w.write(Shot); }",
+            "pub fn apply_it(mut r: MessageReader<Shot>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(sim, (raise_it, apply_it));",
+            "}",
+        ]),
+    })
+    assert guard.message_crossings(root) == {}
+
+
+def test_a_host_written_host_read_message_never_meets_a_rewind(tmp_path):
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn raise_it(mut w: MessageWriter<Ui>) { w.write(Ui); }",
+            "pub fn apply_it(mut r: MessageReader<Ui>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) { app.add_systems(Update, (raise_it, apply_it)); }",
+        ]),
+    })
+    assert guard.message_crossings(root) == {}
+
+
+def test_every_message_crossing_in_the_real_tree_is_read():
+    unread = sorted(set(guard.message_crossings()) - set(guard.MESSAGE_ADJUDICATED))
+    assert not unread, f"host->sim message crossings nobody has read: {unread}"
+
+
+def test_no_message_reading_outlives_its_crossing():
+    found = guard.message_crossings()
+    stale = sorted(set(guard.MESSAGE_ADJUDICATED) - set(found))
+    assert not stale, f"message readings this script no longer sees a crossing for: {stale}"
+
+
+def test_every_message_reading_states_when_it_was_read():
+    for name, reading in guard.MESSAGE_ADJUDICATED.items():
+        assert "read 20" in reading, f"{name}'s reading is undated"
+
+
 # ── the real tree ───────────────────────────────────────────────────────────
 
 

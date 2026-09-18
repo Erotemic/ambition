@@ -1304,9 +1304,21 @@ not: each answers a different question, and the Q136 count is the second one's.
 
     scripts/check_host_produced_sim_consumed_requests.py
         Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by
-        the simulation. 3 of 57 spent types at 2026-09-18:
-        `CutsceneAdvanceRequest` and `NewGameResetRequested` (both Q136), and
-        `VersusMatch` (filed against Q140).
+        the simulation, over BOTH channels an intent can take. At 2026-09-18:
+
+          * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
+            `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
+          * 4 of 87 written MESSAGE types — `AmbientGravityRequest` and
+            `PlayerHealRequested` (both Q136, both live),
+            `ResetToCheckpoint` and `SetFlagRequested` (both benign, and each
+            by a DIFFERENT general escape — see the readings below).
+
+        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
+        the second channel was invisible until 2026-09-18 because the script
+        required the `Resource` derive. The filter was right and stays: without
+        it the first version reported 67 rows, because `App`, `Commands`,
+        `NextState` and `Sprite` are not resources. What was wrong was
+        believing one channel was the population.
 
 ⛔⛤ **AND THE FIRST CENSUS CANNOT EVER REPORT THE SECOND'S SECOND ROW, WHICH IS
 THE REASON TO STOP QUOTING ONE NUMBER.** `resources_crossing_the_rewind_boundary.py:355-358`
@@ -1517,7 +1529,7 @@ sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
 
-### 2026-09-18 — Q136's population has a SECOND CHANNEL, and the instrument cannot see it
+### 2026-09-18 — the population has a SECOND CHANNEL, and the instrument could not see it
 
 ⛔⛔ **THE INSTRUMENT IS KEYED ON `Resource`, AND FOUR CROSSINGS ARE `Message`s.**
 `check_host_produced_sim_consumed_requests.py` requires the `Resource` derive —
@@ -1596,7 +1608,7 @@ that gives this question four answers, of which two cost nothing and are already
 in the tree. ⇒ A latched edge is what makes an intent losable; the fix is not
 always a channel.
 
-### 2026-09-18 — Q136 needs TWO roads, not one abstraction, and registration picks
+### 2026-09-18 — this needs TWO roads, not one abstraction, and registration picks
 
 ⛔⛤ **THE PAGE AND THE REVIEW BOTH ASK FOR "THE EVENTUAL INGRESS ABSTRACTION",
 AND THE TWO MECHANISMS THIS ROW ALREADY SEPARATES DO NOT SHARE A FIX.** The
@@ -2817,6 +2829,26 @@ scripts:
 3. **`Fade` grows an explicit `from_alpha`.** Unambiguous, and it is a change to
    the serialised script format plus all three authored scripts. ⚠ The
    vocabulary gets a field to say what a convention would have said for free.
+
+⭐ **AND THE THREE ANSWERS ARE ONE IMPLEMENTATION DIFFERING IN ONE NUMBER,
+WHICH IS THE CHEAPEST THING ANYONE HAS LEARNED ABOUT THIS ROW.** Measured
+2026-09-18 in `CutsceneRuntime::presentation()`: the `Banner` arm two lines
+above the `Fade` arm already reads the clock — `(seconds - self.elapsed)` — and
+the `Fade` arm ignores `elapsed` entirely. Every option needs it:
+
+| option | start of the ramp | needs `elapsed` |
+|---|---|:-:|
+| 1 — opens black | the last fade's target, default 1.0 | yes |
+| 2 — opens clear | the live screen alpha | yes |
+| 3 — explicit field | `from_alpha` | yes |
+
+⇒ **The ruling is the START VALUE, not the interpolation**, and no option can
+be implemented without the same `lerp(start, to_alpha, elapsed / seconds)` in
+that arm. ⚠ Which also says why the interpolation must NOT land ahead of the
+ruling, tempting as an obviously-missing lerp is: today's constant `to_alpha`
+IS option 2 for the three shipped literals, since a ramp from a clear screen to
+`0.0` is constant `0.0`. Landing the lerp with any concrete start silently
+decides the question against option 2 while looking like a bug fix.
 
 ⛔ **WHAT MUST NOT HAPPEN IS A CONSUMER LANDING ALONE.** It satisfies the
 UNFINISHED label, reads as the row closing, and leaves the player waiting 2.2 s

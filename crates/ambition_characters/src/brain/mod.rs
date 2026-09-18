@@ -180,7 +180,6 @@ impl Brain {
                 StateMachineCfg::Smash { .. } => "smash",
                 StateMachineCfg::Fighter { .. } => "fighter",
                 StateMachineCfg::Aerial { .. } => "aerial",
-                StateMachineCfg::PlayerDemo { .. } => "player_demo",
             },
         }
     }
@@ -219,7 +218,6 @@ impl Brain {
                 (C::Sniper { cfg: x, .. }, C::Sniper { cfg: y, .. }) => x == y,
                 (C::ChargeCrash { cfg: x, .. }, C::ChargeCrash { cfg: y, .. }) => x == y,
                 (C::Aerial { cfg: x, .. }, C::Aerial { cfg: y, .. }) => x == y,
-                (C::PlayerDemo { cfg: x, .. }, C::PlayerDemo { cfg: y, .. }) => x == y,
                 // The full authored SmashCfg — differing tuning is a different preset.
                 (C::Smash { cfg: x, .. }, C::Smash { cfg: y, .. }) => x == y,
                 // The authored preset inputs; the rest of the cfg is derived from

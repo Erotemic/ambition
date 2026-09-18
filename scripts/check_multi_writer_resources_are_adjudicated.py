@@ -316,6 +316,58 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    # ── the smash select screen: ONE DRIVER, ONE ARRIVAL RESET ───────────────
+    #
+    # ⭐ THE FOUR BELOW SHARE ONE ARGUMENT AND ARE WRITTEN OUT FOUR TIMES ON
+    # PURPOSE. A shared verdict a reader has to assemble from four rows is how a
+    # family stops being re-checked member by member — and three of these four
+    # have the same pair of writers while the fourth does NOT, which is the
+    # distinction a single row would have flattened.
+    "SmashSelect": (
+        "CORRECT — ONE DRIVER PLUS ONE ARRIVAL RESET. `drive_the_cursor` "
+        "(`ambition_demo_smash/src/select_screen.rs`) is the select screen's "
+        "single input driver: it reads the frame, resolves the layout's targets "
+        "and writes what the seats decided. The only other writer is "
+        "`reset_select_frontend_on_arrival` (`ambition_demo_smash/src/lib.rs`), "
+        "which assigns `SmashSelect::default()` and nothing else. ⛔ IT IS NOT A "
+        "SECOND OPINION ABOUT THE VALUE: it is keyed on `ShellActivationId` "
+        "through a `Local`, returns unless `on_the_select_route`, and exists "
+        "because *\"the first visit's root outlives the route change\"* — "
+        "measured on the second match, arriving back at the lobby with "
+        "`ui_roots=1`, where `start_the_battle_when_asked` then refused while a "
+        "roster stood and pressing start did nothing at all. ⇒ Arrival is a "
+        "LIFETIME boundary, not an authority."
+    ),
+    "SelectPage": (
+        "CORRECT — the same pair and the same argument as `SmashSelect`: "
+        "`drive_the_cursor` (`select_screen.rs`) drives it, "
+        "`reset_select_frontend_on_arrival` (`lib.rs`) assigns "
+        "`SelectPage::default()` on a NEW arrival only. ⛔ Checked at the SITE "
+        "rather than inferred from the shared system: the reset writes four "
+        "resources in four consecutive statements and this is one of them, so a "
+        "future fifth statement is a change to this verdict's subject."
+    ),
+    "StartRequested": (
+        "CORRECT — the same pair as `SmashSelect`, and this one is WHY the "
+        "arrival reset exists. `drive_the_cursor` raises it; "
+        "`reset_select_frontend_on_arrival` clears it on a new arrival because a "
+        "latch left standing re-fires on the next route — the failure Jon "
+        "reported as *\"in the second match I select characters press start, but "
+        "it just brings me back to the character screen\"*. ⇒ Two writers, one "
+        "of which exists to bound the other's lifetime."
+    ),
+    "LeaveRequested": (
+        "CORRECT — AND IT IS A DIFFERENT SHAPE FROM ITS THREE NEIGHBOURS, WHICH "
+        "IS WHY THIS ROW IS SEPARATE. Its two writers are PRODUCER and CONSUMER, "
+        "not driver and reset: `drive_the_cursor` (`select_screen.rs`) raises it, "
+        "and `leave_the_select_screen_when_asked` (`lib.rs`) spends it — "
+        "`asked.0 = false` runs BEFORE both of that system's refusals, so the "
+        "latch cannot survive the frame it was read in whatever happens next. "
+        "⛔ That is also why it is NOT in `reset_select_frontend_on_arrival`'s "
+        "four-statement reset while its three neighbours are: a request that is "
+        "always spent needs no arrival to bound it. The system's own comment "
+        "names the contrast with `StartRequested`."
+    ),
     "ControlFrame": (
         "CORRECT — TWO HOSTS, ONE DERIVATION, AND THE SOURCE CALLS IT AN OUTPUT. "
         "`mirror_primary_slot_to_control_frame` "

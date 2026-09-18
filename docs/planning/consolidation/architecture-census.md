@@ -21,7 +21,7 @@ The main consolidation pressure is not the number of ECS objects. It is where on
 
 - room/session replacement is not one switch yet;
 - local lifecycle identifiers still enter some canonical provenance;
-- **36** process/App resources are explicitly documented by source as session- or generation-owned (re-derived 2026-09-16; this line read 32 until `SessionScopedResources` was counted field by field and came back 29 rather than 25 — see C03 for which four arrived and why);
+- **37** process/App resources are explicitly documented by source as session- or generation-owned (re-derived 2026-09-18 against `teardown.rs`; this line has read 32, then 36, as the bundle was counted field by field rather than quoted — see C03 for which members arrived and why);
 - direct-entry compatibility still gives some canonical values a second App-global fallback road;
 - live content/session values can be updated separately around development reload.
 
@@ -188,7 +188,19 @@ and the one that leaves the guard blunt rather than clever.
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated content generation.
-The unique total is **36**.
+The unique total is **37** — the three lists are disjoint, so it is their sum.
+
+⛔⛤ **THIS LINE SAID 36 WHILE THE THREE LISTS ABOVE IT SUMMED TO 37, AND THE
+GUARD BUILT FOR THIS CLASS COULD NOT SEE IT — 2026-09-18.**
+`check_session_owner_census_matches_source.py` compares the bundle's own count
+and the members' NAME LISTS against source, and it passed: the 30-name list was
+correct. Its `TOTAL_FORMS` is an ALLOWLIST OF FOUR SPELLINGS, and its own comment
+predicts the failure — *"a fifth spelling is invisible until someone adds it
+here"*. This sentence and the executive map's were the fifth and sixth. ⇒ Both
+spellings are in the allowlist now. ⚠ The general lesson is not "add more
+patterns": a sum stated as prose beside the lists that produce it is a SECOND
+OWNER of an arithmetic fact, and the durable repair is that this line names the
+operation (their sum) rather than only the result.
 
 The current compensation mechanisms are explicit activation reset, retirement cleanup, current-scope checks, generation presence checks, and direct-composition fallback.
 These are not automatically defects. They are evidence that storage owner and semantic owner differ.

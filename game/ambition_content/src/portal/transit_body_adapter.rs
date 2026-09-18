@@ -100,10 +100,22 @@ pub fn ensure_portal_bodies(
 /// replay of frame N observed whatever the settings menu says NOW.
 ///
 /// ⭐⭐ **THE POLICY IS EXPLICIT NOW: `EditablePortalTuning` IS WHERE THE FIELD IS
-/// AUTHORED**, by the settings menu and by the developer panel alike, and
-/// `publish_editable_portal_tuning` is the only writer of the authority. Two
-/// authors of one authored value, one publisher, one authority — rather than two
-/// writers of the authority racing per frame.
+/// AUTHORED**, and `publish_editable_portal_tuning` is the only writer of the
+/// authority. Two authors of one authored value, one publisher, one authority —
+/// rather than two writers of the authority racing per frame.
+///
+/// ⛔⛤ **"BY THE SETTINGS MENU AND BY THE DEVELOPER PANEL ALIKE" IS WHAT THIS
+/// COMMENT USED TO SAY, AND IT IS NOT TRUE OF `reorient_facing` — 2026-09-18.**
+/// The two are not peers on this one field. This system is change-guarded on
+/// `editable.reorient_facing != want`, so it does nothing while they agree and
+/// republishes the PERSISTED value the moment they differ — which is exactly
+/// what a developer toggling the row in the portal inspector produces. ⇒ The
+/// inspector's edit of this field is reverted on the next pass, deterministically
+/// and with no race; the gameplay setting is the author and the panel is not.
+/// The panel's own row says so now, where the surprise happens.
+///
+/// ⚠ The other `EditablePortalTuning` fields ARE panel-authored: this system
+/// names one field and touches nothing else.
 ///
 /// ⚠ The gameplay setting defaults OFF, so by default the player keeps the same
 /// facing through a same-wall portal turn-around, while the portal crate's own

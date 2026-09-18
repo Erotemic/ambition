@@ -1024,6 +1024,48 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     assert!(!visible(&app), "third Esc (top level) closes the cube");
 }
 
+/// ⛔ THE SHARED CURSOR IS NOT THIS BACKEND'S TO MOVE WHILE ITS MENU IS CLOSED.
+///
+/// `KaleidoscopeCursor` is shared with the flat grid backend — `grid_backend.rs`
+/// says so in as many words — and these pointer observers are installed whenever
+/// the cube feature is COMPILED, not when the cube is selected. An observer takes
+/// no `run_if`, so the press and release observers each carry the backend+open
+/// test in their bodies; `kaleidoscope_pointer_move` did not, and a grid menu
+/// control carries the same `AmbitionMenuControl<MenuPageAction>` its query
+/// matches.
+///
+/// ⭐ THE CLOSED CASE IS THE ONE A FIXTURE CAN DRIVE, and it is the same gate:
+/// `open_app()` leaves the overlay closed, so a move that still reaches the
+/// cursor here is the ungated observer.
+#[test]
+fn a_pointer_move_with_the_cube_closed_does_not_move_the_shared_cursor() {
+    let mut app = open_app();
+    app.world_mut()
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(MenuPage::Items);
+    app.world_mut().resource_mut::<KaleidoscopeCursor>().focus = MenuFocus::EdgeRight;
+
+    move_control(
+        &mut app,
+        MenuPageAction::ChangePage(MenuPage::Items.on_viewer_left()),
+    );
+
+    assert_eq!(
+        app.world().resource::<KaleidoscopeCursor>().focus,
+        MenuFocus::EdgeRight,
+        "a pointer move with the overlay CLOSED must not move the cursor both \
+         backends read"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<KaleidoscopeCursor>()
+            .last_pointer_focus,
+        None,
+        "and it must not record a hover either — the open path clears this field \
+         precisely because a stale one selects on open"
+    );
+}
+
 #[test]
 fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
     let mut app = open_app();

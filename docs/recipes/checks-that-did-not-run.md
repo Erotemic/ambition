@@ -598,6 +598,25 @@ refuse every warm run, and a guard that refuses valid measurements gets
 this crate was accounted for*, in either spelling. A prose rule and an arm are
 not the same artifact, and the prose was both unenforced AND slightly wrong.
 
+⭐⭐ **AND THE CLASS ARM CAUGHT THE REAL THING THREE HOURS LATER, WHICH IS THE
+WHOLE ARGUMENT FOR WRITING IT.** The same all-zero table reproduced in a
+`--maintenance` run the same afternoon — thirteen rows, `TOTAL 0`, every one
+marked *"repaired"* — and this time the lane FAILED with *"every tracked crate
+measured ZERO against a baseline of 141 broken link(s)"*. ⛔ **The two
+mechanism-specific arms did NOT fire**: cargo exited 0, and each crate's output
+still carried its `Documenting`/`Generated` line. So the mechanism is neither a
+failed command nor a skipped crate, and it is STILL UNIDENTIFIED — what both
+occurrences share is that a `cargo test` build was running against the same
+target directory at the same time (the second one blocked a concurrent build
+with `Blocking waiting for file lock on build directory`). ⇒ An arm written for
+the CLASS survived not knowing the cause, which the two written for the causes I
+could name did not.
+
+⚠ **AND THE OPERATIONAL RULE THAT FALLS OUT: do not run `--maintenance` beside a
+cargo build.** The doc-link job shells out to `cargo doc` thirteen times; every
+other job in that lane is pure Python, which is exactly why the lane looks safe
+to run in parallel with something else and is not.
+
 ⚠ **THE TRANSFERABLE PART IS THE DIRECTION OF THE SURPRISE.** This page's other
 rows are about a green that hides a failure. This one is about a green that
 hides an ABSENCE by dressing it as a win — and an improvement is exactly the

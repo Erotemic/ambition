@@ -35,14 +35,10 @@ fn shader_rows_cover_every_shader_id() {
     );
 }
 
-/// Pins every row's (step, min, max) against the values `build.rs`/`apply.rs`
-/// hard-coded per row before the collapse (measured by hand from that code,
-/// and independently by YardratAmbition, who diffed all 20 pairs before
-/// handing the collapse over). `shader_rows_cover_every_shader_id` above only
-/// checks that every id is PRESENT; the old duplication's actual risk was two
-/// PRESENT rows disagreeing on step (e.g. one side using FINE_STEP, the other
-/// UNIT_STEP) -- a table both sides read makes that impossible going forward,
-/// but only this test checks the collapse didn't silently change a value.
+/// Pins every row's (step, min, max) to its expected value. `shader_rows_-
+/// cover_every_shader_id` above only checks that every id is PRESENT; the
+/// actual risk is two PRESENT rows disagreeing on step (e.g. one using
+/// FINE_STEP, the other UNIT_STEP) -- only this test catches that.
 #[test]
 fn shader_rows_have_the_measured_step_and_range() {
     let unit = ScreenShaderSettings::UNIT_STEP;

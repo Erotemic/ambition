@@ -2543,7 +2543,23 @@ and the `Option<` wrapper sits between the colon and the `ResMut`. Then, with
 those included, classifying by schedule gave **19 of 19** — because `Startup` is
 neither a rewinding schedule nor a host loop, and a two-way test calls it
 rewinding by default. ⇒ The row's own numbers survived both, so the ratio is
-now measured by two independent roads. Unhashing would make the repro green by throwing away
+now measured by two independent roads.
+
+⭐⛤ **AND A THIRD METHOD READS 23, WHICH IS ALSO RIGHT — THE DIFFERENCE IS THE
+QUESTION, NOT THE TREE.** `check_rollback_mutators_run_in_sim.py`'s
+`mutating_systems()` reports 23 systems mutably reaching `AmbitionGameSave`,
+because it also follows the FIFTH SPELLING its own docstring describes:
+`world.resource_mut::<T>()` inside a `fn(world: &mut World)` body, which no
+signature scan can see. The four extra are `adopt_loaded_save`, `end_cutscene`,
+`process_new_game_reset_request` and `reset_cut_rope_boss_attempt` — every one
+an exclusive-world system, and the third is one of Q136's two real
+`NewGameResetRequested` producers.
+
+⇒ **This row's 19 is a SIGNATURE count and stays one**, because the sentence it
+supports is about systems that declare the save as a parameter. ⚠ Recorded so
+the next reader who runs the broad census does not "correct" 19 to 23: the
+larger number would strengthen the same argument, and quoting it here without
+its method would make two pages disagree about a fact neither is wrong about. Unhashing would make the repro green by throwing away
 comparison coverage for substantial simulation state.
 ⚠⛤ **RE-DERIVED 2026-09-18, AND IT USED TO READ "13 of the 19".** The ratio moved
 because the tree did, not because the method did: the three `persist_*_to_save`

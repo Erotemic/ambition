@@ -1668,10 +1668,16 @@ survive:
    and the resimulation finds nothing to read even when the channel still holds
    it. ⛤ Chasing this found a population gap in a shipped guard:
    `check_sim_schedule_memory_is_adjudicated.py` matches the literal token
-   `Local<` and therefore sees **13** of **112** memory-carrying sim systems; 99
-   carry a `MessageReader` cursor (106 cursors), overlap 1. The census now says
-   that number out loud every run rather than letting a clean `13/13` imply 13
-   is the population.
+   `Local<` and therefore sees only the systems that spell it. RE-MEASURED
+   2026-09-18 after two widenings — `MessageReader` expanded through
+   `#[derive(SystemParam)]` bundles, and registration WRAPPERS followed into the
+   sim population — it is **14** of **142** memory-carrying sim systems; **129**
+   carry a `MessageReader` cursor (**138** cursors), overlap 1. ⚠ It read
+   13 / 112 / 99 / 106 that morning, and every one of those moved for a
+   different reason: an adjudication landed, a bundle's fields became visible,
+   and a wrapper road joined the population. The census says the hidden number
+   out loud every run rather than letting a clean `14/14` imply 14 is the
+   population.
 2. **`bevy`'s own double-buffer expiry**, which drops a message after two frames
    with no rollback involved at all — and the measured transient lasted about
    two frames, which is exactly the coincidence that makes this candidate
@@ -3272,9 +3278,27 @@ the one that reproduces the miscount above.
 The discriminator is `SessionGatedSimulation`, and it is `init_resource`d in
 exactly one place — `crates/ambition_game_shell/src/session.rs:348`. What is left
 is the population that has no generation BY DESIGN: direct-entry demos, headless
-harnesses and fixtures. 112 files construct through `Platformer2dSimHarness` and
-`app_it` alone is 182 test files, so the fallback is load-bearing for the test
-estate rather than for the game.
+harnesses and fixtures, and the size of THAT is what prices option 2.
+
+⛤ **RE-MEASURED 2026-09-18, AND THE ROW HAD ONE NUMBER WHERE IT NEEDED TWO WITH
+THEIR METHODS.** It said *"112 files construct through `Platformer2dSimHarness`"*.
+Counted three ways:
+
+| question | method | today |
+|---|---|---|
+| files that MENTION the type | `grep -rl Platformer2dSimHarness` | **113** |
+| files that CALL one of its four constructors | `::new`, `::new_with_options`, `::new_with_timestep`, `::build` | **83** |
+| `mod` lines in `app_it.rs` | `grep -c '^mod '` | **183** |
+
+The 112 was the first method wearing the second's words, and the gap is 30
+files — enough to matter for a cost estimate, because a file that merely names
+the type in a signature needs no generation prepared for it. ⚠ 83 is itself a
+FLOOR: a fixture that builds through a `common::` helper (such as
+`maintainer_owned_rollback_sim`) calls no constructor of its own. ⇒ Option 2's
+real cost is between 83 and 113 files, plus the demos, and the honest way to
+say that is with both ends and their methods rather than one number in the
+middle. The conclusion the row draws is unchanged at either end: the fallback
+is load-bearing for the TEST ESTATE rather than for the game.
 
 **The decision is whether that stays the architecture.**
 
@@ -3285,9 +3309,10 @@ estate rather than for the game.
    WHICH constructor a road picks — `for_live_session` versus `new` — and nothing
    but review enforces that choice at a new call site.
 2. **Give every supported composition a prepared generation**, then delete the
-   fallback and the App-registry parameters entirely. ⚠ That is the measured 112
-   harness files plus the demos, each having to prepare and activate a trivial
-   generation before it can build a room.
+   fallback and the App-registry parameters entirely. ⚠ That is the measured
+   83–113 harness files (the range and its two methods are in the table above)
+   plus the demos, each having to prepare and activate a trivial generation
+   before it can build a room.
 3. **Split the type**: a `GenerationMechanics` with no fallback, plus an explicit
    authority for compositions that DECLARE they have none, so "which authority am
    I reading" is in the type rather than in an `Option` field. ⚠ Two types thread

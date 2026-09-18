@@ -932,14 +932,21 @@ this question and `Q128`. Different instrument, different population — one App
 rewinding itself against one bag, versus two Apps with different route histories
 compared whole — and the same row. ⇒ A ruling here and on `Q128` is the whole
 remaining peer-visible difference between two hosts whose canonical identities
-and values are identical. The chain:
-`persist_inventory_to_save` sits in top-level `Update` and writes the live bag
+and values are identical. The chain, AS IT STOOD WHEN THIS WAS FILED:
+`persist_inventory_to_save` sat in top-level `Update` and wrote the live bag
 into `AmbitionGameSave` once per FRAME; `AmbitionGameSave` is registered
 `rollback_resource_clone_checksum`, so its value is compared once per TICK; and a
 rewind re-simulates ticks without re-running `Update`. The hashed save therefore
-describes a different frame from the tick it is compared at. Of 364 probed
-rollback entries, exactly ONE differs between a run whose bag moves and an
-otherwise identical run whose bag does not, and it is this one.
+described a different frame from the tick it was compared at. Of 364 probed
+rollback entries, exactly ONE differed between a run whose bag moves and an
+otherwise identical run whose bag does not, and it was this one.
+✅ **THAT PLACEMENT IS REPAIRED and the question is not.** Re-derived 2026-09-18:
+all three `persist_*_to_save` mirrors are registered through `app.sim_schedule()`
+(the table above counts them on the sim side), the divergence set is empty, and
+`resources_crossing_the_rewind_boundary.py` reports `AmbitionGameSave` does not
+cross the rewind boundary. ⇒ What remains is the OWNERSHIP question this entry is
+named for, and the two-host measurement above is the reason to answer it — not a
+live desync.
 
 ⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
 NOW.** No second peer is required for the divergence — a single App already
@@ -1212,6 +1219,42 @@ alone would have said "unknown" and a careless one "not sim".
 (3) The three `persist_*` mirrors landing on the sim side is now the positive
 control — while they were in `Update` it was the other way round, which is why
 this note changed direction rather than being deleted.
+
+⛔⛤ **AND THE SAME FACT IS ALREADY IN THE PEER CONTRACT BY A SECOND ROAD, WHICH
+NARROWS THIS QUESTION — MEASURED 2026-09-18.** The bag is out of the checksum and
+its BASELINE is in:
+
+| resource | registration | in the peer checksum? |
+|---|---|---|
+| `OwnedItems` | `rollback_resource_clone` | **no** |
+| `OwnedItemsBaseline(OwnedItems)` | `rollback_resource_clone_checksum`, projecting `to_persisted()` rows | **YES** |
+
+⇒ `capture_owned_items_baseline` copies the live bag into the baseline on every
+`CheckpointCommitted`, so **the first checkpoint commit carries the player's
+stored quantities across the line this question is about.** Answering "the save
+file is not peer state" by leaving `OwnedItems` unhashed does not achieve that
+today.
+
+⚠ **AND NEITHER SIDE OF THAT ASYMMETRY IS A RECORDED DECISION.** `OwnedItems` is
+unhashed by KIND — `rollback_resource_clone`'s `feeds_peer_checksum()` is false —
+and its registration in `ambition_items/src/rollback_registration.rs` carries no
+reason at all; the baseline is hashed because somebody chose `_clone_checksum`
+for it, also without a reason. ⇒ One fact, two projections, opposite answers, no
+argument on either side. That is what makes it this entry's business rather than
+a defect somebody can just fix.
+
+⛔ **NOTHING CAN OBSERVE IT TODAY, AND THAT IS THE USUAL REASON.** Only
+`SyncTestSession` is ever constructed — one peer replaying itself, whose two save
+files are the same file — so no arm can produce two peers whose bags differ. The
+same limit the sync-test witnesses elsewhere in this document state about
+themselves.
+
+⚠ **AND THE ADJACENT ASYMMETRY IS NOT THIS ONE, so do not fold them.**
+`OwnedItemsBaseline` is also the one checkpoint baseline of four that is NOT in
+`SessionScopedResources`, and that part IS consistent: `OwnedItems` is not
+session-scoped either, so the baseline travels with the value it baselines, while
+the three that do reset describe world placement. That reason is now stated at
+`session/teardown.rs` beside the three, where its absence used to be a default.
 
 Reproduction, eliminations and the full harness matrix are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);

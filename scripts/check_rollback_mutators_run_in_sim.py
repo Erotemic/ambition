@@ -186,6 +186,35 @@ ACKNOWLEDGED: dict[str, str] = {
     "portal_dev_toggle_system": "ROLLBACK-MUTATOR-POPULATION",
     "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
     "sync_ldtk_level_set": "ROLLBACK-MUTATOR-POPULATION",
+    # ⛔⛤ **MOVED HERE FROM `WAIVERS` ON 2026-09-18 BECAUSE ITS PREMISE IS
+    # MEASURED FALSE.** The waiver read: *"this waiver rests entirely on the write
+    # preceding the timeline: `maintain_local_session` starts GGRS only once a live
+    # primary player body exists, and at route entry the roster is still
+    # `RosterSeating::Proposed` with no bodies seated."*
+    #
+    # `maintain_local_session` (`rollback_ggrs/src/local_session.rs:249`) opens with
+    #     let gameplay_active = session_world_entity(world).is_some();
+    # and its three start gates are a SESSION WORLD, `durable_hydration_is_pending`
+    # and `SessionSeatingSource::Pending`. **There is no body condition anywhere in
+    # it.** `queue.md`'s DURABLE-HORIZON-CHECKSUM row recorded this on 2026-09-16
+    # for a different waiver in the same class: *"the two are NOT gated on the same
+    # fact ... the body is the later fact, not the shared one."*
+    #
+    # ⚠ WHAT SURVIVES OF THE WAIVER: the single-write argument is unaffected and
+    # still measured — `*match_state = VersusMatch::opening()` is alone in the
+    # `(on_versus, mine) == (true, false)` arm, every other combination falls
+    # through `_ => {}`, and in production only the route EXIT can make `mine`
+    # false again. So this is ONE write at route entry, not a per-frame one.
+    # ⛔ What does NOT survive is "and the timeline cannot have started yet".
+    #
+    # ⇒ WHAT WOULD RESTORE A WAIVER, and it is an instrument this repo already
+    # has the shape of: sample `session_world_entity`, `SessionSeatingSource` and
+    # `AmbitionGgrsSession` on the frame this arm fires, the way
+    # `probe_when_the_durable_restore_latch_flips_against_ggrs_start` samples the
+    # restore chain. Until then `VersusMatch` is
+    # `rollback_resource_clone_checksum` and this is an `Update` write to peer-
+    # compared rollback state with no proof it precedes the timeline.
+    "track_versus_roster": "MENU-RESET-MIDSESSION",
 }
 
 
@@ -319,23 +348,6 @@ WAIVERS: dict[str, str] = {
         "`kaleidoscope_menu_action_activated` — and those two are NOT waived, "
         "they are open in MENU-RESET-MIDSESSION. It moves focus between cube "
         "faces. ⚠ Same nesting as `grid_menu_nav`."
-    ),
-    "track_versus_roster": (
-        "\u26d4 ONE WRITE, AT ROUTE ENTRY, BEFORE THE SESSION THAT WOULD REWIND "
-        "IT. `*match_state = VersusMatch::opening()` sits alone in the "
-        "`(on_versus, mine) == (true, false)` arm of `versus.rs`; every other "
-        "combination falls through `_ => {}`, so once this route has published a "
-        "`MatchParticipantRoster` under its own name the system cannot write "
-        "again. Checked at what could un-publish it and make `mine` false "
-        "mid-match: in production only the experience scope's "
-        "`releasing_owned::<MatchParticipantRoster>`, which is the route EXIT and "
-        "ends the session with it \u2014 the other removals are test code and "
-        "`demo_smash`'s own experience, which is a different route. "
-        "\u26a0 `VersusMatch` DOES feed the peer checksum "
-        "(`rollback_resource_clone_checksum`), so this waiver rests entirely on "
-        "the write preceding the timeline: `maintain_local_session` starts GGRS "
-        "only once a live primary player body exists, and at route entry the "
-        "roster is still `RosterSeating::Proposed` with no bodies seated."
     ),
     "restore_inventory_from_save": (
         "⚠ WAIVED FOR THE ACTIVATION CASE ONLY, AND THE OTHER CASE IS OPEN. "

@@ -968,14 +968,35 @@ the widening's own reference point and is left as history.
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
 `WAIVERS`: a waiver says this system's drift across a rewind does not matter and
 carries the argument; an acknowledgement says the drift is REAL and names the row
-that owes it. **EIGHT** are banked — six here and two menu writers to
+that owes it. **NINE** are banked — six here and three to
 MENU-RESET-MIDSESSION — and they print to stderr every run. Re-run 2026-09-18,
 the whole bank, so this number is measured rather than carried:
 `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
 `compute_music_intent`, `portal_dev_toggle_system`,
 `reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set` here;
-`grid_menu_action_activated` and `kaleidoscope_menu_action_activated` there;
-over 518 mutating systems.
+`grid_menu_action_activated`, `kaleidoscope_menu_action_activated` and
+`track_versus_roster` there; over 518 mutating systems.
+
+⛔⛤ **AND THE NINTH ARRIVED BY A WAIVER LOSING ITS ARGUMENT, NOT BY A NEW WRITE —
+2026-09-18.** `track_versus_roster` was WAIVED, and the waiver said in its own
+words that it *"rests entirely on the write preceding the timeline:
+`maintain_local_session` starts GGRS only once a live primary player body exists,
+and at route entry the roster is still `RosterSeating::Proposed` with no bodies
+seated."* Read at the source: `maintain_local_session`
+(`rollback_ggrs/src/local_session.rs:249`) opens with
+`session_world_entity(world).is_some()`, and its three start gates are a SESSION
+WORLD, `durable_hydration_is_pending` and `SessionSeatingSource::Pending`. **There
+is no body condition anywhere in it.** ⇒ The premise was false, and
+DURABLE-HORIZON-CHECKSUM had already recorded the same correction for a sibling
+waiver two days earlier — *"the body is the later fact, not the shared one."*
+⚠ What survives of the waiver is the single-write half, which is still measured:
+one write at route entry, and in production only the route EXIT can arm it again.
+What does not survive is *"and the timeline cannot have started yet"*, and
+`VersusMatch` is `rollback_resource_clone_checksum`, so the write it is about is
+peer-compared. ⇒ **A WAIVER IS A CLAIM ABOUT THE TREE AND ROTS LIKE ANY OTHER.**
+This one was written when it was true of something and never re-read against the
+system it names; the guard cannot check a prose premise, so the only defence is
+re-reading the cited function when the row is touched.
 ⭐ **IT WAS TWELVE, AND ALL FOUR DEPARTURES WERE REPAIRS RATHER THAN AMNESTIES.**
 The three `persist_*_to_save` mirrors left by being FIXED (into the sim
 schedule), and `dispatch_pending_dialog_requests` left at `0f1edee92` by ceasing
@@ -2841,6 +2862,23 @@ guard stays banked-but-owed on all of these — see
 `apply_menu_action`, which spells the write `owned.take(Item::HealthCell, 1)`.
 Filed off a harness that demonstrated it; `check_rollback_mutators_run_in_sim.py`
 independently names both from source.
+
+⛔⛤ **AND A THIRD ARRIVED 2026-09-18, FROM A WAIVER RATHER THAN FROM A NEW
+WRITE: `track_versus_roster`.** It writes `*match_state =
+VersusMatch::opening()` from top-level `Update` — deliberately outside
+`GameplaySimulationRoot`, so route teardown survives leaving gameplay — and
+`VersusMatch` is `rollback_resource_clone_checksum`, peer-compared. It was
+waived on the argument that GGRS cannot have started yet *"only once a live
+primary player body exists"*; `maintain_local_session` has no body condition at
+all (session world, `durable_hydration_is_pending`, `SessionSeatingSource::
+Pending`). ⇒ It is the SAME class as the two menu writers and it is banked to
+this row. ⚠ It differs from them in one way that matters to the acceptance
+below: theirs is a per-press write and this is ONE write at route entry, so the
+window is narrower and the instrument has to sample the frame the
+`(on_versus, mine) == (true, false)` arm fires — the shape
+`probe_when_the_durable_restore_latch_flips_against_ggrs_start` uses, not the
+240-frame harness the other two took. The full correction is in
+[ROLLBACK-MUTATOR-POPULATION](#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
 
 ⛔ **MEASURED, WITH THE CONTROL THAT MAKES IT READABLE.** An item granted from
 outside the rewinding schedule is **GONE AT FRAME 0** under

@@ -67,9 +67,9 @@ from test_paths import strip_test_modules as shared_strip_test_modules  # noqa: 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
+from rust_source import strip_comments  # noqa: E402
 from check_engine_systems_are_engine_installed import (  # noqa: E402
     add_systems_bodies,
-    strip_comments,
     strip_run_conditions,
 )
 

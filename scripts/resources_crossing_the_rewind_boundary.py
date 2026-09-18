@@ -57,7 +57,8 @@ re-read.
 STRUCTURAL: `App`, `Commands`, `NextState`, `Anchor` and `Sprite` are not
 resources at all, they are ubiquitous parameters that the mutable-param regex
 matches. Requiring `#[derive(..Resource..)]` removes them by construction and
-takes the population to 52.
+takes the population to 52 — measured 2026-09-16, and 50 after the
+test-module stripper stopped reading three fixtures as producers.
 
 ⚠ Every parsing rule here is IMPORTED from the sibling guard rather than
 rewritten — paren-balanced `add_systems` bodies, `#[cfg(test)]` stripping,
@@ -105,16 +106,37 @@ RESOURCE_STRUCT = re.compile(
 # crossing the boundary is HARMLESS for this type, and says why. A row that stops
 # crossing is reported, the way the per-attempt census reports a stale entry,
 # because a name kept here after its subject changed is worse than no list.
+#
+# ⛔⛤ THREE ROWS LEFT ON 2026-09-17 AND THEY HAD ALL BEEN ADJUDICATING A FIXTURE.
+# `CausalRecording`, `SimPhaseCensus` and `SlotControls` each had an `Update`
+# side that consisted ENTIRELY of a test module calling `app.add_systems(Update,
+# <a sim system>)`, which the shared `strip_test_modules` could not see because
+# the module was spelled `#[cfg(all(test, feature = "causal"))]`,
+# `#[cfg(all(test, not(target_arch = "wasm32")))]` or `#[cfg(all(test, feature =
+# "input"))]` rather than a bare `#[cfg(test)]`. Measured, per type:
+#
+#   CausalRecording  update side was `a_game_publishes_something`
+#                    (`platformer2d/src/lib.rs:817`, in `mod causal_sdk_tests`)
+#   SimPhaseCensus   `open_sim_phase_window` registered into BOTH sides from one
+#                    file — the Update half inside `runtime_census.rs`'s tests
+#   SlotControls     `publish_seat_controls_when_nobody_else_does`, registered
+#                    into `Update` at four sites inside `mod focus_gate_tests`
+#                    and once in `portal/plugin.rs`'s test module, and into the
+#                    sim from `player_schedule.rs` — the production road
+#
+# ⇒ `SlotControls`'s row is the one to learn from: its argument ("the Update
+# writer stands down via `another_authority_publishes`") described a REAL
+# mechanism, so it read as a considered verdict. The crossing it was adjudicating
+# was still a fixture. A reason that is true is not evidence that its subject
+# exists.
 CROSSING_IS_HARMLESS: dict[str, str] = {
     # Presentation and developer instruments: the sim writes, something outside
     # draws or records. Nothing reads them back as authority.
     "ActiveUiCues": "presentation cues, republished from sim state every tick",
     "ActorTraceBuffer": "dev trace ring, never read as authority",
     "CameraShakeState": "presentation; the sim requests, the camera decays it",
-    "CausalRecording": "dev recording buffer",
     "DeveloperRuntimeState": "dev tools",
     "GameplayTraceBuffer": "dev trace ring",
-    "SimPhaseCensus": "instrument that counts phase execution",
     "RelativisticOpticalView2d": "derived presentation view",
     "RelativisticTargetingView2d": "derived presentation view",
     "RelativityClockView2d": "derived presentation view",
@@ -132,7 +154,6 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # rollback host the sim-side publisher owns the value and the `Update`
     # fallback stands down. That is what a sanctioned boundary crossing looks
     # like -- the outside writer asks whether it is still the authority.
-    "SlotControls": "Update writer stands down under rollback via `another_authority_publishes`",
     # ⭐ THE MIRROR OF THE `SlotControls` ARGUMENT: here the SIM-side writer is the
     # one that stands down. `commit_ready_room_transition_system` opens with
     # `if simulation_host.is_rollback() { return; }` -- verified in the body, not

@@ -1,27 +1,56 @@
 #!/usr/bin/env python3
-"""A resource written from a NEW second file must be adjudicated, not merely land.
+r"""A resource written from a NEW second file must be adjudicated, not merely land.
 
 ⛔⛔ **THE CENSUS EXISTED, PRINTED ITS SHORTLIST, AND NO LANE RAN IT.**
 `multi_writer_resource_census.py` answers *"which `Resource`s are written from
 more than one file"* — the writer-side shape of a duplicated authority — and its
 own tests only ever ran it over hand-built `tmp_path` corpora. So the number it
 prints was a number somebody had to go and look at, and nothing noticed when a
-resource joined the list. MEASURED 2026-09-17: **85 types** across 1,294
+resource joined the list. MEASURED 2026-09-17: **82 types** across 1,294
 production files.
 
 ⚠ **THIS IS A RATCHET ON THE POPULATION, NOT A VERDICT ON IT.** The census
 docstring is emphatic that multi-writer is NOT a defect by count, with two
-measured cases that came out opposite ways, and nothing here contradicts that. 78
-of the 85 are UNADJUDICATED and this check says so on every green run — the split
+measured cases that came out opposite ways, and nothing here contradicts that. 75
+of the 82 are UNADJUDICATED and this check says so on every green run — the split
 is printed by the run itself, so read it there rather than from this paragraph.
 What the check enforces is that the set and the per-type writer counts cannot
 move without somebody editing this file.
 
+⛔⛤ **85 -> 82 ON 2026-09-17, BECAUSE THE CENSUS WAS READING PROSE.** `ResMut<T>`
+in a comment is not a writer, and three of the 85 were ENTIRELY an artefact of
+one: `AcceptedCheckpointRestore`, `PortalTuning` and `PortalViewer` each had a
+single real writer plus a paragraph SAYING SO — *"it was `ResMut<PortalTuning>`
+registered"*, *"took `ResMut<AcceptedCheckpointRestore>` and
+`ResMut<PendingLifecycleCommit>`"*. Nine more shed a phantom writer file, and the
+type population held a `R` and a `_`, from `Res<R>/ResMut<R>` in a doc comment
+and `Option<ResMut<_>>` in a line comment. A census parsing prose does not fail;
+it invents. ⇒ The worst of it landed in exactly the class this docstring sends
+people to FIRST: `AcceptedCheckpointRestore` is rollback-registered, so the
+highest-priority shortlist was pointing at a duplication that did not exist.
+
+⚠ **AND THE OTHER HALF WAS THREE WAYS OF NOT SEEING A TEST MODULE AT ALL.** The
+shared stripper matched `#[cfg(test)]` then `\s*mod NAME {`, which misses a `///`
+between the two (2 sites), a visibility (`pub(crate) mod tests`, 1 site) and any
+cfg PREDICATE rather than the bare attribute (`all(test, …)`, 16 sites) — 18
+test-only modules read as production. That is how `Captured`, a type the census's
+own docstring lists as multi-writer ONLY because a fixture wrote it, got a second
+writer, and it is why `CausalRecording` was ratcheted at 7 writers when two of
+them were fixtures. ⇒ `#[cfg(any(test, feature = "test-support"))]` is
+deliberately still NOT stripped: that module ships when the feature is on, and
+over-cutting hides production facts from a census that exists to find them. Both
+fixes are in `scripts/lib/`, one owner each: `rust_source.strip_comments` and
+`test_paths.strip_test_modules`.
+
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** Of the 85, **18 are rollback-registered**, and those are the ones where a
-second writer is a divergence rather than a design smell. Joining the writers'
-WRITE TARGETS narrows it again — which field or method do two of a type's writer
-files both reach for:
+HAND.** **At least 20 of the 82 are rollback-registered**, and those are the ones
+where a second writer is a divergence rather than a design smell. That 20 is a
+LOWER BOUND and carries its instrument: it is the intersection with the type
+names in `rollback_*::<T>` / `declare_rollback_derived_*::<T>` turbofish calls
+across `crates/` and `game/`, which parses 95 names where the registry itself
+holds 491 rows — every row registered through a non-turbofish form is invisible
+to it. Joining the writers' WRITE TARGETS narrows it again — which field or
+method do two of a type's writer files both reach for:
 
     python3 scripts/multi_writer_resource_census.py --shared-targets
 
@@ -37,10 +66,10 @@ the least separable shape there is. What the run prints today, for the types tha
 already carry a verdict or are named below:
 
     AmbitionGameSave        17 files  data_mut 13 (13 certain), data 11   ROUTED
-    OwnedItems              10 files  grant 2
+    OwnedItems               9 files  grant 2
     QuestRegistry            6 files  push_event 4, quests 2
-    PendingLifecycleCommit   4 files  record 2
-    SlotInteractionState     4 files  primary_mut 3 (3 certain)           ADJUDICATED
+    PendingLifecycleCommit   3 files  record 2
+    SlotInteractionState     4 files  primary_mut 2 (2 certain)           ADJUDICATED
     ActiveConversation       2 files  close 2                             ADJUDICATED
     ClockState               2 files  time_scale 2 (2 certain)            ADJUDICATED
     PossessionState          2 files  home 2, possessed 2                 ADJUDICATED
@@ -99,39 +128,35 @@ BASELINE: dict[str, int] = {
     "AmbitionGameSave": 17,
     "GameAssets": 12,
     "GameplayBanner": 10,
-    "OwnedItems": 10,
+    "OwnedItems": 9,
     "ClassBRemapLog": 8,
     "FeatureEcsWorldOverlay": 8,
     "LoadCoordinator": 8,
-    "UserSettings": 8,
-    "CausalRecording": 7,
-    "DeveloperRuntimeState": 7,
+    "UserSettings": 7,
     "QuestRegistry": 6,
     "CaptureProgress": 5,
+    "CausalRecording": 5,
+    "DeveloperRuntimeState": 5,
     "DeveloperTools": 5,
     "HudReadouts": 5,
     "PendingMechanicalEdits": 5,
     "SeatRawFrames": 5,
     "SlotControls": 5,
     "ActiveAudioSelection": 4,
-    "DialogState": 4,
     "MapMenuState": 4,
     "MenuControlFrame": 4,
-    "PendingLifecycleCommit": 4,
     "RoomTransitionLoadState": 4,
     "SlotInteractionState": 4,
     "ActiveSessionScope": 3,
     "ActiveUiCues": 3,
     "AudioLibrary": 3,
     "AuthoredOccurrences": 3,
+    "DialogState": 3,
     "GameplayTraceBuffer": 3,
     "KaleidoscopeCursor": 3,
-    "KaleidoscopeScroll": 3,
-    "KaleidoscopeSystemNav": 3,
+    "PendingLifecycleCommit": 3,
     "PreparedSessionRegistry": 3,
-    "SmashSelect": 3,
     "Warmup": 3,
-    "AcceptedCheckpointRestore": 2,
     "ActiveConversation": 2,
     "ActiveGameplaySession": 2,
     "BaseGravity": 2,
@@ -149,6 +174,8 @@ BASELINE: dict[str, int] = {
     "FixedStepsTaken": 2,
     "InventoryUiState": 2,
     "KaleidoscopeOpenState": 2,
+    "KaleidoscopeScroll": 2,
+    "KaleidoscopeSystemNav": 2,
     "LeaveRequested": 2,
     "LocalSeatOffer": 2,
     "MintedItemBaseline": 2,
@@ -158,8 +185,6 @@ BASELINE: dict[str, int] = {
     "NarrativeMusicRequest": 2,
     "OccurrenceBaseline": 2,
     "OwnedItemsBaseline": 2,
-    "PortalTuning": 2,
-    "PortalViewer": 2,
     "PossessionState": 2,
     "PresentationPhase": 2,
     "ReservedGameplayScopes": 2,
@@ -174,6 +199,7 @@ BASELINE: dict[str, int] = {
     "ShellRouter": 2,
     "ShrineActivationPulse": 2,
     "SlotControlLatches": 2,
+    "SmashSelect": 2,
     "StartRequested": 2,
     "SwitchActivationQueue": 2,
     "VersusMatch": 2,
@@ -272,7 +298,7 @@ ADJUDICATED: dict[str, str] = {
 
 #: ⛔ ANTI-VACUITY. Every finding below is a set difference, and two empty sets
 #: agree perfectly. These floors are an order of magnitude below the measured
-#: 1,294 files / 333 types and far above the zero a broken scan produces.
+#: 1,294 files / 329 types and far above the zero a broken scan produces.
 MIN_FILES = 500
 MIN_TYPES = 100
 

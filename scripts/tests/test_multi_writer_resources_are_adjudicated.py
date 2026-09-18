@@ -98,8 +98,16 @@ def test_a_type_that_lost_a_writer_is_reported(monkeypatch, capsys):
 
 
 def test_a_type_that_left_the_population_must_be_removed(monkeypatch, capsys):
+    # ⚠ AN UNADJUDICATED SUBJECT, DELIBERATELY. A verdict-carrying type takes a
+    # different road — the phantom rule refuses it first, with a message that
+    # says to remove the REASON and not just the baseline row — and that road is
+    # `test_a_verdict_whose_duplication_was_repaired_is_refused` below. Picking
+    # whichever 2-writer type came first in the baseline made this arm start
+    # measuring that other rule the moment the baseline was re-derived.
     real = census.writers
-    subject = next(t for t, n in guard.BASELINE.items() if n == 2)
+    subject = next(
+        t for t, n in guard.BASELINE.items() if n == 2 and t not in guard.ADJUDICATED
+    )
 
     def with_one_writer(files):
         found = real(files)

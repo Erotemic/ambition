@@ -1226,11 +1226,23 @@ and a composition without `apply_item_grants` print the same zero.
 
 ⭐ **HOW MANY RESOURCES THIS RULING IS RESPONSIBLE FOR IS MEASURED, NOT
 ESTIMATED.** `scripts/resources_crossing_the_rewind_boundary.py` sweeps every
-`Resource` written on both sides of the boundary — 53 of them at 2026-09-17 — and
-sorts them: 29 rollback-registered, 20 adjudicated harmless with the argument
-beside each, 3 crossing only at a session edge, **1 FILED against this question
+`Resource` written on both sides of the boundary — **50** of them at 2026-09-17
+(was 53 earlier the same day; see below) — and sorts them: 29
+rollback-registered, 17 adjudicated harmless with the argument beside each, 3
+crossing only at a session edge, **1 FILED against this question
 (`CutsceneAdvanceRequest` — a dismiss raised on the host side does nothing), and
-0 that nobody has examined.** ⛔ The filed bucket exists BECAUSE of this row: a
+0 that nobody has examined.**
+
+⛔⛤ **THE THREE THAT LEFT WERE NEVER CROSSING, AND THE RULING NEVER OWED THEM.**
+`CausalRecording`, `SimPhaseCensus` and `SlotControls` each had an `Update` side
+made up ENTIRELY of a test module calling `app.add_systems(Update, <a sim
+system>)` — invisible to the shared test-module stripper because the module was
+spelled `#[cfg(all(test, feature = "causal"))]` and the like rather than a bare
+`#[cfg(test)]`. ⇒ `SlotControls` is the one to learn from: its recorded argument
+(*"the Update writer stands down via `another_authority_publishes`"*) described a
+REAL mechanism, which is why it read as a considered verdict — but the crossing
+it adjudicated was a fixture's registration. **A reason that is true is not
+evidence that its subject exists.** ⛔ The filed bucket exists BECAUSE of this row: a
 subject with a question in front of it and a subject nobody has looked at were
 the same pile until 2026-09-17, so the census could not report the number this
 ruling's scope depends on. A filed row that stops crossing reddens the script.
@@ -1288,7 +1300,8 @@ question should look like that rather than inventing a fourth channel.
 
 ⛔ **HOW MUCH RIDES ON THE RULING, MEASURED.**
 `scripts/resources_crossing_the_rewind_boundary.py` (new, 2026-09-16) censuses
-every `Resource` written on BOTH sides of the boundary — the complementary
+every `Resource` written on BOTH sides of the boundary — ⚠ the block below is
+that day's reading and is NOT edited; the live split is the row above — the complementary
 question to `check_rollback_mutators_run_in_sim.py`, whose population is the
 canonical registry and which therefore **cannot see an unregistered request at
 all**:

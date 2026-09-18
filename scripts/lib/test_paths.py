@@ -92,15 +92,86 @@ def is_test_path(path: Path, source: str | None = None) -> bool:
     return file_is_test_only(source)
 
 
-#: An inline test module's opening brace. ⚠ Deliberately NOT bare
-#: `#[cfg(test)]`: this function removes a BLOCK by brace balance, and an
-#: attribute on an item with no block (`#[cfg(test)] mod tests;`,
-#: `#[cfg(test)] use ...;`) has no braces to balance.
-_CFG_TEST_MOD = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
+#: `#[cfg(` — the start of an attribute whose predicate this module EVALUATES
+#: rather than pattern-matches. See [`cfg_requires_test`].
+_CFG_OPEN = "#[cfg("
+
+#: Whitespace and comments, then an optional visibility, then `mod NAME {`.
+#: ⚠ The visibility group is why `#[cfg(test)] pub(crate) mod tests {` used to
+#: survive; the comment group is why a `///` between the attribute and the `mod`
+#: used to.
+_MOD_HEAD = re.compile(
+    r"\s*(?://[^\n]*\n\s*|/\*.*?\*/\s*)*"
+    r"(?:pub(?:\s*\([^)]*\))?\s+)?"
+    r"mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{",
+    re.S,
+)
+
+
+def _split_cfg_args(predicate: str) -> list[str]:
+    """`test, feature = "x"` -> `['test', 'feature = "x"']`, paren-aware."""
+    parts, depth, current = [], 0, []
+    for ch in predicate:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    if "".join(current).strip():
+        parts.append("".join(current))
+    return [part.strip() for part in parts]
+
+
+def cfg_requires_test(predicate: str) -> bool:
+    """Does this `cfg(..)` predicate mean *"compiled ONLY under `cfg(test)`"*?
+
+    ⛔⛤ **THIS IS A PREDICATE EVALUATOR AND NOT A PATTERN, BECAUSE `any` AND
+    `all` ANSWER OPPOSITELY AND BOTH APPEAR IN THIS TREE.**
+
+        #[cfg(all(test, not(target_arch = "wasm32")))]   -> test-only    (8 sites)
+        #[cfg(all(test, feature = "input"))]             -> test-only    (5 sites)
+        #[cfg(test)]                                     -> test-only
+        #[cfg(any(test, feature = "test-support"))]      -> SHIPS        (1 site)
+
+    ⚠ **THE LAST ONE IS THE WHOLE REASON FOR THE CARE.** `any(test, feature =
+    "test-support")` compiles whenever that feature is on, and this repository
+    has a live guard for exactly that condition — see the arm asserting
+    `test-support` is not enabled outside `[dev-dependencies]`. Stripping it here
+    would delete code that SHIPS, which is the one direction a test filter must
+    never err in: over-cutting hides production facts from a census that exists
+    to find them.
+
+    `not(...)` is never test-requiring: `not(test)` is the opposite claim.
+    """
+    predicate = predicate.strip()
+    if predicate == "test":
+        return True
+    for form, decide in (("all(", any), ("any(", all)):
+        if predicate.startswith(form) and predicate.endswith(")"):
+            args = _split_cfg_args(predicate[len(form) : -1])
+            return bool(args) and decide(cfg_requires_test(a) for a in args)
+    return False
+
+
+def _balanced(source: str, index: int, opener: str, closer: str) -> int:
+    """Index just past the `closer` matching the `opener` at `index`."""
+    depth = 1
+    index += 1
+    while index < len(source) and depth:
+        if source[index] == opener:
+            depth += 1
+        elif source[index] == closer:
+            depth -= 1
+        index += 1
+    return index
 
 
 def strip_test_modules(source: str) -> str:
-    """Remove inline `#[cfg(test)] mod … { … }` blocks by brace balance.
+    r"""Remove inline test-only `mod … { … }` blocks by brace balance.
 
     These modules legitimately do things production code may not — register
     rollback mutators into `Update`, build a resource by hand — and they sit
@@ -116,19 +187,44 @@ def strip_test_modules(source: str) -> str:
     **820 over 206**, while removing the strip entirely adds only three more. ⇒
     The 12% the campaign was missing was production code, not fixtures.
 
+    ⛔⛔ **AND THE PATTERN THAT REPLACED IT WAS `#\[cfg\(test\)\]\s*mod NAME
+    \{`, WHICH IS THREE SEPARATE UNDERCOUNTS.** Each was measured over the 1,294
+    production files, 2026-09-17:
+
+      - a COMMENT between the attribute and the `mod` (`\s*` cannot cross a
+        `///`): **2 sites**, 13,215 characters — and one of them,
+        `abilities/src/ranged/sentry.rs:681`, is where the multi-writer census
+        got a second writer for `Captured`, a type its own docstring lists as
+        multi-writer only because a fixture wrote it;
+      - a VISIBILITY before the `mod` (`pub(crate) mod tests`): **1 site**,
+        `persistence/src/store.rs:222`;
+      - a cfg PREDICATE rather than the bare attribute — `all(test, …)`:
+        **16 sites**, eight of them `all(test, not(target_arch = "wasm32"))`.
+
+    ⇒ Which is why the attribute is now EVALUATED by [`cfg_requires_test`] rather
+    than matched, and why `#[cfg(any(test, feature = "test-support"))]` is
+    deliberately left standing: it ships.
+
     ⚠ The brace match is naive about braces inside string literals inside a test
     body. Over-cutting loses production code, which is the direction the tail cut
     already erred in; under-cutting counts a fixture. Both move a consumer's
     population, which is why every consumer of this module carries a floor.
     """
-    while (match := _CFG_TEST_MOD.search(source)) is not None:
-        depth = 1
-        index = match.end()
-        while index < len(source) and depth:
-            if source[index] == "{":
-                depth += 1
-            elif source[index] == "}":
-                depth -= 1
-            index += 1
-        source = source[: match.start()] + source[index:]
+    index = 0
+    while (found := source.find(_CFG_OPEN, index)) != -1:
+        predicate_start = found + len(_CFG_OPEN) - 1
+        predicate_end = _balanced(source, predicate_start, "(", ")")
+        predicate = source[predicate_start + 1 : predicate_end - 1]
+        rest = source[predicate_end:]
+        if not (rest.startswith("]") and cfg_requires_test(predicate)):
+            index = found + len(_CFG_OPEN)
+            continue
+        head = _MOD_HEAD.match(source, predicate_end + 1)
+        if head is None:
+            # `#[cfg(test)] mod tests;`, `#[cfg(test)] use ..;`, `#[cfg(test)]
+            # fn helper() {}` — no module BLOCK here to balance.
+            index = found + len(_CFG_OPEN)
+            continue
+        source = source[:found] + source[_balanced(source, head.end() - 1, "{", "}") :]
+        index = found
     return source

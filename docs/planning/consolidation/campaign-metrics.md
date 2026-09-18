@@ -220,3 +220,83 @@ corpus with a quarter of the ordering edges missing.
 ⛔ The `662a9b5` baseline table above is NOT edited. It records what was measured
 under the old rule, and correcting it in place would destroy the only evidence of
 what the numbers meant.
+
+### A THIRD counting-rule change, the same day — the instrument was reading prose
+
+⛔⛤ **`ResMut<T>` IN A COMMENT IS NOT A WRITER, AND THE MULTI-WRITER CENSUS WAS
+COUNTING IT.** Found while citing that census's own narrowing table to adjudicate
+`SlotInteractionState`. Three of its 85 multi-writer resources were ENTIRELY an
+artefact of prose — `AcceptedCheckpointRestore`, `PortalTuning`, `PortalViewer`
+each had one real writer plus a paragraph saying *"it was `ResMut<PortalTuning>`
+registered"* — nine more carried a phantom writer file, and the type population
+held a `R` and a `_`, harvested from `Res<R>/ResMut<R>` in a doc comment and
+`Option<ResMut<_>>` in a line comment. **A census parsing prose does not fail; it
+invents.** The worst of it landed in the class the guard sends people to first:
+`AcceptedCheckpointRestore` is rollback-registered, so the highest-priority
+shortlist was pointing at a duplication that did not exist.
+
+⚠ **AND THE RULE ALREADY EXISTED SIX TIMES.** `rules/source_reference.rs` has
+stripped comments since it was written; `check_capability_ships.py`'s docstring
+records that *"the Python guards did not inherit that, and one of them read its
+own documentation as evidence before this was noticed"* — and then five more grew
+their own copy, two of which never strip a `/* */` block at all. There is now one
+owner, `scripts/lib/rust_source.py`, which the census and the
+system-registration guard both import; the remaining four are routed as each
+consumer's counts are measured, the same staging `test_paths.py` was collapsed
+under.
+
+| metric | prose counted | prose stripped | Δ |
+| --- | ---: | ---: | ---: |
+| `ResMut<T>` types | 333 | **329** | −4 |
+| multi-writer resources | 85 | **82** | −3 |
+| `OwnedItems` writer files | 10 | **9** | −1 |
+| `PendingLifecycleCommit` writer files | 4 | **3** | −1 |
+| `DeveloperRuntimeState` writer files | 7 | **5** | −2 |
+| `CausalRecording` writer files | 7 | **5** | −2 |
+
+⚠ The two right-hand columns above are *prose stripped* only; `CausalRecording`
+and the `ResMut<T>` type count move again under the test-module rules below, and
+the figures shown are after both.
+
+⭐ **THE SECOND HALF: THE SHARED STRIPPER WAS MATCHING ONE SPELLING OF A TEST
+MODULE OUT OF FOUR.** It looked for `#[cfg(test)]` and then `\s*mod NAME {`, and
+each of the three things that can sit in that gap hid a whole test module:
+
+| what sits between the attribute and the `mod` | sites | example |
+| --- | ---: | --- |
+| a comment (`\s*` cannot cross a `///`) | 2 | `abilities/src/ranged/sentry.rs:681` |
+| a visibility | 1 | `persistence/src/store.rs:222` — `pub(crate) mod tests` |
+| a cfg PREDICATE instead of the bare attribute | 16 | 8× `all(test, not(target_arch = "wasm32"))`, 5× `all(test, feature = "input")` |
+
+⇒ 18 test-only modules read as production. That is how `Captured` — a type the
+census's own docstring lists as multi-writer ONLY because a fixture wrote it —
+acquired a second writer, and why `CausalRecording` was ratcheted at 7 writers
+when two of them were fixtures (now 5). So the attribute is now EVALUATED rather
+than matched, by `test_paths.cfg_requires_test`.
+
+⛔⛔ **AND ONE OF THE NINETEEN IS DELIBERATELY STILL NOT STRIPPED.**
+`#[cfg(any(test, feature = "test-support"))] pub mod test_support` at
+`boss_encounter/src/clusters.rs:376` COMPILES INTO THE SHIPPED CRATE when that
+feature is on — this repository has a live arm asserting `test-support` stays out
+of `[dependencies]` for exactly that reason. `any` and `all` answer oppositely,
+no pattern can tell them apart, and over-cutting hides shipping code from a
+census whose whole job is to find shipping code. That is the one direction a test
+filter must never err in.
+
+| metric | before | after all three | Δ |
+| --- | ---: | ---: | ---: |
+| `#[derive(Resource)]` declarations | 538 | **535** | −3 |
+| raw `.before`/`.after` edges | 588 | **579** | −9 |
+
+⭐ **THE TWO PASSES ARE EXACTLY ADDITIVE, WHICH IS THE ONLY REASON TO TRUST
+EITHER.** The comment rule alone gives 537 / 587; the cfg-and-visibility rules
+alone give 536 / 580; together 535 / 579 — 1+2 and 1+8. The presence audit
+(104/83/20/1), the rollback-mutator guard (518/8) and the test-static census are
+byte-identical under all three, so this is not a measurement that moves whatever
+it touches.
+
+⛔ So the two-column table above still reads 538 and 588, and stays that way: it
+was measured at `49bfcf4ef` under that day's rule, and this page's rule 2 is that
+a number carries its method and reference point. Do not subtract across these
+three changes — four of the seven rows moved for a reason that has nothing to do
+with the tree.

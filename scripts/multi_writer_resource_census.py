@@ -64,6 +64,7 @@ RESMUT = re.compile(r"ResMut<\s*([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)\s*>
 # counts.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from rust_source import strip_comments  # noqa: E402
 from test_paths import is_test_path, strip_test_modules  # noqa: E402
 DEFAULT_PATHS = ("crates", "game")
 
@@ -103,7 +104,7 @@ def writers(files: list[str]) -> dict[str, set[str]]:
     found: dict[str, set[str]] = collections.defaultdict(set)
     for f in files:
         src = pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
-        src = strip_test_modules(src)
+        src = strip_test_modules(strip_comments(src))
         for m in RESMUT.finditer(src):
             found[m.group(1).split("::")[-1]].add(f)
     return found
@@ -150,7 +151,7 @@ def shared_targets(ty: str, files: set[str] | list[str]) -> dict[str, tuple[set[
     mutated: dict[str, set[str]] = collections.defaultdict(set)
     for f in sorted(files):
         src = strip_test_modules(
-            pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
+            strip_comments(pathlib.Path(f).read_text(encoding="utf-8", errors="replace"))
         )
         # A short type name can be bound under its qualified path, so fall back
         # to the suffix spelling the census already collapses on.

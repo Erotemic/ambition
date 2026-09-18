@@ -243,3 +243,112 @@ def test_the_stripper_leaves_a_cfg_test_item_that_has_no_block() -> None:
     from lib.test_paths import strip_test_modules
 
     assert "helper" in strip_test_modules("#[cfg(test)]\nfn helper() {}\n")
+
+
+def test_the_stripper_sees_through_a_comment_between_the_attribute_and_the_mod() -> None:
+    """⛔⛤ A DOC COMMENT BETWEEN `#[cfg(test)]` AND `mod` HID A WHOLE TEST MODULE.
+
+    `\\s*mod` cannot cross a comment, so the block never matched and every line of
+    it read as PRODUCTION code. MEASURED 2026-09-17: two sites in the tree write
+    it that way — `abilities/src/ranged/sentry.rs:681` (`mod damage_tests`, 7
+    comment lines) and `actor_monolith/src/items/pickup/mod.rs:424` (`mod
+    held_item_steps`, 11) — together 13,215 characters of test code.
+
+    ⇒ How it surfaced is worth keeping: the multi-writer census listed `Captured`
+    as multi-writer, and sentry.rs's hidden `ResMut<Captured>` was the second
+    writer. The census's OWN docstring already named `Captured` in its list of
+    types that are multi-writer only because a fixture wrote one — so the tree
+    was carrying the evidence beside the workaround.
+
+    ⚠ WHAT THE WIDENING COSTS EACH CONSUMER, measured before landing it because
+    this function's docstring requires that. This rule ALONE moves
+    `architecture_census.py`'s `#[derive(Resource)]` declarations 538 -> 537 and
+    raw `.before`/`.after` edges 588 -> 587; landed together with the cfg and
+    visibility rules below it, the census reads **535 / 579**, and the two
+    passes are exactly additive (1 + 2 resources, 1 + 8 edges), which is the only
+    reason to trust either measurement. The presence audit (104/83/20/1), the
+    rollback-mutator guard (518/8) and the test-static census are byte-identical
+    under all three.
+    """
+    from lib.test_paths import strip_test_modules
+
+    src = (
+        "fn production(mut r: ResMut<Real>) {}\n"
+        "#[cfg(test)]\n"
+        "/// ⚠ NAMED `damage_tests` AND NO LONGER ABOUT DAMAGE.\n"
+        "/// A second prose line, because one was not the shape that broke.\n"
+        "mod damage_tests {\n"
+        "    fn fixture(mut r: ResMut<FixtureOnly>) {}\n"
+        "}\n"
+        "fn also_production(mut r: ResMut<AlsoReal>) {}\n"
+    )
+    kept = strip_test_modules(src)
+    assert "FixtureOnly" not in kept, "the commented test module is still read as production"
+    assert "Real" in kept and "AlsoReal" in kept, "the widening must not eat the tail"
+    # ⚠ A BLOCK COMMENT TOO, since the pattern names both forms and only one of
+    # the two real sites uses `///`.
+    block = "#[cfg(test)]\n/* prose { with a brace } */\nmod t {\n    fn f() {}\n}\nfn keep() {}\n"
+    kept = strip_test_modules(block)
+    assert "fn f()" not in kept and "fn keep()" in kept
+
+
+def test_a_cfg_predicate_that_requires_test_is_evaluated_not_matched() -> None:
+    """⛔⛤ THE FORM THAT CARRIED 16 OF THE 18 MISSED MODULES, AND THE ONE THAT
+    MUST SURVIVE.
+
+    `#[cfg(test)]` is the minority spelling in this tree for a gated module.
+    MEASURED 2026-09-17 across the 1,294 production files: 8 sites write
+    `all(test, not(target_arch = "wasm32"))`, 5 write `all(test, feature =
+    "input")`, and one each for `causal`, `content_pack`, `portal_render` and
+    `all(test, feature = "visible", not(...))`.
+
+    ⛔⛔ AND `any(test, …)` IS THE OPPOSITE CLAIM. `#[cfg(any(test, feature =
+    "test-support"))] pub mod test_support` at `boss_encounter/src/clusters.rs:376`
+    COMPILES INTO THE SHIPPED CRATE whenever that feature is on — this repository
+    has a live arm asserting `test-support` stays out of `[dependencies]` for
+    exactly that reason. Stripping it would delete shipping code from a census
+    that exists to find shipping code, which is the one direction a test filter
+    must never err in. A pattern cannot tell these two apart; only evaluating the
+    predicate can.
+    """
+    from lib.test_paths import cfg_requires_test
+
+    assert cfg_requires_test("test")
+    assert cfg_requires_test('all(test, not(target_arch = "wasm32"))')
+    assert cfg_requires_test('all(test, feature = "input", not(unix))')
+    assert not cfg_requires_test('any(test, feature = "test-support")')
+    # `not(test)` is the claim that this is NOT a test build.
+    assert not cfg_requires_test("not(test)")
+    assert not cfg_requires_test('feature = "input"')
+    # ⚠ Nesting, because `all(any(..), ..)` does not require test even though the
+    # substring `test` is in there — which is what a pattern would conclude.
+    assert not cfg_requires_test('all(any(test, feature = "f"), unix)')
+    assert cfg_requires_test('all(unix, all(test, feature = "f"))')
+
+
+def test_a_visibility_before_the_mod_does_not_hide_it() -> None:
+    """⛔ ONE SITE, `persistence/src/store.rs:222` — `#[cfg(test)] pub(crate) mod
+    tests { .. }`. A test module's visibility says who may USE it, and says
+    nothing about whether it is test code."""
+    from lib.test_paths import strip_test_modules
+
+    for vis in ("pub", "pub(crate)", "pub(super)", "pub(in crate::a)"):
+        src = f"fn keep() {{}}\n#[cfg(test)]\n{vis} mod tests {{\n    fn gone() {{}}\n}}\nfn tail() {{}}\n"
+        kept = strip_test_modules(src)
+        assert "gone" not in kept, vis
+        assert "fn keep()" in kept and "fn tail()" in kept, vis
+
+
+def test_a_shipping_test_support_module_is_left_standing() -> None:
+    """⭐ THE CONTROL FOR THE TWO ARMS ABOVE, and it is the arm that would catch
+    an over-eager widening. Without it, `cfg_requires_test` could be replaced by
+    `"test" in predicate` and both of the other arms would still pass."""
+    from lib.test_paths import strip_test_modules
+
+    src = (
+        'fn prod() {}\n#[cfg(any(test, feature = "test-support"))]\n'
+        "pub mod test_support {\n    pub fn helper() {}\n}\nfn tail() {}\n"
+    )
+    kept = strip_test_modules(src)
+    assert "helper" in kept, "this module SHIPS under the feature; cutting it hides real code"
+    assert "fn prod()" in kept and "fn tail()" in kept

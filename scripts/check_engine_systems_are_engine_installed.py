@@ -13,6 +13,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+# ⛔⛤ NOT A RESPELLING, AND THIS FILE USED TO BE THE OWNER. `strip_comments`
+# lived here and `check_rollback_mutators_run_in_sim.py` imported it FROM here,
+# which made a guard about system registration the de-facto home of a rule six
+# scripts needed. It moved to `lib/rust_source.py` unchanged — same regexes,
+# same order — so every existing importer keeps the same function object. The
+# re-export below is that continuity, not a second copy.
+from rust_source import strip_comments  # noqa: E402,F401
+
 # Compositions that are a GAME rather than the engine. A system registered only
 # here is registered by exactly one composition.
 APP_ROOTS = ["game"]
@@ -204,8 +213,6 @@ OPEN_ROWS: dict[str, str] = {}
 # either a move or a sentence saying why the engine should not own it.
 UNCLAIMED_BUDGET = 0
 
-_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
-_LINE_COMMENT = re.compile(r"//[^\n]*")
 _QUALIFIED_PATH = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)")
 _ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
 # `run_if` is a PREDICATE and `after`/`before`/`ambiguous_with` name a system
@@ -216,12 +223,6 @@ _ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
 _NOT_A_REGISTRATION = re.compile(r"\b(?:run_if|after|before|ambiguous_with)\s*\(")
 
 
-def strip_comments(source: str) -> str:
-    """Comment text is not a registration. Same rule, same reason, as the
-    absence checker: three guards there went red on a doc comment explaining a
-    removal, and a paragraph naming `sync_parallax_layers` is the opposite of
-    evidence that somebody registered it."""
-    return _LINE_COMMENT.sub("", _BLOCK_COMMENT.sub(" ", source))
 
 
 def add_systems_bodies(source: str) -> list[str]:

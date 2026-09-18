@@ -1038,3 +1038,122 @@ fn name_the_room_transition_conflicts() {
          appearing to pass"
     );
 }
+
+/// **Q145's decision needs one fact nobody had measured: which order the
+/// shipped app ALREADY runs the two chains in.**
+///
+/// The question is which way round `RoomTransitionReadinessSet` and the four
+/// app-side `Update` writers of `RoomTransitionLoadState` should go. With no
+/// edge between them, Bevy is free to order them however its topological sort
+/// happens to land — so the game today is already doing SOMETHING, and the
+/// three options on the page are not equally priced if one of them is what
+/// ships.
+///
+/// ⇒ This prints the resolved order and classifies it. It asserts nothing about
+/// WHICH answer is right; it asserts only that both groups were found, so the
+/// diagnostic cannot print a confident verdict about an empty graph.
+///
+/// ⚠ **IT DOES NOT SAY WHICH SYSTEM SITS AT WHICH POSITION, and a first draft
+/// that tried to was worse than useless.** `System::name()` is the debug
+/// placeholder in this build, so the four were to be told apart by membership
+/// in `LoadPresentationSet::{Drive, Actions, Finalize}` — and every one came
+/// back the same, because `handle_room_transition_presentation_events` is
+/// PINNED BETWEEN two of those sets (`.after(Actions).before(Finalize)`) rather
+/// than being a member of either. A classifier that cannot return its other
+/// answer is not a classifier; it was removed rather than left printing a label
+/// it could not have earned. The verdict below does not depend on it.
+#[test]
+fn which_order_the_two_room_transition_chains_already_run_in() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+    let state_id = app
+        .world()
+        .components()
+        .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+        .expect("the shipped app registers RoomTransitionLoadState");
+
+    let label = bevy::app::Update.intern();
+    let (readiness_at, app_side_at) = app
+        .world_mut()
+        .resource_scope(|world, mut schedules: Mut<Schedules>| {
+            let schedule = schedules.get_mut(label).expect("Update exists");
+            let _ = schedule.initialize(world);
+            let graph = schedule.graph();
+            let readiness = set_members(
+                graph,
+                ambition_platformer2d::runtime::room_transition::RoomTransitionReadinessSet,
+            );
+
+            // ⛔ THE APP-SIDE FOUR ARE DERIVED FROM THE CONFLICT PAIRS, not
+            // from a name and not from an access query. `System::name()` is the
+            // debug placeholder in this build, and `ScheduleSystem` is a boxed
+            // `dyn System` with no `component_access` in reach — but
+            // `conflicting_systems()` already reports exactly the unordered
+            // pairs that touch a given component, which is how the census above
+            // counts these sixteen. A pair on `RoomTransitionLoadState` with one
+            // side inside the readiness set names the other side as an app-side
+            // writer, by construction.
+            let mut app_side: std::collections::HashSet<
+                bevy::ecs::schedule::SystemKey,
+            > = Default::default();
+            for (a, b, ids) in &graph.conflicting_systems().0 {
+                if !ids.contains(&state_id) {
+                    continue;
+                }
+                match (readiness.contains(a), readiness.contains(b)) {
+                    (true, false) => {
+                        app_side.insert(*b);
+                    }
+                    (false, true) => {
+                        app_side.insert(*a);
+                    }
+                    _ => {}
+                }
+            }
+
+            let mut readiness_at: Vec<usize> = Vec::new();
+            let mut app_side_at: Vec<usize> = Vec::new();
+            for (position, (key, _system)) in schedule
+                .systems()
+                .expect("an initialized schedule reports its systems")
+                .enumerate()
+            {
+                if readiness.contains(&key) {
+                    readiness_at.push(position);
+                } else if app_side.contains(&key) {
+                    app_side_at.push(position);
+                }
+            }
+            (readiness_at, app_side_at)
+        });
+
+    eprintln!("[q145-order] readiness positions: {readiness_at:?}");
+    eprintln!("[q145-order] app-side positions : {app_side_at:?}");
+
+    // ANTI-VACUITY, both sides. A lookup that stopped resolving would report
+    // two empty vectors and every comparison below would be trivially true.
+    assert_eq!(
+        readiness_at.len(),
+        4,
+        "expected the 4 readiness-chain writers the census attributes; the set \
+         lookup or the access filter stopped resolving"
+    );
+    assert_eq!(
+        app_side_at.len(),
+        4,
+        "expected the 4 app-side `Update` writers the census attributes"
+    );
+
+    let verdict = if readiness_at.iter().max() < app_side_at.iter().min() {
+        "READINESS BEFORE THE APP CHAIN — option 1 is what ships today"
+    } else if app_side_at.iter().max() < readiness_at.iter().min() {
+        "APP CHAIN BEFORE READINESS — option 2 is what ships today"
+    } else {
+        "INTERLEAVED — neither option is what ships; the order is whatever the \
+         topological sort produced and there is nothing to make explicit"
+    };
+    eprintln!("[q145-order] {verdict}");
+}

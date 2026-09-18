@@ -3349,6 +3349,37 @@ different things about what a transaction opened this frame may observe.**
 ⇒ Whichever is chosen, the ratchet falls 16 → 0 in one edit and the guard says
 so at its own definition.
 
+⛔⛤ **AND THE QUESTION "WHICH ORDER DOES IT ALREADY RUN IN" HAS AN ANSWER NOW,
+2026-09-18: NEITHER — the two chains INTERLEAVE.** Held by
+`which_order_the_two_room_transition_chains_already_run_in`
+(`game/ambition_app/tests/update_schedule_census.rs`), which builds the shipped
+host, resolves `Update`, and reads the executable positions of the eight
+systems:
+
+```text
+readiness chain : 89, 90, 91, 92      (contiguous — it is one `.chain()`)
+app-side writers: 80, 81, 280, 324    (two BEFORE the readiness chain, two long after)
+```
+
+⇒ **THIS CHANGES THE PRICE OF ALL THREE OPTIONS AND IT IS THE FACT THE RULING
+WAS MISSING.** The reflex when an ordering is unspecified is that some order is
+already happening and making it explicit is free. It is not free here: no
+option describes today, so each of the three MOVES systems rather than merely
+naming where they already are, and options 1 and 2 would both drag the two
+trailing app-side writers across the readiness chain. ⚠ The reading also
+narrows option 3 — *"split the chain so `begin` leads and `authorize` trails"* —
+because the app-side four are not one contiguous block to sit between: two of
+them already run before the readiness chain and two after it.
+
+⚠ **WHAT THE PROBE DOES NOT SAY** is which system sits at which position:
+`System::name()` is the debug placeholder in this build. A first draft tried to
+tell them apart by `LoadPresentationSet` membership and every one came back the
+same, because `handle_room_transition_presentation_events` is PINNED BETWEEN two
+of those sets rather than being a member — a classifier that cannot return its
+other answer, removed rather than left printing a label it had not earned. The
+interleaving verdict does not depend on it, and it is poison-checked: breaking
+the readiness lookup reddens the arm instead of reporting two empty groups.
+
 ⛔ **WHAT MUST NOT HAPPEN:** lowering the ratchet without adding the edge. The
 number is measured on the shipped composition every run; editing it to match a
 smaller reading is how a guard stops describing the tree.

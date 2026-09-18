@@ -413,6 +413,19 @@ TOTAL_FORMS = [
     re.compile(r"session/generation semantics: (\d{1,3})"),
     re.compile(r"moving all (\d{1,3}) values"),
     re.compile(r"\((\d{1,3}) App resources\)"),
+    # ⛔⛤ **THE FIFTH AND SIXTH SPELLINGS, AND THE COMMENT ABOVE PREDICTED THEM
+    # — 2026-09-18.** `architecture-census.md` stated the total twice, in forms
+    # none of the four above matched: its executive map opened *"**36**
+    # process/App resources are explicitly documented by source as session- or
+    # generation-owned"* and section 3 closed *"The unique total is **36**"* —
+    # both directly above the three lists, which summed to 37. This guard
+    # PASSED, because the bundle's own count and all three NAME LISTS were
+    # right; only the prose sum was a member behind. ⇒ Two spellings added.
+    # ⚠ Both anchor on words the sentence cannot lose without being rewritten
+    # ("process/App resources", "unique total"), so neither can drift into
+    # matching a numerator the way the bundle rule once did.
+    re.compile(r"\*\*(\d{1,3})\*\* process/App resources are"),
+    re.compile(r"unique total is \*\*(\d{1,3})\*\*"),
 ]
 
 

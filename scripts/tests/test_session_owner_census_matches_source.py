@@ -96,17 +96,41 @@ def test_a_stray_copy_of_the_bundle_count_is_found():
 def test_the_total_across_all_three_groups_is_not_mistaken_for_the_bundles_own():
     """⚠ THE FALSE RED THIS RULE ALREADY PRODUCED ONCE.
 
-    *"36 process/App resources are explicitly documented … (SessionScopedResources
+    *"37 process/App resources are explicitly documented … (SessionScopedResources
     …)"* states the TOTAL and is correct. A false red is obeyed faster than a
     false green is questioned.
+
+    ⛔⛤ **AND THE OTHER HALF, ADDED 2026-09-18 AFTER THIS EXACT SENTENCE WENT
+    STALE UNSEEN.** Showing that `COUNT_FORMS` stays quiet says nothing about
+    whether ANY rule reads the line. It did not: `TOTAL_FORMS` was an allowlist
+    of four spellings and this was a fifth, so the executive map said 36 for a
+    day while the three lists under it summed to 37 — and the guard passed,
+    because every NAME LIST was right. ⇒ Both halves are asserted here now.
     """
     line = (
-        "- **36** process/App resources are explicitly documented by source as "
+        "- **37** process/App resources are explicitly documented by source as "
         "session- or generation-owned (see SessionScopedResources for which four "
         "arrived);"
     )
     hits = [m for form in guard.COUNT_FORMS for m in form.finditer(line)]
     assert not hits, hits
+    totals = [int(m.group(1)) for form in guard.TOTAL_FORMS for m in form.finditer(line)]
+    assert totals == [37], (
+        "the executive map's spelling of the TOTAL is not in TOTAL_FORMS, so a "
+        f"stale copy of it is invisible to RULE 5: {totals}"
+    )
+
+
+def test_the_section_3_spelling_of_the_total_is_read_too():
+    """⛔ THE SIXTH SPELLING, sitting directly under the three lists whose sum it
+    states — which is why it is the one a reader trusts and the one that went a
+    member behind. Its own repair is in the page (the sentence now names the
+    OPERATION, not only the result); this is the rule that catches the next one."""
+    line = "The unique total is **37** — the three lists are disjoint, so it is their sum."
+    totals = [int(m.group(1)) for form in guard.TOTAL_FORMS for m in form.finditer(line)]
+    assert totals == [37], totals
+    assert guard.stray_totals(37) == []
+    assert guard.stray_totals(999), "no line states the total, so this arm witnesses nothing"
 
 
 def test_rule_3_accounts_for_every_raw_registration_occurrence():

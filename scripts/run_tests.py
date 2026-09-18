@@ -1359,6 +1359,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_schedule_memory_is_adjudicated.py",
             ],
         ),
+        # ⛔ AND THE RESOURCE HALF, which the guard above named as its own
+        # residue: the third instance of that defect was a `Resource`, not a
+        # `Local`. A green above is a statement about `Local` only.
+        Job(
+            "every resource accumulated inside the rewinding schedule has been read",
+            [
+                sys.executable,
+                "scripts/check_sim_schedule_resource_memory_is_adjudicated.py",
+            ],
+        ),
         # ⛔⛤ Q136's POPULATION, WHICH HAD NEVER BEEN ENUMERATED. An intent
         # raised outside the rewinding schedule and SPENT inside it is lost, and
         # the player's press does nothing. Two witnesses existed for two

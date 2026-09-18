@@ -206,6 +206,17 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # iterates zero times on exactly those frames. No writer ever reads or
     # refines a value one of the others owns.
     "ControlPrompt": "`publish_frontend_context_prompt`/`rebuild_control_prompt` are a documented one-writer-per-frame handoff; `project_prompt_readiness` refines an empty entry list on the frames the other side owns",
+    # Third of the three c215d6a37 exposed. `SimPhaseCensus` holds only an
+    # `Instant`, per-phase `f64` totals and a tick count — a profiling
+    # accumulator, structurally identical to `ActorTraceBuffer` /
+    # `GameplayTraceBuffer` above. `open_sim_phase_window` (sim, every tick)
+    # marks a phase-timing window open; `report_sim_phase_census` (`Last`,
+    # once per visible frame) reports the average and resets. A rollback
+    # resimulation batch can call the sim-side opener more than once per
+    # visible frame, which skews a TIMING AVERAGE across replayed attempts —
+    # a profiling-quality concern, not a gameplay-determinism one: nothing
+    # reads this resource back as sim authority.
+    "SimPhaseCensus": "profiling accumulator (Instant + per-phase f64 totals), never read back as sim authority",
 }
 
 

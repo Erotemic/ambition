@@ -748,7 +748,7 @@ apart without being told which semantics was intended.
 
 ⛔⛤ **AND MEASURED 2026-09-16, THE TREE ALREADY GIVES THREE DIFFERENT ANSWERS,
 NOT TWO.** A third road exists and it is the loudest:
-`unique_session_world_root` (`shared_tangle/src/lifecycle/session.rs:398`) — the
+`unique_session_world_root` (`shared_tangle/src/lifecycle/session.rs:416`) — the
 fallback `live_session_world_root` takes in a host with NO
 `SessionGatedSimulation`, i.e. direct-entry and headless — carries
 `assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`.
@@ -773,7 +773,7 @@ named roads get there:
   it to refuse a rollback session opened over an unbuilt world — the sim-harness
   install path.
 - `insert_session_world_component`
-  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:588`, *"for small direct hosts and
+  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:650`, *"for small direct hosts and
   focused tests"*) calls `unique_session_world_root` **UNCONDITIONALLY**, not
   through the gated branch — so that one asserts in ANY host, shell-routed
   included. Its callers include `ambition_render`'s moving-platform and
@@ -1461,6 +1461,100 @@ attempted; it is named so the residue can be read. The first version of the
 sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
+
+### 2026-09-18 — the population is enumerated, and option 1 costs no new wire bit
+
+⭐⭐ **THE RESIDUE IS FOUR, NOT ONE, AND THE OTHER THREE WERE HIDDEN BY A GUARD'S
+SPELLING.** `scripts/check_host_produced_sim_consumed_requests.py` (new, and in
+`--maintenance`) asks this question directly: which resource types are SPENT
+inside the rewinding schedule and written only outside it. It reports 4 of 57
+spent types, all read:
+
+| type | registered | mechanism |
+|---|---|---|
+| `CutsceneAdvanceRequest` | no | the sim's take stands through the rewind; nothing re-produces the press |
+| `NewGameResetRequested` | yes | the rewind restores `false` and ERASES the menu's write |
+| `SpawnPlayerCloneRequest` | no | same as the cutscene; newly visible |
+| `VersusMatch` | yes | filed under `Q140`, not new |
+
+⛔ The prose above ("the residue is one") was measured before `c215d6a37`, when
+both censuses tested the host side against a tuple of BARE schedule labels
+(`"Update"`, `"PreUpdate"`, …). The tree spells a non-rewinding schedule in
+QUALIFIED form 39 times, so `request_player_clone_on_key`
+(`bevy::app::Update`) was on NEITHER side of the boundary and its crossing did
+not exist. ⚠ The block above is that day's reading and is not edited; this is
+the live one.
+
+⭐ **AND THE FIVE FALSE PRODUCERS THE FIRST RUN REPORTED TEACH THE SAME LESSON
+THIS PAGE ALREADY LEARNED FROM `SlotControls`.** `reset_session_scoped_resources_
+on_activation` holds thirty session-scoped resources and writes every one to
+`T::default()` inside a helper — so `BaseGravity`, `CutsceneTriggerQueue`,
+`QuestRegistry`, `SwitchActivationQueue` and two phantom entries on
+`CutsceneAdvanceRequest`'s producer list all read as intents being raised.
+**A write of `T::default()` is the ABSENCE of an intent.** A reason that is true
+is not evidence that its subject exists; neither is a mutable parameter.
+
+⇒ **OPTION 1 NEEDS NO NEW WIRE BIT FOR EITHER REMAINING HALF, WHICH IS THE
+DECISION-RELEVANT MEASUREMENT.** The section above establishes it for the
+cutscene half (`reset_pressed` already exists and is already consumed this way).
+For the clone half the answer is not the input payload at all — see the fifth
+precedent below. So the *"a New Game bit in every frame's input is a large thing
+to spend on a menu press"* objection now applies to exactly one of the four
+rows, `NewGameResetRequested`, and that row is the one this page already
+suspects is really option 3.
+
+⚠ **AND THE PEER COST OF OPTION 1 IS CURRENTLY ZERO PEERS, WHICH CUTS BOTH
+WAYS.** Measured 2026-09-18: `build_sync_test_session` is the ONLY session
+constructed anywhere in the workspace, every handle is added as
+`PlayerType::Local`, and `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`. There
+is no remote peer to renegotiate a wire format with today.
+⛔ That is not permission to ignore the wire — `the_bytes_two_peers_exchange`
+(`control_frame.rs`) exists precisely because nothing else versioned this
+shape — but it does mean option 1's stated cost is deferred, while option 2's
+stated risk is NOT: synctest rolls back every frame and compares checksums, so a
+host-local buffer drained on a locally-chosen tick fails the shipped detector
+immediately rather than in a future netplay session.
+
+⭐⛤ **THE FIFTH PRECEDENT, AND IT IS THE ONE THE FOUR ABOVE DO NOT COVER: THE
+MECHANICAL-EDIT ADMISSION.** The four shipped crossings in the table above are
+all *"who stands down"* answers for a value two authorities both publish. A dev
+hotkey that SPAWNS A BODY is not that shape — it is a mechanical mutation of the
+world around a live timeline, which is what
+`decide_mechanical_edit_admission` (`local_session.rs:190`) already arbitrates:
+
+```text
+NoTimeline         publish -- there is no ring to restore an older value from
+LocallyRebasable   stop_session(world) FIRST, then publish into the gap
+ForeignTimeline    REFUSE, leaving the proposal pending so it fires later
+unhealthy          REFUSE, for the same reason
+```
+
+⇒ That is option 3 (*"a session-level operation outside the timeline"*)
+generalized, already built, already tested, and **already the road every other
+developer edit takes** — `publish_player_stats_edits`,
+`publish_editable_movement_tuning`, `sync_developer_body_profile`. A refused
+edit is not a lost edit: the proposal stays pending and publishes when the
+refusal lifts, which is exactly the property a swallowed press lacks.
+
+⇒ **So the ruling decomposes by WHO RAISES THE INTENT, and only one row is still
+genuinely open:**
+
+| who raises it | road | rows |
+|---|---|---|
+| a PLAYER pressing a control | the device latch → `ControlFrame` → GGRS replays it | `CutsceneAdvanceRequest` |
+| an AUTHOR or DEVELOPER editing the world | `MechanicalEditSet` + the admission | `SpawnPlayerCloneRequest` |
+| a MENU ending the match | option 3, session-level | `NewGameResetRequested` |
+
+⭐ **AND `SpawnPlayerCloneRequest` IS THE SPECIMEN TO LAND FIRST**, for a reason
+that is about risk rather than about it being easy: `plugins.rs:189` explains the
+Update/sim split in its own comment and the explanation is CORRECT — `ButtonInput`
+is winit frame state, so reading `just_pressed` on the deterministic tick sees one
+physical press once per SIM RUN and a frame that steps the sim twice spawns two
+clones. Moving the read into the sim reintroduces that. The double-spawn and the
+swallowed press are the same problem from its two sides, which is why this is one
+ingress question and not three fixes. The stakes are a dev hotkey — no save data,
+no peer checksum, no progression — so the road can be built and witnessed here
+without a mis-step costing a timeline.
 
 ## Q135 — should GGRS start before the durable restore has finished?
 

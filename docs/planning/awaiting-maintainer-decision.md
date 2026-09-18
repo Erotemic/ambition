@@ -1340,16 +1340,24 @@ not: each answers a different question, and the Q136 count is the second one's.
             `#[cfg(test)]` modules, which the production population strips on
             purpose.
 
-            The rows below are —
-            `AmbientGravityRequest` and
-            `PlayerHealRequested` (both Q136, both live),
-            `SetFlagRequested` (LIVE since a 2026-09-18 review; I had filed
-            it benign) and `ResetToCheckpoint` (benign, by the one general
-            escape the tree actually contains — see the readings below).
+            The rows below are — `AmbientGravityRequest` and
+            `PlayerHealRequested` (both Q136, both live) and `ResetToCheckpoint`
+            (benign, OUTSIDE THE TIMELINE — see the readings below).
+            `SetFlagRequested` was a fourth, filed benign, corrected to LIVE by
+            a 2026-09-18 review, and REPAIRED the same day: its producer moved
+            into the rewinding schedule, which is the RE-DERIVED IN THE SIM
+            escape this page had named and had no instance of.
 
-        ⛔⛤ So this ruling is responsible for FIVE live intents, not two, and
+        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
         the second channel was invisible until 2026-09-18 because the script
-        required the `Resource` derive. The filter was right and stays: without
+        required the `Resource` derive. ⭐ It said FIVE for most of that day:
+        `SetFlagRequested` joined the list when a review corrected its benign
+        verdict and left it again when its producer moved into the rewinding
+        schedule. The four that remain are `CutsceneAdvanceRequest`,
+        `NewGameResetRequested`, `AmbientGravityRequest` and
+        `PlayerHealRequested` — and what the repaired one had that none of
+        these has is a producer that is a pure DERIVATION over rollback state
+        rather than a latched input edge. The filter was right and stays: without
         it the first version reported 67 rows, because `App`, `Commands`,
         `NextState` and `Sprite` are not resources. What was wrong was
         believing one channel was the population.

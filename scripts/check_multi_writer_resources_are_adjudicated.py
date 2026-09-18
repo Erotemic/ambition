@@ -61,17 +61,17 @@ owner's helper, and only the call sites say which. Check it by hand when
 adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 37 of the 121 are rollback-registered, and FIVE of
-those are still unadjudicated** — `AuthoredOccurrences` (5 files), `OwnedItems`
-(10), `QuestRegistry` (8), `RoomTransitionCooldown` (7), `SlotControls` (6).
+HAND.** **THE RUN PRINTS IT NOW — there is no number here to
+go stale.** Every invocation ends with a line naming the multi-writer types that
+are also rollback-registered and still carry no verdict; those are the ones where
+a second writer is a DIVERGENCE rather than a design smell.
 
-⛔ **DO NOT QUOTE THAT COUNT — RE-DERIVE IT.** It read "21 of the 102" on
-2026-09-17, then "31", "eight", "seven", "six", and now this, all inside about a
-day. The 37 has not moved once; the verdicts do, because 26 of the 28 written on
-2026-09-18 aimed at this intersection on purpose. ⇒ A shortlist that is actively
-being worked is the LAST number worth carrying across a document boundary, and
-the five above are already a snapshot by the time anybody reads them. The snippet
-below prints the current list.
+⛔⛤ **IT USED TO BE PROSE HERE AND IT WENT STALE FIVE TIMES ON 2026-09-18
+ALONE** — "21 of the 102", then 31, eight, seven, six, five, four. Every
+restatement was correct when written and wrong within the hour, because the
+number counts VERDICTS and verdicts are exactly what this campaign spends. The
+intersection itself never moved once. ⇒ A number that changes every time somebody
+does the work cannot live in a docstring; see `rollback_registered_shortlist`.
 
 What the intersection buys is that a second writer there is a DIVERGENCE rather
 than a design smell. The 37 is a LOWER BOUND and carries
@@ -160,6 +160,7 @@ the writer is how the number keeps meaning something.
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -197,7 +198,7 @@ BASELINE: dict[str, int] = {
     "UserSettings": 9,
     "PendingLifecycleCommit": 8,
     "QuestRegistry": 8,
-    "RoomTransitionCooldown": 7,
+    "RoomTransitionCooldown": 6,
     "SeatRawFrames": 6,
     "BaseGravity": 6,
     "DeveloperTools": 6,
@@ -511,6 +512,58 @@ ADJUDICATED: dict[str, str] = {
         "waiver next door was written on the false premise that "
         "`maintain_local_session` gates on a live BODY, and it does not — see "
         "that guard's comment for what replaced it."
+    ),
+    "RoomTransitionCooldown": (
+        "CORRECT — ONE TICKER, TWO ARMERS, THREE CLEARS, AND THE SEVENTH WRITER "
+        "WAS NOT A WRITER AT ALL. One `f32` countdown (`remaining`, "
+        "`shared_tangle/src/safe_position.rs`), and the reason it reads as "
+        "contested is that six systems each own one EVENT in its life rather "
+        "than one value. The ticker: `tick_room_transition_cooldown` "
+        "(`actor_monolith/src/control/input_systems.rs`) is "
+        "`remaining = (remaining - wall_dt).max(0.0)` and nothing else. Two "
+        "ARMERS, and they arm for different reasons: "
+        "`RoomClock::...` in `runtime/src/room_transition/commit.rs` sets it on a "
+        "crossing, conditional on `edge_exit`, and "
+        "`reload_ldtk_world_from_disk` (`game/ambition_app/src/app/dev_runtime.rs`) "
+        "sets `0.10` after a dev hot-reload. Three CLEARS to zero on three "
+        "distinct lifecycle edges: `process_new_game_reset_request` "
+        "(`actor_monolith/src/session/reset/mod.rs`), "
+        "`return_the_replay_subject_to_spawn` "
+        "(`runtime/src/sandbox_reset.rs`, which also assigns `default()` — the "
+        "same zero), and `SessionScopedResources::reset`. ⇒ An armer and a clear "
+        "cannot disagree about a VALUE; the countdown's only invariant is that it "
+        "reaches zero, and every writer either starts it, ends it, or walks it "
+        "down.\n"
+        "    ⛔⛤ AND THE SEVENTH WAS A MUTABLE BORROW FEEDING A PARAMETER NOBODY "
+        "READ — REMOVED 2026-09-18, WHICH IS WHY THE BASELINE SAYS SIX. "
+        "`apply_player_hit_events` (`ambition_damage/src/lib.rs`) took "
+        "`ResMut<RoomTransitionCooldown>` and its only use of the resource is the "
+        "read `remaining > 0.0`, which becomes `SafePositionContext { "
+        "room_transitioning, .. }`. The `ResMut` existed solely to pass `&mut` "
+        "into `handle_player_damage_events`, whose signature spelled that "
+        "parameter `_sim_state` — an underscore, so the compiler had already been "
+        "told it was unused. The parameter is gone and the system asks for `Res`.\n"
+        "    ⚠ TWO COSTS, AND ONLY ONE OF THEM WAS THE CENSUS'S. An exclusive "
+        "borrow serialises the damage system against every real writer of the "
+        "cooldown in the same schedule, for a read. And a writer census that "
+        "reads PARAMETER LISTS counted it as one of seven authorities over a "
+        "value it never touches — which is the same lesson as `BaseGravity`'s "
+        "sixth writer from the other side: the instrument measures MUTABLE REACH, "
+        "and reach is not authorship.\n"
+        "    ⭐ THE TELL IS MACHINE-CHECKABLE, SO IT WAS SWEPT RATHER THAN "
+        "RECOMMENDED — AND THE ANSWER IS A NEGATIVE WORTH RECORDING. An "
+        "`_`-prefixed `&mut` parameter over the 1,294 production files: EIGHT "
+        "remain after this repair, and none is this defect. Four are cheap or "
+        "dictated (`_context: &mut LoadContext` is an asset-loader trait method; "
+        "three `_commands: &mut Commands`, which no system holds exclusively). "
+        "Two name COMPONENTS and bundles (`_anim: &mut BodyAnimFacts`, `_writers: "
+        "&mut BodyDeathWriters`), which this census is silent about by "
+        "construction. One is a render-app hook (`_render_world: &mut World`). And "
+        "one is DELIBERATE with its reason in place: `load_character_sprites_in` "
+        "keeps `_layouts: &mut Assets<TextureAtlasLayout>` because *\"this is still "
+        "where a caller proves it HAS an asset pipeline, and dropping them would "
+        "silently make the art-free path look identical\"*. ⇒ Do not re-run this "
+        "sweep expecting a list; it was one."
     ),
     "EncounterRegistry": (
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "
@@ -1155,6 +1208,38 @@ def sole_owner_shortfalls(
 MIN_FILES = 500
 MIN_TYPES = 100
 
+#: Turbofish rollback registrations — `rollback_resource_clone::<T>`,
+#: `declare_rollback_derived_resource::<T>` and their siblings.
+_ROLLBACK_TURBOFISH = re.compile(
+    r"\b(?:rollback_[a-z_]+|declare_rollback_derived_[a-z_]+)"
+    r"::<\s*(?:[A-Za-z0-9_]+::)*([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def rollback_registered_shortlist(multi: dict[str, list[str]]) -> tuple[int, list[str]]:
+    """The multi-writer types that are also rollback-registered, and which lack a verdict.
+
+    ⛔⛤ **THIS WAS A SENTENCE IN THE DOCSTRING AND IT WENT STALE FIVE TIMES ON
+    2026-09-18 ALONE** — "21 of the 102", then 31, eight, seven, six, five, four,
+    all while the intersection itself never moved. Every restatement was correct
+    when written and wrong within the hour, because the number counts VERDICTS
+    and verdicts are what this campaign spends. ⇒ A number that moves every time
+    somebody does the work cannot live in prose. It is printed now.
+
+    ⚠ A LOWER BOUND, and the bound is the parse: only the turbofish spelling is
+    visible, which finds ~396 names where the registry holds 491 rows. A row
+    registered through any non-turbofish form is invisible here.
+    """
+    names: set[str] = set()
+    for path in census.rust_files(("crates", "game")):
+        for match in _ROLLBACK_TURBOFISH.finditer(
+            pathlib.Path(path).read_text(errors="replace")
+        ):
+            names.add(match.group(1))
+    intersecting = set(multi) & names
+    return len(intersecting), sorted(intersecting - set(ADJUDICATED))
+
+
 
 def main() -> int:
     files = census.production_files()
@@ -1310,6 +1395,16 @@ def main() -> int:
         f"  + {len(world)} session-world component(s) written from more than one "
         f"file, of {len(world_all)} carrying a `SessionWorldMut<T>` accessor — a "
         "population the resource census is silent about by construction."
+    )
+    # ⭐ WHERE TO SPEND THE NEXT VERDICT, MEASURED ON EVERY RUN rather than
+    # quoted. See `rollback_registered_shortlist` for why it stopped being prose.
+    registered, owed = rollback_registered_shortlist(multi)
+    print(
+        f"  ⭐ {registered} of them are rollback-registered (turbofish parse, a "
+        f"LOWER BOUND), and {len(owed)} of those carry no verdict"
+        + (f": {', '.join(owed)}." if owed else " — that shortlist is CLEAR.")
+        + " Those are the ones where a second writer is a divergence rather than "
+        "a design smell."
     )
     print(
         "  ⚠ multi-writer is NOT a defect by count. This ratchets the population "

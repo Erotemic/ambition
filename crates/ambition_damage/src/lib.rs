@@ -500,7 +500,6 @@ pub(crate) fn handle_player_damage_events(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    _sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
@@ -1296,7 +1295,15 @@ pub fn apply_player_hit_events(
     // This system runs in the simulation schedule.
     damage_policy: Res<PlayerDamagePolicy>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    mut sim_state: ResMut<RoomTransitionCooldown>,
+    // ⛔⛤ `Res`, NOT `ResMut`, SINCE 2026-09-18, AND THE MUTABLE BORROW WAS
+    // FEEDING A PARAMETER NOBODY READ. This damage system's only use of the
+    // room cooldown is the `remaining > 0.0` test below; the `ResMut` existed
+    // to hand `&mut` to `handle_player_damage_events`, whose signature spelled
+    // it `_sim_state`. ⇒ Two costs for nothing: an exclusive borrow that
+    // serialises this system against every real writer of the cooldown, and a
+    // writer census that read damage as one of SEVEN authorities over a single
+    // `f32` countdown it never touches.
+    sim_state: Res<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     // The rollback-registered FIFO `stage_player_victim_hit_events` filled at
@@ -1509,7 +1516,6 @@ pub fn apply_player_hit_events(
             &mut debris_writer,
             &mut death_writers,
             &mut clusters,
-            &mut sim_state,
             &mut clock_resets,
             &mut safety,
             &mut banner_requests,

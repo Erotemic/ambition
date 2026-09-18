@@ -376,3 +376,19 @@ def test_a_declaration_the_corpus_hides_is_not_accepted(monkeypatch):
     monkeypatch.setattr(census, "rust_files", lambda *a, **k: [])
     with pytest.raises(AssertionError, match="does not declare"):
         test_every_system_a_verdict_names_exists()
+
+
+def test_the_printed_shortlist_is_not_empty_by_accident():
+    # ⚠ THE LINE THIS PINS IS A SUBTRACTION, so "nothing owed" and "the parse
+    # broke" print the same reassuring thing. A turbofish regex that matched
+    # nothing would report every registered type as unregistered and the
+    # shortlist as CLEAR — the most comfortable possible failure.
+    files = census.production_files()
+    multi = {t: sorted(fs) for t, fs in census.writers(files).items() if len(fs) > 1}
+    registered, owed = guard.rollback_registered_shortlist(multi)
+    assert registered > 20, (
+        "the rollback-registration parse found almost nothing, so the printed "
+        f"shortlist is a fact about the regex: {registered} intersecting types"
+    )
+    assert set(owed).isdisjoint(guard.ADJUDICATED), owed
+    assert set(owed) <= set(multi), owed

@@ -395,6 +395,35 @@ pub fn maintainer_owned_rollback_sim(frames: usize) -> Platformer2dSimHarness {
     for _ in 0..frames {
         sim.step(base());
     }
+    // ⛔⛤ **THE FIXTURE ANSWERS FOR ITSELF, BECAUSE THE ARMS COULD NOT.**
+    // Inverting the settings pair above leaves GGRS refusing the session —
+    // `maintain_local_session` records `Invalid Request: Check distance too big`
+    // and carries on with NONE — and a rollback arm handed that world passes
+    // while measuring nothing: the admission reads `NoTimeline` and publishes
+    // anything, and `rollback_health()` on a sessionless world reports fine.
+    // Three arms of `a_dev_clone_survives_a_rewind` stayed green under exactly
+    // that poison. So every caller that asked for a settled session gets the
+    // check here instead of remembering to write it.
+    //
+    // ⚠ ONLY WHEN `frames > 0`: `maintain_local_session` installs GGRS on the
+    // first step, once gameplay is active, so at zero frames there is nothing
+    // to read yet and two arms deliberately want that moment.
+    if frames > 0 {
+        let boundary = format!(
+            "{:?}",
+            ambition_platformer2d::rollback::mechanical_mutation_boundary(sim.world())
+        );
+        assert_eq!(
+            boundary, "LocallyRebasable",
+            "this fixture promises a live timeline THIS host owns after {frames} frame(s) \
+             and the boundary reports `{boundary}`. `NoTimeline` means no session was \
+             installed — check the `(check_distance, max_prediction_window)` order above; \
+             `ForeignTimeline` means it is caller-owned and every mechanical edit is refused"
+        );
+        sim.rollback_health().unwrap_or_else(|error| {
+            panic!("this fixture promises a healthy timeline after {frames} frame(s): {error}")
+        });
+    }
     sim
 }
 

@@ -108,7 +108,7 @@ def _provider_files_that_author_specs() -> list[Path]:
     for rs in sorted((REPO_ROOT / 'game').rglob('src/**/*.rs')):
         if rs.name == 'tests.rs':
             continue
-        text = al._strip_test_modules(al._strip_comments(rs.read_text(errors='replace')))
+        text = al._strip_test_modules(al.strip_comments(rs.read_text(errors='replace')))
         if re.search(r'SfxSpec\s*\{', text):
             found.append(rs)
     return found

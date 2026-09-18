@@ -48,6 +48,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
+from rust_source import strip_comments as _without_comments  # noqa: E402,F401
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -147,32 +148,16 @@ def _gates_by_file() -> dict[Path, frozenset[str]]:
     return gates
 
 
-def _without_comments(source: str) -> str:
-    """Blank out `//`, `///` and `//!` lines and trailing `//` comments.
-
-    ⛔ **a checker that greps source reads the prose ABOUT the code as if it were
-    the code.** `ambition_platformer2d/src/app.rs` carries
-    `/// Not `insert_resource(CharacterCatalog)`: that would be a second
-    authority` — a comment stating a resource is NOT inserted, which this script
-    would otherwise count as evidence that it IS.
-
-    ⚠ measured before changing anything: stripping comments moves ZERO writers
-    and one optional-read (`CharacterCatalog`), so no finding changes today. It
-    is closed because the mechanism is real and the failure direction is silent —
-    a comment inventing a WRITER hides a capability that does not ship, which is
-    the exact defect this script exists to catch.
-
-    ⚠ this repository's Rust policy runner has stripped comments since it was
-    written (`rules/source_reference.rs`: *"Comment lines and trailing `//`
-    comments are always stripped first, so prose..."*). The Python guards did not
-    inherit that, and one of them read its own documentation as evidence before
-    this was noticed.
-    """
-    out = []
-    for line in source.splitlines():
-        stripped = line.lstrip()
-        out.append("" if stripped.startswith("//") else line.split("//", 1)[0])
-    return "\n".join(out)
+# ⛔⛤ NOT A RESPELLING. `_without_comments` used to blank whole comment-only
+# lines and split trailing `//` comments by hand, one of six drifted copies of
+# the same rule across `scripts/`. It moved to `lib/rust_source.strip_comments`
+# unchanged in effect for this file's own patterns — `Option<Res<>>` and
+# `init_resource::<>` are matched by `.finditer()` over the whole blob, never by
+# line shape, so the owner's narrower "keep indentation, drop only the `//...`
+# suffix" behaviour finds the same writers and reads. Routed 2026-09-18: before
+# and after this file's own report are byte-identical
+# (`every Option-read capability has at least one shipping writer`,
+# 1547 files, 192 optional-read types).
 
 
 #: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. This

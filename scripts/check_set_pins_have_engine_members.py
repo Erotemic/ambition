@@ -55,10 +55,15 @@ WAIVERS: dict[str, str] = {
 }
 
 
-def _strip_comments(text: str) -> str:
-    return "\n".join(line.split("//", 1)[0] for line in text.splitlines())
-
-
+# ⛔⛤ NOT A RESPELLING. `_strip_comments` used to split each line on the first
+# `//` and never touched a `/* */` block at all — one of six drifted copies of
+# the same rule. It moved to `lib/rust_source.strip_comments`: this file's
+# patterns (`.before(`, `.after(`, `.in_set(`, `#[derive(...SystemSet...)]`) are
+# all token regexes over the whole blob, not line-shape reads, and the six files
+# in this tree that carry a `/* */` at all hold human prose
+# (`/*holds_item*/`, `/* wall clock is never scaled */`) that neither pattern
+# matches. Routed 2026-09-18: before/after this check's own report are
+# byte-identical.
 #: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-16 and re-exported here. One
 #: of FIVE drifted copies; this one missed `*_tests.rs`, and like all five it
 #: missed a file whose inner `#![cfg(test)]` compiles it out entirely.
@@ -66,6 +71,7 @@ def _strip_comments(text: str) -> str:
 #: green direction, which `POPULATION_FLOOR` above exists to make reviewable.
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from test_paths import is_test_path  # noqa: E402
+from rust_source import strip_comments as _strip_comments  # noqa: E402,F401
 
 
 def _is_test_path(path: Path) -> bool:

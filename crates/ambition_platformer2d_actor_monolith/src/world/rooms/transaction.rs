@@ -699,6 +699,24 @@ pub(crate) fn apply_world_replacement(
         {
             Some(format!("publication target {root:?} carries no `RoomGeometry`"))
         }
+        // ⛔ THE FOURTH SINK THIS PREFLIGHT MISSED. `verify_staged_world` checks
+        // this one too, but only when there is something to publish — a room
+        // with no authored platforms states an empty vector and means it, so a
+        // composition that has never needed the resource is not wrong for
+        // lacking one. Mirror that exact condition rather than a blanket
+        // presence check, or a composition with no moving platforms would start
+        // refusing every publication.
+        Some(_)
+            if !pending.moving_platforms.is_empty()
+                && !world.contains_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>(
+                ) =>
+        {
+            Some(
+                "composition holds no `MovingPlatformSet` to publish this room's \
+                 moving-platform state into"
+                    .to_string(),
+            )
+        }
         Some(_) => None,
     };
     if let Some(why) = refusal {

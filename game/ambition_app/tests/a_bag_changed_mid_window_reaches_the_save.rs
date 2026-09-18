@@ -3509,3 +3509,193 @@ fn a_player_heal_requested_outside_the_simulation_is_lost() {
          [Q136] which ingress road reached this message"
     );
 }
+
+/// The tick the in-sim control raises its cycle on — the same offset the heal
+/// control uses, well after the room has settled.
+const GRAVITY_CYCLE_TICK: u64 = 100;
+
+fn cycle_gravity_from_inside_the_sim(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut requests: bevy::prelude::MessageWriter<
+        ambition_platformer2d::world::AmbientGravityRequest,
+    >,
+) {
+    if tick.0 == GRAVITY_CYCLE_TICK {
+        requests.write(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
+    }
+}
+
+fn sim_cycling_gravity(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            if with_an_in_sim_producer {
+                app.add_systems(label, cycle_gravity_from_inside_the_sim);
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a gravity-request producer")
+}
+
+/// Where one `AmbientGravityRequest::Cycle` takes `from`, by asking the
+/// production rotation rather than restating it — a hand-written `(-1, 0)`
+/// here would agree with a broken `BaseGravity::cycle`.
+fn one_cycle_from(from: bevy::prelude::Vec2) -> bevy::prelude::Vec2 {
+    let mut probe = ambition_platformer2d::world::BaseGravity { dir: from };
+    probe.cycle();
+    probe.dir
+}
+
+/// The ambient gravity direction the room simulates under. ⭐ `BaseGravity` is
+/// `rollback_resource_canonical`
+/// (`crates/ambition_platformer2d_shared_tangle/src/rollback_registration.rs:40`),
+/// so it is ITSELF rollback state — which is what lets it witness a rollback
+/// defect. A visible consequence that a rewind does not own could not.
+fn base_gravity(sim: &Platformer2dSimHarness) -> bevy::prelude::Vec2 {
+    sim.world()
+        .get_resource::<ambition_platformer2d::world::BaseGravity>()
+        .expect("the sim composition publishes ambient gravity as `BaseGravity`")
+        .dir
+}
+
+/// ⛔ THE FOURTH [Q136] INGRESS FINDING, AND UNTIL NOW THE ONLY ONE WITHOUT A
+/// WITNESS.
+///
+/// `AmbientGravityRequest` is written by `cycle_dev_gravity`
+/// (`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`), which reads
+/// `keys.just_pressed(KeyCode::Backslash)` in `Update`, and read by
+/// `apply_ambient_gravity_requests`
+/// (`crates/ambition_platformer2d_shared_tangle/src/gravity.rs:137`), which the
+/// monolith registers into the sim schedule
+/// (`crates/ambition_platformer2d_actor_monolith/src/gravity/plugin.rs:96-105`).
+/// A host-latched input edge, spent on a speculative frame, that nothing
+/// re-produces after the rewind — the clone's mechanism on a developer hotkey.
+///
+/// ⚠ **THE ROW CLAIMED THIS FOR A DAY ON A READING ALONE.** Its three siblings
+/// each named an arm; this one named none, and a defect nobody has run is a
+/// prediction. It reproduces — and the SHAPE is not the one the row's sibling
+/// text would have predicted. This is the item grant's FLAT ZERO, not the
+/// heal's transient: `BaseGravity` never passes through the cycled direction on
+/// any of 200 frames, where the heal is visible for about two frames before the
+/// first correction revokes it. Same ownership mode, same rollback settings,
+/// different shape, so "host-raised intents are lost the way the heal is lost"
+/// is not a sentence this census can make. This arm holds the SYMPTOM; which of
+/// the drain, the cursor or bevy's two-frame expiry owns it is a mechanism
+/// question it does not settle, exactly as the heal's arm says of its own.
+///
+/// ⭐ THE IN-SIM ARM IS THE CONTROL, and it is load-bearing here for a reason
+/// the heal's is not: `BaseGravity::cycle` is a four-state rotation, so a
+/// composition where `apply_ambient_gravity_requests` never ran and one where
+/// it ran four times both read as unchanged. The control proves one cycle is
+/// visible at all.
+///
+/// ⛔⛤ **AND BOTH ARMS ASSERT THE TRANSITION, NOT THE ENDPOINT, BECAUSE THE
+/// ENDPOINT IS OWNED BY SOMETHING ELSE.** The first draft compared gravity
+/// after 200 steps and the CONTROL failed — not because the in-sim cycle was
+/// lost, but because it landed at tick 100 and was restored to the authored
+/// default at step 158 by `reset_gravity_on_room_reset`
+/// (`crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs:28-39`),
+/// which fires on `RoomReplayAdmitted`. An idle 200-frame window reaches a
+/// replay, so an endpoint reading would have called a working road broken.
+///
+/// ⇒ Each arm therefore asserts that gravity reached EXACTLY ONE CYCLE STEP
+/// from where it started. That is a direction a reset cannot manufacture: a
+/// reset moves gravity TO the default, and both fixtures start there.
+///
+/// [Q136]: ../../../docs/planning/awaiting-maintainer-decision.md
+#[test]
+fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
+    // CONTROL: the same message, written from inside the timeline.
+    let mut inside = sim_cycling_gravity(true);
+    let inside_before = base_gravity(&inside);
+    let inside_cycled = one_cycle_from(inside_before);
+    let mut inside_reached_the_cycle = false;
+    for _ in 0..200 {
+        inside.step(AgentAction::default());
+        if base_gravity(&inside) == inside_cycled {
+            inside_reached_the_cycle = true;
+        }
+    }
+    assert!(
+        inside_reached_the_cycle,
+        "the in-sim control never reached {inside_cycled:?}, one cycle step from \
+         {inside_before:?}, so `apply_ambient_gravity_requests` is either absent \
+         from this composition or never reached — every number below would then \
+         be measuring the fixture rather than the road"
+    );
+
+    // THE DEV HOTKEY'S POSITION: a producer outside the rewinding schedule, on
+    // a timeline this host owns.
+    // ⛔⛤ **THE SAME COMPOSITION AS THE CONTROL, WHICH IS NOT WHAT THIS ARM'S
+    // SIBLINGS DO AND IS WHY THIS ONE IS TRUSTWORTHY.** The heal arm pairs
+    // `sim_healing_the_player` against `common::maintainer_owned_rollback_sim`,
+    // two different compositions, and gets away with it. Gravity does not:
+    // measured 2026-09-18, writing `AmbientGravityRequest::Cycle` on EVERY one
+    // of 200 frames into the sandbox composition moves `BaseGravity` not once,
+    // because `apply_ambient_gravity_requests` is not reached there at all.
+    // ⇒ A flat zero from that fixture would have read exactly like the item
+    // grant's lost-intent flat zero and meant only "no reader here". The one
+    // difference between these two arms has to be WHERE the message is
+    // written, so both build through `sim_cycling_gravity`.
+    let mut outside = sim_cycling_gravity(false);
+    crate::common::hand_the_timeline_to_the_local_maintainer(&mut outside);
+    for _ in 0..40 {
+        outside.step(AgentAction::default());
+    }
+    let boundary = format!(
+        "{:?}",
+        ambition_platformer2d::rollback::mechanical_mutation_boundary(outside.world())
+    );
+    assert_eq!(
+        boundary, "LocallyRebasable",
+        "this arm needs a live timeline THIS host owns before it writes, and the          boundary reports `{boundary}` — the same check          `common::maintainer_owned_rollback_sim` makes for its callers"
+    );
+    outside
+        .rollback_health()
+        .expect("the fixture promises a healthy timeline before the write");
+    let before = base_gravity(&outside);
+    let cycled = one_cycle_from(before);
+    outside
+        .world_mut()
+        .write_message(ambition_platformer2d::world::AmbientGravityRequest::Cycle);
+
+    // Sampled every frame, because the loss is a REVOCATION and not an absence:
+    // both end at `before` and only the transient tells them apart.
+    let mut reached_the_cycle = false;
+    for _ in 0..200 {
+        outside.step(AgentAction::default());
+        if base_gravity(&outside) == cycled {
+            reached_the_cycle = true;
+        }
+    }
+    // ⛔ ASSERTS THE SHIPPED BEHAVIOUR AND FIRES WHEN THE DEFECT IS FIXED, the
+    // convention its three siblings in this file use: a permanently red arm
+    // teaches the next reader to scroll past the line carrying the finding.
+    //
+    // ⚠ THE LIVENESS IS CARRIED BY THE CONTROL ABOVE, NOT BY A TRANSIENT HERE.
+    // The heal's arm can floor `ever_rose` because its loss is a revocation;
+    // this one is a FLAT ZERO, so there is no transient to floor and the only
+    // thing separating "lost" from "this fixture cannot flip gravity" is that
+    // the SAME fixture flips it when the write comes from inside.
+    assert!(
+        !reached_the_cycle,
+        "an ambient-gravity cycle requested from outside the simulation now \
+         reaches {cycled:?} — that is the FIX this arm is waiting for, not a \
+         regression. Invert it and record in [Q136] which ingress road reached \
+         this message"
+    );
+    assert_eq!(
+        base_gravity(&outside),
+        before,
+        "ambient gravity ended somewhere other than where it started without ever \
+         passing through one cycle step, so something in this window moves \
+         `BaseGravity` that is neither the request nor \
+         `reset_gravity_on_room_reset` — find it before trusting the line above"
+    );
+}

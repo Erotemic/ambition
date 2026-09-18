@@ -1780,10 +1780,45 @@ READING RATHER THAN A COUNT.**
 
 - ⛔ **`AmbientGravityRequest` — LIVE, and the same mechanism as the clone.**
   `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`)
-  reads `keys.just_pressed(KeyCode::Backslash)` and writes once. An unregistered
-  host EDGE spent in the sim: the rewind clears the channel and the physical
-  press is several host frames gone. A developer hotkey, so the stakes are the
-  clone's rather than a player's.
+  reads `keys.just_pressed(KeyCode::Backslash)` and writes once — an
+  unregistered host EDGE spent in the sim, and the physical press is several
+  host frames gone by the time a rewind ends. A developer hotkey, so the stakes
+  are the clone's rather than a player's.
+
+  ⭐ **WITNESSED 2026-09-18, LAST OF THE FOUR, AND THE ARM CORRECTED THE ROW.**
+  `an_ambient_gravity_request_raised_outside_the_simulation_is_lost`
+  (`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`). Two
+  corrections came out of running it rather than reading it:
+
+  ⛔⛤ **THE SHAPE IS THE ITEM GRANT'S FLAT ZERO, NOT THE HEAL'S TRANSIENT.**
+  `BaseGravity` never passes through the cycled direction on any of 200 frames,
+  under the same ownership mode and the same `(4, 10)` sync-test settings where
+  the heal is visible for about two. ⇒ *"Host-raised intents are lost the way
+  the heal is lost"* is not a sentence this census can make, and the mechanism
+  clause that used to sit in this row — *"the rewind clears the channel"* — does
+  not survive either: a flat zero means the request was never applied even once,
+  which a channel cleared AFTER a speculative apply cannot produce. The same
+  clause was already refuted for the heal by poisoning
+  `clear_message_on_rollback` and watching nothing change.
+
+  ⚠ **AND BOTH ITS ARMS RUN ONE COMPOSITION, WHICH ITS THREE SIBLINGS DO NOT.**
+  Writing the request on EVERY one of 200 frames into the sandbox fixture the
+  heal arm uses moves `BaseGravity` not once, because
+  `apply_ambient_gravity_requests` is not reached in that composition at all. A
+  flat zero measured there would have been indistinguishable from this finding
+  and would have meant only *"no reader here"*. ⇒ The one difference between
+  the two arms is WHERE the message is written.
+
+  ⚠ **ITS FIRST CONTROL FAILED, AND THE FAILURE WAS THE CONTROL WORKING.** The
+  in-sim cycle lands at tick 100 and is restored to the authored default at step
+  158 by `reset_gravity_on_room_reset`
+  (`crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs:28-39`),
+  which fires on `RoomReplayAdmitted` — reachable in an idle window now that
+  Ambition's untagged-room death rule is declared again. An endpoint comparison
+  would have called a working road broken. Both arms therefore assert that
+  gravity reached exactly ONE CYCLE STEP from where it started, which is a
+  direction a reset cannot manufacture: a reset moves gravity TO the default and
+  both fixtures start there.
 - ⛔ **`PlayerHealRequested` — LIVE, and player-visible.** Raised by
   `kaleidoscope_menu_action_activated`, which this page already names as one of
   the two real `NewGameResetRequested` producers. A heal chosen in the menu can

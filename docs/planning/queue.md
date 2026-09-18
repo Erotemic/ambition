@@ -1096,11 +1096,17 @@ deleted for going quiet would cover the next system to take the name.
 HERE YET.** One hop of caller attribution — a registered system inherits what the
 helpers it calls mutate — would close `handle_ldtk_hot_reload` and the other five
 helpers. Measured 2026-09-18 by bare-name matching: **19 pairs, 8 already banked
-or waived and 11 FALSE**, because the helpers in question are named `tick`, `apply`
-and `install`, and a `\bname\s*\(` search cannot tell `adopt_the_ledger(world)`
-from `self.timer.tick(dt)`. ⛔ A NAME IS NOT A CALL. The hop wants real call
-resolution, and a version built on the bare name would import eleven fabricated
-findings on its first run.
+or waived and 11 FALSE**, because the helper side collapses to three names —
+`tick`, `apply`, `install` — and a `\bname\s*\(` search cannot tell
+`adopt_the_ledger(world)` from `self.timer.tick(dt)`. ⛔ A NAME IS NOT A CALL,
+and the sharpest of the eleven is sharper than that: `spawn_dialogue_runner
+<- install [AuthoredOccurrences, CustodyBaseline, MintedItemBaseline,
+OccurrenceBaseline]` matches `crates/ambition_dialog/src/bridge.rs:87`, where
+`install` is a LOOP VARIABLE — `for install in &content_bindings.installers` —
+so the matched token is not a function name at all. The other ten are `&mut
+self` methods on timers, a shop transaction and a load coordinator. ⇒ The hop
+wants real call resolution; a version built on the bare name would import
+eleven fabricated findings on its first run.
 
 **✅ Two findings owed their own argument, and it is now MEASURED.**
 `adopt_occurrence_checkpoint_from_save` and `complete_durable_restore` are

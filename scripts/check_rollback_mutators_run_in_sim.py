@@ -76,9 +76,96 @@ from check_engine_systems_are_engine_installed import (  # noqa: E402
 SOURCE_ROOTS = ["crates", "game"]
 ROLLBACK_REGISTRY = REPO / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
 
-# Schedules that do NOT rewind.
-NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
-# `Startup` is deliberately ABSENT.
+#: ⛔⛤ **THE SIXTH SPELLING, AND THIS ONE WAS IN THE TEST ITSELF.** Until
+#: 2026-09-18 this was a membership test against a four-element tuple of BARE
+#: labels — `("Update", "PostUpdate", "PreUpdate", "FixedUpdate")` — and
+#: `collect` did `if schedule not in NON_REWINDING: continue`. The tree spells a
+#: non-rewinding schedule in QUALIFIED form **39 times** (`bevy::prelude::Update`
+#: ×20, `bevy::app::PreUpdate` ×8, `bevy::app::Update` ×3,
+#: `bevy::prelude::FixedUpdate` ×2, and the rest), and every one of those
+#: registrations was SKIPPED. Same failure direction as the other five: the guard
+#: reported FEWER offenders. Measured when it was found: two live ones were
+#: invisible — `publish_player_stats_edits` (`bevy::app::PreUpdate`) and
+#: `reset_checkpoint_coordinator_on_activation` (`bevy::prelude::Update`).
+#:
+#: ⭐ **SO THE TEST IS INVERTED RATHER THAN THE LIST WIDENED, AND THAT IS THE
+#: POINT.** Widening an enumeration of the schedules that DO NOT rewind asks the
+#: guard to know every host spelling the tree will ever use — an open set that
+#: grows with every crate, and whose omissions are silent. The rewinding set is
+#: CLOSED and short: the sim schedule and GGRS's own protocol schedules. Naming
+#: that set and reporting everything else means a schedule nobody anticipated
+#: arrives as a FINDING, which is the recoverable direction.
+#:
+#: Each entry says why a rollback-state write reached from that label is not this
+#: guard's finding. An entry is an exemption, so it carries its argument.
+REWINDING_OR_NOT_A_TIMELINE: dict[str, str] = {
+    # -- the rewinding schedule itself ---------------------------------------
+    "GgrsSchedule": "the schedule GGRS resimulates; this is where a mutator belongs",
+    "AdvanceWorld": "bevy_ggrs's per-frame advance, which RUNS `GgrsSchedule`",
+    # -- GGRS's own protocol schedules ---------------------------------------
+    "SaveWorld": "the snapshot is TAKEN here; a write is part of taking it",
+    "LoadWorld": "the snapshot is RESTORED here; a write is part of restoring it",
+    "ReadInputs": "input collection, ordered by GGRS around the rewind",
+    # -- before any timeline exists ------------------------------------------
+    # ⚠ NOT the same claim as the two above. These run once, before
+    # `maintain_local_session` has a session to start, so there is no ring and
+    # no frame to restore. `Startup` was deliberately absent from the old tuple
+    # for this reason; making the reason explicit is what the inversion costs.
+    "PreStartup": "runs before any GGRS session exists",
+    "Startup": "runs before any GGRS session exists",
+    "PostStartup": "runs before any GGRS session exists",
+    # -- the commit executor -------------------------------------------------
+    # ⛔ THIS ONE IS AN ARGUMENT ABOUT AUTHORIZATION, NOT ABOUT TIME. A
+    # `CheckpointDomainApply` system mutates rollback state on purpose: it is a
+    # domain reducer for a restore that has already been ADMITTED, and the
+    # schedule is run by exactly one caller — held by
+    # `scripts/check_commit_only_schedules_have_one_runner.py`, which is what
+    # makes "run by the commit executor" a checkable fact rather than a comment.
+    # If that guard ever goes red this exemption is void.
+    "CheckpointDomainApply": "run only by the commit executor; see check_commit_only_schedules_have_one_runner.py",
+}
+
+
+def normalize_schedule(label: str) -> str:
+    """`bevy::prelude::Update` and `Update` are the SAME SCHEDULE.
+
+    ⚠ the path prefix is the only thing dropped. A label with arguments
+    (`FramePhaseMark(index)`) keeps them and will not match any exemption, which
+    is the safe direction — it enters the population and can be adjudicated.
+    """
+    return label.rsplit("::", 1)[-1].strip()
+
+
+def is_schedule_variable(label: str) -> bool:
+    """Is this label a VARIABLE rather than a literal the scan can resolve?
+
+    ⛔ THE RESIDUAL, STATED RATHER THAN IMPLIED. `app.add_systems(sim, …)` is the
+    sanctioned sim-schedule idiom and accounts for 258 of the workspace's
+    `add_systems` calls, but a source scan cannot tell `sim` from any other
+    local binding — `schedule`, `load_schedule` and `pre_collect_sim` all appear.
+    A variable label is therefore SKIPPED, and a mutator hidden behind one is
+    invisible to this guard. Resolving it needs dataflow, which is a different
+    instrument.
+
+    ⛔⛤ IT NORMALIZES FIRST, AND THE FIRST DRAFT OF THIS FUNCTION DID NOT — which
+    reproduced, inside the fix, the exact defect the fix was for. `bevy::app::
+    PreUpdate` begins with a lowercase `b`, so testing the raw label's first
+    character classified every qualified schedule as a VARIABLE and skipped it,
+    and the inverted guard reported the same eight rows as the broken one. A
+    green that does not move after a repair is a finding about the repair.
+    """
+    head = normalize_schedule(label).split("(")[0].split(".")[0].strip()
+    return bool(head) and not head[0].isupper()
+
+
+def is_non_rewinding(label: str) -> bool:
+    """Would a rollback-state write from this schedule survive a rewind?
+
+    True means the write is NOT replayed and NOT restored — the finding shape.
+    """
+    if is_schedule_variable(label):
+        return False
+    return normalize_schedule(label) not in REWINDING_OR_NOT_A_TIMELINE
 
 # ⭐ RESOURCE CLONE REGISTRATIONS ARE IN THE POPULATION SINCE 2026-09-16, and the
 # COMPONENT ones deliberately are not. They are snapshotted and restored on every
@@ -221,6 +308,59 @@ ACKNOWLEDGED: dict[str, str] = {
 
 
 WAIVERS: dict[str, str] = {
+    # -- added 2026-09-18, the SIXTH SPELLING's two findings -------------------
+    # Both were invisible while this file tested a tuple of BARE schedule labels
+    # (see `REWINDING_OR_NOT_A_TIMELINE`). Neither is a new system; both have
+    # been registered under a QUALIFIED label since they were written.
+    "publish_player_stats_edits": (
+        "\u2b50 IT PUBLISHES ONLY WHEN NO TIMELINE CAN CONTRADICT IT, AND THAT IS "
+        "DECIDED UPSTREAM IN THE SAME SCHEDULE. `PreUpdate` here is not a mistake "
+        "that survived a move -- it is the `MechanicalEditSet::Propose -> Admit -> "
+        "Publish` chain, and `sim_plugin.rs` records the opposite arrangement as "
+        "the `Q120` DEFECT: registered into `app.sim_schedule()` this write landed "
+        "inside `GgrsSchedule`, where a resimulation of confirmed frames read it on "
+        "every ADVANCE.\n"
+        "    \u26d4 THE ARGUMENT IS THE ADMISSION, NOT THE SCHEDULE. "
+        "`decide_mechanical_edit_admission` (`local_session.rs:190`) runs in "
+        "`MechanicalEditSet::Admit`, i.e. BEFORE this system, and answers from "
+        "`mechanical_mutation_boundary`: `NoTimeline` publishes because there is no "
+        "ring to restore an older value from; `LocallyRebasable` calls "
+        "`stop_session(world)` FIRST and publishes into the gap it just made; "
+        "`ForeignTimeline` and an unhealthy authority REFUSE, and this system's "
+        "`matches!(admission, Some(Refuse))` early-returns with the proposal still "
+        "pending. So every path that reaches the write has established that no "
+        "saved frame exists to erase it.\n"
+        "    \u26a0 THE ABSENT-RESOURCE PATH IS THE ONE WORTH CHECKING, and it "
+        "closes structurally rather than by luck: the publisher takes "
+        "`Option<Res<MechanicalEditAdmission>>` and publishes when it is missing. "
+        "The decider is registered by `install_session_bridge` "
+        "(`session.rs:1123`) -- the same call that installs the GGRS session -- so "
+        "a composition cannot have a rollback timeline without having the decider. "
+        "\u26d4 If that registration ever moves out of `install_session_bridge`, "
+        "this entry is void."
+    ),
+    "reset_checkpoint_coordinator_on_activation": (
+        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"
+        "activation`, AND DELIBERATELY THE SAME ONE -- it is the checkpoint "
+        "domain's own member of `SessionScopeSet::Activate` "
+        "(`session/checkpoint.rs:1775`), so it is covered by the shell's "
+        "`(GameplaySessionSet::Bridge, SessionScopeSet::Activate, "
+        "GameplaySessionSet::Providers).chain()` (`ambition_game_shell/src/"
+        "session.rs:366`, re-read 2026-09-18). A provider makes the root live in "
+        "`Providers`, and `maintain_local_session` starts GGRS only when "
+        "`session_world_entity(world).is_some()`, so no session exists for this "
+        "scope until after `Activate` has run.\n"
+        "    \u26d4 IT IS NOT A HYGIENE WAIVER. The function's own doc says "
+        "ACTIVATION IS CORRECTNESS: the session about to read these resources "
+        "writes them first, which is what stops a previous session's checkpoint "
+        "operation counter reaching the next one. `SessionCheckpointOperations` "
+        "also feeds a peer checksum, so an inherited value is an ID-PEER "
+        "divergence and not merely stale UI.\n"
+        "    \u26a0 A ROOM REBASE IS THE BOUNDARY THIS MUST NOT BE CONFUSED WITH: "
+        "a rebase deliberately KEEPS the operation counter and does not raise "
+        "`SessionScopeActivated`, so this system does not run for one. If it ever "
+        "gains a second trigger, the chain argument covers only the activation."
+    ),
     # -- added 2026-09-18, the FIFTH SPELLING's one finding --------------------
     "commit_confirmed_lifecycle": (
         "\u2b50 IT WRITES ON A FRAME NO REWIND CAN REACH, AND THEN REMOVES THE RING "
@@ -709,8 +849,9 @@ def collect(repo: Path = REPO) -> list[tuple[str, str, str, list[str]]]:
         for body in add_systems_bodies(text):
             schedule, _, rest = body.partition(",")
             schedule = schedule.strip()
-            if schedule not in NON_REWINDING:
+            if not is_non_rewinding(schedule):
                 continue
+            schedule = normalize_schedule(schedule)
             rest = strip_run_conditions(rest)
             for name, hits in mutators.items():
                 if name in WAIVERS:

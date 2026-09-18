@@ -62,7 +62,11 @@ adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
 HAND.** **THE RUN PRINTS IT NOW — there is no number here to
-go stale.** Every invocation ends with a line naming the multi-writer types that
+go stale.** As of 2026-09-18 that queue is SPENT: every rollback-registered
+multi-writer type the parse can see carries a verdict. ⚠ Which is not the same as
+clean — the parse is a LOWER BOUND, so a row registered through any
+non-turbofish form was never in the queue to begin with, and the remaining
+unadjudicated majority is simply not rollback-registered. Every invocation ends with a line naming the multi-writer types that
 are also rollback-registered and still carry no verdict; those are the ones where
 a second writer is a DIVERGENCE rather than a design smell.
 
@@ -703,6 +707,52 @@ ADJUDICATED: dict[str, str] = {
         "different type — `Option::take` on an armed row and a capture, and "
         "`QuestState::apply_persisted`. A method name is not a receiver. Follow "
         "each writer to the expression that changes `counts` instead."
+    ),
+    "AuthoredOccurrences": (
+        "CORRECT — FIVE WRITER FILES ONTO FOUR `&mut self` METHODS, AND THE ENTRY "
+        "RULE IS ENFORCED INSIDE THE TYPE. `rows: BTreeMap<SimId, "
+        "OccurrenceWhereabouts>` is PRIVATE "
+        "(`shared_tangle/src/lifecycle/continuity.rs`) and there are exactly four "
+        "ways to change it: `republish_custody(carried)` — THE ONE ENTRY ROAD, "
+        "taken by `project_custody_onto_authored_occurrences` off `InCustodyOf`; "
+        "`republish_placements(room, placements)` — the whereabouts updater, "
+        "taken by `record_placed_ground_items` (`ambition_held_items/src/lib.rs`); "
+        "`adopt_rows(rows)` — wholesale, taken by the durable-load and rewind "
+        "roads (`adopt_occurrence_checkpoint_from_save` and `adopt_the_ledger` in "
+        "`actor_monolith/src/session/durable_horizon.rs`, "
+        "`restore_occurrence_baseline` in the same continuity module); and "
+        "`forget_everything()` — the clear, taken by "
+        "`process_new_game_reset_request` and `SessionScopedResources::reset`.\n"
+        "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
+        "`republish_placements` inserts only where the existing row is "
+        "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "
+        "is `#[must_use]` — *\"a silent veto here would delete an occurrence from "
+        "the durable world and look like nothing happening, so the caller is made "
+        "to say what it means by them.\"* The producer agrees from its side: it "
+        "skips anything the ledger does not already remember, because *\"an object "
+        "cannot change rooms without being carried.\"* ⇒ Q141's claim that this "
+        "ledger has *\"exactly ONE entry road\"* HOLDS — CHECKED 2026-09-18 rather "
+        "than quoted, which is worth saying on a day two other completeness "
+        "claims in this tree turned out one true and one false.\n"
+        "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
+        "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
+        "while `adopt_rows` was already a non-rederived producer, which its own "
+        "`rewind_argument` had named as the trigger for becoming registered value "
+        "state. The probe was PRESENCE-ONLY, so it reported `count: 1, xor: 0` "
+        "whatever the ledger held: the promise was checked for EXISTENCE and never "
+        "for TRUTH. ✅ Repaired to `rollback_resource_clone_checksum` over a "
+        "domain-separated fold of `(SimId, whereabouts)`, "
+        "`GGRS_ROLLBACK_SCHEMA_VERSION` 194 -> 195, poison-verified by reverting "
+        "to `Derived` and watching the desync and the tick-7 stall come back. ⇒ "
+        "Do NOT read \"make it derived\" as the answer here; that WAS the defect.\n"
+        "    ⚠ WHAT IS STILL OPEN IS A PRODUCT QUESTION, NOT AN AUTHORITY ONE. "
+        "`Q141` asks whether a runtime-spawned ground item may be durable at all — "
+        "an object that arrives already lying on the ground and is never picked up "
+        "cannot be remembered, by construction of the single entry road. If the "
+        "answer is yes it needs a SECOND entry point stated as deliberately as "
+        "the first, and anything that gains one must stop carrying "
+        "`SpawnedThisAttempt`, because \"the attempt reclaims it\" and \"the durable "
+        "world remembers it\" are contradictory answers about one object."
     ),
     "EncounterRegistry": (
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "
@@ -1540,12 +1590,18 @@ def main() -> int:
     registered, owed = rollback_registered_shortlist(multi)
     print(
         f"  ⭐ {registered} of them are rollback-registered (turbofish parse, a "
-        f"LOWER BOUND), and {len(owed)} of those "
-        + ("carries" if len(owed) == 1 else "carry")
-        + " no verdict"
-        + (f": {', '.join(owed)}." if owed else " — that shortlist is CLEAR.")
-        + " That is where a second writer is a divergence rather than a design "
-        "smell, which is why it is the queue rather than the count above."
+        "LOWER BOUND), where a second writer is a DIVERGENCE rather than a "
+        "design smell — which is why this is the queue and the count above is "
+        "not. "
+        + (
+            f"{len(owed)} of those "
+            + ("carries" if len(owed) == 1 else "carry")
+            + f" no verdict: {', '.join(owed)}."
+            if owed
+            else "Every one of them carries a verdict, so this queue is SPENT. "
+            "⚠ Not the same as clean: the parse is a lower bound, and a row "
+            "registered through any non-turbofish form was never in it."
+        )
     )
     print(
         "  ⚠ multi-writer is NOT a defect by count. This ratchets the population "

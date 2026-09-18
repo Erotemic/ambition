@@ -177,6 +177,99 @@ def test_the_bundle_half_is_what_found_the_prompting_defect(tmp_path):
     assert guard.crossings(root) == {"Flag": (["raise_it"], ["spend_it"])}
 
 
+def test_a_request_SPENT_through_a_bundle_field_is_found(tmp_path):
+    """⛔⛤ A REVIEW REPRODUCED THIS AS A FALSE NEGATIVE ON 2026-09-18.
+
+    The bundle half was applied to mutable HOLDERS only; spend detection looked
+    at direct `ResMut` parameters, so a consumer spending through `p.req` was
+    invisible and the script reported no crossing at all. Both sides now work
+    from the same `(access path, type)` pairs.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "#[derive(SystemParam)]",
+            "pub struct Spend<'w> { req: ResMut<'w, Flag> }",
+            "pub fn raise_it(mut f: ResMut<Flag>) { f.0 = true; }",
+            "pub fn spend_it(mut p: Spend) {",
+            "    if !p.req.0 { return; }",
+            "    p.req.0 = false;",
+            "}",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, spend_it);",
+            "}",
+        ]),
+    })
+    assert guard.crossings(root) == {"Flag": (["raise_it"], ["spend_it"])}
+
+
+def test_merely_HOLDING_a_bundle_field_does_not_make_a_producer(tmp_path):
+    """⛔⛤ THE CONVERSE ERROR, FROM THE SAME REVIEW, AND IT REACHED THE OUTPUT.
+
+    Reduced to a set of types, a bundle cannot say which field a body touched,
+    so every system holding the bundle counted as a writer of everything in it.
+    That is where this script's claim of *"seven kaleidoscope systems"* producing
+    `NewGameResetRequested` came from; the measured answer is two, and neither is
+    visible without reading four hops (see `PRODUCER_BY_INSPECTION`).
+
+    Here `bystander` holds the bundle and touches its OTHER field only, so the
+    crossing must have exactly one producer rather than two.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "#[derive(SystemParam)]",
+            "pub struct Menu<'w> { flag: ResMut<'w, Flag>, other: ResMut<'w, Other> }",
+            "pub fn raise_it(mut menu: Menu) { menu.flag.0 = true; }",
+            "pub fn bystander(mut menu: Menu) { menu.other.0 = true; }",
+            "pub fn spend_it(mut req: ResMut<Flag>) {",
+            "    if !req.0 { return; }",
+            "    req.0 = false;",
+            "}",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(Update, bystander);",
+            "    app.add_systems(sim, spend_it);",
+            "}",
+        ]),
+    })
+    assert guard.crossings(root) == {"Flag": (["raise_it"], ["spend_it"])}
+
+
+def test_a_raise_spelled_as_a_METHOD_CALL_is_a_production(tmp_path):
+    """⛔ THE SIXTH SPELLING: the raise is a call, not an assignment.
+
+    `NewGameResetRequested`'s only production write is `self.request = true`
+    inside `NewGameResetRequested::request`, reached as `self.reset.request()`.
+    A body that assigns nothing still produces.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "impl Flag { pub fn request(&mut self) { self.0 = true; } }",
+            "pub fn raise_it(mut f: ResMut<Flag>) { f.request(); }",
+            "pub fn spend_it(mut req: ResMut<Flag>) {",
+            "    if !req.0 { return; }",
+            "    req.0 = false;",
+            "}",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, spend_it);",
+            "}",
+        ]),
+    })
+    assert guard.crossings(root) == {"Flag": (["raise_it"], ["spend_it"])}
+
+
+def test_the_by_inspection_table_is_load_bearing_and_says_why():
+    """An entry must name producers AND explain why no scan can reach them."""
+    for ty, (producers, why) in guard.PRODUCER_BY_INSPECTION.items():
+        assert producers, f"{ty} declares no producer"
+        assert len(why) > 200, f"{ty}'s entry does not explain the gap it fills"
+        assert ty in guard.ADJUDICATED, f"{ty} is declared but never read"
+
+
 # ── the real tree ───────────────────────────────────────────────────────────
 
 

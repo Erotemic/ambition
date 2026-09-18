@@ -1666,7 +1666,7 @@ ROLLBACK.** With the press finally arriving, the witness's health read came back
 `GGRS sync-test checksum mismatch at frames [14, 15, ..]` on every run.
 `tick_player_clone_brains` is registered into the SIM schedule and read
 `time.delta_secs()` — the app's WALL dt — accumulating it into a
-`PlayerCloneClock` resource that was `init_resource`d and never registered for
+`PlayerCloneClock` resource that was `init_resource`d and never registered for <!-- cite-ok: this block RECORDS the deletion of `PlayerCloneClock`; the name is gone by intent -->
 rollback. A resimulated frame therefore added dt AGAIN to a value no rewind
 restored, so `snapshot.sim_time` differed between the original run and the
 replay, the demo brain emitted a different frame, and the clone's
@@ -1677,7 +1677,7 @@ REGISTRATION.** `GameplayElapsed` is the same fact, accumulated the same way
 (`+= world_time.scaled_dt`), rollback-registered, advanced at the head of
 `WorldPrep`, and its own doc says *"before any actor brain reads the snapshot"* —
 which is exactly where `tick_player_clone_brains` reads. Registering
-`PlayerCloneClock` would have made the drift rewind correctly and left two owners
+`PlayerCloneClock` would have made the drift rewind correctly and left two owners <!-- cite-ok: the same deleted type, named as the road not taken -->
 of *how long gameplay has run*; deleting it leaves one. ⭐ The `dt` moved to
 `WorldTime::sim_dt()` in the same edit, which also sharpens the pre-existing zero
 guard: `sim_dt` is `raw_dt * time_scale`, so it is zero while PAUSED or in
@@ -1687,11 +1687,24 @@ hitstop, and ticking a demo cycle through a pause was never intended.
 HAS BEEN THE DEFECT**, and `sim_plugin.rs` names the other two at the
 registration that moved them out: `sync_developer_body_profile` was *"arbitrated
 by a `Local` that runs once per ADVANCE and therefore remembered across a
-rewind"*, and `sync_live_player_dev_edits_system` wrote five movement clusters
+rewind"*, and `sync_live_player_dev_edits_system` wrote five movement clusters <!-- cite-ok: the QUOTE is accurate and the quoted name has no definition -- see the note below -->
 from a live inspector resource. ⇒ Worth a guard of its own: a system in the sim
 schedule that accumulates into a `Local` or into an unregistered resource is the
 shape, and all three instances were invisible to every existing census because
 none of them is a *multi-writer* and none of them crosses a schedule boundary.
+
+⚠ **AND THE SECOND OF THOSE TWO NAMES NO LONGER EXISTS, WHICH IS A FINDING
+ABOUT TEN SOURCE COMMENTS RATHER THAN ABOUT THIS ROW.**
+`sync_live_player_dev_edits_system` has no definition anywhere in the tree — <!-- cite-ok: this sentence REPORTS that the name has no definition -->
+measured 2026-09-18 — yet ten sites still name it as a live system, including
+an intra-doc link in `crates/ambition_dev_tools/src/lib.rs:15` calling it *"the
+host-scheduled system that applies live ability/tuning edits to the player each
+frame"*. The work it described now lives in
+`sync_live_ability_edits_clusters`
+(`crates/ambition_dev_tools/src/dev_tools/editable.rs:802`), which mutates
+exactly the five clusters the quote counts — but it is a plain helper taking
+`&mut` arguments, NOT a scheduled system, so the decomposition changed the
+shape and the comments were left describing the old one.
 
 ⛔⛤ **AND THE MOST TRANSFERABLE FINDING IS ABOUT THE FIXTURE, NOT THE FIX: NO
 TEST IN THIS WORKSPACE EXERCISED THE OWNERSHIP MODE THE GAME ACTUALLY RUNS IN.**

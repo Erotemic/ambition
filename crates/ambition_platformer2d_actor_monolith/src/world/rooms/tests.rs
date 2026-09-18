@@ -1420,17 +1420,24 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
 /// and the press still buffered. Without it this arm would pass against a system
 /// that cleared the buffer unconditionally, which is a different behaviour with
 /// the same reading.
-#[test]
-fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
+/// A one-room-pair app with a live buffered press, for the three door-gesture
+/// arms below.
+///
+/// `incumbent` seeds `PendingLifecycleCommit` before detection runs, which is
+/// the only way to reach `Admission::AlreadyPending` from here.
+///
+/// A door zone needs the press, which is the whole point of this fixture:
+/// `LoadingZoneActivation::Walk` fires on overlap and would never read the
+/// buffer at all.
+fn app_with_a_door(
+    body_in_the_zone: bool,
+    incumbent: Option<crate::session::lifecycle_commit::LifecycleIntent>,
+) -> bevy::prelude::App {
     use ambition_characters::control::SlotInteractionState;
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
-
-    /// A door zone needs the press, which is the whole point of this fixture:
-    /// `LoadingZoneActivation::Walk` fires on overlap and would never read the
-    /// buffer at all.
-    fn app_with_a_door(body_in_the_zone: bool) -> App {
+    {
         let zone_center = ae::Vec2::new(100.0, 100.0);
         let mut room_a = spec_with(RoomMetadata::default(), "a");
         room_a.loading_zones = vec![LoadingZone {
@@ -1471,6 +1478,16 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        if let Some(kind) = incumbent {
+            let admitted = app
+                .world_mut()
+                .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+                .record(0, kind);
+            assert!(
+                admitted.admitted(),
+                "the fixture could not seed the incumbent into an empty slot",
+            );
+        }
         app.add_systems(Update, detect_room_transition_system);
 
         // The press is armed directly rather than by running the input producer:
@@ -1503,19 +1520,33 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
         ));
         app
     }
+}
 
-    fn crossed(app: &App) -> bool {
-        app.world()
-            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
-            .pending
-            .is_some()
-    }
-    fn still_buffered(app: &App) -> bool {
-        app.world().resource::<SlotInteractionState>().primary().buffered()
+/// What is waiting in the one earliest-sticky lifecycle slot.
+fn pending_intent(
+    app: &bevy::prelude::App,
+) -> Option<crate::session::lifecycle_commit::LifecycleIntent> {
+    app.world()
+        .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .peek()
+        .map(|intent| intent.kind.clone())
+}
+
+fn still_buffered(app: &bevy::prelude::App) -> bool {
+    app.world()
+        .resource::<ambition_characters::control::SlotInteractionState>()
+        .primary()
+        .buffered()
+}
+
+#[test]
+fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
+    fn crossed(app: &bevy::prelude::App) -> bool {
+        pending_intent(app).is_some()
     }
 
     // ── THE CONTROL: no zone under the body, so no crossing and no consumption.
-    let mut control = app_with_a_door(false);
+    let mut control = app_with_a_door(false, None);
     control.update();
     assert!(!crossed(&control), "the control body is nowhere near the door");
     assert!(
@@ -1526,7 +1557,7 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
     );
 
     // ── THE SUBJECT: the body stands in the door with the same live press.
-    let mut subject = app_with_a_door(true);
+    let mut subject = app_with_a_door(true, None);
     subject.update();
     assert!(
         crossed(&subject),
@@ -1538,5 +1569,60 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
         "the crossing was described and the press it spent is STILL BUFFERED. It \
          would go on being live for the rest of the buffer window, which is long \
          enough to describe a second crossing the player never asked for",
+    );
+}
+
+/// ⛔⛤ **A REFUSED CROSSING SPENDS NOTHING — THE COMPLEMENT OF THE ARM ABOVE,
+/// AND THE HALF THAT HAD NO WITNESS.**
+///
+/// `PendingLifecycleCommit::record` is `#[must_use]` because the slot is
+/// earliest-sticky: *"a refused intent must not have its consequences run"*.
+/// Clearing the interact buffer IS a consequence. `detect_room_transition_system`
+/// used to clear it BEFORE recording, so a tap that lost the slot to a checkpoint
+/// resume, a replay admission or a death respawn was spent on a crossing that
+/// never happened and was never asked for again.
+///
+/// ⚠ **THE HOLD IS WHY THIS WAS INVISIBLE, AND IT IS WHY THIS ARM TAPS.** Every
+/// authored door arm in this tree holds interact for thirty frames, so the
+/// producer refills the buffer on the next tick and the loss cannot be read. A
+/// single buffered press is the only shape that can see it.
+///
+/// ⭐ The incumbent is a `ReconstituteRoom`, deliberately NOT a `Transition`: an
+/// identical intent would also be kept by `record`'s idempotence, so a
+/// same-value incumbent could not tell "refused" from "re-recorded".
+///
+/// ⚠ It asserts BOTH halves, because either alone passes for the wrong reason: a
+/// system that recorded nothing and cleared nothing keeps the incumbent, and a
+/// system that never reached the door keeps the press.
+#[test]
+fn a_door_crossing_refused_the_lifecycle_slot_leaves_the_press_buffered() {
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let incumbent = LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+        target_room: "b".into(),
+    });
+
+    // ── THE CONTROL: the same incumbent, body nowhere near the door. It fixes
+    // what "unchanged" looks like when the crossing is never even described.
+    let mut control = app_with_a_door(false, Some(incumbent.clone()));
+    control.update();
+    assert_eq!(pending_intent(&control).as_ref(), Some(&incumbent));
+    assert!(still_buffered(&control));
+
+    // ── THE SUBJECT: the body stands in the door, and the slot is taken.
+    let mut subject = app_with_a_door(true, Some(incumbent.clone()));
+    subject.update();
+    assert_eq!(
+        pending_intent(&subject).as_ref(),
+        Some(&incumbent),
+        "the door crossing displaced an incumbent lifecycle intent. The slot is \
+         earliest-sticky: the operation already waiting there is the one that \
+         gets to happen",
+    );
+    assert!(
+        still_buffered(&subject),
+        "the crossing was REFUSED the slot and the press was spent anyway. The \
+         transition never happens and the zone will not ask again, so a tap at \
+         the wrong tick is a door that silently does nothing",
     );
 }

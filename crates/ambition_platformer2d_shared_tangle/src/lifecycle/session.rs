@@ -376,8 +376,26 @@ pub fn session_world_exists(
     live_scope_of(gate.as_deref(), active.as_deref(), &roots).is_some()
 }
 
-/// The query-side [`live_session_world_root`], shared by every system-parameter
-/// form so the World-level and query-level answers cannot drift apart.
+/// The query-side [`live_session_world_root`], shared by every SCOPE-AWARE
+/// system-parameter form so the World-level and query-level answers cannot drift
+/// apart: [`session_world_exists`], [`LiveSessionScope`], and the readiness
+/// condition above.
+///
+/// ⛔⛤ **IT IS NOT SHARED BY [`SessionWorldRef`] / [`SessionWorldMut`], WHICH
+/// THIS SENTENCE CLAIMED UNTIL 2026-09-18 AND WHICH ARE 193 OF THE PRODUCTION
+/// USES.** Those are `pub type` aliases for `Single<.., With<SessionRoot>>` and
+/// ask no question about scope at all. ⇒ The split is SAFE and worth keeping —
+/// `Single` yields `None` when two roots exist, so an ambiguous moment SKIPS the
+/// system rather than picking one — but it is a different mechanism, and a
+/// sentence saying "every form" is what stops the next reader looking.
+///
+/// ⚠ **AND THE REASON THE SIMPLE FORM IS ENOUGH LIVES IN ANOTHER FILE.** Two
+/// roots do not coexist across a system boundary because `SessionScopeSet`
+/// chains `RetireAuthority -> Cleanup -> Activate`: the retired scope's sweep
+/// runs before the incoming activation installs its root. Reorder that and these
+/// aliases start returning `None` in ordinary play, which is a silent skip
+/// rather than an error — see `ORDER-SESSION-LIFECYCLE` in
+/// `docs/planning/consolidation/architecture-census.md`.
 fn live_scope_of(
     gate: Option<&SessionGatedSimulation>,
     active: Option<&ActiveSessionScope>,

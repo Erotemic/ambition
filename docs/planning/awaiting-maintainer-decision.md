@@ -2830,6 +2830,26 @@ scripts:
    the serialised script format plus all three authored scripts. ⚠ The
    vocabulary gets a field to say what a convention would have said for free.
 
+⭐ **AND THE THREE ANSWERS ARE ONE IMPLEMENTATION DIFFERING IN ONE NUMBER,
+WHICH IS THE CHEAPEST THING ANYONE HAS LEARNED ABOUT THIS ROW.** Measured
+2026-09-18 in `CutsceneRuntime::presentation()`: the `Banner` arm two lines
+above the `Fade` arm already reads the clock — `(seconds - self.elapsed)` — and
+the `Fade` arm ignores `elapsed` entirely. Every option needs it:
+
+| option | start of the ramp | needs `elapsed` |
+|---|---|:-:|
+| 1 — opens black | the last fade's target, default 1.0 | yes |
+| 2 — opens clear | the live screen alpha | yes |
+| 3 — explicit field | `from_alpha` | yes |
+
+⇒ **The ruling is the START VALUE, not the interpolation**, and no option can
+be implemented without the same `lerp(start, to_alpha, elapsed / seconds)` in
+that arm. ⚠ Which also says why the interpolation must NOT land ahead of the
+ruling, tempting as an obviously-missing lerp is: today's constant `to_alpha`
+IS option 2 for the three shipped literals, since a ramp from a clear screen to
+`0.0` is constant `0.0`. Landing the lerp with any concrete start silently
+decides the question against option 2 while looking like a bug fix.
+
 ⛔ **WHAT MUST NOT HAPPEN IS A CONSUMER LANDING ALONE.** It satisfies the
 UNFINISHED label, reads as the row closing, and leaves the player waiting 2.2 s
 across three rooms for a screen that never changes.

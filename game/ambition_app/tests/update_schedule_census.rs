@@ -667,11 +667,26 @@ fn two_direct_members_of_one_set_are_still_unordered() {
 /// Unordered pairs that conflict on `RoomTransitionLoadState`, plus the totals
 /// that say whether the detector saw anything at all.
 fn room_transition_conflicts(app: &mut App) -> (usize, usize, usize) {
-    let Some(state_id) = app
-        .world()
-        .components()
-        .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
-    else {
+    conflicts_on::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(app)
+}
+
+/// Unordered pairs that conflict on `SeatRawFrames`.
+///
+/// ⚠ A DIFFERENT QUESTION FROM THE ROOM-TRANSITION ONE ABOVE, asked with the
+/// same instrument. `SeatRawFrames` is a SLOT-KEYED table
+/// (`[ControlFrame; MAX_SLOTS]`) whose shaping stages call `shape()` to adjust
+/// one field of one seat's frame, so a conflicting pair here is only a defect
+/// when the two sides can reach the SAME seat — which the detector cannot see,
+/// because it resolves component access and not array indices. The number is a
+/// ratchet on the population of unordered pairs, not a defect count.
+fn seat_raw_frame_conflicts(app: &mut App) -> (usize, usize, usize) {
+    conflicts_on::<ambition_platformer2d::sim::SeatRawFrames>(app)
+}
+
+/// The shared measurement: every schedule, every conflicting pair, counting the
+/// ones whose access set names `T`.
+fn conflicts_on<T: bevy::prelude::Resource>(app: &mut App) -> (usize, usize, usize) {
+    let Some(state_id) = app.world().components().component_id::<T>() else {
         // Not registered at all is a fact about the composition, not a zero.
         return (0, 0, 0);
     };
@@ -827,5 +842,97 @@ fn room_transition_load_state_writers_are_ordered_against_each_other_in_the_ship
          2026-09-18, got {on_state}. If this GREW, a new writer of the single \
          active-transaction slot landed with no ordering edge. If it SHRANK, \
          somebody ordered a pair -- lower the number here and say which"
+    );
+}
+
+/// The shipped composition's `SeatRawFrames` ordering, measured with the same
+/// controlled instrument as the room-transition number above.
+///
+/// ⛔⛤ THE INPUT PIPELINE IS STAGED AND THE ROLLBACK HOST DOES NOT USE IT.
+/// `populate_seat_control_frames` fills the table from devices, shaping stages
+/// adjust one seat's frame in place through `shape()`, and
+/// `PrimarySlotInputCommit` latches the result. That ordering is pinned for the
+/// frame-stepped host by `input_set_populate_runs_before_primary_slot_publication`
+/// (`game/ambition_content/src/portal/plugin.rs:341`) — but a test pinning one
+/// host's order says NOTHING about the other's, which is the same shape as
+/// `PresentationPhase`, where exactly one of two systems exists per backend.
+///
+/// ⚠ AND THE AUTHORED-INPUT SEAM IS INVISIBLE HERE BY CONSTRUCTION.
+/// `drive_slot_frame` (`crates/ambition_platformer2d_runtime/src/input_drive.rs:40`)
+/// is a plain `fn(&mut World, ..)` the rollback driver CALLS, not a registered
+/// system, so it has no node in any schedule graph. This number is therefore a
+/// lower bound on the writers, exactly as the room-transition one is.
+#[test]
+fn seat_raw_frame_writers_are_ordered_against_each_other_in_the_shipped_app() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let (on_seats, total, unattributed) = seat_raw_frame_conflicts(&mut app);
+    eprintln!(
+        "[seat-raw-frames] {on_seats} unordered pairs conflict on SeatRawFrames \
+         ({total} conflicting pairs in all schedules, {unattributed} unattributable \
+         because an exclusive system reports no ids)"
+    );
+
+    assert!(
+        total > 0,
+        "no schedule reported ANY conflicting pair -- the graph was not built or \
+         this measured an empty composition"
+    );
+    assert!(
+        app.world()
+            .components()
+            .component_id::<ambition_platformer2d::sim::SeatRawFrames>()
+            .is_some(),
+        "the shipped app does not register SeatRawFrames, so this measured the \
+         absence of the subject rather than its ordering"
+    );
+
+    assert_eq!(
+        on_seats, SEAT_RAW_FRAME_UNORDERED_PAIRS,
+        "expected the {SEAT_RAW_FRAME_UNORDERED_PAIRS} unordered `SeatRawFrames` \
+         pairs measured on 2026-09-18, got {on_seats}. A new one means a shaping \
+         stage joined the table without declaring where it sits relative to the \
+         populate/commit pair"
+    );
+}
+
+/// MEASURED 2026-09-18: zero. The shaping pipeline really is ordered.
+const SEAT_RAW_FRAME_UNORDERED_PAIRS: usize = 0;
+
+/// POSITIVE CONTROL FOR THE ZERO ABOVE, and it is not optional.
+///
+/// ⛔ A zero from this detector has a second cause besides "everything is
+/// ordered": an EXCLUSIVE system reports its conflict with an empty id list, so
+/// a type written only by exclusive systems scores zero while being wholly
+/// unordered. The shipped run counts 8,724 such unattributable pairs, which is
+/// far too many to wave away. This proves the detector CAN attribute a
+/// `SeatRawFrames` conflict, so the zero is about the app's ordering.
+#[test]
+fn the_seat_raw_frame_conflict_detector_reports_an_unordered_pair() {
+    let mut app = App::new();
+    app.init_resource::<ambition_platformer2d::sim::SeatRawFrames>();
+    app.add_systems(
+        Update,
+        (
+            |mut s: ResMut<ambition_platformer2d::sim::SeatRawFrames>| {
+                s.set(Default::default(), Default::default())
+            },
+            |mut s: ResMut<ambition_platformer2d::sim::SeatRawFrames>| {
+                s.set(Default::default(), Default::default())
+            },
+        ),
+    );
+    app.update();
+
+    let (on_seats, _, _) = seat_raw_frame_conflicts(&mut app);
+    assert_eq!(
+        on_seats, 1,
+        "two unordered `ResMut<SeatRawFrames>` systems must be reported as \
+         conflicting; got {on_seats}. A zero here means the shipped-app zero \
+         above proves nothing"
     );
 }

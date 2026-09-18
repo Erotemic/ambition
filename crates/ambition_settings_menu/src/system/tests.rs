@@ -375,10 +375,14 @@ fn language_stub_only_english_available() {
 ///
 /// ⚠ ITS REACH, precisely: this walks `SettingsOptionId::ALL` and requires every id
 /// on it to be reachable unless an explicit arm says otherwise. `ALL` is itself
-/// hand-kept, so an option added to the enum and NOT to `ALL` is invisible here —
-/// what stops that going unnoticed is `apply.rs`'s exhaustive match, which does not
-/// compile until the new option is handled. The two together cover it; neither does
-/// alone, and this test does not claim to.
+/// hand-kept, so an option added to the enum and NOT to `ALL` is invisible here.
+/// ⭐ THAT GAP IS NOW HELD RATHER THAN NOTED — 2026-09-18:
+/// `scripts/check_enum_all_constants_are_complete.py` compares every
+/// `const ALL: [Self; N]` in the workspace against its own enum and names the
+/// omitted variants, and `--maintenance` runs it. Three guards, and the split is
+/// exact: that one decides WHETHER a variant reaches `ALL`, this one decides WHERE
+/// it appears, and `apply.rs`'s exhaustive match decides what changing it DOES.
+/// None of the three covers another's half, and this test does not claim to.
 #[test]
 fn every_settings_option_id_reaches_a_screen() {
     let model = SystemMenuModel::build(
@@ -418,11 +422,14 @@ fn every_settings_option_id_reaches_a_screen() {
         //   below FAILS unless a player can reach it. The author then either places
         //   it on a screen or writes an explicit exception arm saying why not. That
         //   is the case this guard is for, and it needs no compile error.
-        // ⛔ A new option NOT added to `ALL` is INVISIBLE to this loop. `ALL` is a
-        //   hand-kept list and nothing forces it; closing that would need an
-        //   exhaustive match naming all 59 variants, which is a maintenance cost this
-        //   does not pay. ⇒ `apply.rs`'s exhaustive match is what actually stops a
-        //   variant being added unnoticed; this guard then decides where it appears.
+        // ✔ A new option NOT added to `ALL` USED TO BE INVISIBLE to this loop, and
+        //   this comment said so; it is now held by
+        //   `scripts/check_enum_all_constants_are_complete.py` (`--maintenance`),
+        //   which compares every `const ALL: [Self; N]` in the workspace against its
+        //   own enum declaration and names the omitted variants. ⇒ Two guards, and
+        //   each covers exactly what the other cannot: that one decides WHETHER the
+        //   variant is on `ALL`, this one decides WHERE it appears. `apply.rs`'s
+        //   exhaustive match remains the third, deciding what changing it DOES.
         let must_reach = match id {
             // A momentary Close / Back action, not a setting with a value, so it is
             // not a row on any settings screen.

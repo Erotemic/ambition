@@ -3169,12 +3169,23 @@ has been reporting clean from inside the lane regardless of the build.
 ⇒ **ONE OWNER NOW: `scripts/lib/cargo_output.py`** — `plain_env()` and
 `COLOR_NEVER` stop cargo colouring, `strip_ansi()` makes the reading survive a
 colour source they do not reach (`RUSTDOCFLAGS=--color=always`, a pty wrapper).
-All three consumers read it. Poison-verified arms in
-`scripts/tests/test_doc_link_ratchet_reporting.py` (19) and
-`scripts/tests/test_no_warnings.py` (8), both fixtures COPIED FROM REAL COLOURED
-OUTPUT rather than composed. End-to-end: `env CARGO_TERM_COLOR=always … --check`
-now runs in **7.7 s — the failing lane's own wall-clock — and prints `TOTAL 141`,
-exit 0**.
+All four consumers read it, and
+`scripts/tests/test_cargo_diagnostics_are_read_plain.py` MEASURES the population
+— every non-test script that invokes cargo and anchors on `warning`/`error` — so
+a new one joins by existing. Poison-verified arms in
+`scripts/tests/test_doc_link_ratchet_reporting.py` (19),
+`scripts/tests/test_no_warnings.py` (8) and
+`scripts/tests/test_a_failed_job_records_what_failed.py` (14), every fixture
+COPIED FROM REAL COLOURED OUTPUT rather than composed.
+
+✔ **VERIFIED IN THE LANE, WHICH IS THE ONLY PLACE THE DEFECT EXISTED:
+`--maintenance` is `18/18 jobs passed in 460s` with the doc-link job printing
+`TOTAL 141`** — the first run in which that job has measured anything inside the
+runner. ⚠ A guard going green on a clean tree proves nothing on its own, so the
+warning gate was separated from its own repair with a defect it had to see: an
+unused import planted in `crates/ambition_geometry/src/lib.rs`, same command and
+same variable one minute apart, gave `exit 0 "compiled with no warnings"` before
+and `exit 1 "lib.rs:24:5: unused import"` after.
 
 ⚠ **THE CLASS ARM IS WHAT SURVIVED NOT KNOWING THE CAUSE.** Two arms written for
 mechanisms I could name (cargo exited non-zero; a crate never documented) did not

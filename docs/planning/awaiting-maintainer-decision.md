@@ -1443,6 +1443,39 @@ road either way. The decision is whether the cutscene edge is gameplay input
 (synchronised, one road) or UI intent (unsynchronised, and then it needs the
 replay source that Q136 is about).
 
+⭐⛤ **AND THE TOUCH HALF OF THAT TENSION IS FALSE — MEASURED 2026-09-18.** Touch
+is not a second input world: `ambition_touch_input` feeds
+`ActionState<Platformer2dInputActionMonolith>`, the SAME leafwing action state
+the desktop side uses (`virtual_device.rs:304` binds
+`(A::Reset, TouchVirtualButton(B::Reset))`, and `Reset` and `Start` are the only
+two gameplay actions it binds). `ambition_input/src/control.rs:247` turns that
+action state into `reset_pressed`. So a touch Reset press already arrives on the
+gameplay `ControlFrame` and already rides the GGRS input payload — which is
+exactly the channel this question is looking for, for exactly the button the
+shipped dialogue names.
+
+⇒ **WHAT IS ACTUALLY LEFT IS SMALLER AND CONCRETE: `ControlFrame` CARRIES THE
+EDGE AND NOT THE LEVEL.** There is `reset_pressed` and no `reset_held`, and the
+skip is a HOLD (`SKIP_HOLD_THRESHOLD_SECS`). So the remaining cost is one of two
+things, and neither is a new wire format:
+
+1. **add `reset_held` beside `reset_pressed`.** One bool, in the type that
+   already carries `jump_held`, `blink_held`, `special_held`, `shield_held` and
+   `attack_held` for precisely this reason — *"a move can be held"*. The hold
+   accumulation then moves into the sim and must use `WorldTime::sim_dt()` with a
+   rollback-registered accumulator, so a rewind replays it.
+2. **keep the accumulation outside and send only the completed edge**, which is
+   what happens today — and that edge is the thing Q136 says gets lost.
+
+⚠ Option 1 makes `CutsceneSkipHold` rollback state, which this page's census
+currently adjudicates as *correctly* unregistered because the hold is
+input-local wall time. That adjudication is a consequence of the current design,
+not an argument for it: if the hold moves inside the timeline it must rewind, and
+the census row changes with the code. ⛔ What must NOT happen is moving the hold
+inside while leaving it accumulating from `Res<Time>` — that is precisely the
+`tick_player_clone_brains` defect measured the same day, and
+`scripts/check_sim_schedule_memory_is_adjudicated.py` now exists to catch it.
+
 ⭐ **WHICH REFRAMES OPTION 1 FROM "INVENT A CHANNEL" TO "USE THE ONE THIS ALREADY
 HAS", at least for the cutscene half.** A dismiss/skip IS a button press. The
 control frame GGRS already carries is the channel; `CutsceneAdvanceRequest` is a

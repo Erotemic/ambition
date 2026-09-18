@@ -106,7 +106,8 @@ impl SessionStartupResume {
     /// identifying WHICH session the value describes is FALSE-NEGATIVE, because
     /// two peers can then hold the same state stamped for different sessions and
     /// agree. Here `reset_checkpoint_coordinator_on_activation` runs in
-    /// [`SessionScopeSet::Activate`] and defaults this resource before the
+    /// [`ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate`]
+    /// and defaults this resource before the
     /// incoming session's provider builds anything, so a generation from another
     /// session cannot be alive to be compared. The stored generation is the live
     /// one, always.

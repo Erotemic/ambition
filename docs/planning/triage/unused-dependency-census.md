@@ -103,6 +103,16 @@ build graph (e.g. `ambition_input`'s warnings appeared inside
 transitively). Grep for the exact `` is unused in crate `<name>` `` string, not
 any warning line in the file.
 
+⚠ **And it has a real cost the plain `cargo rustc -p <crate> -- <args>` form
+does not**: because the flag is part of the environment rather than scoped to
+one package, cargo's fingerprint for every dependency in the graph changes the
+first time it sees this `RUSTFLAGS` value, which invalidates the shared target
+cache for the whole workspace, not just the one crate under test. Each crate's
+`--all-targets` confirmer pass in this sweep paid a several-minute-to-tens-of-
+minutes rebuild of common dependencies (bevy, wgpu, etc.) rather than the
+seconds a warm-cache `--lib`/`--all-features` run costs. Budget for it; do not
+mistake a stuck-looking sweep for a hang.
+
 ## What a hit means — five outcomes, not one
 
 A confirmed hit is not automatically a deletion. Sorting them is the actual work:
@@ -183,9 +193,14 @@ says production embeds no encounter wave data. The dependency moved to
 |---|---|---|
 | `ambition_encounter` | `ron` | `crates/ambition_encounter/src/content_schema.rs:56`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11`. ⚠ Was `:48` and the parsed type was `EncounterWaveBook`; it is `AuthoredWaveTimelines` now, renamed because the crate held TWO types called `EncounterWaveBook` — the bare map this schema lowers and the Bevy `Resource` newtype an App owns |
 | `ambition_dialog` | `ambition_persistence` | `crates/ambition_dialog/src/systems.rs:18` and `:410`, behind that crate's `#[cfg(feature = "ui")]` modules. ⚠ **RE-READ 2026-09-17: the use NARROWED and the row's second site is gone.** This said `bridge.rs:26` too, for `use ambition_persistence::save::AmbitionGameSave` — `ambition_dialog` no longer names `AmbitionGameSave` anywhere, and every remaining reference is `persistence::settings` (`MenuTapMode`, `UserSettings`). The dependency is still real, so the row's verdict is unchanged; what moved is WHICH part of the dependency is load-bearing, which is the thing a later delete-list would be decided on |
+| `ambition_dialog` | `ambition_input` | Same shape, found 2026-09-18 in the full-population re-sweep: `crates/ambition_dialog/src/systems.rs:16` (`ActiveDevice`, `MenuControlFrame`, `SeatActiveDevices`), behind `#[cfg(feature = "input")]`, non-default. Cleared by the `--all-features` confirmer |
 | `ambition_game_shell` | `ambition_persistence` | 11 non-test references |
 | `ambition_input` | `ambition_entity_catalog` | 5 non-test references |
-| `ambition_input` | `bevy_window` | 1 non-test reference |
+| `ambition_input` | `bevy_window` | 1 non-test reference (`active_input.rs:19`, `use bevy_window::CursorMoved;`) |
+| `ambition_load_presentation` | `ambition_input` | `basic_presentation.rs:49`, `deterministic_activity.rs:77,134` — behind `#[cfg(feature = "basic_presentation")]` at `lib.rs:14`, non-default (`default = []`) |
+| `ambition_load_presentation` | `ambition_platformer2d_shared_tangle` | `basic_presentation.rs:4` — same `#[cfg(feature = "basic_presentation")]` gate |
+
+✔ **Re-confirmed unchanged 2026-09-18 by the full-population re-sweep**: `ambition_input`'s two rows above and `ambition_encounter`'s `ron` row (further up this page) all reproduced identically under fresh `--lib`/`--all-features`/`--all-targets` runs — nothing regressed since the original per-row dates.
 
 ⇒ **The detector alone would have produced a delete list with real production
 code on it.** That is the whole argument for the confirmer.
@@ -212,19 +227,62 @@ now need to resolve from `[dev-dependencies]`.
 `test_sub_workspace_lockfiles_are_current.py` stayed green (`ambition_app` is
 not reachable from any of the three independent sub-workspaces).
 
+## `ambition_content`, fully settled 2026-09-18
+
+The `--lib` detector flagged only `serde_json`, but `--all-targets` surfaced two
+more findings the `--lib`-only detector structurally cannot see: a
+`[dev-dependencies]` entry never compiles under `--lib` at all, default or
+`--all-features`, since dev-dependencies only enter the build for a test
+target.
+
+| dependency | class | evidence |
+|---|---|---|
+| `serde_json` | MISFILED | every use (`src/encounters/tests.rs`, `src/intro/tests.rs`, `src/intro/route_state/tests.rs`) is inside a `#[cfg(test)]` module. Moved `[dependencies]` → `[dev-dependencies]` |
+| `insta` (dev) | **STRANDED — removed** | zero occurrences anywhere in the crate — checked the lib, and all 12 files aggregated into `tests/content_it.rs` (`aerial_authoring`, `boss_fight_validator`, `boss_presentation`, `boss_seeds`, `content_pack_registry`, `dialogue_lint`, `fighter_brain_ladder`, `intro_sprite_catalog`, `puppy_slug_forced_seat`, `summoned_minions_resolve`, `yarn_compile`, `yarn_condition_aliases`) |
+| `ambition_content` (self, dev), `ambition_content_cli` (dev), `yarnspinner` (dev) | not a finding | each shows "unused" only in the `(lib test)` target (the library's own inline `#[cfg(test)]` modules) while genuinely used in `tests/content_it.rs` submodules (`ambition_content_cli` in `content_pack_registry.rs`, `yarnspinner` in `yarn_compile.rs`, self-reference across all 12). A dev-dependency not needed by every test target is normal, not removable — the per-target split that makes `--all-targets` necessary also means one target's "unused" verdict does not apply to the whole crate |
+
+⇒ **The population needing the confirmer is bigger than "crates the `--lib`
+detector flagged."** A `[dev-dependencies]` entry can be STRANDED with zero
+signal from any `--lib` run, default or `--all-features` — the only instrument
+that can see it at all is `--all-targets` (or a direct `--tests` run), because
+dev-dependencies are invisible to every build that isn't compiling a test
+target. This page's "run the confirmer over the hits, not over every crate"
+shortcut therefore undercounts real findings for crates whose dev-dependencies
+were never named-by-text-search in the first place — the exact grep-era
+failure mode this page exists to end, recurring one layer down.
+
+Verified: `cargo check -p ambition_content --lib` and
+`cargo test -p ambition_content --no-run` (linking `unittests src/lib.rs` and
+`tests/content_it.rs`) both clean. `test_sub_workspace_lockfiles_are_current.py`
+stayed green.
+
+## `ambition_demo_smash`, fully settled 2026-09-18
+
+| dependency | class | evidence |
+|---|---|---|
+| `serde` | **STRANDED — removed** | zero occurrences anywhere in the crate (word-boundary grep, not just `serde::`, to rule out a bare `#[derive(Serialize)]` reached via `use serde::{Serialize}`) — a plain non-optional dependency, not wired through any `dep:serde` feature gate |
+
+Verified: `cargo check -p ambition_demo_smash --lib` (default features, 8m29s —
+first cache-cold run against the fixed `[dependencies]` set),
+`--all-features` (1m15s), and `cargo test -p ambition_demo_smash --no-run`
+all clean. `test_sub_workspace_lockfiles_are_current.py` needed
+`cargo update --workspace --offline` in `examples/capability_demo`,
+`fixtures/headless_profile`, and `fixtures/minimal_game` afterward (same
+shape as the `ambition_damage` move), now green.
+
 ## What is owed
 
-▢ **40 crates unscanned** (`ambition_app` settled 2026-09-18, above), including
-several the original grep row named — `ambition_platformer2d_host`,
-`game/ambition_content`, `ambition_platformer2d`, `ambition_sim_view`,
-`ambition_touch_input`. ⛔ **The grep-era claims about those crates are
-therefore still unverified**, and the four "misfiled" edges reported from the
-text search have NOT been through the compiler. Do not act on them from this
-page.
+▢ **38 crates unscanned** (`ambition_app`, `ambition_content`, and
+`ambition_demo_smash` settled 2026-09-18, above), including several the
+original grep row named — `ambition_platformer2d_host`,
+`ambition_platformer2d`, `ambition_sim_view`, `ambition_touch_input`. ⛔ **The
+grep-era claims about those crates are therefore still unverified**, and the
+four "misfiled" edges reported from the text search have NOT been through the
+compiler. Do not act on them from this page.
 
-Unscanned: `ambition_content`, `ambition_demo_mary_o`,
+Unscanned: `ambition_demo_mary_o`,
 `ambition_demo_mary_o_app`, `ambition_demo_pocket`, `ambition_demo_sanic`,
-`ambition_demo_sanic_app`, `ambition_demo_smash`, `ambition_demo_smash_app`,
+`ambition_demo_sanic_app`, `ambition_demo_smash_app`,
 `ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
 `ambition_menu_kaleidoscope`, `ambition_platformer2d`,
 `ambition_platformer2d_actor_monolith`, `ambition_platformer2d_core`,

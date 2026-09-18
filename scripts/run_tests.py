@@ -1342,6 +1342,23 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_consumed_request_writers.py",
             ],
         ),
+        # ⛔⛤ A `Local` IS HOST STORAGE NOTHING SNAPSHOTS. A system registered
+        # into `app.sim_schedule()` is resimulated after every rollback, so a
+        # value it carries between runs in a `Local` is read by the replay as the
+        # SPECULATIVE run left it, not as the restored frame held it.
+        # ⚠ WHY IT IS A SEPARATE JOB rather than a case of the mutator guard:
+        # that guard asks whether ROLLBACK STATE is written from a host schedule,
+        # the exact opposite direction. A system that remembers privately is not a
+        # multi-writer, crosses no schedule boundary and mutates nothing
+        # registered — so it was invisible to every census here, three times in
+        # one week. The third cost a measured `GGRS sync-test checksum mismatch`.
+        Job(
+            "every value remembered inside the rewinding schedule has been read",
+            [
+                sys.executable,
+                "scripts/check_sim_schedule_memory_is_adjudicated.py",
+            ],
+        ),
         # ⛔⛤ Q136's POPULATION, WHICH HAD NEVER BEEN ENUMERATED. An intent
         # raised outside the rewinding schedule and SPENT inside it is lost, and
         # the player's press does nothing. Two witnesses existed for two

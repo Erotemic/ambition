@@ -316,6 +316,23 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "KaleidoscopeOpenState": (
+        "CORRECT — TWO FIELDS, TWO OWNERS, AND THE SPLIT IS THE WHOLE TYPE. "
+        "`pub amount: f32` and `pub target: f32`. The HOST writes the target: "
+        "`gate_kaleidoscope_menu` (`ambition_app/src/menu/kaleidoscope_app.rs`) "
+        "assigns `open_state.target = 1.0` while the cube backend is selected and "
+        "the overlay is open, `0.0` otherwise, and touches nothing else. The "
+        "LIBRARY writes the amount: `animate_cube_ring` "
+        "(`ambition_menu_kaleidoscope/src/lib.rs`) eases `amount` toward that "
+        "target every frame and reads the target to decide the rate — opening "
+        "keeps the gentle ease, closing multiplies by `close_speed_scale`. "
+        "⇒ A request and its easing, not two opinions about one number.\n"
+        "    ⭐ AND THE HOST COMPARES BEFORE WRITING, for a reason worth "
+        "carrying: `gate_kaleidoscope_menu` runs every frame with no run "
+        "condition *\"(it has to — it detects the open EDGE)\"*, so an "
+        "unconditional `ResMut` write would mark this resource changed on every "
+        "frame of the game's life for a value that moves twice per menu visit."
+    ),
     "MusicIntent": (
         "CORRECT ABOUT THE WRITERS, AND THE OTHER QUESTION ABOUT THE SAME SYSTEM "
         "IS OWED ELSEWHERE — the two are not the same question and this row "

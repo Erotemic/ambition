@@ -154,6 +154,53 @@ def production_files(paths: tuple[str, ...] = DEFAULT_PATHS) -> list[str]:
     return [f for f in rust_files(paths) if not is_test_path(pathlib.Path(f))]
 
 
+#: `SessionWorldMut<T>` — the mutable accessor for a SESSION WORLD COMPONENT,
+#: which is state A10 deliberately moved OUT of the resource space.
+#:
+#: ⛔⛤ **SO THE WRITER-SIDE INSTRUMENT OF THE DUPLICATE-AUTHORITY CAMPAIGN WAS
+#: LOSING COVERAGE EXACTLY WHERE THE ARCHITECTURE WAS MOVING.** None of the eight
+#: types reached this way carries `#[derive(Resource)]` — measured 2026-09-17 —
+#: so [`writers`] correctly excludes them and the census reported nothing about
+#: them at all. Four have more than one production writer, and one has EIGHT:
+#:
+#:     EncounterMusicRequest   8 files
+#:     RoomSet                 2    session/reset/mod.rs + app/dev_runtime.rs
+#:     RoomGeometry            2    the same pair
+#:     LdtkRuntimeIndex        2    ldtk asset.rs + app/dev_runtime.rs
+#:
+#: ⚠ They are a DIFFERENT POPULATION and are reported separately, not folded in:
+#: a session world component's lifetime is the session's, so "two writers" is a
+#: question about one session's state rather than about the App's, and the
+#: adjudication guard ratchets it with its own baseline and its own floor.
+#:
+#: ⭐ The spelling came from `check_rollback_mutators_run_in_sim.py`, whose
+#: docstring already recorded BOTH of the things this census had to learn the hard
+#: way — that `SessionWorldMut<T>` is a mutable param (*"a guard keyed on how a
+#: write is SPELLED goes blind when a refactor respells it"*) and that the
+#: optional lifetime is not cosmetic. A lesson written down in one guard while its
+#: neighbour repeats the defect is the shape this repository keeps paying for.
+SESSION_WORLD_MUT = re.compile(
+    r"SessionWorldMut\s*<\s*(?:'[a-z_][a-z0-9_]*\s*,\s*)?"
+    r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
+)
+
+
+def session_world_writers(files: list[str]) -> dict[str, set[str]]:
+    """`{short type name: {file, ...}}` for SESSION WORLD components.
+
+    Same test and comment stripping as [`writers`], different question: these are
+    components on the session root, not resources, so they never appear in that
+    function's population. See [`SESSION_WORLD_MUT`] for why that mattered.
+    """
+    found: dict[str, set[str]] = collections.defaultdict(set)
+    for f in files:
+        src = pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
+        src = strip_test_modules(strip_comments(src))
+        for m in SESSION_WORLD_MUT.finditer(src):
+            found[m.group(1).split("::")[-1]].add(f)
+    return found
+
+
 def writers(files: list[str]) -> dict[str, set[str]]:
     """`{short type name: {file, ...}}` over the files it is GIVEN.
 
@@ -327,6 +374,15 @@ def main(argv: list[str]) -> int:
         ):
             certain = f", {len(writing)} mutation-shaped" if writing else ", none certain"
             print(f"      -> {target}  ({len(touching)} of {len(fs)} files{certain})")
+    world = {t: fs for t, fs in session_world_writers(files).items() if len(fs) > 1}
+    print(
+        f"\n  and {len(world)} SESSION WORLD component(s) written from >1 file "
+        "(a different population — see `SESSION_WORLD_MUT`):"
+    )
+    for ty, fs in sorted(world.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        print(f"  {ty}  ({len(fs)} files)")
+        for f in sorted(fs):
+            print(f"      {f}")
     print(
         "\n⇒ A SHORTLIST, NOT FINDINGS. For each: what READS this, and can an"
         "\n  ambiguity in it reach a decision? Then POISON one writer and run the"

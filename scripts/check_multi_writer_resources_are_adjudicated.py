@@ -414,6 +414,32 @@ ADJUDICATED: dict[str, str] = {
     ),
 }
 
+#: `{session world component: production writer files}`, MEASURED 2026-09-17.
+#:
+#: ⛔⛤ **A SECOND POPULATION, BECAUSE A10 MOVED SESSION STATE OUT OF RESOURCES
+#: AND THE INSTRUMENT DID NOT FOLLOW.** These are components on the session root,
+#: reached through `SessionWorldMut<T>`, and none of them carries
+#: `#[derive(Resource)]` — so the resource census above is silent about them by
+#: construction. Four have more than one production writer and one has EIGHT.
+#:
+#: ⚠ It is ratcheted SEPARATELY rather than folded in, because the question is
+#: not the same one: a session world component's lifetime is the SESSION's, so
+#: two writers is a claim about one session's state and not about the App's. The
+#: discriminator this census leads with — which writers can move the value away
+#: from its resting state — still applies; what changes is that a session
+#: boundary reclaims the whole thing, so a stale write cannot outlive it.
+SESSION_WORLD_BASELINE: dict[str, int] = {
+    "EncounterMusicRequest": 8,
+    "LdtkRuntimeIndex": 2,
+    "RoomGeometry": 2,
+    "RoomSet": 2,
+}
+
+#: ⛔ Its own floor, for its own reason: this population is small enough that a
+#: broken scan and a clean tree look identical. Eight types carry the accessor
+#: today; a reading below four is the instrument, not the tree.
+MIN_SESSION_WORLD_TYPES = 4
+
 #: The session-scope reset, which is ONE road and a known one.
 #:
 #: ⭐ **NAMING IT IS NOT WAIVING IT.** `SessionScopedResources::reset` replaces
@@ -478,6 +504,44 @@ def main() -> int:
             )
         return 1
 
+    # ⭐ THE SECOND POPULATION, RATCHETED ON ITS OWN TERMS.
+    world_all = census.session_world_writers(files)
+    if len(world_all) < MIN_SESSION_WORLD_TYPES:
+        print(
+            f"⛔⛔ only {len(world_all)} type(s) reached through "
+            f"`SessionWorldMut<T>` (expected {MIN_SESSION_WORLD_TYPES}+); that is "
+            "a claim about the regex, not about the tree."
+        )
+        return 1
+    world = {t: sorted(fs) for t, fs in world_all.items() if len(fs) > 1}
+    world_moves = []
+    for ty in sorted(set(world) - set(SESSION_WORLD_BASELINE)):
+        world_moves.append(
+            f"  NEW multi-writer SESSION WORLD component: {ty} "
+            f"({len(world[ty])} files)\n"
+            + "\n".join(f"      {f}" for f in world[ty])
+        )
+    for ty in sorted(set(SESSION_WORLD_BASELINE) - set(world)):
+        world_moves.append(
+            f"  {ty} is no longer written from more than one file. Remove it "
+            "from SESSION_WORLD_BASELINE in this commit."
+        )
+    for ty in sorted(t for t in world if t in SESSION_WORLD_BASELINE):
+        if len(world[ty]) != SESSION_WORLD_BASELINE[ty]:
+            world_moves.append(
+                f"  {ty} moved: {SESSION_WORLD_BASELINE[ty]} -> {len(world[ty])} "
+                "writer file(s)."
+            )
+    if world_moves:
+        print("the session-world component writer population moved:\n")
+        for line in world_moves:
+            print(line)
+        print(
+            "\n⇒ Same question, different lifetime: a session boundary reclaims "
+            "these,\n  so ask what READS the fact WITHIN one session."
+        )
+        return 1
+
     arrived = sorted(set(multi) - set(BASELINE))
     left = sorted(set(BASELINE) - set(multi))
     grew = sorted(t for t in multi if t in BASELINE and len(multi[t]) > BASELINE[t])
@@ -535,6 +599,11 @@ def main() -> int:
         f"among their writers, and {len(reset_only)} would be single-writer without "
         "it. That road's member list is owned by "
         "`check_session_owner_census_matches_source.py`, not by a verdict here."
+    )
+    print(
+        f"  + {len(world)} session-world component(s) written from more than one "
+        f"file, of {len(world_all)} carrying a `SessionWorldMut<T>` accessor — a "
+        "population the resource census is silent about by construction."
     )
     print(
         "  ⚠ multi-writer is NOT a defect by count. This ratchets the population "

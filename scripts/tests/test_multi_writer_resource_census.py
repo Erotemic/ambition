@@ -427,3 +427,50 @@ def test_a_lifetime_is_not_mistaken_for_the_type(tmp_path):
     b = _write(tmp_path, "b.rs", "struct P<'w> { a: ResMut<'w, Assets<Image>> }")
     c = _write(tmp_path, "c.rs", "struct Q<'w> { a: ResMut<'w, Assets<Image>> }")
     assert mod.writers([b, c]) == {}
+
+
+def test_a_session_world_component_is_its_own_population(tmp_path):
+    """⛔⛤ THE POPULATION A10 CREATED AND THE INSTRUMENT DID NOT FOLLOW.
+
+    A session world component lives on the session root and is reached through
+    `SessionWorldMut<T>`, not `ResMut<T>`. MEASURED 2026-09-17: none of the eight
+    types carrying that accessor has `#[derive(Resource)]`, so the resource
+    census is silent about them BY CONSTRUCTION — while four have more than one
+    production writer and `EncounterMusicRequest` has eight.
+
+    ⭐ The spelling came from `check_rollback_mutators_run_in_sim.py`, whose
+    docstring had already recorded both lessons this census needed: that
+    `SessionWorldMut<T>` is a mutable param, and that *"a guard keyed on how a
+    write is SPELLED goes blind when a refactor respells it, and the direction is
+    the dangerous one — it reports no offenders."*
+    """
+    a = _write(tmp_path, "a.rs", "fn s(mut r: SessionWorldMut<RoomSet>) {}")
+    b = _write(
+        tmp_path,
+        "b.rs",
+        "#[derive(SystemParam)]\nstruct P<'w> {\n"
+        "    rooms: SessionWorldMut<'w, a::b::RoomSet>,\n}\n",
+    )
+    assert mod.session_world_writers([a, b])["RoomSet"] == {a, b}
+    # ⛔ AND THE TWO POPULATIONS MUST NOT LEAK INTO EACH OTHER. Folding them
+    # would make "two writers" mean two different things in one number: a
+    # resource's lifetime is the App's, a session world component's is the
+    # session's, and a session boundary reclaims the second.
+    assert mod.writers([a, b]) == {}
+    c = _write(tmp_path, "c.rs", "fn t(mut r: ResMut<RoomSet>) {}")
+    assert mod.session_world_writers([c]) == {}
+
+
+def test_a_session_world_fixture_is_not_a_writer(tmp_path):
+    """⚠ Same rule as the resource side, and worth its own arm because this
+    population is small: with only eight types, one counted fixture is a
+    12% error."""
+    a = _write(tmp_path, "a.rs", "fn s(mut r: SessionWorldMut<RoomSet>) {}")
+    b = _write(
+        tmp_path,
+        "b.rs",
+        "fn t() {}\n#[cfg(all(test, feature = \"x\"))]\nmod fix {\n"
+        "    fn u(mut r: SessionWorldMut<RoomSet>) {}\n}\n"
+        "// a comment about `SessionWorldMut<RoomSet>` is not a writer either\n",
+    )
+    assert mod.session_world_writers([a, b])["RoomSet"] == {a}

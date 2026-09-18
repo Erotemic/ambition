@@ -160,3 +160,47 @@ def test_a_verdict_whose_duplication_was_repaired_is_refused(monkeypatch, capsys
     # ⚠ AND IT MUST BEAT THE `left` RULE TO THE VERDICT, because "remove it from
     # the baseline" alone would leave the stale reason behind.
     assert "no longer written from more than one file" not in out
+
+
+def test_a_new_multi_writer_session_world_component_is_reported(monkeypatch, capsys):
+    """⛔ THE SECOND POPULATION MUST RATCHET TOO, or adding it was decoration.
+
+    It is kept separate from `BASELINE` on purpose: a resource's lifetime is the
+    App's and a session world component's is the SESSION's, so "two writers"
+    answers a different question and a session boundary reclaims the second.
+    """
+    real = census.session_world_writers
+
+    def with_a_newcomer(files):
+        found = real(files)
+        found["APoisonedSessionComponent"] = {"crates/a.rs", "crates/b.rs"}
+        return found
+
+    monkeypatch.setattr(census, "session_world_writers", with_a_newcomer)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "NEW multi-writer SESSION WORLD component: APoisonedSessionComponent" in out
+    assert "crates/b.rs" in out
+
+
+def test_a_session_world_component_that_gained_a_writer_is_reported(monkeypatch, capsys):
+    real = census.session_world_writers
+    subject = next(iter(guard.SESSION_WORLD_BASELINE))
+
+    def with_one_more(files):
+        found = real(files)
+        found[subject] = set(found[subject]) | {"crates/a_new_writer.rs"}
+        return found
+
+    monkeypatch.setattr(census, "session_world_writers", with_one_more)
+    assert guard.main() == 1
+    assert f"{subject} moved:" in capsys.readouterr().out
+
+
+def test_a_collapsed_session_world_scan_refuses_a_verdict(monkeypatch, capsys):
+    """⛔⛔ THE FLOOR, AND THIS POPULATION NEEDS ONE MORE THAN THE OTHER DOES.
+    Eight types carry the accessor; a regex that stopped matching would report
+    "no multi-writer session components" and read as good news."""
+    monkeypatch.setattr(census, "session_world_writers", lambda files: {"Solo": {"a.rs"}})
+    assert guard.main() == 1
+    assert "`SessionWorldMut<T>`" in capsys.readouterr().out

@@ -291,6 +291,47 @@ shortlist. `insert_resource` / `init_resource` are also out, and for a firmer
 reason — they INSTALL rather than mutate, which is a different question with a
 different right answer.
 
+### And the lesson was already written down, in the guard next door
+
+⛔⛤ **`check_rollback_mutators_run_in_sim.py`'S DOCSTRING CARRIED BOTH THINGS THE
+CENSUS HAD TO LEARN THE HARD WAY.** On `SessionWorldMut<T>`: *"a guard keyed on
+how a write is SPELLED goes blind when a refactor respells it, and the direction
+is the dangerous one — it reports no offenders."* On the lifetime: *"a system
+signature elides it (`ResMut<T>`), but a `#[derive(SystemParam)]` FIELD cannot
+(`ResMut<'w, T>`) … and the struct bodies are where 13 rollback-registered types
+were hiding."* Both were recorded on 2026-09-15. The multi-writer census
+inherited neither, and paid 82 → 121 for the second of them two days later.
+
+⇒ **THAT IS THE SECOND INSTANCE OF THE SAME FAILURE MODE IN ONE DAY.** The
+comment-stripping rule was likewise recorded in `check_capability_ships.py`'s
+docstring — *"the Python guards did not inherit that, and one of them read its
+own documentation as evidence before this was noticed"* — while five more guards
+grew their own copy. A lesson written down in one guard while its neighbour
+repeats the defect is not a documentation problem; it is a missing owner. Both
+rules now live in `scripts/lib/`.
+
+### A population A10 created and the instrument did not follow
+
+⛔⛔ **THE WRITER-SIDE INSTRUMENT WAS LOSING COVERAGE EXACTLY WHERE THE
+ARCHITECTURE WAS MOVING.** A10 moved session state out of resources and onto the
+session root, reached through `SessionWorldMut<T>`. None of the eight types
+carrying that accessor has `#[derive(Resource)]`, so the multi-writer census was
+silent about all of them by construction — while four have more than one
+production writer:
+
+| session world component | writer files |
+| --- | ---: |
+| `EncounterMusicRequest` | **8** |
+| `RoomSet` | 2 |
+| `RoomGeometry` | 2 |
+| `LdtkRuntimeIndex` | 2 |
+
+⚠ They are ratcheted as a SEPARATE population with their own baseline and their
+own floor, not folded in: a resource's lifetime is the App's and a session world
+component's is the SESSION's, so "two writers" answers a different question and a
+session boundary reclaims the second. Folding them would make one number mean two
+things.
+
 ⛔ **SO FOUR OF THIS PAGE'S RULE-2 CASES LANDED IN ONE DAY ON ONE INSTRUMENT**:
 85 → 82 (prose), → 83 (trailing comma), → 102 (exclusive world), with the
 test-module rules folded in. Every earlier reading of "multi-writer resources" on

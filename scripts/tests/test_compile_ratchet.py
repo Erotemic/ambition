@@ -480,6 +480,27 @@ def test_a_fully_adopted_baseline_still_records_its_predecessor():
     assert merged["carried_from"] == "oldersha"
 
 
+def test_adopt_wins_does_not_drop_a_previously_accepted_reason():
+    """⛔⛔ MEASURED 2026-09-18: running `--adopt-wins` against a real baseline
+    whose `accepted_reasons` recorded WHY `critical_path_crates` was let
+    through silently erased that record. `merged` in `adopt_wins` starts from
+    `current`, which never carries `accepted_reasons` — only a frozen baseline
+    that went through `--accept` does — and nothing copied the frozen one
+    forward, unlike `unit_weights` and `unpriced_crates` two lines above it in
+    the same function.
+
+    A held metric with no reason attached reads as un-investigated, which is
+    the opposite of what actually happened: a human looked at it, named a
+    cause, and accepted it. Losing the reason on the next `--adopt-wins` run
+    reintroduces exactly the ambiguity `--accept` exists to remove.
+    """
+    frozen = _snapshot("oldersha", critical_path=14, largest=100)
+    frozen["accepted_reasons"] = {"critical_path_crates": "the carve programme"}
+    current = _snapshot("newersha", critical_path=14, largest=90)
+    merged, _adopted, _held = ratchet.adopt_wins(current, frozen)
+    assert merged["accepted_reasons"] == {"critical_path_crates": "the carve programme"}
+
+
 def test_accept_refreezes_only_the_named_metric():
     """⭐ THE MIDDLE VERB THE RATCHET WAS MISSING.
 

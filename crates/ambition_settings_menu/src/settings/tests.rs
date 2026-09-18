@@ -1,8 +1,99 @@
 //! Unit tests for the settings IR: model build (category order, live value
 //! labels) and `apply_settings_option` mutation/close behaviour.
 
+use super::shader_rows::{ShaderStep, SHADER_ROWS};
 use super::*;
+use ambition_persistence::settings::video::ScreenShaderSettings;
 use ambition_persistence::settings::UserSettings;
+
+/// `SHADER_ROWS` is the single source `build.rs` and `apply.rs` both read.
+/// `apply.rs`'s grouped match arm forces every `SettingsOptionId::Shader*`
+/// variant to be named there (non-exhaustive match is a compile error), but
+/// nothing forces that same variant into `SHADER_ROWS` too -- this closes
+/// that half by checking the two lists against each other.
+#[test]
+fn shader_rows_cover_every_shader_id() {
+    let shader_ids_in_all: Vec<SettingsOptionId> = SettingsOptionId::ALL
+        .into_iter()
+        .filter(|id| format!("{id:?}").starts_with("Shader"))
+        .collect();
+    assert_eq!(
+        shader_ids_in_all.len(),
+        20,
+        "SettingsOptionId::ALL's Shader* count changed -- update SHADER_ROWS too"
+    );
+    for id in shader_ids_in_all {
+        assert!(
+            SHADER_ROWS.iter().any(|row| row.id == id),
+            "{id:?} is a SettingsOptionId::Shader* variant missing from SHADER_ROWS"
+        );
+    }
+    assert_eq!(
+        SHADER_ROWS.len(),
+        20,
+        "SHADER_ROWS has an entry not named in SettingsOptionId::ALL, or a duplicate"
+    );
+}
+
+/// Pins every row's (step, min, max) against the values `build.rs`/`apply.rs`
+/// hard-coded per row before the collapse (measured by hand from that code,
+/// and independently by YardratAmbition, who diffed all 20 pairs before
+/// handing the collapse over). `shader_rows_cover_every_shader_id` above only
+/// checks that every id is PRESENT; the old duplication's actual risk was two
+/// PRESENT rows disagreeing on step (e.g. one side using FINE_STEP, the other
+/// UNIT_STEP) -- a table both sides read makes that impossible going forward,
+/// but only this test checks the collapse didn't silently change a value.
+#[test]
+fn shader_rows_have_the_measured_step_and_range() {
+    let unit = ScreenShaderSettings::UNIT_STEP;
+    let fine = ScreenShaderSettings::FINE_STEP;
+    let expected: &[(SettingsOptionId, f32, f32, f32)] = &[
+        (SettingsOptionId::ShaderStrength, unit, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtStrength, unit, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtScanlines, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtMask, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtCurvature, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtBloom, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderCrtChroma, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderFilmGrainStrength, fine, 0.0, 1.0),
+        (
+            SettingsOptionId::ShaderFilmGrainSize,
+            ScreenShaderSettings::GRAIN_SIZE_STEP,
+            1.0,
+            8.0,
+        ),
+        (
+            SettingsOptionId::ShaderFilmGrainFps,
+            ScreenShaderSettings::GRAIN_FPS_STEP,
+            1.0,
+            60.0,
+        ),
+        (SettingsOptionId::ShaderFilmGrainLumaBias, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderRobotDeathStrength, unit, 0.0, 1.0),
+        (SettingsOptionId::ShaderRobotStatic, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderRobotTear, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderRobotDesaturate, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderRobotScanlines, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderUnderwaterStrength, unit, 0.0, 1.0),
+        (SettingsOptionId::ShaderUnderwaterDistortion, fine, 0.0, 1.0),
+        (SettingsOptionId::ShaderDeepDreamStrength, unit, 0.0, 1.0),
+        (SettingsOptionId::ShaderVignetteStrength, fine, 0.0, 1.0),
+    ];
+    assert_eq!(expected.len(), 20);
+    for (id, step, min, max) in expected {
+        let row = SHADER_ROWS
+            .iter()
+            .find(|r| r.id == *id)
+            .unwrap_or_else(|| panic!("{id:?} missing from SHADER_ROWS"));
+        let (actual_step, actual_min, actual_max) = match row.step {
+            ShaderStep::Unit(s) => (s, 0.0, 1.0),
+            ShaderStep::Range { min, max, step, .. } => (step, min, max),
+        };
+        assert_eq!(actual_step, *step, "{id:?} step regressed");
+        assert_eq!(actual_min, *min, "{id:?} min regressed");
+        assert_eq!(actual_max, *max, "{id:?} max regressed");
+    }
+}
 
 #[test]
 fn model_has_the_four_categories_in_order() {

@@ -184,10 +184,6 @@ bevy_framepace = { version = "0.22", default-features = false, optional = true }
 leafwing-input-manager = { version = "0.21", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
-serde = { workspace = true }
-serde_json = "1"
-ron = { workspace = true }
-image = { version = "0.25", default-features = false, features = ["png"] }
 # A/B lever for the allocator-churn optimization track: desktop profiling
 # (target/profiles/desktop-lifecycle-1) shows glibc malloc at 5-8% of
 # self-time in every phase. default-features off = plain fast mode.
@@ -262,3 +258,9 @@ path = "tests/app_it.rs"
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 insta = { version = "1", features = ["ron"] }
 proptest = "1"
+# Compiler-confirmed unused under default AND --all-features at [dependencies]
+# (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
+# 2026-09-18): only tests/replay_fixture_regression.rs (serde) and
+# tests/gravity_symmetry_room.rs (serde_json) name these directly.
+serde = { workspace = true }
+serde_json = "1"

@@ -1,25 +1,30 @@
 # Unused dependency declarations — a compiler-verified census
 
-> **Partial, and the coverage is stated on purpose. Run 2026-09-03 at
-> `e26a8e412` (branch `calculex-no-gpu`), covering 34 of the 75 workspace
-> members that have a `src/lib.rs`.** The 41 unscanned crates are listed at the
-> bottom. This page exists because the queue row it re-measures
-> (`queue.md`, "SIX WORKSPACE DEPENDENCY DECLARATIONS ARE NEVER NAMED IN THEIR
-> CRATE'S SOURCE") was measured with a text search, and every number that search
-> produced was wrong in at least one direction.
+> **Complete. All 78 workspace members with a `src/lib.rs` (66 in `crates/`,
+> 12 in `game/`) ran through the detector on 2026-09-18 at `455b35876`+.
+> Reproducible: `find crates game -name lib.rs -path '*/src/lib.rs'` names
+> exactly this population — verified zero-diff against the sweep's own crate
+> list the day this page was finished.** 64 crates produced zero hits under
+> the default-features detector and needed no further work. The other 14 are
+> each fully classified below: every hit is either a compiler-and-deletion-
+> confirmed manifest fix (applied) or a confirmed real use this page names
+> the evidence for (kept, unchanged). This page replaces an earlier partial
+> run (2026-09-03, 34 of 75 members) whose own coverage claim could not be
+> checked against the tree — see "What is owed" for that history and why it
+> matters more than the number.
 
 ## The instrument, and why the obvious one does not work
 
 ⛔ **Do not answer this question with `grep`.** The question is "does this crate
 use this dependency", which is a question about a resolved crate graph, and a
-text search answers a different one. Measured failures of the grep version, all
-on this row:
+text search answers a different one. Measured failures of the grep version:
 
 | the grep measured | what it got wrong |
 |---|---|
 | occurrences in `src/` | **4 false positives of 6** — deps used in the crate's own `tests/` |
 | occurrences of TEXT | **a false negative** — `ambition_abilities -> ambition_items` looked live because the name appears once, in an intra-doc link inside a `//!` comment |
 | `ambition_*` names only | missed every third-party dep — `thiserror`, `ron`, `bevy_input` |
+| `image::` / `bevy::image::` | a false positive — the umbrella's own re-exported module reads identically to the standalone crate in a text search |
 
 ⇒ `rustc` has answered this since 1.44. **The detector:**
 
@@ -27,192 +32,308 @@ on this row:
 cargo rustc -p <crate> --lib -- -W unused_crate_dependencies
 ```
 
-Prefer `cargo rustc` over a `RUSTFLAGS=` run: the flag then applies to that one
-crate, so the shared target cache is not invalidated and no dependency is
-rebuilt. On a warm cache a crate costs seconds.
+Prefer `cargo rustc` over a `RUSTFLAGS=` run for this stage: the flag then
+applies to that one crate, so the shared target cache is not invalidated and
+no dependency is rebuilt. On a warm cache a crate costs seconds.
 
 ⚠ **THE DETECTOR OVER-REPORTS, AND THE CONFIRMER IS NOT OPTIONAL.** `--lib`
 compiles with DEFAULT features, so a dependency whose only production use sits
 behind a non-default `#[cfg(feature = …)]` is genuinely unused *in that build*
 and the lint says so — correctly — while the dep is not remotely removable.
-**Six of the first sixteen hits were this.** The confirmer:
+Roughly half of this page's hits were this shape. The confirmer:
 
 ```
 cargo rustc -p <crate> --lib --all-features -- -W unused_crate_dependencies
 ```
 
-⇒ **Only a dependency reported unused under BOTH is unused.** Run the confirmer
-over the HITS, not over every crate: two runs on the hits, not two runs on 75.
+⇒ Run the confirmer over the HITS, not over every crate: two runs on the hits,
+not two runs on 78.
 
 ⛔⛤ **AND THAT RULE HAS AN EXCEPTION THAT POINTS THE OTHER WAY — MEASURED
 2026-09-17 BY DELETING THE LINE.** The confirmer assumes a WIDER build can only
-REVEAL a use the narrow one hid. For a dependency declared to activate a feature,
-the wider build can SUPPLY that feature from somewhere else and hide the need
-instead. `ambition_input`'s `bevy_input` is the worked case: unused by NAME in
-both stages, so this page's rule calls it removable — and removing it fails the
-DEFAULT build with `the trait bound KeyCode: serde::Serialize is not satisfied`,
-the exact error its manifest comment predicts. Under `--all-features` it compiles
-without the line, because `leafwing-input-manager` turns on `bevy_input/serialize`
-itself.
+REVEAL a use the narrow one hid. For a dependency declared to activate a
+feature, the wider build can SUPPLY that feature from somewhere else and hide
+the need instead. `ambition_input`'s `bevy_input` is the worked case: unused
+by NAME in both stages, so the "unused under both = unused" rule calls it
+removable — and removing it fails the DEFAULT build with `the trait bound
+KeyCode: serde::Serialize is not satisfied`, the exact error its manifest
+comment predicts. Under `--all-features` it compiles without the line, because
+`leafwing-input-manager` turns on `bevy_input/serialize` itself.
 
-⇒ **THE ONLY SETTLING INSTRUMENT FOR A ZERO-NAME DEPENDENCY IS DELETING THE LINE
-AND BUILDING — at default features, not only at `--all-features`.** A lint that
-answers "is this crate named" cannot answer "does this crate's feature have to be
-on", and a confirmer that only widens can be wrong in the removable direction.
+⇒ **THE ONLY SETTLING INSTRUMENT FOR A ZERO-NAME DEPENDENCY IS DELETING THE
+LINE AND BUILDING — at default features, not only at `--all-features`.** A
+lint that answers "is this crate named" cannot answer "does this crate's
+feature have to be on", and a confirmer that only widens can be wrong in the
+removable direction. Every STRANDED verdict on this page that had a
+`features = [...]` entry on its own line went through this delete-and-build
+step before being called removable, not the lint alone.
 
-## What a hit means — five outcomes, not one
+⛔⛤ **A THIRD CONFIRMER STAGE IS NEEDED, AND ITS FIRST VERSION SILENTLY DID
+NOTHING — MEASURED 2026-09-18.** `--lib` reports per-BUILD-TARGET, so a
+dependency used only under `tests/` or `#[cfg(test)]` reads as unused on
+`--lib` alone even after the `--all-features` confirmer. The natural third
+stage —
+
+```
+cargo rustc -p <crate> --all-targets -- -W unused_crate_dependencies
+```
+
+— is **invalid** the moment a crate has more than one build target (a
+`[[bin]]`, or more than one file under `tests/`): rustc hard-errors with
+"extra arguments to `rustc` can only be passed to one target", suggesting a
+single-target filter flag instead, and cargo writes that error to the log in
+place of any warning. Every one of the first 9 crates run this way —
+`ambition_app` included — produced that error, and a grep for
+`"is unused in crate"` against an errored log correctly finds nothing, which
+reads exactly like a real zero-hit confirmation. **An absence-based check must
+prove the run happened before it may report nothing**; this one didn't, for
+9/14 hit-crates, before it was caught.
+
+⇒ Fixed by setting the lint through `RUSTFLAGS` instead of `-- <args>` — cargo
+forwards an env var identically to every rustc invocation it spawns,
+regardless of how many targets the crate has:
+
+```
+RUSTFLAGS="-W unused_crate_dependencies" cargo check -p <crate> --all-targets
+```
+
+**Positive-controlled before trusting it**: `ambition_abilities` has a known
+real hit (`ambition_items`, confirmed at both earlier stages); re-run under
+this invocation, its `--all-targets` log reproduced the same warning for both
+the `(lib)` and `(lib test)` copies. An instrument whose pass condition is an
+absent string needs a case where the string is present, or it cannot tell a
+clean result from a run that never happened.
+
+⚠ **One parsing wrinkle**: `RUSTFLAGS` applies to *every* rustc invocation in
+that cargo command, not only the target crate's — a crate's `--all-targets`
+log can carry another crate's own unused-dependency warnings from lower in
+the build graph (e.g. `ambition_input`'s warnings appeared inside
+`ambition_abilities`'s log, since `ambition_abilities` pulls it in
+transitively). Grep for the exact `` is unused in crate `<name>` `` string,
+not any warning line in the file. A second wrinkle inside the same log: a
+warning attributed to `<name>` can belong to a DIFFERENT compiled target
+within that same package (an example, a `(lib test)` unit-test build, a
+second `[[test]]` binary) than the one where a dependency is actually needed
+— `ambition_content`'s and `ambition_platformer2d_host`'s dev-dependencies
+below are exactly this shape, and it is normal, not a finding, when one
+target's "unused" verdict does not hold for the crate's other targets.
+
+⚠ **And it has a real cost the plain `cargo rustc -p <crate> -- <args>` form
+does not**: because the flag is part of the environment rather than scoped to
+one package, cargo's fingerprint for every dependency in the graph changes
+the first time it sees this `RUSTFLAGS` value, which invalidates the shared
+target cache for the whole workspace, not just the one crate under test. Each
+crate's `--all-targets` confirmer pass in this sweep paid a several-minute-
+to-tens-of-minutes rebuild of common dependencies (bevy, wgpu, etc.) rather
+than the seconds a warm-cache `--lib`/`--all-features` run costs. Budget for
+it; do not mistake a stuck-looking sweep for a hang.
+
+⇒ **A `[dev-dependencies]` entry can be STRANDED with zero signal from any
+`--lib` run, default or `--all-features`.** Dev-dependencies never enter a
+non-test build, so the only instrument that can see one at all is
+`--all-targets` (or a direct `--tests` run). `ambition_content`'s `insta`
+below was found exactly this way — invisible to the first two stages, a real
+STRANDED finding under the third.
+
+## What a hit means — six outcomes, not one
 
 A confirmed hit is not automatically a deletion. Sorting them is the actual work:
 
 | class | what it is | what to do |
 |---|---|---|
 | **STRANDED** | no occurrence anywhere in the crate | remove the line |
-| **REDUNDANT-UMBRELLA** | never named, but the umbrella re-export is used (`bevy_input` declared, `bevy::input` used 11×) | removing the direct dep is safe — but it does **not** mean the feature is unused, and the table must not imply that |
-| **DOC-ONLY** | named only in a doc comment / intra-doc link | **two edits**, the dep line and the link — and see the ruling below |
-| **MISFILED** | used only in test code | move to `[dev-dependencies]`; if it is ALSO doc-linked, the lib's rustdoc is not given dev-deps, so expect the link to break — confirm with `cargo doc -p <crate>` |
-| **FEATURE-GATED** | named in the crate's own `[features]` table (`causal = ["dep:ambition_causal"]`) | **not a delete** — it is public feature surface, and removing it changes what downstream crates can enable |
-| **FEATURE-ACTIVATION** | declared in order to TURN A FEATURE ON, never to be named (`bevy_input = { features = ["serialize"] }`) | ⛔ **not a delete, and the detector cannot see it in either stage** — the lint reports whether a crate is NAMED, and this dependency exists so that somebody else's derive exists |
+| **REDUNDANT-UMBRELLA** | never named, but the umbrella re-export is used (`bevy_input` declared, `bevy::input` used 11×), or an identical edge is already declared elsewhere in the same build graph | removing the direct dep is safe — but it does **not** mean the feature or configuration is unused, and the table must not imply that |
+| **DOC-ONLY** | named only in a doc comment / intra-doc link | **two edits**, the dep line and the link — and see the ruling below. A backtick reference to a path (`` `crate::path` ``) is prose, not a link, and needs only the one edit |
+| **MISFILED** | used only in test code (`tests/`, or `#[cfg(test)]` inside `src/`) | move to `[dev-dependencies]`; if it is ALSO doc-linked, the lib's rustdoc is not given dev-deps, so expect the link to break — confirm with `cargo doc -p <crate>` |
+| **FEATURE-GATED** | named in the crate's own `[features]` table (`causal = ["dep:ambition_causal"]`) | **not a delete** — it is public feature surface, and removing it changes what downstream crates can enable, even with zero direct code usage |
+| **FEATURE-ACTIVATION** | declared in order to TURN A FEATURE ON, never to be named (`bevy_input = { features = ["serialize"] }`) | ⛔ **not a delete unless the delete-and-build test at DEFAULT features clears it** — the lint reports whether a crate is NAMED, and this shape exists so that somebody else's derive exists. Some feature-activation-shaped deps turn out removable (the feature was live-but-unneeded); the shape is a warning to test, not a verdict |
 
 ⭐ **Maintainer ruling, 2026-09-03 (coordinator), on DOC-ONLY:** *keep the
 dependency and keep the doc link.* A dep whose only use is an intra-doc
-cross-reference is not debt — the link is a real service to a reader, the cost is
-one manifest line, and deleting both to satisfy a lint trades documentation for
-tidiness.
+cross-reference is not debt — the link is a real service to a reader, the cost
+is one manifest line, and deleting both to satisfy a lint trades documentation
+for tidiness.
 
-## Confirmed results, 34 crates
+## Confirmed results — all 14 hit-crates, fully settled
 
-**FIVE confirmed under default AND `--all-features`** — these are the only rows
-that have been through both stages:
+64 of 78 crates produced zero hits under the default-features detector and
+needed no further work (listed at the bottom, "Clean crates"). These 14 each
+had at least one hit; every hit below has been through the detector, the
+`--all-features` confirmer, and (where the finding wasn't already settled by
+those two) the `--all-targets` confirmer or a direct delete-and-build test.
 
-| crate | dependency | class |
-|---|---|---|
-| `ambition_abilities` | `ambition_boss_encounter` | STRANDED — remove |
-| `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — remove |
-| `ambition_content_pack` | `thiserror` | STRANDED — remove (0 occurrences, and the crate has no `derive(…Error)` at all) |
-| `ambition_abilities` | `ambition_items` | DOC-ONLY — **ruled: keep both** |
-| `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1095`) |
+### Manifest changed (11 edges, across 7 crates)
 
-✔ **THE TWO DETECTOR-ONLY ROWS ARE SETTLED, 2026-09-17 — and they settled in
-OPPOSITE directions, which is why the sentence below them was right to refuse
-"both look safe":**
-
-| crate | dependency | provisional class | settled |
+| crate | dependency | class | evidence |
 |---|---|---|---|
-| `ambition_input` | `bevy_input` | REDUNDANT-UMBRELLA — never named, `bevy::input` used 11× | ⛔ **WRONG, AND NOT REMOVABLE.** It is **FEATURE-ACTIVATION**: `features = ["serialize"]` is why the line exists. Deleting it and running `cargo check -p ambition_input` (DEFAULT features) fails on `KeyCode: serde::Serialize`. At `--all-features` it compiles, because leafwing turns the feature on |
-| `ambition_encounter_features` | `ambition_interaction` | MISFILED — both uses in `tests.rs` | ✔ **CONFIRMED** unused under default AND `--all-features`; the two uses are `PickupKind` and `Chest` in `src/tests.rs`. Moved to `[dev-dependencies]` |
+| `ambition_abilities` | `ambition_boss_encounter` | STRANDED — removed | 0 occurrences |
+| `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — removed | 0 occurrences. Both this and the row above are the carve-strandage case: the crate carved that same night has **zero** `cfg(feature` in its entire `src/` (no conditional path can hide a use), and `--all-targets` checks clean in both default (17.06s) and `--features test-support` (1.72s) configurations — a carve moves code out and leaves the source crate's declaration behind, because nothing fails when a dependency stops being named |
+| `ambition_damage` | `ambition_projectiles` | MISFILED — moved to `[dev-dependencies]` | only `crates/ambition_damage/src/tests.rs` names `ProjectileKind`; `crates/ambition_damage/src/lib.rs:1099` is backtick prose (`` `ambition_projectiles::kind::ProjectileKind::spec` ``), not an intra-doc link — no rustdoc risk, so this needed only the one edit |
+| `ambition_encounter_features` | `ambition_interaction` | MISFILED — moved to `[dev-dependencies]` | both uses (`PickupKind`, `Chest`) in `src/tests.rs`. Visible in `fixtures/minimal_game`'s sentinel lockfile: the crate dropped out of the minimal profile's closure once the edge moved — a misfiled dev-dependency is not tidiness, it is a crate a shipped profile linked in order to run nobody's tests |
+| `ambition_content_pack` | `thiserror` | STRANDED — removed | 0 occurrences, and the crate has no `derive(…Error)` at all |
+| `ambition_app` | `serde` | MISFILED — moved to `[dev-dependencies]` | only `tests/replay_fixture_regression.rs` (a submodule of the aggregated `tests/app_it.rs` binary) names it |
+| `ambition_app` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | only `tests/gravity_symmetry_room.rs` (same aggregate binary) names it |
+| `ambition_app` | `ron` | STRANDED — removed | 0 occurrences anywhere (`lib`, `bin`, `tests/`, `examples/`); plain, not optional, not wired through any `dep:ron` feature entry. Delete-and-build clean at default (5m51s) and `--all-features` (5m26s) |
+| `ambition_app` | `image` | REDUNDANT — removed | 0 occurrences of the standalone crate (every `image::` hit was `bevy::image::ImagePlugin`, the umbrella's own module). Its exact edge — `{ version = "0.25", default-features = false, features = ["png"] }` — is *already* declared identically by `ambition_platformer2d_actor_monolith` (a real dependency of `ambition_app`), `ambition_render`, and `ambition_app_tools`, so removing the redundant copy changes no effective feature unification |
+| `ambition_content` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | every use (`src/encounters/tests.rs`, `src/intro/tests.rs`, `src/intro/route_state/tests.rs`) is inside a `#[cfg(test)]` module |
+| `ambition_content` | `insta` (dev) | STRANDED — removed | 0 occurrences anywhere in the crate, including all 12 files aggregated into `tests/content_it.rs`. Found only via `--all-targets` — invisible to any `--lib` run, since dev-dependencies never enter one |
+| `ambition_demo_smash` | `serde` | STRANDED — removed | 0 occurrences (word-boundary grep, not just `serde::`, ruling out a bare derive reached through `use serde::{Serialize}`); plain, not feature-wired |
+| `ambition_platformer2d_actor_monolith` | `bevy_math` | STRANDED — removed | `features = ["serialize"]`, 0 direct usage — feature-activation SHAPE, but the delete-and-build test (the only settling instrument for this shape) compiled clean at both default (10m03s) and `--all-features` (3m58s) |
+| `ambition_platformer2d_actor_monolith` | `bevy_common_assets` | STRANDED — removed | `features = ["ron"]`, named only in one backtick prose comment at `src/session/data.rs:4`. Same delete-and-build clearance |
+| `ambition_platformer2d_actor_monolith` | `parry2d` | STRANDED — removed | plain, not optional, 0 occurrences |
+| `ambition_platformer2d_actor_monolith` | `petgraph` | STRANDED — removed | plain, not optional, 0 occurrences |
+| `ambition_platformer2d_ldtk` | `ron` | STRANDED — removed | plain (`{ workspace = true }`), not optional, not feature-wired, 0 occurrences. Delete-and-build clean at default (8m01s) and `--all-features` (2m44s) |
 
-⇒ **"Looks safe" is what the default-features detector said about `ron` too**, and
-one of these two was a wrong class rather than a wrong confidence. The confirmer
-settled the second; only a DELETION settled the first.
+Verified per crate: `cargo check -p <crate> --lib` (default and
+`--all-features`) and `cargo test -p <crate> --no-run` all clean after each
+edit; `test_sub_workspace_lockfiles_are_current.py` re-run after every
+manifest change (see "What is owed" — a MOVE is a lockfile change in every
+independent sub-workspace that transitively holds the crate, not a surprise
+found later). Every sub-workspace break this campaign caused
+(`examples/capability_demo`, `fixtures/headless_profile`,
+`fixtures/minimal_game`, at different points for different edges) was fixed
+with `cargo update --workspace --offline` in that sub-directory and is green
+as of the commits this page cites.
 
-⭐ **AND THE MOVE IS VISIBLE IN A SHIPPED PROFILE'S CLOSURE, which is the argument
-for doing it at all.** `fixtures/minimal_game`'s sentinel lockfile — the one
-`capability-footprint-sentinel-lockfile-is-stale` exists to keep honest — lost
-`ambition_interaction` from `ambition_encounter_features`'s dependency list when
-the line moved. A misfiled dev-dependency is not tidiness: it is a crate the
-minimal profile linked in order to run nobody's tests.
+### Confirmed real use, or already correct — no edit (kept)
 
-⭐ **`ambition_abilities` is the carve-strandage case and it is worth its own
-sentence.** Its two stranded deps are in the crate carved that same night, it
-contains **zero** `cfg(feature` in its entire `src/` (so no conditional path can
-hide a use), and both `--all-targets` configurations check clean — default in
-17.06 s and `--features test-support` in 1.72 s. ⇒ **A carve moves code out and
-leaves the source crate's DECLARATION behind, because nothing fails when a
-dependency stops being named.** That is the process finding; the count is not.
+| crate | dependency | class | evidence |
+|---|---|---|---|
+| `ambition_abilities` | `ambition_items` | DOC-ONLY | named once, in an intra-doc link inside a `//!` comment. **Ruled 2026-09-03: keep both** |
+| `ambition_input` | `bevy_input` | FEATURE-ACTIVATION | `features = ["serialize"]` is why the line exists. Deleting it and building DEFAULT features fails on `KeyCode: serde::Serialize` — the ambition_input/bevy_input worked trap this page's methodology section cites throughout |
+| `ambition_input` | `ambition_entity_catalog` | FEATURE-GATED, real use | 5 non-test references |
+| `ambition_input` | `bevy_window` | FEATURE-GATED, real use | 1 non-test reference (`active_input.rs:19`, `use bevy_window::CursorMoved;`) |
+| `ambition_encounter` | `ron` | FEATURE-GATED, real use | `crates/ambition_encounter/src/content_schema.rs:56`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11` |
+| `ambition_dialog` | `ambition_persistence` | FEATURE-GATED, real use | `crates/ambition_dialog/src/systems.rs:18,410`, behind `#[cfg(feature = "ui")]`. Re-read 2026-09-17: the load-bearing symbol narrowed from `save::AmbitionGameSave` to `persistence::settings::{MenuTapMode, UserSettings}`; the dependency itself is unchanged |
+| `ambition_dialog` | `ambition_input` | FEATURE-GATED, real use | `crates/ambition_dialog/src/systems.rs:16` (`ActiveDevice`, `MenuControlFrame`, `SeatActiveDevices`), behind `#[cfg(feature = "input")]` |
+| `ambition_game_shell` | `ambition_persistence` | FEATURE-GATED, real use | 11 non-test references |
+| `ambition_load_presentation` | `ambition_input` | FEATURE-GATED, real use | `crates/ambition_load_presentation/src/basic_presentation.rs:49`, `crates/ambition_load_presentation/src/deterministic_activity.rs:77,134` — behind `#[cfg(feature = "basic_presentation")]` at `crates/ambition_load_presentation/src/lib.rs:14`, non-default (`default = []`) |
+| `ambition_load_presentation` | `ambition_platformer2d_shared_tangle` | FEATURE-GATED, real use | `crates/ambition_load_presentation/src/basic_presentation.rs:4` — same gate |
+| `ambition_platformer2d_host` | `ambition_input` | FEATURE-GATED, real use | extensive use in `crates/ambition_platformer2d_host/src/lib.rs`, cleared by `--all-features` |
+| `ambition_platformer2d_host` | `ambition_menu` | FEATURE-GATED, real use | `optional = true`, `dep:ambition_menu` in the `render` feature; use at `crates/ambition_platformer2d_host/src/lib.rs:622,630` |
+| `ambition_platformer2d_host` | `ambition_characters`, `ambition_platformer2d_provider` | already correct | already in `[dev-dependencies]`, used only by `tests/demo_shell_smoke.rs`. `--all-targets` flags them because the warning is scoped to a DIFFERENT compiled target within the same package (the `(lib test)` unit tests, which don't happen to need them) — not because the crate as a whole is wrong |
+| `ambition_platformer2d_actor_monolith` | `bevy_inspector_egui`, `virtual_joystick`, `bevy_framepace` | FEATURE-GATED | `dep:` entries in `dev_tools`, `mobile_touch`, `frame_pacing` respectively; 0 direct usage but public feature surface |
+| `ambition_platformer2d_actor_monolith` | `ambition_platformer2d_ldtk` (optional, `[dependencies]`) | FEATURE-GATED | `dep:ambition_platformer2d_ldtk` in `portal`/`portal_ldtk`. 0 production usage outside `#[cfg(test)]`, but public feature surface — a separate, deliberate `[dev-dependencies]` copy of the same crate name already exists for the tests, with its own comment explaining the split |
+| `ambition_platformer2d_ldtk` | `bevy_asset_loader` | FEATURE-GATED | `optional = true`, `dep:bevy_asset_loader` in `ldtk_runtime`, which is in `default = ["ldtk_runtime", "portal_ldtk"]`. 0 direct usage but public feature surface |
+| `ambition_content` | `ambition_content` (self, dev), `ambition_content_cli` (dev), `yarnspinner` (dev) | already correct | each shows "unused" only in the `(lib test)` target while genuinely used in `tests/content_it.rs` submodules — a dev-dependency not needed by every test target is normal |
+| `ambition_sim_view` | `leafwing_input_manager` | FEATURE-GATED + test use | `src/facts.rs:779` behind `#[cfg(feature = "input")]`, and `src/control_prompt.rs:815` inside a `#[test]` fn |
+| `ambition_touch_input` | `ambition_geometry`, `ambition_input`, `ambition_platformer2d_shared_tangle`, `serde` | FEATURE-GATED, real use | all four gated behind `input`/`mobile_touch` (non-default; `default = []`) in `src/bevy_plugin.rs` and `src/layout.rs` (a `#[derive(Serialize, Deserialize)]`) |
 
-**Reported by the detector, then cleared by the confirmer — production code
-behind a non-default feature. These are NOT removable:**
+⭐ **`ambition_encounter_features`/`ron` — a since-corrected row.** It sat here
+once justified by a bare pointer to
+`crates/ambition_encounter_features/src/loading.rs:22`, the only row in this
+table's history without a stated evidence class. That line was inside
+`ENCOUNTER_WAVE_BOOK_FIXTURE`, `#[cfg(test)]`, and the crate's own docs say
+production embeds no encounter wave data — the dependency moved to
+`[dev-dependencies]` (see the manifest-changed table) and this row is gone
+rather than reworded. In a table whose justification column is otherwise
+consistent, the one row that doesn't match the shape of its neighbours is the
+one to check first.
 
-⛔ **ONE ROW IN THIS TABLE WAS WRONG, AND ITS SHAPE IS WHAT GAVE IT AWAY.**
-`ambition_encounter_features` / `ron` sat here justified by a bare pointer to
-`crates/ambition_encounter_features/src/loading.rs:22` — while every other row states an EVIDENCE CLASS: a named <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
-feature gate, or a count of non-test references. ⇒ In a table whose
-justification column is otherwise consistent, **the outlier row is the one to
-check first, and the check is cheap because the neighbours define what a
-sufficient answer looks like.** That line is inside
-`ENCOUNTER_WAVE_BOOK_FIXTURE`, which carries `#[cfg(test)]` and whose own doc
-says production embeds no encounter wave data. The dependency moved to
-`[dev-dependencies]`; the row is gone rather than reworded.
+## Clean crates — 64, zero hits under the default-features detector
 
-⚠ The other five rows were audited at the same time and are sound.
+`ambition_asset_manager`, `ambition_audio`, `ambition_binding`,
+`ambition_body_seed`, `ambition_boss_encounter`, `ambition_causal`,
+`ambition_character_sprites`, `ambition_characters`, `ambition_combat`,
+`ambition_content_cli`, `ambition_conversation`, `ambition_cutscene`,
+`ambition_demo_mary_o`, `ambition_demo_mary_o_app`, `ambition_demo_pocket`,
+`ambition_demo_sanic`, `ambition_demo_sanic_app`, `ambition_demo_smash_app`,
+`ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
+`ambition_dev_tools`, `ambition_encounter_features` (after its move above),
+`ambition_engine_schemas`, `ambition_entity_catalog`, `ambition_game_shell`,
+`ambition_gameplay_trace`, `ambition_geometry`, `ambition_held_items`,
+`ambition_interaction`, `ambition_inventory_ui`, `ambition_items`,
+`ambition_load`, `ambition_match`, `ambition_menu`,
+`ambition_menu_kaleidoscope`, `ambition_mount`, `ambition_persistence`,
+`ambition_platformer2d`, `ambition_platformer2d_actor_spawn`,
+`ambition_platformer2d_core`, `ambition_platformer2d_provider`,
+`ambition_platformer2d_rollback_ggrs`, `ambition_platformer2d_runtime`,
+`ambition_platformer2d_shared_tangle`, `ambition_platformer2d_world`,
+`ambition_portal2d`, `ambition_portal2d_presentation`,
+`ambition_projectile_spec`, `ambition_projectiles`, `ambition_registry_core`,
+`ambition_relativity`, `ambition_relativity2d`, `ambition_render`,
+`ambition_settings_menu`, `ambition_sfx`, `ambition_sfx_bank`,
+`ambition_sim_harness`, `ambition_sprite_fx`, `ambition_sprite_sheet`,
+`ambition_time`, `ambition_ui_nav`, `ambition_vfx`, `ambition_world_items`.
 
-| crate | dependency | where it is really used |
-|---|---|---|
-| `ambition_encounter` | `ron` | `crates/ambition_encounter/src/content_schema.rs:56`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11`. ⚠ Was `:48` and the parsed type was `EncounterWaveBook`; it is `AuthoredWaveTimelines` now, renamed because the crate held TWO types called `EncounterWaveBook` — the bare map this schema lowers and the Bevy `Resource` newtype an App owns |
-| `ambition_dialog` | `ambition_persistence` | `crates/ambition_dialog/src/systems.rs:18` and `:410`, behind that crate's `#[cfg(feature = "ui")]` modules. ⚠ **RE-READ 2026-09-17: the use NARROWED and the row's second site is gone.** This said `bridge.rs:26` too, for `use ambition_persistence::save::AmbitionGameSave` — `ambition_dialog` no longer names `AmbitionGameSave` anywhere, and every remaining reference is `persistence::settings` (`MenuTapMode`, `UserSettings`). The dependency is still real, so the row's verdict is unchanged; what moved is WHICH part of the dependency is load-bearing, which is the thing a later delete-list would be decided on |
-| `ambition_game_shell` | `ambition_persistence` | 11 non-test references |
-| `ambition_input` | `ambition_entity_catalog` | 5 non-test references |
-| `ambition_input` | `bevy_window` | 1 non-test reference |
-
-⇒ **The detector alone would have produced a delete list with real production
-code on it.** That is the whole argument for the confirmer.
+⚠ **"Zero hits" is not a stronger guarantee than the methodology above
+states.** A crate here could still hold a FEATURE-ACTIVATION-shaped
+dependency that is genuinely load-bearing and simply never showed up as a
+hit in either stage — that is exactly `ambition_input`/`bevy_input`'s shape,
+and it was caught by a maintainer's suspicion of a `features = [...]` line,
+not by the sweep. This list means "the detector found nothing to sort", not
+"every edge in these manifests is proven necessary."
 
 ## What is owed
 
-▢ **41 crates unscanned**, including several the original grep row named —
-`ambition_platformer2d_host`, `game/ambition_content`, `game/ambition_app`,
-`ambition_platformer2d`, `ambition_sim_view`, `ambition_touch_input`. ⛔ **The
-grep-era claims about those crates are therefore still unverified**, and the
-four "misfiled" edges reported from the text search have NOT been through the
-compiler. Do not act on them from this page.
+▢ **Two structural blind spots this page's own tooling cannot close, stated
+rather than silently assumed clean:**
 
-Unscanned: `ambition_app`, `ambition_content`, `ambition_demo_mary_o`,
-`ambition_demo_mary_o_app`, `ambition_demo_pocket`, `ambition_demo_sanic`,
-`ambition_demo_sanic_app`, `ambition_demo_smash`, `ambition_demo_smash_app`,
-`ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
-`ambition_menu_kaleidoscope`, `ambition_platformer2d`,
-`ambition_platformer2d_actor_monolith`, `ambition_platformer2d_core`,
-`ambition_platformer2d_host`, `ambition_platformer2d_ldtk`,
-`ambition_platformer2d_provider`, `ambition_platformer2d_rollback_ggrs`,
-`ambition_platformer2d_runtime`, `ambition_platformer2d_shared_tangle`,
-`ambition_platformer2d_world`, `ambition_portal2d`,
-`ambition_portal2d_presentation`, `ambition_projectile_spec`,
-`ambition_projectiles`, `ambition_registry_core`, `ambition_relativity`,
-`ambition_relativity2d`, `ambition_render`, `ambition_settings_menu`,
-`ambition_sfx`, `ambition_sfx_bank`, `ambition_sim_harness`, `ambition_sim_view`,
-`ambition_sprite_sheet`, `ambition_time`, `ambition_touch_input`,
-`ambition_ui_nav`, `ambition_vfx`, `ambition_world_items`.
+1. **`[target.'cfg(...)'.dependencies]` tables.** A naive manifest read (this
+   page's own crate/feature extraction included) only sees the top-level
+   `[dependencies]`/`[dev-dependencies]`/`[build-dependencies]` tables. Three
+   crates in this workspace use the target-cfg form instead
+   (`ambition_dev_tools`/`libc` under `unix`, `ambition_persistence`/`web-sys`
+   under `wasm32`, `ambition_app`/`mimalloc`+`getrandom_03`/`04` under
+   `android`+`wasm32`) — checked individually and none overlap this page's
+   hit list, but that is luck this run happened to land on, not a property
+   the sweep verified. A tool that reads manifests for this purpose again
+   should parse all four table shapes, not the three most common ones.
+2. **`#[cfg(target_arch = "wasm32")]`-gated code is unverifiable from this
+   host, structurally, not by omission.** `ambition_app`'s
+   `console_error_panic_hook` and `wasm_bindgen` are `dep:`-gated behind
+   `web_platform` AND live only under wasm32 `cfg` — no `--all-features` run
+   on a native machine can ever exercise that code, however many flags are
+   set, because the gate is the TARGET, not a feature. The honest verdict for
+   both is "feature-gated and unverifiable from this host", not "verified
+   clean" — a `--all-features` pass that reports no warning for a
+   wasm32-only symbol proves nothing about whether it is truly used, only
+   that this host never compiled the code path that would use it.
 
-▢ **A post-carve checklist step.** The grep that started this is still worth
-running as a cheap smoke test at carve time — but over the WHOLE crate, never
-`src/` alone, and understood as a detector whose hits go through the confirmer.
+▢ **A post-carve checklist step.** The grep that started this page's
+predecessor row is still worth running as a cheap smoke test at carve time —
+but over the WHOLE crate, never `src/` alone, and understood as a detector
+whose hits go through the confirmer, never as a verdict on its own.
 
-⛔⛤ **AND THE COVERAGE LINE CANNOT BE RE-DERIVED FROM THIS PAGE — MEASURED
-2026-09-17.** The workspace now holds **78 members with a `src/lib.rs`** (66 in
-`crates/`, 12 in `game/`), not 75. The `Unscanned:` list above is the half that
-IS re-derivable: it names 41 crates and all 41 still exist. The other half is
-not — the 34 SCANNED crates are nowhere enumerated, only the ones that produced
-hits, so "34 of 75" cannot be checked against the tree and 34 + 41 is three short
-of the population either way. **22 live lib crates are named nowhere on this
-page at all**, among them `ambition_combat`, `ambition_characters`,
-`ambition_match`, `ambition_conversation` and `ambition_menu`.
+▢ **Every dependency MOVE is a lockfile change in every independent
+workspace that transitively holds the crate — not a surprise found later.**
+Measured repeatedly this campaign (`ambition_damage`→`ambition_projectiles`,
+`ambition_content`, `ambition_demo_smash`, `ambition_platformer2d_actor_monolith`,
+`ambition_platformer2d_ldtk`): a manifest edit broke `cargo tree --locked` in
+one or more of `examples/capability_demo`, `fixtures/headless_profile`, and
+`fixtures/minimal_game` almost every time, each needing only
+`cargo update --workspace --offline` in that sub-directory to drop the stale
+line. Run `python3 -m pytest
+scripts/tests/test_sub_workspace_lockfiles_are_current.py` after each
+manifest edit, not once at the end where a batch of failures reads as noise
+instead of one edit at a time.
 
-⇒ The repair is not a bigger number. It is to make the SCANNED set the recorded
-one, or to treat the unscanned list as the authority and derive coverage from it
-— a coverage claim whose complement cannot be listed is a claim nobody can
-falsify, which is the failure this page was written to end one level up.
-
-⚠ **Why this page states its coverage in the first line.** The row it replaces
-said "six", and six was neither the number of unused declarations nor a number
-any single instrument had produced. See
-[`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md)
-— *"the error is not a bad tool, it is a claim wider than the tool's scope"*.
+▢ **The next re-derivation should re-run the detector against a fresh `HEAD`
+before trusting any row on this page**, including the settled ones — this is
+a compiler-verified snapshot of one commit range, not a standing guarantee.
+The methodology section above is the part expected to still be true; the
+per-crate table is a receipt.
 
 ## Relationship to the architecture review
 
 The counts and compiler runs above are historical receipts for their stated
-source, not a fresh all-workspace unused-dependency verdict. The current review
-inventoried 79 workspace packages but had no Rust toolchain. Re-run the detector
-and compiler confirmer for a concrete migration rather than subtracting old
-scanned counts from the new package total.
+source, not a permanent verdict independent of future manifest changes. A
+prior architecture review inventoried 79 workspace packages with no Rust
+toolchain available; this page's 78 is a compiler-verified count from the
+same-era tree and the two are not in tension — re-run the detector and
+confirmer for any future concrete migration rather than subtracting old
+scanned counts from a new package total.
 
-A9 in the [frontier](../engine/actor-monolith-work-frontier.md) asks a different
-question: what does an advertised external profile actually require? A dependency
-can be genuinely used and still be wrong for a promised render-absent profile.
-Conversely, deleting a direct edge may leave the same package reachable through
-another crate. Keep usage, feature activation, closure and linked size separate.
+A9 in the [frontier](../engine/actor-monolith-work-frontier.md) asks a
+different question: what does an advertised external profile actually
+require? A dependency can be genuinely used and still be wrong for a
+promised render-absent profile. Conversely, deleting a direct edge may leave
+the same package reachable through another crate. Keep usage, feature
+activation, closure, and linked size separate questions.
 
-Retain the recorded doc-only dependency ruling unless the maintainer changes it;
-show its profile cost explicitly rather than treating it as unused code. The A9
-plan does not grant permission to delete documentation support or public feature
-names to get a smaller count.
+Retain the recorded DOC-ONLY dependency ruling unless the maintainer changes
+it; show its profile cost explicitly rather than treating it as unused code.
+Nothing on this page grants permission to delete documentation support or
+public feature surface (the FEATURE-GATED class) to shrink a count — every
+removal above is a STRANDED, REDUNDANT, or MISFILED edge the compiler and a
+deletion experiment both confirmed, not a minimization campaign.

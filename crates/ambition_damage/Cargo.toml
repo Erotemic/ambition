@@ -16,7 +16,6 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
-ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_time = { path = "../ambition_time" }
@@ -25,6 +24,13 @@ ambition_time = { path = "../ambition_time" }
 # is a real dependency and not a test fixture. It was invisible while the module
 # lived in a crate that already had it.
 ambition_persistence = { path = "../ambition_persistence" }
+
+[dev-dependencies]
+# Named only in `src/tests.rs` (`ProjectileKind`); the `src/lib.rs` mention is
+# prose in a doc comment, not an intra-doc link, so moving this does not touch
+# rustdoc. Compiler-confirmed unused under default AND --all-features,
+# 2026-09-18 (docs/planning/triage/unused-dependency-census.md).
+ambition_projectiles = { path = "../ambition_projectiles" }
 
 [features]
 default = []

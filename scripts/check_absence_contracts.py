@@ -2045,6 +2045,17 @@ def strip_comments_for(path: str, line: str) -> str:
     Keep the stripping conservative so code is never hidden as prose. Hash
     comments are stripped only for languages where `#` is comment syntax; Rust
     attributes such as `#[ignore]` must remain visible.
+
+    ⚠ **NOT routed to `lib/rust_source.strip_comments`, on purpose (measured
+    2026-09-18).** That owner answers "strip comments from a whole source
+    file"; this answers "strip comments from one already-matched `git grep`
+    line, in a language this call site names." A `/* */` block spanning
+    multiple lines cannot be seen one grep-matched line at a time — the input
+    here is never the file, only a line `git grep` already picked out — and the
+    per-path `#` handling for non-Rust/TOML files has no equivalent in the
+    owner at all. Same regex vocabulary, different question; a forced merge
+    would either drop the multi-language handling or pretend a single line can
+    answer a multi-line question.
     """
     stripped = _BLOCK_COMMENT.sub(" ", line)
     stripped = _LINE_COMMENT.sub("", stripped)

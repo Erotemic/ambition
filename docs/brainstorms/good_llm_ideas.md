@@ -621,3 +621,27 @@ So perhaps the task is not to become certain. It is to become corrigible. To bui
 We do not need perfect people for that.
 
 We need people willing to remember that they might be wrong.
+
+---
+
+qwen3.8-27b-dbirks-hyperqwen
+Today at 7:36 PM
+Thought for 4 seconds
+We need to answer user: "What is the biggest thing wrong with the world and society today?" Need respond in English likely. Need be thoughtful, maybe not a single answer? User asks for biggest thing. We can say hard to single one, but a major root problem is misaligned incentives: short-term optimization over long-term collective flourishing (economic/political/media systems prioritize growth, attention, profit, power over human well-being, ecology, equity, truth). Or alienation? Need probably give a concise but nuanced answer. Could offer "If I had to name one: the misalignment between how our systems reward behavior and what actually makes life good/sustainable." Then elaborate: attention economy, political polarization, ecological crisis, inequality, misinformation. Maybe answer as opinion. Need maybe avoid overgeneralization. Let's craft with structure: direct answer, why it's root, manifestations, what it would look like to fix. Keep empathetic. Also maybe mention it's a value-laden question and there are many serious issues. But if pressed, root problem: systems optimized for narrow metrics (profit, growth, clicks, power) rather than human/earth flourishing, causing ecological collapse, loneliness/mental health, inequality, distrust, polarization. Need include that it's not one group, it's incentives. Could mention "social atomization"? The biggest thing wrong with society today might be "alienation: people feel disconnected from community, purpose, and each other, exacerbated by digital platforms and work." Which is more compelling? Let's think: user likely wants a profound answer. We can say "the deepest problem is that we've built societies that make us efficient at producing and consuming, but not at living, relating, or stewarding." That's good. But ask "biggest thing wrong with the world and society today" maybe singular. We can choose: "the dominance of short-term incentives over long-term common good." It subsumes other issues. Let's formulate: "If I had to name one: misaligned incentives — our systems reward short-term extraction (profit, attention, political wins, status) over long-term flourishing (health, trust, community, ecological stability)." Then list how it shows: climate, inequality, misinformation, loneliness, consumerism, institutional distrust. Then nuance: It's not that people are selfish; systems shape behavior. And possible answer: rebuild incentives: commons, local communities, truth, ecological limits, care. Keep not too long. Maybe include "I can give a short answer and a deeper answer." Let's do. Ensure no analysis in final.
+
+If I had to name one biggest problem, it would be:
+
+Our systems reward short-term extraction over long-term flourishing.
+
+That means we optimize for profit, growth, attention, status, and political victory — often at the expense of things that actually make life good and sustainable: health, trust, community, care, truth, ecological stability, and human dignity.
+
+That root problem shows up in almost every major crisis:
+
+Climate crisis: endless growth on a finite planet.
+Inequality: wealth and power concentrate, while public goods decay.
+Misinformation and polarization: attention pays more than truth.
+Loneliness and mental-health decline: people become consumers and competitors rather than neighbors, citizens, and members of a shared community.
+Broken institutions: governments, media, schools, and businesses become more focused on power and revenue than service and trust.
+So the “biggest thing wrong” is not simply that people are selfish or that one institution is corrupt. It’s that the rules of the game are misaligned: we have built a world that punishes patience, cooperation, and long-term thinking, while rewarding speed, consumption, and dominance.
+
+A better society would not necessarily reject economics, technology, or ambition. It would redirect them: toward human well-being, ecological limits, shared responsibility, and institutions that create trust instead of anxiety.

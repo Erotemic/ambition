@@ -31,6 +31,7 @@ import os
 import re
 import statistics
 import subprocess
+import sys
 import time
 import urllib.parse
 from dataclasses import dataclass, field
@@ -40,6 +41,9 @@ from typing import Any, Iterable, Iterator, Sequence
 import numpy as np
 from rich import print as rprint
 from rich.markup import escape as rich_escape
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from rust_source import strip_comments  # noqa: E402
 
 # Bump when the ffmpeg filter chain or a derived metric changes; it is part of
 # the cache key, so an old cache cannot silently serve numbers for a new
@@ -290,11 +294,6 @@ def _split_top_level(text: str, sep: str = ',') -> list[str]:
     if tail.strip():
         parts.append(tail)
     return [p.strip() for p in parts if p.strip()]
-
-
-def _strip_comments(text: str) -> str:
-    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
-    return re.sub(r'(?m)//.*?$', '', text)
 
 
 def _strip_test_modules(text: str) -> str:
@@ -594,7 +593,7 @@ def _sample_rate_from(text: str) -> int:
 
 
 def extract_ron_specs(path: Path) -> list[ProceduralSpec]:
-    text = _strip_comments(path.read_text())
+    text = strip_comments(path.read_text())
     sample_rate = _sample_rate_from(text)
     specs: list[ProceduralSpec] = []
     for opener in re.finditer(r'\(\s*(?:cue|id)\s*:', text):
@@ -626,7 +625,7 @@ def extract_rust_specs(path: Path) -> list[ProceduralSpec]:
     by walking the helper's call sites — one spec per call. That is generic, not
     a per-provider special case, and it is what makes Sanic visible at all.
     """
-    text = _strip_test_modules(_strip_comments(path.read_text()))
+    text = _strip_test_modules(strip_comments(path.read_text()))
     consts = {**global_str_consts(), **_collect_str_consts(text)}
     owner = _owner_of(path)
     source = str(path.relative_to(REPO_ROOT))
@@ -1552,6 +1551,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 4))
     parser.add_argument('--no-cache', action='store_true')
     args = parser.parse_args(argv)
+
+    # ⛔ A `--limit` smoke run is a WRITE with a smaller population, and a
+    # generated artifact under version control cannot tell a smoke run from a
+    # real one — measured 2026-09-18, a `--limit 5` run silently overwrote the
+    # tracked 783-sound report with a 20-sound one. Redirect rather than trust
+    # the caller to remember `--report`, unless they already named one.
+    if args.limit is not None and args.report == DEFAULT_REPORT:
+        args.report = args.report.with_suffix(f'.partial{args.report.suffix}')
+        rprint(f'[yellow]--limit set[/yellow]: writing the smoke report to '
+               f'{args.report} instead of the tracked {DEFAULT_REPORT}')
 
     start = time.time()
     items, notes = collect_items(args.only, args.limit)

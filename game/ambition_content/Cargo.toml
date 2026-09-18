@@ -110,9 +110,13 @@ bevy_falling_sand = { version = "0.8", optional = true, default-features = false
 ] }
 serde = { workspace = true }
 ron = { workspace = true }
-serde_json = "1"
 
 [dev-dependencies]
+# Compiler-confirmed unused under default AND --all-features at [dependencies]
+# (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
+# 2026-09-18): every use (encounters/tests.rs, intro/tests.rs, intro/route_state/tests.rs)
+# is inside a #[cfg(test)] module.
+serde_json = "1"
 # Downstream crates are unaffected; only content's dev/test profile gets the feature.
 ambition_content = { path = ".", features = ["portal"] }
 # `tests/puppy_slug_forced_seat.rs` is an INTEGRATION test, so it is its own
@@ -125,7 +129,6 @@ ambition_characters = { path = "../../crates/ambition_characters", features = ["
 # compiles with. Test-only: the CLI links no content and no renderer, so this costs the dev
 # profile nothing it does not already have.
 ambition_content_cli = { path = "../../crates/ambition_content_cli" }
-insta = { version = "1", features = ["ron"] }
 # A temp content ROOT for the fast-iteration witnesses: `reload.rs`'s directory
 # road must be exercised against a directory that did not exist when this binary
 # was built, and a guard whose subject mutates the repository tree is the failure

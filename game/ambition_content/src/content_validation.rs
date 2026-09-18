@@ -119,6 +119,7 @@ pub fn validate_content_graph(
     validate_npc_dialogue_ids(project, character_catalog, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(project, music, &mut report);
+    validate_cutscene_bindings(project, &mut report);
     let boss_catalog = crate::bosses::authored_boss_catalog();
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
 
@@ -412,6 +413,33 @@ fn validate_quest_conditions(
 }
 
 /// The content compiler now checks this too, for pack-supplied content.
+/// ⛔⛤ **THE GAP THIS FUNCTION EXISTS FOR.** `default_room_cutscene_bindings`
+/// bound `"central_hub_main"` — an LDtk LEVEL id, not a runtime room id — to
+/// `test_intro`, and nothing at startup or in a test caught it: unlike a quest
+/// `RoomEntered` condition (`validate_quest_conditions`, right above), no
+/// validator ever read `RoomCutsceneBindings` against the real room
+/// population. The row could never fire; found by inspection 2026-09-18, not
+/// by a test. This closes that gap the same way its neighbor does.
+fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidationReport) {
+    let room_ids = active_area_ids(project);
+    for (room, cutscene) in &crate::dialogue::cutscene_defaults::default_room_cutscene_bindings()
+        .bindings
+    {
+        if !room_ids.contains(room.as_str()) {
+            report.push_error(format!(
+                "cutscene binding for '{cutscene}' references unknown room '{room}'"
+            ));
+        }
+    }
+    for (room, cutscene) in crate::intro::cutscene::intro_room_cutscene_bindings() {
+        if !room_ids.contains(*room) {
+            report.push_error(format!(
+                "intro cutscene binding for '{cutscene}' references unknown room '{room}'"
+            ));
+        }
+    }
+}
+
 /// `boss_encounter` emits a `music_track` reference per non-empty phase field,
 /// so an unknown track in Ambition's own encounters is refused at reference
 /// resolution — before startup, with the field named.
@@ -628,6 +656,39 @@ mod tests {
             "loading zone validation failed: {:?}",
             report.errors
         );
+    }
+
+    #[test]
+    fn cutscene_bindings_reference_rooms_that_exist() {
+        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let room_ids = active_area_ids(&project);
+        // Non-vacuity: an LDtk LEVEL id, not a runtime room id, must NOT
+        // resolve -- this is the exact defect `validate_cutscene_bindings`
+        // exists to catch (`central_hub_main` was bound to `test_intro` and
+        // could never fire, since the runtime room is `central_hub_complex`).
+        // If this ever starts passing, the level/room merge changed shape and
+        // the assertions below need re-checking for the opposite reason.
+        assert!(
+            !room_ids.contains("central_hub_main"),
+            "central_hub_main is an LDtk level id, not a room id -- room_ids: {room_ids:?}"
+        );
+        for (room, cutscene) in
+            &crate::dialogue::cutscene_defaults::default_room_cutscene_bindings().bindings
+        {
+            assert!(
+                room_ids.contains(room.as_str()),
+                "cutscene binding for '{cutscene}' references unknown room '{room}'; \
+                 known rooms: {room_ids:?}"
+            );
+        }
+        for (room, cutscene) in crate::intro::cutscene::intro_room_cutscene_bindings() {
+            assert!(
+                room_ids.contains(*room),
+                "intro cutscene binding for '{cutscene}' references unknown room '{room}'; \
+                 known rooms: {room_ids:?}"
+            );
+        }
     }
 
     #[test]

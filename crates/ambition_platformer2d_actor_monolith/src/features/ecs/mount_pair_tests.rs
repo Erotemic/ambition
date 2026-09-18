@@ -1196,7 +1196,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     // The CONTROLLER: slot 0 holds down + attack (axis_y = +1 is toward-feet
     // under default gravity — the down-tilt).
     let mut controls = SlotControls::default();
-    let mut input = ambition_input::ControlFrame::default();
+    let mut input = ambition_platformer2d_core::ControlFrame::default();
     input.attack_pressed = true;
     input.axis_y = 1.0;
     controls.set(PlayerSlot(0), input);
@@ -1354,7 +1354,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     // 0.05/frame), and the hands return to station-keeping — no stale slam.
     app.world_mut()
         .resource_mut::<SlotControls>()
-        .set(PlayerSlot(0), ambition_input::ControlFrame::default());
+        .set(PlayerSlot(0), ambition_platformer2d_core::ControlFrame::default());
     for _ in 0..10 {
         app.update();
     }

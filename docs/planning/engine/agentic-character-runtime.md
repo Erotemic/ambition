@@ -11,7 +11,7 @@
 > | foundation | state |
 > |---|---|
 > | world facts | ✔ **exists** — `world_facts` module and `WorldFactConditionsPlugin` (`crates/ambition_platformer2d_actor_monolith/src/world_facts.rs:187`), installed by `ambition_platformer2d_runtime` |
-> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:785`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:451`), plus `AgentObservation` / `CombatObservation` in the sim harness |
+> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:785`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:457`), plus `AgentObservation` / `CombatObservation` in the sim harness |
 > | navigation / reachability | ⛔ **absent** — no reachability type, no nav graph, no pathfinding of any kind |
 >
 > ⇒ **So "wait for the foundations" now means "wait for navigation".** The other

@@ -18,9 +18,15 @@ use ambition_characters::perception::{
 use ambition_combat::targeting::FactionRelations;
 
 /// Default viewport half-extent (world px) — the AI analogue of the human's
-/// screen. Generous so a body perceives approaching threats with room to react;
-/// a per-body override rides in [`Perception::Sighted`] for a character that wants
-/// keener or duller senses.
+/// screen. Generous so a body perceives approaching threats with room to react.
+///
+/// ⛔ NOT a per-body knob, though [`Perception::Sighted`] carries `viewport_half`
+/// per instance. The only override that exists is per-WORLD:
+/// [`PerceptionExtentOverride`](ambition_characters::perception::PerceptionExtentOverride),
+/// published once from the environment (`dev_tools::perception_extent::from_env`)
+/// and resolved through `session::mechanics::perception_extent_for`, which every
+/// newly-decided body in a session receives the SAME value from. There is no
+/// per-character keener/duller-senses authoring path today.
 pub const DEFAULT_VIEWPORT_HALF: ae::Vec2 = ae::Vec2::new(480.0, 320.0);
 
 /// A body's PERCEPTION policy — HOW it learns where its foe is. Perception is

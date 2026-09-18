@@ -180,6 +180,43 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     # rollback input. Its own doc: *"Writing the table that is not authoritative
     # is harmless -- it is overwritten by the authority that owns it."*
     "SeatRawFrames": "host-aware read predicate picks the authoritative table (`seat_frame_this_tick`)",
+    # ⭐ A FIFTH SPELLING, AND THE SOURCE ALREADY SAYS SO. `CausalPlugin` registers
+    # `stamp_causal_frame` into `bevy::app::First` ("provides a host frame stamp");
+    # `player_schedule.rs` registers the SAME function again into `sim`, with its
+    # own comment: "the simulation schedule stamps again when replay state is
+    # available. The writes are idempotent." Read the body to check that claim
+    # rather than take it: it is a pure setter derived from fresh `Res` reads each
+    # call (tick, `replaying_history`, session generation) plus a per-registration
+    # `Local<RollbackEpoch>` that does not leak between the two registrations —
+    # nothing it writes depends on a PRIOR write to `CausalRecording` from either
+    # side. Sim runs after `First` in frame order, so its stamp is simply the last
+    # write of the frame; `First`'s write is a value the sim call immediately
+    # overwrites with an equal-or-refined one, never a value read as authority in
+    # between.
+    "CausalRecording": "`stamp_causal_frame` re-registered into `sim` after `First`; both calls are a pure derived setter, confirmed idempotent by reading the body",
+    # ⭐ A SIXTH SPELLING, AND BOTH SIDES SAY IT OUT LOUD. `publish_frontend_context_prompt`
+    # (Update) and `rebuild_control_prompt` (sim) each carry a doc comment
+    # asserting "one writer per frame by construction": the Update side writes
+    # only when a non-gameplay context (menu/launcher) owns input and returns
+    # otherwise; the sim side's own opening comment says it yields on exactly
+    # those frames. Verified rather than trusted: when the Update side does
+    # write, it sets `entries: Vec::new()` (an empty prompt) — so the third
+    # writer, `project_prompt_readiness` (sim, `.after(rebuild_control_prompt)`),
+    # which mutates `entry.ready` in a `for entry in &mut prompt.entries` loop,
+    # iterates zero times on exactly those frames. No writer ever reads or
+    # refines a value one of the others owns.
+    "ControlPrompt": "`publish_frontend_context_prompt`/`rebuild_control_prompt` are a documented one-writer-per-frame handoff; `project_prompt_readiness` refines an empty entry list on the frames the other side owns",
+    # Third of the three c215d6a37 exposed. `SimPhaseCensus` holds only an
+    # `Instant`, per-phase `f64` totals and a tick count — a profiling
+    # accumulator, structurally identical to `ActorTraceBuffer` /
+    # `GameplayTraceBuffer` above. `open_sim_phase_window` (sim, every tick)
+    # marks a phase-timing window open; `report_sim_phase_census` (`Last`,
+    # once per visible frame) reports the average and resets. A rollback
+    # resimulation batch can call the sim-side opener more than once per
+    # visible frame, which skews a TIMING AVERAGE across replayed attempts —
+    # a profiling-quality concern, not a gameplay-determinism one: nothing
+    # reads this resource back as sim authority.
+    "SimPhaseCensus": "profiling accumulator (Instant + per-phase f64 totals), never read back as sim authority",
 }
 
 

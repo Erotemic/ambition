@@ -77,7 +77,7 @@ decision policy is correct.
 > `menu_kaleidoscope`. Sorting hits by CRATE makes that visible in one line.
 > ⓘ `WorldView::reachable`, the one name in the tree that sounds like a route
 > query, is cited in
-> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:1034`
+> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:1040`
 > as something that USED to exist.
 >
 > ⚠ **Which makes this page the single remaining gate on another program.**

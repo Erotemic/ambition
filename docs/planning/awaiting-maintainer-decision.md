@@ -1308,19 +1308,39 @@ not: each answers a different question, and the Q136 count is the second one's.
 
           * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
-          * 4 of 90 written MESSAGE types, **AND THIS ONE IS A LOWER BOUND
-            BY A MEASURED AMOUNT** — 77 of the 320 distinct message writers and
-            readers (24%) sit in no `add_systems` body the instrument can parse,
-            so it can call them neither host nor sim and drops them; **24 of the
-            90 types are touched by at least one.** ⇒ Any of those 24 could be a
-            crossing nobody has seen. The reproducer is named in
-            `unlocated_message_systems`: the shared `add_systems_bodies` parser
-            truncates the `app.add_systems(sim, ..)` at
-            `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:640`
-            before reaching `apply_feature_hit_events` at `:695`. ⚠ Declared and
-            not fixed, because that parser is shared and widening it makes every
-            census see MORE — each one's floors and readings would have to move
-            in the same commit. The rows below are —
+          * 4 of 90 written MESSAGE types, **AND THIS ONE IS STILL A LOWER
+            BOUND, NOW BY A THIRD LESS** — 47 of the 320 distinct message
+            writers and readers sit in no registration the instrument can
+            follow, touching **18 of the 90 types**, down from 77 and 24 on
+            2026-09-18. ⇒ Any of those 18 could be a crossing nobody has seen.
+
+            ⛤ **WHAT CLOSED THE OTHER 30 IS WORTH MORE THAN THE NUMBER.** This
+            page said the cause was the shared `add_systems_bodies` parser
+            truncating the `app.add_systems(sim, ..)` at
+            `combat_schedule.rs:640` before `apply_feature_hit_events` at
+            `:695`, and that fixing it was a campaign because every census
+            sharing that parser would have to move together. All of that was
+            wrong: the body is 452 characters and closes correctly at `:648`,
+            **0 of 639** `add_systems` bodies in the tree are truncated by a
+            comment paren, and no body in that file has EVER contained the
+            name. `:695` is inside `install_technique(app, KEY, offer,
+            (..systems..))`, a registration WRAPPER whose own body is
+            `app.add_systems(sim, systems)` — and
+            `measure_user_settings_in_simulation.py` had already found that,
+            written the mechanism down and built the fixpoint for it. The
+            census now calls that owner's helpers. No shared parser moved and
+            no other census's floors did either.
+
+            ⚠ **AND THE RESIDUAL IS A DIFFERENT SHAPE, so nobody widens the
+            wrong thing next.** Of the 47, **35 are in no `add_systems` body
+            anywhere in the tree** — `main`, `fire`,
+            `finalize_room_publication`, `dispatch_menu_action` are functions a
+            system CALLS, so placing them needs a call graph rather than a
+            better registration parser. The other 12 are registered only inside
+            `#[cfg(test)]` modules, which the production population strips on
+            purpose.
+
+            The rows below are —
             `AmbientGravityRequest` and
             `PlayerHealRequested` (both Q136, both live),
             `SetFlagRequested` (LIVE since a 2026-09-18 review; I had filed
@@ -1999,6 +2019,29 @@ mechanical-edit infrastructure — that has legitimate author/dev-edit customers
 and only the clone's USE of it disappeared. Verified at HEAD: `PlayerClone`,
 `SpawnPlayerCloneRequest` and `PlayerDemo` have zero occurrences in
 `crates/`, `game/` and `tools/`.
+
+⛔⛤ **AND THE DELETION TOOK ONE THING IT SHOULD NOT HAVE, WHICH IS THE LESSON
+THIS ENTRY IS ACTUALLY FOR.** Inside the clone's comment banner sat
+`declare_death_rules(UntaggedRooms, replay_level_after(0.0))` — Ambition's own
+answer to *"what happens when the last participant dies"*, nothing to do with
+the clone, and the banner's own text said so (*"composed into the multi-game
+shell host beside Sanic, Mary-O and Smash"*). It went with the braces. With no
+`UntaggedRooms` claim, `DeclaredDeathRules::governing(None)` falls through to
+`DeathRules::default()` = `LevelReset::Never`
+(`crates/ambition_combat/src/death_rules.rs:119-122`), so ordinary Ambition
+rooms stopped putting the level back. Restored 2026-09-18 as
+`declare_ambition_death_rules`, its own function with its own call site.
+
+⇒ **THE WITNESS WAS ALREADY THERE AND ALREADY CORRECT.**
+`the_host_composes_three_games_each_scoped_to_its_own_rooms`
+(`game/ambition_app/tests/a_game_governs_only_its_own_rooms.rs`) asserts the
+composed host declares all three scopes, is included from `app_it.rs:27`, and
+fails on the deletion with `Declaring: [Mode("sanic"), Mode("mary_o")]`. What
+was missing was a Rust run between the deletion and the branch — and the same
+gap hid a red Python arm (`test_no_waiver_names_a_system_that_no_longer_mutates_-
+rollback_state`), because the `--maintenance` lane runs neither. ⚠ Two guards
+pointing straight at one commit, both unread for an afternoon: a deletion is
+exactly when the suites that were green yesterday stop being evidence.
 
 ⭐ **WHAT SURVIVES IS THE GENERAL CONCLUSION, AND IT IS THE USEFUL HALF:**
 author and developer world mutations belong at the mechanical-edit boundary;

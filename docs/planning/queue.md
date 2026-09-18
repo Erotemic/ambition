@@ -3112,8 +3112,14 @@ message before starting a step that takes hours.
 BEEN FAILING THE FULL GATE AND NO PAGE SAID SO.** Measured 2026-09-18 on a full
 `./run_tests.sh` — `12/14 jobs passed in 2212s`, exit 1, and the second failing
 job is `compile-cost ratchet (frozen weights, not a stopwatch)`
-(`scripts/compile_ratchet.py`). Its baseline is frozen at `b3bd00a4a`,
-**2026-09-05**, and five numbers are outside budget:
+(`scripts/compile_ratchet.py`). Its baseline records its own provenance as
+`b3bd00a4a`, **2026-09-05**
+<!-- cite-ok: quoted BECAUSE it resolves nowhere — it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field, and its unreachability is the finding rather than a fabrication -->
+— ⚠ a sha this repository can no longer reach from any ref, because the git
+epoch was cut the next day (`b924f419c`, 2026-09-06 03:15). The object survives
+in one checkout's object store as a dangling commit and is simply absent in
+another, so nothing can recompute what that baseline measured. Five numbers are
+outside budget:
 
 ```text
 largest_unit_lines    ambition_platformer2d_actor_monolith  100,742 -> 115,105  (budget ±2,014)
@@ -3139,6 +3145,46 @@ baseline it is compared against. It also says its un-adopted numbers were
 measured at `11ef33c5b5a5` rather than at the frozen commit, so `--diff`'s range
 understates where to look. ⇒ Re-freezing would also bank the instrument's
 disagreement with itself, permanently.
+
+⛔⛤ **AND THE OTHER RATCHET IN THAT LANE WAS MEASURING NOTHING AT ALL — FOUND,
+CAUSED AND FIXED 2026-09-18.** `--maintenance`'s doc-link job scored **0 broken
+links for all thirteen tracked crates against a banked baseline of 141**, marked
+every row *"⭐ repaired"*, and advised `--update`, which would have written an
+empty baseline and retired the ratchet. The cause is the lane itself:
+`scripts/run_tests.py:2020` exports `CARGO_TERM_COLOR=always` to every child
+job, so rustdoc writes `ESC[1m ESC[33m warning ESC[0m: unresolved link to …`
+and the guard's `^warning:` anchor matches nothing. Same crate, same target
+directory, one minute apart: `cargo doc -p ambition_characters --no-deps`
+printed 21 warnings bare and 21 uncountable ones under the variable.
+
+⛔⛔ **AND THE SAME ANCHOR IS IN THE WORKSPACE WARNING GATE, WHOSE ONLY CALLER IS
+THAT RUNNER.** `check_no_warnings.py` matches `^path:line:col: warning: …` on
+`--message-format=short`; under colour cargo writes
+`src/lib.rs:1:18: ESC[1m ESC[33m warning ESC[0m: unused variable`. Confirmed on
+a one-file probe crate: the pattern matches the plain form and not the coloured
+one. `scripts/run_tests.py:524` is the only place that invokes it, so this gate
+has been reporting clean from inside the lane regardless of the build.
+`measure_per_crate_warnings.py` carries the third copy of the anchor.
+
+⇒ **ONE OWNER NOW: `scripts/lib/cargo_output.py`** — `plain_env()` and
+`COLOR_NEVER` stop cargo colouring, `strip_ansi()` makes the reading survive a
+colour source they do not reach (`RUSTDOCFLAGS=--color=always`, a pty wrapper).
+All three consumers read it. Poison-verified arms in
+`scripts/tests/test_doc_link_ratchet_reporting.py` (19) and
+`scripts/tests/test_no_warnings.py` (8), both fixtures COPIED FROM REAL COLOURED
+OUTPUT rather than composed. End-to-end: `env CARGO_TERM_COLOR=always … --check`
+now runs in **7.7 s — the failing lane's own wall-clock — and prints `TOTAL 141`,
+exit 0**.
+
+⚠ **THE CLASS ARM IS WHAT SURVIVED NOT KNOWING THE CAUSE.** Two arms written for
+mechanisms I could name (cargo exited non-zero; a crate never documented) did not
+fire either time — cargo exited 0 and printed its per-crate lines. The arm that
+refuses *"every tracked crate at zero against a banked baseline"* caught it
+twice. ⛔ And the operational rule I wrote from the first catch — *"do not run
+`--maintenance` beside a cargo build"* — was **wrong and has been removed**: both
+occurrences did have a concurrent build, but what they shared was `--maintenance`
+itself, which is where the variable comes from. The full account is in
+[`../recipes/checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
 
 
 **Operational rules, the standing prohibitions and what a green lane does NOT

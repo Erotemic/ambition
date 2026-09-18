@@ -17,6 +17,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.insert(0, os.path.join(REPO, "scripts", "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
+from cargo_output import COLOR_NEVER, plain_env, strip_ansi  # noqa: E402
 BASELINE = os.path.join(REPO, "dev", "doc_link_ratchet_baseline.json")
 
 # Keep the ratchet on crates whose doc comments define the main runtime model;
@@ -60,6 +61,10 @@ CRATES = [
     "ambition_entity_catalog",
 ]
 
+#: ⛔⛔ **EVERY PATTERN BELOW IS LINE-ANCHORED, AND CARGO CAN PUT A BYTE IN
+#: FRONT OF THE ANCHOR.** `scripts/lib/cargo_output.py` owns that fact and
+#: names the measurement; this guard is the one it was found in.
+
 # rustdoc's two shapes for this class.
 UNRESOLVED = re.compile(r"^warning: unresolved link to `(?P<name>.+)`$")
 PRIVATE = re.compile(
@@ -91,7 +96,7 @@ def identities(output: str) -> list[str]:
     this ratchet ratchets.
     """
     found: list[str] = []
-    lines = output.splitlines()
+    lines = strip_ansi(output).splitlines()
     for index, line in enumerate(lines):
         match = UNRESOLVED.match(line)
         if match:
@@ -122,15 +127,27 @@ def measure(crate: str) -> tuple[list[str], str, int]:
     whatever cargo had done. On 2026-09-18 a `--maintenance` run of this guard
     measured ZERO for all thirteen crates, printed *"⭐ 42 repaired"* down the
     table with `TOTAL 0`, exited 0, and advised `--update` — which would have
-    written an all-empty baseline and retired the ratchet. Nothing was repaired:
-    the thirteen `cargo doc` invocations produced no warnings, and a build that
-    did not report cannot report a zero.
+    written an all-empty baseline and retired the ratchet.
+
+    ⭐ THE CAUSE, MEASURED THE SAME DAY: the warnings were all there and
+    [`identities`] could not see them. `run_tests.py` exports
+    `CARGO_TERM_COLOR=always` to every child, so each warning arrives as
+    `ESC[1m ESC[33m warning ESC[0m : unresolved link to ...` and every pattern
+    here is line-anchored on `^warning:`. Same crate, same target dir, one
+    minute apart: `cargo doc -p ambition_characters --no-deps` printed 21
+    warnings from a plain shell and 21 uncountable ones under the variable. ⇒
+    the exit status is still part of the measurement, but it was never what went
+    wrong here — `scripts/lib/cargo_output.py` is what was.
     """
+    # ⛔ THE COLOUR ARGUMENT IS PART OF THE MEASUREMENT, NOT COSMETIC — see
+    # `scripts/lib/cargo_output.py`. Flag AND variable, so nothing depends on
+    # which of the two cargo decides wins.
     result = subprocess.run(
-        [cargo_binary(), "doc", "-p", crate, "--no-deps"],
+        [cargo_binary(), "doc", "-p", crate, "--no-deps", *COLOR_NEVER],
         cwd=REPO,
         capture_output=True,
         text=True,
+        env=plain_env(),
     )
     output = result.stdout + result.stderr
     return identities(output), output, result.returncode

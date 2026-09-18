@@ -341,6 +341,75 @@ def test_identities_are_parsed_out_of_real_rustdoc_output():
     assert module.identities("warning: unused variable: `x`\n") == []
 
 
+def test_a_coloured_rustdoc_stream_is_still_counted():
+    """⛔⛔ **THE BYTES BELOW ARE WHY THIS GUARD READ 0/13 INSIDE `--maintenance`
+    ON 2026-09-18.** Every pattern in the parser is line-anchored on
+    `^warning:`, and `scripts/run_tests.py` exports `CARGO_TERM_COLOR=always`
+    to every child job — so the anchor sat behind `ESC[1mESC[33m` and matched
+    nothing. Thirteen crates scored zero, the table printed *"⭐ 42 repaired"*,
+    and the advice was `--update`, which would have banked an empty baseline.
+
+    ⚠ COPIED FROM A REAL RUN, not composed: `cargo doc -p ambition_characters
+    --no-deps` under the variable, 2026-09-18. A hand-written escape is a guess
+    about which codes rustdoc picks and where it puts the reset.
+
+    The assertion is EQUALITY WITH THE PLAIN FORM, not merely non-empty: a
+    parser that counted the coloured lines but lost the `-->` path would still
+    be scoring the wrong identities.
+    """
+    module = load()
+    plain = (
+        "warning: unresolved link to `resolve_worn_control`\n"
+        "  --> crates/ambition_characters/src/action_scheme.rs:60:46\n"
+        "   |\n"
+        "warning: public documentation for `derive_action_scheme` links to "
+        "private item `combat_actions`\n"
+        "   --> crates/ambition_characters/src/action_scheme.rs:449:9\n"
+        "    |\n"
+    )
+    coloured = (
+        "\x1b[1m\x1b[33mwarning\x1b[0m\x1b[1m: unresolved link to "
+        "`resolve_worn_control`\x1b[0m\n"
+        "  \x1b[1m\x1b[94m--> \x1b[0mcrates/ambition_characters/src/action_scheme.rs:60:46\n"
+        "   \x1b[1m\x1b[94m|\x1b[0m\n"
+        "\x1b[1m\x1b[33mwarning\x1b[0m\x1b[1m: public documentation for "
+        "`derive_action_scheme` links to private item `combat_actions`\x1b[0m\n"
+        "   \x1b[1m\x1b[94m--> \x1b[0mcrates/ambition_characters/src/action_scheme.rs:449:9\n"
+        "    \x1b[1m\x1b[94m|\x1b[0m\n"
+    )
+    assert module.identities(plain) == module.identities(coloured) != []
+
+
+def test_the_measurement_asks_cargo_for_plain_output(monkeypatch):
+    """⭐ THE FIRST LINE OF DEFENCE, AND IT IS SEPARATELY POISONABLE.
+
+    Stripping in the parser fixes the reading; asking cargo not to colour fixes
+    the stream. Both, because each covers a source the other does not — an
+    ambient `CARGO_TERM_COLOR` for the flag, a `RUSTDOCFLAGS=--color=always` for
+    the strip.
+    """
+    module = load()
+    seen = {}
+
+    class Result:
+        stdout = ""
+        stderr = ""
+        returncode = 0
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = list(argv)
+        seen["env"] = kwargs.get("env")
+        return Result()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setenv("CARGO_TERM_COLOR", "always")
+    module.measure("ambition_characters")
+
+    assert seen["argv"][-2:] == ["--color", "never"], seen["argv"]
+    assert seen["env"] is not None, "the child inherited the caller's environment"
+    assert seen["env"]["CARGO_TERM_COLOR"] == "never", seen["env"]["CARGO_TERM_COLOR"]
+
+
 def test_the_tracked_crates_all_exist(rig):
     """⛔ A crate renamed out from under this list scores 0 forever, and 0 is
     the best possible score."""

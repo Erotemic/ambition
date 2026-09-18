@@ -207,6 +207,43 @@ def test_an_unrunnable_signature_on_stderr_is_classified():
     assert "stale build artifact" in blocked, blocked
 
 
+def test_a_coloured_failure_is_still_recorded():
+    """⛔⛤ **THIS RUNNER EXPORTS `CARGO_TERM_COLOR=always` TO THE VERY CHILDREN
+    THIS COLLECTOR READS**, and every pattern in `FailureEvidence.OTHER` is
+    line-anchored. Under colour `error[E0432]`, `failures:` and `FAILED` each
+    arrive behind an SGR escape, so the anchors match nothing and a red job
+    records no evidence at all — the exact absence the P0 flaky-`workspace` row
+    spent weeks living with.
+
+    ⚠ The escape bytes are COPIED FROM A REAL `cargo check --all-targets` under
+    the variable (2026-09-18), not composed — rustc bolds and colours
+    `error[E0432]` as ONE span with code 91, and a hand-written guess at where
+    the reset lands is a fixture that agrees with nothing. The assertion also
+    pins that the STORED line is escape-free: this evidence ends up in a JSON
+    status file that a human greps.
+    """
+    got = collect([
+        "\x1b[1m\x1b[91merror[E0432]\x1b[0m\x1b[1m: unresolved import "
+        "`std::collections::NotAThing`\x1b[0m\n",
+    ])
+    assert any("error[E0432]" in line for line in got), got
+    assert all("\x1b" not in line for line in got), got
+
+
+def test_an_unrunnable_signature_survives_colour():
+    """⛔ THE SAME BYTE IN FRONT OF `UNRUNNABLE_SIGNATURES`, which decides
+    whether a job that COULD NOT RUN is reported as a red or as a precondition.
+    An anchored `^error:` behind an escape classifies the stale-artifact case as
+    a genuine failure of the code, which is the claim that arm exists to avoid."""
+    plain = "error: extern location for ambition_x does not exist: /x.rlib\n"
+    coloured = (
+        "\x1b[1m\x1b[91merror\x1b[0m: extern location for ambition_x "
+        "does not exist: /x.rlib\n"
+    )
+    assert run_tests.unrunnable_reason(plain) is not None
+    assert run_tests.unrunnable_reason(coloured) == run_tests.unrunnable_reason(plain)
+
+
 def test_a_passing_job_records_no_evidence_from_either_stream():
     # The control: chatter on both streams must not make a green job look failed.
     code, _executed, blocked, evidence = _run([

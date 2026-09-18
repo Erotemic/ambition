@@ -604,18 +604,72 @@ WHOLE ARGUMENT FOR WRITING IT.** The same all-zero table reproduced in a
 marked *"repaired"* — and this time the lane FAILED with *"every tracked crate
 measured ZERO against a baseline of 141 broken link(s)"*. ⛔ **The two
 mechanism-specific arms did NOT fire**: cargo exited 0, and each crate's output
-still carried its `Documenting`/`Generated` line. So the mechanism is neither a
-failed command nor a skipped crate, and it is STILL UNIDENTIFIED — what both
-occurrences share is that a `cargo test` build was running against the same
-target directory at the same time (the second one blocked a concurrent build
-with `Blocking waiting for file lock on build directory`). ⇒ An arm written for
-the CLASS survived not knowing the cause, which the two written for the causes I
-could name did not.
+still carried its `Documenting`/`Generated` line. ⇒ An arm written for the CLASS
+survived not knowing the cause, which the two written for the causes I could
+name did not — and it held the door open long enough to find the cause.
 
-⚠ **AND THE OPERATIONAL RULE THAT FALLS OUT: do not run `--maintenance` beside a
-cargo build.** The doc-link job shells out to `cargo doc` thirteen times; every
-other job in that lane is pure Python, which is exactly why the lane looks safe
-to run in parallel with something else and is not.
+⛔⛤ **THE CAUSE, MEASURED: `CARGO_TERM_COLOR=always`, WHICH THE RUNNER ITSELF
+EXPORTS.** Every pattern in the parser is line-anchored on `^warning:`, and
+under that variable rustdoc's line begins `ESC[1m ESC[33m warning ESC[0m ESC[1m:
+unresolved link to …`. The anchor sits behind two escape sequences, matches
+nothing, and each crate scores zero. `scripts/run_tests.py:2019` sets it for
+every child job — `env.setdefault("CARGO_TERM_COLOR", "always")` — so the guard
+could not see a single warning *in the only lane that runs it*, and could see
+all 141 from a plain shell. Same crate, same target directory, one minute
+apart: `cargo doc -p ambition_characters --no-deps` printed 21 warnings bare and
+21 uncountable ones under the variable.
+
+⇒ The repair is both halves, and it belongs to ONE OWNER —
+`scripts/lib/cargo_output.py`. `plain_env()` and `COLOR_NEVER` stop cargo
+colouring; `strip_ansi()` makes the reading survive a colour source they do not
+reach (`RUSTDOCFLAGS=--color=always`, a wrapper that allocates a pty). End-to-end
+proof, on the tree: `env CARGO_TERM_COLOR=always … --check` ran in **7.7s — the
+failing lane's own wall-clock — and printed `TOTAL 141`, exit 0**, where before
+the same command printed `TOTAL 0`.
+
+⛔⛔ **AND IT WAS NEVER ONE GUARD. THE SAME ANCHOR WAS IN THE WORKSPACE WARNING
+GATE, WHOSE ONLY CALLER IS THAT RUNNER.** `check_no_warnings.py` matches
+`^path:line:col: warning: …`; under colour cargo writes
+`src/lib.rs:24:5: ESC[1m ESC[33m warning ESC[0m: unused import`. Measured with a
+planted `use std::collections::BTreeSet as _ProbeUnused;` in
+`crates/ambition_geometry/src/lib.rs`, same command, same variable, same minute:
+
+```text
+pre-fix   exit 0   "OK: ambition_geometry --all-targets compiled with no warnings"
+fixed     exit 1   "1 warning(s) … crates/ambition_geometry/src/lib.rs:24:5: unused import"
+```
+
+⭐ **That is the control this page keeps asking for and the reason to write it
+the hard way round:** a fixed guard going green proves nothing on a clean tree,
+because a guard that measures nothing is also green. What separates them is a
+DEFECT THE GUARD MUST SEE, run against both versions. `run_tests.py` itself was
+the third — `FailureEvidence.OTHER` and `UNRUNNABLE_SIGNATURES` both anchor, so a
+red job recorded no evidence and a job that COULD NOT RUN was reported as a
+genuine failure of the code — and `measure_per_crate_warnings.py` the fourth.
+
+⇒ **THE CLASS NOW HAS ITS OWN GUARD RATHER THAN FOUR REPAIRS.**
+`scripts/tests/test_cargo_diagnostics_are_read_plain.py` MEASURES the population
+— every non-test script that invokes cargo and anchors on `warning`/`error` — and
+requires each to import the one owner. A new script joins by existing. ⚠ Its
+first version asked whether the substring `cargo_output` appeared anywhere in the
+file; a poison that reached the module without naming it in an import PASSED, so
+the arm now matches an import statement. A poison that passes is a finding about
+the arm.
+
+⛔ **AND THE RULE I WROTE FROM THE CORRELATION WAS WRONG, SO IT IS GONE RATHER
+THAN QUALIFIED.** Both occurrences did have a concurrent `cargo` build, and I
+wrote down *"do not run `--maintenance` beside a cargo build"* on that basis.
+What both occurrences actually shared was `--maintenance` itself, which is where
+the environment variable comes from; the concurrent build was the thing I
+happened to be looking at. ⇒ **A shared circumstance is not a cause until one
+run separates them.** The separating run costs 7 seconds: run the guard alone,
+then run it alone again under the one variable you suspect.
+
+⚠ **AND THE ESCAPE-BYTE FAMILY NOW HAS TWO MEMBERS ON THIS PAGE.** The other is
+a generator that wrote `\b` through a non-raw Python string and shipped a
+literal `0x08` inside a regex that could never match. Same failure, opposite
+side of the match: there the byte was in the PATTERN, here it is in the SUBJECT.
+Both read as a clean zero.
 
 ⚠ **THE TRANSFERABLE PART IS THE DIRECTION OF THE SURPRISE.** This page's other
 rows are about a green that hides a failure. This one is about a green that

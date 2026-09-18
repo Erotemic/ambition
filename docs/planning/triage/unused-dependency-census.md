@@ -60,6 +60,49 @@ AND BUILDING — at default features, not only at `--all-features`.** A lint tha
 answers "is this crate named" cannot answer "does this crate's feature have to be
 on", and a confirmer that only widens can be wrong in the removable direction.
 
+⛔⛤ **A THIRD CONFIRMER STAGE IS NEEDED, AND ITS FIRST VERSION SILENTLY DID
+NOTHING — MEASURED 2026-09-18.** `--lib` reports per-BUILD-TARGET, so a
+dependency used only under `tests/` or `#[cfg(test)]` reads as unused on `--lib`
+alone even after the `--all-features` confirmer. The natural third stage —
+
+```
+cargo rustc -p <crate> --all-targets -- -W unused_crate_dependencies
+```
+
+— is **invalid** the moment a crate has more than one build target (a `[[bin]]`,
+or more than one file under `tests/`): rustc hard-errors *"extra arguments to
+`rustc` can only be passed to one target, consider filtering the package by
+passing, e.g., `--lib` or `--bin NAME`"*, and cargo writes that error to the log
+in place of any warning. Every one of the first 9 crates run this way —
+`ambition_app` included — produced that error, and a grep for
+`"is unused in crate"` against an errored log correctly finds nothing, which
+reads exactly like a real zero-hit confirmation. **An absence-based check must
+prove the run happened before it may report nothing**; this one didn't, for
+9/14 hit-crates, before it was caught.
+
+⇒ Fixed by setting the lint through `RUSTFLAGS` instead of `-- <args>` — cargo
+forwards an env var identically to every rustc invocation it spawns, regardless
+of how many targets the crate has:
+
+```
+RUSTFLAGS="-W unused_crate_dependencies" cargo check -p <crate> --all-targets
+```
+
+**Positive-controlled before trusting it**: `ambition_abilities` has a known
+real hit (`ambition_items`, confirmed at both earlier stages); re-run under this
+invocation, its `--all-targets` log reproduced the same warning for both the
+`(lib)` and `(lib test)` copies. An instrument whose pass condition is an
+absent string needs a case where the string is present, or it cannot tell a
+clean result from a run that never happened.
+
+⚠ **One parsing wrinkle**: `RUSTFLAGS` applies to *every* rustc invocation in
+that cargo command, not only the target crate's — a crate's `--all-targets` log
+can carry another crate's own unused-dependency warnings from lower in the
+build graph (e.g. `ambition_input`'s warnings appeared inside
+`ambition_abilities`'s log, since `ambition_abilities` pulls it in
+transitively). Grep for the exact `` is unused in crate `<name>` `` string, not
+any warning line in the file.
+
 ## What a hit means — five outcomes, not one
 
 A confirmed hit is not automatically a deletion. Sorting them is the actual work:
@@ -147,16 +190,39 @@ says production embeds no encounter wave data. The dependency moved to
 ⇒ **The detector alone would have produced a delete list with real production
 code on it.** That is the whole argument for the confirmer.
 
+## `ambition_app`, fully settled 2026-09-18
+
+The detector flagged six: `bevy_common_assets`, `bevy_yarnspinner`, `image`,
+`ron`, `serde`, `serde_json`. All six are settled — three shapes, not one:
+
+| dependency | class | evidence |
+|---|---|---|
+| `serde` | MISFILED | only `tests/replay_fixture_regression.rs` (a submodule of the aggregated `tests/app_it.rs` binary, see its own header comment) names it. Moved to `[dev-dependencies]` |
+| `serde_json` | MISFILED | only `tests/gravity_symmetry_room.rs` (same aggregate binary) names it. Moved to `[dev-dependencies]` |
+| `ron` | **STRANDED — removed** | zero occurrences anywhere in the crate (`lib`, `bin`, `tests/`, `examples/`), and it is a plain non-optional dependency — not wired through any `dep:ron` entry in the crate's own `[features]` table, so it is not FEATURE-ACTIVATION either. Delete-and-build clean at BOTH default features (5m51s) and `--all-features` (5m26s) |
+| `image` | **REDUNDANT — removed** | zero occurrences of the standalone crate anywhere (every `image::` grep hit was `bevy::image::ImagePlugin`, the umbrella's own module, a false positive of the same shape the detector's own limitations table already names for `grep`). Its exact edge — `{ version = "0.25", default-features = false, features = ["png"] }` — is *already* declared identically by `ambition_platformer2d_actor_monolith` (a real dependency of `ambition_app`), `ambition_render`, and `ambition_app_tools`, so removing the redundant copy changes no effective feature unification, not just "still compiles" |
+| `bevy_common_assets`, `bevy_yarnspinner` | FEATURE-GATED — kept | both `optional = true`, both wired through `dep:` in `ambition_app`'s own `[features]` table (`ui = [..., "dep:bevy_yarnspinner"]`; `bevy_common_assets` activates its `ron` feature for the RON asset loader consumed by `ambition_platformer2d_runtime`). Public feature surface, not a default-build finding |
+| `console_error_panic_hook`, `wasm_bindgen` | FEATURE-GATED, and ALSO target-unverifiable | both `optional = true` behind `dep:` in `web_platform`; both additionally live only under `#[cfg(target_arch = "wasm32")]` call sites, so no `--all-features` run on this (native) host can ever exercise them regardless of which Cargo features are on — two independent reasons the sweep cannot see them, not one |
+
+All four manifest edits (`ron` removed, `image` removed, `serde`/`serde_json`
+moved) verified together: `cargo check -p ambition_app --lib` and
+`cargo test -p ambition_app --no-run` both clean, the latter linking the full
+182-module aggregate `tests/app_it.rs` binary — the one place `serde`/`serde_json`
+now need to resolve from `[dev-dependencies]`.
+`test_sub_workspace_lockfiles_are_current.py` stayed green (`ambition_app` is
+not reachable from any of the three independent sub-workspaces).
+
 ## What is owed
 
-▢ **41 crates unscanned**, including several the original grep row named —
-`ambition_platformer2d_host`, `game/ambition_content`, `game/ambition_app`,
-`ambition_platformer2d`, `ambition_sim_view`, `ambition_touch_input`. ⛔ **The
-grep-era claims about those crates are therefore still unverified**, and the
-four "misfiled" edges reported from the text search have NOT been through the
-compiler. Do not act on them from this page.
+▢ **40 crates unscanned** (`ambition_app` settled 2026-09-18, above), including
+several the original grep row named — `ambition_platformer2d_host`,
+`game/ambition_content`, `ambition_platformer2d`, `ambition_sim_view`,
+`ambition_touch_input`. ⛔ **The grep-era claims about those crates are
+therefore still unverified**, and the four "misfiled" edges reported from the
+text search have NOT been through the compiler. Do not act on them from this
+page.
 
-Unscanned: `ambition_app`, `ambition_content`, `ambition_demo_mary_o`,
+Unscanned: `ambition_content`, `ambition_demo_mary_o`,
 `ambition_demo_mary_o_app`, `ambition_demo_pocket`, `ambition_demo_sanic`,
 `ambition_demo_sanic_app`, `ambition_demo_smash`, `ambition_demo_smash_app`,
 `ambition_demo_twintrack`, `ambition_demo_twintrack_app`,

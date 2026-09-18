@@ -112,6 +112,36 @@ WAIVERS = {
     "BossSpriteMetricsApplied": "a once-per-sheet render sync latch in `ecs/sync.rs`",
     "PlayerTrail": "the avatar's visual trail",
     "LightEmitter2d": "a relativity2d render signal",
+    # ⭐⛤ THE `game/*` ARRIVALS, 2026-09-18. These became visible when
+    # `registering_crates` stopped assuming every registering crate lives under
+    # `crates/` — `game/ambition_content` registers rollback state and its whole
+    # component population had been outside this guard. Five of the six that
+    # appeared are presentation and are waived HERE, each with the schedule its
+    # filter site runs in, because "it is under `presentation/`" is a category
+    # argument and this table does not take those.
+    "AmbitionDialogPortraitImage": (
+        "one site, `advance_ambition_dialog_portrait`, registered in `Update` in "
+        "`AmbitionDialogUiPlugin`; it filters a `Query<&mut ImageNode>` — the "
+        "portrait's texture, not a simulated fact"
+    ),
+    "PuppySlugDeepDreamOverlay": (
+        "one site, `sync_puppy_slug_deep_dream_overlays`, registered in `Update` "
+        "in `ActorOverlaySet`; the marker says a shader overlay child exists"
+    ),
+    "PuppySlugDeepDreamSource": (
+        "two sites, `attach_…` and `cleanup_puppy_slug_deep_dream_overlays`, both "
+        "`Update` in `ActorOverlaySet`; the `Without<…>` is the attach pass's own "
+        "idempotence, as its doc comment states"
+    ),
+    "VanityCardStage": (
+        "one site, `fit_card_to_display`, registered in `Update` under "
+        "`run_if(resource_exists::<ActiveShellSequence>)`; it filters a "
+        "`Query<&mut UiTransform>` inside a shell sequence, which is not the sim"
+    ),
+    "VanityCardViewport": (
+        "one site, the same `fit_card_to_display`, filtering `&ComputedNode` — "
+        "bevy_ui's computed layout, recomputed every frame from scratch"
+    ),
     # World build. These mark entities the LDtk loader owns; the sim reads the
     # collision world it builds from them, not the markers.
     "LdtkSolid": "an LDtk loader marker; the sim reads the built collision world",
@@ -201,6 +231,23 @@ ACKNOWLEDGED = {
         "does, not what a tick does, so it wants a behavioural arm rather than "
         "a registration by analogy with its three former neighbours"
     ),
+    # ⛔⛤ THE SIXTH `game/*` ARRIVAL, AND THE ONLY ONE THAT IS NOT PRESENTATION.
+    "SmirkingBehemothVictoryNpc": (
+        "Q142 — its one filter site is `spawn_cut_rope_victory_npc`'s `existing: "
+        "Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>`, a SPAWN-ONCE guard, "
+        "and that system is registered in the REWINDING schedule "
+        "(`app.add_systems(sim, .. .in_set(ContentEncounterVictorySet))` in "
+        "`bosses/mod.rs:379`). So presence decides whether a re-simulated victory "
+        "frame spawns a second celebrant — exactly the shape Q142 is about, on a "
+        "component the question could not name because this guard could not see "
+        "`game/ambition_content` at all until 2026-09-18. ⚠ NOT registered by "
+        "analogy: Q142's own text records that the first `ReleaseOnDeath` arm "
+        "asserted THIS NPC's presence and its poison PASSED, because a visible "
+        "consequence that is not itself rollback state survives the rewind "
+        "whatever the registration does. It wants the per-pass census shape that "
+        "closed the other three, not a fourth row added because its neighbours "
+        "moved"
+    ),
 }
 
 _DERIVE_COMPONENT = re.compile(
@@ -240,15 +287,28 @@ def registered_type_names() -> set[str]:
 
 
 def registering_crates() -> list[str]:
-    """Crates that declare at least one rollback row of any kind."""
+    """Crates that declare at least one rollback row of any kind.
+
+    ⛔⛤ **REPOSITORY-RELATIVE ROOTS (`crates/foo`, `game/foo`) SINCE 2026-09-18,
+    AND THE OLD BARE-NAME FORM WAS A SILENT POPULATION HOLE.** The grep already
+    searched both trees; the comprehension then kept only lines starting with
+    `crates/` and reduced each to its second path segment, and
+    [`component_definitions`] rebuilt it as `crates/<name>/src`. So a crate under
+    `game/` could register rollback state all day and none of its components
+    entered the population — while [`filter_sites`] scanned `game/` the whole
+    time. The guard's stated subject is *"a component defined in a crate that
+    registers rollback state"*; what it measured was that sentence with
+    `crates/*` silently appended.
+    ⚠ MEASURED, so this is not hypothetical: `game/ambition_content` registers
+    `EchoFanState` and the rest of `bosses/specials/rollback.rs`, plus
+    `PortalHostScanned` through `portal/plugin.rs`. Its components were outside
+    the guard's reach entirely.
+    ⛔ THE FLOORS DID NOT PROTECT AGAINST THIS and could not have. They catch a
+    join that returns almost NOTHING; a stable omitted category leaves the
+    remaining population comfortably above every floor, which is exactly what it
+    did."""
     hits = _git_grep(r"registrar\.(rollback|clear|require)", "crates", "game")
-    return sorted(
-        {
-            line.split(":", 1)[0].split("/")[1]
-            for line in hits
-            if line.startswith("crates/")
-        }
-    )
+    return sorted({"/".join(line.split(":", 1)[0].split("/")[:2]) for line in hits})
 
 
 def component_definitions(crates: list[str]) -> dict[str, str]:
@@ -273,7 +333,9 @@ def component_definitions(crates: list[str]) -> dict[str, str]:
     """
     defs: dict[str, str] = {}
     for crate in crates:
-        src = REPO / "crates" / crate / "src"
+        # `crate` is repository-relative (`crates/foo`, `game/foo`) — see
+        # [`registering_crates`] for what assuming `crates/` used to cost.
+        src = REPO / crate / "src"
         for path in sorted(src.rglob("*.rs")):
             rel = path.relative_to(REPO).as_posix()
             text = path.read_text(errors="replace")

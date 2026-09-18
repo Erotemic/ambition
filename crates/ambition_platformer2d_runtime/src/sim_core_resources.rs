@@ -164,7 +164,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // The always-available input seam (RL/headless writes it
             // programmatically; the windowed host's bridge fills it from
             // devices).
-            .init_resource::<ambition_input::ControlFrame>()
+            .init_resource::<ambition_platformer2d_core::ControlFrame>()
             // Feel + physics tuning defaults; the game's assembly pre-inserts
             // its authored values (init never clobbers).
             .init_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>()

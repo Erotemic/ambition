@@ -252,7 +252,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    // The neutral authority `project_editable_abilities` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
@@ -345,7 +345,7 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    // The neutral authority `project_editable_abilities` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
@@ -433,7 +433,7 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
+    // The neutral authority `project_editable_abilities` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply

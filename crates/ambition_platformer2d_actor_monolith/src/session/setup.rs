@@ -231,7 +231,7 @@ pub fn simulation_world(
     //
     // ⇒ **SO THE PARAMETER IS GONE.** A developer's ability selection is a MASK
     // over this base (`ActiveEditableAbilityMask`, projected by
-    // `sync_live_player_dev_edits_system` as `base ∩ mask`), never the base
+    // `project_editable_abilities` as `base ∩ mask`), never the base
     // itself. While the editor WAS the base, a value the rollback timeline had
     // REFUSED still entered simulation through construction — and an ability the
     // developer had switched off was absent from the base a later edit is

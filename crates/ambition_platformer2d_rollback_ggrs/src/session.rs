@@ -227,14 +227,18 @@ pub fn build_sync_test_session(
 
 /// Install an already-built sync-test session as the new frame-zero baseline.
 ///
-/// Installation only mutates world state and cannot fail — ⚠ and that is a
-/// property of its PRECONDITION, not of the work: it takes a
-/// [`FrameZeroEligibility`], which only [`FrameZeroEligibility::check`] can
-/// hand out. ⛔ For a day this sentence read "cannot fail" while the function
-/// returned `Result`, which is the stale-authority shape this repository keeps
-/// finding; the fix was to make the sentence true again rather than to reword
-/// it. Rebase resets frame counters and `Time<GgrsTime>` before installing the
-/// session.
+/// Installation returns nothing and has no recoverable failure — ⚠ **but it is
+/// not unconditionally safe, and this sentence has now been wrong twice.** For a
+/// day it read "cannot fail" while the function returned `Result`. Then it read
+/// that the [`FrameZeroEligibility`] precondition made the work infallible,
+/// which the 2026-09-17 review took apart: the token proves the check RAN, and a
+/// caller can invalidate it before getting here — the lifecycle road rebuilds a
+/// whole room between the two calls. ⇒ What is true is that the fallible,
+/// RECOVERABLE step happens in [`FrameZeroEligibility::check`], one call
+/// earlier, while the old session is still alive; and that this function takes
+/// the census AGAIN, unconditionally, before its first write, where a hidden
+/// candidate is an invariant failure. Rebase resets frame counters and
+/// `Time<GgrsTime>` before installing the session.
 ///
 /// Warn when frame zero has no constructed session world: construction via
 /// `Commands` after session start cannot be undone by rollback, so those frames
@@ -370,14 +374,32 @@ impl std::error::Error for FrameZeroRefused {}
 /// ⇒ So the refusal moved to where it can be acted on. [`Self::check`] is the
 /// only way to build one, its field is private, and
 /// [`install_rebased_sync_test_session`] takes one by value — which makes
-/// "install without having checked" unspellable and the install INFALLIBLE.
-/// Both callers' impossible branches are deleted rather than hardened, because a
-/// branch that cannot be written needs no panic.
+/// "install without having checked" unspellable, and deletes both callers'
+/// unactionable post-destructive branches. ⛔ It does NOT make the install
+/// unconditionally safe — see the paragraph below, and the unconditional census
+/// at the top of [`install_rebased_sync_test_session`] that does.
 ///
-/// ⚠ **WHAT IT DOES NOT PROVE** is that the world has not changed since. It
-/// proves the check HAPPENED and happened first. `&mut World` is exclusive, so
-/// nothing can intervene; the `debug_assert` in the install is what says so
-/// rather than assuming it.
+/// ⛔⛤ **WHAT IT DOES NOT PROVE IS THAT THE WORLD HAS NOT CHANGED SINCE, AND AN
+/// EARLIER VERSION OF THIS PARAGRAPH CLAIMED OTHERWISE.** It said `&mut World` is
+/// exclusive so nothing can intervene. That is true of other SYSTEMS and false
+/// of the caller: `maintain_lifecycle_commit` checks eligibility, runs
+/// `execute_lifecycle_commit` — which rebuilds a room — and only then installs.
+/// Exclusive access says nothing about that middle step. The 2026-09-17 review
+/// put it exactly: *"it does not mean the caller cannot invalidate the predicate
+/// between those two calls."*
+///
+/// ⇒ So this token is a RECOVERABLE PREFLIGHT and nothing more. It exists so a
+/// caller can find out while its old session is still alive and keep it on a
+/// refusal. [`install_rebased_sync_test_session`] takes the census again,
+/// unconditionally, before its first destructive write, and a hidden candidate
+/// there is an invariant failure rather than a `Result` — see the comment at that
+/// assertion for why `debug_assert` was the wrong instrument.
+///
+/// ⚠ It stays `Copy`, deliberately. Making it move-only would stop a caller
+/// re-using one token for two installs, which is a real mistake, but it would
+/// read as *"holding this makes the install safe"* — and that is the claim the
+/// review found to be false. The unconditional census is what makes the install
+/// safe; this type only makes the refusal reachable.
 #[derive(Debug, Clone, Copy)]
 pub struct FrameZeroEligibility {
     carriers: usize,
@@ -618,8 +640,17 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
 /// found the cost: both callers then had a branch for a refusal arriving after
 /// their destructive half, and neither could do anything useful in it. ⇒ The
 /// check is [`FrameZeroEligibility::check`], the token it returns is the only way
-/// to reach this function, and **this function cannot fail.** A caller that wants
-/// the session asks first and keeps what it has on a refusal.
+/// to reach this function, and there is no RECOVERABLE failure here: a caller
+/// that wants the session asks first and keeps what it has on a refusal.
+///
+/// ⛔⛤ **AND THE TOKEN IS NOT WHAT MAKES THAT SAFE, WHICH IS THE 2026-09-17
+/// REVIEW'S FINDING.** It proves the check ran, not that its answer still holds
+/// — so this function re-censuses unconditionally before its first destructive
+/// write, and fails the invariant there. MEASURED with that gate deleted:
+/// `cargo test --release` installs the session with a hidden carrier present
+/// and no diagnostic at all, because the `debug_assert` beside the rebase is
+/// compiled out. In debug the same deletion trips that `debug_assert` instead,
+/// which is why the arm for this is read in BOTH profiles.
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -632,7 +663,42 @@ pub fn install_rebased_sync_test_session(
     // caller did to get here.
     eligibility: FrameZeroEligibility,
 ) {
-    let _ = eligibility;
+    // ⛔⛔ **THE TOKEN IS A PREFLIGHT, NOT A CAPABILITY, AND THIS LINE IS WHERE
+    // THAT DISTINCTION IS ENFORCED.** A `FrameZeroEligibility` proves the check
+    // HAPPENED and happened before whatever the caller did next; it cannot prove
+    // the caller did not then invalidate it. `&mut World` stops another SYSTEM
+    // intervening — it does not stop this caller. The lifecycle road is the
+    // proof: it checks eligibility, runs `execute_lifecycle_commit` (which
+    // rebuilds a room), and only then installs. Exclusive access says nothing
+    // about that middle step.
+    //
+    // ⇒ So the census is taken again HERE, unconditionally, BEFORE the first
+    // destructive write below. It is an invariant failure and not a `Result`:
+    // every road to this function has already reported `Committed`, so a hidden
+    // candidate at this point is a broken promise by the caller and not a
+    // recoverable condition. Recovering is what the token is for, one call
+    // earlier, while the old session is still alive.
+    //
+    // ⚠ AND IT MUST BE UNCONDITIONAL, NOT A `debug_assert`. The failure mode in
+    // release was the ID-PEER defect returning silently: the frame counters
+    // reset, `rebase_rollback_carrier_order` declines to rebuild the order
+    // because it cannot describe the hidden carriers, and the session installs
+    // carrying every rollback order this App ever handed out — 59 of 146 GGRS
+    // checksum parts differing between equivalent hosts. A guard that vanishes
+    // in the build that ships is not guarding the case that matters.
+    let precommit = census_rollback_carriers(world);
+    assert_eq!(
+        precommit.hidden_candidates, 0,
+        "frame zero cannot be declared: {} of {} rollback carrier(s) are hidden \
+         construction candidates. The caller holds a `FrameZeroEligibility` taken \
+         over {} carrier(s), so the world was invalidated between that check and \
+         this install. Nothing has been mutated yet — do every fallible step, and \
+         every step that can publish or retire a candidate, BEFORE asking for the \
+         install.",
+        precommit.hidden_candidates,
+        precommit.with_candidates,
+        eligibility.carriers(),
+    );
     warn_if_no_world_to_rewind(world);
     // A newly installed GGRS session always starts from the current live world
     // as frame zero. Snapshot stores are intentionally retained here: the first
@@ -646,16 +712,18 @@ pub fn install_rebased_sync_test_session(
     // checksum two peers compare carries every rollback entity this App ever
     // registered, retired sessions included — see `rebase_rollback_carrier_order`.
     let rebase = rebase_rollback_carrier_order(world);
-    // ⚠ The precondition above already excluded this, so a non-zero reading here
-    // means a candidate appeared between the check and the rebase — which cannot
-    // happen under `&mut World`. It is still surfaced rather than assumed away,
-    // because the assumption is the interesting part: if this ever fires, the
-    // precondition is being reached by a road that does not hold the world.
+    // ⚠ Unreachable now that the census above is unconditional and runs before
+    // the first write: nothing between the two can add a carrier. Kept as a
+    // `debug_assert` because the two readings bracket every mutation this
+    // function makes, so a disagreement would mean one of those mutations
+    // CREATES a hidden candidate — a different defect from the one above, and
+    // the only one this position can still see.
     debug_assert_eq!(
         rebase.hidden_candidates, 0,
-        "the caller held a `FrameZeroEligibility` and the rebase still found \
-         hidden candidates, so the world changed between the check and here — \
-         which `&mut World` is supposed to make impossible"
+        "the unconditional census at the top of this function read 0 hidden \
+         candidates and the rebase reads {}, so declaring frame zero is itself \
+         creating construction candidates",
+        rebase.hidden_candidates
     );
     bevy::log::debug!(
         target: "ambition_platformer2d::rollback",
@@ -1801,13 +1869,17 @@ mod carrier_order_tests {
     /// the fixture sets frame 77 and confirmed 41, and the install road's own
     /// values are 0 and −1.
     ///
-    /// ⚠ **AND THE INSTALL ITSELF IS NO LONGER WHAT REFUSES**, which is why this
-    /// arm drives `start_sync_test_session_owned`. A second review pass found
-    /// that a fallible install left both callers with an unactionable
-    /// post-destructive branch, so the refusal moved into
-    /// `FrameZeroEligibility::check` and the install became infallible. There is
-    /// no longer an "installed anyway" state to test for — it does not typecheck
-    /// — so what is tested is that the ROAD declines and the world is untouched.
+    /// ⚠ **AND THE RECOVERABLE REFUSAL IS NO LONGER IN THE INSTALL**, which is
+    /// why this arm drives `start_sync_test_session_owned`. A second review pass
+    /// found that a fallible install left both callers with an unactionable
+    /// post-destructive branch, so the recoverable half moved into
+    /// `FrameZeroEligibility::check`. What this arm tests is that the ROAD
+    /// declines and the world is untouched.
+    ///
+    /// ⇒ The install still refuses, as an INVARIANT rather than a `Result`, for
+    /// the case this arm cannot reach: a caller that checks, invalidates its own
+    /// answer, and then installs. That is
+    /// `an_install_whose_preflight_was_invalidated_panics_before_touching_frame_zero`.
     #[test]
     fn a_hidden_candidate_refuses_the_installation_and_mutates_nothing() {
         use ambition_platformer2d_shared_tangle::construction::{
@@ -2200,6 +2272,189 @@ mod tests {
             ),
             "the installed session is the one that was built"
         );
+    }
+
+    /// ⛔⛤ **A CALLER THAT INVALIDATES ITS OWN PREFLIGHT MUST NOT SILENTLY
+    /// INSTALL, AND BEFORE 2026-09-17 IT DID.**
+    ///
+    /// The token made "install without having checked" unspellable, and this arm
+    /// is the case that shape does not cover: the caller DID check, got a token,
+    /// and then changed the world. The lifecycle road has exactly that structure
+    /// — check, `execute_lifecycle_commit`, install — and `&mut World` does not
+    /// forbid the middle step, only other systems. The 2026-09-17 review said it
+    /// plainly: *"it does not mean the caller cannot invalidate the predicate
+    /// between those two calls."*
+    ///
+    /// ⚠ WHAT THE OLD BEHAVIOUR WAS, WHICH IS WHY THIS IS AN `assert` AND NOT A
+    /// `debug_assert`: in release the frame counters reset, the rebase declined
+    /// to rebuild the order because it cannot describe a hidden carrier, and the
+    /// session installed carrying every rollback order this App ever handed out.
+    /// That is the ID-PEER defect the rebase exists to remove — 59 of 146 GGRS
+    /// checksum parts differing between equivalent hosts — arriving back through
+    /// the one road built to prevent it, in the build that ships.
+    ///
+    /// ⭐ AND IT ASSERTS WHERE THE PANIC HAPPENED, NOT JUST THAT IT HAPPENED.
+    /// A panic raised beside the rebase would leave the frame counters already
+    /// reset and the GGRS clock already installed, which is a half-committed
+    /// session. Every reading below is taken AFTER the unwind.
+    ///
+    /// ⛔⛔ **THIS ARM MUST BE READ IN BOTH PROFILES, AND THE TWO SAY DIFFERENT
+    /// THINGS.** Poisoned by deleting the unconditional census, 2026-09-17:
+    ///
+    ///   `--release`  the session INSTALLS, silently, with a hidden carrier
+    ///               present — the `debug_assert` beside the rebase is gone —
+    ///               and this arm reddens at its `expect_err`. That is the
+    ///               defect, and it is the profile that ships.
+    ///   debug       the `debug_assert` trips first, so the arm still reddens
+    ///               but on the wrong line, and the message assertion is what
+    ///               catches it.
+    ///
+    /// ⇒ A run in debug alone would have shown this arm red under the poison and
+    /// green under the fix, and concluded that `debug_assert` was sufficient.
+    #[test]
+    fn an_install_whose_preflight_was_invalidated_panics_before_touching_frame_zero() {
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        use bevy_ggrs::{Rollback, RollbackOrdered};
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, register_inactive_candidate_filter,
+        };
+
+        let settings = SyncTestSettings {
+            check_distance: 0,
+            max_prediction_window: 8,
+            ..SyncTestSettings::for_players(1)
+        };
+        let session =
+            build_sync_test_session(settings).expect("a one-player SyncTest session is valid");
+
+        let mut world = World::new();
+        world.init_resource::<RollbackOrdered>();
+        world.spawn((Rollback, SimId::placement("alpha")));
+        world.spawn((Rollback, SimId::placement("beta")));
+        world.flush();
+        // Frame state that is recognisably NOT frame zero, so "nothing was
+        // mutated" is a reading rather than an absence.
+        world.insert_resource(RollbackFrameCount(77));
+        world.insert_resource(ConfirmedFrameCount(41));
+
+        // The caller's honest preflight, taken while the world was fit.
+        let eligibility = FrameZeroEligibility::check(&mut world)
+            .expect("the fixture has no candidate in flight yet");
+        assert_eq!(eligibility.carriers(), 2);
+
+        // ⇒ AND THEN THE CALLER CHANGES THE WORLD, which is the whole subject.
+        register_inactive_candidate_filter(&mut world);
+        let hidden = world
+            .query_filtered::<Entity, With<Rollback>>()
+            .iter(&world)
+            .next()
+            .expect("the fixture built carriers");
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, &world);
+        hide_candidate_session_root(&mut commands, hidden);
+        queue.apply(&mut world);
+
+        let order_before = world.resource::<RollbackOrdered>().len();
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            install_rebased_sync_test_session(
+                &mut world,
+                session,
+                settings,
+                SyncTestOwner::Caller,
+                eligibility,
+            );
+        }));
+        let payload = panicked.expect_err(
+            "the install accepted a token whose premise had been invalidated and \
+             declared frame zero anyway",
+        );
+        let message = payload
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .unwrap_or("");
+        assert!(
+            message.contains("hidden construction candidate"),
+            "the panic must name the reason a reader can act on; got: {message}"
+        );
+
+        assert_eq!(
+            world.resource::<RollbackFrameCount>().0,
+            77,
+            "the frame counter was reset before the invariant was checked, so the \
+             refusal left a half-declared frame zero"
+        );
+        assert_eq!(
+            world.resource::<ConfirmedFrameCount>().0,
+            41,
+            "the confirmation counter was reset before the invariant was checked"
+        );
+        assert_eq!(
+            world.resource::<RollbackOrdered>().len(),
+            order_before,
+            "the order table was rebuilt before the invariant was checked, which \
+             drops the hidden carrier's entry and panics on the next checksum"
+        );
+        assert!(
+            world.get_resource::<Time<GgrsTime>>().is_none(),
+            "a GGRS clock was installed for a session that was refused"
+        );
+        assert!(
+            world.get_resource::<RollbackSessionOwnership>().is_none(),
+            "the session was installed after all, which is the defect this arm exists for"
+        );
+    }
+
+    /// ⭐ THE CONTROL FOR THE ARM ABOVE, AND IT IS NOT OPTIONAL. Without it the
+    /// arm passes against an install that panics unconditionally — a
+    /// `FrameZeroEligibility` would then be worthless and every session would
+    /// refuse.
+    #[test]
+    fn an_install_whose_preflight_still_holds_declares_frame_zero() {
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        use bevy_ggrs::{Rollback, RollbackOrdered};
+        let settings = SyncTestSettings {
+            check_distance: 0,
+            max_prediction_window: 8,
+            ..SyncTestSettings::for_players(1)
+        };
+        let session =
+            build_sync_test_session(settings).expect("a one-player SyncTest session is valid");
+
+        let mut world = World::new();
+        world.init_resource::<RollbackOrdered>();
+        world.spawn((Rollback, SimId::placement("alpha")));
+        world.spawn((Rollback, SimId::placement("beta")));
+        world.flush();
+        world.insert_resource(RollbackFrameCount(77));
+        world.insert_resource(ConfirmedFrameCount(41));
+
+        let eligibility = FrameZeroEligibility::check(&mut world)
+            .expect("the fixture has no candidate in flight");
+        // ⚠ The caller mutates the world here TOO — it just does not hide a
+        // carrier. A fresh carrier is the ordinary case (a room commit spawns
+        // bodies), so the invariant must not be "the world is untouched".
+        world.spawn((Rollback, SimId::placement("gamma")));
+        world.flush();
+
+        install_rebased_sync_test_session(
+            &mut world,
+            session,
+            settings,
+            SyncTestOwner::Caller,
+            eligibility,
+        );
+
+        assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
+        assert_eq!(world.resource::<ConfirmedFrameCount>().0, -1);
+        assert_eq!(
+            world.resource::<RollbackOrdered>().len(),
+            3,
+            "the rebase ordered the carrier the caller added after its preflight"
+        );
+        assert!(matches!(
+            world.resource::<AmbitionGgrsSession>(),
+            AmbitionGgrsSession::SyncTest(_)
+        ));
     }
 
     #[test]

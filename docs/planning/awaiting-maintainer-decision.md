@@ -2974,7 +2974,7 @@ is the boss-reward durability boundary — a different question about a differen
 object. A route to a wrong number reads exactly like a route to a right one, and
 the row had carried it since 2026-09-04. Filed here 2026-09-17.
 
-## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED AND WITNESSED; the question is down to `PostBossNpc`
+## Q142 — ✔ THREE OF THE FOUR ARE REGISTERED AND WITNESSED; TWO subjects are still owed
 
 The repository already states the rule, in
 [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md):

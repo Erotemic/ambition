@@ -386,6 +386,53 @@ def filter_sites() -> dict[str, list[str]]:
     return sites
 
 
+#: `Q142` and friends: the row an acknowledged subject is owed to.
+_OWED_TO = re.compile(r"\b(Q\d+)\b")
+#: Where those rows live.
+OPEN_ROWS = Path("docs/planning/awaiting-maintainer-decision.md")
+
+
+def owed_rows() -> dict[str, str]:
+    """`subject -> the question id its reading says it is owed to`."""
+    found: dict[str, str] = {}
+    for name, reading in ACKNOWLEDGED.items():
+        match = _OWED_TO.search(reading)
+        if match:
+            found[name] = match.group(1)
+    return found
+
+
+def subjects_missing_from_their_row(repo: Path = REPO) -> list[tuple[str, str]]:
+    """Acknowledged subjects whose own question does not name them.
+
+    ⛔⛤ **A HEADING IS A SECOND OWNER OF THE BODY'S FACT, AND NOTHING CHECKED
+    IT.** `Q142` read *"the question is down to `PostBossNpc`"* in its heading
+    for a day after this guard started reporting TWO subjects: widening the
+    component population to `game/` added `SmirkingBehemothVictoryNpc`, the body
+    of the row recorded it in four places, and the heading — the part a reader
+    sees first and the part every index quotes — still said one. ⇒ This asks the
+    cheapest version of the question: does the row an acknowledgement CITES
+    actually name the subject anywhere? It cannot check a count, and it does not
+    try; it catches the case where a subject is owed to a row that has never
+    heard of it.
+    """
+    text = (repo / OPEN_ROWS).read_text(errors="replace")
+    sections: dict[str, str] = {}
+    parts = re.split(r"^## (Q\d+)", text, flags=re.M)
+    for i in range(1, len(parts) - 1, 2):
+        sections[parts[i]] = parts[i + 1]
+    missing = []
+    for subject, row in sorted(owed_rows().items()):
+        body = sections.get(row)
+        # ⛔ WORD-BOUNDED, because the first version used `in` and its own poison
+        # PASSED: renaming the subject to `SmirkingBehemothVictoryNpcXX` on the
+        # page left the old name as a SUBSTRING of the new one, so the check
+        # reported the row still named a component that no longer existed.
+        if body is None or not re.search(rf"\b{re.escape(subject)}\b", body):
+            missing.append((subject, row))
+    return missing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -432,6 +479,20 @@ def main() -> int:
                 else "FINDING"
             )
             print(f"  {mark:10s} {name:34s} {len(sites[name]):3d} site(s)  {defs[name]}")
+
+    orphaned = subjects_missing_from_their_row()
+    if orphaned:
+        print(
+            "an acknowledged subject is owed to a row that does not name it:\n\n  "
+            + "\n  ".join(f"{subject}  → {row}" for subject, row in orphaned)
+            + f"\n\nThe reading here says {OPEN_ROWS} owes this subject an answer, and "
+            "that row has never heard of it — so the question a maintainer reads is "
+            "narrower than the one this guard is holding open. Add the subject to the "
+            "row (its heading too, if the heading counts them), or point the "
+            "acknowledgement at the row that really owns it.",
+            file=sys.stderr,
+        )
+        return 1
 
     banked = [n for n in findings if n in ACKNOWLEDGED]
     if banked:

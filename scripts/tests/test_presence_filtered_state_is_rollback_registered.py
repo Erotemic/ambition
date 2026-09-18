@@ -287,3 +287,43 @@ def test_the_live_intersection_has_a_population_and_no_unwaived_subject():
         assert guard.main() == 0
     finally:
         sys.argv = saved
+
+
+def test_every_acknowledged_subject_is_named_by_the_row_it_is_owed_to():
+    """⛔⛤ A HEADING IS A SECOND OWNER OF THE BODY'S FACT, and nothing checked it.
+
+    `Q142` read *"the question is down to `PostBossNpc`"* in its heading for a
+    day after this guard started reporting TWO subjects: widening the component
+    population to `game/` added `SmirkingBehemothVictoryNpc`, the body recorded
+    it in four places, and the heading — the part a reader sees first — still
+    said one.
+
+    The check cannot verify a COUNT and does not try. It asks the cheapest
+    version: does the row an acknowledgement CITES name the subject at all?
+    """
+    missing = guard.subjects_missing_from_their_row()
+    assert not missing, (
+        f"acknowledged subject(s) owed to a row that never names them: {missing}"
+    )
+    owed = guard.owed_rows()
+    assert owed, "no acknowledgement names a question row, so the check is vacuous"
+    assert set(owed) == set(guard.ACKNOWLEDGED), (
+        "an acknowledgement stopped naming the row it is owed to: "
+        f"{sorted(set(guard.ACKNOWLEDGED) - set(owed))}"
+    )
+
+
+def test_the_row_match_is_word_bounded():
+    """⚠ THE FIRST VERSION'S OWN POISON PASSED, because it used `in`.
+
+    Renaming the subject to `SmirkingBehemothVictoryNpcXX` on the page left the
+    old name as a SUBSTRING of the new one, so the check reported the row still
+    naming a component that no longer existed. A containment test between two
+    identifiers is almost never the test you want.
+    """
+    import re
+
+    for subject in guard.ACKNOWLEDGED:
+        assert not re.search(rf"\b{re.escape(subject)}\b", f"{subject}XX"), (
+            f"`{subject}` still matches `{subject}XX` — the boundary is gone"
+        )

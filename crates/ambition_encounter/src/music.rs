@@ -44,12 +44,16 @@
 //! legitimately holds it, which that crate's comments record having shipped once.
 //!
 //! ⛤ **AND THE FIELDS ARE PRIVATE SINCE 2026-09-18, so the owner check is the
-//! compiler's rule rather than a habit.** EIGHT production files write this
+//! compiler's rule rather than a habit.** NINE production files write this
 //! component and it is the largest multi-writer population in the session-world
-//! census. MEASURED with comments stripped before the change: six of the eight
+//! census. MEASURED with comments stripped before the change: six of the nine
 //! touched `claim_priority`/`release_priority` and NOTHING else, one wrote only
-//! the base tier, and one wrote only `last_applied` — a perfect separation held
-//! entirely by convention over `pub` fields. ⇒ The discipline was already
+//! the base tier, one wrote only `last_applied`, and one is the session reset
+//! clearing it at a boundary — a perfect separation held entirely by convention
+//! over `pub` fields. ⚠ THIS SAID EIGHT UNTIL 2026-09-18 and the number was a
+//! receipt from a blind instrument: the reset writes through
+//! `session_world_component_mut`, a spelling the census did not read at the time,
+//! so the ninth file was counted by neither. ⇒ The discipline was already
 //! universal; what was missing was anything to keep it that way. The priority
 //! tier can now only be reached through the owner check.
 

@@ -580,6 +580,40 @@ pub fn session_world_component_mut<T: Component<Mutability = Mutable>>(
     world.get_mut::<T>(entity)
 }
 
+/// Mutate one session-world component on an **explicitly resolved** root.
+///
+/// ⭐⭐ **THE ROOT IS HANDED IN, AND THAT IS THE WHOLE DIFFERENCE FROM
+/// [`session_world_component_mut`]**, which asks *"which root is LIVE right
+/// now"*. The moment a hidden candidate session exists those are two different
+/// questions: a publication that verified against candidate B and then re-asked
+/// could be applied to live A. So the caller that resolved the target keeps it
+/// and passes it here — 2026-09-15 review, finding 5.
+///
+/// ⛔⛤ **IT ALSO EXISTS SO THE WRITE IS VISIBLE TO THE CENSUS, AND THAT IS NOT
+/// COSMETIC.** `world.get_mut::<T>(root)` is the same three tokens as any other
+/// component write, so `scripts/multi_writer_resource_census.py` could not see
+/// the room publication at all — and the cost was paid in the wrong place:
+/// `handle_ldtk_hot_reload` kept `SessionWorldMut<RoomSet>` on a parameter it
+/// only READS, with a comment saying so, because demoting it would have taken
+/// `RoomSet` to zero mutable-reach sites while the publication still replaced
+/// it. An instrument that cannot see the real writer makes a reader pretend to
+/// be one. ⇒ Naming the road is what let that pretence be removed.
+///
+/// ⚠ The debug assertion is the invariant, not decoration: a target that is not
+/// a [`SessionRoot`] means the resolution upstream went wrong, and writing
+/// world-defining state onto some other entity would publish into nowhere while
+/// reporting success.
+pub fn session_world_component_mut_at<T: Component<Mutability = Mutable>>(
+    world: &mut World,
+    root: Entity,
+) -> Option<Mut<'_, T>> {
+    debug_assert!(
+        world.get::<SessionRoot>(root).is_some(),
+        "session-world state was written onto {root:?}, which carries no `SessionRoot`"
+    );
+    world.get_mut::<T>(root)
+}
+
 /// Insert one component into the canonical direct/test session-world root.
 ///
 /// Provider activations should insert a complete prepared bundle through the

@@ -187,6 +187,18 @@ SESSION_WORLD_MUT = re.compile(
 #: `session_world_component_mut::<T>(world)` — the EXCLUSIVE-WORLD spelling of
 #: the same reach, for a system or a staged closure that holds `&mut World`.
 #:
+#: ⛔⛤ **`_at` IS THE SAME REACH WITH THE ROOT HANDED IN, AND ADDING IT HERE IS
+#: WHAT LET A LIE BE REMOVED FROM THE TREE.** `apply_world_replacement` — the
+#: verdict-gated room publication, which is the authoritative writer of `RoomSet`
+#: and `RoomGeometry` — wrote through a bare `world.get_mut::<T>(root)`, three
+#: tokens indistinguishable from any other component write. So this census could
+#: not see the real writer, and `handle_ldtk_hot_reload` was left holding
+#: `SessionWorldMut<RoomSet>` on a parameter it only READS, with a source comment
+#: admitting the reason was that demoting it would drop the count. ⇒ The
+#: instrument was shaping the program instead of measuring it. Naming the road
+#: `session_world_component_mut_at` made the publication visible and the reader
+#: honest in the same edit.
+#:
 #: ⛔⛤ **THE THIRD SPELLING, AND THE CENSUS WAS BLIND TO IT UNTIL 2026-09-18 —
 #: WHICH IS THE SAME DEFECT AS THE RESOURCE SIDE'S, ONE POPULATION LATER.**
 #: [`writers`] learned `world.resource_mut::<T>()` on 2026-09-17 after reading
@@ -214,7 +226,7 @@ SESSION_WORLD_MUT = re.compile(
 #: through the other two. ⇒ A stated limit with a number on it, not a silent one,
 #: and the number is what makes it safe to leave.
 SESSION_WORLD_COMPONENT_MUT = re.compile(
-    r"session_world_component_mut\s*::\s*<\s*"
+    r"session_world_component_mut(?:_at)?\s*::\s*<\s*"
     r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
 )
 

@@ -78,13 +78,12 @@ pub(super) fn handle_ldtk_hot_reload(
     // writes nothing. A comment saying "not a write target" beside a `&mut` is
     // the weakest form that statement can take.
     _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    // ⛤ NO `mut` ON EITHER BINDING SINCE 2026-09-18, while the TYPES
-    // deliberately keep their mutable reach. rustc reported both `mut`s as dead
-    // the moment the handoff below became a shared borrow, and a dead `mut` is
-    // the one part of this signature nothing was arguing for — see the note at
-    // the `reload_ldtk_world_from_disk` call for why the reach itself stays.
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+    // ⛤ SHARED BORROWS SINCE 2026-09-18, and the TYPES no longer claim a
+    // mutable reach either. Both are only READ here; the reload's writes land in
+    // the staged closure on the publication's own verdict. See the note at the
+    // `reload_ldtk_world_from_disk` call for what had to change first.
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ldtk_world::LdtkRuntimeIndex,
     >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
@@ -225,15 +224,19 @@ pub(super) fn handle_ldtk_hot_reload(
             .cloned()
             .unwrap_or_default()
             .schema_fingerprint();
-        // ⛔⛤ `room_set` AND `ldtk_index` STAY `SessionWorldMut` AT THIS SYSTEM'S
-        // SIGNATURE, DELIBERATELY, even though both are handed on as shared
-        // borrows now. The reload's real writes happen in the staged closure
-        // below through `session_world_component_mut`, and demoting the
-        // signature would take `RoomSet` to ZERO mutable-reach sites in the
-        // session-world census while the room publication still replaces it —
-        // a smaller number for an unchanged fact. ⇒ The instrument has to be
-        // able to see the publication's write before a demotion here is allowed
-        // to reduce the count.
+        // ⛔⛤ `room_set` AND `ldtk_index` ARE `SessionWorldRef` NOW, AND THE
+        // INSTRUMENT HAD TO BE FIXED BEFORE THE SOURCE COULD BE. They had stayed
+        // `SessionWorldMut` on a pair of parameters this system only READS, for
+        // one reason, written down at the time: demoting them would have taken
+        // `RoomSet` to ZERO mutable-reach sites in the session-world census while
+        // the room publication still replaced it. That is a program bent to keep
+        // an instrument's number up — Bevy was told this system takes an
+        // exclusive access it does not take, which serialises it against real
+        // writers and tells a reader the signature is a writer's.
+        // ⇒ The publication's own write is visible now: `apply_world_replacement`
+        // spells it `session_world_component_mut_at::<RoomSet>(world, root)`
+        // instead of a bare `world.get_mut`, so the census counts the authority
+        // rather than this proxy for it.
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &room_set,
@@ -386,9 +389,9 @@ pub(super) fn prepare_ldtk_reload_transaction(
 /// same reason as the list above: this function reads the current room's id off
 /// one and CLONES the other into a candidate, and every write lands in the
 /// staged closure on the publication's own verdict. A `&mut` here claimed a
-/// write that happens somewhere else. ⚠ The system's `SessionWorldMut` params
-/// that feed them are deliberately NOT demoted with them — see the note at the
-/// call site.
+/// write that happens somewhere else. ⇒ The calling system's parameters are
+/// `SessionWorldRef` too now; they had been held at `SessionWorldMut` to keep a
+/// census number up, which the census no longer needs.
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     room_set: &world_rooms::RoomSet,

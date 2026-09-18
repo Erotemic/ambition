@@ -1137,6 +1137,79 @@ fn a_root_holding(world: &mut bevy::prelude::World, room: &str) -> bevy::prelude
         .id()
 }
 
+/// ⛔⛤ **A REFUSED APPLICATION MUST NOT HAVE DESTROYED THE OUTGOING WORLD
+/// FIRST.** `apply_world_replacement` despawned the whole outgoing roster and
+/// only THEN discovered whether the target still carried the sinks it needed,
+/// logging an error and carrying on — so the one case those arms exist for left
+/// the session with the old world destroyed and the new one not installed.
+///
+/// Review finding, 2026-09-18. It is the same shape
+/// `install_rebased_sync_test_session` was corrected for on 2026-09-17 and
+/// `maintain_local_session` on 2026-09-18: *"everything that can decline runs
+/// while the old session is still alive; the stop is the first irreversible act
+/// and nothing after it may fail."*
+///
+/// ⭐ **THE CONTROL IS A COMPLETE TARGET AND IT IS THE HALF THAT CAN GO WRONG
+/// QUIETLY.** A preflight that refuses EVERYTHING also leaves the roster
+/// standing, and would satisfy the subject below while breaking every room
+/// transition in the game.
+///
+/// ⚠ The roster is the observable, not the room: `verify_staged_world` is what
+/// normally makes this unreachable, so the subject here is what happens when the
+/// world changed between verification and application — which is exactly when
+/// the old world is the only one that exists.
+#[test]
+fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+
+    /// A root carrying `SessionRoot` plus whichever sinks `with_geometry` asks
+    /// for, and one outgoing body for the roster.
+    fn world_with(with_geometry: bool) -> (bevy::prelude::App, bevy::prelude::Entity, bevy::prelude::Entity) {
+        let mut app = bevy::prelude::App::new();
+        let world = app.world_mut();
+        let mut root = world.spawn((
+            SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
+            RoomSet::from_parts("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
+        ));
+        if with_geometry {
+            root.insert(ambition_platformer2d_core::RoomGeometry(empty_world("r")));
+        }
+        let root = root.id();
+        let outgoing = world.spawn_empty().id();
+        (app, root, outgoing)
+    }
+
+    fn replacement(outgoing: bevy::prelude::Entity) -> super::transaction::PendingWorldReplacement {
+        super::transaction::PendingWorldReplacement::new(
+            vec![(outgoing, false)],
+            None,
+            0,
+            empty_world("r"),
+            Vec::new(),
+        )
+    }
+
+    // ── THE CONTROL: a complete target. The roster MUST be swept here, or the
+    //    subject below is satisfied by a preflight that refuses everything.
+    let (mut app, root, outgoing) = world_with(true);
+    super::transaction::apply_world_replacement(app.world_mut(), replacement(outgoing), Some(root));
+    assert!(
+        app.world().get_entity(outgoing).is_err(),
+        "a complete publication left the outgoing roster alive, so this preflight \
+         refuses valid applications and every room transition is broken"
+    );
+
+    // ── THE SUBJECT: the target lost a sink between verification and here.
+    let (mut app, root, outgoing) = world_with(false);
+    super::transaction::apply_world_replacement(app.world_mut(), replacement(outgoing), Some(root));
+    assert!(
+        app.world().get_entity(outgoing).is_ok(),
+        "the application was refused for a missing `RoomGeometry` AFTER it had \
+         already despawned the outgoing world. The session now has neither the \
+         room it was standing in nor the one it was moving to"
+    );
+}
+
 fn a_replacement_naming(room: &str) -> super::transaction::PendingWorldReplacement {
     super::transaction::PendingWorldReplacement::new(
         Vec::new(),

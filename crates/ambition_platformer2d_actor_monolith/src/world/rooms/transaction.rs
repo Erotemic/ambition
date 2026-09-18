@@ -650,11 +650,66 @@ pub(crate) fn verify_staged_world(
 /// entity, so reaching one of the error arms below means the world changed
 /// between verification and application — an invariant violation, and it says so
 /// rather than writing nothing.
-fn apply_world_replacement(
+pub(crate) fn apply_world_replacement(
     world: &mut World,
     pending: PendingWorldReplacement,
     target: Option<bevy::ecs::entity::Entity>,
 ) {
+    // ⛔⛤ **REVALIDATE BEFORE THE FIRST DESTRUCTIVE ACT, NOT AFTER IT.** Every
+    // arm below this block used to be discovered AFTER the outgoing roster had
+    // already been despawned: a missing sink logged an error and carried on,
+    // having destroyed the old world and installed none of the new one. That is
+    // the same shape `install_rebased_sync_test_session` was corrected for on
+    // 2026-09-17 and `maintain_local_session` on 2026-09-18 — *"everything that
+    // can decline runs while the old session is still alive; the stop is the
+    // first irreversible act and nothing after it may fail"*.
+    //
+    // ⚠ These are the same sinks `verify_staged_world` preflighted on this exact
+    // entity, so reaching a refusal here still means the world changed between
+    // verification and application. What changes is the COST of that: the
+    // outgoing roster is still standing, so the session keeps the room it has
+    // instead of keeping neither.
+    //
+    // ⭐ Read-only, and cheap: three `get`s against one entity, once per
+    // publication.
+    let refusal = match target {
+        None => Some("no publication target — `verify_staged_world` refuses that with \
+                      `NoSessionRootToPublishInto`".to_string()),
+        Some(root) if world.get_entity(root).is_err() => {
+            Some(format!("publication target {root:?} no longer exists"))
+        }
+        Some(root)
+            if world
+                .get::<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>(root)
+                .is_none() =>
+        {
+            Some(format!("publication target {root:?} carries no `SessionRoot`"))
+        }
+        Some(root)
+            if world
+                .get::<ambition_platformer2d_world::rooms::RoomSet>(root)
+                .is_none() =>
+        {
+            Some(format!("publication target {root:?} carries no `RoomSet`"))
+        }
+        Some(root)
+            if world
+                .get::<ambition_platformer2d_core::RoomGeometry>(root)
+                .is_none() =>
+        {
+            Some(format!("publication target {root:?} carries no `RoomGeometry`"))
+        }
+        Some(_) => None,
+    };
+    if let Some(why) = refusal {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "staged world REFUSED at application, nothing was destroyed: {why}, though \
+             its preflight found one. The session keeps the room it is standing in"
+        );
+        return;
+    }
+
     {
         let mut queue = bevy::ecs::world::CommandQueue::default();
         let mut commands = bevy::prelude::Commands::new(&mut queue, world);

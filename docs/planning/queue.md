@@ -842,9 +842,19 @@ counters differ.
 
 ### ROLLBACK-KIND-SPELLING — one registration, one kind, spelled once — ✅ DONE 2026-09-16
 
-**Receipt:** `ambition_platformer2d_core::rollback_kind::spelling` holds all
-**18** (kind, sentence) pairs; both roads reference the const and neither spells
-a kind literal beside a sentence any more. Guarded by
+**Receipt (measured at the landing commit `5eb6ef3a0`, 2026-09-16):**
+`ambition_platformer2d_core::rollback_kind::spelling` holds all **18** (kind,
+sentence) pairs; both roads reference the const and neither spells a kind literal
+beside a sentence any more.
+
+⚠ **RE-MEASURED 2026-09-18: 19 DECLARED, 38 REFERENCES ACROSS 2 ROADS, 0 LITERAL
+PAIRS BESIDE THE CODE.** `5967c98a7` and `190830022` both added to
+`rollback_kind.rs` after this row landed — ordinary follow-on work, and the
+invariant this row is about is the trailing ZERO, not the population size. The
+18 above is left as what was measured then, because a receipt that is silently
+re-fitted to today's tree stops being evidence of anything. Found by review.
+
+Guarded by
 `scripts/check_rollback_kind_spelled_once.py`, wired into `--maintenance`
 (9 jobs) with `scripts/tests/test_rollback_kind_spelled_once.py` beside it so it
 also runs under `pytest scripts/tests`.
@@ -858,8 +868,8 @@ raises NO conflicting-registration error, which is the acceptance itself. There
 is no longer one road to change.
 
 ⭐⭐ **THE MEASUREMENT THAT MADE IT SMALL: KEY ON THE PAIR, NOT THE METHOD.**
-Across both roads there are exactly 18 distinct literal (kind, detail) pairs and
-each occurs EXACTLY TWICE — a perfect 1:1, zero disagreements. Two of my own
+Across both roads there were, at `5eb6ef3a0`, exactly 18 distinct literal (kind,
+detail) pairs and each occurred EXACTLY TWICE — a perfect 1:1, zero disagreements. Two of my own
 parsers got the METHOD attribution wrong (one invented four recording-only
 methods; another swallowed the file tail into the last method and reported three
 disagreements that did not exist). The pair needs no attribution at all, so the
@@ -1756,7 +1766,7 @@ behind a guard change.
 passes at all five published rungs at HEAD — by rung 5's CPUs fighting each
 other, not by a threshold that moved.
 
-### A2 — close the remaining projectile construction-identity hole
+### A2 — close the remaining projectile construction-identity hole — ✅ DONE 2026-09-16 (THIS ROW'S SCOPE; A2a/A2b/A2c are a different subject)
 
 **Owner:** [`engine/projectile-contact-protocol.md`](engine/projectile-contact-protocol.md).
 

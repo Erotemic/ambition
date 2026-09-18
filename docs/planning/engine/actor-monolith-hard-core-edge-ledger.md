@@ -9,9 +9,15 @@ contracts. No packet is authorized solely by this table.
 
 ## Evidence and limits
 
-The current module-path instrument reports the cycle through abilities,
-construction, control, features, items, projectile, session, shrine and world,
-plus the separate assets/character_sprites cycle. Reproduce it with:
+The current module-path instrument reports a largest cycle of TEN modules plus
+the separate assets/character_sprites cycle of two. ⚠ **This paragraph named the
+NINE — including `shrine`, which has since left — until 2026-09-18.** The
+members and the diff are owned by
+[the reassessment](architecture-reassessment.md); the decomposition rules and
+the `--cuts` table are owned by
+[the decomposition page](actor-monolith-decomposition.md). ⇒ Three pages were
+each keeping their own copy of this list and two of them had gone stale.
+Reproduce it with:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 200

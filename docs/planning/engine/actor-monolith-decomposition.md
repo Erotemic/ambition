@@ -24,16 +24,69 @@ an expected SCC size is reached.
 The measured nontrivial SCCs are:
 
 ```text
-9: abilities, construction, control, features, items, projectile,
-   session, shrine, world
-2: assets, character_sprites
+largest cyclic component   10 modules
+second                      2 modules
 ```
+
+⛔⛤ **THE MEMBER LIST USED TO BE HERE AND IS NOW OWNED IN ONE PLACE.** This page
+carried its own enumeration of the nine, which went stale when the membership
+moved — `shrine` LEFT (A1b took its checkpoint half) and `avatar` +
+`character_runtime` joined, so the count went 9 → 10 while containing one repair
+and two new problems. ⇒ [The reassessment](architecture-reassessment.md) owns
+the members and the diff, and makes the argument that *"the count cannot tell a
+repair from a regression, and here it contained both."* Re-measured 2026-09-18
+and unchanged since its 2026-09-17 reading. **This page owns the rules and the
+cuts; ask that one which modules.**
 
 Reproduce with:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
+
+⭐⛤ **AND NO PAGE HAS EVER RECORDED WHICH EDGES THE `--cuts` HALF NAMES.** Every
+page that names this instrument passes `--cuts` and then quotes only the
+component sizes. ⚠ The OUTCOME was known — the
+[edge ledger](actor-monolith-hard-core-edge-ledger.md) says in its own opening
+that it records decisions *"at the current nine-module SCC, rather than assuming
+that a future six-module SCC is the right unit of design"* — so the six has been
+in the corpus all along with nothing saying where it comes from. Measured
+2026-09-18, the single edges whose removal shrinks the largest component:
+
+```text
+-> 6    1 ref    abilities -> features
+-> 7    3 refs   control -> abilities
+-> 8    1 ref    avatar -> control
+-> 9    1 ref    character_runtime -> avatar
+-> 9    1 ref    features -> projectile
+-> 9    4 refs   construction -> world
+```
+
+⇒ The first line is the striking one: **ONE production reference collapses the
+largest component from ten modules to six.** It is
+`abilities/thrown/puppy_slug_gun.rs:113` calling
+`crate::features::spawn_runtime_minion`, and `abilities/mod.rs:17` already names
+that seam in its own module doc.
+
+⛔⛔ **AND THIS IS RECORDED AS A FACT, NOT AS A MANDATE — READ THE NEXT SENTENCE
+BEFORE ACTING ON THE TABLE.** ⭐ The edge ledger already made this call, which
+is the strongest evidence it is the right one: it chose to record decisions at
+the ten-module cycle *"rather than assuming that a future six-module SCC is the
+right unit of design."* The frontier page states the same stance outright:
+*"A1–A12 name responsibilities, not SCC scores"*
+([work frontier](actor-monolith-work-frontier.md)), and this page's own
+paragraph below says the spawn extraction proved *"the same SCC result can
+accompany both a wrong and a corrected ownership boundary."* ⇒ A one-reference
+cut that moves a number by four is precisely the change this repository has
+decided NOT to make for the number's sake: `puppy_slug_gun` spawning a minion IS
+an ability using a spawn service, and inverting it to satisfy a graph metric
+would buy a worse boundary and a better score.
+
+⇒ **So why write it down at all?** Because the alternative is that the next
+reader runs `--cuts`, sees `1 ref` beside a four-module win, and re-derives the
+enthusiasm from scratch — and because if a RESPONSIBILITY argument ever lands on
+that seam, this table says what it would also be worth. The number is the
+consequence, never the reason.
 
 This is a textual intra-crate module graph. It does not see Cargo-crossing query
 ownership, shared writers, message timing, plugin prerequisites or all Rust

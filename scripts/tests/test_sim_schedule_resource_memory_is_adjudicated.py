@@ -164,3 +164,73 @@ def test_every_reading_names_a_mechanism_and_a_date():
             f"{name}'s reading names none of the five mechanisms, so the next "
             f"reader cannot check a twelfth against it"
         )
+
+
+# ── the sibling reset, which is a claim about ORDER ─────────────────────────
+
+
+def _two(bodies: str, registration: str) -> dict[str, str]:
+    return {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            bodies,
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            f"    {registration}",
+            "}",
+        ])
+    }
+
+
+def test_a_SIBLING_reset_is_not_proof_and_lands_in_the_ordering_bucket(tmp_path):
+    """⛔⛤ THE COUNTEREXAMPLE A 2026-09-18 REVIEW BUILT, NOW AN ARM.
+
+    `carrying()` treated any sibling reset of the same type as proof of safety.
+    It is not proof of anything: registered as one unordered tuple, `contribute`
+    reads the PREVIOUS simulation run's contents before `wipe` ever runs.
+
+    ⇒ `carrying()` still reports nothing for it — that is the documented split,
+    not an oversight — and `sibling_reset_rows` is where it now shows up, which
+    is what makes `main()` demand the ordering be named.
+    """
+    root = _tree(tmp_path, _two(
+        "pub fn contribute(mut v: ResMut<View>) { v.0.push(1); }\n"
+        "pub fn wipe(mut v: ResMut<View>) { v.0.clear(); }",
+        "app.add_systems(sim, (contribute, wipe));",
+    ))
+    guard._sibling_reset_cached.cache_clear()
+    assert guard.carrying(root) == {}
+    rows = guard.sibling_reset_rows(root)
+    assert [(n, ty) for n, _f, ty, _h in rows] == [("contribute", "View")], rows
+
+
+def test_a_type_that_resets_ITSELF_is_not_in_the_ordering_bucket(tmp_path):
+    """⭐ THE CONTROL. A system that clears before it appends needs no edge, and
+    putting it in the bucket would demand a reading for nothing."""
+    root = _tree(tmp_path, _one(
+        "pub fn tick(mut v: ResMut<View>) { v.0.clear(); v.0.push(1); }"
+    ))
+    guard._sibling_reset_cached.cache_clear()
+    assert guard.sibling_reset_rows(root) == ()
+
+
+def test_a_type_nothing_resets_stays_in_carrying_not_the_bucket(tmp_path):
+    root = _tree(tmp_path, _one("pub fn tick(mut v: ResMut<View>) { v.0.push(1); }"))
+    guard._sibling_reset_cached.cache_clear()
+    assert set(guard.carrying(root)) == {"tick"}
+    assert guard.sibling_reset_rows(root) == ()
+
+
+def test_every_ordering_reading_names_an_edge_and_a_date():
+    """A reading here is a claim about a schedule EDGE, so it must point at one."""
+    edges = (".chain()", ".after", "in_set")
+    for ty, reading in guard.SIBLING_RESET_ADJUDICATED.items():
+        assert "read 2026-" in reading, f"{ty}'s ordering reading carries no date"
+        assert any(e in reading for e in edges), (
+            f"{ty}'s reading names no schedule edge: {reading[:90]}"
+        )
+
+
+def test_the_real_ordering_bucket_is_fully_read():
+    types = {ty for _n, _f, ty, _h in guard.sibling_reset_rows()}
+    assert types, "the sibling-reset bucket is empty — the split stopped working"
+    assert not types - set(guard.SIBLING_RESET_ADJUDICATED), types

@@ -298,6 +298,12 @@ NOT_TREE_NAMES: dict[str, str] = {
     "resource_mut": "bevy's `World::resource_mut`, same",
     "write_sites": "a python function in `multi_writer_resource_census.py`",
     "this_tick": "prose shorthand for `materialize_projectiles_for_this_tick`",
+    "get_resource_mut": "bevy's `World::get_resource_mut`, same",
+    # ⚠ ID LITERALS, not identifiers. Backticks are right for a literal and
+    # wrong for this arm, so they are named here rather than un-quoted: the
+    # allowlist is where a token says which kind of thing it is.
+    "respawn_platform_": "the value of `RESPAWN_PLATFORM_PREFIX`, an id prefix",
+    "respawn_platform_0": "an example id built from that prefix",
 }
 
 _DECLARED = re.compile(

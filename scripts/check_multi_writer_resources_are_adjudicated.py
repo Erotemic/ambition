@@ -61,16 +61,21 @@ owner's helper, and only the call sites say which. Check it by hand when
 adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 37 of the 121 are rollback-registered, and EIGHT of
-those are still unadjudicated** — `AuthoredOccurrences` (5 files), `BaseGravity`
-(6), `MovingPlatformSet` (4), `OwnedItems` (10), `QuestRegistry` (8),
-`RoomTransitionCooldown` (7), `SlotControls` (6), `VersusMatch` (2). That is the
-whole remaining shortlist and it is short enough to name, which is the point of
-spending verdicts here first. ⚠ This line said "31 of them unadjudicated" for
-part of one afternoon and "21 of the 102" the day before; the 37 did not move,
-the verdicts did — 23 of the 25 written on 2026-09-18 landed inside this
-intersection on purpose. Those are the ones where a second writer
-is a divergence rather than a design smell. The 37 is a LOWER BOUND and carries
+HAND.** **At least 37 of the 121 are rollback-registered, and SIX of
+those are still unadjudicated** — `AuthoredOccurrences` (5 files), `OwnedItems`
+(10), `QuestRegistry` (8), `RoomTransitionCooldown` (7), `SlotControls` (6),
+`VersusMatch` (2). That is the whole remaining shortlist and it is short enough
+to name, which is the point of spending verdicts here first.
+
+⛔ **DO NOT QUOTE THIS COUNT — RE-DERIVE IT.** It read "21 of the 102" on
+2026-09-17, then "31", then "eight", then "seven", then this, all inside about a
+day. The 37 did not move once; the verdicts did, because 25 of the 27 written on
+2026-09-18 aimed at this intersection on purpose. ⇒ A shortlist that is actively
+being worked is the LAST number worth carrying across a document boundary. The
+snippet below prints the current list.
+
+What the intersection buys is that a second writer there is a DIVERGENCE rather
+than a design smell. The 37 is a LOWER BOUND and carries
 its instrument: it is the intersection with the type names in `rollback_*::<T>` /
 `declare_rollback_derived_*::<T>` turbofish calls across `crates/` and `game/`,
 which parses 396 such names where the registry itself holds 491 rows — every row
@@ -368,6 +373,102 @@ ADJUDICATED: dict[str, str] = {
         "deleting the installer outright, because `drive_slot_frame` writes "
         "`SlotControls` directly when the composition has no latch, so a test "
         "that introduces input that way cannot witness the seam either way."
+    ),
+    "BaseGravity": (
+        "CORRECT FOR FIVE OF THE SIX, AND THE SIXTH IS A SYSTEM NOTHING RUNS — "
+        "ROUTED TO Q137. Six files, seven sites. ONE developer road, and it is an "
+        "INVERSION rather than a writer: a dev hotkey or the menu's Gravity row "
+        "writes `AmbientGravityRequest` and `apply_ambient_gravity_requests` "
+        "(`shared_tangle/src/gravity.rs`) applies it inside the sim. That seam "
+        "exists because the direct version was caught — its own doc records "
+        "*\"a developer control that wrote it from `Update` mutated a rewound "
+        "value on a schedule that never rewinds\"*, found by "
+        "`check_rollback_mutators_run_in_sim.py` on 2026-09-03. ONE shipped "
+        "MECHANIC: `drive_wave_encounters` (`encounter_features/src/systems.rs`) "
+        "queues two deferred world commands, off `SwitchAction::FlipGravity` "
+        "(negate) and `SetGravity(face)` (absolute), and reaches them only "
+        "through the single `drain_switch_activations`, so activation ORDER is "
+        "owned by that drain and not contested here. THREE lifecycle resets on "
+        "three distinct edges, each stated where it lives: "
+        "`reset_gravity_on_room_reset` (`RoomReplayAdmitted` + "
+        "`NewGameResetCommitted`), `RoomTransitionCombatReset::clear_carryover` "
+        "(a room crossing), and `SessionScopedResources::reset` (session "
+        "activation and retirement). All three assign the same "
+        "`BaseGravity::default()`, so they cannot disagree about the VALUE — they "
+        "differ only in WHEN. ONE driver: `set_base_gravity_dir` "
+        "(`sim_harness/src/runtime.rs`), which calls "
+        "`rebase_after_direct_setup_mutation` rather than leaving a rollback "
+        "baseline behind it.\n"
+        "    ⛔ THE SIXTH IS A DUPLICATED MECHANIC THAT CANNOT FIRE. "
+        "`gravity_flip_switch_system` (`actor_monolith/src/gravity/lifecycle.rs`) "
+        "computes `base.dir = -base.dir` — the SAME expression as the encounter "
+        "road's FlipGravity arm. It is registered exactly once in the workspace "
+        "and that registration is `app.add_systems(Update, ...)` inside its own "
+        "`#[cfg(test)]` module; `gravity/plugin.rs` says so in place — "
+        "*\"`gravity_flip_switch_system` is intentionally NOT registered. Nothing "
+        "spawns a `GravityFlipSwitch` in-game.\"* ⇒ A DEAD second authority, not a "
+        "live one, so nothing can diverge today.\n"
+        "    ⚠ BUT IT IS NOT FREE AND IT IS NOT MINE TO DELETE. "
+        "`GravityFlipSwitch` is rollback-registered TWICE "
+        "(`require_rollback` and `rollback_component_clone`, "
+        "`actor_monolith/src/rollback_registration.rs`), so it sits inside the "
+        "schema fingerprint two peers compare; `sim_view/src/facts.rs` rebuilds a "
+        "view over its always-empty query every tick; and "
+        "`rollback_exit_oracle.rs` names it by string. That whole vertical is "
+        "`Q137`, which asks for a PRODUCT ruling on retiring a mechanic the "
+        "shipped encounter `Switch` already owns — so this row stays and the "
+        "verdict routes rather than collapses.\n"
+        "    ⚠⛤ AND THE CENSUS COUNTS IT BECAUSE THE FUNCTION IS PRODUCTION CODE. "
+        "The file is production, the `ResMut<BaseGravity>` parameter is "
+        "production, and only its single CALLER is behind `#[cfg(test)]`. A "
+        "writer census that reads parameter lists cannot see that, so "
+        "\"multi-writer\" here is a fact about reachable DECLARATIONS and not "
+        "about reachable writes — the same distinction that put eight types on "
+        "this shortlist for fixtures alone before the test-region cut landed."
+    ),
+    "MovingPlatformSet": (
+        "CORRECT — ONE KINEMATICS ADVANCER, TWO MEMBERSHIP OWNERS OVER DISJOINT "
+        "ID NAMESPACES, ONE SESSION CLEAR. Four files, four sites. "
+        "`advance_moving_platforms` (`actor_monolith/src/avatar/body_integration.rs`) "
+        "is `for platform in platforms.0.iter_mut() { platform.update(sim_dt) }` "
+        "and nothing else — it moves each platform along its own motion and never "
+        "touches MEMBERSHIP, so it cannot contest the other two. "
+        "`apply_world_replacement` (`actor_monolith/src/world/rooms/transaction.rs`) "
+        "assigns `platforms.0 = pending.moving_platforms`, the authored set for "
+        "the room being published, and the publication FAILS CLOSED if the "
+        "composition holds no resource to publish into "
+        "(`StagedWorldViolation::NoPlatformStateToPublishInto`, added because "
+        "`get_resource_mut` answering `None` produced *\"a room the player falls "
+        "through\"*). `hold_the_respawn_platforms` "
+        "(`game/ambition_demo_smash/src/lib.rs`) owns exactly the "
+        "`respawn_platform_` family: it `retain`s every id outside that prefix "
+        "untouched and reconciles the ones inside it against which seats carry "
+        "`RespawnGrace`. `SessionScopedResources::reset` is the session edge.\n"
+        "    ⇒ The split between the two membership owners is a PREFIX "
+        "CONVENTION, and it already has one owner for both halves: "
+        "`RESPAWN_PLATFORM_PREFIX`, with `respawn_platform_id` formatting and "
+        "`is_respawn_platform_id` parsing, collapsed there after *\"one "
+        "convention, two literals\"* (`D-ID-CONVENTION-DRIFT`). MEASURED "
+        "2026-09-18: no authored asset under `game/ambition_content/assets` "
+        "spells that prefix, so the namespaces are disjoint today. ⚠ CONVENTION, "
+        "NOT ENFORCEMENT — a room that authored `respawn_platform_0` would have "
+        "it dropped on the first tick no seat wanted one, and nothing refuses "
+        "that id.\n"
+        "    ⚠ THE WHOLE-VECTOR ASSIGNMENT IS THE ONE INTERACTION, and it "
+        "converges rather than fighting: a room publication drops every respawn "
+        "platform, and the demo's rule re-derives them from `RespawnGrace` "
+        "PRESENCE on its next run rather than from a latch, so the set comes "
+        "back. The window is one tick. ⛔ I have NOT measured whether the smash "
+        "demo can publish a room mid-match, so this is a convergence argument "
+        "about the rule and not a claim that the window is unreachable.\n"
+        "    ⭐ AND THE ADVANCER CANNOT DISAGREE ABOUT A RESPAWN PLATFORM'S "
+        "POSITION EITHER, which is why the pair needs no ordering edge: the demo "
+        "builds them with `from_sweep(.., 0.0, 0.0)`, so `min_x == max_x` and "
+        "`speed == 0`, and `MovingPlatformState::update` adds `0.0 * dir * dt` "
+        "and reverses at neither bound — position unchanged, `last_delta` zero. "
+        "The zero sweep is stated in place as *\"a sweep of zero width at zero "
+        "speed\"* rather than a still variant, and it is what makes the advance a "
+        "no-op on that family."
     ),
     "EncounterRegistry": (
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "

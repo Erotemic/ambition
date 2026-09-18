@@ -1924,6 +1924,24 @@ it shipped:
 | sim view | `GravitySwitchesView` plus `rebuild_gravity_switches_view`, an unfiltered per-tick query that can only ever produce an empty vector (`ambition_sim_view/src/facts.rs`) |
 | render | `GravitySwitchVisual` and `sync_gravity_switch_visual`, which despawn-and-rebuild from that empty view every frame (`ambition_render/src/rendering/gravity_visuals.rs`) |
 
+⭐ **AND A FIFTH LAYER PAYS, FOUND 2026-09-18 FROM THE OTHER DIRECTION.**
+`BaseGravity` is one of the 121 multi-writer resources, and the sixth of its six
+writer files is this system. Adjudicated in
+`scripts/check_multi_writer_resources_are_adjudicated.py` as CORRECT-for-five and
+ROUTED here for the sixth, which adds one fact this question did not state: the
+two implementations are not merely two affordances, **they compute the SAME
+EXPRESSION on the same resource** — `base.dir = -base.dir` here, and the
+identical negation in `drive_wave_encounters`'s `SwitchAction::FlipGravity` arm.
+⇒ So (b) is not only removing an unreachable plate; it is collapsing two owners
+of one fact onto one owner, which is the property that campaign exists to buy.
+That is an argument for (b), not a ruling: (a) still answers it by giving the
+plate a spawn, and two affordances writing one ambient through one expression is
+a coherent design.
+⚠ It is also a reminder about the instrument: a writer census reads PARAMETER
+LISTS, so a production `fn` whose only registration is behind `#[cfg(test)]`
+counts as a live writer. This row is why the guard's own entry says
+"multi-writer" here is a fact about reachable DECLARATIONS, not reachable writes.
+
 ⛔ **AND IT ALREADY CORRUPTED A RANKING.** S7 in
 [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
 ranked `gravity.flip_switch` among the twelve sharpest unchecksummed rows —

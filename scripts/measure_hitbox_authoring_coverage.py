@@ -86,7 +86,7 @@ STAGE_CHARACTERS = {
     "performer_stage_v1": ["performer"],
     "projectile_beast_v1": ["projectile_polygon"],
     "fighting_brawler_v1": ["npc_alice", "npc_bob", "npc_carl_stargan", "npc_emmy_noether"],
-    "author_pen_v1": ["author"],
+    "director_pen_v1": ["director"],
     "fighting_polygon_v1": ["pointed_polygon", "pugnacious_polygon"],
 }
 

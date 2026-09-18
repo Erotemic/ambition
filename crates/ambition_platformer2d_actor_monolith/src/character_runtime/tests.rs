@@ -1449,7 +1449,7 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
     use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut demand = CharacterLoadDemand::default();
-    for token in ["author", "noether", "perfect_cellular_automaton"] {
+    for token in ["director", "noether", "perfect_cellular_automaton"] {
         demand.request(token);
     }
 
@@ -1475,7 +1475,7 @@ fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
     assert_eq!(
         all,
         vec![
-            "author".to_string(),
+            "director".to_string(),
             "noether".to_string(),
             "perfect_cellular_automaton".to_string()
         ],
@@ -1519,7 +1519,7 @@ fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
 
     // At Full, one per frame.
     let mut demand = CharacterLoadDemand::default();
-    demand.request_all(["author", "noether", "turing"]);
+    demand.request_all(["director", "noether", "turing"]);
     let first = demand.take_within_budget(
         MATERIALIZATION_UNITS_PER_FRAME,
         materialization_units(Tier::Full),
@@ -1554,7 +1554,7 @@ fn an_unbounded_or_undersized_take_drains_completely() {
     use ambition_characters::load_demand::CharacterLoadDemand;
 
     let mut demand = CharacterLoadDemand::default();
-    demand.request("author");
+    demand.request("director");
     assert_eq!(demand.take_bounded(4).len(), 1);
     assert_eq!(demand.pending().count(), 0);
 

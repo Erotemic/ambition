@@ -989,7 +989,10 @@ waste"* — on any machine, in any regeneration state.
 a hunch.** A recorded defect — *"four sheets' reduced tiers are not reduced"* —
 did not reproduce on the second machine: `measure_tier_variant_scaling.py`
 reported **0** violating sheets there and the files were genuinely smaller
-(`author_spritesheet.png` 4.3M full against 2.0M at `0_5x`). Rather than declare
+(`author_spritesheet.png` 4.3M full against 2.0M at `0_5x` — that stem is
+`director_spritesheet.png` since the 2026-09-18 character rename, and the old
+name is kept here because a measurement record names the file that was
+MEASURED). Rather than declare
 it fixed, the ambiguity was reported. The originating box then re-ran it and
 still saw **4** — its variants are stale, the second machine's are fresh.
 ⇒ **Both measurements were correct and the disagreement was the regeneration

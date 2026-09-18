@@ -462,7 +462,7 @@ tackon_targets=(
     # The two easter-egg fighters, for the same reason as the polygons above and
     # by the same test: `character_catalog.ron` names their sheets, so a roster
     # that omits them is a fresh clone with two rows pointing at nothing.
-    author
+    director
     officer
     # ⛔ AND THE NEXT PAIR REPEATED IT, four lines under the comment explaining
     # it. `performer` (then `actor`) and `medic` arrived with catalog rows and no
@@ -1682,9 +1682,9 @@ fi
 #
 # The exporter is pure PIL over the committed rig JSON (no Blender), and it
 # rewrites the manifest from the same bake, so the two cannot drift.
-echo "==> author vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
-if ! run_renderer_python "vanity-card" scripts/export_author_vanity_card.py 2>&1 | sed 's/^/  /'; then
-    regen_failures+=("author vanity card: exporter reported a failure")
+echo "==> director vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
+if ! run_renderer_python "vanity-card" scripts/export_director_vanity_card.py 2>&1 | sed 's/^/  /'; then
+    regen_failures+=("director vanity card: exporter reported a failure")
 fi
 
 if ! run_quality_variants; then

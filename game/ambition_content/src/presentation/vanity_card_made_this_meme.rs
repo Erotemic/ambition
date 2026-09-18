@@ -24,7 +24,7 @@ const MADE_THIS_MEME_RON: &str = include_str!("../../assets/data/vanity_card_mad
 /// The `game://` asset source is the content crate's own `assets/` tree.
 const ASSET_SOURCE: &str = "game://";
 
-/// Card colours, matching the renderer's own (`render_author_vanity_dialog.py`).
+/// Card colours, matching the renderer's own (`render_director_vanity_dialog.py`).
 const CARD_FILL: Color = Color::srgb(0.965, 0.969, 0.984);
 const CARD_OUTLINE: Color = Color::srgb(0.824, 0.847, 0.894);
 const BACKDROP: Color = Color::srgb(0.047, 0.055, 0.086);

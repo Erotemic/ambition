@@ -15,11 +15,22 @@ installation, scheduling, prerequisites and supported absence.
 
 Executed on the baseline with the existing Python tools:
 
-| Instrument | Result at the baseline | What it establishes |
-| --- | --- | --- |
-| `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | Syntactic installation/ordering inventory, not semantic correctness |
-| `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
-| `scripts/check_facade_dependency_closure.py` | 48 other workspace packages reachable, and `ambition_render` is NOT among them | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population. ⛤ This row named no instrument until 2026-09-18 and said 51 — the one row in this table whose number nothing re-derived, and the only stale one |
+⚠ **THE SECOND COLUMN IS THE BASELINE AND THE THIRD IS TODAY, BECAUSE THIS
+TABLE HAD ONE COLUMN AND A READER COULD NOT TELL WHICH IT WAS.** Two of the
+three rows had moved and neither said so in the row; the ordering row's
+re-measurement lived in the block below and the other two had none. A single
+`Result` column makes a baseline record and a live reading look identical, which
+is how the closure row came to be quoted as current on three other pages.
+
+| Instrument | At the review baseline | Re-measured 2026-09-18 | What it establishes |
+| --- | --- | --- | --- |
+| `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | 10 / 68 / 217 by TODAY's classifier — and the comparison is not the obvious one; see the confound block below, which is why that block exists | Syntactic installation/ordering inventory, not semantic correctness |
+| `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | **5 reducible, 35 irreducible.** ⛤ Two blocks moved from irreducible to reducible and one appeared; nothing on this page had noticed | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
+| `scripts/check_facade_dependency_closure.py` | 51 other workspace packages reachable, render mandatory through host <!-- cite-ok: the review baseline reading, kept as the record; the owner measures today -->  | **48, and `ambition_render` is NOT among them.** ⛤ This row named no instrument until 2026-09-18 and three other pages quoted its stale 51 as current | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population |
+
+⚠ Only the third row has an instrument that FAILS on drift. The first two are
+measurements someone must choose to re-run, which is why their "today" column
+carries a date and not a promise.
 
 ⭐⭐ **RE-RUN 2026-09-17 WITH THE CONFOUND CONTROLLED, because both ordering
 instruments were REWRITTEN since the baseline** — `D-FOREIGN-ORDER-SPELLING`

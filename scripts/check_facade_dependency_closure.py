@@ -77,6 +77,45 @@ FLOORS = {"workspace packages": 60}
 #: How a page spells the number. The noun phrase is the pages' own.
 RESTATEMENT = re.compile(r"(\d+)\s+other workspace packages")
 
+#: A reading this closure genuinely HAD, and the reference point that makes it
+#: true. A page may state one of these — history is worth recording — but only
+#: on a line that marks it as history.
+#:
+#: ⛔⛤ **THIS EXISTS BECAUSE THE FIRST VERSION OF THIS CHECK FORBADE HISTORY.**
+#: Within an hour of landing, restructuring
+#: `capability-and-runtime-composition.md` into a baseline column and a
+#: re-measured column made it fail: the baseline column correctly says 51. A
+#: check that cannot tell *"this is what it was"* from *"this is what it is"*
+#: pushes an author to delete the provenance, which is the opposite of the
+#: collapse it was built for.
+#:
+#: ⚠ **AND THE EXEMPTION IS THE PLACE A DEFECT WOULD HIDE**, so it is narrow and
+#: counted: a historical value is allowed only on a line containing
+#: `HISTORY_MARKER`, and `main()` prints how many such statements exist. A page
+#: that quietly relabels a current number as a baseline shows up as a rising
+#: count in a green run, not as silence.
+HISTORICAL: dict[int, str] = {
+    51: (
+        "the `300004d601af1e633cfaee969f079cf9bb368ca8` review baseline, when "
+        "`ambition_render` was still mandatory through the host"
+    ),
+}
+
+#: ⛔⛔ **THE MARKER HAS ONE KEEPER AND THIS IS NOT IT.** `check_planning_citations`
+#: owns *"this coordinate is wrong on purpose"* as `cite-ok`, and
+#: `marker_suppresses`'s own doc block says any new reader calls it rather than
+#: re-spelling the rule — because a fourth spelling of it once made a documented
+#: affordance a trap: a marker one line BELOW its subject was legal by the
+#: documented rule and reddened a guard that only accepted the same line. ⇒ This
+#: check imports that predicate instead of inventing `HISTORY_MARKER`, so an
+#: author who follows the documentation gets a green from both.
+#:
+#: ⚠ My first attempt WAS a fourth spelling — *"the line must contain the word
+#: `baseline`"* — and it failed immediately on a table whose `baseline` sits in
+#: the HEADER row. The marker has to be local and deliberate, which is exactly
+#: what `cite-ok` already is.
+from check_planning_citations import MARKER, marker_suppresses  # noqa: E402
+
 
 def _packages() -> dict[str, tuple[Path, dict]]:
     workspace = tomllib.loads((REPO / "Cargo.toml").read_text())
@@ -116,14 +155,36 @@ def closure() -> dict[str, list[str]]:
 
 
 def restatements() -> dict[str, list[tuple[int, int]]]:
-    """`{page: [(line, number), ..]}` for every page restating the closure."""
+    """`{page: [(line, number), ..]}` for every LIVE restatement of the closure.
+
+    A statement of a `HISTORICAL` value on a line marked with `HISTORY_MARKER`
+    is not a live restatement and is returned by `history()` instead.
+    """
     found: dict[str, list[tuple[int, int]]] = {}
     for page in sorted((REPO / "docs" / "planning").rglob("*.md")):
         rel = page.relative_to(REPO).as_posix()
-        for index, line in enumerate(page.read_text(errors="replace").splitlines(), 1):
+        lines = page.read_text(errors="replace").splitlines()
+        for index, line in enumerate(lines, 1):
             for match in RESTATEMENT.finditer(line):
-                found.setdefault(rel, []).append((index, int(match.group(1))))
+                value = int(match.group(1))
+                if value in HISTORICAL and marker_suppresses(lines, index):
+                    continue
+                found.setdefault(rel, []).append((index, value))
     return found
+
+
+def history() -> list[tuple[str, int, int]]:
+    """`(page, line, value)` for every statement the `HISTORICAL` table allows."""
+    out: list[tuple[str, int, int]] = []
+    for page in sorted((REPO / "docs" / "planning").rglob("*.md")):
+        rel = page.relative_to(REPO).as_posix()
+        lines = page.read_text(errors="replace").splitlines()
+        for index, line in enumerate(lines, 1):
+            for match in RESTATEMENT.finditer(line):
+                value = int(match.group(1))
+                if value in HISTORICAL and marker_suppresses(lines, index):
+                    out.append((rel, index, value))
+    return out
 
 
 def main() -> int:
@@ -179,12 +240,21 @@ def main() -> int:
         return 1
 
     pages = restatements()
+    past = history()
     print(
         f"ok: the facade's mandatory closure is {reached} other workspace package(s) "
         f"of {len(packages)}, `{MUST_STAY_OUT}` is outside it, and all "
-        f"{sum(len(r) for r in pages.values())} restatement(s) across {len(pages)} "
+        f"{sum(len(r) for r in pages.values())} live restatement(s) across {len(pages)} "
         f"planning page(s) agree"
     )
+    if past:
+        # ⛔ COUNTED, because this is the one road a stale number can still take:
+        # relabel it as a baseline and the check goes quiet. A rising number here
+        # in an otherwise green run is the signal.
+        print(
+            f"   plus {len(past)} historical statement(s) the `HISTORICAL` table allows: "
+            + ", ".join(f"{page}:{line} = {value}" for page, line, value in past)
+        )
     return 0
 
 

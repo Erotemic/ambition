@@ -65,3 +65,52 @@ def test_the_restatement_scan_is_not_vacuous():
     """
     pages = guard.restatements()
     assert len(pages) >= 3, f"only {len(pages)} page(s) matched the restatement pattern"
+
+
+# ── the history exemption, which is where a stale number can still hide ─────
+
+
+def test_a_historical_value_needs_the_marker(tmp_path, monkeypatch):
+    """⛔ THE EXEMPTION IS NARROW: the `HISTORICAL` table alone is not enough.
+
+    Without the marker requirement, any page could state 51 forever and this
+    check would call it history.
+    """
+    page = tmp_path / "docs" / "planning" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("the facade reaches 51 other workspace packages today\n")
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    assert guard.restatements() == {"docs/planning/p.md": [(1, 51)]}
+    assert guard.history() == []
+
+
+def test_the_marker_moves_it_from_live_to_history(tmp_path, monkeypatch):
+    page = tmp_path / "docs" / "planning" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        "at the review baseline it reached 51 other workspace packages "
+        "<!-- cite-ok: the baseline record -->\n"
+    )
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    assert guard.restatements() == {}
+    assert guard.history() == [("docs/planning/p.md", 1, 51)]
+
+
+def test_an_UNDECLARED_value_is_never_history_however_marked(tmp_path, monkeypatch):
+    """⭐ THE CONTROL THAT KEEPS THE MARKER FROM BEING A BLANKET WAIVER.
+
+    `cite-ok` silences a value the `HISTORICAL` table vouches for, with its
+    reference point. A number this closure never had is a mistake whatever the
+    author wrote beside it.
+    """
+    page = tmp_path / "docs" / "planning" / "p.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("it reached 44 other workspace packages <!-- cite-ok: honest -->\n")
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    assert guard.restatements() == {"docs/planning/p.md": [(1, 44)]}
+    assert guard.history() == []
+
+
+def test_every_historical_value_states_its_reference_point():
+    for value, why in guard.HISTORICAL.items():
+        assert len(why) > 40, f"{value}'s provenance is too short to be a reference point"

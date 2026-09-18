@@ -373,14 +373,20 @@ rather than silently assumed clean:**
 
 1. **`[target.'cfg(...)'.dependencies]` tables.** A naive manifest read (this
    page's own crate/feature extraction included) only sees the top-level
-   `[dependencies]`/`[dev-dependencies]`/`[build-dependencies]` tables. Three
-   crates in this workspace use the target-cfg form instead
-   (`ambition_dev_tools`/`libc` under `unix`, `ambition_persistence`/`web-sys`
-   under `wasm32`, `ambition_app`/`mimalloc`+`getrandom_03`/`04` under
-   `android`+`wasm32`) — checked individually and none overlap this page's
-   hit list, but that is luck this run happened to land on, not a property
-   the sweep verified. A tool that reads manifests for this purpose again
-   should parse all four table shapes, not the three most common ones.
+   `[dependencies]`/`[dev-dependencies]`/`[build-dependencies]` tables. ⚠
+   **THIS BULLET NAMED THREE CRATES AND MISSED AN EDGE, WHICH IS EXACTLY THE
+   "LUCK, NOT VERIFIED" IT WARNED ABOUT.** Recounted 2026-09-18 by parsing
+   every `[target.'cfg(...)'.*]` table with `tomllib` (all three kinds, not by
+   re-reading this sentence): three crates, six edges —
+   `ambition_dev_tools`/`libc` under `cfg(unix)`;
+   `ambition_persistence`/`web-sys` under `cfg(target_arch = "wasm32")`;
+   `ambition_app`/`mimalloc` and `ambition_app`/`oboe` under
+   `cfg(target_os = "android")` (`oboe` is the one this bullet never named);
+   `ambition_app`/`getrandom_03` and `ambition_app`/`getrandom_04` under
+   `cfg(target_arch = "wasm32")`. None overlap this page's `[dependencies]`
+   hit list — now a checked property of all six, not an assumption about
+   three. A tool that reads manifests for this purpose again should parse all
+   four table shapes, not the three most common ones.
 2. **`#[cfg(target_arch = "wasm32")]`-gated code is unverifiable from this
    host, structurally, not by omission.** `ambition_app`'s
    `console_error_panic_hook` and `wasm_bindgen` are `dep:`-gated behind

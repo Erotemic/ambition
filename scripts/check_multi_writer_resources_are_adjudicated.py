@@ -61,13 +61,29 @@ owner's helper, and only the call sites say which. Check it by hand when
 adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 21 of the 102 are rollback-registered**, and those are the ones
-where a second writer is a divergence rather than a design smell. That 21 is a
-LOWER BOUND and carries its instrument: it is the intersection with the type
-names in `rollback_*::<T>` / `declare_rollback_derived_*::<T>` turbofish calls
-across `crates/` and `game/`, which parses 95 names where the registry itself
-holds 491 rows — every row registered through a non-turbofish form is invisible
-to it. Joining the writers' WRITE TARGETS narrows it again — which field or
+HAND.** **At least 37 of the 121 are rollback-registered, 31 of them
+unadjudicated** — re-derived 2026-09-18, and this read "21 of the 102" against a
+population that has since grown twice. Those are the ones where a second writer
+is a divergence rather than a design smell. The 37 is a LOWER BOUND and carries
+its instrument: it is the intersection with the type names in `rollback_*::<T>` /
+`declare_rollback_derived_*::<T>` turbofish calls across `crates/` and `game/`,
+which parses 396 such names where the registry itself holds 491 rows — every row
+registered through a non-turbofish form is invisible to it. ⚠ Both numbers moved
+(95 -> 396 parsed, 21 -> 37 intersecting) and neither move is growth in the tree:
+the earlier parse was narrower. ⇒ Re-derive rather than quote, with:
+
+    python3 - <<'EOF'
+    import sys, re, subprocess, pathlib
+    sys.path.insert(0, "scripts")
+    import check_multi_writer_resources_are_adjudicated as guard
+    files = subprocess.run(["git","ls-files","crates/**/*.rs","game/**/*.rs"],
+                           capture_output=True, text=True).stdout.split()
+    pat = re.compile(r"\b(?:rollback_[a-z_]+|declare_rollback_derived_[a-z_]+)"
+                     r"::<\s*(?:[A-Za-z0-9_]+::)*([A-Za-z_][A-Za-z0-9_]*)")
+    names = {m.group(1) for f in files
+             for m in pat.finditer(pathlib.Path(f).read_text(errors="replace"))}
+    print(sorted((set(guard.BASELINE) & names) - set(guard.ADJUDICATED)))
+    EOF Joining the writers' WRITE TARGETS narrows it again — which field or
 method do two of a type's writer files both reach for:
 
     python3 scripts/multi_writer_resource_census.py --shared-targets
@@ -270,6 +286,170 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ClassBRemapLog": (
+        "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
+        "THE TYPE. Nine files write it and that is the contract: "
+        "`ambition_platformer2d_shared_tangle/src/class_b.rs` holds a PRIVATE "
+        "`entries: Vec<ClassBRemapEntry>` whose only `&mut self` methods are "
+        "`record(body, kind)` and `clear()`, so a Class-B writer cannot reach the "
+        "ledger any other way — measured 2026-09-18, the impl has exactly those two. "
+        "⇒ Nine appenders and one clearer is not nine authorities; it is one "
+        "append-only ledger with nine reporters. ⭐ AND THE MULTIPLICITY IS THE "
+        "SUBJECT OF ITS OWN ORACLE: `contentions()` reports every body that took two "
+        "or more remaps in one frame, which is §6.1 invariant 5's violation shape, "
+        "and it scans the append-ordered `Vec` rather than a hash container (ADR "
+        "0023). The one clearer, `clear_class_b_remap_log`, is registered "
+        "`.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)` in "
+        "`GameplaySimulationRoot` (`ambition_platformer2d_runtime/src/lib.rs`), which "
+        "is what makes the frame scope real. ⭐ ITS `declare_rollback_derived_resource` "
+        "REASON IS TRUE, which is worth saying because `AuthoredOccurrences`'s was "
+        "not: *\"frame-local diagnostic ledger cleared before every simulation "
+        "step\"* — the clear is upstream of every writer, so a replayed frame "
+        "rebuilds the whole value. ⚠ One writer reads as a bundle rather than a "
+        "system, `<param bundle: TransitBodies>` in `room_transition/commit.rs`; "
+        "that is the census reporting honestly, not a hidden writer."
+    ),
+    "ControlledSubject": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `resolve_controlled_subject` (`abilities/traversal/possession.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "CutsceneSkipHold": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `apply_menu_frame_to_cutscene_request` (`schedule/input_systems.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "EncounterView": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `apply_wave_encounter_effects` (`ambition_encounter_features/src/systems.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "GameplayElapsed": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `advance_gameplay_elapsed` (`features/mod.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "LastCutsceneRoom": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `auto_trigger_room_cutscenes` (`cutscene.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "LastQuestRoom": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `push_room_entered_quest_events` (`quest/mod.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "LiveMatchTicks": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `count_the_live_match_ticks` (`character_runtime/live_match_clock.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "SaveRestored": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `complete_durable_restore` (`session/durable_horizon.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "SessionMatchOrdinal": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `activate_the_prepared_match` (`character_runtime/match_activation.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "StocksMatchSettled": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `decide_stocks_match` (`features/stocks_match.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "SuddenDeathEntered": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
+        "\"writer\" is not an authority. `decide_stocks_match` (`features/stocks_match.rs`) is the "
+        "only production system that writes it inside a session; the other file is "
+        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
+        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
+        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
+        "one function, with comments and test modules stripped. ⇒ Nothing here is "
+        "two owners of one fact."
+    ),
+    "ProjectileSeqCounter": (
+        "CORRECT — ONE MINTING IMPLEMENTATION REACHED BY TWO REGISTRATIONS, AND THE "
+        "FILE-GRANULAR CENSUS CANNOT SEE THAT. It reports 2 files; per SYSTEM there "
+        "are THREE sites in `ambition_projectiles/src/materialize.rs` — "
+        "`materialize_projectiles_for_this_tick`, `materialize_projectiles_for_next_tick` "
+        "and the private `materialize_matching` both delegate to, which is the one "
+        "place a sequence number is minted. ⭐ AND THE ORDER IS EXPLICIT: both "
+        "registrations sit in one `.chain()` in `CombatSet::Materialize` "
+        "(`ambition_platformer2d_runtime/src/combat_schedule.rs`), `this_tick` before "
+        "`next_tick`. ⛔ THE DETERMINISM IS A FREE RIDER ON THAT CHAIN AND THE CHAIN "
+        "DOES NOT SAY SO: every comment justifying it argues about the despawn window "
+        "and `step_projectiles`, not about the counter. This resource is "
+        "`rollback_resource_canonical` and its own registration calls it *\"the "
+        "deterministic id source\"*, minting `ProjectileSeq` on every bolt — so "
+        "unchaining these two for an unrelated reason makes two peers mint different "
+        "ids for the same shots. That is the `RollbackOrdered` defect class. The third "
+        "writer file is `SESSION_SCOPE_RESET`."
+    ),
+    "ActiveCutscene": (
+        "CORRECT — AN OPENER AND AN ADVANCER WITH DISJOINT PRECONDITIONS AND AN "
+        "EXPLICIT CHAIN. Per SYSTEM, not per file: `drain_cutscene_triggers` starts a "
+        "cutscene and returns early on `active.is_playing()`; `tick_active_cutscene` "
+        "advances one and does nothing when none is playing. Both are in "
+        "`(auto_trigger_room_cutscenes, drain_cutscene_triggers, tick_active_cutscene)"
+        "`.chain()` in the `Cutscene` phase (`cutscene.rs`), so the tick a freshly "
+        "started cutscene first advances on is stated rather than left to set order. "
+        "The other writer file is `SESSION_SCOPE_RESET`. ⚠ Owed a poison: no arm has "
+        "been shown to fail on removing either write, and "
+        "`ending_a_cutscene_records_that_it_was_seen` exists because deleting a "
+        "different cutscene write left every cutscene test green."
+    ),
     "AmbitionGameSave": (
         "OPEN — AND THE REASON IT IS OPEN CHANGED, 2026-09-18. The verdict here "
         "used to be \"the save mirrors disagree with their own rollback replay\", "
@@ -312,9 +492,39 @@ ADJUDICATED: dict[str, str] = {
         "CENSUS BLIND TO `ResMut<'w, T>`.** The opener, the room-transition close "
         "and the teardown reset were never examined, because a `DialogueDispatch` "
         "`SystemParam` bundle is how three of the five spell their access — and a "
-        "bundle is precisely the shape shared access takes. The two additional "
-        "in-session roads are still owed a poison each: `commit.rs`'s close is "
-        "not covered by either arm above."
+        "bundle is precisely the shape shared access takes.\n"
+        "    ⛔⛤ THE ROOM-TRANSITION CLOSE IS POISONED AND THE POISON PASSES — "
+        "MEASURED 2026-09-18. Deleting `self.conversation.close()` from "
+        "`RoomTransitionFinalize::apply_crossing` "
+        "(`ambition_platformer2d_runtime/src/room_transition/commit.rs:557`) leaves "
+        "**810 arms green**: `app_it` 717 passed / 0 failed / 47 ignored in 580s, "
+        "plus 93 in `ambition_conversation` and `ambition_platformer2d_runtime`. ⇒ "
+        "Nothing witnesses it, and a poison that PASSES is a finding about the "
+        "ARM, not a clean result.\n"
+        "    ⭐ WHY IT PASSES IS THE ARCHITECTURAL PART: **THREE ROADS END A "
+        "CONVERSATION WHEN ITS ROOM IS REPLACED, AND ONLY ONE IS IMMEDIATE.** (1) "
+        "this direct `close()`, on the crossing tick; (2) "
+        "`break_dialogue_on_hit_or_separation`, whose own comment calls a room "
+        "swapping under a conversation *\"a separation of the most literal "
+        "kind\"*; (3) `stamp_conversation_end_when_the_box_closes` -> "
+        "`close_conversation_on_narrative_end`, because the line ABOVE the poison "
+        "closes `DialogState`. Roads 2 and 3 are reactive and land a tick or more "
+        "later. ⇒ Do NOT read the passing poison as licence to delete the close: "
+        "it is the only one that closes on the same tick, and the window it "
+        "removes is one in which the authority names two despawned bodies and "
+        "`HeldByConversation` still holds them.\n"
+        "    ⛔ AND THE NAIVE WITNESS MEASURES ROAD 3, NOT ROAD 1. Seating a "
+        "conversation from a test and walking into a REFUSED room finds it closed "
+        "every third frame — one sim tick — with `apply_crossing` never running "
+        "(its first line sets `preset_flash = 1.0`, and the probe watched that "
+        "value DECAY). A seated conversation has no Yarn node, so its box never "
+        "opens, so road 3 ends it. Held as "
+        "`probe_what_closes_a_seated_conversation_while_the_room_transaction_is_refused` "
+        "in `game/ambition_app/tests/walking_into_a_loading_zone.rs`, print-only, "
+        "with the frame table. ⇒ STILL OWED: a witness with two live bodies and a "
+        "shipped Yarn node, so roads 2 and 3 are quiet while road 1 is under "
+        "test. `commit.rs`'s close is uncovered until then, and now it is "
+        "uncovered ON THE RECORD."
     ),
     "PossessionState": (
         "CORRECT — one protocol deliberately split across two systems, and the "
@@ -472,6 +682,76 @@ SESSION_SCOPE_RESET = (
     "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
 )
 
+#: ⭐⛤ **THE VERDICTS THAT SAY "ONE IN-SESSION OWNER", AS A CHECKED FACT RATHER
+#: THAN A SENTENCE.** Each entry is `type -> the one production function that
+#: writes it inside a session`; the other writer file must be
+#: [`SESSION_SCOPE_RESET`]. [`main`] verifies both halves against
+#: `census.write_sites`, so a second writing system arriving in that file reddens
+#: the guard instead of quietly falsifying a paragraph.
+#:
+#: ⛔ WHY THIS IS NOT DECORATION. The green line's *"N are written from exactly
+#: one OTHER file"* is FILE-granular, and two of the thirteen it counted on
+#: 2026-09-18 had more than one writing function in that file — `ActiveCutscene`
+#: two and `ProjectileSeqCounter` three. Those two carry their own verdicts,
+#: argued per system, and are deliberately NOT in this table: it is for the ones
+#: whose *"one owner"* claim is mechanical.
+SOLE_IN_SESSION_OWNER: dict[str, str] = {
+    "ControlledSubject": "resolve_controlled_subject",
+    "CutsceneSkipHold": "apply_menu_frame_to_cutscene_request",
+    "EncounterView": "apply_wave_encounter_effects",
+    "GameplayElapsed": "advance_gameplay_elapsed",
+    "LastCutsceneRoom": "auto_trigger_room_cutscenes",
+    "LastQuestRoom": "push_room_entered_quest_events",
+    "LiveMatchTicks": "count_the_live_match_ticks",
+    "SaveRestored": "complete_durable_restore",
+    "SessionMatchOrdinal": "activate_the_prepared_match",
+    "StocksMatchSettled": "decide_stocks_match",
+    "SuddenDeathEntered": "decide_stocks_match",
+}
+
+
+def sole_owner_shortfalls(
+    multi: dict[str, list[str]], files: list[str]
+) -> list[str]:
+    """Every way a [`SOLE_IN_SESSION_OWNER`] claim can have stopped being true."""
+    problems: list[str] = []
+    for ty, owner in sorted(SOLE_IN_SESSION_OWNER.items()):
+        if ty not in ADJUDICATED:
+            problems.append(
+                f"{ty} claims a sole in-session owner but carries no verdict; the "
+                "table and ADJUDICATED must agree."
+            )
+            continue
+        writers = multi.get(ty)
+        if writers is None:
+            problems.append(
+                f"{ty} is no longer written from more than one file, so this claim "
+                "has no subject. Remove it here and in ADJUDICATED."
+            )
+            continue
+        if SESSION_SCOPE_RESET not in writers:
+            problems.append(
+                f"{ty} no longer includes `SessionScopedResources::reset` among its "
+                f"writers ({', '.join(writers)}); the verdict's second half is gone."
+            )
+            continue
+        others = [f for f in writers if f != SESSION_SCOPE_RESET]
+        if len(others) != 1:
+            problems.append(
+                f"{ty} now has {len(others)} in-session writer FILE(s) "
+                f"({', '.join(others)}), not one."
+            )
+            continue
+        sites = census.write_sites(ty, others).get(others[0], [])
+        if sorted(set(sites)) != [owner]:
+            problems.append(
+                f"{ty}'s in-session writes are in {sorted(set(sites))}, and the "
+                f"verdict names `{owner}`. A second system reaching one owner's "
+                "resource is exactly what this table exists to catch."
+            )
+    return problems
+
+
 #: ⛔ ANTI-VACUITY. Every finding below is a set difference, and two empty sets
 #: agree perfectly. These floors are an order of magnitude below the measured
 #: 1,294 files / 329 types and far above the zero a broken scan produces.
@@ -514,6 +794,14 @@ def main() -> int:
                 "Either the name is misspelled, or the duplication is gone and the "
                 "verdict should go with it."
             )
+        return 1
+
+    # ⭐ A VERDICT THAT SAYS "ONE OWNER" IS CHECKED, NOT TRUSTED.
+    shortfalls = sole_owner_shortfalls(multi, files)
+    if shortfalls:
+        print("a sole-in-session-owner verdict no longer describes the tree:\n")
+        for problem in shortfalls:
+            print(f"  {problem}")
         return 1
 
     # ⭐ THE SECOND POPULATION, RATCHETED ON ITS OWN TERMS.
@@ -608,9 +896,18 @@ def main() -> int:
     reset_only = sorted(t for t in reset_writers if len(multi[t]) == 2)
     print(
         f"  ⭐ {len(reset_writers)} of them include `SessionScopedResources::reset` "
-        f"among their writers, and {len(reset_only)} would be single-writer without "
-        "it. That road's member list is owned by "
+        f"among their writers, and {len(reset_only)} are written from exactly one "
+        "OTHER file. That road's member list is owned by "
         "`check_session_owner_census_matches_source.py`, not by a verdict here."
+    )
+    # ⛔⛤ THAT SECOND NUMBER USED TO READ "would be single-writer without it", AND
+    # IT WAS FALSE FOR TWO OF THEM. This census is FILE-granular: `ActiveCutscene`
+    # has two writing systems in one file and `ProjectileSeqCounter` has three, so
+    # "one other file" is not "one other writer". Both are adjudicated above, per
+    # SYSTEM, and the difference is what the verdicts had to argue about.
+    print(
+        "  ⚠ ONE OTHER FILE IS NOT ONE OTHER WRITER — this census is file-granular. "
+        "Re-read the file per SYSTEM before writing a verdict that says \"one owner\"."
     )
     print(
         f"  + {len(world)} session-world component(s) written from more than one "

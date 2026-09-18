@@ -234,6 +234,72 @@ def writers(files: list[str]) -> dict[str, set[str]]:
     return found
 
 
+#: The enclosing ITEM of a write site. ⚠ NOT a parser: it takes the nearest
+#: preceding `fn` or `struct` header, which is what a Rust file's layout makes
+#: true for a system parameter, for a `world.resource_mut` call in a body, and
+#: for a `SystemParam` bundle's field. A nested closure is still attributed to
+#: the item it sits in, which is the granularity the question needs — *"how many
+#: items in this file write it"* — rather than a call graph.
+#:
+#: ⛔⛤ **THE `struct` HALF IS NOT SYMMETRY, IT IS A CORRECTION.** With `fn` alone,
+#: `NewGameResetRequested`'s write in `menu/kaleidoscope_app.rs` — a `ResMut<'w,
+#: ..>` FIELD of the `SystemMenuParams` bundle — was attributed to
+#: `capture_armed_rebind`, the nearest `fn` above it, which does not write it at
+#: all. ⇒ A site-level instrument that names the WRONG system is worse than a
+#: file-level one that names none, because a verdict quoting it reads as
+#: measured. A bundle field is reported as `<param bundle: Name>`: the honest
+#: answer is that the writer is *whichever systems take this bundle*, and that
+#: needs the bundle's own call sites.
+_FN_HEADER = re.compile(
+    r"^\s*(?:pub(?:\([a-z:]+\))?\s+)?(?:async\s+)?fn\s+([a-z_][A-Za-z0-9_]*)",
+    re.M,
+)
+_STRUCT_HEADER = re.compile(
+    r"^\s*(?:pub(?:\([a-z:]+\))?\s+)?struct\s+([A-Z][A-Za-z0-9_]*)",
+    re.M,
+)
+
+
+def write_sites(ty: str, files: set[str] | list[str]) -> dict[str, list[str]]:
+    """`{file: [enclosing fn name, ...]}` for one type's write sites.
+
+    ⛔⛤ **WHY THIS EXISTS: [`writers`] IS FILE-GRANULAR AND A VERDICT THAT SAYS
+    "one owner" IS ABOUT FUNCTIONS.** Measured 2026-09-18 over the 13 types whose
+    only second writer file is the session-scope reset: eleven have exactly one
+    writing function in the other file, and two do NOT — `ActiveCutscene` has two
+    (`drain_cutscene_triggers` and `tick_active_cutscene`) and
+    `ProjectileSeqCounter` has three. ⇒ *"would be single-writer without the
+    reset"* was false for two of thirteen, and the adjudication guard now checks
+    the claim instead of restating it.
+
+    The same comment and test-module strip as [`writers`], so the two cannot
+    disagree about what counts as code.
+    """
+    sites: dict[str, list[str]] = {}
+    pattern = re.compile(
+        rf"(?:ResMut<\s*(?:'[a-z_][a-z0-9_]*\s*,\s*)?(?:[A-Za-z0-9_]+::)*{re.escape(ty)}"
+        rf"\s*,?\s*>)"
+        rf"|(?:(?:get_)?resource_mut::<\s*(?:[A-Za-z0-9_]+::)*{re.escape(ty)}\s*>)"
+    )
+    for f in sorted(files):
+        src = strip_test_modules(
+            strip_comments(pathlib.Path(f).read_text(encoding="utf-8", errors="replace"))
+        )
+        heads = [(m.start(), m.group(1)) for m in _FN_HEADER.finditer(src)]
+        heads += [
+            (m.start(), f"<param bundle: {m.group(1)}>")
+            for m in _STRUCT_HEADER.finditer(src)
+        ]
+        heads.sort()
+        found: list[str] = []
+        for m in pattern.finditer(src):
+            before = [name for start, name in heads if start < m.start()]
+            found.append(before[-1] if before else "<file scope>")
+        if found:
+            sites[f] = found
+    return sites
+
+
 #: A `ResMut<T>` parameter's BINDING, so an access through it can be found.
 #: `mut save: ResMut<AmbitionGameSave>` binds `save`; the `mut` is optional
 #: because a system can take `ResMut` immutably-bound and still call `&mut self`

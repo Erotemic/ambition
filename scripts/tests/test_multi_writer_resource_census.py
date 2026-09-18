@@ -474,3 +474,60 @@ def test_a_session_world_fixture_is_not_a_writer(tmp_path):
         "// a comment about `SessionWorldMut<RoomSet>` is not a writer either\n",
     )
     assert mod.session_world_writers([a, b])["RoomSet"] == {a}
+
+
+def test_a_write_site_is_attributed_to_its_enclosing_item(tmp_path):
+    """⭐ `write_sites` answers *"how many ITEMS in this file write it"*, which is
+    the question a verdict saying "one owner" is actually making."""
+    f = tmp_path / "two_systems.rs"
+    f.write_text(
+        "fn one(mut a: ResMut<Shared>) { a.x = 1; }\n"
+        "fn two(mut b: ResMut<Shared>) { b.x = 2; }\n"
+        "fn reads_only(c: Res<Shared>) {}\n",
+        encoding="utf-8",
+    )
+    sites = mod.write_sites("Shared", [str(f)])
+    assert sites[str(f)] == ["one", "two"]
+
+
+def test_a_bundle_field_is_not_attributed_to_the_function_above_it(tmp_path):
+    """⛔⛤ THE CORRECTION THAT MADE THIS FUNCTION USABLE, 2026-09-18.
+
+    With only `fn` headers, a `ResMut` FIELD of a `SystemParam` bundle was
+    attributed to the nearest `fn` above it — and in the real tree that named
+    `capture_armed_rebind` as the writer of `NewGameResetRequested`, a function
+    that does not touch it. ⇒ **A site-level instrument that names the WRONG
+    system is worse than a file-level one that names none**, because a verdict
+    quoting it reads as measured. The honest answer for a bundle is the bundle.
+    """
+    f = tmp_path / "bundle.rs"
+    f.write_text(
+        "fn something_else(q: Query<&T>) {}\n"
+        "\n"
+        "#[derive(SystemParam)]\n"
+        "pub struct MenuParams<'w> {\n"
+        "    reset: ResMut<'w, Shared>,\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    sites = mod.write_sites("Shared", [str(f)])
+    assert sites[str(f)] == ["<param bundle: MenuParams>"]
+    assert "something_else" not in sites[str(f)]
+
+
+def test_write_sites_and_writers_agree_about_what_counts_as_code(tmp_path):
+    """⚠ TWO INSTRUMENTS OVER ONE POPULATION. A `write_sites` that saw a test
+    module or a comment that `writers` does not would make a per-system verdict
+    disagree with the per-file census it is written against."""
+    f = tmp_path / "mixed.rs"
+    f.write_text(
+        "fn live(mut a: ResMut<Shared>) {}\n"
+        "// fn commented(mut a: ResMut<Shared>) {}\n"
+        "#[cfg(test)]\n"
+        "mod tests {\n"
+        "    fn fixture(mut a: ResMut<Shared>) {}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    assert mod.write_sites("Shared", [str(f)])[str(f)] == ["live"]
+    assert mod.writers([str(f)])["Shared"] == {str(f)}

@@ -204,3 +204,80 @@ def test_a_collapsed_session_world_scan_refuses_a_verdict(monkeypatch, capsys):
     monkeypatch.setattr(census, "session_world_writers", lambda files: {"Solo": {"a.rs"}})
     assert guard.main() == 1
     assert "`SessionWorldMut<T>`" in capsys.readouterr().out
+
+
+def test_a_sole_owner_claim_that_gained_a_second_system_is_refused(monkeypatch, capsys):
+    """⭐⛤ THE RULE THAT TURNS A PARAGRAPH INTO A CHECK, AND WHY IT EXISTS.
+
+    Eleven verdicts say *"exactly one production system writes this inside a
+    session"*. That sentence is the whole argument for calling them CORRECT, and
+    until 2026-09-18 nothing could notice a second system arriving — the census
+    is FILE-granular, so a new writer in the same file changes no count at all.
+    ⛔ And it was not hypothetical: of the thirteen types the green line counted
+    as *"one other file"*, two (`ActiveCutscene`, `ProjectileSeqCounter`) already
+    had more than one writing function there.
+    """
+    real = census.write_sites
+    subject = next(iter(guard.SOLE_IN_SESSION_OWNER))
+
+    def with_a_second_system(ty, files):
+        found = real(ty, files)
+        if ty == subject:
+            for f in found:
+                if f != guard.SESSION_SCOPE_RESET:
+                    found[f] = [*found[f], "a_poisoned_second_writer"]
+        return found
+
+    monkeypatch.setattr(census, "write_sites", with_a_second_system)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "a_poisoned_second_writer" in out
+    assert subject in out
+
+
+def test_a_sole_owner_claim_whose_named_system_was_renamed_is_refused(
+    monkeypatch, capsys
+):
+    """⚠ THE OTHER DIRECTION, AND THE LIKELIER ONE. Renaming the owning system
+    leaves a verdict naming a function that no longer exists — the same rot the
+    `phantom` rule catches for TYPES, one level down."""
+    real = census.write_sites
+    subject = next(iter(guard.SOLE_IN_SESSION_OWNER))
+
+    def with_a_renamed_owner(ty, files):
+        found = real(ty, files)
+        if ty == subject:
+            for f in found:
+                if f != guard.SESSION_SCOPE_RESET:
+                    found[f] = ["the_owner_under_its_new_name"]
+        return found
+
+    monkeypatch.setattr(census, "write_sites", with_a_renamed_owner)
+    assert guard.main() == 1
+    assert "the_owner_under_its_new_name" in capsys.readouterr().out
+
+
+def test_a_sole_owner_claim_that_lost_the_reset_road_is_refused(monkeypatch, capsys):
+    """⛔ THE SECOND HALF OF THE VERDICT IS ALSO A CLAIM. *"The other writer is
+    the session boundary"* stops being true if the reset drops the resource, and
+    then two in-session files are two authorities with no verdict at all."""
+    real = census.writers
+    subject = next(iter(guard.SOLE_IN_SESSION_OWNER))
+
+    def without_the_reset(files):
+        found = real(files)
+        found[subject] = {
+            f for f in found[subject] if f != guard.SESSION_SCOPE_RESET
+        } | {"crates/somewhere_else.rs"}
+        return found
+
+    monkeypatch.setattr(census, "writers", without_the_reset)
+    assert guard.main() == 1
+    assert "no longer includes `SessionScopedResources::reset`" in capsys.readouterr().out
+
+
+def test_every_sole_owner_claim_carries_a_verdict():
+    # ⚠ The two tables must agree in BOTH directions, or the check above can be
+    # satisfied by a type nobody adjudicated.
+    for ty in guard.SOLE_IN_SESSION_OWNER:
+        assert ty in guard.ADJUDICATED, ty

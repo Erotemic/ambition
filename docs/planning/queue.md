@@ -957,19 +957,35 @@ before running, which every poison here now does.
 
 **Current state:** the widening LANDED. Population 139 → 338 types, findings
 8 → 12, resource half at `068bb6034` and the component half at `fa910c50d`. The
-guard exits 0 again as of `c1ffa812d`. What is open is the `Transform` blind spot
-and two findings that owe an argument; everything else below is a receipt.
+guard exits 0 again as of `c1ffa812d`. What is open is the `Transform` blind
+spot; the two findings that owed an argument have it (the ✅ block below).
+⚠ What `--list` prints today, 2026-09-18, so the widening's number is not read
+off this page a month from now: **342 rollback types** (floor 300), **60 system
+param bundles** (floor 55), **518 systems** taking one mutably. The 338 above is
+the widening's own reference point and is left as history.
 
 ⛔ **THE EXIT CODE MEANS "NO NEW OFFENDER", NOT "CLEAN" — read this before
 trusting a green.** `ACKNOWLEDGED` is a second table making the OPPOSITE claim to
 `WAIVERS`: a waiver says this system's drift across a rewind does not matter and
 carries the argument; an acknowledgement says the drift is REAL and names the row
-that owes it. **Nine** are banked — seven here and two menu writers to
-MENU-RESET-MIDSESSION — and they print to stderr every run. ⭐ It was twelve; the
-three `persist_*_to_save` mirrors left the bank by being FIXED, and the stale
-check is what made that deletion deliberate rather than convenient: it reddened
-the moment they stopped being findings and demanded the commit say which of its
-two cases applied. ⛔ A banked name the scan STOPS reporting is also
+that owes it. **EIGHT** are banked — six here and two menu writers to
+MENU-RESET-MIDSESSION — and they print to stderr every run. Re-run 2026-09-18,
+the whole bank, so this number is measured rather than carried:
+`adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`,
+`compute_music_intent`, `portal_dev_toggle_system`,
+`reconcile_roster_with_frozen_topology`, `sync_ldtk_level_set` here;
+`grid_menu_action_activated` and `kaleidoscope_menu_action_activated` there;
+over 518 mutating systems.
+⭐ **IT WAS TWELVE, AND ALL FOUR DEPARTURES WERE REPAIRS RATHER THAN AMNESTIES.**
+The three `persist_*_to_save` mirrors left by being FIXED (into the sim
+schedule), and `dispatch_pending_dialog_requests` left at `0f1edee92` by ceasing
+to write the save at all — its increment is now
+`count_the_dialogue_visit_when_a_conversation_opens`, inside the schedule. ⇒ The
+stale check is what made each deletion deliberate rather than convenient: it
+reddened the moment a name stopped being a finding and demanded the commit say
+which of its two cases applied. ⚠ This paragraph said "nine (seven here)" until
+2026-09-18 — one departure the guard had already recorded, and a count in prose
+cannot ratchet. ⛔ A banked name the scan STOPS reporting is also
 fatal, or the list rots into a second waiver table and absorbs the next system to
 take a fixed one's place. Both branches poisoned at `c1ffa812d`.
 ⇒ Why it exists: at 12 unwaived findings the guard was stuck at `exit 1`, so a

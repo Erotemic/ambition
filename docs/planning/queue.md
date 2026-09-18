@@ -2529,7 +2529,21 @@ remedy is REFUSED and this row used to recommend it.** The census invalidates it
 **19 systems take `ResMut<AmbitionGameSave>` and 18 of them execute INSIDE
 rewinding simulation schedules** — quests, flags, switches, encounters, shrines,
 cutscenes, boss state, the map's visit stamp, the three save mirrors and the
-dialogue visit counter. Unhashing would make the repro green by throwing away
+dialogue visit counter. ⭐ **THE NINETEENTH IS `load_save_at_startup`, IN
+`Startup`**, named here because *"18 of 19"* otherwise leaves a reader to wonder
+whether the holdout is a host-loop writer that could be moved — it is not; it
+runs once before any timeline exists.
+
+⚠ **CONFIRMED 2026-09-18 BY A SECOND METHOD, AND THE SECOND METHOD WAS WRONG
+TWICE FIRST**, which is worth recording because both errors are the kind that
+look like a page being stale. A direct `ResMut<T>` parameter scan found only
+**17**: two of the nineteen are `Option<ResMut<AmbitionGameSave>>`
+(`session/durable_horizon.rs:487`, `game/ambition_content/src/bosses/cut_rope/mod.rs:301`)
+and the `Option<` wrapper sits between the colon and the `ResMut`. Then, with
+those included, classifying by schedule gave **19 of 19** — because `Startup` is
+neither a rewinding schedule nor a host loop, and a two-way test calls it
+rewinding by default. ⇒ The row's own numbers survived both, so the ratio is
+now measured by two independent roads. Unhashing would make the repro green by throwing away
 comparison coverage for substantial simulation state.
 ⚠⛤ **RE-DERIVED 2026-09-18, AND IT USED TO READ "13 of the 19".** The ratio moved
 because the tree did, not because the method did: the three `persist_*_to_save`

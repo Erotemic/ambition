@@ -216,8 +216,11 @@ census and its method are owned by
 do not re-derive the pair here. ⛔ That is what
 made "take it out of the checksum" the LARGE option rather than the small one,
 and the review refused it outright — unhashing would have bought a green repro by
-discarding comparison coverage for quests, flags, switches, encounters, shrines,
-cutscenes and boss state.
+discarding comparison coverage for substantial simulation state. ⇒ **WHICH state,
+and how much of it, is `queue.md`'s** — it carries the census (19 systems take
+`ResMut<AmbitionGameSave>`, 18 inside rewinding schedules) and the argument. This
+page restated the coverage list until 2026-09-18, two paragraphs after telling
+the reader *"do not re-derive the pair here"* about the neighbouring fact.
 
 ⇒ **Q129 IS NARROWER FOR THE REPAIR AND STILL OPEN.** The desync is no longer
 the reason to answer it, and its pinned-projection half is ANSWERED for the save

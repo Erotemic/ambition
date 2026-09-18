@@ -1342,6 +1342,24 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_consumed_request_writers.py",
             ],
         ),
+        # ⛔⛤ Q136's POPULATION, WHICH HAD NEVER BEEN ENUMERATED. An intent
+        # raised outside the rewinding schedule and SPENT inside it is lost, and
+        # the player's press does nothing. Two witnesses existed for two
+        # resources; nobody could say whether those were the population or the
+        # two somebody happened to look at.
+        # ⚠ THE LOSS HAPPENS BY TWO OPPOSITE MECHANISMS, so the table records
+        # which applies to each crossing: unregistered means the sim's
+        # consumption stands through the rewind, registered means the rewind
+        # erases the host's write. Registering an unregistered request moves it
+        # from the first row to the second and fixes nothing — which is why this
+        # is a population instrument and not a lint with an autofix.
+        Job(
+            "every host-raised, sim-spent intent has been read",
+            [
+                sys.executable,
+                "scripts/check_host_produced_sim_consumed_requests.py",
+            ],
+        ),
         # `CheckpointDomainApply`'s authorization is made out of WHEN its
         # reducers run: the commit executor runs that schedule and nothing else
         # does, so a reducer living in it cannot act on an unadmitted request.

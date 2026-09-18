@@ -531,6 +531,27 @@ fn a_reset_whose_start_room_is_refused_wipes_nothing() {
         "a refused reset warped the player to the spawn of a room that was never \
          built"
     );
+    // ⛔⛤ **AND THE SIGNAL FOUR OTHER DOMAINS ACT ON, WHICH NOTHING ON THIS ROAD
+    // CHECKED.** Every assertion above reads a value `process_new_game_reset_request`
+    // writes itself, so all of them are satisfied by a system that refuses
+    // correctly and ANNOUNCES the commit anyway. Gravity, `items/persist`,
+    // `durable_horizon` and the session teardown bundle all key on
+    // `NewGameResetCommitted` rather than on the request, so that announcement is
+    // what actually reaches them.
+    //
+    // ⚠ `a_declined_reset_leaves_the_running_session_untouched` asserts the same
+    // emptiness and CANNOT stand in for this: it refuses at preparation, before
+    // the staged closure runs, so it never reaches the verification this arm is
+    // about. Measured by poison 2026-09-18 — writing the message above the
+    // `publication_succeeded` check left all ten arms in this module green.
+    assert!(
+        app.world()
+            .resource::<Messages<NewGameResetCommitted>>()
+            .is_empty(),
+        "the start room was REFUSED and the reset announced a COMMIT anyway. \
+         Nothing was wiped, and every teardown domain keyed on that message just \
+         tore down a session that is still running"
+    );
 }
 
 /// Reset must restore the moving platform from the start room's

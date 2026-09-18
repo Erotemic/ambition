@@ -89,8 +89,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         // Shaders: every row's (field, step, min/max) lives once in SHADER_ROWS,
         // read by both this dispatch and `build.rs`. This arm still names every
         // `SettingsOptionId::Shader*` variant explicitly, so a new variant not
-        // added here is still a non-exhaustive-match compile error, same as
-        // before the collapse.
+        // added here is a non-exhaustive-match compile error.
         id @ (SettingsOptionId::ShaderStrength
         | SettingsOptionId::ShaderCrtStrength
         | SettingsOptionId::ShaderCrtScanlines

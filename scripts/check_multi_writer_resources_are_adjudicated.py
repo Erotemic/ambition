@@ -3644,23 +3644,69 @@ SOLE_IN_SESSION_OWNER: dict[str, str] = {
 
 
 #: ⛔⛤ ONE NAME, TWO TYPES — a row this census CANNOT read correctly by
-#: construction, because it is keyed on the type's NAME. A `struct` declared
-#: INSIDE a function is local to it: two such declarations in two files share a
-#: spelling and nothing else, so "written from two files" is true of the name and
-#: false of every byte of state. ⇒ The verdict says so, and this table makes the
-#: claim checkable — promote either declaration to module scope and the check
-#: fires, because then the row might be real.
+#: construction, because it is keyed on the type's NAME. Two `struct`/`enum`
+#: declarations sharing a spelling are two types unless one is reachable from
+#: the other's writer — a `struct` declared INSIDE a function is local to it, a
+#: private `struct` declared at module scope inside its OWN `[[bin]]` crate is
+#: unreachable for the same reason, and both are the same claim: EACH writer
+#: file declares its OWN copy rather than importing one shared item. ⇒ The
+#: verdict says so, and this table makes the claim checkable per writer file.
 NAME_COLLISION_NOT_ONE_TYPE: dict[str, tuple[str, ...]] = {
     "FixedStepsTaken": (
         "game/ambition_app/src/app/cli.rs",
         "game/ambition_app/src/headless.rs",
     ),
+    "Warmup": (
+        "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
+        "game/ambition_demo_sanic_app/src/bin/capture_sanic.rs",
+        "game/ambition_demo_twintrack_app/src/bin/capture_twintrack.rs",
+    ),
 }
 
+#: ⛔ ANTI-VACUITY for [`name_collision_shortfalls`]'s tree-wide scan. MEASURED
+#: 2026-09-18: 3,754 `struct`/`enum` declarations across the same
+#: `census.production_files()` population `MIN_FILES` already floors. A scan
+#: that silently stopped matching declarations would report a clean tree, the
+#: same failure `MIN_FILES`/`MIN_TYPES` exist to catch on the file/type side.
+MIN_DECLARATIONS = 1500
 
-def name_collision_shortfalls(multi: dict[str, list[str]]) -> list[str]:
-    """Every way a [`NAME_COLLISION_NOT_ONE_TYPE`] claim can have stopped being true."""
+#: `struct Name` / `enum Name`, ANY indentation. Indentation is reported as
+#: DETAIL below (fn-local vs module-level), never as the filter — a rule that
+#: only looked for one shape would have missed whichever case it did not name.
+_TYPE_DECL = re.compile(
+    r"^([ \t]*)(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum)\s+(\w+)\b", re.MULTILINE
+)
+
+
+def name_collision_shortfalls(
+    multi: dict[str, list[str]], files: list[str]
+) -> list[str]:
+    """Every way a [`NAME_COLLISION_NOT_ONE_TYPE`] claim can have stopped being
+    true, PLUS every multi-writer type not in that table whose name is not
+    proof of one type either.
+
+    `files` is the caller's own population (`main()` passes
+    `census.production_files()`, already floored by `MIN_FILES`) — this
+    function does not re-derive it, so it has no `git` dependency of its own
+    and runs the same against a caller's synthetic corpus.
+
+    ⚠ WHAT THIS DELIBERATELY DOES NOT DO: see a macro-generated `struct`, or a
+    declaration outside the given `files` — the same population the rest of
+    this census already scans, not the wider tree. A consumer needing either
+    of those is asking a different question.
+
+    ⛔ A COLLISION FOUND FOR A TYPE WITH NO VERDICT IS AN ERROR, not a report:
+    the name is not proof of one type, so every count and verdict keyed on it
+    is suspect until a human reads which declaration each writer actually
+    means — the same reason `phantom` in `main()` is fatal rather than printed
+    and continued past.
+    """
     problems: list[str] = []
+
+    # ⭐ RE-VERIFY EACH TABLED ROW FIRST, exactly as before: per-file resolution
+    # is anchored to THIS SCRIPT's own location, not to `files` or the caller's
+    # cwd, so a claim about the repository stays a claim about the repository
+    # no matter what corpus the unlisted-collision scan below is given.
     for ty, expected in sorted(NAME_COLLISION_NOT_ONE_TYPE.items()):
         if ty not in ADJUDICATED:
             problems.append(
@@ -3685,17 +3731,61 @@ def name_collision_shortfalls(multi: dict[str, list[str]]) -> list[str]:
         for relative in expected:
             source = pathlib.Path(__file__).resolve().parents[1] / relative
             text = source.read_text(errors="replace") if source.exists() else ""
-            # INDENTED, which is what makes it function-local. A module-level
-            # declaration starts at column zero.
-            local = re.search(
-                rf"^\s+(?:pub(?:\([^)]*\))?\s+)?struct\s+{ty}\b", text, re.MULTILINE
+            # ANY indentation — fn-local (FixedStepsTaken) and module-level
+            # private-per-crate (Warmup) are the same claim: THIS file declares
+            # its own copy rather than importing one shared item.
+            own = re.search(
+                rf"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum)\s+{ty}\b",
+                text,
+                re.MULTILINE,
             )
-            if not local:
+            if not own:
                 problems.append(
-                    f"{ty} has no function-local declaration in {relative}, so "
-                    "the two writers may name ONE type after all — which would "
-                    "make this row a real multi-writer question."
+                    f"{ty} has no declaration of its own in {relative}, so the "
+                    "writers may name ONE type after all — which would make "
+                    "this row a real multi-writer question."
                 )
+
+    # ⭐ THE OTHER DIRECTION: a multi-writer type NOT in the table whose name
+    # nonetheless matches more than one declaration somewhere in `files`. The
+    # loop above re-verifies the rows already tabled; this is what finds a new
+    # one. Gated on its own anti-vacuity floor so a broken regex reports a
+    # broken regex rather than a clean tree.
+    declared_in: dict[str, list[tuple[str, bool]]] = {}
+    total_declarations = 0
+    for f in files:
+        text = census.strip_comments(
+            pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
+        )
+        for m in _TYPE_DECL.finditer(text):
+            indent, ty = m.group(1), m.group(2)
+            declared_in.setdefault(ty, []).append((f, bool(indent)))
+            total_declarations += 1
+
+    if total_declarations < MIN_DECLARATIONS:
+        problems.append(
+            f"only {total_declarations} struct/enum declaration(s) found across "
+            f"{len(files)} file(s) (expected {MIN_DECLARATIONS}+); the "
+            "unlisted-collision scan's regex is broken, not the tree, so it was "
+            "skipped rather than reporting a false clean."
+        )
+        return problems
+
+    for ty in sorted(multi):
+        if ty in NAME_COLLISION_NOT_ONE_TYPE:
+            continue
+        hits = declared_in.get(ty, [])
+        if len(hits) > 1:
+            where = ", ".join(
+                f"{f} ({'fn-local' if indented else 'module-level'})"
+                for f, indented in hits
+            )
+            problems.append(
+                f"{ty} matches {len(hits)} struct/enum declarations in the "
+                f"production tree ({where}) and is not recorded in "
+                "NAME_COLLISION_NOT_ONE_TYPE — it may be two unrelated types "
+                "sharing a name, the way FixedStepsTaken and Warmup were."
+            )
     return problems
 
 
@@ -3826,7 +3916,7 @@ def main() -> int:
         return 1
 
     # ⭐ AND A VERDICT THAT SAYS "THESE ARE NOT THE SAME TYPE" IS CHECKED TOO.
-    collisions = name_collision_shortfalls(multi)
+    collisions = name_collision_shortfalls(multi, files)
     if collisions:
         print("a name-collision verdict no longer describes the tree:\n")
         for problem in collisions:

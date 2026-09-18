@@ -6,18 +6,20 @@
 > through the detector on 2026-09-18 at `455b35876`+. Reproducible: `find
 > crates game -name lib.rs -path '*/src/lib.rs'` names exactly this
 > population — verified zero-diff against the sweep's own crate list the day
-> this page was finished. 64 crates produced zero hits under the
-> default-features detector.
+> this page was finished. 61 crates never produced a hit under the
+> default-features detector, and 17 had at least one (one of those 17,
+> `ambition_encounter_features`, is now ALSO clean after its fix — see
+> "Clean crates" below for why it is listed in both places on purpose).
 >
 > ⛔⛤ **AND "NO FURTHER WORK" IS WHAT THIS PAGE GOT WRONG.** The section "an
 > `--all-targets` run answers a different question" below states the gap in
 > this page's own words — *a `[dev-dependencies]` entry can be STRANDED with
 > zero signal from any `--lib` run* — and the page then declared the census
 > complete anyway. A zero from an instrument that cannot see a table is not a
-> zero about that table. The 64 were never asked the dev-dependency question,
-> and neither were the 14 called "fully settled": both halves are scoped to
+> zero about that table. The 61 were never asked the dev-dependency question,
+> and neither were the 17 called "fully settled": both halves are scoped to
 > `[dependencies]`. Seven stranded dev-dependencies were found the moment the
-> question was actually asked — see "Stranded dev-dependencies" below. The other 14 are
+> question was actually asked — see "Stranded dev-dependencies" below. The other 17 are
 > each fully classified below: every hit is either a compiler-and-deletion-
 > confirmed manifest fix (applied) or a confirmed real use this page names
 > the evidence for (kept, unchanged). This page replaces an earlier partial
@@ -166,20 +168,35 @@ cross-reference is not debt — the link is a real service to a reader, the cost
 is one manifest line, and deleting both to satisfy a lint trades documentation
 for tidiness.
 
-## Confirmed results — all 14 hit-crates, fully settled
+## Confirmed results — all 17 hit-crates, fully settled
 
-64 of 78 crates produced zero hits under the default-features detector and
-needed no further work (listed at the bottom, "Clean crates"). These 14 each
+⚠ This heading and the paragraph below it read **"14 hit-crates"** and
+**"64 of 78... needed no further work"** until 2026-09-18. Counted by
+parsing both tables below rather than by re-reading them: the union of
+crate names across "Manifest changed" (9) and "Confirmed real use... kept"
+(12, four crates shared with the first table) is **17**, not 14, and the
+"Clean crates" list beneath carried an eighteenth name —
+`ambition_game_shell` — with no annotation explaining the overlap, even
+though its own row above (`ambition_persistence`, FEATURE-GATED, real use)
+means it is not zero-hit. Removed from that list; it belongs only here.
+`ambition_encounter_features` is the one crate legitimately in both places,
+because its one stranded edge was fixed and the crate is now clean under a
+fresh run — see its note in "Clean crates".
+
+61 of 78 crates produced zero hits under the default-features detector and
+needed no further work (listed at the bottom, "Clean crates"). These 17 each
 had at least one hit; every hit below has been through the detector, the
 `--all-features` confirmer, and (where the finding wasn't already settled by
 those two) the `--all-targets` confirmer or a direct delete-and-build test.
 
-### Manifest changed (17 edges, across 9 crates)
+### Manifest changed (16 edges, across 8 crates)
 
 ⚠ This heading read *"11 edges, across 7 crates"* until 2026-09-18 while the
 table under it held 17 rows across 9 crates. A count of a list that sits
 directly above the list is the cheapest of all numbers to check and was never
-checked. Recounted by parsing the table rather than by re-reading it.
+checked. Recounted by parsing the table rather than by re-reading it — and
+recounted AGAIN the same day, down to 16/8, once `ambition_content_pack`
+turned out not to belong here at all (see the note on its row, moved below).
 
 | crate | dependency | class | evidence |
 |---|---|---|---|
@@ -187,7 +204,6 @@ checked. Recounted by parsing the table rather than by re-reading it.
 | `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — removed | 0 occurrences. Both this and the row above are the carve-strandage case: the crate carved that same night has **zero** `cfg(feature` in its entire `src/` (no conditional path can hide a use), and `--all-targets` checks clean in both default (17.06s) and `--features test-support` (1.72s) configurations — a carve moves code out and leaves the source crate's declaration behind, because nothing fails when a dependency stops being named |
 | `ambition_damage` | `ambition_projectiles` | MISFILED — moved to `[dev-dependencies]` | only `crates/ambition_damage/src/tests.rs` names `ProjectileKind`; `crates/ambition_damage/src/lib.rs:1099` is backtick prose (`` `ambition_projectiles::kind::ProjectileKind::spec` ``), not an intra-doc link — no rustdoc risk, so this needed only the one edit |
 | `ambition_encounter_features` | `ambition_interaction` | MISFILED — moved to `[dev-dependencies]` | both uses (`PickupKind`, `Chest`) in `src/tests.rs`. Visible in `fixtures/minimal_game`'s sentinel lockfile: the crate dropped out of the minimal profile's closure once the edge moved — a misfiled dev-dependency is not tidiness, it is a crate a shipped profile linked in order to run nobody's tests |
-| `ambition_content_pack` | `thiserror` | STRANDED — removed | 0 occurrences, and the crate has no `derive(…Error)` at all |
 | `ambition_app` | `serde` | MISFILED — moved to `[dev-dependencies]` | only `tests/replay_fixture_regression.rs` (a submodule of the aggregated `tests/app_it.rs` binary) names it |
 | `ambition_app` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | only `tests/gravity_symmetry_room.rs` (same aggregate binary) names it |
 | `ambition_app` | `ron` | STRANDED — removed | 0 occurrences anywhere (`lib`, `bin`, `tests/`, `examples/`); plain, not optional, not wired through any `dep:ron` feature entry. Delete-and-build clean at default (5m51s) and `--all-features` (5m26s) |
@@ -216,6 +232,7 @@ as of the commits this page cites.
 
 | crate | dependency | class | evidence |
 |---|---|---|---|
+| `ambition_content_pack` | `thiserror` | real use, no edit | ⛔⛤ **THIS ROW READ "STRANDED — removed, 0 occurrences, no `derive(…Error)` at all" UNTIL 2026-09-18, AND IT WAS NEVER TRUE.** `crates/ambition_content_pack/src/artifact.rs:35` has carried `#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]` since `fd50efde7`, 2026-09-11 — a week before this page's own dated measurement. The manifest edge was never actually deleted (checked: still a plain `[dependencies]` entry, unconditional, no `[features]` table in this crate at all), so nothing shipped broken; only the write-up was wrong, and it said "removed" about an edit that was never made. Found re-verifying this table against the tree it describes, not by a bug report. Moved out of "Manifest changed" into this table, where it always belonged |
 | `ambition_abilities` | `ambition_items` | DOC-ONLY | named once, in an intra-doc link inside a `//!` comment. **Ruled 2026-09-03: keep both** |
 | `ambition_input` | `bevy_input` | FEATURE-ACTIVATION | `features = ["serialize"]` is why the line exists. Deleting it and building DEFAULT features fails on `KeyCode: serde::Serialize` — the ambition_input/bevy_input worked trap this page's methodology section cites throughout |
 | `ambition_input` | `ambition_entity_catalog` | FEATURE-GATED, real use | 5 non-test references |
@@ -251,7 +268,7 @@ one to check first.
 
 ⛔⛤ **THIS SECTION EXISTS BECAUSE THE PAGE CLOSED WITHOUT IT.** The detector is
 a `--lib` run, and a `[dev-dependencies]` entry never enters one. The page said
-so, in the section above, and then reported 64 crates as needing "no further
+so, in the section above, and then reported 61 crates as needing "no further
 work" on the strength of a measurement that was never pointed at their
 dev-dependency tables. Raised in an outside review, 2026-09-18.
 
@@ -267,6 +284,16 @@ reported five deps from the wrong crate's `[dependencies]` block), collects both
 the plain table and every `[target.'cfg(..)'.dev-dependencies]`, and asks whether
 any `.rs` under `src/`, `tests/`, `benches/` or `examples/` contains a
 `name::`/`name!` reference, following a `package = ` rename.
+
+⇒ **This is no longer a one-off sweep: `scripts/check_dev_dependencies_are_used.py`
+(landed `9bfc20cab`) is the same method as a standing guard**, and it covers a
+WIDER population than this page's 78 — every `Cargo.toml` in the tree (88
+manifests, 18 with a `[dev-dependencies]` table), not only crates with a
+`src/lib.rs`. Re-run against HEAD while writing this correction:
+`ok: every dev-dependency is named by its own crate (18 crate(s) with a
+[dev-dependencies] table, 88 manifest(s) scanned)` — the seven fixes below are
+what took it from red to that green, and it is the instrument that now backs
+this section's completeness claim, not a re-reading of this table.
 
 ⚠ **A substring is not a reference, and this is where the sweep would have
 lied.** A loose grep for `insta` in `game/ambition_app` returns 562 hits and in
@@ -301,7 +328,13 @@ repository's warning gate reads clean over code that warns — the other two
 (non-default `cfg(feature)`, and workspace feature unification) are disclosed in
 the gate's own output.
 
-## Clean crates — 64, zero hits under the default-features detector
+## Clean crates — 62, zero hits under the default-features detector
+
+⚠ Read 64 until 2026-09-18 and carried `ambition_game_shell` with no
+annotation — it has a real, kept `ambition_persistence` hit above and is not
+zero-hit; moved out (see "Confirmed results" for the recount). 61 of these
+62 never produced a hit; `ambition_encounter_features` is the other one,
+listed here because its hit was fixed rather than kept.
 
 `ambition_asset_manager`, `ambition_audio`, `ambition_binding`,
 `ambition_body_seed`, `ambition_boss_encounter`, `ambition_causal`,
@@ -311,7 +344,7 @@ the gate's own output.
 `ambition_demo_sanic`, `ambition_demo_sanic_app`, `ambition_demo_smash_app`,
 `ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
 `ambition_dev_tools`, `ambition_encounter_features` (after its move above),
-`ambition_engine_schemas`, `ambition_entity_catalog`, `ambition_game_shell`,
+`ambition_engine_schemas`, `ambition_entity_catalog`,
 `ambition_gameplay_trace`, `ambition_geometry`, `ambition_held_items`,
 `ambition_interaction`, `ambition_inventory_ui`, `ambition_items`,
 `ambition_load`, `ambition_match`, `ambition_menu`,
@@ -342,14 +375,20 @@ rather than silently assumed clean:**
 
 1. **`[target.'cfg(...)'.dependencies]` tables.** A naive manifest read (this
    page's own crate/feature extraction included) only sees the top-level
-   `[dependencies]`/`[dev-dependencies]`/`[build-dependencies]` tables. Three
-   crates in this workspace use the target-cfg form instead
-   (`ambition_dev_tools`/`libc` under `unix`, `ambition_persistence`/`web-sys`
-   under `wasm32`, `ambition_app`/`mimalloc`+`getrandom_03`/`04` under
-   `android`+`wasm32`) — checked individually and none overlap this page's
-   hit list, but that is luck this run happened to land on, not a property
-   the sweep verified. A tool that reads manifests for this purpose again
-   should parse all four table shapes, not the three most common ones.
+   `[dependencies]`/`[dev-dependencies]`/`[build-dependencies]` tables. ⚠
+   **THIS BULLET NAMED THREE CRATES AND MISSED AN EDGE, WHICH IS EXACTLY THE
+   "LUCK, NOT VERIFIED" IT WARNED ABOUT.** Recounted 2026-09-18 by parsing
+   every `[target.'cfg(...)'.*]` table with `tomllib` (all three kinds, not by
+   re-reading this sentence): three crates, six edges —
+   `ambition_dev_tools`/`libc` under `cfg(unix)`;
+   `ambition_persistence`/`web-sys` under `cfg(target_arch = "wasm32")`;
+   `ambition_app`/`mimalloc` and `ambition_app`/`oboe` under
+   `cfg(target_os = "android")` (`oboe` is the one this bullet never named);
+   `ambition_app`/`getrandom_03` and `ambition_app`/`getrandom_04` under
+   `cfg(target_arch = "wasm32")`. None overlap this page's `[dependencies]`
+   hit list — now a checked property of all six, not an assumption about
+   three. A tool that reads manifests for this purpose again should parse all
+   four table shapes, not the three most common ones.
 2. **`#[cfg(target_arch = "wasm32")]`-gated code is unverifiable from this
    host, structurally, not by omission.** `ambition_app`'s
    `console_error_panic_hook` and `wasm_bindgen` are `dep:`-gated behind

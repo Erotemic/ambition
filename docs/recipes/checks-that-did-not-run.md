@@ -1091,6 +1091,35 @@ failure looks like a PASS.** A detector that dies is loud, because you get no
 findings at all; a confirmer that dies is silent, because "nothing to report"
 is also what success looks like.
 
+⛔⛤ **A SEVENTH, 2026-09-18, AND IT IS THE POISON'S OWN VERSION OF THE SAME
+MISTAKE: THE FIXTURE DID NOT SEPARATE THE TWO BEHAVIOURS.** A new guard
+(`check_enum_all_constants_are_complete.py`) splits an enum body at DEPTH ZERO so
+a tuple variant's own commas are not read as extra variants, and the arm for that
+used `Cycle { index, count }` and `Slider { value, min, max, step }` — real
+shapes, copied from `SettingsOptionKind`. Removing the depth tracking entirely,
+the arm PASSED.
+
+⇒ Because Rust field names are lowercase, and the parser's `^[A-Z]` filter was
+already dropping `index: usize` and ` count: usize` whether or not the split
+respected depth. The fixture exercised the guard; it did not DISTINGUISH the two
+parsers. What distinguishes them is a tuple variant with an uppercase second
+element — `Bound(Lower, Upper)`, where the naive split turns ` Upper)` into a
+variant the enum never declared and the guard reports a fault ON A CORRECT FILE.
+
+⚠ **AND THE HONEST ENDING IS THE PART TO COPY.** Re-measured across all 41
+constants: NO enum in the compared population carries that shape today. So the
+depth tracking is a CONTRACT of the parser rather than a repair of a live
+misreading, and the arm's own docstring now says that instead of implying a catch
+it never made. The temptation was to fix the fixture and leave the heroic comment
+standing.
+
+⇒ **The rule: a poison must change the ANSWER, not merely the code.** Before
+believing an arm, ask which two implementations it tells apart, and pick an input
+on which they actually differ. *A poison that passes is a finding about the arm* —
+and this is the second shape of that finding on this page, the first being an
+arm that accepted the substring `cargo_output` anywhere in a file when it meant
+an import.
+
 ## ⛔⛔ A test whose SUBJECT comes from a FIXTURE must assert the fixture supplied it
 
 `the_same_seed_produces_the_same_fighter` guarded the fighter brain's replay

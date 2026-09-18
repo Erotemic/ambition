@@ -453,7 +453,7 @@ impl RoomConstructionPlan {
         // -> Presentation`: the dying scope finishes dying before the live one is
         // born. **The census fell from 6 refusals to 4**, and all four that
         // remain were the single-placement custody shape above. Guarded by
-        // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+        // `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`
         // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
         // (the production verdict).
         //

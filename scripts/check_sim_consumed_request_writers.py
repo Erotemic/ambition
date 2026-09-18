@@ -41,10 +41,26 @@ registration. The reason is a layer neither poison touches: the room a world
 BOOTS into fires its binding at the first tick, before any rewind window has
 opened, and `ActiveCutscene` is itself rollback state, so once playing every
 rewind restores it playing and the drain returns early. The queue's cross-frame
-life in that fixture is one frame, at boot, outside the window. ⇒ The arm that
-replaces this ratchet has to take a room TRANSITION mid-session, well inside the
-check distance. That arm is kept for what it does pin — the binding resolving
-under a rollback composition — and is explicitly NOT this ratchet's replacement.
+life in that fixture is one frame, at boot, outside the window.
+
+⛔⛔ **AND THE REPLACEMENT THIS DOCSTRING THEN PRESCRIBED — "a room TRANSITION
+mid-session, well inside the check distance" — WAS BUILT ON 2026-09-18 AND CANNOT
+HOLD THE PROPERTY EITHER. THE PRESCRIPTION IS WITHDRAWN.**
+`a_room_cutscene_taken_mid_session_starts_under_a_rewind` (same file) settles 40
+frames in `central_hub_complex` and then crosses the authored door into
+`cutscene_lab`. It stayed green under the `Update` poison, under that poison
+TOGETHER with the deleted `cutscene.last_room` registration, and the cutscene
+started on the first step after arrival with no delay to measure. ⇒ A ROOM
+TRANSITION IS THE WRONG SUBJECT BY CONSTRUCTION: `detect_room_transition_system`
+runs Track B under a rollback host, recording a `PendingLifecycleCommit` the host
+commits only once the recording frame is CONFIRMED. A room change can never occur
+on a speculative frame, so no trigger keyed on one can be driven across a rewind.
+⇒ Whatever replaces this ratchet has to drive a producer that fires on a
+SPECULATIVE frame — which is what `CutsceneAdvanceRequest` is, and why item 1 of
+`CUTSCENE-ROLLBACK-DECISION` has a failing witness and this subject does not. Both
+arms are kept for what they do pin — the binding resolving under a rollback
+composition, at boot and across a mid-session crossing — and NEITHER is this
+ratchet's replacement.
 
 ⛔⛤ **AND THIS DOCSTRING'S MECHANISM IS WRONG FOR ITS OWN FIRST SUBJECT.** *"The
 restore puts the resource back and nothing re-produces the request"* is the
@@ -57,9 +73,8 @@ frames left them, which is a different hazard in the opposite direction: a
 request drained on a frame that is then rolled back is simply gone, and only a
 producer whose own edge state rewinds will re-make it. ⚠ The ratchet is still
 worth having — a new writer is still worth a human reading — but it must not be
-cited for the mechanism above. Until the transition arm exists this ratchet is
-what there is; when it exists this file should go, and taking a ratchet down is
-part of landing the arm, not a separate cleanup.
+cited for the mechanism above. No arm replaces it today and none is prescribed;
+taking a ratchet down is part of landing its replacement, not a separate cleanup.
 
 ⭐ **THE CLASS WAS ENUMERATED 2026-09-17, SO NOBODY PAYS FOR THAT MEASUREMENT
 TWICE, AND `SUBJECTS` IS STILL ONE TYPE FOR A MEASURED REASON.** A guard written

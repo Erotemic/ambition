@@ -40,6 +40,43 @@ pub struct SimulationReplayState {
     pub replaying_history: bool,
 }
 
+/// Declare the mechanical-edit chain — `Propose -> Admit -> Publish`, in
+/// `PreUpdate` — for whatever composition is being built.
+///
+/// ⛔⛤ **ONE ORDERING FACT, AND THREE PLUGINS USED TO SPELL IT.** The rollback
+/// host, `ambition_portal2d` and `ambition_dev_tools` each carried a byte-identical
+/// `configure_sets` block, because any of them can be installed without the
+/// others and each needs the chain to exist. That is a real requirement and the
+/// duplication was not: `configure_sets` is idempotent, so the fix is one
+/// declaration every installer calls rather than three that must be kept equal
+/// by hand. `MechanicalEditSet`'s own doc had already drifted — it said the
+/// chain was configured by TWO plugins while three were spelling it.
+///
+/// ⚠ **IT DELIBERATELY DOES NOT NAME THE ADVANCE.** *"This chain must complete
+/// before the simulation advances"* is a fact about a host that HAS a timeline;
+/// a composition with no rollback host has no `RunGgrsSystems` to be before, and
+/// naming it here would make this function unusable by the two plugins that do
+/// not depend on the rollback crate. The rollback host adds that one edge beside
+/// this call, and
+/// `the_mechanical_edit_chain_completes_before_the_timeline_advances`
+/// (`ambition_platformer2d_rollback_ggrs::session::tests`) holds the whole
+/// four-node order with a reachability control.
+///
+/// ⛔ It lives here rather than beside the sets in `ambition_platformer2d_core`
+/// because that crate takes `bevy_ecs` and not `bevy_app` on purpose — it has no
+/// `App` to configure and no `PreUpdate` to name.
+pub fn configure_mechanical_edit_sets(app: &mut App) {
+    app.configure_sets(
+        bevy::app::PreUpdate,
+        (
+            ambition_platformer2d_core::MechanicalEditSet::Propose,
+            ambition_platformer2d_core::MechanicalEditSet::Admit,
+            ambition_platformer2d_core::MechanicalEditSet::Publish,
+        )
+            .chain(),
+    );
+}
+
 /// Run condition for diagnostics that should sample each authoritative tick but
 /// not duplicate observations while a rollback host resimulates history.
 pub fn simulation_pass_is_authoritative(replay: Option<Res<SimulationReplayState>>) -> bool {

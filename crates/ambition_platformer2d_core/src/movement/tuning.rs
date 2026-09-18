@@ -447,10 +447,14 @@ pub enum MechanicalEditAdmission {
 /// gets the chain, decides [`MechanicalEditAdmission::Publish`] by default, and
 /// is unaffected.
 ///
-/// ⚠ The sets are in `PreUpdate` and are configured by BOTH the developer-tools
-/// plugin (which supplies proposers and publishers) and the rollback host (which
-/// supplies the decision and the ordering against the advance), because either
-/// can be installed without the other.
+/// ⚠ The sets are in `PreUpdate`, and the chain is declared in ONE place —
+/// `ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets`
+/// — which every installer calls, because any of them can be installed without
+/// the others. THREE plugins spelled it out by hand until 2026-09-18 (the
+/// developer-tools plugin, `ambition_portal2d`, and the rollback host) while this
+/// sentence said two; `configure_sets` is idempotent, so the requirement was
+/// real and the duplication was not. The rollback host still owns the one edge
+/// that is its alone: the chain before its own advance.
 #[derive(bevy_ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MechanicalEditSet {
     /// A domain that mutates a value the simulation reads raises

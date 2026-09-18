@@ -206,6 +206,29 @@ stopped being declared derived (`f15461f52`). Reading the four, source already a
    the floor rather than passing over an empty set. ⇒ Item 2 no longer owes
    anything; it does not owe a fix today either.
 
+   ⛔⛔ **AND THE RATCHET'S OWN PRESCRIBED REPLACEMENT WAS BUILT ON 2026-09-18 AND
+   IS WITHDRAWN: A ROOM TRANSITION CANNOT CARRY THIS PROPERTY.** The ratchet's
+   docstring named its successor — *"a room TRANSITION taken mid-session, well
+   inside the check distance"*.
+   `a_room_cutscene_taken_mid_session_starts_under_a_rewind`
+   (`game/ambition_app/tests/a_room_cutscene_starts_under_a_rewind.rs`) does
+   exactly that: 40 settling frames in `central_hub_complex`, then the authored
+   door into `cutscene_lab`. It stayed green under the `Update` poison, and green
+   again under that poison TOGETHER with the deleted `cutscene.last_room`
+   registration — and under the first poison the cutscene starts on the very first
+   step after arrival, so there is not even a delay to measure. ⇒ The self-healing
+   latch was the obvious explanation and the second poison rules it out. What owns
+   it is `detect_room_transition_system`'s Track B: under a rollback host a
+   crossing is not taken on a speculative frame at all, it is recorded as a
+   `PendingLifecycleCommit` the host commits once the recording frame is
+   CONFIRMED. **A room change cannot happen inside the check distance by
+   construction**, so no trigger keyed on one can be driven across a rewind. ⇒ The
+   replacement has to drive a producer that fires on a SPECULATIVE frame, which is
+   what item 1 already is. The arm is kept for what it does pin — a mid-session
+   crossing resolving its binding under a rollback composition, strictly more than
+   the boot arm — and is NOT the replacement. ⚠ The ratchet stays, and its
+   docstring no longer prescribes an arm nobody can build.
+
 ⭐⭐ **AND THIS EXACT SHAPE IS ALREADY SOLVED ONE DOMAIN OVER, WHICH IS THE
 STRONGEST ARGUMENT THAT IT IS REAL.** `OutstandingCheckpointRequest` is a request
 raised outside the frame that spends it, and its registration carries the reason:
@@ -819,9 +842,19 @@ counters differ.
 
 ### ROLLBACK-KIND-SPELLING — one registration, one kind, spelled once — ✅ DONE 2026-09-16
 
-**Receipt:** `ambition_platformer2d_core::rollback_kind::spelling` holds all
-**18** (kind, sentence) pairs; both roads reference the const and neither spells
-a kind literal beside a sentence any more. Guarded by
+**Receipt (measured at the landing commit `5eb6ef3a0`, 2026-09-16):**
+`ambition_platformer2d_core::rollback_kind::spelling` holds all **18** (kind,
+sentence) pairs; both roads reference the const and neither spells a kind literal
+beside a sentence any more.
+
+⚠ **RE-MEASURED 2026-09-18: 19 DECLARED, 38 REFERENCES ACROSS 2 ROADS, 0 LITERAL
+PAIRS BESIDE THE CODE.** `5967c98a7` and `190830022` both added to
+`rollback_kind.rs` after this row landed — ordinary follow-on work, and the
+invariant this row is about is the trailing ZERO, not the population size. The
+18 above is left as what was measured then, because a receipt that is silently
+re-fitted to today's tree stops being evidence of anything. Found by review.
+
+Guarded by
 `scripts/check_rollback_kind_spelled_once.py`, wired into `--maintenance`
 (9 jobs) with `scripts/tests/test_rollback_kind_spelled_once.py` beside it so it
 also runs under `pytest scripts/tests`.
@@ -835,8 +868,8 @@ raises NO conflicting-registration error, which is the acceptance itself. There
 is no longer one road to change.
 
 ⭐⭐ **THE MEASUREMENT THAT MADE IT SMALL: KEY ON THE PAIR, NOT THE METHOD.**
-Across both roads there are exactly 18 distinct literal (kind, detail) pairs and
-each occurs EXACTLY TWICE — a perfect 1:1, zero disagreements. Two of my own
+Across both roads there were, at `5eb6ef3a0`, exactly 18 distinct literal (kind,
+detail) pairs and each occurred EXACTLY TWICE — a perfect 1:1, zero disagreements. Two of my own
 parsers got the METHOD attribution wrong (one invented four recording-only
 methods; another swallowed the file tail into the last method and reported three
 disagreements that did not exist). The pair needs no attribution at all, so the
@@ -1733,7 +1766,7 @@ behind a guard change.
 passes at all five published rungs at HEAD — by rung 5's CPUs fighting each
 other, not by a threshold that moved.
 
-### A2 — close the remaining projectile construction-identity hole
+### A2 — close the remaining projectile construction-identity hole — ✅ DONE 2026-09-16 (THIS ROW'S SCOPE; A2a/A2b/A2c are a different subject)
 
 **Owner:** [`engine/projectile-contact-protocol.md`](engine/projectile-contact-protocol.md).
 

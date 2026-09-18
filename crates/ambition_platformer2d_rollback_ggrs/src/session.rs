@@ -960,6 +960,7 @@ pub fn drive_slot_frame(
 }
 
 pub(crate) fn install_session_bridge(app: &mut App) {
+    ambition_platformer2d_shared_tangle::schedule::configure_mechanical_edit_sets(app);
     // Only a speculating host quarantines external effects, so the whole
     // mechanism is installed HERE rather than in the engine group: a fixed-tick
     // or render-frame game carries none of these systems at all.
@@ -1109,16 +1110,13 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         // resources, so the developer-tools crate can register proposers and
         // publishers into them without depending on this crate — and so a
         // composition with no rollback host still runs the same chain and
-        // publishes by default.
+        // publishes by default. The chain is declared by
+        // `schedule::configure_mechanical_edit_sets`, called above; what is this
+        // host's ALONE is the edge against its own advance, and with the three
+        // already chained, ordering the last of them orders all of them.
         .configure_sets(
             PreUpdate,
-            (
-                ambition_platformer2d_core::MechanicalEditSet::Propose,
-                ambition_platformer2d_core::MechanicalEditSet::Admit,
-                ambition_platformer2d_core::MechanicalEditSet::Publish,
-            )
-                .chain()
-                .before(RunGgrsSystems),
+            ambition_platformer2d_core::MechanicalEditSet::Publish.before(RunGgrsSystems),
         )
         .init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
         .init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>()

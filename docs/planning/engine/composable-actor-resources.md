@@ -389,10 +389,20 @@ or cache order.
 ### R14. A prepared plan a snapshot can name is an ARENA, not a cache
 
 Prepared plans are immutable and APPEND-ONLY within a rollback generation. A plan
-may not be replaced, mutated or evicted while any rollback snapshot, checkpoint,
-save or other admitted state can still name it. The reclamation boundary is a
-GENERATION OR TIMELINE RESET, which is the moment nothing admitted can point
-backwards any more.
+may not be replaced, mutated or evicted while any rollback snapshot, confirmed
+frame, or other GENERATION-BOUND admitted state can still name it. The
+reclamation boundary is a GENERATION OR TIMELINE RESET, which is the moment
+nothing admitted can point backwards any more.
+
+⛔ **"GENERATION-BOUND" IS DOING WORK, AND THIS SENTENCE USED TO SAY "SAVE"
+INSTEAD.** [R4](#r4-stable-identity-and-runtime-address-are-different-facts) says
+a plan identity *"must not appear in durable save data, which outlives the
+generation that gave it meaning"* — so a rule keeping a plan alive for anything a
+save can name read exactly opposite to the rule forbidding a save to name one.
+The two are consistent only once the word is split: a DURABLE save never names a
+plan, so it never extends one's life, and an exact-generation transient — a
+rollback snapshot, an in-memory checkpoint — always does. Found by review
+2026-09-18.
 
 ⛔⛤ **THIS FOLLOWS FROM [R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
 AND WAS NOWHERE ON THIS PAGE UNTIL A 2026-09-17 REVIEW ASKED FOR IT.** The moment

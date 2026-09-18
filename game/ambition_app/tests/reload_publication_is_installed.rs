@@ -422,15 +422,21 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
 /// ordering fix below is what made it flippable; the bracket went on 2026-09-14
 /// and its flag was deleted 2026-09-15, leaving one road.
 ///
-/// ⭐⭐ **THE READING THAT PREDICTS IT IS TWO `chain()`s THAT NEVER MEET.**
-/// `SessionScopeSet` chains `Activate -> .. -> RetireAuthority -> Cleanup` (the
-/// sweep is in `Cleanup`), and the shell chains
-/// `Activate -> GameplaySessionSet::Providers -> ..`. Both are after `Activate`
-/// and neither is ordered against the other. This arm asks the graph rather than
-/// trusting that reading — the same question, and the same control, as the
-/// arm above.
+/// ⛔⛤ **THE READING THIS ARM WAS BUILT ON WAS WRONG, AND THE ARM IS NAMED FOR
+/// THE ANSWER RATHER THAN THE GUESS.** The prediction was AMBIGUITY — two
+/// `chain()`s that never meet. At the time `SessionScopeSet` chained
+/// `Activate -> .. -> RetireAuthority -> Cleanup` (the sweep is in `Cleanup`)
+/// while the shell chained `Activate -> GameplaySessionSet::Providers -> ..`,
+/// both after `Activate` and neither ordered against the other. ⚠ That is the
+/// order AS IT WAS, kept because it is what the body's finding is about; the
+/// chain is `RetireAuthority -> Cleanup -> Activate -> Presentation` today and
+/// `lifecycle/session.rs` owns it. The graph said the two chains DID meet, by
+/// declaration and in the wrong direction — see the finding at the assertion.
+/// ⇒ This arm asks the graph rather than trusting a reading, which is the whole
+/// reason it could answer something its author did not expect; same question and
+/// same control as the arm above.
 #[test]
-fn nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction() {
+fn the_retired_scopes_sweep_precedes_the_incoming_sessions_construction() {
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();

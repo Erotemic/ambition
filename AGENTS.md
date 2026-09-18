@@ -197,6 +197,18 @@ Measured on one box, 2026-09-16:
 | `cargo clean` | ~80 GB (everything) | rebuild everything, Bevy included |
 | `./scripts/clean_workspace_crates.sh --incremental-only --apply` | 82 GB when measured, 13 GB an hour later | nothing is rebuilt |
 
+⚠ **RE-MEASURED 2026-09-18 AND THE FIRST ROW CAME OUT FOUR TIMES ITS TABLED
+SIZE: `cargo clean --workspace` REMOVED 25,270 FILES, 143.1 GiB.** The table's
+~35 GB is one box on one day and it is left as measured; what the two numbers
+disagree about is not the command but the AGE of the directory it is pointed at.
+This one had run for days without a workspace clean, and a stale generation of
+our crates' artifacts is minted per feature/flag shape and never reaped — the
+same accumulation the `--incremental-only` note describes, on the artifact side.
+⇒ Read the table as the floor a FRESH target gives back, not as what yours will.
+Run the third row first, and if it leaves you under the 40 GB floor (it left
+35 GB free here, then 31 GB an hour later), the first row is the one that ends
+the problem rather than postponing it.
+
 ⇒ **Start with the third when you just need headroom now.** It deletes the
 incremental cache, not artifacts, so no fingerprint is invalidated: a crate that
 was fresh stays fresh and is skipped on the next build. The only cost is that the

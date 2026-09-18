@@ -90,7 +90,7 @@ that have been through both stages:
 | `ambition_abilities` | `ambition_gameplay_trace` | STRANDED — remove |
 | `ambition_content_pack` | `thiserror` | STRANDED — remove (0 occurrences, and the crate has no `derive(…Error)` at all) |
 | `ambition_abilities` | `ambition_items` | DOC-ONLY — **ruled: keep both** |
-| `ambition_damage` | `ambition_projectiles` | MISFILED **and** doc-linked (`crates/ambition_damage/src/lib.rs:1095`) |
+| `ambition_damage` | `ambition_projectiles` | MISFILED — **fixed 2026-09-18**, moved to `[dev-dependencies]`. Re-read: `crates/ambition_damage/src/lib.rs:1099` is backtick prose (`` `ambition_projectiles::kind::ProjectileKind::spec` ``), not an intra-doc `[link]` — no rustdoc risk, so this needed only the one edit, not the two the DOC-ONLY class calls for. `cargo check`/`cargo test --no-run -p ambition_damage --lib` both clean afterward |
 
 ✔ **THE TWO DETECTOR-ONLY ROWS ARE SETTLED, 2026-09-17 — and they settled in
 OPPOSITE directions, which is why the sentence below them was right to refuse
@@ -176,6 +176,17 @@ Unscanned: `ambition_app`, `ambition_content`, `ambition_demo_mary_o`,
 ▢ **A post-carve checklist step.** The grep that started this is still worth
 running as a cheap smoke test at carve time — but over the WHOLE crate, never
 `src/` alone, and understood as a detector whose hits go through the confirmer.
+
+▢ **Every dependency MOVE is a lockfile change in every independent workspace
+that transitively holds the crate — not a surprise found later.** Measured
+2026-09-18: moving `ambition_damage`'s `ambition_projectiles` to
+`[dev-dependencies]` broke `cargo tree --locked` in THREE unrelated sub-workspaces
+(`examples/capability_demo`, `fixtures/headless_profile`,
+`fixtures/minimal_game`) — each just needed `cargo update --workspace --offline`
+to drop the one stale line. Run `python3 -m pytest
+scripts/tests/test_sub_workspace_lockfiles_are_current.py` after each manifest
+edit in this campaign, not once at the end where a batch of failures reads as
+noise instead of one edit at a time.
 
 ⛔⛤ **AND THE COVERAGE LINE CANNOT BE RE-DERIVED FROM THIS PAGE — MEASURED
 2026-09-17.** The workspace now holds **78 members with a `src/lib.rs`** (66 in

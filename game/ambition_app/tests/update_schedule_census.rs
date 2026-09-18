@@ -831,11 +831,28 @@ fn room_transition_load_state_writers_are_ordered_against_each_other_in_the_ship
     // chain, and the presentation trio is chained in `Update`. What has no edges
     // is the relationship BETWEEN those groups.
     //
-    // ⭐ A RATCHET, NOT A PIN AT ZERO, and for the same reason as the
-    // `MenuControlFrame` number above: which pairs should be ordered is a
-    // per-surface judgement about the room-transition lifecycle, and a
-    // permanently-red guard stops being read. A SEVENTEENTH must not be able to
-    // land silently. Lower this when you order a pair; never raise it.
+    // ⭐⭐ AND THE SIXTEEN ARE ONE MISSING EDGE, NOT SIXTEEN JUDGEMENTS —
+    // ATTRIBUTED 2026-09-18 by `name_the_room_transition_conflicts` below.
+    // EVERY pair is `ReadinessSet(Update) × NO ROOM-TRANSITION SET`, and the
+    // arithmetic closes exactly: the readiness chain holds 4 systems (asserted
+    // by `the_readiness_chain_still_carries_the_checkpoint_terminalization`)
+    // and the app-side `Update` chain holds 4 writers of this resource —
+    // contribute/poll in `room_transition_assets.rs` and drive/handle in
+    // `room_transition_presentation.rs`. 4 × 4 = 16. Both chains are internally
+    // ordered; NEITHER is ordered against the other, and neither is declared a
+    // member of any room-transition set, so no set-level pin reaches them.
+    //
+    // ⇒ The open question is ONE ordering decision between two chains in
+    // `Update`, not sixteen per-pair ones. It is still a judgement — the
+    // readiness chain OPENS transactions and the presentation chain drives and
+    // retires them, so the two orders mean different things about what a
+    // transaction opened this frame can observe — but it is a single one, and
+    // this ratchet should fall to 0 in one edit when somebody makes it.
+    //
+    // A RATCHET, NOT A PIN AT ZERO, for the same reason as the
+    // `MenuControlFrame` number above: a permanently-red guard stops being
+    // read. A SEVENTEENTH must not be able to land silently. Lower this when
+    // you order the chains; never raise it.
     assert_eq!(
         on_state, 16,
         "expected the 16 unordered `RoomTransitionLoadState` pairs measured on \
@@ -934,5 +951,90 @@ fn the_seat_raw_frame_conflict_detector_reports_an_unordered_pair() {
         "two unordered `ResMut<SeatRawFrames>` systems must be reported as \
          conflicting; got {on_seats}. A zero here means the shipped-app zero \
          above proves nothing"
+    );
+}
+
+/// WHICH of the 16 unordered `RoomTransitionLoadState` pairs, by group.
+///
+/// The ratchet above counts; this says where to look. Attribution is by SET
+/// MEMBERSHIP rather than by system name, for the reason the menu-frame
+/// diagnostic already records — a system's name is
+/// `"<Enable the debug feature to see the name>"` in an ordinary build — and
+/// because membership is the actionable fact here: the three writer groups are
+/// each internally chained, so every real question is which GROUP the two sides
+/// of a pair belong to.
+#[test]
+fn name_the_room_transition_conflicts() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+    let state_id = app
+        .world()
+        .components()
+        .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+        .expect("the shipped app registers RoomTransitionLoadState");
+
+    let labels: Vec<bevy::ecs::schedule::InternedScheduleLabel> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, s)| s.label())
+        .collect();
+
+    let mut attributed = 0usize;
+    let mut buckets: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for label in labels {
+        app.world_mut()
+            .resource_scope(|world, mut schedules: Mut<Schedules>| {
+                let schedule = schedules.get_mut(label).expect("exists");
+                let _ = schedule.initialize(world);
+                let graph = schedule.graph();
+                let readiness = set_members(
+                    graph,
+                    ambition_platformer2d::runtime::room_transition::RoomTransitionReadinessSet,
+                );
+                let apply = set_members(
+                    graph,
+                    ambition_platformer2d::platformer::schedule::RoomTransitionSet::Apply,
+                );
+                let where_is = |k: &bevy::ecs::schedule::SystemKey| -> &'static str {
+                    if readiness.contains(k) {
+                        "ReadinessSet(Update)"
+                    } else if apply.contains(k) {
+                        "RoomTransitionSet::Apply(sim)"
+                    } else {
+                        "NO ROOM-TRANSITION SET"
+                    }
+                };
+                for (a, b, ids) in &graph.conflicting_systems().0 {
+                    if !ids.contains(&state_id) {
+                        continue;
+                    }
+                    let (mut x, mut y) = (where_is(a), where_is(b));
+                    if x > y {
+                        std::mem::swap(&mut x, &mut y);
+                    }
+                    if x != "NO ROOM-TRANSITION SET" || y != "NO ROOM-TRANSITION SET" {
+                        attributed += 1;
+                    }
+                    *buckets.entry(format!("{label:?}: {x}  ×  {y}")).or_default() += 1;
+                }
+            });
+    }
+
+    for (where_, count) in &buckets {
+        eprintln!("[room-transition-named] {count:>3}  {where_}");
+    }
+
+    // ANTI-VACUITY: if the set lookups stopped resolving, every pair would land
+    // in "NO ROOM-TRANSITION SET" and this diagnostic would print a confident
+    // table describing nothing while still passing.
+    assert!(
+        attributed > 0,
+        "not one conflicting pair could be attributed to a room-transition set — \
+         the set lookup stopped working, so this diagnostic reports nothing while \
+         appearing to pass"
     );
 }

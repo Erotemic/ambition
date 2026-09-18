@@ -666,7 +666,7 @@ pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 /// onto whatever entities exist.
 ///
 /// ⚠ **WHAT THE COLLAPSE COST IS SUBTLER HERE THAN IT WAS FOR THE BODY PROFILE,
-/// WHICH IS WHY IT SURVIVED.** `sync_live_player_dev_edits_system` reads
+/// WHICH IS WHY IT SURVIVED.** `project_editable_abilities` reads
 /// `EditableAbilitySet` directly and treats it as the last admitted value
 /// *"whenever nothing is pending"* — sound, but it means ADMISSION and
 /// PROJECTION are both gated on a primary player EXISTING. With a live locally

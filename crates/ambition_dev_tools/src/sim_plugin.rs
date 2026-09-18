@@ -118,7 +118,7 @@ impl Plugin for DevToolsSimPlugin {
                 // with the other developer edits."* Under the rollback host the sim
                 // schedule IS `GgrsSchedule`, so "with the other developer edits"
                 // put the write INSIDE the rollback window, where a resimulation of
-                // confirmed frames reads it. `sync_live_player_dev_edits_system`
+                // confirmed frames reads it. `project_editable_abilities`
                 // wrote `BodyAbilities`/`BodyFlightState`/`MotionModel`/
                 // `BodyDashState`/`BodyJumpState` there from a live inspector
                 // resource; `sync_developer_body_profile` wrote `BodyKinematics`
@@ -165,7 +165,7 @@ impl Plugin for DevToolsSimPlugin {
         // ⛔⛤ **THE PROJECTION STAYS IN THE SIM SCHEDULE AND THAT IS CORRECT.** It
         // writes no mechanical DECISION — it copies an already-admitted value onto
         // a body — so it is reconciliation, the same class as
-        // `sync_live_player_dev_edits_system`'s ability refresh. What had to leave
+        // `project_editable_abilities`'s ability refresh. What had to leave
         // `GgrsSchedule` was the read of a live EDITOR resource, and that is now
         // upstream in `MechanicalEditSet::Publish`.
         //

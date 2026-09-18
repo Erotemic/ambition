@@ -12,8 +12,9 @@
 //! - [`runtime_census`] — the profiling-only workload censuses (off unless
 //!   `AMBITION_PROFILE_CENSUS` is set) and the clock every census samples on.
 //! - [`persistence`] — `DeveloperTools` disk persistence (developer.ron).
-//! - [`sync_live_player_dev_edits_system`] — the host-scheduled system that
-//!   applies live ability/tuning edits to the player each frame.
+//! - [`project_editable_abilities`] — the host-scheduled system that applies
+//!   live ability/tuning edits to the player each frame, via the
+//!   [`dev_tools::sync_live_ability_edits_clusters`] helper it calls.
 //!
 //! Presentation UI remains in `ambition_app`; gameplay tracing remains with the
 //! simulation state it samples.
@@ -71,7 +72,7 @@ pub fn ability_set_domain() -> ambition_platformer2d_core::MechanicalDomain {
 
 /// Raise a changed developer ability selection as a PROPOSAL.
 ///
-/// ⛔⛤ **`Q120`, 2026-09-13.** `sync_live_player_dev_edits_system` read the live
+/// ⛔⛤ **`Q120`, 2026-09-13.** `project_editable_abilities` read the live
 /// `EditableAbilitySet` from inside `app.sim_schedule()` — under the rollback
 /// host, `GgrsSchedule` — and wrote `BodyAbilities`, `BodyFlightState`,
 /// `MotionModel`, `BodyDashState` and `BodyJumpState` from it. ⇒ A rewind
@@ -372,7 +373,7 @@ mod ability_admission_tests {
 
     /// ⛔⛤ **ADMISSION MUST NOT DEPEND ON THERE BEING A BODY TO WEAR THE RESULT.**
     ///
-    /// `sync_live_player_dev_edits_system` used to decide admission BELOW its
+    /// `project_editable_abilities` used to decide admission BELOW its
     /// `player_q.single_mut()` guard, so an ability edit proposed while the
     /// primary player was momentarily absent stayed pending — re-entering the
     /// admission/rebase decision every frame until a body appeared. The edit was

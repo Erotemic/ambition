@@ -1210,6 +1210,81 @@ fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
     );
 }
 
+/// ⛔⛤ **THE FOURTH SINK, LEFT OUT OF THE SAME PREFLIGHT — 2026-09-18 review.**
+/// `MovingPlatformSet` is a resource rather than a per-entity component, but
+/// `apply_world_replacement` wrote it through `get_resource_mut` — silent on
+/// `None` — exactly like the three sinks above, and after the same despawn.
+/// The same review that added this preflight missed the one sink that lives
+/// off the target entity.
+///
+/// ⭐ `verify_staged_world`'s own check is conditional on `pending.moving_platforms`
+/// being non-empty — a room with no authored platforms is not wrong for lacking
+/// the resource — so this arm's replacement must carry platforms, or it would
+/// not exercise this defect's shape at all.
+#[test]
+fn a_replacement_refused_for_missing_platform_state_leaves_the_outgoing_world_standing() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::MovingPlatformState;
+
+    /// A complete root (`SessionRoot` + `RoomSet` + `RoomGeometry`), with the
+    /// platform-set resource present or absent, and one outgoing body.
+    fn world_with(
+        platform_set: bool,
+    ) -> (bevy::prelude::App, bevy::prelude::Entity, bevy::prelude::Entity) {
+        let mut app = bevy::prelude::App::new();
+        let world = app.world_mut();
+        let root = world
+            .spawn((
+                SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
+                RoomSet::from_parts("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
+                ambition_platformer2d_core::RoomGeometry(empty_world("r")),
+            ))
+            .id();
+        if platform_set {
+            world.insert_resource(MovingPlatformSet::default());
+        }
+        let outgoing = world.spawn_empty().id();
+        (app, root, outgoing)
+    }
+
+    fn replacement(outgoing: bevy::prelude::Entity) -> super::transaction::PendingWorldReplacement {
+        super::transaction::PendingWorldReplacement::new(
+            vec![(outgoing, false)],
+            None,
+            0,
+            empty_world("r"),
+            vec![MovingPlatformState::from_authored(
+                ae::Vec2::ZERO,
+                ae::Vec2::new(64.0, 16.0),
+                64.0,
+                1.0,
+            )],
+        )
+    }
+
+    // ── THE CONTROL: a complete target, `MovingPlatformSet` present. The
+    //    roster MUST be swept here, or the subject below is satisfied by a
+    //    preflight that refuses everything.
+    let (mut app, root, outgoing) = world_with(true);
+    super::transaction::apply_world_replacement(app.world_mut(), replacement(outgoing), Some(root));
+    assert!(
+        app.world().get_entity(outgoing).is_err(),
+        "a complete publication left the outgoing roster alive, so this preflight \
+         refuses valid applications and every room transition is broken"
+    );
+
+    // ── THE SUBJECT: `MovingPlatformSet` is gone between verification and here.
+    let (mut app, root, outgoing) = world_with(false);
+    super::transaction::apply_world_replacement(app.world_mut(), replacement(outgoing), Some(root));
+    assert!(
+        app.world().get_entity(outgoing).is_ok(),
+        "the application was refused for a missing `MovingPlatformSet` AFTER it \
+         had already despawned the outgoing world. The session now has neither \
+         the room it was standing in nor the one it was moving to"
+    );
+}
+
 fn a_replacement_naming(room: &str) -> super::transaction::PendingWorldReplacement {
     super::transaction::PendingWorldReplacement::new(
         Vec::new(),

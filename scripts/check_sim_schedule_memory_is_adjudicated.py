@@ -40,18 +40,35 @@ sim-schedule registrations:
     systems with a `MessageReader` cursor    99   (106 cursors)
     overlap                                   1
 
-⚠ **THIS IS DECLARED AND NOT FIXED, AND THE REASON IS NOT EFFORT.** Widening the
-population to 112 would demand 99 readings, and the mechanism is not settled
-enough to write them: a stale cursor is one of at least three candidates for why
-a host-raised message does not survive a rewind, alongside
-`clear_message_on_rollback` and `bevy`'s own double-buffer expiry. ⛤ The first
-of those was the recorded answer until 2026-09-18, when removing
-`clear_message_on_rollback::<PlayerHealRequested>` (poison verified applied — it
-announced itself four times in the test binary) changed the outcome NOT AT ALL.
-⇒ Until an experiment separates the three, a reading here would be a guess with
-a date on it. What this census owes meanwhile is to say the number out loud
-every run, which `main()` does, rather than to let a clean `13/13` imply 13 is
-the population.
+⭐⭐ **AND ALL 99 ARE ADJUDICATED BY ONE RULE, WHICH IS WHY THEY ARE NOT LISTED
+HERE.** Read 2026-09-18 in `bevy_ecs` 0.19.1: `Messages::clear`
+(`message/messages.rs:228-232`) empties both buffers and sets each buffer's
+`start_message_count = self.message_count`, so **`message_count` is MONOTONIC
+across a clear** — it is never rewound. A cursor's unread count is
+`message_count.saturating_sub(last_message_count).min(len())`
+(`message/message_cursor.rs:120-129`). ⇒
+
+> A `MessageReader` inside the rewinding schedule loses its message exactly
+> when nothing inside that schedule re-raises it.
+
+A sim-raised message IS re-raised by the resimulation, which bumps
+`message_count` past the cursor, so the re-raise is read and the cursor carries
+no defect. A HOST-raised one is not re-raised, the cursor reads `n - n = 0`, and
+the intent is gone. **That is the Q136 ingress question**, and
+`check_host_produced_sim_consumed_requests.py` already owns it: joined over
+these 99 at 2026-09-18, 73 read only sim-produced messages, 4 read a
+host-produced one (exactly that script's four message crossings), and 22 read a
+type with no production writer at all.
+
+⛤ **THE ROUTE TO THAT RULE WAS A POISON THAT PASSED.** Removing
+`clear_message_on_rollback::<PlayerHealRequested>` changed its witness's outcome
+not at all — the registration was assumed to be the loss mechanism, and the
+arithmetic above says why it cannot be: the cursor has already refused to read
+on the first resimulated frame, whether or not the channel still holds the
+message. ⇒ Listing 99 readings here would duplicate the other census's
+population rather than adjudicate anything. What this file owes is to SAY the
+number every run, which `main()` does, so a clean `13/13` cannot imply 13 is the
+population, and to name the owner of the rest.
 
 ⚠ **THE THIRD ONE IS WHY THIS FILE'S POPULATION IS A FLOOR AND SAYS SO.**
 `PlayerCloneClock` was a `Resource`, not a `Local` — the same failure with a
@@ -349,10 +366,12 @@ def main() -> int:
     # SOMETHING MUST BE THE ONE TO SAY SO. A clean `13/13` above would otherwise
     # read as "13 is the population", and it is not.
     print(
-        f"⚠ NOT ADJUDICATED HERE: {len(hidden)} further system(s) carry a "
+        f"⚠ ADJUDICATED ELSEWHERE: {len(hidden)} further system(s) carry a "
         f"`MessageReader`, which IS a `Local<MessageCursor<T>>` and does not say so "
-        f"({sum(c for _, c in hidden.values())} cursors). See this module's "
-        "blind-spot block; the mechanism is unsettled, so a reading would be a guess."
+        f"({sum(c for _, c in hidden.values())} cursors). One rule covers them — a "
+        "cursor loses its message exactly when nothing in the rewinding schedule "
+        "re-raises it — and that is Q136's ingress question, owned by "
+        "`check_host_produced_sim_consumed_requests.py`. See this module's cursor block."
     )
     return 0
 

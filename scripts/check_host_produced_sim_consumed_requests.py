@@ -441,8 +441,76 @@ _MSG_READER = re.compile(
 )
 
 
+#: `add_message::<T>()` — the type universe a `.write_message(..)` argument is
+#: resolved against. 103 registrations at 2026-09-18.
+_MSG_REGISTERED = re.compile(r"\badd_message\s*::\s*<\s*([A-Za-z_][\w:<>\s]*?)\s*>")
+
+#: `.write_message(EXPR` — the SECOND spelling of a message production.
+#:
+#: ⛔⛤ **THE FIRST VERSION OF THIS PASS SAW ONLY `MessageWriter<T>` PARAMETERS,
+#: AND A PRODUCTION WRITE IS ALSO A `&mut World` CALL.** Found 2026-09-18 by
+#: joining this census against the `Local`-memory one: `NewGameResetCommitted`
+#: has four sim-schedule readers and read as NEVER WRITTEN, because its only
+#: production write is `world.write_message(NewGameResetCommitted)`
+#: (`session/reset/mod.rs:502`). Measured over the production corpus: 54 such
+#: calls, 34 naming a type path, and exactly **3** registered types written ONLY
+#: this way — `NewGameResetCommitted`, `RespawnRoomVisualsRequested`,
+#: `RoomLoaded`.
+#:
+#: ⭐ **NONE OF THE THREE IS A CROSSING, AND THAT IS WHY THIS HAD TO BE FIXED
+#: RATHER THAN NOTED.** `NewGameResetCommitted`'s writer
+#: (`process_new_game_reset_request`) is itself sim-side, so the resimulation
+#: re-raises it; the other two have no host writer with a sim reader. The answer
+#: did not move — and a population that undercounts without changing the answer
+#: is exactly the one that changes silently later.
+_WRITE_MESSAGE = re.compile(
+    r"\.\s*write_message\s*\(\s*([A-Za-z_][\w]*(?:\s*::\s*[A-Za-z_][\w]*)*)"
+)
+
+
+@functools.cache
+def _registered_messages(repo: Path) -> frozenset[str]:
+    found: set[str] = set()
+    for _src, text in sim._production_sources(repo):
+        for match in _MSG_REGISTERED.finditer(text):
+            found.add(match.group(1).split("::")[-1].strip())
+    return frozenset(found)
+
+
+def _written_by_call(body: str, universe: frozenset[str]) -> set[str]:
+    """Registered message types this body writes through `.write_message(..)`.
+
+    ⚠ The argument is resolved by taking the first path segment that names a
+    REGISTERED message, not the last: `ShellCommand::GoTo(..)` writes a
+    `ShellCommand`, and reading the last segment invents a type called `GoTo`.
+    An argument that resolves to nothing — a local, or `AppExit::from_code(..)` —
+    is counted as unresolved and `unresolved_message_writes` reports it, because
+    a silently dropped write is how this gap opened in the first place.
+    """
+    found: set[str] = set()
+    for match in _WRITE_MESSAGE.finditer(body):
+        for part in (p.strip() for p in match.group(1).split("::")):
+            if part in universe:
+                found.add(part)
+                break
+    return found
+
+
+def unresolved_message_writes(repo: Path = REPO) -> list[tuple[str, str]]:
+    """`(file, argument)` for every `.write_message(..)` naming no registered type."""
+    universe = _registered_messages(repo)
+    out: list[tuple[str, str]] = []
+    for src, text in sim._production_sources(repo):
+        for match in _WRITE_MESSAGE.finditer(text):
+            parts = [p.strip() for p in match.group(1).split("::")]
+            if not any(p in universe for p in parts):
+                out.append((src.relative_to(repo).as_posix(), match.group(1)))
+    return out
+
+
 @functools.cache
 def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...]:
+    universe = _registered_messages(repo)
     writers: dict[str, set[str]] = {}
     readers: dict[str, set[str]] = {}
     for _src, text in sim._production_sources(repo):
@@ -453,6 +521,10 @@ def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, .
                 writers.setdefault(ty.split("::")[-1], set()).add(name)
             for ty in _MSG_READER.findall(params):
                 readers.setdefault(ty.split("::")[-1], set()).add(name)
+            brace = text.find("{", match.end())
+            if brace != -1:
+                for ty in _written_by_call(sim._braced(text, brace), universe):
+                    writers.setdefault(ty, set()).add(name)
     return tuple(
         (ty, tuple(sorted(ws)), tuple(sorted(readers.get(ty, ()))))
         for ty, ws in sorted(writers.items())
@@ -477,17 +549,28 @@ def message_crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]
     keeping the old copy would double it. For a host-raised message there is no
     resimulation to re-raise it, so the clear would be the loss.
 
-    ⛔⛤ **THAT WAS WRITTEN AS THE MECHANISM AND IT IS NOT, OR NOT ALONE.**
-    Removing the registration for `PlayerHealRequested` on 2026-09-18 changed
-    its witness's outcome not at all, and the poison was verified applied — it
-    announced itself four times in the test binary. Two other candidates survive
-    and neither is ruled out: the reader's `Local<MessageCursor<T>>`, which no
-    rewind restores (`MessageReader` IS a `Local`, see
-    `check_sim_schedule_memory_is_adjudicated.py`'s blind-spot block), and
-    `bevy`'s own double-buffer expiry, which drops a message after two frames
-    regardless — and the measured transient lasted about two frames. ⇒ The
-    readings below say WHICH crossings are live; they do not yet say WHY, and
-    saying why is what an ingress road has to be designed against.
+    ⛔⛤ **THAT WAS WRITTEN AS THE MECHANISM AND IT IS NOT — IT IS THE READER'S
+    CURSOR, AND THE CLEAR IS REDUNDANT.** Removing the registration for
+    `PlayerHealRequested` on 2026-09-18 changed its witness's outcome not at all,
+    and the poison was verified applied: it announced itself four times in the
+    test binary. The arithmetic says why it could not have mattered.
+    `Messages::clear` empties both buffers and sets each one's
+    `start_message_count = self.message_count` (`bevy_ecs` 0.19.1,
+    `message/messages.rs:228-232`), so `message_count` is MONOTONIC across a
+    clear — never rewound. A cursor's unread count is
+    `message_count.saturating_sub(last_message_count).min(len())`
+    (`message_cursor.rs:120-129`). ⇒ A reader that consumed the message on the
+    speculative frame reads `n - n = 0` on every resimulated frame, whether or
+    not the channel still holds it. The cursor refuses first.
+
+    ⭐ **AND THE SAME ARITHMETIC IS THE WHOLE RULE, WHICH IS WHY THIS PASS IS
+    ALSO THE ADJUDICATION OF 99 `MessageReader` CURSORS** that
+    `check_sim_schedule_memory_is_adjudicated.py` cannot see: a sim-raised
+    message is re-raised by the resimulation, bumping the count PAST the cursor,
+    so it is read. A host-raised one is not. ⇒
+
+        A `MessageReader` inside the rewinding schedule loses its message
+        exactly when nothing inside that schedule re-raises it.
     """
     by_system = schedules_by_system(repo)
 
@@ -534,14 +617,18 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "pre-heal confirmed frame and resimulates with the channel already "
         "cleared. The arm asserts BOTH ends, because a composition that could "
         "not heal at all would print the same final number. "
-        "⛤ AND THE MECHANISM IS NOT SETTLED: removing "
-        "`clear_message_on_rollback::<PlayerHealRequested>` changed the outcome "
-        "NOT AT ALL (poison verified applied — it announced itself four times in "
-        "the test binary), so the channel clear is at most part of it. The other "
-        "two candidates are the reader's `Local<MessageCursor>`, which no rewind "
-        "restores, and bevy's own double-buffer expiry, which would drop the "
-        "message after two frames on its own — and the transient lasted about two "
-        "frames (read 2026-09-18, witnessed 2026-09-18, mechanism OPEN)"
+        "⛤ AND THE MECHANISM IS THE READER'S CURSOR, NOT THE CHANNEL CLEAR. "
+        "Removing `clear_message_on_rollback::<PlayerHealRequested>` changed the "
+        "outcome NOT AT ALL (poison verified applied — it announced itself four "
+        "times in the test binary). `Messages::clear` leaves `message_count` "
+        "MONOTONIC (`bevy_ecs` 0.19.1 `message/messages.rs:228-232`) and a "
+        "cursor's unread count is `message_count - last_message_count` "
+        "(`message_cursor.rs:120-129`), so a reader that consumed the message on "
+        "the speculative frame reads zero on every resimulated frame whether or "
+        "not the channel was emptied. ⇒ The clear is redundant here, and the same "
+        "arithmetic is why a SIM-raised message survives: the resimulation "
+        "re-raises it and bumps the count past the cursor "
+        "(read 2026-09-18, witnessed 2026-09-18, mechanism read 2026-09-18)"
     ),
     "ResetToCheckpoint": (
         "✅ BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES ON PURPOSE. "
@@ -694,6 +781,20 @@ def main() -> int:
             print(f"  {row}\n")
         return 1
     print("ok: every host-produced, sim-consumed intent is adjudicated")
+    # ⛔⛤ SAID OUT LOUD, BECAUSE A SILENTLY DROPPED WRITE IS HOW THE
+    # `.write_message(..)` GAP OPENED. These arguments name no registered
+    # message type — a local variable, or a constructor like
+    # `AppExit::from_code(..)` whose type this pass cannot resolve from the call
+    # site. None is a sim-schedule consumer's producer today; the number is here
+    # so a NEW one is visible rather than absent.
+    unresolved = unresolved_message_writes()
+    if unresolved:
+        print(
+            f"⚠ {len(unresolved)} `.write_message(..)` call(s) name no registered message "
+            f"type and are therefore NOT attributed: "
+            + ", ".join(sorted({arg for _file, arg in unresolved})[:6])
+            + (" ..." if len({a for _f, a in unresolved}) > 6 else "")
+        )
     return 0
 
 

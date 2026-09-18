@@ -389,3 +389,76 @@ def test_every_adjudication_states_when_it_was_read():
     for ty, reading in guard.ADJUDICATED.items():
         assert "read 2026-" in reading, f"{ty}'s reading carries no date"
         assert len(reading) > 200, f"{ty}'s reading is a label, not a reading"
+
+
+# ── the second spelling of a message production ─────────────────────────────
+
+
+def test_a_world_write_message_is_a_production(tmp_path):
+    """⛔⛤ THE GAP THAT MADE `NewGameResetCommitted` READ AS NEVER WRITTEN.
+
+    Its four sim-schedule readers were all visible; the writer was a `&mut
+    World` call, and this pass looked only at `MessageWriter<T>` parameters.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "fn reg(app: &mut App) { app.add_message::<Committed>(); }",
+            "pub fn raise_it(world: &mut World) { world.write_message(Committed); }",
+            "pub fn apply_it(mut r: MessageReader<Committed>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, apply_it);",
+            "}",
+        ]),
+    })
+    assert guard.message_crossings(root) == {"Committed": (["raise_it"], ["apply_it"])}
+
+
+def test_a_variant_argument_resolves_to_its_TYPE_not_its_variant(tmp_path):
+    """⭐ `ShellCommand::GoTo(..)` writes a `ShellCommand`.
+
+    Reading the LAST path segment invents types called `GoTo`, `QuitToHome` and
+    `Success` — measured: six of the thirteen names the naive reading produced
+    were variants, which is why the argument is resolved against the
+    `add_message::<T>()` universe instead.
+    """
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "fn reg(app: &mut App) { app.add_message::<ShellCommand>(); }",
+            "pub fn raise_it(world: &mut World) {",
+            '    world.write_message(ShellCommand::GoTo("route".into()));',
+            "}",
+            "pub fn apply_it(mut r: MessageReader<ShellCommand>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, apply_it);",
+            "}",
+        ]),
+    })
+    assert guard.message_crossings(root) == {"ShellCommand": (["raise_it"], ["apply_it"])}
+
+
+def test_an_UNREGISTERED_type_written_by_call_is_not_invented(tmp_path):
+    """⚠ THE CONTROL ON THE UNIVERSE. Without it the pass would attribute every
+    `.write_message(anything)` and manufacture message types from locals."""
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn raise_it(world: &mut World) { world.write_message(NotAMessage); }",
+            "pub fn apply_it(mut r: MessageReader<NotAMessage>) { for _ in r.read() {} }",
+            "fn build(app: &mut App) {",
+            "    let sim = app.sim_schedule();",
+            "    app.add_systems(Update, raise_it);",
+            "    app.add_systems(sim, apply_it);",
+            "}",
+        ]),
+    })
+    assert guard.message_crossings(root) == {}
+
+
+def test_an_unresolvable_argument_is_reported_not_dropped():
+    """⛔ The tree has 21 of these. A silently dropped write is the gap itself."""
+    unresolved = guard.unresolved_message_writes()
+    assert unresolved, "no unresolved `.write_message(..)` arguments found — the pattern moved"
+    assert all(isinstance(f, str) and isinstance(a, str) for f, a in unresolved)

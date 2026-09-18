@@ -1308,7 +1308,7 @@ not: each answers a different question, and the Q136 count is the second one's.
 
           * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
-          * 4 of 87 written MESSAGE types — `AmbientGravityRequest` and
+          * 4 of 90 written MESSAGE types — `AmbientGravityRequest` and
             `PlayerHealRequested` (both Q136, both live),
             `ResetToCheckpoint` and `SetFlagRequested` (both benign, and each
             by a DIFFERENT general escape — see the readings below).
@@ -1589,6 +1589,42 @@ survive:
    with no rollback involved at all — and the measured transient lasted about
    two frames, which is exactly the coincidence that makes this candidate
    impossible to dismiss from the end state alone.
+
+⭐⭐ **AND CANDIDATE 1 IS SETTLED BY SOURCE: IT IS THE CURSOR, AND THE CLEAR IS
+REDUNDANT FOR A HOST-RAISED MESSAGE.** Read 2026-09-18 in `bevy_ecs` 0.19.1:
+
+* `Messages::clear` (`message/messages.rs:228-232`) empties both buffers and
+  calls `reset_start_message_count`, which sets each buffer's
+  `start_message_count = self.message_count`. ⇒ **`message_count` is MONOTONIC
+  across a clear.** It is never rewound.
+* A cursor's unread count is
+  `messages.message_count.saturating_sub(self.last_message_count).min(messages.len())`
+  (`message/message_cursor.rs:120-129`).
+
+Put those together on the heal's timeline. The host writes: `message_count`
+6, the reader consumes it, `last_message_count` 6, health rises. The rollback
+runs, with or without the clear. The resimulation asks the cursor for unread
+messages and gets `6 - 6 = 0` — **whether or not the channel still holds the
+message.** ⇒ That is exactly why removing `clear_message_on_rollback` changed
+nothing, and it is not a coincidence the poison had to uncover: the two
+mechanisms are not independent, and the cursor runs first.
+
+⭐ **THE SAME ARITHMETIC IS WHY THE 78 SIM-SIDE CHANNELS ARE FINE, WHICH IS THE
+READING THE OTHER CENSUS'S 99 CURSORS WERE WAITING FOR.** A sim-raised message
+is re-raised by the resimulation, which bumps `message_count` to 7 — past the
+cursor — so the re-raise IS read. ⇒ The rule is one line:
+
+> A `MessageReader` inside the rewinding schedule loses its message exactly
+> when nothing inside that schedule re-raises it.
+
+Which is the Q136 ingress question, not a new one. **Joined 2026-09-18 over the
+99:** 73 read only sim-produced messages (safe), 4 read a host-produced one
+(and they are precisely the four rows above), and 22 read a type with no
+production writer at all — a ROAD with no shipped producer, `ItemGrantRequested`
+among them, which is why that witness raises its own message from the test.
+⇒ **The two censuses are one population seen twice**, and candidate 3 cannot be
+the operative mechanism because the cursor has already stopped the read on the
+FIRST resimulated frame, before any double-buffer expiry could matter.
 
 ⚠ **WHY THIS MATTERS TO THE RULING AND NOT ONLY TO THE PROSE.** Each candidate
 implies a different ingress road. If the clear is the loss, a per-message

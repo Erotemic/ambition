@@ -299,6 +299,7 @@ NOT_TREE_NAMES: dict[str, str] = {
     "write_sites": "a python function in `multi_writer_resource_census.py`",
     "this_tick": "prose shorthand for `materialize_projectiles_for_this_tick`",
     "get_resource_mut": "bevy's `World::get_resource_mut`, same",
+    "run_if": "bevy's `IntoScheduleConfigs::run_if`, same",
     # ⚠ ID LITERALS, not identifiers. Backticks are right for a literal and
     # wrong for this arm, so they are named here rather than un-quoted: the
     # allowlist is where a token says which kind of thing it is.

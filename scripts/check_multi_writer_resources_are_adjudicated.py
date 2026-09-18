@@ -61,18 +61,17 @@ owner's helper, and only the call sites say which. Check it by hand when
 adjudicating; the census's `writers` docstring carries the numbers.
 
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 37 of the 121 are rollback-registered, and SIX of
+HAND.** **At least 37 of the 121 are rollback-registered, and FIVE of
 those are still unadjudicated** — `AuthoredOccurrences` (5 files), `OwnedItems`
-(10), `QuestRegistry` (8), `RoomTransitionCooldown` (7), `SlotControls` (6),
-`VersusMatch` (2). That is the whole remaining shortlist and it is short enough
-to name, which is the point of spending verdicts here first.
+(10), `QuestRegistry` (8), `RoomTransitionCooldown` (7), `SlotControls` (6).
 
-⛔ **DO NOT QUOTE THIS COUNT — RE-DERIVE IT.** It read "21 of the 102" on
-2026-09-17, then "31", then "eight", then "seven", then this, all inside about a
-day. The 37 did not move once; the verdicts did, because 25 of the 27 written on
+⛔ **DO NOT QUOTE THAT COUNT — RE-DERIVE IT.** It read "21 of the 102" on
+2026-09-17, then "31", "eight", "seven", "six", and now this, all inside about a
+day. The 37 has not moved once; the verdicts do, because 26 of the 28 written on
 2026-09-18 aimed at this intersection on purpose. ⇒ A shortlist that is actively
-being worked is the LAST number worth carrying across a document boundary. The
-snippet below prints the current list.
+being worked is the LAST number worth carrying across a document boundary, and
+the five above are already a snapshot by the time anybody reads them. The snippet
+below prints the current list.
 
 What the intersection buys is that a second writer there is a DIVERGENCE rather
 than a design smell. The 37 is a LOWER BOUND and carries
@@ -469,6 +468,49 @@ ADJUDICATED: dict[str, str] = {
         "The zero sweep is stated in place as *\"a sweep of zero width at zero "
         "speed\"* rather than a still variant, and it is what makes the advance a "
         "no-op on that family."
+    ),
+    "VersusMatch": (
+        "ROUTED — TWO WHOLE-RESOURCE WRITERS, AND ONE OF THEM IS THE SURVIVOR OF "
+        "A REPAIR THAT SAID IT HAD REMOVED THE CLASS. Two files, two sites, and "
+        "both assign the whole resource, which the census page calls *\"the least "
+        "separable shape there is\"*. `settle_versus_round` "
+        "(`game/ambition_app/src/app/versus_rules.rs`) is the ruleset: registered "
+        "`.in_set(CombatSet::Settle)` in the SIM schedule, `run_if` the versus "
+        "stage is the active route. `track_versus_roster` "
+        "(`game/ambition_app/src/app/versus.rs`) writes `*match_state = "
+        "VersusMatch::opening()` on exactly one arm — entering "
+        "`VERSUS_GAMEPLAY_ROUTE` with no roster published by this experience — so "
+        "it is the match-OPEN reset, not a second ruleset. ⇒ They cannot disagree "
+        "about a value: one means *a match is beginning* and the other advances "
+        "the one that began.\n"
+        "    ⛔⛤ WHAT IS WRONG IS THE SCHEDULE, AND THE FILE ALREADY CARRIES THE "
+        "ARGUMENT AGAINST ITSELF. The registration beside the rollback "
+        "declaration says the ruleset is on the sim schedule *\"ALL of them\"*, "
+        "because a KO-card system in `Update` used to mutate this resource — "
+        "*\"calling a system 'the presentation half' does not make the resource it "
+        "writes presentational.\"* `track_versus_roster` is forty lines below that "
+        "comment, registered into `Update`, writing the same resource. The repair "
+        "removed one `Update` writer and read as removing the class.\n"
+        "    ⚠ AND IT IS NOT A LINE TO MOVE. It stays in `Update` for a stated "
+        "reason — the teardown it is chained with must outlive "
+        "`GameplaySimulationRoot`, or leaving gameplay disables the cleanup for "
+        "that very transition. So the fix is a PROOF, not a relocation: it is "
+        "banked as MENU-RESET-MIDSESSION in "
+        "`scripts/check_rollback_mutators_run_in_sim.py`, which owes a probe "
+        "showing the write precedes the timeline it would otherwise mutate.\n"
+        "    ⛔ THE EXPOSURE IS PEER-COMPARED, NOT RESTORE-LOCAL, which is what "
+        "separates this from the other `Update` resets: the registration is "
+        "`rollback_resource_clone_checksum` with `versus_match_checksum` over the "
+        "round, the phase and the per-team wins, so the row FEEDS the peer "
+        "checksum. A `SessionScopedResources`-style waiver cannot cover it — the "
+        "reset-before-the-timeline arguments in that guard's WAIVERS are about "
+        "rows that are restored, not rows two peers compare.\n"
+        "    ⇒ ROUTED rather than CORRECT, and the owed work is the probe, not a "
+        "verdict: sample `session_world_entity`, `SessionSeatingSource` and "
+        "`AmbitionGgrsSession` on the frame the `(true, false)` arm fires. The "
+        "waiver next door was written on the false premise that "
+        "`maintain_local_session` gates on a live BODY, and it does not — see "
+        "that guard's comment for what replaced it."
     ),
     "EncounterRegistry": (
         "CORRECT — ONE BUILDER AND TWO LIFECYCLE WIPES, one per lifecycle fact. "

@@ -1357,6 +1357,17 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_enum_all_constants_are_complete.py",
             ],
         ),
+        # ⛔⛤ THE UNUSED-DEPENDENCY CENSUS CANNOT SEE THIS HALF. Its detector is
+        # a `--lib` run and a dev-dependency never enters one -- the census page
+        # says so and closed anyway, and asking properly found seven stranded
+        # entries across four crates. This is the half that had no instrument.
+        Job(
+            "every declared dev-dependency is named by its own crate",
+            [
+                sys.executable,
+                "scripts/check_dev_dependencies_are_used.py",
+            ],
+        ),
     ]
 
 

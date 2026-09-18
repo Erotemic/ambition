@@ -180,8 +180,53 @@ def _raises_through(body: str, path: str) -> bool:
     return False
 
 
+def unlocated_message_systems(repo: Path = REPO) -> list[str]:
+    """Message writers/readers this module cannot place in any schedule.
+
+    ⛔⛤ **24% OF THEM, AND IT MAKES THE CROSSING SET A LOWER BOUND.** MEASURED
+    2026-09-18: of 320 distinct message writers and readers, **77** appear in no
+    `add_systems` body [`schedules_by_system`] can find, so [`message_crossings`]
+    cannot call them `host` or `sim` and drops them. **24 of the 90 written
+    message types are touched by at least one** — any of those could be a
+    crossing nobody has seen.
+
+    ⭐ **THE REPRODUCER IS ONE LINE, AND IT IS NOT A NAME-SPELLING PROBLEM.**
+    `apply_feature_hit_events` is registered at
+    `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:695`, inside an
+    `app.add_systems(sim, ..)` opening at `:640` — a fully-qualified cross-crate
+    path, which the name regex here matches happily. The block never reaches
+    that regex: `add_systems_bodies`
+    (`scripts/check_engine_systems_are_engine_installed.py:228`) balances
+    parentheses and returns 272 characters for that call, stopping at
+    `.in_set(CombatSet::Settle),` while the real argument list runs past `:695`.
+    ⇒ The defect is in the shared body parser, not in this module.
+
+    ⚠ **DECLARED RATHER THAN FIXED, DELIBERATELY.** `add_systems_bodies` is
+    shared by several censuses, and widening it makes every one of them see MORE
+    — the opposite direction from the test-module stripper, and every consumer's
+    floors and adjudication tables would have to be re-measured in the same
+    commit. That is a campaign, not a patch. What is owed meanwhile is that this
+    module stop implying completeness, which `main()` now prints every run.
+    """
+    by_system = schedules_by_system(repo)
+    missing: set[str] = set()
+    for _ty, writers, readers in _message_sides(repo):
+        for fn in list(writers) + list(readers):
+            if fn not in by_system:
+                missing.add(fn)
+    return sorted(missing)
+
+
 def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
-    """`{system name: {schedule label, ..}}` from every `add_systems` in the tree."""
+    """`{system name: {schedule label, ..}}` from every `add_systems` in the tree.
+
+    ⚠ INCOMPLETE, and by how much is measured in
+    [`unlocated_message_systems`]: the shared `add_systems_bodies` parser
+    truncates some argument lists, so a registered system can be absent here.
+    A missing entry reads as *"no schedule"*, which every caller treats as
+    *"cannot classify"* rather than as *"host"* or *"sim"* — the safe direction
+    for a verdict and the unsafe one for a POPULATION.
+    """
     found: dict[str, set[str]] = {}
     for _src, text in sim._production_sources(repo):
         for body in sim.add_systems_bodies(text):
@@ -867,6 +912,22 @@ def main() -> int:
     # `AppExit::from_code(..)` whose type this pass cannot resolve from the call
     # site. None is a sim-schedule consumer's producer today; the number is here
     # so a NEW one is visible rather than absent.
+    # ⛔⛤ THE CROSSING SET IS A LOWER BOUND AND SAYS SO EVERY RUN. A system the
+    # schedule map cannot place is dropped from both sides of the comparison.
+    unlocated = unlocated_message_systems()
+    if unlocated:
+        exposed = {
+            ty
+            for ty, writers, readers in _message_sides(REPO)
+            if any(fn in set(unlocated) for fn in list(writers) + list(readers))
+        }
+        print(
+            f"⚠ LOWER BOUND: {len(unlocated)} message writer(s)/reader(s) are in no "
+            f"`add_systems` body this script can parse, touching {len(exposed)} of the "
+            f"{len(_message_sides(REPO))} written message types. Any of those could be an "
+            "unseen crossing — see `unlocated_message_systems` for the reproducer."
+        )
+
     unresolved = unresolved_message_writes()
     if unresolved:
         print(

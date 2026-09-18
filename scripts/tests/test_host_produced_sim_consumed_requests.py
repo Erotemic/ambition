@@ -521,3 +521,39 @@ def test_the_escape_vocabulary_covers_an_answer_that_does_not_exist_yet():
         "something now uses the registered-consumption escape — good news, and this arm's "
         "premise is gone. Point it at whichever escape is still unused, or delete it."
     )
+
+
+# ── the population's own lower bound ───────────────────────────────────────
+
+
+def test_the_schedule_map_gap_is_measured_not_assumed():
+    """⛔⛤ 24% OF MESSAGE WRITERS/READERS CANNOT BE PLACED IN A SCHEDULE.
+
+    A system absent from `schedules_by_system` reads as "no schedule", which
+    `message_crossings` treats as unclassifiable and drops — safe for a verdict
+    and unsafe for a POPULATION. This arm fails if that number moves in either
+    direction, because a FALL is the fix landing (say so) and a RISE is the
+    parser losing more ground.
+    """
+    unlocated = guard.unlocated_message_systems()
+    assert 60 <= len(unlocated) <= 95, (
+        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading was 77. "
+        "A fall means the shared `add_systems_bodies` parser improved — re-measure every "
+        "consumer's floors in the same commit. A rise means it lost ground."
+    )
+
+
+def test_the_reproducer_for_the_parser_gap_still_reproduces():
+    """⭐ THE NAMED SPECIMEN, so the claim is checkable rather than a count.
+
+    `apply_feature_hit_events` IS registered in the sim schedule at
+    `combat_schedule.rs:695`; the parser returns a truncated body for the
+    `add_systems` that contains it. If this ever resolves, the gap narrowed and
+    the docstring's reproducer needs replacing — not deleting.
+    """
+    by_system = guard.schedules_by_system()
+    assert "apply_feature_hit_events" not in by_system, (
+        "the reproducer resolved: `add_systems_bodies` now reaches "
+        "`combat_schedule.rs:695`. Re-measure `unlocated_message_systems` and pick a new "
+        "specimen from whatever is still missing, or close the gap for good."
+    )

@@ -1308,7 +1308,20 @@ not: each answers a different question, and the Q136 count is the second one's.
 
           * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
-          * 4 of 90 written MESSAGE types — `AmbientGravityRequest` and
+          * 4 of 90 written MESSAGE types, **AND THIS ONE IS A LOWER BOUND
+            BY A MEASURED AMOUNT** — 77 of the 320 distinct message writers and
+            readers (24%) sit in no `add_systems` body the instrument can parse,
+            so it can call them neither host nor sim and drops them; **24 of the
+            90 types are touched by at least one.** ⇒ Any of those 24 could be a
+            crossing nobody has seen. The reproducer is named in
+            `unlocated_message_systems`: the shared `add_systems_bodies` parser
+            truncates the `app.add_systems(sim, ..)` at
+            `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:640`
+            before reaching `apply_feature_hit_events` at `:695`. ⚠ Declared and
+            not fixed, because that parser is shared and widening it makes every
+            census see MORE — each one's floors and readings would have to move
+            in the same commit. The rows below are —
+            `AmbientGravityRequest` and
             `PlayerHealRequested` (both Q136, both live),
             `SetFlagRequested` (LIVE since a 2026-09-18 review; I had filed
             it benign) and `ResetToCheckpoint` (benign, by the one general

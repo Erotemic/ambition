@@ -409,7 +409,7 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // EVERY ROOT**, so this reload would land the player in an EMPTY WORLD. That
     // is no longer a future tense: it is what this arm keeps from coming back. It
     // asks the production verdict, not the schedule; the schedule is asked by
-    // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`.
+    // `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`.
     let verification = app
         .world()
         .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
@@ -1282,7 +1282,7 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
 ///
 /// ⚠ **THE ORDERING FIX IS WHAT CLOSED IT** (`SessionScopeSet` chains
 /// `RetireAuthority -> Cleanup -> Activate -> Presentation`), and
-/// `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+/// `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`
 /// asks the SCHEDULE. This asks the RESULT, which is the half a schedule
 /// assertion cannot cover: an ordering can be right and the room still refused
 /// for some other reason.

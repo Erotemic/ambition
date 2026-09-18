@@ -1517,6 +1517,59 @@ sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
 
+### 2026-09-18 — Q136 needs TWO roads, not one abstraction, and registration picks
+
+⛔⛤ **THE PAGE AND THE REVIEW BOTH ASK FOR "THE EVENTUAL INGRESS ABSTRACTION",
+AND THE TWO MECHANISMS THIS ROW ALREADY SEPARATES DO NOT SHARE A FIX.** The
+landed clone road put its consumer on the HOST side
+(`MechanicalEditSet::Publish` in `PreUpdate`). Asking whether the same road
+works for a REGISTERED request — `NewGameResetRequested`, whose consumer
+`process_new_game_reset_request` is a large sim system with `SessionCommands`
+and session-world accessors — turns on what the mechanical edit's session
+rebase carries.
+
+⚠ **MEASURED, AND IT REFUTED THE FIRST ANSWER I REASONED OUT.** The intuitive
+story is that an admitted edit calls `stop_session` first, so the publish
+happens in a rollback-free window and a sim-side consumer simply does not run
+while the session is down — `sim_schedule()` IS `GgrsSchedule` under the
+rollback host (`crates/ambition_platformer2d_rollback_ggrs/src/lib.rs:123`),
+and `AdvanceWorld` runs it only with a session. That is wrong in the part that
+matters. Driving `stop_session` on a maintainer-owned sync-test harness and
+reading `SimTick`: **20 → 25 over 5 steps with a session, then 25 → 29 over the
+next 5 with `stop_session` called in between** — the simulation keeps ticking,
+one step's tick does not land, and the boundary reads `LocallyRebasable` again
+afterwards because `LocalSessionPolicy`'s `autostart` has already rebased. There
+is no useful rollback-free window; there is one skipped frame and then a FRESH
+window.
+
+⇒ **So the distinction is not "does the sim run" — it is WHAT FRAME ZERO
+CAPTURES**, and `warn_if_no_world_to_rewind` states the rule in passing: a
+session *"rebases onto whatever is live"* (`session.rs:245-257`). Frame zero is
+the live world's ROLLBACK-REGISTERED state. Therefore:
+
+    an UNREGISTERED request   is not in frame zero. A sim-side consumer spends
+    (clone, cutscene dismiss)  it on an early — speculative — frame of the new
+                               window; a rewind undoes the effect and nothing
+                               restores the flag. That is the original defect
+                               rebuilt one window later, which is why the clone
+                               road moved its consumer to the host side.
+
+    a REGISTERED request      IS in frame zero, so every resimulation restores
+    (`NewGameResetRequested`)  the host's write and the spend is retried until
+                               the frame carrying it is CONFIRMED. The consumer
+                               may stay where it is.
+
+⭐ **WHICH IS A CHEAPER ANSWER THAN THE ROW HAS BEEN ASSUMING FOR THE RESET
+HALF.** `process_new_game_reset_request` does not have to move; it needs the
+menu's write to arrive as a mechanical-edit publish so the rebase snapshots it.
+⚠ AND IT IS NOT FREE: with the flag in frame zero, a rewind inside the window
+replays the reset, so the reset must be idempotent under repetition within one
+window. Deterministic — every resimulation does the same thing, so no checksum
+disagrees — but a teardown-and-rebuild running several times inside one rollback
+window is a claim somebody should want to make on purpose. That is the question
+this half actually owes, and it is smaller and more concrete than "design an
+ingress abstraction".
+
 ### 2026-09-18 — the cutscene half is TWO fields, and only one of them is the blocked decision
 
 ⭐⭐ **`CutsceneAdvanceRequest` HAS TWO BOOLS AND EVERYTHING ABOVE IS ABOUT ONE

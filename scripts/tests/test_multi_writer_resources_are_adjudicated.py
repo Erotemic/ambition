@@ -47,7 +47,10 @@ def test_a_corpus_that_collapsed_refuses_a_verdict(monkeypatch, capsys):
 def test_a_type_population_that_collapsed_refuses_a_verdict(monkeypatch, capsys):
     monkeypatch.setattr(census, "writers", lambda files: {"Solo": {"a.rs", "b.rs"}})
     assert guard.main() == 1
-    assert "`ResMut<T>` type" in capsys.readouterr().out
+    # ⚠ NOT "`ResMut<T>` type", which is what this read until 2026-09-17. The
+    # census now counts `world.resource_mut::<T>()` too, so a message naming only
+    # the parameter shape would send a reader to the wrong half of the regex.
+    assert "mutably-reached resource type" in capsys.readouterr().out
 
 
 def test_a_new_multi_writer_type_is_reported(monkeypatch, capsys):

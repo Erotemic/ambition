@@ -80,16 +80,19 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
+from rust_source import strip_comments  # noqa: E402
 from test_paths import is_test_path, strip_test_modules  # noqa: E402
 
 BASELINE = REPO / "game/ambition_app/tests/rollback_schema_baseline.txt"
 
 #: ⛔ THE FLOORS. Chosen an order of magnitude below the readings of 2026-09-17
-#: (20 registering crates, 443 baseline rows, 104 components in the intersection
-#: of which 83 are registered) because their job is to catch an instrument going
-#: silent, not to pin a census. ⚠ The intersection read 95 until the test cut was
-#: repaired the same day; a floor set from a blind reading is still a floor, which
-#: is the only reason this one kept working.
+#: (20 registering crates, 443 baseline rows, 114 components in the intersection
+#: of which 91 are registered) because their job is to catch an instrument going
+#: silent, not to pin a census. ⚠ That intersection read **95, then 104, then
+#: 114** in one day as three separate blind spots were repaired — the file-tail
+#: test cut, the widened test-module stripper, and `filter_sites`' own narrower
+#: `git grep` grammar. A floor set from a blind reading is still a floor, which is
+#: the only reason this one kept working through all three.
 MIN_REGISTERED = 100
 MIN_DEFINED = 50
 MIN_FILTERED = 50
@@ -154,6 +157,31 @@ WAIVERS = {
     # rewind cannot diverge a component nothing writes; the day a production
     # spawn stamps one, this waiver has to be re-read.
     "PresentationOnly": "opt-out authority marker with ZERO production insert sites (measured 2026-09-17); 2 filter sites, both its own classifier",
+    # ⭐ TWO ARRIVED 2026-09-17 WHEN `filter_sites` STOPPED PREFILTERING WITH A
+    # NARROWER GRAMMAR (see that function). Both are adjudicated by measurement
+    # rather than by the presentation analogy above.
+    #
+    # `PresentationOf(pub Entity)` cannot BE rollback state — it holds a live
+    # `Entity`, which is the one thing a snapshot may never carry — and all three
+    # filter sites are in crates that draw: `portal2d_presentation`'s
+    # source_visibility and two in `render`'s portal_compositing. Its publisher
+    # sits beside them (`portal_compositing.rs:338`) and restamps it from the sim's
+    # answer to "whose body does this drawable belong to".
+    "PresentationOf": "holds a live `Entity`, so it can never be rollback state; 3 filter sites, all in `ambition_render` / `ambition_portal2d_presentation`, republished by the compositing publisher beside them",
+    # `BodyWalletShield` is DERIVED-BEFORE-EVERY-AUTHORITATIVE-READ, and that is
+    # an ordering claim, so it is measured rather than asserted. Its one writer
+    # `sync_sanic_wallet_shield` (`demo_sanic/src/lib.rs:1967`) rebuilds it from
+    # the worn persona plus the ACTIVE ROOM's mode tag, registered in the
+    # `PlayerInput` phase `.after(PlayerInputSet::Persona)` and explicitly
+    # `.before(ambition_damage::PlayerHitResolutionSet)`. Both authoritative
+    # readers are downstream of that: `apply_player_hit_events` IS
+    # `PlayerHitResolutionSet` (in `PlayerSimulationSet::Outcome`, phase
+    # `PlayerSimulation`), and `apply_feature_hit_events` reads it as data in the
+    # `Combat` phase — and `(PlayerInput, WorldPrep, PlayerSimulation,
+    # RoomTransition, Combat, ..)` is `.chain()`ed at `schedule/schedule.rs:91`.
+    # ⚠ So the explicit edge covers one reader and the phase chain the other; if
+    # either moves, this waiver is what has to be re-read.
+    "BodyWalletShield": "derived every frame by `sync_sanic_wallet_shield`, which is registered `.before(PlayerHitResolutionSet)` in `PlayerInput` while both readers run in `PlayerSimulation` and `Combat` (phases `.chain()`ed); 1 filter site, its own rebuild loop",
 }
 
 #: ⚠ REAL AND OWED, not waived. A name here is a finding with somewhere to go.
@@ -235,7 +263,8 @@ def component_definitions(crates: list[str]) -> dict[str, str]:
     near the TOP, so every `#[derive(Component)]` below that line was invisible.
     MEASURED 2026-09-17, on the same tree at one commit: **288 component
     definitions become 305, and the presence-filtered intersection 95 becomes
-    104.** Two of the nine that appeared were neither registered nor waived —
+    104** (and 114 once `filter_sites` stopped prefiltering with a narrower
+    grammar of its own — see that function).** Two of the nine that appeared were neither registered nor waived —
     `InactiveCandidate` and `PresentationOnly`, both in
     `shared_tangle/src/construction/mod.rs`, which declares `#[cfg(test)] mod
     tests;` and then defines most of A10's vocabulary underneath it. ⇒ The
@@ -258,13 +287,40 @@ def component_definitions(crates: list[str]) -> dict[str, str]:
 
 
 def filter_sites() -> dict[str, list[str]]:
+    """`{Component: [file, ...]}` for every presence filter in production code.
+
+    ⛔⛔ **THIS USED TO PREFILTER WITH `git grep` AND THE PREFILTER WAS A SECOND,
+    NARROWER GRAMMAR.** It searched
+    `(With(out)?|Has)<[A-Za-z_:]*[A-Z][A-Za-z0-9_]*>`, whose path class has NO
+    DIGITS — so every filter written through a qualified path containing
+    `platformer2d` or `portal2d` was thrown away before `_FILTER` ever saw it, and
+    `Has<ambition_platformer2d::characters::actor::BodyWalletShield>` is exactly
+    that shape. It also read one LINE at a time, so a filter a formatter wrapped
+    was invisible, and it never stripped test regions, so an inline fixture's
+    filter counted as production. Found by review 2026-09-17.
+
+    ⇒ There is now ONE grammar (`_FILTER`) applied to the whole stripped source of
+    each production file — the same treatment [`component_definitions`] gets, for
+    the same reason. MEASURED: the intersection moves 104 -> 116, thirteen real
+    subjects arrive, and `HitboxLifetime` LEAVES because its only apparent
+    production use is inside an inline test module.
+
+    ⚠ Comments are stripped first. A paragraph saying *"this used to be
+    `Without<Foo>`"* is not a filter, and this repository has already paid for a
+    census that read prose — see `lib/rust_source.py`.
+    """
     sites: dict[str, list[str]] = {}
-    for line in _git_grep(r"(With(out)?|Has)<[A-Za-z_:]*[A-Z][A-Za-z0-9_]*>", "crates", "game"):
-        path, _, rest = line.partition(":")
-        if is_test_path(Path(path)):
-            continue
-        for name in _FILTER.findall(rest):
-            sites.setdefault(name, []).append(path)
+    for root in ("crates", "game"):
+        for path in sorted((REPO / root).rglob("*.rs")):
+            rel = path.relative_to(REPO)
+            if any(part == "target" for part in rel.parts):
+                continue
+            text = path.read_text(errors="replace")
+            if is_test_path(rel, text):
+                continue
+            text = strip_test_modules(strip_comments(text))
+            for name in _FILTER.findall(text):
+                sites.setdefault(name, []).append(rel.as_posix())
     return sites
 
 

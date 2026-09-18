@@ -6,13 +6,13 @@ r"""A resource written from a NEW second file must be adjudicated, not merely la
 more than one file"* — the writer-side shape of a duplicated authority — and its
 own tests only ever ran it over hand-built `tmp_path` corpora. So the number it
 prints was a number somebody had to go and look at, and nothing noticed when a
-resource joined the list. MEASURED 2026-09-17: **82 types** across 1,294
+resource joined the list. MEASURED 2026-09-17: **102 types** across 1,294
 production files.
 
 ⚠ **THIS IS A RATCHET ON THE POPULATION, NOT A VERDICT ON IT.** The census
 docstring is emphatic that multi-writer is NOT a defect by count, with two
-measured cases that came out opposite ways, and nothing here contradicts that. 75
-of the 82 are UNADJUDICATED and this check says so on every green run — the split
+measured cases that came out opposite ways, and nothing here contradicts that. 94
+of the 102 are UNADJUDICATED and this check says so on every green run — the split
 is printed by the run itself, so read it there rather than from this paragraph.
 What the check enforces is that the set and the per-type writer counts cannot
 move without somebody editing this file.
@@ -42,9 +42,27 @@ over-cutting hides production facts from a census that exists to find them. Both
 fixes are in `scripts/lib/`, one owner each: `rust_source.strip_comments` and
 `test_paths.strip_test_modules`.
 
+⛔⛔ **82 -> 102 THE SAME DAY, BECAUSE THE CENSUS KNEW ONE OF THE TWO WAYS BEVY
+HANDS OUT A MUTABLE RESOURCE.** It read `ResMut<T>` parameters and not
+`world.resource_mut::<T>()`. Nineteen types were not on the shortlist at all
+(`LocalSessionOwnership`, `ShellRouteCatalog`, `ConstructionSchemaCatalog`, …)
+and twenty-one gained writers. ⭐ And the missing files were not a random sample,
+which is why this mattered more than the count: an exclusive-world system is what
+a COMMIT EXECUTOR is, so the road this shape hid was the destructive one —
+`rollback_ggrs/lifecycle_commit.rs` clears `PendingLifecycleCommit` and
+`RoomTransitionLoadState`, `session/reset/mod.rs` reaches `AmbitionGameSave`,
+`AuthoredOccurrences`, `QuestRegistry` and `GameplayBanner`. **The census was
+blind to the systems that SPEND the state it was auditing.**
+
+⚠ A third shape, a `&mut T` PARAMETER, is measured and deliberately NOT counted:
+it would take the shortlist to 109, and unlike the other two it is ambiguous —
+`fn grant(items: &mut OwnedItems, ..)` may be a second authority or the one
+owner's helper, and only the call sites say which. Check it by hand when
+adjudicating; the census's `writers` docstring carries the numbers.
+
 ⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
-HAND.** **At least 20 of the 82 are rollback-registered**, and those are the ones
-where a second writer is a divergence rather than a design smell. That 20 is a
+HAND.** **At least 21 of the 102 are rollback-registered**, and those are the ones
+where a second writer is a divergence rather than a design smell. That 21 is a
 LOWER BOUND and carries its instrument: it is the intersection with the type
 names in `rollback_*::<T>` / `declare_rollback_derived_*::<T>` turbofish calls
 across `crates/` and `game/`, which parses 95 names where the registry itself
@@ -65,17 +83,18 @@ one of the three: `RoomTransitionCooldown` shares `remaining`, and both of
 the least separable shape there is. What the run prints today, for the types that
 already carry a verdict or are named below:
 
-    AmbitionGameSave        17 files  data_mut 13 (13 certain), data 11   ROUTED
+    AmbitionGameSave        18 files  data_mut 14 (14 certain), data 11  ROUTED
     OwnedItems               9 files  grant 2
-    QuestRegistry            6 files  push_event 4, quests 2
-    PendingLifecycleCommit   3 files  record 2
-    SlotInteractionState     4 files  primary_mut 2 (2 certain)           ADJUDICATED
-    ActiveConversation       2 files  close 2                             ADJUDICATED
-    ClockState               2 files  time_scale 2 (2 certain)            ADJUDICATED
-    PossessionState          2 files  home 2, possessed 2                 ADJUDICATED
-    RoomTransitionCooldown   2 files  remaining 2
+    QuestRegistry            7 files  push_event 4, quests 2
+    PendingLifecycleCommit   7 files  record 2, take 2                   ADJUDICATED
+    RoomTransitionCooldown   5 files  remaining 2
+    RoomTransitionLoadState  5 files  active 4 (3 certain)
+    SlotInteractionState     4 files  primary_mut 2 (2 certain)          ADJUDICATED
+    BaseGravity              4 files  nothing shared
+    ActiveConversation       2 files  close 2                            ADJUDICATED
+    ClockState               2 files  time_scale 2 (2 certain)           ADJUDICATED
+    PossessionState          2 files  home 2, possessed 2                ADJUDICATED
     VersusMatch              2 files  *<the resource> 2 (2 certain)
-    BaseGravity              2 files  nothing shared
 
 ⚠ **"CERTAIN" IS THE HONEST HALF OF A COUNT NO REGEX CAN FINISH.** A call through
 a `ResMut` binding may read (`save.data()`) or write (`save.data_mut()`), so the
@@ -125,86 +144,125 @@ import multi_writer_resource_census as census  # noqa: E402
 #: a 15-writer resource becoming a 16-writer one, which is the growth that
 #: matters most.
 BASELINE: dict[str, int] = {
-    "AmbitionGameSave": 17,
-    "GameAssets": 12,
-    "GameplayBanner": 10,
-    "OwnedItems": 9,
-    "ClassBRemapLog": 8,
-    "FeatureEcsWorldOverlay": 8,
-    "LoadCoordinator": 8,
-    "UserSettings": 7,
-    "QuestRegistry": 6,
+    "AmbitionGameSave": 18,
+    "GameAssets": 13,
+    "GameplayBanner": 11,
+    "FeatureEcsWorldOverlay": 10,
+    "OwnedItems": 10,
+    "CausalRecording": 9,
+    "ClassBRemapLog": 9,
+    "DeveloperRuntimeState": 9,
+    "LoadCoordinator": 9,
+    "UserSettings": 9,
+    "PendingLifecycleCommit": 8,
+    "QuestRegistry": 8,
+    "RoomTransitionCooldown": 7,
+    "SeatRawFrames": 7,
+    "BaseGravity": 6,
+    "DeveloperTools": 6,
+    "SlotControls": 6,
+    "SlotInteractionState": 6,
+    "ActiveConversation": 5,
+    "AuthoredOccurrences": 5,
     "CaptureProgress": 5,
-    "CausalRecording": 5,
-    "DeveloperRuntimeState": 5,
-    "DeveloperTools": 5,
+    "DialogState": 5,
     "HudReadouts": 5,
     "PendingMechanicalEdits": 5,
-    "SeatRawFrames": 5,
-    "SlotControls": 5,
+    "RoomTransitionLoadState": 5,
     "ActiveAudioSelection": 4,
+    "AudioLibrary": 4,
+    "CharacterLoadDemand": 4,
     "MapMenuState": 4,
     "MenuControlFrame": 4,
-    "RoomTransitionLoadState": 4,
-    "SlotInteractionState": 4,
+    "MintedItemBaseline": 4,
+    "MovingPlatformSet": 4,
+    "SessionSeatingSource": 4,
+    "ShellHostConfiguration": 4,
+    "ShellRouteCatalog": 4,
+    "ShellRouteHolds": 4,
+    "YarnContentBindings": 4,
     "ActiveSessionScope": 3,
     "ActiveUiCues": 3,
-    "AudioLibrary": 3,
-    "AuthoredOccurrences": 3,
-    "DialogState": 3,
+    "BossEncounterRegistry": 3,
+    "CharacterLoadStates": 3,
+    "ConstructionSchemaCatalog": 3,
+    "CustodyBaseline": 3,
+    "CutsceneAdvanceRequest": 3,
+    "CutsceneTriggerQueue": 3,
+    "EncounterRegistry": 3,
     "GameplayTraceBuffer": 3,
     "KaleidoscopeCursor": 3,
-    "PendingLifecycleCommit": 3,
+    "LocalSessionOwnership": 3,
+    "MusicPlaybackState": 3,
+    "NarrativeMusicRequest": 3,
+    "OccurrenceBaseline": 3,
+    "PossessionState": 3,
     "PreparedSessionRegistry": 3,
+    "SelectCursors": 3,
+    "SlotControlLatches": 3,
+    "SwitchActivationQueue": 3,
     "Warmup": 3,
-    "ActiveConversation": 2,
+    "WorldSourceHotReload": 3,
+    "AbandonedCheckpointOperation": 2,
+    "ActiveCutscene": 2,
     "ActiveGameplaySession": 2,
-    "BaseGravity": 2,
     "BodyClocksView": 2,
     "CameraShakeState": 2,
-    "CharacterLoadDemand": 2,
-    "CharacterLoadStates": 2,
     "ClockState": 2,
+    "ContentEpochSequence": 2,
     "ControlFrame": 2,
-    "CustodyBaseline": 2,
-    "CutsceneAdvanceRequest": 2,
-    "CutsceneTriggerQueue": 2,
+    "ControlledSubject": 2,
+    "CutsceneSkipHold": 2,
     "DefaultMusicStarted": 2,
+    "EditablePortalTuning": 2,
+    "EncounterView": 2,
     "FallingSandRoomState": 2,
     "FixedStepsTaken": 2,
+    "GameplayElapsed": 2,
     "InventoryUiState": 2,
     "KaleidoscopeOpenState": 2,
     "KaleidoscopeScroll": 2,
     "KaleidoscopeSystemNav": 2,
+    "LastCutsceneRoom": 2,
+    "LastQuestRoom": 2,
     "LeaveRequested": 2,
+    "LiveMatchTicks": 2,
     "LocalSeatOffer": 2,
-    "MintedItemBaseline": 2,
+    "LocalSeatTopology": 2,
+    "MobileTouchState": 2,
     "MusicDirectorState": 2,
     "MusicIntent": 2,
-    "MusicPlaybackState": 2,
-    "NarrativeMusicRequest": 2,
-    "OccurrenceBaseline": 2,
+    "NewGameResetRequested": 2,
     "OwnedItemsBaseline": 2,
-    "PossessionState": 2,
+    "PortalCameraContinuitySelection": 2,
+    "PortalCameraContinuityState": 2,
+    "PortalEffectSelection": 2,
+    "PortalViewConeDebugDumpRequest": 2,
     "PresentationPhase": 2,
+    "ProjectileSeqCounter": 2,
+    "RadioStationState": 2,
     "ReservedGameplayScopes": 2,
     "RoomConstructionPlanPrefetch": 2,
-    "RoomTransitionCooldown": 2,
+    "RoomContentStagingRegistry": 2,
+    "SaveRestored": 2,
     "ScrollbarDragState": 2,
     "SeatActiveDevices": 2,
-    "SelectCursors": 2,
+    "SeatControlFrameModes": 2,
+    "SeatMenuFrames": 2,
     "SelectPage": 2,
+    "SessionMatchOrdinal": 2,
     "SfxBankRegistry": 2,
-    "ShellRouteHolds": 2,
+    "SfxPlaybackState": 2,
+    "ShellActivationGates": 2,
     "ShellRouter": 2,
+    "ShellSequenceCatalog": 2,
     "ShrineActivationPulse": 2,
-    "SlotControlLatches": 2,
     "SmashSelect": 2,
     "StartRequested": 2,
-    "SwitchActivationQueue": 2,
+    "StocksMatchSettled": 2,
+    "SuddenDeathEntered": 2,
     "VersusMatch": 2,
     "VisualQualityConfirmState": 2,
-    "WorldSourceHotReload": 2,
     "WorldlineHistoryView2d": 2,
     "YarnPresentationCue": 2,
 }
@@ -224,15 +282,27 @@ ADJUDICATED: dict[str, str] = {
         "witness."
     ),
     "ActiveConversation": (
-        "CORRECT — two END CONDITIONS, not two retractors of one event. "
-        "`break_dialogue_on_hit_or_separation` closes on knockback, separation "
-        "or a despawned participant; `close_conversation_on_narrative_end` "
-        "closes on a stamped `ConversationEnded` input whose instance matches. "
-        "POISON-VERIFIED 2026-09-17 in both directions: removing the first fails "
+        "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
+        "and each with its own witness. `conversation/opening.rs` is the only "
+        "writer that STARTS one. `rules.rs` closes on knockback, separation or a "
+        "despawned participant; `ui_bridge.rs` closes on a stamped "
+        "`ConversationEnded` input whose instance matches; "
+        "`runtime/room_transition/commit.rs` closes when the room the "
+        "conversation lives in is replaced; `session/teardown.rs` replaces the "
+        "whole resource as part of `SessionScopedResources::reset`. POISON-"
+        "VERIFIED 2026-09-17 in both directions for the first pair: removing "
+        "`rules.rs`'s close fails "
         "`a_conversation_breaks_on_knockback_or_on_the_bodies_separating`, "
-        "removing the second fails three arms including "
+        "removing `ui_bridge.rs`'s fails three arms including "
         "`a_rewind_past_the_end_replays_it_at_the_same_tick`. Neither hides the "
-        "other's absence, which is the `CutRopeBossArenaState` test."
+        "other's absence, which is the `CutRopeBossArenaState` test. "
+        "⛔⛤ **AND THIS ROW SAID \"TWO END CONDITIONS\" UNTIL A REVIEW FOUND THE "
+        "CENSUS BLIND TO `ResMut<'w, T>`.** The opener, the room-transition close "
+        "and the teardown reset were never examined, because a `DialogueDispatch` "
+        "`SystemParam` bundle is how three of the five spell their access — and a "
+        "bundle is precisely the shape shared access takes. The two additional "
+        "in-session roads are still owed a poison each: `commit.rs`'s close is "
+        "not covered by either arm above."
     ),
     "PossessionState": (
         "CORRECT — one protocol deliberately split across two systems, and the "
@@ -257,6 +327,49 @@ ADJUDICATED: dict[str, str] = {
         "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
         "makes this a verdict rather than an opinion."
     ),
+    "PendingLifecycleCommit": (
+        "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Five "
+        "production systems can ARM it and all five go through `record`, whose "
+        "policy is inside the method (earliest wins, idempotent under resim) and "
+        "whose `#[must_use]` says a refusal must not have its consequences run. "
+        "Every armer honours that. ⇒ The resolution order is not ambiguous: it is "
+        "a `.chain()`ed phase order plus one explicit edge, MEASURED 2026-09-17:\n"
+        "      resume_at_checkpoint_on_reset         CheckpointRestore      PlayerInput\n"
+        "      admit_room_replay                     RoomReplayAdmission    PlayerInput, "
+        "after CheckpointRestore (`checkpoint_horizon.rs:45`)\n"
+        "      restore_checkpoint_on_session_start   ItemPickupSet::CoreHeldItems  "
+        "PlayerSimulation\n"
+        "      detect_room_transition_system         RoomTransitionSet::Detect     "
+        "RoomTransition\n"
+        "    with `(PlayerInput, WorldPrep, PlayerSimulation, RoomTransition, ..)"
+        "`.chain()` at `schedule/schedule.rs:91`. So a checkpoint resume outranks a "
+        "replay admission outranks a session-start restore outranks a door, within "
+        "one tick, deterministically and peer-stably. The clearers cannot conflict "
+        "with it: `take()` from the two commit executors and "
+        "`retract_transition_for_subject` from `open_death_interlude`, all after "
+        "the operation they end, plus the `SessionScopedResources::reset` road in "
+        "`session/teardown.rs` (an eighth writer, visible once the census learned "
+        "`ResMut<'w, T>`). "
+        "⛔⛤ AND THE DOOR ARMER WAS SPENDING THE PLAYER'S PRESS BEFORE ASKING: it "
+        "cleared the interact buffer and then discarded the `Admission`, so a TAP "
+        "was consumed on a crossing this slot REFUSED. Found by review 2026-09-17 "
+        "and fixed — admit first, spend second — witnessed by "
+        "`a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend`. "
+        "⇒ `#[must_use]` on `record` is not enough on its own: `let _ = "
+        "pending.record(..)` compiles, and that is exactly what the door wrote. "
+        "⭐ AND THE ONE CONTENTION THAT IS REACHABLE IN PRACTICE IS ALREADY "
+        "WITNESSED, with its own recorded negative: "
+        "`a_save_with_a_checkpoint_and_an_occurrence_lands_both` "
+        "(`app/tests/canonical_reconstitution.rs`) pins the two checkpoint roads "
+        "racing for this slot, and its docstring records that poisoning EITHER "
+        "road alone leaves it green — they are redundant, not cooperating — so "
+        "the poison that reddens it is both at once. "
+        "⚠ WHAT IS OWED IS PROSE, NOT A FIX: the ladder above is EMERGENT, "
+        "assembled from four `in_set` declarations in four crates, and no single "
+        "page states it. A reader asking *what happens if a player dies in a "
+        "doorway on the frame a checkpoint resumes* has to rebuild this table "
+        "from the schedule to find out."
+    ),
     "CutsceneTriggerQueue": (
         "CORRECT BY COINCIDENCE — CUTSCENE-ROLLBACK-DECISION item 2: every "
         "producer happens to sit inside the sim schedule, so a replay "
@@ -264,37 +377,62 @@ ADJUDICATED: dict[str, str] = {
         "`check_sim_consumed_request_writers.py`, not by this baseline."
     ),
     "SlotInteractionState": (
-        "CORRECT — ONE ARMER, THREE CLEARERS. Every production call that can make "
+        "CORRECT — ONE ARMER, FIVE CLEARERS. Every production call that can make "
         "a gesture live is in `control/input_systems.rs`: `buffered_interact`, "
         "`register_down_tap`, `register_up_tap`, `held_up_interact` and the one "
         "`double_tap_down_pending = true`. MEASURED 2026-09-17 by grepping the "
         "arming methods across `crates/` and `game/` — there are no other "
-        "production call sites. The other three writers can only move the row "
-        "TOWARD its resting state: `world/rooms/systems.rs` reads "
-        "`primary().buffered()` then calls `primary_mut().clear()`; "
-        "`body_mode/mechanics/mod.rs` `mem::take`s `double_tap_down_pending` out "
-        "of `get_mut(slot)`, a different field; `runtime/src/sandbox_reset.rs` "
-        "hands `primary_mut()` to `reset_sandbox`, which calls "
-        "`SlotGestures::reset()`. ⇒ So two of them DO share row zero — the rooms "
-        "consumer and the reset boundary — and that is still one authority, "
-        "because a clear is idempotent and neither can arm: no ordering between "
-        "them changes what any reader sees. The rooms system reads row zero only "
-        "and its subject genuinely IS the primary (`ControlledSubject`, else the "
-        "`PrimaryPlayerOnly` single), not a leftover of the D175 *producer filled "
-        "row zero* bug. "
-        "⛔⛤ POISONED 2026-09-17 AND THE POISON PASSED: deleting the "
-        "`slot_gestures.primary_mut().clear()` that the source calls *consuming "
-        "the gesture* left 1,207 crate arms and all 11 room-transition "
-        "integration arms green, because every authored door arm HOLDS interact "
-        "for thirty frames and the armer refills the buffer underneath the clear. "
-        "That is a finding about the arms: a tap is the only shape that can see a "
-        "consumption. Witnessed now by "
+        "production call sites. Every other writer can only move a row TOWARD "
+        "its resting state: `world/rooms/systems.rs` clears row zero once a "
+        "crossing is ADMITTED; `control/acting.rs`'s `ActingParticipant::"
+        "consume_interact` clears the ACTING body's slot for the chest and the "
+        "NPC/switch loops; `body_mode/mechanics/mod.rs` `mem::take`s "
+        "`double_tap_down_pending`, a different field; "
+        "`runtime/src/sandbox_reset.rs` hands `primary_mut()` to `reset_sandbox`, "
+        "which calls `SlotGestures::reset()`; and `session/teardown.rs` replaces "
+        "the whole resource as part of `SessionScopedResources::reset`. ⇒ Row "
+        "zero has three writers and they cannot disagree: a clear is idempotent "
+        "and none of them can arm, so no ordering between them changes what a "
+        "reader sees. "
+        "⛔⛤ **THIS VERDICT WAS BANKED AT FOUR WRITERS AND CORRECTED TWICE THE "
+        "SAME DAY, WHICH IS THE PART WORTH KEEPING.** First the narrowing table "
+        "it cited was hand-carried and wrong about `get_mut()`; then a review "
+        "found the census blind to `ResMut<'w, T>`, so `control/acting.rs` and "
+        "`session/teardown.rs` had never been examined. Both turned out to be "
+        "clearers and the argument survived — but it survived by luck, not by "
+        "having been checked, and a verdict that names 4 of 6 writers is not an "
+        "adjudication. ⇒ Re-read the writer list from the run before trusting any "
+        "row here. "
+        "⛔ POISONED 2026-09-17 AND THE POISON PASSED: deleting the row-zero clear "
+        "left 1,207 crate arms and all 11 room-transition integration arms green, "
+        "because every authored door arm HOLDS interact for thirty frames and the "
+        "armer refills the buffer underneath it. Witnessed now by "
         "`a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_"
-        "decay` (`actor_monolith/src/world/rooms/tests.rs`), which reddens on that "
-        "deletion and — through its out-of-zone control — on hoisting the clear "
-        "above the validation too."
+        "decay` and, for the refusal case the first arm could not see, "
+        "`a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend` "
+        "(both `actor_monolith/src/world/rooms/tests.rs`)."
     ),
 }
+
+#: The session-scope reset, which is ONE road and a known one.
+#:
+#: ⭐ **NAMING IT IS NOT WAIVING IT.** `SessionScopedResources::reset` replaces
+#: every session-scoped resource with its default at a session boundary, from one
+#: function, so it appears in this census as a writer of thirty of the 121 —
+#: MEASURED 2026-09-17 — and thirteen of those would be SINGLE-writer without it
+#: (`ActiveCutscene`, `ControlledSubject`, `CutsceneSkipHold`, `EncounterView`,
+#: `GameplayElapsed`, `LastCutsceneRoom`, `LastQuestRoom`, `LiveMatchTicks`,
+#: `ProjectileSeqCounter`, `SaveRestored`, `SessionMatchOrdinal`,
+#: `StocksMatchSettled`, `SuddenDeathEntered`). ⇒ Whether that MEMBERSHIP is right
+#: is a live question with its own owner —
+#: `check_session_owner_census_matches_source.py` ratchets the member list
+#: against the source — so a verdict here should name this road and point at that
+#: guard rather than re-argue it. What it must NOT do is treat the road as
+#: absolution: a resource written by the reset AND by two in-session systems has
+#: a question the reset says nothing about.
+SESSION_SCOPE_RESET = (
+    "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs"
+)
 
 #: ⛔ ANTI-VACUITY. Every finding below is a set difference, and two empty sets
 #: agree perfectly. These floors are an order of magnitude below the measured
@@ -314,7 +452,7 @@ def main() -> int:
     found = census.writers(files)
     if len(found) < MIN_TYPES:
         print(
-            f"⛔⛔ only {len(found)} `ResMut<T>` type(s) parsed (expected "
+            f"⛔⛔ only {len(found)} mutably-reached resource type(s) parsed (expected "
             f"{MIN_TYPES}+); that is a claim about the regex."
         )
         return 1
@@ -377,7 +515,7 @@ def main() -> int:
     print(
         f"ok: {len(multi)} resources are written from more than one production file, "
         f"the same set and the same per-type counts as the 2026-09-17 baseline "
-        f"({len(files)} files, {len(found)} `ResMut<T>` types)"
+        f"({len(files)} files, {len(found)} mutably-reached resource types)"
     )
     # ⛔ THE DEBT IS PRINTED, NOT IMPLIED. A baseline whose unread half is
     # invisible is an amnesty, and this one is mostly unread. The subtraction is
@@ -387,6 +525,16 @@ def main() -> int:
         f"  adjudicated: {len(ADJUDICATED)} "
         f"({', '.join(sorted(ADJUDICATED))}); UNADJUDICATED: "
         f"{len(multi) - len(ADJUDICATED)}"
+    )
+    # ⭐ THE SHAPE THAT EXPLAINS A QUARTER OF THE POPULATION, PRINTED SO NOBODY
+    # POISONS IT AGAIN. It is a signpost, not a waiver — see `SESSION_SCOPE_RESET`.
+    reset_writers = sorted(t for t, fs in multi.items() if SESSION_SCOPE_RESET in fs)
+    reset_only = sorted(t for t in reset_writers if len(multi[t]) == 2)
+    print(
+        f"  ⭐ {len(reset_writers)} of them include `SessionScopedResources::reset` "
+        f"among their writers, and {len(reset_only)} would be single-writer without "
+        "it. That road's member list is owned by "
+        "`check_session_owner_census_matches_source.py`, not by a verdict here."
     )
     print(
         "  ⚠ multi-writer is NOT a defect by count. This ratchets the population "

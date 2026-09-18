@@ -2115,6 +2115,42 @@ rollback_state`), because the `--maintenance` lane runs neither. ⚠ Two guards
 pointing straight at one commit, both unread for an afternoon: a deletion is
 exactly when the suites that were green yesterday stop being evidence.
 
+⭐⭐ **AND THE LESSON IS NOW AN INSTRUMENT, WHICH FOUND A SECOND ONE THE SAME
+DAY.** The clone was found by a reviewer reading `presets.rs` by hand; nothing
+in the tree could have found it twice.
+`scripts/check_raw_key_reads_do_not_collide_with_presets.py` states the
+invariant — *the preset table is the only thing allowed to decide what a bound
+key means* — and fails on any raw `KeyCode` read, outside `ambition_input`, of
+a key a preset binds, unless a row says what keeps the two meanings apart.
+MEASURED 2026-09-18: 17 raw reads outside the input crate, 4 of them on
+preset-bound keys.
+
+| key | site | verdict |
+|---|---|---|
+| `ShiftLeft` / `ShiftRight` | `developer_hotkeys.rs:82` | ✅ a MODIFIER qualifying another hotkey, never an action of its own |
+| `KeyR` | `basic_presentation.rs:71-73` | ✅ gated by `LoadForegroundPhase::Failed`, so it can only fire on a failed LOAD screen where `arrows_qwer`'s `secondary` has nothing to act on |
+| `KeyN` | `map/input.rs:40` | ⛔ **LIVE — the clone's defect exactly** |
+
+⛔ **`KeyN` TOGGLES THE MINIMAP AND TAUNTS.** `handle_map_menu_hotkeys` reads
+the raw key and runs whenever a session world exists, `.after` `CoreSimulation`
+(`crates/ambition_menu/src/map/mod.rs:226-239`), while **both** shipped presets
+bind `N` to `taunt` — `wasd_jkl` and `wasd_uipo`, the same two whose `K`
+binding killed the clone. It is milder than the clone (no rollback state, no
+simulation write, so nothing desyncs) and it is the same mechanism, so it is
+FILED with its reading rather than waived. The repair is to route the toggle
+through a bound action the way `M`'s sibling intent already is, not to pick a
+different raw key — a different raw key is the same bug waiting for a preset to
+grow.
+
+⚠ **THE FIRST VERSION OF THE GUARD REPORTED A FIFTH AND IT WAS AN ARTEFACT.**
+`presets.rs` ends with a `KeyCode::KeyM => "M"` match that turns a keycode into
+a label for the rebinding UI, so a grep for `KeyCode::(\w+)` counted 39 bound
+keys where the answer is **35** — and the inflation produced a finding on
+`KeyCode::KeyM` in the map menu, which no preset binds at all. A display table
+reads exactly like a binding table. The filter matches a STRUCT FIELD
+ASSIGNMENT, and an arm asserts `KeyM` is still label-only so the distinction
+cannot quietly stop working.
+
 ⭐ **WHAT SURVIVES IS THE GENERAL CONCLUSION, AND IT IS THE USEFUL HALF:**
 author and developer world mutations belong at the mechanical-edit boundary;
 player intent does not automatically belong there. The clone was evidence for

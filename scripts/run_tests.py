@@ -1472,6 +1472,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_rollback_waivers_have_subjects.py",
             ],
         ),
+        # ⛔⛤ THE PLAYER-CLONE HOTKEY SHIPPED ON A KEY TWO PRESETS BOUND, and no
+        # instrument in this tree could have found it — a 2026-09-18 review read
+        # `presets.rs` by hand. This is that reading, made repeatable.
+        Job(
+            "no raw `KeyCode` read steals a key a shipped preset binds",
+            [
+                sys.executable,
+                "scripts/check_raw_key_reads_do_not_collide_with_presets.py",
+            ],
+        ),
     ]
 
 

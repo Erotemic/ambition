@@ -2903,7 +2903,7 @@
         // smash grid because that is where a hidden fighter is FOUND, and
         // nothing in the game depends on either being selected.
         "author": (
-            display_name: "The Author",
+            display_name: "The Director",
             spritesheet: "sprites/author_spritesheet.png",
             manifest: "sprites/author_spritesheet.ron",
             tier: MainHall,
@@ -2993,7 +2993,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            // The sword archetype's preset, for the reason the Author's row
+            // The sword archetype's preset, for the reason the Director's row
             // gives -- she is that archetype, carrying nothing.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",

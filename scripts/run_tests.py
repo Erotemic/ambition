@@ -68,6 +68,7 @@ ABORT_FREE_GB = 6.0
 # Keep shared measurement paths in the small dependency-free helper.
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
+from cargo_output import strip_ansi  # noqa: E402
 
 def tool_python(project_dir: Path, override_env: str = "") -> str:
     """Resolve a tool's interpreter the way every other caller in the repo does.
@@ -1341,6 +1342,21 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_sim_consumed_request_writers.py",
             ],
         ),
+        # ⛔ `const ALL` is a hand-written copy of an enum's variant list and
+        # nothing in Rust holds the two together: adding a variant compiles, and
+        # the array keeps its old length. Every consumer that ITERATES `ALL`
+        # then cannot see the new variant, and the symptom is an ABSENCE — a
+        # settings row that never renders, a developer toggle nothing reaches.
+        # ⚠ 41 of 41 agreed when this was written, which is the argument FOR the
+        # ratchet: there is nothing to repair, so the whole value is that the
+        # next divergence cannot land quietly.
+        Job(
+            "every `const ALL` lists every variant its enum declares",
+            [
+                sys.executable,
+                "scripts/check_enum_all_constants_are_complete.py",
+            ],
+        ),
     ]
 
 
@@ -1391,8 +1407,9 @@ UNRUNNABLE_SIGNATURES: tuple[tuple[re.Pattern, str], ...] = (
 
 def unrunnable_reason(output: str) -> str | None:
     """The remedy for a PRECONDITION failure in this output, if it is one."""
+    plain = strip_ansi(output)
     for pattern, remedy in UNRUNNABLE_SIGNATURES:
-        if pattern.search(output):
+        if pattern.search(plain):
             return remedy
     return None
 
@@ -1452,7 +1469,15 @@ class FailureEvidence:
         self._carry = 0
 
     def feed(self, line: str) -> None:
-        text = line.rstrip("\n")
+        # ⛔⛤ **STRIPPED BEFORE MATCHING, AND THIS RUNNER IS WHY.** Every pattern
+        # below is line-anchored, and `run()` exports `CARGO_TERM_COLOR=always`
+        # to the very children this reads — so `error[E0432]`, `failures:` and
+        # `FAILED` all arrive behind an SGR escape and none of them match. The
+        # sibling this was found in is `check_doc_link_ratchet.py`, which scored
+        # 0 of 13 crates against a baseline of 141 for exactly this reason
+        # (`scripts/lib/cargo_output.py`). Stored stripped as well: the evidence
+        # ends up in a JSON status file that a human greps.
+        text = strip_ansi(line).rstrip("\n")
         if not text.strip():
             self._carry = 0
             return

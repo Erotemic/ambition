@@ -912,7 +912,9 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     );
 }
 
-///  this was TWO functions with the same four-arm shape, differing only in
+/// ⛤ ONE ARM, AND THE REST BELONGS TO SOMEBODY ELSE.
+///
+/// this was TWO functions with the same four-arm shape, differing only in
 /// which resource each arm named — and the resources they named have since
 /// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
 /// left of the fork is the last arm.
@@ -920,46 +922,41 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
 /// it accepts every slot, and the version that did not was a bug. `drive_seat_frame` refused
 /// slot zero with a bare `return`, on the argument that the primary seat belonged to
 /// [`drive_control_frame`].
+///
+/// ⛔ **AND THE FORK HAD GROWN BACK BY 2026-09-18, in the other direction.**
+/// There were two `drive_slot_frame`s — this one and
+/// `ambition_platformer2d_runtime::input_drive::drive_slot_frame`, picked apart
+/// by `#[cfg(feature = "rollback")]` in the facade — and two of the three arms
+/// were duplicated between them, comment paragraphs included. Only the
+/// `PendingSeatInputs` arm is genuinely this crate's, because that type is
+/// declared HERE and the lower crate cannot name it. So this is now that arm and
+/// a delegation: the latch rule and the raw/slot tail have one owner, one road,
+/// and one place to be wrong.
+///
+/// ⛔ **THE ORDER IS THE CONTRACT, and the delegation must not reorder it.** A
+/// device-backed rollback build has BOTH a latch and a pending table, and the
+/// latch has to win or a driver nudging a windowed build fights the device layer
+/// for the same seat. That is why the pending arm is gated on the latch's
+/// ABSENCE rather than tried first —
+/// `the_driver_seam_writes_whichever_resource_this_host_reads` asserts exactly
+/// that, by requiring the windowed world's `PendingSeatInputs` to stay neutral.
 pub fn drive_slot_frame(
     world: &mut World,
     slot: ambition_characters::control::PlayerSlot,
     frame: ControlFrame,
 ) {
-    // A device-backed host: fold into the seat's latch so a sub-tick press
-    // survives to the tick that drains it.
-    if let Some(mut latches) =
-        world.get_resource_mut::<ambition_characters::control::SlotControlLatches>()
-    {
-        latches.accumulate(slot, frame);
-        return;
-    }
     //  this does NOT clear the other handles, and an earlier version did.
     // `drive_slot_frame` is called BEFORE the step it applies to, so clearing
     // here wiped every other seat's input on the way past — the seam was built
     // and then emptied by its own sibling, one line later. A driver that wants a
     // seat neutral drives it neutral; silence is not a request.
-    if let Some(mut pending) = world.get_resource_mut::<PendingSeatInputs>() {
-        pending.set(slot.0 as usize, frame);
-        return;
+    if !world.contains_resource::<ambition_characters::control::SlotControlLatches>() {
+        if let Some(mut pending) = world.get_resource_mut::<PendingSeatInputs>() {
+            pending.set(slot.0 as usize, frame);
+            return;
+        }
     }
-    // It is that seat's output mirror now, so writing it would deliver a press to nobody — the
-    // silent no-op this whole seam exists to prevent.
-    //
-    //  BOTH surfaces, and that is the helper's whole contract. A driver
-    // says *this seat is holding this frame* and must not have to know how the
-    // composition was assembled. The RAW row is what a shaping stage reads — a
-    // scripted reset has to reach the reset stage, a scripted stick the portal
-    // warp — and a composition that installs the shaping stages will overwrite
-    // the slot below with the shaped result anyway. A composition that installs
-    // NONE of them (the smallest headless fixture) has no commit either, so
-    // without the second write its press would sit in a table nothing drains.
-    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::control::SeatRawFrames>() {
-        raw.set(slot, frame);
-    }
-    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::control::SlotControls>()
-    {
-        slots.set(slot, frame);
-    }
+    ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, slot, frame)
 }
 
 pub(crate) fn install_session_bridge(app: &mut App) {

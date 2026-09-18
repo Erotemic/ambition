@@ -377,7 +377,7 @@ fn surfacing_with_a_leap_speed_launches_her_out_of_the_boards() {
     );
 }
 
-/// ⛔ AND `0.0` STILL SURFACES HER STANDING. The Author's trapdoor authors no
+/// ⛔ AND `0.0` STILL SURFACES HER STANDING. The Director's trapdoor authors no
 /// leap, so a default that launched everybody would change a move nobody asked
 /// to change.
 #[test]

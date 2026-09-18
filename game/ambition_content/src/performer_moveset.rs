@@ -89,7 +89,7 @@ const LEAP_OUT_SPEED: f32 = 430.0;
 /// into open air and falling is the honest outcome.
 const SURFACE_REACH: f32 = 140.0;
 
-/// The door itself. ⛔ NOT `four_point_glint`, which is the Author's blink
+/// The door itself. ⛔ NOT `four_point_glint`, which is the Director's blink
 /// and the whole complaint: a trapdoor is wood and hinges, not a star flash.
 const TRAPDOOR_VFX: &str = "trapdoor_boards";
 
@@ -206,7 +206,7 @@ const RELEASE_RISE: f32 = 90.0;
 /// to invisible."* A one-shot on top of it would be decoration chosen to fill a
 /// field, which is how the trapdoor got here.
 ///
-/// ⛔ AND NOT `four_point_glint` EITHER, which is the Author's blink and the
+/// ⛔ AND NOT `four_point_glint` EITHER, which is the Director's blink and the
 /// whole complaint this move was rewritten for.
 const WIRE_VFX: Option<&str> = None;
 
@@ -536,7 +536,7 @@ fn the_trap_airborne() -> MoveSpec {
 /// actually look like a trap door. It looks like a blink… It's not a blink.
 /// It's a different kind of mobility move."* The first version was
 /// `smash.teleport` with a glint on each end — one instantaneous beat, she never
-/// left the stage, and the effect belonged to the Author. This is four beats and
+/// left the stage, and the effect belonged to the Director. This is four beats and
 /// a body mode.
 ///
 /// ⛔⛔ AND THE MIDDLE BEAT IS THE MOVE. Between `SINK_AT_S` and
@@ -738,7 +738,7 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
 /// motion controls should let her swing like a pendulum so she has a bit of
 /// horizontal recovery with it too."*
 ///
-/// ⛔⛔ AND IT WAS LITERALLY THE AUTHOR'S TELEPORT WITH A DIFFERENT COMMENT —
+/// ⛔⛔ AND IT WAS LITERALLY THE DIRECTOR'S TELEPORT WITH A DIFFERENT COMMENT —
 /// one beat, one placement, 215px of `smash.teleport`. The blink cue Jon heard
 /// came from `apply_authored_teleports`, which emits it at EVERY transit, so no
 /// edit to this timeline could ever have silenced it. A move that runs the
@@ -1241,7 +1241,7 @@ mod tests {
                 ),
                 MoveEventKind::Vfx { effect, .. } => assert!(
                     !effect.contains("glint"),
-                    "the wire draws `{effect}`, which is the Author's blink"
+                    "the wire draws `{effect}`, which is the Director's blink"
                 ),
                 _ => {}
             }
@@ -1665,7 +1665,7 @@ mod tests {
 
     /// ⛔⛔ IT IS NOT A BLINK, WHICH IS THE WHOLE COMPLAINT THIS MOVE WAS
     /// REWRITTEN FOR. Jon, 2026-08-27: *"It looks like a blink… It's not a
-    /// blink."* The old version was `smash.teleport` with the Author's
+    /// blink."* The old version was `smash.teleport` with the Director's
     /// `four_point_glint` on each end, and the thing that would quietly bring it
     /// back is a copy-paste from his table.
     #[test]
@@ -1688,7 +1688,7 @@ mod tests {
                     ),
                     MoveEventKind::Vfx { effect, .. } => assert!(
                         !effect.contains("glint"),
-                        "`{id}` draws `{effect}`, which is the Author's blink"
+                        "`{id}` draws `{effect}`, which is the Director's blink"
                     ),
                     _ => {}
                 }

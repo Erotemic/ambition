@@ -1,10 +1,10 @@
-//! The Author's low poke leaves a note, and the note is a whole feature.
+//! The Director's low poke leaves a note, and the note is a whole feature.
 //!
-//! ⭐⭐ THE ROAD, END TO END, IN THE SHIPPED COMPOSITION: the Author's real
+//! ⭐⭐ THE ROAD, END TO END, IN THE SHIPPED COMPOSITION: the Director's real
 //! `author_tilt_down` → a real strike volume → the real collision resolver →
 //! `OnHitEffectMessage` → `BodyMark` on the victim → a clock the player can read,
 //! drawn above the body → the authored fuse → a `DamageBox` → real combat
-//! damage, credited to the Author. Every mark test before this one began by
+//! damage, credited to the Director. Every mark test before this one began by
 //! WRITING the on-hit message into a minimal app, which proves the ruleset's
 //! arithmetic and nothing about whether the move reaches it. A GPT review asked
 //! for this road, 2026-09-07.
@@ -15,7 +15,7 @@
 //! authored 1.4s fuse and the stage's 1.0s interlude, the shipped code before
 //! this detonated a previous stock's mark on a fresh body.
 //!
-//! ⚠ IN `ambition_app`, NOT THE STANDALONE DEMO, because the Author is content
+//! ⚠ IN `ambition_app`, NOT THE STANDALONE DEMO, because the Director is content
 //! this composition carries and the demo's grid cannot seat him.
 
 use ambition_demo_smash::mark::BodyMark;
@@ -26,7 +26,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 
-const AUTHOR: &str = "author";
+const DIRECTOR: &str = "author";
 const TILT_DOWN: &str = "author_tilt_down";
 
 /// Every `DamageBox` request the ruleset made, as it was made. ⛔ Accumulated
@@ -70,15 +70,15 @@ fn damage_taken_by(app: &App, body: Entity) -> i32 {
         .damage_taken()
 }
 
-/// A settled match: the Author at seat 0, a target at seat 1. ⭐ BOTH HUMAN
+/// A settled match: the Director at seat 0, a target at seat 1. ⭐ BOTH HUMAN
 /// SEATS ON PADS NOBODY IS HOLDING, so neither body moves unless this test
 /// moves it — a CPU target walks out of the volume the test stands it in.
 fn a_settled_match() -> (App, Entity, Entity) {
-    let (app, author, target, _) = a_settled_match_of(2, None);
-    (app, author, target)
+    let (app, director, target, _) = a_settled_match_of(2, None);
+    (app, director, target)
 }
 
-/// `seats` Authors, all on pads nobody holds, with an optional stock count.
+/// `seats` Directors, all on pads nobody holds, with an optional stock count.
 fn a_settled_match_of(seats: usize, stocks: Option<u32>) -> (App, Entity, Entity, Vec<Entity>) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
@@ -87,7 +87,7 @@ fn a_settled_match_of(seats: usize, stocks: Option<u32>) -> (App, Entity, Entity
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster(vec![AUTHOR; seats]);
+    let mut roster = ambition_demo_smash::smash_roster(vec![DIRECTOR; seats]);
     for (index, participant) in roster.participants.iter_mut().enumerate().skip(1) {
         participant.controller = ambition_platformer2d::actor::ControllerBinding::Human {
             source: ambition_platformer2d::actor::LocalInputSource::Pad(index as u8),
@@ -117,26 +117,26 @@ fn a_settled_match_of(seats: usize, stocks: Option<u32>) -> (App, Entity, Entity
             break;
         }
     }
-    let author = body_of_seat(&mut app, 0);
+    let director = body_of_seat(&mut app, 0);
     let target = body_of_seat(&mut app, 1);
     let others: Vec<Entity> = (2..seats)
         .map(|seat| body_of_seat(&mut app, seat))
         .collect();
-    (app, author, target, others)
+    (app, director, target, others)
 }
 
 /// Put the target inside the tilt's first damaging volume and start the real
-/// move on the Author. Returns the tick the mark appeared on, or panics.
-fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
+/// move on the Director. Returns the tick the mark appeared on, or panics.
+fn land_the_tilt(app: &mut App, director: Entity, target: Entity) -> usize {
     let spec = app
         .world()
-        .get::<ActorMoveset>(author)
-        .expect("the Author wears a moveset")
+        .get::<ActorMoveset>(director)
+        .expect("the Director wears a moveset")
         .0
         .moves
         .iter()
         .find(|m| m.id == TILT_DOWN)
-        .unwrap_or_else(|| panic!("the Author has no `{TILT_DOWN}`"))
+        .unwrap_or_else(|| panic!("the Director has no `{TILT_DOWN}`"))
         .clone();
     // ⚠ THE MOVE'S OWN GEOMETRY decides where the target stands: a position
     // typed here would be a second answer to "where does this hit" that drifts
@@ -153,23 +153,23 @@ fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
         .expect("the tilt has a damaging volume, or it could not carry a mark");
     let facing = {
         let world = app.world_mut();
-        let author_kin = *world
-            .get::<ae::BodyKinematics>(author)
-            .expect("the Author has a body");
-        let facing = if author_kin.facing == 0.0 {
+        let director_kin = *world
+            .get::<ae::BodyKinematics>(director)
+            .expect("the Director has a body");
+        let facing = if director_kin.facing == 0.0 {
             1.0
         } else {
-            author_kin.facing
+            director_kin.facing
         };
         let mut target_kin = world
             .get_mut::<ae::BodyKinematics>(target)
             .expect("the target has a body");
-        target_kin.pos = author_kin.pos + ae::Vec2::new(facing * offset.0, offset.1);
+        target_kin.pos = director_kin.pos + ae::Vec2::new(facing * offset.0, offset.1);
         target_kin.vel = ae::Vec2::ZERO;
         facing
     };
     app.world_mut()
-        .entity_mut(author)
+        .entity_mut(director)
         .insert(MovePlayback::new(spec, facing));
     // ⛔ THE LIVE BOX IS THE ONLY AUTHORITY ON WHERE THIS MOVE HITS. The spec's
     // offset rect is not: a `vfx`-tagged window resolves its volume from the
@@ -187,13 +187,13 @@ fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
                 &ambition_platformer2d::combat::moveset::StrikeVolume,
             )>();
             q.iter(world)
-                .find(|(_, volume)| volume.owner == author)
+                .find(|(_, volume)| volume.owner == director)
                 .map(|(hitbox, _)| hitbox.clone())
         };
         if let Some(hitbox) = live {
             let owner_pos = app
                 .world()
-                .get::<ae::CenteredAabb>(author)
+                .get::<ae::CenteredAabb>(director)
                 .map(|aabb| aabb.center);
             if let Some(owner_pos) = owner_pos {
                 let box_center = {
@@ -213,16 +213,16 @@ fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
         }
     }
     panic!(
-        "the Author's real `{TILT_DOWN}` never marked a target standing inside \
+        "the Director's real `{TILT_DOWN}` never marked a target standing inside \
          its authored volume: the road from the move to the mark is broken \
          somewhere between the strike and `apply_authored_body_marks`"
     );
 }
 
 #[test]
-fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_author() {
-    let (mut app, author, target) = a_settled_match();
-    land_the_tilt(&mut app, author, target);
+fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_director() {
+    let (mut app, director, target) = a_settled_match();
+    land_the_tilt(&mut app, director, target);
 
     // THE READ, both halves: the sim publishes a clock row for the body, and
     // the presentation draws a bar that names that body.
@@ -258,7 +258,7 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_au
     // Let the tilt finish so its own damage is out of the comparison.
     for _ in 0..90 {
         app.update();
-        if app.world().get::<MovePlayback>(author).is_none() {
+        if app.world().get::<MovePlayback>(director).is_none() {
             break;
         }
     }
@@ -295,9 +295,9 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_au
     assert_eq!(blasts.detonations, 1, "one note, one detonation");
     assert_eq!(
         blasts.last_owner,
-        Some(author),
+        Some(director),
         "the detonation is credited to the marked target rather than to the \
-         Author who left the note"
+         Director who left the note"
     );
     let after = damage_taken_by(&app, target);
     assert!(
@@ -307,44 +307,44 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_au
     );
 }
 
-/// ⛔⛔ THE CREDIT OUTLIVES THE AUTHOR'S BODY. Three-way, one stock each: the
-/// Author marks the target, is knocked out past the blast line inside the fuse,
+/// ⛔⛔ THE CREDIT OUTLIVES THE DIRECTOR'S BODY. Three-way, one stock each: the
+/// Director marks the target, is knocked out past the blast line inside the fuse,
 /// eliminated and despawned; a third fighter stands on the target when the note
-/// goes off. The blast is owned by a stand-in naming the Author's SEAT -- not by
+/// goes off. The blast is owned by a stand-in naming the Director's SEAT -- not by
 /// the target, which is what the first fix fell back to -- and the third fighter
 /// is hurt by it.
 #[test]
-fn a_note_whose_author_was_eliminated_still_credits_the_authors_seat() {
+fn a_note_whose_director_was_eliminated_still_credits_the_directors_seat() {
     use ambition_platformer2d::actor::{FighterEliminated, FighterStocks};
 
-    let (mut app, author, target, others) = a_settled_match_of(3, Some(1));
+    let (mut app, director, target, others) = a_settled_match_of(3, Some(1));
     let third = others[0];
-    land_the_tilt(&mut app, author, target);
+    land_the_tilt(&mut app, director, target);
 
-    // The Author leaves the match: past the blast line, launched outward.
+    // The Director leaves the match: past the blast line, launched outward.
     {
         let mut kin = app
             .world_mut()
-            .get_mut::<ae::BodyKinematics>(author)
-            .expect("the Author has a body");
+            .get_mut::<ae::BodyKinematics>(director)
+            .expect("the Director has a body");
         kin.pos = ae::Vec2::new(-400.0, kin.pos.y);
         kin.vel = ae::Vec2::new(-2_400.0, -200.0);
     }
     let mut gone = false;
     for _ in 0..60 {
         app.update();
-        let eliminated = app.world().get::<FighterEliminated>(author).is_some();
-        if app.world().get_entity(author).is_err() || eliminated {
+        let eliminated = app.world().get::<FighterEliminated>(director).is_some();
+        if app.world().get_entity(director).is_err() || eliminated {
             gone = true;
         }
-        if app.world().get_entity(author).is_err() {
+        if app.world().get_entity(director).is_err() {
             break;
         }
     }
-    assert!(gone, "premise: the Author never lost the last stock");
+    assert!(gone, "premise: the Director never lost the last stock");
     assert!(
         app.world().get::<BodyMark>(target).is_some(),
-        "premise: the note is still on the target after the Author left; the \
+        "premise: the note is still on the target after the Director left; the \
          fuse ran out before the elimination and this proves nothing"
     );
     assert!(
@@ -396,8 +396,8 @@ fn a_note_whose_author_was_eliminated_still_credits_the_authors_seat() {
 fn a_note_on_a_fighter_who_loses_the_stock_does_not_go_off_on_the_next_one() {
     use ambition_platformer2d::actor::{FighterStocks, PendingRespawn};
 
-    let (mut app, author, target) = a_settled_match();
-    land_the_tilt(&mut app, author, target);
+    let (mut app, director, target) = a_settled_match();
+    land_the_tilt(&mut app, director, target);
     let stocks_before = app
         .world()
         .get::<FighterStocks>(target)

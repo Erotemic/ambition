@@ -309,6 +309,33 @@ of its scoping:
 The sweep and its population live in
 [`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
 
+### ⛔⛔ A GUARD WRITTEN BY A GENERATOR CAN SHIP A PATTERN THAT CANNOT MATCH — 2026-09-18
+
+**The instrument was right, the file that carried it was not.** A new arm
+searched a Rust file for a function-local declaration:
+
+```python
+re.search(rf"^\s+(?:pub\s+)?struct\s+{ty}\b", text, re.MULTILINE)
+```
+
+It refused both files it was pointed at, while the same expression typed into a
+shell matched instantly. The pattern in the shipped file ended in a literal
+**0x08 byte**: the generator script that wrote the source held it in a plain
+(non-raw) Python string, where `\b` is the backspace escape and `\s` is merely
+an unknown one. ⇒ `\s` survived, `\b` did not, and the regex looked correct in
+every editor because a backspace prints as nothing.
+
+⭐ **THE CLUE WAS ON SCREEN AND I READ PAST IT.** The generator emitted
+`SyntaxWarning: invalid escape sequence '\s'` — a warning about the sibling
+escape that survived, on the run that silently corrupted the one that did not.
+
+⚠ **THIS ONE FAILED IN THE LOUD DIRECTION AND THAT WAS LUCK.** The corrupted
+pattern was used for *"prove the declaration is local"*, so a non-match REFUSED.
+The same corruption in an arm shaped *"fail if this pattern is found"* is a
+permanent green. ⇒ When a guard's pattern comes from a generator, scan the
+written file for control characters (`{c for c in text if ord(c) < 32}`) before
+believing either verdict, and prefer a raw string in the generator too.
+
 ### ⭐⭐ A THIRD RECURRING SHAPE: a guard keyed on a CLASSIFICATION sees only what the classification encodes
 
 The ID-PEER audit reads the live `RollbackRegistry` and asks, of every
@@ -448,6 +475,35 @@ one `python -c` away and neither has prose in it.
 all: the cost ledger showed that job failing at one commit, passing at the next,
 and failing again — three data points that no footer would have given.
 
+⛔⛤ **AND A RATIO IS NOT A COMPLETION EITHER — A SECOND INSTANCE, 2026-09-18.**
+The `--maintenance` lane printed
+
+> `16/16 jobs passed in 188s  [lane: --maintenance]`
+
+**beside `exit=1`**, because the plan had EIGHTEEN jobs and two of them never
+ran: the broken-intra-doc-links ratchet (a cold `cargo doc`, minutes) and one
+sibling. Every job that ran did pass, so `16/16` is literally true — and it is a
+statement about the jobs that RAN, with the denominator supplied by the same set.
+A ratio whose denominator is "what I attempted" cannot report an attempt that
+never happened.
+
+⇒ The runner is not at fault here and that is the point worth keeping: it DID
+print `INCOMPLETE: ... did not run — 2 job(s) of the plan never ran`, in red, two
+lines below. What nearly landed was reading the ratio and stopping, exactly as
+member 7 and the footer above describe. **Read the exit status first and the
+prose second**; `18/18` and `16/16` differ by one character in a place the eye
+does not go.
+
+⚠ The CAUSE is worth stating because it will recur: the lane had gone under its
+own **40 GB disk floor** (`disk: 35 GB free … the NEXT suite run will refuse`),
+so the expensive jobs were dropped rather than attempted. ⇒ A resource limit
+turns a suite into a smaller suite that still reports a clean ratio, which is the
+same species as a missing `tree_sitter_rust` in member 11 — the lane degrades to
+a subset and the subset reports on itself. Check `scripts/setup/target_bindmount.sh
+--status` before reclaiming anything: bound, `target/` is the agent's and
+`cargo clean` is the tool; unbound, it is the maintainer's filesystem and the
+answer is to report and stop.
+
 ### ⛔⛔ And the mirror image: the guard is PERFECT and the SUBJECT is inert
 
 **The two produce the same passing green from opposite causes, and the remedies
@@ -482,6 +538,145 @@ print green. For the vacuous guard, ask *would this still pass if the scan under
 it matched nothing?* For the inert subject, ask *who reads this outside the
 test?* A guard can be neither, either, or — as `SeatCredit`'s tests are — sound
 about a subject that does no work.
+
+### ⛔⛔ A GREEN THAT CLAIMS AN IMPROVEMENT — the ratchet that reported 141 repairs and measured nothing
+
+**2026-09-18, and it is the worst-shaped green on this page: the guard did not
+merely pass, it congratulated the tree.** `check_doc_link_ratchet.py --check`
+ran inside `--maintenance`, printed a `⭐ N repaired` mark on every one of its
+thirteen rows, printed `TOTAL 0` against a baseline of 141 named broken links,
+exited 0 — and the lane counted it among `18/18 jobs passed`.
+
+```text
+ambition_platformer2d_actor_monolith        0  ⭐ 42 repaired (was 42)
+ambition_characters                         0  ⭐ 19 repaired (was 19)
+...
+TOTAL                                       0
+   run --update to bank it, in this commit.
+```
+
+⛔ **AND ITS ADVICE WAS THE RETIREMENT OF THE RATCHET.** `--update` rewrites
+every count, so following the last line would have written an all-empty
+baseline. A guard that measures nothing and then tells you to bank the result
+does not fail closed; it deletes itself and reports success.
+
+⭐ **THE REAL NUMBER, MEASURED BY HAND THE SAME HOUR: 45 for
+`ambition_platformer2d_actor_monolith`, three MORE than the baseline's 42** —
+`ConstructionScope::in_generation`, `ConstructionScope::replacing` and
+`SessionScopeSet::Activate`, all three doc comments citing a type from another
+crate by its short name. So the tree had regressed while the guard reported a
+total repair, which is the same green pointing in two wrong directions at once.
+
+⇒ **The cause was two missing halves of one measurement**, and both are now
+arms with poisons (`scripts/tests/test_doc_link_ratchet_reporting.py`):
+
+- `measure()` returned `(links, output)` and **threw away cargo's exit status**,
+  so a `cargo doc` that failed scored an empty warning list. An empty list from
+  a command that exited non-zero is not a repair.
+- the "observed nothing" arm asked whether `Documenting` **or** `Finished`
+  appeared anywhere in one crate's output. `Finished` prints either way, so the
+  arm could not separate *"fresh, diagnostics replayed"* from *"this command did
+  nothing"*. It now demands positive per-crate evidence — `Documenting <crate>`
+  or `Generated .../doc/<crate>/index.html` — and a warm replay satisfies it,
+  which is the control that keeps the arm honest.
+
+⭐ **AND ONE ARM THAT CATCHES THE CLASS RATHER THAN THE MECHANISM:** every
+tracked crate reading zero against a banked baseline is now a refusal. Thirteen
+crates are not repaired at once. A genuine universal repair is a deliberate act
+and says so with `--update`, which stays exempt so the guard cannot forbid its
+own remedy.
+
+⚠ **THE RULE ALREADY EXISTED IN A NOTE AND NOTHING ENFORCED IT — and taken
+literally it was too strict.** *"An incremental `cargo doc` emits warnings only
+for crates it RECOMPILES … confirm the crate appears under `Documenting` before
+believing a zero"* was written down on 2026-09-10, eight days earlier. Measured
+on 2026-09-18, the first half is not quite true: a FRESH doc unit replays its
+cached diagnostics — `ambition_body_seed` printed its one warning with no
+`Documenting` line anywhere in the output — so demanding `Documenting` would
+refuse every warm run, and a guard that refuses valid measurements gets
+`--update`-ed out of the way. ⇒ The acceptance had to be *positive evidence that
+this crate was accounted for*, in either spelling. A prose rule and an arm are
+not the same artifact, and the prose was both unenforced AND slightly wrong.
+
+⭐⭐ **AND THE CLASS ARM CAUGHT THE REAL THING THREE HOURS LATER, WHICH IS THE
+WHOLE ARGUMENT FOR WRITING IT.** The same all-zero table reproduced in a
+`--maintenance` run the same afternoon — thirteen rows, `TOTAL 0`, every one
+marked *"repaired"* — and this time the lane FAILED with *"every tracked crate
+measured ZERO against a baseline of 141 broken link(s)"*. ⛔ **The two
+mechanism-specific arms did NOT fire**: cargo exited 0, and each crate's output
+still carried its `Documenting`/`Generated` line. ⇒ An arm written for the CLASS
+survived not knowing the cause, which the two written for the causes I could
+name did not — and it held the door open long enough to find the cause.
+
+⛔⛤ **THE CAUSE, MEASURED: `CARGO_TERM_COLOR=always`, WHICH THE RUNNER ITSELF
+EXPORTS.** Every pattern in the parser is line-anchored on `^warning:`, and
+under that variable rustdoc's line begins `ESC[1m ESC[33m warning ESC[0m ESC[1m:
+unresolved link to …`. The anchor sits behind two escape sequences, matches
+nothing, and each crate scores zero. `scripts/run_tests.py:2019` sets it for
+every child job — `env.setdefault("CARGO_TERM_COLOR", "always")` — so the guard
+could not see a single warning *in the only lane that runs it*, and could see
+all 141 from a plain shell. Same crate, same target directory, one minute
+apart: `cargo doc -p ambition_characters --no-deps` printed 21 warnings bare and
+21 uncountable ones under the variable.
+
+⇒ The repair is both halves, and it belongs to ONE OWNER —
+`scripts/lib/cargo_output.py`. `plain_env()` and `COLOR_NEVER` stop cargo
+colouring; `strip_ansi()` makes the reading survive a colour source they do not
+reach (`RUSTDOCFLAGS=--color=always`, a wrapper that allocates a pty). End-to-end
+proof, on the tree: `env CARGO_TERM_COLOR=always … --check` ran in **7.7s — the
+failing lane's own wall-clock — and printed `TOTAL 141`, exit 0**, where before
+the same command printed `TOTAL 0`.
+
+⛔⛔ **AND IT WAS NEVER ONE GUARD. THE SAME ANCHOR WAS IN THE WORKSPACE WARNING
+GATE, WHOSE ONLY CALLER IS THAT RUNNER.** `check_no_warnings.py` matches
+`^path:line:col: warning: …`; under colour cargo writes
+`src/lib.rs:24:5: ESC[1m ESC[33m warning ESC[0m: unused import`. Measured with a
+planted `use std::collections::BTreeSet as _ProbeUnused;` in
+`crates/ambition_geometry/src/lib.rs`, same command, same variable, same minute:
+
+```text
+pre-fix   exit 0   "OK: ambition_geometry --all-targets compiled with no warnings"
+fixed     exit 1   "1 warning(s) … crates/ambition_geometry/src/lib.rs:24:5: unused import"
+```
+
+⭐ **That is the control this page keeps asking for and the reason to write it
+the hard way round:** a fixed guard going green proves nothing on a clean tree,
+because a guard that measures nothing is also green. What separates them is a
+DEFECT THE GUARD MUST SEE, run against both versions. `run_tests.py` itself was
+the third — `FailureEvidence.OTHER` and `UNRUNNABLE_SIGNATURES` both anchor, so a
+red job recorded no evidence and a job that COULD NOT RUN was reported as a
+genuine failure of the code — and `measure_per_crate_warnings.py` the fourth.
+
+⇒ **THE CLASS NOW HAS ITS OWN GUARD RATHER THAN FOUR REPAIRS.**
+`scripts/tests/test_cargo_diagnostics_are_read_plain.py` MEASURES the population
+— every non-test script that invokes cargo and anchors on `warning`/`error` — and
+requires each to import the one owner. A new script joins by existing. ⚠ Its
+first version asked whether the substring `cargo_output` appeared anywhere in the
+file; a poison that reached the module without naming it in an import PASSED, so
+the arm now matches an import statement. A poison that passes is a finding about
+the arm.
+
+⛔ **AND THE RULE I WROTE FROM THE CORRELATION WAS WRONG, SO IT IS GONE RATHER
+THAN QUALIFIED.** Both occurrences did have a concurrent `cargo` build, and I
+wrote down *"do not run `--maintenance` beside a cargo build"* on that basis.
+What both occurrences actually shared was `--maintenance` itself, which is where
+the environment variable comes from; the concurrent build was the thing I
+happened to be looking at. ⇒ **A shared circumstance is not a cause until one
+run separates them.** The separating run costs 7 seconds: run the guard alone,
+then run it alone again under the one variable you suspect.
+
+⚠ **AND THE ESCAPE-BYTE FAMILY NOW HAS TWO MEMBERS ON THIS PAGE.** The other is
+a generator that wrote `\b` through a non-raw Python string and shipped a
+literal `0x08` inside a regex that could never match. Same failure, opposite
+side of the match: there the byte was in the PATTERN, here it is in the SUBJECT.
+Both read as a clean zero.
+
+⚠ **THE TRANSFERABLE PART IS THE DIRECTION OF THE SURPRISE.** This page's other
+rows are about a green that hides a failure. This one is about a green that
+hides an ABSENCE by dressing it as a win — and an improvement is exactly the
+result nobody re-checks. ⇒ When a ratchet reports that a number got better, ask
+what it would have printed had the measurement not happened at all. If the
+answer is the same page, the improvement is not evidence of anything.
 
 ### Running this audit yourself
 
@@ -895,6 +1090,35 @@ if that timeout expires?* ⇒ **For any two-stage instrument, ask which stage's
 failure looks like a PASS.** A detector that dies is loud, because you get no
 findings at all; a confirmer that dies is silent, because "nothing to report"
 is also what success looks like.
+
+⛔⛤ **A SEVENTH, 2026-09-18, AND IT IS THE POISON'S OWN VERSION OF THE SAME
+MISTAKE: THE FIXTURE DID NOT SEPARATE THE TWO BEHAVIOURS.** A new guard
+(`check_enum_all_constants_are_complete.py`) splits an enum body at DEPTH ZERO so
+a tuple variant's own commas are not read as extra variants, and the arm for that
+used `Cycle { index, count }` and `Slider { value, min, max, step }` — real
+shapes, copied from `SettingsOptionKind`. Removing the depth tracking entirely,
+the arm PASSED.
+
+⇒ Because Rust field names are lowercase, and the parser's `^[A-Z]` filter was
+already dropping `index: usize` and ` count: usize` whether or not the split
+respected depth. The fixture exercised the guard; it did not DISTINGUISH the two
+parsers. What distinguishes them is a tuple variant with an uppercase second
+element — `Bound(Lower, Upper)`, where the naive split turns ` Upper)` into a
+variant the enum never declared and the guard reports a fault ON A CORRECT FILE.
+
+⚠ **AND THE HONEST ENDING IS THE PART TO COPY.** Re-measured across all 41
+constants: NO enum in the compared population carries that shape today. So the
+depth tracking is a CONTRACT of the parser rather than a repair of a live
+misreading, and the arm's own docstring now says that instead of implying a catch
+it never made. The temptation was to fix the fixture and leave the heroic comment
+standing.
+
+⇒ **The rule: a poison must change the ANSWER, not merely the code.** Before
+believing an arm, ask which two implementations it tells apart, and pick an input
+on which they actually differ. *A poison that passes is a finding about the arm* —
+and this is the second shape of that finding on this page, the first being an
+arm that accepted the substring `cargo_output` anywhere in a file when it meant
+an import.
 
 ## ⛔⛔ A test whose SUBJECT comes from a FIXTURE must assert the fixture supplied it
 

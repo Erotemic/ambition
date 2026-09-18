@@ -295,13 +295,22 @@ pub fn process_new_game_reset_request(
     // claims a reset that has not been verified.
     mut request: ResMut<NewGameResetRequested>,
     play_state: ResetPlayState<'_, '_>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomSet>,
+    // ⛤ READ ONLY, AND THE TYPE SAYS SO SINCE 2026-09-18. It is bound without
+    // `mut`, which in Rust already meant nothing here could write through it —
+    // `start` is read and the value is passed on as `&room_set` — but the
+    // accessor still asked for `&mut`, which is an exclusive borrow of a
+    // session-world component and an entry in the multi-writer census for a
+    // system that only reads.
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     // ⛔ A GUARD, NOT A WRITE TARGET — and `Single` is what makes it one: this
     // system does not run unless the live session root carries room geometry. The
     // reset no longer WRITES it (`replace_live_world` stages that behind the
     // room's verdict), but a reset in a world with no room authority is still
     // nothing this should attempt.
-    _room_geometry: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+    //
+    // ⛤ SO IT ASKS FOR `Ref`. Both aliases are `Single<_, With<SessionRoot>>`,
+    // so the refusal is identical and the `&mut` bought nothing.
+    _room_geometry: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,

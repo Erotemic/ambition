@@ -306,7 +306,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// argued about the boundary and none about the stamp.
     ///
     /// ⇒ The split is now UNSPELLABLE on this road, which is what
-    /// [`ConstructionScope::in_generation`] already did one layer down; the
+    /// [`ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation`] already did one layer down; the
     /// layer above had reopened it. A replacement says so by name, through
     /// [`Self::for_content_replacement`].
     /// `an_ordinary_room_transition_stamps_its_roots_with_the_session_content`
@@ -370,7 +370,7 @@ impl<'a> ActorConstructionContext<'a> {
     /// running `expected_live`.
     ///
     /// ⭐ The asymmetry is the point, and it is the same one
-    /// [`ConstructionScope::replacing`] states one layer down: the commit
+    /// [`ambition_platformer2d_shared_tangle::construction::ConstructionScope::replacing`] states one layer down: the commit
     /// boundary must still recognise the world it publishes into as the one the
     /// preflight ran against, while the roots it mints belong to the generation
     /// that replaces it. ⇒ Only a hot reload gets two independent bindings, and

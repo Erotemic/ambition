@@ -75,6 +75,23 @@ presentation that draws from what it installs.
   `ControlFrame` resource under fixed tick … writing the wrong one is silently
   ignored: the walk runs, the body never moves, nothing says why"* with one
   seam. LEAK CLOSED 2026-07-27.
+  * ⛔⛤ **AND IT GREW BACK ON THE ENGINE'S SIDE OF THE SEAM, which is the part
+    this ADR did not say — collapsed 2026-09-18.** The consumer's leak stayed
+    closed: one name, one call, no backend rule to re-derive. But behind it there
+    were TWO `drive_slot_frame` bodies, one per backend crate, selected by
+    `#[cfg(feature = "rollback")]` in `sim`, and two of their three arms were
+    duplicated — the latch fold and the `SeatRawFrames`/`SlotControls` tail,
+    comment paragraphs included. Only the `PendingSeatInputs` arm is genuinely
+    the rollback crate's, because that type is declared there and the lower crate
+    cannot name it; that crate now adds exactly that arm and delegates the rest
+    to `ambition_platformer2d_runtime::input_drive`.
+  * ⇒ **A FACADE THAT HIDES A FORK STILL HAS A FORK.** One seam for the consumer
+    is what this ADR asks for and it was delivered; one OWNER for the rule behind
+    it is a separate property, and a `cfg`-selected pair of implementations is
+    the shape that satisfies the first while quietly failing the second. Worth
+    stating here because the mechanism that created it is the mechanism this ADR
+    recommends: when the facade absorbs a backend difference, check whether it
+    absorbed it once or twice.
 
 Both were found by Outlander. Both are the same shape: **a rule the engine knew
 and made the consumer re-derive.** This ADR generalises that method to the API

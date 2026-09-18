@@ -932,14 +932,21 @@ this question and `Q128`. Different instrument, different population — one App
 rewinding itself against one bag, versus two Apps with different route histories
 compared whole — and the same row. ⇒ A ruling here and on `Q128` is the whole
 remaining peer-visible difference between two hosts whose canonical identities
-and values are identical. The chain:
-`persist_inventory_to_save` sits in top-level `Update` and writes the live bag
+and values are identical. The chain, AS IT STOOD WHEN THIS WAS FILED:
+`persist_inventory_to_save` sat in top-level `Update` and wrote the live bag
 into `AmbitionGameSave` once per FRAME; `AmbitionGameSave` is registered
 `rollback_resource_clone_checksum`, so its value is compared once per TICK; and a
 rewind re-simulates ticks without re-running `Update`. The hashed save therefore
-describes a different frame from the tick it is compared at. Of 364 probed
-rollback entries, exactly ONE differs between a run whose bag moves and an
-otherwise identical run whose bag does not, and it is this one.
+described a different frame from the tick it was compared at. Of 364 probed
+rollback entries, exactly ONE differed between a run whose bag moves and an
+otherwise identical run whose bag does not, and it was this one.
+✅ **THAT PLACEMENT IS REPAIRED and the question is not.** Re-derived 2026-09-18:
+all three `persist_*_to_save` mirrors are registered through `app.sim_schedule()`
+(the table above counts them on the sim side), the divergence set is empty, and
+`resources_crossing_the_rewind_boundary.py` reports `AmbitionGameSave` does not
+cross the rewind boundary. ⇒ What remains is the OWNERSHIP question this entry is
+named for, and the two-host measurement above is the reason to answer it — not a
+live desync.
 
 ⛔ **A SYNC TEST IS ONE MACHINE REWINDING ITSELF, WHICH IS WHY THIS MATTERS
 NOW.** No second peer is required for the divergence — a single App already
@@ -1165,31 +1172,89 @@ flag set by the simulation lands in the save inside the rewinding schedule, wher
 the checksum is doing real work. ⇒ On that evidence (a) is the honest option and
 (b) trades a defect for a blind spot.
 
-**AND THE CENSUS IS NOW DONE: 13 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE.**
-Every system taking `ResMut<AmbitionGameSave>` workspace-wide, resolved to the
-`add_systems` call that registers it:
+**AND THE CENSUS IS NOW DONE: 18 OF THE 19 WRITERS ARE IN A REWINDING SCHEDULE —
+RE-DERIVED 2026-09-18.** Every system taking `ResMut<AmbitionGameSave>`
+workspace-wide, resolved to the `add_systems` call that registers it and that
+call's first argument:
 
-| registered in the sim schedule (13) | not (6) |
+| registered in the sim schedule (18) | not (1) |
 |---|---|
-| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `update_boss_encounters` | `dispatch_pending_dialog_requests`, `load_save_at_startup`, `track_room_visits`, and the three `persist_*_to_save` mirrors |
+| `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `count_the_dialogue_visit_when_a_conversation_opens`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`, `persist_occurrence_horizon_to_save`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `track_room_visits`, `update_boss_encounters` | `load_save_at_startup` (`Startup`) |
 
-⇒ **THE SAVE IS SIMULATION-ADJACENT STATE IN PRACTICE, WHATEVER IT IS IN
-PRINCIPLE.** Quest advances, boss encounter progress, switch activations, shrine
-heals and cutscene ticks all write it from inside the rewinding schedule, where
-the checksum is doing real work. Taking it out of the peer contract would stop
-comparing all thirteen. (b) is therefore not the small option; it is the largest
-one, measured by what it stops checking.
+⛔⛤ **THIS TABLE READ "13 of the 19" AND NAMED SIX OUTSIDERS UNTIL 2026-09-18, AND
+EVERY ONE OF THE FIVE THAT LEFT THAT COLUMN LEFT FOR A DIFFERENT REASON.** The
+three `persist_*_to_save` mirrors and `track_room_visits` are registered in the
+sim schedule now; `dispatch_pending_dialog_requests` left the POPULATION rather
+than the column — it no longer takes the resource at all — and
+`count_the_dialogue_visit_when_a_conversation_opens` arrived inside the schedule
+as its replacement. ⇒ A census kept as a static table is a duplicate of the tree;
+this one now carries the command that rebuilds it.
 
-⚠ Two method notes, because the count would have been wrong twice without them.
-A name inside `.after(...)` is an ORDERING EDGE, not a registration — excluding
-those is why `heal_save_shrine_system` is counted from its real `add_systems` and
-not from `checkpoint.rs:1806`. And the three `persist_*` mirrors landing on the
-`Update` side is the positive control: a classifier that put them anywhere else
-would be wrong about the very systems this Q is named for.
+⇒ **THE SAVE IS SIMULATION STATE IN PRACTICE, WHATEVER IT IS IN PRINCIPLE**, and
+the margin is no longer arguable: quest advances, boss encounter progress, switch
+activations, shrine heals, cutscene ticks, the map's visit stamp, the three save
+mirrors and the dialogue visit counter all write it from inside the rewinding
+schedule, where the checksum is doing real work. Taking it out of the peer
+contract would stop comparing all eighteen. (b) is therefore not the small
+option; it is the largest one, measured by what it stops checking. ⚠ The single
+outsider is `Startup`, before any timeline exists — so there is no longer a
+"writes it from `Update`" tail to point at.
 
-⚠ It also applies to more than the bag: `persist_occurrence_horizon_to_save` and
-`persist_minted_item_horizon_to_save` write the same resource from the same
-`Update` chain, so a ruling here settles three systems, not one.
+**Method, so the next reader redoes it rather than trusting it.**
+`ResMut<'?, AmbitionGameSave>` parameter occurrences over
+`multi_writer_resource_census.production_files()` with comments and test modules
+stripped: 19 occurrences in 17 files, 19 distinct enclosing `fn`s. Each name is
+then found inside an `add_systems(..)` call in a production file and the call's
+first argument read.
+⚠ Three method notes, because the count would have been wrong without them.
+(1) A name inside `.after(...)` is an ORDERING EDGE, not a registration — two
+systems appear in a second `add_systems` call for that reason
+(`heal_save_shrine_system` at `checkpoint.rs:1802`,
+`capture_falling_sand_switch_interactions` at `falling_sand.rs:141`), and both
+resolve to `sim` either way, so the classification does not turn on it here.
+(2) A schedule can be a PARAMETER: `track_room_visits` is registered with
+`install_map_simulation_systems(app, schedule)`, and the one production caller
+(`progression_schedule.rs:99`) passes `sim`. A classifier that read the callee
+alone would have said "unknown" and a careless one "not sim".
+(3) The three `persist_*` mirrors landing on the sim side is now the positive
+control — while they were in `Update` it was the other way round, which is why
+this note changed direction rather than being deleted.
+
+⛔⛤ **AND THE SAME FACT IS ALREADY IN THE PEER CONTRACT BY A SECOND ROAD, WHICH
+NARROWS THIS QUESTION — MEASURED 2026-09-18.** The bag is out of the checksum and
+its BASELINE is in:
+
+| resource | registration | in the peer checksum? |
+|---|---|---|
+| `OwnedItems` | `rollback_resource_clone` | **no** |
+| `OwnedItemsBaseline(OwnedItems)` | `rollback_resource_clone_checksum`, projecting `to_persisted()` rows | **YES** |
+
+⇒ `capture_owned_items_baseline` copies the live bag into the baseline on every
+`CheckpointCommitted`, so **the first checkpoint commit carries the player's
+stored quantities across the line this question is about.** Answering "the save
+file is not peer state" by leaving `OwnedItems` unhashed does not achieve that
+today.
+
+⚠ **AND NEITHER SIDE OF THAT ASYMMETRY IS A RECORDED DECISION.** `OwnedItems` is
+unhashed by KIND — `rollback_resource_clone`'s `feeds_peer_checksum()` is false —
+and its registration in `ambition_items/src/rollback_registration.rs` carries no
+reason at all; the baseline is hashed because somebody chose `_clone_checksum`
+for it, also without a reason. ⇒ One fact, two projections, opposite answers, no
+argument on either side. That is what makes it this entry's business rather than
+a defect somebody can just fix.
+
+⛔ **NOTHING CAN OBSERVE IT TODAY, AND THAT IS THE USUAL REASON.** Only
+`SyncTestSession` is ever constructed — one peer replaying itself, whose two save
+files are the same file — so no arm can produce two peers whose bags differ. The
+same limit the sync-test witnesses elsewhere in this document state about
+themselves.
+
+⚠ **AND THE ADJACENT ASYMMETRY IS NOT THIS ONE, so do not fold them.**
+`OwnedItemsBaseline` is also the one checkpoint baseline of four that is NOT in
+`SessionScopedResources`, and that part IS consistent: `OwnedItems` is not
+session-scoped either, so the baseline travels with the value it baselines, while
+the three that do reset describe world placement. That reason is now stated at
+`session/teardown.rs` beside the three, where its absence used to be a default.
 
 Reproduction, eliminations and the full harness matrix are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
@@ -1628,12 +1693,19 @@ defect live. Held by
 
 ## Q134 — is a dialog visit count something two peers must agree on?
 
+✅ **THE DEFECT THIS QUESTION WAS BLOCKING IS CLOSED; WHAT IS LEFT IS THE PRODUCT
+QUESTION IN THE TITLE.** Read the ✅⛤ paragraph before the ruling below — the
+increment is in the rewinding schedule and a visit survives a rewind. This entry
+keeps its measurements because they are what made Option 1 refusable.
+
 [DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
 repaired the three `persist_*_to_save` mirrors by moving them into the rewinding
 schedule: they DERIVE the save from simulation state, so a replay reproduces the
-value. `dispatch_pending_dialog_requests` is a fourth writer of the same hashed
-resource and that answer is not available to it — it calls
-`save.data_mut().increment_dialog_visit(&dialogue_id)`.
+value. `dispatch_pending_dialog_requests` WAS a fourth writer of the same hashed
+resource and that answer was not available to it — it called
+`save.data_mut().increment_dialog_visit(&dialogue_id)` from `Update`. ⚠ It no
+longer does; re-measured 2026-09-18, that method has exactly one production call
+site and it is in the sim schedule.
 
 ⛔⛤ **THIS QUESTION USED TO ARGUE FROM "AN INCREMENT IS NEITHER IDEMPOTENT NOR
 DERIVABLE". BOTH HALVES ARE NOW MEASURED FALSE, AND BOTH OF ITS OPTIONS CHANGE
@@ -1642,7 +1714,7 @@ SHAPE AS A RESULT.** Measured 2026-09-16 by three arms in
 
 | placement of the increment | after 200 frames of sync test |
 |---|---|
-| `Update` (today) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
+| `Update` (as it shipped) | the visit is **LOST** — `a_dialogue_visit_counted_from_update_is_taken_back_by_the_rewind` |
 | inside the sim schedule, 5 known ticks | **exactly 5** — `an_increment_inside_the_tick_is_made_idempotent_by_the_restore` |
 | inside the sim schedule, no rollback session | exactly 5 — the control |
 
@@ -1661,7 +1733,7 @@ COUNTED TWICE. It can only be lost:
 
 - `ambition_dialog` contains the string `rollback` **zero times**. `DialogState`
   is a plain `#[derive(Resource)]`, registered on no road.
-- The dispatcher consumes the request with `state.pending_start.take()`, in
+- The dispatcher consumed the request with `state.pending_start.take()`, in
   `Update`.
 - ⇒ A rewind restores `AmbitionGameSave` to its pre-increment value. The request
   that produced the increment was consumed from a resource that does not rewind,
@@ -1851,6 +1923,24 @@ it shipped:
 | schema fingerprint | both rows are inside `compute_schema_fingerprint`, so they are part of the peer-stable schema identity `Q122` is about |
 | sim view | `GravitySwitchesView` plus `rebuild_gravity_switches_view`, an unfiltered per-tick query that can only ever produce an empty vector (`ambition_sim_view/src/facts.rs`) |
 | render | `GravitySwitchVisual` and `sync_gravity_switch_visual`, which despawn-and-rebuild from that empty view every frame (`ambition_render/src/rendering/gravity_visuals.rs`) |
+
+⭐ **AND A FIFTH LAYER PAYS, FOUND 2026-09-18 FROM THE OTHER DIRECTION.**
+`BaseGravity` is one of the 121 multi-writer resources, and the sixth of its six
+writer files is this system. Adjudicated in
+`scripts/check_multi_writer_resources_are_adjudicated.py` as CORRECT-for-five and
+ROUTED here for the sixth, which adds one fact this question did not state: the
+two implementations are not merely two affordances, **they compute the SAME
+EXPRESSION on the same resource** — `base.dir = -base.dir` here, and the
+identical negation in `drive_wave_encounters`'s `SwitchAction::FlipGravity` arm.
+⇒ So (b) is not only removing an unreachable plate; it is collapsing two owners
+of one fact onto one owner, which is the property that campaign exists to buy.
+That is an argument for (b), not a ruling: (a) still answers it by giving the
+plate a spawn, and two affordances writing one ambient through one expression is
+a coherent design.
+⚠ It is also a reminder about the instrument: a writer census reads PARAMETER
+LISTS, so a production `fn` whose only registration is behind `#[cfg(test)]`
+counts as a live writer. This row is why the guard's own entry says
+"multi-writer" here is a fact about reachable DECLARATIONS, not reachable writes.
 
 ⛔ **AND IT ALREADY CORRUPTED A RANKING.** S7 in
 [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)

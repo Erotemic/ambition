@@ -61,6 +61,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(REPO) / "scripts" / "lib"))
+
+from cargo_output import COLOR_NEVER, plain_env, strip_ansi  # noqa: E402
 FEATURE_LINE = re.compile(r"^([a-z_][a-z0-9_-]*)\s*=", re.M)
 
 
@@ -81,13 +84,19 @@ def crates_with_a_non_default_feature() -> list[str]:
 
 
 def warnings_for(crate: str) -> int:
+    """⛔ `startswith("warning:")` IS AN ANCHOR, and a coloured stream puts two
+    escape sequences in front of it — see `scripts/lib/cargo_output.py`, where
+    the same anchor cost a ratchet its whole measurement on 2026-09-18."""
     done = subprocess.run(
-        ["cargo", "check", "-q", "-p", crate, "--all-targets"],
+        ["cargo", "check", "-q", "-p", crate, "--all-targets", *COLOR_NEVER],
         cwd=REPO,
         capture_output=True,
         text=True,
+        env=plain_env(),
     )
-    return sum(1 for line in done.stderr.splitlines() if line.startswith("warning:"))
+    return sum(
+        1 for line in strip_ansi(done.stderr).splitlines() if line.startswith("warning:")
+    )
 
 
 def main() -> int:

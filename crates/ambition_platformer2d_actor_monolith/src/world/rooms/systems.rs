@@ -262,13 +262,22 @@ pub fn detect_room_transition_system(
         );
         return;
     };
-    // Consume the gesture only after every invariant required to describe the
-    // crossing has been validated.
-    slot_gestures.primary_mut().clear();
-    // ⚠ A refused slot is the ordinary dedupe: a loading zone re-emits every
-    // tick the body overlaps it, so the crossing is asked again next frame and
-    // nothing here has mutated anything.
-    let _ = pending_lifecycle.record(
+    // ⛔⛤ **ADMIT FIRST, SPEND SECOND — AND THIS WAS THE OTHER WAY ROUND.**
+    // `record` is `#[must_use]` because the slot is earliest-sticky: *"a refused
+    // intent must not have its consequences run"*. Clearing the buffer IS a
+    // consequence. The comment that used to sit here said a refusal *"mutated
+    // nothing"*, which was true of everything except the line above it.
+    //
+    // ⚠ WHAT IT COST IS SMALL, REACHABLE AND UNRECOVERABLE. A held press is
+    // refilled by the producer next tick, so the loss is invisible while the
+    // player keeps the button down — which is what every authored door arm
+    // does. A TAP is spent: the slot says `AlreadyPending` because a checkpoint
+    // resume, a replay admission or a death respawn got there first this tick,
+    // the press is gone, and the crossing is never asked again. The other three
+    // callers of a buffered interact (`chests.rs`, and the NPC and switch loops
+    // in `features/ecs/interact.rs`) already consume only after their operation
+    // has committed; this was the one outlier.
+    let admission = pending_lifecycle.record(
         // an eager host has no frames to be ahead of. `0` is not a
         // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
         // so the intent is confirmed the instant it is recorded, which is what
@@ -286,4 +295,15 @@ pub fn detect_room_transition_system(
             },
         ),
     );
+    if !admission.admitted() {
+        // The zone re-emits every tick the body overlaps it, so a HELD press
+        // asks again next frame; a tap keeps its buffer for the rest of the
+        // window and can ask again then. Either way nothing here has mutated
+        // anything, which is now true of the whole function.
+        return;
+    }
+    // Consume the gesture only once the crossing is ADMITTED — not merely
+    // describable. Every invariant needed to describe it was checked above; the
+    // slot is the one that decides whether it happens.
+    slot_gestures.primary_mut().clear();
 }

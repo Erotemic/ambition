@@ -28,21 +28,35 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
 ///
 /// [`drive_control_frame`] remains as the name for the primary seat, but it is a convenience
 /// over this, not a second road with different rules.
+///
+/// ⛤ **AND IT IS THE ONE OWNER OF THESE TWO ARMS SINCE 2026-09-18.** The
+/// rollback backend used to carry its own copy of both — same code, same comment
+/// paragraphs — because it needed one extra arm for a type only it declares
+/// (`PendingSeatInputs`). It now adds that arm and delegates here, so the latch
+/// rule and the raw/slot tail are stated once. ⛔ That crate's wrapper depends on
+/// the ORDER below: the latch arm must come first, and it gates its own arm on
+/// the latch's absence to keep it that way. Reordering these two arms silently
+/// breaks a caller in another crate.
 pub fn drive_slot_frame(
     world: &mut World,
     slot: ambition_characters::control::PlayerSlot,
     frame: ControlFrame,
 ) {
+    // A device-backed host: fold into the seat's latch so a sub-tick press
+    // survives to the tick that drains it, instead of being overwritten by
+    // whatever the device reports on the tick boundary.
     if let Some(mut latches) =
         world.get_resource_mut::<ambition_characters::control::SlotControlLatches>()
     {
         latches.accumulate(slot, frame);
         return;
     }
-    // It is that seat's output mirror now, so writing it would deliver a press to nobody — the
-    // silent no-op this whole seam exists to prevent.
+    // ⛔ THERE IS DELIBERATELY NO `ControlFrame` ARM, and this comment is that
+    // arm's tombstone — it used to be here. The global `ControlFrame` is the
+    // primary seat's OUTPUT mirror now, so writing it would deliver a press to
+    // nobody: the silent no-op this whole seam exists to prevent.
     //
-    // BOTH surfaces, and that is the helper's whole contract. A driver
+    // BOTH surfaces below, and that is the helper's whole contract. A driver
     // says *this seat is holding this frame* and must not have to know how the
     // composition was assembled. The RAW row is what a shaping stage reads — a
     // scripted reset has to reach the reset stage, a scripted stick the portal

@@ -334,8 +334,8 @@ pub fn player_robot_moveset() -> MovesetContract {
     //
     // ⭐ THE LOOK IS THE PHASE-OUT, which is what "similar to how it works in
     // ambition" means: `teleport_depart` where it left, `teleport_arrive` where
-    // it appears. The Author's teleport uses the same technique and a different
-    // pair — see `author_moveset`.
+    // it appears. The Director's teleport uses the same technique and a different
+    // pair — see `director_moveset`.
     //
     // ⛔ NO HITBOX. A recovery that also struck on both ends would be a
     // recovery you throw at people, and the blink's offensive shockwave belongs

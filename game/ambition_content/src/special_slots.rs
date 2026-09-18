@@ -6,7 +6,7 @@
 //! which every census that walks `moves` then reports as part of this fighter's
 //! kit.
 //!
-//! ⭐ THIS WAS THE AUTHOR'S PRIVATE HELPER. The third fighter to need it is the
+//! ⭐ THIS WAS THE DIRECTOR'S PRIVATE HELPER. The third fighter to need it is the
 //! point at which a copy becomes a rule, and a rule about which of three places
 //! a move id lives in is exactly the kind that goes wrong quietly — see
 //! [`MovesetContract::remap_move_ids`] for the same lesson learned once already.

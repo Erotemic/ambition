@@ -638,6 +638,43 @@ a DETECTOR that over-reports, and the confirmation is a second run with
 `--all-features`. **Only a dep unused under BOTH is unused.** Detector then
 confirmer costs two runs on the hits rather than two runs on all 77 crates.
 
+### ⛔⛔ WHEN BOTH SYSTEMS SHARE A SCHEDULE, A PRESENCE CHECK PASSES UNDER THE POISON — read the CHANGE TICK
+
+**Measured 2026-09-18 on `track_versus_roster`, and the wrong instrument was the
+obvious one.** The question was whether an `Update` write to a
+`rollback_resource_clone_checksum` resource lands before or after the rollback
+session is installed. The natural probe samples
+`world.contains_resource::<AmbitionGgrsSession>()` at the start of each frame
+and asks whether the write's frame began with a live timeline.
+
+⛔ **IT ANSWERS "NO" IN BOTH WORLDS.** The writer and the installer are both in
+`Update`, so a session installed on the firing frame is invisible at that
+frame's start and indistinguishable at its end from one installed earlier. The
+poison — flipping the writer's `.before(LocalSessionSet::Maintain)` to `.after`
+— moves the install one system EARLIER than the write and the frame-start sample
+does not move at all:
+
+```text
+                        frame start   write tick   session installed at tick
+.before (shipped)       ggrs_live=false   4458              4927
+.after  (poisoned)      ggrs_live=false   4925              4924
+```
+
+⭐ **THE CHANGE TICK IS THE ORDERING, AND IT NEEDS NO SCHEDULE INTROSPECTION.**
+Bevy advances the world's change tick per system run, so
+`World::get_resource_change_ticks::<T>()` read once at frame end says which of
+two same-frame writers went first — 469 ticks apart in the shipped order, ONE
+tick apart and reversed under the poison. No graph walking, no ordering
+constraint against a private `fn`, and it reads the thing the claim is about.
+
+⚠ **AND IT NEEDS AN ANTI-VACUITY FLOOR.** "The session was installed at a newer
+tick" is trivially true on every frame where the session is not installed at
+all, so the arm must also assert that at least one firing frame DID install one.
+Without that floor the test passes with the edge deleted, which is the state it
+exists to detect. ⇒ Whenever the two events you are ordering live in one
+schedule, the presence check is a fact about the FRAME and the tick is a fact
+about the ORDER; only one of them is the claim.
+
 ### ⛔ A GREEN TOOL IS NOT A GREEN CLAIM — three tools, three false claims
 
 The table above is four tools too narrow for ONE question. This is the other

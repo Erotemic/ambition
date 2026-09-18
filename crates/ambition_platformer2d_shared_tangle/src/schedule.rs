@@ -65,6 +65,30 @@ impl SimSchedule {
         self.label
     }
 
+    /// Whether the sim schedule IS `FixedUpdate` — not whether the host steps
+    /// at a fixed rate.
+    ///
+    /// ⛔⛤ **THE NAME IS NARROWER THAN IT READS, AND SOMETHING LOAD-BEARING
+    /// DEPENDS ON THE NARROW MEANING.** A rollback host steps at a fixed tick in
+    /// every ordinary sense of the phrase, and
+    /// `latched_input_reaches_the_tick.rs` says so in as many words — *"Fixed60Hz,
+    /// NOT Rollback. Both are fixed-tick."* This returns FALSE for it, because a
+    /// rollback host's sim schedule is `GgrsSchedule`.
+    ///
+    /// That is what keeps the two destructive latch drains apart.
+    /// `install_latched_slot_publication` installs
+    /// `publish_latched_slot_controls` only when this is true, and
+    /// `capture_latched_local_input` drains the same `SlotControlLatches` at
+    /// `ReadInputs` under GGRS. Widen this predicate to mean "the host steps on a
+    /// fixed tick" and both install: the GGRS one empties the table at
+    /// `ReadInputs`, then the sim one writes NEUTRAL over every seat in
+    /// `Platformer2dSimulationPhaseMonolith::PlayerInput` — inside
+    /// `CoreSimulation`, while `publish_ggrs_input` is `.before(CoreSimulation)`,
+    /// so nothing puts the confirmed input back. Total input loss under rollback,
+    /// one predicate away.
+    ///
+    /// ⇒ A caller that wants "fixed stepping" in the broad sense must ask a
+    /// different question; this one is about WHICH SCHEDULE systems land in.
     pub fn is_fixed_tick(&self) -> bool {
         self.is(FixedUpdate)
     }

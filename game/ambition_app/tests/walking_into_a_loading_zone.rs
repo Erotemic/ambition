@@ -278,6 +278,56 @@ fn arm_the_discriminators(sim: &mut Platformer2dSimHarness) {
     }
 }
 
+/// Seat a live conversation, so the crossing's `ActiveConversation::close()`
+/// has something to take away.
+///
+/// ⛔⛤ **THE INPUT OWNER IS A SEAT THIS HARNESS DOES NOT SEAT, AND THAT IS THE
+/// WHOLE REASON THIS DISCRIMINATOR IS AVAILABLE AT ALL.**
+/// `declare_in_session_input_contexts` gives the DIALOGUE context a CAPTURING
+/// claim for whichever participant the owner names, so `Primary` or
+/// `AllParticipants` would take the walking body's input away and the arm would
+/// die at `WALK_CAP` having measured nothing about the crossing. Naming
+/// participant 200 means the `participant.id == id` test is false for every seat
+/// in the world, the claim is never declared, and the walk is the same walk the
+/// other discriminators are measured against. ⚠ The close in
+/// `RoomTransitionFinalize::apply_crossing` does not read the owner, so this
+/// choice cannot flatter the subject — it only keeps the probe from perturbing it.
+///
+/// ⚠ AND BOTH PARTICIPANTS ARE `None` ON PURPOSE.
+/// `break_dialogue_on_hit_or_separation` closes a conversation whose two bodies
+/// stopped existing or walked apart; with no bodies its `[a, b]` binding fails
+/// and it returns early. A conversation seated with real bodies would be closed
+/// by the continuity rule during a room swap and the arm could not tell that
+/// apart from the crossing's own close.
+fn seat_a_conversation(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::conversation::{
+        ConversationInputOwner, LiveConversation,
+    };
+    let world = sim.world_mut();
+    assert!(
+        world
+            .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+            .is_some(),
+        "⛔ this composition has no `ActiveConversation`, so the conversation \
+         discriminator below would read `false` on both sides and certify nothing"
+    );
+    world
+        .resource_mut::<ambition_platformer2d::conversation::ActiveConversation>()
+        .open(LiveConversation::for_test(
+            None,
+            None,
+            "walking_into_a_loading_zone::a_seated_conversation",
+            ConversationInputOwner::Participant(ambition_platformer2d::input::ParticipantId(200)),
+        ));
+}
+
+/// Is the simulation still having a conversation?
+fn conversation_is_live(sim: &mut Platformer2dSimHarness) -> bool {
+    sim.world_mut()
+        .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+        .is_some_and(ambition_platformer2d::conversation::ActiveConversation::is_live)
+}
+
 /// Did this frame ask for the destination room's visuals?
 fn asked_for_room_visuals(sim: &mut Platformer2dSimHarness) -> bool {
     sim.world_mut()
@@ -637,4 +687,85 @@ fn the_shipped_apps_own_first_room_publishes() {
         !live_roster(&mut sim).is_empty(),
         "the start room published and holds no authoritative identities at all"
     );
+}
+
+/// ⛔⛤ **PRINT-ONLY, AND THE RECEIPT FOR WHY THIS ARM FILE HAS NO CONVERSATION
+/// ASSERTION — 2026-09-18.**
+///
+/// `RoomTransitionFinalize::apply_crossing` closes the conversation authority
+/// beside the dialogue (`room_transition/commit.rs`), and its own comment says
+/// they are not the same close. The obvious witness is to seat a conversation,
+/// walk into a refused room and assert it survived. **That measures a different
+/// production system.** What this probe printed, seating once and re-seating
+/// after each loss:
+///
+///     frame  0  conversation_live=true   preset_flash=0.983  verdict=(true, "central_hub_complex")
+///     frame  1  conversation_live=true   preset_flash=0.967
+///     frame  2  conversation_live=FALSE  preset_flash=0.950   ⇒ closed, no crossing
+///     frame  5  conversation_live=FALSE  ... and again at 8, 11, 14, 17, 20, 23, 26, 29
+///
+/// ⇒ **Every third frame — one SIM TICK — and `apply_crossing` never ran at
+/// all**, which the decaying `preset_flash` proves: that system sets it to 1.0
+/// on its first line, above the conversation close. The closer is
+/// `publish_the_narrative_end` → `close_conversation_on_narrative_end`
+/// (`ambition_conversation/src/ui_bridge.rs`):
+/// ⛔ This named the first half "stamp conversation end when the box closes",
+/// which is that function's DOC SENTENCE and not an identifier in this tree.
+/// A paraphrase in backticks reads exactly like a citation.
+/// a live conversation whose `DialogState` is not active is ENDED, and a
+/// conversation seated from outside the schedule has no Yarn node, so its box
+/// never opens. Production is right; the fixture was wrong.
+///
+/// ⛔ **AND THE PUBLISHED-CROSSING SIDE WOULD HAVE PASSED FOR THE SAME WRONG
+/// REASON.** An assertion that a published crossing leaves no conversation live
+/// is satisfied by this closer whether or not `apply_crossing` closes anything —
+/// a control that dies of success, which is the shape this file's other three
+/// discriminators each carry a note about.
+///
+/// ⚠ What a real witness needs, recorded so the next attempt does not rediscover
+/// this: two live bodies (so `break_dialogue_on_hit_or_separation` is the road
+/// under test rather than an absent one) and a Yarn node the shipped content
+/// authors (so the box opens and the narrative stamp stays quiet). See the
+/// `ActiveConversation` verdict in
+/// `scripts/check_multi_writer_resources_are_adjudicated.py` for the poison this
+/// probe was built to explain.
+#[test]
+#[ignore = "probe: prints the frame a seated conversation is closed; asserts nothing"]
+fn probe_what_closes_a_seated_conversation_while_the_room_transaction_is_refused() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before_room = active_room(&mut sim);
+    let zone = zones_by_distance(&mut sim, LoadingZoneActivation::EdgeExit)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("`{before_room}` authors no `EdgeExit` zone to walk into"));
+    let target_x = zone.aabb.center().x;
+
+    seat_a_conversation(&mut sim);
+    let mut epoch = 9_000u64;
+    for frame in 0..80 {
+        epoch += 1;
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            sim.world_mut(),
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+                ambition_platformer2d::engine_core::ContentEpoch(epoch),
+                Default::default(),
+            ),
+        );
+        let here = body_pos(&mut sim);
+        sim.step(walk_toward(target_x, here.x, base()));
+        let live = conversation_is_live(&mut sim);
+        let flash = preset_flash(&mut sim);
+        let verdict = sim
+            .world_mut()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .map(|v| (v.published, v.room_id.clone()));
+        println!("frame {frame:3}  conversation_live={live}  preset_flash={flash}  verdict={verdict:?}");
+        if !live {
+            println!("  ⇒ CLOSED HERE. Re-seating to see whether it closes again next frame.");
+            seat_a_conversation(&mut sim);
+        }
+    }
 }

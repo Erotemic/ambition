@@ -189,7 +189,7 @@ impl UpSpecial {
     /// its own repertoire slot would put the default back where it started.
     ///
     /// ⭐ PUBLIC, so a fighter who REPLACES a borrowed table's up-B pays what
-    /// this slot says rather than restating it. The Author wears the Pointed
+    /// this slot says rather than restating it. The Director wears the Pointed
     /// Polygon's whole repertoire and swaps one slot; without this he would set
     /// `gates.recovery` by hand beside the one place that decides it, and an
     /// up-B that costs nothing is flight. `the_replacement_still_spends_the_airtimes_recovery`

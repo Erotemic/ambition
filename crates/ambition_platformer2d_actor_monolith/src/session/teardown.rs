@@ -103,6 +103,30 @@ pub struct SessionScopedResources<'w> {
     /// world, so they carry the same defect and get the same answer — a
     /// checkpoint baseline from the previous session is a baseline for a world
     /// that no longer exists.
+    ///
+    /// ⛔⛤ **THERE IS A FOURTH CHECKPOINT BASELINE AND IT IS DELIBERATELY NOT
+    /// HERE — stated 2026-09-18, because until then its absence was a default
+    /// and the sentence above says "the same three facts" without saying which
+    /// fact is not one of them.** `OwnedItemsBaseline`
+    /// (`items/pickup/minted_horizon.rs`) is captured on the same
+    /// `CheckpointCommitted` as these three, and it is NOT session-scoped
+    /// because the value it baselines is not either: `OwnedItems` appears
+    /// nowhere in this file. ⇒ The three above describe WORLD PLACEMENT, which a
+    /// new session invalidates; stored quantities are the player's and travel
+    /// with the bag. Resetting the baseline without resetting the bag would
+    /// make a death in session B restore to an empty entitlement while the bag
+    /// still held items.
+    ///
+    /// ⚠ **AND THE ARGUMENT THAT PUT `projectile_seq` HERE DOES NOT TRANSFER,
+    /// which is worth saying because it looks like it should.** That one is
+    /// session-scoped because it is CHECKSUMMED and process-monotonic, so two
+    /// hosts with different local histories disagree at frame 0.
+    /// `OwnedItemsBaseline` is checksummed too — but the divergence it would
+    /// carry is the two peers' SAVE FILES differing, which resetting at the
+    /// session edge does not cure: the first `CheckpointCommitted` copies the
+    /// live bag straight back in. That belongs to
+    /// `awaiting-maintainer-decision.md`'s Q129 (must a save file be part of
+    /// what two peers agree on), not to this reset.
     occurrence_baseline:
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,

@@ -39,6 +39,39 @@ def test_the_real_diagnostic_is_reported_once_with_its_location():
     assert "unused import" in found[0]
 
 
+def test_a_coloured_build_is_still_counted():
+    """⛔⛤ **THE ANCHOR THIS GATE MATCHES ON CAN BE PUSHED OFF THE FRONT OF THE
+    LINE, AND THE ONLY LANE THAT RUNS THIS GATE IS WHAT PUSHES IT.**
+    `scripts/run_tests.py` exports `CARGO_TERM_COLOR=always` to every child job,
+    and `_WARNING` requires a literal `: warning: ` after `path:line:col`. Under
+    colour cargo writes `: ESC[1m ESC[33m warning ESC[0m: ...` instead, the
+    pattern matches nothing, and a workspace full of warnings reports clean.
+
+    ⚠ The coloured bytes are COPIED FROM A REAL `cargo check --all-targets
+    --message-format=short` (2026-09-18, a one-file probe crate), not composed —
+    a hand-written escape is a guess about which codes rustc picks and where the
+    reset lands. The sibling guard this was found in is
+    `check_doc_link_ratchet.py`, which scored 0 of 13 crates against a baseline
+    of 141 for exactly this reason.
+
+    The assertion is EQUALITY WITH THE PLAIN READING: a parser that noticed the
+    coloured diagnostic but kept an escape inside the reported location would
+    print an identity nothing can grep for.
+    """
+    plain = (
+        "src/lib.rs:1:18: warning: unused variable: `x`: help: if this is "
+        "intentional, prefix it with an underscore: `_x`\n"
+        "warning: `warnprobe` (lib) generated 1 warning\n"
+    )
+    coloured = (
+        "src/lib.rs:1:18: \x1b[1m\x1b[33mwarning\x1b[0m: unused variable: `x`: "
+        "help: if this is intentional, prefix it with an underscore: `_x`\n"
+        "\x1b[1m\x1b[33mwarning\x1b[0m: `warnprobe` (lib) generated 1 warning\n"
+    )
+    assert warnings_from(plain) == warnings_from(coloured)
+    assert len(warnings_from(coloured)) == 1, warnings_from(coloured)
+
+
 def test_cargos_per_crate_SUMMARY_lines_are_not_warnings():
     """⛔ the inverted-parser regression, pinned.
 

@@ -130,3 +130,160 @@ def test_a_component_defined_below_its_files_test_declaration_is_in_the_populati
     )
     assert defs["InactiveCandidate"].endswith("construction/mod.rs")
     assert "PresentationOnly" in defs
+
+
+def test_a_filter_through_a_path_with_a_digit_is_found():
+    """⛔⛔ THE PREFILTER WAS A SECOND, NARROWER GRAMMAR — AND IT ATE THE MOST
+    COMMON PATH IN THIS WORKSPACE.
+
+    `filter_sites` used to shortlist candidate lines with
+    `git grep -E '(With(out)?|Has)<[A-Za-z_:]*[A-Z][A-Za-z0-9_]*>'` and only then
+    apply `_FILTER`. That character class has NO DIGITS, so every crate whose
+    name carries one — `ambition_platformer2d`, `ambition_portal2d` — was
+    unreachable through a qualified path. `Has<ambition_platformer2d::characters::
+    actor::BodyWalletShield>` in `demo_sanic/src/lib.rs:1948` is exactly that,
+    and it is how the guard came to print `OK` over a subject it had discarded.
+    Found by review 2026-09-17; the intersection went 104 -> 114.
+
+    ⭐ This arm pins the GRAMMAR rather than the count, because the count is what
+    a tree change is allowed to move.
+    """
+    found = guard._FILTER.findall(
+        "        bevy::prelude::Has<ambition_platformer2d::characters::actor::BodyWalletShield>,"
+    )
+    assert found == ["BodyWalletShield"], found
+    # ⚠ AND THE SHAPE THE OLD PREFILTER COULD HANDLE MUST STILL WORK, or this
+    # would be a swap rather than a widening.
+    assert guard._FILTER.findall("With<Foo>, Without<Bar>") == ["Foo", "Bar"]
+
+
+def test_neither_a_fixture_nor_a_paragraph_is_a_production_filter_site():
+    """⛔⛤ THE TWO STRIPS `filter_sites` GAINED, PINNED SEPARATELY — BECAUSE THE
+    ONE SUBJECT THEY REMOVED FROM THIS TREE IS COVERED BY BOTH.
+
+    `HitboxLifetime` left the intersection when `filter_sites` stopped
+    prefiltering, and MEASURED 2026-09-17 its only site in the workspace is a
+    DOC COMMENT inside a `#[cfg(test)] mod`: `clash.rs:790`, *"`arbitrate_attack_clanks`
+    filtered on `With<HitboxLifetime>`"*, under the test module opened at
+    `clash.rs:212`. ⚠ Both the review that found this and my own first note said
+    it was an inline test module; it is that AND prose, and either strip alone
+    removes it.
+
+    ⇒ So a poison of either strip leaves the tree-level reading green — verified,
+    both passed — and the only poison that reddens it is both at once. A
+    tree-level assertion therefore cannot tell me which rule is doing the work,
+    which is why this arm pins the RULE over hand-built text instead.
+    """
+    from lib.rust_source import strip_comments
+    from lib.test_paths import strip_test_modules
+
+    fixture_only = (
+        "fn prod(q: Query<Entity, With<Real>>) {}\n"
+        "#[cfg(test)]\nmod tests {\n"
+        "    fn f(q: Query<Entity, With<FixtureOnly>>) {}\n}\n"
+    )
+    kept = guard._FILTER.findall(strip_test_modules(strip_comments(fixture_only)))
+    assert kept == ["Real"], kept
+
+    prose_only = (
+        "/// This used to filter on `Without<Gone>` before the carve.\n"
+        "fn prod(q: Query<Entity, With<Real>>) {}\n"
+    )
+    kept = guard._FILTER.findall(strip_test_modules(strip_comments(prose_only)))
+    assert kept == ["Real"], kept
+
+
+def test_the_comment_strip_removes_five_real_names_from_this_corpus():
+    """⛔⛤ I WROTE THIS ARM TO RECORD A NEGATIVE AND THE MEASUREMENT REFUTED IT.
+
+    The claim was that stripping comments in `filter_sites` is a precaution with
+    no effect on this tree. It removes **five** names that nothing else does:
+
+        ActorConfig     shared_tangle/src/body.rs:4    `With<ActorConfig>` in a
+                                                       module-doc sentence
+        Camera2d        render/.../camera.rs:141 and view_isolation.rs:26 —
+                        two comments contrasting `With<MainCamera>` with the
+                        broad `With<Camera2d>`
+        FrameTimeGraph  a dev-overlay comment
+        HomingDash      demo_smash/src/homing.rs:106 — a comment explaining why
+                        the fix is NOT `Without<HomingDash>`
+        MovePlayback    boss_encounter/.../tick.rs:146 — prose about what a
+                        filter prevents
+
+    ⇒ Every one is prose ABOUT a filter, and three of the five are prose about a
+    filter that was deliberately NOT written — the exact shape that makes a
+    text-scanning census invent subjects.
+
+    ⚠ **AND THE HONEST BOUNDARY, WHICH I GOT WRONG TWICE BEFORE MEASURING IT.**
+    Poisoning the strip leaves the guard GREEN, and the first explanation — *"none
+    of the five is a defined component in a registering crate"* — is false: two
+    are. `ActorConfig` (`combat/src/actor_tuning.rs`) and `MovePlayback`
+    (`combat/src/moveset/mod.rs`) both are, so without this strip they enter the
+    intersection and it reads 116 instead of 114. The verdict survives because
+    both are already REGISTERED — so prose promotes two components into a census
+    that then correctly says nothing is owed about them.
+    ⇒ That is the failure direction to worry about, stated precisely: prose cannot
+    currently invent an OWED subject here, but it can inflate the population a
+    planning page quotes, and the day one of those names is unregistered it would
+    invent a finding. What moved the verdict 104 -> 114 was dropping the `git
+    grep` prefilter; what this strip moves is the count.
+    """
+    from lib.rust_source import strip_comments
+    from lib.test_paths import strip_test_modules
+
+    with_comments = set()
+    without = set()
+    for root in ("crates", "game"):
+        for path in sorted((guard.REPO / root).rglob("*.rs")):
+            rel = path.relative_to(guard.REPO)
+            if any(part == "target" for part in rel.parts):
+                continue
+            text = path.read_text(errors="replace")
+            if guard.is_test_path(rel, text):
+                continue
+            with_comments.update(guard._FILTER.findall(strip_test_modules(text)))
+            without.update(
+                guard._FILTER.findall(strip_test_modules(strip_comments(text)))
+            )
+    assert sorted(with_comments - without) == [
+        "ActorConfig",
+        "Camera2d",
+        "FrameTimeGraph",
+        "HomingDash",
+        "MovePlayback",
+    ], sorted(with_comments - without)
+    assert not (without - with_comments), "stripping comments cannot ADD a site"
+    # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. Two of the five ARE defined
+    # components in registering crates, so prose does move the population; the
+    # verdict survives only because both are already registered. If either stops
+    # being registered, prose alone would invent an owed subject — and this is
+    # the arm that says so.
+    defs = set(guard.component_definitions(guard.registering_crates()))
+    promoted = sorted((with_comments - without) & defs)
+    assert promoted == ["ActorConfig", "MovePlayback"], promoted
+    registered = guard.registered_type_names()
+    assert all(name in registered for name in promoted), [
+        name for name in promoted if name not in registered
+    ]
+    # ⭐ Anti-vacuity: both scans must have found a real population, or the set
+    # difference above is a statement about two nearly-empty sets.
+    assert len(without) > 150, len(without)
+
+
+def test_the_live_intersection_has_a_population_and_no_unwaived_subject():
+    sites = guard.filter_sites()
+    assert "HitboxLifetime" not in sites, (
+        "a doc comment inside a test module is being read as a filter site again"
+    )
+    assert "PresentationOf" in sites and len(sites["PresentationOf"]) == 3
+    assert len(sites) > 150, len(sites)
+    # ⚠ `main` builds an `ArgumentParser` and parses `sys.argv`, which under
+    # pytest is pytest's own — it exits 2 rather than running the check.
+    import sys
+
+    saved = sys.argv
+    sys.argv = [saved[0]]
+    try:
+        assert guard.main() == 0
+    finally:
+        sys.argv = saved

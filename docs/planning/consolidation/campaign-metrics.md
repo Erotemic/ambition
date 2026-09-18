@@ -258,6 +258,86 @@ under.
 and the `ResMut<T>` type count move again under the test-module rules below, and
 the figures shown are after both.
 
+### The census knew ONE of the two ways Bevy hands out a mutable resource
+
+⛔⛔ **82 → 83 → 102 THE SAME DAY, AND BOTH MOVES WERE THE INSTRUMENT.** Found
+while adjudicating `PendingLifecycleCommit`, whose consumers were not in its
+writer list:
+
+| what the census could not see | sites | population |
+| --- | ---: | --- |
+| `ResMut<\n    long::path::T,\n>` — a trailing comma before `>`, so `\s*>` cannot reach it | 10 | 82 → 83 |
+| `world.resource_mut::<T>()` / `get_resource_mut::<T>()` | 90 types' worth | 83 → **102** |
+
+⭐ **THE MISSING FILES WERE NOT A RANDOM SAMPLE IN EITHER CASE, which is why
+these mattered more than their counts.** The wrapped sites are the ones a
+formatter chose to wrap; wrapping follows PATH LENGTH; a long path means the type
+came from another crate — which is exactly where a second authority lives. And an
+exclusive-world system is what a COMMIT EXECUTOR is, so the second blind spot hid
+the destructive road: `rollback_ggrs/lifecycle_commit.rs` clears
+`PendingLifecycleCommit` and `RoomTransitionLoadState` and touches
+`LoadCoordinator`; `session/reset/mod.rs` reaches `AmbitionGameSave`,
+`AuthoredOccurrences`, `QuestRegistry`, `GameplayBanner` and
+`RoomTransitionCooldown`. **The census was blind to the systems that SPEND the
+state it was auditing** — 19 types had never been on the shortlist at all, 21
+gained writers.
+
+⚠ **A THIRD SHAPE IS MEASURED AND DELIBERATELY NOT COUNTED.** A `&mut T`
+PARAMETER would take the shortlist to **109** and add writers to 20 more types,
+but unlike the other two it is ambiguous: `fn grant(items: &mut OwnedItems, ..)`
+may be a second authority or the one owner's helper, and only the call sites say
+which. Counting it would put every extracted helper on a duplicate-authority
+shortlist. `insert_resource` / `init_resource` are also out, and for a firmer
+reason — they INSTALL rather than mutate, which is a different question with a
+different right answer.
+
+### And the lesson was already written down, in the guard next door
+
+⛔⛤ **`check_rollback_mutators_run_in_sim.py`'S DOCSTRING CARRIED BOTH THINGS THE
+CENSUS HAD TO LEARN THE HARD WAY.** On `SessionWorldMut<T>`: *"a guard keyed on
+how a write is SPELLED goes blind when a refactor respells it, and the direction
+is the dangerous one — it reports no offenders."* On the lifetime: *"a system
+signature elides it (`ResMut<T>`), but a `#[derive(SystemParam)]` FIELD cannot
+(`ResMut<'w, T>`) … and the struct bodies are where 13 rollback-registered types
+were hiding."* Both were recorded on 2026-09-15. The multi-writer census
+inherited neither, and paid 82 → 121 for the second of them two days later.
+
+⇒ **THAT IS THE SECOND INSTANCE OF THE SAME FAILURE MODE IN ONE DAY.** The
+comment-stripping rule was likewise recorded in `check_capability_ships.py`'s
+docstring — *"the Python guards did not inherit that, and one of them read its
+own documentation as evidence before this was noticed"* — while five more guards
+grew their own copy. A lesson written down in one guard while its neighbour
+repeats the defect is not a documentation problem; it is a missing owner. Both
+rules now live in `scripts/lib/`.
+
+### A population A10 created and the instrument did not follow
+
+⛔⛔ **THE WRITER-SIDE INSTRUMENT WAS LOSING COVERAGE EXACTLY WHERE THE
+ARCHITECTURE WAS MOVING.** A10 moved session state out of resources and onto the
+session root, reached through `SessionWorldMut<T>`. None of the eight types
+carrying that accessor has `#[derive(Resource)]`, so the multi-writer census was
+silent about all of them by construction — while four have more than one
+production writer:
+
+| session world component | writer files |
+| --- | ---: |
+| `EncounterMusicRequest` | **8** |
+| `RoomSet` | 2 |
+| `RoomGeometry` | 2 |
+| `LdtkRuntimeIndex` | 2 |
+
+⚠ They are ratcheted as a SEPARATE population with their own baseline and their
+own floor, not folded in: a resource's lifetime is the App's and a session world
+component's is the SESSION's, so "two writers" answers a different question and a
+session boundary reclaims the second. Folding them would make one number mean two
+things.
+
+⛔ **SO FOUR OF THIS PAGE'S RULE-2 CASES LANDED IN ONE DAY ON ONE INSTRUMENT**:
+85 → 82 (prose), → 83 (trailing comma), → 102 (exclusive world), with the
+test-module rules folded in. Every earlier reading of "multi-writer resources" on
+this page belongs to whichever rule was live when it was taken. Do not subtract
+across them.
+
 ⭐ **THE SECOND HALF: THE SHARED STRIPPER WAS MATCHING ONE SPELLING OF A TEST
 MODULE OUT OF FOUR.** It looked for `#[cfg(test)]` and then `\s*mod NAME {`, and
 each of the three things that can sit in that gap hid a whole test module:
@@ -291,9 +371,21 @@ filter must never err in.
 ⭐ **THE TWO PASSES ARE EXACTLY ADDITIVE, WHICH IS THE ONLY REASON TO TRUST
 EITHER.** The comment rule alone gives 537 / 587; the cfg-and-visibility rules
 alone give 536 / 580; together 535 / 579 — 1+2 and 1+8. The presence audit
-(104/83/20/1), the rollback-mutator guard (518/8) and the test-static census are
-byte-identical under all three, so this is not a measurement that moves whatever
-it touches.
+(104/83/20/1 at the time), the rollback-mutator guard (518/8) and the test-static
+census are byte-identical under all three, so this is not a measurement that
+moves whatever it touches.
+
+⚠ **THE PRESENCE AUDIT MOVED LATER THE SAME DAY FOR A REASON OF ITS OWN**, so do
+not read `104/83/20/1` as a live figure: its `filter_sites` prefiltered with a
+`git grep` whose path class `[A-Za-z_:]*` HAS NO DIGITS, so every filter written
+through a qualified path containing `platformer2d` or `portal2d` was discarded
+before the real parser saw it — `Has<ambition_platformer2d::characters::actor::
+BodyWalletShield>` is exactly that shape. It also read one LINE at a time and
+never stripped test regions. One grammar over the whole stripped source gives
+**114/91/22/1**, and the two subjects it exposed are now waived with their
+measurements (`PresentationOf` holds a live `Entity`; `BodyWalletShield` is
+rebuilt `.before(PlayerHitResolutionSet)` while both readers run in later
+`.chain()`ed phases).
 
 ⛔ So the two-column table above still reads 538 and 588, and stays that way: it
 was measured at `49bfcf4ef` under that day's rule, and this page's rule 2 is that

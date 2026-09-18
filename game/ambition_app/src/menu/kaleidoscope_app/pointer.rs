@@ -61,12 +61,37 @@ pub(crate) fn kaleidoscope_pointer_move(
     // past the tap threshold from its press origin.
     mut press: ResMut<KaleidoscopePointerPress>,
     mut sfx: SfxWriter,
+    // ⛔⛤ THE GATE ITS TWO SIBLINGS ALREADY HAD — added 2026-09-18. The backend
+    // is read from `snapshot`, which already holds it, rather than taken as a
+    // second `Res`.
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
 ) {
     // Feature E: if a press is active and the pointer has now travelled past the tap
     // threshold, this is a DRAG — the arm marks itself cancelled so the eventual
     // release does not activate the control. (This drag-cancel runs regardless of the
     // active-input gate below: a touch/pen drag must still cancel a tap.)
     press.0.moved(Some(move_.pointer_location.position));
+    // ⛔⛤ **THIS BACKEND, AND ONLY WHILE ITS MENU IS OPEN — 2026-09-18.** An
+    // observer takes no `run_if`, so `kaleidoscope_pointer_press` and
+    // `kaleidoscope_pointer_release` each open with this exact test and this one
+    // did not. That mattered because the cursor below is SHARED: `grid_backend.rs`
+    // says the *"shared cursor and drill state stay on `KaleidoscopeCursor` /
+    // `KaleidoscopeSystemNav`"*, these observers are installed whenever the cube
+    // feature is COMPILED rather than when the cube is selected, and a grid menu
+    // control carries the same `AmbitionMenuControl<MenuPageAction>` this query
+    // matches. ⇒ With the flat backend active, a mouse move over a GRID row
+    // reached here and wrote the shared cursor with `owner = Pointer` while
+    // `grid_menu_pointer_hover` — which DOES carry the test — was writing it with
+    // `owner = Keyboard`.
+    //
+    // ⚠ BELOW THE DRAG-CANCEL ABOVE, DELIBERATELY. A press can only have been
+    // armed while this backend was active and open (the press observer's own
+    // gate), and cancelling one is not a cursor write; the comment above says a
+    // touch/pen drag must still cancel a tap.
+    let open = ui_state.map(|state| state.visible).unwrap_or(false);
+    if snapshot.backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
+        return;
+    }
     // Hover-select is gated on a GENUINE mouse being the active source. A cube
     // republish respawns controls under a stationary mouse and fires `Pointer<Move>`
     // for the new control; without this gate the cursor snaps back to the mouse on

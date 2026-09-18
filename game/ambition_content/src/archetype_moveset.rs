@@ -92,7 +92,7 @@ pub fn under_own_name(
 /// as the same SLOT its archetype named.
 ///
 /// ⛔⛔ THE PREFIXES ARE THE BORROWER'S OWN, PASSED IN. A hardcoded list paired
-/// 23 of the Author's 26 moves (his archetype carries `polygon_` AND
+/// 23 of the Director's 26 moves (his archetype carries `polygon_` AND
 /// `pointed_polygon_`) and 0 of the Officer's (whose archetype carries
 /// `polygon_brawler_`). The prefixes each borrower renames are stated once, in
 /// that borrower's own file, and asking for them is the only way this cannot
@@ -125,7 +125,7 @@ mod tests {
     fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
         for (borrowed, archetype, owner, prefixes, owned_slots, retimed) in [
             (
-                crate::author_moveset::author_moveset(),
+                crate::director_moveset::director_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "author",
                 &["polygon", "pointed_polygon"][..],
@@ -253,7 +253,7 @@ mod tests {
             // ⛔⛔ MATCHED BY THE VERB, NOT BY POSITION AND NOT BY ID. This used
             // to `zip` the two move lists, which reads as "the same moves in the
             // same order" and is only true while the borrower changes NOTHING:
-            // the Author replaced his up-B with a teleport (2026-08-27) and every
+            // the Director replaced his up-B with a teleport (2026-08-27) and every
             // move after the one he removed compared against its neighbour,
             // reporting a drift in `author_low_arc`, a move nobody touched.
             //

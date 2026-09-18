@@ -36,16 +36,25 @@ a measure of weight.
 
 # # What this checks
 
-1. The closure matches `CLOSURE`, so the ratchet cannot drift unnoticed.
-2. `ambition_render` stays OUT of it. This is the architectural property, and
-   it is the one that can regress by a single `optional = true` being dropped.
-3. **Every planning page that restates the number agrees with the measurement.**
+1. `ambition_render` stays OUT of the closure. This is the ARCHITECTURAL
+   property, and it is the one that can regress by a single `optional = true`
+   being dropped.
+2. **Every planning page that restates the number agrees with the measurement.**
    That is the part that collapses the six owners: a page may still explain the
    number, but it may no longer disagree about it.
+3. The closure has not COLLAPSED (`FLOORS`), because a parser that stops
+   resolving edges reports a tiny closure and passes check 1 for the wrong
+   reason.
 
-⚠ A FALLING closure is progress, not a failure — the whole point of the render
-split was to lower it. The check fails on any CHANGE and names the direction, so
-the number moves deliberately and every page moves with it.
+⛤ **IT USED TO FAIL ON ANY CHANGE TO THE NUMBER, AND A 2026-09-18 REVIEW WAS
+RIGHT THAT THAT IS BOOKKEEPING.** The docstring said in one breath that a
+falling closure is progress and that the check fails on it — a gate arguing with
+itself, and the kind that gets an exemption added rather than a page updated.
+⇒ The equality gate is gone and nothing it covered is lost: a fall that no page
+follows still fails check 2 (pages say 48, measurement says 40), a collapsed
+parser still fails check 3, and the architectural regression was never the
+number in the first place. `CLOSURE_LAST_READ` is now a reference point the run
+reports a delta against, which is what a census does.
 """
 
 from __future__ import annotations
@@ -62,7 +71,11 @@ FACADE = "ambition_platformer2d"
 
 #: MEASURED 2026-09-18 at this method. Reproduces the 2026-09-10 reading at
 #: `939d6aaa5` and the 2026-09-17 `cargo tree` reading exactly.
-CLOSURE = 48
+#:
+#: ⚠ A REFERENCE POINT, NOT A GATE. The run prints the delta against it; moving
+#: it is how a deliberate change is recorded, and forgetting to move it fails
+#: nothing here — the pages are what must agree.
+CLOSURE_LAST_READ = 48
 
 #: ⛔ This package must not re-enter the mandatory graph. The host declares it
 #: `optional = true` and the facade takes the host with
@@ -72,7 +85,11 @@ MUST_STAY_OUT = "ambition_render"
 
 #: ⛔ Anti-vacuity. If the workspace member list stops parsing, every count
 #: above collapses to zero and the render assertion passes for the wrong reason.
-FLOORS = {"workspace packages": 60}
+#: ⛔ And the closure itself, for the same reason one step further in: an edge
+#: parser that resolves nothing reports a closure of 1, which would satisfy the
+#: `ambition_render` assertion by describing an empty graph. 20 is far under
+#: today's 48 so ordinary carving cannot trip it.
+FLOORS = {"workspace packages": 60, "facade closure": 20}
 
 #: How a page spells the number. The noun phrase is the pages' own.
 RESTATEMENT = re.compile(r"(\d+)\s+other workspace packages")
@@ -201,13 +218,13 @@ def main() -> int:
     reached = len(paths) - 1
     problems: list[str] = []
 
-    if reached != CLOSURE:
-        direction = "FELL" if reached < CLOSURE else "GREW"
-        problems.append(
-            f"the facade's mandatory closure {direction}: {CLOSURE} -> {reached}.\n"
-            f"    A fall is progress and a rise is weight; either way update `CLOSURE` here "
-            f"AND every page `restatements()` lists, in the same commit."
+    if reached < FLOORS["facade closure"]:
+        print(
+            f"FAIL: the facade's mandatory closure reads {reached}, below the floor of "
+            f"{FLOORS['facade closure']} — at that size the `{MUST_STAY_OUT}` assertion "
+            "below would be about an empty graph rather than about the tree"
         )
+        return 1
 
     if MUST_STAY_OUT in paths:
         problems.append(
@@ -247,6 +264,15 @@ def main() -> int:
         f"{sum(len(r) for r in pages.values())} live restatement(s) across {len(pages)} "
         f"planning page(s) agree"
     )
+    if reached != CLOSURE_LAST_READ:
+        direction = "FELL" if reached < CLOSURE_LAST_READ else "GREW"
+        print(
+            f"⚠ the closure {direction} since it was last recorded here: "
+            f"{CLOSURE_LAST_READ} -> {reached}. A fall is the carve working and a rise "
+            "is weight arriving; either way move `CLOSURE_LAST_READ` so the next run "
+            "measures against today. The pages already agree, which is the part that "
+            "is checked."
+        )
     if past:
         # ⛔ COUNTED, because this is the one road a stale number can still take:
         # relabel it as a baseline and the check goes quiet. A rising number here

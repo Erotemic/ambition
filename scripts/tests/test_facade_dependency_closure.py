@@ -16,11 +16,25 @@ sys.path.insert(0, str(REPO / "scripts"))
 import check_facade_dependency_closure as guard  # noqa: E402
 
 
-def test_the_closure_is_the_recorded_number():
+def test_the_closure_has_not_collapsed():
+    """⛔ ANTI-VACUITY, which is what the equality assertion was really buying.
+
+    This arm asserted `reached == CLOSURE` until 2026-09-18. A review pointed
+    out that failing because a number changed is bookkeeping, not correctness —
+    and the module's own docstring agreed with the review, saying in one breath
+    that a falling closure is progress and that the check fails on it.
+
+    ⇒ What the equality genuinely protected is that an edge parser resolving
+    NOTHING reports a tiny closure and satisfies `test_render_is_outside_-
+    the_mandatory_graph` by describing an empty graph. That is a floor, and a
+    floor is what this is now. The number moving deliberately is held from the
+    other side, by `test_every_page_agrees_with_the_measurement`: a fall no page
+    follows still reddens.
+    """
     reached = len(guard.closure()) - 1
-    assert reached == guard.CLOSURE, (
-        f"the facade's mandatory closure is {reached}, recorded as {guard.CLOSURE}. "
-        "A fall is progress; either way move the constant and every page in one commit."
+    assert reached >= guard.FLOORS["facade closure"], (
+        f"the facade's mandatory closure reads {reached}, below the floor of "
+        f"{guard.FLOORS['facade closure']} — suspect the manifest parser, not a carve"
     )
 
 

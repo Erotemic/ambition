@@ -3247,3 +3247,244 @@ fn a_cutscene_dismiss_raised_outside_the_simulation_is_lost() {
          and record in CUTSCENE-ROLLBACK-DECISION what made the edge survive"
     );
 }
+
+/// The tick the in-sim control raises its heal on — well after the primary
+/// player has settled and carries a `SimId`.
+const PLAYER_HEAL_TICK: u64 = 100;
+
+/// Small enough that `BodyHealth::max` (raised to 100 below) leaves headroom,
+/// large enough that a rounding/clamp quirk could not manufacture the number
+/// by accident.
+const PLAYER_HEAL_AMOUNT: i32 = 10;
+
+fn heal_the_player_from_inside_the_sim(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut heals: bevy::prelude::MessageWriter<
+        ambition_platformer2d::actors::avatar::PlayerHealRequested,
+    >,
+) {
+    if tick.0 == PLAYER_HEAL_TICK {
+        heals.write(ambition_platformer2d::actors::avatar::PlayerHealRequested::new(
+            PLAYER_HEAL_AMOUNT,
+        ));
+    }
+}
+
+fn sim_healing_the_player(with_an_in_sim_producer: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    Platformer2dSimHarness::build(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+        |app, options| {
+            ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            let label = app.sim_schedule();
+            if with_an_in_sim_producer {
+                app.add_systems(label, heal_the_player_from_inside_the_sim);
+            }
+            Ok(())
+        },
+    )
+    .expect("the sync-test harness builds with a heal-request producer")
+}
+
+fn player_health(sim: &mut Platformer2dSimHarness) -> i32 {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >();
+    q.iter(world)
+        .next()
+        .map_or(i32::MIN, |health| health.health.current)
+}
+
+/// Deep the max and shallow the current so a heal has somewhere to go — a
+/// player who is already full would make a heal that landed and one that
+/// vanished print the same number.
+///
+/// A direct `world_mut` write predates GGRS's stored history, so it must
+/// become the rollback baseline before anything is measured against it
+/// (harness contract on `world_mut`; see `wear_oracle_armor` in
+/// `rollback_exit_oracle.rs`).
+fn damage_the_player_so_a_heal_would_be_visible(sim: &mut Platformer2dSimHarness) {
+    let world = sim.world_mut();
+    let player = {
+        let mut q = world.query_filtered::<
+            bevy::prelude::Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.single(world)
+            .expect("the sim boots exactly one primary player")
+    };
+    if let Some(mut health) =
+        world.get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(player)
+    {
+        health.health.max = 100;
+        health.health.current = 50;
+    }
+    sim.rebase_rollback_history()
+        .expect("the damage setup becomes the rollback baseline");
+}
+
+/// The same setup as [`damage_the_player_so_a_heal_would_be_visible`], but for
+/// a `LocalMaintainer`-owned timeline, which must NOT be rebaselined through
+/// `rebase_rollback_history`.
+///
+/// ⛔⛤ **`rebase_rollback_history` CALLS `start_sync_test_session`, WHICH
+/// HARDCODES `SyncTestOwner::Caller`** (`session.rs:184`). Calling it here
+/// would silently flip the ownership stamp `maintainer_owned_rollback_sim` just
+/// established back to caller-owned — exactly the half-written fact
+/// `hand_the_timeline_to_the_local_maintainer`'s own doc warns about: "the
+/// owner stamp and the installed session are ONE FACT, and writing half of it
+/// is how a fixture comes to describe a world that cannot exist." So this
+/// re-arms through the same seam the fixture was built with instead: stop the
+/// (now stale) session, arm the local policy again, and let
+/// `maintain_local_session` install a fresh maintainer-owned session baselined
+/// on the post-damage world.
+fn damage_the_player_and_reassert_local_maintainer(
+    sim: &mut Platformer2dSimHarness,
+) {
+    let world = sim.world_mut();
+    let player = {
+        let mut q = world.query_filtered::<
+            bevy::prelude::Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.single(world)
+            .expect("the sim boots exactly one primary player")
+    };
+    if let Some(mut health) =
+        world.get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(player)
+    {
+        health.health.max = 100;
+        health.health.current = 50;
+    }
+    crate::common::hand_the_timeline_to_the_local_maintainer(sim);
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    let boundary = format!(
+        "{:?}",
+        ambition_platformer2d::rollback::mechanical_mutation_boundary(sim.world())
+    );
+    assert_eq!(
+        boundary, "LocallyRebasable",
+        "this arm needs a live timeline THIS host owns after the re-arm and the \
+         boundary reports `{boundary}`. `NoTimeline` means no session was \
+         installed; `ForeignTimeline` means the ownership flip this helper \
+         guards against happened anyway"
+    );
+    sim.rollback_health().unwrap_or_else(|error| {
+        panic!("the re-baselined timeline is not healthy after the damage setup: {error}")
+    });
+}
+
+/// ⛔⛤ **A HEAL REQUESTED OUTSIDE THE SIMULATION IS LOST, AND THE SHIPPED
+/// PRODUCER IS OUTSIDE THE SIMULATION — MEASURED 2026-09-18, [Q136].**
+///
+/// `PlayerHealRequested` declares `clear_message_on_rollback`
+/// (`crates/ambition_items/src/rollback_registration.rs`), which adds
+/// `clear_message_channel::<PlayerHealRequested>` to `LoadWorld` — every rewind
+/// empties the channel. The shipped producer,
+/// `kaleidoscope_menu_action_activated`
+/// (`game/ambition_app/src/menu/kaleidoscope_app.rs`), writes it from `Update`;
+/// the only reader, `apply_player_heal_requests`
+/// (`crates/ambition_platformer2d_actor_monolith/src/avatar/systems.rs`), reads
+/// it from inside the sim schedule. Same shape as [Q136]'s cutscene-dismiss and
+/// item-grant findings: a host-raised intent, spent on a speculative frame, that
+/// nothing re-produces after the rewind restores `BodyHealth` but not the
+/// already-drained channel.
+///
+/// ```text
+/// requested from INSIDE the sim schedule    health +10, holds
+/// requested from OUTSIDE it (the menu)      health +10 for 2 frames, then reverted
+/// ```
+///
+/// ⚠ **NOT A FLAT ZERO — A TRANSIENT ONE, MEASURED FRAME BY FRAME.** Under the
+/// `LocalMaintainer`-owned session `check_distance` gives the write a couple of
+/// frames before GGRS's first correction: the heal is visible immediately (the
+/// write lands in the live `Events` buffer before any `LoadWorld`), then the
+/// first rollback restores `BodyHealth` from the last confirmed frame — which
+/// predates the heal — and resimulates forward with the channel already
+/// cleared, so nothing re-applies it. The end state matches the cutscene/
+/// item-grant findings; the transient rise in between does not, and that is why
+/// this arm samples every frame rather than only the endpoints.
+///
+/// ⭐ THE IN-SIM ARM IS THE CONTROL. A fixture that cannot heal the player at
+/// all — no `apply_player_heal_requests` in this composition, no primary player
+/// yet — would print the same flat number, and the assertion on the control arm
+/// below is what tells the two apart.
+///
+/// ⛔⛤ **HEALTH BEFORE THE RAISE, BECAUSE A DIVERGED BASELINE ANSWERS THIS ARM'S
+/// QUESTION WITH THE WRONG WORD.** `mechanical_mutation_boundary` maps a
+/// recorded divergence to `Unhealthy`; a fixture whose rollback history was
+/// never rebased after `damage_the_player_so_a_heal_would_be_visible`'s direct
+/// write would print an unchanged health for a reason that has nothing to do
+/// with this arm's subject, and the failure message below would send the next
+/// reader after the wrong defect.
+///
+/// [Q136]: ../../../docs/planning/awaiting-maintainer-decision.md
+#[test]
+fn a_player_heal_requested_outside_the_simulation_is_lost() {
+    // CONTROL: the same message, written from inside the timeline.
+    let mut inside = sim_healing_the_player(true);
+    damage_the_player_so_a_heal_would_be_visible(&mut inside);
+    let inside_before = player_health(&mut inside);
+    for _ in 0..200 {
+        inside.step(AgentAction::default());
+    }
+    assert_eq!(
+        player_health(&mut inside),
+        inside_before + PLAYER_HEAL_AMOUNT,
+        "the in-sim control did not heal the player, so `apply_player_heal_requests` \
+         is either absent from this composition or never reached — every number \
+         below would then be measuring the fixture rather than the road"
+    );
+
+    // THE MENU'S POSITION: a producer outside the rewinding schedule, on a
+    // timeline this host owns (per YardratAmbition's guidance: the
+    // maintainer-owned fixture, not the caller-owned default, is what the
+    // shipped game's mechanical-edit admission actually runs under).
+    let mut outside = crate::common::maintainer_owned_rollback_sim(40);
+    damage_the_player_and_reassert_local_maintainer(&mut outside);
+    let before = player_health(&mut outside);
+    outside.world_mut().write_message(
+        ambition_platformer2d::actors::avatar::PlayerHealRequested::new(PLAYER_HEAL_AMOUNT),
+    );
+
+    // Sampled every frame, not just the endpoint: a diagnostic for whoever
+    // reads this red. ⛔ MEASURED 2026-09-18: under this `LocalMaintainer`-owned
+    // session the loss is NOT a flat zero — the write lands in the live
+    // `Events` buffer for a couple of frames before GGRS's first correction,
+    // then the rollback restores `BodyHealth` from the last confirmed
+    // (pre-heal) frame and resimulates with the channel already cleared, so
+    // the transient gain does not return. Different shape from the flat-zero
+    // `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`
+    // measures for `ItemGrantRequested` on the caller-owned fixture — a
+    // different ownership mode's timing, not a different message.
+    let mut ever_rose = false;
+    for _ in 0..200 {
+        outside.step(AgentAction::default());
+        if player_health(&mut outside) > before {
+            ever_rose = true;
+        }
+    }
+    // ⛔⛤ **THIS ASSERTS THE DESIRED BEHAVIOR, NOT THE SHIPPED ONE, AND IS
+    // EXPECTED TO FAIL UNTIL [Q136]'S INGRESS ROAD REACHES THIS MESSAGE.** Per
+    // YardratAmbition's guidance: `PlayerHealRequested` is a LIVE, player-visible
+    // crossing (`docs/planning/awaiting-maintainer-decision.md`), so this arm is
+    // a standing red witness for the open defect rather than a snapshot of
+    // today's (broken) behavior awaiting inversion later.
+    assert_eq!(
+        player_health(&mut outside),
+        before + PLAYER_HEAL_AMOUNT,
+        "a heal requested from outside the simulation does not survive the \
+         rewind (ever transiently rose above baseline: {ever_rose}) — \
+         `PlayerHealRequested` declares `clear_message_on_rollback`, so the \
+         host-raised message is drained by the very first `LoadWorld` and \
+         nothing re-produces it. This is [Q136]'s open finding; the arm turns \
+         green once a real ingress road (a mechanical edit, or riding the \
+         synchronised control frame) reaches this message"
+    );
+}

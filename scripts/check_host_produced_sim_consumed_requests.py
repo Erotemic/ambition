@@ -391,7 +391,11 @@ ADJUDICATED: dict[str, str] = {
 #: ⛔ THE FLOOR. Populations this script derives, below which it is measuring
 #: something other than this tree. A regex that stops matching reports an empty
 #: set, and an empty set satisfies "every crossing is adjudicated" vacuously.
-FLOORS = {"spent types": 40, "systems with a schedule": 400}
+FLOORS = {
+    "spent types": 40,
+    "systems with a schedule": 400,
+    "message types written": 70,
+}
 
 
 #: type → (host producers, why no textual scan can reach the raise).
@@ -424,6 +428,114 @@ PRODUCER_BY_INSPECTION: dict[str, tuple[tuple[str, ...], str]] = {
         "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:266-268`), "
         "which is the only production `self.request = true` in the tree. "
         "Nothing in the system signature or body names the type.",
+    ),
+}
+
+
+#: A `MessageWriter`/`MessageReader` parameter and the message it carries.
+_MSG_WRITER = re.compile(
+    r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageWriter\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
+)
+_MSG_READER = re.compile(
+    r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageReader\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
+)
+
+
+@functools.cache
+def _message_sides(repo: Path) -> tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...]:
+    writers: dict[str, set[str]] = {}
+    readers: dict[str, set[str]] = {}
+    for _src, text in sim._production_sources(repo):
+        for match in sim._PUB_FN.finditer(text):
+            name = match.group(1)
+            params = sim._params(text, match.end())
+            for ty in _MSG_WRITER.findall(params):
+                writers.setdefault(ty.split("::")[-1], set()).add(name)
+            for ty in _MSG_READER.findall(params):
+                readers.setdefault(ty.split("::")[-1], set()).add(name)
+    return tuple(
+        (ty, tuple(sorted(ws)), tuple(sorted(readers.get(ty, ()))))
+        for ty, ws in sorted(writers.items())
+    )
+
+
+def message_crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]]]:
+    """`{message: (host writers, sim readers)}` — the OTHER ingress channel.
+
+    ⛔⛤ **THIS SCRIPT REQUIRES THE `Resource` DERIVE AND THEREFORE MISSED AN
+    ENTIRE CHANNEL.** The filter is deliberate — the first version reported 67
+    rows because `App`, `Commands`, `NextState`, `Anchor` and `Sprite` are not
+    resources — but it also excluded every intent raised as a `Message`. Four
+    message types are written by a system registered only in a non-rewinding
+    schedule and read by one inside the rewinding schedule, which is Q136's
+    first mechanism on a second channel.
+
+    ⚠ **AND THE LOSS MECHANISM IS A DECLARED ROLLBACK DECISION DOING WHAT IT
+    SAYS.** `clear_message_on_rollback` adds `clear_message_channel::<T>` to
+    `LoadWorld`, so every rewind EMPTIES the channel. For a message raised
+    inside the simulation that is right: the resimulation re-raises it, and
+    keeping the old copy would double it. For a host-raised message there is no
+    resimulation to re-raise it, so the clear is the loss.
+    """
+    by_system = schedules_by_system(repo)
+
+    def side(fn: str) -> str | None:
+        schedules = by_system.get(fn)
+        if not schedules:
+            return None
+        return "host" if all(sim.is_non_rewinding(s) for s in schedules) else "sim"
+
+    found: dict[str, tuple[list[str], list[str]]] = {}
+    for ty, writers, readers in _message_sides(repo):
+        host = sorted(fn for fn in writers if side(fn) == "host")
+        in_sim = sorted(fn for fn in readers if side(fn) == "sim")
+        if host and in_sim:
+            found[ty] = (host, in_sim)
+    return found
+
+
+#: message → the reading, dated. Same contract as `ADJUDICATED`: an entry is a
+#: reading, never a waiver.
+#:
+#: ⭐ TWO OF THE FOUR ARE BENIGN, AND THEY ARE THE USEFUL PART — each shows a
+#: general escape this question can choose rather than an accident.
+MESSAGE_ADJUDICATED: dict[str, str] = {
+    "AmbientGravityRequest": (
+        "⛔ LIVE, AND THE SAME MECHANISM AS THE CLONE. `cycle_dev_gravity` "
+        "(`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`) reads "
+        "`keys.just_pressed(KeyCode::Backslash)` and writes once — an "
+        "unregistered host EDGE spent in the sim. The rewind clears the channel "
+        "and the physical press is several host frames gone. A DEVELOPER hotkey, "
+        "so the stakes are the clone's rather than a player's (read 2026-09-18)"
+    ),
+    "PlayerHealRequested": (
+        "⛔ LIVE, AND PLAYER-VISIBLE. Raised by "
+        "`kaleidoscope_menu_action_activated`, which is also one of the two real "
+        "`NewGameResetRequested` producers — the menu has two lost-intent roads. "
+        "A heal chosen in the menu can be accepted at the UI and vanish before "
+        "`apply_player_heal_requests` applies it (read 2026-09-18)"
+    ),
+    "ResetToCheckpoint": (
+        "✅ BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES ON PURPOSE. "
+        "`maintain_local_session` returns without starting a session while "
+        "`durable_hydration_is_pending` "
+        "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:334-340`), "
+        "so `complete_durable_restore` has already run and its message has "
+        "already been consumed before any timeline exists. ⚠ THE ARGUMENT IS THE "
+        "ORDERING, NOT THE LATCH: `SaveRestored` is rollback-registered, and the "
+        "same file records at `:321-326` that it *\"is not a latch that always "
+        "rises\"* at a measured cost of 66 tests — so \"the rewind re-arms the "
+        "latch and it re-raises\" is reasoning from the wrong fact "
+        "(read 2026-09-18)"
+    ),
+    "SetFlagRequested": (
+        "✅ BENIGN, BECAUSE IT IS RE-DERIVED RATHER THAN LATCHED. "
+        "`emit_intro_flag_chains` "
+        "(`game/ambition_content/src/intro/route_state.rs:29-41`) recomputes "
+        "`data.flag(trigger) && !data.flag(target)` from the save EVERY host "
+        "frame, so a message a rewind clears is written again on the next one "
+        "and keeps being written until the target flag is set. The condition is "
+        "the memory (read 2026-09-18)"
     ),
 }
 
@@ -466,6 +578,7 @@ def population_sizes(repo: Path = REPO) -> dict[str, int]:
     return {
         "spent types": len(spenders),
         "systems with a schedule": len(schedules_by_system(repo)),
+        "message types written": len(_message_sides(repo)),
     }
 
 
@@ -494,7 +607,39 @@ def main() -> int:
         print(f"    sim consumers : {', '.join(in_sim)}")
         print(f"    {ADJUDICATED.get(ty, '⛔ UNADJUDICATED')}\n")
 
+    messages = message_crossings()
+    print(
+        f"{sizes['message types written']} message type(s) are written somewhere; "
+        f"{len(messages)} are read inside the rewinding schedule and written only "
+        "outside it.\n"
+    )
+    for ty in sorted(messages):
+        host, in_sim = messages[ty]
+        print(f"`{ty}`  [message]")
+        print(f"    host writers: {', '.join(host)}")
+        print(f"    sim readers : {', '.join(in_sim)}")
+        print(f"    {MESSAGE_ADJUDICATED.get(ty, '⛔ UNADJUDICATED')}\n")
+
     failures = list(short)
+    unread_messages = sorted(set(messages) - set(MESSAGE_ADJUDICATED))
+    if unread_messages:
+        failures.append(
+            f"{len(unread_messages)} host->sim MESSAGE crossing(s) nobody has read:\n    "
+            + "\n    ".join(unread_messages)
+            + "\n  ⇒ Same question as the resource rows, on the other channel: "
+            "`clear_message_on_rollback` empties the channel in `LoadWorld`, and a "
+            "host-raised message has no resimulation to re-raise it. Read both sides and "
+            "say which it is. ⭐ Two of the four already here are BENIGN — a condition "
+            "re-derived every frame, and an ordering that keeps the write outside the "
+            "timeline — so look for those before assuming a defect."
+        )
+    stale_messages = sorted(set(MESSAGE_ADJUDICATED) - set(messages))
+    if stale_messages:
+        failures.append(
+            f"{len(stale_messages)} adjudicated MESSAGE crossing(s) no longer exist:\n    "
+            + "\n    ".join(stale_messages)
+            + "\n  ⇒ Repaired, or this script can no longer see it."
+        )
     new = sorted(set(found) - set(ADJUDICATED))
     if new:
         failures.append(

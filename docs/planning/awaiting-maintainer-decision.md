@@ -2654,7 +2654,7 @@ workspace — all three of them:
 
 | script | `to_alpha` | `seconds` | position in script | room |
 |---|--:|--:|---|---|
-| `test_intro` | **0.0** | 0.8 | second, after a banner | `central_hub_main` |
+| `test_intro` | **0.0** | 0.8 | second, after a banner | `central_hub_complex` |
 | `intro_wake` | **0.0** | 0.8 | **first** | `intro_wake_room` |
 | `drain_market_arrival` | **0.0** | 0.6 | **first** | `drain_alley` |
 
@@ -2688,6 +2688,26 @@ scripts:
 ⛔ **WHAT MUST NOT HAPPEN IS A CONSUMER LANDING ALONE.** It satisfies the
 UNFINISHED label, reads as the row closing, and leaves the player waiting 2.2 s
 across three rooms for a screen that never changes.
+
+⛔⛤ **AND ON 2026-09-18 ONE OF THE THREE BECAME THE SHIPPED FIRST BOOT, WHICH IS
+WHY THIS ROW IS NOW WORTH SCHEDULING.** The `room` column above read
+`central_hub_main` when this row was written, and that was not a typo: it was the
+LDtk level id `479d5a028` corrected to `central_hub_complex`. Until that commit
+the binding could never match a runtime room, so `test_intro` had **never
+played** and its 0.8 s of nothing was unreachable. It is now the second beat of
+the cutscene every new player meets on entering the hub, between the
+`// boot sequence` banner and the WARDEN line — 0.8 s in which, measured, the
+projection reads 0.0 at every instant and a consumer would draw nothing.
+
+⇒ The ruling is unchanged and so is the argument; what changed is the cost of
+deferring it. ⚠ A fourth option exists now that did not before and is worth
+naming so it is chosen rather than drifted into: **drop the `Fade` beat from
+`test_intro`** and leave the other two, which takes the defect off the
+first-boot path at the price of the intro the author wrote. That is a content
+decision, not an engine one, and it does NOT close this row — `intro_wake` and
+`drain_market_arrival` both still open with a fade, and both use it the way
+option 2 would forbid. ⛔ Reverting the room binding is not on the list: the
+binding is correct and the dead-row problem it fixed was real.
 
 ⇒ This is the same missing thing as VC5, the title launcher's content-alpha ramp
 — see

@@ -1257,6 +1257,146 @@ fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
     );
 }
 
+/// A door crossing that is REFUSED the lifecycle slot must not spend the press.
+///
+/// ⛔⛔ **THE BUG THE ARM BELOW DID NOT COVER, FOUND BY REVIEW 2026-09-17.**
+/// `detect_room_transition_system` ended with
+///
+/// ```text
+///     slot_gestures.primary_mut().clear();
+///     let _ = pending_lifecycle.record(..);
+/// ```
+///
+/// in that order, discarding the `Admission`. `record` is `#[must_use]`
+/// precisely because the slot is earliest-sticky and *"a refused intent must not
+/// have its consequences run"* — and clearing the buffer is a consequence. The
+/// comment sitting between those two lines claimed a refusal *"mutated nothing"*,
+/// which was true of everything except the line above it.
+///
+/// ⚠ **AND THE ARM THAT WENT IN WITH THAT COMMENT COULD NOT SEE IT**, because it
+/// only asked whether a SUCCESSFUL crossing spends the press. Both orders answer
+/// that identically. The distinguishing case is a refusal, and a refusal is
+/// reachable: `resume_at_checkpoint_on_reset`, `admit_room_replay` and the death
+/// respawn all record into this one slot from EARLIER phases in the same tick.
+///
+/// ⭐ **IT HAS TO BE A TAP.** A held press is refilled by the producer on the
+/// next tick, so the loss is invisible for as long as the button is down — which
+/// is what all eleven authored door arms do. That is why this defect survived
+/// 1,207 crate arms and eleven integration arms twice over: once as a missing
+/// consumption, and once as a consumption in the wrong place.
+#[test]
+fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "door_a".into(),
+        name: "east door".into(),
+        activation: LoadingZoneActivation::Door,
+        aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::Door,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
+    }];
+    let set = RoomSet::from_parts(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "door_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        set,
+    );
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
+    app.insert_resource(GatePortalRegistry::default());
+    app.init_resource::<GatePortalPhases>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<ambition_time::WorldTime>();
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_systems(Update, detect_room_transition_system);
+
+    // ⭐ THE INCUMBENT. Another lifecycle operation already owns the slot — the
+    // shape a checkpoint resume or a death respawn leaves behind, both of which
+    // record from an EARLIER phase of the same tick.
+    let incumbent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
+        crate::session::lifecycle_commit::RoomTransitionIntent {
+            subject: SimId::placement("somebody_else"),
+            target_room: "b".into(),
+            arrival: ae::Vec2::new(7.0, 9.0),
+            edge_exit: false,
+            zone_sfx: None,
+        },
+    );
+    let admitted = app
+        .world_mut()
+        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(0, incumbent.clone());
+    assert!(
+        admitted.admitted(),
+        "the fixture failed to seat an incumbent, so the refusal below would not \
+         be a refusal and this arm would be the success case twice"
+    );
+
+    // A TAP: armed once, never re-pressed.
+    app.world_mut()
+        .resource_mut::<SlotInteractionState>()
+        .primary_mut()
+        .buffered_interact(true, 0.0, 0.2);
+
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        SimId::player_slot(0),
+        BodyKinematics {
+            pos: zone_center,
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        },
+    ));
+    app.update();
+
+    let pending = app
+        .world()
+        .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .peek()
+        .cloned()
+        .expect("the incumbent intent must still be in the slot");
+    assert_eq!(
+        pending.kind, incumbent,
+        "the door overwrote an intent the earliest-sticky slot had already \
+         admitted, which is a lifecycle operation replaced by a later one"
+    );
+    assert!(
+        app.world()
+            .resource::<SlotInteractionState>()
+            .primary()
+            .buffered(),
+        "the door spent the player's press on a crossing the slot REFUSED. A tap \
+         is not refilled, so the press is gone and the crossing is never asked \
+         again"
+    );
+}
+
 /// A door crossing CONSUMES the buffered press; it does not leave it to decay.
 ///
 /// ⛔⛤ **THE LINE THIS ARM HOLDS HAD NO WITNESS, MEASURED BY POISON 2026-09-17.**

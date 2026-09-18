@@ -206,6 +206,29 @@ stopped being declared derived (`f15461f52`). Reading the four, source already a
    the floor rather than passing over an empty set. ⇒ Item 2 no longer owes
    anything; it does not owe a fix today either.
 
+   ⛔⛔ **AND THE RATCHET'S OWN PRESCRIBED REPLACEMENT WAS BUILT ON 2026-09-18 AND
+   IS WITHDRAWN: A ROOM TRANSITION CANNOT CARRY THIS PROPERTY.** The ratchet's
+   docstring named its successor — *"a room TRANSITION taken mid-session, well
+   inside the check distance"*.
+   `a_room_cutscene_taken_mid_session_starts_under_a_rewind`
+   (`game/ambition_app/tests/a_room_cutscene_starts_under_a_rewind.rs`) does
+   exactly that: 40 settling frames in `central_hub_complex`, then the authored
+   door into `cutscene_lab`. It stayed green under the `Update` poison, and green
+   again under that poison TOGETHER with the deleted `cutscene.last_room`
+   registration — and under the first poison the cutscene starts on the very first
+   step after arrival, so there is not even a delay to measure. ⇒ The self-healing
+   latch was the obvious explanation and the second poison rules it out. What owns
+   it is `detect_room_transition_system`'s Track B: under a rollback host a
+   crossing is not taken on a speculative frame at all, it is recorded as a
+   `PendingLifecycleCommit` the host commits once the recording frame is
+   CONFIRMED. **A room change cannot happen inside the check distance by
+   construction**, so no trigger keyed on one can be driven across a rewind. ⇒ The
+   replacement has to drive a producer that fires on a SPECULATIVE frame, which is
+   what item 1 already is. The arm is kept for what it does pin — a mid-session
+   crossing resolving its binding under a rollback composition, strictly more than
+   the boot arm — and is NOT the replacement. ⚠ The ratchet stays, and its
+   docstring no longer prescribes an arm nobody can build.
+
 ⭐⭐ **AND THIS EXACT SHAPE IS ALREADY SOLVED ONE DOMAIN OVER, WHICH IS THE
 STRONGEST ARGUMENT THAT IT IS REAL.** `OutstandingCheckpointRequest` is a request
 raised outside the frame that spends it, and its registration carries the reason:

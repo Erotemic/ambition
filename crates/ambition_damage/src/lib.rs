@@ -1303,6 +1303,16 @@ pub fn apply_player_hit_events(
     // serialises this system against every real writer of the cooldown, and a
     // writer census that read damage as one of SEVEN authorities over a single
     // `f32` countdown it never touches.
+    //
+    // ⚠ AND IT CANNOT CHANGE SIMULATED ORDER, which is the question a relaxed
+    // resource conflict has to answer in a rollback game. A conflict is not an
+    // EDGE: Bevy's topological order comes from explicit dependencies, and
+    // removing a conflict only permits concurrency. This system is registered
+    // into `sim`, which under the rollback host is `GgrsSchedule` — and that
+    // schedule is built with a `SingleThreadedExecutor`
+    // (`rollback_ggrs/src/lib.rs`), so there is no concurrency to permit. Two
+    // systems here with no edge between them were already unordered; this makes
+    // that visible rather than true.
     sim_state: Res<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,

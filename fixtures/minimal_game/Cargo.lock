@@ -666,7 +666,6 @@ dependencies = [
  "bevy",
  "bevy_asset_loader",
  "bevy_ecs_ldtk",
- "ron 0.11.0",
  "serde",
  "serde_json",
 ]

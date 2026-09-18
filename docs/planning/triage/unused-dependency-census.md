@@ -70,10 +70,10 @@ cargo rustc -p <crate> --all-targets -- -W unused_crate_dependencies
 ```
 
 — is **invalid** the moment a crate has more than one build target (a `[[bin]]`,
-or more than one file under `tests/`): rustc hard-errors *"extra arguments to
-`rustc` can only be passed to one target, consider filtering the package by
-passing, e.g., `--lib` or `--bin NAME`"*, and cargo writes that error to the log
-in place of any warning. Every one of the first 9 crates run this way —
+or more than one file under `tests/`): rustc hard-errors with "extra arguments
+to `rustc` can only be passed to one target", suggesting a single-target filter
+flag instead, and cargo writes that error to the log in place of any warning.
+Every one of the first 9 crates run this way —
 `ambition_app` included — produced that error, and a grep for
 `"is unused in crate"` against an errored log correctly finds nothing, which
 reads exactly like a real zero-hit confirmation. **An absence-based check must
@@ -197,8 +197,8 @@ says production embeds no encounter wave data. The dependency moved to
 | `ambition_game_shell` | `ambition_persistence` | 11 non-test references |
 | `ambition_input` | `ambition_entity_catalog` | 5 non-test references |
 | `ambition_input` | `bevy_window` | 1 non-test reference (`active_input.rs:19`, `use bevy_window::CursorMoved;`) |
-| `ambition_load_presentation` | `ambition_input` | `basic_presentation.rs:49`, `deterministic_activity.rs:77,134` — behind `#[cfg(feature = "basic_presentation")]` at `lib.rs:14`, non-default (`default = []`) |
-| `ambition_load_presentation` | `ambition_platformer2d_shared_tangle` | `basic_presentation.rs:4` — same `#[cfg(feature = "basic_presentation")]` gate |
+| `ambition_load_presentation` | `ambition_input` | `crates/ambition_load_presentation/src/basic_presentation.rs:49`, `crates/ambition_load_presentation/src/deterministic_activity.rs:77,134` — behind `#[cfg(feature = "basic_presentation")]` at `crates/ambition_load_presentation/src/lib.rs:14`, non-default (`default = []`) |
+| `ambition_load_presentation` | `ambition_platformer2d_shared_tangle` | `crates/ambition_load_presentation/src/basic_presentation.rs:4` — same `#[cfg(feature = "basic_presentation")]` gate |
 
 ✔ **Re-confirmed unchanged 2026-09-18 by the full-population re-sweep**: `ambition_input`'s two rows above and `ambition_encounter`'s `ron` row (further up this page) all reproduced identically under fresh `--lib`/`--all-features`/`--all-targets` runs — nothing regressed since the original per-row dates.
 
@@ -270,13 +270,73 @@ all clean. `test_sub_workspace_lockfiles_are_current.py` needed
 `fixtures/headless_profile`, and `fixtures/minimal_game` afterward (same
 shape as the `ambition_damage` move), now green.
 
+## `ambition_platformer2d_host` and `ambition_sim_view`, fully settled 2026-09-18
+
+Neither needs a manifest edit — both hits are already-correct instances of
+patterns this page has already named, re-confirmed by the full-population
+sweep:
+
+| crate | dependency | why it's not a finding |
+|---|---|---|
+| `ambition_platformer2d_host` | `ambition_input` | extensive real production use in `src/lib.rs`, cleared by `--all-features` (empty confirmer log) |
+| `ambition_platformer2d_host` | `ambition_menu` | `optional = true`, wired through `dep:ambition_menu` in the `render` feature; real use at `src/lib.rs:622,630`, cleared by `--all-features` |
+| `ambition_platformer2d_host` | `ambition_characters`, `ambition_platformer2d_provider` | **already correctly in `[dev-dependencies]`** — both used only by `tests/demo_shell_smoke.rs`. `--all-targets` flags them because that specific warning is scoped to a DIFFERENT compiled target within the same package (the same per-target split documented in the `ambition_content` section above), not because the crate as a whole is wrong |
+| `ambition_sim_view` | `leafwing_input_manager` | two uses: `src/facts.rs:779` behind `#[cfg(feature = "input")]` (non-default), and `src/control_prompt.rs:815` inside a `#[test]` fn. Cleared by `--all-features` |
+
+## `ambition_touch_input`, fully settled 2026-09-18
+
+All four detector hits are real production use behind `ambition_touch_input`'s
+own non-default features (`default = []`; `input`/`mobile_touch` gate them),
+matching the same pattern as every other feature-gated row above. Cleared by
+`--all-features`:
+
+| dependency | evidence |
+|---|---|
+| `ambition_geometry` | `src/bevy_plugin.rs:529,547` |
+| `ambition_input` | `src/bevy_plugin.rs:27,296` and elsewhere |
+| `ambition_platformer2d_shared_tangle` | `src/bevy_plugin.rs:525,531` |
+| `serde` | `src/layout.rs:27-28`, a `#[derive(Serialize, Deserialize)]` |
+
+No manifest edit needed.
+
+## `ambition_platformer2d_actor_monolith`, fully settled 2026-09-18
+
+The detector flagged eight; four are FEATURE-GATED (`dep:` entries in this
+crate's own `[features]` table — `dev_tools`, `mobile_touch`, `frame_pacing`,
+and the ldtk `portal`/`portal_ldtk` group), kept. The other four had zero
+occurrences anywhere in the crate and are not wired through any `dep:` feature
+entry:
+
+| dependency | class | evidence |
+|---|---|---|
+| `bevy_inspector_egui` | FEATURE-GATED — kept | `dev_tools = ["dep:bevy-inspector-egui"]` |
+| `virtual_joystick` | FEATURE-GATED — kept | `mobile_touch = ["input", "dep:virtual_joystick"]` |
+| `bevy_framepace` | FEATURE-GATED — kept | `frame_pacing = ["dep:bevy_framepace"]` |
+| `ambition_platformer2d_ldtk` (`[dependencies]`, optional) | FEATURE-GATED — kept | `dep:ambition_platformer2d_ldtk` in `portal`/`portal_ldtk`. Zero production (`src/`) usage outside `#[cfg(test)]`, but public feature surface — a SEPARATE, deliberate `[dev-dependencies]` copy (undocumented duplicate name, same crate) already exists for the tests, with its own comment explaining exactly this split |
+| `bevy_math` | **STRANDED — removed** | `features = ["serialize"]`, zero direct usage — a feature-activation SHAPE, but the delete-and-build test (the only settling instrument the doc's own rule allows) compiled clean at both default and `--all-features`, so nothing else in this crate's own build needed that feature through this edge |
+| `bevy_common_assets` | **STRANDED — removed** | `features = ["ron"]`, named only in one backtick (not intra-doc-link) prose comment at `src/session/data.rs:4`. Same delete-and-build clearance |
+| `parry2d` | **STRANDED — removed** | plain, non-optional, zero occurrences |
+| `petgraph` | **STRANDED — removed** | plain, non-optional, zero occurrences |
+
+⭐ All four removed together, verified with one delete-and-build pass:
+`cargo check -p ambition_platformer2d_actor_monolith --lib` (default, 10m03s)
+and `--all-features` (3m58s) both clean.
+
+## `ambition_platformer2d_ldtk`, fully settled 2026-09-18
+
+| dependency | class | evidence |
+|---|---|---|
+| `bevy_asset_loader` | FEATURE-GATED — kept | `optional = true`, `dep:bevy_asset_loader` in `ldtk_runtime`, which is in `default = ["ldtk_runtime", "portal_ldtk"]`. Zero direct usage, but public feature surface — same rule as `ambition_platformer2d_actor_monolith`'s ldtk edge above |
+| `ron` | **STRANDED — removed** | plain (`{ workspace = true }`), not optional, not wired through any `dep:` entry, zero occurrences anywhere. Delete-and-build clean at default (8m01s) and `--all-features` (2m44s) |
+
 ## What is owed
 
-▢ **38 crates unscanned** (`ambition_app`, `ambition_content`, and
-`ambition_demo_smash` settled 2026-09-18, above), including several the
-original grep row named — `ambition_platformer2d_host`,
-`ambition_platformer2d`, `ambition_sim_view`, `ambition_touch_input`. ⛔ **The
-grep-era claims about those crates are therefore still unverified**, and the
+▢ **33 crates unscanned** (`ambition_app`, `ambition_content`,
+`ambition_demo_smash`, `ambition_platformer2d_actor_monolith`,
+`ambition_platformer2d_host`, `ambition_platformer2d_ldtk`,
+`ambition_sim_view`, and `ambition_touch_input` settled 2026-09-18, above),
+including one more the original grep row named — `ambition_platformer2d`.
+⛔ **The grep-era claims about it are therefore still unverified**, and the
 four "misfiled" edges reported from the text search have NOT been through the
 compiler. Do not act on them from this page.
 
@@ -285,16 +345,15 @@ Unscanned: `ambition_demo_mary_o`,
 `ambition_demo_sanic_app`, `ambition_demo_smash_app`,
 `ambition_demo_twintrack`, `ambition_demo_twintrack_app`,
 `ambition_menu_kaleidoscope`, `ambition_platformer2d`,
-`ambition_platformer2d_actor_monolith`, `ambition_platformer2d_core`,
-`ambition_platformer2d_host`, `ambition_platformer2d_ldtk`,
+`ambition_platformer2d_core`,
 `ambition_platformer2d_provider`, `ambition_platformer2d_rollback_ggrs`,
 `ambition_platformer2d_runtime`, `ambition_platformer2d_shared_tangle`,
 `ambition_platformer2d_world`, `ambition_portal2d`,
 `ambition_portal2d_presentation`, `ambition_projectile_spec`,
 `ambition_projectiles`, `ambition_registry_core`, `ambition_relativity`,
 `ambition_relativity2d`, `ambition_render`, `ambition_settings_menu`,
-`ambition_sfx`, `ambition_sfx_bank`, `ambition_sim_harness`, `ambition_sim_view`,
-`ambition_sprite_sheet`, `ambition_time`, `ambition_touch_input`,
+`ambition_sfx`, `ambition_sfx_bank`, `ambition_sim_harness`,
+`ambition_sprite_sheet`, `ambition_time`,
 `ambition_ui_nav`, `ambition_vfx`, `ambition_world_items`.
 
 ▢ **A post-carve checklist step.** The grep that started this is still worth

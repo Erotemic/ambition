@@ -31,13 +31,40 @@ use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 #[derive(Component)]
 pub struct PlayerClone;
 
-/// Monotonic clock for the clone brains (the `PlayerDemo` cycle timing).
-#[derive(Resource, Default)]
-pub struct PlayerCloneClock(pub f32);
-
 /// Toggle flag set by the dev hotkey / menu — spawn one clone next frame.
 #[derive(Resource, Default)]
 pub struct SpawnPlayerCloneRequest(pub bool);
+
+/// The mechanical-edit domain a clone spawn belongs to.
+///
+/// ⭐ SPAWNING A BODY IS AN AUTHORING ACT, NOT A PLAYER ACTION, and that is the
+/// whole reason this domain exists rather than a bit on `ControlFrame`. Both
+/// roads would make the press survive a rewind; they disagree about what the
+/// press MEANS. Riding the input payload would declare a developer hotkey to be
+/// seat-zero gameplay input — and in a session with a real remote peer it would
+/// transmit "spawn a clone" into a shared match as that seat's move. The
+/// mechanical-edit road says the author changed the world, so the local baseline
+/// is stood down and rebased, and a FOREIGN timeline refuses outright with the
+/// proposal left pending. That is the honest answer for a dev tool.
+pub fn player_clone_domain() -> ae::MechanicalDomain {
+    ae::MechanicalDomain::of::<SpawnPlayerCloneRequest>("spawn_player_clone")
+}
+
+/// Raise a requested clone spawn as a mechanical-edit PROPOSAL.
+///
+/// ⛔ IT KEYS ON THE REQUEST FLAG, NOT ON THE KEY PRESS, and that is deliberate:
+/// `SpawnPlayerCloneRequest` was already the seam between the device read and
+/// the spawn (the live tests poke it directly), so proposing from the flag keeps
+/// every existing caller — hotkey, menu, test — on one road instead of teaching
+/// each of them the edit protocol.
+pub fn propose_player_clone_spawn(
+    request: Res<SpawnPlayerCloneRequest>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
+) {
+    if request.0 {
+        pending.propose(player_clone_domain());
+    }
+}
 
 /// `\`-style dev hotkey: press `K` to spawn a brain-driven player clone at the
 /// player's position. Cheap to gate behind a key so it never appears unbidden.
@@ -55,9 +82,21 @@ pub fn request_player_clone_on_key(
 /// Spawn a player-body clone at the player's current position when requested.
 /// The clone carries all 18 movement clusters (full ability set) + a
 /// `PlayerDemo` brain + an `ActorControl` + a placeholder sprite.
+///
+/// ⭐ **THE `Publish` HALF OF THE MECHANICAL-EDIT ROAD, NOT A SIM SYSTEM.** It
+/// ran in `app.sim_schedule()` until 2026-09-18, which lost the press to every
+/// rewind (`Q136`); `plugins.rs` records the mechanism at the registration. It
+/// may only write once `decide_mechanical_edit_admission` has answered, which is
+/// why the admission is a parameter rather than a precondition stated in prose.
 pub fn spawn_requested_player_clone(
     mut commands: Commands,
     mut request: ResMut<SpawnPlayerCloneRequest>,
+    // ⛔ ABSENT MEANS PUBLISH, and that is safe for the same STRUCTURAL reason
+    // the other four publishers rely on: the decider is registered by
+    // `install_session_bridge`, the same call that installs the GGRS session, so
+    // a composition cannot hold a rollback timeline without holding the decider.
+    admission: Option<Res<ae::MechanicalEditAdmission>>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     // Optional: the headless RL harness has no loaded character sheets. Absent →
     // the clone falls back to a tinted rectangle (movement still works).
@@ -87,7 +126,21 @@ pub fn spawn_requested_player_clone(
     if !request.0 {
         return;
     }
-    request.0 = false;
+    // ⛔⛤ **THE PRESS IS NOT SPENT UNTIL A BODY EXISTS TO BE CLONED, AND IT USED
+    // TO BE SPENT FIRST.** `request.0 = false` stood here, above every refusal
+    // below, so a press that arrived on a frame with no resolvable primary — or
+    // with a primary that carried no `SimId` yet — was consumed and the clone
+    // never appeared. Refusing a sub-step is not refusing the operation: the
+    // flag now survives every early return and the spawn happens on the first
+    // frame that can actually perform it.
+    if matches!(
+        admission.as_deref(),
+        Some(ae::MechanicalEditAdmission::Refuse)
+    ) {
+        // A foreign or unhealthy timeline may not be mutated. The proposal stays
+        // pending, so the press fires when the refusal lifts.
+        return;
+    }
     let Ok((player_kin, worn, parent_id, parent_counter)) = player_q.single_mut() else {
         return;
     };
@@ -217,6 +270,11 @@ pub fn spawn_requested_player_clone(
             ..default()
         });
     }
+    // ⭐ SPENT LAST, WHERE THE OPERATION IS COMMITTED. Everything above can
+    // refuse, and the press must outlive every refusal. `commands.spawn` is
+    // already queued at this point, so there is nothing left that can decline.
+    request.0 = false;
+    pending.take(player_clone_domain());
 }
 
 /// Tick every player clone's `PlayerDemo` brain → its `ActorControl` frame.
@@ -229,8 +287,25 @@ pub fn spawn_requested_player_clone(
 /// `player_control_system` / `player_simulation_system` integrate its clusters from this
 /// `ActorControl` — the same shared core the human player runs.
 pub fn tick_player_clone_brains(
-    time: Res<Time>,
-    mut clock: ResMut<PlayerCloneClock>,
+    // ⛔⛤ **`Res<Time>` AND A HOST-LOCAL ACCUMULATOR UNTIL 2026-09-18, WHICH
+    // DESYNCED THE TIMELINE THE MOMENT A CLONE EXISTED UNDER ROLLBACK.** This
+    // read `time.delta_secs()` — the app's WALL dt — and added it to a
+    // `PlayerCloneClock` resource that was `init_resource`d and never registered
+    // for rollback. Resimulating a frame therefore accumulated it AGAIN from a
+    // value no rewind restored, so `snapshot.sim_time` differed between the
+    // original run and the replay, the demo brain emitted a different frame, and
+    // the clone's `BodyKinematics` diverged. Measured: `GGRS sync-test checksum
+    // mismatch at frames [14, 15, ..]`, reproducible on the first press.
+    //
+    // ⭐ IT IS A DUPLICATE AUTHORITY, AND THE COLLAPSE IS THE FIX RATHER THAN A
+    // REGISTRATION. `GameplayElapsed` is the same fact — accumulated as
+    // `+= world_time.scaled_dt`, rollback-registered, advanced at the head of
+    // `WorldPrep` and documented as *"before any actor brain reads the
+    // snapshot"*, which is where this system reads it. Registering
+    // `PlayerCloneClock` would have made the drift rewind correctly and left two
+    // owners of "how long gameplay has run"; deleting it leaves one.
+    world_time: Res<ambition_platformer2d::time::WorldTime>,
+    elapsed: Res<ambition_platformer2d::actors::features::GameplayElapsed>,
     mut clones: Query<
         (
             &ambition_platformer2d::engine_core::BodyKinematics,
@@ -242,11 +317,13 @@ pub fn tick_player_clone_brains(
         With<PlayerClone>,
     >,
 ) {
-    let dt = time.delta_secs();
+    // ⚠ THE ZERO GUARD IS KEPT AND NOW MEANS SOMETHING SHARPER: `sim_dt` is
+    // `raw_dt * time_scale`, so it is zero while the game is PAUSED or in
+    // hitstop. Ticking a demo cycle through a pause was never intended.
+    let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    clock.0 += dt;
     for (kin, ground, resolved_frame, mut brain, mut control) in &mut clones {
         let mut snapshot = BrainSnapshot::idle();
         snapshot.actor_pos = kin.pos;
@@ -259,7 +336,7 @@ pub fn tick_player_clone_brains(
         snapshot.control_down = resolved_frame.down();
         snapshot.actor_on_ground = ground.on_ground;
         snapshot.alive = true;
-        snapshot.sim_time = clock.0;
+        snapshot.sim_time = elapsed.0;
         snapshot.dt = dt;
 
         let mut frame =

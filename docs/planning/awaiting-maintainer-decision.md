@@ -1556,6 +1556,111 @@ ingress question and not three fixes. The stakes are a dev hotkey — no save da
 no peer checksum, no progression — so the road can be built and witnessed here
 without a mis-step costing a timeline.
 
+### 2026-09-18 — the first road is landed, and the fixture was the hard part
+
+⭐⭐ **`SpawnPlayerCloneRequest` IS FIXED, BY THE MECHANICAL-EDIT ROAD, AND BOTH
+CENSUSES AGREE IT IS GONE.** `spawn_requested_player_clone` no longer runs in
+`app.sim_schedule()`: the request is proposed in `MechanicalEditSet::Propose` and
+the spawn published in `Publish`, both in `PreUpdate`, with
+`decide_mechanical_edit_admission` between them. Witnessed by
+`a_dev_clone_survives_a_rewind`, which carries a fixed-tick control arm (1 clone)
+beside the rollback arm — and poisoning the registration back into the sim
+schedule reddens both arms while the control stays green.
+
+⇒ Two repairs came with it, each a separate defect the move exposed:
+
+- **the press is spent LAST now.** `request.0 = false` stood above every refusal
+  in the spawn, so a press arriving on a frame with no resolvable primary — or
+  with a primary not yet carrying a `SimId` — was consumed and the clone never
+  appeared. Refusing a sub-step is not refusing the operation. Held by
+  `a_press_the_spawn_cannot_honour_yet_is_kept_rather_than_consumed`.
+- **`check_rollback_mutators_run_in_sim.py` caught the repair's own side effect
+  before it was committed.** Minting the clone's identity increments the
+  primary's `SimIdCounter`, which is rollback state, now from `PreUpdate`. It
+  arrived as a NEW offender on the first run after the move and is waived with
+  the admission argument — which is the population instrument doing exactly the
+  job it exists for.
+
+⛔⛤⛤ **AND THE BIGGEST DEFECT WAS NOT Q136 AT ALL: THE CLONE DESYNCED THE
+TIMELINE, AND NOTHING COULD SEE IT BECAUSE NOTHING COULD SPAWN ONE UNDER
+ROLLBACK.** With the press finally arriving, the witness's health read came back
+`GGRS sync-test checksum mismatch at frames [14, 15, ..]` on every run.
+`tick_player_clone_brains` is registered into the SIM schedule and read
+`time.delta_secs()` — the app's WALL dt — accumulating it into a
+`PlayerCloneClock` resource that was `init_resource`d and never registered for
+rollback. A resimulated frame therefore added dt AGAIN to a value no rewind
+restored, so `snapshot.sim_time` differed between the original run and the
+replay, the demo brain emitted a different frame, and the clone's
+`BodyKinematics` diverged.
+
+⇒ **IT IS A DUPLICATE AUTHORITY, AND THE COLLAPSE IS THE FIX RATHER THAN A
+REGISTRATION.** `GameplayElapsed` is the same fact, accumulated the same way
+(`+= world_time.scaled_dt`), rollback-registered, advanced at the head of
+`WorldPrep`, and its own doc says *"before any actor brain reads the snapshot"* —
+which is exactly where `tick_player_clone_brains` reads. Registering
+`PlayerCloneClock` would have made the drift rewind correctly and left two owners
+of *how long gameplay has run*; deleting it leaves one. ⭐ The `dt` moved to
+`WorldTime::sim_dt()` in the same edit, which also sharpens the pre-existing zero
+guard: `sim_dt` is `raw_dt * time_scale`, so it is zero while PAUSED or in
+hitstop, and ticking a demo cycle through a pause was never intended.
+
+⚠ **THIS IS THE THIRD TIME THIS WEEK A HOST-LOCAL ACCUMULATOR INSIDE THE REWIND
+HAS BEEN THE DEFECT**, and `sim_plugin.rs` names the other two at the
+registration that moved them out: `sync_developer_body_profile` was *"arbitrated
+by a `Local` that runs once per ADVANCE and therefore remembered across a
+rewind"*, and `sync_live_player_dev_edits_system` wrote five movement clusters
+from a live inspector resource. ⇒ Worth a guard of its own: a system in the sim
+schedule that accumulates into a `Local` or into an unregistered resource is the
+shape, and all three instances were invisible to every existing census because
+none of them is a *multi-writer* and none of them crosses a schedule boundary.
+
+⛔⛤ **AND THE MOST TRANSFERABLE FINDING IS ABOUT THE FIXTURE, NOT THE FIX: NO
+TEST IN THIS WORKSPACE EXERCISED THE OWNERSHIP MODE THE GAME ACTUALLY RUNS IN.**
+The first version of the witness reported 0 clones under rollback and 1 under
+fixed tick — which reads exactly like the defect it was written for. It was not.
+The diagnostic printed `boundary=ForeignTimeline admission=Refuse` on every tick,
+forever:
+
+| who installs the session | owner stamp | `locally_rebasable_timeline` | a mechanical edit |
+|---|---|---|---|
+| `start_sync_test_session` — every rollback test fixture, via `with_sync_test_rollback_settings` | `SyncTestOwner::Caller` | **false** | **REFUSED** |
+| `maintain_local_session` — the shipped game, once `LocalSessionPolicy` is armed | `SyncTestOwner::LocalMaintainer` | true | admitted, baseline rebased |
+
+⇒ The refusal is CORRECT — a harness that installed its own timeline did not ask
+for it to be rebased — which is what makes it dangerous: every rollback arm in
+the suite sat on the refusing side of the admission road and none of them said
+so. Measured 2026-09-18: `grep -rn LocalSessionPolicy` over
+`game/ambition_app/tests/` and `crates/ambition_sim_harness/src/` returns
+**nothing**, and the dev-tools unit fixtures insert
+`MechanicalEditAdmission::Publish` directly, bypassing the decider. So the
+`LocallyRebasable` arm — the one the game takes — had no coverage at all.
+`a_dev_clone_survives_a_rewind::hand_the_timeline_to_the_local_maintainer` is the
+first fixture that re-owns its session the shipped way; it stops the
+caller-owned session and lets the maintainer build its own, because the owner
+stamp and the installed session are one fact and writing half of it describes a
+world that cannot exist.
+
+⚠ **TWO SMALLER THINGS WORTH A READER'S TIME, both met while building that
+fixture.** `LocalSessionPolicy`'s DEFAULT is `check_distance: 0` — rollback
+dormant — so the shipped composition has no rewind until something arms it (the
+rollback observatory does). And inverting `check_distance` and
+`max_prediction_window` does not fail loudly: `maintain_local_session` catches
+GGRS's `Invalid Request: Check distance too big`, records it in
+`LocalSessionOwnership::last_error` and carries on with NO session installed —
+so a test that got the order wrong silently becomes a no-rollback test that
+passes, which is how the first version of this witness spent a run measuring
+nothing.
+
+⚠ **AND ONE CLAIM RETRACTED IN THE SAME BREATH, BECAUSE IT READ LIKE A DEFECT
+AND IS NOT ONE.** That decline logs *"failed to BUILD the local GGRS session,
+keeping the running one"* while `AmbitionGgrsSession` was absent, which looks
+like a message describing an impossible state. It is not: the decline sits
+inside `maintain_local_session`'s *"PREPARE: every way this can decline, while
+the old session still runs"* block — the atomicity the 2026-09-17 review
+imposed — so in every ordinary call there IS a running session to keep. The
+fixture had stopped it first. ⇒ A message can be false in a fixture and true in
+the code, and the difference is who stopped what.
+
 ## Q135 — should GGRS start before the durable restore has finished?
 
 ✅ **ANSWERED AND LANDED 2026-09-16: NO, AND IT NO LONGER CAN.** (The heading
@@ -2587,6 +2692,35 @@ so at its own definition.
 ⛔ **WHAT MUST NOT HAPPEN:** lowering the ratchet without adding the edge. The
 number is measured on the shipped composition every run; editing it to match a
 smaller reading is how a guard stops describing the tree.
+
+⇒ **A FOURTH OPTION WAS TRIED ON PAPER AND DOES NOT WORK, RECORDED SO THE NEXT
+READER DOES NOT SPEND THE SAME HOUR.** The reflex this repository has been
+applying all week is *one fact, one owner*: if two chains write one resource,
+give each its own and the conflict dissolves. The ownership split even looks
+clean when the field writes are read (measured 2026-09-18) — the readiness chain
+owns the transaction's LIFETIME (`begin` opens `active`, `authorize`/`abandon`/
+`finalize_unpresented` close it) and the app-side chain only mutates its
+CONTENT:
+
+```text
+contribute_room_transition_assets_system        asset_readiness_complete, asset_work_id, barrier, sequence
+poll_room_transition_asset_readiness_system     asset_readiness_complete, phase, sequence
+handle_room_transition_presentation_events      barrier, sequence
+drive_room_transition_presentation              reads `active`
+```
+
+⛔ It dissolves the CONFLICT and not the DECISION, which is why it is not a
+fourth option. `authorize_ready_room_transition_system` READS
+`asset_readiness_complete` and `phase` — the very fields the app chain writes —
+so after any split the same question returns as a read-order question: does
+authorize see this frame's poll or the previous frame's? The latency is intrinsic
+to a pipeline where one stage decides on another stage's output within a single
+`Update`; moving the state into two resources would buy a new
+keep-them-consistent hazard (both would have to be keyed to the same transaction)
+and answer nothing. ⚠ Note also that `asset_readiness_complete` is written by
+BOTH app-side systems, so the app chain is not a single-writer either — it is
+ordered internally instead, which is exactly the remedy this question is asking
+for between the chains.
 
 ⚠ **AND THE 16 IS A LOWER BOUND.** `retire_committed_room_transition` and
 `retire_cancelled_room_transition`

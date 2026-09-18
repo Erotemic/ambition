@@ -254,32 +254,16 @@ ADJUDICATED: dict[str, str] = {
         "New Game can be pressed successfully at the UI and vanish before the "
         "simulation sees it (read 2026-09-18)"
     ),
-    "SpawnPlayerCloneRequest": (
-        "⛔ LIVE DEFECT, Q136, FIRST MECHANISM — AND THE CLEAREST SPECIMEN OF THE "
-        "WHOLE CLASS, because the split that created it is documented at the "
-        "registration and was RIGHT. NOT rollback-registered. "
-        "`request_player_clone_on_key` sets `request.0 = true` from "
-        "`bevy::app::Update`; `spawn_requested_player_clone` runs in the sim's "
-        "`WorldPrep` and does `if !request.0 { return; } request.0 = false;` before "
-        "spawning. On a speculative frame the sim spends the flag and spawns the "
-        "clone; the rewind discards the clone entity but CANNOT restore the flag, "
-        "because an unregistered resource is not snapshot state — and nothing "
-        "re-produces the press, which was a `just_pressed` edge in a schedule that "
-        "has already moved on. The K press is swallowed.\n"
-        "    ⭐ WHY IT IS THE SPECIMEN TO BUILD THE FIX AGAINST: `plugins.rs:189` "
-        "explains the split in its own comment — *\"`ButtonInput` is winit frame "
-        "state — it is not rollback registered and does not rewind — so reading "
-        "`just_pressed` on the deterministic tick means one physical press is seen "
-        "once per SIM RUN, not once per press: a frame that steps the sim twice "
-        "spawns two clones\"*. That is correct, and moving the read into the sim "
-        "would reintroduce the double-spawn. The two failures are the SAME problem "
-        "seen from its two sides, which is exactly the review's point that this is "
-        "one ingress architecture question and not three resource-specific fixes.\n"
-        "    ⚠ STAKES ARE LOW AND THAT IS ITS VALUE: a dev hotkey that spawns a "
-        "brain-driven clone. No save data, no peer checksum, no player-visible "
-        "progression — so it can carry the first real ingress buffer without a "
-        "mis-step costing a timeline (read 2026-09-18)"
-    ),
+    # ✅ `SpawnPlayerCloneRequest` was adjudicated here on 2026-09-18 and is GONE
+    # because it was FIXED, and the distinction was checked rather than assumed:
+    # `spawn_requested_player_clone` still exists and still spends the flag, so
+    # this script has not lost sight of it — the spend now runs in
+    # `MechanicalEditSet::Publish` (`PreUpdate`), on the HOST side, so there is no
+    # host-produced/sim-consumed crossing left to lose. It was Q136's first
+    # landed road; the witness is
+    # `a_dev_clone_survives_a_rewind::a_clone_asked_for_outside_the_simulation_is_not_lost_to_a_rewind`,
+    # and poisoning it back into `app.sim_schedule()` reddens both of that file's
+    # arms while the fixed-tick control stays green.
     "VersusMatch": (
         "⛔ FILED ELSEWHERE, NOT A NEW FINDING: banked as MENU-RESET-MIDSESSION in "
         "`check_rollback_mutators_run_in_sim.py` and blocked on `Q140`. "

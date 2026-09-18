@@ -246,20 +246,12 @@ FILED: dict[str, str] = {
         "Q136 — a dismiss raised on the host side does nothing; the producer is "
         "outside the timeline and the consumer inside it"
     ),
-    # ⭐ EXPOSED BY THE SCHEDULE-LABEL REPAIR OF 2026-09-18, not newly written:
-    # `request_player_clone_on_key` has been registered into `bevy::app::Update`
-    # since it was carved out, and while the host side was an enumeration of BARE
-    # labels this crossing did not exist. Its full reading lives beside the other
-    # three in `check_host_produced_sim_consumed_requests.py`'s `ADJUDICATED`
-    # table — the instrument that enumerates Q136's population — and the row here
-    # exists so the two censuses cannot disagree about how many resources the
-    # ruling covers.
-    "SpawnPlayerCloneRequest": (
-        "Q136, first mechanism — a `K` press raises the flag in `bevy::app::Update`, "
-        "the sim spends it on a speculative frame, and the rewind discards the clone "
-        "without restoring an unregistered flag. The stakes are a dev hotkey, which "
-        "is why it is the specimen the ingress fix should be built against"
-    ),
+    # ✅ `SpawnPlayerCloneRequest` was filed here on 2026-09-18 and is GONE
+    # because the question was ANSWERED and the code changed, which is the only
+    # sanctioned way for a filed row to leave: the spawn moved out of the
+    # simulation schedule onto the mechanical-edit road, so the resource is no
+    # longer written on both sides of the boundary at all. Q136's first landed
+    # road. `CutsceneAdvanceRequest` below is what the ruling still owes.
 }
 
 

@@ -71,6 +71,7 @@ mod d71_transaction_census;
 mod dash_stability;
 mod death_restores_the_checkpoint;
 mod declared_art_resolves;
+mod a_dev_clone_survives_a_rewind;
 mod desync_canary;
 mod developer_edits_under_rollback;
 mod direct_and_shell_agree;

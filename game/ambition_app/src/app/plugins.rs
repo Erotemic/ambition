@@ -185,8 +185,11 @@ fn register_app_local_sim_systems(app: &mut App) {
             ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
         );
     }
-    app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
-        .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
+    // ⭐ `PlayerCloneClock` WAS INITIALISED HERE AND IS GONE: it was a second,
+    // wall-clock-fed, unregistered copy of `GameplayElapsed` and it desynced the
+    // timeline whenever a clone existed under rollback. See
+    // `tick_player_clone_brains`.
+    app.init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         // ⛔⛔ THE KEY READ IS HOST INPUT AND BELONGS IN `Update`; ONLY THE SPAWN
         // IS SIM. `ButtonInput` is winit frame state — it is not rollback
         // registered and does not rewind — so reading `just_pressed` on the
@@ -201,11 +204,38 @@ fn register_app_local_sim_systems(app: &mut App) {
             bevy::app::Update,
             crate::app::player_clone::request_player_clone_on_key,
         )
+        // ⛔⛤ **THE SPAWN LEFT THE SIMULATION SCHEDULE ON 2026-09-18, AND THE
+        // COMMENT ABOVE WAS ONLY HALF THE PROBLEM.** Splitting the key read out
+        // of the sim was correct and is kept. What it created was the OTHER half:
+        // `SpawnPlayerCloneRequest` is not rollback-registered, so the sim spent
+        // the flag on a speculative frame, the rewind despawned the clone — every
+        // `BodyKinematics` body is a rollback anchor via
+        // `require_rollback::<BodyKinematics>` — and nothing re-produced a
+        // `just_pressed` edge the host schedule had long passed. The K press
+        // vanished. Filed as `Q136`; this is that ruling's first landed road.
+        //
+        // ⭐ IT IS A MECHANICAL EDIT, NOT SEAT INPUT. `decide_mechanical_edit_
+        // admission` runs in `MechanicalEditSet::Admit`, between these two, and
+        // answers for the whole batch: no timeline publishes into nothing, a
+        // locally-rebasable baseline is STOPPED first and the clone lands in the
+        // gap, and a foreign or unhealthy timeline refuses with the proposal left
+        // pending so the press fires when the refusal lifts. A rewind can no
+        // longer reach the write, because there is no ring left holding the frame
+        // it happened on.
+        //
+        // ⚠ `MechanicalEditSet::Publish` is ordered `.before(RunGgrsSystems)` by
+        // the rollback host, so the clone exists before the advance it must be
+        // part of. Under a fixed-tick host `PreUpdate` precedes the sim schedule
+        // for the same frame, so the clone is equally live and one road serves
+        // both — which is the property the four sibling publishers already have.
         .add_systems(
-            sim,
-            (crate::app::player_clone::spawn_requested_player_clone,)
-                .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            bevy::app::PreUpdate,
+            (
+                crate::app::player_clone::propose_player_clone_spawn
+                    .in_set(ambition_platformer2d::engine_core::MechanicalEditSet::Propose),
+                crate::app::player_clone::spawn_requested_player_clone
+                    .in_set(ambition_platformer2d::engine_core::MechanicalEditSet::Publish),
+            ),
         )
         .add_systems(
             sim,

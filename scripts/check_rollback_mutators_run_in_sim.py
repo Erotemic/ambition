@@ -308,6 +308,38 @@ ACKNOWLEDGED: dict[str, str] = {
 
 
 WAIVERS: dict[str, str] = {
+    # -- added 2026-09-18, and THIS GUARD IS WHY THE WAIVER EXISTS -------------
+    # ⭐ It was not found by review. Moving `spawn_requested_player_clone` out of
+    # the simulation schedule to fix `Q136` put a `SimIdCounter` increment in
+    # `PreUpdate`, and this guard reported it as a NEW offender on the first run
+    # after the move — before the change was committed. That is the whole point
+    # of a population instrument: the repair's own side effect arrived as a
+    # finding rather than as a surprise.
+    "spawn_requested_player_clone": (
+        "\u2b50 IT IS THE SAME ADMISSION ARGUMENT AS THE FOUR OTHER MECHANICAL-EDIT "
+        "PUBLISHERS, AND IT IS THE ARGUMENT RATHER THAN THE SCHEDULE. The write is "
+        "`parent_counter.next()` on the PRIMARY's `SimIdCounter`, minting the "
+        "clone's descendant identity. It runs in `MechanicalEditSet::Publish`, "
+        "downstream of `decide_mechanical_edit_admission` in `Admit`, so every "
+        "path that reaches it has established there is no ring holding a frame to "
+        "restore the counter from: `NoTimeline` has none, `LocallyRebasable` calls "
+        "`stop_session(world)` FIRST and the counter is published into the gap "
+        "before `maintain_local_session` rebuilds frame zero from it, and "
+        "`ForeignTimeline`/unhealthy REFUSE with the proposal left pending.\n"
+        "    \u26d4 MEASURED, NOT ASSUMED, AND THE FIRST FIXTURE GOT IT WRONG. "
+        "`a_dev_clone_survives_a_rewind` printed `boundary=ForeignTimeline "
+        "admission=Refuse` on every tick until the fixture re-owned its session: "
+        "`with_sync_test_rollback_settings` installs through "
+        "`start_sync_test_session`, which stamps `SyncTestOwner::Caller`, and "
+        "`locally_rebasable_timeline` answers only for `LocalMaintainer`. With the "
+        "shipped ownership mode the same arm reads "
+        "`boundary=LocallyRebasable admission=Publish` and the clone survives.\n"
+        "    \u26a0 THE RESIDUAL IS THE SAME ONE `publish_player_stats_edits` "
+        "CARRIES: this depends on the decider staying registered by "
+        "`install_session_bridge`, the call that also installs the GGRS session, "
+        "so a composition cannot hold a timeline without holding the decider. If "
+        "that registration ever moves, this entry is void."
+    ),
     # -- added 2026-09-18, the SIXTH SPELLING's two findings -------------------
     # Both were invisible while this file tested a tuple of BARE schedule labels
     # (see `REWINDING_OR_NOT_A_TIMELINE`). Neither is a new system; both have

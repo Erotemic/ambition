@@ -462,3 +462,62 @@ def test_an_unresolvable_argument_is_reported_not_dropped():
     unresolved = guard.unresolved_message_writes()
     assert unresolved, "no unresolved `.write_message(..)` arguments found — the pattern moved"
     assert all(isinstance(f, str) and isinstance(a, str) for f, a in unresolved)
+
+
+# ── the shape of a reading ──────────────────────────────────────────────────
+
+
+def test_every_reading_opens_with_a_verdict_and_benign_names_its_escape():
+    assert not guard.misshapen_readings()
+
+
+def test_a_benign_reading_without_an_escape_is_refused(monkeypatch):
+    """⛔⛤ THIS CAUGHT A REAL ONE ON ITS FIRST RUN.
+
+    `ResetToCheckpoint` read *"BENIGN, BY AN ORDERING THE ROLLBACK LAYER
+    ENFORCES ON PURPOSE"* — which IS the outside-the-timeline escape and did not
+    say so in words a reader could match against the other rows. The escape is
+    now named.
+    """
+    monkeypatch.setitem(
+        guard.MESSAGE_ADJUDICATED, "Synthetic", "✅ BENIGN, it seemed fine (read 2026-09-18)"
+    )
+    problems = guard.misshapen_readings()
+    assert any("Synthetic" in p and "escape" in p for p in problems), problems
+
+
+def test_a_reading_with_no_verdict_is_refused(monkeypatch):
+    monkeypatch.setitem(
+        guard.MESSAGE_ADJUDICATED, "Synthetic", "this one is probably OK (read 2026-09-18)"
+    )
+    problems = guard.misshapen_readings()
+    assert any("Synthetic" in p and "open with" in p for p in problems), problems
+
+
+def test_a_LIVE_reading_needs_no_escape(monkeypatch):
+    """⭐ THE CONTROL. A live defect has no escape by definition, so requiring
+    one of every reading would force the word into rows where it is a lie."""
+    monkeypatch.setitem(
+        guard.MESSAGE_ADJUDICATED, "Synthetic", "⛔ LIVE, and nothing saves it (read 2026-09-18)"
+    )
+    assert not [p for p in guard.misshapen_readings() if "Synthetic" in p]
+
+
+def test_the_escape_vocabulary_covers_an_answer_that_does_not_exist_yet():
+    """⚠ `REGISTERED CONSUMPTION` has no instance in the tree.
+
+    A check whose vocabulary only covers what already exists cannot accept a
+    correct new answer — and that escape is the addition Q136's option 2 needs.
+    """
+    assert "REGISTERED CONSUMPTION" in guard.BENIGN_ESCAPES
+    used = {
+        escape
+        for table in (guard.ADJUDICATED, guard.MESSAGE_ADJUDICATED)
+        for reading in table.values()
+        for escape in guard.BENIGN_ESCAPES
+        if escape in reading.upper()
+    }
+    assert "REGISTERED CONSUMPTION" not in used, (
+        "something now uses the registered-consumption escape — good news, and this arm's "
+        "premise is gone. Point it at whichever escape is still unused, or delete it."
+    )

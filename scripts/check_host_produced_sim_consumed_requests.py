@@ -364,7 +364,7 @@ ADJUDICATED: dict[str, str] = {
         "the set of types it holds: most of those systems merely POSSESS "
         "`SystemMenuParams`. See `PRODUCER_BY_INSPECTION` for the four-hop road "
         "no textual scan reaches. "
-        
+
         "New Game can be pressed successfully at the UI and vanish before the "
         "simulation sees it (read 2026-09-18)"
     ),
@@ -631,7 +631,8 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "(read 2026-09-18, witnessed 2026-09-18, mechanism read 2026-09-18)"
     ),
     "ResetToCheckpoint": (
-        "✅ BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES ON PURPOSE. "
+        "✅ BENIGN, OUTSIDE THE TIMELINE — BY AN ORDERING THE ROLLBACK LAYER "
+        "ENFORCES ON PURPOSE. "
         "`maintain_local_session` returns without starting a session while "
         "`durable_hydration_is_pending` "
         "(`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:334-340`), "
@@ -644,13 +645,27 @@ MESSAGE_ADJUDICATED: dict[str, str] = {
         "(read 2026-09-18)"
     ),
     "SetFlagRequested": (
-        "✅ BENIGN, BECAUSE IT IS RE-DERIVED RATHER THAN LATCHED. "
-        "`emit_intro_flag_chains` "
+        "⛔ LIVE, AND IT WAS FILED BENIGN ON TWO WRONG CLAIMS UNTIL A "
+        "2026-09-18 REVIEW. `emit_intro_flag_chains` "
         "(`game/ambition_content/src/intro/route_state.rs:29-41`) recomputes "
-        "`data.flag(trigger) && !data.flag(target)` from the save EVERY host "
-        "frame, so a message a rewind clears is written again on the next one "
-        "and keeps being written until the target flag is set. The condition is "
-        "the memory (read 2026-09-18)"
+        "`data.flag(trigger) && !data.flag(target)` from the save — but (a) NOT "
+        "every host frame: it is registered with "
+        "`run_if(resource_exists_and_changed::<AmbitionGameSave>)` "
+        "(`game/ambition_content/src/intro/plugin.rs:111-117`), and (b) even "
+        "every frame would not save it, because the producer is in `Update` and "
+        "re-deriving on a LATER host frame does not re-run the HISTORICAL tick "
+        "being resimulated. ⇒ The replay of that tick has no message, and "
+        "`apply_flag_effects` (`features/ecs/effect_bus.rs:16-29`) writes "
+        "`AmbitionGameSave` and `QuestRegistry`, BOTH "
+        "`rollback_resource_clone_checksum`-registered "
+        "(`ambition_persistence/src/rollback_registration.rs:31`, `:37`) — so "
+        "the replayed frame diverges on a checksummed value and the flag is set "
+        "at a different tick. ⭐ AND IT IS THE EASIEST OF THE LIVE ROWS TO "
+        "REPAIR: unlike a menu press this is a PURE DERIVED CONDITION over "
+        "rollback state, so moving the derivation into the rewinding schedule "
+        "needs no synchronised input channel — which is the "
+        "RE-DERIVED IN THE SIM escape, and would be its first instance "
+        "(read 2026-09-18, reclassified 2026-09-18)"
     ),
 }
 
@@ -695,6 +710,69 @@ def population_sizes(repo: Path = REPO) -> dict[str, int]:
         "systems with a schedule": len(schedules_by_system(repo)),
         "message types written": len(_message_sides(repo)),
     }
+
+
+#: The three verdicts a reading may open with. A reading is a reading, so the
+#: vocabulary is small on purpose — this is not a taxonomy, it is a check that
+#: the sentence answers the question it is filed under.
+VERDICTS = ("⛔ LIVE", "⛔ FILED ELSEWHERE", "✅ BENIGN")
+
+#: ⭐⭐ **A `✅ BENIGN` VERDICT MUST NAME WHICH ESCAPE IT TAKES**, because
+#: 2026-09-18's measurement turned "why is this one safe?" from prose into a
+#: closed list. The loss is the CONSUMPTION record, not the intent: a
+#: `MessageReader`'s cursor is a `Local` no rewind restores, so a host→sim
+#: handoff is safe only when *"this has already been consumed"* is rollback
+#: state or re-derived every frame. There are exactly three ways out:
+#:
+#:   RE-DERIVED IN THE SIM the condition is recomputed INSIDE the rewinding
+#:                         schedule, so the replay re-produces it itself
+#:   OUTSIDE THE TIMELINE  the ordering never enters the rewinding schedule, so
+#:                         no consumption is ever replayed (`ResetToCheckpoint`)
+#:   REGISTERED CONSUMPTION the "already consumed" fact is itself rollback state,
+#:                         so a rewind un-consumes it
+#:
+#: ⛔⛤ **THE FIRST ONE SAID "EVERY HOST FRAME" AND THAT IS NOT AN ESCAPE — A
+#: 2026-09-18 REVIEW CAUGHT IT AND `SetFlagRequested` MOVED TO LIVE.** A host
+#: system re-deriving the condition on a LATER frame does not re-run the
+#: HISTORICAL tick being resimulated: the replay of that tick still has no
+#: message, and `apply_flag_effects`' writes land in `AmbitionGameSave` and
+#: `QuestRegistry`, both `rollback_resource_clone_checksum`-registered
+#: (`ambition_persistence/src/rollback_registration.rs:31`, `:37`). ⇒ The replayed
+#: frame diverges on a CHECKSUMMED value, and the later re-emission sets the flag
+#: at a different tick. Re-derivation only escapes when it happens where the
+#: replay can see it.
+#:
+#: ⚠ The third escape has no instance in the tree today, and now neither does
+#: the first. They are listed because a check whose vocabulary only covers what
+#: already exists cannot accept a correct new answer — and the third is
+#: precisely the addition `Q136`'s option 2 needs.
+BENIGN_ESCAPES = (
+    "RE-DERIVED IN THE SIM",
+    "OUTSIDE THE TIMELINE",
+    "REGISTERED CONSUMPTION",
+)
+
+
+def misshapen_readings() -> list[str]:
+    """Readings that do not open with a verdict, or claim benign without an escape."""
+    problems: list[str] = []
+    for table, label in ((ADJUDICATED, "resource"), (MESSAGE_ADJUDICATED, "message")):
+        for name, reading in table.items():
+            if not reading.startswith(VERDICTS):
+                problems.append(
+                    f"`{name}` [{label}] does not open with one of {VERDICTS}. "
+                    "A reading has to say which of the three it is before it explains why."
+                )
+                continue
+            if reading.startswith("✅ BENIGN") and not any(
+                escape in reading.upper() for escape in BENIGN_ESCAPES
+            ):
+                problems.append(
+                    f"`{name}` [{label}] is filed BENIGN without naming its escape. "
+                    f"One of {BENIGN_ESCAPES} must appear — the loss is the CONSUMPTION "
+                    "record, and 'the intent still arrives' is not an escape from it."
+                )
+    return problems
 
 
 def main() -> int:
@@ -774,6 +852,8 @@ def main() -> int:
             + "\n  ⇒ Either it was repaired — delete the entry in the same change — or this "
             "script can no longer see it, which is the more likely and the worse of the two."
         )
+
+    failures.extend(misshapen_readings())
 
     if failures:
         print("⛔ FAILED\n")

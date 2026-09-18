@@ -1310,10 +1310,11 @@ not: each answers a different question, and the Q136 count is the second one's.
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
           * 4 of 90 written MESSAGE types — `AmbientGravityRequest` and
             `PlayerHealRequested` (both Q136, both live),
-            `ResetToCheckpoint` and `SetFlagRequested` (both benign, and each
-            by a DIFFERENT general escape — see the readings below).
+            `SetFlagRequested` (LIVE since a 2026-09-18 review; I had filed
+            it benign) and `ResetToCheckpoint` (benign, by the one general
+            escape the tree actually contains — see the readings below).
 
-        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
+        ⛔⛤ So this ruling is responsible for FIVE live intents, not two, and
         the second channel was invisible until 2026-09-18 because the script
         required the `Resource` derive. The filter was right and stays: without
         it the first version reported 67 rows, because `App`, `Commands`,
@@ -1389,9 +1390,11 @@ the arithmetic). ⇒ Restated as a requirement:
 Against that test:
 
 * **Option 1 passes by construction**, and this is the strongest argument for
-  it: the input is re-fed on every resimulated frame, so consumption is
-  re-derived rather than remembered. It is the same property that makes the
-  shipped input road correct.
+  it: the input is re-fed on every resimulated frame BY THE ROLLBACK LAYER
+  ITSELF, so consumption is re-derived where the replay can see it. It is the
+  same property that makes the shipped input road correct — and the distinction
+  that `SetFlagRequested` failed on, since a host system re-deriving in `Update`
+  has no way to reach the frame being resimulated.
 * **Option 2 passes only with an addition its description does not have.** A
   host-local buffer that is *"never in a snapshot or checksum"* is precisely a
   `Local` cursor with more steps: the drain marks it consumed, the rewind does
@@ -1403,13 +1406,20 @@ Against that test:
 * **Option 3 sidesteps the test** by leaving the timeline, which is why it stays
   the honest answer for New Game specifically.
 
-⇒ **THE TWO BENIGN ESCAPES ALREADY ON THIS PAGE ARE THE SAME RULE, WHICH IS THE
-CHECK ON IT.** `SetFlagRequested` is safe because `emit_intro_flag_chains`
-recomputes its condition from the save EVERY host frame — consumption
-re-derived. `ResetToCheckpoint` is safe because its ordering lives outside the
-timeline — consumption never replayed. Neither was chosen with this rule in
-mind, and both satisfy it; a rule that only the options satisfy would be a rule
-fitted to the options.
+⇒ **AND THE RULE IMMEDIATELY EARNED ITS KEEP BY FAILING ONE OF MY OWN BENIGN
+VERDICTS.** I first wrote that this page carried TWO general escapes, the second
+being *"`SetFlagRequested` is safe because its condition is re-derived every
+host frame."* Applied honestly, the test refuses that: a host system
+re-deriving on a later frame is outside the tick being resimulated, so the
+consumption record for THAT tick is neither rollback state nor re-derived. A
+2026-09-18 review reached the same conclusion independently, and the row is now
+LIVE. ⇒ What survives is one escape — `ResetToCheckpoint`'s ordering, outside
+the timeline — plus the corrected form of the one that failed: **re-derive
+inside the rewinding schedule**, which nothing does yet.
+
+⚠ **A rule that only confirms is not worth stating**, and this one struck down a
+verdict I had published twice and generalised from. That is the argument for
+having written it down as a test rather than as an observation.
 `install_resource_clone_checksum` installs the snapshot/restore and the checksum
 projection INDEPENDENTLY, so narrowing what peers compare leaves the swallow
 exactly as it is. This has now been the wrong answer to three separate questions
@@ -1700,22 +1710,50 @@ READING RATHER THAN A COUNT.**
   rollback-registered, and the same file records at `:321-326` that it *"is not
   a latch that always rises"*, so reasoning from the latch would have been
   reasoning from the wrong fact.
-- ✅ **`SetFlagRequested` — BENIGN, BECAUSE IT IS RE-DERIVED RATHER THAN
-  LATCHED.** `emit_intro_flag_chains`
+- ⛔ **`SetFlagRequested` — LIVE, AND I FILED IT BENIGN ON TWO WRONG CLAIMS.**
+  A 2026-09-18 review caught it, and the correction is the most instructive
+  thing on this page. I wrote that `emit_intro_flag_chains`
   (`game/ambition_content/src/intro/route_state.rs:29-41`) recomputes
-  `data.flag(trigger) && !data.flag(target)` from the save EVERY host frame, so a
-  message a rewind clears is written again on the next one, and keeps being
-  written until the target flag is actually set. The condition is the memory.
+  `data.flag(trigger) && !data.flag(target)` from the save *"EVERY host frame"*,
+  so a cleared message is simply rewritten. Both halves fail:
 
-⭐⛤ **AND THE TWO BENIGN ROWS ARE THE MOST USEFUL THING IN THIS SECTION,
-BECAUSE THEY ARE TWO GENERAL ESCAPES THIS RULING CAN CHOOSE RATHER THAN TWO
-ACCIDENTS.** A host-raised intent survives a rewind if either its CONDITION IS
-RE-DERIVED every frame (`SetFlagRequested`) or the ORDERING KEEPS IT OUTSIDE THE
-TIMELINE entirely (`ResetToCheckpoint`). Beside the two roads in the section
-below — ride the synchronised control frame, or publish as a mechanical edit —
-that gives this question four answers, of which two cost nothing and are already
-in the tree. ⇒ A latched edge is what makes an intent losable; the fix is not
-always a channel.
+  1. **It is not every frame.** It is registered
+     `run_if(resource_exists_and_changed::<AmbitionGameSave>)`
+     (`game/ambition_content/src/intro/plugin.rs:111-117`). I described a
+     registration I had not read.
+  2. **⛔⛤ AND EVERY FRAME WOULD NOT HAVE SAVED IT**, which is the part that
+     matters, because it is the claim I generalised. The producer is in
+     `Update`. Re-deriving on a LATER host frame does not re-run the HISTORICAL
+     tick being resimulated: the replay of that tick still has no message, and
+     `apply_flag_effects` (`features/ecs/effect_bus.rs:16-29`) writes
+     `AmbitionGameSave` AND `QuestRegistry`, both
+     `rollback_resource_clone_checksum`-registered
+     (`crates/ambition_persistence/src/rollback_registration.rs:31`, `:37`).
+     ⇒ The replayed frame diverges on a CHECKSUMMED value, and the re-emission
+     lands the flag on a different tick.
+
+  ⭐ **It is also the cheapest of the live rows to repair**, and that is a real
+  finding rather than consolation: unlike a menu press this is a PURE DERIVED
+  CONDITION over rollback state, so moving the derivation inside the rewinding
+  schedule needs no synchronised input channel at all.
+
+⭐⛤ **SO THERE IS ONE GENERAL ESCAPE IN THE TREE, NOT TWO — AND LOSING ONE
+SHARPENED THE RULE INSTEAD OF WEAKENING IT.** The surviving escape is
+`ResetToCheckpoint`'s: **the ordering never enters the timeline.** The one I
+lost was *"the condition is re-derived"*, and its failure says exactly what the
+real requirement is:
+
+> Re-derivation escapes only where the REPLAY can see it. A host system that
+> recomputes the condition is outside the frame being resimulated, so it cannot
+> repair that frame — it can only produce a different one later.
+
+⇒ Which folds into the consumption test above as a third, currently unused,
+escape: **re-derive INSIDE the rewinding schedule.** `SetFlagRequested` would be
+its first instance. Beside the two roads in the section below — ride the
+synchronised control frame, or publish as a mechanical edit — this question has
+four answers, of which exactly one costs nothing and is already in the tree.
+⇒ A latched edge is what makes an intent losable, and so is a latch re-armed on
+the wrong side of the boundary.
 
 ### 2026-09-18 — this needs TWO roads, not one abstraction, and registration picks
 

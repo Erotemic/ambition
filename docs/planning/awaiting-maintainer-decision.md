@@ -1559,9 +1559,46 @@ registration adds `clear_message_channel::<T>` to **`LoadWorld`**, in
 `:1312-1316`) — so every rewind EMPTIES the channel. For a message raised inside
 the simulation that is precisely right: the resimulation re-raises it, and
 leaving the old copy would double it. For a message raised by the HOST there is
-no resimulation to re-raise it, so the clear is the loss. ⇒ **The same
-declaration that makes the 78 sim-side channels correct is the deletion
+no resimulation to re-raise it, so the clear would be the loss. ⇒ **The same
+declaration that makes the 78 sim-side channels correct would be the deletion
 mechanism for the 4 host-side ones.**
+
+⛔⛤ **THAT PARAGRAPH SAID "IS" UNTIL A POISON SAID OTHERWISE, AND THE
+CORRECTION IS THE USEFUL PART OF IT.** MEASURED 2026-09-18: removing
+`clear_message_on_rollback::<PlayerHealRequested>` changed its witness's
+outcome **not at all** — the heal still rose for about two frames and was still
+revoked. The poison was verified applied rather than assumed, by making it
+announce itself; it printed four times in the test binary, because *"the
+registration is gone"* and *"the build did not pick it up"* produce the same
+green. ⇒ The clear is at most PART of the mechanism, and two other candidates
+survive:
+
+1. **The reader's cursor.** `MessageReader<'w, 's, M>` is literally
+   `{ reader: Local<'s, MessageCursor<M>>, messages: Res<'w, Messages<M>> }`
+   (`bevy_ecs` 0.19.1, `message/message_reader.rs:34-38`). A `Local` is
+   per-system host storage that no rewind restores, so after the rollback the
+   cursor still points PAST the message it consumed on the speculative frame —
+   and the resimulation finds nothing to read even when the channel still holds
+   it. ⛤ Chasing this found a population gap in a shipped guard:
+   `check_sim_schedule_memory_is_adjudicated.py` matches the literal token
+   `Local<` and therefore sees **13** of **112** memory-carrying sim systems; 99
+   carry a `MessageReader` cursor (106 cursors), overlap 1. The census now says
+   that number out loud every run rather than letting a clean `13/13` imply 13
+   is the population.
+2. **`bevy`'s own double-buffer expiry**, which drops a message after two frames
+   with no rollback involved at all — and the measured transient lasted about
+   two frames, which is exactly the coincidence that makes this candidate
+   impossible to dismiss from the end state alone.
+
+⚠ **WHY THIS MATTERS TO THE RULING AND NOT ONLY TO THE PROSE.** Each candidate
+implies a different ingress road. If the clear is the loss, a per-message
+opt-out fixes it. If the cursor is, no channel-level change can — the fix has to
+be state the rollback restores, or a consumer that re-derives. If it is expiry,
+the intent merely needs to survive longer than the rollback window, which is a
+latency question rather than an architecture one. ⇒ **Separating the three is a
+prerequisite for choosing this question's answer, not a footnote to it.** The
+experiment is cheap: hold the channel (poison above), then additionally seed the
+cursor or step inside two frames, and see which one restores the heal.
 
 ⇒ **SO THE ANSWER TO "HOW MANY RESOURCES IS THIS RULING RESPONSIBLE FOR" IS
 STILL TWO, AND IT WAS THE WRONG QUESTION.** Two resources plus four messages,

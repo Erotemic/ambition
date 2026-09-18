@@ -276,11 +276,6 @@ def write_sites(ty: str, files: set[str] | list[str]) -> dict[str, list[str]]:
     disagree about what counts as code.
     """
     sites: dict[str, list[str]] = {}
-    pattern = re.compile(
-        rf"(?:ResMut<\s*(?:'[a-z_][a-z0-9_]*\s*,\s*)?(?:[A-Za-z0-9_]+::)*{re.escape(ty)}"
-        rf"\s*,?\s*>)"
-        rf"|(?:(?:get_)?resource_mut::<\s*(?:[A-Za-z0-9_]+::)*{re.escape(ty)}\s*>)"
-    )
     for f in sorted(files):
         src = strip_test_modules(
             strip_comments(pathlib.Path(f).read_text(encoding="utf-8", errors="replace"))
@@ -291,12 +286,24 @@ def write_sites(ty: str, files: set[str] | list[str]) -> dict[str, list[str]]:
             for m in _STRUCT_HEADER.finditer(src)
         ]
         heads.sort()
-        found: list[str] = []
-        for m in pattern.finditer(src):
-            before = [name for start, name in heads if start < m.start()]
-            found.append(before[-1] if before else "<file scope>")
+        found: list[tuple[int, str]] = []
+        # ⛔⛤ **THE PATTERNS ARE [`RESMUT`] AND [`WORLD_RESOURCE_MUT`], NOT A THIRD
+        # REGEX — AND THE FIRST VERSION OF THIS FUNCTION DID WRITE A THIRD.** It
+        # spelled the turbofish arm without the optional trailing comma, so
+        # `world.get_resource_mut::<\n    ..::FeatureEcsWorldOverlay,\n>()` in
+        # `world/gated_lock_walls.rs` was a writer to [`writers`] and invisible
+        # here: the per-file census said 10 files and the per-system view showed
+        # 9. ⇒ Two instruments over one population must SHARE the pattern, not
+        # agree by inspection; filtering the shared matches by short name cannot
+        # drift.
+        for pattern in (RESMUT, WORLD_RESOURCE_MUT):
+            for m in pattern.finditer(src):
+                if m.group(1).split("::")[-1] != ty:
+                    continue
+                before = [name for start, name in heads if start < m.start()]
+                found.append((m.start(), before[-1] if before else "<file scope>"))
         if found:
-            sites[f] = found
+            sites[f] = [name for _, name in sorted(found)]
     return sites
 
 

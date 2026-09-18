@@ -531,3 +531,51 @@ def test_write_sites_and_writers_agree_about_what_counts_as_code(tmp_path):
     )
     assert mod.write_sites("Shared", [str(f)])[str(f)] == ["live"]
     assert mod.writers([str(f)])["Shared"] == {str(f)}
+
+
+def test_write_sites_sees_every_spelling_writers_does(tmp_path):
+    """⛔⛤ THE ARM THAT WOULD HAVE CAUGHT A REAL MISS, ADDED AFTER IT DID NOT.
+
+    `write_sites` first spelled its own turbofish regex and left out the optional
+    trailing comma, so this shape — real, in
+    `world/gated_lock_walls.rs` — was a writer to `writers` and invisible to
+    `write_sites`. The per-file census said 10 files for
+    `FeatureEcsWorldOverlay`; the per-system view showed 9, and NOTHING
+    complained. ⇒ Two instruments over one population must SHARE the pattern.
+    """
+    f = tmp_path / "spellings.rs"
+    f.write_text(
+        "fn a(mut r: ResMut<Shared>) {}\n"
+        "fn b(mut r: ResMut<'w, Shared>) {}\n"
+        "fn c(mut r: ResMut<some::path::Shared>) {}\n"
+        "fn d(world: &mut World) {\n"
+        "    let _ = world.resource_mut::<Shared>();\n"
+        "}\n"
+        "fn e(world: &mut World) {\n"
+        "    let _ = world.get_resource_mut::<\n"
+        "        some::long::path::Shared,\n"
+        "    >();\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    assert mod.writers([str(f)])["Shared"] == {str(f)}
+    assert mod.write_sites("Shared", [str(f)])[str(f)] == ["a", "b", "c", "d", "e"]
+
+
+def test_the_two_instruments_agree_across_the_whole_tree():
+    """⭐ NOT A UNIT TEST, AND DELIBERATELY: the hand-built corpus above cannot
+    enumerate the spellings this repository actually uses. For every multi-writer
+    type, the FILES `write_sites` finds must be exactly the files `writers`
+    found — a disagreement means one of the two is reading a different
+    population, and a per-system verdict written against the smaller one names
+    the wrong owner."""
+    files = mod.production_files()
+    found = mod.writers(files)
+    multi = {t: fs for t, fs in found.items() if len(fs) > 1}
+    assert len(multi) > 50, "the corpus collapsed; this arm would pass over nothing"
+    disagree = {
+        t: (sorted(fs), sorted(mod.write_sites(t, fs)))
+        for t, fs in multi.items()
+        if set(mod.write_sites(t, fs)) != set(fs)
+    }
+    assert not disagree, disagree

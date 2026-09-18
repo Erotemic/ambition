@@ -286,6 +286,32 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "FeatureEcsWorldOverlay": (
+        "CORRECT — ONE REBUILDER, EIGHT CONTRIBUTORS AND A FIELD SPLIT THE "
+        "COMPILER ENFORCES. `rebuild_feature_ecs_world_overlay` "
+        "(`actor_monolith/src/world/overlay.rs`) calls "
+        "`clear_engine_contributions` in `FeatureWorldOverlaySet`, and every "
+        "contributor carries an explicit `.after(FeatureWorldOverlaySet)` edge — "
+        "verified per registration 2026-09-18: `contribute_encounter_lock_walls` "
+        "and `sync_authored_gated_lock_walls` (`runtime/src/world_gating.rs`), "
+        "`gate_gnu_ton_arena_ladder`, `project_particles_to_movement_world`, "
+        "`project_settled_sand`, `contribute_broken_bricks_to_overlay`, "
+        "`contribute_discovered_hidden_blocks_to_overlay`, "
+        "`contribute_broken_monitors_to_overlay`. ⇒ Without that edge a "
+        "contribution is wiped by the clear depending on set order, so the edge "
+        "IS the authority argument, and all eight state it.\n"
+        "    ⭐ THE NINTH WRITER IS THE INTERESTING ONE AND IT NEEDS NO SUCH "
+        "EDGE. `bridge_portal_carves` owns `portal_carves`, the ONE field "
+        "`clear_engine_contributions` deliberately does not clear — its body says "
+        "*\"NOT OURS ... clearing it here would race that and blink the "
+        "aperture depending on system order\"*. Two owners over DISJOINT field "
+        "sets, both single-authority.\n"
+        "    ⭐⭐ AND THE SPLIT IS MECHANICAL, WHICH IS WHY THIS IS A VERDICT AND "
+        "NOT A HOPE: `clear_engine_contributions` destructures `Self` with NO "
+        "`..`, so a seventh field fails to compile (E0027) and lands its author "
+        "at the question *\"engine-owned or contributor-owned?\"*. That is the "
+        "shape every other many-writer resource here should be measured against."
+    ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
         "THE TYPE. Nine files write it and that is the contract: "

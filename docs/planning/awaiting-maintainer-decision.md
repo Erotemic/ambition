@@ -1554,12 +1554,47 @@ mechanism for the 4 host-side ones.**
 ⇒ **SO THE ANSWER TO "HOW MANY RESOURCES IS THIS RULING RESPONSIBLE FOR" IS
 STILL TWO, AND IT WAS THE WRONG QUESTION.** Two resources plus four messages,
 and the resource count was only ever complete for the channel the instrument
-looks at. ⚠ **What is NOT yet measured** is whether each of the four is a live
-defect or benign for a reason of its own — the resource rows each needed a
-reading, and these have had none. `ResetToCheckpoint`'s writer is
-`complete_durable_restore`, which plausibly runs while no session is live at
-all, in which case there is no rewind to lose it to; that is the shape of
-argument each row needs and none of them has yet.
+looks at.
+
+⭐⭐ **ALL FOUR READ, AND ONLY TWO ARE LIVE — WHICH IS WHY EACH ROW NEEDED A
+READING RATHER THAN A COUNT.**
+
+- ⛔ **`AmbientGravityRequest` — LIVE, and the same mechanism as the clone.**
+  `cycle_dev_gravity` (`game/ambition_app/src/menu/kaleidoscope_app.rs:2054`)
+  reads `keys.just_pressed(KeyCode::Backslash)` and writes once. An unregistered
+  host EDGE spent in the sim: the rewind clears the channel and the physical
+  press is several host frames gone. A developer hotkey, so the stakes are the
+  clone's rather than a player's.
+- ⛔ **`PlayerHealRequested` — LIVE, and player-visible.** Raised by
+  `kaleidoscope_menu_action_activated`, which this page already names as one of
+  the two real `NewGameResetRequested` producers. A heal chosen in the menu can
+  be accepted at the UI and vanish before the simulation applies it.
+- ✅ **`ResetToCheckpoint` — BENIGN, BY AN ORDERING THE ROLLBACK LAYER ENFORCES
+  ON PURPOSE.** `maintain_local_session` returns without starting a session
+  while `durable_hydration_is_pending`
+  (`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:334-340`), so
+  `complete_durable_restore` has already run and its message has already been
+  consumed before any timeline exists. There is no rewind to lose it to. ⚠ The
+  argument is the ORDERING, not the latch: `SaveRestored` is
+  rollback-registered, and the same file records at `:321-326` that it *"is not
+  a latch that always rises"*, so reasoning from the latch would have been
+  reasoning from the wrong fact.
+- ✅ **`SetFlagRequested` — BENIGN, BECAUSE IT IS RE-DERIVED RATHER THAN
+  LATCHED.** `emit_intro_flag_chains`
+  (`game/ambition_content/src/intro/route_state.rs:29-41`) recomputes
+  `data.flag(trigger) && !data.flag(target)` from the save EVERY host frame, so a
+  message a rewind clears is written again on the next one, and keeps being
+  written until the target flag is actually set. The condition is the memory.
+
+⭐⛤ **AND THE TWO BENIGN ROWS ARE THE MOST USEFUL THING IN THIS SECTION,
+BECAUSE THEY ARE TWO GENERAL ESCAPES THIS RULING CAN CHOOSE RATHER THAN TWO
+ACCIDENTS.** A host-raised intent survives a rewind if either its CONDITION IS
+RE-DERIVED every frame (`SetFlagRequested`) or the ORDERING KEEPS IT OUTSIDE THE
+TIMELINE entirely (`ResetToCheckpoint`). Beside the two roads in the section
+below — ride the synchronised control frame, or publish as a mechanical edit —
+that gives this question four answers, of which two cost nothing and are already
+in the tree. ⇒ A latched edge is what makes an intent losable; the fix is not
+always a channel.
 
 ### 2026-09-18 — Q136 needs TWO roads, not one abstraction, and registration picks
 

@@ -11,6 +11,12 @@
 //!
 //! TODO(compat-remove): migrate remaining `crate::ControlFrame` callers to
 //! `ambition_platformer2d_core::ControlFrame`, then remove the re-export.
+//! Down to 2 real callers (2026-09-18): `ambition_touch_input::bevy_plugin`,
+//! which would need a new direct manifest edge onto a crate this crate's own
+//! doc calls "app-thinness" (ADR 0019) — possibly not a compat leftover at
+//! all — and `ambition_platformer2d::lib::world`'s public-SDK facade re-export,
+//! which reads as a deliberate stable surface rather than cruft. Both need a
+//! maintainer or architecture call, not a mechanical rename.
 
 use bevy::prelude::*;
 #[cfg(feature = "input")]

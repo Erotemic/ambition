@@ -1286,57 +1286,13 @@ fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
 /// consumption, and once as a consumption in the wrong place.
 #[test]
 fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
-    use ambition_characters::control::SlotInteractionState;
-    use ambition_platformer2d_core::BodyKinematics;
-    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    use bevy::prelude::*;
-
-    let zone_center = ae::Vec2::new(100.0, 100.0);
-    let mut room_a = spec_with(RoomMetadata::default(), "a");
-    room_a.loading_zones = vec![LoadingZone {
-        id: "door_a".into(),
-        name: "east door".into(),
-        activation: LoadingZoneActivation::Door,
-        aabb: ae::Aabb::new(zone_center, ae::Vec2::new(24.0, 24.0)),
-    }];
-    let mut room_b = spec_with(RoomMetadata::default(), "b");
-    room_b.loading_zones = vec![LoadingZone {
-        id: "entry_b".into(),
-        name: "west".into(),
-        activation: LoadingZoneActivation::Door,
-        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
-    }];
-    let set = RoomSet::from_parts(
-        "a",
-        vec![room_a, room_b],
-        vec![RoomLink {
-            from_room: "a".into(),
-            from_zone: "door_a".into(),
-            to_room: "b".into(),
-            to_zone: "entry_b".into(),
-            bidirectional: false,
-        }],
-    );
-
-    let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        set,
-    );
-    app.insert_resource(
-        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
-    );
-    app.insert_resource(GatePortalRegistry::default());
-    app.init_resource::<GatePortalPhases>();
-    app.init_resource::<SlotInteractionState>();
-    app.init_resource::<ambition_time::WorldTime>();
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    app.add_systems(Update, detect_room_transition_system);
 
     // ⭐ THE INCUMBENT. Another lifecycle operation already owns the slot — the
     // shape a checkpoint resume or a death respawn leaves behind, both of which
-    // record from an EARLIER phase of the same tick.
+    // record from an EARLIER phase of the same tick. It names a DIFFERENT body
+    // and arrival, so `record`'s idempotence cannot be mistaken for a refusal
+    // that was honoured.
     let incumbent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
         crate::session::lifecycle_commit::RoomTransitionIntent {
             subject: SimId::placement("somebody_else"),
@@ -1346,51 +1302,17 @@ fn a_door_refused_the_lifecycle_slot_keeps_the_press_it_could_not_spend() {
             zone_sfx: None,
         },
     );
-    let admitted = app
-        .world_mut()
-        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
-        .record(0, incumbent.clone());
-    assert!(
-        admitted.admitted(),
-        "the fixture failed to seat an incumbent, so the refusal below would not \
-         be a refusal and this arm would be the success case twice"
-    );
-
-    // A TAP: armed once, never re-pressed.
-    app.world_mut()
-        .resource_mut::<SlotInteractionState>()
-        .primary_mut()
-        .buffered_interact(true, 0.0, 0.2);
-
-    app.world_mut().spawn((
-        PlayerEntity,
-        PrimaryPlayer,
-        SimId::player_slot(0),
-        BodyKinematics {
-            pos: zone_center,
-            vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
-            facing: 1.0,
-        },
-    ));
+    let mut app = app_with_a_door(true, Some(incumbent.clone()));
     app.update();
 
-    let pending = app
-        .world()
-        .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
-        .peek()
-        .cloned()
-        .expect("the incumbent intent must still be in the slot");
     assert_eq!(
-        pending.kind, incumbent,
+        pending_intent(&app).as_ref(),
+        Some(&incumbent),
         "the door overwrote an intent the earliest-sticky slot had already \
          admitted, which is a lifecycle operation replaced by a later one"
     );
     assert!(
-        app.world()
-            .resource::<SlotInteractionState>()
-            .primary()
-            .buffered(),
+        still_buffered(&app),
         "the door spent the player's press on a crossing the slot REFUSED. A tap \
          is not refilled, so the press is gone and the crossing is never asked \
          again"
@@ -1569,60 +1491,5 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
         "the crossing was described and the press it spent is STILL BUFFERED. It \
          would go on being live for the rest of the buffer window, which is long \
          enough to describe a second crossing the player never asked for",
-    );
-}
-
-/// ⛔⛤ **A REFUSED CROSSING SPENDS NOTHING — THE COMPLEMENT OF THE ARM ABOVE,
-/// AND THE HALF THAT HAD NO WITNESS.**
-///
-/// `PendingLifecycleCommit::record` is `#[must_use]` because the slot is
-/// earliest-sticky: *"a refused intent must not have its consequences run"*.
-/// Clearing the interact buffer IS a consequence. `detect_room_transition_system`
-/// used to clear it BEFORE recording, so a tap that lost the slot to a checkpoint
-/// resume, a replay admission or a death respawn was spent on a crossing that
-/// never happened and was never asked for again.
-///
-/// ⚠ **THE HOLD IS WHY THIS WAS INVISIBLE, AND IT IS WHY THIS ARM TAPS.** Every
-/// authored door arm in this tree holds interact for thirty frames, so the
-/// producer refills the buffer on the next tick and the loss cannot be read. A
-/// single buffered press is the only shape that can see it.
-///
-/// ⭐ The incumbent is a `ReconstituteRoom`, deliberately NOT a `Transition`: an
-/// identical intent would also be kept by `record`'s idempotence, so a
-/// same-value incumbent could not tell "refused" from "re-recorded".
-///
-/// ⚠ It asserts BOTH halves, because either alone passes for the wrong reason: a
-/// system that recorded nothing and cleared nothing keeps the incumbent, and a
-/// system that never reached the door keeps the press.
-#[test]
-fn a_door_crossing_refused_the_lifecycle_slot_leaves_the_press_buffered() {
-    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
-
-    let incumbent = LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
-        target_room: "b".into(),
-    });
-
-    // ── THE CONTROL: the same incumbent, body nowhere near the door. It fixes
-    // what "unchanged" looks like when the crossing is never even described.
-    let mut control = app_with_a_door(false, Some(incumbent.clone()));
-    control.update();
-    assert_eq!(pending_intent(&control).as_ref(), Some(&incumbent));
-    assert!(still_buffered(&control));
-
-    // ── THE SUBJECT: the body stands in the door, and the slot is taken.
-    let mut subject = app_with_a_door(true, Some(incumbent.clone()));
-    subject.update();
-    assert_eq!(
-        pending_intent(&subject).as_ref(),
-        Some(&incumbent),
-        "the door crossing displaced an incumbent lifecycle intent. The slot is \
-         earliest-sticky: the operation already waiting there is the one that \
-         gets to happen",
-    );
-    assert!(
-        still_buffered(&subject),
-        "the crossing was REFUSED the slot and the press was spent anyway. The \
-         transition never happens and the zone will not ask again, so a tap at \
-         the wrong tick is a door that silently does nothing",
     );
 }

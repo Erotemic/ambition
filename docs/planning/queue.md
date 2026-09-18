@@ -3108,6 +3108,39 @@ message before starting a step that takes hours.
 
 **Owner:** test runner / app integration lane.
 
+⛔⛤ **OPEN, AND IT IS A RED NOBODY OWNED UNTIL NOW: THE COMPILE-COST RATCHET HAS
+BEEN FAILING THE FULL GATE AND NO PAGE SAID SO.** Measured 2026-09-18 on a full
+`./run_tests.sh` — `12/14 jobs passed in 2212s`, exit 1, and the second failing
+job is `compile-cost ratchet (frozen weights, not a stopwatch)`
+(`scripts/compile_ratchet.py`). Its baseline is frozen at `b3bd00a4a`,
+**2026-09-05**, and five numbers are outside budget:
+
+```text
+largest_unit_lines    ambition_platformer2d_actor_monolith  100,742 -> 115,105  (budget ±2,014)
+edit_cost_lines       ambition_platformer2d_actor_monolith  285,213 -> 337,389  (budget +5,704)
+edit_cost_seconds     ambition_platformer2d_actor_monolith  1,216.8s -> 1,423.8s
+worst_edit_cost_lines ambition_geometry                     540,227 -> 663,508  (budget +10,804)
+worst_edit_cost_secs  ambition_geometry                     1,702.5s -> 2,032.5s
+```
+
+⛔ **DO NOT RE-FREEZE TO GO GREEN.** The tool offers exactly that — *"if this is
+a deliberate landing, say so and re-freeze"* — and banking thirteen days of
+growth as the new normal is how a ratchet stops being one. The open question is
+which of the +14,363 lines in the monolith's largest unit is a module that
+belongs in its own crate; `ambition_geometry` reaching **94.9% of the workspace**
+as an edit-cost blast radius is the sharper half.
+
+⚠ **AND THE INSTRUMENT PRINTS THREE OF ITS OWN DEFECTS, which is the reason this
+is a row and not a one-line fix.** The baseline disagrees with itself in three
+places — `worst_edit_cost` stores 540,227 lines for `ambition_geometry` while its
+own `crates` table says 592,091, and the two watched `edit_cost` entries
+disagree by 9,114 and 51,385 — so part of every delta above PREDATES the
+baseline it is compared against. It also says its un-adopted numbers were
+measured at `11ef33c5b5a5` rather than at the frozen commit, so `--diff`'s range
+understates where to look. ⇒ Re-freezing would also bank the instrument's
+disagreement with itself, permanently.
+
+
 **Operational rules, the standing prohibitions and what a green lane does NOT
 clear now live in
 [`docs/recipes/running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).**
@@ -3200,7 +3233,12 @@ both runs.
 That failure is the environmental published-sheet floor
 (`ambition_sprite_sheet`: *"780 sheet(s), below the floor of 800"*), which is a
 claim about THIS CHECKOUT's publish output and carries its own ⛔ DO NOT LOWER
-THE FLOOR. ⚠ Recorded with the count of TARGETS because a red lane runs a
+THE FLOOR. ⚠ STILL 780 ON 2026-09-18, on the same box and in a full
+`./run_tests.sh` — so it is a persisting machine state rather than one run's
+accident, and `scripts/check_published_sheets_are_present.py` still answers ALL
+173 ROSTERED TARGETS PRESENT beside it, which is the two-populations split that
+row already names (`find ... -name '*_spritesheet.ron' | wc -l` reads 752
+files). ⚠ Recorded with the count of TARGETS because a red lane runs a
 smaller population than a green one — 186 here against the 49-vs-79 binaries this
 row measured when a lane failed early. ⇒ It is also one more non-reproducing
 sample of OPEN 1's 2026-09-10 original, which is a non-negative, not a negative.

@@ -202,3 +202,44 @@ def test_the_test_support_feature_never_reaches_a_shipping_build() -> None:
         "it gates now ship and the name rule no longer excludes only test code:"
         "\n  " + "\n  ".join(enabled)
     )
+
+
+def test_the_stripper_keeps_everything_after_an_inline_test_module() -> None:
+    """⛔⛤ THE HALF THAT MOVED HERE 2026-09-17, AND WHY.
+
+    Three consumers held three answers to *"strip the test part of this source"*:
+    the rollback-mutator guard's brace-balanced version (now this one),
+    `multi_writer_resource_census.py`'s own copy, and
+    `architecture_census.py`'s `text.split("#[cfg(test)]", 1)[0]` — which
+    discards the FILE TAIL. A module declares its tests near the top in this
+    tree, so that third one was hiding 12% of the census's own population:
+    optional `Res`/`ResMut` read 731 with the tail cut and 820 per item, and
+    `.before`/`.after` edges read 475 against 588.
+    """
+    from lib.test_paths import strip_test_modules
+
+    src = (
+        "fn before() {}\n"
+        "#[cfg(test)]\nmod tests;\n"
+        "fn after_a_declaration() {}\n"
+        "#[cfg(test)]\nmod inline {\n    fn fixture() {}\n"
+        "    mod deeper { fn nested_fixture() {} }\n}\n"
+        "fn after_a_block() {}\n"
+    )
+    kept = strip_test_modules(src)
+    assert "fn before()" in kept
+    assert "fn after_a_declaration()" in kept, "the file TAIL is the defect this replaces"
+    assert "fn after_a_block()" in kept
+    assert "fixture" not in kept and "nested_fixture" not in kept
+
+
+def test_the_stripper_leaves_a_cfg_test_item_that_has_no_block() -> None:
+    """⚠ THE RESIDUAL, STATED RATHER THAN DISCOVERED. `#[cfg(test)] use ...;` and
+    `#[cfg(test)] fn helper() { .. }` are not `mod NAME {`, so they survive. No
+    consumer's counts change for it today — measured across
+    `architecture_census.py`'s corpus, per-item stripping and no stripping at all
+    differ by three occurrences — and widening this reaches every consumer at
+    once, in the direction that makes each of them report cleaner."""
+    from lib.test_paths import strip_test_modules
+
+    assert "helper" in strip_test_modules("#[cfg(test)]\nfn helper() {}\n")

@@ -72,7 +72,7 @@ RE-DERIVING EIGHT OF THEM ON 2026-09-16 — SIX CAME BACK DIFFERENT, ONE HELD, A
 | C04: a live-construction fallback is an "accidental missing-resource branch" | it is a **DECLARED** decision — `for_live_session` REFUSES a shell-routed session with no generation, discriminated by `SessionGatedSimulation` |
 | C08: "facade crates" hold compatibility re-exports | it is **ONE** crate — `ambition_platformer2d` holds 168 of the workspace's 300 cross-crate `pub use` statements |
 | C09: the largest package has 104,962 nonblank Rust lines | **108,646** — and it is 60,228 SRC + 48,418 TESTS; second place is 76% tests |
-| C07 counts 732 optional Res/ResMut accesses over 196 spellings | **726 / 196 today** — essentially FLAT. ⛔ This cell claimed +16% for an hour, from a hand-written scan that counted inline `#[cfg(test)]` modules; `scripts/architecture_census.py` is the instrument this row cites |
+| C07 counts 732 optional Res/ResMut accesses over 196 spellings | **820 / 206 (2026-09-17)** — and the movement is the INSTRUMENT, not the tree. ⛔ This cell said `726 / 196 — essentially FLAT` and before that claimed +16%; the census was cutting every file from its first `#[cfg(test)]` to the end, which in this tree is usually production code, so it was hiding 89 occurrences. The hand scan this cell overruled was closer to the population than the tool was; its error was comparing against a baseline built by a different rule |
 | C05: six values are separate queued writes | **five of six are Components on ONE entity from ONE lowering** (`PlatformerSessionWorld`, a Bundle on the session root); only `SessionMechanics` is an App global |
 
 ⚠ **THE DRIFT IS NOT NEGLECT, WHICH IS WHY IT WILL HAPPEN AGAIN.** Each of these

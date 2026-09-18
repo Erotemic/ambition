@@ -631,32 +631,39 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ## 7. C07 — Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required
 
-**STATE:** candidate after composition decision. ⚠ **Its census was re-derived 2026-09-16 with the repository's OWN instrument: 726/196, essentially flat** (the baseline is 732/196). ⛔ An earlier version of this line claimed +16% from a scan of mine that counted inline `#[cfg(test)]` modules — see CURRENT STATE.
+**STATE:** candidate after composition decision. ⚠ **Its census is 820 occurrences over 206 type spellings, RE-DERIVED 2026-09-17 after the instrument was found cutting 12% of its own corpus** — see CURRENT STATE, which now records that the row's two previous figures (732/196 and 726/196) and the hand scan that contradicted them were all wrong in different ways.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** Supported composition profiles must be named first.
+**DO NOT START BEFORE:** Supported composition profiles must be named first. ⚠ **ONE INSTANCE OF THAT DECISION IS NOW FILED AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across 206 optional-authority spellings, and `Q144` rules on one family.
 
 ### CURRENT STATE
 
-Static source contains **726** optional Res/ResMut occurrences over **196**
-unique type spellings. Most are not defects. Three high-authority cases already
-use composition discriminators: session scope, generation mechanics, and content
-binding.
+Static source contains **820** optional Res/ResMut occurrences over **206**
+unique type spellings, MEASURED 2026-09-17. Most are not defects. Three
+high-authority cases already use composition discriminators: session scope,
+generation mechanics, and content binding.
 
-⛔⛤ **THIS LINE SAID 732/196, THEN SAID "at least 850" FOR AN HOUR ON
-2026-09-16, AND BOTH OF THOSE WERE MINE TO GET RIGHT.** I wrote my own scan,
-counted `Option<Res<` openings across tracked `.rs` excluding only `/tests/`
-directories and `tests.rs` files, got 850, and reported the population had GROWN
-~16%. ⇒ **The repository already has the instrument this row cites**, and running
-it — `python3 scripts/architecture_census.py` — reports **726 occurrences over
-196 unique types TODAY**. Against the baseline's 732/196 that is essentially
-FLAT, six DOWN, not 118 up.
+⛔⛤ **THIS ROW HAS NOW CARRIED FOUR FIGURES AND THE THIRD ONE WAS THE
+INSTRUMENT'S.** It said 732/196, then "at least 850" for an hour on 2026-09-16,
+then 726/196 with the note *"ASK THE TOOL, DO NOT MODEL IT"* — and on 2026-09-17
+the tool turned out to be cutting each file from its FIRST `#[cfg(test)]` to the
+end. In this tree a module declares its tests near the TOP
+(`#[cfg(test)] mod tests;`), so everything below that line was invisible:
+`architecture_census.py` now reads **820 over 206**, and removing the test strip
+entirely adds only three more. ⇒ **The 89 it was missing were production code,
+not fixtures.**
 
-⚠ **THE WHOLE DIFFERENCE IS THE TEST BOUNDARY.** The census strips each file from
-its first `#[cfg(test)]` onward and scans only `crates/`, `game/` and `tools/`;
-my scan kept inline `#[cfg(test)]` modules. Those 124 occurrences are real code
-and they are not what this row is about. **ASK THE TOOL, DO NOT MODEL IT** — and
-when a number disagrees with a baseline by 16%, suspect the instrument before the
-tree.
+⚠ **SO BOTH READINGS WERE WRONG, IN DIFFERENT WAYS, AND THE RECONCILIATION
+BETWEEN THEM WAS WRONG TOO.** The hand scan's 850 was much closer to the
+population than the tool's 726 — its error was the COMPARISON, reporting +16%
+growth against a baseline produced by a different rule. The tool's error was the
+cut. And the sentence that settled the disagreement — *"those 124 occurrences are
+inline test modules, real code but not what this row is about"* — was an
+explanation of a gap that was mostly production code.
+
+⇒ **THE RULE THIS ROW ACTUALLY TEACHES: when two honest scans of one tree
+disagree, read what each one CUTS before deciding which is right, and never
+compare a number against a baseline built by another rule.** Ask the tool, and
+then ask the tool what it throws away.
 
 ⭐ **AND THE CENSUS CROSS-CHECKS SOMETHING ELSE TONIGHT:** it independently
 reports *"explicit process resources with session/generation semantics: 37"*,

@@ -180,3 +180,43 @@ construction source — `GenerationMechanics::for_live_session` REFUSES a
 shell-routed session with no generation — and what stays reachable is the
 App-registry road for compositions that have none by design. That is a product
 decision, asked as `Q144`, not an unowned cleanup.
+
+## 2026-09-17: a COUNTING-RULE change, not a tree change
+
+⛔⛤ **`scripts/architecture_census.py` WAS CUTTING EACH FILE FROM ITS FIRST
+`#[cfg(test)]` TO THE END**, and in this tree a module declares its tests near
+the TOP — `#[cfg(test)] mod tests;` at `platformer2d_runtime/src/lib.rs:25` — so
+every pattern metric below that line was invisible. The helper's own docstring
+called the cut *"a conservative heuristic"* and labelled the counts heuristic,
+which was honest and was not the same as knowing the size.
+
+⇒ Both test-boundary questions now come from `scripts/lib/test_paths.py`: the
+file rule (which also knows about `test.rs`, `test_support.rs` and the four files
+whose first attribute is an inner `#![cfg(test)]`) and a per-ITEM strip that
+removes inline `#[cfg(test)] mod … { }` blocks and keeps the rest of the file.
+
+| metric | same tree, tail cut | same tree, per-item strip | Δ |
+| --- | ---: | ---: | ---: |
+| `Option<Res<_>>` occurrences | 731 | **820** | +89 (+12%) |
+| `Option<Res<_>>` unique types | 197 | **206** | +9 |
+| `#[derive(Resource)]` declarations | 499 | **538** | +39 |
+| `#[derive(Component)]` declarations | 635 | **659** | +24 |
+| raw `.before`/`.after` edges | 475 | **588** | +113 (+24%) |
+| test Rust LOC (heuristic) | 278,198 | **279,727** | +1,529 |
+| "fallback" term hits | 728 | **776** | +48 |
+
+⚠ **NOTHING IN THE TREE MOVED BETWEEN THOSE TWO COLUMNS — both were measured at
+`49bfcf4ef` within a minute of each other.** Read every earlier reading on this
+page as the left-hand column's rule, and do not subtract across the change: this
+page's rule 2 asks for the same counting rules, and this is the case it exists
+for.
+
+⭐ **THE ONE THAT MATTERS MOST IS NOT THE BIGGEST.** `raw .before/.after edges`
+moved 24%, and it is the population C07's *"correctness-sensitive ordering
+relationships"* row samples from; the optional-resource row C07 is COSTED from
+moved 12%. A campaign that priced itself off either number priced itself off a
+corpus with a quarter of the ordering edges missing.
+
+⛔ The `662a9b5` baseline table above is NOT edited. It records what was measured
+under the old rule, and correcting it in place would destroy the only evidence of
+what the numbers meant.

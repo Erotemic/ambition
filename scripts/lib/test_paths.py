@@ -24,10 +24,16 @@ whatever it is called. Four files carry it —
 `content/src/moves_are_content.rs`, `content/src/moveset_artifact.rs` — and
 every name rule above passes all four as production.
 
-⚠ **THIS IS THE FILE-LEVEL QUESTION ONLY.** An inline `#[cfg(test)] mod tests`
-inside a production file is a DIFFERENT fact with a different owner
-(`strip_test_modules` in `check_rollback_mutators_run_in_sim.py`), because the
-answer there is "strip part of the source", not "skip the file".
+⚠ **TWO QUESTIONS LIVE HERE NOW, AND THEY ARE DIFFERENT FACTS.**
+[`is_test_path`] answers *"skip this file"*; [`strip_test_modules`] answers
+*"strip part of this source"*, for an inline `#[cfg(test)] mod tests` inside a
+production file. ⭐ The second MOVED here from
+`check_rollback_mutators_run_in_sim.py` on 2026-09-17, because a THIRD consumer
+appeared and copied it: `multi_writer_resource_census.py` wrote its own, and
+`architecture_census.py` had a weaker variant that discarded the whole file TAIL
+— which in this tree is usually production code, since a module declares its
+tests near the top. Splitting one question across two owners is how the five
+spellings above happened.
 
 ⛔ **WIDENING THIS MAKES EVERY CONSUMER SEE LESS, AND A CHECK THAT SEES LESS
 REPORTS CLEANER.** Every consumer carries a `POPULATION_FLOOR` for exactly that
@@ -84,3 +90,45 @@ def is_test_path(path: Path, source: str | None = None) -> bool:
         except OSError:
             return False
     return file_is_test_only(source)
+
+
+#: An inline test module's opening brace. ⚠ Deliberately NOT bare
+#: `#[cfg(test)]`: this function removes a BLOCK by brace balance, and an
+#: attribute on an item with no block (`#[cfg(test)] mod tests;`,
+#: `#[cfg(test)] use ...;`) has no braces to balance.
+_CFG_TEST_MOD = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
+
+
+def strip_test_modules(source: str) -> str:
+    """Remove inline `#[cfg(test)] mod … { … }` blocks by brace balance.
+
+    These modules legitimately do things production code may not — register
+    rollback mutators into `Update`, build a resource by hand — and they sit
+    inside production files, so path-based test filtering never sees them.
+
+    ⛔⛤ **THE VARIANT THIS REPLACES DISCARDED THE FILE TAIL**
+    (`text.split("#[cfg(test)]", 1)[0]`), and in this tree the tail is usually
+    production code: a module declares its tests near the TOP —
+    `#[cfg(test)] mod tests;` at `platformer2d_runtime/src/lib.rs:25` — so
+    everything below that line was invisible. MEASURED 2026-09-17 over
+    `architecture_census.py`'s own corpus: the tail cut reports **731 optional
+    `Res`/`ResMut` occurrences over 197 types** and per-item stripping reports
+    **820 over 206**, while removing the strip entirely adds only three more. ⇒
+    The 12% the campaign was missing was production code, not fixtures.
+
+    ⚠ The brace match is naive about braces inside string literals inside a test
+    body. Over-cutting loses production code, which is the direction the tail cut
+    already erred in; under-cutting counts a fixture. Both move a consumer's
+    population, which is why every consumer of this module carries a floor.
+    """
+    while (match := _CFG_TEST_MOD.search(source)) is not None:
+        depth = 1
+        index = match.end()
+        while index < len(source) and depth:
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+            index += 1
+        source = source[: match.start()] + source[index:]
+    return source

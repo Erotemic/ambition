@@ -43,8 +43,10 @@ RESMUT = re.compile(r"ResMut<\s*([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)\s*>
 # ⛔⛤ **BOTH TEST PREDICATES ARE IMPORTED, NOT RESPELLED, AND THIS CENSUS BRIEFLY
 # HAD ITS OWN COPY OF EACH — 2026-09-17.** `scripts/lib/test_paths.py` exists
 # because there were FIVE spellings of *"is this Rust file test-only?"* giving
-# five different answers, and the inline-module half has its own keeper in
-# `check_rollback_mutators_run_in_sim.py`. My copies were a sixth and a second:
+# five different answers, and it owns the inline-module half too (which MOVED
+# there from `check_rollback_mutators_run_in_sim.py` once this census and
+# `architecture_census.py` turned out to hold copies). Mine were a sixth and a
+# second:
 # the file rule missed `test.rs`, `test_support.rs` and the four files whose
 # first attribute is an inner `#![cfg(test)]`, which no name rule can see.
 #
@@ -54,7 +56,7 @@ RESMUT = re.compile(r"ResMut<\s*([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)\s*>
 # informed — which is the only kind of collapse worth doing without re-poisoning
 # every consumer.
 #
-# ⚠ WHAT THE KEEPER'S STRIPPER LEAVES: it removes inline `#[cfg(test)] mod X { }`
+# ⚠ WHAT THE SHARED STRIPPER LEAVES: it removes inline `#[cfg(test)] mod X { }`
 # blocks only, so a `#[cfg(test)] fn helper(mut r: ResMut<T>)` sitting in a
 # production file still counts as a writer. There are none today (the measurement
 # above would differ), and widening that function reaches every one of its
@@ -62,8 +64,7 @@ RESMUT = re.compile(r"ResMut<\s*([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z0-9_]+)*)\s*>
 # counts.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from test_paths import is_test_path  # noqa: E402
-from check_rollback_mutators_run_in_sim import strip_test_modules  # noqa: E402
+from test_paths import is_test_path, strip_test_modules  # noqa: E402
 DEFAULT_PATHS = ("crates", "game")
 
 

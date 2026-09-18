@@ -62,6 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from test_paths import is_test_path  # noqa: E402
+from test_paths import strip_test_modules as shared_strip_test_modules  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
@@ -372,24 +373,13 @@ WAIVERS: dict[str, str] = {
 }
 
 
-def strip_test_modules(source: str) -> str:
-    """Remove inline `#[cfg(test)] mod … { … }` blocks by brace balance.
-
-    ⛔ trap 3 above. These modules legitimately register rollback mutators into
-    `Update` — a test app has no GGRS schedule to reach — and they sit inside
-    production files, so path-based test filtering never sees them.
-    """
-    while (match := _CFG_TEST.search(source)) is not None:
-        depth = 1
-        index = match.end()
-        while index < len(source) and depth:
-            if source[index] == "{":
-                depth += 1
-            elif source[index] == "}":
-                depth -= 1
-            index += 1
-        source = source[: match.start()] + source[index:]
-    return source
+#: ⭐ MOVED to `scripts/lib/test_paths.py` 2026-09-17 and re-exported here, the
+#: same way `is_test_path` was. A THIRD consumer appeared and wrote its own copy
+#: (`multi_writer_resource_census.py`), and `architecture_census.py` held a
+#: weaker variant that discarded the whole file TAIL — 12% of its own population.
+#: Trap 3 below is still the reason this function exists; what moved is where the
+#: answer lives.
+strip_test_modules = shared_strip_test_modules
 
 
 def _is_test_path(path: Path) -> bool:

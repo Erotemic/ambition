@@ -24,6 +24,8 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
+from test_paths import is_test_path, strip_test_modules  # noqa: E402
 LEDGER = REPO / "docs/planning/consolidation/consolidation-ledger.json"
 SOURCE_ROOTS = ("crates", "game", "tests", "tools")
 LARGE_MODULE_NONBLANK_LINES = 1000
@@ -147,9 +149,30 @@ def line_counts(path: pathlib.Path) -> tuple[int, int]:
     return len(lines), sum(bool(line.strip()) for line in lines)
 
 
+#: ⭐ BOTH TEST-BOUNDARY QUESTIONS COME FROM `scripts/lib/test_paths.py` SINCE
+#: 2026-09-17, and this module held a weaker answer to each. The file rule was a
+#: SIXTH spelling of the one that module exists to end — it missed `test.rs`,
+#: `test_support.rs` and the four files whose first attribute is an inner
+#: `#![cfg(test)]`, which compiles the whole file out — and `strip_cfg_test_tail`
+#: discarded everything after a file's FIRST `#[cfg(test)]`, which in this tree
+#: is usually a `mod tests;` declaration near the top.
+#:
+#: ⛔⛤ **THAT SECOND ONE WAS 12% OF THIS CENSUS'S OWN HEADLINE POPULATION.** The
+#: optional-resource metric C07 is costed from read **731 occurrences over 197
+#: types** with the tail cut and **820 over 206** per item; deleting the strip
+#: entirely adds three more, so the difference was production code rather than
+#: fixtures. The old docstring called itself "a conservative heuristic" and
+#: labelled the counts heuristic, which is honest and is not the same as knowing
+#: the size.
 def is_test_file(path: pathlib.Path) -> bool:
-    rel = path.relative_to(REPO)
-    return "tests" in rel.parts or path.name == "tests.rs" or path.name.endswith("_tests.rs")
+    # ⚠ REPO-RELATIVE, AND THE SOURCE PASSED IN. The shared rule asks whether any
+    # PATH COMPONENT is `tests`, so handing it an absolute path lets a directory
+    # anywhere above the checkout answer for a file inside it; and its
+    # whole-file `#![cfg(test)]` rule needs the text, which it would otherwise
+    # read relative to the process's CWD.
+    return is_test_path(
+        path.relative_to(REPO), source=path.read_text(encoding="utf-8", errors="replace")
+    )
 
 
 PUBLIC_ITEM = re.compile(
@@ -234,12 +257,8 @@ def crate_rows() -> list[CrateRow]:
 
 
 def strip_cfg_test_tail(text: str) -> str:
-    """Remove the common file tail that starts with `#[cfg(test)]`.
-
-    This is a conservative heuristic. A file can contain non-test code after a
-    test module. The report labels pattern counts as heuristic for this reason.
-    """
-    return text.split("#[cfg(test)]", 1)[0]
+    """The shared per-ITEM strip. ⚠ The name is kept; the tail is not cut."""
+    return strip_test_modules(text)
 
 
 def production_rust_files() -> list[pathlib.Path]:

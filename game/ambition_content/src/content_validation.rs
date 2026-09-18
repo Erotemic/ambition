@@ -422,19 +422,84 @@ fn validate_quest_conditions(
 /// by a test. This closes that gap the same way its neighbor does.
 fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidationReport) {
     let room_ids = active_area_ids(project);
-    for (room, cutscene) in &crate::dialogue::cutscene_defaults::default_room_cutscene_bindings()
+    // ⛔⛤ **BOTH ENDPOINTS, BECAUSE ONLY ONE WAS CHECKED AND THE RUNTIME IS
+    // SILENT ABOUT THE OTHER.** `drain_cutscene_triggers` does
+    // `let Some(script) = library.get(&id) else { continue; }`, so a binding
+    // naming a cutscene that does not exist is not an error at runtime — it is
+    // nothing at all. `("central_hub_complex", "test_intr0")` would have passed
+    // this function and become another permanently dead binding of exactly the
+    // kind the room half was added to catch.
+    //
+    // ⚠ The library must be the ASSEMBLED one. The intro installs five scripts
+    // of its own (`install_intro_cutscenes`), and validating against the
+    // defaults alone would reject every intro binding as unknown.
+    let mut library = crate::dialogue::cutscene_defaults::default_cutscene_library();
+    crate::intro::cutscene::install_intro_cutscenes(&mut library);
+
+    let defaults = crate::dialogue::cutscene_defaults::default_room_cutscene_bindings();
+    let intro = crate::intro::cutscene::intro_room_cutscene_bindings();
+    let rows: Vec<(&str, &str, &str)> = defaults
         .bindings
-    {
-        if !room_ids.contains(room.as_str()) {
+        .iter()
+        .map(|(room, cutscene)| ("cutscene binding", room.as_str(), cutscene.as_str()))
+        .chain(
+            intro
+                .iter()
+                .map(|(room, cutscene)| ("intro cutscene binding", *room, *cutscene)),
+        )
+        .collect();
+    check_cutscene_bindings(&room_ids, &library, &rows, report);
+}
+
+/// ⛔⛤ **THE RULES LIVE HERE SO A POISON HAS SOMEWHERE TO LAND.** When the room
+/// check moved into this file (`cf3cd7479`), the arm that had held it
+/// (`room_cutscene_bindings_resolve.rs`) was deleted and nothing replaced it: a
+/// content-validation error ABORTS the process, so a bad binding fails every
+/// test in the target at once and no arm says which rule caught it. Reading the
+/// real tables also cannot exercise a rule the real tables do not violate. So
+/// the three rules take their inputs as arguments and the caller above supplies
+/// the shipped ones.
+fn check_cutscene_bindings(
+    room_ids: &BTreeSet<String>,
+    library: &ambition_cutscene::CutsceneLibrary,
+    rows: &[(&str, &str, &str)],
+    report: &mut ContentValidationReport,
+) {
+    // room → how many cutscenes are bound to it, across BOTH tables.
+    let mut per_room: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+
+    for &(what, room, cutscene) in rows {
+        if !room_ids.contains(room) {
             report.push_error(format!(
-                "cutscene binding for '{cutscene}' references unknown room '{room}'"
+                "{what} for '{cutscene}' references unknown room '{room}'"
             ));
         }
-    }
-    for (room, cutscene) in crate::intro::cutscene::intro_room_cutscene_bindings() {
-        if !room_ids.contains(*room) {
+        if library.get(cutscene).is_none() {
             report.push_error(format!(
-                "intro cutscene binding for '{cutscene}' references unknown room '{room}'"
+                "{what} for room '{room}' references unknown cutscene '{cutscene}' — \
+                 the runtime skips a binding whose script is missing, so this is a \
+                 permanently dead row rather than a failure anybody would see"
+            ));
+        }
+        per_room.entry(room).or_default().push(cutscene);
+    }
+
+    // ⛔⛤ **ONE CUTSCENE PER ROOM, AND THE REASON IS THAT A SECOND ONE DOES NOT
+    // QUEUE — IT SLIPS A VISIT.** `auto_trigger_room_cutscenes` enqueues every
+    // matching row, but only when the room CHANGES (the `LastCutsceneRoom`
+    // latch). `drain_cutscene_triggers` then `mem::take`s the whole queue and
+    // `break`s on the first admissible script, so the rest are dropped rather
+    // than deferred. A room with two bindings plays the first one now and the
+    // second only on a LATER visit, once the first has set its seen flag —
+    // which no author writing two rows would predict.
+    for (room, bound) in &per_room {
+        if bound.len() > 1 {
+            report.push_error(format!(
+                "room '{room}' has {} cutscene bindings ({}) — the runtime starts only \
+                 the first admissible one and discards the queue, so the others play on a \
+                 later visit or never. Bind one cutscene per room",
+                bound.len(),
+                bound.join(", ")
             ));
         }
     }
@@ -656,6 +721,76 @@ mod tests {
             "loading zone validation failed: {:?}",
             report.errors
         );
+    }
+
+    /// The inputs the three binding rules are checked against, so each arm
+    /// plants exactly one violation and nothing else.
+    fn binding_fixture() -> (BTreeSet<String>, ambition_cutscene::CutsceneLibrary) {
+        let rooms: BTreeSet<String> = ["hub", "lab"].iter().map(|r| r.to_string()).collect();
+        let mut library = ambition_cutscene::CutsceneLibrary::default();
+        library.insert(ambition_cutscene::CutsceneScript::new("intro", vec![]));
+        library.insert(ambition_cutscene::CutsceneScript::new("second", vec![]));
+        (rooms, library)
+    }
+
+    /// ⭐ CONTROL, and it is the load-bearing arm: every assertion below is
+    /// "this input produces an error", which a function that always errors
+    /// would also satisfy.
+    #[test]
+    fn a_binding_naming_a_real_room_and_a_real_cutscene_is_accepted() {
+        let (rooms, library) = binding_fixture();
+        let mut report = ContentValidationReport::default();
+        check_cutscene_bindings(&rooms, &library, &[("b", "hub", "intro")], &mut report);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+    }
+
+    #[test]
+    fn a_binding_naming_a_cutscene_that_does_not_exist_is_refused() {
+        let (rooms, library) = binding_fixture();
+        let mut report = ContentValidationReport::default();
+        // ⛔ The exact typo a review used: the room resolves, so the room half
+        // of this validator passes it, and `drain_cutscene_triggers` skips a
+        // missing script in silence — a permanently dead binding.
+        check_cutscene_bindings(&rooms, &library, &[("b", "hub", "intr0")], &mut report);
+        assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
+        assert!(
+            report.errors[0].contains("unknown cutscene 'intr0'"),
+            "the error must name the cutscene, not just the row: {:?}",
+            report.errors
+        );
+    }
+
+    #[test]
+    fn a_room_bound_to_two_cutscenes_is_refused() {
+        let (rooms, library) = binding_fixture();
+        let mut report = ContentValidationReport::default();
+        check_cutscene_bindings(
+            &rooms,
+            &library,
+            &[("b", "hub", "intro"), ("b", "hub", "second")],
+            &mut report,
+        );
+        assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
+        assert!(
+            report.errors[0].contains("room 'hub' has 2 cutscene bindings"),
+            "{:?}",
+            report.errors
+        );
+    }
+
+    /// Two ROOMS with one cutscene each is the ordinary case and must not trip
+    /// the cardinality rule — the count is per room, not per table.
+    #[test]
+    fn one_cutscene_each_for_two_rooms_is_accepted() {
+        let (rooms, library) = binding_fixture();
+        let mut report = ContentValidationReport::default();
+        check_cutscene_bindings(
+            &rooms,
+            &library,
+            &[("b", "hub", "intro"), ("b", "lab", "second")],
+            &mut report,
+        );
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
     #[test]

@@ -56,6 +56,7 @@ passed. Bundle expansion comes from the same sibling module.
 
 from __future__ import annotations
 
+import functools
 import re
 import sys
 from pathlib import Path
@@ -95,6 +96,88 @@ def _spends(body: str, bind: str) -> bool:
             rf"\*\*?{b}\s*=\s*false\b",
         )
     )
+
+
+#: An inherent `&mut self` method, so a raise spelled as a CALL can be resolved.
+_IMPL_BLOCK = re.compile(r"\bimpl(?:\s*<[^>]*>)?\s+([A-Z][A-Za-z_0-9]*)\b[^{]*\{")
+_MUT_METHOD = re.compile(r"\bfn\s+([a-z_]\w*)\s*\(\s*&mut\s+self")
+
+
+@functools.cache
+def _mut_methods(repo: Path = REPO) -> tuple[tuple[str, str, str], ...]:
+    """`(type, method, body)` for every inherent `&mut self` method in the tree.
+
+    ⛔⛤ **THE SIXTH SPELLING OF A PRODUCTION IS A METHOD CALL, AND IT HID THE
+    ONLY REAL `NewGameResetRequested` PRODUCER.** This script's raise test read
+    ASSIGNMENTS. The menu does not assign: `kaleidoscope_app.rs:761` says
+    `self.reset.request()`, and `NewGameResetRequested::request` is four lines
+    that set `self.request = true`. So the type looked unproduced, while seven
+    systems that merely HELD the bundle looked like producers — a false negative
+    and seven false positives from the same gap.
+    """
+    out: list[tuple[str, str, str]] = []
+    for _src, text in sim._production_sources(repo):
+        for match in _IMPL_BLOCK.finditer(text):
+            block = sim._braced(text, match.end() - 1)
+            for method in _MUT_METHOD.finditer(block):
+                brace = block.find("{", method.end())
+                if brace < 0:
+                    continue
+                out.append((match.group(1), method.group(1), sim._braced(block, brace)))
+    return tuple(out)
+
+
+def _method_bodies(repo: Path = REPO) -> dict[tuple[str, str], list[str]]:
+    found: dict[tuple[str, str], list[str]] = {}
+    for ty, method, body in _mut_methods(repo):
+        found.setdefault((ty, method), []).append(body)
+    return found
+
+
+def _inline_methods_on(body: str, bind: str, ty: str, methods) -> str:
+    """Append the bodies of `&mut self` methods this body calls on `bind`.
+
+    `self.` is rewritten to `bind.` so the appended text speaks the caller's
+    access paths and the ordinary path-keyed tests apply to it unchanged.
+    """
+    extra: list[str] = []
+    for call in re.findall(rf"{re.escape(bind)}\s*\.\s*([a-z_]\w*)\s*\(", body):
+        for inner in methods.get((ty, call), ()):
+            extra.append(inner.replace("self.", f"{bind}."))
+    return body + "\n" + "\n".join(extra) if extra else body
+
+
+def _raises_via_method(body: str, path: str, ty: str, methods) -> bool:
+    """Is a non-default written by a `&mut self` method called on `path`?"""
+    for call in re.findall(rf"{re.escape(path)}\s*\.\s*([a-z_]\w*)\s*\(", body):
+        for inner in methods.get((ty, call), ()):
+            if _raises_through(inner, "self"):
+                return True
+    return False
+
+
+#: A parameter declaration, so a bundle's BINDING is known and not just its type.
+_PARAM_DECL = re.compile(r"(?:mut\s+)?([a-z_]\w*)\s*:\s*(?:[\w:]*::)?([A-Z][A-Za-z_0-9]*)")
+
+
+def _touches(body: str, path: str) -> bool:
+    """Does `body` mention this access path at all?"""
+    return bool(re.search(rf"{re.escape(path)}\b", body))
+
+
+def _raises_through(body: str, path: str) -> bool:
+    """Is a NON-default value written through this access path?
+
+    ⚠ [`_raises`] is keyed on the TYPE NAME, so it can only see a write that
+    spells the type (`*x = Foo::default()`). A producer writing through a bundle
+    field says `p.req.0 = true` and names nothing, so the type-keyed test
+    returns False and the field would never be credited as raising.
+    """
+    for rhs in re.findall(rf"{re.escape(path)}[\w\.\[\]0-9]*\s*=(?!=)([^;]*);", body):
+        stripped = rhs.strip()
+        if stripped and not stripped.endswith("::default()") and stripped != "false":
+            return True
+    return False
 
 
 def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
@@ -201,7 +284,8 @@ def consumers_and_producers(
     repo: Path = REPO,
 ) -> tuple[dict[str, set[str]], dict[str, set[str]], dict[str, set[str]]]:
     """`({type: spenders}, {type: mutable holder}, {type: non-default writer})`."""
-    bundles = sim.system_param_mutables(repo)
+    bundles = sim.system_param_mutable_fields(repo)
+    methods = _method_bodies(repo)
     spenders: dict[str, set[str]] = {}
     holders: dict[str, set[str]] = {}
     raisers: dict[str, set[str]] = {}
@@ -209,27 +293,50 @@ def consumers_and_producers(
         for match in sim._PUB_FN.finditer(text):
             name = match.group(1)
             params = sim._params(text, match.end())
-            direct = _RESMUT.findall(params)
-            reached = {ty.split("::")[-1] for _bind, ty in direct}
-            # ⛔ THE BUNDLE HALF. Without it this script cannot see the writer
-            # that prompted it: the menu holds `NewGameResetRequested` as a field.
-            for ident in re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", params):
-                reached |= bundles.get(ident, frozenset())
             brace = text.find("{", match.end())
             body = _inline_one_level(text, sim._braced(text, brace)) if brace >= 0 else ""
-            for ty in reached:
+
+            # ⛔⛤ **EVERY ACCESS IS A (PATH, TYPE) PAIR, AND REDUCING THE BUNDLE
+            # HALF TO A SET OF TYPES PRODUCED ONE ERROR OF EACH SIGN.** A
+            # request spent through `p.req` was invisible, because spend
+            # detection only ever looked at direct `ResMut` parameters; and a
+            # system that merely HELD a bundle was counted as a producer of
+            # every type in it, which is where the claim of "seven kaleidoscope
+            # systems" producing `NewGameResetRequested` came from. Both were
+            # reproduced from a review on 2026-09-18 and are held by
+            # `scripts/tests/test_host_produced_sim_consumed_requests.py`.
+            accesses: list[tuple[str, str]] = [
+                (bind, ty.split("::")[-1]) for bind, ty in _RESMUT.findall(params)
+            ]
+            direct_paths = {path for path, _ in accesses}
+            for bind, bundle in _PARAM_DECL.findall(params):
+                if bundle not in bundles:
+                    continue
+                # A bundle METHOD is where the menu's raise actually lives, so
+                # its body joins the caller's before any path test runs.
+                body = _inline_methods_on(body, bind, bundle, methods)
+                for field, ty in bundles[bundle].items():
+                    accesses.append((f"{bind}.{field}", ty))
+
+            for path, ty in accesses:
+                # A bundle FIELD counts only when the body actually touches it.
+                # A direct `ResMut` parameter is a declared exclusive hold and
+                # counts either way -- it is in the signature on purpose.
+                if path not in direct_paths and not _touches(body, path):
+                    continue
                 # A holder that only ever writes `ty`'s default is clearing the
                 # slot, not raising an intent -- see `_only_clears`.
                 if not _only_clears(body, ty):
                     holders.setdefault(ty, set()).add(name)
-            if not body:
-                continue
-            for bind, ty in direct:
-                short = ty.split("::")[-1]
-                if _spends(body, bind):
-                    spenders.setdefault(short, set()).add(name)
-            for ty in reached:
-                if _raises(body, ty):
+                if not body:
+                    continue
+                if _spends(body, path):
+                    spenders.setdefault(ty, set()).add(name)
+                if (
+                    _raises(body, ty)
+                    or _raises_through(body, path)
+                    or _raises_via_method(body, path, ty, methods)
+                ):
                     raisers.setdefault(ty, set()).add(name)
     return spenders, holders, raisers
 
@@ -249,8 +356,15 @@ ADJUDICATED: dict[str, str] = {
     "NewGameResetRequested": (
         "⛔ LIVE DEFECT, Q136, AND BY THE OPPOSITE MECHANISM. IS "
         "rollback-registered, so the rewind restores it to `false` and ERASES the "
-        "menu's write. Produced from `Update` by seven kaleidoscope systems through a "
-        "`SystemParam` bundle, spent by `process_new_game_reset_request` in the sim. "
+        "menu's write. Produced from `Update` by TWO registered systems — "
+        "`grid_menu_action_activated` and `kaleidoscope_menu_action_activated` — "
+        "and spent by `process_new_game_reset_request` in the sim. ⚠ This said "
+        "\"seven kaleidoscope systems through a `SystemParam` bundle\" until "
+        "2026-09-18, which was an artefact of this script reducing a bundle to "
+        "the set of types it holds: most of those systems merely POSSESS "
+        "`SystemMenuParams`. See `PRODUCER_BY_INSPECTION` for the four-hop road "
+        "no textual scan reaches. "
+        
         "New Game can be pressed successfully at the UI and vanish before the "
         "simulation sees it (read 2026-09-18)"
     ),
@@ -280,6 +394,40 @@ ADJUDICATED: dict[str, str] = {
 FLOORS = {"spent types": 40, "systems with a schedule": 400}
 
 
+#: type → (host producers, why no textual scan can reach the raise).
+#:
+#: ⛔⛤ **AN INSTRUMENT THAT CANNOT SEE SOMETHING MUST BE TOLD, VISIBLY.** This
+#: table exists for exactly one shape: a raise so many hops from the system
+#: signature that resolving it textually would be a guess dressed as a
+#: measurement. An entry is a HAND ATTRIBUTION and reads like one; it is not a
+#: waiver, because the type still appears in the output as a crossing.
+#:
+#: ⚠ The alternative was worse and was tried: with the bundle half reduced to
+#: field paths, `NewGameResetRequested` silently left the population entirely,
+#: and only this script's own "an adjudicated crossing no longer exists" guard
+#: caught it. A census whose completeness depends on nobody improving its
+#: precision is not a census.
+PRODUCER_BY_INSPECTION: dict[str, tuple[tuple[str, ...], str]] = {
+    "NewGameResetRequested": (
+        ("grid_menu_action_activated", "kaleidoscope_menu_action_activated"),
+        "FOUR HOPS FROM THE SIGNATURE, AND THE COUNT WAS WRONG UNTIL MEASURED. "
+        "This entry said \"seven kaleidoscope systems through a `SystemParam` "
+        "bundle\" until 2026-09-18; a review pointed out that most of those "
+        "systems merely POSSESS `SystemMenuParams` and produce nothing, which "
+        "was an artefact of reducing a bundle to the set of types it holds. "
+        "Read at source, the road is: the two registered `Update` systems above "
+        "→ `dispatch_menu_action` (a multi-argument free function, so no "
+        "single-argument helper inlining reaches it) → "
+        "`SystemMenuParams::request_reset` "
+        "(`game/ambition_app/src/menu/kaleidoscope_app.rs:760-762`) → "
+        "`NewGameResetRequested::request` "
+        "(`crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs:266-268`), "
+        "which is the only production `self.request = true` in the tree. "
+        "Nothing in the system signature or body names the type.",
+    ),
+}
+
+
 def crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]]]:
     """`{type: (host producers, sim consumers)}` for every intent crossing."""
     spenders, holders, raisers = consumers_and_producers(repo)
@@ -306,6 +454,8 @@ def crossings(repo: Path = REPO) -> dict[str, tuple[list[str], list[str]]]:
             for fn in holders.get(ty, set()) - consuming_only
             if by_system.get(fn) and all(sim.is_non_rewinding(s) for s in by_system[fn])
         )
+        declared, _why = PRODUCER_BY_INSPECTION.get(ty, ((), ""))
+        host = sorted(set(host) | set(declared))
         if host:
             found[ty] = (host, in_sim)
     return found

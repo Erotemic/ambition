@@ -815,6 +815,71 @@ def system_param_mutables(repo: Path = REPO) -> dict[str, frozenset[str]]:
     return {name: resolve(name, frozenset()) for name in direct}
 
 
+#: A bundle FIELD and the type it borrows mutably — the same spellings
+#: [`_MUTABLE_PARAM_TYPE`] accepts, but keeping the field name.
+_MUTABLE_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:&mut\s+|ResMut\s*<\s*|SessionWorldMut\s*<\s*)"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
+#: A bundle field holding ANOTHER bundle, so a path can be built through it.
+_NESTED_FIELD = re.compile(
+    r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\s*(?:<[^,>]*>)?\s*,"
+)
+
+
+@functools.cache
+def _system_param_mutable_fields_cached(
+    repo: Path,
+) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
+    direct: dict[str, list[tuple[str, str]]] = {}
+    nested: dict[str, list[tuple[str, str]]] = {}
+    for _path, text in _production_sources(repo):
+        for match in _SYSTEM_PARAM_STRUCT.finditer(text):
+            brace = text.find("{", match.end())
+            if brace < 0:
+                continue
+            body = _braced(text, brace)
+            direct[match.group(1)] = _MUTABLE_FIELD.findall(body)
+            nested[match.group(1)] = _NESTED_FIELD.findall(body)
+
+    def resolve(name: str, seen: frozenset[str]) -> dict[str, str]:
+        out = {field: ty for field, ty in direct.get(name, ())}
+        for field, candidate in nested.get(name, ()):
+            if candidate == name or candidate in seen or candidate not in direct:
+                continue
+            for path, ty in resolve(candidate, seen | {name}).items():
+                out.setdefault(f"{field}.{path}", ty)
+        return out
+
+    return tuple(
+        (name, tuple(sorted(resolve(name, frozenset()).items())))
+        for name in sorted(direct)
+    )
+
+
+def system_param_mutable_fields(repo: Path = REPO) -> dict[str, dict[str, str]]:
+    """`#[derive(SystemParam)]` bundle → `{field access path: mutable type}`.
+
+    ⛔⛤ **[`system_param_mutables`] ANSWERS "WHICH TYPES", AND A REVIEW ON
+    2026-09-18 SHOWED THAT IS NOT ENOUGH.** Reduced to a set of types, a bundle
+    field cannot be asked about: a consumer that spends a request through
+    `p.req` is invisible to any check that looks for a direct `ResMut`
+    parameter, and a system that merely HOLDS a bundle counts as a writer of
+    every type in it even when it touches none of them. Both errors were
+    reproduced — a false negative and a false positive from the same missing
+    mapping — so the path survives here and the caller can look for it in the
+    body.
+
+    ⚠ Nesting builds a dotted path (`outer.inner`), which is what a body
+    actually writes. A cycle contributes nothing rather than recursing.
+    """
+    return {name: dict(fields) for name, fields in _system_param_mutable_fields_cached(repo)}
+
+
 def _params(text: str, open_paren: int) -> str:
     depth = 1
     index = open_paren

@@ -1290,13 +1290,35 @@ poison-verified. The control is what makes the zeroes readable: a declining rese
 and a composition without `apply_item_grants` print the same zero.
 
 ⭐ **HOW MANY RESOURCES THIS RULING IS RESPONSIBLE FOR IS MEASURED, NOT
-ESTIMATED.** `scripts/resources_crossing_the_rewind_boundary.py` sweeps every
-`Resource` written on both sides of the boundary — **50** of them at 2026-09-17
-(was 53 earlier the same day; see below) — and sorts them: 29
-rollback-registered, 17 adjudicated harmless with the argument beside each, 3
-crossing only at a session edge, **1 FILED against this question
-(`CutsceneAdvanceRequest` — a dismiss raised on the host side does nothing), and
-0 that nobody has examined.**
+ESTIMATED — BY TWO INSTRUMENTS THAT DELIBERATELY MEASURE DIFFERENT THINGS.** A
+2026-09-18 review found this section describing them as one population, and a
+commit message of mine claiming they *"now agree"*. They do not agree and must
+not: each answers a different question, and the Q136 count is the second one's.
+
+    scripts/resources_crossing_the_rewind_boundary.py
+        BROAD CROSSING CENSUS — UNREGISTERED per-frame state written on both
+        sides of the boundary. 57 both-side resources at 2026-09-18: 33
+        rollback-registered, 20 adjudicated harmless with the argument beside
+        each, 3 crossing only at a session edge, 1 FILED
+        (`CutsceneAdvanceRequest`), 0 nobody has examined.
+
+    scripts/check_host_produced_sim_consumed_requests.py
+        Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by
+        the simulation. 3 of 57 spent types at 2026-09-18:
+        `CutsceneAdvanceRequest` and `NewGameResetRequested` (both Q136), and
+        `VersusMatch` (filed against Q140).
+
+⛔⛤ **AND THE FIRST CENSUS CANNOT EVER REPORT THE SECOND'S SECOND ROW, WHICH IS
+THE REASON TO STOP QUOTING ONE NUMBER.** `resources_crossing_the_rewind_boundary.py:355-358`
+builds its candidate list as `name not in registered`, so a rollback-registered
+resource cannot reach its `FILED` bucket by construction. `NewGameResetRequested`
+IS registered — and its registration is precisely why Q136 applies to it: the
+rewind restores the pre-write value and erases the menu's press. The broad
+census is right to exclude it and the ingress census is right to name it. ⇒ **Q136
+covers two resources, and the ingress census owns that count.** The page said 50 /
+29 / 17 / 3 / 1 at 2026-09-17 with only `CutsceneAdvanceRequest` filed, which
+represented neither `NewGameResetRequested` nor the `SpawnPlayerCloneRequest`
+specimen found and fixed the next day.
 
 ⛔⛤ **THE THREE THAT LEFT WERE NEVER CROSSING, AND THE RULING NEVER OWED THEM.**
 `CausalRecording`, `SimPhaseCensus` and `SlotControls` each had an `Update` side
@@ -1666,7 +1688,7 @@ ROLLBACK.** With the press finally arriving, the witness's health read came back
 `GGRS sync-test checksum mismatch at frames [14, 15, ..]` on every run.
 `tick_player_clone_brains` is registered into the SIM schedule and read
 `time.delta_secs()` — the app's WALL dt — accumulating it into a
-`PlayerCloneClock` resource that was `init_resource`d and never registered for
+`PlayerCloneClock` resource that was `init_resource`d and never registered for <!-- cite-ok: this block RECORDS the deletion of `PlayerCloneClock`; the name is gone by intent -->
 rollback. A resimulated frame therefore added dt AGAIN to a value no rewind
 restored, so `snapshot.sim_time` differed between the original run and the
 replay, the demo brain emitted a different frame, and the clone's
@@ -1677,7 +1699,7 @@ REGISTRATION.** `GameplayElapsed` is the same fact, accumulated the same way
 (`+= world_time.scaled_dt`), rollback-registered, advanced at the head of
 `WorldPrep`, and its own doc says *"before any actor brain reads the snapshot"* —
 which is exactly where `tick_player_clone_brains` reads. Registering
-`PlayerCloneClock` would have made the drift rewind correctly and left two owners
+`PlayerCloneClock` would have made the drift rewind correctly and left two owners <!-- cite-ok: the same deleted type, named as the road not taken -->
 of *how long gameplay has run*; deleting it leaves one. ⭐ The `dt` moved to
 `WorldTime::sim_dt()` in the same edit, which also sharpens the pre-existing zero
 guard: `sim_dt` is `raw_dt * time_scale`, so it is zero while PAUSED or in
@@ -1687,11 +1709,24 @@ hitstop, and ticking a demo cycle through a pause was never intended.
 HAS BEEN THE DEFECT**, and `sim_plugin.rs` names the other two at the
 registration that moved them out: `sync_developer_body_profile` was *"arbitrated
 by a `Local` that runs once per ADVANCE and therefore remembered across a
-rewind"*, and `sync_live_player_dev_edits_system` wrote five movement clusters
+rewind"*, and `sync_live_player_dev_edits_system` wrote five movement clusters <!-- cite-ok: the QUOTE is accurate and the quoted name has no definition -- see the note below -->
 from a live inspector resource. ⇒ Worth a guard of its own: a system in the sim
 schedule that accumulates into a `Local` or into an unregistered resource is the
 shape, and all three instances were invisible to every existing census because
 none of them is a *multi-writer* and none of them crosses a schedule boundary.
+
+⚠ **AND THE SECOND OF THOSE TWO NAMES NO LONGER EXISTS, WHICH IS A FINDING
+ABOUT TEN SOURCE COMMENTS RATHER THAN ABOUT THIS ROW.**
+`sync_live_player_dev_edits_system` has no definition anywhere in the tree — <!-- cite-ok: this sentence REPORTS that the name has no definition -->
+measured 2026-09-18 — yet ten sites still name it as a live system, including
+an intra-doc link in `crates/ambition_dev_tools/src/lib.rs:15` calling it *"the
+host-scheduled system that applies live ability/tuning edits to the player each
+frame"*. The work it described now lives in
+`sync_live_ability_edits_clusters`
+(`crates/ambition_dev_tools/src/dev_tools/editable.rs:802`), which mutates
+exactly the five clusters the quote counts — but it is a plain helper taking
+`&mut` arguments, NOT a scheduled system, so the decomposition changed the
+shape and the comments were left describing the old one.
 
 ⛔⛤ **AND THE MOST TRANSFERABLE FINDING IS ABOUT THE FIXTURE, NOT THE FIX: NO
 TEST IN THIS WORKSPACE EXERCISED THE OWNERSHIP MODE THE GAME ACTUALLY RUNS IN.**
@@ -2619,7 +2654,7 @@ workspace — all three of them:
 
 | script | `to_alpha` | `seconds` | position in script | room |
 |---|--:|--:|---|---|
-| `test_intro` | **0.0** | 0.8 | second, after a banner | `central_hub_main` |
+| `test_intro` | **0.0** | 0.8 | second, after a banner | `central_hub_complex` |
 | `intro_wake` | **0.0** | 0.8 | **first** | `intro_wake_room` |
 | `drain_market_arrival` | **0.0** | 0.6 | **first** | `drain_alley` |
 
@@ -2653,6 +2688,26 @@ scripts:
 ⛔ **WHAT MUST NOT HAPPEN IS A CONSUMER LANDING ALONE.** It satisfies the
 UNFINISHED label, reads as the row closing, and leaves the player waiting 2.2 s
 across three rooms for a screen that never changes.
+
+⛔⛤ **AND ON 2026-09-18 ONE OF THE THREE BECAME THE SHIPPED FIRST BOOT, WHICH IS
+WHY THIS ROW IS NOW WORTH SCHEDULING.** The `room` column above read
+`central_hub_main` when this row was written, and that was not a typo: it was the
+LDtk level id `479d5a028` corrected to `central_hub_complex`. Until that commit
+the binding could never match a runtime room, so `test_intro` had **never
+played** and its 0.8 s of nothing was unreachable. It is now the second beat of
+the cutscene every new player meets on entering the hub, between the
+`// boot sequence` banner and the WARDEN line — 0.8 s in which, measured, the
+projection reads 0.0 at every instant and a consumer would draw nothing.
+
+⇒ The ruling is unchanged and so is the argument; what changed is the cost of
+deferring it. ⚠ A fourth option exists now that did not before and is worth
+naming so it is chosen rather than drifted into: **drop the `Fade` beat from
+`test_intro`** and leave the other two, which takes the defect off the
+first-boot path at the price of the intro the author wrote. That is a content
+decision, not an engine one, and it does NOT close this row — `intro_wake` and
+`drain_market_arrival` both still open with a fade, and both use it the way
+option 2 would forbid. ⛔ Reverting the room binding is not on the list: the
+binding is correct and the dead-row problem it fixed was real.
 
 ⇒ This is the same missing thing as VC5, the title launcher's content-alpha ramp
 — see

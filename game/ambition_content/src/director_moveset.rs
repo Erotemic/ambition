@@ -53,7 +53,7 @@ pub fn director_moveset() -> MovesetContract {
     let mut set = crate::archetype_moveset::under_own_name(
         crate::pointed_polygon_moveset::pointed_polygon_moveset(),
         &["polygon", "pointed_polygon"],
-        "author",
+        "director",
     );
     crate::special_slots::replace_special(&mut set, "special_up", directors_teleport());
     crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
@@ -63,7 +63,7 @@ pub fn director_moveset() -> MovesetContract {
     // row, and the fiction is exact for this fighter: a writer does not finish
     // the argument on the spot, the revision lands later.
     //
-    // ⛔ ON THE WEAKEST THING HE HAS, DELIBERATELY. `author_tilt_down` does 4.
+    // ⛔ ON THE WEAKEST THING HE HAS, DELIBERATELY. `director_tilt_down` does 4.
     // Stamping the mark on his forward smash would make a move that already wins
     // exchanges win them harder; stamping it here turns a NEUTRAL-GAME TOOL into
     // a threat, which changes what the match is about rather than how much it
@@ -82,7 +82,7 @@ pub fn director_moveset() -> MovesetContract {
     // ruleset component with `PlacedMine`'s exact precedent.
     ambition_entity_catalog::smash_mark::mark_move_in(
         &mut set,
-        "author_tilt_down",
+        "director_tilt_down",
         ambition_entity_catalog::smash_mark::MarkBodyParams {
             fuse_s: 1.4,
             damage: 6,
@@ -122,7 +122,7 @@ pub fn director_moveset() -> MovesetContract {
 /// means walking where the bolt needs him to walk.
 fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
-        "author_train_of_thought",
+        "director_train_of_thought",
         "special_forward",
         BOLT_AT_S,
         BOLT_ENDS_S,
@@ -195,7 +195,7 @@ fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
 /// OR reflection, not both.
 fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::smash_counter::counter_move(
-        "author_second_draft",
+        "director_second_draft",
         "special",
         // Faster to open than the riposte and shorter-lived: he is not blocking,
         // he is noticing.
@@ -242,7 +242,7 @@ fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
 /// The Director's recovery: he edits himself out and back in somewhere else.
 fn directors_teleport() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
-        "author_revision",
+        "director_revision",
         "special_up",
         TELEPORT_AT_S,
         TELEPORT_ENDS_S,
@@ -311,15 +311,15 @@ mod tests {
         let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_up").map(String::as_str),
-            Some("author_revision"),
+            Some("director_revision"),
             "his up-B must be the teleport"
         );
         assert!(
-            set.moves.iter().any(|m| m.id == "author_revision"),
+            set.moves.iter().any(|m| m.id == "director_revision"),
             "…and the move it names must be in the table"
         );
         assert!(
-            !set.moves.iter().any(|m| m.id == "author_rising_edge"),
+            !set.moves.iter().any(|m| m.id == "director_rising_edge"),
             "…and the archetype's spinning rise must not be left behind \
              unreachable, where every census that walks `moves` reports it as \
              part of his kit"
@@ -337,13 +337,13 @@ mod tests {
         let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_forward").map(String::as_str),
-            Some("author_train_of_thought"),
+            Some("director_train_of_thought"),
             "his side-B must be the steered thought"
         );
         let move_spec = set
             .moves
             .iter()
-            .find(|m| m.id == "author_train_of_thought")
+            .find(|m| m.id == "director_train_of_thought")
             .expect("…and the move it names must be in the table");
         let bolt: ambition_entity_catalog::smash_bolt::SteeredBoltParams = move_spec
             .events
@@ -379,7 +379,7 @@ mod tests {
 
         // ⛔ AND THE ARCHETYPE'S LUNGE IS GONE rather than left unreachable.
         assert!(
-            !set.moves.iter().any(|m| m.id == "author_vector_lunge"),
+            !set.moves.iter().any(|m| m.id == "director_vector_lunge"),
             "the displaced lunge is still in the table"
         );
     }
@@ -393,13 +393,13 @@ mod tests {
         let set = director_moveset();
         assert_eq!(
             set.verbs.get("special_down").map(String::as_str),
-            Some("author_second_draft"),
+            Some("director_second_draft"),
             "his down-B must be the counter"
         );
         let counter = set
             .moves
             .iter()
-            .find(|m| m.id == "author_second_draft")
+            .find(|m| m.id == "director_second_draft")
             .expect("…and the move it names must be in the table");
 
         let params: ambition_entity_catalog::smash_counter::CounterParams = counter
@@ -444,19 +444,19 @@ mod tests {
     fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
         let set = director_moveset();
         // ⛔⛔ THE INHERITED ID, NOT A HISTORICAL ONE, AND THIS ASSERTION WENT
-        // VACUOUS ONCE ALREADY. It named `author_low_arc`, which is what the
+        // VACUOUS ONCE ALREADY. It named `director_low_arc`, which is what the
         // Pointed Polygon's grounded down-B was called until that fighter's
         // slot became a counter (`polygon_riposte`, 2026-09-06). The renamed id
         // could no longer exist, so the check passed without asking anything —
         // a test that borrows a table has to name what that table CURRENTLY
         // hands it, or the rename it is protecting against silences it.
         assert!(
-            !set.moves.iter().any(|m| m.id == "author_riposte"),
+            !set.moves.iter().any(|m| m.id == "director_riposte"),
             "the displaced grounded down-B is still in the table, where every \
              census that walks `moves` reports it as part of his kit"
         );
         assert!(
-            set.moves.iter().any(|m| m.id == "author_falling_edge"),
+            set.moves.iter().any(|m| m.id == "director_falling_edge"),
             "his AERIAL down-special went with it — that verb was never replaced"
         );
     }
@@ -471,7 +471,7 @@ mod tests {
         let up = set
             .moves
             .iter()
-            .find(|m| m.id == "author_revision")
+            .find(|m| m.id == "director_revision")
             .expect("his up-B is in the table");
         assert_ne!(
             up.gates.recovery,

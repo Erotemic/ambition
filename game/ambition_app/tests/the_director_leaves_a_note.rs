@@ -1,7 +1,7 @@
 //! The Director's low poke leaves a note, and the note is a whole feature.
 //!
 //! ⭐⭐ THE ROAD, END TO END, IN THE SHIPPED COMPOSITION: the Director's real
-//! `author_tilt_down` → a real strike volume → the real collision resolver →
+//! `director_tilt_down` → a real strike volume → the real collision resolver →
 //! `OnHitEffectMessage` → `BodyMark` on the victim → a clock the player can read,
 //! drawn above the body → the authored fuse → a `DamageBox` → real combat
 //! damage, credited to the Director. Every mark test before this one began by
@@ -27,7 +27,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 
 const DIRECTOR: &str = "author";
-const TILT_DOWN: &str = "author_tilt_down";
+const TILT_DOWN: &str = "director_tilt_down";
 
 /// Every `DamageBox` request the ruleset made, as it was made. ⛔ Accumulated
 /// as written: a message buffer read after the fact has already dropped it.

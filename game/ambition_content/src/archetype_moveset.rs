@@ -127,7 +127,7 @@ mod tests {
             (
                 crate::director_moveset::director_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
-                "author",
+                "director",
                 &["polygon", "pointed_polygon"][..],
                 // ⭐ THREE OF HIS FOUR SPECIALS ARE HIS OWN, and only the neutral
                 // is still the archetype's: the teleport up-B, the counter that
@@ -255,7 +255,7 @@ mod tests {
             // same order" and is only true while the borrower changes NOTHING:
             // the Director replaced his up-B with a teleport (2026-08-27) and every
             // move after the one he removed compared against its neighbour,
-            // reporting a drift in `author_low_arc`, a move nobody touched.
+            // reporting a drift in `director_low_arc`, a move nobody touched.
             //
             // ⛔ AND NOT BY STRIPPED ID EITHER, which was the next thing tried:
             // the archetype's own ids carry two different owner prefixes

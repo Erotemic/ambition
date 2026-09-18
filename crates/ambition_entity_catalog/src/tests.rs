@@ -1725,12 +1725,12 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
             .iter()
             .map(|m| m.id.as_str())
             .collect::<Vec<_>>(),
-        vec!["author_jab", "author_tilt_up", "author_stranger"],
+        vec!["director_jab", "director_tilt_up", "director_stranger"],
         "the moves themselves were not renamed"
     );
     assert_eq!(
         contract.verbs.get("attack_up").map(String::as_str),
-        Some("author_tilt_up"),
+        Some("director_tilt_up"),
         "a verb still resolves to a name no move answers to — one dead button"
     );
     let into = contract.moves[0]
@@ -1743,13 +1743,13 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
         .expect("the fixture authored a cancel window");
     assert_eq!(
         into,
-        vec!["author_tilt_up".to_string(), "any_attack".to_string()],
+        vec!["director_tilt_up".to_string(), "any_attack".to_string()],
         "a cancel target was left pointing at the old name, or the VERB CLASS \
          beside it was renamed — which unhooks every window that names one"
     );
     assert_eq!(
         contract.moves[0].gates.when_refused.as_deref(),
-        Some("author_tilt_up"),
+        Some("director_tilt_up"),
         "a refusal variant was left pointing at the OLD id. A cloned fighter's \
          priced move would fall through to the ORIGINAL fighter's move, or — \
          because an unknown id degrades to 'no fallback' by design — to nothing \

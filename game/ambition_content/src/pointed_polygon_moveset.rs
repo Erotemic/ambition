@@ -213,7 +213,7 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     // until `tipper`.
     //
     // ⚠ AND THIS ONE EDIT REACHES TWO FIGHTERS. `director_moveset` borrows this
-    // whole table and renames the prefix, so the Director's `author_point` is this
+    // whole table and renames the prefix, so the Director's `director_point` is this
     // move — which is why it was worth doing here rather than authoring a
     // separate thrust for each.
     let neutral_special = committed_tail(

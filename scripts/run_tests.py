@@ -1443,6 +1443,20 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_generation_mechanics_construction_is_declared.py",
             ],
         ),
+        # ⛔⛤ SIX PLANNING PAGES STATED THE FACADE'S DEPENDENCY CLOSURE AND GAVE
+        # TWO ANSWERS. The 2026-09-10 re-measurement reached one of them, and
+        # that page kept its own stale number in the sentence above its own
+        # correction. Three pages also still described `facade -> host -> render`
+        # as mandatory after the edge had been cut -- the dangerous half, because
+        # it describes an architectural property backwards. This owns the number
+        # and ratchets the absence.
+        Job(
+            "the facade's dependency closure has one owner and every page agrees",
+            [
+                sys.executable,
+                "scripts/check_facade_dependency_closure.py",
+            ],
+        ),
     ]
 
 

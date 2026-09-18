@@ -585,8 +585,10 @@ agents: plan/check/build/test/package with clear artifact/cache ownership.
 
 [Packet A9](actor-monolith-work-frontier.md) measures the public facade's supported
 profiles. The mandatory internal dependency traversal at the review baseline
-reaches 51 other workspace packages, including render through host. This is a
-lower bound, not Cargo's final feature resolution. `default-features = false`
+reaches 48 other workspace packages, and no longer reaches render through
+host — `ambition_render` is outside the mandatory graph entirely, held there by
+`scripts/check_facade_dependency_closure.py`, which owns this number and
+this absence. This is a lower bound, not Cargo's final feature resolution. `default-features = false`
 on one edge is not proof that another dependency path cannot enable the same
 feature.
 

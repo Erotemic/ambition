@@ -254,13 +254,25 @@ A boundary can be successful in one dimension and incomplete in another:
 | Compile-time closure | Is an absent capability absent from the selected normal dependency/feature closure? |
 | Public API | Can an external game use the supported path without internal re-exports and source knowledge? |
 
-The facade has at least 51 other workspace packages in its transitive,
-nonoptional normal dependency graph at this baseline. This is a conservative
-manifest traversal, not a resolved Cargo feature graph or binary measurement.
-One concrete path is facade -> platformer2d_host -> ambition_render, despite the
-facade's own render dependency being optional. Fix the documentation claim and
-introduce a real minimal-profile witness before using a passing optional-plugin
-fixture as evidence of footprint isolation. See F5 and A9.
+The facade has at least 48 other workspace packages in its transitive,
+nonoptional normal dependency graph. This is a conservative manifest traversal,
+not a resolved Cargo feature graph or binary measurement. ⛔ **THE NUMBER IS
+NOT THIS PAGE'S TO STATE**, and this sentence keeps it only because the argument
+around it needs one: `scripts/check_facade_dependency_closure.py` measures it every
+run and fails any page that disagrees. Introduce a real minimal-profile witness
+before using a passing optional-plugin fixture as evidence of footprint
+isolation. See F5 and A9.
+
+⛔⛤ **AND THE CONCRETE PATH THIS PARAGRAPH NAMED IS GONE, WHICH INVERTS ITS
+POINT.** It read *"One concrete path is facade -> platformer2d_host ->
+ambition_render, despite the facade's own render dependency being optional"* —
+offered as proof that the optional declaration bought nothing. The host now
+declares `ambition_render = { optional = true }` and the facade takes the host
+with `default-features = false`, so `ambition_render` is not in the mandatory
+graph at all. ⇒ The finding was real and it was FIXED; the paragraph outlived
+the defect it described, and a reader planning a render decoupling would have
+started from a path already cut. The owner above ratchets the absence so it
+cannot come back quietly.
 
 ⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
 `300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed

@@ -19,7 +19,7 @@ Executed on the baseline with the existing Python tools:
 | --- | --- | --- |
 | `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | Syntactic installation/ordering inventory, not semantic correctness |
 | `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
-| Normal nonoptional workspace-manifest traversal from facade | 51 other workspace packages reachable | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population |
+| `scripts/check_facade_dependency_closure.py` | 48 other workspace packages reachable, and `ambition_render` is NOT among them | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population. ⛤ This row named no instrument until 2026-09-18 and said 51 — the one row in this table whose number nothing re-derived, and the only stale one |
 
 ⭐⭐ **RE-RUN 2026-09-17 WITH THE CONFOUND CONTROLLED, because both ordering
 instruments were REWRITTEN since the baseline** — `D-FOREIGN-ORDER-SPELLING`

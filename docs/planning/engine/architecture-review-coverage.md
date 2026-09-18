@@ -304,9 +304,19 @@ PYCODE
 This lower-bound traversal uses only direct nonoptional path entries in normal
 `[dependencies]`. It excludes external libraries, optional feature activation,
 build/dev/target-specific edges and inherited dependency features. Cargo's actual
-resolved profile can require more. The baseline is **51 other workspace packages**;
-the mandatory path includes facade -> host -> render. This is not a size or speed
-benchmark. A9 requires real Cargo metadata/tree and external behavior fixtures.
+resolved profile can require more. The closure is **48 other workspace packages**
+and the mandatory path does NOT include render — `ambition_render` is outside the
+graph entirely. This is not a size or speed benchmark. A9 requires real Cargo
+metadata/tree and external behavior fixtures.
+
+⛔⛤ **THIS SENTENCE SAID 51 AND "includes facade -> host -> render" UNTIL
+2026-09-18, DIRECTLY ABOVE THE ⚠ NOTE BELOW THAT CORRECTS IT.** A correction
+appended under a claim does not repair the claim: most readers stop at the
+paragraph. ⇒ The number now has one owner,
+`scripts/check_facade_dependency_closure.py`, which measures it and fails any
+page that disagrees — including this one. The note below is kept because the
+HISTORY is worth having; the claim above is fixed because the history is not
+what a reader takes away.
 
 ⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
 `300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed

@@ -316,6 +316,32 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "MusicIntent": (
+        "CORRECT ABOUT THE WRITERS, AND THE OTHER QUESTION ABOUT THE SAME SYSTEM "
+        "IS OWED ELSEWHERE — the two are not the same question and this row "
+        "answers only the first. THREE writers, three roles, all inside the actor "
+        "monolith. ONE BUILDER: `compute_music_intent` "
+        "(`src/music/intent.rs`) folds room, encounter, narrative and radio "
+        "requests into the intent every frame, chained before "
+        "`drive_music_director` and `.run_if(simulation_authorized)`. ONE "
+        "FRONTEND SILENCE: `apply_frontend_music_policy` (`src/audio/plugin.rs`) "
+        "clears `simple_track_candidates` and `adaptive` on the frame the "
+        "simulation DEAUTHORIZES — deliberately ungated *\"so it can observe the "
+        "transition\"* and latched to act once per frontend entry. ⇒ The gate is "
+        "the arbitration: the builder runs only while authorized, the silence "
+        "acts as that stops. ONE CONTEXT RESET: "
+        "`reset_audio_request_state_on_context_change` assigns "
+        "`*intent = Default::default()` through the `AudioRequestState` bundle "
+        "and is registered `.before` BOTH of the others, which is stated rather "
+        "than hoped.\n"
+        "    ⛔ AND THE SCHEDULE QUESTION IS SEPARATE AND OPEN: "
+        "`compute_music_intent` is banked in "
+        "`scripts/check_rollback_mutators_run_in_sim.py` as an `Update` writer of "
+        "rollback state, owed to ROLLBACK-MUTATOR-POPULATION. *Who owns the "
+        "value* and *does a rewind replay the write* are different questions "
+        "about one system; a verdict here must not read as an answer to the "
+        "other."
+    ),
     "FixedStepsTaken": (
         "NOT A SHARED RESOURCE AT ALL — ONE NAME, TWO TYPES, AND THE CENSUS IS "
         "KEYED ON THE NAME. `struct FixedStepsTaken(u32);` is declared INSIDE a "

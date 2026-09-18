@@ -1290,13 +1290,35 @@ poison-verified. The control is what makes the zeroes readable: a declining rese
 and a composition without `apply_item_grants` print the same zero.
 
 ⭐ **HOW MANY RESOURCES THIS RULING IS RESPONSIBLE FOR IS MEASURED, NOT
-ESTIMATED.** `scripts/resources_crossing_the_rewind_boundary.py` sweeps every
-`Resource` written on both sides of the boundary — **50** of them at 2026-09-17
-(was 53 earlier the same day; see below) — and sorts them: 29
-rollback-registered, 17 adjudicated harmless with the argument beside each, 3
-crossing only at a session edge, **1 FILED against this question
-(`CutsceneAdvanceRequest` — a dismiss raised on the host side does nothing), and
-0 that nobody has examined.**
+ESTIMATED — BY TWO INSTRUMENTS THAT DELIBERATELY MEASURE DIFFERENT THINGS.** A
+2026-09-18 review found this section describing them as one population, and a
+commit message of mine claiming they *"now agree"*. They do not agree and must
+not: each answers a different question, and the Q136 count is the second one's.
+
+    scripts/resources_crossing_the_rewind_boundary.py
+        BROAD CROSSING CENSUS — UNREGISTERED per-frame state written on both
+        sides of the boundary. 57 both-side resources at 2026-09-18: 33
+        rollback-registered, 20 adjudicated harmless with the argument beside
+        each, 3 crossing only at a session edge, 1 FILED
+        (`CutsceneAdvanceRequest`), 0 nobody has examined.
+
+    scripts/check_host_produced_sim_consumed_requests.py
+        Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by
+        the simulation. 3 of 57 spent types at 2026-09-18:
+        `CutsceneAdvanceRequest` and `NewGameResetRequested` (both Q136), and
+        `VersusMatch` (filed against Q140).
+
+⛔⛤ **AND THE FIRST CENSUS CANNOT EVER REPORT THE SECOND'S SECOND ROW, WHICH IS
+THE REASON TO STOP QUOTING ONE NUMBER.** `resources_crossing_the_rewind_boundary.py:355-358`
+builds its candidate list as `name not in registered`, so a rollback-registered
+resource cannot reach its `FILED` bucket by construction. `NewGameResetRequested`
+IS registered — and its registration is precisely why Q136 applies to it: the
+rewind restores the pre-write value and erases the menu's press. The broad
+census is right to exclude it and the ingress census is right to name it. ⇒ **Q136
+covers two resources, and the ingress census owns that count.** The page said 50 /
+29 / 17 / 3 / 1 at 2026-09-17 with only `CutsceneAdvanceRequest` filed, which
+represented neither `NewGameResetRequested` nor the `SpawnPlayerCloneRequest`
+specimen found and fixed the next day.
 
 ⛔⛤ **THE THREE THAT LEFT WERE NEVER CROSSING, AND THE RULING NEVER OWED THEM.**
 `CausalRecording`, `SimPhaseCensus` and `SlotControls` each had an `Update` side

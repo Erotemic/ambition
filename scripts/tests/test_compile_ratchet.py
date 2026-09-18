@@ -501,6 +501,54 @@ def test_adopt_wins_does_not_drop_a_previously_accepted_reason():
     assert merged["accepted_reasons"] == {"critical_path_crates": "the carve programme"}
 
 
+def test_adopt_wins_drops_a_reason_whose_metric_improved():
+    """⛔⛤ THE OPPOSITE ERROR TO DROPPING EVERY REASON, and the sibling test
+    above cannot see it: it only covers the HELD case, where the number does not
+    move and carrying its reason forward is right.
+
+    A reason answers "why is this number what it is" — `accept_regressions` says
+    so where it writes one, per metric. So it is about a metric AT A VALUE. Accept
+    `critical_path_crates: 14` because the carve programme is the price, let it
+    improve to 13, and an unconditional carry-forward leaves the sentence
+    explaining 14 attached to 13 — telling the next reader that a better number
+    is a deliberate regression somebody signed off.
+
+    Reported in `adopted` rather than removed quietly: the reason is the only
+    record that a human ever looked at this metric, so spending it is news.
+    """
+    frozen = _snapshot("oldersha", critical_path=14, largest=100)
+    frozen["accepted_reasons"] = {"critical_path_crates": "the carve programme"}
+    current = _snapshot("newersha", critical_path=13, largest=100)
+    merged, adopted, _held = ratchet.adopt_wins(current, frozen)
+
+    assert merged["critical_path_crates"] == 13, "the improvement must still be banked"
+    assert "critical_path_crates" not in merged["accepted_reasons"], (
+        "the reason explained 14; 13 is a different number and must not inherit it"
+    )
+    assert any("accepted_reason (critical_path_crates)" in line for line in adopted), (
+        f"dropping a reason is news and must be reported; adopted was {adopted}"
+    )
+
+
+def test_adopt_wins_keeps_a_reason_for_an_unrelated_metric():
+    """⚠ AND THE PRUNE MUST NOT BE A SECOND WAY TO LOSE EVERYTHING. One metric
+    improving says nothing about another's justification, so a reason attached to
+    a metric that was HELD survives the same run that spends a different one.
+    """
+    frozen = _snapshot("oldersha", critical_path=14, largest=100)
+    frozen["accepted_reasons"] = {
+        "critical_path_crates": "the carve programme",
+        "largest_unit": "the monolith is being carved",
+    }
+    # critical_path improves; largest_unit regresses and is held.
+    current = _snapshot("newersha", critical_path=13, largest=120)
+    merged, _adopted, _held = ratchet.adopt_wins(current, frozen)
+
+    assert merged["accepted_reasons"] == {"largest_unit": "the monolith is being carved"}, (
+        "the held metric keeps its reason; only the improved one spends it"
+    )
+
+
 def test_accept_refreezes_only_the_named_metric():
     """⭐ THE MIDDLE VERB THE RATCHET WAS MISSING.
 

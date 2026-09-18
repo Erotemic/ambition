@@ -25,7 +25,7 @@ use ambition_entity_catalog::authoring::{charge, on_hit, strike, Charge, Strike}
 use ambition_entity_catalog::move_section::{
     encode, MoveSectionData, MOVE_SECTION_KIND, MOVE_SECTION_VERSION,
 };
-use ambition_entity_catalog::{MoveSpec, MovesetContract, WindowTag};
+use ambition_entity_catalog::{MoveSpec, MovesetContract};
 
 /// The technique a landed hit asks the ruleset for. A KEY, never a handler — the
 /// authoring crate cannot see a handler and must not need to.
@@ -66,6 +66,9 @@ pub fn a_chargeable_smash() -> MoveSpec {
 
 #[cfg(test)]
 mod tests {
+    // Only the assertions below read a window's tag; the lib itself never does,
+    // and importing it at module scope made the lib target warn.
+    use ambition_entity_catalog::WindowTag;
     use super::*;
 
     /// ⭐ THE BUILDERS RAN, not a literal. Each assertion names a field only a

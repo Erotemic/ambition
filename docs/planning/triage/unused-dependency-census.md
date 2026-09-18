@@ -1,11 +1,23 @@
 # Unused dependency declarations — a compiler-verified census
 
-> **Complete. All 78 workspace members with a `src/lib.rs` (66 in `crates/`,
-> 12 in `game/`) ran through the detector on 2026-09-18 at `455b35876`+.
-> Reproducible: `find crates game -name lib.rs -path '*/src/lib.rs'` names
-> exactly this population — verified zero-diff against the sweep's own crate
-> list the day this page was finished.** 64 crates produced zero hits under
-> the default-features detector and needed no further work. The other 14 are
+> **Complete FOR `[dependencies]`. REOPENED 2026-09-18 for
+> `[dev-dependencies]`, which the detector below cannot see.** All 78
+> workspace members with a `src/lib.rs` (66 in `crates/`, 12 in `game/`) ran
+> through the detector on 2026-09-18 at `455b35876`+. Reproducible: `find
+> crates game -name lib.rs -path '*/src/lib.rs'` names exactly this
+> population — verified zero-diff against the sweep's own crate list the day
+> this page was finished. 64 crates produced zero hits under the
+> default-features detector.
+>
+> ⛔⛤ **AND "NO FURTHER WORK" IS WHAT THIS PAGE GOT WRONG.** The section "an
+> `--all-targets` run answers a different question" below states the gap in
+> this page's own words — *a `[dev-dependencies]` entry can be STRANDED with
+> zero signal from any `--lib` run* — and the page then declared the census
+> complete anyway. A zero from an instrument that cannot see a table is not a
+> zero about that table. The 64 were never asked the dev-dependency question,
+> and neither were the 14 called "fully settled": both halves are scoped to
+> `[dependencies]`. Seven stranded dev-dependencies were found the moment the
+> question was actually asked — see "Stranded dev-dependencies" below. The other 14 are
 > each fully classified below: every hit is either a compiler-and-deletion-
 > confirmed manifest fix (applied) or a confirmed real use this page names
 > the evidence for (kept, unchanged). This page replaces an earlier partial
@@ -162,7 +174,12 @@ had at least one hit; every hit below has been through the detector, the
 `--all-features` confirmer, and (where the finding wasn't already settled by
 those two) the `--all-targets` confirmer or a direct delete-and-build test.
 
-### Manifest changed (11 edges, across 7 crates)
+### Manifest changed (17 edges, across 9 crates)
+
+⚠ This heading read *"11 edges, across 7 crates"* until 2026-09-18 while the
+table under it held 17 rows across 9 crates. A count of a list that sits
+directly above the list is the cheapest of all numbers to check and was never
+checked. Recounted by parsing the table rather than by re-reading it.
 
 | crate | dependency | class | evidence |
 |---|---|---|---|
@@ -174,7 +191,7 @@ those two) the `--all-targets` confirmer or a direct delete-and-build test.
 | `ambition_app` | `serde` | MISFILED — moved to `[dev-dependencies]` | only `tests/replay_fixture_regression.rs` (a submodule of the aggregated `tests/app_it.rs` binary) names it |
 | `ambition_app` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | only `tests/gravity_symmetry_room.rs` (same aggregate binary) names it |
 | `ambition_app` | `ron` | STRANDED — removed | 0 occurrences anywhere (`lib`, `bin`, `tests/`, `examples/`); plain, not optional, not wired through any `dep:ron` feature entry. Delete-and-build clean at default (5m51s) and `--all-features` (5m26s) |
-| `ambition_app` | `image` | REDUNDANT — removed | 0 occurrences of the standalone crate (every `image::` hit was `bevy::image::ImagePlugin`, the umbrella's own module). Its exact edge — `{ version = "0.25", default-features = false, features = ["png"] }` — is *already* declared identically by `ambition_platformer2d_actor_monolith` (a real dependency of `ambition_app`), `ambition_render`, and `ambition_app_tools`, so removing the redundant copy changes no effective feature unification |
+| `ambition_app` | `image` | STRANDED — removed | 0 occurrences of the standalone crate (every `image::` hit was `bevy::image::ImagePlugin`, the umbrella's own module). ⚠ **THE ORIGINAL EVIDENCE HERE WAS WRONG AND IS CORRECTED, 2026-09-18.** It said the identical edge is "already declared identically by `ambition_platformer2d_actor_monolith` (a real dependency of `ambition_app`), `ambition_render`, and `ambition_app_tools`, so removing the redundant copy changes no effective feature unification". None of those three supplies `image/png` to `ambition_app`: actor-monolith's is a `[dev-dependencies]` entry, `ambition_render`'s is optional behind its `capture` feature, and `ambition_app_tools` is a separate package, not a dependency of this one. The REMOVAL still stands — `ambition_app` names the crate nowhere, and PNG support reaches the visible compositions through Bevy's own presentation stack — but it stands on the zero use, not on a unification argument that was never established. Classed REDUNDANT on that bad argument; it is plain STRANDED |
 | `ambition_content` | `serde_json` | MISFILED — moved to `[dev-dependencies]` | every use (`src/encounters/tests.rs`, `src/intro/tests.rs`, `src/intro/route_state/tests.rs`) is inside a `#[cfg(test)]` module |
 | `ambition_content` | `insta` (dev) | STRANDED — removed | 0 occurrences anywhere in the crate, including all 12 files aggregated into `tests/content_it.rs`. Found only via `--all-targets` — invisible to any `--lib` run, since dev-dependencies never enter one |
 | `ambition_demo_smash` | `serde` | STRANDED — removed | 0 occurrences (word-boundary grep, not just `serde::`, ruling out a bare derive reached through `use serde::{Serialize}`); plain, not feature-wired |
@@ -229,6 +246,60 @@ production embeds no encounter wave data — the dependency moved to
 rather than reworded. In a table whose justification column is otherwise
 consistent, the one row that doesn't match the shape of its neighbours is the
 one to check first.
+
+## Stranded dev-dependencies — the half the detector cannot see
+
+⛔⛤ **THIS SECTION EXISTS BECAUSE THE PAGE CLOSED WITHOUT IT.** The detector is
+a `--lib` run, and a `[dev-dependencies]` entry never enters one. The page said
+so, in the section above, and then reported 64 crates as needing "no further
+work" on the strength of a measurement that was never pointed at their
+dev-dependency tables. Raised in an outside review, 2026-09-18.
+
+**Method, and why it is not the detector.** There is no compiler flag here that
+is both authoritative and affordable: `-W unused_crate_dependencies` is part of
+cargo's fingerprint, so turning it on rebuilds the workspace — which is how this
+target directory filled the disk three times, and why `check_no_warnings.py`
+refuses to reach for `RUSTFLAGS`. So this sweep is textual, and its weakness is
+named rather than hidden: it parses each manifest with `tomllib` (NOT by
+splitting on the string `[dev-dependencies]`, which matches a MENTION of the
+table in a comment — the first version of this sweep did exactly that and
+reported five deps from the wrong crate's `[dependencies]` block), collects both
+the plain table and every `[target.'cfg(..)'.dev-dependencies]`, and asks whether
+any `.rs` under `src/`, `tests/`, `benches/` or `examples/` contains a
+`name::`/`name!` reference, following a `package = ` rename.
+
+⚠ **A substring is not a reference, and this is where the sweep would have
+lied.** A loose grep for `insta` in `game/ambition_app` returns 562 hits and in
+actor-monolith 443 — every one of them inside the words `install`, `installs`,
+`installed`. Requiring `insta::` or `insta!` is what makes the zero real. A
+finding here is a CANDIDATE; each of the seven below was then settled by
+deleting the line and building the crate's `--all-targets`, which is the same
+delete-and-build instrument the `[dependencies]` half used.
+
+| crate | dev-dependency | evidence | settled by |
+|---|---|---|---|
+| `ambition_persistence` | `tempfile` | 0 `tempfile::` references in the crate | `cargo check -p ambition_persistence --all-targets`, clean |
+| `ambition_platformer2d_actor_monolith` | `insta` | 0 `insta::`/`insta!`; the 443 raw hits are all `install*` | `cargo check -p ambition_platformer2d_actor_monolith --all-targets`, clean |
+| `ambition_platformer2d_actor_monolith` | `proptest` | 0 references | same run |
+| `ambition_platformer2d_actor_monolith` | `tempfile` | 0 references. ⚠ Its comment CLAIMED a use — "Isolated scratch dirs for the asset-publish fixture tests" — and no such use exists; the comment went with the line | same run |
+| `game/ambition_app` | `insta` | 0 `insta::`/`insta!`; the 562 raw hits are all `install*` | `cargo check -p ambition_app --all-targets`, clean |
+| `game/ambition_app` | `proptest` | 0 references | same run |
+| `fixtures/content_builder` | `ron` | 0 `ron::`; the two raw hits are this crate's own `.to_ron()` method and one comment | built standalone (it has its own `[workspace]` and lockfile), `cargo check --all-targets` + `cargo test`, clean; `test_authoring_needs_no_engine.py` 10/10 |
+
+⭐ **AND THE FIXTURE IS AN INSTRUMENT, so tightening it is the point rather than
+tidiness.** `fixtures/content_builder`'s own header says its dependency list IS
+the assertion — that authoring a move needs no engine. An unused dev-dependency
+sitting in that list is a line the assertion does not mean.
+
+⚠ **ONE WARNING CAME WITH IT, and it was invisible for a structural reason worth
+recording beside the others on this page.** `fixtures/content_builder` is
+OUTSIDE the workspace on purpose, so `cargo check --workspace` never builds it
+and `check_no_warnings.py` cannot see it at all: `WindowTag` was imported at
+module scope, used only inside `#[cfg(test)]`, and warned on every lib build
+nobody ran. Moved into the test module. That is the third distinct way this
+repository's warning gate reads clean over code that warns — the other two
+(non-default `cfg(feature)`, and workspace feature unification) are disclosed in
+the gate's own output.
 
 ## Clean crates — 64, zero hits under the default-features detector
 

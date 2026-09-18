@@ -643,3 +643,189 @@ fn two_direct_members_of_one_set_are_still_unordered() {
          enough for the remaining readers and this file's advice is wrong"
     );
 }
+
+// ─── ROOM TRANSITION: ONE ACTIVE TRANSACTION, FOUR FILES THAT CLEAR IT ───────
+//
+// `RoomTransitionLoadState::active` is a single slot whose own doc says "there
+// is exactly one active transition", and FOUR production files write it:
+// `room_transition/loading.rs` (opens), `room_transition/commit.rs`,
+// `rollback_ggrs/lifecycle_commit.rs`, and this app's
+// `world_flow/room_transition_presentation.rs`. The dangerous shape is not two
+// clears -- a second clear finds `None` and no-ops -- it is a clear landing on a
+// transaction opened LATER in the same frame by somebody else.
+//
+// ⛔ WHAT THIS CANNOT SEE, stated because a zero here would otherwise read as
+// more than it is: `retire_committed_room_transition` and
+// `retire_cancelled_room_transition` are plain `fn(&mut World, ..)` called
+// directly by the rollback commit executor, NOT registered systems. The
+// schedule graph has no node for them, so no ordering question about them can
+// reach this detector. They are adjudicated by their own guards instead --
+// `retire_cancelled_room_transition` compare-matches `active.intent` before
+// clearing, and `retire_committed_room_transition` does not clear at all when
+// `cover_required`, handing that to the presentation settle barrier.
+
+/// Unordered pairs that conflict on `RoomTransitionLoadState`, plus the totals
+/// that say whether the detector saw anything at all.
+fn room_transition_conflicts(app: &mut App) -> (usize, usize, usize) {
+    let Some(state_id) = app
+        .world()
+        .components()
+        .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+    else {
+        // Not registered at all is a fact about the composition, not a zero.
+        return (0, 0, 0);
+    };
+
+    let labels: Vec<bevy::ecs::schedule::InternedScheduleLabel> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, schedule)| schedule.label())
+        .collect();
+
+    let mut on_state = 0usize;
+    let mut total = 0usize;
+    // An exclusive system reports its conflict with an EMPTY id list, so it can
+    // never match `state_id`. Counted rather than dropped: this is the blind
+    // half of the question.
+    let mut unattributed = 0usize;
+
+    for label in labels {
+        app.world_mut()
+            .resource_scope(|world, mut schedules: Mut<Schedules>| {
+                let schedule = schedules.get_mut(label).expect("label came from the map");
+                let _ = schedule.initialize(world);
+                for (_a, _b, ids) in &schedule.graph().conflicting_systems().0 {
+                    total += 1;
+                    if ids.is_empty() {
+                        unattributed += 1;
+                    } else if ids.contains(&state_id) {
+                        on_state += 1;
+                    }
+                }
+            });
+    }
+    (on_state, total, unattributed)
+}
+
+/// POSITIVE CONTROL: the detector fires on the shape being asked about.
+#[test]
+fn the_room_transition_conflict_detector_reports_an_unordered_pair() {
+    let mut app = App::new();
+    app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>();
+    app.add_systems(
+        Update,
+        (
+            |mut s: ResMut<
+                ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+            >| s.active = None,
+            |mut s: ResMut<
+                ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+            >| s.active = None,
+        ),
+    );
+    app.update();
+
+    let (on_state, _, _) = room_transition_conflicts(&mut app);
+    assert_eq!(
+        on_state, 1,
+        "two unordered `ResMut<RoomTransitionLoadState>` systems must be reported \
+         as conflicting; got {on_state}. A zero here means the measurement below \
+         proves nothing"
+    );
+}
+
+/// NEGATIVE CONTROL: and it STOPS firing once the pair is ordered, so a zero in
+/// the shipped app is caused by ordering rather than by a detector that never
+/// reports.
+#[test]
+fn ordering_the_pair_clears_the_room_transition_conflict() {
+    let mut app = App::new();
+    app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>();
+    app.add_systems(
+        Update,
+        (
+            (|mut s: ResMut<
+                ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+            >| s.active = None),
+            (|mut s: ResMut<
+                ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+            >| s.active = None),
+        )
+            .chain(),
+    );
+    app.update();
+
+    let (on_state, _, _) = room_transition_conflicts(&mut app);
+    assert_eq!(
+        on_state, 0,
+        "chaining the pair must clear the conflict; got {on_state}"
+    );
+}
+
+/// The shipped composition, measured with the controlled instrument above.
+///
+/// ⭐ A ratchet, not a proof of correctness: what it pins is that no NEW
+/// unordered writer of the single active-transaction slot can land unnoticed.
+/// Lower this number when you order a pair; never raise it.
+#[test]
+fn room_transition_load_state_writers_are_ordered_against_each_other_in_the_shipped_app() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let (on_state, total, unattributed) = room_transition_conflicts(&mut app);
+    eprintln!(
+        "[room-transition] {on_state} unordered pairs conflict on \
+         RoomTransitionLoadState ({total} conflicting pairs in all schedules, \
+         {unattributed} unattributable because an exclusive system reports no ids)"
+    );
+
+    // ANTI-VACUITY: a zero is a fact about the app only if the detector saw the
+    // app. A composition missing these plugins reports zero for the wrong reason.
+    assert!(
+        total > 0,
+        "no schedule reported ANY conflicting pair -- the graph was not built or \
+         this measured an empty composition, so the zero below would be vacuous"
+    );
+    assert!(
+        app.world()
+            .components()
+            .component_id::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+            .is_some(),
+        "the shipped app does not register RoomTransitionLoadState, so this \
+         measured the absence of the subject rather than its ordering"
+    );
+
+    // ⛔⛤ SIXTEEN, MEASURED 2026-09-18, AND THAT IS A FINDING RATHER THAN A
+    // SETTLED NUMBER. The slot holds ONE active transaction and its own doc says
+    // so. An unordered clear can take out a transaction a different system opened
+    // later in the same frame -- the exact hazard
+    // `retire_cancelled_room_transition` guards against, by matching
+    // `active.intent` before clearing. It is the only one of the clearers that
+    // does; `loading.rs`, `commit.rs` and this app's presentation systems clear
+    // whatever is active.
+    //
+    // ⚠ WHAT IS ALREADY ORDERED, so the sixteen are not sixteen separate
+    // oversights: the four `loading.rs` writers are installed as one `.chain()`
+    // in `Update` (`RoomTransitionReadinessSet`, membership asserted by
+    // `the_readiness_chain_still_carries_the_checkpoint_terminalization`), the
+    // `commit.rs` pair sits in the sim schedule's `RoomTransitionSet::Apply`
+    // chain, and the presentation trio is chained in `Update`. What has no edges
+    // is the relationship BETWEEN those groups.
+    //
+    // ⭐ A RATCHET, NOT A PIN AT ZERO, and for the same reason as the
+    // `MenuControlFrame` number above: which pairs should be ordered is a
+    // per-surface judgement about the room-transition lifecycle, and a
+    // permanently-red guard stops being read. A SEVENTEENTH must not be able to
+    // land silently. Lower this when you order a pair; never raise it.
+    assert_eq!(
+        on_state, 16,
+        "expected the 16 unordered `RoomTransitionLoadState` pairs measured on \
+         2026-09-18, got {on_state}. If this GREW, a new writer of the single \
+         active-transaction slot landed with no ordering edge. If it SHRANK, \
+         somebody ordered a pair -- lower the number here and say which"
+    );
+}

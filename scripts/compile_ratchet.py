@@ -1632,6 +1632,10 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     merged["carried_from"] = frozen.get("commit")
     adopted: list[str] = []
     held: list[str] = []
+    #: Canonical `ACCEPTABLE_METRICS` names whose number IMPROVED and was banked.
+    #: Display labels carry a crate suffix (`largest_unit (ambition_x)`), so they
+    #: cannot be matched against `accepted_reasons`, which is keyed per metric.
+    adopted_metrics: set[str] = set()
     # ⛔⛔ THE `crates` TABLE IS A FIELD NOBODY SETTLED, AND THIS FUNCTION'S OWN
     # RULE SAYS THAT IS THE FAILURE DIRECTION. The scalars above are DERIVED from
     # that table (a max and a selection over it); `merged = current` refreshes the
@@ -1652,10 +1656,13 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     # warning. A held row and a held scalar now describe the same commit.
     held_crates: set[str] = set()
 
-    def settle(label: str, now, then, write, crate: str | None = None) -> None:
+    def settle(label: str, now, then, write, crate: str | None = None,
+               metric: str | None = None) -> None:
         if now < then:
             adopted.append(f"{label}: {then:,.1f} -> {now:,.1f}" if isinstance(now, float)
                            else f"{label}: {then:,} -> {now:,}")
+            if metric:
+                adopted_metrics.add(metric)
         else:
             write(then)
             if crate:
@@ -1680,7 +1687,7 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
             continue
         settle(f"{key} ({merged[key]['crate']})", merged[key][field], frozen[key][field],
                lambda value, k=key, f=field: merged[k].__setitem__(f, value),
-               crate=merged[key].get("crate"))
+               crate=merged[key].get("crate"), metric=key)
 
     for name, frozen_entry in frozen.get("watched_edit_cost", {}).items():
         if name not in merged.get("watched_edit_cost", {}):
@@ -1696,7 +1703,8 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
 
     settle("critical_path_crates", merged["critical_path_crates"],
            frozen["critical_path_crates"],
-           lambda value: merged.__setitem__("critical_path_crates", value))
+           lambda value: merged.__setitem__("critical_path_crates", value),
+           metric="critical_path_crates")
 
     # The table row a held scalar was derived from is held with it. ⚠ Only for
     # crates whose scalar was actually held: an ADOPTED crate keeps the current
@@ -1705,6 +1713,27 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     for crate in sorted(held_crates):
         if crate in frozen_table:
             merged.setdefault("crates", {})[crate] = frozen_table[crate]
+
+    # ⛔⛤ AND CARRYING EVERY REASON FORWARD IS THE OPPOSITE MISTAKE TO DROPPING
+    # THEM. A reason answers "why is this number what it is" -- the file says so
+    # where `--accept` writes it -- so it belongs to a metric AT A VALUE, not to
+    # the metric forever. Accept `critical_path_crates: 14` with "the D33 carve
+    # programme is the price"; let it improve to 13; `--adopt-wins` banks the 13,
+    # and an unconditional copy leaves the sentence explaining 14 attached to it.
+    # The next reader is then told a better number is a deliberate regression.
+    #
+    # ⇒ A reason survives exactly as long as the value it was written about. When
+    # `settle` BANKED a metric, its justification is spent and goes with it; when
+    # `settle` HELD one, the number did not move and neither does its reason.
+    # Reported rather than silently dropped -- the reason is the only record that
+    # a human ever looked at this, so its removal is news.
+    reasons = dict(merged.get("accepted_reasons") or {})
+    for metric in sorted(adopted_metrics & set(reasons)):
+        reasons.pop(metric)
+        adopted.append(
+            f"accepted_reason ({metric}): dropped, the number it explained improved"
+        )
+    merged["accepted_reasons"] = reasons
 
     return merged, adopted, held
 

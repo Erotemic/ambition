@@ -107,17 +107,26 @@ def test_a_type_that_left_the_population_must_be_removed(monkeypatch, capsys):
     # ⚠ AN UNADJUDICATED SUBJECT, DELIBERATELY. A verdict-carrying type takes a
     # different road — the phantom rule refuses it first, with a message that
     # says to remove the REASON and not just the baseline row — and that road is
-    # `test_a_verdict_whose_duplication_was_repaired_is_refused` below. Picking
-    # whichever 2-writer type came first in the baseline made this arm start
-    # measuring that other rule the moment the baseline was re-derived.
+    # `test_a_verdict_whose_duplication_was_repaired_is_refused` below.
+    #
+    # ⛔⛤ AND THE SUBJECT IS SYNTHETIC BECAUSE THIS ARM USED TO BORROW A REAL
+    # ONE, WHICH MADE IT DEPEND ON THE CENSUS BEING INCOMPLETE. It picked
+    # `next(t for t, n in BASELINE.items() if n == 2 and t not in ADJUDICATED)`.
+    # That is a live query against the adjudication backlog: every verdict
+    # landed shrinks the candidate set, and on 2026-09-18 the last 2-writer
+    # unadjudicated type was adjudicated and this arm died with `StopIteration`
+    # — a guard's own test broken by the guard's subject matter being finished,
+    # which is the one outcome the campaign is FOR. A synthetic subject cannot
+    # be adjudicated away.
     real = census.writers
-    subject = next(
-        t for t, n in guard.BASELINE.items() if n == 2 and t not in guard.ADJUDICATED
-    )
+    subject = "ASyntheticTypeNoProductionFileWrites"
+    monkeypatch.setitem(guard.BASELINE, subject, 2)
 
     def with_one_writer(files):
         found = real(files)
-        found[subject] = {sorted(found[subject])[0]}
+        # Present in the baseline at two writers, found at one: exactly the
+        # "population moved" shape, with no dependence on a real backlog row.
+        found[subject] = {"crates/ambition_geometry/src/lib.rs"}
         return found
 
     monkeypatch.setattr(census, "writers", with_one_writer)

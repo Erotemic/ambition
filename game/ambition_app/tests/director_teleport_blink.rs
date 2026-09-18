@@ -39,7 +39,7 @@ fn the_directors_revision_asks_for_exactly_one_blink() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["author", "author"]));
+        .insert_resource(ambition_demo_smash::smash_roster(["director", "director"]));
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
@@ -159,7 +159,7 @@ fn the_directors_revision_is_intangible_through_the_vanish_and_not_through_the_l
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["author", "author"]));
+        .insert_resource(ambition_demo_smash::smash_roster(["director", "director"]));
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
@@ -285,7 +285,7 @@ fn the_directors_revision_rises_when_the_stick_is_released_after_the_press() {
         app.update();
     }
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(["author", "author"]));
+        .insert_resource(ambition_demo_smash::smash_roster(["director", "director"]));
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,

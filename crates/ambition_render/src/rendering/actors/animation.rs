@@ -513,19 +513,22 @@ mod tests {
         // anybody deciding that its art was redrawn.
         left_drawn.sort_unstable();
         let expected: Vec<&str> = vec![
-            // ⭐ AUTHOR AND OFFICER ARE POINTED POLYGON'S PAPERDOLLS, so they
-            // inherit its west-drawn art — their sheets declare
-            // `authored_faces_left: true` for the same reason its own do. Added
-            // 2026-08-25 when the easter-egg fighters shipped; the guard caught
-            // it, which is what a hand-kept list is for.
-            "author",
-            "author.0_25x",
-            "author.0_5x",
-            "author.potato",
             "carl_stargan",
             "carl_stargan.0_25x",
             "carl_stargan.0_5x",
             "carl_stargan.potato",
+            // ⭐ THE DIRECTOR AND THE OFFICER ARE POINTED POLYGON'S PAPERDOLLS,
+            // so they inherit its west-drawn art — their sheets declare
+            // `authored_faces_left: true` for the same reason its own do. Added
+            // 2026-08-25 when the easter-egg fighters shipped; the guard caught
+            // it, which is what a hand-kept list is for. ⚠ The Director's stems
+            // were `author*` until the 2026-09-18 rename, which is why they moved
+            // from the top of this list to here: it is compared against a SORTED
+            // vector, so a stem's spelling decides its position.
+            "director",
+            "director.0_25x",
+            "director.0_5x",
+            "director.potato",
             "officer",
             "officer.0_25x",
             "officer.0_5x",

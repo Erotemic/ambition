@@ -438,8 +438,14 @@ pub enum StagedWorldViolation {
     /// A world was staged and there is no live session root to publish it into.
     ///
     /// ⛔⛤ **FAIL-CLOSED, BECAUSE THE OTHER ANSWER IS SILENT AND WRONG.**
-    /// `apply_world_replacement` writes through `session_world_component_mut`,
-    /// which returns `None` when no root is live — so without this the room would
+    /// `apply_world_replacement` writes onto the root the transaction's own scope
+    /// resolved and hands it in (`session_world_component_mut_at`), and every
+    /// sink there answers `None` when that entity carries no such component —
+    /// including when there is no session root to have resolved. ⚠ THIS SAID
+    /// `session_world_component_mut` UNTIL 2026-09-18, which is the *"which root
+    /// is LIVE right now"* question the 2026-09-15 review deliberately moved it
+    /// OFF. The refusal is unchanged; the sentence describing it had gone stale
+    /// against the very change that motivated it. So without this the room would
     /// PUBLISH, report `room-loaded`, and leave the geometry, the active room and
     /// the platform state exactly as they were. A caller that staged a whole
     /// world and got nothing would have no way to tell that from success.
@@ -670,8 +676,9 @@ fn apply_world_replacement(
         );
         return;
     };
+    use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut_at;
     if let Some(next) = pending.next_rooms {
-        match world.get_mut::<ambition_platformer2d_world::rooms::RoomSet>(root) {
+        match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
             Some(mut rooms) => *rooms = next,
             None => bevy::log::error!(
                 target: "ambition_platformer2d::construction",
@@ -679,7 +686,7 @@ fn apply_world_replacement(
             ),
         }
     }
-    match world.get_mut::<ambition_platformer2d_world::rooms::RoomSet>(root) {
+    match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
         Some(mut rooms) => {
             rooms.set_active(pending.target_index);
         }
@@ -688,7 +695,7 @@ fn apply_world_replacement(
             "publication target {root:?} carries no `RoomSet` at application,              so the active room stays where it was"
         ),
     }
-    match world.get_mut::<ambition_platformer2d_core::RoomGeometry>(root) {
+    match session_world_component_mut_at::<ambition_platformer2d_core::RoomGeometry>(world, root) {
         Some(mut geometry) => geometry.0 = pending.geometry,
         None => bevy::log::error!(
             target: "ambition_platformer2d::construction",

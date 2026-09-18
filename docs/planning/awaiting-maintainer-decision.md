@@ -2283,10 +2283,42 @@ right, and it is why the arm never re-enters the room.
 
 ⚠ **`PostBossNpc` STILL HAS NO ARM**, and its question is about what a LOAD does
 rather than what a tick does, so the per-pass shape above does not reach it
-either.
+either. ⛤ Neither does `SmirkingBehemothVictoryNpc`, which joined this row on
+2026-09-18 — see below for how a component in a rewinding system's filter stayed
+outside the question for as long as it did.
 
-**The decision, and it is now ONE component wide.** `PostBossNpc` is the only
-row left. Its presence decides whether the celebrant a defeated boss left behind
+⛔⛤ **AND IT IS TWO COMPONENTS WIDE AGAIN SINCE 2026-09-18, BECAUSE THE GUARD
+COULD NOT SEE THE CRATE THE SECOND ONE LIVES IN.**
+`check_presence_filtered_state_is_rollback_registered.py` derived its component
+population as `crates/<name>/src` for every registering crate — while its filter
+scan read `crates` AND `game` the whole time. `game/ambition_content` registers
+rollback state (`EchoFanState` and the rest of `bosses/specials/rollback.rs`,
+`PortalHostScanned` through `portal/plugin.rs`), so its entire component
+population was outside the question. Widening it added six subjects; five are
+presentation and are waived with the schedule each filter site runs in, and the
+sixth is `SmirkingBehemothVictoryNpc`.
+
+⚠ **THE FLOORS COULD NOT HAVE CAUGHT THIS, AND THAT IS THE GENERAL LESSON.** The
+guard has four anti-vacuity floors and every one of them stayed comfortably
+satisfied: they catch a join that returns almost NOTHING, and a stable omitted
+CATEGORY leaves the remaining population large. A floor is a defence against a
+broken instrument, not against a instrument pointed at part of the tree.
+
+`SmirkingBehemothVictoryNpc` belongs to this question and not to a new one. Its
+one filter site is `spawn_cut_rope_victory_npc`'s
+`existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>` — a SPAWN-ONCE
+guard — and that system is registered in the REWINDING schedule
+(`app.add_systems(sim, .. .in_set(ContentEncounterVictorySet))`,
+`game/ambition_content/src/bosses/mod.rs:379`). So its presence decides whether a
+re-simulated victory frame spawns a SECOND celebrant. ⛔ It is NOT being
+registered by analogy, for the reason this row already records above: the first
+`ReleaseOnDeath` arm asserted this very NPC's presence and its poison PASSED,
+because a visible consequence that is not itself rollback state survives a
+rewind whatever the registration says. It wants the per-pass census shape that
+closed the other three.
+
+**The decision, and it is TWO components wide.** `PostBossNpc` is the other row.
+Its presence decides whether the celebrant a defeated boss left behind
 is swept when a replay is admitted — which is a question about what a LOAD does,
 not about what a tick does, and none of the three arguments above reaches it.
 ⇒ It wants a targeted behavioural arm (does an admitted replay sweep the

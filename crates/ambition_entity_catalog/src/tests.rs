@@ -1717,7 +1717,7 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
         moves: vec![jab, bare_move("polygon_tilt_up", None), stranger],
     };
 
-    contract.remap_move_ids(|id| id.replace("polygon", "author"));
+    contract.remap_move_ids(|id| id.replace("polygon", "director"));
 
     assert_eq!(
         contract

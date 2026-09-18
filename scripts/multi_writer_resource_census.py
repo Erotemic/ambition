@@ -187,15 +187,32 @@ SESSION_WORLD_MUT = re.compile(
 #: `session_world_component_mut::<T>(world)` — the EXCLUSIVE-WORLD spelling of
 #: the same reach, for a system or a staged closure that holds `&mut World`.
 #:
+#: ⛔⛤ **`_at` IS THE SAME REACH WITH THE ROOT HANDED IN, AND ADDING IT HERE IS
+#: WHAT LET A LIE BE REMOVED FROM THE TREE.** `apply_world_replacement` — the
+#: verdict-gated room publication, which is the authoritative writer of `RoomSet`
+#: and `RoomGeometry` — wrote through a bare `world.get_mut::<T>(root)`, three
+#: tokens indistinguishable from any other component write. So this census could
+#: not see the real writer, and `handle_ldtk_hot_reload` was left holding
+#: `SessionWorldMut<RoomSet>` on a parameter it only READS, with a source comment
+#: admitting the reason was that demoting it would drop the count. ⇒ The
+#: instrument was shaping the program instead of measuring it. Naming the road
+#: `session_world_component_mut_at` made the publication visible and the reader
+#: honest in the same edit.
+#:
 #: ⛔⛤ **THE THIRD SPELLING, AND THE CENSUS WAS BLIND TO IT UNTIL 2026-09-18 —
 #: WHICH IS THE SAME DEFECT AS THE RESOURCE SIDE'S, ONE POPULATION LATER.**
 #: [`writers`] learned `world.resource_mut::<T>()` on 2026-09-17 after reading
 #: only `ResMut<T>` parameters, and the note there says why it mattered: an
 #: exclusive-world system is what a COMMIT EXECUTOR is, so the road that spelling
 #: hid was the destructive one. This population had exactly the same hole.
-#: `apply_world_replacement` and the dev reload's staged closure write through
-#: this, and both are verdict-gated room publications — the most load-bearing
-#: writes these components get.
+#: The dev reload's staged closure writes through this. ⛔ THIS PARAGRAPH ALSO
+#: NAMED `apply_world_replacement` AND WAS WRONG ABOUT IT — caught by a review
+#: the same week. That function asks the *"which root did this publication verify
+#: against"* question instead, which is a DIFFERENT road with a different name
+#: (`session_world_component_mut_at`, matched by the `(?:_at)?` above). Getting
+#: that wrong in a census's own commentary is the failure this file keeps warning
+#: about in other people's prose: a sentence that sounds measured, beside a
+#: number that was.
 #:
 #: ⚠ FOUND BY DISTRUSTING A NUMBER THAT GOT BETTER. Two read-only
 #: `SessionWorldMut` bindings were demoted to `SessionWorldRef` the same day and
@@ -214,7 +231,7 @@ SESSION_WORLD_MUT = re.compile(
 #: through the other two. ⇒ A stated limit with a number on it, not a silent one,
 #: and the number is what makes it safe to leave.
 SESSION_WORLD_COMPONENT_MUT = re.compile(
-    r"session_world_component_mut\s*::\s*<\s*"
+    r"session_world_component_mut(?:_at)?\s*::\s*<\s*"
     r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
 )
 

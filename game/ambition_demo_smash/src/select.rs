@@ -75,7 +75,7 @@ pub const SMASH_ROSTER: &[&str] = &[
     // sword side, the Medic after the Officer on the brawler side. Neither of
     // the two has gameplay rules for her own specials yet: those exist as clips
     // and hit volumes in the sprite repository and as nothing here.
-    "author",
+    "director",
     "performer",
     "officer",
     "medic",

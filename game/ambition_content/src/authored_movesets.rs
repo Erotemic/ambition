@@ -1647,7 +1647,7 @@ pub const TABLE_CHARACTERS: &[(&str, &[&str])] = &[
     ("oiler", &["npc_oiler"]),
     ("patent_clerk", &["special_patent_clerk"]),
     ("pirate_admiral", &["npc_pirate_admiral"]),
-    ("director", &["author"]),
+    ("director", &["director"]),
     ("medic", &["medic"]),
     ("officer", &["officer"]),
     ("performer", &["performer"]),

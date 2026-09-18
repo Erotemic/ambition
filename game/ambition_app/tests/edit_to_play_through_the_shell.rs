@@ -18,7 +18,7 @@
 //!    moves (`attack_up`, `attack_air`, ...), and `player_robot` has no authored
 //!    move table at all, so the authored ids and that body's ids are DISJOINT.
 //! 2. The smash composition DOES seat an authored fighter — `smash_roster(
-//!    ["author"])` gives a body with 33 moves in the `author_*` vocabulary — and
+//!    ["director"])` gives a body with 33 moves in the `director_*` vocabulary — and
 //!    is STILL wrong, because it runs a live rollback timeline:
 //!    `request_reload` there returns `Refused(RefusedDuringLiveTimeline)`. A
 //!    healthy speculating timeline refuses publication BY DESIGN.

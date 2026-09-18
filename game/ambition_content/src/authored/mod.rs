@@ -128,7 +128,7 @@ pub(crate) const AUTHORED_CAST: &[(
     // DRESSING pair and the Performer's trap door and flyline exist as CLIPS and
     // hit volumes in the sprite repository and as nothing here. They borrow the
     // archetype's specials until someone writes what they cost.
-    (&["author"], director::author),
+    (&["director"], director::author),
     (&["officer"], officer::author),
     (&["performer"], performer::author),
     (&["medic"], medic::author),

@@ -1888,8 +1888,12 @@ mod tests {
 
     /// ⛔⛤ **A ROOM THAT STAGES A WORLD WITH NOWHERE TO PUT IT IS REFUSED.**
     ///
-    /// `apply_world_replacement` writes through `session_world_component_mut`,
-    /// which answers `None` when no root is live. Without this check the room
+    /// `apply_world_replacement` writes onto the root handed in by the
+    /// transaction's own scope (`session_world_component_mut_at`), and there is
+    /// no root to hand in when none is live. ⚠ THIS SAID
+    /// `session_world_component_mut` UNTIL 2026-09-18 — the *"which root is LIVE
+    /// right now"* question that the 2026-09-15 review moved the publication OFF.
+    /// Without this check the room
     /// would PUBLISH, report `room-loaded`, and leave the geometry, the active
     /// room and the platform state exactly as they were — and a caller that
     /// staged a whole world and got nothing would have no way to tell that from

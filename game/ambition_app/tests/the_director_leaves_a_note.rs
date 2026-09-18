@@ -26,7 +26,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 
-const DIRECTOR: &str = "author";
+const DIRECTOR: &str = "director";
 const TILT_DOWN: &str = "director_tilt_down";
 
 /// Every `DamageBox` request the ruleset made, as it was made. ⛔ Accumulated

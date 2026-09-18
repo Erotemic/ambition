@@ -61,6 +61,30 @@ cited for the mechanism above. Until the transition arm exists this ratchet is
 what there is; when it exists this file should go, and taking a ratchet down is
 part of landing the arm, not a separate cleanup.
 
+⭐ **THE CLASS WAS ENUMERATED 2026-09-17, SO NOBODY PAYS FOR THAT MEASUREMENT
+TWICE, AND `SUBJECTS` IS STILL ONE TYPE FOR A MEASURED REASON.** A guard written
+around one hand-picked subject is usually a guard whose population nobody looked
+for. Joining *"drained by `std::mem::take` / `.drain(..)` in production"* against
+the multi-writer census gives **six resource types**:
+
+    QuestRegistry           6 writers   registered
+    DialogState             4 writers   NOT registered — Yarn presentation state
+    CutsceneAdvanceRequest  2 writers   NOT registered — item 1 of CUTSCENE-ROLLBACK-DECISION, blocked on `Q136`
+    CutsceneTriggerQueue    2 writers   NOT registered — this file's subject
+    VersusMatch             2 writers   registered
+    PendingPlayerHitEvents  1 writer    registered
+
+⇒ Of the three unregistered ones, two are the cutscene pair already filed and
+`DialogState` is the Yarn RUNNER's presentation mirror — line reveal, options,
+speaker — consumed by `ambition_dialog`'s bridge to drive the runner, with the
+authoritative half in the registered `ActiveConversation`. No new subject.
+
+⚠ **AND THAT ENUMERATION IS A FLOOR.** The pattern reads `std::mem::take(&mut
+*param)`, `take(&mut param.field)` and `param.drain(..)` where `param` is a
+`ResMut<T>` in the same signature. `.pop()`, `.clear()`, `mem::replace`, an
+`Option::take` on a field, and any drain reached through a `SystemParam` bundle
+are all outside it. A type this pattern cannot see is not a type that is safe.
+
 ⚠ **TEST PATHS ARE COUNTED AND NOT RATCHETED.** A fixture that writes the queue
 is how the in-sim control arms are built, and requiring the table to track test
 churn would make the ratchet noisy for no gain. They are printed so a production

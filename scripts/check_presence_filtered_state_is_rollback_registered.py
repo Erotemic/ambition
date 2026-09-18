@@ -80,14 +80,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
-from test_paths import is_test_path  # noqa: E402
+from test_paths import is_test_path, strip_test_modules  # noqa: E402
 
 BASELINE = REPO / "game/ambition_app/tests/rollback_schema_baseline.txt"
 
 #: ⛔ THE FLOORS. Chosen an order of magnitude below the readings of 2026-09-17
-#: (20 registering crates, 443 baseline rows, 95 components in the intersection
-#: of which 73 are registered) because their job is to catch an instrument going
-#: silent, not to pin a census.
+#: (20 registering crates, 443 baseline rows, 104 components in the intersection
+#: of which 83 are registered) because their job is to catch an instrument going
+#: silent, not to pin a census. ⚠ The intersection read 95 until the test cut was
+#: repaired the same day; a floor set from a blind reading is still a floor, which
+#: is the only reason this one kept working.
 MIN_REGISTERED = 100
 MIN_DEFINED = 50
 MIN_FILTERED = 50
@@ -133,6 +135,25 @@ WAIVERS = {
     # gated `Without<DormancyPolicy>` — so the decision this marker feeds is
     # latched in a component that IS registered (`actor.dormancy_policy`).
     "EncounterMob": "view rebuild + a setup gated on the registered `DormancyPolicy`",
+    # ⭐ BOTH OF THESE BECAME VISIBLE ON 2026-09-17 when the test cut stopped
+    # discarding `construction/mod.rs`'s second half, and both are the
+    # `HeldByConversation` shape: the only readers are the writer's own module.
+    #
+    # Four line hits for `InactiveCandidate`, three of them code and one a doc
+    # comment, all inside `construction/mod.rs`: `candidate_carries_identity`,
+    # `outstanding_candidates` and `candidate_roots`, each an `&mut World`
+    # exclusive step, and `retire_candidate`'s comment. That module is also its
+    # only writer (`raise_candidate_barrier` / `publish_candidate`), and the type
+    # is `pub(crate)` ON PURPOSE — its own doc says nobody outside the crate can
+    # name it, so nobody outside can filter on it either.
+    "InactiveCandidate": "publication barrier count; 3 code sites, all `&mut World` steps in its own module, which is its only writer",
+    # And this one has no production writer AT ALL, measured: zero insert or
+    # spawn sites outside tests. The scope classifier reads `Option<&_>` to
+    # produce `ScopeClassification::PresentationOnly` and two queries exclude it,
+    # so the opt-out vocabulary is available and currently unexercised. ⚠ A
+    # rewind cannot diverge a component nothing writes; the day a production
+    # spawn stamps one, this waiver has to be re-read.
+    "PresentationOnly": "opt-out authority marker with ZERO production insert sites (measured 2026-09-17); 2 filter sites, both its own classifier",
 }
 
 #: ⚠ REAL AND OWED, not waived. A name here is a finding with somewhere to go.
@@ -205,9 +226,21 @@ def registering_crates() -> list[str]:
 def component_definitions(crates: list[str]) -> dict[str, str]:
     """`{Component: defining file}` for production code in those crates.
 
-    ⛔ The text is cut at the first `#[cfg(test)]` rather than by filename: a
-    test-only component declared inside a production file is not the subject,
-    and `tests.rs`-skipping alone does not see it.
+    ⛔ Test regions are cut from the TEXT as well as by filename: a test-only
+    component declared inside a production file is not the subject, and
+    `tests.rs`-skipping alone does not see it.
+
+    ⛔⛤ **AND THE CUT USED TO BE `text.find("#[cfg(test)]")` — THE FILE TAIL —
+    WHICH IN THIS TREE IS USUALLY PRODUCTION CODE.** A module declares its tests
+    near the TOP, so every `#[derive(Component)]` below that line was invisible.
+    MEASURED 2026-09-17, on the same tree at one commit: **288 component
+    definitions become 305, and the presence-filtered intersection 95 becomes
+    104.** Two of the nine that appeared were neither registered nor waived —
+    `InactiveCandidate` and `PresentationOnly`, both in
+    `shared_tangle/src/construction/mod.rs`, which declares `#[cfg(test)] mod
+    tests;` and then defines most of A10's vocabulary underneath it. ⇒ The
+    guard was blind to the whole construction crate's second half, and its `OK`
+    said nothing about it.
     """
     defs: dict[str, str] = {}
     for crate in crates:
@@ -217,9 +250,7 @@ def component_definitions(crates: list[str]) -> dict[str, str]:
             text = path.read_text(errors="replace")
             if is_test_path(path, text):
                 continue
-            cut = text.find("#[cfg(test)]")
-            if cut != -1:
-                text = text[:cut]
+            text = strip_test_modules(text)
             for match in _DERIVE_COMPONENT.finditer(text):
                 if "Component" in match.group(1):
                     defs.setdefault(match.group(2), rel)

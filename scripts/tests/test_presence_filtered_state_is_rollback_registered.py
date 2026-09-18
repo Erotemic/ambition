@@ -105,3 +105,28 @@ def test_the_live_scan_reasoned_about_something_at_all():
         f"crate and filtered on, out of {len(defs)} definitions and {len(sites)} "
         "filtered names — the join is keyed wrongly and every verdict above is vacuous"
     )
+
+
+def test_a_component_defined_below_its_files_test_declaration_is_in_the_population():
+    """⛔⛤ THE POPULATION USED TO END AT THE FIRST `#[cfg(test)]` — 2026-09-17.
+
+    `component_definitions` cut each file at `text.find("#[cfg(test)]")`, and in
+    this tree a module declares its tests near the TOP:
+    `shared_tangle/src/construction/mod.rs` writes `#[cfg(test)] mod tests;` and
+    then defines most of A10's vocabulary underneath it. MEASURED: 288 component
+    definitions became 305 and the intersection 95 became 104, and two of the
+    nine that appeared were neither registered nor waived.
+
+    ⇒ This arm pins a SUBJECT rather than a count, because the blindness failed
+    in the GREEN direction: the guard reported `OK` over a population missing the
+    whole second half of the construction crate, and no floor here was low enough
+    to notice.
+    """
+    defs = guard.component_definitions(guard.registering_crates())
+    assert "InactiveCandidate" in defs, (
+        "`InactiveCandidate` is declared in `construction/mod.rs` below that "
+        "file's `#[cfg(test)] mod tests;` line. If it is missing, the definition "
+        "scan is cutting file tails again."
+    )
+    assert defs["InactiveCandidate"].endswith("construction/mod.rs")
+    assert "PresentationOnly" in defs

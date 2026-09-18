@@ -2009,10 +2009,25 @@ defined in a crate that registers at least one rollback row AND a literal
 `With<X>` / `Without<X>` / `Has<X>` outside test code reads its presence.
 **Measured 2026-09-17 when this row was filed: 95 such components, 73
 registered, 18 waived by name with the measurement beside each, 4 left. After
-the three fixes below, the same run reads 76 registered and 1 left** — the count
-moved because the code did, not because the instrument or a waiver did. The registered set is read from
-`rollback_schema_baseline.txt`, which `rollback_schema_baseline.rs` holds
-byte-identical against the live registry.
+the three fixes below, the same run read 76 registered and 1 left** — that
+movement was the code, not the instrument or a waiver.
+
+⛔⛤ **AND THEN THE POPULATION ITSELF MOVED, LATER THE SAME DAY, BECAUSE THE
+INSTRUMENT WAS BLIND TO HALF A CRATE.** `component_definitions` cut each file at
+its FIRST `#[cfg(test)]`, and in this tree a module declares its tests near the
+TOP: `shared_tangle/src/construction/mod.rs` writes `#[cfg(test)] mod tests;` and
+then defines most of A10's vocabulary underneath it. ⇒ **288 definitions became
+305 and the intersection 95 became 104** — the run now reads **104 components,
+83 registered, 20 waived, 1 owed**. Two of the nine that appeared were neither
+registered nor waived, `InactiveCandidate` and `PresentationOnly`, and both are
+now waived with their measurements: three `&mut World` filter sites inside the
+component's own module for the first, and **zero production insert sites at all**
+for the second. ⚠ The blindness failed in the GREEN direction and no floor was
+low enough to notice; the arm that holds it now pins a SUBJECT rather than a
+count.
+
+The registered set is read from `rollback_schema_baseline.txt`, which
+`rollback_schema_baseline.rs` holds byte-identical against the live registry.
 
 ⛔⛤ **THE INSTRUMENT'S FIRST VERSION MISSED THE COMPONENT ITS OWN DOCSTRING
 QUOTES.** Deleting `Dormant`'s row from the recorded schema left the check green:

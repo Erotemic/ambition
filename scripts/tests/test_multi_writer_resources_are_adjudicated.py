@@ -379,6 +379,7 @@ def test_every_sole_owner_claim_carries_a_verdict():
 NOT_TREE_NAMES: dict[str, str] = {
     "ambition_conversation": "a crate, not a system",
     "ambition_platformer2d_runtime": "a crate, not a system",
+    "ambition_sim_harness": "a crate, not a system — the TEST HARNESS crate, which is in the population precisely because neither of this census's two exclusions (a `#[cfg(test)]` item, a whole test file) reaches an ordinary crate",
     "leafwing_input_manager": "an EXTERNAL crate, not a system — and the distinction the verdict rests on: the four writers in `virtual_device.rs` are its trait impls",
     "app_it": "the app's integration-test TARGET, not a function",
     "configure_sets": "bevy's `App::configure_sets`, declared outside this tree",

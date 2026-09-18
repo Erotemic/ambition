@@ -136,6 +136,37 @@ _MUTABLE_PARAM_TYPE = re.compile(
     r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
 )
 
+#: ⛔⛤ **THE FIFTH SPELLING, AND IT IS THE ONE THIS FILE PREDICTED.** Everything
+#: above reads a SIGNATURE. An exclusive-world system's signature is
+#: `fn foo(world: &mut World)` — [`_MUTABLE_PARAM_TYPE`] matches it happily and
+#: extracts the type `World`, which is not rollback-registered, so the scan moved
+#: on. Every write such a system performs lives in its BODY, through
+#: `world.resource_mut::<T>()`, `world.get_mut::<T>(entity)` or the session-world
+#: helpers — and an exclusive-world system is what a COMMIT EXECUTOR is, so the
+#: writes this hid are the destructive ones.
+#:
+#: ⚠ MEASURED 2026-09-18 BEFORE THE WIDENING, so the claim is a count and not a
+#: worry: NINE functions reach a registered type this way and SEVEN of them were
+#: invisible. `MovingPlatformSet` is among them — for the second time. This
+#: file's `rollback_types` docstring records it as the entire population the
+#: guard could see before 2026-09-02, and the `SystemParam` hole hid it again in
+#: September; `apply_world_replacement` writes it through an exclusive world.
+#: A type that keeps disappearing is a fact about how many ways a write can be
+#: spelled, not about that type.
+#:
+#: ⛔ THE RESIDUAL IS STATED RATHER THAN IMPLIED: six of the nine are HELPERS, not
+#: registered systems, so they enter the population and can produce no finding —
+#: `collect` attributes a schedule by matching a name inside an `add_systems`
+#: body, and a helper is named in neither. Answering for them needs caller
+#: attribution, which is a different instrument. What this spelling buys is the
+#: seventh: `commit_confirmed_lifecycle`, registered in `PreUpdate`.
+_EXCLUSIVE_WORLD_WRITE = re.compile(
+    r"\.(?:resource_mut|get_resource_mut|get_mut|entity_mut)\s*::\s*<\s*"
+    r"(?:'[a-z_][A-Za-z_0-9]*\s*,\s*)?(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+    r"|session_world_component_mut(?:_at)?\s*::\s*<\s*"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
+
 #: A `#[derive(SystemParam)]` bundle: the derive, then the struct it decorates.
 _SYSTEM_PARAM_STRUCT = re.compile(
     r"#\[derive\([^)]*\bSystemParam\b[^)]*\)\]"
@@ -190,6 +221,30 @@ ACKNOWLEDGED: dict[str, str] = {
 
 
 WAIVERS: dict[str, str] = {
+    # -- added 2026-09-18, the FIFTH SPELLING's one finding --------------------
+    "commit_confirmed_lifecycle": (
+        "\u2b50 IT WRITES ON A FRAME NO REWIND CAN REACH, AND THEN REMOVES THE RING "
+        "THAT WOULD HAVE HELD ONE. Two structural facts, not one argument. (1) The "
+        "intent is taken through `pending.confirmed(boundary.confirmed)` "
+        "(`lifecycle_commit.rs:67`), so the slot is only cleared for an intent "
+        "queued on a frame GGRS has CONFIRMED -- a frame the rollback window has "
+        "already passed. (2) The same call then installs a session built by "
+        "`build_sync_test_session`, which is a NEW `start_synctest_session()` "
+        "(`session.rs:224`): installing it drops the old `AmbitionGgrsSession` and "
+        "the whole saved-state ring with it, so after this call no pre-commit frame "
+        "exists to restore. The source already says the second half -- *\"the first "
+        "frame-zero SaveWorld overwrites every ring slot, so no earlier frame can "
+        "restore the pre-op room\"* -- and it is the load-bearing one: (1) alone "
+        "leaves frames between the confirmed one and this call, and a restore of "
+        "one of THOSE would reinstate the intent and re-commit.\n"
+        "    \u26d4 THE RESIDUAL, because this waiver is a claim and claims rot: it "
+        "depends on the commit and the install staying in ONE call with nothing "
+        "fallible between them. That ordering is `lifecycle_commit.rs`'s *\"From "
+        "here NOTHING may fail\"* block, and it is the same ordering the 2026-09-17 "
+        "review had to impose on `maintain_local_session` for the same reason. If "
+        "the install ever becomes reachable without the commit, or vice versa, this "
+        "entry is void."
+    ),
     # ── added 2026-09-16, ID-PEER ────────────────────────────────────────────
     # The two session-scoped resource resets. They answer this guard in two
     # DIFFERENT ways, which is why they are two entries and not one: the first
@@ -494,6 +549,15 @@ POPULATION_FLOOR = {
     # let the whole widening silently revert while still reading green.
     "rollback types": 300,
     "system param bundles": 55,
+    # ⭐⛤ ADDED 2026-09-18, AND THIS FILE HAD ARGUED FOR IT IN PROSE FOR TWO
+    # DAYS WITHOUT CHECKING IT. The paragraph above says a hidden spelling
+    # "cannot avoid making these numbers FALL" -- and the number a spelling
+    # actually moves is THIS one, the count of systems that reach a registered
+    # type. It was printed under `--list` and floored by nothing, so every
+    # spelling hole this file records could have re-opened without the guard
+    # noticing. MEASURED 2026-09-18: 523, after the exclusive-world spelling
+    # took it from 516.
+    "mutating systems": 470,
 }
 
 
@@ -501,6 +565,7 @@ def population_sizes(repo: Path = REPO) -> dict[str, int]:
     return {
         "rollback types": len(rollback_types(repo)),
         "system param bundles": len(system_param_mutables(repo)),
+        "mutating systems": len(mutating_systems(repo)),
     }
 
 
@@ -611,6 +676,24 @@ def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
             # stand for thirteen registered types.
             for identifier in re.findall(r"\b([A-Z][A-Za-z_0-9]*)\b", params):
                 mutated |= bundles.get(identifier, frozenset())
+            # ...and an EXCLUSIVE-WORLD system names nothing in its signature.
+            # Its writes are in the body; see `_EXCLUSIVE_WORLD_WRITE`. The
+            # `World` test is what keeps this from reading every helper's body:
+            # a `&mut T` parameter is already covered above, and a function with
+            # no world cannot reach a resource this way.
+            brace = text.find("{", match.end()) if "World" in params else -1
+            if brace < 0:
+                # ...or a function that takes no world and BUILDS one a command
+                # will run: `commands.queue(move |world: &mut World| ..)` is the
+                # staged-closure shape, and the write inside it is the same
+                # write. Checking the body costs a `find` on functions that do
+                # not mention it.
+                candidate = text.find("{", match.end())
+                body_preview = _braced(text, candidate) if candidate >= 0 else ""
+                brace = candidate if "&mut World" in body_preview else -1
+            if brace >= 0:
+                for write in _EXCLUSIVE_WORLD_WRITE.finditer(_braced(text, brace)):
+                    mutated.add(write.group(1) or write.group(2))
             hits = sorted(types.intersection(mutated))
             if hits:
                 found.setdefault(match.group(1), hits)

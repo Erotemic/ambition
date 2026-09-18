@@ -324,6 +324,9 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
 #[test]
 fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
     let mut app = shell_input_app(false);
+    // The hub's intro cutscene captures input until it is dismissed; this arm's
+    // subject is elsewhere. See the helper for what holds that fact.
+    crate::common::the_hub_intro_has_already_played(app.world_mut());
     settle(&mut app);
     assert!(app.world().resource::<ShellLauncherState>().active);
     let participant = participant_entity(&mut app);

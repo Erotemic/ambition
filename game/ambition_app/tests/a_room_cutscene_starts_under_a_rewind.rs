@@ -185,6 +185,12 @@ fn basement_arena(rollback: bool) -> Platformer2dSimHarness {
     if rollback {
         options = options.with_sync_test_rollback_settings(4, 10);
     }
+    // BASEMENT is `central_hub_complex`, which is exactly what the hub's intro
+    // is bound to since 2026-09-18. This arm's subject is the LAB cutscene taken
+    // mid-session, so the boot cutscene is opted out of rather than measured
+    // here — and it has to be opted out of through the SAVE, because the harness
+    // already has the intro playing by the time it returns.
+    let options = options.with_save(crate::common::a_save_that_has_seen_the_hub_intro());
     Platformer2dSimHarness::new_with_options(options)
         .expect("the central hub complex builds headlessly")
 }

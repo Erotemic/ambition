@@ -67,6 +67,10 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
 
+    // The hub's intro cutscene captures input until it is dismissed; this arm's
+    // subject is elsewhere. See the helper for what holds that fact.
+    crate::common::the_hub_intro_has_already_played(app.world_mut());
+
     for _ in 0..8 {
         app.update();
     }

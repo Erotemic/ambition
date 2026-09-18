@@ -397,3 +397,51 @@ pub fn maintainer_owned_rollback_sim(frames: usize) -> Platformer2dSimHarness {
     }
     sim
 }
+
+/// ⛔⛤ **THE HUB'S BOOT CUTSCENE IS LIVE SINCE 2026-09-18, AND IT BLOCKS ON A
+/// DIALOGUE BEAT.** `default_room_cutscene_bindings()` bound `test_intro` to
+/// `central_hub_main` — an LDtk LEVEL id — so the row could never match the
+/// runtime room and the hub's intro had never played. `479d5a028` repointed it
+/// at `central_hub_complex`, which was the right fix and made the cutscene real:
+/// on first entry the hub now runs `// boot sequence` (1.4 s), a fade (0.8 s),
+/// and then a `CutsceneBeat::Dialogue` with NO duration — it waits for a
+/// dismiss. While it plays, `declare_in_session_input_contexts` gives the seat a
+/// CAPTURING `CUTSCENE_CONTEXT` claim, so `gameplay_owned()` is false and no
+/// gameplay input routes anywhere.
+///
+/// ⇒ Four arms written before the binding was fixed hung on it, and their
+/// failure messages sent the reader after the input road instead. A test whose
+/// subject is not the intro says so by calling this, which sets the same
+/// `seen_flag` a returning player's save carries — the ordinary state of every
+/// visit after the first, not a special test mode.
+///
+/// ⚠ THIS IS AN OPT-OUT, SO SOMETHING ELSE HAS TO HOLD THE FACT: the intro
+/// playing and capturing input on first entry is witnessed by
+/// `the_hub_intro_plays_on_first_entry_and_holds_input.rs`. Without that arm,
+/// calling this everywhere would quietly restore the world in which the
+/// binding was still broken.
+/// ⚠ **TWO ROADS, BECAUSE THE FLAG ONLY STOPS A START.**
+/// `start_queued_cutscene` consults `seen_flag` when it STARTS a script, so a
+/// flag set after the cutscene is already running changes nothing — measured:
+/// `Platformer2dSimHarness::new_with_options` has the hub's intro playing by
+/// the time it returns, and setting the flag on the harness left it playing
+/// through every subsequent step. A harness caller therefore seeds the SAVE
+/// before construction with [`a_save_that_has_seen_the_hub_intro`]; a
+/// shell-host `App` can use this function, because its room is not loaded
+/// until the gameplay route is entered some frames later.
+pub fn the_hub_intro_has_already_played(world: &mut bevy::prelude::World) {
+    let mut save = world
+        .get_resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .expect("this composition carries a save; the flag has nowhere else to live");
+    save.data_mut().set_flag("test_intro_seen".to_string(), true);
+}
+
+/// A save whose player has already seen the hub's intro — the `with_save`
+/// form of [`the_hub_intro_has_already_played`], for the harness road where
+/// the room is loaded before the caller ever holds a `World`.
+pub fn a_save_that_has_seen_the_hub_intro(
+) -> ambition_platformer2d::session::AmbitionGameSaveData {
+    let mut data = ambition_platformer2d::session::AmbitionGameSaveData::default();
+    data.set_flag("test_intro_seen".to_string(), true);
+    data
+}

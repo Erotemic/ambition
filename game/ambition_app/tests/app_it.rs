@@ -73,6 +73,7 @@ mod death_restores_the_checkpoint;
 mod declared_art_resolves;
 mod a_dev_clone_survives_a_rewind;
 mod the_admission_road_answers_for_the_shipped_ownership_mode;
+mod the_hub_intro_plays_on_first_entry_and_holds_input;
 mod desync_canary;
 mod developer_edits_under_rollback;
 mod direct_and_shell_agree;

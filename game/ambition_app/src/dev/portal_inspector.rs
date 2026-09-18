@@ -157,7 +157,7 @@ mod enabled {
                             ui,
                             "reorient_facing",
                             &mut tuning.reorient_facing,
-                            "Global gate for same-wall turn-around transits to re-orient the body's facing. It is ANDed with each body's PortalPolicy reorient flag.",
+                            "Global gate for same-wall turn-around transits to re-orient the body's facing. It is ANDed with each body's PortalPolicy reorient flag. \u{26d4} THIS ROW DOES NOT STICK: sync_portal_reorient_from_settings republishes it from Gameplay > Portal Reverse Facing whenever the two differ, so an edit here is reverted on the next pass. Change the setting instead.",
                         );
                     });
             });

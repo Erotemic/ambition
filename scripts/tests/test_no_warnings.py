@@ -39,6 +39,44 @@ def test_the_real_diagnostic_is_reported_once_with_its_location():
     assert "unused import" in found[0]
 
 
+def test_a_replayed_full_rendering_is_still_counted():
+    """⛔⛤ **THE GATE ASKS FOR `--message-format=short` AND DOES NOT CONTROL WHAT
+    ARRIVES.** A unit cargo actually compiles honours the flag; a FRESH unit
+    replays its cached `rendered` string, produced under whatever format built
+    it. So an ordinary `cargo check` at the terminal followed by this gate hands
+    the short-format parser the FULL rendering, and the single-pattern version
+    saw ZERO — a silent clean on a crate with a live warning.
+
+    ⚠ Measured on `ambition_app`, 2026-09-18, the three runs one minute apart:
+    cold-short and warm-short both produced
+    `tests/versus_stage.rs:2793:5: warning: …`; cold-DEFAULT followed by
+    warm-short produced the two-line form below, and the gate reported clean.
+    The text here is that output, not a reconstruction.
+    """
+    replayed = (
+        "warning: fields `seating` and `round` are never read\n"
+        "    --> game/ambition_app/tests/versus_stage.rs:2793:5\n"
+        "     |\n"
+        "warning: `ambition_app` (test \"app_it\") generated 1 warning\n"
+    )
+    found = warnings_from(replayed)
+    assert len(found) == 1, f"expected exactly the one diagnostic, got {found}"
+    assert "game/ambition_app/tests/versus_stage.rs:2793:5" in found[0], found
+    assert "never read" in found[0], found
+
+
+def test_a_summary_in_the_full_rendering_is_not_a_diagnostic():
+    """⚠ THE CONTROL FOR THE ARM ABOVE, and it is what the location test is FOR.
+    Cargo's per-crate summary is also a column-zero `warning:` line; what it does
+    not have is a `-->`. Without this, accepting the full rendering would
+    double-count every crate."""
+    summary_only = (
+        "warning: `ambition_geometry` (lib) generated 1 warning\n"
+        "warning: `ambition_geometry` (lib test) generated 1 warning (1 duplicate)\n"
+    )
+    assert warnings_from(summary_only) == []
+
+
 def test_a_coloured_build_is_still_counted():
     """⛔⛤ **THE ANCHOR THIS GATE MATCHES ON CAN BE PUSHED OFF THE FRONT OF THE
     LINE, AND THE ONLY LANE THAT RUNS THIS GATE IS WHAT PUSHES IT.**

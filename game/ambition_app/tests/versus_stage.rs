@@ -2790,8 +2790,18 @@ struct RosterArmSample {
     session_world: bool,
     /// Which arm of `SessionSeatingSource` stands. Versus never claims
     /// `Pending`, so this is `Devices` right up to the frame it decides.
+    ///
+    /// ⚠ READ ONLY THROUGH `Debug`, in `report_roster_arm`'s `FIRED {sample:?}`
+    /// line — which is the probe's whole output. rustc's dead-code pass says so
+    /// itself (*"has derived impls for the traits `Clone` and `Debug`, but these
+    /// are intentionally ignored during dead code analysis"*), so the allow is
+    /// per FIELD rather than on the struct: a field that stops being printed
+    /// should still go red.
+    #[allow(dead_code)]
     seating: &'static str,
-    /// `VersusMatch::opening()` counts into round one.
+    /// `VersusMatch::opening()` counts into round one. Printed, not asserted —
+    /// see `seating` above.
+    #[allow(dead_code)]
     round: u32,
 }
 

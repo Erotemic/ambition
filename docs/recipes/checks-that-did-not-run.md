@@ -665,6 +665,45 @@ happened to be looking at. ⇒ **A shared circumstance is not a cause until one
 run separates them.** The separating run costs 7 seconds: run the guard alone,
 then run it alone again under the one variable you suspect.
 
+⛔⛔ **AND THE GATE HAD A SECOND SILENT ZERO OF THE SAME SPECIES, FOUND THE HOUR
+AFTER THE FIRST WAS FIXED — THE PARSER ASSUMED A RENDERING IT DOES NOT CONTROL.**
+`check_no_warnings.py` asks cargo for `--message-format=short` and matched only
+`path:line:col: warning: …`. For a unit cargo actually COMPILES, that is what
+arrives. For a FRESH unit, cargo replays its cached `rendered` string — produced
+under whatever format built it. So the ordinary sequence *developer runs
+`cargo check`, lane runs the gate* hands a short-format parser the FULL
+rendering. Measured on `ambition_app` with one live dead-code warning, three runs
+a minute apart:
+
+```text
+cold  --message-format=short          tests/versus_stage.rs:2793:5: warning: …   SEEN
+warm  --message-format=short          the same line                              SEEN
+cold DEFAULT, then warm short         warning: …  +  "  --> tests/…:2793:5"      MISSED
+```
+
+⇒ The repair is to stop keying on a prefix only one rendering has and key on the
+thing BOTH have and cargo's summary lines do not: **a location**. A column-zero
+`warning:` followed within two lines by `  --> path:line:col` is a diagnostic;
+one with no location is `warning: \`crate\` (lib) generated 1 warning`. The arm
+for it carries the real two-line output, and its control is the summary pair —
+without that control, accepting the full rendering would double-count every
+crate.
+
+⭐ **AND THE FIXED GATE IMMEDIATELY FOUND A LIVE WARNING ON MAIN** that the old
+one called clean: two fields of a probe struct in `versus_stage.rs`, read only
+through `Debug` in the probe's own output line. rustc says so in the same
+message — *"has derived impls for the traits `Clone` and `Debug`, but these are
+intentionally ignored during dead code analysis"* — so the fix is an allow AT THE
+FIELD with that reason, not at the struct, so a field that stops being printed
+still goes red.
+
+⚠ **THE PATTERN ACROSS BOTH: A GUARD THAT PARSES A TOOL'S HUMAN OUTPUT OWNS A
+CONTRACT IT DID NOT WRITE.** Colour, message format, and cached replay are three
+knobs the caller does not hold, and each turns a line-anchored parser into a
+silent zero. Ask *what renders this, and who else can change that rendering?* —
+then key on the part of the output that carries MEANING (a location, a name)
+rather than on the part that carries FORMATTING.
+
 ⚠ **AND THE ESCAPE-BYTE FAMILY NOW HAS TWO MEMBERS ON THIS PAGE.** The other is
 a generator that wrote `\b` through a non-raw Python string and shipped a
 literal `0x08` inside a regex that could never match. Same failure, opposite

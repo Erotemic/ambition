@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v198
+ggrs-rollback-schema-v199
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -120,7 +120,7 @@ combat.stale_moves	component-canonical	BodyStaleMoves	bevy_ggrs canonical codec 
 combat.strike_volume	component-clone	StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; not in the session checksum
 component.boss_anim_frame	component-clone-cursor	BossAnimFrame	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-component.construction_transaction_id	component-canonical-custom-checksum	TransactionId	bevy_ggrs canonical codec snapshot + checksum over the content identity and the room only, excluding the host-local content epoch and session stamps
+component.construction_transaction_id	component-canonical-custom-checksum	TransactionId	bevy_ggrs canonical codec snapshot + checksum over the content identity, the room and the construction lane, excluding the host-local content epoch and session stamps
 component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.cut_rope_heavy_object_cycle	resource-clone-custom-checksum	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot + heavy-object cycle index

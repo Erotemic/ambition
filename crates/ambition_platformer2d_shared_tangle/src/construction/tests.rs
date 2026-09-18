@@ -3971,3 +3971,88 @@ fn two_hosts_with_different_local_history_project_one_transaction_identity() {
     );
     assert_ne!(a.peer_stable_checksum(), unstated.peer_stable_checksum());
 }
+
+/// ⭐⭐ **A NAMED CONSTRUCTION LANE IS A PEER-STABLE TERM, AND IT HAS TO REACH
+/// THE PROJECTION.**
+///
+/// [`ConstructionLane::transaction`] appends a FOURTH field, `lane:{name}`, to
+/// the three [`ConstructionScope::transaction`] renders. The projection reads
+/// the rendered stamp rather than the parts, so a term added to the FORMATTER
+/// after the READER was written is dropped in silence — and that is what had
+/// happened: two roots in the same room, at the same content, on two different
+/// authored lanes made the SAME contribution to the peer checksum, so a peer
+/// that put a root on the gravity lane and a peer that put it on the portal-gun
+/// lane agreed about construction provenance they do not actually share.
+///
+/// ⚠ THE LANE IS NOT LIKE THE SESSION OR THE EPOCH, which is why it belongs in
+/// the comparison rather than out of it: [`ConstructionLane::named`] takes an
+/// authored constant (`PORTAL_GUN_CONSTRUCTION_DOMAIN`, an actor capability's
+/// domain name), not a per-App counter. Two peers running the same content
+/// render the same lane name or they disagree about something real.
+///
+/// ⛔ MINTED THROUGH THE REAL PLAN, not by writing a string with a `lane:`
+/// suffix in it. A hand-written stamp would test the reader against the test
+/// author's memory of the format, which is the drift this arm exists to catch.
+#[test]
+fn two_construction_lanes_do_not_share_one_peer_projection() {
+    let registry = registry();
+    let plan_in = |lane: ConstructionLane| {
+        ConstructionPlan::prepare_in_lane(scope(), lane, vec![request("a")], &nothing_live(), &registry)
+            .unwrap()
+    };
+    let session = SessionSpawnScope::UNSCOPED;
+
+    let primary = plan_in(ConstructionLane::primary()).transaction(session);
+    let gravity = plan_in(ConstructionLane::named("gravity")).transaction(session);
+    let portal_gun = plan_in(ConstructionLane::named("portal-gun")).transaction(session);
+
+    // ⚠ THE PREMISE FIRST: the three really are different LOCAL identities, or
+    // the projection arms below prove nothing.
+    assert_ne!(primary.as_str(), gravity.as_str());
+    assert_ne!(gravity.as_str(), portal_gun.as_str());
+
+    assert_ne!(
+        primary.peer_stable_checksum(),
+        gravity.peer_stable_checksum(),
+        "the primary lane and a named lane share one peer projection, so the \
+         lane is not reaching it"
+    );
+    assert_ne!(
+        gravity.peer_stable_checksum(),
+        portal_gun.peer_stable_checksum(),
+        "two DIFFERENT named lanes share one peer projection, so the lane's \
+         identity is not reaching it — only its presence"
+    );
+}
+
+/// The primary lane's projection is the one term the format cannot render.
+///
+/// ⭐ An unnamed lane appends NOTHING, so the reader sees a three-field stamp
+/// and has to supply the term itself. It supplies `"primary"`, and that is
+/// unambiguous only because [`ConstructionLane::named`] REFUSES that name —
+/// asserted here beside the equality it justifies, so the two facts cannot
+/// drift apart. Without the refusal, `lane:primary` and an absent lane would be
+/// two spellings of one answer and the length-prefixed digest would still tell
+/// them apart, which is the wrong way round.
+#[test]
+fn the_primary_lane_projects_as_the_name_no_named_lane_may_take() {
+    let registry = registry();
+    let session = SessionSpawnScope::UNSCOPED;
+    let primary =
+        ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry)
+            .unwrap()
+            .transaction(session);
+
+    assert_eq!(ConstructionLane::primary().as_str(), "primary");
+    assert_eq!(
+        primary.peer_lane_term(),
+        "primary",
+        "the unnamed lane's stamp renders three fields, so the reader supplies \
+         the term — and it must be the reserved one"
+    );
+    assert!(
+        std::panic::catch_unwind(|| ConstructionLane::named("primary")).is_err(),
+        "`primary` is no longer reserved, so an authored lane can now collide \
+         with the absent-lane default this projection relies on"
+    );
+}

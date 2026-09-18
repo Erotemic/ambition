@@ -1097,13 +1097,24 @@ impl TransactionId {
     }
 
     /// ⭐⭐ **WHAT TWO PEERS MAY COMPARE ABOUT A TRANSACTION IDENTITY: WHICH
-    /// CONTENT AND WHICH ROOM.**
+    /// CONTENT, WHICH ROOM AND WHICH LANE.**
     ///
-    /// The stamp renders as `{binding}\t{room}\t{session}`. The session term is
-    /// a per-App activation count and the binding's epoch is a per-App
-    /// activation generation, so neither may be compared; the room is authored
-    /// and the content identity is a digest of the prepared definition, so both
-    /// may.
+    /// The stamp renders as `{binding}\t{room}\t{session}`, and a NAMED lane
+    /// appends a fourth field, `lane:{name}`. The session term is a per-App
+    /// activation count and the binding's epoch is a per-App activation
+    /// generation, so neither may be compared; the room is authored, the content
+    /// identity is a digest of the prepared definition, and the lane is an
+    /// authored domain constant, so all three may.
+    ///
+    /// ⛔⛤ **THE LANE WAS ADDED TO THE FORMATTER AFTER THIS READER WAS WRITTEN
+    /// AND WAS DROPPED IN SILENCE UNTIL 2026-09-18.** Two roots in one room, at
+    /// one content, on the gravity lane and the portal-gun lane, made the SAME
+    /// contribution to the peer checksum — measured, not supposed: the arm
+    /// `two_construction_lanes_do_not_share_one_peer_projection` reported the
+    /// identical value `4192778953073586539` for both before the term was
+    /// folded in. That is the standing hazard of reading a rendered string: a
+    /// field APPENDED to the format is invisible to a reader that stops early,
+    /// and nothing about it fails to compile.
     ///
     /// ⛔⛤ **IT READS THE STAMP RATHER THAN THE PARTS, AND THAT IS A DELIBERATE
     /// TRADE.** A checksum registrar hands the projection only `&TransactionId`,
@@ -1122,9 +1133,17 @@ impl TransactionId {
         let binding = fields.next().unwrap_or("");
         let room = fields.next().unwrap_or("");
         // ⛔ THE SESSION FIELD IS DROPPED ON THE FLOOR, which is the point.
+        let _session = fields.next();
+        // ...and the LANE after it is kept, which is the other point. Reading it
+        // positionally is why `_session` is bound rather than skipped: the two
+        // decisions then sit one line apart instead of hiding inside an `nth`.
+        let lane = Self::lane_term(fields.next());
+        // ⚠ `bytes` is length-prefixed, so appending a third term cannot be
+        // re-split into the first two.
         ambition_platformer2d_core::snapshot::PeerDigest::in_domain("construction.transaction")
             .bytes(Self::peer_binding_term(binding).as_bytes())
             .bytes(room.as_bytes())
+            .bytes(lane.as_bytes())
             .finish()
     }
 
@@ -1142,6 +1161,28 @@ impl TransactionId {
     /// holds.
     pub fn peer_content_term(&self) -> &str {
         Self::peer_binding_term(self.0.split('\t').next().unwrap_or(""))
+    }
+
+    /// WHICH LANE this stamp names, as the peer projection sees it.
+    ///
+    /// ⭐ **THE ABSENT LANE IS `"primary"`, AND THAT IS ONLY UNAMBIGUOUS BECAUSE
+    /// `ConstructionLane::named` REFUSES THAT NAME.** An unnamed lane appends no
+    /// fourth field at all, so this reader supplies the term rather than reading
+    /// it; if a lane could be *named* `primary` the two would be one answer
+    /// spelled two ways.
+    ///
+    /// ⚠ A fourth field that is not a `lane:` segment is returned whole. That is
+    /// a synthetic [`Self::from_raw`] fixture, and reporting what is actually
+    /// there is the honest answer for one.
+    pub fn peer_lane_term(&self) -> &str {
+        Self::lane_term(self.0.split('\t').nth(3))
+    }
+
+    fn lane_term(field: Option<&str>) -> &str {
+        match field {
+            None => "primary",
+            Some(field) => field.strip_prefix("lane:").unwrap_or(field),
+        }
     }
 
     /// The peer-stable part of a rendered binding, by its three shapes.

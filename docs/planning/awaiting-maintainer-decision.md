@@ -1304,9 +1304,21 @@ not: each answers a different question, and the Q136 count is the second one's.
 
     scripts/check_host_produced_sim_consumed_requests.py
         Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by
-        the simulation. 3 of 57 spent types at 2026-09-18:
-        `CutsceneAdvanceRequest` and `NewGameResetRequested` (both Q136), and
-        `VersusMatch` (filed against Q140).
+        the simulation, over BOTH channels an intent can take. At 2026-09-18:
+
+          * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
+            `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
+          * 4 of 87 written MESSAGE types — `AmbientGravityRequest` and
+            `PlayerHealRequested` (both Q136, both live),
+            `ResetToCheckpoint` and `SetFlagRequested` (both benign, and each
+            by a DIFFERENT general escape — see the readings below).
+
+        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
+        the second channel was invisible until 2026-09-18 because the script
+        required the `Resource` derive. The filter was right and stays: without
+        it the first version reported 67 rows, because `App`, `Commands`,
+        `NextState` and `Sprite` are not resources. What was wrong was
+        believing one channel was the population.
 
 ⛔⛤ **AND THE FIRST CENSUS CANNOT EVER REPORT THE SECOND'S SECOND ROW, WHICH IS
 THE REASON TO STOP QUOTING ONE NUMBER.** `resources_crossing_the_rewind_boundary.py:355-358`

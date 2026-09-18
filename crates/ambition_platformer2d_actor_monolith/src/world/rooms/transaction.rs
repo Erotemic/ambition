@@ -22,8 +22,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 /// The baseline captured at the head of a construction transaction, waiting for
 /// the verification pass at its tail.
 ///
-/// A resource because the two ends are separate commands in one queue and nothing else can
-/// carry a value between them.
+/// A COMPONENT ON THE PUBLICATION, because the two ends are separate commands in
+/// one queue and nothing else can carry a value between them. ⚠ THIS SENTENCE
+/// READ "a resource" UNTIL 2026-09-18, three lines above the `#[derive(Component)]`
+/// that contradicts it and directly above the paragraph explaining why a resource
+/// was wrong — the stale half of the very change it describes.
 /// ⛔⛤ **THE CONTROL PLANE IS EXACT NOW, AND IT WAS A SINGLETON — CHANGED
 /// 2026-09-14 ON REVIEW.** The candidate ENTITIES carried exact `TransactionId`s
 /// while the baseline, the staged world and the verdict were all *"the pending

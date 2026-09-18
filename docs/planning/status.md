@@ -204,7 +204,7 @@ at tick 4 runs 120 steps clean, starting at tick 1 or 2 it desyncs at frames
 `[2, 3, 4]`, and N consecutive grants from tick 20 are clean at every N. This
 page said *"a single change does not reproduce it"*, which was the second of
 three framings. ⇒ The measurement and the correction live ONCE, in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay);
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open);
 do not re-derive them here.
 
 ⚠ This is not only a persistence question: **18 of the 19** systems that write
@@ -226,7 +226,7 @@ ownership question on its own merits: should a save FILE be part of what two
 peers agree on. The ruling is
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
 the measurement and the reproduction are in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay).
+[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
 ⇒ Found beside it, and filed as
 [Q130](awaiting-maintainer-decision.md#q130--should-the-sim-harness-refuse-to-step-an-invalidated-rollback-session):

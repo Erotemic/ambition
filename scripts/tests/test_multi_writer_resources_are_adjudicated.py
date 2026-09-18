@@ -23,7 +23,15 @@ def test_the_baseline_describes_the_tree_today():
 def test_the_baseline_is_a_population_and_not_a_placeholder():
     # ⛔ A baseline of three would pass the arm above and ratchet nothing.
     assert len(guard.BASELINE) > 50
-    assert all(count >= 2 for count in guard.BASELINE.values())
+    assert all(len(files) >= 2 for files in guard.BASELINE.values())
+    # ⭐ AND THE RECORDED FILES ARE PATHS, NOT A COUNT. The table held bare ints
+    # until 2026-09-18, which made a same-cardinality writer swap invisible; an
+    # int here again would restore that blindness with every other arm green.
+    assert all(
+        isinstance(f, str) and f.endswith(".rs")
+        for files in guard.BASELINE.values()
+        for f in files
+    )
 
 
 def test_every_adjudication_cites_something():
@@ -91,7 +99,7 @@ def test_a_type_that_lost_a_writer_is_reported(monkeypatch, capsys):
     """⛔ A DROP FAILS TOO, ON PURPOSE. A baseline nobody has to lower stops
     describing the tree, and then its silence means nothing."""
     real = census.writers
-    subject = next(t for t, n in guard.BASELINE.items() if n > 2)
+    subject = next(t for t, files in guard.BASELINE.items() if len(files) > 2)
 
     def with_one_fewer(files):
         found = real(files)
@@ -120,7 +128,10 @@ def test_a_type_that_left_the_population_must_be_removed(monkeypatch, capsys):
     # be adjudicated away.
     real = census.writers
     subject = "ASyntheticTypeNoProductionFileWrites"
-    monkeypatch.setitem(guard.BASELINE, subject, 2)
+    # A two-file recorded set, matching the table's type. An int here would
+    # have worked only by luck: the swap check never evaluates it for a type
+    # that dropped out of `multi`.
+    monkeypatch.setitem(guard.BASELINE, subject, ("a.rs", "b.rs"))
 
     def with_one_writer(files):
         found = real(files)
@@ -132,6 +143,70 @@ def test_a_type_that_left_the_population_must_be_removed(monkeypatch, capsys):
     monkeypatch.setattr(census, "writers", with_one_writer)
     assert guard.main() == 1
     assert "no longer written from more than one file" in capsys.readouterr().out
+
+
+def test_a_writer_file_swapped_at_constant_count_is_reported(monkeypatch, capsys):
+    """⛔⛤ THE AXIS THE COUNT-ONLY BASELINE COULD NOT SEE, and the reason the
+    table stores paths.
+
+    `test_a_type_that_gained_a_writer_is_reported` and
+    `test_a_type_that_lost_a_writer_is_reported` both move the COUNT
+    (add-without-remove, remove-without-add). Neither can witness one writer
+    file being REPLACED by another: the cardinality is identical, so a ratchet
+    comparing `len()` against a recorded int stays green forever.
+
+    DEMONSTRATED on the real tree before this was fixed (CalculexAmbition,
+    2026-09-18): swapping one of `AmbitionGameSave`'s 18 writer files for a
+    fabricated path left the guard printing its ordinary `ok` line and
+    `UNADJUDICATED: 0`. It matters because every entry in `ADJUDICATED` argues
+    from the SPECIFIC files it names, so a silent substitution rots the
+    citations with nothing to flag it.
+    """
+    real = census.writers
+    subject = next(t for t, files in guard.BASELINE.items() if len(files) > 2)
+
+    def with_one_swapped(files):
+        found = real(files)
+        kept = set(found[subject])
+        kept.discard(sorted(kept)[0])
+        kept.add("crates/a_fabricated_writer_nobody_declared.rs")
+        found[subject] = kept
+        return found
+
+    monkeypatch.setattr(census, "writers", with_one_swapped)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "CHANGED WHICH ONES" in out, out
+    # The message must NAME both sides: "something changed" sends the reader
+    # back to re-derive what this run already knew.
+    assert "LEFT    " in out and "ARRIVED " in out, out
+    assert "crates/a_fabricated_writer_nobody_declared.rs" in out, out
+
+
+def test_a_session_world_writer_swapped_at_constant_count_is_reported(
+    monkeypatch, capsys
+):
+    """⛔ THE SAME GAP LIVED IN `SESSION_WORLD_BASELINE`, because it was the same
+    shape: `dict[str, int]` compared by count. Fixed in the same commit, and
+    pinned here so the two tables cannot drift apart again."""
+    real = census.session_world_writers
+    subject = next(
+        t for t, files in guard.SESSION_WORLD_BASELINE.items() if len(files) > 2
+    )
+
+    def with_one_swapped(files):
+        found = real(files)
+        kept = set(found[subject])
+        kept.discard(sorted(kept)[0])
+        kept.add("crates/another_fabricated_writer.rs")
+        found[subject] = kept
+        return found
+
+    monkeypatch.setattr(census, "session_world_writers", with_one_swapped)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    assert "CHANGED WHICH ONES" in out, out
+    assert "crates/another_fabricated_writer.rs" in out, out
 
 
 def test_an_adjudication_of_a_type_that_is_not_multi_writer_is_refused(
@@ -158,7 +233,9 @@ def test_a_verdict_whose_duplication_was_repaired_is_refused(monkeypatch, capsys
     shape. The type is still written — just from one file — so this is distinct
     from the misspelling above."""
     real = census.writers
-    subject = next(t for t in guard.ADJUDICATED if guard.BASELINE.get(t) == 2)
+    subject = next(
+        t for t in guard.ADJUDICATED if len(guard.BASELINE.get(t, ())) == 2
+    )
 
     def with_one_writer(files):
         found = real(files)

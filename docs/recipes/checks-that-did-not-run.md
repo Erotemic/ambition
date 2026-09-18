@@ -309,6 +309,33 @@ of its scoping:
 The sweep and its population live in
 [`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
 
+### ⛔⛔ A GUARD WRITTEN BY A GENERATOR CAN SHIP A PATTERN THAT CANNOT MATCH — 2026-09-18
+
+**The instrument was right, the file that carried it was not.** A new arm
+searched a Rust file for a function-local declaration:
+
+```python
+re.search(rf"^\s+(?:pub\s+)?struct\s+{ty}\b", text, re.MULTILINE)
+```
+
+It refused both files it was pointed at, while the same expression typed into a
+shell matched instantly. The pattern in the shipped file ended in a literal
+**0x08 byte**: the generator script that wrote the source held it in a plain
+(non-raw) Python string, where `\b` is the backspace escape and `\s` is merely
+an unknown one. ⇒ `\s` survived, `\b` did not, and the regex looked correct in
+every editor because a backspace prints as nothing.
+
+⭐ **THE CLUE WAS ON SCREEN AND I READ PAST IT.** The generator emitted
+`SyntaxWarning: invalid escape sequence '\s'` — a warning about the sibling
+escape that survived, on the run that silently corrupted the one that did not.
+
+⚠ **THIS ONE FAILED IN THE LOUD DIRECTION AND THAT WAS LUCK.** The corrupted
+pattern was used for *"prove the declaration is local"*, so a non-match REFUSED.
+The same corruption in an arm shaped *"fail if this pattern is found"* is a
+permanent green. ⇒ When a guard's pattern comes from a generator, scan the
+written file for control characters (`{c for c in text if ord(c) < 32}`) before
+believing either verdict, and prefer a raw string in the generator too.
+
 ### ⭐⭐ A THIRD RECURRING SHAPE: a guard keyed on a CLASSIFICATION sees only what the classification encodes
 
 The ID-PEER audit reads the live `RollbackRegistry` and asks, of every

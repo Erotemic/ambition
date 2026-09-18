@@ -316,6 +316,21 @@ BASELINE: dict[str, int] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "FixedStepsTaken": (
+        "NOT A SHARED RESOURCE AT ALL — ONE NAME, TWO TYPES, AND THE CENSUS IS "
+        "KEYED ON THE NAME. `struct FixedStepsTaken(u32);` is declared INSIDE a "
+        "function twice: `ambition_app/src/app/cli.rs` and "
+        "`ambition_app/src/headless.rs` each declare their own, `init_resource` "
+        "it into their own app, and increment it from a closure system to count "
+        "that harness's fixed steps. ⇒ Two local tick counters that share a "
+        "spelling and not one byte of state; a third lives in "
+        "`ambition_platformer2d_host/tests/demo_shell_smoke.rs`. ⛔ THE ROW IS A "
+        "PHANTOM AND THE POPULATION OF 121 IS OVERSTATED BY IT — recorded rather "
+        "than deleted, because a census that quietly drops rows it finds "
+        "inconvenient stops being a ratchet. `NAME_COLLISION_NOT_ONE_TYPE` "
+        "checks the claim: promote either declaration to module scope and the "
+        "guard fails, because then the two writers might really share a type."
+    ),
     # ── ONE SELECTOR, TWO PRESENTATIONS ──────────────────────────────────────
     #
     # The menu ships TWO backends — the flat Bevy-UI grid and the 3D cube — and
@@ -1667,6 +1682,62 @@ SOLE_IN_SESSION_OWNER: dict[str, str] = {
 }
 
 
+#: ⛔⛤ ONE NAME, TWO TYPES — a row this census CANNOT read correctly by
+#: construction, because it is keyed on the type's NAME. A `struct` declared
+#: INSIDE a function is local to it: two such declarations in two files share a
+#: spelling and nothing else, so "written from two files" is true of the name and
+#: false of every byte of state. ⇒ The verdict says so, and this table makes the
+#: claim checkable — promote either declaration to module scope and the check
+#: fires, because then the row might be real.
+NAME_COLLISION_NOT_ONE_TYPE: dict[str, tuple[str, ...]] = {
+    "FixedStepsTaken": (
+        "game/ambition_app/src/app/cli.rs",
+        "game/ambition_app/src/headless.rs",
+    ),
+}
+
+
+def name_collision_shortfalls(multi: dict[str, list[str]]) -> list[str]:
+    """Every way a [`NAME_COLLISION_NOT_ONE_TYPE`] claim can have stopped being true."""
+    problems: list[str] = []
+    for ty, expected in sorted(NAME_COLLISION_NOT_ONE_TYPE.items()):
+        if ty not in ADJUDICATED:
+            problems.append(
+                f"{ty} is recorded as a name collision but carries no verdict; "
+                "the table and ADJUDICATED must agree."
+            )
+            continue
+        writers = multi.get(ty)
+        if writers is None:
+            problems.append(
+                f"{ty} is no longer written from more than one file, so the "
+                "collision has no subject. Remove it here and in ADJUDICATED."
+            )
+            continue
+        if sorted(writers) != sorted(expected):
+            problems.append(
+                f"{ty} is now written from {', '.join(sorted(writers))}, and the "
+                f"claim names {', '.join(sorted(expected))}. A new writer file is "
+                "a new question, not another copy of the same name."
+            )
+            continue
+        for relative in expected:
+            source = pathlib.Path(__file__).resolve().parents[1] / relative
+            text = source.read_text(errors="replace") if source.exists() else ""
+            # INDENTED, which is what makes it function-local. A module-level
+            # declaration starts at column zero.
+            local = re.search(
+                rf"^\s+(?:pub(?:\([^)]*\))?\s+)?struct\s+{ty}\b", text, re.MULTILINE
+            )
+            if not local:
+                problems.append(
+                    f"{ty} has no function-local declaration in {relative}, so "
+                    "the two writers may name ONE type after all — which would "
+                    "make this row a real multi-writer question."
+                )
+    return problems
+
+
 def sole_owner_shortfalls(
     multi: dict[str, list[str]], files: list[str]
 ) -> list[str]:
@@ -1790,6 +1861,14 @@ def main() -> int:
     if shortfalls:
         print("a sole-in-session-owner verdict no longer describes the tree:\n")
         for problem in shortfalls:
+            print(f"  {problem}")
+        return 1
+
+    # ⭐ AND A VERDICT THAT SAYS "THESE ARE NOT THE SAME TYPE" IS CHECKED TOO.
+    collisions = name_collision_shortfalls(multi)
+    if collisions:
+        print("a name-collision verdict no longer describes the tree:\n")
+        for problem in collisions:
             print(f"  {problem}")
         return 1
 

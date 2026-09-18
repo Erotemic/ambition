@@ -296,6 +296,7 @@ NOT_TREE_NAMES: dict[str, str] = {
     "app_it": "the app's integration-test TARGET, not a function",
     "configure_sets": "bevy's `App::configure_sets`, declared outside this tree",
     "in_set": "bevy's `IntoScheduleConfigs::in_set`, same",
+    "init_resource": "bevy's `App::init_resource`, declared outside this tree",
     "resource_mut": "bevy's `World::resource_mut`, same",
     "write_sites": "a python function in `multi_writer_resource_census.py`",
     "this_tick": "prose shorthand for `materialize_projectiles_for_this_tick`",
@@ -405,6 +406,41 @@ def test_every_session_world_adjudication_cites_something():
         assert name in guard.SESSION_WORLD_BASELINE, name
         assert len(reason) > 60, name
         assert "`" in reason, f"{name}: no system or field cited"
+
+
+def test_a_name_collision_claim_that_stopped_being_local_is_refused(tmp_path, monkeypatch, capsys):
+    """⛔ A VERDICT THAT SAYS "THESE ARE NOT THE SAME TYPE" IS A CLAIM ABOUT
+    SCOPE, and scope is exactly what a later refactor changes.
+
+    `FixedStepsTaken` is declared INSIDE a function in two files, so the census's
+    name-keyed row is a phantom. Promote either declaration to module scope and
+    the two writers might really share a type — at which point the row is a real
+    question and the verdict must not still be saying it is not.
+    """
+    module = tmp_path / "moved.rs"
+    module.write_text("struct FixedStepsTaken(u32);\n")
+    monkeypatch.setattr(
+        guard,
+        "NAME_COLLISION_NOT_ONE_TYPE",
+        {"FixedStepsTaken": (str(module.relative_to(tmp_path)),)},
+    )
+    monkeypatch.chdir(tmp_path)
+    problems = guard.name_collision_shortfalls(
+        {"FixedStepsTaken": [str(module.relative_to(tmp_path))]}
+    )
+    # The file exists relative to the REPO, not to tmp_path, so this arm asserts
+    # the refusal a MISSING or module-scope declaration produces — both are the
+    # same failure for this check's purpose: no function-local declaration.
+    assert problems, "a claim whose declaration is not function-local must be refused"
+    assert "function-local" in problems[0]
+
+
+def test_the_name_collision_claim_holds_on_the_real_tree():
+    """⭐ AND THE CONTROL, because the arm above would pass if the checker simply
+    always refused. Run it against the tree as it is."""
+    files = census.production_files()
+    multi = {t: sorted(fs) for t, fs in census.writers(files).items() if len(fs) > 1}
+    assert guard.name_collision_shortfalls(multi) == []
 
 
 def test_a_session_world_verdict_whose_duplication_was_repaired_is_refused(

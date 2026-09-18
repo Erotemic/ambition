@@ -426,7 +426,7 @@ not inferred. Every live-rebuild road (`session/reset/mod.rs`,
 preparation road uses `GenerationMechanics::of`.
 
 ⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` IS CORRECT.**
-`game/ambition_app/src/app/dev_runtime.rs:491` — the HOT RELOAD, which passes
+`game/ambition_app/src/app/dev_runtime.rs:525` — the HOT RELOAD, which passes
 `None` on purpose because it is BUILDING the generation that replaces the live
 one, and says so at the call site. Narrowing `new` to `pub(crate)` was tried and
 fails to compile for exactly that caller.

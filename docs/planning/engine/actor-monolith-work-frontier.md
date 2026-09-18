@@ -697,7 +697,7 @@ authored placement**. `SimId::encounter(id)` is the same shape. The four
 INHERITED ones carry whatever scope their parent had, which is none.
 
 ⭐ **THE GOOD NEWS IS THAT IT REFUSES RATHER THAN CORRUPTS.** The construction
-planner's `IdentityAlreadyLive` (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:1635`) is what a second
+planner's `IdentityAlreadyLive` (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:1676`) is what a second
 instance would hit, so the failure mode today is a loud refusal — not two live
 things behind one `SimId`. That is the precondition step 1 would otherwise have
 to discover the hard way.

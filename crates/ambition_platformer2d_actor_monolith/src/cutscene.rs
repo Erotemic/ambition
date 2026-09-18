@@ -77,21 +77,6 @@ pub fn drain_cutscene_triggers(
     }
 }
 
-/// Advance the playing cutscene by one SIMULATION step.
-///
-/// this read `Res<Time>`, which is the wrong clock in two ways. This system runs in the sim
-/// schedule, and `sim_schedule()` IS `Update` under the `RenderFrame` host — so a cutscene's
-/// beat timings depended on how fast the machine drew frames, and two replays of the same input
-/// stream could enter different beats.
-///
-/// and `WorldTime::sim_dt` is SCALED, which the frame clock is not. A
-/// cutscene playing under slow motion now slows with the scene it accompanies
-/// instead of running at wall speed over a world in treacle.
-///
-/// this is the "deterministic elapsed" half of the cutscene-authority row in
-/// `tracks.md`: playback state advances on the sim clock, and only presentation
-/// reads the wall clock (`PresentationTime::wall_dt`).
-
 /// END a cutscene: mark it seen and tear it down. THE ONE ENDING.
 ///
 /// ⛔⛔ THIS RULE WAS WRITTEN TWICE, once per way a cutscene can stop. Skipping
@@ -121,6 +106,26 @@ fn end_cutscene(
     active.presentation = Default::default();
 }
 
+/// Advance the playing cutscene by one SIMULATION step.
+///
+/// ⛔⛤ **THE CLOCK IS `WorldTime`, NOT `Res<Time>`, FOR TWO SEPARATE REASONS.**
+/// This system is registered into
+/// `Platformer2dSimulationPhaseMonolith::Cutscene` (see `:181`), and
+/// `sim_schedule()` IS `Update` under the `RenderFrame` host — so on the frame
+/// clock a cutscene's beat timings would depend on how fast the machine draws,
+/// and two replays of the same input stream could enter different beats.
+///
+/// ⭐ And `WorldTime::sim_dt` is SCALED (`ambition_time/src/lib.rs:209` returns
+/// `scaled_dt`), which a frame clock is not: a cutscene playing under slow
+/// motion slows with the scene it accompanies instead of running at wall speed
+/// over a world in treacle.
+///
+/// ⇒ Playback state advances on the sim clock and only PRESENTATION reads the
+/// wall clock (`PresentationTime::wall_dt`) — the deterministic-elapsed half of
+/// `queue.md`'s `CUTSCENE-ROLLBACK-DECISION`. ⚠ That route said "the
+/// cutscene-authority row in `tracks.md`" until 2026-09-18; `tracks.md` does
+/// not mention cutscenes at all, and this doc block was itself attached to
+/// `end_cutscene` rather than to the function it describes.
 pub fn tick_active_cutscene(
     time: Res<ambition_time::WorldTime>,
     mut active: ResMut<ActiveCutscene>,

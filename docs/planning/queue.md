@@ -171,6 +171,43 @@ stopped being declared derived (`f15461f52`). Reading the four, source already a
    the control: a fixture that cannot advance a cutscene at all prints the same
    stalled `1`. Poison-verified (0 → beat 3).
 
+   ⛔⛔ **AND ON 2026-09-18 THIS DEFECT ACQUIRED ITS FIRST SHIPPED CUSTOMER: THE
+   FIRST BOOT.** `479d5a028` repointed the hub's cutscene binding from
+   `central_hub_main` (an LDtk LEVEL id, which could never match the runtime
+   room) to `central_hub_complex`, so `test_intro` now plays the first time a
+   player enters the hub — and its third beat is a `CutsceneBeat::Dialogue` with
+   NO duration, which waits for a dismiss
+   (`game/ambition_content/src/dialogue/cutscene_defaults.rs:20-23`). The press
+   this row says is lost is now the press that gets a player out of their first
+   boot.
+
+   ⇒ **IT IS PASSABLE TODAY, AND THE REASON IS DORMANCY RATHER THAN DESIGN.**
+   Measured 2026-09-18 in the shell-host composition: a host-side
+   `dismiss_dialogue` ends the cutscene one frame later and the seat gets
+   gameplay back on the next. That works because rollback is not armed there —
+   `LocalSessionPolicy::default()` is `check_distance: 0`
+   (`crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs:40`) and the
+   shipped app inserts no policy of its own; the only writers are in
+   `game/ambition_app/src/dev/rollback_observatory.rs`. ⚠ **That is also the road
+   that arms it.** The observatory raises `check_distance` to
+   `RollbackProofSettings::check_distance` for a proof pulse (`:307-311`) and
+   returns it to 0 when the pulse finishes (`:480-482`), with
+   `OwnedSessionMode::Baseline` = 0 and `Proof` = the armed value (`:79-84`). A
+   pulse overlapping the dialogue beat is precisely item 1's condition, and the
+   consequence stops being a lost convenience press.
+
+   ⚠ **A SECOND, SMALLER READING FROM THE SAME MEASUREMENT, FILED HERE BECAUSE
+   IT HAS NO OTHER OWNER.** A playing cutscene declares a CAPTURING
+   `CUTSCENE_CONTEXT` claim, and the capture lands ONE FRAME LATE at each end:
+   `declare_in_session_input_contexts` runs in `InputSet::ResolveContext`, the
+   cutscene starts and ends later in the sim schedule, so for exactly one frame
+   at the start `gameplay_owned()` is still true and for one frame after the
+   dismiss it is still false. Measured, and held as a stated window rather than
+   an allowance by
+   `game/ambition_app/tests/the_hub_intro_plays_on_first_entry_and_holds_input.rs`.
+   Whether one frame of gameplay input at a cutscene boundary is a defect is a
+   maintainer call, not a test's.
+
 2. ✅⛤ **`CutsceneTriggerQueue` — NOT A LIVE DEFECT, AND THE REASON IS AN
    UNSTATED INVARIANT RATHER THAN A DECISION.** The structural description above
    was right: it is drained by `drain_cutscene_triggers`, which returns early

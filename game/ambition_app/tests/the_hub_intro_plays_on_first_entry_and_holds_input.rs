@@ -127,8 +127,8 @@ fn the_hub_intro_plays_on_first_entry_and_captures_the_seat() {
     // the sim schedule, and the claim therefore lands on the next one. So this
     // asserts the capture one frame after the start, and the window is named
     // here so a reader does not discover it as a surprise. Whether one frame of
-    // gameplay input at a cutscene boundary matters is a question for the
-    // cutscene-authority row, not for this arm.
+    // gameplay input at a cutscene boundary matters is filed under `queue.md`'s
+    // `CUTSCENE-ROLLBACK-DECISION`, not answered here.
     app.update();
     assert!(
         !gameplay_owns_input(&app),

@@ -17,38 +17,58 @@ is printed by the run itself, so read it there rather than from this paragraph.
 What the check enforces is that the set and the per-type writer counts cannot
 move without somebody editing this file.
 
-⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, MEASURED RATHER THAN GUESSED.** Of the
-85, **18 are rollback-registered**, and those are the ones where a second writer
-is a divergence rather than a design smell. Joining the writers' WRITE TARGETS
-narrows it again — fields or methods touched by two or more of a type's writer
-files:
+⭐ **WHERE TO SPEND AN ADJUDICATION FIRST, AND THE TABLE IS NO LONGER CARRIED BY
+HAND.** Of the 85, **18 are rollback-registered**, and those are the ones where a
+second writer is a divergence rather than a design smell. Joining the writers'
+WRITE TARGETS narrows it again — which field or method do two of a type's writer
+files both reach for:
 
-    AmbitionGameSave        14 writers  ->  data() / data_mut()      ROUTED (see below)
-    OwnedItems               4 writers  ->  grant()
-    QuestRegistry            6 writers  ->  push_event()
-    PendingLifecycleCommit   3 writers  ->  record()
-    SlotInteractionState     4 writers  ->  get_mut() / primary_mut() ADJUDICATED
-    ActiveConversation       2 writers  ->  close()                  ADJUDICATED
-    ClockState               2 writers  ->  time_scale               ADJUDICATED
-    PossessionState          2 writers  ->  home                     ADJUDICATED
-    BaseGravity, RoomTransitionCooldown, VersusMatch  ->  nothing shared
+    python3 scripts/multi_writer_resource_census.py --shared-targets
 
-⚠ **AND THE OBVIOUS READING OF THAT TABLE IS WRONG.** *"They all go through one
+⛔⛤ **THAT COMMAND EXISTS BECAUSE THE HAND-WRITTEN VERSION OF THIS TABLE WAS
+WRONG IN FOUR PLACES, DISCOVERED 2026-09-17 WHILE CITING IT.** It read
+`AmbitionGameSave 14 writers` beside a baseline of 17 — the column was a
+per-target count wearing the word "writers", so the same word carried two
+reference points on one screen. `OwnedItems 4 writers -> grant()` is 2 of 10.
+`BaseGravity, RoomTransitionCooldown, VersusMatch -> nothing shared` was true of
+one of the three: `RoomTransitionCooldown` shares `remaining`, and both of
+`VersusMatch`'s writers replace THE WHOLE RESOURCE with `*state = ..`, which is
+the least separable shape there is. What the run prints today, for the types that
+already carry a verdict or are named below:
+
+    AmbitionGameSave        17 files  data_mut 13 (13 certain), data 11   ROUTED
+    OwnedItems              10 files  grant 2
+    QuestRegistry            6 files  push_event 4, quests 2
+    PendingLifecycleCommit   4 files  record 2
+    SlotInteractionState     4 files  primary_mut 3 (3 certain)           ADJUDICATED
+    ActiveConversation       2 files  close 2                             ADJUDICATED
+    ClockState               2 files  time_scale 2 (2 certain)            ADJUDICATED
+    PossessionState          2 files  home 2, possessed 2                 ADJUDICATED
+    RoomTransitionCooldown   2 files  remaining 2
+    VersusMatch              2 files  *<the resource> 2 (2 certain)
+    BaseGravity              2 files  nothing shared
+
+⚠ **"CERTAIN" IS THE HONEST HALF OF A COUNT NO REGEX CAN FINISH.** A call through
+a `ResMut` binding may read (`save.data()`) or write (`save.data_mut()`), so the
+mode reports both the files that TOUCH a target and the subset whose access is
+mutation-shaped. Read the wide number as *where to look* and the narrow one as
+*where a write is certain*. Neither is the type's writer count.
+
+⚠ **AND THE OBVIOUS READING OF THE TABLE IS WRONG.** *"They all go through one
 method, so it is one authority"* holds for `grant`, which clamps unique items —
 the policy is INSIDE the method. It does not hold for `data_mut()`, which hands
-out `&mut` to the whole save: that is fourteen authorities with one door. And it
+out `&mut` to the whole save: that is thirteen authorities with one door. And it
 does not hold for a thin setter either: `close()` is `self.live = None`, so what
 makes `ActiveConversation` correct is that its two callers fire on DIFFERENT
 EVENTS and each has its own witness — which is the `CutRopeBossArenaState` test,
 not the accessor count.
 
-⭐ **ASK WHAT THE DOOR HANDS OUT, THOUGH, BECAUSE `get_mut()` CAME OUT THE OTHER
-WAY.** `SlotInteractionState::get_mut(seat)` hands out ONE SEAT'S ROW, so the
-resource is a partitioned bag and its writers are adjudicated per row rather than
-per type — four writers, no two of which arm and consume the same row in a tick.
-`data_mut()` hands out the whole save and partitions nothing. The distinction is
-the UNIT OF THE FACT, not the arity of the accessor, and it is why the verdicts
-below cite a row or an event rather than a call count.
+⭐ **THE DISCRIMINATOR THAT ACTUALLY SETTLED ONE WAS NEITHER: ASK WHO CAN ARM THE
+FACT.** `SlotInteractionState` has four writers over one door, and it is correct
+because exactly ONE of them can make a gesture live and the other three can only
+clear — so no ordering among them changes what a reader sees. That question
+(*which writers can move the value AWAY from its resting state?*) separates the
+verdicts below better than the accessor, the field, or the count does.
 
 ⇒ **WHAT TO DO WHEN IT REDDENS**, in the census's own words: ask what READS the
 fact and whether an ambiguity in it can reach a DECISION; then poison one writer
@@ -218,28 +238,35 @@ ADJUDICATED: dict[str, str] = {
         "`check_sim_consumed_request_writers.py`, not by this baseline."
     ),
     "SlotInteractionState": (
-        "CORRECT — ONE PRODUCER AND THREE CONSUMERS OF A PER-SEAT ROW, and the "
-        "`get_mut()` / `primary_mut()` door is not the reason. `control/"
-        "input_systems.rs` is the only writer that ARMS a buffer, once per seat "
-        "from that seat's raw frame; `body_mode/mechanics/mod.rs` consumes seat "
-        "`n`'s row for the body seat `n` drives; `world/rooms/systems.rs` "
-        "consumes row zero only, and its subject genuinely IS the primary "
-        "(`ControlledSubject`, else the `PrimaryPlayerOnly` single) rather than a "
-        "leftover of the D175 *producer filled row zero* bug; "
-        "`runtime/src/sandbox_reset.rs` writes a default at the reset boundary, "
-        "where owning the whole resource is the point. No two of them can arm "
-        "and consume the same row in one tick. "
+        "CORRECT — ONE ARMER, THREE CLEARERS. Every production call that can make "
+        "a gesture live is in `control/input_systems.rs`: `buffered_interact`, "
+        "`register_down_tap`, `register_up_tap`, `held_up_interact` and the one "
+        "`double_tap_down_pending = true`. MEASURED 2026-09-17 by grepping the "
+        "arming methods across `crates/` and `game/` — there are no other "
+        "production call sites. The other three writers can only move the row "
+        "TOWARD its resting state: `world/rooms/systems.rs` reads "
+        "`primary().buffered()` then calls `primary_mut().clear()`; "
+        "`body_mode/mechanics/mod.rs` `mem::take`s `double_tap_down_pending` out "
+        "of `get_mut(slot)`, a different field; `runtime/src/sandbox_reset.rs` "
+        "hands `primary_mut()` to `reset_sandbox`, which calls "
+        "`SlotGestures::reset()`. ⇒ So two of them DO share row zero — the rooms "
+        "consumer and the reset boundary — and that is still one authority, "
+        "because a clear is idempotent and neither can arm: no ordering between "
+        "them changes what any reader sees. The rooms system reads row zero only "
+        "and its subject genuinely IS the primary (`ControlledSubject`, else the "
+        "`PrimaryPlayerOnly` single), not a leftover of the D175 *producer filled "
+        "row zero* bug. "
         "⛔⛤ POISONED 2026-09-17 AND THE POISON PASSED: deleting the "
         "`slot_gestures.primary_mut().clear()` that the source calls *consuming "
         "the gesture* left 1,207 crate arms and all 11 room-transition "
         "integration arms green, because every authored door arm HOLDS interact "
-        "for thirty frames and the producer refills the buffer underneath the "
-        "clear. That is a finding about the arms: a tap is the only shape that "
-        "can see a consumption. Witnessed now by "
+        "for thirty frames and the armer refills the buffer underneath the clear. "
+        "That is a finding about the arms: a tap is the only shape that can see a "
+        "consumption. Witnessed now by "
         "`a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_"
-        "decay` (`actor_monolith/src/world/rooms/tests.rs`), which reddens on "
-        "that deletion and — through its out-of-zone control — on hoisting the "
-        "clear above the validation too."
+        "decay` (`actor_monolith/src/world/rooms/tests.rs`), which reddens on that "
+        "deletion and — through its out-of-zone control — on hoisting the clear "
+        "above the validation too."
     ),
 }
 

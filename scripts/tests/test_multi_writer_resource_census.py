@@ -151,3 +151,83 @@ def test_a_cfg_test_fn_in_a_production_file_is_a_KNOWN_residual():
     """
     src = "#[cfg(test)]\nfn helper(mut r: ResMut<HelperOnly>) {}\n"
     assert mod.RESMUT.findall(mod.strip_test_modules(src)) == ["HelperOnly"]
+
+
+def test_a_target_two_writers_both_reach_is_reported(tmp_path):
+    a = _write(tmp_path, "a.rs", "fn s(mut save: ResMut<Foo>) { save.data_mut().x = 1; }")
+    b = _write(tmp_path, "b.rs", "fn t(mut save: ResMut<Foo>) { save.data_mut(); }")
+    found = mod.shared_targets("Foo", {a, b})
+    touching, writing = found["data_mut"]
+    assert touching == {a, b}
+    # ⚠ `_mut` is what makes these CERTAIN; neither call site has an `=` on it.
+    assert writing == {a, b}
+
+
+def test_a_target_only_one_writer_reaches_is_not_a_shared_target(tmp_path):
+    """⛔ THE WHOLE POINT OF THE NARROWING. A field one writer owns alone is the
+    shape this census is looking FOR, not against, and reporting it would put 300
+    lines of noise in front of the reader."""
+    a = _write(tmp_path, "a.rs", "fn s(mut r: ResMut<Foo>) { r.mine = 1; r.both = 2; }")
+    b = _write(tmp_path, "b.rs", "fn t(mut r: ResMut<Foo>) { r.both = 3; }")
+    assert set(mod.shared_targets("Foo", {a, b})) == {"both"}
+
+
+def test_a_read_is_touched_but_not_certain(tmp_path):
+    """⛔⛤ THE SPLIT THIS MODE EXISTS FOR, AND THE REASON THE OLD HAND TABLE
+    OVERSTATED. `save.data()` through a `ResMut` binding may be a read or the
+    first half of a write, and no regex knows which. Counting it as a write is
+    how `AmbitionGameSave 14 writers` ended up beside a baseline of 17."""
+    a = _write(tmp_path, "a.rs", "fn s(mut save: ResMut<Foo>) { let _ = save.data(); }")
+    b = _write(tmp_path, "b.rs", "fn t(mut save: ResMut<Foo>) { if save.data() {} }")
+    touching, writing = mod.shared_targets("Foo", {a, b})["data"]
+    assert touching == {a, b}
+    assert writing == set(), "a bare call is not evidence of a write"
+
+
+def test_a_whole_resource_replacement_is_its_own_target(tmp_path):
+    """⭐ `*state = Default::default()` replaces every field at once, which is a
+    different kind of authority from touching one of them — and it is the shape
+    the hand table recorded as *nothing shared* for `VersusMatch`."""
+    a = _write(tmp_path, "a.rs", "fn s(mut st: ResMut<Foo>) { *st = Foo::default(); }")
+    b = _write(tmp_path, "b.rs", "fn t(mut st: ResMut<Foo>) { *st = Foo::new(); }")
+    found = mod.shared_targets("Foo", {a, b})
+    assert found[mod.WHOLE] == ({a, b}, {a, b})
+
+
+def test_an_equality_test_is_not_an_assignment(tmp_path):
+    """⛔ `==` and `=>` both follow a field with an `=`. Treating either as a
+    write would make every match arm and every comparison read as certain, and
+    "certain" is the number a reader trusts."""
+    a = _write(tmp_path, "a.rs", "fn s(r: ResMut<Foo>) { if r.mode == 1 {} }")
+    b = _write(tmp_path, "b.rs", "fn t(r: ResMut<Foo>) { match r.mode { _ => () } }")
+    touching, writing = mod.shared_targets("Foo", {a, b})["mode"]
+    assert touching == {a, b}
+    assert writing == set()
+
+
+def test_a_compound_assignment_is_certain(tmp_path):
+    a = _write(tmp_path, "a.rs", "fn s(mut r: ResMut<Foo>) { r.n += 1; }")
+    b = _write(tmp_path, "b.rs", "fn t(mut r: ResMut<Foo>) { r.n |= 2; }")
+    assert mod.shared_targets("Foo", {a, b})["n"][1] == {a, b}
+
+
+def test_a_qualified_binding_is_still_found(tmp_path):
+    """⚠ The census collapses `ResMut<a::b::Foo>` onto `Foo`, so the target scan
+    has to find the binding under the qualified spelling too — otherwise the
+    three `ResMut<ambition_characters::control::SlotInteractionState>` writers in
+    this tree would report no shared target at all."""
+    a = _write(tmp_path, "a.rs", "fn s(mut r: ResMut<ambition_x::y::Foo>) { r.f = 1; }")
+    b = _write(tmp_path, "b.rs", "fn t(mut r: ResMut<Foo>) { r.f = 2; }")
+    assert mod.shared_targets("Foo", {a, b})["f"][0] == {a, b}
+
+
+def test_a_fixture_access_is_not_a_shared_target(tmp_path):
+    """⛔ The same `#[cfg(test)]` rule as the writer scan, for the same reason: a
+    fixture reaching for a field is not a second authority over it."""
+    a = _write(tmp_path, "a.rs", "fn s(mut r: ResMut<Foo>) { r.f = 1; }")
+    b = _write(
+        tmp_path,
+        "b.rs",
+        "fn t(mut r: ResMut<Foo>) {}\n#[cfg(test)]\nmod x { fn u(mut r: ResMut<Foo>) { r.f = 2; } }\n",
+    )
+    assert mod.shared_targets("Foo", {a, b}) == {}

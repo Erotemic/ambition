@@ -109,9 +109,91 @@ def writers(files: list[str]) -> dict[str, set[str]]:
     return found
 
 
+#: A `ResMut<T>` parameter's BINDING, so an access through it can be found.
+#: `mut save: ResMut<AmbitionGameSave>` binds `save`; the `mut` is optional
+#: because a system can take `ResMut` immutably-bound and still call `&mut self`
+#: methods through it.
+_BINDING = r"(?:mut\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*ResMut<\s*%s\s*(?:<[^<>]*>)?\s*>"
+
+#: An assignment, excluding `==` and `=>`. `+=`, `|=` and friends count.
+_ASSIGN = re.compile(r"\s*(?:[+\-*/|&^%]=|=(?![=>]))")
+
+#: The whole-resource target: `*state = Default::default()` replaces every field
+#: at once, which is a different kind of authority from touching one of them.
+WHOLE = "*<the resource>"
+
+
+def shared_targets(ty: str, files: set[str] | list[str]) -> dict[str, tuple[set[str], set[str]]]:
+    """`{target: (files touching it, files touching it MUTATION-SHAPED)}`.
+
+    ⭐ **THIS IS THE NARROWING STEP, AND IT USED TO BE DONE BY HAND.** "Which
+    resources have many writers" is a shortlist; "which FIELD OR METHOD do two of
+    those writers both reach for" is what turns one into a question somebody can
+    answer. The table it produces lived in the adjudication guard's docstring as
+    hand-carried numbers until 2026-09-17.
+
+    ⛔⛤ **TWO COUNTS, BECAUSE ONE OF THEM CANNOT BE DERIVED HONESTLY.** A call
+    through a `ResMut` binding may be a read (`save.data()`) or a write
+    (`save.data_mut()`), and no regex can tell `queue.record(..)` from
+    `queue.len()` without the signature. So this returns BOTH: every writer file
+    that TOUCHES the target, and the subset whose access is mutation-shaped —
+    an assignment, or a `*_mut` name. Read the wider set as *"where to look"* and
+    the narrower as *"where a write is certain"*. Neither is the type's writer
+    count, which is a third number: a file can be a `ResMut<T>` writer and share
+    no target with anyone.
+
+    ⚠ Only targets reached by TWO OR MORE writer files are returned; a field one
+    writer owns alone is the shape this census is looking for, not against.
+    """
+    binding = re.compile(_BINDING % re.escape(ty))
+    touched: dict[str, set[str]] = collections.defaultdict(set)
+    mutated: dict[str, set[str]] = collections.defaultdict(set)
+    for f in sorted(files):
+        src = strip_test_modules(
+            pathlib.Path(f).read_text(encoding="utf-8", errors="replace")
+        )
+        # A short type name can be bound under its qualified path, so fall back
+        # to the suffix spelling the census already collapses on.
+        names = set(binding.findall(src))
+        if not names:
+            names = set(
+                re.findall(
+                    r"(?:mut\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*ResMut<[^>]*\b"
+                    + re.escape(ty)
+                    + r"\s*>",
+                    src,
+                )
+            )
+        for name in names:
+            for m in re.finditer(r"\*" + re.escape(name) + r"\b", src):
+                if _ASSIGN.match(src[m.end() :]):
+                    touched[WHOLE].add(f)
+                    mutated[WHOLE].add(f)
+            for m in re.finditer(re.escape(name) + r"\.([A-Za-z_][A-Za-z0-9_]*)", src):
+                target = m.group(1)
+                touched[target].add(f)
+                rest = src[m.end() :]
+                if target.endswith("_mut") or _ASSIGN.match(rest):
+                    mutated[target].add(f)
+    return {
+        target: (fs, mutated.get(target, set()))
+        for target, fs in touched.items()
+        if len(fs) > 1
+    }
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("paths", nargs="*", default=list(DEFAULT_PATHS))
+    ap.add_argument(
+        "--shared-targets",
+        action="store_true",
+        help=(
+            "for each multi-writer type, also print the fields and methods that "
+            "TWO OR MORE of its writer files reach for — the narrowing step that "
+            "turns the shortlist into a question somebody can answer"
+        ),
+    )
     args = ap.parse_args(argv)
 
     files = production_files(tuple(args.paths))
@@ -131,6 +213,18 @@ def main(argv: list[str]) -> int:
         print(f"  {ty}  ({len(fs)} files)")
         for f in sorted(fs):
             print(f"      {f}")
+        if not args.shared_targets:
+            continue
+        targets = shared_targets(ty, fs)
+        if not targets:
+            print("      shared targets: NONE — no field or method is reached")
+            print("        for by two of these files, so there is nothing to join")
+            continue
+        for target, (touching, writing) in sorted(
+            targets.items(), key=lambda kv: (-len(kv[1][1]), -len(kv[1][0]), kv[0])
+        ):
+            certain = f", {len(writing)} mutation-shaped" if writing else ", none certain"
+            print(f"      -> {target}  ({len(touching)} of {len(fs)} files{certain})")
     print(
         "\n⇒ A SHORTLIST, NOT FINDINGS. For each: what READS this, and can an"
         "\n  ambiguity in it reach a decision? Then POISON one writer and run the"

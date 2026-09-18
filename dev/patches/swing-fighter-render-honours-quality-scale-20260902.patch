@@ -26,7 +26,7 @@ HOW YOU KNOW IT WORKED (one render each way, on a box that can run the renderer)
 `render` calls it rather than opening with `del opts`. If (2) fails, the guard
 is rejecting a scale it should pass through.
 
-WHAT IT DOES. `performer`, `author`, `medic` and `officer` — the four targets
+WHAT IT DOES. `performer`, `director`, `medic` and `officer` — the four targets
 that import `_authored_swing_fighter.py`, and no others — each opened their
 `render` with `del opts`. A caller that passed a scale:
 
@@ -110,10 +110,10 @@ index 919e80a..adb5266 100644
  class AuthoredSwingFighter:
      """One SVG-rigged fighter, published with its authored effects and volumes."""
  
-diff --git a/ambition_sprite2d_renderer/targets/characters/author.py b/ambition_sprite2d_renderer/targets/characters/author.py
-index ec710a2..c9add7d 100644
---- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/author.py
-+++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/author.py
+diff --git a/ambition_sprite2d_renderer/targets/characters/director.py b/ambition_sprite2d_renderer/targets/characters/director.py
+index 233812a..7df5c7a 100644
+--- a/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/director.py
++++ b/tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/director.py
 @@ -34,7 +34,10 @@ from ambition_sprite2d_renderer.authoring import strike_axis, swing_effects
  from ambition_sprite2d_renderer.authoring.rig_gameplay_body import gameplay_body_metrics
  from ambition_sprite2d_renderer.authoring.rigdoc import RigDocument
@@ -123,12 +123,12 @@ index ec710a2..c9add7d 100644
 +    AuthoredSwingFighter,
 +    reject_unsupported_quality_scale,
 +)
- 
- TARGET_NAME = "author"
+
+ TARGET_NAME = "director"
  MOTION_PATH = (
 @@ -419,7 +422,7 @@ def _body_metrics(fw: int, fh: int):
- 
- 
+
+
  def render(out_dir: str | Path, **opts):
 -    del opts
 +    reject_unsupported_quality_scale(TARGET_NAME, opts)

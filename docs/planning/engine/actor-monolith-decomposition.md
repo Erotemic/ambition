@@ -24,21 +24,19 @@ an expected SCC size is reached.
 The measured nontrivial SCCs are:
 
 ```text
-9: abilities, construction, control, features, items, projectile,
-   session, shrine, world
-2: assets, character_sprites
+largest cyclic component   10 modules
+second                      2 modules
 ```
 
-⚠ **RE-MEASURED 2026-09-18 — TEN AND TWO, and the membership moved rather than
-growing:** `shrine` LEFT (A1b took its checkpoint half) and `avatar` +
-`character_runtime` joined. The member diff is owned by
-[the reassessment](architecture-reassessment.md); this page owns the rules.
-
-```text
-10: abilities, avatar, character_runtime, construction, control, features,
-    items, projectile, session, world
- 2: assets, character_sprites
-```
+⛔⛤ **THE MEMBER LIST USED TO BE HERE AND IS NOW OWNED IN ONE PLACE.** This page
+carried its own enumeration of the nine, which went stale when the membership
+moved — `shrine` LEFT (A1b took its checkpoint half) and `avatar` +
+`character_runtime` joined, so the count went 9 → 10 while containing one repair
+and two new problems. ⇒ [The reassessment](architecture-reassessment.md) owns
+the members and the diff, and makes the argument that *"the count cannot tell a
+repair from a regression, and here it contained both."* Re-measured 2026-09-18
+and unchanged since its 2026-09-17 reading. **This page owns the rules and the
+cuts; ask that one which modules.**
 
 Reproduce with:
 
@@ -46,9 +44,13 @@ Reproduce with:
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-⭐⛤ **AND THE `--cuts` HALF OF THAT COMMAND HAS NEVER BEEN RECORDED ANYWHERE,
-WHICH IS THE ONE THING THIS PAGE WAS MISSING.** Every page that names this
-instrument passes `--cuts` and then quotes only the component sizes. Measured
+⭐⛤ **AND NO PAGE HAS EVER RECORDED WHICH EDGES THE `--cuts` HALF NAMES.** Every
+page that names this instrument passes `--cuts` and then quotes only the
+component sizes. ⚠ The OUTCOME was known — the
+[edge ledger](actor-monolith-hard-core-edge-ledger.md) says in its own opening
+that it records decisions *"at the current nine-module SCC, rather than assuming
+that a future six-module SCC is the right unit of design"* — so the six has been
+in the corpus all along with nothing saying where it comes from. Measured
 2026-09-18, the single edges whose removal shrinks the largest component:
 
 ```text
@@ -67,7 +69,10 @@ largest component from ten modules to six.** It is
 that seam in its own module doc.
 
 ⛔⛔ **AND THIS IS RECORDED AS A FACT, NOT AS A MANDATE — READ THE NEXT SENTENCE
-BEFORE ACTING ON THE TABLE.** The frontier page states the stance outright:
+BEFORE ACTING ON THE TABLE.** ⭐ The edge ledger already made this call, which
+is the strongest evidence it is the right one: it chose to record decisions at
+the ten-module cycle *"rather than assuming that a future six-module SCC is the
+right unit of design."* The frontier page states the same stance outright:
 *"A1–A12 name responsibilities, not SCC scores"*
 ([work frontier](actor-monolith-work-frontier.md)), and this page's own
 paragraph below says the spawn extraction proved *"the same SCC result can

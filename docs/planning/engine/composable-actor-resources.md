@@ -513,10 +513,20 @@ resource identity. A requirement and a declaration are different facts.
 
 ### Game/provider composition owns
 
-- which optional facets and capabilities are installed;
-- match/world policy;
-- bindings that are specific to the current experience rather than the
-  character.
+⇒ **THE GENERAL LIST IS
+[character authoring](character-authoring-package.md)'s**, and that page already
+says this one *"applies this same ownership split to resources"*. This section
+restated three of its four bullets in different words until 2026-09-18 — same
+substance, drifted wording, which is the state a split fact is in just before it
+becomes two different facts. Ask that page what composition owns.
+
+**What is resource-specific, and only here:**
+
+- a capability owns the MEANING of a resource role and its fill/spend policy;
+  composition binds that role to the character's resource, and neither may
+  invent the other's half;
+- the final prepared composition carries the resolved layout and bindings, so
+  runtime systems never search authored names again.
 
 A Smash game must not install one global Limit meaning on every fighter. A
 fighter that does not author or compose a Limit capability has no Limit resource

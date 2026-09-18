@@ -1517,7 +1517,7 @@ sweep reported 67 rows because `App`, `Commands`, `NextState`, `Anchor` and
 `Sprite` are not resources, and requiring the `Resource` derive removed them by
 construction.
 
-### 2026-09-18 — Q136's population has a SECOND CHANNEL, and the instrument cannot see it
+### 2026-09-18 — the population has a SECOND CHANNEL, and the instrument could not see it
 
 ⛔⛔ **THE INSTRUMENT IS KEYED ON `Resource`, AND FOUR CROSSINGS ARE `Message`s.**
 `check_host_produced_sim_consumed_requests.py` requires the `Resource` derive —
@@ -1596,7 +1596,7 @@ that gives this question four answers, of which two cost nothing and are already
 in the tree. ⇒ A latched edge is what makes an intent losable; the fix is not
 always a channel.
 
-### 2026-09-18 — Q136 needs TWO roads, not one abstraction, and registration picks
+### 2026-09-18 — this needs TWO roads, not one abstraction, and registration picks
 
 ⛔⛤ **THE PAGE AND THE REVIEW BOTH ASK FOR "THE EVENTUAL INGRESS ABSTRACTION",
 AND THE TWO MECHANISMS THIS ROW ALREADY SEPARATES DO NOT SHARE A FIX.** The

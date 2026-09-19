@@ -1333,6 +1333,17 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_narrative_writers_have_a_ledger.py",
             ],
         ),
+        # ⛔ THE CENSUS'S `LEGITIMATE_SEPARATION` ROWS DEFEND THEMSELVES WORST
+        # OF THE THREE STATES: they are standing claims about the tree that one
+        # convenience edit falsifies, and both documents keep printing the label
+        # afterwards. Two of the four reduce to a mechanical fact.
+        Job(
+            "the census's legitimate separations still hold in source",
+            [
+                sys.executable,
+                "scripts/check_separated_authorities_stay_separated.py",
+            ],
+        ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
         # RAN IT — so the number was one somebody had to go and look at, and
         # nothing noticed a resource joining the list. Both of its numbers were

@@ -2695,6 +2695,25 @@ hit. ⇒ `MoveFrameData::push_coverage` now carries the windbox region and
 (48 vs 82) and
 `options::tests::a_waked_kick_is_priced_by_its_boot_and_not_by_its_dust`.
 
+⭐ **AND THE OTHER FOOT OF THE SPLIT IS CLOSED TOO — 2026-09-19.** Separating
+the two regions left a pure shove with no virtue at all: `coverage: None` zeroes
+`reach_fit`, `damage: 0` zeroes `expected_payoff`, so the gust was admitted
+exactly where it can push and then priced as though pushing were worth nothing
+— a move the CPU may pick and has no reason to. The Officer's neutral special
+`the_order_to_disperse` is exactly that move. ⇒ `Features::displacement_value`
+is the answer: `coverage_fit(push_coverage) × how close the foe is to a blast
+line`, with its own authored weight. ⛔ NOT `reach_fit` under another name —
+feeding push coverage back into reach would re-merge the two regions the split
+exists to keep apart and price a gust as a hit.
+
+Pinned by `a_shove_outranks_a_near_miss_at_the_ledge_and_not_at_centre`: same
+kit, same 55px gap, and the position decides — the gust wins beside the blast
+line (0.85 against the jab's 0.81) and loses at centre (0.38). Poisoned by
+dropping the edge term, which makes the gust win everywhere and reddens the
+centre arm. ⚠ The duel is BIT-IDENTICAL at rungs 6 and 9: the pirate admiral's
+kit carries no windbox, so the feature is inert where it was measured and live
+where the content authors one.
+
 **(b) "An attack that cannot reach is not an option" admits anything within
 THREE TIMES its reach — NOT YET FIXED.** The filter asks `reach_fit > 0.0`, and
 `REACH_TOLERANCE` is `2.0`, so the soft score stays positive until the gap is

@@ -85,6 +85,25 @@ pub struct Features {
     /// `frame_advantage` clamps to `-1`, and the gate multiplies by zero. Routing a hold's worth
     /// through that gate would have deleted it in exactly the situation a grab exists to answer.
     pub capture_value: f32,
+    /// `0..=1`. What SHOVING this opponent is worth right now — zero for every
+    /// move that pushes nothing. See [`displacement_value`].
+    ///
+    /// ⛔⛤ **WITHOUT IT A PURE SHOVE HAD NO VIRTUE AT ALL.** Splitting hit
+    /// coverage from push coverage stopped a waked kick being priced by its
+    /// dust, and left the other side of the same split unanswered: a volume
+    /// that only pushes has `coverage: None`, so `reach_fit` is zero, and
+    /// `damage: 0`, so `expected_payoff` is zero. It was admitted where it can
+    /// shove and then scored as worth nothing — offered and never chosen. The
+    /// Officer's neutral special `the_order_to_disperse` is exactly that move:
+    /// a sustained zero-damage windbox whose whole reason to exist is to make
+    /// space and push somebody off a ledge.
+    ///
+    /// ⚠ NOT `reach_fit` UNDER ANOTHER NAME. Feeding push coverage back into
+    /// `reach_fit` would re-merge the two regions the split exists to keep
+    /// apart, and price a gust as though it were a hit. This is a separate
+    /// feature with its own weight because a shove is worth a DIFFERENT amount
+    /// than a hit, and the amount depends on where the foe is standing.
+    pub displacement_value: f32,
 }
 
 impl Features {
@@ -95,6 +114,7 @@ impl Features {
             + self.stage_risk * w.stage_risk
             + self.expected_payoff * w.expected_payoff
             + self.capture_value * w.capture_value
+            + self.displacement_value * w.displacement_value
     }
 }
 
@@ -120,11 +140,24 @@ pub struct UtilityWeights {
     /// profile which wants no grabs must say so.
     #[serde(default = "default_capture_value_weight")]
     pub capture_value: f32,
+    /// Prices what a SHOVE is worth. Positive.
+    ///
+    /// `serde(default)` for the same reason as `capture_value` above, and with
+    /// the same hazard: an authored profile that MEANT to zero this reads
+    /// identically to one written before the feature existed.
+    #[serde(default = "default_displacement_value_weight")]
+    pub displacement_value: f32,
 }
 
 /// The `capture_value` weight an authored profile gets when it does not name one.
 fn default_capture_value_weight() -> f32 {
     UtilityWeights::v1().capture_value
+}
+
+/// The `displacement_value` weight an authored profile gets when it does not
+/// name one.
+fn default_displacement_value_weight() -> f32 {
+    UtilityWeights::v1().displacement_value
 }
 
 impl UtilityWeights {
@@ -144,6 +177,20 @@ impl UtilityWeights {
             // which is the exact failure the reverted "a grab is worth its
             // forward throw's damage" experiment produced.
             capture_value: 0.5,
+            // ⭐ A SHOVE AT THE BLAST LINE IS WORTH WHAT A HIT IS WORTH, which
+            // is why this equals `reach_fit` rather than sitting under it. The
+            // feature is already scaled by how close the foe is to going off,
+            // so the weight prices the BEST case and the position does the
+            // discriminating: measured on the two-move fixture, a 40px jab at a
+            // 55px gap outscores a 60px gust at centre stage (0.81 vs 0.38) and
+            // loses to it beside the ledge (0.81 vs 0.85).
+            //
+            // ⚠ A v1 STARTING VALUE LIKE ITS NEIGHBOURS, NOT A TUNED ONE, and
+            // the band is wide: anything in roughly `0.95..2.1` flips the ledge
+            // reading without flipping the centre one, so this is a shape
+            // rather than a knife edge. An authored rung that wants a pushier
+            // CPU says so.
+            displacement_value: 1.0,
         }
     }
 }
@@ -292,14 +339,19 @@ pub fn generate_options(
     // A hitbox catches a HURTBOX. Asking whether the foe's CENTRE is inside a
     // volume would refuse every move that clips a tall body's shoulder.
     let foe_extent = (foe.half_extent.x, foe.half_extent.y);
-    let stage_risk = {
+    // ⭐ ONE FORMULA, TWO SUBJECTS. Edge proximity costs ME (`stage_risk`) and
+    // pays when it is THEM (`displacement_value`), and reading it the same way
+    // for both is what keeps "near the edge" one fact.
+    let edge_proximity = |pos| {
         let half_stage = (view.stage.bounds.max - view.stage.bounds.min).length() * 0.5;
         if half_stage <= 0.0 {
             1.0
         } else {
-            (1.0 - view.stage.distance_to_edge(me.pos) / half_stage).clamp(0.0, 1.0)
+            (1.0 - view.stage.distance_to_edge(pos) / half_stage).clamp(0.0, 1.0)
         }
     };
+    let stage_risk = edge_proximity(me.pos);
+    let foe_edge_proximity = edge_proximity(foe.pos);
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
     let their_commitment = if is_punishable(foe, me.gravity_down) {
@@ -387,6 +439,12 @@ pub fn generate_options(
                 frame_advantage: fa,
                 kill_potential: foe.damage_frac(),
                 stage_risk,
+                displacement_value: displacement_value(
+                    c.frames.push_coverage.as_ref(),
+                    foe_local,
+                    foe_extent,
+                    foe_edge_proximity,
+                ),
                 // TWO DIFFERENT QUESTIONS, so two different scales. The
                 // ranking's `fa` asks *how exposed does this leave me* and is
                 // measured against the kit's slowest move, so a jab and a smash
@@ -501,6 +559,27 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
     }
     let miss = (gap - reach).abs();
     (1.0 - miss / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
+}
+
+/// What SHOVING `foe` is worth right now, normalized to `[0, 1]`.
+///
+/// A push is worth WHERE IT PUSHES SOMEBODY. The same gust is a spacing tool
+/// at centre stage and a kill at the ledge, so the value is the shove's
+/// geometric fit against how close the foe already is to a blast line — the
+/// mirror of [`Features::stage_risk`], read on the opponent instead of on
+/// oneself.
+///
+/// ⛔ ZERO FOR A MOVE THAT PUSHES NOTHING, which is most of a kit. This is a
+/// feature about the push region specifically: [`coverage_fit`] asks the same
+/// geometric question of the HITTABLE region and the two must not be summed
+/// into one number, because that is the merge the coverage split undid.
+pub fn displacement_value(
+    push_coverage: Option<&ambition_entity_catalog::MoveCoverage>,
+    foe_local: (f32, f32),
+    foe_extent: (f32, f32),
+    foe_edge_proximity: f32,
+) -> f32 {
+    coverage_fit(push_coverage, foe_local, foe_extent) * foe_edge_proximity.clamp(0.0, 1.0)
 }
 
 /// Context value of acquiring a capture on `foe`, normalized to `[0, 1]`.

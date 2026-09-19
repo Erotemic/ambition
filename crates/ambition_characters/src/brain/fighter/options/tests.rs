@@ -428,6 +428,64 @@ fn a_move_that_only_shoves_is_offered_exactly_where_it_can_shove() {
     );
 }
 
+/// **A SHOVE IS WORTH WHERE IT PUSHES SOMEBODY, AND THAT IS ENOUGH TO CHOOSE
+/// IT.**
+///
+/// ⛔⛤ Being OFFERED is not being CHOSEN, and the arm above only proves the
+/// first. A pure windbox has `coverage: None` — so `reach_fit` is zero — and
+/// `damage: 0` — so `expected_payoff` is zero. It was admitted exactly where
+/// it can shove and then priced as though shoving were worth nothing, which
+/// makes it a move the CPU is allowed to pick and never has a reason to.
+///
+/// ⭐ THE TWO READINGS DIFFER IN ONE THING: WHERE THE FOE IS STANDING. Same
+/// kit, same 55px gap, same everything — and the gust wins beside the blast
+/// line while the jab wins at centre stage. That is the feature's whole
+/// content: a gust is a spacing tool in the middle and a kill at the edge.
+///
+/// ⚠ THE JAB IS THE CONTROL AND IT HAS TO BE A NEAR MISS. A jab that covers
+/// the gap outscores the gust at both ends (a hit is worth more than a push,
+/// and `reach_fit`'s weight says so), which would make this arm a statement
+/// about the weights rather than about the position.
+#[test]
+fn a_shove_outranks_a_near_miss_at_the_ledge_and_not_at_centre() {
+    // 40px of reach against a 55px gap: admitted, and poorly.
+    let jab = candidate("jab", 0.1, 40.0);
+    let mut gust = candidate("gust", 0.1, 0.0);
+    gust.frames.coverage = None;
+    gust.frames.max_damage = 0;
+    gust.frames.push_coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (0.0, -12.0),
+        max: (60.0, 12.0),
+    });
+    let kit = [jab, gust];
+    let w = UtilityWeights::v1();
+    let best = |me_x: f32, foe_x: f32| {
+        generate_options(
+            Perceived::cheating(&view_with(me_x, foe_x)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        )
+        .best_attack()
+        .map(|a| a.move_id.clone())
+    };
+
+    // The stage spans x 0..800. A foe at 745 is 55px from the blast line.
+    assert_eq!(
+        best(690.0, 745.0).as_deref(),
+        Some("gust"),
+        "beside the ledge the CPU still reached for a jab it can barely touch \
+         them with, instead of the push that sends them off"
+    );
+    // The same gap, in the middle, where a push buys nothing.
+    assert_eq!(
+        best(345.0, 400.0).as_deref(),
+        Some("jab"),
+        "at centre stage a shove was preferred to a hit, which prices a gust as \
+         though every push were a kill"
+    );
+}
+
 /// The same candidate, plus the one number that makes it a way home.
 fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandidate {
     let mut c = candidate(id, 0.2, 40.0);
@@ -843,6 +901,7 @@ fn the_score_is_exactly_the_weighted_features() {
         stage_risk: 0.0,
         expected_payoff: 0.0,
         capture_value: 0.0,
+        displacement_value: 0.0,
     };
     let opts = generate_options(
         Perceived::cheating(&view_with(300.0, 400.0)),
@@ -1545,6 +1604,7 @@ fn every_utility_weight_can_change_a_score() {
         stage_risk: 0.9,
         expected_payoff: 0.4,
         capture_value: 0.6,
+        displacement_value: 0.8,
     };
     let base = UtilityWeights::v1();
     let baseline = features.dot(&base);
@@ -1559,6 +1619,7 @@ fn every_utility_weight_can_change_a_score() {
         ("stage_risk", UtilityWeights { stage_risk: base.stage_risk + 1.0, ..base }),
         ("expected_payoff", UtilityWeights { expected_payoff: base.expected_payoff + 1.0, ..base }),
         ("capture_value", UtilityWeights { capture_value: base.capture_value + 1.0, ..base }),
+        ("displacement_value", UtilityWeights { displacement_value: base.displacement_value + 1.0, ..base }),
     ];
 
     for (name, weights) in &perturbations {
@@ -1585,8 +1646,9 @@ fn every_utility_weight_can_change_a_score() {
             stage_risk: _,
             expected_payoff: _,
             capture_value: _,
+            displacement_value: _,
         } = base;
-        6
+        7
     };
     assert_eq!(
         perturbations.len(),

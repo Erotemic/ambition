@@ -110,6 +110,44 @@ def questions_named_in_the_section() -> set[str]:
     return set(ROW.findall(rest[:end]))
 
 
+
+#: A costed option in a ruling: `* **(a) …` or `1. **…`. Both spellings are in
+#: use and neither is worth normalising for a checker's convenience.
+OPTION = re.compile(r"^(?:\* \*\*\([a-z]\)|\d\. \*\*)", re.M)
+#: ⛔ TWO, because a "decision" with one option is a statement.
+MIN_OPTIONS = 2
+
+
+def questions_without_options(named: set[str]) -> list[str]:
+    """A blocker a maintainer cannot answer as written is a blocker twice.
+
+    ⛔⛤ **MEASURED 2026-09-19: EIGHT OF THE SIXTEEN WERE FOUR-LINE STUBS** — a
+    question plus one sentence, no measurement and no choices. Every one of
+    them gated a P0 or P1 row. The maintainer's instruction was to return the
+    set *"as actual decision questions with concrete options and
+    consequences"*, and half the set could not be answered as written.
+    """
+    text = RULINGS.read_text(encoding="utf-8")
+    out = []
+    for question in sorted(named, key=int):
+        marker = f"\n## Q{question} — "
+        if marker not in text:
+            out.append(f"`Q{question}` has a row in the blocking set and no section on this page")
+            continue
+        start = text.index(marker)
+        rest = text[start + len(marker) :]
+        end = rest.index("\n## ") if "\n## " in rest else len(rest)
+        body = rest[:end]
+        found = len(OPTION.findall(body))
+        if found < MIN_OPTIONS:
+            out.append(
+                f"`Q{question}` blocks a P0/P1 row and states {found} option(s). A "
+                "maintainer cannot answer it as written, so it blocks twice — give it "
+                "the choices and what each costs."
+            )
+    return out
+
+
 def main() -> int:
     try:
         named = questions_named_in_the_section()
@@ -146,10 +184,18 @@ def main() -> int:
             print(f"  ⛔ {line}")
         return 1
 
+    thin = questions_without_options(named)
+    if thin:
+        print("the blocking set names questions that cannot be answered as written:")
+        for line in thin:
+            print(f"  ⛔ {line}")
+        return 1
+
     total = sum(len(v) for v in gated.values())
     print(
         f"ok: {len(gated)} open P0/P1 row(s) state {total} `Blocked by:` gate(s), "
-        f"and the blocking set gives each one a table row ({len(named)} row(s) there)"
+        f"and the blocking set gives each one a table row ({len(named)} row(s) "
+        "there, every one carrying costed options)"
     )
     return 0
 

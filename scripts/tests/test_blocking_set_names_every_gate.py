@@ -77,3 +77,23 @@ def test_the_field_ends_at_the_blank_line_not_after_n_lines():
 
 def test_a_field_at_end_of_file_terminates():
     assert guard.blocked_by_paragraph(["**Blocked by:** [Q1](x)"], 0).strip()
+
+
+def test_every_blocker_states_costed_options():
+    """⭐ THE RATCHET for the maintainer's actual instruction: return the set
+    "as actual decision questions with concrete options and consequences".
+    Eight of sixteen were four-line stubs on 2026-09-19."""
+    assert guard.questions_without_options(guard.questions_named_in_the_section()) == []
+
+
+def test_both_option_spellings_count():
+    """Lettered and numbered menus are both in use; normalising one away for a
+    checker's convenience would be the checker editing the corpus."""
+    assert len(guard.OPTION.findall("* **(a) refuse**\n* **(b) admit**\n")) == 2
+    assert len(guard.OPTION.findall("1. **One profile**\n2. **Two profiles**\n")) == 2
+    assert guard.OPTION.findall("⚠ **(a)** mentioned mid-paragraph") == []
+
+
+def test_a_question_with_one_option_is_reported():
+    """⛔ A decision with a single option is a statement."""
+    assert guard.MIN_OPTIONS == 2

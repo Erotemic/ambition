@@ -3981,6 +3981,16 @@ registered, 18 waived by name with the measurement beside each, 4 left. After
 the three fixes below, the same run read 76 registered and 1 left** — that
 movement was the code, not the instrument or a waiver.
 
+⚠ **EVERY COUNT IN THIS SECTION IS DATED, AND THE POPULATION KEEPS GROWING
+BECAUSE THE TREE DOES.** Re-measured 2026-09-19: **121 presence-filtered
+components across 21 registering crates, 92 registered, 27 waived, 2 owed.**
+The 95/73/18/4 above and the 104/83/20/1 below are what the same instrument
+said on 2026-09-17 and 2026-09-18; they are kept as written, because a count
+re-stated without its reference point is the defect this page keeps finding.
+⇒ Today's two owed are the two the closing paragraph names, so the heading and
+the decision agree — it was the middle reading that had drifted, and the
+heading a reader would have distrusted first was the one that was right.
+
 ⛔⛤ **AND THEN THE POPULATION ITSELF MOVED, LATER THE SAME DAY, BECAUSE THE
 INSTRUMENT WAS BLIND TO HALF A CRATE.** `component_definitions` cut each file at
 its FIRST `#[cfg(test)]`, and in this tree a module declares its tests near the
@@ -4195,9 +4205,10 @@ is swept when a replay is admitted — which is a question about what a LOAD doe
 not about what a tick does, and none of the three arguments above reaches it.
 ⇒ It wants a targeted behavioural arm (does an admitted replay sweep the
 celebrant it should keep?), not a fourth registration by analogy. ⛔ Registering
-it anyway would be the sweep this row warned against: the guard's 18 waivers each
-state a measurement, and a fourth row added because its three neighbours moved
-would be a waiver with the opposite sign and no measurement behind it.
+it anyway would be the sweep this row warned against: the guard's waivers each
+state a measurement — 18 of them when this paragraph was written, 27 as of
+2026-09-19 — and a fourth row added because its three neighbours moved would be
+a waiver with the opposite sign and no measurement behind it.
 
 ## Q143 — what does a cutscene `Fade { to_alpha: 0.0 }` fade FROM?
 

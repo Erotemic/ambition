@@ -861,3 +861,39 @@ has a baseline of 22 and would buy a suppression list for eighteen comments that
 are already correct. That is the exact objection this page measured and defeated
 for the PATH axis; here it holds, and the difference is that there the
 legitimate cases announced themselves.
+
+## The second sweep at the same baseline — 2026-09-19, and the filter was the finding
+
+53 findings. Classified by scanning a ±4-line window for any history word
+(`deleted`, `renamed`, `until`, `was`, `no longer`, `used to`, `gone`,
+`retired`, `removed`, `replaced`, `superseded`, `outlived`, `absent`,
+`dropped`): **49 deliberate, 4 candidates, 2 real.**
+
+⛔⛤ **THE FIRST PASS SAID NINE, AND FIVE OF THOSE WERE MY PATTERN'S FAULT: IT
+WAS CASE-SENSITIVE IN A CORPUS THAT SHOUTS.** `UNTIL`, `OLD`, `DELETED` and
+`GONE` all appear in capitals here — the emphasis convention this repository
+uses for exactly the sentences a history filter is looking for. ⇒ **An
+instrument tuned on prose must be tuned on THIS prose**, and the tell was that
+the "findings" it added were the most clearly-annotated sites in the list.
+Related: [`../../recipes/checks-that-did-not-run.md`](../../recipes/checks-that-did-not-run.md).
+
+The two real ones were both **claims that outlived their own completion**,
+which is the opposite of the usual shape on this page:
+
+- `features/ecs/summon.rs` said it *"does not break the cycle"* and that
+  closure waited on the spawn primitives leaving `features`. They had left the
+  CRATE. Re-measured at HEAD: `construction/` names `crate::features` **zero**
+  times in code, down from the 15 the file itself recorded, and the single
+  surviving mention was a comment path spelled `features::is_limbed_host`
+  twenty-eight lines above two call sites already naming
+  `ambition_platformer2d_actor_spawn`.
+- `edit_to_play_through_the_shell.rs` explained a vacuity through
+  `activate_prepared_platformer_sessions`, which A10.5 had split in two. The
+  vacuity still holds; the mechanism named for it does not exist.
+
+⭐ **A DOC THAT STATES ITS OWN EXIT CONDITION IS THE CHEAPEST KIND TO AUDIT, AND
+NOBODY CHECKS IT.** Both of these named precisely what would make them false —
+*"the cycle closes when the primitives leave `features`"* — and both conditions
+had been met for days. A sweep for dead NAMES found them; nothing sweeps for
+met CONDITIONS, and this page is not proposing one, because the condition is
+prose and the name is not.

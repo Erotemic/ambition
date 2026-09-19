@@ -17,16 +17,23 @@ causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
 capture = ["ambition_render/capture"]
 # The content compiler, off by default for the same reason: a game that ships
 # its content embedded and never validates at runtime must not link one.
-# `ambition_items?/content_pack`: the `?` means "only if that optional edge is
-# already enabled". A movement-only game with `default-features = false` gets
-# the compiler without being forced to link the items capability to have it.
+# ⛤ THIS COMMENT DESCRIBED A `?` THAT IS NOT ON THE LINE BELOW, corrected
+# 2026-09-19. It read "`ambition_items?/content_pack`: the `?` means 'only if
+# that optional edge is already enabled'". The rule is real and this manifest
+# uses it four times — but not here, and it CANNOT be used here: `dep?/feature`
+# requires `dep` to be optional, and `ambition_items` is an unconditional
+# dependency (as is `ambition_encounter` below). ⇒ So a movement-only game with
+# `default-features = false` does NOT escape the items capability by leaving a
+# feature off; it links it either way. Whether that is the intended public
+# contract is `Q106` in docs/planning/awaiting-maintainer-decision.md.
 content_pack = [
     "dep:ambition_content_pack",
     "dep:ambition_engine_schemas",
     "ambition_characters/content_pack",
     "ambition_items/content_pack",
-    # Same `?` rule: the encounter capability owns `encounter_waves`, and a
-    # composition without that optional edge must not try to compile it.
+    # Same correction as above: the encounter capability owns `encounter_waves`
+    # and this line has no `?` either, because `ambition_encounter` is an
+    # unconditional edge. See `Q106`.
     "ambition_encounter/content_pack",
     "ambition_audio/content_pack",
     "ambition_combat/content_pack",

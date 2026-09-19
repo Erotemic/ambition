@@ -582,7 +582,28 @@ closure do not supply a hardware budget.
 
 ## Q100 — should the facade pull `bevy/debug` because it always links `ambition_dev_tools`?
 
-Mandatory developer diagnostics can use Bevy system names only when the debug feature is linked. Decide whether that diagnostic value justifies making `bevy/debug` part of the facade baseline, or whether minimal profiles must keep it out and accept reduced names. This constrains A9's minimum-profile contract.
+Mandatory developer diagnostics can use Bevy system names only when the debug
+feature is linked. Decide whether that diagnostic value justifies the facade
+pulling `bevy/debug`.
+
+⭐ **THE PREMISE IS TRUE AND NOW MEASURED, 2026-09-19.** *"always links"* is
+exact: `ambition_dev_tools` is one of the **42 unconditional dependencies** of
+`crates/ambition_platformer2d/Cargo.toml` (against 14 optional), so there is no
+feature combination in which a facade consumer escapes it. ⇒ The question is
+not whether the link is avoidable today; it is whether the diagnostic is worth
+the debug feature, or whether the dependency should stop being unconditional.
+
+**The decision:**
+
+* **(a) Pull `bevy/debug`.** Developer diagnostics get Bevy system names in
+  every composition. ⚠ Every shipped game links it too, because the edge is
+  unconditional.
+* **(b) Leave it unlinked and accept nameless systems** in the diagnostics that
+  want them — today's behaviour, written down.
+* **(c) Make `ambition_dev_tools` optional first**, which turns this into a
+  profile question rather than a global one, and folds it into the cluster
+  under `Q146`. ⚠ That is a larger change than it sounds: see `Q106` for what
+  moving a crate out of the unconditional 42 means.
 
 ## Q101 — may an ability's own contact satisfy the launching move's `Connected` condition?
 
@@ -598,11 +619,87 @@ Runtime composition consumes the content artifact; the legacy Rust tables remain
 
 ## Q106 — are `ambition_items` and `ambition_encounter` optional facade capabilities?
 
-Manifest commentary and current dependency edges disagree about whether these capabilities are optional. Decide the public composition contract: optional capability edges, or mandatory baseline dependencies. Then make the manifest and A9 profile tests state the same truth.
+Manifest commentary and current dependency edges disagree about whether these
+capabilities are optional. Decide the public composition contract.
+
+⭐⛤ **THE DISAGREEMENT IS NOW MEASURED, 2026-09-19, AND IT RESOLVES ONE WAY IN
+SOURCE.** `crates/ambition_platformer2d/Cargo.toml` declares **56 dependencies,
+14 of them `optional = true` and 42 unconditional.** Both of this question's
+subjects are in the unconditional 42. ⇒ **Today they are NOT optional
+capabilities**, whatever the commentary says, so this question is a proposal to
+change the contract rather than a request to describe it.
+
+⛔ **AND THE COMMENTARY DID NOT MERELY OVERSTATE — IT CITED A SPELLING THE FILE
+DOES NOT CONTAIN.** The `[features]` block explained *"`ambition_items?/
+content_pack`: the `?` means 'only if that optional edge is already
+enabled'"*, and the line beneath it reads `"ambition_items/content_pack"` with
+no `?`. The rule is real — the manifest uses `dep?/feature` four times — but it
+**cannot** apply here: that syntax requires an optional dependency. Corrected at
+the manifest 2026-09-19, which is where a reader meets it.
+
+**The decision, and what each costs:**
+
+* **(a) Make them optional capabilities.** The `content_pack` feature lines then
+  need the `?` the comment already described, and every composition that wants
+  items or encounters must ask. ⚠ The cost is not these two crates: it is that
+  a consumer with `default-features = false` currently gets 42 crates, and
+  moving two out changes which compositions compile without telling anybody
+  which ones were supposed to.
+* **(b) Declare them mandatory and delete the commentary that says otherwise.**
+  Cheapest and honest about today. ⚠ It also says the facade has a floor of 42
+  crates, which is the thing `Q108` is separately trying to decide.
+* **(c) Rule it as part of the profile vocabulary instead** — see the cluster
+  note under `Q146`. This question, `Q100`, `Q108`, `Q144` and `Q146` are all
+  asking what a supported composition must carry; answering this one alone
+  fixes two edges and leaves the other 40 undescribed.
 
 ## Q108 — which capabilities may a featureless `ambition_platformer2d` link?
 
-A9 needs a product-level minimum-profile contract, not a crate-count target. Choose which capabilities are permitted in the featureless facade; dependency cleanup can then be tested against that named capability list.
+A9 needs a product-level minimum-profile contract, not a crate-count target.
+Choose which capabilities are permitted in the featureless build.
+
+⭐⛤ **THE FLOOR IS MEASURED, 2026-09-19, AND IT IS NOT SMALL: 42.** A consumer
+building `ambition_platformer2d` with `default-features = false` still links
+every unconditional dependency, and `Cargo.toml` declares 56 dependencies of
+which only **14** are `optional = true`. ⇒ *"Featureless"* today means 42
+crates, not a handful, and the list is exactly the set this question has to
+adjudicate:
+
+    ambition_abilities, ambition_asset_manager, ambition_audio,
+    ambition_body_seed, ambition_boss_encounter, ambition_character_sprites,
+    ambition_characters, ambition_combat, ambition_conversation,
+    ambition_cutscene, ambition_damage, ambition_dev_tools, ambition_dialog,
+    ambition_encounter, ambition_encounter_features, ambition_entity_catalog,
+    ambition_game_shell, ambition_gameplay_trace, ambition_held_items,
+    ambition_input, ambition_items, ambition_load, ambition_load_presentation,
+    ambition_match, ambition_mount, ambition_persistence,
+    ambition_platformer2d_actor_monolith, ambition_platformer2d_actor_spawn,
+    ambition_platformer2d_core, ambition_platformer2d_host,
+    ambition_platformer2d_provider, ambition_platformer2d_runtime,
+    ambition_platformer2d_shared_tangle, ambition_platformer2d_world,
+    ambition_projectiles, ambition_sfx, ambition_sim_view,
+    ambition_sprite_sheet, ambition_time, ambition_ui_nav, ambition_vfx,
+    ambition_world_items
+
+⚠ **THE ROW IS RIGHT THAT THIS IS NOT A CRATE-COUNT TARGET, AND THE 42 IS NOT
+ONE.** It is the POPULATION the contract has to speak about — the manifest's
+own commentary already records that 13 of the crates a consumer never asked for
+arrive through `ambition_platformer2d_actor_monolith` regardless, *"so making
+their facade edges optional would change no measurement"*. ⇒ A ruling that only
+moves facade edges cannot shrink that half; the §4 carve owns it.
+
+**The decision:**
+
+* **(a) Name a minimum profile explicitly** — a short list of capabilities the
+  featureless build is permitted to link, with everything else optional. The
+  work is making the difference optional, and the manifest already says which
+  of those moves would change nothing.
+* **(b) Declare the current 42 the floor** and stop describing the facade's
+  edges as optional capabilities in general. Honest about today, and it makes
+  `Q106`'s answer (b) automatic.
+* **(c) Rule the profile vocabulary once** — see the cluster note under
+  `Q146`. This question is the FLOOR of that vocabulary, `Q106` is two specific
+  edges, `Q100` is one, and `Q144`/`Q146` are the session-facing half.
 
 ## Q109 — should a simulated identity be able to name its room instance?
 
@@ -4152,6 +4249,25 @@ shapes, and they differ in what a missing authority MEANS:
    most expensive; it also matches the existing capability decision (*"a game
    may compose this engine WITHOUT a given capability"*, 2026-08-08), so it may
    already be the vocabulary this engine means.
+
+⭐⭐ **AND THIS IS ONE OF FIVE FILED QUESTIONS ASKING THE SAME THING, FOUND
+2026-09-19 BY READING `queue.md`'S `Blocked by:` FIELDS.** They arrived
+separately over weeks and none of them points at the others:
+
+| question | the facet it holds | blocks |
+|---|---|---|
+| `Q146` (here) | the vocabulary itself: what profiles exist and what each guarantees | `C07` |
+| [`Q144`](#q144--must-every-supported-composition-activate-a-prepared-generation-or-does-direct-entry-keep-the-app-registry-road) | the session-facing rule: must a supported composition activate a prepared generation | `C04` |
+| [`Q108`](#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link) | the FLOOR — measured 2026-09-19 at **42 unconditional crates of 56** | **P1** `A9` |
+| [`Q106`](#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities) | two specific edges inside that floor | **P1** `A9` |
+| [`Q100`](#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools) | one edge, and whether it drags `bevy/debug` in with it | **P1** `A9` |
+
+⇒ **RULING THE VOCABULARY ONCE DISCHARGES ALL FIVE. RULING THEM ONE AT A TIME
+RISKS FIVE ANSWERS THAT DO NOT COMPOSE** — `Q106` answered (a) and `Q108`
+answered (b) contradict each other, and nothing on this page would have said
+so. ⚠ The five are NOT duplicates and must not be collapsed: each names a real
+and different facet, and the floor measurement belongs to `Q108` rather than
+here. What was missing was that they are one decision's worth of scope.
 
 ⛔ **WHAT MAKES THIS BLOCKING RATHER THAN INTERESTING:** `C07` cannot even be
 COSTED without it. "Replace optional fallbacks where the authority is required"

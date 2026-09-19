@@ -838,88 +838,60 @@ defines its population.
 Owner row:
 [ROLLBACK-MUTATOR-POPULATION](queue.md#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
 
-## Q130 — should the sim harness refuse to step an invalidated rollback session?
+## Q130 — ⇒ THE SAME QUESTION AS `Q138`. ASK IT THERE.
 
-**MEASURED 2026-09-16.** A GGRS session that invalidates keeps accepting
-`sim.step()`. It returns an observation every time and simply stops advancing
-`SimTick`. Nothing panics and nothing prints. `session_health` knows; the step
-loop never asks. ⇒ Every assertion after the invalidation runs over a frozen
-world, where it agrees with itself.
+⛔⛤ **TWO ROWS ON THIS PAGE ASKED ONE MAINTAINER TO DECIDE ONE THING, WITH
+DIFFERENT NUMBERS — FOUND 2026-09-18.** *"Should the sim harness refuse to step
+an invalidated rollback session?"* and `Q138`'s *"should
+`Platformer2dSimHarness::step` refuse to step an invalidated session?"* are the
+same question about the same method, with the same three options in the same
+order, pointing at the same owner row
+([ROLLBACK-DEAD-SESSION](queue.md#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence)).
+This one was written first and its census is two generations behind: **21
+fixtures, thirteen reading a health API**, against a population that is 31 / 17
+adjudicated-and-exempt today. ⇒ `Q138` is the live row. Nothing here contradicts
+it; everything here was older.
 
-⭐ **THE CURRENT TREE IS SAFE, AND THAT IS THE ARGUMENT FOR ACTING RATHER THAN
-AGAINST IT.** Of the 21 files built on `with_sync_test_rollback_settings`,
-thirteen call `rollback_health()` or `session_health`; the other eight each refuse
-a frozen world by other means — a 116,280-float population floor, a recorded
-stream length against the tick count, `load_runs` having moved, explicit
-`room_changes > 0` preconditions, and two door walks that panic when the room
-never changes. ⚠ The first version of this census counted six of those eight as
-EXPOSED, because it counted calls to the safety API rather than assertions a
-broken world fails. Nothing needs cleaning up.
+⛔ **AND ITS ONE ARGUMENT AGAINST ACTING WAS REFUTED BY BUILDING THE THING.**
+This row said *"a guard script cannot substitute … the property is not decidable
+by reading source. If the contract moves into `step`, no guard is needed; if it
+does not, no guard can be written."* The first half is true and `Q138`'s guard
+agrees with it — `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` does not
+decide the property. It ROUTES the decision: a new sync-test arm either reads
+the health API or arrives with a sentence naming what a frozen world breaks in
+it. *"No guard can decide this"* and *"no guard can help"* are different claims,
+and only the first was ever true.
 
-⇒ **BUT THE CENSUS ROTS.** It proves the current 21 are safe and says nothing
-about the twenty-second. A rollback arm whose assertions happen to be satisfiable
-by a frozen world is exposed the moment it is written, and its author gets no
-warning. That is the same argument that turns "the only production registrar is
-this one" into an absence contract rather than a note.
-
-⚠ **AND A GUARD SCRIPT CANNOT SUBSTITUTE.** The property is "this arm's
-assertions are unsatisfiable by a frozen world", which six different mechanisms
-produced above and a seventh would too. It is not decidable by reading source. If
-the contract moves into `step`, no guard is needed; if it does not, no guard can
-be written.
-
-⭐ **THE CODEBASE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST
-DIRECTION, which is evidence whichever way this is decided.** For a two-root
-world the headless path does not return an uninterpretable reading — it ABORTS.
-`lifecycle/session.rs::unique_session_world_root` carries a plain
-`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`,
+⭐ **WHAT THIS ROW UNIQUELY CARRIED, KEPT BECAUSE `Q138` DOES NOT HAVE IT: THE
+CODEBASE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST DIRECTION.** For
+a two-root world the headless path does not hand back an uninterpretable reading
+— it ABORTS. `unique_session_world_root` carries a plain
+`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`
+(`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:424`),
 ungated and live in release, and `live_session_world_root` falls through to it
-whenever `SessionGatedSimulation` is absent — direct entry and headless, which is
-every harness this row is about. The shell-routed branch instead resolves the
-same condition by scope, silently. ⇒ So "the harness refuses rather than hands
-back a reading nobody can interpret" is already precedent here, and it is
-stronger than anything this Q proposes. (ToothbrushAmbition's find, filed on
-their side as part of Q132.)
-
-⛔⛤ **THAT THIRD POPULATION WAS OVERSTATED AND IS NOW RESOLVED — BOTH COUNTS
-WERE RIGHT ABOUT DIFFERENT THINGS.** The first report said "~206 `Single<..,
-With<SessionRoot>>` sites", which was raw grep MENTIONS of the two type aliases,
-comments and tests included. A peer then counted **11** `Single<..SessionRoot..>`
-occurrences out of **16** `Single<` parameter sites in the whole workspace and
-could not reach 206 — correctly, because `SessionWorldRef` and `SessionWorldMut`
-are `pub type` ALIASES for `Single<..>`, so a scan keyed on the word `Single`
-cannot see any of their uses.
-
-⇒ **MEASURED with comments stripped and tests excluded: 163 `SessionWorldRef<`
-plus 22 `SessionWorldMut<` = 185 production uses across 105 files**, and the
-direct `Single<..SessionRoot..>` spellings the peer counted are additional. The
-SHAPE never depended on the number; it is carried by the assert, the scope
-branch, and the existence of skip-shaped sites at all.
-
-⚠ **THE LESSON IS THE ALIAS, NOT THE ARITHMETIC:** a type alias makes a
-population invisible to a scan keyed on what it expands to, and visible only to
-one keyed on its name. Two honest scans of the same tree disagreed by an order of
-magnitude for that reason alone.
-
-⚠ A practical note for anyone reading a failure here: that `assert!` fires
+whenever `SessionGatedSimulation` is absent — direct entry and headless, which
+is every harness `Q138` is about. The shell-routed branch resolves the same
+condition by scope, silently. ⇒ *"The harness refuses rather than hands back a
+reading nobody can interpret"* is already precedent here, and it is stronger
+than anything either row proposes. ✔ Re-checked 2026-09-18: the assert is still
+there and still ungated. (ToothbrushAmbition's find, filed on their side as part
+of `Q132`.) ⚠ A practical note for anyone reading a failure from it: it fires
 inside a helper, so the arm named in the output is the last one that ran, not
 necessarily the one at fault.
 
-The choice: (a) `Platformer2dSimHarness::step` panics when the session has
-invalidated, making silence impossible — the census above is the evidence that
-nothing currently relies on stepping a dead session, so this should redden
-nothing today; (b) it returns an error the caller may ignore, which is the
-current situation with a nicer name; (c) leave it, and accept that each future
-rollback arm's safety is its author's to remember.
-
-⭐ (a) is "make it impossible, not checked" applied to a harness contract, and
-the reason it is a ruling rather than a patch is that it changes what every
-existing and future rollback arm is allowed to do — a harness that panics on a
-dead session will red any arm that turns out to be relying on one, and the census
-is a claim about today rather than a proof about tomorrow.
-
-Owner row:
-[ROLLBACK-DEAD-SESSION](queue.md#rollback-dead-session--an-invalidated-ggrs-session-stops-the-clock-in-silence).
+⚠ **AND ONE GENERAL LESSON, WHICH WAS NEVER EVIDENCE FOR THIS RULING: A TYPE
+ALIAS MAKES A POPULATION INVISIBLE TO A SCAN KEYED ON WHAT IT EXPANDS TO.** A
+first report said *"~206 `Single<.., With<SessionRoot>>` sites"*, which was raw
+grep MENTIONS including comments and tests. A peer counted **11**
+`Single<..SessionRoot..>` out of **16** `Single<` parameter sites in the whole
+workspace and could not reach 206 — correctly, because `SessionWorldRef` and
+`SessionWorldMut` are `pub type` ALIASES for `Single<..>`, so a scan keyed on
+the word `Single` cannot see any of their uses. Two honest scans of one tree
+disagreed by an order of magnitude for that reason alone. ⇒ Re-derived
+2026-09-18 with comments stripped and tests excluded: **167 `SessionWorldRef<`
+plus 16 `SessionWorldMut<` = 183 production uses across 95 files** (it was
+163 + 22 = 185 across 105 when written). The direct `Single<..SessionRoot..>`
+spellings are additional.
 
 ## Q129 — must the save file be part of what two peers agree on?
 
@@ -3028,6 +3000,15 @@ asserts nothing, so there is no verdict for a frozen world to falsify"*, while
 equals it at tick 0 and a frozen world satisfies that `assert_eq!` — but the
 reason did not, and the reason is what the next reader re-checks. Corrected in
 the guard 2026-09-18 with the mechanism that actually carries it.
+
+⭐ **AND THE TREE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST
+DIRECTION**, which is evidence whichever way this goes: for a two-root world
+the headless path ABORTS rather than hand back an uninterpretable reading, on a
+plain ungated `assert!` at
+`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:424`,
+reached by every harness this row is about. See `Q130`, which asked this same
+question with an older census and is now a pointer here; that precedent is the
+one thing it carried that this row did not.
 
 ⛔ **NOT A CLEANUP, AND THE ADJUDICATED ARMS MUST NOT BE EDITED EITHER WAY.**
 (There were six when this was written and there are twelve now, which is why the

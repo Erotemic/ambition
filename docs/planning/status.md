@@ -232,10 +232,14 @@ the measurement and the reproduction are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
 ⇒ Found beside it, and filed as
-[Q130](awaiting-maintainer-decision.md#q130--should-the-sim-harness-refuse-to-step-an-invalidated-rollback-session):
+[Q138](awaiting-maintainer-decision.md#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session):
 an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
-`SimTick` in silence. Every rollback arm in the tree refuses a frozen world
-today, none of them because a guard made it do so.
+`SimTick` in silence. ⚠ This linked `Q130` until 2026-09-18, which asked the
+SAME question with an older census; `Q130` is now a pointer to `Q138`. And the
+sentence that followed — *"none of them because a guard made it do so"* — has
+been false since `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` landed:
+every sync-test arm now either reads a health API or carries a written reading
+of what a frozen world breaks in it, and the guard runs in `--maintenance`.
 
 ### Content generations and fast iteration
 

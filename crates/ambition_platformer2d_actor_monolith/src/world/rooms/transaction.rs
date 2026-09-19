@@ -312,8 +312,11 @@ impl std::fmt::Display for OpenRefused {
 /// The live world this room transaction WOULD become, held off to the side
 /// until its verdict.
 ///
-/// ⛔⛤ **THE HALF OF A10 THAT IS NOT ENTITIES.** `RoomConstructionPlan::
-/// commit_deferred` is four statements and only the last one builds the
+/// ⛔⛤ **THE HALF OF A10 THAT IS NOT ENTITIES. EVERYTHING BELOW DESCRIBES
+/// THE SHAPE A10 DELETED ON 2026-09-14 — THIS PARAGRAPH DID NOT SAY SO UNTIL
+/// 2026-09-19, AND IN THE PRESENT TENSE IT READS AS LIVE ARCHITECTURE.**
+/// `RoomConstructionPlan::commit_deferred` <!-- cite-ok: names the method A10 DELETED; that deletion is what this paragraph is about -->
+/// is four statements and only the last one builds the
 /// candidate; the other three — `rooms.set_active`, `geometry.0 = ..`,
 /// `*moving_platforms = ..` — write the LIVE world, and `replace_live_world`
 /// retires the OUTGOING room ahead of all of it. Left there, a refusal points
@@ -1551,7 +1554,7 @@ fn verify_and_publish(
     //
     // ⛔⛤ **THIS COMMENT USED TO SAY "THIS IS NOT THE LAST-GOOD-WORLD GUARANTEE"
     // AND LIST FOUR THINGS PUBLISHED BEFORE THE VERDICT. ALL FOUR ARE CLOSED —
-    // 2026-09-14.** They were: `commit_deferred` writing `RoomSet`,
+    // 2026-09-14.** They were: `commit_deferred` writing `RoomSet`, <!-- cite-ok: lists the names A10 DELETED; a resolvable one here would mean the deletion did not happen -->
     // `RoomGeometry` and the platform state; `replace_live_world` retiring the
     // OUTGOING room first; the hot-reload caller advancing the session's content
     // generation afterwards; and a verifier with no way to validate N+1 while

@@ -3366,7 +3366,9 @@ fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
 /// ⚠ **THE SECOND HALF IS THE ONLY ONE PRODUCTION REACHES TODAY.** Measured
 /// across `app_it` 2026-09-14: 685 room publications, 3 supersessions, **all
 /// three left to a custodian**. The room road supersedes nothing else because
-/// `retire_outgoing` has already removed every room-resident body before the
+/// the room transition's own sweep — `replace_live_world`, over the
+/// `RoomResident` roster, which is why a carried object is not in it — has
+/// already removed every room-resident body before the
 /// baseline is captured; what survives it is exactly the carried object. The
 /// first half is therefore proven HERE or nowhere.
 #[test]

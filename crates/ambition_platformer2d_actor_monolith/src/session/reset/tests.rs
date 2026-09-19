@@ -136,8 +136,11 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 /// exactly those, and a reset taken in a room with an authored pickup rebuilt
 /// that room permanently one pickup short of itself.
 ///
-/// ROOM scope is the line, and it is the line precisely because `retire_outgoing` already owns that
-/// side.
+/// ROOM scope is the line, and it is the line precisely because
+/// [`process_new_game_reset_request`] — named two paragraphs up — already owns
+/// that side. ⚠ This said `retire_outgoing` until 2026-09-19, a method A10
+/// deleted on 2026-09-14; the sweep this paragraph is about is the reset's, not
+/// the room transition's.
 #[test]
 fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
     let mut app = App::new();

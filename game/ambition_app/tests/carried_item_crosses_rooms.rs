@@ -274,7 +274,7 @@ fn an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped
     );
 
     // CLAIM 1: the same object, not a replacement. Before residency followed
-    // custody, this entity was despawned by `retire_outgoing` on the way out and
+    // custody, this entity was despawned by the room sweep on the way out and
     // the body arrived holding a `HeldItem` with nothing behind it.
     assert!(
         sim.world().get_entity(item).is_ok(),

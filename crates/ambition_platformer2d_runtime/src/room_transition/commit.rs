@@ -160,8 +160,11 @@ pub struct RoomTransitionApplication<'w, 's> {
 
 /// Why an application refused, with the world still whole.
 ///
-/// A transition that fails after `retire_outgoing` has despawned the source room and has
-/// nowhere to put the body, which is not a failure a caller can handle.
+/// A transition that fails after the room sweep has despawned the source room
+/// and has nowhere to put the body, which is not a failure a caller can handle.
+/// The sweep is this module's own `room_visuals` roster — the `RoomResident`
+/// alias — handed to `replace_live_world`. ⚠ It named a `retire_outgoing` until
+/// 2026-09-19; no such function has ever existed in this workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoomTransitionApplyError {
     /// No session root carries room authority — there is no world to transition.

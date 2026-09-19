@@ -634,9 +634,14 @@ pub fn process_new_game_reset_request(
 /// itself. The room plan owns ROOM scope; this system owns
 /// the residue that outlives a room and has no other retirement — an enemy's
 /// dropped weapon is `spawn_session_scoped` and nothing else takes it back.
-/// Filtering here loses nothing: `retire_outgoing` sweeps `RoomScopedEntity`
-/// unconditionally, so a room-scoped transient (a thrown item, a placed portal)
-/// is destroyed by the stricter of the two sweeps either way.
+/// Filtering here loses nothing: [`process_new_game_reset_request`] sweeps
+/// `RoomScopedEntity` unconditionally, so a room-scoped transient (a thrown
+/// item, a placed portal) is destroyed by the stricter of the two sweeps either
+/// way. ⚠ THAT IS THE RESET SWEEP, NOT THE ROOM-TRANSITION ONE, and this
+/// sentence named a `retire_outgoing` until 2026-09-19 — a method A10 deleted
+/// on 2026-09-14, and one that would have made the claim FALSE if it had
+/// existed, because the transition sweeps the narrower `RoomResident` roster.
+/// The parameter list above says why the two differ.
 ///
 /// Runs AFTER [`process_new_game_reset_request`] and on [`NewGameResetCommitted`], not on the
 /// request. Ordering costs nothing here: every despawn and removal below is a deferred command, so

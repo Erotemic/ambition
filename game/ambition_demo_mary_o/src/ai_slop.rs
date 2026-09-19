@@ -60,13 +60,13 @@ const BOUNCE_SPEED: f32 = 430.0;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AiSlop;
 
-/// Demo-owned hostile archetype: ONE 1-HP `Wanderer` that walks forward and reverses
-/// at walls (`aggro_radius`/`attack_range` are ignored by that template). It carries
-/// no `melee`, so its only offense is the default-on body contact.
-///
-/// The ROW is authored with no outer braces, so it can register on its own for a
-/// single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
-/// per provider, since assembly rejects a second from the same provider.
+// Demo-owned hostile archetype: ONE 1-HP `Wanderer` that walks forward and reverses
+// at walls (`aggro_radius`/`attack_range` are ignored by that template). It carries
+// no `melee`, so its only offense is the default-on body contact.
+//
+// The ROW is authored with no outer braces, so it can register on its own for a
+// single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
+// per provider, since assembly rejects a second from the same provider.
 
 /// Ensure the `ai_slop` sheet is drawable, keyed by BOTH its catalog id and its
 /// display name, so the enemy render's `npc_asset_for_name` finds it instead of

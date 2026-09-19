@@ -51,8 +51,6 @@ pub(super) fn game_asset_root() -> String {
     }
 }
 
-/// A provider-owned `game://` source with a read-only fallback to the shared
-
 /// The game's OWN asset source (`game://`): the content crate's assets dir in a
 /// dev checkout, layered over the shared engine tree.
 ///

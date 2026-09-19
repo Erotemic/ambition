@@ -512,9 +512,6 @@ impl ImageStageLedger {
         &self.awaiting_gpu
     }
 
-    /// The render world's stamp exists in this process (the plugin found a
-    /// render app to install into).
-
     /// READINESS TERM: a render world exists and has NOT yet been seen to
     /// prepare `id`. `false` whenever no render world stamps stage 3 — a
     /// headless run never waits on a GPU it does not have.

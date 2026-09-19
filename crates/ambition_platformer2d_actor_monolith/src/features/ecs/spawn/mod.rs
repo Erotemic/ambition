@@ -25,9 +25,6 @@ pub use content_staging::{
 
 pub(crate) use ambition_platformer2d_actor_spawn::{spawn_runtime_minion};
 
-/// Spawn ECS-native feature entities for every authored static
-/// feature in a room. One loop per family.
-
 /// A room's authored paths under every spelling they answer to, for the
 /// lowering roads that resolve a path reference by string.
 ///

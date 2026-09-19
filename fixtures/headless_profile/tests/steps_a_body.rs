@@ -24,22 +24,22 @@ fn the_headless_profile_composes() {
     );
 }
 
-/// ⛔⛔ THE RENDERER'S ABSENCE IS NOT ASSERTED HERE, AND THAT IS THE FINDING.
-///
-/// A first version of this file tried `app.get_sub_app(bevy::render::RenderApp)`
-/// and did not compile: this consumer has no `bevy` dependency of its own, and
-/// the `bevy` the facade re-exports at this profile is built without its render
-/// feature, so `RenderApp` IS NOT A NAMEABLE TYPE from here. The absence is
-/// enforced by the type system rather than by an assertion — which is stronger
-/// than the test I set out to write, and worth saying instead of quietly
-/// deleting.
-///
-/// ⇒ The two halves A9's acceptance names have two homes. COMPILE CLOSURE is
-/// `the-featureless-facade-links-none-of-these` in
-/// `scripts/check_absence_contracts.py`, which walks the feature-resolved tree.
-/// RUNTIME INSTALLATION for a profile that DOES render is the map's own witness
-/// (`every_room_the_map_calls_visited_has_its_visit_on_the_save`). This fixture
-/// is the third fact neither of those can state: that the profile RUNS.
+// ⛔⛔ THE RENDERER'S ABSENCE IS NOT ASSERTED HERE, AND THAT IS THE FINDING.
+//
+// A first version of this file tried `app.get_sub_app(bevy::render::RenderApp)`
+// and did not compile: this consumer has no `bevy` dependency of its own, and
+// the `bevy` the facade re-exports at this profile is built without its render
+// feature, so `RenderApp` IS NOT A NAMEABLE TYPE from here. The absence is
+// enforced by the type system rather than by an assertion — which is stronger
+// than the test I set out to write, and worth saying instead of quietly
+// deleting.
+//
+// ⇒ The two halves A9's acceptance names have two homes. COMPILE CLOSURE is
+// `the-featureless-facade-links-none-of-these` in
+// `scripts/check_absence_contracts.py`, which walks the feature-resolved tree.
+// RUNTIME INSTALLATION for a profile that DOES render is the map's own witness
+// (`every_room_the_map_calls_visited_has_its_visit_on_the_save`). This fixture
+// is the third fact neither of those can state: that the profile RUNS.
 
 /// A BODY ADVANCING AGAINST WORLD GEOMETRY: the third claim, and the reason this
 /// file exists rather than a second compile check.

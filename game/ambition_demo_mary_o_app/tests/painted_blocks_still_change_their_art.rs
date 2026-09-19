@@ -31,9 +31,9 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::render::rendering::BlockVisual;
 use ambition_platformer2d::view::GameAssets;
 
-/// Copied from `two_rooms.rs`, whose header explains why both edges are load-bearing: a
-/// `PreUpdate` write is silently overwritten under `--workspace` feature unification, and the
-/// file that guessed otherwise was red for months.
+// Copied from `two_rooms.rs`, whose header explains why both edges are load-bearing: a
+// `PreUpdate` write is silently overwritten under `--workspace` feature unification, and the
+// file that guessed otherwise was red for months.
 
 /// The cavern, entered directly. `--room` exists for exactly this reason
 /// : before it, reaching 1-2 meant playing 3328 px of 1-1.

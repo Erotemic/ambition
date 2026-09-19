@@ -179,6 +179,8 @@ pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Orde
 /// the visual face regardless of whether the portal is on a wall, floor, or
 /// ceiling.
 pub(crate) const PORTAL_OPENING_HALF: f32 = 46.0;
+/// Standard through-surface half-thickness, exposed so the aperture-equalizer
+/// can rebuild a half-extent from a new along-length.
 pub(crate) const PORTAL_THICKNESS_HALF: f32 = 9.0;
 pub(crate) const PORTAL_MAX_RANGE: f32 = 6000.0;
 /// PlacedPortal shot travel speed (px/s) — fast, but slow enough to see the streak.
@@ -223,9 +225,6 @@ pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
     let n = normal.normalize_or_zero();
     half_extent.dot(Vec2::new(-n.y, n.x).abs())
 }
-
-/// Standard through-surface half-thickness, exposed so the aperture-equalizer
-/// can rebuild a half-extent from a new along-length.
 
 /// How far out of the exit portal (along its normal) to pop a body so it clears
 /// the thin portal face without immediately re-entering: the body's half-size

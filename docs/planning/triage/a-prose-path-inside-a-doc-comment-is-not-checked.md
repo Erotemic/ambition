@@ -729,8 +729,10 @@ becomes the item's summary. Censused tree-wide over `git ls-files '*.rs'`:
 parameter semantics parked on a struct, a demo roster doc on a sheet
 registrar, *"The scripted stick."* on `fn step`, and a HUD publisher's whole
 rationale 270 lines from it — and **4 of 4 were real.** Two more checked later
-were also real, making 6 of 6 examined. **Thirteen are repaired and twelve
-remain**, listed by re-running the signature.
+were also real, making 6 of 6 examined, and in the end **all 25 were real and
+all 25 are repaired — the signature now reports zero.** No instance turned out
+to be a stray blank line inside one item's own doc, which was the false
+positive this census expected to have to discount.
 
 ⭐ **AND THE THIRD REPAIR KIND IS THE INTERESTING ONE: DEMOTE, NOT DELETE.**
 `pirate_admiral_moveset.rs` carried three stranded runs — the airborne kit, the
@@ -752,7 +754,8 @@ and gating that `load_character_sprites_in`'s own doc now explicitly contradicts
 truncated mid-sentence with a stray brace, directly above the complete version
 of the same sentence.
 
-⛔ **NOT WIRED AS A CHECK, DELIBERATELY.** `AGENTS.md` line 737: source-text
+⛔ **NOT WIRED AS A CHECK, DELIBERATELY — AND THE POPULATION IS NOW EMPTY,
+WHICH IS THE BETTER ARGUMENT.** `AGENTS.md` line 737: source-text
 machinery needs a *"concrete, recurring, materially harmful failure that cannot
 be enforced more naturally"*, and *"prefer testing real behavior over names,
 phrases, file locations, exact symbols."* Eighteen wrong rustdoc summaries is

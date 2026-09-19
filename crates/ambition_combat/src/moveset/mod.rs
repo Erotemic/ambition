@@ -2569,17 +2569,6 @@ fn resolve_capture_action<'a>(
     }
 }
 
-/// Trigger a body's authored move from control-frame verb edges. Directional
-/// attack resolution follows the authored verb chain; ranged and special use
-/// their corresponding verbs. A live move rejects replacement unless its
-/// cancel window authorizes the requested move. Jump/dash cancel the move and
-/// are executed by the locomotion path from the same control frame. Facing is
-/// captured at trigger time.
-///
-/// This is the single trigger seam for every body. When a held weapon owns the
-/// Attack press, [`held_weapon_attack_move`] resolves the weapon action instead
-/// of the wearer's normal attack without deleting the wearer's authored moves.
-
 /// Everything that happens when a press becomes a move.
 ///
 /// ⭐ ONE FUNCTION, because the two start sites — the cancel path and the plain
@@ -2987,6 +2976,16 @@ pub fn body_is_helpless(
     jump.post_recovery_helpless && !grounded && !still_recovering
 }
 
+/// Trigger a body's authored move from control-frame verb edges. Directional
+/// attack resolution follows the authored verb chain; ranged and special use
+/// their corresponding verbs. A live move rejects replacement unless its
+/// cancel window authorizes the requested move. Jump/dash cancel the move and
+/// are executed by the locomotion path from the same control frame. Facing is
+/// captured at trigger time.
+///
+/// This is the single trigger seam for every body. When a held weapon owns the
+/// Attack press, [`held_weapon_attack_move`] resolves the weapon action instead
+/// of the wearer's normal attack without deleting the wearer's authored moves.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bodies`. `MoveOccurrence` appears in

@@ -721,22 +721,22 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
     );
 }
 
-/// 1. a raw `BodyKinematics::pos` write is not "this fighter lost a stock".
-///    Measured: one app update later the body sat at a normal stage position with
-///    all THREE stocks — something noticed the nonsense position and relocated
-///    it, which is not a knockout. The test spent its life asserting a restart no
-///    KO had caused.
-/// 2. `restart_pending` is a ONE-SIM-TICK flag — raised by the reset, cleared
-///    by `announce_body_restarts` in the next `WorldPrep` — and a fixed-tick host
-///    advances several sim ticks per `app.update()`. Polling it between updates
-///    can miss it entirely, whatever caused it.
-///
-/// its intent is fully covered by
-/// `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`, which causes
-/// a REAL knockout — a real launch, the real blast boundary — and now proves the
-/// whole chain from one: exactly one stock spent, the other fighter untouched, a
-/// `BodyRestarted` trigger observed for that body and not the other, and a
-/// respawn at the ruleset's placement. An observer cannot miss what a poll can.
+// 1. a raw `BodyKinematics::pos` write is not "this fighter lost a stock".
+//    Measured: one app update later the body sat at a normal stage position with
+//    all THREE stocks — something noticed the nonsense position and relocated
+//    it, which is not a knockout. The test spent its life asserting a restart no
+//    KO had caused.
+// 2. `restart_pending` is a ONE-SIM-TICK flag — raised by the reset, cleared
+//    by `announce_body_restarts` in the next `WorldPrep` — and a fixed-tick host
+//    advances several sim ticks per `app.update()`. Polling it between updates
+//    can miss it entirely, whatever caused it.
+//
+// its intent is fully covered by
+// `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`, which causes
+// a REAL knockout — a real launch, the real blast boundary — and now proves the
+// whole chain from one: exactly one stock spent, the other fighter untouched, a
+// `BodyRestarted` trigger observed for that body and not the other, and a
+// respawn at the ruleset's placement. An observer cannot miss what a poll can.
 
 /// This demo's own CPU roster is seatable by its own composition.
 /// (API 1.0 row (g))

@@ -300,10 +300,10 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
     }
 }
 
-/// Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and reverses at
-/// walls; `aggro_radius`/`attack_range` are ignored by that template. It carries no `melee`, so its
-/// only offense is the default-on body contact — which the shell state turns off (via its
-/// `body_contact_damage` tuning) while withdrawn, then back on when it walks again.
+// Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and reverses at
+// walls; `aggro_radius`/`attack_range` are ignored by that template. It carries no `melee`, so its
+// only offense is the default-on body contact — which the shell state turns off (via its
+// `body_contact_damage` tuning) while withdrawn, then back on when it walks again.
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.

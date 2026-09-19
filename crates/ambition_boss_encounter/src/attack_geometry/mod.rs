@@ -206,20 +206,22 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::CombatVolume> {
         .collect()
 }
 
-/// Pull sprite-author-declared hitbox rectangles for the given
-/// attack profile from `ctx.sprite_metrics.animations`. Returns
-/// `None` (not empty) when the sprite has no hitbox for this
-/// animation; the caller falls back to the hardcoded
-/// `volumes_for_profile` math. Returns an empty `Vec` when the
-/// sprite has an entry but no usable rects (defensive).
-
-/// Damageable hurtbox volumes — where the player's attacks register
-/// as hits. Single-piece bosses use one AABB derived from
-/// combat_size; multi-part bosses (sprite RON carrying
-/// `body_pixel_parts`) emit one AABB per piece so head/body/arms
-/// hit independently. Animation boxes may also carry per-frame
-/// samples so large moving parts like GNU-ton's head can track the
-/// drawn pose instead of one coarse per-animation rectangle.
+// HOW SPRITE-DECLARED GEOMETRY IS READ, kept as module notes because neither
+// paragraph documents an item in this file any more — they were `///` runs
+// concatenating onto `StrikeRect`'s doc three items below.
+//
+// A sprite-author-declared hitbox for an attack profile comes from
+// `ctx.sprite_metrics.animations`; `None` (not empty) means the sprite has no
+// hitbox for that animation and the caller falls back to `volumes_for_profile`
+// math, while an empty `Vec` means an entry with no usable rects.
+//
+// Damageable hurtbox volumes — where the player's attacks register as hits —
+// are one AABB from `combat_size` for a single-piece boss, and one per piece
+// for a multi-part boss (sprite RON carrying `body_pixel_parts`), so
+// head/body/arms hit independently. Animation boxes may carry per-frame
+// samples so a large moving part like GNU-ton's head tracks the drawn pose
+// instead of one coarse per-animation rectangle. The live spawner is
+// `ecs/sync.rs`'s `boss_spawn_hurtboxes`.
 
 // No bespoke boss damage poll.
 //

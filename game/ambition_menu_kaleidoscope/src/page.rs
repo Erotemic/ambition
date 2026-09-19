@@ -503,11 +503,6 @@ fn spawn_scrollbar_thumb(
     ));
 }
 
-/// Fix 1: clamp the host thumb fractions into the renderable `(y, size)` track
-/// fractions. `size` is floored to a grabbable minimum (8%) and capped at the full
-/// track; `y` (the thumb top) is positioned across the REMAINING travel
-/// (`1 - size`) so the thumb never overflows the track bottom. Pure for testing.
-
 /// Render an item's icon as a textured plane inside a control cell.
 ///
 /// An unlit, `AlphaMode::Blend`, double-sided (`cull_mode: None`) `StandardMaterial`

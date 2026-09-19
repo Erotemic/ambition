@@ -5954,17 +5954,17 @@
       "category": "test_architecture",
       "name": "Rollback canaries and reversion/poison witnesses",
       "owner": "rollback/app tests",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Rollback tests cover state registration, checksum behavior, lifecycle rebase, and mechanical edit admission. Poison tests are valuable at major authority boundaries but should not be multiplied for ordinary details.",
+      "current_truth": "Rollback tests cover state registration, checksum behavior, lifecycle rebase, and mechanical edit admission. Poison tests are valuable at major authority boundaries but should not be multiplied for ordinary details. \u2b50 CONFIRMED 2026-09-18 FOR THE COVERAGE CLAIM ONLY; the poison-density sentence is reviewer guidance and no reading of source can settle it. The measurement is the `TEST-ROLLBACK` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "crates/ambition_platformer2d_rollback_ggrs/src",
         "game/ambition_app/tests"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Rollback tests cover state registration, checksum behavior, lifecycle rebase, and mechanical edit admission. Poison tests are valuable at major authority boundaries but should not be multiplied for ordinary details.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Rollback tests cover state registration, checksum behavior, lifecycle rebase, and mechanical edit admission. Poison tests are valuable at major authority boundaries but should not be multiplied for ordinary details. \u2b50 CONFIRMED 2026-09-18 FOR THE COVERAGE CLAIM ONLY; the poison-density sentence is reviewer guidance and no reading of source can settle it. The measurement is the `TEST-ROLLBACK` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "crates/ambition_platformer2d_rollback_ggrs/src",
             "game/ambition_app/tests"

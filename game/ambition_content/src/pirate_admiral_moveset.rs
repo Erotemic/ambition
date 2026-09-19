@@ -683,31 +683,31 @@ mod tests {
     // should read it. The engine-level fix keeps its own guard in
     // `RecoveryLens`; what is missing is this fighter's integration arm.
 
-    /// The admiral's kit as an AIRBORNE body sees it — the posture filter the
-    /// runtime applies before the brain ever looks, so a grounded-only tilt
-    /// cannot be proposed off the side of a stage.
-    ///
-    /// the BINDING is not what this fixture measures (a route is identified by
-    /// its move id), so every candidate carries the same placeholder press.
+    // The admiral's kit as an AIRBORNE body sees it — the posture filter the
+    // runtime applies before the brain ever looks, so a grounded-only tilt
+    // cannot be proposed off the side of a stage.
+    //
+    // the BINDING is not what this fixture measures (a route is identified by
+    // its move id), so every candidate carries the same placeholder press.
 
-    /// A 1600x800 stage whose only surface is far off to the right: `x` in
-    /// `650..1450`, top face at `y = 500`. A body high and far to the left is
-    /// ABOVE that face, so its problem is entirely lateral.
+    // A 1600x800 stage whose only surface is far off to the right: `x` in
+    // `650..1450`, top face at `y = 500`. A body high and far to the left is
+    // ABOVE that face, so its problem is entirely lateral.
 
-    /// THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
-    /// route derivation, and the real movement kernel agree that `grapple_line`
-    /// is the way home — and they do it without anybody naming him.
-    ///
-    /// Every step is the shipped one. The kit is this file's `MovesetContract`
-    /// posture-filtered the way the runtime filters it; the routes come from
-    /// `lifting_candidates`, which reads nothing but `MoveFrameData`; and the
-    /// verdict comes from `RecoveryLens::best_route`, which clones a body and
-    /// drives `step_motion`. There is no character conditional anywhere in that
-    /// chain and this test would read identically for any fighter.
-    ///
-    /// and the ORDER is asserted first, because the order is the trap.
-    /// `air_up` sorts above `grapple_line` on the only number a static reader
-    /// has. A layer that took the first candidate would take the juggle aerial.
+    // THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
+    // route derivation, and the real movement kernel agree that `grapple_line`
+    // is the way home — and they do it without anybody naming him.
+    //
+    // Every step is the shipped one. The kit is this file's `MovesetContract`
+    // posture-filtered the way the runtime filters it; the routes come from
+    // `lifting_candidates`, which reads nothing but `MoveFrameData`; and the
+    // verdict comes from `RecoveryLens::best_route`, which clones a body and
+    // drives `step_motion`. There is no character conditional anywhere in that
+    // chain and this test would read identically for any fighter.
+    //
+    // and the ORDER is asserted first, because the order is the trap.
+    // `air_up` sorts above `grapple_line` on the only number a static reader
+    // has. A layer that took the first candidate would take the juggle aerial.
 
     /// FOUR SPECIALS, FOUR MECHANISMS.
     ///

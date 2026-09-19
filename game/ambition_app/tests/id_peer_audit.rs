@@ -123,6 +123,13 @@ use crate::common;
 /// alone reported clean — a registered type never matches the name of the id it
 /// holds. New registrations are caught by `rollback_schema_baseline.txt`, which
 /// member-diffs every row; this list is what that baseline cannot know.
+///
+/// ⚠ These are the kinds that checksum the WHOLE value. Measured from the
+/// registrars: each calls `checksum_component`/`checksum_resource` with the
+/// type's own encoding, so a host-local field inside one IS in the peer
+/// comparison — which is what makes membership here a defect rather than a
+/// note. (That paragraph sat after the closing bracket as a `///` run, so it
+/// was documenting `PEER_STABLE_PROJECTION` instead of this list.)
 const HOST_LOCAL_IDENTITIES: &[&str] = &[
     // ⛔⛔ THE LARGEST ONE, AND IT DOES NOT LOOK LIKE A LIFECYCLE COUNTER.
     // `SimTick` is the canonical timeline — but it is `init_resource`'d once at
@@ -165,10 +172,6 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "SuddenDeathEntered",
     "LiveMatchTicks",
 ];
-
-/// Kinds that checksum the WHOLE value. Measured from the registrars: each of
-/// these calls `checksum_component`/`checksum_resource` with the type's own
-/// encoding, so a host-local field inside one is in the peer comparison.
 
 /// Carriers whose checksum is a stated PROJECTION that excludes the host-local
 /// part, read and confirmed by a human.

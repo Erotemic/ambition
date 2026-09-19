@@ -127,11 +127,11 @@ const TALL_ID: &str = "mary_o_tall";
 /// instead of hanging the suite.
 const LIVENESS_CAP: usize = 6000;
 
-/// The scripted stick, republished every frame in `PreUpdate` because Bevy runs
-/// the fixed-timestep loop BEFORE `Update` — intent written any later is not seen
-/// by the tick it was meant to drive.
-
 /// The course, booted with a stick in her hand.
+///
+/// The stick is republished every frame in `PreUpdate`, because Bevy runs the
+/// fixed-timestep loop BEFORE `Update` — intent written any later is not seen
+/// by the tick it was meant to drive.
 fn boot_course_scripted() -> App {
     let mut app = boot_course();
     // the ordering lives in ONE place now — after the participant pipeline's routing stage and

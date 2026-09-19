@@ -728,8 +728,20 @@ becomes the item's summary. Censused tree-wide over `git ls-files '*.rs'`:
 **25 instances.** Sampled four blind before repairing any — `resolve_attack_intent`'s
 parameter semantics parked on a struct, a demo roster doc on a sheet
 registrar, *"The scripted stick."* on `fn step`, and a HUD publisher's whole
-rationale 270 lines from it — and **4 of 4 were real.** Seven are repaired,
-eighteen remain.
+rationale 270 lines from it — and **4 of 4 were real.** Two more checked later
+were also real, making 6 of 6 examined. **Thirteen are repaired and twelve
+remain**, listed by re-running the signature.
+
+⭐ **AND THE THIRD REPAIR KIND IS THE INTERESTING ONE: DEMOTE, NOT DELETE.**
+`pirate_admiral_moveset.rs` carried three stranded runs — the airborne kit, the
+stage geometry, THE ACCEPTANCE MEASUREMENT — which are the residue of a DELETED
+test, kept on purpose: the paragraph above them says *"the next person to wonder
+where these tests went is the person who should read it."* Keeping them was
+right and `///` was wrong, because the four runs concatenate and
+`the_four_specials_are_four_different_mechanisms` was rendering under *"The
+admiral's kit as an AIRBORNE body sees it"* instead of its own *"FOUR SPECIALS,
+FOUR MECHANISMS."* ⇒ **The residue of a deleted item belongs in `//`.** A record
+of something that is gone must not be attached to something that is here.
 
 ⚠ The repairs split three ways, which is why this is not a mechanical rewrite:
 some MOVE (the parameter semantics are still true and still undocumented on the

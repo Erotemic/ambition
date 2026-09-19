@@ -23,10 +23,6 @@ const TALL_ID: &str = "mary_o_tall";
 /// `powerups` for the same reason, and hardcoded in `power_loop.rs` too.
 const FIRE_ID: &str = "mary_o_fire";
 
-/// The scripted stick, republished every frame in `PreUpdate` because Bevy runs
-/// the fixed-timestep loop BEFORE `Update` — intent written any later is not
-/// seen by the tick it was meant to drive.
-
 /// Everything the controller may look at: where she is, how fast, how big,
 /// whether she has footing, and what is coming at her. This is the information a
 /// player reads off the screen — no privileged access to level state.

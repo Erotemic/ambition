@@ -138,7 +138,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 ///
 /// ROOM scope is the line, and it is the line precisely because
 /// [`process_new_game_reset_request`] — named two paragraphs up — already owns
-/// that side. ⚠ This said `retire_outgoing` until 2026-09-19, a method A10
+/// that side. ⚠ This said `retire_outgoing` until 2026-09-19, a method A10  <!-- cite-ok: names the method A10 DELETED on 2026-09-14; this sentence RECORDS the dead name, so a resolvable citation here would mean the deletion did not happen -->
 /// deleted on 2026-09-14; the sweep this paragraph is about is the reset's, not
 /// the room transition's.
 #[test]

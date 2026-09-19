@@ -390,7 +390,7 @@ mod tests {
     fn vortex_does_not_pull_a_dead_enemy() {
         // A dead enemy is an intangible corpse: the well must not drag it.
         // (Enemies die and linger with a body, so this is reachable.) Poison:
-        // drop the `body_is_corpse` skip in `update_vortex_wells` and the corpse
+        // drop the `body_is_untouchable` skip in `update_vortex_wells` and the corpse
         // is pulled toward the singularity.
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, VORTEX_ID);

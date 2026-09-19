@@ -20,7 +20,8 @@ pub struct CharacterDeathTraits {
     /// Damage never kills — a training dummy with an effectively infinite pool.
     ///
     ///  not an on-death consequence; a MORTALITY policy. Its consumer is
-    /// the damage resolver (`damage_apply`), which decides whether a hit kills
+    /// the damage resolver (`ambition_damage::resolve_body_hit`), which decides
+    /// whether a hit kills
     /// at all, so it sits one step before the other four rather than beside
     /// them. Grouped here because it is the same kind of authored character
     /// fact and has the same one consumer family; if this struct ever grows a

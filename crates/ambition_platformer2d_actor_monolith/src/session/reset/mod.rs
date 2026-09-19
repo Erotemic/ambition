@@ -638,7 +638,7 @@ pub fn process_new_game_reset_request(
 /// `RoomScopedEntity` unconditionally, so a room-scoped transient (a thrown
 /// item, a placed portal) is destroyed by the stricter of the two sweeps either
 /// way. ⚠ THAT IS THE RESET SWEEP, NOT THE ROOM-TRANSITION ONE, and this
-/// sentence named a `retire_outgoing` until 2026-09-19 — a method A10 deleted
+/// sentence named a `retire_outgoing` until 2026-09-19 — a method A10 deleted  <!-- cite-ok: names the method A10 DELETED on 2026-09-14; this sentence RECORDS the dead name, so a resolvable citation here would mean the deletion did not happen -->
 /// on 2026-09-14, and one that would have made the claim FALSE if it had
 /// existed, because the transition sweeps the narrower `RoomResident` roster.
 /// The parameter list above says why the two differ.

@@ -591,7 +591,7 @@ fn spawn_talkable_npc_with_threshold(
 /// A peaceful NPC has no death path of its own (it accumulates strikes and turns
 /// hostile), so its strike branch never consulted `alive()`: a body forced to a
 /// zero-HP corpse would keep barking a hit line. The structural tangibility gate
-/// in `apply_feature_hit_events` (`body_is_corpse` → skip) closes that: a living
+/// in `apply_feature_hit_events` (`body_is_untouchable` → skip) closes that: a living
 /// peaceful NPC still barks when struck, a dead one is silent — a dead thing
 /// does not present. Poison: remove the gate and the corpse's SpeechBubble
 /// reappears.

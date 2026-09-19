@@ -219,7 +219,8 @@ impl FighterState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShadowTuning {
     /// The victim-side hit response (launch + hitstun). The SAME kernel row
-    /// shape `damage_apply` uses; the caller picks which feel row applies.
+    /// shape `ambition_damage::resolve_body_hit` uses; the caller picks which
+    /// feel row applies.
     pub response: HitResponseTuning,
     /// Gravity along `gravity_down`, engine units/s².
     pub gravity: f32,

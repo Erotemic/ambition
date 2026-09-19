@@ -12,8 +12,8 @@
 //! Execution noise is FB4's business, in the execution layer, with its own snapshot-registered
 //! stream.
 //!
-//! The hit response is the real one. `ae::hit_response` is the SAME kernel `damage_apply`
-//! resolves authoritative hits with (§12.3 route 1 — carved to the floor precisely so both callers
+//! The hit response is the real one. `ae::hit_response` is the SAME kernel
+//! `ambition_damage::resolve_body_hit` resolves authoritative hits with (§12.3 route 1 — carved to the floor precisely so both callers
 //! exist). What the model still approximates is everything else, and §12.3's stated-omissions list
 //! is closed on purpose: future projectile fire, one-way platforms as anything but floor, DI,
 //! shield break, cancels, charge, and any second hostile are all OUT of v1. The floor the body

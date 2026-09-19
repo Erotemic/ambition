@@ -1134,7 +1134,7 @@ pub fn install_actor_construction_recipes(
 
 /// The mount capabilities a planned row will carry once it is constructed.
 ///
-/// Derived from the same archetype data `attach_mount_role` and `spawn_boss`
+/// Derived from the same archetype data `attach_mount_role_from` and `spawn_boss`
 /// read when they install [`ambition_mount::Mountable`] /
 /// [`ambition_mount::CanPilot`], so a preflight decision here predicts the
 /// world the commit will produce rather than guessing at it.

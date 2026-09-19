@@ -1,7 +1,7 @@
 //! Carved down from `ambition_damage` (FB6b,
 //! fighter-brain.md §12.3 route 1) so ONE formula answers both callers:
 //!
-//! * the authoritative victim path (`damage_apply`) resolves real hits with it;
+//! * the authoritative victim path (`resolve_body_hit`) resolves real hits with it;
 //! * the fighter brain's shadow rollout (`brain::fighter::rollout`) predicts
 //!   hits with it — and `ambition_characters` cannot name `ambition_platformer2d_actor_monolith`
 //!   (the dependency points the other way), which is why the kernel lives on

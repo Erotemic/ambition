@@ -1771,7 +1771,7 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
 
 /// The half-write that exists in the tree today.
 ///
-/// `attach_mount_role` never inserts `MountSlot`, and
+/// `attach_mount_role_from` never inserts `MountSlot`, and
 /// `reconcile_autonomous_actors` re-establishes the link with
 /// `world.get_mut::<MountSlot>(..)` — a mutation that silently does nothing when
 /// the component is absent — while inserting `RidingOn` unconditionally. The

@@ -63,7 +63,7 @@ fn a_player_pilots_a_mount_end_to_end() {
 
     // 1. Spawn the mount + rider near the player. Their archetypes carry the
     //    mount roles (shark → `Mountable{class:"shark"}`; pirate raider →
-    //    `CanPilot(["shark"])`) via `attach_mount_role`, so an authored link
+    //    `CanPilot(["shark"])`) via `attach_mount_role_from`, so an authored link
     //    resolves into a live weld.
     let home = home_entity(sim.world_mut());
     let p = pos_of(sim.world_mut(), home);

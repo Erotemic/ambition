@@ -3529,7 +3529,7 @@ pub fn trigger_moveset_moves(
             // asked for it — the cancel namespace follows the move that ran.
             //
             // ⭐ THE LIST LIVES WITH THE VOCABULARY. `cancel_names_for` is beside
-            // `CANCEL_CLASS_NAMES` in the catalog, so the exporter that shows a
+            // `cancel_class_names` in the catalog, so the exporter that shows a
             // cancel GRAPH resolves it with the same names this road matches on
             // — two lists that must agree are one list plus a bug.
             let verb_names = ambition_entity_catalog::cancel_names_for(base_verb, running_attack);
@@ -3611,11 +3611,11 @@ pub fn trigger_moveset_moves(
             // itself runs through the normal locomotion path this same tick.
             //
             // the edge is now the BURST press, but the AUTHORED cancel class
-            // stays `"dash"`: it is content vocabulary (`CANCEL_CLASS_NAMES`),
+            // stays `"dash"`: it is content vocabulary (`cancel_class_names`),
             // not the channel's name. Renaming it is a CONTENT migration.
             //
             // Zero content sites spell `"dash"` today; the word survives only here, in
-            // `CANCEL_CLASS_NAMES` and in `ambition_entity_catalog`'s own tests.
+            // `cancel_class_names` and in `ambition_entity_catalog`'s own tests.
             let loco = if frame.jump_pressed {
                 Some("jump")
             } else if frame.burst_pressed {

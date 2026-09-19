@@ -335,7 +335,7 @@ fn capture_parries(mut reader: MessageReader<ParriedBodyHit>, mut cap: ResMut<Ca
 
 /// Structural tangibility gate: a dead body is an intangible corpse — a swing passes through it,
 /// producing NO hit event. A live body in the exact same spot IS struck and emits one, so the
-/// silence is the tangibility gate, not the geometry. Removing the `body_is_corpse` skip in
+/// silence is the tangibility gate, not the geometry. Removing the `is_corpse` skip in
 /// `apply_hitbox_damage` reintroduces the phantom hit (and, through it, the corpse flash).
 #[test]
 fn a_dead_victim_is_intangible_to_a_swing() {

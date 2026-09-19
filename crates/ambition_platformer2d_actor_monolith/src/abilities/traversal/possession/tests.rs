@@ -477,7 +477,7 @@ fn possession_skips_a_nearer_corpse_for_a_farther_living_body() {
     // A dead enemy is an intangible corpse — you cannot possess it, even when it
     // is the NEAREST brain-bearing body. (Enemies die and linger with ActorControl
     // + Brain + no PlayerEntity, so this is reachable.) Poison: drop the
-    // body_is_corpse filter in possession_trigger_system and the nearer corpse is
+    // `body_is_untouchable` filter in possession_trigger_system and the nearer corpse is
     // possessed instead of the living body.
     let mut app = trigger_app();
     let home = spawn_home(&mut app);

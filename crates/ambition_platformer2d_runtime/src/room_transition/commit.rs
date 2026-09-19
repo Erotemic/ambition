@@ -163,7 +163,7 @@ pub struct RoomTransitionApplication<'w, 's> {
 /// A transition that fails after the room sweep has despawned the source room
 /// and has nowhere to put the body, which is not a failure a caller can handle.
 /// The sweep is this module's own `room_visuals` roster — the `RoomResident`
-/// alias — handed to `replace_live_world`. ⚠ It named a `retire_outgoing` until
+/// alias — handed to `replace_live_world`. ⚠ It named a `retire_outgoing` until  <!-- cite-ok: names the method A10 DELETED on 2026-09-14; this sentence RECORDS the dead name, so a resolvable citation here would mean the deletion did not happen -->
 /// 2026-09-19; no such function has ever existed in this workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoomTransitionApplyError {

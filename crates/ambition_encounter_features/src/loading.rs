@@ -1,7 +1,10 @@
-//! LDtk → `EncounterSpec` loader plus the content-installed wave book.
+//! Room → `EncounterSpec` loader plus the content-installed wave book.
 //!
-//! `load_encounter_specs_from_ldtk` scans `EncounterTrigger`/`LockWall` markers
-//! and builds one spec per area. Authored multi-wave timelines live in content
+//! `load_encounter_specs_from_rooms` scans `EncounterTrigger`/`LockWall`
+//! markers and builds one spec per area. ⚠ It said `…_from_ldtk`, and "LDtk →",
+//! until 2026-09-19: the loader's parameter is `&[RoomSpec]`, so the rename was
+//! also a change of input and the old sentence named the wrong SOURCE as well
+//! as the wrong function. Authored multi-wave timelines live in content
 //! (`ambition_content/.../encounters/*.ron`) and are installed into
 //! `ambition_encounter`'s wave book, keyed by trigger id; any unbooked
 //! encounter falls back to a single wave from its `EnemySpawn` markers. The

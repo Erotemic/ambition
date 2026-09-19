@@ -606,7 +606,7 @@ mod tests {
     fn sentry_does_not_fire_at_a_dead_enemy() {
         // A dead enemy is an intangible corpse: the sentry must not target it.
         // (Enemies die and linger with a bbox, so this is reachable.) Poison:
-        // drop the `body_is_corpse` skip in `update_sentries` and the sentry
+        // drop the `body_is_untouchable` skip in `update_sentries` and the sentry
         // fires bolts at the corpse.
         let mut app = test_app();
         let player = spawn_primary_player_holding(&mut app, SENTRY_ID);

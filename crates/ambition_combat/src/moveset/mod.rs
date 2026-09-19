@@ -4328,6 +4328,14 @@ pub fn mark_move_playback_resolved_hits(
 /// ⭐ **`None` REMAINS A REAL ANSWER on both.** A brain that presses its special
 /// with no move behind it has no use to name, and inventing one would deny a
 /// real move its own hit.
+///
+/// ⭐⭐ **AND `None` CREDITS NOBODY EVERYWHERE NOW — RULED 2026-09-19.** This
+/// predicate already required `Some`; the sibling write of `landed_hit` in
+/// `apply_feature_hit_events` did not, and the two roads disagreed about the
+/// same question. An ability contact is INDEPENDENT BY DEFAULT and satisfies a
+/// move's contact condition only with explicit provenance — so the five
+/// "unexercised" rows above are answered without needing to be exercised, and
+/// an ability meant to count toward its launcher threads the occurrence.
 fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
     instance == Some(pb.instance)
 }

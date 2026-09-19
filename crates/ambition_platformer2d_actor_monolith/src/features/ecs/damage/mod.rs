@@ -924,19 +924,22 @@ pub fn apply_feature_hit_events(
                 // whiff cancel, and `blink`'s shockwave wrote its victims into
                 // the live move's dedup ledger.
                 //
-                // ⚠ **`None` IS NOT REFUSED HERE, AND THAT IS THE OPEN HALF.**
-                // An unclaimed outcome — `blink`, `dive`, `mark_recall`,
-                // `empowerment` all reach this line with no instance — still
-                // credits whatever is playing. Whether those abilities should
-                // propagate their launching occurrence or credit nobody is a
-                // GAMEPLAY ruling, `Q101` in
-                // `docs/planning/awaiting-maintainer-decision.md`. Refusing an
-                // explicitly different occurrence needs no ruling: the event
-                // says whose it is.
+                // ⭐⭐ **AND `None` CREDITS NOBODY, RULED 2026-09-19.** An
+                // ability contact is INDEPENDENT BY DEFAULT: it satisfies a
+                // move's `Connected`/contact condition only when it explicitly
+                // carries provenance naming the launching occurrence. `None`
+                // must not mean *"credit whatever move happens to be playing
+                // now"* — which is what `is_none_or` meant here, and what let
+                // `blink`, `dive`, `mark_recall` and `empowerment` confirm a
+                // move they had nothing to do with.
+                //
+                // ⇒ An ability DESIGNED to count toward its launcher threads
+                // the occurrence explicitly; there is no implicit road back.
+                // Recorded in `docs/planning/maintainer-decisions.md`.
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     let claims_this_use = event
                         .attacker_move_instance
-                        .is_none_or(|instance| instance == pb.instance);
+                        .is_some_and(|instance| instance == pb.instance);
                     if claims_this_use {
                         pb.landed_hit = true;
                         // Persist one-hit-per-target dedup on the MOVE itself. The

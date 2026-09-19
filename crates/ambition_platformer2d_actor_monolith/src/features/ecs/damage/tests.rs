@@ -477,20 +477,20 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
     );
 }
 
-/// ⚠ **AND THE UNCLAIMED CASE IS STILL CREDITED — RECORDED, NOT ENDORSED.**
+/// ⭐⭐ **AN UNCLAIMED OUTCOME CREDITS NOBODY — RULED 2026-09-19, AND THIS ARM
+/// IS THE FLIP ITS PREDECESSOR PROMISED.**
 ///
 /// `None` means no move claims the outcome. `blink`, `dive`, `mark_recall` and
 /// `empowerment` all reach `apply_feature_hit_events` with
-/// `attacker: Some(body)` and no instance, and the live move is confirmed by
-/// their contact. Whether those abilities should propagate their launching
-/// occurrence or credit nobody is the gameplay ruling `Q101` exists for, in
-/// `docs/planning/awaiting-maintainer-decision.md`.
+/// `attacker: Some(body)` and no instance. The ruling is that an ability
+/// contact is INDEPENDENT BY DEFAULT and satisfies a move's contact condition
+/// only with explicit provenance — so an ability meant to count toward its
+/// launcher threads the occurrence, and one that does not, does not.
 ///
-/// ⇒ **THIS ARM FLIPS WHEN THAT RULING LANDS**, and it is separated from its
-/// sibling above precisely so the two halves cannot be answered by accident:
-/// one is the occurrence rule applied, the other is a product choice.
+/// ⚠ The damage still lands. This is about ATTRIBUTION, not about whether the
+/// shockwave hurts — which is why the victim's meter is asserted first.
 #[test]
-fn an_unclaimed_outcome_still_confirms_the_move_that_is_playing() {
+fn an_unclaimed_outcome_credits_no_move() {
     use ambition_combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
 
     let mut app = App::new();
@@ -540,11 +540,17 @@ fn an_unclaimed_outcome_still_confirms_the_move_that_is_playing() {
         "the event has to be delivered and applied, or the flag below is \
          silence rather than an answer"
     );
+    let pb = app.world().get::<MovePlayback>(attacker).unwrap();
     assert!(
-        app.world().get::<MovePlayback>(attacker).unwrap().landed_hit,
-        "recorded, not endorsed: an unclaimed outcome confirmed move 7. When \
-         `Q101` rules that an ability's contact must name the move that \
-         launched it — or credit nobody — this becomes the opposite assertion"
+        !pb.landed_hit,
+        "an outcome claiming no occurrence confirmed move 7 — `overlapped` is \
+         derived from this flag, so a blink shockwave would hand the live move \
+         a contact it never made"
+    );
+    assert!(
+        pb.hit_targets.is_empty(),
+        "the unclaimed outcome wrote its victim into move 7's per-strike dedup \
+         ledger, so move 7's own strike would skip a body it never hit"
     );
 }
 
@@ -2077,6 +2083,17 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         ))
         .id();
     let enemy = spawn_hostile_actor(&mut app); // HP 5, box at origin
+    // ⛔ THE OCCURRENCE IS NAMED, BECAUSE THE PRODUCTION MELEE ROAD NAMES IT.
+    // `hitbox/mod.rs` writes `attacker_move_instance: move_instance.map(..)` on
+    // every strike it resolves; this fixture wrote `None` and, until the
+    // 2026-09-19 ruling that an unclaimed outcome credits nobody, was carried
+    // by the implicit "whatever is playing" road. A fixture that keeps the
+    // shape production cannot produce tests a road that no longer exists.
+    let playing = app
+        .world()
+        .get::<MovePlayback>(attacker)
+        .expect("the attacker is playing a move")
+        .instance;
     let volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     app.world_mut().write_message(HitEvent {
         strike_sfx: None,
@@ -2088,7 +2105,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
-            attacker_move_instance: None,
+        attacker_move_instance: Some(playing),
     });
     app.update();
 

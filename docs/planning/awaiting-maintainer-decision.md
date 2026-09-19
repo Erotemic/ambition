@@ -1420,9 +1420,35 @@ not: each answers a different question, and the Q136 count is the second one's.
             producer/consumer snapshot boundary. That is why a green census
             read as a repair.
 
-            ⚠ **WHAT IS REASONED HERE AND NOT YET RUN.** No witness has been
-            executed for this path — the above is the mechanism, not a
-            measurement of a divergence. What would settle it is a rewind arm
+            ⛔⛤ **AND THE MESSAGE IS NOT MERELY UNRESTORED — IT IS DELIBERATELY
+            CLEARED, WHICH NAMES THE BROKEN PREMISE EXACTLY.**
+            `SetFlagRequested` is registered
+            `clear_message_on_rollback`
+            (`crates/ambition_combat/src/rollback_registration.rs:389`), and
+            that kind's contract is spelled once, in
+            `crates/ambition_platformer2d_core/src/rollback_kind.rs:332`:
+            *"clear abandoned-future message buffer in
+            `LoadWorld::Mapping`"*.
+
+            ⇒ **“ABANDONED FUTURE” IS THE PREMISE, AND A PRODUCER ORDERED AFTER
+            ITS OWN CONSUMER BREAKS IT.** Clearing is correct for a message
+            raised inside a frame the rollback discards, because replaying that
+            frame raises it again. This message is raised in a frame the
+            rollback does NOT re-simulate and read in the next one — a pending
+            PAST, not an abandoned future — so clearing drops it permanently and
+            the re-derivation, which runs after the consumer, cannot put it
+            back until the following tick.
+
+            ⇒ The general rule this exposes is worth more than the instance:
+            **`clear_message_on_rollback` is sound exactly while a message is
+            produced and consumed within ONE tick.** Ordering that makes a
+            cleared message straddle a tick boundary converts a deterministic
+            cleanup into a dropped input.
+
+            ⚠ **WHAT IS REASONED HERE AND NOT YET RUN.** The three
+            registrations above are read from source; no witness has been
+            EXECUTED for this path, so the divergence is established as a
+            mechanism and not as an observation. What would settle it is a rewind arm
             comparing the exact tick the target flag appears between an
             uninterrupted timeline and a replayed one, poisoning the ordering
             back to `.after` to prove the arm sees this specific invariant. The

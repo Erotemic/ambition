@@ -1445,6 +1445,26 @@ not: each answers a different question, and the Q136 count is the second one's.
             cleared message straddle a tick boundary converts a deterministic
             cleanup into a dropped input.
 
+            ⭐⛤ **THE CLASS WAS THEN SWEPT, AND IT HAS EXACTLY ONE MEMBER.**
+            **80** message types are registered `clear_message_on_rollback`,
+            so 80 carry the one-tick premise. Across production source (test
+            files dropped, `#[cfg(test)]` modules stripped, comments stripped)
+            **14** systems are ordered `.after(` a
+            `Platformer2dSimulationPhaseMonolith` phase, and of those fourteen
+            `emit_intro_flag_chains` is the ONLY ONE THAT WRITES A MESSAGE AT
+            ALL — the other thirteen are audio, camera, view-sync and menu
+            systems ordered after `CoreSimulation`, which is the host side of
+            the boundary. ⇒ One instance, not a pattern, which is worth knowing
+            before anyone reaches for a sweeping rule.
+
+            ⚠ **THAT SWEEP IS A LOWER BOUND AND ITS DETECTION IS NARROW.** It
+            sees an explicit `.after(<phase>)` on the producer. A producer can
+            also land after its consumer through set MEMBERSHIP or a `chain()`,
+            and this does not see either — answering that needs the initialised
+            schedule graph, the way
+            `the_mechanical_edit_chain_completes_before_the_timeline_advances`
+            walks `PreUpdate`.
+
             ⚠ **WHAT IS REASONED HERE AND NOT YET RUN.** The three
             registrations above are read from source; no witness has been
             EXECUTED for this path, so the divergence is established as a

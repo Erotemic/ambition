@@ -4750,17 +4750,17 @@
       "category": "identity",
       "name": "LoadId",
       "owner": "ambition_load / game shell",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "LoadId is router-minted load transaction correlation. PendingGenerationInputs keys candidate preparation inputs by this id.",
+      "current_truth": "LoadId is router-minted load transaction correlation. PendingGenerationInputs keys candidate preparation inputs by this id. \u2b50 CONFIRMED 2026-09-18, with a correction: there are TWO production minters, not only the router. The measurement and its citations are the `ID-LOAD` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/content_identity.rs",
         "game/ambition_content/src/reload.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "LoadId is router-minted load transaction correlation. PendingGenerationInputs keys candidate preparation inputs by this id.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "LoadId is router-minted load transaction correlation. PendingGenerationInputs keys candidate preparation inputs by this id. \u2b50 CONFIRMED 2026-09-18, with a correction: there are TWO production minters, not only the router. The measurement and its citations are the `ID-LOAD` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/content_identity.rs",
             "game/ambition_content/src/reload.rs"

@@ -100,7 +100,7 @@ A-supersedes-B hold race is **WITNESSED IN PRODUCTION — the gate is CLOSED as 
 the ⛔ at the end keeps both, because the method errors are the transferable part.
 
 ⭐ **THE SESSION HALF.** `a_candidate_session_replaced_while_pending_is_discarded`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1404`) boots
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1420`) boots
 `build_visible_app`, issues `ShellCommand::ReplaceWith` for `ambition_gameplay`,
 waits THREE frames so the second request arrives while the first is still
 PENDING, and asserts the superseded candidate is DISCARDED: no candidate gate
@@ -108,7 +108,18 @@ registration outlives its candidate, the route holds are released, and
 `session_root_for_scope(SessionScopeId(1))` finds the live session — itself the
 premise that the two requests overlapped, because the scope allocator is
 sequential. `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`:435`) drives the same road counting roots every frame.
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:535`) drives the
+same road counting roots every frame.
+
+⛔⛤ **BOTH LINE NUMBERS ABOVE WERE WRONG UNTIL 2026-09-19, AND THE SHAPE OF THE
+ERROR IS THE USEFUL PART: THEY WERE OFF BY EXACTLY THE SAME 16.** This page
+said `:1404` and the plan said `:519`; the arms declare at `:1420` and `:535`.
+One file gained sixteen lines above both, so every line citation into it aged
+together. ⇒ **A CITATION THAT RESOLVES IS NOT A CITATION THAT LANDS** — both
+pointed at real lines (`assert!(` in an unrelated arm, and a doc comment naming
+the OTHER arm), which is why nothing complained. ⚠ And the `:435` this page
+carried was a BARE suffix with no path, which resolves against whichever file a
+reader guesses.
 
 ⭐ **THE TRANSACTION HALF, ADDED 2026-09-16.**
 `a_superseded_transaction_cannot_publish_in_the_shipped_app` drives the same

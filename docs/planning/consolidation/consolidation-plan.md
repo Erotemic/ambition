@@ -230,7 +230,7 @@ of those alias sites stops running while the scope-aware ones resolve the live
 root correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
 production arm asserts:
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:519`), which counts
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:535`), which counts
 roots every frame across a real shell handoff.
 
 ⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias

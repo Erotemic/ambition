@@ -287,6 +287,21 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
             CutRopeRoomReplayRequested,
         >::default());
+        // ⛔⛤ THE SAME REGISTRATION FOR `SetFlagRequested`, AND ITS ABSENCE WAS
+        // A SHIPPED DEFECT (found in review 2026-09-18). `cmd_watch_cut_rope_video`
+        // in this module's `yarn.rs` takes a
+        // `NarrativeInputWriter<SetFlagRequested>`, whose `ledger` field is a plain
+        // `ResMut<NarrativeInputLedger<M>>` — so with no plugin installed for this
+        // payload the one-shot system cannot resolve its parameters and the
+        // authored `<<watch_cut_rope_video>>` recorded nothing.
+        //
+        // ⚠ THE MESSAGE CHANNEL WAS NEVER THE MISSING HALF, WHICH IS WHY THIS HID.
+        // `SetFlagRequested` is registered in the engine's own sim resources, so
+        // every "is the message registered?" check answered YES; the LEDGER
+        // resource is created only by this plugin, and nothing created it.
+        app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
+            ambition_combat::SetFlagRequested,
+        >::default());
         // The cycle/replay state is content-owned rollback state. Record its
         // host-independent schema here; the selected rollback host installs the
         // same declarations later from the application composition layer.

@@ -1320,6 +1320,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_consolidation_ledger_states_are_live.py",
             ],
         ),
+        # ⛔⛤ A REVIEW FOUND A NARRATIVE WRITER WITH NO LEDGER, AND THE HALF
+        # THAT WAS SATISFIED IS THE HALF ANYONE CHECKS. `SetFlagRequested`'s
+        # message channel is registered by the engine, so every "is this
+        # message registered?" reading said yes, while the LEDGER resource its
+        # `ResMut` needs was created nowhere and the authored Yarn command
+        # recorded nothing.
+        Job(
+            "every narrative writer has an installed ledger plugin",
+            [
+                sys.executable,
+                "scripts/check_narrative_writers_have_a_ledger.py",
+            ],
+        ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
         # RAN IT — so the number was one somebody had to go and look at, and
         # nothing noticed a resource joining the list. Both of its numbers were

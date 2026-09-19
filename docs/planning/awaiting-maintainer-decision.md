@@ -771,7 +771,63 @@ Current deterministic ids identify authored/simulated objects but do not encode 
 
 ## Q110 — may a provider-keyed fragment registry gain a named hot-reload replacement operation?
 
-Five provider-keyed fragment registries currently refuse conflicting re-registration. Keep ordinary registration as refusal. Decide whether the generation/publication boundary may use an explicit replacement operation, and whether that capability applies to every registry or only registries that are actually reloadable. Owner: [`triage/ambition-registry-core.md`](triage/ambition-registry-core.md).
+Five provider-keyed fragment registries currently refuse conflicting
+re-registration. Keep ordinary registration as refusal. Decide whether the
+generation/publication boundary may use an explicit replacement operation, and
+whether that capability applies to every registry or only registries that are
+actually reloadable. Owner:
+[`triage/ambition-registry-core.md`](triage/ambition-registry-core.md).
+
+⭐ **THE FIVE ARE NAMED NOW, MEASURED 2026-09-19.** Exactly five production
+files use `ambition_registry_core` (comments and test modules stripped; 28
+occurrences), and that count matches the row's "five" independently:
+
+| registry | file | what a replacement would move |
+|---|---|---|
+| `RollbackRegistry` | `crates/ambition_platformer2d_runtime/src/rollback/registry.rs` | **the snapshot schema fingerprint** — see below |
+| `PlacementLoweringRegistry` | `crates/ambition_platformer2d_world/src/placements.rs` | how a placement lowers into entities |
+| the gate/portal registry | `crates/ambition_platformer2d_world/src/rooms/gate_portal.rs` | room gate and portal wiring |
+| `RoomContentStagingRegistry` | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/content_staging.rs` | which stager owns a content source (*"sealed"*, so it has no idempotent case at all) |
+| `ConstructionRegistry` | `crates/ambition_platformer2d_shared_tangle/src/construction/registry.rs` | typed recipe/relation metadata |
+
+⛔⛤ **AND ONE OF THE FIVE ANSWERS THE SCOPE HALF BY ITSELF.** `RollbackRegistry`
+is not merely a registry that happens to refuse: `compute_schema_fingerprint`
+hashes its whole `schema_dump()`, and that fingerprint is the timeline's
+contract, checked by `enforce_session_contract`. A replacement operation there
+**changes snapshot schema identity**, which is the thing two peers must agree
+on. The registry already holds this as an arm —
+`registering_after_reading_the_fingerprint_changes_it` — whose doc says a
+fingerprint its entries no longer justify would be *"silent AND load-bearing"*.
+⇒ The row's second sub-question (*"every registry or only registries that are
+actually reloadable"*) is not a matter of taste: at least one of the five must
+be excluded or the capability breaks peer agreement.
+
+⚠ **AND THE CORE ALREADY TOOK A POSITION, WHICH THIS RULING WOULD BE
+QUALIFYING RATHER THAN INVENTING.** `Classification` has three arms by design:
+*"There is deliberately no fourth answer — 'replace' is a policy a registry may
+adopt, but not through this function, so a silent overwrite cannot be the
+accidental default."* ⇒ The core is already built for (b) below; what is
+missing is who may adopt the policy.
+
+**The decision:**
+
+* **(a) No replacement operation.** Reload stays prepare-a-new-generation and
+  publish, never mutate a live registry. ⚠ Costs whatever `I2/I3` wanted from
+  in-place reload; the row's open work is *"converge the remaining reloadable
+  registries on one explicit prepare/admit/publish contract"*, which this
+  answer makes the whole job.
+* **(b) A named replacement operation, per registry, opt-in.** Matches what the
+  core already anticipates. ⚠ The opt-in list is the ruling, and
+  `RollbackRegistry` must not be on it for the reason above.
+* **(c) A replacement operation available to all five.** ⛔ Measured unsafe as
+  stated: it would let a reload change the snapshot schema fingerprint under a
+  live timeline.
+
+⚠ **`PreparedCharacterRegistry` IS NOT ONE OF THE FIVE** and the triage page
+lists it one row away, described as *"declaration admission versus intentional
+prepared/hot-reload replacement"*. It does not use the shared core, so a ruling
+scoped to "the five" leaves the registry whose name most suggests reload
+untouched. Say which population the answer covers.
 
 ## Q122 — which registry fields are mechanical, and which are presentation?
 

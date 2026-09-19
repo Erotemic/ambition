@@ -5563,17 +5563,17 @@
       "category": "crate_boundary",
       "name": "ambition_registry_core",
       "owner": "ambition_registry_core",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason.",
+      "current_truth": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and the two written refusals are the `CRATE-REGISTRY-CORE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "docs/planning/triage/ambition-registry-core.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Planning/source use it to make silent replacement impossible. Small size alone is not a merge reason. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and the two written refusals are the `CRATE-REGISTRY-CORE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "docs/planning/triage/ambition-registry-core.md",
             "scripts/architecture_census.py"

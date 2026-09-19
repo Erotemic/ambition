@@ -271,6 +271,45 @@ customers, not the historical monolith shape.
 Choose whether “not run” is a first-class incomplete receipt or whether those
 ledgers should be removed from the required surface.
 
+⭐⛤ **THIS ROW HAD NO MEASUREMENT FOR ITS OWN SUBJECT UNTIL 2026-09-18, AND THE
+SUBJECT IS MUCH BIGGER THAN TWO LEDGERS.** Censused over every `scripts/*.py`
+whose `main()` returns a verdict — the population, rather than a naming
+convention over it:
+
+| what holds the verdict | count |
+|---|--:|
+| named as a `--maintenance` job | 41 |
+| not in the lane, but a pytest arm calls `main()` | 24 |
+| **nothing** | **77** |
+
+⚠ **THE 77 IS NOT 77 DEFECTS, AND SAYING SO IS THE POINT OF THE ROW.** Most of
+it is `measure_*` and `render_*` — REPORTS, which always exit 0 and are held by
+nobody on purpose. A report is exactly the *"remove it from the required
+surface"* answer, already taken, for most of the population. ⇒ The question is
+only live for the ones carrying a BUDGET, a WAIVER TABLE or an ABSENCE
+CONTRACT, and there were **eight** of those:
+`check_pinned_music_renderer_refuses_gm`, `check_capability_ships`,
+`check_engine_systems_are_engine_installed`, `check_headless_arms_can_fail`,
+`check_retired_crate_names`, `check_set_pins_have_engine_members`,
+`check_severed_sentences`, `check_quality_variants_are_fresh`. All eight were
+GREEN, which is how they stayed invisible — and all eight now run in the lane,
+at 11 seconds for the set.
+
+⇒ **SO THE ENGINEERING HALF ANSWERED ITSELF: at this price, hooking the lane
+wins.** What remains for a maintainer is the narrow version — whether *"not
+run"* should be a first-class **incomplete** receipt distinct from **pass** and
+**fail**, which is a receipt-model question and is not settled by any of the
+above. A ratchet costing 1–3 seconds does not need a policy; a ratchet costing
+minutes does, and the lane will grow ones that do.
+
+⚠ **AND THE CENSUS ITSELF IS THE ROW'S CAUTIONARY TALE.** Three sweeps for this
+same class ran on 2026-09-18 and the first two undercounted: one used
+`check_*.py` as its population and could not see `a_*.py`; the next used the
+`a_*` / `*_must_*` / `*_is_*` spellings and could not see these eight. Five
+guards were wired before the population was measured rather than guessed. A
+scan root is a citation, and a member outside it reads as absent rather than as
+unlooked-at.
+
 ## Q61 — where should ordering live when two systems write the same durable switch?
 
 Choose the intended winner/merge policy where product meaning is ambiguous.
@@ -801,42 +840,33 @@ one is the ROOT COUNT, which
 every frame. That mitigation does not decide the ruling and is not a substitute
 for it: it makes the failure legible, not impossible.
 
-## Q131 — how should a presentation system that writes `Transform` declare itself?
+## Q131 — ⇒ THE SAME QUESTION AS `Q139`. ASK IT THERE.
 
-**The last blocker on ROLLBACK-MUTATOR-POPULATION, and it is a shape question
-rather than an engineering one.** The guard that keeps rollback state from being
-mutated outside the rewinding schedule now covers 338 types, having excluded
-exactly one: `Transform`. MEASURED 2026-09-16 — of 64 offenders, 52 are
-`Transform` writes from camera, sprite, parallax and inspection systems, which
-are presentation acting on a component that happens to be rollback-registered.
+⛔⛤ **THE SECOND DUPLICATED RULING FOUND ON THIS PAGE ON 2026-09-18, AND THE
+PAIR IS THE SAME SHAPE AS `Q130`/`Q138`.** *"How should a presentation system
+that writes `Transform` declare itself?"* and `Q139`'s *"what declares that a
+presentation system writes `Transform`?"* are one question about one guard
+exclusion, with the same owner row
+([ROLLBACK-MUTATOR-POPULATION](queue.md#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state))
+and the same options. This one was written first; `Q139` carries the
+re-measurements and is the live row.
 
-⛔ **AND THE OBVIOUS RULE FOR TELLING THEM APART DOES NOT WORK.** Keying on a
-property the system STATES — does its signature query `Camera`, `Sprite`, `Text`,
-`Mesh`, `Light`, a projection — covers **23 of the 52**. The other 29 are plainly
-presentation by NAME (`camera_follow`, `sync_parallax_layers`,
-`sync_hit_flash_overlays`, `sync_morph_ball_visual`,
-`draw_unauthored_attack_volumes`) and nothing else. ⚠ Classifying them means
-matching names, and a row's name is not a reading of its write set — that
-classifier was measured wrong in BOTH directions twice on 2026-09-16, once in
-this guard's own neighbourhood and once in the S7 census.
+⚠ **ITS NUMBERS ARE ALL SUPERSEDED, AND ONE OF THEM MOVED FOR A REASON WORTH
+KEEPING.** It said the guard *"now covers 338 types, having excluded exactly
+one"* — re-derived 2026-09-18, **342**, and `Transform` is still the one
+exclusion. It said *"of 64 offenders, 52 are `Transform` writes"*; `Q139` reads
+52 of 60, the numerator unchanged and the denominator moved by repairs. It said
+the marker-property classifier covers *"23 of the 52"*; `Q139` reads 36 of 52
+against the same marker list and 47 against a wider one, because the carve work
+gave those systems the presentation components they were always projecting to.
+⇒ Every one of those is now a `Q139` row.
 
-⇒ So the repair is a declaration rather than a cleverer scanner, and the choice
-is what the declaration IS: (a) a system set that presentation systems join, so
-the guard asks the schedule rather than the source; (b) a marker component on the
-entities presentation moves, so the guard asks the query; (c) a distinct
-component for presentation transforms, so a presentation system cannot write the
-rollback-registered one at all; (d) leave the exclusion and accept `Transform` as
-a permanent blind spot, which is today's state written down honestly.
-
-⭐ (c) is "make it impossible, not checked" and (a) is the cheapest thing that
-could work. Either touches ~52 systems rather than the guard, which is why it is
-a ruling: the cost is spread across every presentation author, and the benefit is
-one guard's reach. ⚠ (d) is a real option and should not be dismissed — a green
-from that guard already says nothing about `Transform`, and it says so where it
-defines its population.
-
-Owner row:
-[ROLLBACK-MUTATOR-POPULATION](queue.md#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state).
+⭐ **WHAT IT CARRIED THAT `Q139` HAD LOST: A FOURTH OPTION.** *"(d) leave the
+exclusion and accept `Transform` as a permanent blind spot, which is today's
+state written down honestly"*, with the argument that it *"is a real option and
+should not be dismissed"*. `Q139` listed only (a), (b) and (c). Restored there.
+⇒ That is the cost of a duplicated ruling that nobody notices is duplicated:
+the two copies drift, and the maintainer reads whichever one they land on.
 
 ## Q130 — ⇒ THE SAME QUESTION AS `Q138`. ASK IT THERE.
 
@@ -3070,7 +3100,13 @@ its shape:
   system;
 * **(c) a wrapper type** — presentation writes a distinct component the render
   layer lowers to `Transform`, which makes the mutation unspellable rather than
-  merely declared.
+  merely declared;
+* **(d) leave the exclusion**, and accept `Transform` as a permanent blind spot
+  — today's state, written down honestly. ⭐ RESTORED 2026-09-18 from `Q131`,
+  which asked this same question first and listed it: *"a real option and should
+  not be dismissed — a green from that guard already says nothing about
+  `Transform`, and it says so where it defines its population."* Dropping a real
+  option from a maintainer's menu is a decision made by omission.
 
 ⚠ **THE SIZE IS THE REASON THIS IS A QUESTION**, and it is smaller than it was.
 It is 52 systems across the render, camera and inspection layers, not a script

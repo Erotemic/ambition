@@ -1553,6 +1553,58 @@ def build_maintenance_jobs() -> list[Job]:
             "a collapsed authority stays collapsed",
             [sys.executable, "scripts/check_collapsed_authorities_stay_collapsed.py"],
         ),
+        # ⛔⛤ **EIGHT MORE, FOUND BY ASKING `Q59` FOR A NUMBER — 2026-09-18.**
+        # That row asked *"two validation ledgers can be red when no lane ran:
+        # hook the lane or accept the state?"* and carried no measurement. The
+        # census it needed: of 142 `scripts/*.py` whose `main()` returns a
+        # verdict, 41 were named here, 24 were reached only by a pytest arm
+        # calling `main()`, and 77 by nothing. Most of that 77 is `measure_*`
+        # and `render_*` — REPORTS, which always exit 0 and are held by nobody
+        # on purpose. The eight below are not: each carries a budget, a waiver
+        # table or an absence contract, and each was green where nothing would
+        # have noticed it going red.
+        #
+        # ⚠ The earlier sweeps this session missed them for two different
+        # reasons, and both are the same mistake: the first used `check_*.py`
+        # as its population (so it could not see `a_*.py`), and the second used
+        # the `a_*`/`*_must_*`/`*_is_*` spellings (so it could not see these).
+        # A scan root is a citation. This census is over every `scripts/*.py`
+        # ending in a `main()` verdict, which is the population, not a naming
+        # convention over it.
+        #
+        # 11 seconds for the eight.
+        Job(
+            "the pinned music renderer refuses the GM fallback",
+            [sys.executable, "scripts/check_pinned_music_renderer_refuses_gm.py"],
+        ),
+        Job(
+            "every Option-read capability has a shipping writer",
+            [sys.executable, "scripts/check_capability_ships.py"],
+        ),
+        Job(
+            "engine presentation systems are engine-installed",
+            [sys.executable, "scripts/check_engine_systems_are_engine_installed.py"],
+        ),
+        Job(
+            "headless stepping arms can fail",
+            [sys.executable, "scripts/check_headless_arms_can_fail.py"],
+        ),
+        Job(
+            "no retired crate name is live",
+            [sys.executable, "scripts/check_retired_crate_names.py"],
+        ),
+        Job(
+            "set pins have engine members",
+            [sys.executable, "scripts/check_set_pins_have_engine_members.py"],
+        ),
+        Job(
+            "no severed sentences in planning",
+            [sys.executable, "scripts/check_severed_sentences.py"],
+        ),
+        Job(
+            "quality variants are fresh",
+            [sys.executable, "scripts/check_quality_variants_are_fresh.py"],
+        ),
         # Every authored door lands in a real area with a real arrival zone, and
         # no area is a trap. Content, not architecture — and at 0.15 s the
         # cheapest verdict in the lane. 0.2 seconds.

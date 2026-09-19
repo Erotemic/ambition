@@ -5589,17 +5589,17 @@
       "category": "crate_boundary",
       "name": "ambition_binding",
       "owner": "ambition_binding",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision.",
+      "current_truth": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision. \u2b50 REVIEWED 2026-09-18 and the answer is SEMANTIC UNIT, not forwarding residue: zero `pub use`, ten original declarations, sole dependency `tracing`. The measurement and its citations are the `CRATE-BINDING` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "crates/ambition_binding/Cargo.toml",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Static package size alone does not establish whether this crate is a useful semantic unit or forwarding residue. Manual API/consumer review is needed before a merge decision. \u2b50 REVIEWED 2026-09-18 and the answer is SEMANTIC UNIT, not forwarding residue: zero `pub use`, ten original declarations, sole dependency `tracing`. The measurement and its citations are the `CRATE-BINDING` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "crates/ambition_binding/Cargo.toml",
             "scripts/architecture_census.py"

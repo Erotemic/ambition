@@ -5459,17 +5459,17 @@
       "category": "crate_boundary",
       "name": "ambition_platformer2d_shared_tangle",
       "owner": "ambition_platformer2d_shared_tangle",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists.",
+      "current_truth": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists. \u2b50 MEASURED 2026-09-18: the responsibility map does call it a warning label (`:413`, \"until their exits are met\"), and this is the genuinely high-fan-in crate \u2014 35 incoming, 4 outgoing. The measurement is the `CRATE-SHARED-TANGLE` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/planning/engine/architecture-responsibility-map.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The responsibility map treats this as a warning label. Keep proven neutral protocols such as construction/lifecycle/SimId; move domain ownership out when a concrete owner exists. \u2b50 MEASURED 2026-09-18: the responsibility map does call it a warning label (`:413`, \"until their exits are met\"), and this is the genuinely high-fan-in crate \u2014 35 incoming, 4 outgoing. The measurement is the `CRATE-SHARED-TANGLE` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/planning/engine/architecture-responsibility-map.md",
             "scripts/architecture_census.py"

@@ -1971,7 +1971,7 @@ four answers, of which exactly one costs nothing and is already in the tree.
 ⇒ A latched edge is what makes an intent losable, and so is a latch re-armed on
 the wrong side of the boundary.
 
-⭐⭐⛤ **AND THERE IS A FOURTH ESCAPE, FULLY BUILT, SHIPPING ON FIVE PAYLOAD
+⭐⭐⛤ **AND THERE IS A FOURTH ESCAPE, FULLY BUILT, SHIPPING ON TEN PAYLOAD
 TYPES, AND THIS PAGE HAD NEVER NAMED IT — FOUND 2026-09-18 WHILE CHECKING A
 SENTENCE IN `Q140`.** A host-raised intent does not have to choose between
 being erased by the rewind and being re-derived inside it. It can be **STAMPED
@@ -3806,10 +3806,10 @@ sets the discriminator.
 
 | crate | composition in PRODUCTION | shell-routed? |
 |---|---|---|
-| `ambition_demo_mary_o_app` | `ShellComposition::new` (`src/lib.rs:44`) `.install` (`:49`) | **yes** |
-| `ambition_demo_sanic_app` | `:50` → `.install` `:65` | **yes** |
-| `ambition_demo_smash_app` | `:169` → `.install` `:193` | **yes** |
-| `ambition_demo_twintrack_app` | `:17` → `.install` `:22` | **yes** |
+| `ambition_demo_mary_o_app` | `ShellComposition::new` (`game/ambition_demo_mary_o_app/src/lib.rs:44`), `.install` at `:49` | **yes** |
+| `ambition_demo_sanic_app` | `game/ambition_demo_sanic_app/src/lib.rs:50`, `.install` at `:65` | **yes** |
+| `ambition_demo_smash_app` | `game/ambition_demo_smash_app/src/lib.rs:169`, `.install` at `:193` | **yes** |
+| `ambition_demo_twintrack_app` | `game/ambition_demo_twintrack_app/src/lib.rs:17`, `.install` at `:22` | **yes** |
 | `ambition_demo_mary_o`, `_sanic`, `_smash`, `_twintrack` | none — an experience plugin, no `App` | n/a, hosted |
 | `ambition_demo_pocket` | none — no production host exists | n/a |
 

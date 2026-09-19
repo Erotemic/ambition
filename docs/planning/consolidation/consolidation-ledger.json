@@ -5170,8 +5170,7 @@
           "status": "SOURCE_CONFIRMED",
           "claim": "replace_live_world stages the whole replacement into PendingWorldReplacement and publishes it through begin_publication, so two rooms' bodies coexist only for the length of one command flush and a refusal publishes nothing. \u2b50 CONFIRMED 2026-09-19 FROM SOURCE, not inferred from the declared order: the method's own contract at stage.rs:550-553 states \"A CALLER MUST NOT READ THE LIVE GEOMETRY OR ROOM SET AFTER CALLING THIS AND EXPECT THE NEW ROOM. It has not been written yet and may never be.\" The publication is the only write road, at stage.rs:588.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs:550-553",
-            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs:554-599"
+            "crates/ambition_platformer2d_actor_monolith/src/world/rooms/stage.rs"
           ]
         }
       ],

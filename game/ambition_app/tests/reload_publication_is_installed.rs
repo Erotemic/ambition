@@ -286,8 +286,16 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
     // runs `.before` it, and those are opposite ends of the same set. A
     // candidate is therefore prepared from the generation current BEFORE its
     // own activation commits. Whether that is correct by design or a frame-late
-    // read on the candidate road is a maintainer question, filed in
-    // `docs/planning/queue.md`; this test must not pretend to answer it.
+    // read on the candidate road is a maintainer question — `Q147`, in
+    // `docs/planning/awaiting-maintainer-decision.md`, with `queue.md`'s
+    // `CANDIDATE-GENERATION-ORDER` as its row. This test must not pretend to
+    // answer it.
+    //
+    // ✔ AND THE SHAPE IT DESCRIBES IS ASSERTED NOW, one crate down, where both
+    // systems are private and nameable by type:
+    // `ambition_platformer2d_provider::lifecycle::tests::the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`
+    // fails if construction moves back into `Providers` — which is the move
+    // this arm could not see.
     //
     // ⛔ The lesson for the next guard: an assertion that a SET exists cannot
     // see work leaving the set. The predecessor of this test was vacuous

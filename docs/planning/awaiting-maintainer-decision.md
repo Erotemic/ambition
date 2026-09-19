@@ -1424,18 +1424,26 @@ not: each answers a different question, and the Q136 count is the second one's.
             emit-then-consume pair sits inside a single tick and re-derives
             identically on replay.
 
-        ⛔⛤ So this ruling is responsible for FIVE live intents, not two, and
+        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
         the second channel was invisible until 2026-09-18 because the script
         required the `Resource` derive. ⭐⛤ **THE COUNT WENT FOUR → FIVE → FOUR
-        → FIVE IN ONE DAY, AND EVERY MOVE WAS A REVIEW RATHER THAN A CODE
-        CHANGE**, which is the honest record of how confident this page was
-        entitled to be. `SetFlagRequested` joined when a review corrected its
-        benign verdict, left when its producer moved into the rewinding
-        schedule, and RETURNED when a second review pointed out that the
-        producer is ordered after its own consumer, so the derivation lands a
-        tick late on replay — see its block above. The five are
+        → FIVE → FOUR ACROSS TWO DAYS, AND EVERY MOVE BUT THE LAST WAS A REVIEW
+        RATHER THAN A MEASUREMENT**, which is the honest record of how confident
+        this page was entitled to be. `SetFlagRequested` joined when a review
+        corrected its benign verdict, left when its producer moved into the
+        rewinding schedule, RETURNED when a second review pointed out that the
+        producer is ordered after its own consumer — and left again on
+        2026-09-19, this time on a WITNESS rather than an argument: a straddling
+        EDGE desyncs the timeline and a straddling DERIVATION does not, and the
+        intro chain is a derivation. See its block above. ⇒ The four are
         `CutsceneAdvanceRequest`, `NewGameResetRequested`,
-        `AmbientGravityRequest`, `PlayerHealRequested` and `SetFlagRequested`.
+        `AmbientGravityRequest` and `PlayerHealRequested`.
+
+        ⚠ **THE PATTERN IN THAT OSCILLATION IS WORTH MORE THAN THE NUMBER.**
+        Four of the five moves were one reader persuading another, and each
+        argument was locally sound; what settled it was building the fixture
+        that could tell the two readings apart. ⇒ A row that has changed verdict
+        on argument twice should not change it a third time on argument.
         ⇒ What the briefly-repaired one has that the others do not is a
         producer that is a pure DERIVATION over rollback state rather than a
         latched input edge — which makes its escape REACHABLE, by reordering,
@@ -1982,10 +1990,34 @@ READING RATHER THAN A COUNT.**
   a derivation over rollback state, and a straddling derivation is repaired by
   the resimulation that re-runs it. The 2026-09-18 repair was complete.
 
-  ⚠ **WHAT KEEPS `SetFlagRequested` ON THIS PAGE IS THEREFORE A DIFFERENT
-  QUESTION, AND A SMALLER ONE:** whether any OTHER producer of it is an EDGE
-  raised outside the rewinding schedule. The intro chain is cleared; the census
-  of its remaining producers is not yet re-read under that narrower test.
+  ⭐⭐ **AND THAT NARROWER QUESTION IS ANSWERED THE SAME DAY, SO THE PAYLOAD
+  CLOSES.** The remaining question was whether any OTHER producer of
+  `SetFlagRequested` is an EDGE raised outside the rewinding schedule.
+  `scripts/check_host_produced_sim_consumed_requests.py` — the census that
+  built this row's list — reports **95 message types written somewhere, and
+  exactly THREE read inside the rewinding schedule and written only outside
+  it**: `AmbientGravityRequest`, `PlayerHealRequested` and `ResetToCheckpoint`.
+  `SetFlagRequested` is not among them. Its other producers
+  (`features/ecs/chests.rs`, `interact.rs`, `pickups.rs`, `damage/actor_hit.rs`,
+  `world_facts.rs`) write from inside the sim, and the authored Yarn command
+  writes through the ledger.
+
+  ⚠ **THAT LAST CLAUSE RESTS ON AN EXEMPTION WHOSE PREMISE IS NOW HELD, WHICH
+  IS THE ONLY REASON IT IS SAFE TO LEAN ON.** The census does not count a
+  `NarrativeInputWriter` as a host crossing, on the grounds that the ledger is
+  the safe ingress — and until 2026-09-18 nothing checked that the ledger was
+  actually INSTALLED for a given payload, which is exactly how
+  `SetFlagRequested` came to be written by a shipped Yarn command with no
+  `NarrativeInputPlugin` anywhere. `scripts/check_narrative_writers_have_a_ledger.py`
+  now pairs all ten writer payloads with their plugins, so the exemption has a
+  premise rather than a rationale.
+
+  ⇒ **`SetFlagRequested` IS NO LONGER A LIVE `Q136` ROW.** Both of its roads are
+  accounted for: the intro chain is a derivation inside the rewinding schedule
+  (witnessed above), and the authored command rides the tick-stamped ledger
+  (escape four, premise held). The count returns to FOUR, which is where it was
+  before the 2026-09-18 review re-opened it — and the two corrections that
+  happened in between were both real.
 
   ⛔⛤ **AND THE FIRST GATED FIXTURE MEASURED NOTHING, WHICH ITS PREMISE ARM
   CAUGHT AND IS THE REASON THAT ARM EXISTS.** A derivation gated on CHANGED

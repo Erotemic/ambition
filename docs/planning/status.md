@@ -273,6 +273,17 @@ fails silently.
 
 ## Current execution
 
+⭐ **IF THE QUESTION IS "WHAT IS ACTUALLY BLOCKED", THE ANSWER IS NOT ON THIS
+PAGE.** [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
+opens with *What actually blocks architecture work today*, derived 2026-09-19 by
+reading every gate in `queue.md`'s P0/P1 sections and every `DO NOT START
+BEFORE` in the consolidation plan — **six questions**, each with what it blocks
+and what happens if it stays open. ⇒ That section is the owner; this one is a
+shape-of-the-queue orientation and deliberately does not restate the set. ⚠ The
+derivation itself first published FOUR, because it scanned a fixed 60 lines from
+each row heading and two blockers sit further down — which is the same lesson
+the bullets below are about, arriving in the instrument rather than the copy.
+
 The queue is intentionally compact. Its current groups are:
 
 - **P0:** A10 publication (CLOSED), peer-stable identity (**no road count here —

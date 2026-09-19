@@ -3760,6 +3760,59 @@ fn request_nothing(
 ) {
 }
 
+/// ⛤ **THE REAL PRODUCER'S SHAPE, WHICH THE ARMS ABOVE DELIBERATELY DO NOT
+/// HAVE.** `emit_intro_flag_chains` is not an unconditional writer: it is
+/// registered `run_if(resource_exists_and_changed::<AmbitionGameSave>)` and it
+/// skips any target flag already present, so it is a DERIVATION over the save
+/// rather than an edge. The plugin's argument for why the straddle is safe
+/// rests entirely on that gate re-arming when a rewind restores the resource.
+/// This reproduces both halves: gated on the same condition, and idempotent on
+/// the target.
+fn derive_the_flag_from_the_save(
+    save: bevy::prelude::Res<AmbitionGameSave>,
+    mut requests: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::events::SetFlagRequested,
+    >,
+) {
+    // ⚠ NO TICK CONDITION, and the first fixture's had one — see
+    // `PRIMER_FLAG`. A derivation gated on CHANGED runs on the tick after
+    // something moved the save, which is not a tick this arm chooses.
+    if !save.data().flag(WITNESS_FLAG) {
+        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
+            id: WITNESS_FLAG.to_string(),
+            on: true,
+        });
+    }
+}
+
+/// The flag whose landing ARMS the derivation above.
+///
+/// ⛔⛤ **THE FIRST GATED FIXTURE HAD NO PRIMER AND ITS PREMISE ARM CAUGHT IT.**
+/// The derivation only runs on a tick where `AmbitionGameSave` is CHANGED, and
+/// in a fixture where nothing else writes the save, nothing ever changes it —
+/// so the derivation never ran, the flag was never set, and the rollback arm
+/// beside it "failed" while measuring nothing at all. That is the chicken and
+/// egg the real chain does not have: `emit_intro_flag_chains` is armed by a
+/// PREVIOUS flag write, which is what makes it a chain.
+const PRIMER_FLAG: &str = "a_straddling_setflag_witness_primer";
+
+/// Written once, on the SOUND road (before its consumer), purely to move the
+/// save and arm the gate — the role an earlier authored flag plays in the
+/// shipped intro chain.
+fn prime_the_save_once(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut requests: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::events::SetFlagRequested,
+    >,
+) {
+    if tick.0 == RAISE_AT {
+        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
+            id: PRIMER_FLAG.to_string(),
+            on: true,
+        });
+    }
+}
+
 fn witness_flag_is_set(sim: &Platformer2dSimHarness) -> bool {
     sim.world()
         .get_resource::<AmbitionGameSave>()
@@ -3773,6 +3826,44 @@ fn witness_flag_is_set(sim: &Platformer2dSimHarness) -> bool {
 /// rather than reusing that one.
 fn witness_sim(after_consumer: bool, rollback: bool) -> Platformer2dSimHarness {
     witness_sim_with(after_consumer, rollback, true)
+}
+
+/// The gated derivation, always AFTER its consumer — which is the shipped
+/// registration's exact shape. `gate` exists so the two things that differ from
+/// the one-shot arms can be separated: the `run_if` and the idempotent
+/// derivation shape.
+fn gated_witness_sim(rollback: bool) -> Platformer2dSimHarness {
+    gated_witness_sim_with(rollback, true)
+}
+
+fn gated_witness_sim_with(rollback: bool, gate: bool) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    use bevy::prelude::IntoScheduleConfigs;
+    let mut options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ROOM);
+    if rollback {
+        options = options.with_sync_test_rollback_settings(4, 10);
+    }
+    Platformer2dSimHarness::build(options, move |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        let label = app.sim_schedule();
+        let phase =
+            ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith::GameplayEffects;
+        app.add_systems(label, prime_the_save_once.before(phase));
+        if gate {
+            app.add_systems(
+                label,
+                derive_the_flag_from_the_save
+                    .after(phase)
+                    .run_if(bevy::prelude::resource_exists_and_changed::<AmbitionGameSave>),
+            );
+        } else {
+            app.add_systems(label, derive_the_flag_from_the_save.after(phase));
+        }
+        Ok(())
+    })
+    .expect("the gated witness harness builds")
 }
 
 fn witness_sim_with(
@@ -3922,5 +4013,101 @@ fn a_silent_system_after_the_consumer_does_not_desync() {
         "a system that writes NOTHING desynced from the slot after \
          `GameplayEffects`, so the straddling arm's desync is about the slot \
          rather than about the message and this file's reading of it is wrong"
+    );
+}
+
+/// ⛔ THE PREMISE FOR THE GATED PAIR. The derivation only runs on a tick where
+/// `AmbitionGameSave` is CHANGED, so a composition where the save never moves
+/// would never run it at all and a green rollback arm below would mean nothing.
+#[test]
+fn the_gated_derivation_reaches_the_save_without_rollback() {
+    let mut sim = gated_witness_sim(false);
+    drive(&mut sim, 240);
+    assert!(
+        witness_flag_is_set(&sim),
+        "the gated derivation never set the witness flag with no rollback at \
+         all. Either `AmbitionGameSave` is never marked changed on this route, \
+         or the derivation never ran — and under either the rollback arm below \
+         is measuring nothing"
+    );
+}
+
+/// ⛔⛤ **THE ARM `Q136` WAS MISSING: IS THE INTRO CHAIN'S `run_if` GATE ENOUGH
+/// TO SURVIVE THE STRADDLE THAT DESYNCS WITHOUT IT?**
+///
+/// `a_flag_requested_after_its_consumer_desyncs_the_timeline` proves the
+/// schedule position alone loses the message — a checksum mismatch, not a
+/// dropped input. But `emit_intro_flag_chains` is not that system: it is a
+/// DERIVATION over rollback state, gated on
+/// `resource_exists_and_changed::<AmbitionGameSave>`, and the plugin argues
+/// this is exactly why it is safe — *"`bevy_ggrs` 0.22 restores a resource with
+/// `S::update(resource.as_mut(), snapshot)` and `ResMut::as_mut` marks it
+/// changed unconditionally, so every restore re-arms this condition"*.
+///
+/// ⇒ That argument is the ONLY thing standing between the shipped intro chain
+/// and the divergence the arm above witnesses, and it had no test. This is it:
+/// same slot, same payload, same rollback settings — plus the gate and the
+/// skip-if-already-present that make it a derivation instead of an edge.
+///
+/// ⚠ WRITTEN BEFORE RUNNING, so the result cannot pick its own meaning:
+///   - PASSES ⇒ the plugin's argument holds where it matters. Re-deriving
+///     inside the rewinding schedule really does repair a straddled message,
+///     `Q136`'s escape three is sound for `SetFlagRequested`, and the row can
+///     close on evidence rather than on reasoning.
+///   - FAILS ⇒ the shipped intro chain desyncs the timeline, the repair that
+///     moved it out of `Update` was incomplete, and the narrow fix (order the
+///     producer BEFORE `GameplayEffects`) becomes urgent rather than a
+///     maintainer preference about next-tick chaining.
+#[test]
+fn the_gated_derivation_survives_the_straddle_that_desyncs_without_it() {
+    let mut sim = gated_witness_sim(true);
+    drive(&mut sim, 240);
+
+    let verdict = health(&sim);
+    assert_eq!(
+        verdict,
+        Ok(()),
+        "the GATED derivation desynced in the same slot where the ungated one \
+         does. The plugin's argument — that a restore re-arms \
+         `resource_exists_and_changed` and so re-raises the message on the \
+         replayed tick — does not hold, which makes the shipped \
+         `emit_intro_flag_chains` a live desync rather than a repaired road"
+    );
+    assert!(
+        witness_flag_is_set(&sim),
+        "the timeline stayed in sync but the derived flag never reached the \
+         save across the window, so the chain is lost quietly instead of loudly"
+    );
+}
+
+/// ⛔⛤ **WHICH HALF DOES THE WORK — THE `run_if` GATE, OR THE IDEMPOTENT
+/// DERIVATION?** The gated arm differs from the desyncing one-shot in TWO ways
+/// at once, and crediting the gate without separating them would be a property
+/// measured only on the accused. This is the same derivation in the same slot
+/// with the gate REMOVED.
+///
+/// ⚠ Its outcome is a finding either way and neither is a defect:
+///   - green ⇒ the DERIVATION SHAPE is what survives the rewind, and the gate
+///     is a cost optimisation. `Q136`'s escape three should then be stated as
+///     "re-derive inside the rewinding schedule", with no mention of change
+///     detection — which is how the page already words it.
+///   - red ⇒ the GATE is load-bearing, and escape three's statement is
+///     incomplete without it.
+#[test]
+fn separating_the_gate_from_the_derivation_shape() {
+    let mut sim = gated_witness_sim_with(true, false);
+    drive(&mut sim, 240);
+    let verdict = health(&sim);
+    assert!(
+        witness_flag_is_set(&sim),
+        "the ungated derivation never set the flag, so this arm separated \
+         nothing"
+    );
+    assert_eq!(
+        verdict,
+        Ok(()),
+        "the UNGATED derivation desyncs while the gated one does not, so the \
+         `run_if` is load-bearing rather than a cost optimisation, and `Q136`'s \
+         escape three is incomplete without it"
     );
 }

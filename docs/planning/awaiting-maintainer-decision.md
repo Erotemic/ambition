@@ -22,7 +22,7 @@ blocks a campaign that could not previously be costed.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
-| [`Q136`](#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) | **P0** `CUTSCENE-ROLLBACK-DECISION` item 1, explicitly (*"blocked on `Q136`, not unowned"*) | five host→sim intents stay live defects. One is now witnessed as a **desync** rather than a dropped input, which is the worse failure of the two |
+| [`Q136`](#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) | **P0** `CUTSCENE-ROLLBACK-DECISION` item 1, explicitly (*"blocked on `Q136`, not unowned"*) | **four** host→sim intents stay live defects, each an EDGE raised outside the rewinding schedule. ⭐ Witnessed 2026-09-19: an edge straddling its consumer does not merely lose the intent, it **desyncs the timeline** — the worse of the two failures. ⚠ The fifth, `SetFlagRequested`'s intro chain, is CLEARED by the same arms: it is a derivation, and a straddling derivation is repaired by the resimulation that re-runs it |
 | [`Q122`](#q122--which-registry-fields-are-mechanical-and-which-are-presentation) | **P0** `ID-PEER`'s snapshot-schema-fingerprint road | two builds of the same mechanical schema stay two identities if somebody rewords a comment — poison-measured at 166 diff lines for one pluralised word |
 | [`Q144`](#q144--must-every-supported-composition-activate-a-prepared-generation-or-does-direct-entry-keep-the-app-registry-road) | **C04**, and it is now that row's ONLY maintainer hold | C04 cannot start. ⭐ `Q132` narrowed it: the anonymous App-global fallback is already on the wrong side of the scoping rule, so `Q144` now owns only whether direct entry must ACTIVATE a generation or may declare its inputs another explicitly-scoped way |
 | [`Q146`](#q146--what-are-the-supported-composition-profiles-and-which-authorities-must-each-one-carry) | **C07**, entirely | C07 cannot be COSTED, not merely started: *"replace optional fallbacks where the authority is required"* has no population until "required" has a referent |
@@ -1952,6 +1952,50 @@ READING RATHER THAN A COUNT.**
   plugin comment declines on the grounds that next-tick chaining is the shipped
   behaviour — a behaviour question for the maintainer, and the reason this stays
   here rather than being fixed in passing.
+
+  ⭐⭐⛤ **AND THE GATE'S ARM NOW EXISTS, SO THIS ROW CAN STOP BEING ABOUT THE
+  INTRO CHAIN — MEASURED 2026-09-19.** The paragraph above ended by saying the
+  plugin's argument was *"the only thing standing between the intro chain and
+  this divergence, and it has no arm."* Three more arms, in the same file, with
+  the derivation's real shape — gated on
+  `resource_exists_and_changed::<AmbitionGameSave>`, skipping a target already
+  present, and armed by a PRIOR flag write the way a chain is:
+
+  | arm | producer in the straddling slot | result |
+  |---|---|---|
+  | `a_flag_requested_after_its_consumer_desyncs_the_timeline` | a one-shot EDGE | ⛔ desync |
+  | `the_gated_derivation_survives_the_straddle_that_desyncs_without_it` | gated DERIVATION | ✔ clean, flag lands |
+  | `separating_the_gate_from_the_derivation_shape` | the same derivation, gate REMOVED | ✔ clean, flag lands |
+
+  ⇒ **IT IS THE DERIVATION SHAPE THAT SURVIVES, NOT THE GATE.** The third arm
+  exists because the gated one differed from the desyncing one in TWO ways at
+  once, and crediting the `run_if` without separating them would have been a
+  property measured only on the accused. With the gate removed the straddle is
+  still clean, so `resource_exists_and_changed` is a COST OPTIMISATION and not
+  a correctness mechanism — which is exactly how escape three is worded on this
+  page already (*"re-derive INSIDE the rewinding schedule"*, no mention of
+  change detection). The wording was right and had not been earned; now it is.
+
+  ⇒ **SO `emit_intro_flag_chains` IS NOT A LIVE DEFECT, AND THE REVIEW CONCERN
+  THAT RE-OPENED IT DOES NOT HOLD.** Its `.after(GameplayEffects)` position
+  makes its message straddle a tick, and a straddling EDGE desyncs — but it is
+  a derivation over rollback state, and a straddling derivation is repaired by
+  the resimulation that re-runs it. The 2026-09-18 repair was complete.
+
+  ⚠ **WHAT KEEPS `SetFlagRequested` ON THIS PAGE IS THEREFORE A DIFFERENT
+  QUESTION, AND A SMALLER ONE:** whether any OTHER producer of it is an EDGE
+  raised outside the rewinding schedule. The intro chain is cleared; the census
+  of its remaining producers is not yet re-read under that narrower test.
+
+  ⛔⛤ **AND THE FIRST GATED FIXTURE MEASURED NOTHING, WHICH ITS PREMISE ARM
+  CAUGHT AND IS THE REASON THAT ARM EXISTS.** A derivation gated on CHANGED
+  runs only on a tick after something moved the save, and in a fixture where
+  nothing else writes the save, nothing ever changes it: the derivation never
+  ran, the flag never landed, and the rollback arm beside it went red while
+  testing nothing at all. Had the premise arm not been written first, that red
+  would have read as *"the gate does not survive the rewind"* — the opposite of
+  the true answer. The repair is a PRIMER flag written on the sound road, which
+  is the role an earlier authored flag plays in the shipped chain.
 
 ⭐⛤ **SO THERE IS ONE GENERAL ESCAPE IN THE TREE, NOT TWO — AND LOSING ONE
 SHARPENED THE RULE INSTEAD OF WEAKENING IT.** The surviving escape is

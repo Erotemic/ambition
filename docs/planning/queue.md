@@ -1495,6 +1495,19 @@ closed:
 
 ⇒ A resimulation of frame N read whatever either policy held NOW. That is still
 true of the damage half.
+
+⭐ **AND THE ROAD THAT MOVES IT MID-SESSION IS NAMED NOW — MEASURED 2026-09-19,
+because "forward-only" is only a defect if something can change the value while
+a timeline is live.** It can. `project_player_damage_policy` reads
+`UserSettings.gameplay`, and `Difficulty`, `Assist` and `PlayerDamage` are
+ordinary rows of the settings model
+(`crates/ambition_settings_menu/src/settings/apply.rs`), which the in-game
+System face surfaces generically as `SystemRow::Setting(..)`
+(`game/ambition_app/src/menu/model.rs:493`). That overlay opens from
+`GameMode::Playing` and restores it on close. ⚠ **THE PAUSE MENU IS NOT THE
+ROAD**, and checking it first was the wrong place to look: `PauseEntry` is
+`Resume`, `Abandon`, `Audio`, `QuitToTitle`, `QuitToDesktop`, `Close` — no
+settings row at all.
 `rollback_coverage.rs` waives each one with that stated in its reason; this row is
 where a reader looks first, and it was the copy that had drifted. ⚠ "Projected" is
 not "admitted": a projection narrows who reads a mutable value, and the timeline

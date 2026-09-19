@@ -3,8 +3,9 @@
 //! What remains here is genuinely Ambition-assembly:
 //!
 //! - App-local Ambition character-fragment registration (CONTENT choice),
-//! - the LDtk data-asset Startup chain (`load_data_asset_handle` →
-//!   `setup_simulation_system` — the host's world construction),
+//! - the LDtk data-asset Startup chain (`load_data_asset_handle`, then the
+//!   empty `SimulationSetupSet` slot — see the chain itself; the host system
+//!   that used to construct the world there is gone),
 //! - the startup-profiler phase marks + PostStartup report.
 //!
 //! [`AmbitionGameSimulationSetupPlugin`] is mounted by
@@ -27,14 +28,30 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
                 ambition_platformer2d::dev_tools::profiling::phase_mark("startup_begin"),
                 data::load_data_asset_handle,
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_load_data_handle"),
-                // `SimulationSetupSet` is the machinery-facing label for
-                // this slot: engine/host startup systems that need the sim
-                // world set up (e.g. the host's input-component attach)
-                // order `.after(the set)` instead of naming this system.
-                // Direct entry constructs the simulation world at boot; the
-                // shell host constructs a SESSION-scoped world per activation
-                // (`shell_host::ambition_activate_session_visuals`).
-                ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_simulation"),
+                // ⛔⛤ **THERE IS NO SYSTEM BETWEEN THESE TWO MARKS, AND THE
+                // SECOND ONE NAMED IT UNTIL 2026-09-19.** `d3135def0` deleted
+                // `setup_simulation_system` — it had never been registered, so
+                // the `.after()` edge that appeared to order this chain against
+                // it was a claim rather than a constraint. The mark outlived
+                // the system and went on printing `after_setup_simulation`
+                // every boot, which `docs/recipes/profiling.md` reproduces as
+                // the dominant startup cost.
+                //
+                // ⚠ IT STILL BRACKETS SOMETHING, which is why it is renamed
+                // rather than removed: `SimulationSetupSet` is the
+                // machinery-facing label for this slot — engine/host startup
+                // systems needing the sim world (e.g. the host's
+                // input-component attach) order `.after(the set)` rather than
+                // naming a system — and the demo fixtures do fill it. THIS
+                // composition puts nothing in it, so what the interval now
+                // holds is unordered `Startup` residue, not a stage. A number
+                // measured here before the deletion says nothing about what it
+                // reports today.
+                //
+                // The shell host builds a SESSION-scoped world per activation
+                // (`shell_host::ambition_activate_session_visuals`) and does
+                // not come through here at all.
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_simulation_setup_slot"),
             )
                 .chain(),
         )

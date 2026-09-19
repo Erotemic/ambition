@@ -8,10 +8,26 @@
 //! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
 //! `ActiveRoomMetadata` — which world is loaded is the game's choice), the
 //! authored content catalogs/registries (character catalog, music/sfx
-//! registries, item roster), and the app startup chain
-//! (`setup_simulation_system`). The content-free [`CharacterRoster`] default
-//! below is only an explicit authority resource for Apps with no hostile
-//! provider; provider registration replaces it transactionally.
+//! registries, item roster), and the app startup chain itself (the host's
+//! `Startup` systems and its `SimulationSetupSet` slot).
+//!
+//! ⛔⛤ **AND THERE IS NO CHARACTER DEFAULT BELOW, THOUGH THIS SAID THERE WAS
+//! UNTIL 2026-09-19.** The sentence described *"the content-free
+//! `CharacterRoster` default below"* as *"an explicit authority resource for
+//! Apps with no hostile provider"* that *"provider registration replaces
+//! transactionally"*. `CharacterRoster` has no definition in the tree, this
+//! module initialises no cast resource of any spelling, and the policy it
+//! stated is the one the architecture REFUSED: `prepare_declared_cast`
+//! (`ambition_platformer2d/src/app.rs`) records that it is deliberately *"not
+//! `insert_resource(CharacterCatalog)`: that would be a second authority on
+//! what the cast is, and fragments MERGE, which is what lets several
+//! experiences coexist in one composition at all."*
+//!
+//! ⇒ Renaming the dead type here would have left a false sentence reading
+//! true, which is the trap: the paragraph two lines above already lists the
+//! character catalog among what this group does NOT provide, and the two
+//! sentences contradicted each other in one comment. The cast arrives as
+//! merging `CharacterCatalogFragment`s and has no default owner here.
 //!
 //! Ownership notes (anti-god rule 5): the dev-tools editables, `DialogState`/
 //! `DialogueNodeIndex`, the encounter registries, and `MapMenuState` re-homed

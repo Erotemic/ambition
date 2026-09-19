@@ -211,9 +211,20 @@ tick and prints the per-phase deltas + total to stderr:
 
 ```text
 [startup] → after_load_data_handle: +0.4ms
-[startup] → after_setup_simulation: +312.7ms
+[startup] → after_simulation_setup_slot: +312.7ms
 [startup] total before first frame: 412.5ms
 ```
+
+⛔⛤ **THE SECOND LINE READ `after_setup_simulation` UNTIL 2026-09-19 AND NAMED
+A SYSTEM THAT NO LONGER EXISTS.** `setup_simulation_system` was deleted in <!-- cite-ok: recording the deleted name on purpose -->
+`d3135def0` — it had never been registered, so the `.after()` edge that
+appeared to order the app's Startup chain against it was a claim rather than a
+constraint. The mark outlived it, so a reader chasing the dominant startup cost
+went looking for a function the tree does not contain. ⚠ **AND THE +312.7ms IS
+FROM BEFORE THAT DELETION**: the interval now holds no named system at all in
+`ambition_app` — `SimulationSetupSet` is the slot, the demo fixtures fill it and
+this composition does not — so whatever it reports today is unordered `Startup`
+residue. Re-measure before acting on it.
 
 Phase marks are inserted between Startup-chained systems via
 `profiling::phase_mark("name")`. The defaults today bracket

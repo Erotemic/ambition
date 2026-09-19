@@ -526,7 +526,9 @@ gate instead of being re-derived by whoever next reads it.
 The section above deferred this: *"picking a new baseline decides what window
 the sweep covers."* Two measurements made the decision instead.
 
-**It was reachable from nothing.** `98b0bd8079fa5cc84112ea302e1d28826a54bbc3`
+**It was reachable from nothing.** The old constant — the 2026-08-13 SHA the
+section above deliberately does not spell, because writing it reddens the
+commit-citation guard and that redness IS this finding —
 is an ancestor of no ref in this repository — `git merge-base --is-ancestor`
 says so against HEAD and against every `for-each-ref` entry. It survived here
 only as a dangling object in the checkout that wrote it.
@@ -566,10 +568,22 @@ whole reason the deferral was wrong.
 
 The last row is the one that changes the work. Sampled four of the new
 findings and every one names the commit that made it stale, with a subject
-that says what that commit was doing: `spawn_world_for` → `172816069` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
-(2026-09-16), `activate_prepared_platformer_sessions` → `c89c68747` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
-(2026-09-15), `setup_simulation_system` → `62ecde029` (2026-09-06), <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+that says what that commit was doing: `spawn_world_for` → `2a1fc35fc` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+(2026-09-16, *"One mint for the session root: the unreachable primitive is
+gone"*), `activate_prepared_platformer_sessions` → `c89c68747` (2026-09-15), <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`setup_simulation_system` → `d3135def0` (2026-09-06, *"A false ordering claim <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+was hiding a dead system and two dead SystemParams"*),
 `CheckpointResumeProgress` → `7102674a7` (2026-09-08). <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+
+⛔⛤ **AND THE FIRST TWO OF THOSE FOUR WERE ATTRIBUTED TO THE WRONG COMMIT,
+BY THIS PAGE, IN THE SAME CLASS IT IS ABOUT.** `git log -S<name>` searches
+every tracked line, COMMENTS INCLUDED, so it answers "who last edited the
+count of this string" — which for a deleted symbol is usually whoever last
+wrote prose about the deletion. It named `172816069` and `62ecde029`, both of
+which only touched comments mentioning the name. ⇒ **Search the DEFINITION
+form**: `git log -S"fn <name>"` or `-S"struct <name>"` reaches the removal
+itself. A bare-name query cannot tell a definition from a sentence, which is
+the same confusion the `--comments` pass exists to surface.
 
 ⇒ The 222 was a haystack dominated by prose deliberately recording old names,
 because a three-month-old window catches every rename the corpus ever narrated.
@@ -582,3 +596,68 @@ names the previous slice could not map at all, now attributable in one command.
 ancestry rather than shape, because existence is precisely the test that passed
 on the machine holding the object. Poisoned with the old SHA: it fails naming
 that SHA, and the three sibling arms stay green.
+
+## The first sweep at the new baseline, worked the same day
+
+54 findings, 28 names. Classified by the COMMENT BLOCK rather than the line —
+the unit that carries the meaning, as the line-vs-block section above measured:
+**48 deliberate history, 4 live.** The largest cluster is entirely clean:
+`spawn_world_for` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+has 6 sites and all 6 narrate its deletion, including a doc comment on
+`adopt_world` that exists to explain why the primitive went. ⇒ **A cluster
+being big is not evidence it is rotten**, and a count of findings is not a
+count of work.
+
+All three remaining `setup_simulation_system` sites were live, and it traces to <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`d3135def0` — *"A false ordering claim was hiding a dead system and two dead
+SystemParams."* The system had never been registered, so the `.after()` edge
+that appeared to order the app's `Startup` chain against it was a claim rather
+than a constraint; removing it let rustc name ~100 more lines of dead code.
+
+⛔⛤ **AND THE MARK OUTLIVED THE STAGE.** The app's Startup chain still emitted
+`phase_mark("after_setup_simulation")` between two adjacent chained systems
+with nothing between them, so every boot printed a stage that does not exist —
+and [`../../recipes/profiling.md`](../../recipes/profiling.md) reproduces it as
+the example output at **+312.7ms of a 412.5ms startup**, the dominant cost. A
+reader optimising startup went looking for a function the tree does not
+contain. Renamed to the slot that IS there (`SimulationSetupSet`, which the
+demo fixtures fill and this composition does not), and the recipe now says the
+figure predates the deletion and must be re-measured before anyone acts on it.
+
+### The repair that would have made a false sentence read true
+
+`sim_core_resources.rs:12` described *"the content-free `CharacterRoster` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+default below"* as *"an explicit authority resource for Apps with no hostile
+provider"* that *"provider registration replaces transactionally"*. The obvious
+repair is the rename the rest of this page is made of —
+`CharacterRoster` → `CharacterCatalog`. **It would have been wrong.** <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+
+This module initialises no cast resource of any spelling; the paragraph two
+lines above already lists the character catalog among what the engine group
+does NOT provide, so the comment contradicted itself; and the policy the
+sentence states is the one the architecture REFUSED. `prepare_declared_cast`
+records it: *"Not `insert_resource(CharacterCatalog)`: that would be a second
+authority on what the cast is, and fragments MERGE, which is what lets several
+experiences coexist in one composition at all."*
+
+⇒ **A dead name is a symptom and the sentence around it is the subject.**
+Renaming would have left a fluent, checkable, wrong paragraph that no future
+sweep could ever flag again — strictly worse than the stale name, which at
+least announced itself. This is the third time on this page that reading the
+paragraph instead of the token changed the repair, after the two
+`session/reset` sites and the `player_robot_v3` re-wear.
+
+### What the instrument cannot see, measured
+
+`BARE` requires backticks on both sides, so an unbackticked name is invisible.
+Censused across all 28 vanished names: **6 unbackticked comment mentions, of
+which 4 are the English verb "unbind" and 2 are real.** One was a live defect
+(`resources.rs` justified an `insert_resource` by naming the deleted system as
+its reader); the other was a citation WRAPPED ACROSS A LINE BREAK, so each
+backtick sat on a different line and neither the opening nor the closing pair
+matched. Both are repaired and the second is rewrapped so the pass can see it.
+
+⇒ A recorded negative: the missing-backticks blind spot is real but tiny, and
+not worth loosening the pattern for — a looser one would match every ordinary
+word. The line-wrap case is the one worth knowing, because it looks correct in
+the source and is invisible to the check.

@@ -321,11 +321,21 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(ldtk_world::LdtkRuntimeOneWayIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeDamageIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineParity::default())
-        // PhysicsSandboxSettings is read by setup_simulation_system; on the
-        // visible binary AmbitionPhysicsPlugin re-inserts the default value
-        // (harmless — same default), but headless does not load that plugin
-        // (it depends on ScenePlugin), so the resource must be available
-        // up front.
+        // `PhysicsSandboxSettings` must exist before the plugins that would
+        // otherwise provide it: on the visible binary `AmbitionPhysicsPlugin`
+        // re-inserts the default (harmless — same default), but headless does
+        // not load that plugin, because it depends on `ScenePlugin`.
+        //
+        // ⚠ THE READER NAMED HERE WAS `setup_simulation_system`, DELETED IN
+        // `d3135def0`, AND THE COMMENT KEPT CITING IT UNTIL 2026-09-19. The
+        // live readers are `dev_runtime`'s editable panel and
+        // `ambition_render`'s platformer presentation. ⛔ Which means the
+        // NECESSITY above is no longer derived from anything measured: both of
+        // those also `init_resource` it, and so does the engine group
+        // (`sim_core_resources.rs`), so whether this insert is still load-
+        // bearing for a headless composition is an open question rather than
+        // the settled fact the old sentence read as. Left in place — removing
+        // it is a change that needs a headless run, not a prose repair.
         .insert_resource(physics::PhysicsSandboxSettings::default())
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk

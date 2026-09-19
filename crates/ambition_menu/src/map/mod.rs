@@ -189,8 +189,10 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
     // plugin publishes `AudioInitSet` and the host brackets it here"*. ⇒ The
     // carve wants this plugin to publish a `MapMenuSpawnSet`, install
     // `populate_map_rooms` into it, and the host to order its phase mark
-    // `.after(MapMenuSpawnSet)` — plus a published set standing where
-    // `setup_simulation_system` stands today, which is the host's to make.
+    // `.after(MapMenuSpawnSet)` — plus a published set standing where the
+    // host's own simulation-setup slot does, which is the host's to make.
+    // ⚠ That sentence named `setup_simulation_system` until 2026-09-19; the
+    // system was deleted in `d3135def0` and the slot is `SimulationSetupSet`.
     // ⚠ It is also `#[cfg(feature = "ldtk")]`, so the install carries the gate.
     app.add_systems(
             bevy::prelude::Update,

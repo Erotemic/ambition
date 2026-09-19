@@ -1905,9 +1905,21 @@ five payloads today — `ChallengeRequested`, `BrainCommand`,
 stamps the NEXT tick, because a host command fires in `Update` after this
 frame's simulation has already run; stamping the tick that has been simulated
 *"would make the original frame and its replay disagree about whether the fact
-was true during it"* (`ledger.rs:165-175`). ⇒ The four live intents below are
-each a candidate for this road, and the question for a maintainer becomes which
-of them should ride it rather than whether a road exists.
+was true during it"* (`ledger.rs:165-175`).
+
+⛔ **WHAT DOES NOT TRANSFER, SAID BEFORE ANYONE COSTS THE MOVE: THE PLUGIN IS
+CONVERSATION-SCOPED, AND THE FOUR LIVE INTENTS HAVE NO CONVERSATION.** Every
+entry is keyed by `ConversationInstanceId`; `NarrativeInputWriter::write` DROPS
+the payload with a warning when no conversation is live
+(`ledger.rs:138-146`), and `release` is asked for the entries belonging to the
+live instance. A menu press, a developer hotkey and a cutscene dismiss have no
+instance to key on. ⇒ What is reusable is the SHAPE — a tick-stamped record,
+held outside rollback state, released at the head of the sim — and what a
+maintainer is being asked to approve is generalising the key from *"the
+conversation this belongs to"* to *"the session this belongs to"*, not adopting
+an existing plugin. That is a smaller question than "does a road exist", which
+is what this section could previously only ask, and it is bigger than a
+registration move.
 
 ⭐⭐ **AND THE ONE THING THAT COULD HAVE MADE THAT ESCAPE UNAVAILABLE IS
 MEASURED, 2026-09-18: IT CANNOT.** The obvious objection is that the producer is
@@ -3104,10 +3116,13 @@ then raises the real message at the head of the sim schedule, so every
 resimulation of that tick re-raises it. See the fourth escape under `Q136` for
 the whole shape.
 
-⇒ **SO THE ENGINEERING HALF IS NOT ALREADY DECIDED, AND THE ROAD IT SHOULD TAKE
-IS BUILT.** The menu wants `NarrativeInputPlugin`'s shape — a tick-stamped,
-rollback-exempt ledger released inside the sim — not a bare `MessageWriter`.
-Five payload families already ride it. That does not settle the UI question
+⇒ **SO THE ENGINEERING HALF IS NOT ALREADY DECIDED, AND THE SHAPE IT SHOULD
+TAKE IS BUILT.** The menu wants `NarrativeInputPlugin`'s shape — a
+tick-stamped, rollback-exempt ledger released inside the sim — not a bare
+`MessageWriter`. ⚠ It cannot take the PLUGIN: every entry is keyed by
+`ConversationInstanceId` and a menu press has none, so the key has to
+generalise from the conversation to the session first. See `Q136`'s fourth
+escape for the whole reading. That does not settle the UI question
 below, which is the real subject of this row and is unchanged by the
 correction.
 

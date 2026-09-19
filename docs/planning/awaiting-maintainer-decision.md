@@ -1963,6 +1963,58 @@ READING RATHER THAN A COUNT.**
   CONDITION over rollback state, so moving the derivation inside the rewinding
   schedule needs no synchronised input channel at all.
 
+  ⛔⛤ **AND THE REPAIR MOVED IT INTO THE SCHEDULE AND LEFT IT STRADDLING A TICK.
+  WITNESSED 2026-09-19; THE ROW STAYS OPEN.** `emit_intro_flag_chains` is now
+  in the sim schedule rather than `Update`, which is the escape above — but it
+  is ordered
+  `.after(Platformer2dSimulationPhaseMonolith::GameplayEffects)`
+  (`game/ambition_content/src/intro/plugin.rs:145-158`), and its consumer
+  `apply_flag_effects` runs INSIDE `GameplayEffects`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:216`). A
+  producer ordered after its own consumer makes the message a pending PAST, and
+  `clear_message_on_rollback` is sound exactly while a message is produced and
+  consumed within ONE tick.
+
+  **Two readings of the same four lines, so the world was asked instead.** The
+  review's reading was that the rewind silently drops the pending message; the
+  plugin's own comment argues the restore re-arms the producer's change gate so
+  resimulation re-raises it. Four arms in
+  `game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`, on the
+  shipped sync-test settings:
+
+  | arm | slot | writes | result |
+  |---|---|---|---|
+  | `a_flag_requested_inside_the_tick_reaches_the_save_without_rollback` | before | flag | flag set — the premise |
+  | `a_flag_requested_before_its_consumer_survives_the_rewind` | before | flag | clean, flag set |
+  | `a_silent_system_after_the_consumer_does_not_desync` | **after** | nothing | clean |
+  | `a_flag_requested_after_its_consumer_desyncs_the_timeline` | **after** | flag | ⛔ **DESYNC** |
+
+  ⇒ **NEITHER PREDICTION WAS RIGHT, AND THE ANSWER IS THE WORSE OF THE TWO.**
+  A request raised on tick 40 produces a GGRS sync-test checksum mismatch at
+  frames **41, 42, 43** — the ticks whose consumer finds the buffer already
+  cleared. A lost flag is one peer missing an effect; a checksum mismatch is the
+  peers DISAGREEING, which is the failure `clear_message_on_rollback` exists to
+  prevent. `AmbitionGameSave` is a `rollback_resource_clone_checksum`
+  registration, so the replayed frame that does not write the flag hashes
+  differently from the original that did.
+
+  ⭐ **AND TWO CONTROLS MAKE IT A STATEMENT ABOUT THE STRADDLE.** The same
+  request one slot earlier is clean AND sets the flag; the same system in the
+  same slot writing nothing is clean. Only the combination diverges, so this is
+  not "a system in that slot desyncs" and not "this file desyncs".
+
+  ⚠ **WHAT THE WITNESS DOES NOT SETTLE, STATED SO THE NEXT READER DOES NOT
+  OVERREAD IT.** The arms reproduce the MECHANISM, not `emit_intro_flag_chains`:
+  they carry no `resource_exists_and_changed::<AmbitionGameSave>` gate. The
+  plugin's argument — that a restore marks the resource changed and so re-raises
+  the message on the replayed tick — is now the only thing standing between the
+  intro chain and this divergence, and it has no arm. ⇒ Until it has one,
+  `SetFlagRequested` is a LIVE row and the repair is not closed. The narrow fix
+  is available and cheap: order the producer BEFORE `GameplayEffects`, which the
+  plugin comment declines on the grounds that next-tick chaining is the shipped
+  behaviour — a behaviour question for the maintainer, and the reason this stays
+  here rather than being fixed in passing.
+
 ⭐⛤ **SO THERE IS ONE GENERAL ESCAPE IN THE TREE, NOT TWO — AND LOSING ONE
 SHARPENED THE RULE INSTEAD OF WEAKENING IT.** The surviving escape is
 `ResetToCheckpoint`'s: **the ordering never enters the timeline.** The one I

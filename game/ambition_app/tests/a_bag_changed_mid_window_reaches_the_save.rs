@@ -3699,3 +3699,228 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
          `reset_gravity_on_room_reset` — find it before trusting the line above"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q136 / SetFlagRequested — a message whose PRODUCER is ordered after its own
+// consumer, so the message straddles a tick boundary.
+//
+// ⛔⛤ THE CLAIM UNDER TEST, AND WHY IT NEEDED A WITNESS RATHER THAN A READING.
+// `emit_intro_flag_chains` is added to the sim schedule
+// `.after(Platformer2dSimulationPhaseMonolith::GameplayEffects)`
+// (`game/ambition_content/src/intro/plugin.rs:145-158`), and its consumer
+// `apply_flag_effects` runs INSIDE `GameplayEffects`
+// (`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:216`). So a
+// `SetFlagRequested` raised on tick N is read on tick N+1, and
+// `clear_message_on_rollback::<SetFlagRequested>` empties the buffer in
+// `LoadWorld::Mapping`. Review read that as a pending PAST being dropped by a
+// rewind; the plugin's own comment argues the opposite, that the restore re-arms
+// the producer's change gate so resimulation re-raises the message.
+//
+// ⇒ BOTH READINGS ARE ARGUMENTS ABOUT THE SAME FOUR LINES, which is exactly the
+// situation this file exists for. The arms below ask the world instead. The
+// question they answer is the MECHANISM's — can a `SetFlagRequested` produced
+// after its consumer still reach the save across a rewind — not the intro
+// chain's, because a mechanism that survives here cannot fail there for a
+// scheduling reason.
+
+/// Not a shipped flag id. A shipped one can be set by the world itself, and the
+/// arm would be reading somebody else's write.
+const WITNESS_FLAG: &str = "a_straddling_setflag_witness";
+
+/// ⚠ GATED ON `SimTick`, NOT A `Local`, for the reason `grant_once_at_tick_20`
+/// states one screen up: a `Local` is not rollback state, so the replay would
+/// skip a branch the original pass took and manufacture its own divergence.
+const RAISE_AT: u64 = 40;
+
+fn request_the_flag_once(
+    tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut requests: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::events::SetFlagRequested,
+    >,
+) {
+    if tick.0 == RAISE_AT {
+        requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
+            id: WITNESS_FLAG.to_string(),
+            on: true,
+        });
+    }
+}
+
+/// ⛔ THE CONTROL THAT SEPARATES THE POSITION FROM THE PAYLOAD. Same schedule
+/// slot, same `MessageWriter<SetFlagRequested>` parameter, same `SimTick` read —
+/// and it never writes. If a system merely PRESENT after `GameplayEffects`
+/// desyncs, the finding is about the slot and has nothing to do with straddling
+/// messages. Every distinguishing feature measured only on the accused is
+/// distinguishing by construction of the search.
+fn request_nothing(
+    _tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
+    mut _requests: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::events::SetFlagRequested,
+    >,
+) {
+}
+
+fn witness_flag_is_set(sim: &Platformer2dSimHarness) -> bool {
+    sim.world()
+        .get_resource::<AmbitionGameSave>()
+        .is_some_and(|save| save.data().flag(WITNESS_FLAG))
+}
+
+/// The witness composition, parameterised on the only two things that differ
+/// between the three arms. ⚠ The ordering is applied INSIDE the build closure
+/// because `.after(..)` yields a `ScheduleConfigs`, which is not `Clone` — the
+/// bound `sim_composed_with` carries, and the reason this needs its own builder
+/// rather than reusing that one.
+fn witness_sim(after_consumer: bool, rollback: bool) -> Platformer2dSimHarness {
+    witness_sim_with(after_consumer, rollback, true)
+}
+
+fn witness_sim_with(
+    after_consumer: bool,
+    rollback: bool,
+    raise: bool,
+) -> Platformer2dSimHarness {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    use bevy::prelude::IntoScheduleConfigs;
+    let mut options = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(ROOM);
+    if rollback {
+        options = options.with_sync_test_rollback_settings(4, 10);
+    }
+    Platformer2dSimHarness::build(options, move |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        let label = app.sim_schedule();
+        let phase =
+            ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith::GameplayEffects;
+        match (after_consumer, raise) {
+            (true, true) => app.add_systems(label, request_the_flag_once.after(phase)),
+            (true, false) => app.add_systems(label, request_nothing.after(phase)),
+            (false, true) => app.add_systems(label, request_the_flag_once.before(phase)),
+            (false, false) => app.add_systems(label, request_nothing.before(phase)),
+        };
+        Ok(())
+    })
+    .expect("the witness harness builds")
+}
+
+fn drive(sim: &mut Platformer2dSimHarness, frames: usize) {
+    for _ in 0..frames {
+        sim.step(AgentAction::default());
+    }
+}
+
+/// ⛔ THE PREMISE ARM. Everything below reads "the flag is not set" as evidence
+/// about a rewind, and that reading is only available if this composition can
+/// set the flag AT ALL. No rollback session, producer ordered BEFORE its
+/// consumer so the message never straddles anything.
+#[test]
+fn a_flag_requested_inside_the_tick_reaches_the_save_without_rollback() {
+    let mut sim = witness_sim(false, false);
+    drive(&mut sim, 240);
+    assert!(
+        witness_flag_is_set(&sim),
+        "`apply_flag_effects` never wrote the witness flag in a world with no \
+         rollback at all, so this file cannot tell a lost message from a \
+         composition that does not carry the effect bus"
+    );
+}
+
+/// ⭐ THE IN-TICK CONTROL, WITH ROLLBACK. Same request, same window, same
+/// sync-test settings — only the schedule position differs from the arm below.
+/// `clear_message_on_rollback` is sound exactly while a message is produced and
+/// consumed within ONE tick, so this is that sound case under a live rewind.
+#[test]
+fn a_flag_requested_before_its_consumer_survives_the_rewind() {
+    let mut sim = witness_sim(false, true);
+    drive(&mut sim, 240);
+    assert_eq!(
+        health(&sim),
+        Ok(()),
+        "the sync test desynced, so nothing this arm reports is about the flag"
+    );
+    assert!(
+        witness_flag_is_set(&sim),
+        "a request raised BEFORE its consumer in the same tick did not reach the \
+         save under rollback. That is the case `clear_message_on_rollback` is \
+         designed for, so this failing makes the straddling arm unreadable"
+    );
+}
+
+/// ⛔⛤ **THE WITNESS, AND IT LANDED HARDER THAN EITHER READING PREDICTED.**
+/// Identical to the control above except the producer is ordered AFTER
+/// `GameplayEffects`, which is `emit_intro_flag_chains`'s position — so the
+/// message is a pending PAST across the tick boundary rather than an abandoned
+/// future.
+///
+/// ⚠ I WROTE DOWN WHAT EACH OUTCOME WOULD MEAN BEFORE RUNNING IT, and the run
+/// returned a third thing. The two predictions were "the flag is silently lost"
+/// (review's reading) and "resimulation re-raises it, so nothing is lost" (the
+/// plugin comment's reading). What happens is a **GGRS sync-test checksum
+/// mismatch**, measured at frames 41, 42, 43 for a request raised on tick 40.
+///
+/// ⇒ **THAT IS THE WORSE OF THE TWO, NOT A MIDDLE.** A lost flag is one peer
+/// missing an effect; a checksum mismatch is the peers DISAGREEING, which is
+/// the failure `clear_message_on_rollback` exists to prevent. The mechanism is
+/// the one review named: the request is raised on tick N and read on N+1, so a
+/// rollback landing between them replays N+1 with the buffer already cleared,
+/// the flag is not written on the replay, and `AmbitionGameSave` — a
+/// `rollback_resource_clone_checksum` registration — hashes differently than it
+/// did on the original pass.
+///
+/// ⭐ TWO CONTROLS MAKE THIS A STATEMENT ABOUT THE STRADDLE RATHER THAN ABOUT
+/// THIS FILE. The same request ordered BEFORE the consumer is clean and sets
+/// the flag; the same system in the SAME slot writing nothing is clean. Only
+/// the combination diverges.
+///
+/// ⚠ WHAT THIS DOES NOT SAY. It is a statement about the MECHANISM, not about
+/// `emit_intro_flag_chains`, which additionally carries a
+/// `resource_exists_and_changed::<AmbitionGameSave>` gate this arm does not
+/// reproduce. The plugin argues that gate re-arms on restore and re-raises the
+/// message. That argument is now the only thing standing between the intro
+/// chain and this divergence, and it needs its own arm — so `Q136` keeps
+/// `SetFlagRequested`.
+#[test]
+fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
+    let mut sim = witness_sim(true, true);
+    drive(&mut sim, 240);
+
+    let verdict = health(&sim);
+    let Err(report) = verdict else {
+        panic!(
+            "the straddling request no longer desyncs. If `clear_message_on_rollback` \
+             or the schedule changed, this arm has been REPAIRED and should be \
+             rewritten to assert the clean outcome — do not delete it, the intro \
+             chain still sits in this slot"
+        );
+    };
+    // ⚠ THE FRAMES ARE THE CLAIM, NOT MERELY THAT SOMETHING BROKE. The replayed
+    // tick is the one AFTER the raise, because that is the tick whose consumer
+    // finds an empty buffer. A desync anywhere else is a different defect
+    // wearing this arm's name.
+    let replayed = RAISE_AT + 1;
+    assert!(
+        report.contains(&format!("{replayed}")),
+        "the timeline desynced, but not on the tick this arm is about          (expected frame {replayed}, the first replay whose consumer finds the          cleared buffer): {report}"
+    );
+    assert!(
+        !witness_flag_is_set(&sim),
+        "the flag IS set after the desync, which would mean the divergence is          not the missing write this arm attributes it to"
+    );
+}
+
+/// ⛔ THE SLOT CONTROL. The same system shape in the same slot after
+/// `GameplayEffects`, writing nothing. A desync here would mean the finding is
+/// about occupying that slot and not about a message straddling a tick.
+#[test]
+fn a_silent_system_after_the_consumer_does_not_desync() {
+    let mut sim = witness_sim_with(true, true, false);
+    drive(&mut sim, 240);
+    assert_eq!(
+        health(&sim),
+        Ok(()),
+        "a system that writes NOTHING desynced from the slot after \
+         `GameplayEffects`, so the straddling arm's desync is about the slot \
+         rather than about the message and this file's reading of it is wrong"
+    );
+}

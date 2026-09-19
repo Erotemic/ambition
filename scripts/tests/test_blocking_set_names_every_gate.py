@@ -97,3 +97,72 @@ def test_both_option_spellings_count():
 def test_a_question_with_one_option_is_reported():
     """⛔ A decision with a single option is a statement."""
     assert guard.MIN_OPTIONS == 2
+
+
+def test_the_answered_banner_is_anchored_to_a_section_not_to_a_sentence():
+    """⛔ A sentence calling some OTHER question answered is not this marker."""
+    assert guard.ANSWERED.search("✅ **ANSWERED AND LANDED 2026-09-16: NO.**")
+    assert not guard.ANSWERED.search(
+        "pinned-projection half of it is ANSWERED for the save: it was pinned"
+    )
+    assert not guard.ANSWERED.search("see ✅ Q135, which is ANSWERED")
+
+
+def test_an_open_acceptance_waiting_on_an_answered_ruling_is_reported(tmp_path, monkeypatch):
+    """⛔⛤ THE DEFECT: `Q135` landed 2026-09-16 and a P1 row called it open."""
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "### ROW-A — a thing\n\n"
+        "**Acceptance:** the mirrors follow; and Q135 is answered so the chain "
+        "has a road.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(guard, "QUEUE", queue)
+    reported = guard.acceptance_still_waiting_on({"135"})
+    assert len(reported) == 1
+    assert "ROW-A" in reported[0] and "Q135" in reported[0]
+
+
+def test_a_discharged_clause_naming_the_same_ruling_is_not_reported(tmp_path, monkeypatch):
+    """⚠ THE UNIT IS THE CLAUSE: a receipt is how this corpus records done."""
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "### ROW-A — a thing\n\n"
+        "**Acceptance:** the mirrors follow; and ✅ Q135 is answered and the "
+        "chain has its road.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(guard, "QUEUE", queue)
+    assert guard.acceptance_still_waiting_on({"135"}) == []
+
+
+def test_a_closed_row_is_not_this_arms_business(tmp_path, monkeypatch):
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "### ROW-A — a thing — ✅ DONE\n\n**Acceptance:** Q135 is answered.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(guard, "QUEUE", queue)
+    assert guard.acceptance_still_waiting_on({"135"}) == []
+
+
+def test_row_prose_naming_an_answered_ruling_is_not_reported(tmp_path, monkeypatch):
+    """⚠ A row legitimately RECORDS a ruling's history outside its acceptance."""
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "### ROW-A — a thing\n\nQ135 was answered and landed 2026-09-16.\n\n"
+        "**Acceptance:** the mirrors follow the ruling.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(guard, "QUEUE", queue)
+    assert guard.acceptance_still_waiting_on({"135"}) == []
+
+
+def test_an_empty_answered_population_checks_nothing_and_says_so():
+    """⚠ Legitimately empty once the page deletes its answered questions."""
+    assert guard.acceptance_still_waiting_on(set()) == []
+
+
+def test_the_shipped_pages_have_no_acceptance_waiting_on_an_answered_ruling():
+    # ⭐ THE RATCHET for the second direction, against the real pages.
+    assert guard.acceptance_still_waiting_on(guard.answered_questions()) == []

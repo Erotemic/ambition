@@ -22,6 +22,12 @@ appear in the section; the section may name MORE. Four live gates (`Q136`,
 all, so the true population is the union of both roads and an equality check
 would red on the half this guard cannot see.
 
+⚠ **THE SECOND DIRECTION IS NARROWER AND IS NOT ITS CONVERSE.** A question
+answered while a row still waits on it is the same drift seen from the other
+end, but it cannot be checked by comparing the two sets: the section holds only
+UNANSWERED questions by construction. It is checked per acceptance CLAUSE
+instead — see `acceptance_still_waiting_on`.
+
 ⚠ **AND A ROW THAT CLOSES IS NOT THIS GUARD'S BUSINESS.** Closed rows are
 skipped by their heading, because a `Blocked by:` line under a `✅ DONE`
 heading is a receipt rather than a gate.
@@ -148,6 +154,78 @@ def questions_without_options(named: set[str]) -> list[str]:
     return out
 
 
+#: A ruling this page KEEPS after answering it. The page normally deletes an
+#: answered question; `Q135` stayed because five planning rows link to its
+#: anchor, and the banner is how it says so. Anchored to the line start, so a
+#: sentence describing some OTHER question as answered is not this marker.
+ANSWERED = re.compile(r"^✅[^\n]{0,80}\bANSWERED\b", re.M)
+SECTION_SPLIT = re.compile(r"^## Q(\d{2,3}) —", re.M)
+
+
+def answered_questions() -> set[str]:
+    """Questions whose own section carries an answered banner."""
+    text = RULINGS.read_text(encoding="utf-8")
+    bounds = [(m.group(1), m.start()) for m in SECTION_SPLIT.finditer(text)]
+    out = set()
+    for index, (question, start) in enumerate(bounds):
+        end = bounds[index + 1][1] if index + 1 < len(bounds) else len(text)
+        if ANSWERED.search(text[start:end]):
+            out.add(question)
+    return out
+
+
+def acceptance_still_waiting_on(answered: set[str]) -> list[str]:
+    """An open row may not list an ANSWERED ruling as work it is waiting for.
+
+    ⛔⛤ **THE DEFECT, 2026-09-19: `Q135` WAS RULED AND LANDED ON 2026-09-16 AND
+    `DURABLE-HORIZON-CHECKSUM` SPENT THREE DAYS SAYING IT WAS "the half that is
+    still open".** The ruling and the row are two owners of one fact, and the
+    maintainer reads whichever they land on. The sibling arm above checks that
+    every gate the queue states is IN the blocking set; nothing checked the
+    other direction, so a question could be answered out from under a row that
+    still called it a blocker.
+
+    ⚠ **THE UNIT IS THE CLAUSE, NOT THE ROW.** An acceptance legitimately
+    NAMES a discharged ruling — that is how this corpus records what is done —
+    and the convention marks such a clause with `✅`. So the rule is: a
+    semicolon-separated acceptance clause that names an answered question must
+    carry that mark. Checking the whole row instead would red on every correct
+    receipt, and checking mere mention would red on the row prose that records
+    the ruling's history.
+
+    ⚠ **AND ITS POPULATION MAY LEGITIMATELY BE EMPTY**, because an answered
+    question is normally DELETED from the page rather than kept. No floor is
+    imposed for that reason; the count is printed instead, so a reader can see
+    when this arm has nothing to check rather than reading its silence as
+    coverage.
+    """
+    if not answered:
+        return []
+    text = QUEUE.read_text(encoding="utf-8")
+    bounds = [(m.start(), m.group(0)) for m in re.finditer(r"^### .*$", text, re.M)]
+    out = []
+    for index, (start, heading) in enumerate(bounds):
+        if any(mark in heading for mark in ("✅", "CLOSED", "DONE")):
+            continue
+        end = bounds[index + 1][0] if index + 1 < len(bounds) else len(text)
+        body = text[start:end]
+        found = re.search(r"\*\*Acceptance[:,]?\*\*([\s\S]*?)(?=\n\n\*\*|\n### |\Z)", body)
+        if not found:
+            continue
+        row = heading[4:].split(" —")[0].strip()
+        for clause in found.group(1).split(";"):
+            for question in sorted(set(QUESTION.findall(clause)) & answered, key=int):
+                if "✅" in clause:
+                    continue
+                out.append(
+                    f"`{row}` is open and its acceptance waits on `Q{question}`, "
+                    "which this page has already ANSWERED. Either the clause is "
+                    "discharged (mark it ✅) or the row has work the ruling did not "
+                    "cover and should say what."
+                )
+    return out
+
+
 def main() -> int:
     try:
         named = questions_named_in_the_section()
@@ -184,6 +262,14 @@ def main() -> int:
             print(f"  ⛔ {line}")
         return 1
 
+    answered = answered_questions()
+    stale = acceptance_still_waiting_on(answered)
+    if stale:
+        print("an open row's acceptance waits on a ruling that has already landed:")
+        for line in stale:
+            print(f"  ⛔ {line}")
+        return 1
+
     thin = questions_without_options(named)
     if thin:
         print("the blocking set names questions that cannot be answered as written:")
@@ -195,7 +281,9 @@ def main() -> int:
     print(
         f"ok: {len(gated)} open P0/P1 row(s) state {total} `Blocked by:` gate(s), "
         f"and the blocking set gives each one a table row ({len(named)} row(s) "
-        "there, every one carrying costed options)"
+        "there, every one carrying costed options); "
+        f"{len(answered)} answered ruling(s) kept on the page, none of them listed "
+        "as outstanding acceptance"
     )
     return 0
 

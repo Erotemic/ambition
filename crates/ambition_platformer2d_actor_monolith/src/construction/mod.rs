@@ -1621,7 +1621,8 @@ pub fn staged_actor_requests(
     requests: &[SpawnActorRequest],
     // The prepared cast, when the caller has one. Planning asks the
     // CHARACTER whether a placement is a limbed host before it asks the roster
-    // — see `features::is_limbed_host`. `None` is the host that has no cast
+    // — see `ambition_platformer2d_actor_spawn::is_limbed_host`, which the two
+    // call sites below already name. `None` is the host that has no cast
     // prepared, and it plans exactly as it did before.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {

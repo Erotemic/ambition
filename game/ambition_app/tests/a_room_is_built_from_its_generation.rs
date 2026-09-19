@@ -518,8 +518,8 @@ fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
 /// which is why `ConstructionScope::in_generation` cannot express a split.
 ///
 /// ⇒ **THE LAYER ABOVE REOPENED THE HOLE.**
-/// `ActorConstructionContext::for_room_construction` took `content` and
-/// `active_binding` as SEPARATE
+/// `ActorConstructionContext::for_room_construction` <!-- cite-ok: the signature the repair DELETED; a resolvable name here would mean the split parameter survived -->
+/// took `content` and `active_binding` as SEPARATE
 /// parameters and applied the second to the expected-live half only, so a
 /// caller could state one generation for the boundary and another for the
 /// roots. Three production roads — the door transition, the reset and the

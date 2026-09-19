@@ -1,12 +1,12 @@
 //! Summoning: the one spawn road that PLANS at runtime.
 //!
-//! ⭐⭐ IT LIVES HERE RATHER THAN IN `spawn_actors` BECAUSE IT IS A DIFFERENT
-//! LAYER, and the two sharing a file is what made the actor crate's construction
-//! cycle look unbreakable. Measured 2026-09-06: `construction/mod.rs` names 15
-//! things in `crate::features`, and **every one of them is defined in
+//! ⭐⭐ IT LIVES HERE RATHER THAN WITH THE SPAWN PRIMITIVES BECAUSE IT IS A
+//! DIFFERENT LAYER, and the two sharing a file is what made the actor crate's
+//! construction cycle look unbreakable. Measured 2026-09-06: `construction/mod.rs`
+//! named 15 things in `crate::features`, and **every one of them was defined in
 //! `spawn_actors.rs`** — the spawn PRIMITIVES (`spawn_*_into`, `is_limbed_host`,
 //! `giant_hand_plans`, `SpawnActorKind`, `SpawnActorRequest`). In the other
-//! direction `features` names `construction` 30 times, and in `spawn_actors.rs`
+//! direction `features` named `construction` 30 times, and in `spawn_actors.rs`
 //! **all five of those references were inside this one function**.
 //!
 //! ⇒ So the `construction ↔ features` cycle was not two authorities depending on
@@ -16,11 +16,18 @@
 //! move BELOW the construction domain without the cycle reappearing in a new
 //! spelling — see `docs/planning/engine/actor-monolith-work-frontier.md`, F1.
 //!
-//! ⚠ WHAT THIS FILE DOES NOT DO IS BREAK THE CYCLE. After this move
-//! `spawn_actors.rs` names no `crate::construction` at all, which is the
-//! PREREQUISITE; the cycle itself closes when the primitives leave `features`.
-//! Stating that here so the next reader does not read a single-layer file as a
-//! finished carve.
+//! ✔ **AND THE CYCLE IS CLOSED NOW — RE-MEASURED 2026-09-19.** This paragraph
+//! used to say the file *"does not break the cycle"* and that closure waited on
+//! the primitives leaving `features`. They left the CRATE:
+//! `is_limbed_host`, `giant_hand_plans`, `SpawnActorRequest` and
+//! `SpawnActorKind` are `ambition_platformer2d_actor_spawn`'s, and
+//! `spawn_actors.rs` no longer exists. ⇒ `construction/` now names
+//! `crate::features` **zero** times in code, down from 15; the single surviving
+//! mention was a comment path still spelled `features::is_limbed_host` beside
+//! two call sites that already used the crate, and it is repointed. In the
+//! other direction exactly ONE file under `features/` names
+//! `crate::construction`: this one, which is the orchestration layer the split
+//! was for.
 
 use super::*;
 // ⭐ NAMED EXPLICITLY RATHER THAN INHERITED. `spawn_actors.rs` pulls these in at

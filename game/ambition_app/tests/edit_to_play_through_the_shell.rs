@@ -165,10 +165,20 @@ fn cast_generation(sim: &mut ambition_sim_harness::Platformer2dSimHarness) -> Op
 /// `.before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)`
 /// from `ambition_content::reload::register` leaves this arm GREEN, even in the
 /// activating-frame form above — because `proving_grounds`' goblin bodies ALREADY
-/// EXIST and the re-preparation does not rebuild them, so
-/// `activate_prepared_platformer_sessions` never constructs a session for the
-/// edge to order against. The constraint is vacuously satisfied on this road,
-/// and an arm cannot protect a constraint its road does not exercise.
+/// EXIST and the re-preparation does not rebuild them, so nothing constructs a
+/// session for the edge to order against. The constraint is vacuously satisfied
+/// on this road, and an arm cannot protect a constraint its road does not
+/// exercise.
+///
+/// ⚠ **THE MEASUREMENT NAMED `activate_prepared_platformer_sessions` UNTIL
+/// 2026-09-19, AND THAT SYSTEM IS GONE.** A10.5 split it: construction is
+/// `prepare_candidate_platformer_session`, which is
+/// `.before(AmbitionGameShellSet::Pending)`, and what remains in
+/// `GameplaySessionSet::Providers` is `adopt_candidate_platformer_session`,
+/// which adopts an already-built world rather than building one. ⇒ The
+/// vacuity above is a fact about THIS ROAD and still holds; what the
+/// `.before(Providers)` edge now guarantees is a different question, and
+/// `ambition_content::reload::register` answers it at the edge itself.
 ///
 /// ⇒ That edge is held by
 /// `an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`

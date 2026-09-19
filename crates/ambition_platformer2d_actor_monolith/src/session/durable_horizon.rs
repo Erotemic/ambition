@@ -46,7 +46,14 @@ pub fn adopt_occurrence_checkpoint_from_save(
     occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
     custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
-    if restored.0 || bodies.is_empty() {
+    // ⛔ THE POPULATION IS "EXACTLY ONE", NOT "AT LEAST ONE", AND THE SPELLING
+    // IS `complete_durable_restore`'S ON PURPOSE. This system is the only member
+    // of the restore chain that WRITES rollback state; the other two and the
+    // session-start gate (`durable_hydration_is_pending`) all ask for the
+    // singleton body. A wider guard here adopts the ledger on a population where
+    // the latch can never rise — so the write repeats from `Update` every frame,
+    // over a timeline the gate has already allowed to start.
+    if restored.0 || bodies.single().is_err() {
         return;
     }
     let Some(occurrences) = occurrences else {
@@ -426,6 +433,21 @@ pub fn install_durable_save_horizon(app: &mut App) {
             .after(crate::items::persist::reset_inventory_on_new_game),
     );
     app.init_resource::<SaveRestored>()
+        // ⭐ `Update` IS A WINDOW HERE, NOT A WAIVER, AND THE ARGUMENT HAS
+        // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. All three
+        // write only while `SaveRestored` is false; the latch rises once and
+        // has no `true -> false` transition left in the workspace
+        // (`debug_assert!(restored.0)` in `reset_inventory_on_new_game` is what
+        // keeps that true); and `maintain_local_session` refuses to start a
+        // rollback session while `durable_hydration_is_pending`. ⇒ These three
+        // run strictly before frame zero of any session, so the rewind they
+        // would otherwise lose their writes to does not exist yet.
+        //
+        // ⛔ THAT HOLDS ONLY WHILE THE GATE AND THESE GUARDS ASK FOR THE SAME
+        // POPULATION. They did not until 2026-09-19: the gate wanted exactly
+        // one primary body and the adopter accepted any non-empty set, so two
+        // primary bodies let the session start over a chain that could never
+        // finish. Do not widen one of the four without widening all of them.
         .add_systems(
             Update,
             (

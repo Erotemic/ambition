@@ -306,3 +306,65 @@ fn only_a_restored_custody_row_crosses_the_save_boundary() {
          answer; file held {held:?}"
     );
 }
+
+#[test]
+fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
+    // The seeded save and every assertion mirror
+    // `a_load_seeds_every_domain_baseline_and_requests_the_resume`; the ONE
+    // difference is a second `PrimaryPlayer` body, which is the population
+    // `complete_durable_restore` cannot finish on.
+    let mut app = horizon_app();
+    {
+        let mut data = app.world().resource::<AmbitionGameSave>().data().clone();
+        data.set_durable_horizon(
+            vec![PersistedOccurrence::new(
+                "placement:carried",
+                PersistedWhereabouts::InCustody,
+            )],
+            vec![PersistedCustody::new("placement:carried", "slot:0")],
+        );
+        app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
+    }
+    app.world_mut()
+        .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: 0 }));
+
+    // ⭐ THE PREMISE IS HALF THE TEST. The session-start gate reads this same
+    // population and reports NOT pending, so a rollback session is free to
+    // start here — which is what makes an `Update` write to rollback state on
+    // this road a live-timeline write rather than a pre-timeline one.
+    assert!(
+        !durable_hydration_is_pending(app.world_mut()),
+        "the gate must let this population through, or the arm is measuring a \
+         world that never starts a timeline",
+    );
+
+    install_durable_save_horizon(&mut app);
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<OccurrenceBaseline>()
+            .remembered()
+            .whereabouts(&SimId::placement("carried")),
+        None,
+        "the occurrence baseline is rollback-registered and checksummed; \
+         adopting it here writes it from `Update` on every frame of a live \
+         timeline, because the latch that would stop the repeat never rises",
+    );
+    assert_eq!(
+        app.world()
+            .resource::<CustodyBaseline>()
+            .custodian_of(&SimId::placement("carried")),
+        None,
+    );
+    assert!(
+        !app.world().resource::<SaveRestored>().0,
+        "the latch cannot rise on this population -- that is the reason the \
+         adoption must not happen, so it is asserted rather than assumed",
+    );
+
+    let mut resets = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ResetToCheckpoint>>();
+    assert_eq!(resets.drain().count(), 0);
+}

@@ -352,6 +352,12 @@ Run at the lane's own baseline — `PLANNING_VANISHED_BASELINE` in
 `scripts/run_tests.py`, dated 2026-08-13, which predates the 2026-09-14
 deletion, so the instrument could always have seen this:
 
+⛔ **EVERY NUMBER IN THIS SECTION IS AT THAT 2026-08-13 REFERENCE POINT, AND THE
+LANE NO LONGER USES IT** — the constant was advanced to the epoch root on
+2026-09-19 (see the closing section). They are kept as measured rather than
+restated, because re-running them against a different baseline would produce
+different numbers about a different question.
+
 ⛔⛤ **AND WRITING THAT SHA HERE FAILED A GUARD, WHICH TURNED OUT TO BE ABOUT
 THE LANE AND NOT ABOUT THE SENTENCE.** `test_no_unresolvable_citation_that_the_
 epoch_did_not_grandfather` reddened on the abbreviation. The object resolves in
@@ -452,3 +458,127 @@ and 53 live mentions between them. Sampled, they split the same way the path
 census above did: `RoomTransitionRequested` reads as deliberate history <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
 (*"this was a … message"*), while the other two read as present-tense
 descriptions of live mechanisms.
+
+## One of those clusters, worked — 2026-09-19
+
+`PlayableKitSource` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+was an enum with exactly ONE variant, `HostCode`, and `prepared.rs` deleted it
+once that made it a membership test wearing a type's clothes. **Twenty-one
+comment sites kept describing the world it named**, all on one road
+(`avatar/starting_character*`, `avatar/bundles.rs`, and the catalog row itself).
+All twenty-one are repaired; the five mentions that remain each narrate the
+deletion in the past tense, which is the correct end state rather than a
+residue.
+
+⭐ **THE SHAPE IS NOT "STALE PROSE". IT IS A FIX THAT LANDED AS A NEW PARAGRAPH
+BESIDE THE OLD ONE INSTEAD OF REPLACING IT** — three times, and in all three the
+correction and the claim it refutes were close enough to read in one screen:
+
+| the uncorrected claim | the correction that was already sitting beside it |
+|---|---|
+| `character_catalog.ron:383` — *"the protagonist's PLAYABLE kit is host-code-owned … not this catalog row"* | six lines later, same comment block: *"v3 states its own repertoire … on its definition"* |
+| `starting_character/tests.rs:533` — *"the code kit (Swipe + Bolt + bubble_shield from sandbox_all abilities) is rebuilt"* | 25 lines later, same function: `assert_eq!(*set, ActionSet::peaceful())` |
+| `starting_character.rs:244` and `:336` — the rule stated twice in the dead vocabulary | `:583`, same file: *"`HostCode` was the other half of this condition and no longer exists"* <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen --> |
+
+⇒ Both halves were written by somebody who knew, and neither reader could tell
+which half was current. A census that looks only for names with no definition
+finds the first column and never notices that the answer is already in the file.
+
+⛔ **AND THE WORST SITE WAS AN INSTRUCTION, NOT A DESCRIPTION.**
+`starting_character.rs:133` told an author that a protagonist opts its ROW into
+`PlayableKitSource::HostCode` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen --> —
+a route that cannot be taken, reading as a supported one. The live rule has no
+row-side switch at all: a body is rebuilt from its persisted `AbilitySet`
+exactly when the catalog does not know its id, and `resolve_playable_action_set`
+owns that sentence now.
+
+⭐ **A THIRD BROKEN RUSTDOC LINK IN THIS FAMILY, AND THIS ONE IS MEASURED ON BOTH
+SIDES.** `bundles.rs:256` linked
+`ambition_characters::actor::character_catalog::PlayableKitSource::HostCode` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+from the doc of a `pub fn` on the spawn path. At HEAD `504a6c152`, `cargo doc`
+emits *"unresolved link … no item named `PlayableKitSource` in module <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`character_catalog`"*; after the repair it emits nothing for that file. ⇒ With
+`state_machine/mod.rs:66` and `sim_core_resources.rs:12`, **rustdoc has been
+reporting this class the whole time and the warning is buried in 68 others** in
+these two crates alone — which is why a third instrument existing is not the
+same as the class being watched.
+
+⚠ **ONE REPAIR WAS A TEST NAME, AND THE NAME WAS THE CLAIM.**
+`host_code_kit_refreshes_when_body_abilities_change` asserted a row type that <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+cannot exist; the body wears `"player"`, which no catalog row defines, so it was
+covering the UNKNOWN-ID branch throughout. Renamed to
+`an_unknown_ids_kit_refreshes_when_body_abilities_change`, and the load-bearing
+fixture property — that the id is absent from the SHIPPED catalog
+`install_test_catalog` installs — is now stated, because nothing else in the
+file shows it. Poisoned by wearing `"goblin"` instead: the arm fails on
+`initial.ranged`, so the branch really is selected by the id's absence.
+
+⚠ The repair also had to answer a question the old prose hid: the ability-only
+refresh gates on `!catalog.knows(id)` rather than on the prepared kit, so the
+two could in principle disagree. They cannot — the only other route to
+`PreparedKit::Unauthored` is preparation with no catalog, and
+`apply_worn_character_gameplay` takes `Res<CharacterCatalog>` unconditionally
+and so does not run in a composition that has none. That is now written at the
+gate instead of being re-derived by whoever next reads it.
+
+## The baseline that made all of it weaker — repaired 2026-09-19
+
+The section above deferred this: *"picking a new baseline decides what window
+the sweep covers."* Two measurements made the decision instead.
+
+**It was reachable from nothing.** `98b0bd8079fa5cc84112ea302e1d28826a54bbc3`
+is an ancestor of no ref in this repository — `git merge-base --is-ancestor`
+says so against HEAD and against every `for-each-ref` entry. It survived here
+only as a dangling object in the checkout that wrote it.
+`check_planning_citations.py` exits 1 when it cannot resolve the ref, so
+maintenance job 47 was **red on every clone but this one** and nobody could
+see it from here. The guard on the constant asserted it was a full 40-hex SHA
+and never that git could reach it.
+
+⚠ That is the hazard
+`test_no_unresolvable_citation_that_the_epoch_did_not_grandfather` already
+documents at length — *"a commit can exist locally and be reachable from
+nothing"*, which is why it was **green on one machine and red on another from
+the same source**. The repository knew this failure mode, wrote it down inside
+the guard for it, and the instance in the LANE'S OWN CONFIGURATION was outside
+every population anything checked.
+
+**And it was reporting nothing.** Over the five doc trees job 47 actually
+passes: **0 findings at the old ref, 2 at the epoch root.** A baseline can only
+see a name that was DEFINED at it, so a baseline that predates a deletion is
+blind to that deletion — which is exactly why the 21-site
+`PlayableKitSource` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+family above survived five weeks: the variant was gone before 2026-08-13, and
+the baseline's own enum body at that commit already held only `Authored`.
+
+⇒ **Moving the baseline FORWARD widens what the sweep can see.** That is the
+opposite of the intuition the constant's comment is built on, and it is the
+whole reason the deferral was wrong.
+
+### What the sweep became
+
+| | old ref (2026-08-13) | epoch root (2026-09-06) |
+|---|---|---|
+| doc trees, `--strict` | 0 findings, job green | 2 findings, both real, both fixed |
+| source comments, `--comments` | 222 across 103 names | **54 across 28 names** |
+| can a fresh clone run it | no — exits 1 | yes |
+| can `git log` attribute a finding | no, the deletion predates the graph | yes |
+
+The last row is the one that changes the work. Sampled four of the new
+findings and every one names the commit that made it stale, with a subject
+that says what that commit was doing: `spawn_world_for` → `172816069` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+(2026-09-16), `activate_prepared_platformer_sessions` → `c89c68747` <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+(2026-09-15), `setup_simulation_system` → `62ecde029` (2026-09-06), <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`CheckpointResumeProgress` → `7102674a7` (2026-09-08). <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+
+⇒ The 222 was a haystack dominated by prose deliberately recording old names,
+because a three-month-old window catches every rename the corpus ever narrated.
+54 recent carves, each with a dated commit and a subject line to read, is a
+list somebody can work. ⭐ `setup_simulation_system` is in it — one of the two <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+names the previous slice could not map at all, now attributable in one command.
+
+⚠ **The reachability guard is what makes this stick.**
+`test_the_vanished_baseline_is_a_commit_git_can_actually_reach` asserts
+ancestry rather than shape, because existence is precisely the test that passed
+on the machine holding the object. Poisoned with the old SHA: it fails naming
+that SHA, and the three sibling arms stay green.

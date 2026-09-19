@@ -41,7 +41,10 @@ pub struct SaveRestored(pub bool);
 pub fn adopt_occurrence_checkpoint_from_save(
     restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
-    bodies: Query<(), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    bodies: Query<
+        &ambition_characters::actor::BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
     occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
     custody_baseline: Option<ResMut<CustodyBaseline>>,
@@ -53,6 +56,17 @@ pub fn adopt_occurrence_checkpoint_from_save(
     // singleton body. A wider guard here adopts the ledger on a population where
     // the latch can never rise — so the write repeats from `Update` every frame,
     // over a timeline the gate has already allowed to start.
+    //
+    // ⛔⛤ **AND THE SENTENCE ABOVE WAS A SPECIFICATION, NOT A READING, UNTIL
+    // 2026-09-19.** It said the spelling was the same and it was not: this
+    // query asked for `()` while the gate and the completer ask for
+    // `&BodyWallet`. "One primary player" and "one primary player carrying a
+    // wallet" are different populations, so a world with the first and not the
+    // second let this system write its checkpoint state while the gate it is
+    // supposed to agree with said there was no hydration to do. No shipped
+    // construction road produces that world — the player bundle supplies the
+    // wallet — so there is no witness to point at, which is exactly why a
+    // comment claiming the invariant was the only thing holding it.
     if restored.0 || bodies.single().is_err() {
         return;
     }

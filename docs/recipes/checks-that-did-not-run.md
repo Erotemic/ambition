@@ -1493,11 +1493,11 @@ This cannot:
 > HUMANS WRITE BOTH.**
 
 A row of `tracks.md` satisfied every condition of the rule and was a correct
-row: it cited `lifecycle/continuity.rs:674` naming
+row: it cited `lifecycle/continuity.rs:674` <!-- cite-test: a coordinate the story is about, cited as a test on purpose --> naming
 `a_consumed_occurrence_is_not_resurrected_by_a_placement`, deliberately, as a
 test. ⚠ **That row has since been removed from `tracks.md` and the coordinate
 here is retired with it** (re-read 2026-09-17); the test itself is still there,
-at `crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs:782`,
+at `crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs:782` <!-- cite-test: the test itself is the artifact the argument rests on -->,
 which is the artifact the argument actually rests on. ⇒
 Prose is the only thing that separates the two classes, so a rule built
 specifically to need no prose **still needs prose — it just fails less visibly.**

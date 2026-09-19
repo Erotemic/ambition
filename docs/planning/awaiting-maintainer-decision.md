@@ -716,8 +716,11 @@ Blink, dive, mark-recall and empowerment can create contact outside the ordinary
 ⭐⭐ **THE AFFECTED AUTHORED POPULATION IS ZERO TODAY, MEASURED 2026-09-19 —
 WHICH MAKES THIS CHEAP TO ANSWER NOW AND EXPENSIVE LATER.** Exactly **one**
 authored flow in the whole content crate waits on `Connected`: the goblin's
-`headlong_charge` (`game/ambition_content/src/goblin_moveset.rs:794`, and the
-migrated `assets/data/movesets/goblin.ron:1289` is the same move).
+`headlong_charge` (`game/ambition_content/src/goblin_moveset.rs:315`, the
+authored `Wait { on: Connected }` itself — and the migrated
+`assets/data/movesets/goblin.ron:1289` is the same move). ⚠ This row cited
+`:794` until 2026-09-19, which is the ASSERTION inside `#[cfg(test)]`; the
+population claim needs the authored site, and the test is its witness.
 ⚠ **THE SCOPE OF THAT ZERO IS `Connected` ALONE** — the population waiting on
 `Overlapped`, the contact fact nothing guards, is not zero. See the correction
 below. It is a
@@ -3732,7 +3735,7 @@ AND IT HELD.** `portal.emission` and `boss.death_animation` were each called
 unreachable on a sentence about the EVENT the field is named for, and each was
 wrong; the question that separates them is *where is the component CONSTRUCTED*,
 which is independent of whether its system is registered. `GravityFlipSwitch` has
-exactly one construction site in the workspace — `gravity/lifecycle.rs:133` — and
+exactly one construction site in the workspace — `gravity/lifecycle.rs:133` <!-- cite-test: the sentence's whole point is that this construction site is test-only --> — and
 that file's `#[cfg(test)]` opens at line 100. ⇒ Even a registered writer would
 have nothing to write to. The LDtk entity contract declares `GravityZone` and
 `Switch`, and neither converts to this component, so no author can supply the
@@ -4514,7 +4517,7 @@ direct-entry composition" in either direction. Each is an experience plugin
 that its `*_app` installs, and `mary_o`, `sanic` and `smash` are ALSO installed
 by the main game (`game/ambition_app/src/app/shell_host.rs:96-103`, under the
 `MinimalShellPlugins` at `:80`). `pocket` is the one with no production entry
-at all: its only `App::new()` is `game/ambition_demo_pocket/src/lib.rs:218`,
+at all: its only `App::new()` is `game/ambition_demo_pocket/src/lib.rs:218` <!-- cite-test: the row is reporting that pocket's only entry point is a test -->,
 inside `#[cfg(test)] mod tests` opening at `:208`, and its only external use is
 `game/ambition_app/tests/gameplay_presentation_profiles.rs:134`.
 
@@ -4538,7 +4541,7 @@ page already prescribes for absences elsewhere, applied to a presence.
 
 ⚠ A second reading of the same corpus also has to be separated from its tests,
 and that cut fell differently on each half: `ambition_demo_pocket`'s
-`MinimalShellPlugins` (`game/ambition_demo_pocket/src/lib.rs:219`) is under
+`MinimalShellPlugins` (`game/ambition_demo_pocket/src/lib.rs:219`) <!-- cite-test: named because it is under the test cut, which is the sentence --> is under
 `#[cfg(test)]`, so a scan that skipped the cut would have called pocket
 shell-routed and been wrong in the OTHER direction. Four is the production
 number, five is the number with tests included, and the two answers disagree

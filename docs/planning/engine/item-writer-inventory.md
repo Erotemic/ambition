@@ -154,7 +154,7 @@ installed from `plugins.rs:502` inside `install_menu_setup_and_hotkeys`). The
 windowed app ran both. ⚠ Re-derived 2026-09-17: the only `insert_resource` of the
 starter roster in production is `game/ambition_content/src/plugin.rs:71`, exactly
 as the ✅ above says. The one other `insert` spelling in the tree,
-`items/conditions.rs:109`, is inside that file's `#[cfg(test)] mod tests`, and
+`items/conditions.rs:109` <!-- cite-test: named BECAUSE it is under the test cut -->, is inside that file's `#[cfg(test)] mod tests`, and
 `items/persist.rs:81` is the fresh-run RESET (`*owned = …`), not an insert —
 both are the kind of near-miss a `grep -v test` on paths would have credited.
 

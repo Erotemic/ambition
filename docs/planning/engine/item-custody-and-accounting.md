@@ -730,7 +730,7 @@ writing ONE marker with different durability is the design, and since 2026-09-06
 says which is which.
 
 ✔ **A guard exists meanwhile** —
-`no_durable_row_names_an_occurrence_the_save_does_not_hold` (`ambition_persistence/src/save_data.rs:1262`,
+`no_durable_row_names_an_occurrence_the_save_does_not_hold` (`ambition_persistence/src/save_data.rs:1262` <!-- cite-test: a named guard, and the sentence says it is a unit test -->,
 poison-verified) — but it is a unit test over a fixture, not a production check. The repair
 that would remove the class is folding minted items into `set_durable_horizon` so the WRITE
 is atomic rather than guarded; that is still not done, and it is what remains of this

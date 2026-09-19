@@ -660,7 +660,7 @@ owns gravity alone.
 called unreachable because their rows described the EVENT the field is named for
 rather than the code that inserts the component. Asked the same way — *where is
 the component SPAWNED* — `GravityFlipSwitch` has exactly one construction site in
-the workspace, `gravity/lifecycle.rs:133`, and the file's `#[cfg(test)]` opens at
+the workspace, `gravity/lifecycle.rs:133` <!-- cite-test: the sentence's point is that the only construction site is test-only -->, and the file's `#[cfg(test)]` opens at
 line 100. The LDtk contract declares `GravityZone` and `Switch` and neither
 converts to it. ⇒ Unlike its two neighbours, this row has no production insert
 site at all, which is the claim `Q137` rests on and it holds.

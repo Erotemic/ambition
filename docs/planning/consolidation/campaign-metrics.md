@@ -379,7 +379,7 @@ each of the three things that can sit in that gap hid a whole test module:
 | what sits between the attribute and the `mod` | sites | example |
 | --- | ---: | --- |
 | a comment (`\s*` cannot cross a `///`) | 2 | `abilities/src/ranged/sentry.rs:681` |
-| a visibility | 1 | `persistence/src/store.rs:222` — `pub(crate) mod tests` |
+| a visibility | 1 | `persistence/src/store.rs:222` — `pub(crate) mod tests` <!-- cite-test: the table enumerates test-module spellings --> |
 | a cfg PREDICATE instead of the bare attribute | 16 | 8× `all(test, not(target_arch = "wasm32"))`, 5× `all(test, feature = "input")` |
 
 ⇒ 18 test-only modules read as production. That is how `Captured` — a type the

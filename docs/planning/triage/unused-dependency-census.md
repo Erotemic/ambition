@@ -250,12 +250,12 @@ as of the commits this page cites.
 | `ambition_platformer2d_actor_monolith` | `ambition_platformer2d_ldtk` (optional, `[dependencies]`) | FEATURE-GATED | `dep:ambition_platformer2d_ldtk` in `portal`/`portal_ldtk`. 0 production usage outside `#[cfg(test)]`, but public feature surface — a separate, deliberate `[dev-dependencies]` copy of the same crate name already exists for the tests, with its own comment explaining the split |
 | `ambition_platformer2d_ldtk` | `bevy_asset_loader` | FEATURE-GATED | `optional = true`, `dep:bevy_asset_loader` in `ldtk_runtime`, which is in `default = ["ldtk_runtime", "portal_ldtk"]`. 0 direct usage but public feature surface |
 | `ambition_content` | `ambition_content` (self, dev), `ambition_content_cli` (dev), `yarnspinner` (dev) | already correct | each shows "unused" only in the `(lib test)` target while genuinely used in `tests/content_it.rs` submodules — a dev-dependency not needed by every test target is normal |
-| `ambition_sim_view` | `leafwing_input_manager` | FEATURE-GATED + test use | `src/facts.rs:779` behind `#[cfg(feature = "input")]`, and `src/control_prompt.rs:815` inside a `#[test]` fn |
+| `ambition_sim_view` | `leafwing_input_manager` | FEATURE-GATED + test use | `src/facts.rs:779` behind `#[cfg(feature = "input")]`, and `src/control_prompt.rs:815` <!-- cite-test: the cell's own evidence class is "test use" --> inside a `#[test]` fn |
 | `ambition_touch_input` | `ambition_geometry`, `ambition_input`, `ambition_platformer2d_shared_tangle`, `serde` | FEATURE-GATED, real use | all four gated behind `input`/`mobile_touch` (non-default; `default = []`) in `src/bevy_plugin.rs` and `src/layout.rs` (a `#[derive(Serialize, Deserialize)]`) |
 
 ⭐ **`ambition_encounter_features`/`ron` — a since-corrected row.** It sat here
 once justified by a bare pointer to
-`crates/ambition_encounter_features/src/loading.rs:22`, the only row in this
+`crates/ambition_encounter_features/src/loading.rs:22` <!-- cite-test: the row records the bare pointer that turned out to be test-only -->, the only row in this
 table's history without a stated evidence class. That line was inside
 `ENCOUNTER_WAVE_BOOK_FIXTURE`, `#[cfg(test)]`, and the crate's own docs say
 production embeds no encounter wave data — the dependency moved to

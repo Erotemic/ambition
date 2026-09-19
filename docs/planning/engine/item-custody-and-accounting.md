@@ -25,7 +25,7 @@ than guarded.
 `match_spawn.rs:113` — is gone: it was the WIDE-versus-NARROW registry lookup,
 and I2b left one registry, so the call is correct and only its comment was
 describing a distinction that no longer exists. Corrected in place, with the
-same stale comment at `features/ecs/spawn/mod.rs:753`.
+same stale comment at `features/ecs/spawn/mod.rs:750`.
 
 ⛔⛔ **THE THIRD ITEM WAS FALSE AND HAD BEEN FOR SOME TIME — re-derived 2026-09-06.**
 This sentence used to end *"and the gauntlet-drop road's missing end-to-end arm,
@@ -677,7 +677,7 @@ it takes occurrences and custody TOGETHER because *"a custody row without its oc
 names nothing"*. `PersistedMintedItem` carries the same `occurrence` key and still has NO
 equivalent protection — its own setter (`set_minted_items`, `:598`), its own production
 writer (`items/pickup/minted_horizon.rs:383`), separate from the writer that owns occurrences
-and custody (`session/durable_horizon.rs:603`). Each compares only its OWN field before
+and custody (`session/durable_horizon.rs:625`). Each compares only its OWN field before
 writing, so nothing reconciles them, and no reader of `occurrences()` cross-checks either.
 **That half is unchanged.**
 
@@ -705,7 +705,7 @@ and custody restore write `Restored`; `body_custody.rs:111` writes `SessionOnly`
 limbs and possessions, exactly the reading traced here.
 
 ⇒ **The custody rows now ask the RELATION, not the subject's domain**
-(`durable_horizon.rs:586`): `custody.durability == CustodyDurability::Restored`. The
+(`durable_horizon.rs:608`): `custody.durability == CustodyDurability::Restored`. The
 OCCURRENCE rows above it still ask `restorable` — `With<ItemCustody>` — and the code says why
 in place: the two run over different populations (rows versus live entities), and an
 occurrence recorded `InCustody` whose entity carries no `InCustodyOf` is kept by the wider

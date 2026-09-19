@@ -182,7 +182,7 @@ is what the gap looks like when someone tries anyway.
 
 ⭐ **AND THE TOTAL BEING UNCHANGED AT 200/27 IS NOT A COINCIDENCE.** `ced8b7f7c`
 moved a `display_name` read out of `ambition_combat` and into
-`starting_character.rs:274`. **A move is not a removal**, so the count holds and
+`starting_character.rs:294`. **A move is not a removal**, so the count holds and
 the SITE changes — `worn_kit.rs` is gone from that field's list and the new line is
 in it.
 
@@ -414,7 +414,7 @@ number — 89 of 147 — reads like a finding until the control is run. Every id
 that reaches it is an id the catalog authors nothing for.
 
 ⛔⛔ **AND THESE TWO FIELDS ARE NOT TWO AUTHORITIES AT ALL: THE BARRIER FOLDS
-THEM.** `crates/ambition_characters/src/prepared.rs:1681` is `movement_tuning.or_else(|| catalog?.axis_tuning(&id))`
+THEM.** `crates/ambition_characters/src/prepared.rs:1691` is `movement_tuning.or_else(|| catalog?.axis_tuning(&id))`
 and `:1334` is the same shape for the motion model. The registry is the catalog's
 FOLD, which is why the overlap disagrees zero times — and it is the same
 treatment `vitals.max_health` got, with the reason written at `:1316`: *"a
@@ -432,14 +432,14 @@ and adding them to `CharacterAuthorityConflict` would be a structurally green
 variant — the machinery `AGENTS.md` says to refuse.**
 
 ⇒ **The residue is real but much smaller than a boundary: THE FOLD IS SPELLED
-TWICE.** `avatar/starting_character.rs:157` and `:187` re-perform it at read time
+TWICE.** `avatar/starting_character.rs:164` and `:187` re-perform it at read time
 for the ids the registry does not hold, and the measurement says that second
 spelling changes the answer for none of them. Deleting it would leave the barrier
 as the only place the rule exists.
 
 ⚠ **AND THE 3 THAT LOOK LIKE A DISAGREEMENT ARE THE AUTHORING ROAD, NOT A BUG.**
 `Some(DEFAULT_TUNING)` against a silent catalog row, written where the character
-is CONSTRUCTED (`demo_smash/src/lib.rs:4491`), whose own comment already files it:
+is CONSTRUCTED (`demo_smash/src/lib.rs:4495`), whose own comment already files it:
 *"eleven of the fourteen fighters on the grid still play on the ACTOR baseline —
 a levelled stage where thirteen bodies are floatier than the fourteenth is half a
 decision … Filed for a later slice."*

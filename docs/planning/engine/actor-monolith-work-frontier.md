@@ -545,7 +545,7 @@ negative grep is a claim about the query.**
 ⭐⭐ **AND `movement_tuning`/`motion_model` ARE NOT ON IT AT ALL, MEASURED
 2026-09-11 IN THE SHIPPED HOST — the acceptance line "no duplicate authored
 movement/tuning authority" IS ALREADY MET.** The barrier FOLDS both
-(`crates/ambition_characters/src/prepared.rs:1681`, `:1334`), so the registry is the catalog's fold and cannot
+(`crates/ambition_characters/src/prepared.rs:1691`, `:1334`), so the registry is the catalog's fold and cannot
 disagree with it: 147 catalog rows, 58 prepared, and **zero disagreements in the
 overlap**. The read-site fall-back in `avatar/starting_character.rs` is reached
 for 89 ids per boot and the catalog authors a value for **none** of them, so it

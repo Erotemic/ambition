@@ -230,7 +230,7 @@ of those alias sites stops running while the scope-aware ones resolve the live
 root correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
 production arm asserts:
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:535`), which counts
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:546`), which counts
 roots every frame across a real shell handoff.
 
 ⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias
@@ -558,7 +558,7 @@ that has happened.
 components — `catalogs`, `room_set`, `geometry`, `active_room`,
 `starting_character`, `initial_body`, `requests` — and its own doc says it is
 *"constructed only by lowering an immutable `PreparedPlatformerSource`"*. It is
-built at `provider/src/lifecycle.rs:2166` as
+built at `provider/src/lifecycle.rs:2162` as
 `prepared_content.source().instantiate_live()`, in the same function that takes
 `prepared_content.identity()` and, under the `ldtk` feature, installs the LDtk
 index as *"a SEPARATE component on the same root by the road that installed the
@@ -570,7 +570,7 @@ CONTENT BINDING ALL LAND ON ONE ENTITY, DERIVED FROM ONE PREPARED SOURCE,
 BEFORE PUBLICATION.** The row's premise — six values that "do not all change
 under one current verdict" — is substantially stale.
 
-⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2251`
+⭐ **AND THE TWO SITES ARE THE SAME EDGE.** `provider/src/lifecycle.rs:2247`
 calls `actor_monolith::session::setup::simulation_world(..)` — the function that
 inserts `ActiveContentBinding` — from the SAME function that built the bundle at
 `:2166`, passing `session_root: world`, the root that activation just spawned.
@@ -679,7 +679,7 @@ sites.
 
 ⛔ **BUT THE WRAPPERS ABOVE IT ARE STILL DISTINCT, WHICH IS WHAT THIS ROW SAYS.**
 The room-transition road has its own `RoomTransitionApply::stage(..)`
-(`crates/ambition_platformer2d_runtime/src/room_transition/commit.rs:247`) with its own preflight —
+(`crates/ambition_platformer2d_runtime/src/room_transition/commit.rs:250`) with its own preflight —
 `NoSessionWorld`, `SubjectCannotTransit { subject, missing }` — reached without
 going through `session/setup.rs`. ⚠ I did NOT enumerate all six roads' wrappers;
 what is measured is that the room MATERIALIZER is shared and at least one commit

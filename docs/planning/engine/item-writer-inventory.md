@@ -137,7 +137,7 @@ defect here, not the architecture.**
 STILL REPORTING IT AS LIVE.** There is now exactly ONE production insert of the
 starter roster: `game/ambition_content/src/plugin.rs:71`, inside
 `AmbitionContentPlugin`, which `add_simulation_plugins` installs in BOTH
-compositions. `game/ambition_app/src/app/resources.rs:357` carries a note in
+compositions. `game/ambition_app/src/app/resources.rs:367` carries a note in
 place of its old insert, and `AmbitionItemRosterPlugin` keeps only the item ART.
 ⇒ The finding below is kept because it is the EVIDENCE and because its reasoning
 is the reusable part — *"each composition sees one"* is why the duplication was

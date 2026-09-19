@@ -2779,7 +2779,7 @@ runs once before any timeline exists.
 TWICE FIRST**, which is worth recording because both errors are the kind that
 look like a page being stale. A direct `ResMut<T>` parameter scan found only
 **17**: two of the nineteen are `Option<ResMut<AmbitionGameSave>>`
-(`session/durable_horizon.rs:487`, `game/ambition_content/src/bosses/cut_rope/mod.rs:301`)
+(`session/durable_horizon.rs:509`, `game/ambition_content/src/bosses/cut_rope/mod.rs:301`)
 and the `Option<` wrapper sits between the colon and the `ResMut`. Then, with
 those included, classifying by schedule gave **19 of 19** — because `Startup` is
 neither a rewinding schedule nor a host loop, and a two-way test calls it
@@ -2995,7 +2995,7 @@ that is hashed, which is what Q135 has to settle.
 ✅⛤ **THE DIALOGUE VISIT IS CLOSED, AND THIS ROW USED TO CALL IT "THE ONLY
 HASHED-SAVE WRITER LEFT OUTSIDE THE REWIND WINDOW".** Re-measured 2026-09-18,
 two independent ways: `increment_dialog_visit` has exactly ONE production call
-site — `durable_horizon.rs:504`, inside
+site — `durable_horizon.rs:526`, inside
 `count_the_dialogue_visit_when_a_conversation_opens`, in the sim schedule — and
 `ambition_dialog` no longer names `AmbitionGameSave` anywhere but a comment
 recording that it used to. `resources_crossing_the_rewind_boundary.py` agrees
@@ -3681,7 +3681,7 @@ CAUSED AND FIXED 2026-09-18.** `--maintenance`'s doc-link job scored **0 broken
 links for all thirteen tracked crates against a banked baseline of 141**, marked
 every row *"⭐ repaired"*, and advised `--update`, which would have written an
 empty baseline and retired the ratchet. The cause is the lane itself:
-`scripts/run_tests.py:2308` exports `CARGO_TERM_COLOR=always` to every child
+`scripts/run_tests.py:2394` exports `CARGO_TERM_COLOR=always` to every child
 job, so rustdoc writes `ESC[1m ESC[33m warning ESC[0m: unresolved link to …`
 and the guard's `^warning:` anchor matches nothing. Same crate, same target
 directory, one minute apart: `cargo doc -p ambition_characters --no-deps`

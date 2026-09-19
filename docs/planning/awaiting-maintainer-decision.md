@@ -1374,7 +1374,7 @@ CODEBASE ALREADY ANSWERS A NEIGHBOURING QUESTION IN THE LOUDEST DIRECTION.** For
 a two-root world the headless path does not hand back an uninterpretable reading
 — it ABORTS. `unique_session_world_root` carries a plain
 `assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`
-(`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:424`),
+(`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:437`),
 ungated and live in release, and `live_session_world_root` falls through to it
 whenever `SessionGatedSimulation` is absent — direct entry and headless, which
 is every harness `Q138` is about. The shell-routed branch resolves the same
@@ -3865,7 +3865,7 @@ the guard 2026-09-18 with the mechanism that actually carries it.
 DIRECTION**, which is evidence whichever way this goes: for a two-root world
 the headless path ABORTS rather than hand back an uninterpretable reading, on a
 plain ungated `assert!` at
-`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:424`,
+`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:437`,
 reached by every harness this row is about. See `Q130`, which asked this same
 question with an older census and is now a pointer here; that precedent is the
 one thing it carried that this row did not.

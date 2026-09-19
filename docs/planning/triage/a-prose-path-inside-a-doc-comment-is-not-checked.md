@@ -234,7 +234,7 @@ more useful citation.
   section describes is real, and the checker still caught the writing of it.
 - `held_items/src/lib.rs:996`, `:1016` is a PAIR of citations for a pair of
   functions; a scanner reading only the first call it a miss.
-- `architecture-census.md:420` names five `propose_*`/`publish_*` systems in
+- `architecture-census.md:445` names five `propose_*`/`publish_*` systems in
   one sentence and cites the site of a sixth.
 
 ⇒ **Do not wire this rule.** The false positives are the convention working.

@@ -100,7 +100,7 @@ A-supersedes-B hold race is **WITNESSED IN PRODUCTION — the gate is CLOSED as 
 the ⛔ at the end keeps both, because the method errors are the transferable part.
 
 ⭐ **THE SESSION HALF.** `a_candidate_session_replaced_while_pending_is_discarded`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1420`) boots
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:1431`) boots
 `build_visible_app`, issues `ShellCommand::ReplaceWith` for `ambition_gameplay`,
 waits THREE frames so the second request arrives while the first is still
 PENDING, and asserts the superseded candidate is DISCARDED: no candidate gate
@@ -108,7 +108,7 @@ registration outlives its candidate, the route holds are released, and
 `session_root_for_scope(SessionScopeId(1))` finds the live session — itself the
 premise that the two requests overlapped, because the scope allocator is
 sequential. `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:535`) drives the
+(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:546`) drives the
 same road counting roots every frame.
 
 ⛔⛤ **BOTH LINE NUMBERS ABOVE WERE WRONG UNTIL 2026-09-19, AND THE SHAPE OF THE

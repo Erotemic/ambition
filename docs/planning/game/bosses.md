@@ -90,7 +90,7 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   having chased it, which is why the write-up sounded careful and was not.
 
 * ⚠ **A sibling this page does not mention.** `imperfect_cellular_automaton` is
-  fully authored in `character_catalog.ron:850` — its own display name,
+  fully authored in `character_catalog.ron:857` — its own display name,
   spritesheet, `tier: MainHall`, `body_kind: Floating` and a
   `hall_dialogue_id` — and it is placed in the same world as the PCA. Whether an
   *Imperfect* Cellular Automaton belongs in a page about failed objective

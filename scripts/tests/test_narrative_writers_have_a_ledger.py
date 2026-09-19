@@ -62,22 +62,17 @@ def test_a_comment_naming_a_writer_is_not_a_use():
     assert "GhostPayload" not in writers
 
 
-def test_crate_prefixed_and_fully_qualified_spellings_are_one_type():
-    """⛔ THE AMBIGUITY RULE REDDENED ON ITS AUTHOR WITHOUT THIS.
-
-    `actor_monolith` spells its own payloads `crate::features::BrainCommand`;
-    every other crate spells them
-    `ambition_platformer2d_actor_monolith::features::BrainCommand`. Reading
-    those as two module paths reported three collisions that do not exist.
-    """
-    resolved = guard.resolve_crate_prefix(
-        "crate::features::BrainCommand",
-        guard.REPO / "crates/ambition_platformer2d_actor_monolith/src/features/mod.rs",
+def _filler(n):
+    """`n` distinct payloads, each paired and each declared exactly once."""
+    return "\n".join(
+        f"struct T{i};"
+        f"\nfn f{i}(w: NarrativeInputWriter<p::T{i}>) {{}}"
+        f"\napp.add_plugins(NarrativeInputPlugin::<p::T{i}>::default());"
+        for i in range(n)
     )
-    assert resolved == "ambition_platformer2d_actor_monolith::features::BrainCommand"
 
 
-def test_two_real_types_sharing_a_leaf_are_reported(monkeypatch, capsys):
+def test_two_declarations_of_one_leaf_are_reported(monkeypatch, capsys):
     """⚠ THE COST OF MATCHING ON THE LEAF, PINNED. It has to be a leaf match —
     the writer imports the name and the plugin qualifies it — so the unsound
     case is reported rather than assumed away."""
@@ -85,17 +80,53 @@ def test_two_real_types_sharing_a_leaf_are_reported(monkeypatch, capsys):
         guard,
         "production_sources",
         lambda: sources([
-            ("a.rs", "fn f(w: NarrativeInputWriter<alpha::Clash>) {}"),
-            ("b.rs", "app.add_plugins(NarrativeInputPlugin::<beta::Clash>::default());"),
-            ("c.rs", "\n".join(
-                f"fn f{i}(w: NarrativeInputWriter<p::T{i}>) {{}}"
-                f"\napp.add_plugins(NarrativeInputPlugin::<p::T{i}>::default());"
-                for i in range(guard.MIN_WRITERS)
-            )),
+            ("a.rs", "struct Clash;\nfn f(w: NarrativeInputWriter<alpha::Clash>) {}"),
+            ("b.rs", "enum Clash { X }\n"
+                     "app.add_plugins(NarrativeInputPlugin::<beta::Clash>::default());"),
+            ("c.rs", _filler(guard.MIN_WRITERS)),
         ]),
     )
     assert guard.main() == 1
-    assert "more than one module path" in capsys.readouterr().out
+    assert "declared 2 times" in capsys.readouterr().out
+
+
+def test_a_re_export_is_not_a_second_declaration(monkeypatch, capsys):
+    """⛔⛤ THE FALSE POSITIVE THAT REPLACED THE OLD RULE, HELD OPEN.
+
+    This is `SpawnActorRequest`'s shape: the writer reaches the type through
+    the facade and the plugin names the owning crate, so the two module paths
+    differ while exactly one `struct` exists. A path comparison reds here; a
+    declaration count must not.
+    """
+    monkeypatch.setattr(
+        guard,
+        "production_sources",
+        lambda: sources([
+            ("owner.rs", "struct SpawnX;"),
+            ("facade.rs", "pub use owner::SpawnX;\n"
+                          "fn f(w: NarrativeInputWriter<facade::actor::SpawnX>) {}"),
+            ("host.rs", "app.add_plugins(NarrativeInputPlugin::<owner::SpawnX>::default());"),
+            ("c.rs", _filler(guard.MIN_WRITERS)),
+        ]),
+    )
+    assert guard.main() == 0
+    assert "SpawnX" not in capsys.readouterr().out
+
+
+def test_a_paired_leaf_with_no_declaration_is_reported(monkeypatch, capsys):
+    """A leaf nothing declares is the shape an EXTERNAL type would arrive in,
+    and the premise cannot be checked for it — so it is reported, not passed."""
+    monkeypatch.setattr(
+        guard,
+        "production_sources",
+        lambda: sources([
+            ("a.rs", "fn f(w: NarrativeInputWriter<far::Away>) {}"
+                     "\napp.add_plugins(NarrativeInputPlugin::<far::Away>::default());"),
+            ("c.rs", _filler(guard.MIN_WRITERS)),
+        ]),
+    )
+    assert guard.main() == 1
+    assert "premise of that pairing cannot be checked" in capsys.readouterr().out
 
 
 def test_a_rotted_regex_refuses_instead_of_passing(monkeypatch, capsys):

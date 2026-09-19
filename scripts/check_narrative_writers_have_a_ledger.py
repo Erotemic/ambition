@@ -32,12 +32,39 @@ owner the other source scans use. The comment this repair left beside the fixed
 registration names the writer in text, and without stripping it read as a
 second call site.
 
-⚠ **MATCHED ON THE LEAF TYPE NAME, WHICH IS A REAL WEAKNESS AND IS CHECKED.**
-It has to be: the writer says `NarrativeInputWriter<SetFlagRequested>` from a
-`use`, and the plugin says
-`NarrativeInputPlugin::<ambition_combat::SetFlagRequested>`. A leaf match is
-the only comparison both spellings support. Two DIFFERENT types sharing a leaf
-would pair wrongly, so that case is reported rather than assumed away.
+⚠ **MATCHED ON THE LEAF TYPE NAME, AND THE PREMISE OF THAT MATCH IS CHECKED
+RATHER THAN THE SPELLINGS.** It has to be a leaf match: the writer says
+`NarrativeInputWriter<SetFlagRequested>` from a `use`, and the plugin says
+`NarrativeInputPlugin::<ambition_combat::SetFlagRequested>`. Leaf is the only
+comparison both spellings support. What makes that sound is that the leaf names
+exactly ONE type in this workspace, so every rule below pairs a leaf only after
+checking there is exactly one `struct`/`enum` declaring it.
+
+⛔⛤ **AND COMPARING MODULE PATHS INSTEAD IS WRONG, WHICH THIS CHECK LEARNED BY
+DOING IT (replaced 2026-09-19 after review).** The first rule here compared the
+QUALIFIED spellings of a leaf and reported a collision when they disagreed. It
+has a hole and a false positive, and they are the same fact seen twice:
+
+  - **The hole.** A bare `NarrativeInputWriter<Foo>` carries no module path, so
+    it was excluded from the comparison entirely and would pair happily with a
+    plugin for a DIFFERENT qualified `Foo`. Resolving the bare name through the
+    file's `use` map closes that.
+  - **The false positive it then causes.** Resolved that way,
+    `SpawnActorRequest` reads `ambition_platformer2d::actor` at the writer and
+    `ambition_platformer2d_actor_spawn` at the plugin. Two paths, ONE type — the
+    facade re-exports it. Three of the ten payloads disagree on path this way
+    (the others are `super::`-relative), so the strict rule reds on re-exports.
+
+⇒ A re-export multiplies PATHS and not DEFINITIONS, so counting declarations
+answers the question the paths cannot. Measured 2026-09-19: all ten payload
+leaves have exactly one declaration in shipped source.
+
+⚠ **WHAT THIS STILL CANNOT SEE.** A leaf declared OUTSIDE this workspace is
+invisible to a declaration count, so a bare spelling resolving to an external
+type that shares a leaf with a workspace type would still pair wrongly. No
+payload does today — every one of the ten resolves to a declaration here — and
+a leaf with NO declaration is reported rather than passed, which is the shape
+that case would arrive in.
 """
 
 from __future__ import annotations
@@ -71,21 +98,20 @@ def leaf(ty: str) -> str:
     return ty.strip().rsplit("::", 1)[-1].strip()
 
 
-def resolve_crate_prefix(ty: str, path: pathlib.Path) -> str:
-    """`crate::features::X` and `<owning_package>::features::X` are one type.
+def declaration_sites(name: str, sources) -> list[str]:
+    """Every shipped `struct`/`enum` declaring this leaf name.
 
-    ⛔ THE AMBIGUITY RULE BELOW REDDENED ON ITS OWN FIRST RUN WITHOUT THIS.
-    `actor_monolith` spells its own payloads `crate::features::BrainCommand`
-    and every other crate spells them
-    `ambition_platformer2d_actor_monolith::features::BrainCommand`; reading
-    those as two module paths reported three collisions that do not exist.
+    ⚠ A re-export is not a declaration, which is the whole reason this is the
+    rule: `ambition_platformer2d::actor::SpawnActorRequest` and
+    `ambition_platformer2d_actor_spawn::SpawnActorRequest` are two paths to the
+    ONE `struct` counted here.
     """
-    if not ty.startswith("crate::"):
-        return ty
-    parts = path.relative_to(REPO).parts
-    if len(parts) < 2:
-        return ty
-    return f"{parts[1]}::{ty[len('crate::'):]}"
+    decl = re.compile(rf"\b(?:struct|enum)\s+{re.escape(name)}\b")
+    return [
+        f"{path.relative_to(REPO)}:{body[: m.start()].count(chr(10)) + 1}"
+        for path, body in sources
+        for m in decl.finditer(body)
+    ]
 
 
 def production_sources() -> list[tuple[pathlib.Path, str]]:
@@ -123,13 +149,14 @@ def scan(sources) -> tuple[dict[str, list], dict[str, list]]:
                     continue
                 line = body[: match.start()].count("\n") + 1
                 sink.setdefault(leaf(ty), []).append(
-                    (resolve_crate_prefix(ty, path), f"{path.relative_to(REPO)}:{line}")
+                    f"{path.relative_to(REPO)}:{line}"
                 )
     return writers, plugins
 
 
 def main() -> int:
-    writers, plugins = scan(production_sources())
+    sources = production_sources()
+    writers, plugins = scan(sources)
 
     if len(writers) < MIN_WRITERS or len(plugins) < MIN_PLUGINS:
         print(
@@ -142,23 +169,28 @@ def main() -> int:
     bad = []
     for name, uses in sorted(writers.items()):
         if name not in plugins:
-            where = ", ".join(site for _ty, site in uses)
+            where = ", ".join(uses)
             bad.append(
                 f"`NarrativeInputWriter<{name}>` is used at {where} and no "
                 f"`NarrativeInputPlugin<{name}>` is installed anywhere, so its "
                 "`ResMut<NarrativeInputLedger<_>>` cannot resolve and the write is lost"
             )
 
-    # ⛔ THE LEAF MATCH, CHECKED RATHER THAN ASSUMED. Two distinct paths sharing
-    # a leaf would satisfy a pairing they have nothing to do with.
-    for name in sorted(set(writers) | set(plugins)):
-        qualified = {
-            ty for ty, _ in writers.get(name, []) + plugins.get(name, []) if "::" in ty
-        }
-        if len({q.rsplit("::", 1)[0] for q in qualified}) > 1:
+    # ⛔ THE LEAF MATCH'S PREMISE, CHECKED RATHER THAN ASSUMED. Pairing by leaf
+    # is sound exactly while the leaf names one type; a second declaration makes
+    # every pairing above a coincidence, and none makes it uncheckable.
+    for name in sorted(set(writers) & set(plugins)):
+        decls = declaration_sites(name, sources)
+        if len(decls) > 1:
             bad.append(
-                f"`{name}` is spelled with more than one module path ({sorted(qualified)}), "
-                "so pairing a writer to a plugin by leaf name is no longer sound here"
+                f"`{name}` is declared {len(decls)} times in shipped source "
+                f"({', '.join(decls)}), so pairing a writer to a plugin by leaf "
+                "name is a coincidence rather than a match"
+            )
+        elif not decls:
+            bad.append(
+                f"`{name}` is paired by leaf name but no shipped `struct`/`enum` "
+                "declares it, so the premise of that pairing cannot be checked here"
             )
 
     if bad:

@@ -2816,7 +2816,8 @@ less damage than one somebody wins.
 
 ⚠ The mechanism is small and the consequence is not, which is what makes this a
 product question rather than a bug. Shipped rage is `rage_per_damage: 0.004`
-capped at `1.4`, and the duel's own damage totals put the largest multiplier
+capped at `1.4` (✔ both re-read 2026-09-18 at
+`game/ambition_demo_smash/src/lib.rs:1699-1700`; the field is `rage_max_scale`), and the duel's own damage totals put the largest multiplier
 actually reached at about `1.17`. A `×1.05` constant applied to the throw with no
 rage at all reproduces the rung-9 failure to the digit.
 
@@ -3190,7 +3191,12 @@ question left over it.** `AuthoredOccurrences` has exactly ONE entry road —
 custody, via `project_custody_onto_authored_occurrences` reading `InCustodyOf` —
 so an object that enters the world already lying on the ground and is never
 picked up cannot be remembered, and `republish_placements` refuses any id whose
-current row is not `InCustody` or `Placed`. The measurement and the guard are at
+current row is not `InCustody` or `Placed`. ✔ Re-checked 2026-09-18: the
+refusal is still the live predicate
+(`crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs:321`)
+and its three arms are all still there — a never-carried id refused by name, a
+`Consumed` row not resurrected, and both legal roads still passing so the guard
+cannot pass by refusing everything. The measurement and the guard are at
 I4 in [item custody](engine/item-custody-and-accounting.md).
 
 ⇒ Choose whether a runtime-spawned ground item may be durable at all. If yes it
@@ -3452,7 +3458,10 @@ BUILDING THE CONSUMER IT ASKS FOR WOULD CLOSE THE ROW WITHOUT CHANGING WHAT A
 PLAYER SEES.**
 
 **MEASURED 2026-09-17** over every non-test `CutsceneBeat::Fade` literal in the
-workspace — all three of them:
+workspace — all three of them. ✔ RE-DERIVED 2026-09-18: still exactly three
+(`game/ambition_content/src/intro/cutscene.rs:43` and `:109`,
+`game/ambition_content/src/dialogue/cutscene_defaults.rs:16`), every row of the
+table below unchanged including each fade's POSITION in its script:
 
 | script | `to_alpha` | `seconds` | position in script | room |
 |---|--:|--:|---|---|

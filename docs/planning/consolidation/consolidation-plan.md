@@ -977,6 +977,52 @@ state that exists only because session identity was OPTIONAL.** That is the
 shape `C04`/`C07` are told to inspect, and it is not to be preserved for the
 benefit of old direct-entry tests.
 
+⭐⛤ **THE RULING'S CATEGORIES MAP ONTO THIS CAMPAIGN'S MEASURED 37, AND EVERY
+CATEGORY IT NAMES HAS MEMBERS HERE — DERIVED 2026-09-19.** `Q132`'s scoping rule
+lists the kinds of state that should generally be scoped. That list is abstract;
+`scripts/architecture_census.py` already reports **37 explicit process resources
+with session/generation semantics** (`explicit_narrow_lifetime_resources`, two
+groups: `SessionOwnedCheckpointState` ×6 and `SessionScopedResources` ×30). Laid
+side by side, the ruling stops being a principle and becomes this campaign's
+triage order:
+
+| the ruling's category | members among the 37 | n |
+|---|---|---:|
+| current room / world / session state | `LastCutsceneRoom`, `LastQuestRoom`, `RoomTransitionCooldown`, `MovingPlatformSet`, `SlotInteractionState` | 5 |
+| participant state | `ControlledSubject`, `PossessionState` | 2 |
+| encounter state | `EncounterRegistry`, `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 4 |
+| simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
+| checkpoint / restore state | `SessionCheckpointOperations`, `SessionCheckpointOutcomes`, `AcceptedCheckpointRestore`, `AbandonedCheckpointOperation`, `SessionStartupResume`, `OutstandingCheckpointRequest`, `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 10 |
+| session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `CutsceneAdvanceRequest`, `PendingLifecycleCommit` | 4 |
+| admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
+| cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
+| transient progression | `QuestRegistry`, `StocksMatchSettled`, `SuddenDeathEntered` | 3 |
+
+⭐ **EVERY ONE OF THE 37 IS ASSIGNED EXACTLY ONCE, CHECKED RATHER THAN EYEBALLED** — the first draft of this table put `OutstandingCheckpointRequest` under queues and `SessionStartupResume` beside the checkpoint group, and both are already MEMBERS of that group of six, so two names appeared twice and the column would not have summed. The assignment is now verified against `architecture_census.py --json` as a partition: no name missing, none repeated.
+
+⚠ **THEY REALLY ARE ANONYMOUS SINGLETONS, SPOT-CHECKED RATHER THAN ASSUMED.**
+`GameplayElapsed`
+(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:238-239`),
+`ControlledSubject`
+(`crates/ambition_platformer2d_shared_tangle/src/markers.rs:16-17`) and
+`LastQuestRoom`
+(`ambition_persistence/src/quest/registry.rs:46-47`) are each a plain
+`#[derive(Resource)]` newtype with no scope key — the exact shape the rule names,
+holding a value two coexisting sessions could legitimately differ on.
+
+⇒ **WHAT THIS DOES AND DOES NOT SETTLE.** It settles the ORDER: the ruling's own
+list is the priority, and every category in it is populated here, so no category
+is theoretical. It does NOT settle the per-value verdict — the rule's test is
+*"could two coexisting sessions legitimately differ here?"*, and for a few of
+these the answer may be no. ⚠ `BaseGravity` is the interesting one to decide
+early rather than late: it is admitted configuration by the ruling's vocabulary,
+it is already a rollback-registered value, and it is one of `Q136`'s live
+lost-intent subjects — so it is simultaneously a scoping question and an ingress
+question, and moving its ownership before `Q136` rules would prejudge the second.
+
+⚠ AND `SessionMechanics` is `C04`'s subject, held on `Q144`. Leave it there; a
+C03 pass that reparents it would take a decision this campaign does not own.
+
 ⚠ **AND TWO OF THIS SEQUENCE'S OWN PREMISES WERE MEASURED AWAY ON 2026-09-16**
 (see C03's CURRENT STATE): there is no reset-only subset to lift out, and the two
 reset lists are a disjoint partition rather than two copies. The owner-by-owner

@@ -648,9 +648,21 @@ then 726/196 with the note *"ASK THE TOOL, DO NOT MODEL IT"* — and on 2026-09-
 the tool turned out to be cutting each file from its FIRST `#[cfg(test)]` to the
 end. In this tree a module declares its tests near the TOP
 (`#[cfg(test)] mod tests;`), so everything below that line was invisible:
-`architecture_census.py` now reads **820 over 206**, and removing the test strip
+`architecture_census.py` then read **820 over 206**, and removing the test strip
 entirely adds only three more. ⇒ **The 89 it was missing were production code,
 not fixtures.**
+
+⛔⛤ **AND THAT MAKES FIVE FIGURES, BECAUSE THE HELPER HAD A SECOND DEFECT OF THE
+SAME SHAPE.** `da042e39e` (2026-09-18) found it stripped `#[cfg(test)]` items
+and not COMMENTS, so `820 / 206` counted prose — three types existed only in doc
+comments and doc examples. The reading under the repaired rule was `808 / 203`,
+and the same rule reads **806 / 203** today, a genuine fall of two.
+
+⇒ **THE FIX FOR A ROW THAT HAS CARRIED FIVE FIGURES IS NOT A SIXTH, IT IS A DATE
+AND A RULE PER FIGURE.** `campaign-metrics.md` now carries that table; this row
+owns the argument. ⚠ Note what the two defects had in common: both were the
+helper looking at the wrong CORPUS, once too little (the tail cut) and once too
+much (prose), and each was invisible to the other's fix.
 
 ⚠ **SO BOTH READINGS WERE WRONG, IN DIFFERENT WAYS, AND THE RECONCILIATION
 BETWEEN THEM WAS WRONG TOO.** The hand scan's 850 was much closer to the

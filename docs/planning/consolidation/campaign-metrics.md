@@ -458,8 +458,23 @@ file from its first `#[cfg(test)]` to the end, and the per-item strip replaced
 it. The section below measures that rule's effect ON A STATIONARY TREE, and it
 is large — `Option<Res<_>>` occurrences +89, unique types +9, test LOC +1,529.
 ⇒ `806` against `732` mixes a tree change with a rule change and is a
-measurement of neither. The comparable pair for occurrences is **820 → 806**,
-both under the current rule.
+measurement of neither.
+
+⛔⛤ **AND THERE ARE THREE RULES HERE, NOT TWO — I WROTE *"the comparable pair
+is 820 → 806, both under the current rule"* AND IT WAS WRONG WITHIN THE HOUR.**
+`da042e39e` (2026-09-18) fixed a SECOND defect in the same helper: it stripped
+`#[cfg(test)]` items and not COMMENTS, so the per-item-strip reading counted
+prose. The full sequence, each figure under the rule that produced it:
+
+| rule | when | occurrences / unique types |
+|---|---|---|
+| file cut at the first `#[cfg(test)]` | baseline `662a9b5` | 732 / 196 |
+| per-item `#[cfg(test)]` strip | 2026-09-17 | 820 / 206 |
+| that, plus comment stripping | 2026-09-18 `da042e39e` | 808 / 203 |
+| same rule, today | 2026-09-18 | **806 / 203** |
+
+⇒ The only comparable pair on this page is **808 → 806**, a fall of two under
+one rule. Everything above it is instrument history.
 
 ⛔ **I PUT THE UNIQUE-SPELLINGS AND TEST-LOC ROWS IN THE Δ TABLE FIRST, IN THE
 PARAGRAPH EXPLAINING WHY THE OCCURRENCES ROW COULD NOT BE THERE.** The reason

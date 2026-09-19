@@ -314,7 +314,9 @@ fn jab_uptilt_and_dash() -> MovesetContract {
 /// scores move A while the executor performs move B violates the action model
 /// whatever the matchups say, and re-pricing is the EXPECTED consequence of a
 /// decision model that starts reading the frame data of the move it actually
-/// takes. See `Q117`.
+/// takes. `Q117`, in `docs/planning/maintainer-decisions.md` — which also
+/// records the half it did NOT settle: what utility / run / dash-attack TUNING
+/// a brain that reads the right frame data now wants is Jon's, not this arm's.
 #[test]
 fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() {
     let moveset = ActorMoveset(jab_uptilt_and_dash());

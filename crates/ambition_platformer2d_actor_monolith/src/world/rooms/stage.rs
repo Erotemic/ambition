@@ -425,8 +425,10 @@ impl RoomConstructionPlan {
         // `reconstructing` for the rest — and the coexistence it was refusing is
         // the A10 premise. See `transaction::open`.
         //
-        // ⚠ And `Q124` really is a ruling, but a narrower one than this flag: the
-        // baseline decides PER ITEM, and both halves already run — the room
+        // ⚠ And `Q124` was WITHDRAWN (2026-09-13): the rule was never a ruling
+        // anybody owed, because it is already shipped and TEMPORAL — the
+        // baseline decides PER ITEM by which side of the checkpoint each
+        // acquisition fell on, and both halves already run — the room
         // re-authors the object in its world state, the custodian's own
         // retraction takes it out of the hand. See `retire_superseded` for the
         // measured reason publication must not do that half itself.

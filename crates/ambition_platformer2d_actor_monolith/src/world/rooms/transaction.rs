@@ -889,9 +889,11 @@ pub struct LastConstructionVerification {
 /// ⭐ **THAT IS EXACTLY THE `Q124` DEFECT, NEWLY LEGIBLE.** A death-reset carries
 /// a placement held in the player's custody across the "door" (`RoomResident`
 /// excludes `InCustodyOf`) and then re-mints it, so two entities wear one
-/// authored `SimId`. What the ruling in `Q124` decides is what SHOULD happen to
-/// the held one; what this decides is that the verifier can say which of the two
-/// is unexpected.
+/// authored `SimId`. ⚠ **AND NO RULING IS COMING FOR THE HELD ONE — `Q124` WAS
+/// WITHDRAWN HOURS AFTER THIS PARAGRAPH WAS WRITTEN, 2026-09-13.** The rule is
+/// already shipped and it is TEMPORAL, not item-kind: the reset restores what
+/// the checkpoint saw, per object. What this decides is the smaller and real
+/// thing — that the verifier can say which of the two bodies is unexpected.
 ///
 /// ⚠ **RECONSTRUCTING, NOT RETIRING.** A room plan says what the room WILL
 /// contain; it never declares an identity gone. `retiring` therefore still has no
@@ -947,8 +949,10 @@ pub(crate) fn open(
                     // HOLDS is a SUPERSESSION: the live body is meant to keep
                     // standing until this room publishes.
                     //
-                    // ⭐ That is `Q124`'s ruling implemented rather than
-                    // averaged: the checkpoint baseline decides PER ITEM, and
+                    // ⭐ That is the SHIPPED custody rule implemented rather
+                    // than averaged — `Q124` asked for a blanket one and was
+                    // withdrawn because this already existed. The checkpoint
+                    // baseline decides PER ITEM, and
                     // two placements in one death reconstruction are free to
                     // land in different halves. Nothing here asks a blanket
                     // question about custody.

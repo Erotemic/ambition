@@ -1515,6 +1515,38 @@ question is untouched by it.
 
 **Blocked by:** the DAMAGE half only —
 [Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+
+⭐⭐ **AND THE DETERMINISM HALF HAS A SHIPPED PRECEDENT THAT NEEDED NO PRODUCT
+RULING — FOUND 2026-09-19 WHILE COUNTING THE EDITOR DOMAINS.** `PortalTuning`
+was in exactly this state: the settings menu wrote the authority directly,
+`.before(portal_transit)`, which under the rollback host is inside
+`GgrsSchedule`, so *"a replay of frame N observed whatever the settings menu
+holds NOW, and it overwrote whatever the admitted portal-editor publisher had
+just published"* (`game/ambition_content/src/portal/plugin.rs:218`). The repair
+asked for no NEW ruling — it applied one that already existed: `sync_portal_reorient_from_settings` authors the MIRROR and
+PROPOSES, in `MechanicalEditSet::Propose`, so the settings menu and the F-key
+panel write the same field in the same place and
+`publish_editable_portal_tuning` stays the only writer of the authority. That
+is `Q120`'s admission protocol, which is now a recorded ruling.
+
+⇒ **SO `Q127` DECIDES THE KEY, NOT THE SHAPE.** Whether the damage modifiers
+are one match-wide value or per participant changes the TYPE the protocol
+carries; that the settings road must propose rather than write is already
+settled everywhere else this pattern occurs. ⚠ The rework risk is real and is
+why this is recorded rather than done: a per-participant answer rewrites the
+resource the wrapper wraps. What the row should not do is keep reading as if
+the determinism question itself were waiting on a product call.
+
+⚠ **MEASURED WHILE HERE, because `status.md` states this count and a count
+crossing a document boundary carries its method:** SIX editor domains —
+movement tuning, abilities, developer body profile, player stats, feel tuning,
+portal tuning — registered at three sites, with SEVEN proposers (portal has
+two: its F-key panel and the settings mirror) and six publishers. ⇒
+`status.md`'s *"six current editor domains"* is right. ⚠ The app canary says
+*"five proposers and five publishers"* for `build_visible_app`
+(`game/ambition_app/tests/developer_edits_under_rollback.rs:330`) — a
+COMPOSITION count beside this WORKSPACE count, not reconciled here. Whoever
+needs the difference should measure the composition rather than subtract.
 ⭐ **THE FRAME-MODE HALF WAS NOT BLOCKED ON A RULING AND HAD A RECORDED REPAIR**
 (kept below because the repair it named was NOT the one taken, and the reasons
 are the decision record).

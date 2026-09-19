@@ -525,8 +525,9 @@ SIDES.** `bundles.rs:256` linked
 from the doc of a `pub fn` on the spawn path. At HEAD `504a6c152`, `cargo doc`
 emits *"unresolved link … no item named `PlayableKitSource` in module <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
 `character_catalog`"*; after the repair it emits nothing for that file. ⇒ With
-`state_machine/mod.rs:66` and `sim_core_resources.rs:12`, **rustdoc has been
-reporting this class the whole time and the warning is buried in 68 others** in
+`state_machine/mod.rs:66` and `sim_core_resources.rs` (whose own line moved
+when the false sentence around the link was deleted later the same day),
+**rustdoc has been reporting this class the whole time and the warning is buried in 68 others** in
 these two crates alone — which is why a third instrument existing is not the
 same as the class being watched.
 
@@ -888,8 +889,9 @@ which is the opposite of the usual shape on this page:
   twenty-eight lines above two call sites already naming
   `ambition_platformer2d_actor_spawn`.
 - `edit_to_play_through_the_shell.rs` explained a vacuity through
-  `activate_prepared_platformer_sessions`, which A10.5 had split in two. The
-  vacuity still holds; the mechanism named for it does not exist.
+  `activate_prepared_platformer_sessions` <!-- cite-ok: the deleted name is the SUBJECT of this bullet; resolving it would mean the split never happened -->,
+  which A10.5 had split in two. The vacuity still holds; the mechanism named
+  for it does not exist.
 
 ⭐ **A DOC THAT STATES ITS OWN EXIT CONDITION IS THE CHEAPEST KIND TO AUDIT, AND
 NOBODY CHECKS IT.** Both of these named precisely what would make them false —

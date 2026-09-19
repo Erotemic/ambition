@@ -1530,6 +1530,48 @@ agreed value for the match, or publish a value per participant/seat as an
 accessibility policy. Both are mechanically viable; the product rule decides the
 shape of the admitted authority.
 
+⭐⭐ **`Q132` (2026-09-19) ALREADY NARROWED THIS, THE SAME WAY IT NARROWED
+`Q144`.** The scoping rule says mutable state that could legitimately differ
+between two sessions, matches or participants coexisting during preparation,
+handoff, rollback, multiplayer or testing must carry explicit scope, and that
+App-global mutable state is appropriate *only* where simultaneous sessions
+would share exactly the same value. Two matches at different difficulties
+would not. ⇒ **Whichever answer this question gives, the policy must carry a
+scope**, and that half is no longer a choice. What remains is WHICH scope —
+which is exactly what this question asks.
+
+⛤ **AND TODAY IT HAS NONE, MEASURED 2026-09-19.** `PlayerDamagePolicy`
+(`crates/ambition_damage/src/lib.rs:1120`, two `f32` fields — `incoming` for
+damage the player takes, `outgoing` for damage it deals) is installed with a
+bare `init_resource` in `player_schedule.rs:281`, is **not** a member of
+either session bundle (`SessionScopedResources`, `SessionOwnedCheckpointState`
+— 0 occurrences in each), and is **not rollback-registered**. It is the
+anonymous App-global singleton the scoping rule names. ⚠ Three production sim
+readers take it.
+
+⚠ **ITS `Default` IS LOAD-BEARING AND WOULD SURVIVE EITHER ANSWER**: unscaled
+`1.0 / 1.0`, *"so a composition that installs no projection behaves exactly as
+it did before"*. A scoped replacement has to keep that property or every
+harness that never installs a projection changes behaviour.
+
+**The decision:**
+
+* **(a) Match-wide.** One agreed value frozen at match activation, admitted the
+  way other match-scoped mechanics are. ⚠ Peers must agree on it, so it becomes
+  part of what an activation publishes; an accessibility setting then cannot
+  differ per player.
+* **(b) Participant-specific.** A value per seat, resolved deterministically
+  from input the way the frame-mode half was. ⚠ This is the shape the closed
+  half of `SETTINGS-ROLLBACK` already used, and the script that measures this
+  row prints the principle: *"peers must not have to share accessibility
+  settings"*. ⛔ It also means damage scaling differs between two fighters in
+  one match, which is a product statement about fairness, not a mechanism.
+
+⇒ **THE TWO ARE NOT A COST TRADE.** (a) makes the modifier a property of the
+match and (b) makes it a property of the person; both are mechanically viable
+and the row says so. The rollback-correct implementation differs: (a) is
+admitted once at activation, (b) travels with the input.
+
 ## Q136 — how does a local menu intent enter the synchronised timeline?
 
 **Asked 2026-09-16, with both answers already measured false.**

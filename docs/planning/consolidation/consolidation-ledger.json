@@ -5051,25 +5051,27 @@
       "category": "capability_optionality",
       "name": "Repository optional Res/ResMut surface",
       "owner": "static heuristic census",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "The static helper counts hundreds of Option<Res<T>> and Option<ResMut<T>> occurrences, but the count is only a discovery surface. Each canonical type needs composition-aware classification before any change.",
+      "current_truth": "SEMANTIC REVIEW DONE 2026-09-18, and it moved the AXIS rather than the number. The row asked for per-TYPE classification before any change; the unit is the CALL SITE. `SimTick` is a hard COMPOSITION fact in `ambition_conversation/ledger.rs` and, at `durable_horizon.rs:480`, an `Option` guarding tooling compositions beside the comment \"every shipped composition has the clock\" \u2014 one type, two boundaries. \u26a0 AND THERE IS A THIRD SHAPE THE COUNT BURIES: `ParallaxThemeAttempts` is TEMPORAL, \"the difference between 'not yet' and 'never'\", which is neither composition nor defence. No clean pure-defensive example survived tracing \u2014 every candidate resolved to a composition or a temporal reason once its own call-site comment was read, which is itself the finding: the cheap classification READS those comments rather than re-deriving intent from types. \u26d4 The count is still a discovery surface and still not a defect metric, and it has now crossed THREE counting rules \u2014 732/196 under the tail cut, 820/206 under the per-item strip, 806/203 today under the comment strip. `campaign-metrics.md` carries the rule-by-rule table; do not subtract across it.",
       "source_paths": [
         "scripts/architecture_census.py",
+        "crates/ambition_conversation/src/ledger.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "docs/planning/engine/capability-and-runtime-composition.md"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The static helper counts hundreds of Option<Res<T>> and Option<ResMut<T>> occurrences, but the count is only a discovery surface. Each canonical type needs composition-aware classification before any change.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "SEMANTIC REVIEW DONE 2026-09-18, and it moved the AXIS rather than the number. The row asked for per-TYPE classification before any change; the unit is the CALL SITE. `SimTick` is a hard COMPOSITION fact in `ambition_conversation/ledger.rs` and, at `durable_horizon.rs:480`, an `Option` guarding tooling compositions beside the comment \"every shipped composition has the clock\" \u2014 one type, two boundaries. \u26a0 AND THERE IS A THIRD SHAPE THE COUNT BURIES: `ParallaxThemeAttempts` is TEMPORAL, \"the difference between 'not yet' and 'never'\", which is neither composition nor defence. No clean pure-defensive example survived tracing \u2014 every candidate resolved to a composition or a temporal reason once its own call-site comment was read, which is itself the finding: the cheap classification READS those comments rather than re-deriving intent from types. \u26d4 The count is still a discovery surface and still not a defect metric, and it has now crossed THREE counting rules \u2014 732/196 under the tail cut, 820/206 under the per-item strip, 806/203 today under the comment strip. `campaign-metrics.md` carries the rule-by-rule table; do not subtract across it.",
           "sources": [
-            "scripts/architecture_census.py",
-            "docs/planning/engine/capability-and-runtime-composition.md"
+            "crates/ambition_conversation/src/ledger.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs"
           ]
         }
       ],
-      "classification": "NEEDS_SEMANTIC_REVIEW",
-      "verification_needed": "Use architecture_census.py to refresh the type list, then inspect only high-authority types. Do not treat the count as a defect metric."
+      "classification": "semantic review done 2026-09-18; the axis moved from type to call site",
+      "verification_needed": "Re-run architecture_census.py for the type list, and classify by CALL SITE rather than by type. Do not treat the count as a defect metric, and do not compare readings across the three counting rules campaign-metrics.md records."
     },
     {
       "id": "ORDER-SESSION-LIFECYCLE",

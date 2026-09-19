@@ -101,6 +101,39 @@ def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: 
                 f"the {OPEN} families, so the campaign's count disagrees with its own row"
             )
 
+    # ⛔⛤ **EVERY LEDGER ROW MUST BE READABLE ON THE PAGE.** The state check
+    # below covers only the duplicate-authority family rows — 8 of 114 — so a
+    # row of any other category could go stale, contradict the page, or lose
+    # its page row entirely without anything noticing. Found 2026-09-18 by
+    # `CAP-OPTIONAL-RES-CENSUS`, where the page cell said *"CLASSIFIED — THE
+    # AXIS WAS WRONG"* while the ledger still said `SOURCE_INFERRED` /
+    # `NEEDS_SEMANTIC_REVIEW`, and by `TEST-TWO-APP`, whose `DOC_CLAIM` said a
+    # witness had not been run while four arms of it sat passing in the tree.
+    #
+    # ⚠ THIS IS THE WEAK HALF OF THAT, ON PURPOSE. Comparing the STATUS token
+    # per row means parsing a prose table whose columns differ between
+    # sections, and a census that parses prose invents rows. Presence is
+    # checkable without parsing anything: a ledger row the page never names is
+    # a row no reader can reach, whatever it says.
+    # ⛔⛤ WORD-BOUNDED, AND THE FIRST DRAFT WAS `item["id"] not in census` —
+    # a substring test, whose poison PASSED. Renaming the page's row to
+    # `CRATE-BODY-SEED-POISONED` leaves `CRATE-BODY-SEED` inside it, so the
+    # check saw the id it was looking for in a row that no longer names it. A
+    # containment test between two identifiers is almost never the test you
+    # want; these ids share prefixes by construction (`CRATE-*`, `ORDER-*`,
+    # `DUP-*`), so the failure is not hypothetical.
+    missing_on_page = sorted(
+        item["id"]
+        for item in ledger["items"]
+        if isinstance(item.get("id"), str)
+        and not re.search(rf"(?<![A-Za-z0-9-]){re.escape(item['id'])}(?![A-Za-z0-9-])", census)
+    )
+    if missing_on_page:
+        bad.append(
+            f"{len(missing_on_page)} ledger row(s) are named nowhere on the census "
+            f"page, so nothing a reader can reach carries them: {missing_on_page}"
+        )
+
     # ── the page that publishes the states
     cells = census_state_cells(census)
     if len(cells) != len(families):

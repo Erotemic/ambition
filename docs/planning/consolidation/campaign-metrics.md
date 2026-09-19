@@ -462,19 +462,20 @@ measurement of neither.
 
 ⛔⛤ **AND THERE ARE THREE RULES HERE, NOT TWO — I WROTE *"the comparable pair
 is 820 → 806, both under the current rule"* AND IT WAS WRONG WITHIN THE HOUR.**
-`da042e39e` (2026-09-18) fixed a SECOND defect in the same helper: it stripped
-`#[cfg(test)]` items and not COMMENTS, so the per-item-strip reading counted
-prose. The full sequence, each figure under the rule that produced it:
+The third rule is the comment strip, already recorded above under *"AND THERE IS
+A THIRD RULE SINCE 2026-09-18"* with its own before/after table; that section
+owns it and this one does not restate it. Under that rule the reading was
+`808 / 203`, and today it is **806 / 203**.
 
-| rule | when | occurrences / unique types |
-|---|---|---|
-| file cut at the first `#[cfg(test)]` | baseline `662a9b5` | 732 / 196 |
-| per-item `#[cfg(test)]` strip | 2026-09-17 | 820 / 206 |
-| that, plus comment stripping | 2026-09-18 `da042e39e` | 808 / 203 |
-| same rule, today | 2026-09-18 | **806 / 203** |
+⇒ So the only comparable pair anywhere on this page is **808 → 806**, a fall of
+two under one rule. Every other pair spans a rule boundary.
 
-⇒ The only comparable pair on this page is **808 → 806**, a fall of two under
-one rule. Everything above it is instrument history.
+⚠ **I WROTE A SECOND ACCOUNT OF THAT RULE BEFORE NOTICING THE FIRST, WHILE
+COLLAPSING DUPLICATE AUTHORITIES.** The search that missed it was for the
+VALUES — `820`, `731` — and the existing section is written in terms of `821`
+and `808`, the readings at a different commit. ⇒ Searching a page for a fact by
+its NUMBER finds the copies that share your arithmetic and no others. Search
+for the rule's description.
 
 ⛔ **I PUT THE UNIQUE-SPELLINGS AND TEST-LOC ROWS IN THE Δ TABLE FIRST, IN THE
 PARAGRAPH EXPLAINING WHY THE OCCURRENCES ROW COULD NOT BE THERE.** The reason

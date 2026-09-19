@@ -108,3 +108,29 @@ def test_the_shipped_ledger_and_page_agree():
     # ⭐ THE ARM THAT MAKES THIS A RATCHET RATHER THAN A UNIT TEST: it runs
     # against the real ledger, the real census page and the real `queue.md`.
     assert mod.main() == 0
+
+
+def test_a_ledger_row_named_nowhere_on_the_page_is_a_failure():
+    """⛔⛤ THE FIRST DRAFT OF THIS CHECK WAS A SUBSTRING TEST AND ITS POISON PASSED.
+
+    `item["id"] not in census` sees `CRATE-BODY-SEED` inside a page row renamed
+    to `CRATE-BODY-SEED-POISONED`, so a row that no longer names the id read as
+    present. These ids share prefixes by construction — `CRATE-*`, `ORDER-*`,
+    `DUP-*` — so the failure is not hypothetical.
+
+    Both directions are pinned: a SUPERSTRING must not satisfy the check, and a
+    real removal must fail it. The first is the one that was broken.
+    """
+    victim = next(
+        item["id"] for item in mod.CONTROL_CLEAN["items"] if item.get("id")
+    )
+
+    renamed = mod.CONTROL_CENSUS.replace(victim, f"{victim}-POISONED")
+    assert [m for m in run(census=renamed) if "named nowhere" in m], (
+        f"a page row renamed to a SUPERSTRING of {victim} still satisfied the check"
+    )
+
+    removed = mod.CONTROL_CENSUS.replace(victim, "XX-GONE")
+    assert [m for m in run(census=removed) if "named nowhere" in m], (
+        f"removing {victim} from the page did not fail the check"
+    )

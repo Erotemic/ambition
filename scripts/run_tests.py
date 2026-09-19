@@ -1370,6 +1370,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_alias_census_agrees_with_source.py",
             ],
         ),
+        # ⛔⛤ THE BLOCKING SET A MAINTAINER READS WAS WRONG TWICE IN ONE DAY,
+        # and the second time because both derivations scanned row PROSE while
+        # `queue.md` states the answer in a `**Blocked by:**` field. Five open
+        # P0/P1 rows named eight questions the published table did not mention.
+        # ⚠ One-directional: the section may name more, because four live gates
+        # are stated in prose and in no field at all.
+        Job(
+            "the blocking set names every gate the queue states",
+            [
+                sys.executable,
+                "scripts/check_blocking_set_names_every_gate.py",
+            ],
+        ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
         # RAN IT — so the number was one somebody had to go and look at, and
         # nothing noticed a resource joining the list. Both of its numbers were

@@ -3726,7 +3726,8 @@ is not one, and the row survives every option.
 ⇒ **WHAT OPTION 2 DRIVES TO ZERO IS A BRANCH, AND NO STATIC COUNT REACHES IT.**
 It is `for_live_session`'s `shell_routed == false && active.is_none()` path
 (`mechanics.rs:185-188`), which returns `Some(Self::new(None, ..))` and is how a
-direct-entry demo or a headless harness reaches the App registries. The guard
+headless harness reaches the App registries — a demo does NOT, as the
+composition table below measures. The guard
 counts which CONSTRUCTOR a site picked, and every `for_live_session` site passes
 an `active` whose emptiness is a property of the COMPOSITION rather than of the
 call — so the quantity that would fall is invisible to it. ⇒ Its floor of 1
@@ -3737,8 +3738,11 @@ the composition population below rather than by these rows.
 ⇒ **In the shipped composition there is no second construction source today.**
 The discriminator is `SessionGatedSimulation`, and it is `init_resource`d in
 exactly one place — `crates/ambition_game_shell/src/session.rs:348`. What is left
-is the population that has no generation BY DESIGN: direct-entry demos, headless
-harnesses and fixtures, and the size of THAT is what prices option 2.
+is the population that has no generation BY DESIGN, and the size of THAT is
+what prices option 2. ⛤ This sentence used to read *"direct-entry demos,
+headless harnesses and fixtures"*; the first member was measured on 2026-09-19
+and is EMPTY in production, so what prices option 2 is harnesses and fixtures
+alone.
 
 ⛤ **RE-MEASURED 2026-09-18, AND THE ROW HAD ONE NUMBER WHERE IT NEEDED TWO WITH
 THEIR METHODS.** It said *"112 files construct through `Platformer2dSimHarness`"*.
@@ -3760,38 +3764,79 @@ say that is with both ends and their methods rather than one number in the
 middle. The conclusion the row draws is unchanged at either end: the fallback
 is load-bearing for the TEST ESTATE rather than for the game.
 
-⭐⛤ **AND “PLUS THE DEMOS” WAS THE ONE UNPRICED CLAUSE IN THIS ROW. MEASURED
-2026-09-19: NINE CRATES, AND NOT ONE OF THEM IS VISIBLE TO THE GUARD.**
+⭐⛤ **AND “PLUS THE DEMOS” WAS THE ONE UNPRICED CLAUSE IN THIS ROW. PRICED
+2026-09-19 AS “NINE DIRECT-ENTRY CRATES”, AND RE-MEASURED THE SAME DAY AS
+**ZERO** — THE CLAUSE COSTS NOTHING, AND BOTH HALVES OF THE FIRST ANSWER WERE
+WRONG.** It said *"none installs a shell plugin, so none carries
+`SessionGatedSimulation` and every one of them is a direct-entry composition by
+construction."* Neither clause survives.
 
-| crate | what it composes in CODE |
+**The install chain nobody had walked.** Three hops, each one a line:
+
+| hop | site |
 |---|---|
-| `ambition_demo_mary_o` | `RoomSet` ×10, `SessionSpawnScope` ×5 |
-| `ambition_demo_sanic` | `RoomSet` ×6, `SessionSpawnScope` ×4, `PlatformerEnginePlugins` |
-| `ambition_demo_pocket` | `RoomSet` ×2 |
-| `ambition_demo_smash` | `RoomSet` ×2 |
-| `ambition_demo_twintrack` | `RoomSet` ×2 |
-| `*_app` ×4 (`mary_o`, `sanic`, `smash`, `twintrack`) | `PlatformerEnginePlugins` ×2 each |
+| `ShellComposition::install` adds the group | `crates/ambition_platformer2d_provider/src/composition.rs:98` |
+| `MinimalShellPlugins` adds the bridge | `crates/ambition_game_shell/src/lib.rs:83` |
+| the bridge opts the App in | `crates/ambition_game_shell/src/session.rs:348` |
 
-⇒ Five library demos build rooms directly and four app crates compose the
-engine plugin group. **None of the nine names `GenerationMechanics` or
-`SessionMechanics` anywhere in code, and none installs a shell plugin**, so
-none carries `SessionGatedSimulation` and every one of them is a direct-entry
-composition by construction. Under option 2 each needs a prepared generation
-activated before it can build a room; under option 1 each is a member of the
-second composition mode that becomes permanent vocabulary.
+The bridge states the reason in place: *"composing the bridge IS the
+declaration that gameplay belongs to shell-routed sessions."* So
+`ShellComposition` is not merely *a* shell plugin — it is the very thing that
+sets the discriminator.
 
-⛔ **WHY THIS COULD NOT BE READ OFF THE EXISTING GUARD, WHICH IS THE POINT.**
-`check_generation_mechanics_construction_is_declared.py` holds the five live
-sites that NAME a constructor. These nine reach room construction without
-naming one, so they are outside its population by construction — the same
-reason the `for_live_session` branch is invisible to it. A guard over
-constructor call sites cannot price a decision about COMPOSITIONS.
+**And the nine split two ways, neither of them direct entry:**
+
+| crate | composition in PRODUCTION | shell-routed? |
+|---|---|---|
+| `ambition_demo_mary_o_app` | `ShellComposition::new` (`src/lib.rs:44`) `.install` (`:49`) | **yes** |
+| `ambition_demo_sanic_app` | `:50` → `.install` `:65` | **yes** |
+| `ambition_demo_smash_app` | `:169` → `.install` `:193` | **yes** |
+| `ambition_demo_twintrack_app` | `:17` → `.install` `:22` | **yes** |
+| `ambition_demo_mary_o`, `_sanic`, `_smash`, `_twintrack` | none — an experience plugin, no `App` | n/a, hosted |
+| `ambition_demo_pocket` | none — no production host exists | n/a |
+
+⇒ **THE FOUR `*_app` CRATES ARE THE MOST SHELL-ROUTED COMPOSITIONS IN THE
+WORKSPACE**, and the five libraries are not compositions at all: not one of
+them builds an `App` or declares a `[[bin]]`, so a demo library cannot be "a
+direct-entry composition" in either direction. Each is an experience plugin
+that its `*_app` installs, and `mary_o`, `sanic` and `smash` are ALSO installed
+by the main game (`game/ambition_app/src/app/shell_host.rs:96-103`, under the
+`MinimalShellPlugins` at `:80`). `pocket` is the one with no production entry
+at all: its only `App::new()` is `game/ambition_demo_pocket/src/lib.rs:218`,
+inside `#[cfg(test)] mod tests` opening at `:208`, and its only external use is
+`game/ambition_app/tests/gameplay_presentation_profiles.rs:134`.
+
+⇒ **SO THE DEMOS DO NOT PRICE OPTION 2 — THEY ARE ALREADY ON ITS ROAD.** Every
+production demo entry carries `SessionGatedSimulation` today, which is exactly
+the state where `for_live_session` REFUSES rather than falling back, so option
+2 asks nothing new of any of them. What the fallback is load-bearing for is
+the test estate and nothing else, and the 83–113 figure above is the whole
+cost rather than its first term.
+
+⛔⛤ **HOW A ROW MEASURED TWICE GOT IT WRONG TWICE, WHICH IS THE POINT.** The
+first pass enumerated three SPELLINGS — `AmbitionGameShellPlugin`,
+`ShellSequencePlugin`, `ShellLauncherPlugin` — and asked which crates named
+one. All three are real, all three are inside `MinimalShellPlugins`, and no
+demo names any of them, because a caller composes the GROUP. Searching for the
+members of a plugin group is searching for the spelling rather than the
+concept, and it returns a confident, uniform zero. ⇒ The fix that generalises:
+ask what would SET the discriminator, walk from `init_resource` outward to its
+callers, and stop only at something with no caller. That is the direction this
+page already prescribes for absences elsewhere, applied to a presence.
+
+⚠ A second reading of the same corpus also has to be separated from its tests,
+and that cut fell differently on each half: `ambition_demo_pocket`'s
+`MinimalShellPlugins` (`game/ambition_demo_pocket/src/lib.rs:219`) is under
+`#[cfg(test)]`, so a scan that skipped the cut would have called pocket
+shell-routed and been wrong in the OTHER direction. Four is the production
+number, five is the number with tests included, and the two answers disagree
+about a different crate than the one the census was about.
 
 ⚠ Measured with comments and test modules stripped, which changed the answer:
 a first pass counted `ambition_demo_mary_o` as touching
-`Platformer2dSimHarness`, and that is a doc comment at `src/lib.rs:4181`
-describing what the harness composes. The same trap this row already records
-for `world/rooms/stage.rs`.
+`Platformer2dSimHarness`, and that is a doc comment at
+`game/ambition_demo_mary_o/src/lib.rs:4181` describing what the harness
+composes. The same trap this row already records for `world/rooms/stage.rs`.
 
 **The decision is whether that stays the architecture.**
 

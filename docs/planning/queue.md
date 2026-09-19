@@ -277,13 +277,21 @@ the cutscene pair has no equivalent.
 ⚠ **AND `teardown.rs` ALREADY PAID FOR HALF OF IT AT A DIFFERENT BOUNDARY.** A
 2026-09-13 review found that clearing `ActiveCutscene` and the trigger queue at
 session teardown while leaving `CutsceneAdvanceRequest` let *"A's skip"* be spent
-on *"B's scene"*. ⇒ The SESSION boundary was closed. The ROLLBACK boundary, which
-is the same value crossing a different edge, was not looked at.
+on *"B's scene"*. ⇒ The SESSION boundary was closed. The ROLLBACK boundary is the
+same value crossing a different edge. ⛤ **IT HAS SINCE BEEN LOOKED AT, AND THIS
+SENTENCE SAID IT HAD NOT UNTIL 2026-09-19** — that is what item 1 above measures,
+with a control and a poison, and the reading is that the dismiss is LOST rather
+than double-spent.
 
-**What would settle it (not done here):** a SyncTest arm that raises
-`skip_cutscene` on frame N, forces a rewind across N, and asserts the skip is
-still spent exactly once — the same construction the checkpoint request's arms
-use. A poison that removes the registration must redden it.
+**THE ACCEPTANCE CRITERION FOR THE REPAIR, WHICH IS NOT AN OPEN MEASUREMENT:** a
+SyncTest arm that raises `skip_cutscene` on frame N, forces a rewind across N,
+and asserts the skip is still spent exactly once — the same construction the
+checkpoint request's arms use — with a poison that removes the registration
+reddening it. ⛔ **IT CANNOT BE WRITTEN TODAY AND THAT IS NOT A GAP.** There is
+no registration to poison: `CutsceneAdvanceRequest` is unregistered, which is
+the defect, and "spent exactly once" is the property the repair would create.
+⇒ This is what `Q136`'s chosen road must satisfy, not work anybody is holding.
+The measurement that settles whether the defect is real is already above.
 
 ⛔ **DO NOT "FIX" THIS BY REGISTERING BOTH.** `CutsceneAdvanceRequest` may belong
 on the control frame rather than in a resource — the per-seat frame-mode work

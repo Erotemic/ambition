@@ -1252,21 +1252,40 @@ not: each answers a different question, and the Q136 count is the second one's.
 
     scripts/resources_crossing_the_rewind_boundary.py
         BROAD CROSSING CENSUS — UNREGISTERED per-frame state written on both
-        sides of the boundary. 57 both-side resources at 2026-09-18: 33
-        rollback-registered, 20 adjudicated harmless with the argument beside
-        each, 3 crossing only at a session edge, 1 FILED
+        sides of the boundary. 57 both-side resources, RE-RUN 2026-09-19 and
+        unchanged: 33 rollback-registered, 20 adjudicated harmless with the
+        argument beside each, 3 crossing only at a session edge
+        (`ControlledSubject`, `CutsceneTriggerQueue`, `EncounterView`, each
+        because its `Update` side is session teardown), 1 FILED
         (`CutsceneAdvanceRequest`), 0 nobody has examined.
 
     scripts/check_host_produced_sim_consumed_requests.py
         Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by
-        the simulation, over BOTH channels an intent can take. At 2026-09-18:
+        the simulation, over BOTH channels an intent can take. **RE-RUN
+        2026-09-19** (this block read `3 of 57` and `4 of 95` with a `61 / 20`
+        residual at 2026-09-18, and all three moved for stated reasons):
 
-          * 3 of 57 spent RESOURCE types — `CutsceneAdvanceRequest` and
+          * 3 of 56 spent RESOURCE types — `CutsceneAdvanceRequest` and
             `NewGameResetRequested` (both Q136), `VersusMatch` (Q140);
-          * 4 of **95** written MESSAGE types, **AND THIS ONE IS STILL A
-            LOWER BOUND** — 61 distinct message writers and readers sit in no
-            registration the instrument can follow, touching **20 of the 95
-            types**. ⇒ Any of those 20 could be a crossing nobody has seen.
+          * 3 of **95** written MESSAGE types — `AmbientGravityRequest` and
+            `PlayerHealRequested` (both Q136), `ResetToCheckpoint` (adjudicated
+            benign by the start-ordering, not by a latch). ⭐ It was FOUR until
+            2026-09-19: `SetFlagRequested`'s intro chain closed on a witness,
+            because a straddling DERIVATION is repaired by the resimulation
+            that re-runs it, where a straddling EDGE is not.
+          * ⇒ **FOUR LIVE Q136 INTENTS**, which is this ruling's population:
+            two resources and two messages. `VersusMatch` is `Q140`'s and
+            `ResetToCheckpoint` is adjudicated.
+          * **AND THE MESSAGE HALF IS STILL A LOWER BOUND** — 42 distinct
+            message writers and readers sit in no registration the instrument
+            can follow, touching **15 of the 95 types**. ⇒ Any of those 15
+            could be a crossing nobody has seen. ⭐ That residual was `61 / 20`
+            until 2026-09-19, cut by teaching the scan a third registration
+            shape (`let rules = (..); app.add_systems(sim, rules);`). ⚠ The
+            VERDICT was byte-identical across that change, which is the right
+            outcome to expect and the one worth stating: a narrower blind spot
+            that moves no adjudication is the instrument improving, not the
+            tree.
 
             ⛤ **THE THREE READINGS ARE 77/24, THEN 47/18, THEN 61/20, AND ONLY
             THE FIRST MOVE WAS THE INSTRUMENT GETTING BETTER AT THE SAME

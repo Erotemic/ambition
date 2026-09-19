@@ -268,6 +268,49 @@ quality policy while the generator/trim problem is repaired. The proposed
 `dev/patches/swing-fighter-render-honours-quality-scale-20260902.patch` is a
 separate renderer refusal/validation aid, not an answer to this product choice.
 
+⭐⭐ **THE TRADE IS MEASURABLE AND IT IS LARGER THAN "a bit blurrier",
+2026-09-19.** Reading the four shipped catalogs
+(`crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<tier>/ultrapack.json`):
+
+| tier | scale | page size | pages | on disk | targets |
+|---|--:|--:|--:|--:|--:|
+| `full` | 1.0 | 2048 | 122 | 262M | 179 |
+| `half` | 0.5 | 1024 | 133 | 121M | 179 |
+| `quarter` (`0_25x`) | 0.25 | 512 | 154 | **48M** | 179 |
+| `potato` | **0.0625** | 256 | 42 | **6.9M** | 179 |
+
+⇒ **Falling back to `0_25x` at `potato` is a 7× increase in sprite-pack bytes
+on the weakest hardware the game targets** — 48M against 6.9M. That is the
+cost of the proposal, and it is the number this question was missing.
+
+⭐ **AND ALL FOUR TIERS COVER THE SAME 179 TARGETS**, so this is not a coverage
+question and the fallback would not be filling a hole. ⚠ The page COUNT rising
+122 → 133 → 154 and then collapsing to 42 looks like missing content and is
+not: page size halves every tier, so the middle tiers pack the same art into
+more, smaller pages.
+
+⛔⛤ **THE LADDER IS NOT UNIFORM, AND THAT MAY BE THE REAL SUBJECT.** The scales
+are 1.0, 0.5, 0.25 — and then **0.0625**. Every step halves except the last,
+which quarters. `potato` is not one step below `quarter`, it is two, and the
+name vocabulary (`full`/`half`/`quarter`/`potato`) hides that: the fourth name
+is the only one that is not a fraction. ⇒ A reader choosing a tier from the
+names would predict 0.125.
+
+**The decision:**
+
+* **(a) Fall back to `0_25x` for character sprites at `potato`.** Characters
+  stay legible on the lowest budget. ⚠ Costs up to 7× the pack bytes there,
+  and it makes `potato` mean "quarter for characters, potato for everything
+  else" — a per-domain tier policy rather than one budget.
+* **(b) Keep `potato` at 0.0625 for characters.** Today's behaviour. ⚠ The
+  interim quality is whatever 0.0625× produces, which is what prompted the
+  question.
+* **(c) Change the LADDER instead** — make `potato` 0.125 so the steps are
+  uniform, and regenerate. ⚠ Not an interim policy, and it needs the
+  generator/trim repair the row says is measured separately; it is listed
+  because the non-uniform step is a plausible cause of the thing being
+  complained about, and (a) would paper over it.
+
 ## Q81 — what should happen to the mostly-unreferenced bespoke FX rows for Pirate Admiral and George Booul?
 
 The existing FX-row census found these sheets as the extreme unreferenced-art

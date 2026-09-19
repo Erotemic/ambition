@@ -143,3 +143,36 @@ def test_it_is_green_against_the_tree():
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "written on BOTH sides of the rewind boundary" in proc.stdout
+
+
+def test_the_ruling_marker_catches_a_stale_classification():
+    """⛔⛤ `Q136` sizes its own population from this census's six figures. A
+    prose copy cannot notice the tree moving, and the sibling ingress census
+    proved it on 2026-09-19 by aging five numbers out of six."""
+    module = load()
+    drift = module.ruling_marker_drift(
+        both_side_resources=57,
+        rollback_registered=33,
+        adjudicated_harmless=20,
+        session_edge_only=3,
+        filed=2,
+        unclassified=0,
+    )
+    assert any("`filed`" in line for line in drift)
+
+
+def test_the_shipped_marker_names_exactly_what_this_census_measures():
+    """A marker field nobody computes is a number held by nothing; a measured
+    field the marker omits is the drift this arm exists to catch."""
+    module = load()
+    hit = module.RULING_MARKER.search(module.RULING.read_text(encoding="utf-8"))
+    assert hit
+    stated = dict(module.MARKER_ENTRY.findall(hit.group(1)))
+    assert set(stated) == {
+        "both_side_resources",
+        "rollback_registered",
+        "adjudicated_harmless",
+        "session_edge_only",
+        "filed",
+        "unclassified",
+    }

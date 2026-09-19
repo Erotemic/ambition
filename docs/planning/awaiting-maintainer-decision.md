@@ -1253,6 +1253,8 @@ ESTIMATED — BY TWO INSTRUMENTS THAT DELIBERATELY MEASURE DIFFERENT THINGS.** A
 commit message of mine claiming they *"now agree"*. They do not agree and must
 not: each answers a different question, and the Q136 count is the second one's.
 
+<!-- crossing-census: both_side_resources=57 rollback_registered=33 adjudicated_harmless=20 session_edge_only=3 filed=1 unclassified=0 -->
+
     scripts/resources_crossing_the_rewind_boundary.py
         BROAD CROSSING CENSUS — UNREGISTERED per-frame state written on both
         sides of the boundary. 57 both-side resources, RE-RUN 2026-09-19 and

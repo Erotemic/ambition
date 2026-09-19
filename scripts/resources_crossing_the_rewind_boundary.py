@@ -337,6 +337,41 @@ def crossings() -> dict[str, dict[str, set[str]]]:
     }
 
 
+
+#: `Q136` restates this census's classification in prose to size its own
+#: population. That is legitimate — the ruling has to say how big it is — and it
+#: is a copy, so it is checked here rather than trusted. The sibling ingress
+#: census carries the same arm for the same reason and the same paragraph.
+RULING = REPO / "docs/planning/awaiting-maintainer-decision.md"
+RULING_MARKER = re.compile(r"<!--\s*crossing-census:\s*([^>]*?)\s*-->")
+MARKER_ENTRY = re.compile(r"(\w+)=(\d+)")
+
+
+def ruling_marker_drift(**measured: int) -> list[str]:
+    """This run's classification against the one the ruling prints.
+
+    ⚠ **A TRANSCRIPTION CHECK, NOT A SECOND CLASSIFICATION.** Every verdict
+    stays owned by `main` above; re-deriving one here would make this file the
+    second authority on a question it already answers.
+    """
+    text = RULING.read_text(encoding="utf-8")
+    hit = RULING_MARKER.search(text)
+    if not hit:
+        return [
+            f"{RULING.relative_to(REPO)} carries no `crossing-census` marker, so the "
+            "classification it states in prose is held by nothing"
+        ]
+    stated = {name: int(value) for name, value in MARKER_ENTRY.findall(hit.group(1))}
+    out = []
+    for name, value in sorted(measured.items()):
+        if name not in stated:
+            out.append(f"the marker omits `{name}`, which this run measures as {value}")
+        elif stated[name] != value:
+            out.append(f"`{name}`: the ruling states {stated[name]}, this run measures {value}")
+    for name in sorted(set(stated) - set(measured)):
+        out.append(f"the marker states `{name}`, which this census does not measure")
+    return out
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -404,6 +439,20 @@ def main() -> int:
             "(fix the sweep). A stale entry silently absorbs the next type to "
             "take its place."
         )
+        return 1
+
+    drift = ruling_marker_drift(
+        both_side_resources=len(found),
+        rollback_registered=sum(1 for n in found if n in registered),
+        adjudicated_harmless=len(CROSSING_IS_HARMLESS) - len(stale),
+        session_edge_only=len(session_edge_only),
+        filed=len(filed),
+        unclassified=len(unclassified),
+    )
+    if drift:
+        print("\n⛔ the ruling that cites this census no longer matches it:")
+        for line in drift:
+            print(f"  {line}")
         return 1
     return 0
 

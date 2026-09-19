@@ -192,6 +192,19 @@ def unlocated_message_systems(repo: Path = REPO) -> list[str]:
     to **47 and 18**, a 39% cut, and left the four crossings unchanged: the
     adjudication below did not move, the confidence in its completeness did.
 
+    ⭐⛤ **AND A THIRD REGISTRATION SHAPE LANDED 2026-09-19, WITH THE SAME
+    SIGNATURE: THE BOUND MOVED AND THE VERDICT DID NOT.** The bound had drifted
+    back to **61 and 20** as the tree grew. Following a system tuple bound to a
+    LOCAL before registration ([`_expand_local_tuples`]) takes it to **42 and
+    15** — 13 such locals, recovering 19 systems — and the adjudication is
+    byte-identical: the same three resources and the same three messages.
+
+    ⚠ THAT THE VERDICT DOES NOT MOVE IS THE EXPECTED RESULT AND NOT A
+    DISAPPOINTMENT. This number is a claim about how much of the tree the
+    instrument can SEE, and the crossings it already found were never in
+    dispute. A road that moved the verdict would mean the previous answer had
+    been wrong, not that this one is better.
+
     ⛔⛔ **AND THE DIAGNOSIS THIS DOCSTRING CARRIED FOR A DAY WAS WRONG, WHICH
     IS WHY THE FIX LOOKED LIKE A CAMPAIGN.** It said `add_systems_bodies`
     truncates the `app.add_systems(sim, ..)` at
@@ -235,6 +248,52 @@ def unlocated_message_systems(repo: Path = REPO) -> list[str]:
     return sorted(missing)
 
 
+#: `let name = (` — a system tuple bound to a local before registration.
+_LOCAL_TUPLE = r"\blet\s+{name}\s*=\s*\("
+
+
+def _expand_local_tuples(text: str, rest: str) -> str:
+    """Replace `app.add_systems(sim, rules)` with the contents of `rules`.
+
+    ⛔⛤ **A THIRD REGISTRATION SHAPE, FOUND 2026-09-19, AND IT HID 19 SYSTEMS.**
+    This module already followed a direct `add_systems` and a wrapper that
+    forwards its systems parameter. The shape it did not follow is a system
+    TUPLE bound to a local first:
+
+        let after_the_star = (empowerment::apply_contact_harm, star::play_star_music)
+            .chain()
+            .in_set(..);
+        app.add_systems(sim, after_the_star);
+
+    The registration body is then the single word `after_the_star`, which
+    matches no function, so every system inside the tuple read as "in no
+    registration this module can find". MEASURED: 13 such locals, recovering
+    **19 of the 61** systems the lower-bound warning was reporting.
+
+    ⚠ IT IS A TEXTUAL, SAME-FILE EXPANSION and deliberately shallow: a local
+    whose tuple names another local is not followed. The bound this feeds is a
+    LOWER bound, so under-expanding leaves the warning conservative, which is
+    the safe direction.
+    """
+    name = rest.strip()
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", name):
+        return rest
+    match = re.search(_LOCAL_TUPLE.format(name=re.escape(name)), text)
+    if match is None:
+        return rest
+    depth, index = 0, text.index("(", match.start())
+    end = index
+    while end < len(text):
+        if text[end] == "(":
+            depth += 1
+        elif text[end] == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        end += 1
+    return text[index : end + 1]
+
+
 def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
     """`{system name: {schedule label, ..}}` from every registration in the tree.
 
@@ -261,6 +320,7 @@ def schedules_by_system(repo: Path = REPO) -> dict[str, set[str]]:
             if schedule in bound_to_sim:
                 schedule = "sim"
             rest = sim.strip_run_conditions(rest)
+            rest = _expand_local_tuples(settings.without_comments(text), rest)
             for name in re.findall(r"\b([a-z_][a-z0-9_]*)\b", rest):
                 found.setdefault(name, set()).add(schedule)
     # A wrapper registers into `app.sim_schedule()`, which every caller here

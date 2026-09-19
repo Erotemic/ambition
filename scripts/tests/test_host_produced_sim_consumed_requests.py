@@ -545,8 +545,13 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     attribution losing ground.
 
     ⭐ 77 on 2026-09-18 before registration wrappers were followed, 47 after,
-    **61** once `MessageReader`/`MessageWriter` fields inside
-    `#[derive(SystemParam)]` bundles joined the population later the same day.
+    61 once `MessageReader`/`MessageWriter` fields inside
+    `#[derive(SystemParam)]` bundles joined the population later the same day,
+    and **42** on 2026-09-19 when a third registration shape landed — a system
+    tuple bound to a LOCAL before `add_systems` (`_expand_local_tuples`), 13
+    such locals recovering 19 systems. Exposed message types fell 20 → 15 with
+    it, and the adjudication is byte-identical: the same three resources and
+    the same three messages.
 
     ⛔⛤ **AND THAT THIRD READING IS A CAUSE THIS ARM DID NOT HAVE A CATEGORY
     FOR.** It offered two — a fall is a road landing, a rise is the scan losing
@@ -559,13 +564,13 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     hiding under a simultaneous widening would read as neither.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 50 <= len(unlocated) <= 72, (
-        f"{len(unlocated)} unlocated message systems; the 2026-09-18 reading after "
-        "bundle fields joined the population was 61 (47 before them, 77 before the "
-        "wrapper road). A fall means another attribution road landed — name it here "
-        "and re-measure the exposed-type count in the same commit. A rise is either "
-        "the scan losing ground or the population widening, and the two are not the "
-        "same finding: say which."
+    assert 34 <= len(unlocated) <= 52, (
+        f"{len(unlocated)} unlocated message systems; the 2026-09-19 reading after "
+        "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "
+        "the population, 77 before the wrapper road). A fall means another "
+        "attribution road landed — name it here and re-measure the exposed-type "
+        "count in the same commit. A rise is either the scan losing ground or the "
+        "population widening, and the two are not the same finding: say which."
     )
 
 
@@ -777,3 +782,45 @@ def test_a_sim_schedule_bound_to_an_unusual_name_is_still_the_sim_schedule():
     text = (REPO / "game/ambition_demo_mary_o/src/lib.rs").read_text()
     assert "pre_collect_sim" in sim.sim_schedule_bindings(text)
     assert "sim" in guard.schedules_by_system()["refuse_a_weaker_form_pickup"]
+
+
+def test_a_system_tuple_bound_to_a_local_is_followed():
+    """⛔⛤ THE THIRD REGISTRATION SHAPE (2026-09-19), WHICH HID 19 SYSTEMS.
+
+    A registration body of one bare word matches no function, so every system
+    inside the tuple read as "in no registration this module can find":
+
+        let after_the_star = (empowerment::apply_contact_harm, star::play_star_music);
+        app.add_systems(sim, after_the_star);
+    """
+    text = (
+        "let after_the_star = (\n"
+        "    empowerment::apply_contact_harm,\n"
+        "    star::play_star_music,\n"
+        ").chain();\n"
+        "app.add_systems(sim, after_the_star);\n"
+    )
+    expanded = guard._expand_local_tuples(text, " after_the_star")
+    assert "apply_contact_harm" in expanded
+    assert "play_star_music" in expanded
+
+
+def test_a_plain_system_name_is_left_alone():
+    """A bare identifier that is a SYSTEM, not a local, must pass through
+    unchanged — expanding it would find nothing and could only lose the name."""
+    text = "app.add_systems(Update, kick_off_bank_load);\n"
+    assert guard._expand_local_tuples(text, " kick_off_bank_load").strip() == (
+        "kick_off_bank_load"
+    )
+
+
+def test_the_shipped_tree_locates_the_recovered_systems():
+    """⭐ THE RATCHET. `apply_contact_harm` is registered in production only
+    through a local tuple (`ambition_demo_mary_o/src/lib.rs:1926-1930`, added
+    to the sim schedule at `:2025`), so it is the witness that the road works
+    against the real tree rather than against a fixture."""
+    located = guard.schedules_by_system()
+    assert "apply_contact_harm" in located, (
+        "the local-tuple road stopped finding the system it was built for"
+    )
+    assert "apply_contact_harm" not in set(guard.unlocated_message_systems())

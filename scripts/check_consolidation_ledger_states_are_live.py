@@ -297,6 +297,28 @@ def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: 
                     f"{ident}: a `was_blocked_by` receipt does not say `DISCHARGED "
                     f"<date>`, so it reads like a live gate: {receipt[:60]!r}"
                 )
+
+    # ── a row's status and its own nested evidence
+    #
+    # ⛔⛤ THE THIRD COPY OF ONE FACT, FOUND BY REVIEW 2026-09-19. A row carries
+    # `status` and each `evidence[]` entry carries its own, and nothing compared
+    # them. `ORDER-ROOM-REPLACE` read SOURCE_CONFIRMED at the row and
+    # SOURCE_INFERRED one level down — the 2026-09-18 sweep that emptied the
+    # weakest class updated the copy the page compares against and not the copy
+    # underneath it. One row of 114, which is exactly how a duplicated ruling
+    # arrives: not as a disagreement anyone would notice, as one nobody reads.
+    for item in ledger["items"]:
+        status = item.get("status")
+        if not status:
+            continue
+        for entry in item.get("evidence", []):
+            nested = isinstance(entry, dict) and entry.get("status")
+            if nested and nested != status:
+                bad.append(
+                    f"{item['id']}: the row's status is {status} and its own evidence "
+                    f"entry says {nested}. The page compares against the row, so the "
+                    "nested copy can drift indefinitely without any reader seeing both"
+                )
     return bad
 
 
@@ -316,6 +338,7 @@ CONTROL_CLEAN = {
         # Not a family, so it moves no split and carries no tag; it is here to
         # give the STATUS rule something to compare.
         {"id": "STAT-A", "category": "authority", "status": "SOURCE_CONFIRMED",
+         "evidence": [{"status": "SOURCE_CONFIRMED", "claim": "measured"}],
          "metric_tags": []},
     ],
 }
@@ -367,6 +390,9 @@ def self_check() -> None:
         "a status the page contradicts": lambda l: l["items"][2].update(
             {"status": "SOURCE_INFERRED"}
         ),
+        "nested evidence that disagrees with its own row": lambda l: l["items"][2][
+            "evidence"
+        ][0].update({"status": "SOURCE_INFERRED"}),
         "the tag on a non-family item": lambda l: l["items"].append(
             {"id": "AUTH-X", "category": "authority", "metric_tags": [TAG]}
         ),

@@ -2491,6 +2491,122 @@ mod tests {
     use super::*;
     use crate::authoring::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 
+    /// ⛔⛤ **WHERE THE CANDIDATE IS BUILT IS AN ASSERTION NOW, BECAUSE A GUARD
+    /// ONE CRATE UP LOST ITS SUBJECT WHEN IT MOVED.**
+    ///
+    /// `reload_publication_is_installed::the_commit_sits_between_the_activation_and_session_adoption`
+    /// asserts `commit → GameplaySessionSet::Providers` and read that as *"the
+    /// world is not built from the previous cast"*. A10.5 moved construction
+    /// out of `Providers` into [`prepare_candidate_platformer_session`], and
+    /// that arm stayed GREEN: the set still exists, the edge still holds, and
+    /// the work it was ordered against had left. ⇒ **An assertion that a SET
+    /// exists cannot see work leaving the set.** Its predecessor went vacuous
+    /// the other way — one system doing two jobs — and both look identical from
+    /// the assertion.
+    ///
+    /// ⭐ So the location is pinned HERE, in the crate that owns both systems,
+    /// where they are private and nameable by type rather than by set:
+    ///
+    /// * construction runs `.before(AmbitionGameShellSet::Pending)`, because
+    ///   `advance_pending_route` evaluates the gate there and a session that
+    ///   cannot be built must never retire the one that is playing;
+    /// * construction runs `.after(PlatformerPreparationSet)`, because without
+    ///   it the shipped handoff took the fallback road every time;
+    /// * `Providers` holds ADOPTION and not construction, which is the fact the
+    ///   arm upstream now depends on and could not check.
+    ///
+    /// ⚠ **THIS DOES NOT ANSWER THE OPEN QUESTION IT SITS NEXT TO.** A
+    /// candidate is prepared from the generation current BEFORE its own
+    /// activation commits, because the commit must run `.after(Pending)` to see
+    /// `RouteActivated` while construction runs `.before` it. Whether that is
+    /// correct by design is a maintainer call —
+    /// `docs/planning/queue.md`'s `CANDIDATE-GENERATION-ORDER`. This arm pins
+    /// today's shape so the answer cannot be made moot by a silent move.
+    #[test]
+    fn the_candidate_is_built_before_the_router_advances_and_providers_only_adopts() {
+        use bevy::ecs::schedule::{NodeId, ScheduleGraph, SystemKey};
+
+        fn key_of<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> SystemKey {
+            let wanted = IntoSystem::into_system(f).system_type();
+            graph
+                .systems
+                .iter()
+                .find(|(_, system, _)| system.system_type() == wanted)
+                .map(|(key, _, _)| key)
+                .expect("the system is registered in this schedule")
+        }
+
+        // ⛔⛤ **OPTION, NOT `expect` — AND THE FIRST VERSION OF THIS ARM GOT
+        // IT WRONG.** A set node exists only while something references it, so
+        // deleting the very edge an assertion is about DELETES THE SET, and an
+        // `expect` here then panics one line before the assertion that was
+        // supposed to speak. Two of the four poisons below failed through
+        // `"the set is registered in this schedule"` and told me nothing. ⇒ An
+        // absent set is the SAME failure as a missing edge and must say so in
+        // the same sentence.
+        fn set_key<S: bevy::ecs::schedule::SystemSet>(
+            graph: &ScheduleGraph,
+            set: S,
+        ) -> Option<bevy::ecs::schedule::SystemSetKey> {
+            graph
+                .system_sets
+                .get_key(bevy::ecs::schedule::SystemSet::intern(&set))
+        }
+
+
+        // ⚠ NOT UPDATED. Running a schedule moves its systems out of the graph
+        // into the executor, and the graph then answers "no systems".
+        let mut app = App::new();
+        app.add_plugins(PlatformerProviderRuntimePlugin);
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(Update)
+            .expect("the provider registers into `Update`")
+            .graph();
+
+        let prepare = key_of(graph, prepare_candidate_platformer_session);
+        let adopt = key_of(graph, adopt_candidate_platformer_session);
+        let pending = set_key(graph, ambition_game_shell::AmbitionGameShellSet::Pending);
+        let preparation = set_key(graph, PlatformerPreparationSet);
+        let providers = set_key(graph, GameplaySessionSet::Providers);
+        let dependencies = graph.dependency().graph();
+        let hierarchy = graph.hierarchy().graph();
+
+        assert!(
+            pending.is_some_and(|set| dependencies
+                .contains_edge(NodeId::System(prepare), NodeId::Set(set))),
+            "candidate construction is not ordered BEFORE \
+             `AmbitionGameShellSet::Pending` (set present: {}), so the router \
+             can evaluate the activation gate for a candidate nobody has built \
+             — and the last-good-world guarantee A10.5 bought is gone",
+            pending.is_some()
+        );
+        assert!(
+            preparation.is_some_and(|set| dependencies
+                .contains_edge(NodeId::Set(set), NodeId::System(prepare))),
+            "candidate construction is not ordered AFTER \
+             `PlatformerPreparationSet` (set present: {}); measured when this \
+             edge was missing, the shipped handoff took the FALLBACK road \
+             every time",
+            preparation.is_some()
+        );
+        assert!(
+            providers.is_some_and(|set| hierarchy
+                .contains_edge(NodeId::Set(set), NodeId::System(adopt))),
+            "`GameplaySessionSet::Providers` does not hold adoption (set \
+             present: {}), so the commit's edge to that set names nothing",
+            providers.is_some()
+        );
+        assert!(
+            !providers.is_some_and(|set| hierarchy
+                .contains_edge(NodeId::Set(set), NodeId::System(prepare))),
+            "candidate CONSTRUCTION is back inside `GameplaySessionSet::Providers`. \
+             That is the shape the guard upstream assumed and stopped checking — \
+             re-read `the_commit_sits_between_the_activation_and_session_adoption` \
+             before deciding which of the two is now right"
+        );
+    }
+
     /// ⛔⛔ **THE FUNCTION THAT DECIDES WHETHER A PLAYING SESSION IS RETIRED,
     /// AND IT HAD NO ARM AT ALL.** Measured 2026-09-18: `candidate_session_gate`
     /// has four verdict paths and nothing in the tree exercised any of them. The

@@ -2298,12 +2298,29 @@ JOBS; this one became vacuous because THE JOB MOVED OUT FROM UNDER IT. Both
 look identical from the assertion: green. The test now records this and its
 name was corrected to what it checks.
 
+**Blocked by:** [Q147](awaiting-maintainer-decision.md#q147--must-a-candidate-session-be-built-from-the-generation-its-own-activation-commits-or-from-the-one-current-before-it).
+
+⛔⛤ **THIS FIELD WAS MISSING UNTIL 2026-09-19 while the row's own prose said
+*"it is a maintainer call"***, which is the gap `Q146` was filed for on another
+row four days after its gate named a ruling nobody had asked for. A row that
+states its gate only in prose is a gate no derivation reads.
+
 **Acceptance:** a maintainer states which generation a candidate must build
 from; if it is the committed one, the fix is not an edge — either the candidate
 re-fingerprints at adoption, or preparation moves after the commit and A10.5's
 "never retire an unbuildable session" guarantee is re-established some other
-way. ✅ A guard that fails when construction leaves the set it is ordered
-against, rather than one that checks the set exists.
+way. ✅ **THE GUARD HALF IS DONE — 2026-09-19.**
+`the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`
+(`crates/ambition_platformer2d_provider/src/lifecycle.rs`) pins the location
+rather than the set's existence: construction `.before(Pending)` and
+`.after(PlatformerPreparationSet)`, `Providers` holding adoption and NOT
+construction. It lives in the crate that owns both systems, because they are
+private there and nameable by TYPE — which is what the arm one crate up could
+not do, and why it checked a set instead. ⭐ Poison-verified four ways, and two
+of the four first failed through `set_key`'s `expect` rather than their own
+assertion: **deleting the edge an assertion is about deletes the SET**, so an
+absent set now fails the same claim in the same sentence and prints
+`set present: false`.
 
 **Diagnosis:** [`triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`](triage/a-prose-path-inside-a-doc-comment-is-not-checked.md)
 — found while repairing the comment at `reload.rs` that still named

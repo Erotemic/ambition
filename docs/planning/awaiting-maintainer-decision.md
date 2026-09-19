@@ -65,6 +65,7 @@ finds mentions, not gates. `Q128` and `Q137` are likewise recorded BELOW
 | [`Q144`](#q144--must-every-supported-composition-activate-a-prepared-generation-or-does-direct-entry-keep-the-app-registry-road) | **C04**, and it is now that row's ONLY maintainer hold | C04 cannot start. ⭐ `Q132` narrowed it: the anonymous App-global fallback is already on the wrong side of the scoping rule, so `Q144` now owns only whether direct entry must ACTIVATE a generation or may declare its inputs another explicitly-scoped way |
 | [`Q146`](#q146--what-are-the-supported-composition-profiles-and-which-authorities-must-each-one-carry) | **C07**, entirely | C07 cannot be COSTED, not merely started: *"replace optional fallbacks where the authority is required"* has no population until "required" has a referent |
 | [`Q139`](#q139--what-declares-that-a-presentation-system-writes-transform) | **P0** `ROLLBACK-MUTATOR-POPULATION`'s only open item | the mutator guard keeps excluding `Transform` BY NAME, so its green says nothing about the most rollback-sensitive component in the workspace. The repair is a DECLARATION across the excluded systems rather than a cleverer scanner — measured, not assumed: a name-based classifier was wrong in both directions — so the ruling is its SHAPE, and four shapes are costed in the row. ⚠ Sizes deliberately not restated here; they moved with the carve work and they depend on a marker vocabulary this ruling would itself be choosing |
+| [`Q147`](#q147--must-a-candidate-session-be-built-from-the-generation-its-own-activation-commits-or-from-the-one-current-before-it) | **P1** `CANDIDATE-GENERATION-ORDER`, entirely — the row's only remaining work is the answer | the two ordering edges keep pinning opposite ends of one set, a candidate keeps building from the generation before its own activation commits, and the next reader rediscovers it from scratch. ✔ Today's shape is pinned by a guard meanwhile, so the answer cannot be made moot by a silent move |
 | [`Q138`](#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session) | **P1** `ROLLBACK-DEAD-SESSION` | an invalidated session keeps accepting `step()`, stops advancing `SimTick`, and returns an observation every time — so assertions after it agree with a frozen world forever. `rollback_health()` already knows and `step` does not consult it; whether it should REFUSE is an API contract nobody has set. ⚠ Cardinalities deliberately not restated here — the row says why, and `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` prints the live one |
 
 ### The eight from `queue.md`'s `Blocked by:` field
@@ -4813,3 +4814,50 @@ for between the chains.
 systems, so no schedule graph holds a node for them and no ordering question
 about them can reach the detector. Only the second of those compare-matches
 `active.intent` before clearing; the rest clear whatever is active.
+
+## Q147 — must a candidate session be built from the generation its own activation commits, or from the one current before it?
+
+**FILED 2026-09-19 BECAUSE THE ROW ALREADY SAID "MAINTAINER CALL" AND NAMED NO
+`Q`.** `queue.md`'s `CANDIDATE-GENERATION-ORDER` states *"it is a maintainer
+call about what a candidate is supposed to see"* and carried no `Blocked by:`
+field, which is the same gap `Q146` was filed for four days after `C07`'s gate
+named a ruling nobody had asked for.
+
+**The measurement, and both halves of it are correct.** `commit_content_generation`
+must run `.after(AmbitionGameShellSet::Pending)` because that is where
+`advance_pending_route` produces `RouteActivated`; reading it earlier was a
+frame-late bug fixed 2026-09-12. `prepare_candidate_platformer_session` must run
+`.before` that same set, because a candidate that cannot be built must never
+retire the session that is playing — A10.5's last-good-world guarantee. ⇒ **No
+ordering edge can put the commit before construction**: they pin opposite ends
+of one set. A candidate is therefore prepared from the content generation
+current BEFORE its own activation committed.
+
+⚠ **NOT A SCHEDULE PROBLEM, WHICH IS WHY IT IS HERE.** Every edge involved is
+individually load-bearing and separately witnessed. What is undecided is what a
+candidate is SUPPOSED to see.
+
+✔ **AND TODAY'S SHAPE IS PINNED WHILE THIS IS OPEN**, so the answer cannot be
+made moot by a silent move:
+`the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`
+(`crates/ambition_platformer2d_provider/src/lifecycle.rs`) asserts both edges
+and that `GameplaySessionSet::Providers` holds adoption and NOT construction.
+Poison-verified on all four arms.
+
+**The decision:**
+
+* **(a) Correct by design — a candidate sees the generation that was live when
+  it was built.** The activation's own content commit is a separate transaction
+  that lands after it, and a candidate is a world for the ROUTE, not for the
+  content edit riding along with it. ⚠ Cost: nothing changes, the row closes,
+  and the asymmetry stays a documented property rather than a defect. ⛔ The
+  thing to check before choosing it: whether any road can activate a route
+  *because of* a content change that the candidate it builds cannot see.
+* **(b) A candidate must see its own committed generation.** ⚠ Cost: an edge
+  cannot deliver it. Either the candidate RE-FINGERPRINTS at adoption — cheap,
+  but it means the built world and its identity claim come from different
+  moments — or preparation moves after the commit, which puts construction
+  after the router has already evaluated the gate and **re-opens exactly the
+  hole A10.5 closed**: a session retired for a candidate that then fails to
+  build. That second road owes a replacement for the last-good-world guarantee
+  before it can be taken.

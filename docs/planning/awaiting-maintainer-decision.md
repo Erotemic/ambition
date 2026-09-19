@@ -717,26 +717,83 @@ Blink, dive, mark-recall and empowerment can create contact outside the ordinary
 WHICH MAKES THIS CHEAP TO ANSWER NOW AND EXPENSIVE LATER.** Exactly **one**
 authored flow in the whole content crate waits on `Connected`: the goblin's
 `headlong_charge` (`game/ambition_content/src/goblin_moveset.rs:794`, and the
-migrated `assets/data/movesets/goblin.ron:1289` is the same move). It is a
+migrated `assets/data/movesets/goblin.ron:1289` is the same move).
+⚠ **THE SCOPE OF THAT ZERO IS `Connected` ALONE** — the population waiting on
+`Overlapped`, the contact fact nothing guards, is not zero. See the correction
+below. It is a
 MELEE charge and launches no ability, so no authored move both launches an
 ability and waits on this signal. ⇒ Neither answer breaks content at HEAD; the
 ruling is about what the vocabulary MEANS before somebody authors the case.
 
-⛔⛤ **AND `Connected` IS NOT THE ONLY THING THAT MOVES, WHICH IS THE PART THE
-QUESTION'S WORDING HIDES.** `MoveContact::overlapped` is DERIVED as
-`landed_hit || connected_hit || blocked_hit`
-(`crates/ambition_combat/src/moveset/mod.rs:788`), and `overlapped` is the
-STALING fact. Staling is recorded on the false→true edge of `landed_hit` in
-`mark_move_playback_landed_hits`, keyed on the `LandedBodyHit`'s **attacker**.
-⇒ Answering "yes" does not only let a flow resolve — it makes the launching
-move STALE when its projectile connects. Answering "no" means a projectile
-move never decays no matter how often its shots land.
+⚠ **AND `Connected` IS NOT THE ONLY THING THAT MOVES.**
+`MoveContact::overlapped` is DERIVED as `landed_hit || connected_hit ||
+blocked_hit` (`crates/ambition_combat/src/moveset/mod.rs:788`), and
+`overlapped` is the STALING fact, recorded on the false→true edge of
+`landed_hit` in `mark_move_playback_landed_hits`.
+
+⛔⛤ **AND THE FIRST VERSION OF THAT PARAGRAPH DREW THE WRONG CONSEQUENCE FROM
+IT — CORRECTED 2026-09-19 BY READING THE WRITERS.** It said answering "yes"
+*"makes the launching move STALE when its projectile connects"*. It cannot:
+`LandedBodyHit` is written at exactly ONE site
+(`crates/ambition_combat/src/hitbox/mod.rs:1124`), over STRIKE VOLUMES, and a
+projectile never writes it — the projectile road writes `HitEvent` directly
+(`crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs:1355`).
+⇒ **No answer to this question can make a projectile stale its launching
+move**, because the only `queue.record` in the workspace
+(`crates/ambition_combat/src/moveset/mod.rs:4134`) sits on the road a
+projectile cannot reach. The other half of that sentence — *"a projectile move
+never decays"* — is true, and it is true TODAY, whichever way this is answered.
+
+⛔⛔ **WHAT THE SAME READ FOUND INSTEAD: `landed_hit` HAS A SECOND WRITER, AND
+IT IS HANDED THE PROVENANCE AND DROPS IT.** `apply_feature_hit_events`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:914`)
+sets `pb.landed_hit = true` on the attacker's CURRENT playback for every
+`HitEvent` that reached an actor or a boss. It has `event.attacker_move_instance`
+in hand and never asks. ⇒ **`overlapped` is already credited by coincidence of
+timing for exactly the four abilities this question names**: `blink`, `dive`,
+`mark_recall` and `empowerment` each write `attacker: Some(body)` with
+`attacker_move_instance: None`
+(`crates/ambition_abilities/src/traversal/blink.rs:190`, `dive.rs:209`,
+`mark_recall.rs:138`,
+`crates/ambition_platformer2d_actor_monolith/src/features/empowerment.rs:275`).
+
+⇒ **SO THE SHIPPED STATE IS NONE OF (a), (b) OR (c).** `connected` is
+provenance-gated by the 2026-09-10 ruling (`verdict_belongs_to`, consulted only
+by `mark_move_playback_resolved_hits`); `overlapped` is gated by nothing; and
+the two writers of the one field disagree about staling, since the damage-road
+write records no stale entry at all.
+
+⛔ **AND THE CONSEQUENCE IS NOT CONFINED TO FLOWS, WHICH IS WHY THE ZERO
+AUTHORED FLOWS ABOVE DO NOT MAKE IT FREE:**
+
+* One authored flow already waits on `Overlapped`: the ninja shadow oni
+  leader's side-B dash
+  (`game/ambition_content/src/ninja_shadow_oni_leader_moveset.rs:338`, migrated
+  to `assets/data/movesets/ninja_shadow_oni_leader.ron:1326`), whose
+  `on_timeout` branch IS the whiff punish. A stray contact inside its 0.16 s
+  window resolves the wait and skips that punish.
+* `CancelCondition::OnWhiff` is `!contact.overlapped`
+  (`crates/ambition_entity_catalog/src/lib.rs:972`), so an ability's contact
+  DENIES the live move its whiff cancel — the one outcome the genre punishes.
+* `blink`'s shockwave is `HitSource::Melee`, which is the condition on the same
+  site's `pb.hit_targets.extend(...)`. Its victims land in the LIVE MOVE's
+  per-strike dedup ledger, and that ledger is what the next sweep passes as
+  `ignored_targets` on the move's own feature-side strike
+  (`already_hit`, `crates/ambition_combat/src/hitbox/mod.rs:600`, spent at
+  `:1163`) — so the move skips a boss or breakable the blink keyed.
+
+⭐ **WHICHEVER WAY THIS IS ANSWERED, `damage/mod.rs:914` IS THE LINE THAT
+CHANGES** — (a) threads the launching occurrence into those four writers and
+keeps the credit; (b) refuses an unclaimed outcome here the way
+`verdict_belongs_to` already refuses one there. What it cannot stay is
+unasked.
 
 **The decision:**
 
 * **(a) Yes — an ability's contact credits the launching move.** A flow can
-  wait on a projectile landing, and a spammed projectile stales like any other
-  move. ⚠ This is the attribution `A12` has to get right: the credit must
+  wait on a projectile landing. ⚠ It would NOT make a spammed projectile stale
+  — an earlier version of this option said so, and staling is unreachable from
+  that road either way (see the correction above). ⚠ This is the attribution `A12` has to get right: the credit must
   reach the move OCCURRENCE that launched it, across an idle gap and a rewind,
   or a later hit stales whatever move happens to be playing then — which is
   the defect the row exists for, not a side effect of this answer.

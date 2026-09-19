@@ -910,6 +910,18 @@ pub fn apply_feature_hit_events(
                 let record_dedup = matches!(event.source, HitSource::Melee);
                 // CM4: the strike connected — the attacker's playing move
                 // learns it (combo-confirm for OnHit/OnWhiff cancels).
+                //
+                // ⛔⛤ **AND IT CREDITS WHATEVER MOVE IS PLAYING, THOUGH THE
+                // EVENT NAMES ITS AUTHOR — `Q101`.** `event.attacker_move_instance`
+                // is in hand and unread here, while the sibling road
+                // (`mark_move_playback_resolved_hits`) refuses an outcome no
+                // move claims. `landed_hit` is therefore the one contact fact
+                // still attributed by coincidence of timing: `blink`, `dive`,
+                // `mark_recall` and `empowerment` all reach this line with
+                // `attacker_move_instance: None`. Which way it should go is a
+                // gameplay ruling and is `Q101`'s, in
+                // `docs/planning/awaiting-maintainer-decision.md` — this line
+                // is the one that changes under either answer.
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     pb.landed_hit = true;
                     // Persist one-hit-per-target dedup on the MOVE itself. The

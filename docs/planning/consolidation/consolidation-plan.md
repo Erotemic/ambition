@@ -657,6 +657,50 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ⭐ **`Q132`'S SCOPING RULE (2026-09-19) SHRINKS THIS ROW WITHOUT CLOSING IT.** The rule decides, for any given optional authority, whether an App-global fallback may exist at all — that is the per-value test this campaign lacked. What it does not decide is which compositions the engine PROMISES to support, and "required" means "required in a profile". ⇒ `Q146` is now the whole of this gate rather than the vaguer "name the profiles".
 
+⭐⛤ **THE `Q132` RULING ASKED FOR ONE SPECIFIC INSPECTION — *"places where
+App-global fallback state exists only because session identity was OPTIONAL"* —
+AND ITS ENTRY POINT IS MEASURED, 2026-09-19.** Over production source with
+comments and test modules stripped, `Option<Res<..>>` / `Option<ResMut<..>>`
+occurs **714 times over 189 distinct type leaves**, and the distribution is not
+flat:
+
+| optional authority | occurrences | files |
+|---|---|---|
+| `ActiveSessionScope` | **56** | 38 |
+| `GameAssets` | 29 | 17 |
+| `Assets` | 24 | 12 |
+| `UserSettings` | 20 | 13 |
+| `PreparedCharacterRegistry` | 18 | 13 |
+| `ActiveMatch` | 17 | 14 |
+| `SimTick` | 14 | 11 |
+
+⇒ **`ActiveSessionScope` IS THE POPULATION THE RULING NAMES**, by a factor of
+two over anything else: 56 production sites take SESSION IDENTITY ITSELF as
+optional, so each carries a branch for "there is no session", and what that
+branch reads is precisely the question. ⚠ This is an ENTRY POINT and not a
+defect list — most are legitimately optional (a presentation system that simply
+does nothing without a session is not App-global fallback state). The triage is
+per site: does the `None` arm READ or WRITE state that a second coexisting
+session could legitimately differ on?
+
+⚠ **AND TWO OTHER ROWS ARE INTERESTING FOR REASONS THE RULING STATES
+EXPLICITLY.** `UserSettings` (20) is named in the ruling as a SEPARATE
+AUTHORITY that must not silently become live simulation state — an optional
+read of it inside the simulation is the exact shape to check. `SimTick` (14) is
+a simulation clock, which the ruling lists among the things that should be
+scoped.
+
+⛔ **WHAT THIS MEASUREMENT IS NOT.** It is keyed on the `Option<Res<T>>`
+SPELLING, so it cannot see a fallback expressed another way — and one is
+already known to be missed by it: `GenerationMechanics::for_live_session`'s
+`shell_routed == false && active.is_none()` branch reaches the App registries
+without any optional resource in its signature. A first, narrower scan for
+`scope`/`session` used with `is_none`/`unwrap_or` found only **6** production
+sites and missed that one too, because the variable is called `active`. ⇒ Treat
+714/189 as one lens on this population rather than its census, which is `C07`'s
+own job and is gated on `Q146`.
+
+
 ### CURRENT STATE
 
 Static source contains **820** optional Res/ResMut occurrences over **206**

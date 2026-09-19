@@ -782,6 +782,24 @@ AUTHORED FLOWS ABOVE DO NOT MAKE IT FREE:**
   (`already_hit`, `crates/ambition_combat/src/hitbox/mod.rs:600`, spent at
   `:1163`) — so the move skips a boss or breakable the blink keyed.
 
+✔ **AND THE STATE IS NOW RECORDED BY AN ARM RATHER THAN BY THIS PARAGRAPH —
+2026-09-19.** `an_outcome_naming_a_dead_move_still_confirms_the_one_playing`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs`)
+delivers a `HitSource::Melee` event naming move use 3 to a body playing use 7
+and asserts, in its own words, *recorded, not endorsed*, that the live move is
+confirmed. Its anti-vacuity floor is the victim's health, so a fixture where
+the system never ran cannot pass it.
+
+⭐ **THE BLAST RADIUS IS MEASURED, WHICH IS THE PART A RULING USUALLY HAS TO
+GUESS AT.** With the refusal inserted as a poison — one line, `if
+event.attacker_move_instance != Some(pb.instance) { continue; }` — the
+monolith's 1,212 lib tests go to **two failures**: this arm, which is what it
+is for, and `a_player_slash_folds_the_struck_target_onto_the_move_accumulator`,
+whose fixture writes `attacker_move_instance: None` against a playback at
+instance 0 because it predates the field. ⇒ In this crate the (b) repair is
+one line and one fixture. ⚠ That number is the MONOLITH's; `app_it` and the
+content crates were not run under the poison.
+
 ⭐ **WHICHEVER WAY THIS IS ANSWERED, `damage/mod.rs:914` IS THE LINE THAT
 CHANGES** — (a) threads the launching occurrence into those four writers and
 keeps the credit; (b) refuses an unclaimed outcome here the way

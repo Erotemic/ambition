@@ -16,7 +16,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | ⛔ **DO NOT START — decided 2026-09-19.** Every gate discharged, but the authority collapse has already happened: the remainder is one value's storage kind, re-measured unchanged, and moving it makes its only four readers worse. Kept for its regression rule | none remaining (was large, re-costed small 2026-09-16) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
-| 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
+| 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | **STARTABLE 2026-09-19 — both gates discharged**, the second by C05's own DO-NOT-START ruling | large | ~~C01~~ + ~~C05~~. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | later structural review | medium-large | After owner consolidation, not before. |
@@ -656,9 +656,19 @@ disagreeing with the identity beside them — not on the storage kind.
 
 ## 6. C06 — Converge reconstruction entry roads on one materialization/publication engine
 
-**STATE:** candidate; C01 is COMPLETE, so the gate is C05 alone. ⭐ **Premise SPOT-CHECKED 2026-09-16 and it HOLDS** — unlike the four rows re-derived the same day. See CURRENT STATE for what was and was not measured.
+**STATE:** ✅ **CANDIDATE, GATE DISCHARGED 2026-09-19 — AND THE DISCHARGE CAME
+FROM A ROW THAT WILL NEVER RUN.** C01 completed 2026-09-15 and C05 was the last
+gate; C05 is now ⛔ DO NOT START, *because its authority collapse has already
+happened*. ⇒ A gate naming a row that will never start reads as a permanent
+block, and it is the opposite: what C06 waited on is the publication authority
+being single, which C05's re-measurement found it already is. What C05 declines
+is a STORAGE-KIND change for one App resource, and nothing in C06 depends on
+where `SessionMechanics` is stored. ⚠ Walking this link is the failure the C05
+ruling itself is about; it was missed on the first walk, which checked prose
+links and not the priority table. ⭐ **Premise SPOT-CHECKED 2026-09-16 and it HOLDS** — unlike the four rows re-derived the same day. See CURRENT STATE for what was and was not measured.
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** ~~C01~~ (discharged 2026-09-15) + C05.
+**DO NOT START BEFORE:** ~~C01~~ (discharged 2026-09-15) + ~~C05~~ (discharged
+2026-09-19 by C05's own ruling — see STATE).
 
 ### CURRENT STATE
 
@@ -700,7 +710,8 @@ Duplicate commit wrappers and special hot-reload construction. Keep only policy-
 
 ### DEPENDENCIES / BLOCKERS
 
-C01 and C05. Checkpoint/new-game retention semantics must remain explicit.
+~~C01~~ and ~~C05~~, both discharged. Checkpoint/new-game retention semantics
+must remain explicit, and that is now the only standing condition.
 
 ### RISK
 

@@ -50,8 +50,12 @@ STORAGE KIND with no defect behind it. Re-measured that day and identical to
 the 2026-09-16 reading: 34 production lines, four readers all
 `Option<Res<SessionMechanics>>`, one installer, one remover. Moving it to the
 session root replaces four optional reads with four root lookups in crates that
-take it optionally precisely so they need not find the root. ⇒ **C03 alone is
-startable.** The ruling and its evidence live once, in
+take it optionally precisely so they need not find the root. ⇒ **C03 and C06
+are startable.** ⛔⛤ **AND C06 WAS MISSED ON THE FIRST WALK, 2026-09-19** — its
+only remaining gate was C05, so the DO-NOT-START ruling read as a permanent
+block when it is the opposite: the publication authority C06 waits on is
+already single, which is why C05 has nothing left to do. A ruling's inbound
+links include the ones in a TABLE, not only the ones in prose. The ruling and its evidence live once, in
 [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md)'s
 C05 section; this line points at it rather than restating it, for the reason
 the paragraph below already gives. ⚠ The

@@ -38,10 +38,23 @@ outside those two files. One dead mechanism was deleted, one accessor narrowed.
 ⇒ **There is no active A10 lane.** Peer-stable identity (ID-PEER) runs as a
 separate campaign with a separate agent — see below.
 
-⭐ **AND WHAT THAT UNBLOCKS, as of 2026-09-16: C03 and C05 are STARTABLE — every
-gate on both is discharged.** The two that stood this morning are gone: the
-shell/content A-supersedes-B race is witnessed in the shipped composition on both
-halves, and the peer-identity checkpoint was discharged by its owner. ⚠ The
+⭐ **AND WHAT THAT UNBLOCKED, as of 2026-09-16: every gate on C03 and C05 is
+discharged.** The two that stood that morning are gone: the shell/content
+A-supersedes-B race is witnessed in the shipped composition on both halves, and
+the peer-identity checkpoint was discharged by its owner.
+
+⛔⛤ **THIS SAID "C03 AND C05 ARE STARTABLE" UNTIL 2026-09-19, AND C05 IS NOW
+DECIDED: DO NOT START.** A discharged gate is not a reason to start — C05's
+authority collapse has already happened, and its remainder is one value's
+STORAGE KIND with no defect behind it. Re-measured that day and identical to
+the 2026-09-16 reading: 34 production lines, four readers all
+`Option<Res<SessionMechanics>>`, one installer, one remover. Moving it to the
+session root replaces four optional reads with four root lookups in crates that
+take it optionally precisely so they need not find the root. ⇒ **C03 alone is
+startable.** The ruling and its evidence live once, in
+[`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md)'s
+C05 section; this line points at it rather than restating it, for the reason
+the paragraph below already gives. ⚠ The
 statement and its evidence live ONCE each — the witness in
 [`consolidation/README.md`](consolidation/README.md), the checkpoint in ID-PEER's
 queue row — and `consolidation-plan.md` points at them rather than restating

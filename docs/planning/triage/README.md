@@ -51,6 +51,23 @@ measurement it carries, and the index would lose that by demoting it to a link.
   (`--vanished REF --comments`), which is opt-in because at the lane's baseline
   it reports 246 findings across 109 names — 223 across 104 once this page's
   own repairs landed.
+  ⛔⛤ **AND THE PAGE GREW TWO MORE AXES AGAIN LATER THE SAME DAY, one of them
+  about the lane's own configuration.** That baseline was a PRE-EPOCH commit
+  reachable from no ref — a dangling object in one checkout, so the periodic
+  job was red on every clone but that one, while a guard checked the SHA's
+  SHAPE and never its ancestry. Advancing it to the epoch root also WIDENED
+  what the sweep sees, because a baseline predating a deletion is blind to it:
+  the 222-across-103 haystack, dominated by prose deliberately recording old
+  names, became **54 across 28** — each attributable to a dated commit, all
+  triaged, and the four live ones repaired.
+  ⭐ The second axis is a comment that loses its SUBJECT rather than going
+  stale: a `///` run, a blank line, another `///` run, no item between, so Rust
+  attaches both to whatever follows and the stranded summary becomes that
+  item's. **25 found tree-wide, all 25 real, all 25 repaired** — and one repair
+  reddened the doc-link ratchet, because the orphan had been HIDING a broken
+  intra-doc link that rustdoc never resolved while it sat on a private struct.
+  ⚠ Deliberately NOT wired, under the same `AGENTS.md` rule that demoted
+  `--comment-paths`.
 
 ## Design and scope pages awaiting a decision
 

@@ -1,12 +1,36 @@
 # A moved directory is a citation broken in silence
 
-**Status:** ✔ **CLOSED 2026-09-17.** Filed 2026-09-10 as a diagnosis that
+**Status:** ✔ **THE PATH AXIS CLOSED 2026-09-17; THE PAGE IS NOW FOUR AXES AND
+THE TITLE NAMES ONLY THE FIRST.** Filed 2026-09-10 as a diagnosis that
 deliberately declined to wire anything. It is wired now, because the objection
 that stopped it — *"a checker that reddens on all of them buys a suppression
 list"* — was measured and did not survive: the legitimate cases announce
 themselves, the annotation cost is fourteen lines in a convention that already
 existed, and the gate is green at HEAD. Ten live citations were repaired on the
-way (last two sections).
+way.
+
+The four, in the order they were found, each with its own sections below:
+
+1. **A prose PATH inside a `.rs` comment is not checked** — the original. ✔
+   Closed, `--comment-paths` reports in the default lane.
+2. **A guard's WAIVER can quote source verbatim** and nothing resolves the
+   quotation. ✔ Censused (783 quotations, 4 genuine defects), repaired.
+3. **A BARE NAME in a source comment** — `--vanished` read only documents, so a
+   deleted method survived in five source comments while the qualified spelling
+   of the same method was caught. ✔ It reads source with `--comments` now, and
+   the lane's baseline — which turned out to be reachable from no ref — was
+   advanced to the epoch root, taking the sweep from 222 findings across 103
+   names to **54 across 28**.
+4. **A comment that loses its SUBJECT rather than going stale.** ✔ 25 found by
+   a one-line signature, all 25 real, all 25 repaired.
+
+⛔⛤ **AND THE SHAPE UNDERNEATH ALL FOUR, which is the thing to carry away: the
+correction is usually ALREADY THERE, one paragraph away.** Stale prose in this
+corpus is rarely unnoticed — it is a fix that landed as a NEW sentence beside
+the old one instead of replacing it. That is why a tense filter over the
+comment BLOCK reported zero live claims where a filter over the sentence that
+NAMES the symbol reported nineteen: the block acquires its history word at the
+exact moment the file starts holding both answers.
 
 ## The mechanism
 

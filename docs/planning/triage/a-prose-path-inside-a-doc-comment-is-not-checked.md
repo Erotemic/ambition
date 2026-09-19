@@ -1,6 +1,6 @@
 # A moved directory is a citation broken in silence
 
-**Status:** ✔ **THE PATH AXIS CLOSED 2026-09-17; THE PAGE IS NOW FOUR AXES AND
+**Status:** ✔ **THE PATH AXIS CLOSED 2026-09-17; THE PAGE IS NOW FIVE AXES AND
 THE TITLE NAMES ONLY THE FIRST.** Filed 2026-09-10 as a diagnosis that
 deliberately declined to wire anything. It is wired now, because the objection
 that stopped it — *"a checker that reddens on all of them buys a suppression
@@ -9,7 +9,7 @@ themselves, the annotation cost is fourteen lines in a convention that already
 existed, and the gate is green at HEAD. Ten live citations were repaired on the
 way.
 
-The four, in the order they were found, each with its own sections below:
+The five, in the order they were found, each with its own sections below:
 
 1. **A prose PATH inside a `.rs` comment is not checked** — the original. ✔
    Closed, `--comment-paths` reports in the default lane.
@@ -23,6 +23,9 @@ The four, in the order they were found, each with its own sections below:
    names to **54 across 28**.
 4. **A comment that loses its SUBJECT rather than going stale.** ✔ 25 found by
    a one-line signature, all 25 real, all 25 repaired.
+5. **A `Qnnn` is a citation, and the ordinary way to answer a question is to
+   DELETE it.** ✔ 22 of 119 cited numbers resolved to nothing; the four that
+   sent the reader somewhere now resolve.
 
 ⛔⛤ **AND THE SHAPE UNDERNEATH ALL FOUR, which is the thing to carry away: the
 correction is usually ALREADY THERE, one paragraph away.** Stale prose in this
@@ -804,3 +807,57 @@ that started this was ONE contiguous `///` block holding two subjects, with no
 blank line at all. Nothing syntactic separates that from a long doc. ⇒ The
 detectable form is a lower bound, and the undetectable one is the shape that
 produced the best-written orphan in the tree.
+
+
+## A FIFTH way a citation breaks: the thing it names is answered by deleting it — 2026-09-19
+
+`awaiting-maintainer-decision.md` is a page of open questions, and answering one
+normally REMOVES it. That is the right lifecycle for the page and it is the
+whole defect for everyone else: a `Qnnn` is a citation, ~40 source comments cite
+one each, and nothing anywhere resolves the number.
+
+**Measured across the tracked tree** (`.rs`, `.md`, `.py`, `.ron`, `.toml`;
+`\bQ(\d{2,3})\b`, the two synthetic fixtures `Q0` and `Q999` excluded):
+
+| | |
+|---|---:|
+| distinct Q numbers cited | 119 |
+| live `## Qnnn` sections on the awaiting page | 90 |
+| recorded in `maintainer-decisions.md` before today | 5 |
+| **cited and resolving to neither** | **22** |
+
+⛔ **BUT THE 22 IS NOT THE DEFECT, AND MEASURING ONLY THE ACCUSED WOULD HAVE
+SAID IT WAS.** Eighteen of them carry their own answer in the same paragraph —
+*"`Q111`, ANSWERED 2026-09-13"* followed by the answer, *"`Q114`, MEASURED
+2026-09-13"* followed by the measurement. A reader loses nothing. The defect is
+a citation that DEFERS, and there were four:
+
+- `reload_tests.rs` — *"see `Q118` in the decision ledger"*, and the ledger did
+  not hold it;
+- `transaction.rs` — *"what the ruling in `Q124` decides is what SHOULD happen
+  to the held one"*, fourteen hours after `Q124` was WITHDRAWN;
+- `stage.rs` — *"`Q124` really is a ruling"*, present tense, same day;
+- `scored_move_tests.rs` — a bare *"See `Q117`."*
+
+⭐ **THE DEFERRING ONES ARE ALSO THE STALEST, AND THAT IS NOT A COINCIDENCE.** A
+comment that states its own answer cannot rot faster than the answer; one that
+points at a page rots the moment the page moves. `Q124`'s two sites were written
+at 02:55 on 2026-09-13 and were true then — `ca7ca15b2` withdrew the question at
+16:28 the same afternoon, with a reason worth keeping (*"the rule was never
+Jon's to choose"*: `a_death_returns_what_was_not_banked_and_keeps_what_was`
+already asserts it, per object, by which side of the checkpoint the acquisition
+fell on). Nobody walked the inbound citations, which is this page's recurring
+finding arriving through a new door.
+
+⇒ **REPAIRED, NOT COUNTED:** `Q117`, `Q118`, `Q120` and `Q124` are rows in
+`maintainer-decisions.md`, each naming the half that is NOT settled and the test
+that owns it, and the four comments now say what is true. The page's maintenance
+rule gained one sentence: a number a comment DEFERS to must resolve.
+
+⛔ **AND NOTHING WAS WIRED, DELIBERATELY.** A checker here would have to tell a
+deferral from a self-contained citation, which is a prose judgement over a
+population of four. The cheap version — *"every cited `Qnnn` must resolve"* —
+has a baseline of 22 and would buy a suppression list for eighteen comments that
+are already correct. That is the exact objection this page measured and defeated
+for the PATH axis; here it holds, and the difference is that there the
+legitimate cases announced themselves.

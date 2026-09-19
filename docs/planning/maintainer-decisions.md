@@ -203,3 +203,18 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 When a decision is superseded, edit or replace the row. Do not append a second
 page of commentary underneath it. Git history is the record of how the ruling
 changed.
+
+⛔ **AND A `Qnnn` A COMMENT DEFERS TO MUST RESOLVE — HERE, OR AS A LIVE QUESTION
+ON [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).** An
+answered question is normally DELETED from that page, which is right; what is
+not right is deleting one that source comments send the reader to. Measured
+2026-09-19 across the tracked tree: 119 distinct Q numbers are cited, 90 are
+live questions, and 22 resolved to nothing at all — but **only Q117, Q118, Q120
+and Q124 actually DEFERRED** (*"see `Q118` in the decision ledger"*, *"what the
+ruling in `Q124` decides"*, a bare *"See `Q117`"*). The other eighteen carry
+their own answer in the same paragraph and lose nothing, so the rule is about
+the DEFERRAL and not about the number. (`Q123` is the near miss: three sites
+name an *"open clause"* of it, but each QUOTES the clause verbatim and then
+measures it, so nothing is being sent anywhere.) All four now resolve, and no checker was
+added for it: the population that matters is four, and telling a deferral from
+a self-contained citation is a prose judgement.

@@ -17,7 +17,9 @@ import check_narrative_writers_have_a_ledger as guard  # noqa: E402
 
 
 def sources(pairs):
-    return [(pathlib.Path(guard.REPO / p), body) for p, body in pairs]
+    # ⚠ body AND raw are the same text for a synthetic fixture: nothing here is
+    # stripped, so the line map is the identity and the arms stay about rules.
+    return [(pathlib.Path(guard.REPO / p), body, body) for p, body in pairs]
 
 
 def test_the_shipped_tree_pairs_every_writer():
@@ -133,3 +135,68 @@ def test_a_rotted_regex_refuses_instead_of_passing(monkeypatch, capsys):
     monkeypatch.setattr(guard, "WRITER", re.compile(r"NoSuchWriter<([^,>]+)>"))
     assert guard.main() == 1
     assert "claim about this scan" in capsys.readouterr().out
+
+
+def test_reported_lines_address_the_real_file_not_the_stripped_body():
+    """⛔⛤ THE CITATIONS WERE OFF BY HUNDREDS OF LINES (found 2026-09-19).
+
+    The five actor-monolith registrations were reported at
+    `features/mod.rs:956-960`; they are at `:1401-1405`. `strip_test_modules`
+    deletes 482 lines from that file and the line was counted in the stripped
+    text, so every citation a failure printed pointed at whatever now sits at
+    the shifted line. This arm resolves each reported citation against the file
+    on disk and requires the payload to actually be there.
+    """
+    writers, plugins = guard.scan(guard.production_sources())
+    checked = 0
+    for name, sites in list(writers.items()) + list(plugins.items()):
+        for site in sites:
+            path, _, line = site.rpartition(":")
+            text = (guard.REPO / path).read_text(encoding="utf-8").split("\n")
+            # The generic wraps in the shipped spellings, so the leaf may be on
+            # the line after the one the match starts on.
+            window = "\n".join(text[int(line) - 1 : int(line) + 2])
+            assert name in window, (
+                f"{site} does not name `{name}` in the file on disk; the citation "
+                f"was computed on a body with test modules cut out of it"
+            )
+            checked += 1
+    assert checked >= 20, f"only {checked} citations resolved, population collapsed"
+
+
+def test_the_line_map_survives_a_stripped_module_in_the_middle():
+    """⛔⛤ THE ARM THE REAL TREE COULD NOT PROVIDE.
+
+    `test_reported_lines_address_the_real_file_not_the_stripped_body` passed
+    against a greedy character walk that was wrong — the shipped citations
+    happened to land, and a poisoned declaration at line 733 reported as 595.
+    So this builds the case directly: a test module in the MIDDLE, and a
+    subject after it whose true line is known by construction.
+
+    ⚠ The decoy inside the stripped module matters. A greedy walk drifts by
+    finding the characters it needs inside the removed region, so a region that
+    contains a plausible match is what separates the two implementations.
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, str(pathlib.Path(guard.REPO) / "scripts" / "lib"))
+    from test_paths import strip_test_modules
+
+    raw = "\n".join(
+        ["// line 1", "pub struct Before;"]
+        + ["#[cfg(test)]", "mod tests {", "    pub struct Decoy;"]
+        + [f"    // filler {i}" for i in range(20)]
+        + ["}", "", "pub struct After;", ""]
+    )
+    true_line = raw.split("\n").index("pub struct After;") + 1
+    assert true_line == 28, f"fixture drifted: {true_line}"
+
+    stripped = strip_test_modules(raw)
+    offset = stripped.index("pub struct After;")
+    assert "Decoy" not in stripped, "the fixture's module was not stripped at all"
+
+    mapped = guard.raw_line_numbers(raw, [offset])
+    assert mapped[offset] == true_line, (
+        f"the map put `After` on line {mapped[offset]}, and it is on {true_line}. "
+        "A greedy subsequence walk lands inside the stripped module"
+    )

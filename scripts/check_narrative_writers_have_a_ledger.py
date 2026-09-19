@@ -76,7 +76,12 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 
-from test_paths import file_is_test_only, is_test_path, strip_test_modules  # noqa: E402
+from test_paths import (  # noqa: E402
+    file_is_test_only,
+    is_test_path,
+    strip_test_modules,
+    test_module_spans,
+)
 
 sys.path.insert(0, str(REPO / "scripts"))
 # ⚠ IMPORTED, NOT RESPELLED. One owner for "what is code and what is prose",
@@ -98,6 +103,44 @@ def leaf(ty: str) -> str:
     return ty.strip().rsplit("::", 1)[-1].strip()
 
 
+def raw_line_numbers(raw: str, offsets: list[int]) -> dict[int, int]:
+    """Offsets into the scanned body → line numbers in the file on disk.
+
+    ⛔⛤ **THE CITATIONS THIS GUARD PRINTED WERE OFF BY HUNDREDS OF LINES, FOUND
+    2026-09-19.** It reported the five actor-monolith registrations at
+    `features/mod.rs:956-960`; they are at `:1401-1405`. `strip_test_modules`
+    deletes 482 lines from that file, and the line was counted in the STRIPPED
+    text — so every citation in a failure message pointed a maintainer at
+    whatever now sits at the shifted line. A report is a display; the moment it
+    carries an identifier somebody will resolve, it owes the real one.
+
+    ⛔⛔ **AND THE FIRST REPAIR WAS CONFIDENTLY WRONG IN THE SAME FORMAT, which
+    is why the poison mattered more than the arm.** It recovered the alignment
+    by walking the two strings and matching characters greedily. That finds AN
+    embedding of a subsequence, not the one the deletion produced: every
+    character it needs also occurs earlier, so the cursor drifts into the
+    removed region. The real-tree arm PASSED on it — the shipped citations
+    happened to land — and a poisoned declaration at line 733 was reported as
+    line 595.
+
+    ⇒ So the strip now publishes its spans ([`test_module_spans`]) and this is
+    arithmetic over them rather than a search: a position in the stripped text
+    is the same position in the raw file plus every span that ended before it.
+    `code_only` preserves length exactly (measured: 0 of 1,294 files differ), so
+    an offset into the scanned body is an offset into the stripped text.
+    """
+    spans = test_module_spans(raw)
+    out: dict[int, int] = {}
+    for offset in offsets:
+        position = offset
+        for begin, finish in spans:
+            if position < begin:
+                break
+            position += finish - begin
+        out[offset] = raw.count("\n", 0, position) + 1
+    return out
+
+
 def declaration_sites(name: str, sources) -> list[str]:
     """Every shipped `struct`/`enum` declaring this leaf name.
 
@@ -107,14 +150,17 @@ def declaration_sites(name: str, sources) -> list[str]:
     ONE `struct` counted here.
     """
     decl = re.compile(rf"\b(?:struct|enum)\s+{re.escape(name)}\b")
-    return [
-        f"{path.relative_to(REPO)}:{body[: m.start()].count(chr(10)) + 1}"
-        for path, body in sources
-        for m in decl.finditer(body)
-    ]
+    found = []
+    for path, body, raw in sources:
+        offsets = [m.start() for m in decl.finditer(body)]
+        if not offsets:
+            continue
+        lines = raw_line_numbers(raw, offsets)
+        found += [f"{path.relative_to(REPO)}:{lines[o]}" for o in offsets]
+    return found
 
 
-def production_sources() -> list[tuple[pathlib.Path, str]]:
+def production_sources() -> list[tuple[pathlib.Path, str, str]]:
     """Shipped Rust only: test files dropped, `#[cfg(test)]` modules stripped.
 
     ⚠ A writer inside a test builds its own `App` and installs what it needs
@@ -133,24 +179,29 @@ def production_sources() -> list[tuple[pathlib.Path, str]]:
             # `NarrativeInputWriter<SetFlagRequested>` in prose, and the scan
             # reported it as a second USE SITE — so a page explaining a defect
             # would have become a requirement to fix it again.
-            out.append((path, code_only(strip_test_modules(raw))))
+            out.append((path, code_only(strip_test_modules(raw)), raw))
     return out
 
 
 def scan(sources) -> tuple[dict[str, list], dict[str, list]]:
     writers: dict[str, list] = {}
     plugins: dict[str, list] = {}
-    for path, body in sources:
+    for path, body, raw in sources:
+        hits = []
         for pattern, sink in ((WRITER, writers), (PLUGIN, plugins)):
             for match in pattern.finditer(body):
                 ty = match.group(1).strip()
                 # The declaration and its impl block are not uses.
                 if ty.startswith("'") or ty in {"M", "'w, M: Message + Clone"}:
                     continue
-                line = body[: match.start()].count("\n") + 1
-                sink.setdefault(leaf(ty), []).append(
-                    f"{path.relative_to(REPO)}:{line}"
-                )
+                hits.append((match.start(), leaf(ty), sink))
+        if not hits:
+            continue
+        # ⚠ RESOLVED AGAINST THE FILE ON DISK, NOT THE SCANNED BODY. See
+        # [`raw_line_numbers`] — the body has had test modules cut out of it.
+        lines = raw_line_numbers(raw, [start for start, _, _ in hits])
+        for start, name, sink in hits:
+            sink.setdefault(name, []).append(f"{path.relative_to(REPO)}:{lines[start]}")
     return writers, plugins
 
 

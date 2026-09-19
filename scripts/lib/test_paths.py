@@ -210,6 +210,34 @@ def strip_test_modules(source: str) -> str:
     already erred in; under-cutting counts a fixture. Both move a consumer's
     population, which is why every consumer of this module carries a floor.
     """
+    spans = test_module_spans(source)
+    kept: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        kept.append(source[cursor:start])
+        cursor = end
+    kept.append(source[cursor:])
+    return "".join(kept)
+
+
+def test_module_spans(source: str) -> list[tuple[int, int]]:
+    """The `[start, end)` character spans [`strip_test_modules`] removes.
+
+    ⛔⛤ **THE SPANS ARE THE FACT AND THE STRIPPED TEXT IS DERIVED FROM THEM, not
+    the other way round — split out 2026-09-19 because a consumer needed to map
+    a position in the stripped text back to a line in the file.** That consumer
+    first tried to recover the alignment by walking the two strings and matching
+    characters greedily. A greedy walk finds AN embedding of a subsequence, not
+    the one the deletion actually produced: every character it needs exists
+    earlier in the file too, so the cursor drifts into the removed region and
+    the answer is confidently wrong. It reported a declaration at line 733 as
+    line 595, and reported it in a format nobody would re-check.
+
+    ⇒ A transformation that deletes should publish WHAT it deleted. Anything
+    downstream that needs to point back at the original can then do so exactly,
+    and nothing has to re-derive the strip's rules to follow it.
+    """
+    spans: list[tuple[int, int]] = []
     index = 0
     while (found := source.find(_CFG_OPEN, index)) != -1:
         predicate_start = found + len(_CFG_OPEN) - 1
@@ -225,6 +253,6 @@ def strip_test_modules(source: str) -> str:
             # fn helper() {}` — no module BLOCK here to balance.
             index = found + len(_CFG_OPEN)
             continue
-        source = source[:found] + source[_balanced(source, head.end() - 1, "{", "}") :]
-        index = found
-    return source
+        spans.append((found, _balanced(source, head.end() - 1, "{", "}")))
+        index = spans[-1][1]
+    return spans

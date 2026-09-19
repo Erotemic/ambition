@@ -1454,15 +1454,20 @@ question is untouched by it.
 ⭐ **THE FRAME-MODE HALF WAS NOT BLOCKED ON A RULING AND HAD A RECORDED REPAIR**
 (kept below because the repair it named was NOT the one taken, and the reasons
 are the decision record).
-The architecture review of 2026-09-13, quoted in `rollback_coverage.rs`: *"capture
-resolves the semantic DIRECTION and simulation never sees a mode at all, at which
-point this waiver and the row above both shrink."* That is implementation work,
+The architecture review of 2026-09-13, as `rollback_coverage.rs` records it:
+*"The 2026-09-13 review said capture should resolve the semantic DIRECTION so
+simulation sees no mode."* ⛔⛤ **THAT WAS PRINTED HERE AS A VERBATIM QUOTATION
+UNTIL 2026-09-19, WITH A TRAILING CLAUSE — *"at which point this waiver and the
+row above both shrink"* — THAT APPEARS IN NO FILE IN THIS REPOSITORY**, source
+or planning. The file states the claim in INDIRECT speech and the claim is
+right; the quotation marks were the part nothing could check. That is
+implementation work,
 not a decision — and it is strictly better than admitting the mode as state,
 because it removes the concept from the simulation rather than versioning it.
 
 ⛔⛤ **AND THE RECORDED REPAIR HAS A COST NOBODY WROTE DOWN, MEASURED 2026-09-16
-BEFORE STARTING IT.** *"Capture resolves the semantic DIRECTION and simulation
-never sees a mode at all"* is implementable, and it is not free, because resolving
+BEFORE STARTING IT.** Resolving the direction at capture so simulation sees no
+mode is implementable, and it is not free, because resolving
 a direction needs the controlled body's gravity BASIS and capture does not have
 frame N's:
 

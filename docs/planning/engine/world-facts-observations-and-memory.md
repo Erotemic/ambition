@@ -232,9 +232,14 @@ them then and calls them still, unchanged** — `cove.yarn:3`, `cove.yarn:220`,
 `kernel.yarn:271`, `kernel.yarn:293`.
 
 ⇒ **So this is the "second authority" shape, and BOTH modules already say so at
-the site.** `authored_conditions.rs`: *"facts already exposed through the
-authored-condition catalog must be queried there rather than duplicated here.
-The mirror remains only for facts the catalog cannot answer."*
+the site.** `authored_conditions.rs`: *"catalog-owned facts do not need a second
+`YarnStateMirror` copy. The mirror remains only for facts the catalog cannot
+answer."* ⛤ **THE FIRST SENTENCE OF THAT QUOTATION READ *"facts already exposed
+through the authored-condition catalog must be queried there rather than
+duplicated here"* UNTIL 2026-09-19, AND THE FILE DOES NOT SAY IT.** The second
+sentence is verbatim; the first was a paraphrase in quotation marks, and it
+carried the stronger claim the sentence around it needed — the module records
+that a second copy is UNNECESSARY, not that querying the catalog is REQUIRED.
 `yarn_vocabulary.rs:415`: *"Two mechanisms answering one question is exactly the
 second authority this project refuses elsewhere."*
 

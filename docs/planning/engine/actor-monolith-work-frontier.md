@@ -1139,8 +1139,10 @@ fails with *"method `commit_deferred` is private"*. <!-- cite-ok: `retire_outgoi
 ✅ **AND THE DESTRUCTIVE WINDOW IT NAMED IS GONE — 2026-09-14.** This paragraph
 read *"NAMED, NOT REMOVED: between the two halves the session has no room"*, and
 it was right: `room_transition/commit.rs` said the consequence out loud —
-*"A transition that fails after the outgoing sweep has despawned the source room
-and has nowhere to put the body, which is not a failure a caller can handle."*
+*"A transition that fails after the room sweep has despawned the source room and
+has nowhere to put the body, which is not a failure a caller can handle."* ⚠ That
+sentence named a `retire_outgoing` in both places until 2026-09-19, here as *"the <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+outgoing sweep"* and at the site under the dead name itself.
 Collapsing the pair here is what let the fix land in ONE place, and it did:
 `replace_live_world` now STAGES the whole replacement (`PendingWorldReplacement`)
 and the room transaction's verdict applies it or drops it. Both halves are

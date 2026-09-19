@@ -103,12 +103,15 @@ impl Plugin for GravityPlugin {
                 .in_set(FrameResolveSet),
         );
 
-        // NOTE: `gravity_flip_switch_system` is intentionally NOT registered.
-        // Nothing spawns a `GravityFlipSwitch` in-game (the hub flip is an
-        // LDtk-authored Switch handled by the encounter system); the component +
-        // system exist only for the unit test + any future overlap-style plate.
-        // It was never registered in the app schedule before the extraction, so
-        // leaving it unregistered preserves behavior exactly.
+        // ⛔ THE OVERLAP PLATE IS GONE — RULED 2026-09-19 (Q137). Gravity
+        // switching stays; what went is the second, unreachable ROAD to it. The
+        // `GravityFlipSwitch` component and its system were never registered
+        // here, nothing authored or spawned one, and they survived only for
+        // their own unit test — while carrying a rollback registration, a
+        // view-facts rebuild and a renderer. A later pressure plate is an INPUT
+        // into `BaseGravity`, the same way the LDtk-authored `FlipGravity`
+        // switch already is; it is not a reason to keep a parallel mechanism
+        // alive with no author.
 
         // Reset gravity to default when the room resets — after the
         // content layer's room-reset work (named boss arenas), ordered

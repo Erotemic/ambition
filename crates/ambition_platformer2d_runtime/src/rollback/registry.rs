@@ -607,7 +607,18 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// vs named AND named vs named) and `the_primary_lane_projects_as_the_name_no_
 /// named_lane_may_take`, which pins the absent-lane default to the one name
 /// `ConstructionLane::named` refuses.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 199;
+/// ⛔⛤ 199 -> 200: A COMPONENT NO COMPOSITION EVER BUILT WAS INSIDE THE
+/// FINGERPRINT TWO PEERS COMPARE. `GravityFlipSwitch` held two rows —
+/// `entity:gravity_flip_switch` (required-rollback) and `gravity.flip_switch`
+/// (component-clone) — for an overlap pressure plate whose only system
+/// registration in the workspace was inside its own `#[cfg(test)]` module and
+/// which nothing authored or spawned. `Q137` ruled on 2026-09-19 that gravity
+/// SWITCHING stays (the LDtk-authored `FlipGravity`/`SetGravity` switches and
+/// the developer controls are the product) and that the parallel plate goes.
+/// ⚠ NO MECHANICAL STATE LEAVES THE SNAPSHOT, because none was ever in it: the
+/// component had no production insert site, so both rows were always empty.
+/// This is the second bump where the dump SHRINKS, by exactly those two rows.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 200;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

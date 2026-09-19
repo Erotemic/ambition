@@ -573,6 +573,16 @@ production**:
 | `actor.render_size` | 1 | `portal.shot` | 1 |
 | `feature.hazard` | 1 | `entity.transform` | republished every frame |
 
+⭐ **RE-DERIVED 2026-09-19 AFTER `Q137`: THE POPULATION IS 24 AND THE MUTABLY
+BORROWED ARE 11.** `scripts/measure_unchecksummed_rollback_rows.py` — the same
+instrument, re-run rather than re-read — now prints 24 rows, and the one
+missing is `gravity.flip_switch`, whose whole vertical was deleted (see below).
+It was one of the twelve, so the mut-borrow column loses exactly its row and
+nothing else moves. ⚠ THE TABLE AND THE LIST ABOVE ARE LEFT AS TAKEN on
+2026-09-16, with this line as the correction: restating a measurement's numbers
+in place, without re-running its method, is how a census comes to describe a
+tree nobody measured.
+
 The other 13 — `actor.interaction`, `actor.spawn_baseline`,
 `actor.sprite_offset`, `actor.sprite_posed_body`, `boss.capability`,
 `boss.config`, `boss.overrides`, `combat.tuning`, `encounter.camera_zoom`,
@@ -640,36 +650,26 @@ wrong room: `basement_npcs`'s `HazardBlock` is a SURFACE
 `PlacementSchema::Hazard`; the authored identifier that becomes `feature.hazard`
 is `DamageVolume`. A row's name is not a reading of what authors it, either.
 
-⛔⛤ **OF THE THREE STILL SILENT, ONE CANNOT BE PLACED BY ANY ROUTE — MEASURED
-2026-09-17, AND IT IS A CORRECTION TO THIS RANKING RATHER THAN TO THE ARM.**
-`gravity.flip_switch`'s only mutable writer, `gravity_flip_switch_system`, is
-registered in exactly one place in the workspace and that place is inside a
-`#[cfg(test)]` module (`gravity/lifecycle.rs`), and the gravity plugin says so in
-its own words — *"`gravity_flip_switch_system` is intentionally NOT registered.
-Nothing spawns a `GravityFlipSwitch` in-game (the hub flip is an LDtk-authored
-Switch handled by the encounter system); the component + system exist only for
-the unit test + any future overlap-style plate."* ⇒ So the row is
+⛔⛤ **OF THE THREE STILL SILENT, ONE COULD NOT BE PLACED BY ANY ROUTE — AND IT
+IS NOW DELETED RATHER THAN RANKED.** `gravity.flip_switch`'s only mutable
+writer, `gravity_flip_switch_system`, was registered in exactly one place in the
+workspace and that place was inside a `#[cfg(test)]` module
+(`gravity/lifecycle.rs`); the gravity plugin said so in its own words, and
+nothing in the LDtk contract converted to the component. So the row was
 rollback-registered twice (`component-clone` plus `require_rollback`) for a
-component no shipped composition builds, and **this ranking counted a writer no
+component no shipped composition built, and **this ranking counted a writer no
 production composition installs** — the same defect as crediting a road nobody
-takes. It is ELEVEN rows a route could reach, not twelve, and the twelfth wants a
-decision about the registration rather than a fixture: **`Q137`** in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md), which
-measures what the unreachable half costs — two rollback registrations inside the
-schema fingerprint, an unfiltered per-tick view rebuild that can only ever
-produce an empty vector, and a render sync that despawns and rebuilds from it
-every frame — and puts the choice as: the plate ships, or the encounter switch
-owns gravity alone.
+takes.
 
-✔ **AND THIS ONE SURVIVED THE LENS THAT BROKE THE OTHER TWO — CHECKED
-2026-09-17.** `portal.emission` and `boss.death_animation` were both wrongly
-called unreachable because their rows described the EVENT the field is named for
-rather than the code that inserts the component. Asked the same way — *where is
-the component SPAWNED* — `GravityFlipSwitch` has exactly one construction site in
-the workspace, `gravity/lifecycle.rs:133` <!-- cite-test: the sentence's point is that the only construction site is test-only -->, and the file's `#[cfg(test)]` opens at
-line 100. The LDtk contract declares `GravityZone` and `Switch` and neither
-converts to it. ⇒ Unlike its two neighbours, this row has no production insert
-site at all, which is the claim `Q137` rests on and it holds.
+✅ **`Q137` RULED IT 2026-09-19 AND THE VERTICAL IS GONE.** Gravity SWITCHING
+stays — the LDtk-authored `FlipGravity` / `SetGravity` switches and the
+developer gravity controls are the product — and what went is the second,
+unreachable ROAD to the same fact: the component, the system, both rollback
+registrations, the per-tick view rebuild that could only produce an empty
+vector, the render sync that despawned and rebuilt from it every frame, and the
+exit-oracle row that named it by string. ⇒ The ranking is ELEVEN rows a route
+could reach, and there is no twelfth. A later pressure plate is an INPUT into
+`BaseGravity`, which every legitimate road already writes.
 
 ⛔⛤ **`portal.emission` WAS READ AS THE SECOND UNREACHABLE ROW, AND THAT
 READING WAS WRONG IN BOTH HALVES — CORRECTED 2026-09-17, THE SAME DAY IT WAS

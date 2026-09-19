@@ -16,6 +16,6 @@ mod lifecycle;
 mod plugin;
 mod resolve;
 
-pub use lifecycle::{gravity_flip_switch_system, reset_gravity_on_room_reset, GravityFlipSwitch};
+pub use lifecycle::reset_gravity_on_room_reset;
 pub use plugin::{GravityPlugin, GravitySet};
 pub use resolve::resolve_body_motion_frames;

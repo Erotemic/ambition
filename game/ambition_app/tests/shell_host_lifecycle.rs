@@ -1500,9 +1500,15 @@ fn two_local_histories_compute_the_same_mechanical_values() {
 fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
 
-    /// The twelve rows S7 ranks sharpest: outside the peer checksum, read by an
+    /// The eleven rows S7 ranks sharpest: outside the peer checksum, read by an
     /// unfiltered per-tick query, float-bearing, AND mutably borrowed in
     /// production. Row names, as the registry spells them.
+    ///
+    /// ⭐ TWELVE UNTIL 2026-09-19. `gravity.flip_switch` was the twelfth and it
+    /// is not here because the row no longer exists: `Q137` ruled the
+    /// unreachable overlap plate out and the component, its system and both
+    /// its rollback registrations were deleted. See the note further down,
+    /// which is about why it was never PLACED; this is about why it is gone.
     const SHARP_ROWS: &[&str] = &[
         "item.ground_item",
         "actor.animation_facts",
@@ -1510,7 +1516,6 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         "boss.death_animation",
         "actor.render_size",
         "feature.hazard",
-        "gravity.flip_switch",
         "player.blink_camera_state",
         "portal.emission",
         "portal.gun_pickup",
@@ -1717,10 +1722,16 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         // registry losing a row and nothing else. ⇒ The population's SIZE is pinned
         // against the number S7 states, which is a constant a reviewer can check
         // without running anything.
+        // ⭐ TWELVE UNTIL 2026-09-19, AND THE NUMBER CAME FROM S7 RATHER THAN
+        // FROM THIS LIST. `Q137` deleted `gravity.flip_switch`'s whole
+        // vertical, so the census was RE-RUN there
+        // (`scripts/measure_unchecksummed_rollback_rows.py`, 24 rows where it
+        // printed 25) and the new number was carried here — which is the order
+        // the message below demands of the next person.
         assert_eq!(
             SHARP_ROWS.len(),
-            12,
-            "S7 ranks TWELVE rows as sharp — outside the peer checksum, read every \
+            11,
+            "S7 ranks ELEVEN rows as sharp — outside the peer checksum, read every \
              tick, float-bearing and mutably written in production. This list has \
              {}. If S7's census genuinely moved, re-derive it THERE first and bring \
              the new number here with it; shrinking the list to make this arm green \
@@ -1732,7 +1743,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         let targeted: std::collections::BTreeSet<&str> = SHARP_ROWS.iter().copied().collect();
         assert_eq!(
             registered, targeted,
-            "the registry no longer spells exactly S7's twelve sharp rows. A row that \
+            "the registry no longer spells exactly S7's eleven sharp rows. A row that \
              LEFT is coverage this arm silently lost; a row that arrived is one S7 \
              has not classified. Re-derive the list against \
              `docs/planning/engine/simulation-authority-and-determinism.md` rather \
@@ -1803,10 +1814,13 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     // authoring something S7 has not counted. Either way re-derive the split
     // from the walk rather than editing this list to match it.
     //
-    // ⇒ **THE ONE THAT IS NOT HERE IS NOT AN OVERSIGHT.**
-    // `gravity.flip_switch` was measured 2026-09-17 to be placeable by no route
-    // at all (`Q137`): its only mutable writer is registered once in the
-    // workspace and that registration is inside a `#[cfg(test)]` module.
+    // ⇒ **THE ONE THAT IS NOT HERE IS NOT AN OVERSIGHT, AND IT IS NOW GONE
+    // ENTIRELY.** `gravity.flip_switch` was measured 2026-09-17 to be placeable
+    // by no route at all: its only mutable writer was registered once in the
+    // workspace and that registration was inside a `#[cfg(test)]` module.
+    // `Q137` ruled on 2026-09-19 that gravity switching stays and the
+    // unreachable overlap plate goes, so the row was deleted rather than
+    // covered.
     //
     // ⛔⛤ **`boss.death_animation` WAS A SECOND, ON THE SAME MISTAKE AS THE
     // THIRD.** It was read as needing "a boss to die, the most expensive fixture

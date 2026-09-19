@@ -51,8 +51,6 @@ where
         OWNER,
         "entity:world_item",
     );
-    registrar
-        .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
     // the heal shrine, for the same reason as the portal gun pickup
     // . It carries `SimId`, `SpawnOrigin` and
     // `TransactionId`, had no anchor, and so those registrations were inert on
@@ -549,10 +547,6 @@ where
             plan.turns_at_walls.hash(&mut hasher);
             hasher.finish()
         },
-    );
-    registrar.rollback_component_clone::<crate::gravity::GravityFlipSwitch>(
-        OWNER,
-        "gravity.flip_switch",
     );
     registrar.declare_rollback_derived_component::<crate::avatar::body_integration::PlayerBodyFrameOutput>(
         OWNER,

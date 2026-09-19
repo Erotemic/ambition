@@ -259,9 +259,11 @@ Do not promote these until the trigger exists:
   from an independent package boundary.
 - **Body-generic NPC economy/world interaction:** NPC agency or multiplayer
   currency pressure.
-- **Dormant `GravityFlipSwitch` cluster:** an authored overlap-plate customer;
-  otherwise prefer deleting the unused parallel path while retaining the live
-  LDtk switch/action authority.
+- ✅ **Dormant `GravityFlipSwitch` cluster — RULED AND DELETED 2026-09-19.**
+  `Q137` kept gravity switching and retired the unreachable overlap plate; the
+  component, its system, both rollback registrations, the view facts, the
+  visual and the exit-oracle row went together. A later pressure plate is an
+  INPUT into `BaseGravity`, not a revived parallel implementation.
 - **Dormant `GatePortalRegistry` cluster:** a real authored gate-portal customer
   or maintainer decision that the feature is dead. Revalidate production
   producers and rollback-schema consequences before deletion.

@@ -1,5 +1,5 @@
-//! Gravity-zone / gravity-switch visuals (visible build only — registered by
-//! the presentation rendering plugin). Extracted from `ambition_portal2d::presentation`
+//! Gravity-zone visuals (visible build only — registered by the presentation
+//! rendering plugin). Extracted from `ambition_portal2d::presentation`
 //! (Stage 6 follow-up): these visualize a *gravity mechanic*, not a portal, and
 //! must not depend on portal mechanics.
 
@@ -7,12 +7,10 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
-use ambition_platformer2d_shared_tangle::gravity::{GravityField, GravityZone};
+use ambition_platformer2d_shared_tangle::gravity::GravityZone;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-
-use ambition_sim_view::GravitySwitchesView;
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]
@@ -78,48 +76,6 @@ pub fn sync_gravity_zone_visual(
                 Sprite::from_color(band_color, band_size),
                 Transform::from_translation(band_translation),
                 Name::new("Gravity zone direction band"),
-            ),
-        );
-    }
-}
-
-/// Marks the visual for a [`GravityFlipSwitch`].
-#[derive(Component)]
-pub struct GravitySwitchVisual;
-
-/// Draw the gravity-flip switch column, tinted green when gravity is normal and
-/// orange when it's flipped, so the player can see the current gravity state.
-pub fn sync_gravity_switch_visual(
-    mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
-    active_session: Option<Res<ActiveSessionScope>>,
-    gravity: Option<Res<GravityField>>,
-    visuals: Query<Entity, With<GravitySwitchVisual>>,
-    switches: Res<GravitySwitchesView>,
-) {
-    for entity in &visuals {
-        commands.entity(entity).despawn();
-    }
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
-        return;
-    };
-    let flipped = gravity.as_deref().is_some_and(|g| g.dir.y < 0.0);
-    let color = if flipped {
-        Color::srgba(0.95, 0.55, 0.20, 0.65)
-    } else {
-        Color::srgba(0.40, 0.90, 0.60, 0.65)
-    };
-    for sw in &switches.0 {
-        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
-        commands.spawn_session_scoped(
-            session_scope,
-            (
-                GravitySwitchVisual,
-                Sprite::from_color(color, sw.half_extent * 2.0),
-                Transform::from_translation(translation),
-                Name::new("Gravity switch visual"),
             ),
         );
     }

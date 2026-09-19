@@ -359,7 +359,6 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             app.add_systems(
                 Update,
                 (
-                    gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
                     gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
                 )
                     .run_if(session_presentation_is_ready),

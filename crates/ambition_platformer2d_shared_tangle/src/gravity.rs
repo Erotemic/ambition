@@ -28,7 +28,7 @@ pub mod construction;
 /// The world's gravity direction (unit vector, in the y-DOWN world frame) —
 /// default straight down. Change `dir` and every actor reorients + falls the new
 /// way: it's the gravity-room / gravity-effect hook. Set by e.g. the
-/// `GravityFlipSwitch`; consumed by the player / enemy / item / projectile
+/// the authored `FlipGravity` switch; consumed by the player / enemy / item / projectile
 /// integrators and by the portal orient-to-gravity roll.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct GravityField {
@@ -69,10 +69,16 @@ impl GravityField {
 }
 
 /// The room's ambient gravity — the default an actor falls under when it's
-/// not inside any [`GravityZone`]. Flipped by the `GravityFlipSwitch` and
-/// (later) authored per room. [`resolve_active_gravity`] copies this (or an
-/// overlapping zone's direction) into the live [`GravityField`] each frame, so
-/// the switch sets the ambient while zones override locally.
+/// not inside any [`GravityZone`].
+///
+/// ⭐ THIS IS THE SHARED LOWER-LEVEL MACHINERY EVERY GRAVITY CONTROL CONVERGES
+/// ON, and Q137 says to keep it that way: the LDtk-authored `FlipGravity`
+/// switches (the symmetry room's four, the hub flip, any encounter-authored
+/// control) and the developer gravity commands all write HERE, and a later
+/// pressure plate would be one more input rather than one more mechanism.
+/// [`resolve_active_gravity`] copies this (or an overlapping zone's direction)
+/// into the live [`GravityField`] each frame, so an authored switch sets the
+/// ambient while zones override locally.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct BaseGravity {
     pub dir: Vec2,

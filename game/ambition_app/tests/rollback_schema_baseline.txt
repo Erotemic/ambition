@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v199
+ggrs-rollback-schema-v200
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -221,7 +221,6 @@ entity:falling_hazard	required-rollback	FallingHazard	component presence automat
 entity:feature_sim_entity	required-rollback	FeatureSimEntity	component presence automatically installs bevy_ggrs::Rollback
 entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity:gravity_flip_switch	required-rollback	GravityFlipSwitch	component presence automatically installs bevy_ggrs::Rollback
 entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
 entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
@@ -260,7 +259,6 @@ feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; val
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; not in the session checksum
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

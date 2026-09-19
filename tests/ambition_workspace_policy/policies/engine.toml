@@ -2240,7 +2240,7 @@ rationale = "portal must not own gravity-zone mechanic symbols"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_portal2d/src"]
-forbid = ["GravityFlipSwitch", "gravity_flip_switch_system", "GravityZoneVisual", "GravitySwitchVisual", "sync_gravity_zone_visual", "sync_gravity_switch_visual", "reset_gravity_on_room_reset"]
+forbid = ["GravityZoneVisual", "sync_gravity_zone_visual", "reset_gravity_on_room_reset"]
 allow_lines = ["ambition_platformer2d_actor_monolith::gravity"]
 skip_tests = true
 

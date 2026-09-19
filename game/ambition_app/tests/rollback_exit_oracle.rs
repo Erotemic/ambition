@@ -491,10 +491,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored spawn overrides; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch",
-            "authored switch payload; immutable at runtime",
-        ),
-        (
             "ambition_held_items::GroundItem",
             "authored item spec; immutable while it lies on the ground",
         ),

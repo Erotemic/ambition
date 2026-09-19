@@ -356,27 +356,6 @@ pub fn rebuild_body_clocks_view(mut view: ResMut<BodyClocksView>) {
     view.0.clear();
 }
 
-/// Every gravity-flip switch's geometry.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct GravitySwitchesView(pub Vec<GravitySwitchFact>);
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GravitySwitchFact {
-    pub pos: ae::Vec2,
-    pub half_extent: ae::Vec2,
-}
-
-pub fn rebuild_gravity_switches_view(
-    mut view: ResMut<GravitySwitchesView>,
-    switches: Query<&ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>,
-) {
-    view.0.clear();
-    view.0.extend(switches.iter().map(|sw| GravitySwitchFact {
-        pos: sw.pos,
-        half_extent: sw.half_extent,
-    }));
-}
-
 /// Every heal shrine's geometry.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ShrinesView(pub Vec<ShrineFact>);
@@ -855,7 +834,6 @@ impl Plugin for SimViewPlugin {
             .init_resource::<WorldItemsView>()
             .init_resource::<MarkBeaconsView>()
             .init_resource::<BodyClocksView>()
-            .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
             .init_resource::<HostileWieldedItemsView>()
             .init_resource::<DynamicFeatureViews>()
@@ -879,7 +857,6 @@ impl Plugin for SimViewPlugin {
                 rebuild_world_items_view,
                 rebuild_mark_beacons_view,
                 rebuild_body_clocks_view.in_set(BodyClockViewSet::Reset),
-                rebuild_gravity_switches_view,
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,
                 rebuild_hostile_wielded_items_view,

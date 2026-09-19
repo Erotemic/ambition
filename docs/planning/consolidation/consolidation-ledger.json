@@ -5346,20 +5346,20 @@
       "category": "transitional",
       "name": "Umbrella facade and compatibility re-export mirrors",
       "owner": "ambition_platformer2d facade",
-      "status": "DOC_CLAIM",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "The responsibility map records facade re-export and legacy module mirrors as compatibility surface, while ownership remains in lower crates.",
+      "current_truth": "MEASURED 2026-09-18 over `crates/ambition_platformer2d/src/lib.rs` with comments stripped: 160 `pub use` statements, 159 of them rooted in ANOTHER crate. The claim holds \u2014 the facade re-exports, it does not own. \u2b50 THE SINGLE EXCEPTION IS NAMED RATHER THAN ROUNDED AWAY: `pub use crate::app::{enable_manual_stepping, manual_step_period}` at `lib.rs:499`, and its own doc comment argues the case \u2014 the `sim-harness-names-only-the-public-sdk` contract caught `ambition_sim_harness` reaching across to them, and *\"if it needs crate-shaped facade paths, those are SDK gaps\"*. Stepping a simulation is the other half of the `drive_control_frame` seam, so it is SDK surface that happens to be defined here, not a mirror of a lower crate. \u26a0 The top re-export roots are ambition_characters (17), shared_tangle (17), platformer2d_core (14), sprite_sheet (9) and actor_monolith (9).",
       "source_paths": [
         "docs/planning/engine/architecture-responsibility-map.md",
         "crates/ambition_platformer2d/src/lib.rs"
       ],
       "evidence": [
         {
-          "status": "DOC_CLAIM",
-          "claim": "The responsibility map records facade re-export and legacy module mirrors as compatibility surface, while ownership remains in lower crates.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "MEASURED 2026-09-18 over `crates/ambition_platformer2d/src/lib.rs` with comments stripped: 160 `pub use` statements, 159 of them rooted in ANOTHER crate. The claim holds \u2014 the facade re-exports, it does not own. \u2b50 THE SINGLE EXCEPTION IS NAMED RATHER THAN ROUNDED AWAY: `pub use crate::app::{enable_manual_stepping, manual_step_period}` at `lib.rs:499`, and its own doc comment argues the case \u2014 the `sim-harness-names-only-the-public-sdk` contract caught `ambition_sim_harness` reaching across to them, and *\"if it needs crate-shaped facade paths, those are SDK gaps\"*. Stepping a simulation is the other half of the `drive_control_frame` seam, so it is SDK surface that happens to be defined here, not a mirror of a lower crate. \u26a0 The top re-export roots are ambition_characters (17), shared_tangle (17), platformer2d_core (14), sprite_sheet (9) and actor_monolith (9).",
           "sources": [
-            "docs/planning/engine/architecture-responsibility-map.md",
-            "crates/ambition_platformer2d/src/lib.rs"
+            "crates/ambition_platformer2d/src/lib.rs",
+            "docs/planning/engine/architecture-responsibility-map.md"
           ]
         }
       ],
@@ -5922,18 +5922,25 @@
       "category": "test_architecture",
       "name": "Two-App / peer determinism witnesses",
       "owner": "rollback and app tests",
-      "status": "DOC_CLAIM",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The active identity work calls for a two-App witness where local history differs but canonical mechanical snapshots must agree. This census did not run it.",
+      "current_truth": "MEASURED 2026-09-18: the witness EXISTS, four arms of it. `game/ambition_app/tests/shell_host_lifecycle.rs` builds two hosts that reach Ambition by different route histories \u2014 scope 0 vs 2, epoch 1 vs 3, asserted unequal first so the comparison is controlled rather than two readings of one input \u2014 and compares the canonical census, the mechanical values, the sharp unchecksummed rows and the GGRS component checksums. An equality assertion is satisfied by any projection that throws information away, so a third arm asserts DISAGREEMENT against a Sanic session, which a projection collapsed to a constant would fail. \u26d4 This row said 'This census did not run it' and was read as 'it does not exist'; the census not running something is a fact about the census.",
       "source_paths": [
+        "game/ambition_app/tests/shell_host_lifecycle.rs",
         "docs/planning/queue.md"
       ],
       "evidence": [
         {
-          "status": "DOC_CLAIM",
-          "claim": "The active identity work calls for a two-App witness where local history differs but canonical mechanical snapshots must agree. This census did not run it.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "MEASURED 2026-09-18: the witness EXISTS, four arms of it. `game/ambition_app/tests/shell_host_lifecycle.rs` builds two hosts that reach Ambition by different route histories \u2014 scope 0 vs 2, epoch 1 vs 3, asserted unequal first so the comparison is controlled rather than two readings of one input \u2014 and compares the canonical census, the mechanical values, the sharp unchecksummed rows and the GGRS component checksums. An equality assertion is satisfied by any projection that throws information away, so a third arm asserts DISAGREEMENT against a Sanic session, which a projection collapsed to a constant would fail. \u26d4 This row said 'This census did not run it' and was read as 'it does not exist'; the census not running something is a fact about the census.",
           "sources": [
-            "docs/planning/queue.md"
+            "game/ambition_app/tests/shell_host_lifecycle.rs"
+          ],
+          "arms": [
+            "two_local_histories_name_every_simulated_entity_identically",
+            "two_local_histories_compute_the_same_mechanical_values",
+            "two_local_histories_agree_about_the_sharp_unchecksummed_rows",
+            "two_local_histories_compute_the_same_ggrs_component_checksums"
           ]
         }
       ],

@@ -95,7 +95,6 @@
       "<no location>: unresolved `super::blink::blink_target`",
       "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs: unresolved `SlotControls`",
       "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs: unresolved `resolve_body_hit`",
-      "crates/ambition_platformer2d_actor_monolith/src/avatar/bundles.rs: unresolved `ambition_characters::actor::character_catalog::PlayableKitSource::HostCode`",
       "crates/ambition_platformer2d_actor_monolith/src/avatar/systems.rs: private `PlayerManaRegen -> MANA_REGEN_PER_SEC`",
       "crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs: private `body_mode -> mechanics`",
       "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs: private `registered_portrait_target -> registered_sheet_target`",

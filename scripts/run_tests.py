@@ -1356,6 +1356,20 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_session_root_construction_is_declared.py",
             ],
         ),
+        # ⛔⛤ TWO CORRECT NUMBERS THAT READ AS A CONTRADICTION. The census row
+        # declaring itself the alias population's one owner said 183 while
+        # `session.rs` said 193; both were right and the difference was the
+        # METHOD (parameter form versus bare name, which an import matches).
+        # A count in prose also has no way to notice the tree moving: three of
+        # the plan's four per-spelling rows had drifted in three days. Both
+        # documents now publish a marker and this pins them to one measurement.
+        Job(
+            "the SessionWorldRef/Mut census still matches the tree",
+            [
+                sys.executable,
+                "scripts/check_alias_census_agrees_with_source.py",
+            ],
+        ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
         # RAN IT — so the number was one somebody had to go and look at, and
         # nothing noticed a resource joining the list. Both of its numbers were

@@ -106,6 +106,50 @@ def construction_sites(sources) -> dict[str, list[int]]:
     return found
 
 
+
+#: ⛔⛤ **`Q132`'S CONSEQUENCE 7 SAYS "ADD **AND RETAIN**", AND UNTIL 2026-09-19
+#: THE RETAIN HALF HAD NO MECHANISM.** Both arms were named in this docstring
+#: and nowhere a machine reads, so deleting either would have removed the only
+#: production evidence for the invariant and reddened nothing. A witness that
+#: can vanish silently is a witness with an expiry date nobody set.
+#:
+#: ⚠ **THE PAIR IS THE UNIT, NOT EITHER ARM.** `InactiveCandidate` is a Bevy
+#: DISABLING component, so an ordinary query cannot see a prepared candidate —
+#: which means the counting arm is green whether or not a candidate was ever
+#: prepared. Only the second arm supplies that population. Requiring one
+#: without the other would pin the half that can pass vacuously.
+WITNESSES: dict[str, tuple[str, str]] = {
+    "the_shipped_app_never_holds_two_session_roots_across_a_handoff": (
+        "game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs",
+        "counts roots every frame across a real shell handoff, so a transition that "
+        "briefly publishes two reddens instead of passing",
+    ),
+    "a_prepared_candidate_never_counts_as_a_canonical_session_root": (
+        "game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs",
+        "supplies the population an ordinary query cannot see, so the arm above "
+        "cannot be green merely because no candidate existed",
+    ),
+}
+
+
+def missing_witnesses() -> list[str]:
+    """Each named arm still declared in the file that is supposed to hold it."""
+    out = []
+    for name, (rel, why) in sorted(WITNESSES.items()):
+        path = REPO / rel
+        if not path.exists():
+            out.append(f"{rel} is gone, and it held `{name}`, which {why}")
+            continue
+        if f"fn {name}(" not in path.read_text(encoding="utf-8", errors="ignore"):
+            out.append(
+                f"`{name}` is no longer declared in {rel}. It {why}. `Q132`'s ruling "
+                "requires production-composition witnesses that a handoff never "
+                "exposes two canonical roots; restore it, or move it and update this "
+                "entry in the same commit."
+            )
+    return out
+
+
 def main() -> int:
     sources = production_sources()
     if len(sources) < FLOOR:
@@ -138,11 +182,19 @@ def main() -> int:
             )
         return 1
 
+    gone = missing_witnesses()
+    if gone:
+        print("the `Q132` invariant lost a production witness:")
+        for line in gone:
+            print(f"  ⛔ {line}")
+        return 1
+
     total = sum(len(v) for v in found.values())
     print(
         f"ok: {total} production `SessionRoot` construction(s) across "
         f"{len(found)} declared file(s), scanned over {len(sources)} production file(s)"
     )
+    print(f"  and {len(WITNESSES)} runtime witness(es) of the invariant still present")
     return 0
 
 

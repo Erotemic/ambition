@@ -1075,6 +1075,40 @@ sibling test matched 2. Both were caught only by asserting the anchor count
 before running, which every poison here now does.
 
 
+### SESSION-REPLACEMENT-ATOMICITY — destroy-then-install had two ways to leave no session — ✅ VERIFIED CLOSED 2026-09-19
+
+**Owner:** `crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs` and
+`.../lifecycle_commit.rs`.
+
+The 2026-09-17 architecture review raised two: *"maintain_local_session stops
+the live session before the fallible start, so a hidden construction candidate
+destroys the old session and installs no replacement"*, and *"lifecycle_commit's
+supposedly-unreachable post-commit refusal must be a hard invariant failure, not
+`error!` then carry on, or the API should make the post-destructive install
+infallible."*
+
+✅ **BOTH ARE DONE, AND THIS ROW EXISTS BECAUSE NOTHING IN THE CORPUS SAID SO.**
+Read at 2026-09-19: `maintain_local_session` is split `── PREPARE ──` /
+`── COMMIT ──`, with `build_sync_test_session` and `FrameZeroEligibility::check`
+both above the stop and a `decline` closure that deliberately does NOT clear
+`started`, *"because it describes the session that is still installed"*. The
+stop is the first irreversible act. And the post-commit branch is gone from
+both sites for the stronger reason the review offered as the alternative: the
+install takes an eligibility TOKEN and returns nothing, so as
+`lifecycle_commit.rs` puts it, the error branch *"is deleted because it can no
+longer be written."*
+
+⛔⛤ **THE FINDING IS THE GAP BETWEEN THE TWO RECORDS, NOT THE CODE.** The review
+lives in a session goal, the repairs live in comments at the repair sites, and
+`docs/planning` had neither — so a reader starting from the planning corpus
+would re-investigate settled work, and one starting from the review would
+believe two P0s are open. ⇒ A review that is not written down where the work is
+chosen is a duplicate authority with no owner at all. Of that review's four
+items, three are now closed (this row's two, plus Q142's counts in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)) and one is
+open: the layout-identity pair in
+[`engine/composable-actor-resources.md`](engine/composable-actor-resources.md).
+
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).

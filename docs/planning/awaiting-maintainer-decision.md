@@ -2392,8 +2392,8 @@ forever:
 ⇒ The refusal is CORRECT — a harness that installed its own timeline did not ask
 for it to be rebased — which is what makes it dangerous: every rollback arm in
 the suite sat on the refusing side of the admission road and none of them said
-so. Measured 2026-09-18: `grep -rn LocalSessionPolicy` over
-`game/ambition_app/tests/` and `crates/ambition_sim_harness/src/` returns
+so. Measured WHEN THIS WAS WRITTEN: `grep -rn LocalSessionPolicy` over
+`game/ambition_app/tests/` and `crates/ambition_sim_harness/src/` returned
 **nothing**, and the dev-tools unit fixtures insert
 `MechanicalEditAdmission::Publish` directly, bypassing the decider. So the
 `LocallyRebasable` arm — the one the game takes — had no coverage at all.
@@ -2405,6 +2405,19 @@ it is now `maintainer_owned_rollback_sim` in
 `game/ambition_app/tests/common/mod.rs:389`,
 used by the admission-road test above — the gap this paragraph measured is
 still closed, by a holder that does not depend on a debug hotkey.
+
+⛔⛤ **AND THE TENSE ABOVE IS A CORRECTION, NOT A STYLE CHOICE — THIRD INSTANCE
+OF THE SAME SHAPE TODAY.** The sentence said *"Measured 2026-09-18 … returns
+nothing"*, in the present, about a gap the very next sentence says is closed.
+Re-derived 2026-09-18: `LocalSessionPolicy` now appears six times in
+`game/ambition_app/tests/`, three of them as CODE, in the fixture that closed
+it (`common/mod.rs:367` and `:377`); the harness crate is still clean. ⇒ The
+fixture's own doc comment already said *"Measured when this was written"* and
+was right; this page copied the measurement without copying the tense.
+Alongside `Q134`'s *"`ambition_dialog` contains the string `rollback` zero
+times"* and the same claim in `queue.md`, that is three sentences in one page
+tree whose evidence their own repair falsified. **A measurement that a fix
+would change has to say when it was taken, in the sentence, not in a heading.**
 
 ⚠ **TWO SMALLER THINGS WORTH A READER'S TIME, both met while building that
 fixture.** `LocalSessionPolicy`'s DEFAULT is `check_distance: 0` — rollback
@@ -3328,8 +3341,14 @@ schedule: the marker is there at tick 40 and gone at 41.
 
 ⛔⛤ **AND `S7`'s FLOAT-ROW CENSUS CANNOT SEE `EncounterScript.elapsed` EITHER,
 FOR THE SAME STRUCTURAL REASON.** S7 ranks the rows *outside the session
-checksum* — 99 of them, 25 float-bearing, 12 mutably written — and it derives
-that population from the REGISTRY. A float advanced every tick by a sim system on
+checksum* — and it derives that population from the REGISTRY. ⛔⛤ THIS SAID
+*"99 of them, 25 float-bearing, 12 mutably written"* until 2026-09-18, which
+compressed three DIFFERENT populations into one chain and then went stale in
+all three. The 99 (today **101**) is the no-value-projection subset of 177
+unhashed rows; 25 is not its float-bearing subset but the intersection of
+no-projection × unfiltered per-tick read × float-bearing; 12 is the mutably
+borrowed subset of THAT. ⇒ S7 owns those numbers and this row owns the
+structural point, which does not depend on any of them. A float advanced every tick by a sim system on
 a component nobody registered is not a row in the 99; it is not in the population
 at all. ⇒ The two censuses are complements, and neither is the whole surface: one
 asks which registered rows are uncompared, this one asks which authoritative

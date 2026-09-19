@@ -322,14 +322,28 @@ replaced:
 
 | rows | self-description | probe |
 |---|---|---|
-| 99 | *not in the session checksum* — was *state checksum supplied by another authoritative projection* until v194 | **none** |
+| 101 | *not in the session checksum* — was *state checksum supplied by another authoritative projection* until v194 | **none** |
 | 59 | *value-probed for localization, not in the session checksum* | yes |
 | 17 | entity handle / SET / keyed MAP remapped, probed through stable sim identity | yes |
 
-⇒ **99 of 175 unhashed rows have NEITHER a checksum contribution NOR a probe.** A
-probe does not make a row peer-compared; it tells a desync hunt where to look.
-These 99 offer neither, and that is a checkable statement where the old one was
-not. The float-bearing count over the true population is **79 of 175**.
+⇒ **101 of 177 unhashed rows have NEITHER a checksum contribution NOR a probe.**
+A probe does not make a row peer-compared; it tells a desync hunt where to look.
+These 101 offer neither, and that is a checkable statement where the old one was
+not. The float-bearing count over the true population is **78 of 177**.
+
+⭐ **RE-DERIVED 2026-09-18 — the table above read 99 / 175 / 79 and the drift is
+two new rows, both landing in the no-projection column.** Ask
+`python3 scripts/measure_unchecksummed_rollback_rows.py`, which prints every
+line of this section; this page owns the ARGUMENT and the script owns the
+cardinalities. ⚠ The three downstream owners already defer here by name —
+`netcode.md` says *"the count of what has been MEASURED lives in S7 and in the
+ID-PEER row, not here"* — so this is the only copy to refresh.
+
+⛔ **AND TWO DIFFERENT NUMBERS IN THIS SECTION ARE BOTH 78 TODAY, WHICH IS A
+COINCIDENCE AND NOT AN IDENTITY.** 78 rows are float-bearing across the whole
+177; 78 of the 101 no-projection rows are read by an unfiltered per-tick query.
+They were 79 and 78 yesterday and will part again. Read the sentence, not the
+figure.
 
 ⭐⭐ **AND THE CLASSIFICATION S7 ASKED FOR IS NOW MEASURED, NOT PLANNED.** The
 next step this section named was *"classify the payloads that can change

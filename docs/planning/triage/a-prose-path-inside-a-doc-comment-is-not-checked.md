@@ -348,8 +348,24 @@ sentence with an incorrect one while removing a dead name.
 
 ### What the extended differential reports, and what that number is
 
-Run at the lane's own baseline (`98b0bd807`, 2026-08-13 — which predates the
-2026-09-14 deletion, so the instrument could always have seen this):
+Run at the lane's own baseline — `PLANNING_VANISHED_BASELINE` in
+`scripts/run_tests.py`, dated 2026-08-13, which predates the 2026-09-14
+deletion, so the instrument could always have seen this:
+
+⛔⛤ **AND WRITING THAT SHA HERE FAILED A GUARD, WHICH TURNED OUT TO BE ABOUT
+THE LANE AND NOT ABOUT THE SENTENCE.** `test_no_unresolvable_citation_that_the_
+epoch_did_not_grandfather` reddened on the abbreviation. The object resolves in
+this checkout, so `git log` answers and the periodic vanished job runs green —
+but the commit is dated 2026-08-13 and the git epoch starts at `b924f419c`
+(2026-09-06), so it is PRE-EPOCH: unreachable from any ref here and readable
+only in the `ambition-history` store. ⇒ **The lane's own baseline is a commit a
+fresh clone cannot read**, and the job depends on a loose object that survived
+the truncation on this machine. That is the shape the citation checker's own
+comment warns about — *"it exists here, so this checker said RESOLVED … on the
+fighter lane's machine the object does not exist"* — one layer up, in the
+BASELINE rather than in a citation. Filed below rather than fixed, because
+choosing a new baseline is a judgement about what window the sweep should
+cover.
 
 | | count |
 |---|---|
@@ -358,12 +374,72 @@ Run at the lane's own baseline (`98b0bd807`, 2026-08-13 — which predates the
 | of those citations, self-labelled HISTORICAL on their own line | 59 |
 | reading as a LIVE claim | **187** |
 
-⚠ **THAT 187 IS AN UPPER BOUND AND THE REASON IS THE UNIT.** The classifier
-reads the citation's OWN line, and a paragraph routinely self-labels a line or
-two above the name — `transaction.rs`'s *"THIS COMMENT USED TO SAY … ALL FOUR
-ARE CLOSED"* is three lines above the `commit_deferred` it lists. A line is not <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
-the structure this corpus writes in, which is the same mistake that made the
-blocking set wrong twice. The split is a triage aid, not a defect count.
+⛔⛤ **THAT 187 WAS AN UPPER BOUND AND THE UNIT WAS WRONG — RE-MEASURED THE
+SAME DAY, AND THE REAL RESIDUE IS 65.** The first classifier read the
+citation's OWN line. A paragraph routinely self-labels a line or two above the
+name: `transaction.rs`'s *"THIS COMMENT USED TO SAY … ALL FOUR ARE CLOSED"*
+sits three lines above the `commit_deferred` it lists. <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen --> Re-run over the COMMENT
+BLOCK the citation lives in — the run of `//` lines it belongs to:
+
+| | line-local | comment block |
+|---|--:|--:|
+| self-labels as historical | 59 | **178** |
+| residue reading as a LIVE claim | 187 | **65** |
+
+⇒ **Three times fewer, from reading the unit this corpus actually writes in** —
+the same mistake that made the blocking set wrong twice in one day, and here it
+is the difference between an unusable backlog and a slice somebody can finish.
+
+⭐ The 178 are not repointing work. Sampled, they are explicit deletion
+records: `yarn_vocabulary.rs` alone carries eight, every one saying *"USED TO
+BE HERE"*, *"lived here and are gone"* or *"died too"*. They want the `cite-ok`
+the convention already has.
+
+⇒ **EIGHTEEN OF THE 65 WERE REPAIRED THE SAME DAY**, each verified against
+what the cited system actually calls: `CANCEL_CLASS_NAMES` became the derived <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+function `cancel_class_names`; `damage_apply` moved to its own crate as <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`ambition_damage::resolve_body_hit`; `attach_mount_role` gained a `_from`; <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`load_encounter_specs_from_ldtk` became `…_from_rooms` AND changed its input to <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`&[RoomSpec]`; and `body_is_corpse` split — four roads call the free <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`body_is_untouchable` while `apply_hitbox_damage` asks the METHOD `is_corpse`,
+a distinction one find-and-replace would have erased.
+
+⚠ **AND THE RESIDUE HAS A FALSE-POSITIVE CLASS OF ITS OWN: A DATA KEY THAT
+ONCE SHARED A NAME WITH AN ITEM.** `dash_pressed` is a RECORDED key in the <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+gameplay-trace dump, kept stable ON PURPOSE — *"the RECORDED key stays
+`dash_pressed` so a dump written after the rename still replays"* — and it <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+flags only because a Rust item of that spelling existed at the baseline. A
+wire or trace key is not a citation, and a checker cannot tell them apart from
+the token alone. ⇒ Another reason this pass reports rather than gates.
+
+⛔ **WHAT IS LEFT IS ONE MIGRATION, NOT A LIST.** `ArchetypeSpec`, <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`spec_for_brain`, `CharacterRoster`, `CharacterRosterFragment` and <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`PlayableKitSource` are the same dead CHARACTER-ARCHETYPE family and want <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+reading as a whole. ⚠ And that family is where a rename hides a semantic
+change: `CharacterRoster::spec_for_brain` *"has no failure mode — an unknown
+key falls back to the combatant row"*, while its successor
+`CharacterCatalog::get` returns an `Option`. Those comments are substantively
+WRONG, not misnamed, which is the same trap the two `session/reset` sites set
+above — one layer deeper.
+
+⭐ **AND TWO OF THAT FAMILY ARE RUSTDOC INTRA-DOC LINKS, WHICH MEANS A THIRD
+INSTRUMENT ALREADY WARNS AND NOBODY READS IT.**
+`state_machine/mod.rs:66` links `[`tick_state_machine_with_actions`]` and <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`sim_core_resources.rs:12` links `[`CharacterRoster`]`; neither target exists, <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+so `cargo doc` emits a broken-intra-doc-link warning for each. ⚠ A wider
+census of that shape is NOT a finding — 3858 links, 104 targets this scan
+cannot resolve, and the residue is dominated by upstream types (`App`,
+`Default`, `SystemParam`), crate names and struct FIELDS, none of which a
+token-level scan can tell from a defect. The narrow statement is the useful
+one: rustdoc owns this check already, and these two are its live output.
+
+⚠ **246 AND THE POST-REPAIR COUNT ARE ONE INSTRUMENT AT TWO REFERENCE POINTS,
+NOT A DISAGREEMENT.** 246 is BEFORE any of this page's repairs;
+after them the same run reports **223 across 104**. ⭐ And three of those five STILL
+reported until they were marked, because each now RECORDS the dead name in the
+very sentence that corrects it — **a repair that explains itself re-enters the
+population it just left.** That is what `cite-ok` is for, and it is the
+clearest demonstration that this pass now reads source at all.
 
 ⭐ **AND THE RUN CONFIRMS THE HAND CENSUS INDEPENDENTLY**: it names
 `retire_outgoing` <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->

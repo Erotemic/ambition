@@ -49,7 +49,8 @@ measurement it carries, and the index would lose that by demoting it to a link.
   in five source comments while the QUALIFIED spelling of the same method was
   caught and repaired. It now reads source comments too when asked
   (`--vanished REF --comments`), which is opt-in because at the lane's baseline
-  it reports 246 findings across 109 names.
+  it reports 246 findings across 109 names — 223 across 104 once this page's
+  own repairs landed.
 
 ## Design and scope pages awaiting a decision
 

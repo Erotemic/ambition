@@ -20,12 +20,23 @@ recalling which questions feel important. ⚠ This list is the BLOCKING set, not
 the important set: a question can matter and block nothing, and one below
 blocks a campaign that could not previously be costed.
 
+⛔⛤ **AND THE FIRST VERSION OF THIS TABLE MISSED TWO, BECAUSE THE SCAN WINDOW
+WAS THE BUG.** It read 60 lines from each row's heading; in this file a row's
+blocker is routinely stated in a block further down — `Q139` sits about eighty
+lines into `ROLLBACK-MUTATOR-POPULATION`. Re-derived over each row's FULL extent
+(heading to the next heading), which is the only boundary that means anything
+here. ⇒ A population scoped by a line count rather than by the structure it
+lives in is the same defect this page records for censuses of source, arriving
+in a census of itself.
+
 | question | what it blocks | and if it stays open |
 |---|---|---|
 | [`Q136`](#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) | **P0** `CUTSCENE-ROLLBACK-DECISION` item 1, explicitly (*"blocked on `Q136`, not unowned"*) | **four** host→sim intents stay live defects, each an EDGE raised outside the rewinding schedule. ⭐ Witnessed 2026-09-19: an edge straddling its consumer does not merely lose the intent, it **desyncs the timeline** — the worse of the two failures. ⚠ The fifth, `SetFlagRequested`'s intro chain, is CLEARED by the same arms: it is a derivation, and a straddling derivation is repaired by the resimulation that re-runs it |
 | [`Q122`](#q122--which-registry-fields-are-mechanical-and-which-are-presentation) | **P0** `ID-PEER`'s snapshot-schema-fingerprint road | two builds of the same mechanical schema stay two identities if somebody rewords a comment — poison-measured at 166 diff lines for one pluralised word |
 | [`Q144`](#q144--must-every-supported-composition-activate-a-prepared-generation-or-does-direct-entry-keep-the-app-registry-road) | **C04**, and it is now that row's ONLY maintainer hold | C04 cannot start. ⭐ `Q132` narrowed it: the anonymous App-global fallback is already on the wrong side of the scoping rule, so `Q144` now owns only whether direct entry must ACTIVATE a generation or may declare its inputs another explicitly-scoped way |
 | [`Q146`](#q146--what-are-the-supported-composition-profiles-and-which-authorities-must-each-one-carry) | **C07**, entirely | C07 cannot be COSTED, not merely started: *"replace optional fallbacks where the authority is required"* has no population until "required" has a referent |
+| [`Q139`](#q139--what-declares-that-a-presentation-system-writes-transform) | **P0** `ROLLBACK-MUTATOR-POPULATION`'s only open item | the mutator guard keeps excluding `Transform` BY NAME, so its green says nothing about the most rollback-sensitive component in the workspace. The repair is a DECLARATION across the excluded systems rather than a cleverer scanner — measured, not assumed: a name-based classifier was wrong in both directions — so the ruling is its SHAPE, and four shapes are costed in the row. ⚠ Sizes deliberately not restated here; they moved with the carve work and they depend on a marker vocabulary this ruling would itself be choosing |
+| [`Q138`](#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session) | **P1** `ROLLBACK-DEAD-SESSION` | an invalidated session keeps accepting `step()`, stops advancing `SimTick`, and returns an observation every time — so assertions after it agree with a frozen world forever. `rollback_health()` already knows and `step` does not consult it; whether it should REFUSE is an API contract nobody has set. ⚠ Cardinalities deliberately not restated here — the row says why, and `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` prints the live one |
 
 ⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
 HALF OF MEASURING THIS.**
@@ -41,9 +52,13 @@ HALF OF MEASURING THIS.**
   ordering-nondeterminism question held by a ratchet, and answering it unblocks
   nothing, so it does not belong in a minimal blocking set.
 
-⚠ `Q127`, `Q129`, `Q133`, `Q137`, `Q101`, `Q104` and `Q110` sit inside P0 rows
-as product/balance calls on specific sub-roads rather than as gates on the row.
-They are real and they are not architecture blockers.
+⚠ `Q127`, `Q129`, `Q133`, `Q137`, `Q101`, `Q104` and `Q110` sit inside P0/P1
+rows as product or balance calls on specific sub-roads rather than as gates on
+the row. They are real and they are not architecture blockers. ⚠ `Q137` is the
+closest to the line: it blocks the LAST of `ID-PEER`'s eleven sharp
+unchecksummed rows (`gravity.flip_switch`, whose only production writer is
+registered inside a `#[cfg(test)]` module), so it gates a sub-road's completion
+rather than the row — and it is a content question, not an architecture one.
 
 ## Gameplay and content
 
@@ -3270,10 +3285,10 @@ assertions a broken world fails measures safety.
 ## Q139 — what declares that a presentation system writes `Transform`?
 
 `scripts/check_rollback_mutators_run_in_sim.py`'s component half excludes
-`Transform` BY NAME, with the count beside it: 52 of the 64 offenders it would
-otherwise surface are `Transform` writes from camera, sprite and inspection
-systems. So a green there says nothing about `Transform` — the single most
-rollback-sensitive component in the workspace.
+`Transform` BY NAME, with the count beside it: on the 2026-09-16 reading, 52 of
+the 64 offenders it would otherwise surface are `Transform` writes from camera,
+sprite and inspection systems. So a green there says nothing about `Transform` —
+the single most rollback-sensitive component in the workspace.
 
 ⛤ **RE-MEASURED 2026-09-18 AND THE DENOMINATOR MOVED WHILE THE NUMERATOR DID
 NOT: 52 of 60.** Dropping `PRESENTATION_SHARED` in a throwaway process takes the

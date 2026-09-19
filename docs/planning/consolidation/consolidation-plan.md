@@ -375,8 +375,14 @@ crates — `ambition_game_shell` chains
 in `Update`, `adopt_candidate_platformer_session` is in `Providers`, and
 `maintain_local_session` starts GGRS only when `session_world_entity(world).is_some()`.
 
-⇒ **SO THE ANSWER TO STEP 2 IS THE SAME FOR ALL 35 VALUES, AND IT IS NOT ONE OF
-THE THREE OPTIONS THE STEP OFFERS.** They are not "needed before `SessionRoot`
+⇒ **SO THE ANSWER TO STEP 2 IS THE SAME FOR EVERY MEMBER OF BOTH BUNDLES, AND
+IT IS NOT ONE OF THE THREE OPTIONS THE STEP OFFERS.** ⛤ This read *"all 35
+values"* until 2026-09-19, which was `29 + 6` — the sum of the two bundle counts
+taken before `SessionScopedResources` gained its thirtieth member. A DERIVED
+total is the drift surface nobody guards: `check_session_owner_census_matches_source.py`
+RULE 5 holds every restatement of `30`, of `6` and of the `37` total across the
+corpus, and a hand-added `35` is none of those. ⇒ Stated as the membership it
+means, so there is no third number to keep. They are not "needed before `SessionRoot`
 exists" in the sense of being READ there; they are WRITTEN there, and only because
 the storage outlives the session. ⭐⭐ **A value stored on `SessionRoot` needs no
 activation reset at all: a freshly built root carries fresh components BY
@@ -412,7 +418,7 @@ identity and must not masquerade as a `SessionRoot`. `InactiveCandidate` is that
 distinct identity, and the arm above is the witness that it does not read as a
 canonical root. ⇒ The hidden candidate is not a two-root frame in the sense the
 ruling forbids — it is the prescribed lifecycle, and the correctness edge for
-these 35 values is therefore fixed rather than contingent: **exactly one root is
+these values is therefore fixed rather than contingent: **exactly one root is
 ever visible, so "before the root exists" means what it already meant.**
 
 ⚠ What this obliges instead is a POSITIVE one: a candidate must never count as a

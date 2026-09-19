@@ -15,7 +15,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which re-derives its own road count from its table — this cell deliberately states none, having carried "nine of twelve" while the owner said fourteen of seventeen | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | **STARTABLE 2026-09-16 — every gate discharged, premise measured substantially stale, and RE-COSTED to small the same day: the authority collapse has already happened and the remainder is one value's storage kind with no defect behind it** | small (was large) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | ⛔ **DO NOT START — decided 2026-09-19.** Every gate discharged, but the authority collapse has already happened: the remainder is one value's storage kind, re-measured unchanged, and moving it makes its only four readers worse. Kept for its regression rule | none remaining (was large, re-costed small 2026-09-16) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate; C01 is complete, so the gate is C05 | large | C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
@@ -495,8 +495,11 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** STARTABLE 2026-09-16 — every gate discharged. ⛔ **BUT RE-SCOPE
-BEFORE STARTING: its premise is substantially STALE, measured the same day.**
+**STATE:** ⛔ **DO NOT START — decided 2026-09-19 on a re-measurement, see THE
+DECISION THIS ROW ASKED FOR at the end of this section.** Every gate is
+discharged and the remainder is a storage-kind change that makes its only four
+call sites worse and closes no defect. ⚠ **AND ITS PREMISE WAS ALREADY
+SUBSTANTIALLY STALE, measured 2026-09-16.**
 Five of the six values it proposes to collapse already land on ONE entity from
 ONE lowering, and the sixth carries its value from the same frozen generation.
 See CURRENT STATE.
@@ -617,6 +620,39 @@ high: half-published generation state can make simulation consume mechanics that
 ### EXPECTED BENEFIT
 
 One publication decision selects the candidate session/world. Content binding and prepared/session projections follow that owner.
+
+### THE DECISION THIS ROW ASKED FOR — 2026-09-19: DO NOT START
+
+The section above closes with *"Starting C05 should begin by deciding whether
+the storage change buys anything, not by scheduling it."* Nobody had. Decided
+here, on a re-measurement rather than on the 2026-09-16 one:
+
+| the 2026-09-16 claim | re-measured 2026-09-19 |
+|---|---|
+| 34 production lines | **34** |
+| 4 are `Res` reads | **4**, and every one is `Option<Res<_>>`: `room_transition/loading.rs:632`, `features/ecs/perception.rs:538`, `session/reset/mod.rs:204`, `world_flow/room_transition_assets.rs:1441` |
+| 1 installs | **1** — `PreparedCandidateSession::adopt`'s `world.insert_resource(mechanics)` |
+| 1 removes | **1** — `session/teardown.rs:441` |
+
+Identical three days and many commits later, which is what makes the verdict
+safe to write down rather than re-derive.
+
+⇒ **The authority is already single and the remaining change is storage kind
+alone.** One installer, one remover, four optional readers. Moving
+`SessionMechanics` onto the session root replaces four `Option<Res<_>>`
+parameters with four session-root lookups, in crates that take it optionally
+*precisely because they should not have to find the root* — so the change makes
+its only four call sites worse and closes no defect. ⛔ **RISK "high" above
+describes the DEFECT CLASS this row was opened against, not the remaining
+work**, and reading it as a reason to schedule the remainder is the mistake the
+re-costing was written to prevent.
+
+⚠ **THE ROW IS NOT DELETED, BECAUSE THE REGRESSION RULE IS THE VALUABLE PART.**
+Five of the six values are entity-carried on one session root from one lowering;
+if a seventh value that means *"this session is now generation N+1"* is ever
+added as a separate App global, this row is where the argument against it is
+written. ⇒ Re-open only on a MEASURED defect — a reader that observes mechanics
+disagreeing with the identity beside them — not on the storage kind.
 
 ## 6. C06 — Converge reconstruction entry roads on one materialization/publication engine
 

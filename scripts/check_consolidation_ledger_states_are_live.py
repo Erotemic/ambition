@@ -113,11 +113,19 @@ def census_status_cells(text: str) -> dict[str, set[str]]:
     SOURCE_INFERRED because..."*). A row's subject is its first cell, nothing
     else.
 
-    \u26a0 A ROW WITH NO STATUS COLUMN IS NOT A ROW THAT DISAGREES. Two whole
-    tables -- the `AUTH-*` authority map and the `EDIT-*` editor surfaces --
-    end on a different column. They are skipped rather than guessed at, which
-    is why the caller floors the comparison count: skipping everything is
+    \u26a0 A ROW WITH NO STATUS COLUMN IS NOT A ROW THAT DISAGREES. The `EDIT-*`
+    editor-surface table ends on a different column and publishes no evidence
+    class, so its six rows are skipped rather than guessed at -- which is why
+    the caller floors the comparison count: skipping everything is
     indistinguishable from a healthy page whose parse has rotted.
+
+    \u26d4 THIS SAID "the `AUTH-*` authority map and the `EDIT-*` editor
+    surfaces" UNTIL 2026-09-19, AND ALL TWENTY `AUTH-*` ROWS ARE COMPARED.
+    Measured by intersecting the two sets rather than by reading the tables:
+    the six the floor is set from are `EDIT-{MOVEMENT, ABILITIES, BODY-PROFILE,
+    PLAYER-STATS, FEEL, PORTAL}` and nothing else. Naming a table that IS
+    covered as one that is not is how a reader concludes the uncovered set is
+    bigger and more mixed than it is, and stops looking.
     """
     cells: dict[str, set[str]] = {}
     for line in text.split("\n"):

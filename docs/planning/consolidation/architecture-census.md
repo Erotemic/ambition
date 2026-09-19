@@ -167,6 +167,31 @@ the sentence above are checked against the ledger by
 `scripts/check_consolidation_ledger_states_are_live.py` on every
 `--maintenance` run.
 
+⚠ **AND SIX ROWS ARE OUTSIDE THAT COMPARISON, WHICH THE GUARD FLOORS BUT
+MISNAMED.** It compares 108 of 114 status-carrying rows; its docstring said the
+remainder sat in *"the `AUTH-*` authority map and the `EDIT-*` editor
+surfaces"*. Measured 2026-09-19 by intersecting the two sets rather than by
+reading the tables: **all twenty `AUTH-*` rows ARE compared, and the six are
+`EDIT-*` and nothing else.** Naming a covered table as uncovered is how a
+reader concludes the blind spot is bigger and more mixed than it is, and stops
+looking; the docstring is corrected.
+
+✔ **THE SIX WERE THEN CHECKED BY HAND, because "floored" is not "checked".**
+Each `EDIT-*` row claims *"one production proposer and one production admitter,
+both named"*. All twelve named functions resolve, with **exactly one definition
+each**: `propose_editable_movement_tuning`/`publish_editable_movement_tuning`,
+`propose_editable_abilities`/`admit_editable_abilities`,
+`propose_developer_body_profile`/`sync_developer_body_profile`,
+`propose_player_stats_edits`/`publish_player_stats_edits`,
+`propose_editable_feel_tuning`/`publish_editable_feel_tuning`, and
+`propose_editable_portal_tuning`/`publish_editable_portal_tuning`. ⇒ And the
+stronger claim underneath — that no OTHER writer reaches the same domain — is
+held by a different instrument entirely: `PendingMechanicalEdits` and
+`EditablePortalTuning` are both in
+`scripts/check_multi_writer_resources_are_adjudicated.py`'s adjudicated set,
+which reports `UNADJUDICATED: 0`. The gap is real and it is covered; it is just
+covered somewhere this page never said.
+
 ⭐⛤ **AND SINCE 2026-09-18 A SECOND GUARD ASKS THE TREE RATHER THAN THE OTHER
 DOCUMENT.** The one above holds the ledger and this page in agreement, which is
 two DOCUMENTS saying the same thing; what a `RESOLVED` row claims is about

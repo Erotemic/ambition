@@ -1138,6 +1138,42 @@ def misshapen_readings() -> list[str]:
     return problems
 
 
+
+#: The ruling whose population this census defines. `Q136` restates these six
+#: numbers in prose, and on 2026-09-19 five of them were stale — by the
+#: instrument's OWN repair, which is the worst case: the script got better and
+#: the page it justifies kept the number the older script printed.
+RULING = REPO / "docs/planning/awaiting-maintainer-decision.md"
+RULING_MARKER = re.compile(r"<!--\s*ingress-census:\s*([^>]*?)\s*-->")
+MARKER_ENTRY = re.compile(r"(\w+)=(\d+)")
+
+
+def ruling_marker_drift(**measured: int) -> list[str]:
+    """Every number `Q136` restates from this census, compared to this run.
+
+    ⚠ **THE MARKER IS NOT A SECOND MEASUREMENT AND MUST NOT BECOME ONE.** It is
+    a transcription of what this script prints, checked here so that the prose
+    beside it cannot quietly age. The classification stays owned by the code
+    above; nothing here re-derives a verdict.
+    """
+    text = RULING.read_text(encoding="utf-8")
+    hit = RULING_MARKER.search(text)
+    if not hit:
+        return [
+            f"{RULING.relative_to(REPO)} carries no `ingress-census` marker, so the "
+            "numbers it states in prose are held by nothing"
+        ]
+    stated = {name: int(value) for name, value in MARKER_ENTRY.findall(hit.group(1))}
+    out = []
+    for name, value in sorted(measured.items()):
+        if name not in stated:
+            out.append(f"the marker omits `{name}`, which this run measures as {value}")
+        elif stated[name] != value:
+            out.append(f"`{name}`: the ruling states {stated[name]}, this run measures {value}")
+    for name in sorted(set(stated) - set(measured)):
+        out.append(f"the marker states `{name}`, which this census does not measure")
+    return out
+
 def main() -> int:
     spenders, _holders, _raisers = consumers_and_producers()
     rollback = sim.rollback_types()
@@ -1278,6 +1314,20 @@ def main() -> int:
             f"type and are adjudicated as out of scope: "
             + ", ".join(sorted({unresolved_head(a) for _f, a in unresolved}))
         )
+
+    drift = ruling_marker_drift(
+        spent_resources=len(spenders),
+        resource_crossings=len(found),
+        written_messages=sizes["message types written"],
+        message_crossings=len(messages),
+        unlocated=len(unlocated),
+        unlocated_types=len(exposed) if unlocated else 0,
+    )
+    if drift:
+        print("\n⛔ the ruling that cites this census no longer matches it:")
+        for line in drift:
+            print(f"  {line}")
+        return 1
     return 0
 
 

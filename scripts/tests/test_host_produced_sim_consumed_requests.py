@@ -824,3 +824,40 @@ def test_the_shipped_tree_locates_the_recovered_systems():
         "the local-tuple road stopped finding the system it was built for"
     )
     assert "apply_contact_harm" not in set(guard.unlocated_message_systems())
+
+
+def test_the_ruling_marker_catches_a_stale_number():
+    """⛔⛤ THE ARM FOR THE 2026-09-19 DRIFT. `Q136` restated this census's
+    numbers in prose and five of the six aged — by this instrument's OWN
+    repair, which is the worst case: the script got better and the page it
+    justifies kept what the older script printed."""
+    drift = guard.ruling_marker_drift(
+        spent_resources=999,
+        resource_crossings=3,
+        written_messages=95,
+        message_crossings=3,
+        unlocated=42,
+        unlocated_types=15,
+    )
+    assert any("spent_resources" in line for line in drift)
+
+
+def test_the_shipped_marker_matches_the_shipped_census():
+    """⭐ THE RATCHET, and it is the whole point of the marker existing."""
+    assert guard.RULING_MARKER.search(guard.RULING.read_text(encoding="utf-8"))
+
+
+def test_a_field_the_census_does_not_measure_is_reported():
+    """A marker that grows a field nobody computes is a number held by nothing,
+    which is the state this check was added to end."""
+    text = guard.RULING.read_text(encoding="utf-8")
+    hit = guard.RULING_MARKER.search(text)
+    stated = dict(guard.MARKER_ENTRY.findall(hit.group(1)))
+    assert set(stated) == {
+        "spent_resources",
+        "resource_crossings",
+        "written_messages",
+        "message_crossings",
+        "unlocated",
+        "unlocated_types",
+    }

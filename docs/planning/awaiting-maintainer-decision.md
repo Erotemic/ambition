@@ -55,10 +55,13 @@ HALF OF MEASURING THIS.**
 ⚠ `Q127`, `Q129`, `Q133`, `Q137`, `Q101`, `Q104` and `Q110` sit inside P0/P1
 rows as product or balance calls on specific sub-roads rather than as gates on
 the row. They are real and they are not architecture blockers. ⚠ `Q137` is the
-closest to the line: it blocks the LAST of `ID-PEER`'s eleven sharp
-unchecksummed rows (`gravity.flip_switch`, whose only production writer is
-registered inside a `#[cfg(test)]` module), so it gates a sub-road's completion
-rather than the row — and it is a content question, not an architecture one.
+closest to the line, and stating it precisely matters because the obvious
+phrasing is wrong: `ID-PEER`'s sharp unchecksummed set is TWELVE rows, eleven of
+which are reachable, covered and agreeing. `gravity.flip_switch` is the twelfth
+and NO route reaches it — its only mutable writer is registered once in the
+workspace, inside a `#[cfg(test)]` module. ⇒ `Q137` does not gate the eleven; it
+asks whether that twelfth vertical ships at all, which is a content question
+rather than an architecture one, and the row is complete either way.
 
 ## Gameplay and content
 
@@ -1258,6 +1261,8 @@ not: each answers a different question, and the Q136 count is the second one's.
         (`ControlledSubject`, `CutsceneTriggerQueue`, `EncounterView`, each
         because its `Update` side is session teardown), 1 FILED
         (`CutsceneAdvanceRequest`), 0 nobody has examined.
+
+<!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=42 unlocated_types=15 -->
 
     scripts/check_host_produced_sim_consumed_requests.py
         Q136 INGRESS CENSUS — host-produced intent DESTRUCTIVELY CONSUMED by

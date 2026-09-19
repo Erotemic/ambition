@@ -589,13 +589,20 @@ the cheaper-but-weaker declaration won because the correct one carried a prose
 tax. This is not a hypothetical.
 
 ⚠ **AND THE OBVIOUS FIX — DROP `detail` FROM THE FINGERPRINT — LOSES REAL REACH.**
-Measured 2026-09-16 over the 493-row committed baseline
-(`game/ambition_app/tests/rollback_schema_baseline.txt`), by kind:
+RE-MEASURED 2026-09-19 over the committed baseline
+(`game/ambition_app/tests/rollback_schema_baseline.txt`, `ggrs-rollback-schema-v199`),
+**491 data rows in 17 kinds**, by kind:
 
 | | kinds | rows | what `detail` adds |
 |---|---|---|---|
-| uniform | 10 | 225 | nothing — one sentence per kind, derivable from the `kind` column beside it |
-| varying | 7 | 268 | facts `kind` does not encode |
+| uniform | 10 | 220 | nothing — one sentence per kind, derivable from the `kind` column beside it |
+| varying | 7 | 271 | facts `kind` does not encode |
+
+⛤ This read `493 / 225 / 268` from 2026-09-16. ⚠ **AND THE `493` WAS NEVER A ROW
+COUNT**: the file's first line is the version header `ggrs-rollback-schema-v199`,
+so a line count overstates the rows by one, and the schema has moved since. ⇒ The
+shape of the argument is unchanged — the varying half is the larger one — and
+only its size moved.
 
 The varying half is load-bearing: `component-clone` alone carries five sentences
 distinguishing *entity handle remapped* from *entity SET remapped* from *keyed
@@ -721,6 +728,36 @@ is INITIALIZED rather than where it is decided. That keeps ONE owner and needs n
 decision here. ⚠ **It does not answer this question, it routes around it** — the
 `detail` column still carries prose into the fingerprint, and the next diagnostic
 that is not expressible as a runtime override will hit the same wall.
+
+**THE DECISION, WITH WHAT EACH OPTION COSTS.** ⚠ Every figure below comes from
+this row's own measurements; none of these is a recommendation.
+
+* **(a) Keep hashing the whole dump** — today's behaviour, written down. Prose
+  is part of the wire format and rewording a sentence bumps the timeline's
+  contract. ⛔ The cost is not hypothetical and is recorded twice above: a
+  correct `DECLARED DERIVED` was passed over for a weaker waiver to avoid the
+  prose tax, and a purely local diagnostic strengthening was blocked because
+  the only route to it ran through the registration site.
+* **(b) Drop `detail` from the fingerprint** — cheapest, and it loses reach the
+  measurement can price: 220 rows in 10 kinds lose nothing, and **271 rows in 7
+  kinds carry facts the `kind` column does not encode**. Those stop being part
+  of snapshot identity, so two builds differing only in them compare equal.
+* **(c) Split `detail` into a mechanical part and a prose part, and hash only
+  the mechanical one** — what this question's own first paragraph asks for
+  (*"record the rule per registry owner"*). The work is the 7 varying kinds,
+  and their internal spread is the size: `derived` alone holds **42 distinct
+  sentences across 44 rows**, so it is nearly one-per-row and cannot be
+  collapsed to a per-kind constant.
+* **(d) Keep hashing `detail` but forbid prose IN it** — make the column a
+  structured value rather than a sentence, so rewording is unspellable instead
+  of merely discouraged. Strongest and most invasive: the same 42 `derived`
+  reason strings are the largest single conversion, and it is the only option
+  under which a future diagnostic cannot re-create this coupling by accident.
+
+⚠ **(b) AND (c) ARE NOT THE SAME ANSWER AT DIFFERENT PRICES.** (b) removes 271
+rows' worth of facts from peer-visible identity; (c) keeps them and pays to
+classify them. Whether those facts BELONG in peer identity is the actual
+question, and the row count does not answer it.
 
 ⓘ **WHAT DID NOT NEED A DECISION AND HAS LANDED:** those 15 sentences were spelled
 TWICE — once in `SchemaRollbackRegistrar` (the metadata recorder) and once in

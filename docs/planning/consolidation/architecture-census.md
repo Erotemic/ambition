@@ -193,6 +193,49 @@ The ONE campaign-counted pressure family, and the three that closed:
 - `DUP-GENERATION-MECHANICS`: **the only one still open, and re-measured 2026-09-17 because this bullet said less than source does.** A live rebuild does not merely *prefer* the generation's values: `GenerationMechanics::for_live_session` REFUSES — returns `None` — when `SessionGatedSimulation` is present and the generation is missing, and every live-rebuild road takes that constructor. ⛔⛤ **THE ROAD LIST THAT USED TO SIT HERE SAID "reset, room transition ×2, room stage" AND THE LAST ONE WAS PROSE**: `world/rooms/stage.rs` names the constructor in a doc comment on `RoomConstructionError::LiveGenerationMechanicsMissing` and never calls it. ⇒ The population is now MEASURED rather than restated, by `scripts/check_generation_mechanics_construction_is_declared.py`, which strips comments first and requires each of the five live sites to carry a reading. Ask it for the count; this bullet owns the argument, not the number. The only production caller of the fallback-capable `GenerationMechanics::new` is the hot reload, which states `None` because it is building the generation that replaces the live one. ⇒ The shipped composition has no second construction source today; what keeps the row open is that the App-registry road stays REACHABLE for compositions that have no generation by design. Whether that is the architecture or a migration is a maintainer decision, asked as `Q144`, and **`Q144` owns the size of that population** — this bullet owns the argument, the same split it already declares two sentences up for the live-site count. ⛔⛤ It said *"112 files construct through `Platformer2dSimHarness`"* until 2026-09-18, which was a MENTION count wearing a CONSTRUCTION count's words: 113 files name the type, 83 call one of its four constructors, and a cost estimate cares about the second. A number that crosses a document boundary has to bring its method with it, and this copy had left its method behind.
 - `DUP-ROOM-PUBLICATION`: RESOLVED. One room switch is one publication decision; entity visibility, `RoomSet`, `RoomGeometry`, moving platforms and generation state are its projections.
 
+⛔⛤ **THE FOUR `LEGITIMATE_SEPARATION` FAMILIES HAD NO DATED REVIEW UNTIL
+2026-09-19, AND THEY ARE THE ONES THAT ROT QUIETLY.** A `RESOLVED` row claims
+work happened and an `OPEN_PRESSURE` row asks for a decision; a
+`LEGITIMATE_SEPARATION` row claims two similar-looking owners hold genuinely
+DIFFERENT facts — a standing claim about the tree that nothing re-checks and
+that one convenience edit falsifies. All four were re-verified against source,
+each by the cheapest thing that would falsify it:
+
+- `DUP-ROLLBACK-CONFIRMATION`: *"deliberately not a `Resource`"* — the sharpest
+  of the four, because one added derive collapses it. `RollbackConfirmationState`
+  carries `#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]` and no
+  `Resource` (`crates/ambition_platformer2d_runtime/src/rollback/authority.rs:55`).
+  HOLDS.
+- `DUP-CONSTRUCTION-DIAGNOSTICS`: the test is not whether the types exist but
+  whether production DECIDES anything from them. With comments and test modules
+  stripped, `LastRoomConstructionCommit` has **zero** production reads — one
+  write (`world/rooms/stage.rs:159`), a declaration and a re-export — and every
+  read is in a test module. `LastConstructionVerification` has two production
+  reads and both say so in place: `world/rooms/transaction.rs:1249` corrects a
+  row only *"WHEN THEY ARE STILL THIS ROOM'S"* and returns a value computed
+  before it, and `game/ambition_app/src/app/dev_runtime.rs:764` states *"the
+  REASONS are cosmetic … the DECISION above comes from this publication's own
+  verdict"*. HOLDS.
+- `DUP-EDITOR-STAGES`: the five stages are named source vocabulary, not a
+  description of one — `MechanicalEditSet::{Propose, Admit, Publish}`
+  (`crates/ambition_platformer2d_core/src/movement/tuning.rs:459-467`),
+  `PendingMechanicalEdits`, `MechanicalEditAdmission`, and the `Editable*`
+  mirrors. The rule the row rests on is stated at the `Publish` arm: adapters
+  copy a mirror into the authoritative value *"here — and ONLY here"*. HOLDS.
+- `DUP-CONTENT-CANDIDATE`: *"must not overwrite the active selection during
+  preparation"*. `content_identity_for` reads the pending claim and falls back
+  to the active one, never the reverse, and `PendingGenerationInputs::characters_for`
+  returns a NESTED option precisely so a stranger's claim cannot fall through to
+  the App registry
+  (`crates/ambition_platformer2d_runtime/src/content_identity.rs:264-285`).
+  HOLDS — and see `ID-LOAD`, measured the same week, for the `String`-keyed
+  boundary this correlation crosses.
+
+⇒ Four for four, which is the useful outcome to be able to state: the label was
+not a parking space. ⚠ What would change any of them is now written beside it,
+so the next review re-runs a check rather than re-forms an opinion.
+
+
 Do **not** consolidate the staged editor values, active-versus-pending content, rollback confirmation answer, or construction diagnostics into their underlying authorities. They answer different questions.
 
 ## 3. Lifecycle-state census

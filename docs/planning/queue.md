@@ -1075,7 +1075,7 @@ sibling test matched 2. Both were caught only by asserting the anchor count
 before running, which every poison here now does.
 
 
-### SESSION-REPLACEMENT-ATOMICITY — destroy-then-install had two ways to leave no session — ✅ VERIFIED CLOSED 2026-09-19
+### SESSION-REPLACEMENT-ATOMICITY — destroy-then-install had two ways to leave no session — ✅ VERIFIED CLOSED 2026-09-19, WITH THE REST OF ITS REVIEW
 
 **Owner:** `crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs` and
 `.../lifecycle_commit.rs`.
@@ -1103,11 +1103,28 @@ lives in a session goal, the repairs live in comments at the repair sites, and
 `docs/planning` had neither — so a reader starting from the planning corpus
 would re-investigate settled work, and one starting from the review would
 believe two P0s are open. ⇒ A review that is not written down where the work is
-chosen is a duplicate authority with no owner at all. Of that review's four
-items, three are now closed (this row's two, plus Q142's counts in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)) and one is
-open: the layout-identity pair in
-[`engine/composable-actor-resources.md`](engine/composable-actor-resources.md).
+chosen is a duplicate authority with no owner at all.
+
+⛔⛤ **AND ALL FOUR OF THAT REVIEW'S ITEMS ARE SETTLED, WHICH IS ONLY VISIBLE
+ONCE SOMEBODY CHECKS ALL FOUR.** This row's two, Q142's counts in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), and the
+layout-identity pair — which
+[`engine/composable-actor-resources.md`](engine/composable-actor-resources.md)
+already answers twice, both times citing that same review: R10 (*"ONE POINTER,
+NOT TWO"* — the active plan identity is the single restored pointer and the
+layout id is a projection of it) and R13 (each id content-derived over its OWN
+content, with an acceptance that takes **two arms pointing opposite ways**,
+because agreement across histories alone is satisfied by returning a constant
+and separation within a layout alone is satisfied by a counter).
+
+⚠ That page is a DESIGN TARGET and `ResourceLayoutId` has no definition in the
+tree, so "settled" there means the design records the correction — not that
+code implements it. Worth stating before anyone greps for the fix.
+
+⇒ **The cost of the gap is re-investigation, and it is paid per reader.** Four
+items, four verifications, and the only artifact any of them produced was this
+row. A priority queue that outlives its work does not fail loudly — it spends
+the next reader's first hour and looks like diligence while doing it.
 
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
 

@@ -341,7 +341,13 @@ exists to catch that, and `CutsceneSkipHold`'s census row would have to change
 with the code rather than stay as it is.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
-**Blocked by:** [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) — item 1 only; item 2 is closed.
+**Blocked by:** nothing.
+
+⭐ **RULED 2026-09-19 (Q136):** choose the ingress by
+SEMANTIC OWNERSHIP, and current rollback correctness is engineering work rather
+than a maintainer policy blocker. ⇒ Item 1 is now implementation: each of the
+four host→sim intents picks the ingress its owner implies. See
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
@@ -919,7 +925,13 @@ histories**. ⇒ When a page names a new id that crosses to a peer, the question
 not whether its construction is ordered; it is what the id is a function OF.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
-**Blocked by:** [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — the snapshot-schema-fingerprint road.
+**Blocked by:** nothing.
+
+⭐ **RULED 2026-09-19 (Q122):** mechanical identity
+fingerprints MECHANICAL FACTS, not explanatory prose. ⇒ The
+snapshot-schema-fingerprint road is implementation: exclude comments and other
+non-mechanical text from the fingerprint. See
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 ⚠ **NOT GATES ON THIS ROW, AND DELIBERATELY BELOW THE FIELD SO A SCAN DOES NOT
 READ THEM AS ONE.** `Q128` is the TIMELINE half and is additionally blocked on
@@ -1360,7 +1372,16 @@ and the two menu writers ([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-me
 Neither needed a new idea, only a population nobody had quietly narrowed.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
-**Blocked by:** [Q139](awaiting-maintainer-decision.md#q139--what-declares-that-a-presentation-system-writes-transform) — the `Transform` blind spot, this row's only open item.
+**Blocked by:** nothing.
+
+⛔ **RULED 2026-09-19 (Q139):** do NOT grow
+architecture merely to satisfy a static presentation-writer census. ⇒ None of
+the four declaration shapes this row costed is to be built for the census's
+sake; the `Transform` blind spot is accepted as a known limit of the scanner,
+and any future repair must be justified by a real mechanical failure rather
+than by the guard's coverage. This ruling arrives with the same day's priority
+adjustment, which says the same thing in general terms. See
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 **Acceptance:** the population is every rollback registration, not one
 registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
@@ -1513,8 +1534,17 @@ where a reader looks first, and it was the copy that had drifted. ⚠ "Projected
 not "admitted": a projection narrows who reads a mutable value, and the timeline
 question is untouched by it.
 
-**Blocked by:** the DAMAGE half only —
-[Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+**Blocked by:** nothing.
+
+⛔ **RULED 2026-09-19 (Q127), AND THE ANSWER IS
+"DEPRIORITISE THIS":** there is to be NO generic one-dimensional engine
+difficulty architecture. Difficulty is game policy expressed as presets;
+participant handicaps and CPU brain levels are SEPARATE concepts from match
+policy, and participant-specific assist/handicap state stays distinct from
+game/match policy. ⇒ The damage half is not blocked — it is deferred on
+purpose. Preserve enough architecture not to be boxed in later and spend no
+substantial effort here until the default/Normal game plays exceptionally well.
+See [`maintainer-decisions.md`](maintainer-decisions.md).
 
 ⭐⭐ **AND THE DETERMINISM HALF HAS A SHIPPED PRECEDENT THAT NEEDED NO PRODUCT
 RULING — FOUND 2026-09-19 WHILE COUNTING THE EDITOR DOMAINS.** `PortalTuning`
@@ -2234,18 +2264,39 @@ two structural links each had a guard; neither guard reads the NUMBER, and
 `ambition_combat`'s own four arms run on a hand-built App with no rollback session
 at all — the exact shape that hid the `OwnedItems` defect.
 
-**Remaining engineering:** finish reflection/contact attribution after the product
-rule is settled — blocked on `Q101`, below. ⭐ **IT IS ONE LINE**, and `Q101`
-names it: either thread the launching occurrence into the four writers that
-reach that site with `attacker_move_instance: None` (`blink`, `dive`,
-`mark_recall`, `empowerment`), or refuse an unclaimed outcome there the way the
-sibling road already refuses one.
+✅ **AND CONTACT ATTRIBUTION IS CLOSED, 2026-09-19.** All three halves:
 
-**Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
+1. Reflection — `intercept.rs` drops `FiredByMoveInstance` with the ownership
+   change, so a reflected shot stops claiming its original launcher.
+2. An outcome naming a DIFFERENT occurrence credits no move. That needed no
+   ruling: the event says whose it is.
+3. An outcome naming NO occurrence credits no move either — **ruled
+   2026-09-19**: an ability contact is INDEPENDENT BY DEFAULT and satisfies a
+   move's `Connected`/contact condition only with explicit provenance. `None`
+   must not mean *"credit whatever is playing now"*. An ability designed to
+   count toward its launcher threads the occurrence; there is no implicit road
+   back. See [`maintainer-decisions.md`](maintainer-decisions.md).
 
-**Acceptance:** late projectile/melee feedback, reflection and independent
-ability contacts cannot credit the wrong move occurrence, including across an
-idle gap and rollback.
+⛔⛤ **AND THE FIRST TEST TO GO RED WAS A FIXTURE DESCRIBING A ROAD PRODUCTION
+DOES NOT HAVE.** `a_player_slash_folds_the_struck_target_onto_the_move_accumulator`
+sent a `HitSource::Melee` event with a `MovePlayback` attacker and
+`attacker_move_instance: None`, then asserted the dedup ledger folded. The
+production melee road writes `move_instance.map(..)` on every strike
+`hitbox/mod.rs` resolves — so the fixture's shape was one only the implicit
+road could produce, and it now names the occurrence as production does. ⇒ A
+fixture that keeps a shape production cannot produce is testing a road that no
+longer exists, and it reads as a regression when the road is removed.
+
+**Blocked by:** nothing.
+
+**Acceptance:** ✅ MET — late projectile/melee feedback, reflection and
+independent ability contacts cannot credit the wrong move occurrence, including
+across an idle gap and rollback. Witnessed by
+`an_outcome_naming_another_occurrence_credits_no_move` and
+`an_unclaimed_outcome_credits_no_move`
+(`features/ecs/damage/tests.rs`), plus
+`a_move_occurrence_reaches_the_same_number_with_and_without_a_rewind` for the
+rollback half.
 
 ### A4 — separate control authority from body execution on the real schedule
 
@@ -2347,8 +2398,14 @@ tables.
 **Open work:** converge the remaining reloadable registries on one explicit
 prepare/admit/publish contract and settle the permanent authoring source.
 
-**Blocked by:** [Q110](awaiting-maintainer-decision.md#q110--may-a-provider-keyed-fragment-registry-gain-a-named-hot-reload-replacement-operation)
-and [Q104](awaiting-maintainer-decision.md#q104--is-the-rust-move-table-or-the-content-file-the-source-of-a-moveset).
+**Blocked by:** nothing.
+
+⭐ **RULED 2026-09-19.** (Q110) Mechanical registry
+changes use proper explicit lifecycle/replacement semantics; do not invent a
+universal silent overwrite. (Q104) Content-authored movesets are the long-term
+authority and duplicate Rust move tables are MIGRATION SCAFFOLDING, not
+permanent architecture — which is this page's own one-fact-one-owner campaign
+answering itself. See [`maintainer-decisions.md`](maintainer-decisions.md).
 
 **Acceptance:** changed content publishes exactly once under a new admitted
 generation; identical content is a no-op; stale work refuses rather than folding
@@ -2384,10 +2441,18 @@ is compatible with the engine being broken certifies nothing, and "it passes
 quickly" is the tell. A profile contract needs a witness that STEPS, and a
 witness that steps needs a witness that it stepped.
 
-**Blocked by:** [Q100](awaiting-maintainer-decision.md#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools),
-[Q106](awaiting-maintainer-decision.md#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities),
-[Q108](awaiting-maintainer-decision.md#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link),
-and the admission policy in [Q97](awaiting-maintainer-decision.md#q97--may-authored-content-name-a-technique-this-composition-did-not-install).
+**Blocked by:** nothing.
+
+⭐⭐ **RULED 2026-09-19, ALL FOUR AT ONCE, by the
+composition-modes decision** (Q100, Q106, Q108, Q97 — with Q146 and Q144).
+Capabilities are OPTIONAL and COMPOSABLE; a capability that authored PRODUCTION
+content requires and the composition lacks must REFUSE that content or its
+admission rather than silently pretending it works, while deliberately reduced
+tools and tests may omit capabilities explicitly. ⇒ Q97 is answered REFUSE, and
+the profile floor follows from the two supported modes rather than from a census
+of hypothetical variants. ⛔ The ruling's own instruction: *"Implement this
+architecture rather than continuing to census hypothetical composition
+variants."* See [`maintainer-decisions.md`](maintainer-decisions.md).
 
 **Next implementation:** encode supported profiles as named capability contracts,
 then make construction/step witnesses and absence guards test those contracts.
@@ -2418,23 +2483,92 @@ an explicit ownership reason.
 
 **Owner:** [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-⛔⛤ **READ THIS BEFORE ANY OTHER CPU NUMBER IN THIS REPOSITORY.** Measured
-2026-09-16: `special_patent_clerk` throws ONE move for a whole 3600-tick bout at
-rung 9 — `synchronize_clocks`×160, median gap 4 ticks, 0% damage either seat,
-zero hitstun, Neutral 100% — and rung 9 is `RUNG_DEFAULT`, the rung every CPU
-measurement in this project is taken at. ⇒ That is not a tuning observation. It
-is a statement about what all the other numbers mean. Evidence and the full grid
-below.
+⭐⭐ **THE LOCK IS DIAGNOSED AND HALF-CLOSED. IT IS NOT A SEED BASIN — IT IS
+THE ADMISSION RULE, IN TWO PLACES.** Measured 2026-09-19.
 
-**Current state:** the truthful attack kit evaluates the action a press actually
-produces, and the previous rung-9 quantization defect is closed. Current failures
-are no longer evidence that the old attack-kit mapping is wrong. The remaining
-work is the owner's F6 decision/menu problem: a brain must be able to stop or
-change movement so a movement-incompatible authored move can become selectable.
+**(a) A shove was counted as a reach — FIXED.** `MoveFrameData::coverage` and
+`reach` folded over every Active volume, windboxes included, and
+[`authoring::wake`] *asserts* that the push reaches further than the hit — so
+for every waked move the brain's only statement about where it could land was
+the DUST's extent. `goblin::dirt_kick` read as an 82px poke whose boot stops at
+48, and its own shove held the gap open at exactly the range where it could not
+hit. ⇒ `MoveFrameData::push_coverage` now carries the windbox region and
+`coverage`/`reach` carry the hittable one. Pinned by
+`goblin_moveset::dirt_tests::the_brains_reach_for_the_dirt_kick_is_the_boot_and_not_the_dust`
+(48 vs 82) and
+`options::tests::a_waked_kick_is_priced_by_its_boot_and_not_by_its_dust`.
 
-**Next implementation:** complete the F6 menu/utility term on the owner plan.
-Keep press generation separate from move utility; do not patch the evaluator with
-a fighter-specific exception.
+**(b) "An attack that cannot reach is not an option" admits anything within
+THREE TIMES its reach — NOT YET FIXED.** The filter asks `reach_fit > 0.0`, and
+`REACH_TOLERANCE` is `2.0`, so the soft score stays positive until the gap is
+`3 × reach`. A 48px kick is an option at 140px; `attacks.first()` always
+answers; and a committed move owns the body for longer than the gap between
+decisions. ⇒ The fighter presses an unreachable move, cannot walk while it
+plays, and the next free tick finds the same world.
+
+⚠ **THE TOLERANCE IS RIGHT FOR A RANKING AND WRONG FOR AN ADMISSION**, which
+is why the repair is a second function rather than a smaller constant: a
+near-miss SHOULD rank near a hit — that is what makes a brain commit to a
+spacing — but a near-miss is still a miss, and a menu that offers one has no way
+left to say *"walk in first"*.
+
+⭐ **MEASURED WITH BOTH HALVES IN PLACE, and this is what (b) is worth.** Mirror
+bouts, 3618 ticks, same `AMBITION_DUEL_RUNG` harness:
+
+| pair | before | with (a)+(b) |
+|---|---|---|
+| `goblin` @5 | 1 distinct, 0%/0%, 0 hitstun, 0 KO | **15 / 15** distinct, 119%/171%, 518/756 hitstun, 2 KO |
+| `special_patent_clerk` @9 | 1 distinct, 0%/0%, 0 hitstun | 185%/234%, 316/468 hitstun, 4 KO |
+| `npc_pirate_admiral` @5 | 16% total | 60%/103% |
+| `npc_emmy_noether` @5 | 36% total | 41%/60% |
+| `npc_carl_stargan` @5 | 28% total | 78%/43% |
+
+The ladder still points the right way: `goblin` @9 reads 142%/188% with 3 KO
+against @5's 119%/171% with 2 KO, and move STARTS fall from ~200 to ~60 a bout —
+the presses that disappear are the ones that could never land.
+
+⛔⬤ **AND (b) IS HELD BACK BY A FIXTURE, NOT BY DOUBT ABOUT THE CHANGE.** With
+(b) in, `smash_in_the_host::launched::an_up_tilt_*` both go red, and the reason
+is NOT the launch formula. Localised 2026-09-19 by instrumenting every refusal
+in `apply_hitbox_damage`: at the moment of the fixture's hand-spawned strike the
+victim is inside the volume, present in the victim set, alive, in play, tangible
+and not deduped — no guard refuses it — and the meter still reads 0 before and 0
+after. ⇒ The loss is DOWNSTREAM of the damage road's guards, and the likeliest
+owner is `void_pending_player_hits_at_lifecycle_boundaries`, which clears
+pending hits when a fresh attempt begins. The fixture shares its app with two
+CPUs that, once they actually fight, can decide the match and start one.
+
+⚠ **THREE FIXTURE REPAIRS WERE TRIED AND ALL THREE ARE REFUTED**, recorded so
+the next attempt does not re-walk them:
+1. *Stand both seats down with `Brain::stand_still()`* (the idiom the sibling
+   `ring_out` fixture in the same file uses) — the victim then never becomes
+   `on_ground` at all, settling at (72, 320) with `VICTIM_X` at 520.
+2. *Park → update → re-park, to let the published hurtbox catch up* — the
+   silhouette was never the problem: it reads exactly the body's AABB, centred
+   on the parked position.
+3. *Ask the strike's own `HitboxHits` ledger instead of the meter* — this makes
+   the "did it land" assertion pass while the launch assertion still fails, so
+   the ledger records the overlap EARLIER than the launch is applied. That is a
+   weaker guard, not a fix, and it was reverted.
+
+**Next implementation:** land (b) behind a fixture that establishes its own
+preconditions — the open question is what makes `Brain::stand_still()` leave a
+body ungrounded, since that is the lever the rest of the file already uses.
+Then the remaining half of the owner's F6 problem, which (b) narrows rather than
+closes: a brain still cannot decline to attack — `wants_attack` falls back to
+`options.attacks.first()` on every decision where the body is free. A windbox is
+also not yet a CHOICE; `dirt_kick` as a deliberate spacing shove needs a push
+feature in the scorer, not an accident in the admission rule. Keep press
+generation separate from move utility; do not patch the evaluator with a
+fighter-specific exception.
+
+**Still open — and it is NOT this lock.** `sanic` @5 takes 0% and always did.
+Control run at the parent commit, same harness: the bout ends at **777** ticks
+with 5 knockouts and 1275px of axis drift; with (a)+(b), 637 ticks, 6 knockouts,
+943px. Both seats are airborne for all but ~200 ticks and throw `spring_launch`.
+⇒ That is a body leaving the stage in the first thirteen seconds, a different
+defect from the one-move lock, and the grid below lumped them together because
+both read as *"under 40% damage at rung 5"*.
 
 **Acceptance:** representative CPUs select movement-compatible and
 movement-transition attacks from their authored menu across the intended
@@ -2494,18 +2628,21 @@ and deals and takes exactly nothing — while still starting ~200 moves, so it i
 NOT a seating failure and not an idle body. `special_patent_clerk`'s locked bout
 re-starts the same move on a median gap of **4 ticks**.
 
-⇒ **AND IT IS NOT "LOW RUNGS ARE WORSE".** `goblin` locks at 5 and is fine at 9;
-`special_patent_clerk` locks at 9 and is fine at 5. Both directions occur, which
-is what `fighter_cognition_seed` mixing the character id with the level predicts:
-each pair is its own deterministic stream, and some streams land in a basin the
-decision layer cannot leave. Across the grid, 5 of 21 fighters fall under 40%
-total damage at rung 5 and 1 of 21 at rung 9 — all five of the rung-5 ones are
-healthy at rung 9 (`sanic` 0→130%, `goblin` 0→233%, `npc_pirate_admiral` 16→87%,
-`npc_emmy_noether` 36→142%, `npc_carl_stargan` 28→116%).
+⇒ **AND IT IS NOT "LOW RUNGS ARE WORSE".** `goblin` locked at 5 and was fine at
+9; `special_patent_clerk` locked at 9 and was fine at 5. Across the grid, 5 of 21
+fighters fell under 40% total damage at rung 5 and 1 of 21 at rung 9 (`sanic`
+0→130%, `goblin` 0→233%, `npc_pirate_admiral` 16→87%, `npc_emmy_noether`
+36→142%, `npc_carl_stargan` 28→116%).
 
-⛔ **THE ONE THAT SHOULD WORRY A READER MOST IS AT RUNG 9, WHICH IS
-`RUNG_DEFAULT`** — the rung every other CPU number in this project is taken at.
-`special_patent_clerk` is locked there today.
+⛔⬤ **THE SEED EXPLANATION WAS WRONG, AND IT IS WORTH SAYING WHY IT WAS
+PERSUASIVE.** This row read the both-directions pattern as
+`fighter_cognition_seed` mixing character with level, *"some streams land in a
+basin the decision layer cannot leave"*. It is not the stream. Whether a pair
+locks depends on whether the pair's equilibrium gap happens to sit inside the
+tolerance band of exactly one move whose commitment window covers the decision
+cycle — a geometry coincidence, which is why it looked seed-shaped and appeared
+in both directions. ⚠ A mechanism that predicts the observed pattern is not
+thereby the mechanism.
 
 ⚠ **AND THE INSTRUMENT ALREADY NAMED THEM; NOBODY HAD RUN IT.** The sweep is
 `#[ignore]`d as *"a measurement, not a guard"*, and its one assertion
@@ -2513,10 +2650,12 @@ healthy at rung 9 (`sanic` 0→130%, `goblin` 0→233%, `npc_pirate_admiral` 16�
 readable, not about whether fighters fight — so one or two locked fighters print
 their zeros and it passes. That is the documented design, not a defect in it.
 
-**Next implementation for this half:** the lock is a decision-layer live-lock,
-and `used == 1` with `neutral == 100%` over a 3600-tick bout is a crisp,
-cheap predicate. ⇒ It is a candidate for a real guard, but ⛔ NOT by tightening
-the sweep's existing assertion, which measures something else on purpose.
+**Next implementation for this half:** the lock predicate (`used == 1` with
+`neutral == 100%` over a 3600-tick bout) is no longer the live question — no
+pair meets it. What remains measurable is `sanic` @5, and the guard that would
+catch it is about a bout ENDING EARLY, not about move variety. ⛔ NOT by
+tightening the sweep's existing assertion, which measures something else on
+purpose.
 
 ⚠ **BOUNDS THAT REMAIN.** Two rungs of the five, mirror matches only, one bout
 per pair — and the pairs cannot be resampled, since the seed is
@@ -2713,7 +2852,12 @@ to be satisfiable by a frozen world, and its author gets no warning.
    arm WAS exposed, and its author got the warning.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
-**Blocked by:** [Q138](awaiting-maintainer-decision.md#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session).
+**Blocked by:** nothing.
+
+⭐ **RULED 2026-09-19 (Q138):** an invalidated harness
+must REFUSE or FAIL rather than silently produce frozen observations. ⇒
+`Platformer2dSimHarness::step` consults `rollback_health()` and refuses; the
+API contract is set. See [`maintainer-decisions.md`](maintainer-decisions.md).
 
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay — ✅ REPAIRED 2026-09-16, acceptance MET; the authority/representation split is DEFERRED and Q129 is open
 
@@ -3610,7 +3754,16 @@ so access matches use, drop those five waivers — they exist only because it
 over-grants.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
-**Blocked by:** [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) (the New Game ingress) and [Q140](awaiting-maintainer-decision.md#q140--may-the-item-menu-show-a-stale-bag-for-one-frame) (the UI half, which that row calls *"one UI question"*).
+**Blocked by:** nothing.
+
+⭐ **RULED 2026-09-19.** (Q136) The New Game ingress is
+chosen by semantic ownership — engineering, not policy. (Q140) ONE FRAME OF
+STALE UI IS ACCEPTABLE: the UI does not need rollback merely because it displays
+rollback-owned state, and actions that affect authoritative simulation state go
+through the deterministic ingress. ⛔ Do not introduce duplicate authoritative
+inventory state or optimistic-reconciliation machinery to hide one frame —
+finish the existing fix simply and move on. See
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 **Acceptance:** both writes go through a message the sim consumes; the repro arm,
 which currently ASSERTS THE DEFECT so the lane stays green, goes RED and is

@@ -71,8 +71,16 @@ def blocked_by_paragraph(lines: list[str], index: int) -> str:
 
 #: ⛔ ANTI-VACUITY. If the section heading is renamed or the queue's convention
 #: changes, this guard would compare an empty set against an empty set and pass
-#: while the page it protects says nothing. MEASURED 2026-09-19: 5 gated rows.
-MIN_GATED_ROWS = 3
+#: while the page it protects says nothing.
+#:
+#: ⚠ A FLOOR ON A SHRINKING POPULATION IS A RATCHET POINTING THE WRONG WAY, and
+#: it fired the day the maintainer ruled twenty questions at once: the real
+#: count fell from 5 to 2 and the guard called the SCAN broken. The floor is
+#: only here to catch a scan that finds NOTHING, so it is 1 — the smallest
+#: number that still distinguishes "the convention moved" from "the queue got
+#: unblocked". MEASURED 2026-09-19, after those rulings: 2 gated rows (`Q147`,
+#: `Q69`).
+MIN_GATED_ROWS = 1
 
 
 def gated_rows() -> dict[str, set[str]]:

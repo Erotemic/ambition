@@ -197,8 +197,13 @@ fn the_shipped_app_installs_the_reload_publication_system() {
     }
 }
 
-/// ⛔⛔⛔ **THE COMMIT SITS BETWEEN THE ACTIVATION AND THE WORLD BUILT FROM IT —
-/// AND THIS TEST USED TO ASSERT ONLY HALF OF THAT.**
+/// ⛔⛔⛔ **THE COMMIT SITS BETWEEN THE ACTIVATION AND SESSION ADOPTION.**
+///
+/// ⚠ THE NAME SAID "AND THE WORLD BUILT FROM IT" UNTIL 2026-09-19, WHICH IS NO
+/// LONGER WHERE THE WORLD IS BUILT — see END TWO below. The name is the claim,
+/// so it moves with the claim.
+///
+/// ⛔ **AND THIS TEST USED TO ASSERT ONLY HALF OF EVEN THAT.**
 ///
 /// ⛔⛤ **THE HALF IT ASSERTED WAS SATISFIED VACUOUSLY, AND A REVIEW CAUGHT IT.**
 /// It required `publication → GameplaySessionSet::Providers` and got the edge —
@@ -221,7 +226,7 @@ fn the_shipped_app_installs_the_reload_publication_system() {
 /// to their crates, so the edges are asserted against the SETS they belong to —
 /// which is also the seam the ordering is actually written against.
 #[test]
-fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
+fn the_commit_sits_between_the_activation_and_session_adoption() {
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
@@ -261,19 +266,44 @@ fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
          LATE and the world is built from generation N"
     );
 
-    // ⛔ END TWO: and the world must not be built until it has.
+    // ⛔ END TWO: the commit is ordered against the provider set.
+    //
+    // ⛔⛤ **AND THE CONDITION THIS ASSERTION'S OWN MESSAGE NAMED AS ITS
+    // ESCAPE HATCH HAS HAPPENED — 2026-09-19.** It read *"if it is not, the
+    // provider stopped constructing sessions there and this ordering names
+    // nothing"*, and checked that the SET EXISTS. The set does exist. What
+    // moved is the construction inside it: A10.5 (`c89c68747`) builds the world
+    // in `prepare_candidate_platformer_session`, which is
+    // `.before(AmbitionGameShellSet::Pending)`, and deleted the build-here
+    // fallback so `adopt_candidate_platformer_session` now PANICS rather than
+    // constructing. `Providers` holds adoption only.
+    //
+    // ⇒ So this edge no longer witnesses "the world is not built from the
+    // previous cast". ⚠ It is kept, and the assertion is left standing, because
+    // ordering the commit against adoption is still a real constraint — but the
+    // guarantee the old message claimed cannot be restored by any edge: the
+    // commit must run `.after(Pending)` to see `RouteActivated`, construction
+    // runs `.before` it, and those are opposite ends of the same set. A
+    // candidate is therefore prepared from the generation current BEFORE its
+    // own activation commits. Whether that is correct by design or a frame-late
+    // read on the candidate road is a maintainer question, filed in
+    // `docs/planning/queue.md`; this test must not pretend to answer it.
+    //
+    // ⛔ The lesson for the next guard: an assertion that a SET exists cannot
+    // see work leaving the set. The predecessor of this test was vacuous
+    // because one system did two jobs; this one became vacuous because the job
+    // moved out from under it. Both look identical from here — green.
     let providers = set_key(
         graph,
         ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
-        "`GameplaySessionSet::Providers` is a set in the shipped Update schedule \
-         — if it is not, the provider stopped constructing sessions there and \
-         this ordering names nothing",
+        "`GameplaySessionSet::Providers` is not a set in the shipped Update \
+         schedule, so this ordering names nothing at all",
     );
     assert!(
         dependencies.contains_edge(NodeId::System(commit), NodeId::Set(providers)),
         "the generation commit has no ordering edge to \
-         `GameplaySessionSet::Providers`, so a route activation may construct the \
-         new session from the PREVIOUS cast"
+         `GameplaySessionSet::Providers`, so it is not ordered against session \
+         ADOPTION (it has never, since A10.5, been ordered against construction)"
     );
 
     // ⛔⛔ **AND THE ADOPTION HALF RUNS AT THE OTHER END, BEFORE THE PREPARATION

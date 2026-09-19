@@ -2148,6 +2148,55 @@ between actual neighboring phases rather than only `.after(...)` an abstract set
 
 ## P1 — ownership, composition and iteration
 
+### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
+
+**Owner:** [`engine/extension-model.md`](engine/extension-model.md) (content
+reload) jointly with the session-lifecycle owner —
+`crates/ambition_platformer2d_provider/src/lifecycle.rs`.
+
+**Current state, measured 2026-09-19.** `commit_content_generation`
+(`game/ambition_content/src/reload.rs`) must run
+`.after(AmbitionGameShellSet::Pending)` because that is where
+`advance_pending_route` produces `RouteActivated` — reading it earlier was a
+measured frame-late bug, fixed 2026-09-12. A10.5 (`c89c68747`, 2026-09-15) then
+moved world construction to `prepare_candidate_platformer_session`, which is
+`.before(AmbitionGameShellSet::Pending)` so a candidate that cannot be built
+never retires the session that is playing — also correct, and the build-here
+fallback was deleted, so `adopt_candidate_platformer_session` panics rather
+than constructing.
+
+⛔ **BOTH EDGES ARE RIGHT AND THEY PIN OPPOSITE ENDS OF THE SAME SET.** No
+ordering edge can put the commit before construction, so a candidate is
+necessarily prepared from the content generation current BEFORE its own
+activation committed. ⇒ **The question is whether that is correct by design or
+a frame-late read on the candidate road** — it is a maintainer call about what
+a candidate is supposed to see, not something a schedule change can settle.
+
+⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
+`the_commit_sits_between_the_activation_and_session_adoption`
+(`game/ambition_app/tests/reload_publication_is_installed.rs`) asserts
+`commit → GameplaySessionSet::Providers`. Its own failure message named the
+escape hatch — *"if it is not, the provider stopped constructing sessions there
+and this ordering names nothing"* — and that is exactly what happened: the set
+still exists, so the guard is satisfied, while the construction it was ordering
+against left the set. ⭐ Its predecessor was vacuous because ONE SYSTEM DID TWO
+JOBS; this one became vacuous because THE JOB MOVED OUT FROM UNDER IT. Both
+look identical from the assertion: green. The test now records this and its
+name was corrected to what it checks.
+
+**Acceptance:** a maintainer states which generation a candidate must build
+from; if it is the committed one, the fix is not an edge — either the candidate
+re-fingerprints at adoption, or preparation moves after the commit and A10.5's
+"never retire an unbuildable session" guarantee is re-established some other
+way. ✅ A guard that fails when construction leaves the set it is ordered
+against, rather than one that checks the set exists.
+
+**Diagnosis:** [`triage/a-prose-path-inside-a-doc-comment-is-not-checked.md`](triage/a-prose-path-inside-a-doc-comment-is-not-checked.md)
+— found while repairing the comment at `reload.rs` that still named
+`activate_prepared_platformer_sessions` and claimed its builder reads <!-- cite-ok: names the system A10.5 deleted 2026-09-15; the row is about that deletion outliving its prose -->
+`PreparedCharacterRegistry`; the builder holds no such field, the cast arrives
+as a `PreparedContent` argument.
+
 ### I2/I3 — finish independent content authoring and safe reload
 
 **Owner:** [`engine/extension-model.md`](engine/extension-model.md) and content

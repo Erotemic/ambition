@@ -1291,12 +1291,27 @@ pub fn register(app: &mut bevy::prelude::App) {
             // see, because an edge to a late set says nothing about a message
             // produced in a set before it.
             .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending)
-            // ⛔⛔ **AND BEFORE THE WORLD IS BUILT FROM THE CAST.**
-            // `activate_prepared_platformer_sessions` is
-            // `in_set(GameplaySessionSet::Providers)` and its
-            // `PlatformerSessionBuilder` reads `PreparedCharacterRegistry`. Bevy
-            // inserts the sync point, so the queued publication has applied
-            // before any provider constructs anything.
+            // ⛔⛔ **AND BEFORE THE PROVIDER SET — BUT THAT NO LONGER MEANS
+            // "BEFORE THE WORLD IS BUILT FROM THE CAST".**
+            //
+            // This edge was written when `activate_prepared_platformer_sessions`
+            // sat in `GameplaySessionSet::Providers` and built the world there,
+            // reading the cast off `PreparedCharacterRegistry`. A10.5 moved
+            // construction to `prepare_candidate_platformer_session`, which is
+            // `.before(AmbitionGameShellSet::Pending)` — EARLIER than this
+            // commit, which must run `.after` it to see `RouteActivated` at all.
+            // What remains in `Providers` is `adopt_candidate_platformer_session`,
+            // which adopts an already-built world and panics rather than
+            // building one; and the builder no longer holds the registry, since
+            // the cast arrives as a `PreparedContent` argument.
+            //
+            // ⇒ The edge is kept because it still orders the commit against
+            // adoption, which is real. ⛔ The guarantee it USED to carry cannot
+            // be restored by an edge at all: the two constraints are opposite
+            // ends of `Pending`, so a candidate is necessarily prepared from the
+            // generation that was current before its activation committed.
+            // Whether that is correct or a frame-late read on the candidate road
+            // is an open question — see `docs/planning/queue.md`.
             .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
             .run_if(shell_is_installed),
     )

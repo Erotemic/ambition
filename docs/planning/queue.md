@@ -2502,10 +2502,38 @@ than constructing.
 
 ⛔ **BOTH EDGES ARE RIGHT AND THEY PIN OPPOSITE ENDS OF THE SAME SET.** No
 ordering edge can put the commit before construction, so a candidate is
-necessarily prepared from the content generation current BEFORE its own
-activation committed. ⇒ **The question is whether that is correct by design or
-a frame-late read on the candidate road** — it is a maintainer call about what
-a candidate is supposed to see, not something a schedule change can settle.
+necessarily prepared from the content generation GLOBALLY PUBLISHED before its
+own activation committed.
+
+⭐⭐ **AND THAT IS NOT THE QUESTION IT LOOKED LIKE, BECAUSE THE ARCHITECTURE
+ALREADY ANSWERS IT — `Q147` WITHDRAWN 2026-09-19, THE DAY IT WAS FILED.** The
+row read the two edges and concluded a maintainer had to choose between *"the
+candidate sees the old generation"* and *"move construction after the
+commit"*. There is a third answer already in the tree, and it is the one the
+tree is emphatic about: `PendingGenerationInputs`
+(`ambition_platformer2d_runtime/src/content_identity.rs`) exists precisely so
+a transaction can hand its own N+1 values to its own preparation, keyed by the
+`load_id` claim, without global publication — *"THE CANDIDATE MUST NOT HAVE TO
+BE PUBLISHED GLOBALLY FOR PREPARATION TO SEE IT… restoring [that] under another
+name would undo this whole file."* It already carries the identity line and the
+admitted N+1 cast for exactly this reason, and it already names
+`fighter_brain_ladder` among the participating families.
+
+⇒ **A stays live on published N; B is built and verified from transaction-local
+N+1; adoption makes B/N+1 authoritative atomically.** Neither of the two
+options this row posed expresses that, and neither is needed: nothing moves
+after the commit and nothing re-fingerprints. ⛔ So what is left is engineering
+— bringing any generation input a candidate must see at N+1 into that
+transaction-local channel — and NOT a ruling. Filing it as one recreated the
+failure mode the 2026-09-19 priority directive names by example.
+
+⚠ **ONE SUCH INPUT IS ALREADY HANDLED ANOTHER WAY AND THE DIFFERENCE IS WORTH
+KEEPING.** The fighter ladder is a CONTINUOUS POLICY rather than a construction
+input: `project_authored_fighter_ladder` re-reads every fighter and rewrites
+only when the rung differs, so a candidate's fighters converge on the published
+rung on the tick after the commit without the ladder riding the transaction at
+all. A value that must be FROZEN at construction belongs in
+`PendingGenerationInputs`; a value that is a standing projection does not.
 
 ⚠ **AND THE GUARD STOPPED WITNESSING IT WITHOUT GOING RED.**
 `the_commit_sits_between_the_activation_and_session_adoption`
@@ -2519,18 +2547,22 @@ JOBS; this one became vacuous because THE JOB MOVED OUT FROM UNDER IT. Both
 look identical from the assertion: green. The test now records this and its
 name was corrected to what it checks.
 
-**Blocked by:** [Q147](awaiting-maintainer-decision.md#q147--must-a-candidate-session-be-built-from-the-generation-its-own-activation-commits-or-from-the-one-current-before-it).
+**Blocked by:** nothing.
 
-⛔⛤ **THIS FIELD WAS MISSING UNTIL 2026-09-19 while the row's own prose said
-*"it is a maintainer call"***, which is the gap `Q146` was filed for on another
-row four days after its gate named a ruling nobody had asked for. A row that
-states its gate only in prose is a gate no derivation reads.
+⛔⛤ **THE FIELD WAS MISSING, THEN IT NAMED A QUESTION THAT SHOULD NEVER HAVE
+BEEN ASKED.** Adding `Blocked by:` was right — a row that states its gate only
+in prose is a gate no derivation reads. Filing `Q147` to fill it was not: the
+row's prose said *"it is a maintainer call"* and the field was made to agree
+with the prose instead of with the source, where `PendingGenerationInputs`
+already answers the question. ⇒ Check whether the architecture has decided
+before writing a gate that says nobody has.
 
-**Acceptance:** a maintainer states which generation a candidate must build
-from; if it is the committed one, the fix is not an edge — either the candidate
-re-fingerprints at adoption, or preparation moves after the commit and A10.5's
-"never retire an unbuildable session" guarantee is re-established some other
-way. ✅ **THE GUARD HALF IS DONE — 2026-09-19.**
+**Acceptance:** every generation input a candidate must see at N+1 reaches it
+through the transaction-local channel rather than through global publication,
+and a value that is a standing projection is stated as one rather than frozen.
+⛔ Not by an ordering edge and not by re-fingerprinting: both were refuted
+above, and A10.5's "never retire an unbuildable session" guarantee is not
+reopened. ✅ **THE GUARD HALF IS DONE — 2026-09-19.**
 `the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`
 (`crates/ambition_platformer2d_provider/src/lifecycle.rs`) pins the location
 rather than the set's existence: construction `.before(Pending)` and

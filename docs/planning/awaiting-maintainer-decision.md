@@ -35,7 +35,6 @@ filing a new `Q`, check that the ruling above does not already decide it.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
-| [`Q147`](#q147--must-a-candidate-session-be-built-from-the-generation-its-own-activation-commits-or-from-the-one-current-before-it) | **P1** `CANDIDATE-GENERATION-ORDER`, entirely — the row's only remaining work is the answer | the two ordering edges keep pinning opposite ends of one set, a candidate keeps building from the generation before its own activation commits, and the next reader rediscovers it from scratch. ✔ Today's shape is pinned by a guard meanwhile, so the answer cannot be made moot by a silent move |
 | [`Q69`](#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier) | **P1** `D-POTATO-ASPECT`, entirely — the row's only `Blocked by:` | a content/quality call; nothing else in the row is startable without it |
 
 ⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
@@ -1664,57 +1663,3 @@ it anyway would be the sweep this row warned against: the guard's waivers each
 state a measurement — 18 of them when this paragraph was written, 27 as of
 2026-09-19 — and a fourth row added because its three neighbours moved would be
 a waiver with the opposite sign and no measurement behind it.
-
-## Q147 — must a candidate session be built from the generation its own activation commits, or from the one current before it?
-
-**FILED 2026-09-19 BECAUSE THE ROW ALREADY SAID "MAINTAINER CALL" AND NAMED NO
-`Q`.** `queue.md`'s `CANDIDATE-GENERATION-ORDER` states *"it is a maintainer
-call about what a candidate is supposed to see"* and carried no `Blocked by:`
-field, which is the same gap `Q146` was filed for four days after `C07`'s gate
-named a ruling nobody had asked for.
-
-**The measurement, and both halves of it are correct.** `commit_content_generation`
-must run `.after(AmbitionGameShellSet::Pending)` because that is where
-`advance_pending_route` produces `RouteActivated`; reading it earlier was a
-frame-late bug fixed 2026-09-12. `prepare_candidate_platformer_session` must run
-`.before` that same set, because a candidate that cannot be built must never
-retire the session that is playing — A10.5's last-good-world guarantee. ⇒ **No
-ordering edge can put the commit before construction**: they pin opposite ends
-of one set. A candidate is therefore prepared from the content generation
-current BEFORE its own activation committed.
-
-⚠ **AND IT IS NOT `Q118`'S REMAINING INTERVAL, THOUGH THEY SIT ON THE SAME
-FRAME.** `Q118`'s open half is an AUTHORIZATION going stale inside one
-transaction — a boundary change ordered after the publication breaker and
-before the commit acts on the activation. This question is about which content
-generation a candidate WORLD is constructed from. One is about a permission
-that stops being true; the other is about an input that was read too early.
-
-⚠ **NOT A SCHEDULE PROBLEM, WHICH IS WHY IT IS HERE.** Every edge involved is
-individually load-bearing and separately witnessed. What is undecided is what a
-candidate is SUPPOSED to see.
-
-✔ **AND TODAY'S SHAPE IS PINNED WHILE THIS IS OPEN**, so the answer cannot be
-made moot by a silent move:
-`the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`
-(`crates/ambition_platformer2d_provider/src/lifecycle.rs`) asserts both edges
-and that `GameplaySessionSet::Providers` holds adoption and NOT construction.
-Poison-verified on all four arms.
-
-**The decision:**
-
-* **(a) Correct by design — a candidate sees the generation that was live when
-  it was built.** The activation's own content commit is a separate transaction
-  that lands after it, and a candidate is a world for the ROUTE, not for the
-  content edit riding along with it. ⚠ Cost: nothing changes, the row closes,
-  and the asymmetry stays a documented property rather than a defect. ⛔ The
-  thing to check before choosing it: whether any road can activate a route
-  *because of* a content change that the candidate it builds cannot see.
-* **(b) A candidate must see its own committed generation.** ⚠ Cost: an edge
-  cannot deliver it. Either the candidate RE-FINGERPRINTS at adoption — cheap,
-  but it means the built world and its identity claim come from different
-  moments — or preparation moves after the commit, which puts construction
-  after the router has already evaluated the gate and **re-opens exactly the
-  hole A10.5 closed**: a session retired for a candidate that then fails to
-  build. That second road owes a replacement for the last-good-world guarantee
-  before it can be taken.

@@ -1,19 +1,40 @@
-//! Project the authored fighter difficulty rung onto newly inserted fighter brains.
+//! Project the authored fighter difficulty rung onto fighter brains.
 //!
-//! An Update-time projection over LIVE `Added<Brain>` components — actor-kernel
-//! policy, not construction. The spawn capability builds the brain; this decides
-//! which rung a brain in the world fights at.
+//! A projection over the fighter brains in the world — actor-kernel policy, not
+//! construction. The spawn capability builds the brain; this decides which rung
+//! a brain in the world fights at.
 
 use ambition_characters::brain::{Brain, StateMachineCfg};
 
-/// Project the game's authored fighter difficulty rung into newly inserted brains.
+/// Project the game's authored fighter difficulty rung into fighter brains.
 ///
 /// Rebuild `FighterState` so profile-cached perception and habit fields match the
 /// authored rung, while preserving the fighter's existing noise-stream position.
 /// The projection is idempotent and only rewrites when the rung differs.
+///
+/// ⛔⛤ **IT USED TO FILTER ON `Added<Brain>`, AND THAT DOES NOT COMPOSE WITH A
+/// DISABLING COMPONENT.** A candidate session builds its whole population
+/// behind `InactiveCandidate`, which ordinary queries cannot see, while the
+/// LIVE session keeps running this system every frame. Change detection
+/// compares a component's added tick against the SYSTEM'S last run, so by the
+/// time a candidate is adopted its brains are no longer newly added — and this
+/// is the only production consumer of `AuthoredFighterLadder`, so such a
+/// fighter kept `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game
+/// that authored a ladder. Silent: a floor profile is a valid profile.
+///
+/// ⚠ THE FILTER IS GONE RATHER THAN WIDENED, because there is no tick-based
+/// filter that a disabling component cannot step past. The pass is idempotent
+/// and writes only when the rung differs, so the cost is one profile
+/// comparison per fighter per tick.
+///
+/// ⛔ AND THE READ IS IMMUTABLE ON PURPOSE. `&mut *brain` on every fighter
+/// every tick would mark `Brain` changed for every other change-detection
+/// reader in the schedule, which is a busier thing than the projection it
+/// would be reporting. The mutable borrow is taken only by the fighter that is
+/// actually being rewritten.
 pub fn project_authored_fighter_ladder(
     ladder: Option<bevy::prelude::Res<ambition_characters::brain::fighter::AuthoredFighterLadder>>,
-    mut brains: bevy::prelude::Query<&mut Brain, bevy::prelude::Added<Brain>>,
+    mut brains: bevy::prelude::Query<&mut Brain>,
 ) {
     let Some(ladder) = ladder else {
         // No ladder shipped: the engine floor is the answer, which is the rule
@@ -21,17 +42,22 @@ pub fn project_authored_fighter_ladder(
         return;
     };
     for mut brain in &mut brains {
+        let wanted = {
+            let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &*brain else {
+                continue;
+            };
+            let Some(rung) = ladder.0.level(cfg.profile.level) else {
+                continue;
+            };
+            if cfg.profile == *rung {
+                continue;
+            }
+            *rung
+        };
         let Brain::StateMachine(StateMachineCfg::Fighter { cfg, state }) = &mut *brain else {
-            continue;
+            unreachable!("the immutable read above matched the fighter arm")
         };
-        let level = cfg.profile.level;
-        let Some(rung) = ladder.0.level(level) else {
-            continue;
-        };
-        if cfg.profile == *rung {
-            continue;
-        }
-        cfg.profile = *rung;
+        cfg.profile = wanted;
         // the stream this fighter was CONSTRUCTED on, carried across the
         // rebuild. See the note above: reseeding here is what would undo
         // `fighter_cognition_seed`.
@@ -182,6 +208,85 @@ mod ladder_projection_tests {
             CONSTRUCTED_STREAM,
             "the ladder projection reseeded the fighter's noise stream, which is \
              what made every CPU on one rung think identical thoughts"
+        );
+    }
+
+    /// **A FIGHTER BUILT INSIDE A HIDDEN CANDIDATE STILL TAKES THE RUNG.**
+    ///
+    /// ⛔⛤ **`Added<Brain>` AND A DISABLING COMPONENT DO NOT COMPOSE, AND THE
+    /// FAILURE IS SILENT.** A candidate session builds its whole world behind
+    /// `InactiveCandidate`, which is a real Bevy disabling component: ordinary
+    /// queries cannot see those entities. This projection's filter is change
+    /// detection, which compares the component's added tick against the
+    /// SYSTEM'S last-run tick — and the system keeps running, on the live
+    /// session, for every frame the candidate stays hidden. By the time the
+    /// candidate is adopted its brains are no longer "added" relative to a
+    /// system that has run since, so the one production consumer of
+    /// `AuthoredFighterLadder` never sees them and the fighter keeps
+    /// `FighterBrainProfile::for_level`, the ENGINE FLOOR, in a game that
+    /// authored a ladder.
+    ///
+    /// ⚠ **LATENT ON THE SHIPPED SMASH DUEL AND THAT IS NOT A DEFENCE.**
+    /// Measured 2026-09-19: the projection fires exactly twice in
+    /// `two_cpus_in_the_shipped_composition_damage_each_other`, once per seat —
+    /// smash seats are built into the live session after activation, so they
+    /// are visible when their brains appear. The hole is in the road, not in
+    /// that route, and the next fighter authored into candidate-built content
+    /// falls through it with no symptom to read.
+    ///
+    /// ⇒ The filter is gone rather than widened. The pass is idempotent (see
+    /// above) and only writes when the rung differs, so running it over every
+    /// fighter costs one profile comparison per brain per tick and owes nothing
+    /// to a tick counter that a disabling component can step past.
+    #[test]
+    fn a_fighter_built_behind_a_candidate_barrier_still_takes_the_rung() {
+        use ambition_platformer2d_shared_tangle::construction::{
+            hide_candidate_session_root, publish_candidate_session,
+            register_inactive_candidate_filter,
+        };
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            SessionScopeId, SessionScopedEntity,
+        };
+
+        let scope = SessionScopeId(7);
+        let mut app = App::new();
+        register_inactive_candidate_filter(app.world_mut());
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+
+        // Built hidden, exactly as a candidate session builds its population:
+        // the real hiding road, so a change in what hides a candidate reaches
+        // this arm instead of leaving it asserting against a hand-made marker.
+        let entity = app
+            .world_mut()
+            .spawn((fighter_brain(1), SessionScopedEntity(scope)))
+            .id();
+        bevy::ecs::system::RunSystemOnce::run_system_once(
+            app.world_mut(),
+            move |mut commands: Commands| {
+                hide_candidate_session_root(&mut commands, entity);
+            },
+        )
+        .expect("the hiding system runs");
+        // ⛔ THE LIVE SESSION KEEPS RUNNING WHILE THE CANDIDATE IS PREPARED, and
+        // that is the whole mechanism: each of these advances the system's
+        // last-run tick past the brain's added tick.
+        for _ in 0..3 {
+            app.update();
+        }
+        // Adoption, through the one road that performs it.
+        publish_candidate_session(app.world_mut(), entity, scope);
+        app.update();
+
+        let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+        assert_ne!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")),
+            floor,
+            "a fighter prepared behind a candidate barrier came out on the ENGINE \
+             FLOOR: the ladder projection never saw it, because `Added<Brain>` \
+             was already stale by the time the candidate became visible"
         );
     }
 

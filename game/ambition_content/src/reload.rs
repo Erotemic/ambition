@@ -590,11 +590,17 @@ fn publish_encounter_waves(
 /// this does not change that: a resource write and a resource removal are both
 /// unconditional.
 ///
-/// ⚠ **AND NO NEW ORDERING EDGE.** The projection that puts a rung onto a brain
-/// (`project_authored_fighter_ladder`) runs on `Added<Brain>`, and a reload
-/// reconstructs the session — so the fighters that read this are spawned by
-/// `GameplaySessionSet::Providers`, which [`register`] already orders this
-/// system before, for the cast's sake.
+/// ⚠ **AND NO NEW ORDERING EDGE, THOUGH THE REASON CHANGED UNDER IT.** This
+/// used to say the projection runs on `Added<Brain>` and that a reload
+/// reconstructs the session, so the fighters reading this are spawned by
+/// `GameplaySessionSet::Providers` — which [`register`] already orders this
+/// system before, for the cast's sake. A10.5 moved construction earlier and
+/// that sentence stopped describing the runtime: a candidate session's brains
+/// exist, hidden, long before adoption. `project_authored_fighter_ladder` no
+/// longer filters on `Added` at all — it re-reads every fighter and rewrites
+/// only when the rung differs — so this publication owes no ordering edge for
+/// a reason that no longer depends on when brains appear. The `Providers` edge
+/// stays, for the cast.
 fn publish_participant_families(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,

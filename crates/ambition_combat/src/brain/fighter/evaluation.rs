@@ -50,6 +50,7 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 /// numbers here are a plausible spread rather than any character's real moveset
 /// — the rig measures the DECIDING, and a scenario that named a specific
 /// character would be measuring content instead.
+///
 fn rig_kit() -> Vec<AttackCandidate> {
     let frames = |startup_s: f32, reach: f32, damage: i32| ambition_entity_catalog::MoveFrameData {
         total_s: startup_s + 0.1 + 0.2,
@@ -65,6 +66,8 @@ fn rig_kit() -> Vec<AttackCandidate> {
             min: (0.0, -12.0),
             max: (reach, 12.0),
         }),
+        // This fixture authors no windbox.
+        push_coverage: None,
         max_damage: damage,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),

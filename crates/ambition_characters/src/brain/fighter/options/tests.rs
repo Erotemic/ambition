@@ -24,6 +24,8 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
             min: (0.0, -12.0),
             max: (reach, 12.0),
         }),
+        // This fixture authors no windbox.
+        push_coverage: None,
         max_damage: 1,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),
@@ -320,6 +322,110 @@ fn recovery_offers_no_attacks_and_exactly_one_obligation() {
     assert!(opts.attacks.is_empty());
     assert!(opts.best_attack().is_none());
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Recover);
+}
+
+/// A kick that trails a shove, the shape [`authoring::wake`] builds: one
+/// hittable boot and one windbox beyond it. The push ALWAYS reaches further —
+/// that helper asserts it, so an enclosed wake cannot be authored.
+fn waked_kick(boot: f32, dust: f32) -> AttackCandidate {
+    let mut c = candidate("waked_kick", 0.12, boot);
+    c.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (0.0, -12.0),
+        max: (boot, 12.0),
+    });
+    c.frames.push_coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (boot, -12.0),
+        max: (dust, 12.0),
+    });
+    c
+}
+
+/// ⛔⛤ A SHOVE IS NOT A REACH, AND THE MERGED READING PRICED A KICK BY ITS
+/// DUST.
+///
+/// `MoveFrameData::coverage` was the union of every Active volume, windboxes
+/// included, and [`authoring::wake`] ASSERTS that the push reaches further than
+/// the hit — so for every waked move the only thing the brain knew about where
+/// it could land was the DUST's extent. `goblin::dirt_kick` read as an 82px poke
+/// whose boot stops at 48.
+///
+/// ⇒ `reach_fit` now scores the boot. At 70px — past the boot, inside the dust
+/// — the move is priced as the near-miss it is, strictly below the fit the
+/// merged reading gave it.
+#[test]
+fn a_waked_kick_is_priced_by_its_boot_and_not_by_its_dust() {
+    let w = UtilityWeights::v1();
+    let boot_only = [waked_kick(48.0, 82.0)];
+    // The same kick as the merged reading described it: one volume out to the
+    // dust, which is what the old union produced.
+    let mut as_if_merged = candidate("waked_kick", 0.12, 82.0);
+    as_if_merged.frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (0.0, -12.0),
+        max: (82.0, 12.0),
+    });
+    let merged = [as_if_merged];
+    let fit = |kit: &[AttackCandidate]| {
+        generate_options(
+            Perceived::cheating(&view_with(0.0, 70.0)),
+            Situation::Neutral,
+            kit,
+            &w,
+        )
+        .best_attack()
+        .map(|a| a.features.reach_fit)
+    };
+    let boot = fit(&boot_only).expect("the kick is still on the menu");
+    let dust = fit(&merged).expect("the control kit offers the same move");
+    assert!(
+        boot < dust,
+        "the boot cannot reach 70px and the dust can, so pricing by the boot \
+         must be strictly worse: boot={boot} dust={dust}"
+    );
+    // ⚠ AND NOT ZERO, which would make this pass for the wrong reason. The
+    // near-miss still ranks — that is what makes a brain commit to a spacing —
+    // and whether a near-miss should be OFFERED at all is a separate question
+    // this test deliberately does not answer.
+    assert!(boot > 0.0, "a near-miss is still priced: {boot}");
+}
+
+/// The other foot of the same split: a move that can ONLY push still has a
+/// range. Splitting the datum made a gust's `coverage` `None`, and the
+/// "lands no volume" arm — written for buffs and summons — would then have
+/// offered it from anywhere on the stage.
+#[test]
+fn a_move_that_only_shoves_is_offered_exactly_where_it_can_shove() {
+    let mut gust = candidate("gust", 0.1, 0.0);
+    gust.frames.coverage = None;
+    gust.frames.push_coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (0.0, -12.0),
+        max: (60.0, 12.0),
+    });
+    gust.frames.max_damage = 0;
+    let kit = [gust];
+    let w = UtilityWeights::v1();
+    assert_eq!(
+        generate_options(
+            Perceived::cheating(&view_with(0.0, 40.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        )
+        .best_attack()
+        .map(|a| a.move_id.as_str()),
+        Some("gust"),
+        "inside the push region"
+    );
+    assert!(
+        generate_options(
+            Perceived::cheating(&view_with(0.0, 300.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        )
+        .attacks
+        .is_empty(),
+        "300px away it pushes nobody"
+    );
 }
 
 /// The same candidate, plus the one number that makes it a way home.
@@ -769,6 +875,8 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
     let smash = AttackCandidate {
         move_id: "smash".to_string(),
         frames: MoveFrameData {
+            // This fixture authors no windbox.
+            push_coverage: None,
             max_damage: 20,
             ..frames(0.25, 100.0, 0.4)
         },
@@ -786,6 +894,8 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
         },
         legality: ActionLegality::Now,
         frames: MoveFrameData {
+            // This fixture authors no windbox.
+            push_coverage: None,
             max_damage: 4,
             ..frames(0.1, 100.0, 0.2)
         },
@@ -1299,8 +1409,8 @@ fn an_attack_the_body_cannot_begin_is_not_offered() {
 
 /// Legality is a FILTER, not a penalty — asserted where the difference shows.
 ///
-/// The blocked move here is the BEST option in the kit by every feature: it
-/// reaches perfectly and the alternative barely reaches at all. Scoring it low
+/// The blocked move here is the BEST option in the kit by every feature: both
+/// reach the same place and it gets there six times faster. Scoring it low
 /// would still let it win, because `attacks.first()` always answers; only
 /// removing it produces the right press.
 #[test]
@@ -1308,9 +1418,11 @@ fn a_blocked_move_loses_even_when_it_is_the_best_one() {
     let view = view_with(300.0, 340.0);
     let mut best = candidate("perfect", 0.05, 40.0);
     best.legality = ActionLegality::BlockedByPlayback;
-    // The poorer candidate must still reach; otherwise the sibling reachability
-    // filter empties the kit and makes this test vacuous.
-    let poor = candidate("stubby", 0.3, 20.0);
+    // ⚠ THE POORER CANDIDATE MUST ACTUALLY COVER THE FOE, or the sibling
+    // admission filter empties the kit and this test measures nothing. It used
+    // to reach 20px at a 40px gap and survive on `reach_fit`'s tolerance band,
+    // which is the reading `covers` exists to stop being an admission.
+    let poor = candidate("stubby", 0.3, 40.0);
     let kit = [best, poor];
 
     let opts = generate_options(

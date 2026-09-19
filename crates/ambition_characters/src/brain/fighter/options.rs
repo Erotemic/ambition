@@ -438,7 +438,24 @@ pub fn generate_options(
     // for a buff or a summon because hitting is not its question; dropping those
     // would delete a whole class of move from every kit that has one. Only a move
     // that HAS a hittable region and cannot cover where the foe is goes.
-    attacks.retain(|attack| attack.frames.coverage.is_none() || attack.features.reach_fit > 0.0);
+    //
+    // ⛔⛤ AND A PURE SHOVE IS THE THIRD CASE, WHICH THE TWO ABOVE SILENTLY
+    // MERGED. `MoveFrameData::coverage` used to be the union of the hit volumes
+    // AND the windboxes, so a gust read as a hittable move and a waked kick read
+    // as reaching as far as its dust. Splitting the datum fixes the kick — its
+    // boot is now what `reach_fit` scores — and would have made the gust
+    // `coverage: None`, i.e. offered at any range at all, which is the same
+    // defect on the other foot. A move that can only PUSH is gated on where it
+    // can push.
+    attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
+        // Hits somewhere: the hit is the question, and the shove it may also
+        // carry is not a reason to swing at nobody.
+        (Some(_), _) => attack.features.reach_fit > 0.0,
+        // Only shoves: offered exactly where the shove lands.
+        (None, Some(push)) => coverage_fit(Some(push), foe_local, foe_extent) > 0.0,
+        // Touches nothing — a buff, a summon, a pure-motion move.
+        (None, None) => true,
+    });
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).

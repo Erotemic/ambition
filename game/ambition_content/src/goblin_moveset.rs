@@ -686,6 +686,35 @@ mod dirt_tests {
             "the dust travels BEYOND the boot"
         );
     }
+
+    /// ⭐⭐ AND THE BRAIN IS TOLD WHERE THE BOOT IS, NOT WHERE THE DUST IS.
+    ///
+    /// `MoveFrameData::reach`/`coverage` are the only thing a fighter brain
+    /// knows about where a move can land, and they used to be the union of
+    /// EVERY Active volume. [`wake`] asserts the dust reaches further than the
+    /// hit, so that union reported this move as a poke reaching to the dust —
+    /// and a goblin mirror at rung 5 then held a 93px gap for a whole bout,
+    /// pressing `dirt_kick` at a range where only the shove landed and the
+    /// shove kept the range.
+    ///
+    /// ⇒ The two numbers below are the two questions, and this is the move
+    /// that proves they differ: the boot ends at 48, the dust ends at 82.
+    #[test]
+    fn the_brains_reach_for_the_dirt_kick_is_the_boot_and_not_the_dust() {
+        let frames = goblin_moveset()
+            .move_by_id("dirt_kick")
+            .expect("dirt_kick exists")
+            .frame_data();
+        // ⚠ NO `expect` ABOVE THE CLAIM. A missing region would panic one line
+        // before the assertion that names it, and a poison that fails through
+        // the wrong line has not tested the arm it was aimed at.
+        let hit = frames.coverage.map(|c| c.max.0);
+        let push = frames.push_coverage.map(|c| c.max.0);
+        assert_eq!(frames.reach, 48.0, "offset 18 + half-extent 30 — the boot");
+        assert_eq!(hit, Some(48.0), "the hittable region ends at the boot");
+        assert_eq!(push, Some(82.0), "offset 58 + half-extent 24 — the dust");
+        assert!(push > hit, "the whole point of a wake: {push:?} vs {hit:?}");
+    }
 }
 
 #[cfg(test)]

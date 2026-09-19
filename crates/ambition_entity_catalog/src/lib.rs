@@ -3011,44 +3011,69 @@ impl MoveSpec {
         // Recovery = from the last Active edge to the move's end.
         let last_active_end = active_spans.iter().map(|(_, e)| *e).fold(0.0_f32, f32::max);
         let recovery_s = (self.duration_s - last_active_end).max(0.0);
-        // Reach = the farthest body-local +x extent any Active volume reaches
-        // (offset toward facing + the volume's half-width / radius). Zero when
-        // the move lands no volume (a pure-motion or effect-only move).
-        let reach = self
-            .windows
-            .iter()
-            .filter(|w| matches!(w.tag, WindowTag::Active))
-            .flat_map(|w| w.volumes.iter())
-            .map(|v| match v.shape {
-                VolumeShape::Rect {
-                    offset,
-                    half_extents,
-                } => offset.0 + half_extents.0,
-                VolumeShape::Circle { offset, radius } => offset.0 + radius,
-            })
-            .fold(0.0_f32, f32::max);
-        let coverage = self
-            .windows
-            .iter()
-            .filter(|w| matches!(w.tag, WindowTag::Active))
-            .flat_map(|w| w.volumes.iter())
-            .map(|v| match v.shape {
-                VolumeShape::Rect {
-                    offset,
-                    half_extents,
-                } => MoveCoverage {
-                    min: (offset.0 - half_extents.0, offset.1 - half_extents.1),
-                    max: (offset.0 + half_extents.0, offset.1 + half_extents.1),
-                },
-                VolumeShape::Circle { offset, radius } => MoveCoverage {
-                    min: (offset.0 - radius, offset.1 - radius),
-                    max: (offset.0 + radius, offset.1 + radius),
-                },
-            })
-            .reduce(|a, b| MoveCoverage {
+        // ⛔⛤ A SHOVE IS NOT A REACH, AND FOLDING BOTH INTO ONE NUMBER TOLD
+        // EVERY READER THE MOVE COULD HIT WHERE IT CANNOT.
+        //
+        // [`authoring::wake`] ASSERTS that the push reaches further than the
+        // hit — *"an enclosed wake is authored dead code"* — so for every move
+        // that carries one, a union over all Active volumes reports the DUST's
+        // extent as the move's reach, by construction. `goblin::dirt_kick` then
+        // reads as a 82px poke whose boot stops at 48px.
+        //
+        // ⭐ MEASURED 2026-09-19, `AMBITION_DUEL_RUNG=5`, goblin mirror: both
+        // seats hold a 93px gap for 3618 ticks, choose `Approach` on 724 of 724
+        // decisions, and press `dirt_kick` on every decision the body is free —
+        // because the dust "reaches", and the dust's own push holds the gap
+        // open. 0 damage, 0 hitstun, one distinct move. That is the
+        // `used == 1, neutral == 100%` lock the BRAIN queue row measured across
+        // five fighters.
+        //
+        // ⇒ So the two regions are two fields. A [`VolumeReaction::Windbox`]
+        // *"PUSHES its victim and does nothing else"*, which makes it exactly
+        // not the thing a scorer asking *"can I hit them from here"* wants.
+        let hittable = |v: &HitVolume| !matches!(v.reaction, Some(VolumeReaction::Windbox(_)));
+        let active_volumes = || {
+            self.windows
+                .iter()
+                .filter(|w| matches!(w.tag, WindowTag::Active))
+                .flat_map(|w| w.volumes.iter())
+        };
+        let extent_x = |v: &HitVolume| match v.shape {
+            VolumeShape::Rect {
+                offset,
+                half_extents,
+            } => offset.0 + half_extents.0,
+            VolumeShape::Circle { offset, radius } => offset.0 + radius,
+        };
+        let box_of = |v: &HitVolume| match v.shape {
+            VolumeShape::Rect {
+                offset,
+                half_extents,
+            } => MoveCoverage {
+                min: (offset.0 - half_extents.0, offset.1 - half_extents.1),
+                max: (offset.0 + half_extents.0, offset.1 + half_extents.1),
+            },
+            VolumeShape::Circle { offset, radius } => MoveCoverage {
+                min: (offset.0 - radius, offset.1 - radius),
+                max: (offset.0 + radius, offset.1 + radius),
+            },
+        };
+        let union = |volumes: &mut dyn Iterator<Item = MoveCoverage>| {
+            volumes.reduce(|a, b| MoveCoverage {
                 min: (a.min.0.min(b.min.0), a.min.1.min(b.min.1)),
                 max: (a.max.0.max(b.max.0), a.max.1.max(b.max.1)),
-            });
+            })
+        };
+        // Reach = the farthest body-local +x extent any HITTABLE Active volume
+        // reaches (offset toward facing + the volume's half-width / radius).
+        // Zero when the move lands no hittable volume (a pure-motion, a gust, an
+        // effect-only move).
+        let reach = active_volumes()
+            .filter(|v| hittable(v))
+            .map(extent_x)
+            .fold(0.0_f32, f32::max);
+        let coverage = union(&mut active_volumes().filter(|v| hittable(v)).map(box_of));
+        let push_coverage = union(&mut active_volumes().filter(|v| !hittable(v)).map(box_of));
         // Power = the strongest Active volume, derived exactly like `reach`.
         let max_damage = self
             .windows
@@ -3117,6 +3142,7 @@ impl MoveSpec {
             // kit sets it and nothing here guesses.
             ignores_guard: false,
             coverage,
+            push_coverage,
             max_damage,
             max_knockback,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
@@ -3308,6 +3334,17 @@ pub struct MoveFrameData {
     /// exist. This is the datum — the union of the authored volumes — not another
     /// summary of it.
     pub coverage: Option<MoveCoverage>,
+    /// The region this move can SHOVE without hitting — the union of its
+    /// [`VolumeReaction::Windbox`] volumes, `None` for the overwhelming majority
+    /// of moves, which carry none.
+    ///
+    /// ⛔ SEPARATE FROM [`Self::coverage`] BECAUSE A SCORER ASKS A DIFFERENT
+    /// QUESTION OF IT. "Can I hit them from here" and "can I push them from
+    /// here" have different answers and different consequences, and a union of
+    /// the two answers neither: `wake` guarantees the push reaches further, so
+    /// the merged reading said every waked move could hit as far as it could
+    /// shove.
+    pub push_coverage: Option<MoveCoverage>,
     /// Highest `damage` any Active volume deals — the move's POWER, so an
     /// option scorer can price a smash above a jab (FB6a; §9 of
     /// fighter-brain.md recorded that nothing could). `0` for a move that

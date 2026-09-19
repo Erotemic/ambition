@@ -1847,9 +1847,10 @@ the row before any code does.
 ⇒ ⛔ **Do not re-implement either half from the row text alone.** It reads as one
 20-line change and it is not.
 
-⭐⭐ **THE SET-KNOCKBACK HALF IS LANDED (`45b30500e`), AND THE THROW HALF IS
-IMPLEMENTED, TESTED, POISONED AND HELD.** The ruling has two clauses and they
-separate cleanly in the tree, so they separated in the commits.
+⭐⭐ **BOTH CLAUSES ARE LANDED — set knockback in `45b30500e`, throws-obey-rage
+beside this line.** The ruling has two clauses and they separate cleanly in the
+tree, so they separated in the commits and the second one's cost was measured
+against the first as a control.
 
 **Landed.** Rage now resolves inside `resolved_hitbox_knockback_magnitude`
 instead of at its caller, and a launch whose AUTHORED growth is zero declines
@@ -1863,8 +1864,8 @@ switch rage off game-wide if they were allowed to answer this.
 set-knockback volume lands in that bout, so the change is free where it was
 measured and correct where it is not.
 
-**Held, and it is a BALANCE call rather than an engineering one.**
-`crate::util::rage_for_growth` is already shared so the throw road can call it;
+**Landed, and its cost was evaluated rather than escalated.**
+`crate::util::rage_for_growth` is shared so the throw road calls it;
 the throw side is four lines (`captors` gains `Option<&BodyHealth>`,
 `apply_capture_throws` keeps the whole `ResolvedCombatTuning` instead of
 projecting one field out of it, and the resolved magnitude takes
@@ -1909,15 +1910,29 @@ shipped rage is `rage_per_damage: 0.004` capped at `1.4`, which is at most
 `×1.17` and averages well under that over a bout. So the reading is real and the
 instrument is steep, both.
 
-⇒ **What is owed is a tuning decision, not more engineering.** The ruling says a
-moved benchmark is balance evidence and not a reason to keep the inconsistency;
-this is that evidence, measured on the shipped composition. Landing the throw
-clause as ruled turns `two_cpus_in_the_shipped_composition_damage_each_other`
-red at its default rung, and the three roads out of that are (a) retune the
-authored throw bases against a road that now has rage in it, (b) recalibrate the
-duel gate against the new mechanics, or (c) change what a launched fighter does
-with 3200 ticks of airtime. ⛔ None of the three is an engineering judgement and
-none should be taken unilaterally.
+⇒ **THE GATE WAS RECALIBRATED AND THE MECHANIC LANDED, WHICH IS THE ORDER JON
+ASKED FOR.** 2026-09-19: *"You are mistaking these balance sheets as hard
+rules. They are references for when we work on balance. They shouldn't prevent
+landing features. But they should make us aware when feel changes… We look at
+sizes of regressions and then evaluate them… We need to be able to make these
+semantic judgements without my input."*
+
+The judgement, stated so the next reader can disagree with it: `1.36 → 0.46` is
+a TAPER, not a collapse. The bout still spends three stocks, both seats still
+enter hitstun (32 ticks each), and both still deal damage into each other; what
+changed is that it takes 3618 ticks instead of 2314. A collapse would read near
+zero with a passenger seat, and the per-seat arms that refuse exactly that did
+not move. ⇒ `A_REAL_FIGHT` drops `0.5 → 0.125` — a pair floor of `0.25`, which
+the two live rungs clear by 84% and 156% and an inert pair still fails — and
+the constant's doc now says it answers *"did a fight happen"* and nothing
+finer. The graded reading it used to carry is PRINTED on success in the
+`[duel]` line, which is where a balance reference belongs.
+
+⚠ **WHAT IS STILL OWED IS TUNING, AND IT IS NOT THIS ROW'S.** Rung 5 reads
+`0.20` and failed at HEAD too, so it is a pre-existing defect this change did
+not cause and did not fix. And the mechanism above names the real target for
+whoever picks up feel: a launched fighter spends 74% of the bout airborne and
+fills it with projectiles.
 
 ### HEADLESS-STEP-COUNT — ✅ CLOSED 2026-09-16: three arms whose green was wall-clock luck
 

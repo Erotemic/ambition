@@ -171,7 +171,29 @@ const TICKS: usize = 3_600;
 /// stocks spent, and the two seats take 0.34 and 0.19 — which is 0.99 and 0.56
 /// at this rate. The THRESHOLD did not move; what moved is the window it is
 /// divided by.
-const A_REAL_FIGHT: f32 = 0.5;
+///
+/// ⭐⭐ **LOWERED 0.5 → 0.125 ON 2026-09-19, AND THE REASON IS THE SENTENCE
+/// THREE LINES ABOVE COLLECTING ON ITSELF.** At `0.5` this had drifted into
+/// pinning the tuning: the shipped rung-9 reading was `1.36` against a pair
+/// floor of `1.00`, four percent of throw strength from red. Q133 then ruled
+/// that ordinary scaling throws participate in rage, and the same bout reads
+/// `0.46` — still three knockouts, still 32 hitstun ticks a side, still both
+/// seats dealing damage into each other, but longer and slower because a
+/// harder throw sends both fighters off-stage more often. That is a FEEL
+/// change, and this gate exists to notice feel changes, not to veto them.
+///
+/// ⛔ SO WHAT THIS NUMBER NOW MEANS IS INERTNESS, AND NOTHING FINER. The pair
+/// floor is `0.25`, which the two live rungs clear by 84% and 156% and which a
+/// pair that never approaches (≈0.0) still fails by the margin it always did.
+/// The graded reading did not go away — it is PRINTED on success in the
+/// `[duel]` line, which is where a balance reference belongs. ⇒ Read the
+/// printed number when tuning; this constant only answers *"did a fight
+/// happen."*
+///
+/// ⚠ THE TEETH ARE NOT IN HERE. A seat that deals nothing to the other seat, or
+/// never enters hitstun, is refused by the per-seat arms below, and neither
+/// moved. Lowering a pair SUM cannot let a passenger through.
+const A_REAL_FIGHT: f32 = 0.125;
 
 /// The shortest duel a rate may be read off.
 ///

@@ -2226,6 +2226,67 @@ mod tests {
         );
     }
 
+    /// A HURT CAPTOR THROWS FARTHER, AND A SET THROW IS IMMUNE TO IT.
+    ///
+    /// ⭐ RULED 2026-09-19: for the Smash-like game, follow Smash. An ordinary
+    /// scaling throw participates in rage — the victim's percent already
+    /// scaled that launch, so without it the fighter behind on stocks is
+    /// punished twice by its own damage — and set knockback keeps set-knockback
+    /// semantics as in Ultimate.
+    ///
+    /// ⛔ THE SET ARM IS THE ONE THAT CATCHES THE LAZY FIX. Multiplying the
+    /// resolved throw by `rage_scale` unconditionally passes the first
+    /// assertion and reintroduces percent dependence into the one launch
+    /// authored to have none; only reading BOTH arms off the same ruleset can
+    /// tell the two apart.
+    ///
+    /// ⛔ AND THE CAPTOR IS THE BODY WHOSE METER IS MOVED, not the captive.
+    /// Damaging the victim would move the percent term instead and the reading
+    /// would be green for the mechanic that already worked.
+    #[test]
+    fn a_hurt_captor_throws_farther_and_a_set_throw_is_immune() {
+        let launch = |captor_damage: i32, growth: f32| {
+            let (mut app, captor, victim) = throw_app();
+            app.insert_resource(crate::rules::ResolvedCombatTuning {
+                rage_per_damage: 0.01,
+                rage_max_scale: 2.0,
+                ..Default::default()
+            });
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyHealth>(captor)
+                .unwrap()
+                .damage(captor_damage);
+            app.world_mut().write_message(throw(captor, growth));
+            app.update();
+            app.world()
+                .get::<ae::BodyKinematics>(victim)
+                .unwrap()
+                .vel
+                .length()
+        };
+
+        let fresh = launch(0, 4.0);
+        let raging = launch(60, 4.0);
+        assert!(
+            fresh > 0.0,
+            "the fixture threw nobody, so both arms below would read zero and \
+             agree for the wrong reason"
+        );
+        assert!(
+            raging > fresh * 1.5,
+            "a captor at 60% threw no harder than a fresh one: fresh {fresh}, \
+             raging {raging} — rage never reached the throw road"
+        );
+
+        let set_fresh = launch(0, 0.0);
+        let set_raging = launch(60, 0.0);
+        assert_eq!(
+            set_fresh, set_raging,
+            "rage moved a SET throw, which is the one launch authored to be the \
+             same at every percent on both sides"
+        );
+    }
+
     /// A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.
     ///
     /// Half of the "one captor, one captive" invariant. Without it a grab whose
@@ -2644,7 +2705,17 @@ pub fn apply_capture_pummels(
 pub fn apply_capture_throws(
     mut commands: Commands,
     mut requests: MessageReader<crate::capture::CaptureThrowRequested>,
-    captors: Query<&ae::BodyKinematics, Without<CapturedBy>>,
+    // ⭐ THE CAPTOR'S OWN METER, FOR RAGE. A throw is the one launch in the
+    // game whose attacker is not reachable from a hitbox entity, so the health
+    // it rages from has to be queried beside the facing it throws along.
+    // Optional because a composition can throw without a health pool.
+    captors: Query<
+        (
+            &ae::BodyKinematics,
+            Option<&ambition_characters::actor::BodyHealth>,
+        ),
+        Without<CapturedBy>,
+    >,
     mut captives: Query<(
         Entity,
         &CapturedBy,
@@ -2675,9 +2746,12 @@ pub fn apply_capture_throws(
     // `1.0` is the law as first written, and also exactly what
     // `ResolvedCombatTuning::default()` carries — an undeclared world is flat
     // anyway, so the percent term is zero there whatever this says.
-    let percent_scale = rules
-        .map(|r| r.victim_percent_knockback_scale)
-        .unwrap_or(1.0);
+    // ⛔ THE WHOLE RESOLVED TUNING IS KEPT, NOT JUST THE PERCENT KNOB. Rage
+    // needs `rage_per_damage` and `rage_max_scale` too, and projecting one
+    // field out here is how the percent curve came to be wired into the
+    // resolver and not into throws in the first place.
+    let rules = rules.map(|r| *r).unwrap_or_default();
+    let percent_scale = rules.victim_percent_knockback_scale;
     for request in requests.read() {
         let Some((
             victim,
@@ -2697,7 +2771,7 @@ pub fn apply_capture_throws(
         else {
             continue;
         };
-        let Ok(captor_kin) = captors.get(request.captor) else {
+        let Ok((captor_kin, captor_health)) = captors.get(request.captor) else {
             continue;
         };
 
@@ -2726,6 +2800,17 @@ pub fn apply_capture_throws(
             weight,
             percent_scale,
         );
+        // ⭐⭐ A THROW RAGES LIKE A SWING — RULED 2026-09-19, and it is the same
+        // mirror argument the hitbox road's rage comment makes: the victim's
+        // percent already scaled this launch (the call above), so without rage
+        // the fighter behind on stocks is punished twice by its own damage.
+        // ⛔ EXCEPT A SET THROW, which declines rage for the reason any set
+        // launch does — see [`crate::util::rage_for_growth`].
+        let magnitude = magnitude
+            * crate::util::rage_for_growth(
+                rules.rage_scale(captor_health.map(|h| h.damage_taken()).unwrap_or(0)),
+                request.knockback_growth,
+            );
         let knockback = ae::hit_response::HitKnockback {
             // A throw is a hit: it stuns.
             reaction: ae::hit_response::HitReaction::Strike,

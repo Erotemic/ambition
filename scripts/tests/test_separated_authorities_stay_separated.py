@@ -90,3 +90,48 @@ def test_the_floor_is_measured_on_this_corpus():
         f"a floor of {guard.FLOOR} against {today} files is so low that a corpus "
         "collapse would pass it, which is the only thing a floor is for"
     )
+
+
+def test_the_editor_mirror_has_exactly_one_production_writer():
+    """⭐ `DUP-EDITOR-STAGES`'s justification, made mechanical.
+
+    The row rests on the `MechanicalEditSet::Publish` contract — adapters copy
+    their mirror into the authoritative value *"here — and ONLY here"* — which
+    is a claim about the number of production writers, and countable.
+    """
+    writers = guard.production_writers("ActiveMovementTuning", guard.production_sources())
+    assert len(writers) == 1, f"expected one production writer, found {writers}"
+    _rel, fn, _line = writers[0]
+    assert fn == "publish_editable_movement_tuning"
+
+
+def test_a_second_adapter_writing_the_authoritative_value_is_caught():
+    sources = [
+        ("a.rs", "pub struct ActiveMovementTuning;\n"
+                 "fn publish_editable_movement_tuning(a: ResMut<ActiveMovementTuning>) {}\n"
+                 "fn somebody_else(a: ResMut<ActiveMovementTuning>) {}\n"),
+    ]
+    writers = guard.production_writers("ActiveMovementTuning", sources)
+    assert len(writers) == 2
+    assert {fn for _r, fn, _l in writers} == {
+        "publish_editable_movement_tuning",
+        "somebody_else",
+    }
+
+
+def test_the_writer_LEAVING_the_publish_arm_is_caught_not_just_a_second_one():
+    """⛔ THE QUIETER HALF. A second adapter is the obvious break; the one site
+    MOVING out of the publish arm keeps the count at one, and a bare count
+    cannot see it — which is why the rule pins the writer's NAME too."""
+    sources = [
+        ("a.rs", "pub struct ActiveMovementTuning;\n"
+                 "fn apply_movement_tuning_somewhere_else(a: ResMut<ActiveMovementTuning>) {}\n"),
+    ]
+    writers = guard.production_writers("ActiveMovementTuning", sources)
+    assert len(writers) == 1, "the count alone still reads as healthy"
+    assert writers[0][1] != "publish_editable_movement_tuning"
+
+
+def test_a_read_is_not_counted_as_a_writer():
+    sources = [("a.rs", "fn s(a: Res<ActiveMovementTuning>) {}\n")]
+    assert guard.production_writers("ActiveMovementTuning", sources) == []

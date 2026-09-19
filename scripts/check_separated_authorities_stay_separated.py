@@ -69,6 +69,28 @@ WRITE_ONLY_IN_PRODUCTION = {
     "LastRoomConstructionCommit": "DUP-CONSTRUCTION-DIAGNOSTICS",
 }
 
+#: ⛤ **`DUP-EDITOR-STAGES` RESTS ON A SENTENCE THAT IS ALREADY MECHANICAL, AND
+#: NOTHING WAS CHECKING IT.** The census row's justification is the contract at
+#: `MechanicalEditSet::Publish`: editor adapters copy their mirror into the
+#: authoritative value *"here — and ONLY here, and only when the answer was
+#: `MechanicalEditAdmission::Publish`"*
+#: (`crates/ambition_platformer2d_core/src/movement/tuning.rs:466-468`). "ONLY
+#: here" is a claim about the number of production writers, which is countable.
+#:
+#: MEASURED 2026-09-19: `ActiveMovementTuning` has exactly ONE production
+#: `ResMut` site against NINE `Res` readers, and that site is
+#: `publish_editable_movement_tuning`
+#: (`crates/ambition_dev_tools/src/dev_tools/editable.rs:1154-1158`), which
+#: `sim_plugin.rs:133` registers `.in_set(MechanicalEditSet::Publish)`.
+#:
+#: ⚠ THE RULE IS THE WRITER COUNT PLUS THE WRITER'S NAME, not the count alone. A
+#: second adapter appearing is the obvious way to break the separation; the
+#: quieter way is the one site MOVING out of the publish arm, and a bare count
+#: cannot see that.
+SINGLE_PRODUCTION_WRITER = {
+    "ActiveMovementTuning": ("publish_editable_movement_tuning", "DUP-EDITOR-STAGES"),
+}
+
 #: How a read is spelled. `insert_resource` is a write and `Res<T>` is not: the
 #: patterns below are anchored so `insert_resource::<T>` cannot match as one.
 READ_SPELLINGS = (
@@ -140,6 +162,30 @@ def production_reads(name: str, sources) -> list[str]:
     return sorted(set(hits))
 
 
+#: A `fn name(` header. The writer's owner is the nearest one ABOVE the match.
+_FN = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+
+
+def production_writers(name: str, sources) -> list[tuple[str, str, int]]:
+    """`(file, enclosing fn, line)` for every production `ResMut<name>`.
+
+    ⚠ THE ENCLOSING FUNCTION IS THE NEAREST `fn` HEADER ABOVE THE PARAMETER, which
+    is exact for a system's parameter list — the only place a `ResMut` may appear
+    — and would be wrong for a `ResMut` mentioned in a body. Systems take theirs
+    in the signature, so the two cases do not overlap here.
+    """
+    pattern = re.compile(
+        rf"\bResMut\s*<\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*::\s*)*{re.escape(name)}\b"
+    )
+    out: list[tuple[str, str, int]] = []
+    for rel, body in sources:
+        for match in pattern.finditer(body):
+            heads = list(_FN.finditer(body, 0, match.start()))
+            owner = heads[-1].group(1) if heads else "<no enclosing fn>"
+            out.append((rel, owner, body[: match.start()].count("\n") + 1))
+    return sorted(out)
+
+
 def main() -> int:
     sources = production_sources()
     if len(sources) < FLOOR:
@@ -166,6 +212,27 @@ def main() -> int:
                 "longer a legitimate separation"
             )
 
+    for name, (owner, family) in sorted(SINGLE_PRODUCTION_WRITER.items()):
+        if declaration_derives(name, sources) is None:
+            bad.append(f"`{name}` ({family}) is declared nowhere in production source")
+            continue
+        writers = production_writers(name, sources)
+        if len(writers) != 1:
+            bad.append(
+                f"`{name}` ({family}) has {len(writers)} production writer(s) "
+                f"({', '.join(f'{r}:{fn}' for r, fn, _ in writers) or 'none'}); the "
+                f"census row says an editor mirror is copied into the authoritative "
+                f"value in ONE place and only there"
+            )
+            continue
+        rel, fn, line = writers[0]
+        if fn != owner:
+            bad.append(
+                f"`{name}` ({family}) is written by `{fn}` ({rel}:{line}) and not by "
+                f"`{owner}`; the write may have left the `MechanicalEditSet::Publish` "
+                "arm, which is where the row's contract puts it"
+            )
+
     for name, family in sorted(WRITE_ONLY_IN_PRODUCTION.items()):
         if declaration_derives(name, sources) is None:
             bad.append(f"`{name}` ({family}) is declared nowhere in production source")
@@ -185,8 +252,9 @@ def main() -> int:
         return 1
 
     print(
-        f"ok: {len(FORBIDDEN_DERIVE)} forbidden-derive and "
-        f"{len(WRITE_ONLY_IN_PRODUCTION)} write-only separation(s) hold across "
+        f"ok: {len(FORBIDDEN_DERIVE)} forbidden-derive, "
+        f"{len(WRITE_ONLY_IN_PRODUCTION)} write-only and "
+        f"{len(SINGLE_PRODUCTION_WRITER)} single-writer separation(s) hold across "
         f"{len(sources)} production file(s)"
     )
     return 0

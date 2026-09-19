@@ -222,6 +222,15 @@ each by the cheapest thing that would falsify it:
   `PendingMechanicalEdits`, `MechanicalEditAdmission`, and the `Editable*`
   mirrors. The rule the row rests on is stated at the `Publish` arm: adapters
   copy a mirror into the authoritative value *"here — and ONLY here"*. HOLDS.
+  ⭐ **AND THAT SENTENCE IS NOW AN ARM RATHER THAN A READING (2026-09-19).**
+  *"ONLY here"* is a claim about the number of production writers, so
+  `check_separated_authorities_stay_separated.py` counts them:
+  `ActiveMovementTuning` has exactly ONE production `ResMut` site against NINE
+  `Res` readers, and it is `publish_editable_movement_tuning`, which
+  `ambition_dev_tools/src/sim_plugin.rs:133` registers in the `Publish` set. ⚠
+  The rule pins the writer's NAME as well as the count, because a second adapter
+  is the obvious break and the one site MOVING out of the publish arm is the
+  quiet one — that keeps the count at one. Both are poisoned and both fire.
 - `DUP-CONTENT-CANDIDATE`: *"must not overwrite the active selection during
   preparation"*. `content_identity_for` reads the pending claim and falls back
   to the active one, never the reverse, and `PendingGenerationInputs::characters_for`
@@ -234,6 +243,17 @@ each by the cheapest thing that would falsify it:
 ⇒ Four for four, which is the useful outcome to be able to state: the label was
 not a parking space. ⚠ What would change any of them is now written beside it,
 so the next review re-runs a check rather than re-forms an opinion.
+
+⭐⛤ **AND THREE OF THE FOUR NOW HAVE A MECHANICAL ARM RATHER THAN A DATED
+READING**, held by `check_separated_authorities_stay_separated.py` as maintenance
+job 44: the forbidden derive (`DUP-ROLLBACK-CONFIRMATION`), the production-read
+ban (`DUP-CONSTRUCTION-DIAGNOSTICS`) and the single writer
+(`DUP-EDITOR-STAGES`). ⚠ `DUP-CONTENT-CANDIDATE` is the one still held by
+reading alone, and the reason is stated rather than left as a gap: its claim is
+*"the pending claim must not overwrite the active selection"*, which is a
+property of a DIRECTION OF FALLBACK inside `content_identity_for` rather than a
+count of anything, so no writer census expresses it. That one wants an arm that
+drives the candidate road, not a scan.
 
 
 Do **not** consolidate the staged editor values, active-versus-pending content, rollback confirmation answer, or construction diagnostics into their underlying authorities. They answer different questions.

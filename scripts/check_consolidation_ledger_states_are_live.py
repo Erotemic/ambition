@@ -28,6 +28,21 @@ door that was already open.
 row id, or a `Q<number>` in `awaiting-maintainer-decision.md`. A discharged gate
 moves to `was_blocked_by` as a receipt carrying its discharge and its date.
 
+⛔⛤ **AND THE THIRD RULE IS THE SAME SHAPE AGAIN, ONE COLUMN OVER. MEASURED
+2026-09-18: FOURTEEN OF 114 ROWS.** Every ledger item carries a `status` -- its
+evidence class -- and so does the census page, in the last column of its
+tables. The presence rule below had landed a day earlier and deliberately
+declined to compare the two, because the page's columns differ between
+sections. Three disagreements then turned up by hand, one at a time, while
+doing other work; comparing all of them found eleven more.
+
+⇒ All fourteen ran the same way: the page read `SOURCE_CONFIRMED` off a dated
+measurement and the ledger still read `SOURCE_INFERRED`. Nobody downgrades a
+row by accident -- the page is where a measurement gets WRITTEN, and the ledger
+is the copy somebody has to remember separately. **THE PAGE IS THE OWNER**,
+because the cell that says `SOURCE_CONFIRMED` sits beside the paragraph that
+earned it, and the ledger's copy carries no evidence at all.
+
 ⚠ **WHAT THIS DOES NOT SAY.** That a gate lifted is not that the work behind it
 happened, and a `RESOLVED` state is a claim a human made by reading source. This
 check compares the ledger's copies of its own status to each other and to the
@@ -71,6 +86,56 @@ def census_state_cells(text: str) -> dict[str, str]:
     return cells
 
 
+#: A row's evidence class, as the census page's last column spells it.
+STATUSES = (
+    "SOURCE_CONFIRMED",
+    "SOURCE_INFERRED",
+    "DOC_CLAIM",
+    "NEEDS_COMPILED_VERIFICATION",
+    "NEEDS_RUNTIME_VERIFICATION",
+)
+#: A cell may carry its token and then explain itself, exactly as the State
+#: column may: `SOURCE_CONFIRMED (the population and the axis; the per-site
+#: classification is not re-derived)` is legal, a bare second spelling is not.
+LEADING_STATUS = re.compile(r"(" + "|".join(STATUSES) + r")\b")
+COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def census_status_cells(text: str) -> dict[str, set[str]]:
+    """Each id's evidence class as the census page's own tables publish it.
+
+    \u26d4 ANCHORED ON THE FIRST CELL, WHICH IS THE WHOLE DIFFICULTY. The obvious
+    rule -- a line naming the id, with a status token somewhere on it -- was
+    measured against the shipped page and is wrong three ways: 16 lines are
+    PROSE that mention an id, 10 table rows name a second id inside their
+    evidence (`ORDER-MECHANICAL-EDIT` appears in three rows that are not its
+    own), and an evidence cell may narrate an old token (*"this row was
+    SOURCE_INFERRED because..."*). A row's subject is its first cell, nothing
+    else.
+
+    \u26a0 A ROW WITH NO STATUS COLUMN IS NOT A ROW THAT DISAGREES. Two whole
+    tables -- the `AUTH-*` authority map and the `EDIT-*` editor surfaces --
+    end on a different column. They are skipped rather than guessed at, which
+    is why the caller floors the comparison count: skipping everything is
+    indistinguishable from a healthy page whose parse has rotted.
+    """
+    cells: dict[str, set[str]] = {}
+    for line in text.split("\n"):
+        if not line.lstrip().startswith("|"):
+            continue
+        columns = COMMENT.sub("", line).split("|")
+        if len(columns) < 3:
+            continue
+        ident = columns[1].strip().strip("*").strip("`").strip()
+        tail = [c for c in columns[2:] if c.strip()]
+        if not tail:
+            continue
+        found = LEADING_STATUS.match(tail[-1].strip())
+        if found:
+            cells.setdefault(ident, set()).add(found.group(1))
+    return cells
+
+
 def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: set[str]) -> list[str]:
     """Every disagreement between the ledger's status copies. Empty is green."""
     bad: list[str] = []
@@ -110,11 +175,11 @@ def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: 
     # `NEEDS_SEMANTIC_REVIEW`, and by `TEST-TWO-APP`, whose `DOC_CLAIM` said a
     # witness had not been run while four arms of it sat passing in the tree.
     #
-    # ⚠ THIS IS THE WEAK HALF OF THAT, ON PURPOSE. Comparing the STATUS token
-    # per row means parsing a prose table whose columns differ between
-    # sections, and a census that parses prose invents rows. Presence is
-    # checkable without parsing anything: a ledger row the page never names is
-    # a row no reader can reach, whatever it says.
+    # ⚠ PRESENCE IS THE HALF THAT NEEDS NO PARSE: a ledger row the page never
+    # names is a row no reader can reach, whatever it says. The STATUS
+    # comparison below is the other half, and was left undone for a day
+    # because the page's columns differ between sections -- see
+    # `census_status_cells` for what that cost and how it is anchored.
     # ⛔⛤ WORD-BOUNDED, AND THE FIRST DRAFT WAS `item["id"] not in census` —
     # a substring test, whose poison PASSED. Renaming the page's row to
     # `CRATE-BODY-SEED-POISONED` leaves `CRATE-BODY-SEED` inside it, so the
@@ -133,6 +198,38 @@ def check(ledger: dict, census: str, done: set[str], rows: set[str], questions: 
             f"{len(missing_on_page)} ledger row(s) are named nowhere on the census "
             f"page, so nothing a reader can reach carries them: {missing_on_page}"
         )
+
+    # ── the evidence class, which the page and the ledger both publish
+    # ⛔⛤ **THE DEFECT THIS RULE EXISTS FOR, MEASURED 2026-09-18: FOURTEEN OF
+    # 114 ROWS.** The rule above had just caught three ids whose page row and
+    # ledger row disagreed (`CAP-OPTIONAL-RES-CENSUS`, `TEST-TWO-APP`,
+    # `ROAD-DYNAMIC-SPAWN`), each found by hand while doing something else.
+    # Comparing all of them found eleven more, every one the same way round:
+    # the page read `SOURCE_CONFIRMED` off a dated measurement and the ledger
+    # still read `SOURCE_INFERRED`.
+    #
+    # ⇒ That direction is the tell. Nobody downgrades a row by accident; the
+    # page is where a measurement gets WRITTEN and the ledger is the copy that
+    # has to be remembered separately. Two owners of one fact, and the fact
+    # moves on only one of them.
+    #
+    # ⚠ THE PAGE WINS, AND THAT IS A CHOICE THIS CHECK CANNOT JUSTIFY BY
+    # ITSELF. It is where the evidence sits -- the cell that says
+    # `SOURCE_CONFIRMED` sits beside the paragraph that measured it, so a
+    # reviewer can see whether the token is earned. The ledger's copy carries
+    # no evidence at all, which is exactly why it is the one that drifts.
+    page_status = census_status_cells(census)
+    for item in ledger["items"]:
+        ident, status = item.get("id"), item.get("status")
+        if not isinstance(ident, str) or status not in STATUSES:
+            continue
+        published = page_status.get(ident)
+        if published and status not in published:
+            bad.append(
+                f"`{ident}` is {status} in the ledger and "
+                f"{'/'.join(sorted(published))} on the census page, which is where "
+                "its evidence is written"
+            )
 
     # ── the page that publishes the states
     cells = census_state_cells(census)
@@ -216,13 +313,28 @@ CONTROL_CLEAN = {
          "metric_tags": [TAG], "blocked_by": ["Q144"]},
         {"id": "DUP-B", "category": FAMILY, "duplicate_authority_state": "RESOLVED",
          "metric_tags": [], "was_blocked_by": ["A10 — DISCHARGED 2026-09-16"]},
+        # Not a family, so it moves no split and carries no tag; it is here to
+        # give the STATUS rule something to compare.
+        {"id": "STAT-A", "category": "authority", "status": "SOURCE_CONFIRMED",
+         "metric_tags": []},
     ],
 }
 CONTROL_CENSUS = (
     "text: 1 open, 1 resolved, 0 legitimate separation\n"
     f"| DUP-A | family | {OPEN} — with a clause |\n"
     "| DUP-B | family | RESOLVED |\n"
+    # ⚠ THE EVIDENCE CELL NARRATES THE OLD TOKEN ON PURPOSE. Shipped rows say
+    # things like *"this row was SOURCE_INFERRED because it named no entry
+    # point"* beside a column that now reads SOURCE_CONFIRMED, so a rule that
+    # looks for a token anywhere on the line reddens a correct page.
+    "| STAT-A | a row | it was SOURCE_INFERRED until it was measured | SOURCE_CONFIRMED |\n"
 )
+#: ⚠ SET FROM A MEASUREMENT, NOT A GUESS -- 108 rows compared on 2026-09-18,
+#: floored well below that so ordinary row churn does not trip it and a parse
+#: that has stopped finding the column does. The previous floor in this family
+#: of checks was guessed at 2000 against 1,917 files and reddened on its author.
+STATUS_FLOOR = 95
+
 CONTROL_DONE = {"A10"}
 CONTROL_ROWS = {"A10", "ID-PEER"}
 CONTROL_QUESTIONS = {"Q144"}
@@ -252,6 +364,9 @@ def self_check() -> None:
         "a receipt with no discharge": lambda l: l["items"][1].update(
             {"was_blocked_by": ["A10 candidate-world publication"]}
         ),
+        "a status the page contradicts": lambda l: l["items"][2].update(
+            {"status": "SOURCE_INFERRED"}
+        ),
         "the tag on a non-family item": lambda l: l["items"].append(
             {"id": "AUTH-X", "category": "authority", "metric_tags": [TAG]}
         ),
@@ -270,6 +385,8 @@ def self_check() -> None:
         (CONTROL_CENSUS.replace(f"{OPEN} — with a clause", "RESOLVED"), "a column that disagrees"),
         (CONTROL_CENSUS + "and again: 1 open, 1 resolved, 0 legitimate separation\n",
          "the split stated twice"),
+        (CONTROL_CENSUS.replace("| SOURCE_CONFIRMED |", "| DOC_CLAIM |"),
+         "a page status the ledger contradicts"),
     ):
         if not run(CONTROL_CLEAN, census):
             raise SystemExit(
@@ -310,6 +427,23 @@ def main() -> int:
             f"⛔⛔ only {len(questions)} `Q` ids parsed out of "
             "`awaiting-maintainer-decision.md`; that is a claim about the parser."
         )
+    # ⛔ THE SAME, FOR THE STATUS RULE, WHICH SKIPS ANY ROW WHOSE LAST COLUMN
+    # IS NOT A STATUS -- so a renamed column, a reordered table or a stray
+    # trailing cell turns the whole rule into a no-op that reports success.
+    # MEASURED 2026-09-18: 108 of the ledger's 114 status-carrying rows are
+    # compared; the other six sit in the `AUTH-*` and `EDIT-*` tables, which
+    # end on a different column and publish no evidence class at all.
+    compared = len(set(census_status_cells(census)) & {
+        i["id"] for i in ledger["items"]
+        if isinstance(i.get("id"), str) and i.get("status") in STATUSES
+    })
+    if compared < STATUS_FLOOR:
+        raise SystemExit(
+            f"⛔⛔ only {compared} census rows could be compared against the ledger's "
+            f"status, below the floor of {STATUS_FLOOR}. The page's tables parsed as "
+            "something this check does not recognise, and a rule that compares "
+            "nothing passes everything."
+        )
     bad = check(ledger, census, done, rows, questions)
     if bad:
         print("the consolidation ledger's status fields disagree:")
@@ -328,6 +462,10 @@ def main() -> int:
         f"exactly the {OPEN} ones, and the census page agrees"
     )
     print(f"  live holds: {', '.join(live) or 'none'} ({spent} discharged receipts)")
+    print(
+        f"  evidence class: {compared} of {len(ledger['items'])} rows compared against "
+        "the census page's own column"
+    )
     return 0
 
 

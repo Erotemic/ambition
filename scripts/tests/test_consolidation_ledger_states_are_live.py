@@ -134,3 +134,71 @@ def test_a_ledger_row_named_nowhere_on_the_page_is_a_failure():
     assert [m for m in run(census=removed) if "named nowhere" in m], (
         f"removing {victim} from the page did not fail the check"
     )
+
+
+def test_a_ledger_status_the_page_contradicts_is_caught():
+    """⛔⛤ FOURTEEN OF 114 SHIPPED ROWS DISAGREED, MEASURED 2026-09-18.
+
+    The presence rule above landed a day earlier and explicitly declined to
+    compare the STATUS token, because the page's tables differ between
+    sections. Three disagreements were then found by hand, one at a time,
+    while doing unrelated work; comparing all of them found eleven more.
+
+    Every one was the same way round -- page `SOURCE_CONFIRMED`, ledger
+    `SOURCE_INFERRED` -- which is the tell. Nobody downgrades a row by
+    accident. The page is where a measurement gets written and the ledger is
+    the copy that has to be remembered separately.
+    """
+    found = run(lambda l: l["items"][2].update({"status": "SOURCE_INFERRED"}))
+    assert any("STAT-A" in line and "SOURCE_CONFIRMED" in line for line in found), found
+
+
+def test_an_evidence_cell_that_narrates_an_old_token_is_not_a_disagreement():
+    """⚠ THE COST OF THE RULE ABOVE, AND THE REASON IT IS ANCHORED.
+
+    The obvious implementation -- a line naming the id with a status token
+    somewhere on it -- reddens a correct page, because shipped evidence cells
+    say things like *"this row was SOURCE_INFERRED because it named no entry
+    point"* beside a column that now reads `SOURCE_CONFIRMED`. Only the last
+    cell is the claim; the rest is prose about it.
+    """
+    assert run() == []
+    census = mod.CONTROL_CENSUS.replace(
+        "it was SOURCE_INFERRED until it was measured",
+        "DOC_CLAIM and NEEDS_RUNTIME_VERIFICATION were both considered",
+    )
+    assert run(census=census) == [], "prose mentioning other tokens read as the row's status"
+
+
+def test_prose_naming_an_id_is_not_a_row_that_can_disagree():
+    # 16 shipped lines mention an id in running prose. A bullet that says
+    # `- `STAT-A` is DOC_CLAIM for now` is commentary, not the table.
+    census = mod.CONTROL_CENSUS + "- `STAT-A` was DOC_CLAIM before anyone measured it\n"
+    assert run(census=census) == []
+
+
+def test_a_second_id_inside_another_rows_evidence_does_not_leak():
+    # `ORDER-MECHANICAL-EDIT` is named in three shipped rows that are not its
+    # own. A row's subject is its first cell and nothing else.
+    census = mod.CONTROL_CENSUS + (
+        "| OTHER-ROW | see also STAT-A, which differs | NEEDS_RUNTIME_VERIFICATION |\n"
+    )
+    assert run(census=census) == []
+
+
+def test_a_row_whose_last_column_is_not_a_status_is_skipped_not_guessed():
+    # Two whole shipped tables (`AUTH-*`, `EDIT-*`) end on a different column.
+    # Skipping them is correct; guessing at them would invent 27 findings.
+    census = mod.CONTROL_CENSUS.replace("| SOURCE_CONFIRMED |", "| combat, HUD, abilities |")
+    assert run(census=census) == []
+
+
+def test_the_status_cells_parser_finds_the_shipped_page():
+    """⛔ THE ANTI-VACUITY ARM. Skipping a row and failing to parse one are the
+    same silence, so the count is pinned from outside as well as floored inside.
+    """
+    cells = mod.census_status_cells(mod.CENSUS.read_text(encoding="utf-8"))
+    assert len(cells) >= mod.STATUS_FLOOR, (
+        f"only {len(cells)} census rows parsed as carrying an evidence class"
+    )
+    assert all(v for v in cells.values())

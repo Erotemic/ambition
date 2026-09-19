@@ -3400,16 +3400,16 @@
       "category": "authority",
       "name": "Live player stat components",
       "owner": "ambition_dev_tools adapter + body component owners",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The player-stats editor stages desired values, but admitted values are applied to live body health, mana, and offense components rather than kept in a second active stats resource.",
+      "current_truth": "The player-stats editor stages desired values, but admitted values are applied to live body health, mana, and offense components rather than kept in a second active stats resource. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `AUTH-PLAYER-STATS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_dev_tools/src/dev_tools/editable.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The player-stats editor stages desired values, but admitted values are applied to live body health, mana, and offense components rather than kept in a second active stats resource.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The player-stats editor stages desired values, but admitted values are applied to live body health, mana, and offense components rather than kept in a second active stats resource. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `AUTH-PLAYER-STATS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_dev_tools/src/dev_tools/editable.rs"
           ]
@@ -3907,9 +3907,9 @@
       "category": "construction_road",
       "name": "Initial gameplay-session construction",
       "owner": "game shell provider activation + platformer provider/runtime",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The shell activates a gameplay session, the provider supplies a prepared PlatformerSessionWorld, and the canonical SessionRoot is created for that activation. Room contents then use the prepared room construction path.",
+      "current_truth": "The shell activates a gameplay session, the provider supplies a prepared PlatformerSessionWorld, and the canonical SessionRoot is created for that activation. Room contents then use the prepared room construction path. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ROAD-INITIAL-SESSION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/session_world.rs",
@@ -3917,8 +3917,8 @@
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The shell activates a gameplay session, the provider supplies a prepared PlatformerSessionWorld, and the canonical SessionRoot is created for that activation. Room contents then use the prepared room construction path.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The shell activates a gameplay session, the provider supplies a prepared PlatformerSessionWorld, and the canonical SessionRoot is created for that activation. Room contents then use the prepared room construction path. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ROAD-INITIAL-SESSION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_game_shell/src/session.rs",
             "crates/ambition_platformer2d_runtime/src/session_world.rs",
@@ -5078,16 +5078,16 @@
       "category": "schedule_order",
       "name": "Session lifecycle Retire -> Cleanup -> Activate -> Presentation",
       "owner": "shared_tangle lifecycle + session owners",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "SessionScopeSet orders retirement, cleanup, activation, and presentation so old ownership cannot leak into the next session.",
+      "current_truth": "SessionScopeSet orders retirement, cleanup, activation, and presentation so old ownership cannot leak into the next session. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-SESSION-LIFECYCLE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "SessionScopeSet orders retirement, cleanup, activation, and presentation so old ownership cannot leak into the next session.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "SessionScopeSet orders retirement, cleanup, activation, and presentation so old ownership cannot leak into the next session. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-SESSION-LIFECYCLE` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
           ]
@@ -5105,16 +5105,16 @@
       "category": "schedule_order",
       "name": "Mechanical edit Propose -> Admit -> Publish before rollback advance",
       "owner": "core + rollback_ggrs + editor owners",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "MechanicalEditSet centralizes proposal/admission/publication, and the rollback owner orders the chain before RunGgrsSystems.",
+      "current_truth": "MechanicalEditSet centralizes proposal/admission/publication, and the rollback owner orders the chain before RunGgrsSystems. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-MECHANICAL-EDIT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_core/src/movement/tuning.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "MechanicalEditSet centralizes proposal/admission/publication, and the rollback owner orders the chain before RunGgrsSystems.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "MechanicalEditSet centralizes proposal/admission/publication, and the rollback owner orders the chain before RunGgrsSystems. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-MECHANICAL-EDIT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_core/src/movement/tuning.rs"
           ]
@@ -5186,16 +5186,16 @@
       "category": "schedule_order",
       "name": "Content publication gate -> shell activation -> provider session publication",
       "owner": "ambition_content + game_shell",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The shell activation gate asks the content publication boundary at activation so content and shell activation do not make independent accept/refuse decisions.",
+      "current_truth": "The shell activation gate asks the content publication boundary at activation so content and shell activation do not make independent accept/refuse decisions. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CONTENT-ACTIVATION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "game/ambition_content/src/reload.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The shell activation gate asks the content publication boundary at activation so content and shell activation do not make independent accept/refuse decisions.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The shell activation gate asks the content publication boundary at activation so content and shell activation do not make independent accept/refuse decisions. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CONTENT-ACTIVATION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "game/ambition_content/src/reload.rs"
           ]
@@ -5213,16 +5213,16 @@
       "category": "schedule_order",
       "name": "Checkpoint admission -> room/replay commit -> domain restore outcome",
       "owner": "checkpoint/session lifecycle",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority.",
+      "current_truth": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CHECKPOINT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Checkpoint restoration separates request/admission from commit and terminal outcome. Ordered phases keep domain restore from treating an unadmitted request as authority. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-CHECKPOINT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
           ]
@@ -5240,16 +5240,16 @@
       "category": "schedule_order",
       "name": "New Game decision -> committed boundary -> dependent reset",
       "owner": "session reset",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets.",
+      "current_truth": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "NewGameResetDecided performs the reset decision and NewGameResetCommitted is the boundary for dependent resets. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `ORDER-NEW-GAME` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs"
           ]
@@ -5667,16 +5667,16 @@
       "category": "bevy_leverage",
       "name": "SessionRoot plus SessionWorldRef/Mut",
       "owner": "shared_tangle lifecycle",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Uses Bevy components and Single queries directly. The custom part supplies Ambition session ownership, not an ECS replacement.",
+      "current_truth": "Uses Bevy components and Single queries directly. The custom part supplies Ambition session ownership, not an ECS replacement. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-SESSION-ROOT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Uses Bevy components and Single queries directly. The custom part supplies Ambition session ownership, not an ECS replacement.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Uses Bevy components and Single queries directly. The custom part supplies Ambition session ownership, not an ECS replacement. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-SESSION-ROOT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
           ]
@@ -5690,16 +5690,16 @@
       "category": "bevy_leverage",
       "name": "SessionCommands",
       "owner": "shared_tangle lifecycle",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Wraps Commands with captured session ownership and reduces system-parameter count. It still exposes normal Bevy Commands through Deref.",
+      "current_truth": "Wraps Commands with captured session ownership and reduces system-parameter count. It still exposes normal Bevy Commands through Deref. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-SESSION-COMMANDS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Wraps Commands with captured session ownership and reduces system-parameter count. It still exposes normal Bevy Commands through Deref.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Wraps Commands with captured session ownership and reduces system-parameter count. It still exposes normal Bevy Commands through Deref. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-SESSION-COMMANDS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs"
           ]
@@ -5713,16 +5713,16 @@
       "category": "bevy_leverage",
       "name": "Typed construction plans and candidate filters",
       "owner": "shared_tangle construction",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Bevy supplies entities, commands, disabling components, and queries. Ambition adds deterministic SimId/provenance, typed plans, transaction ownership, roster verification, and publication semantics.",
+      "current_truth": "Bevy supplies entities, commands, disabling components, and queries. Ambition adds deterministic SimId/provenance, typed plans, transaction ownership, roster verification, and publication semantics. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-CONSTRUCTION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Bevy supplies entities, commands, disabling components, and queries. Ambition adds deterministic SimId/provenance, typed plans, transaction ownership, roster verification, and publication semantics.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Bevy supplies entities, commands, disabling components, and queries. Ambition adds deterministic SimId/provenance, typed plans, transaction ownership, roster verification, and publication semantics. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-CONSTRUCTION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs"
           ]
@@ -5736,16 +5736,16 @@
       "category": "bevy_leverage",
       "name": "ActiveRollbackAuthority",
       "owner": "runtime rollback",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Bevy does not define rollback owner, timeline generation, snapshot schema contract, or confirmation health. The custom resource is domain authority, not an ECS abstraction.",
+      "current_truth": "Bevy does not define rollback owner, timeline generation, snapshot schema contract, or confirmation health. The custom resource is domain authority, not an ECS abstraction. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-ROLLBACK` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/rollback/authority.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Bevy does not define rollback owner, timeline generation, snapshot schema contract, or confirmation health. The custom resource is domain authority, not an ECS abstraction.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Bevy does not define rollback owner, timeline generation, snapshot schema contract, or confirmation health. The custom resource is domain authority, not an ECS abstraction. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-ROLLBACK` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/rollback/authority.rs"
           ]
@@ -5759,16 +5759,16 @@
       "category": "bevy_leverage",
       "name": "Prepared content and generation identity",
       "owner": "runtime/content",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Bevy assets/resources do not define immutable mechanical generation identity, candidate admission, schema fingerprint, or content publication.",
+      "current_truth": "Bevy assets/resources do not define immutable mechanical generation identity, candidate admission, schema fingerprint, or content publication. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-CONTENT-GENERATION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/content_identity.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Bevy assets/resources do not define immutable mechanical generation identity, candidate admission, schema fingerprint, or content publication.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Bevy assets/resources do not define immutable mechanical generation identity, candidate admission, schema fingerprint, or content publication. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-CONTENT-GENERATION` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/content_identity.rs"
           ]
@@ -5782,16 +5782,16 @@
       "category": "bevy_leverage",
       "name": "Mechanical edit admission protocol",
       "owner": "core + rollback host",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Bevy change detection can detect editor writes but does not decide whether a write may change mechanics under rollback. The custom proposal/admission protocol supplies that invariant.",
+      "current_truth": "Bevy change detection can detect editor writes but does not decide whether a write may change mechanics under rollback. The custom proposal/admission protocol supplies that invariant. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-MECHANICAL-EDIT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_core/src/movement/tuning.rs"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Bevy change detection can detect editor writes but does not decide whether a write may change mechanics under rollback. The custom proposal/admission protocol supplies that invariant.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Bevy change detection can detect editor writes but does not decide whether a write may change mechanics under rollback. The custom proposal/admission protocol supplies that invariant. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-MECHANICAL-EDIT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_core/src/movement/tuning.rs"
           ]
@@ -5805,16 +5805,16 @@
       "category": "bevy_leverage",
       "name": "Facade and convenience mirrors",
       "owner": "ambition_platformer2d",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "Convenience re-exports can be useful, but they can also hide actual ownership. This is a package/API review, not a reason to hide Bevy itself.",
+      "current_truth": "Convenience re-exports can be useful, but they can also hide actual ownership. This is a package/API review, not a reason to hide Bevy itself. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "docs/architecture/engine-architecture.md"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Convenience re-exports can be useful, but they can also hide actual ownership. This is a package/API review, not a reason to hide Bevy itself.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Convenience re-exports can be useful, but they can also hide actual ownership. This is a package/API review, not a reason to hide Bevy itself. \u2b50 CONFIRMED 2026-09-18: the measurement, its source citations and its poisons are the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "docs/architecture/engine-architecture.md"
           ]

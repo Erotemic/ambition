@@ -20,14 +20,27 @@ recalling which questions feel important. ⚠ This list is the BLOCKING set, not
 the important set: a question can matter and block nothing, and one below
 blocks a campaign that could not previously be costed.
 
-⛔⛤ **AND THE FIRST VERSION OF THIS TABLE MISSED TWO, BECAUSE THE SCAN WINDOW
-WAS THE BUG.** It read 60 lines from each row's heading; in this file a row's
-blocker is routinely stated in a block further down — `Q139` sits about eighty
-lines into `ROLLBACK-MUTATOR-POPULATION`. Re-derived over each row's FULL extent
-(heading to the next heading), which is the only boundary that means anything
-here. ⇒ A population scoped by a line count rather than by the structure it
-lives in is the same defect this page records for censuses of source, arriving
-in a census of itself.
+⛔⛤ **THIS TABLE HAS NOW BEEN WRONG TWICE, AND THE SECOND CAUSE IS WORSE THAN
+THE FIRST.** The first version read 60 lines from each row's heading and missed
+two blockers stated further down (`Q139` sits about eighty lines into
+`ROLLBACK-MUTATOR-POPULATION`). Re-deriving over each row's FULL extent fixed
+that and produced six.
+
+⛔⛔ **AND SIX WAS STILL WRONG, BECAUSE `queue.md` HAS A CANONICAL FIELD FOR
+THIS AND NEITHER DERIVATION READ IT.** Five open P0/P1 rows carry an explicit
+`**Blocked by:**` line naming **eight** questions — `Q127`, `Q101`, `Q104`,
+`Q110`, `Q100`, `Q106`, `Q108`, `Q69` — and the six-row table named none of
+them. Both derivations scanned PROSE for gate language in a document that
+states the answer in a field. ⇒ **When a corpus has a structured field for the
+fact you are deriving, deriving it from prose is not a conservative choice, it
+is a different and worse question.** The prose scan was not useless — `Q136`,
+`Q122`, `Q144` and `Q146` are named in prose gates and in no `Blocked by:` line
+— so the population is the UNION of the two, which is why both are stated here.
+
+⚠ **AND ONE CANDIDATE THE PROSE SCAN THREW UP IS NOT A BLOCKER:** `Q142` is
+named in `ID-PEER` only as history (*"after `Q142` added three"*), and it is
+three-quarters resolved. Matching on a question number near the word "blocked"
+finds mentions, not gates.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
@@ -37,6 +50,36 @@ in a census of itself.
 | [`Q146`](#q146--what-are-the-supported-composition-profiles-and-which-authorities-must-each-one-carry) | **C07**, entirely | C07 cannot be COSTED, not merely started: *"replace optional fallbacks where the authority is required"* has no population until "required" has a referent |
 | [`Q139`](#q139--what-declares-that-a-presentation-system-writes-transform) | **P0** `ROLLBACK-MUTATOR-POPULATION`'s only open item | the mutator guard keeps excluding `Transform` BY NAME, so its green says nothing about the most rollback-sensitive component in the workspace. The repair is a DECLARATION across the excluded systems rather than a cleverer scanner — measured, not assumed: a name-based classifier was wrong in both directions — so the ruling is its SHAPE, and four shapes are costed in the row. ⚠ Sizes deliberately not restated here; they moved with the carve work and they depend on a marker vocabulary this ruling would itself be choosing |
 | [`Q138`](#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session) | **P1** `ROLLBACK-DEAD-SESSION` | an invalidated session keeps accepting `step()`, stops advancing `SimTick`, and returns an observation every time — so assertions after it agree with a frozen world forever. `rollback_health()` already knows and `step` does not consult it; whether it should REFUSE is an API contract nobody has set. ⚠ Cardinalities deliberately not restated here — the row says why, and `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` prints the live one |
+
+### The eight from `queue.md`'s `Blocked by:` field
+
+⭐⭐ **FIVE OF THESE ARE ONE DECISION, WHICH IS THE MOST USEFUL THING THIS
+RE-DERIVATION FOUND.** `Q146` (C07), `Q144` (C04), and `Q100`/`Q106`/`Q108`
+(P1 `A9`, *"establish truthful minimal engine profiles"*) are all asking what
+compositions this engine supports and what each must carry. They are filed
+separately because they arrived separately. ⇒ **Ruling the profile vocabulary
+once would discharge all five**, and ruling them one at a time risks five
+answers that do not compose.
+
+| question | row | what it asks |
+|---|---|---|
+| [`Q100`](#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools) | **P1** `A9` | whether the facade pulling `bevy/debug` is a profile fact or an accident |
+| [`Q106`](#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities) | **P1** `A9` | whether two crates are optional capabilities or part of every profile |
+| [`Q108`](#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link) | **P1** `A9` | what a featureless facade is allowed to link — the floor of the profile vocabulary |
+| [`Q110`](#q110--may-a-provider-keyed-fragment-registry-gain-a-named-hot-reload-replacement-operation) | **P1** `I2/I3` | whether a provider-keyed registry may gain a named replacement operation, or reload stays refusal-only |
+| [`Q104`](#q104--is-the-rust-move-table-or-the-content-file-the-source-of-a-moveset) | **P1** `I2/I3` | **a duplicate-authority question by its own wording**: Rust move table or content file as the source of a moveset. One fact, two owners, and the campaign this page is running says pick one |
+
+⛔ **AND THREE PRODUCT RULINGS THAT GATE A ROW'S ENTIRE REMAINDER.** These are
+not architecture questions and they are not sub-road balance calls either — in
+each case the row has nothing else left to do, so calling them "product" and
+leaving them out (which the previous version of this section did) reports a P0
+as pickable when it is not.
+
+| question | row | why nothing else is left |
+|---|---|---|
+| [`Q127`](#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific) | **P0** `SETTINGS-ROLLBACK` | the frame-mode half is CLOSED (the acceptance measurement reads 0 simulation readers of `UserSettings`); *"the damage half only"* is what remains, and it is *"after `Q127`"*. Both shapes are stated mechanically viable, so the product rule decides the admitted authority's shape |
+| [`Q101`](#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition) | **P0** `A12` | the row says *"Remaining engineering: finish reflection/contact attribution after the product rule is settled"*. There is no other remaining engineering |
+| [`Q69`](#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier) | **P1** `D-POTATO-ASPECT` | a content/quality call, and the row's only `Blocked by:` |
 
 ⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
 HALF OF MEASURING THIS.**
@@ -52,9 +95,14 @@ HALF OF MEASURING THIS.**
   ordering-nondeterminism question held by a ratchet, and answering it unblocks
   nothing, so it does not belong in a minimal blocking set.
 
-⚠ `Q127`, `Q129`, `Q133`, `Q137`, `Q101`, `Q104` and `Q110` sit inside P0/P1
-rows as product or balance calls on specific sub-roads rather than as gates on
-the row. They are real and they are not architecture blockers. ⚠ `Q137` is the
+⚠ `Q129` and `Q133` sit inside P0/P1 rows as balance calls on specific
+sub-roads rather than as gates on the row — `THROW-MODIFIERS` states that its
+two halves are blocked *"for two different reasons"*, only one of which is
+`Q133`, and the other is engineering. ⛤ **THIS SENTENCE ALSO NAMED `Q127`,
+`Q101`, `Q104` and `Q110` UNTIL 2026-09-19 AND THAT WAS THE ERROR ABOVE IN
+WORDS**: all four are their row's `Blocked by:` field, two of them on a P0 with
+nothing else left. Describing a whole-row gate as a sub-road call is how a
+blocked row gets read as available. ⚠ `Q137` is the
 closest to the line, and stating it precisely matters because the obvious
 phrasing is wrong: `ID-PEER`'s sharp unchecksummed set is TWELVE rows, eleven of
 which are reachable, covered and agreeing. `gravity.flip_switch` is the twelfth

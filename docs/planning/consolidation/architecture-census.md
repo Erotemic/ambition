@@ -40,6 +40,25 @@ The identity correction is still separate active work.
 The last twelve were the `CRATE-*` table, which was the only table on this page
 carrying no evidence at all, plus `ID-LOAD` and `TEST-ROLLBACK`.
 
+⛔⛤ **AND THAT SENTENCE WAS SIX ROWS AHEAD OF THE PAGE UNTIL 2026-09-19.** The
+`114` is right and is every ID-keyed row except the writer table (which is a
+matrix, not a claim list), but only **108** of them carried a grade: the six
+`EDIT-*` stage maps ended in a `Sources` column and no `Evidence` one, so a
+count of ID rows and a count of graded rows were being reported as one number.
+⇒ Closed by GRADING the six rather than by lowering the claim — each row now
+names its production proposer and its production admitter, which is what the
+stage map asserts. ⚠ **A PAGE THAT COUNTS ITSELF NEEDS THE SAME DISCIPLINE IT
+IMPOSES ON SOURCE:** two populations, one number, and nobody compares a
+document to itself.
+
+⚠ **AND FINDING THOSE SIX PUBLISHERS TOOK TWO QUERIES, WHICH IS THE FINDING
+WORTH KEEPING.** A scan for `fn *publish*` in files touching the admission
+protocol returns four of the six. `EDIT-ABILITIES` admits through
+`admit_editable_abilities` and `EDIT-BODY-PROFILE` through
+`sync_developer_body_profile` — same position in the chain, different verb. A
+census keyed on the word `publish` would have reported two domains with no
+publisher and been wrong about the architecture, not just about the spelling.
+
 ⚠ **WHAT AN EMPTY WEAKEST CLASS DOES AND DOES NOT MEAN.** It means every row's
 claim has been read against source and the reading is written beside it. It
 does NOT mean every claim is true forever, and three of the twelve were
@@ -394,14 +413,14 @@ Two publication roads need special care:
 The shared mechanical-edit admission protocol is a **completed foundation at this snapshot**, not a current blocker.
 The production census found six editor domains and all six use the shared admission protocol.
 
-| ID | Domain | Current stage map | Coverage | Admitted authority | Sources |
-| --- | --- | --- | --- | --- | --- |
-| EDIT-MOVEMENT | Movement tuning | `EditableMovementTuning` -> `PendingMechanicalEdits` -> `MechanicalEditAdmission` -> `ActiveMovementTuning` -> simulation reads | complete for current production path | ActiveMovementTuning | `crates/ambition_dev_tools/src/dev_tools/editable.rs`<br>`crates/ambition_platformer2d_core/src/movement/tuning.rs` |
-| EDIT-ABILITIES | Developer ability mask | editable ability set -> pending domain -> admission -> `ActiveEditableAbilityMask` -> body abilities projection | complete for current production path | ActiveEditableAbilityMask then body projection | `crates/ambition_dev_tools/src/lib.rs`<br>`crates/ambition_dev_tools/src/dev_tools/editable.rs` |
-| EDIT-BODY-PROFILE | Developer body profile | `DeveloperTools` desired profile -> pending domain -> admission -> `ActivePlayerBodyProfile` -> body/movement projection | complete for current production path | ActivePlayerBodyProfile then body projection | `crates/ambition_dev_tools/src/dev_tools/editable.rs` |
-| EDIT-PLAYER-STATS | Player stats | editable stats -> pending domain -> admission -> live body stat components; reverse mirror sync is separate | complete for current production path | live body stat components | `crates/ambition_dev_tools/src/dev_tools/editable.rs` |
-| EDIT-FEEL | Platformer feel tuning | `EditableFeelTuning` -> pending domain -> admission -> `Platformer2dFeelTuningMonolith` -> combat/sim reads | complete for current production path | Platformer2dFeelTuningMonolith | `crates/ambition_combat/src/feel.rs` |
-| EDIT-PORTAL | Portal tuning | `EditablePortalTuning` -> pending domain -> admission -> `PortalTuning` -> portal systems | complete for current production path | PortalTuning | `crates/ambition_portal2d/src/tuning.rs` |
+| ID | Domain | Current stage map | Coverage | Admitted authority | Sources | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| EDIT-MOVEMENT | Movement tuning | `EditableMovementTuning` -> `PendingMechanicalEdits` -> `MechanicalEditAdmission` -> `ActiveMovementTuning` -> simulation reads | complete for current production path | ActiveMovementTuning | `crates/ambition_dev_tools/src/dev_tools/editable.rs`<br>`crates/ambition_platformer2d_core/src/movement/tuning.rs` | `propose_editable_movement_tuning` -> `publish_editable_movement_tuning` (`crates/ambition_dev_tools/src/dev_tools/editable.rs`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
+| EDIT-ABILITIES | Developer ability mask | editable ability set -> pending domain -> admission -> `ActiveEditableAbilityMask` -> body abilities projection | complete for current production path | ActiveEditableAbilityMask then body projection | `crates/ambition_dev_tools/src/lib.rs`<br>`crates/ambition_dev_tools/src/dev_tools/editable.rs` | `propose_editable_abilities` -> `admit_editable_abilities` (`crates/ambition_dev_tools/src/lib.rs:110`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
+| EDIT-BODY-PROFILE | Developer body profile | `DeveloperTools` desired profile -> pending domain -> admission -> `ActivePlayerBodyProfile` -> body/movement projection | complete for current production path | ActivePlayerBodyProfile then body projection | `crates/ambition_dev_tools/src/dev_tools/editable.rs` | `propose_developer_body_profile` -> `sync_developer_body_profile` (`crates/ambition_dev_tools/src/dev_tools/editable.rs:688`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
+| EDIT-PLAYER-STATS | Player stats | editable stats -> pending domain -> admission -> live body stat components; reverse mirror sync is separate | complete for current production path | live body stat components | `crates/ambition_dev_tools/src/dev_tools/editable.rs` | `propose_player_stats_edits` -> `publish_player_stats_edits` (`crates/ambition_dev_tools/src/dev_tools/editable.rs`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
+| EDIT-FEEL | Platformer feel tuning | `EditableFeelTuning` -> pending domain -> admission -> `Platformer2dFeelTuningMonolith` -> combat/sim reads | complete for current production path | Platformer2dFeelTuningMonolith | `crates/ambition_combat/src/feel.rs` | `propose_editable_feel_tuning` -> `publish_editable_feel_tuning` (`crates/ambition_combat/src/feel.rs`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
+| EDIT-PORTAL | Portal tuning | `EditablePortalTuning` -> pending domain -> admission -> `PortalTuning` -> portal systems | complete for current production path | PortalTuning | `crates/ambition_portal2d/src/tuning.rs` | `propose_editable_portal_tuning` -> `publish_editable_portal_tuning` (`crates/ambition_portal2d/src/tuning.rs`) — one production proposer and one production admitter, both named; SOURCE_CONFIRMED |
 
 `MechanicalEditAdmission` is intentionally optional in a host that has no rollback history to protect.
 That is a valid capability distinction, not a fail-open production bug by itself.

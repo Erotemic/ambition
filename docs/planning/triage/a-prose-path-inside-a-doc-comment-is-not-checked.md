@@ -258,3 +258,121 @@ owners behind — this waiver, the `DURABLE-HORIZON-CHECKSUM` queue row calling 
 *"the half that is still open"*, and its own page describing an `#[ignore]`
 reason that had changed. All three were found by re-reading one row against the
 tree, and none of them by any guard.
+
+### The same sweep over `docs/planning`, run 2026-09-19
+
+Having found it in a guard's waiver, the obvious next question is how often
+planning prose quotes source that has moved. Measured over every `*"…"*` span
+of 30+ characters in `docs/planning`, normalised for backticks, comment
+markers, blockquote and list prefixes and markdown links, against every `.rs`
+file in `crates/` and `game/`:
+
+| population | count |
+|---|---|
+| quotations of 30+ characters | 783 |
+| of those, ATTRIBUTED to a `.rs` file within 90 characters before the quote | 32 |
+| of those, not found in the tree on the first pass | 16 |
+| after fixing the matcher (`…` elisions, blockquote and list markers) | 12 |
+| of those, the triage record above quoting deleted text ON PURPOSE | 3 |
+| of those, a document quoting ITSELF, not a file | 1 |
+| **genuine defects, each read individually** | **4** |
+
+The four, all repaired 2026-09-19:
+
+- `queue.md` printed *"capture resolves the semantic DIRECTION and simulation
+  never sees a mode at all, at which point this waiver and the row above both
+  shrink"* as a quotation of `rollback_coverage.rs`. The file states the claim
+  in INDIRECT speech, and the trailing clause is in no file in the repository.
+- `world-facts-observations-and-memory.md` quoted `authored_conditions.rs` in
+  two sentences. The second is verbatim; the first was a paraphrase, and it
+  read as the stronger claim — *"must be queried there"* where the module says
+  a second copy is not NEEDED. The paragraph used it as evidence that the
+  module *"says so at the site"*.
+- `actor-monolith-work-frontier.md` substituted *"the outgoing sweep"* into an
+  otherwise verbatim quotation of `room_transition/commit.rs`.
+- `commit.rs` itself, plus four more source comments, named a
+  `retire_outgoing` that A10 deleted on 2026-09-14 — see below. <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+
+⛔⛤ **THE WIDER POPULATION IS NOT A BACKLOG, AND SAYING SO TOOK A SAMPLE
+RATHER THAN AN ASSUMPTION.** Dropping the attribution filter, 262 of 650
+quotations resolve to no original prose anywhere. Reading eight at random:
+five are the corpus's own *"this sentence used to say X"* convention, where
+the quoted text is absent from every original BECAUSE it was deleted — that is
+the convention working; one quotes the maintainer speaking; one quotes a
+planning page by a former name; and one was a false negative. ⇒ **The
+attribution is what makes a miss meaningful.** Without it the rule measures
+the repository's habit of quoting its own history.
+
+⚠ **TWO FALSE-NEGATIVE CLASSES, RECORDED BECAUSE THEY COST TIME BOTH WAYS.** A
+Rust string continuation (`\` at end of line, then indentation) joins into
+text no naive normaliser reproduces — that is why the
+`NarrativeInputLedger` waiver first read as unresolved and is in fact verbatim.
+And `…` is not `...`: the first matcher treated only the ASCII form as an
+elision and reported four misses that were quotations with a gap in them.
+
+⇒ **Still not worth a gate**, for the reason the section above gives: the
+population that a checker can judge is 32, the convention it would argue with
+is 650 wide, and the repair here was four sentences.
+
+### The deletion that left five survivors — `retire_outgoing` <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+
+⛔⛤ **A10 DELETED `RoomConstructionPlan::retire_outgoing` ON 2026-09-14, ONE <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+COMMENT WAS CORRECTED ON 2026-09-17, AND FIVE WERE NOT.** The name has no
+definition anywhere in the workspace; every hit is prose. `spawn_ext.rs`
+carries the 2026-09-17 correction — *"This named a
+`RoomConstructionPlan::retire_outgoing` until 2026-09-17; no such method <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+exists"* — and the other five went on naming it as a live mechanism in
+`room_transition/commit.rs`, `construction/tests.rs`, `session/reset/mod.rs`,
+`session/reset/tests.rs` and `carried_item_crosses_rooms.rs`. ⇒ **A repair
+applied to the owner a search happened to surface is not a repair of the
+fact.** The three planning pages that name it were already `cite-ok`-marked as
+recording a dead name on purpose, so the docs were clean and the source was
+not — the opposite of the direction this page was written to watch.
+
+⛔⛤ **AND TWO OF THE FIVE REPAIRS WERE WRONG ON THE FIRST DRAFT, IN THE WAY
+THIS CORPUS KEEPS FINDING.** A dead name has to be replaced by the RIGHT live
+owner, and there are two different room sweeps here:
+
+| | roster | so |
+|---|---|---|
+| the room TRANSITION sweep (`replace_live_world`) | `RoomResident` = `(With<RoomScopedEntity>, Without<InCustodyOf>)` | a carried object rides across |
+| the NEW GAME reset sweep (`process_new_game_reset_request`) | `With<RoomScopedEntity>`, deliberately NOT `RoomResident` | the hand is emptied, so nothing is exempted |
+
+Both `session/reset` sites were first repointed at the transition sweep because
+the dead name looked like a transition. Reading the paragraph instead of the
+name showed each is about the RESET, whose own parameter list says *"the two
+sweeps ask different questions; unifying them is not the cleanup it looks"*.
+⇒ One of them claimed the sweep is unconditional, which is TRUE of the reset
+and FALSE of the transition: the first draft would have replaced a correct
+sentence with an incorrect one while removing a dead name.
+
+### What the extended differential reports, and what that number is
+
+Run at the lane's own baseline (`98b0bd807`, 2026-08-13 — which predates the
+2026-09-14 deletion, so the instrument could always have seen this):
+
+| | count |
+|---|---|
+| bare citations in source comments naming a name that vanished since the baseline | 246 |
+| distinct vanished names they cite | 109 |
+| of those citations, self-labelled HISTORICAL on their own line | 59 |
+| reading as a LIVE claim | **187** |
+
+⚠ **THAT 187 IS AN UPPER BOUND AND THE REASON IS THE UNIT.** The classifier
+reads the citation's OWN line, and a paragraph routinely self-labels a line or
+two above the name — `transaction.rs`'s *"THIS COMMENT USED TO SAY … ALL FOUR
+ARE CLOSED"* is three lines above the `commit_deferred` it lists. A line is not <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+the structure this corpus writes in, which is the same mistake that made the
+blocking set wrong twice. The split is a triage aid, not a defect count.
+
+⭐ **AND THE RUN CONFIRMS THE HAND CENSUS INDEPENDENTLY**: it names
+`retire_outgoing` <!-- cite-ok: names the method A10 DELETED on 2026-09-14; a resolvable citation here would mean the deletion did not happen -->
+exactly five times, which is the five this page found by reading.
+
+⇒ **The five biggest clusters are the next slice, not this one.**
+`ArchetypeSpec` (13), `damage_apply` (13), `RoomTransitionRequested` (13), <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+`spec_for_brain` (8) and `CharacterRoster` (6) have no definition in the tree <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+and 53 live mentions between them. Sampled, they split the same way the path
+census above did: `RoomTransitionRequested` reads as deliberate history <!-- cite-ok: names a symbol DELETED since the baseline; this row is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+(*"this was a … message"*), while the other two read as present-tense
+descriptions of live mechanisms.

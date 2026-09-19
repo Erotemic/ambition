@@ -320,3 +320,113 @@ def test_an_item_that_became_a_field_is_not_reported(tree):
     doc = repo / "row.md"
     doc.write_text("A row citing `attacks` on the profile.\n")
     assert module.vanished_report([doc], item_base, set()) == 0
+
+
+def test_a_carved_name_in_a_SOURCE_COMMENT_is_reported_when_asked(tree, capsys):
+    """⛔⛤ THE GAP THAT COST FIVE COMMENTS FIVE DAYS, 2026-09-19.
+
+    `--comments` widened RESOLUTION to Rust comments and never widened this
+    pass, which read only documents. A QUALIFIED dead name in a comment was
+    therefore caught (`RoomConstructionPlan::retire_outgoing`, repaired
+    2026-09-17) while five BARE spellings of the same deleted method were in
+    neither population — bare names resolve too noisily to check directly, and
+    the differential that CAN judge them never saw source.
+
+    `vanished_report` was always able to do this; nothing ever handed it a
+    `.rs` path.
+    """
+    module, repo, base = tree
+    comment = repo / "uses_it.rs"
+    comment.write_text("// the old road went through `carved_away` on the way out\n")
+    found = module.vanished_report(
+        [comment], base, module.defined_names(module.source_text())
+    )
+    assert found == 1
+    assert "`carved_away`" in capsys.readouterr().out
+
+
+def test_the_marker_suppresses_a_source_comment_recording_the_old_name(tree):
+    """⚠ A comment RECORDING a deletion is the correct way to record one, and
+    the escape hatch must reach source exactly as it reaches a planning row —
+    otherwise extending this pass would punish the repair it asks for."""
+    module, repo, base = tree
+    comment = repo / "records_it.rs"
+    comment.write_text(
+        "// it named `carved_away` until the carve "
+        "<!-- cite-ok: records the dead name on purpose -->\n"
+    )
+    assert (
+        module.vanished_report(
+            [comment], base, module.defined_names(module.source_text())
+        )
+        == 0
+    )
+
+
+def test_a_live_name_in_a_source_comment_is_not_reported(tree):
+    """⭐ THE CONTROL: the arm above must not be reporting every comment."""
+    module, repo, base = tree
+    comment = repo / "fine.rs"
+    comment.write_text("// this one still calls `kept`, which is alive\n")
+    assert (
+        module.vanished_report(
+            [comment], base, module.defined_names(module.source_text())
+        )
+        == 0
+    )
+
+
+def test_the_flag_pair_actually_hands_source_to_the_differential_through_main(
+    tree, capsys, monkeypatch
+):
+    """⛔⛤ THE ARM THE FIRST THREE DID NOT REPLACE, AND THE POISON SAID SO.
+
+    The three arms above call `vanished_report` with a `.rs` path directly —
+    which ALWAYS worked; nothing had ever handed it one. Reverting the wiring
+    in `main` left all of them green, so they pin the capability and not the
+    change. This one drives `main` with both flags, which is the only place the
+    decision is made.
+    """
+    module, repo, base = tree
+    (repo / "uses_it.rs").write_text(
+        "// the old road went through `carved_away` on the way out\n"
+    )
+    git(repo, "add", "uses_it.rs")
+    git(repo, "commit", "-qm", "a comment naming the carved name")
+    doc = repo / "row.md"
+    doc.write_text("An unrelated row citing nothing.\n")
+
+    # `repo_files()` yields REPO-RELATIVE paths, which resolve only from the
+    # repo root — the one place the lane ever runs this script from.
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["check_planning_citations.py", "--vanished", base, "--comments", str(doc)],
+    )
+    module.main()
+    assert "`carved_away`" in capsys.readouterr().out, (
+        "with --vanished and --comments the differential must read source comments"
+    )
+
+
+def test_without_comments_main_leaves_source_out_of_the_differential(
+    tree, capsys, monkeypatch
+):
+    """⭐ THE CONTROL, and the reason the pair is opt-in: at the lane's own
+    baseline this reports 246 findings across 109 names, which is a periodic
+    sweep's backlog rather than an edit's verdict."""
+    module, repo, base = tree
+    (repo / "uses_it.rs").write_text(
+        "// the old road went through `carved_away` on the way out\n"
+    )
+    git(repo, "add", "uses_it.rs")
+    git(repo, "commit", "-qm", "a comment naming the carved name")
+    doc = repo / "row.md"
+    doc.write_text("An unrelated row citing nothing.\n")
+
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        sys, "argv", ["check_planning_citations.py", "--vanished", base, str(doc)]
+    )
+    module.main()
+    assert "`carved_away`" not in capsys.readouterr().out

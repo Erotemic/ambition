@@ -39,6 +39,17 @@ measurement it carries, and the index would lose that by demoting it to a link.
   that already existed. ⚠ `--comment-paths` REPORTS in the default lane; it was
   registered as a gate and demoted the same day under `AGENTS.md`'s rule against
   permanent file-location machinery.
+  ⭐ **AND THE PAGE GREW TWO MORE AXES ON 2026-09-19, so "CLOSED" names the
+  path half only.** A guard's WAIVER can quote source verbatim and nothing
+  resolves the quotation — found live, with the quoted comment deleted five
+  days earlier. Censusing the same shape across `docs/planning`: 783
+  quotations, 32 attributed to a `.rs` file, **4 genuine defects**, all
+  repaired. And the gap underneath both: `--vanished` is the only pass that can
+  judge a BARE name, and it read only documents, so a deleted method survived
+  in five source comments while the QUALIFIED spelling of the same method was
+  caught and repaired. It now reads source comments too when asked
+  (`--vanished REF --comments`), which is opt-in because at the lane's baseline
+  it reports 246 findings across 109 names.
 
 ## Design and scope pages awaiting a decision
 

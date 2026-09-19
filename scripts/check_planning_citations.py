@@ -1357,7 +1357,24 @@ def main() -> int:
     # never asked, so "run the lane the gate runs" was not sufficient either.
     vanished_findings = 0
     if args.vanished:
-        vanished_findings = vanished_report(docs, args.vanished, defined)
+        # ⛔⛤ **`--comments` WIDENED RESOLUTION AND NEVER WIDENED THIS, WHICH IS
+        # HOW A DELETED NAME LIVED IN FIVE SOURCE COMMENTS FOR FIVE DAYS.**
+        # `retire_outgoing` was deleted by A10 on 2026-09-14. The QUALIFIED
+        # spelling (`RoomConstructionPlan::retire_outgoing`) is a `SYMBOL`, so
+        # `--comments` caught it and it was repaired on 2026-09-17; the five
+        # BARE spellings were in neither population — bare names resolve too
+        # noisily to check directly (~408 findings, see `source_text_at`), and
+        # the differential that CAN judge them read only documents.
+        #
+        # ⚠ REPORT, NOT GATE, AND OPT-IN FOR A MEASURED REASON: at the lane's
+        # own baseline this adds 246 findings across 109 names. That is a
+        # periodic sweep's backlog, not an edit's verdict, so it arrives only
+        # when the caller asks for BOTH flags and the lane job (which passes
+        # neither `--comments` nor `--strict`) is unaffected.
+        vanished_docs = docs
+        if args.comments:
+            vanished_docs = docs + [f for f in repo_files() if f.suffix == ".rs"]
+        vanished_findings = vanished_report(vanished_docs, args.vanished, defined)
 
     # ⭐ COMMIT NAMES ARE CITATIONS TOO, and nothing checked them until
     # 2026-09-03. A fabricated SHA is invisible exactly the way a fabricated

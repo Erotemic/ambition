@@ -216,3 +216,45 @@ citation land on a declaration", but "do several citations into one file share
 an offset". That is a much smaller population and it is the shape a file edit
 actually produces. Nobody has built it; this section is the record that the
 wider version was tried and costs more than it finds.
+
+## A third gap on the same axis, measured and not wired — 2026-09-19
+
+⛔⛤ **A QUOTATION OF SOURCE IS A CITATION NOTHING CHECKS AT ALL.** The sections
+above are about a path or a symbol that stops resolving. A guard's WAIVER can
+also quote a source comment verbatim to justify itself, and that quotation is
+plain prose inside a Python string — no resolver looks at it.
+
+Found live: `scripts/check_rollback_mutators_run_in_sim.py` waived
+`restore_inventory_from_save` as *"WAIVED FOR THE ACTIVATION CASE ONLY, AND THE
+OTHER CASE IS OPEN"*, and its reason quoted `durable_horizon.rs` saying *"THE
+`Update` ADOPTER STAYS. A file can also arrive after activation (a mid-session
+load), and adoption is idempotent"*. That comment had been deleted when Q135
+landed on 2026-09-16. Three distinct fragments of it return **zero** hits across
+every `.rs` file in `crates/` and `game/`. ⇒ The waiver spent three days
+justifying itself with text that no longer existed, and the road it described
+was gone.
+
+⭐ **THE EXISTING ARM CANNOT SEE IT, AND ITS NAME SAYS OTHERWISE.**
+`test_every_waiver_cites_the_code_that_makes_it_true` accepts any reason
+containing `⛔` and at least 150 characters. That is a SHAPE check wearing a
+citation check's name — it cannot distinguish a waiver that cites live code from
+one that cites deleted code at length.
+
+⛔ **AND BOTH OBVIOUS GUARDS WERE MEASURED AND REJECTED.**
+
+| candidate rule | measured | why not |
+|---|---|---|
+| every backticked identifier in a waiver must exist in the Rust tree | 73 identifiers across 15 waivers, **0** unresolvable | green by construction — and it would NOT have caught this one, whose only backticked token was `Update` |
+| every quoted phrase in a waiver must appear in source | **5** matches, of which **3** are apostrophes in possessives (*"`X`'s own doc says"*) and 2 are real quotations | the population is two; the regex cannot tell a quotation from an apostrophe without more machinery than the finding is worth |
+
+⇒ **Do not wire either.** The second real quotation — `teardown.rs:375`'s
+*"HYGIENE, NOT CORRECTNESS"*, in the `reset_session_scoped_resources_on_retire`
+waiver — resolves, so after the repair the population is clean and a gate would
+protect two sentences.
+
+⭐ **WHAT IS WORTH KEEPING IS THE HABIT, NOT THE CHECKER: when a ruling lands,
+walk its inbound links.** Q135 was answered on 2026-09-16 and left three stale
+owners behind — this waiver, the `DURABLE-HORIZON-CHECKSUM` queue row calling it
+*"the half that is still open"*, and its own page describing an `#[ignore]`
+reason that had changed. All three were found by re-reading one row against the
+tree, and none of them by any guard.

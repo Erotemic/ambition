@@ -2750,10 +2750,38 @@ per-TICK checksum, 1 of 364 probed entries differing and it being
 `AmbitionGameSave`; measurement, eliminations and reproduction are in
 [ROLLBACK-BAG-DESYNC](#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
-⛔ **WHAT IS LEFT IS NOT A SAVE WRITER AT ALL.** It is the DURABLE RESTORE
-CHAIN's placement against GGRS start —
-[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished)'s
-lifecycle half, characterised below and measured, not assumed. The ownership
+✅⛤ **THE LIFECYCLE HALF LANDED TOO, AND THIS ROW WENT ON CALLING IT "STILL
+OPEN" UNTIL 2026-09-19.** The restore chain's placement against GGRS start was
+[Q135](awaiting-maintainer-decision.md#q135--should-ggrs-start-before-the-durable-restore-has-finished),
+and Q135 was **answered and landed 2026-09-16**: `maintain_local_session`
+refuses to CREATE a rollback session while `durable_hydration_is_pending(world)`
+is true, and the one road that could lower the latch mid-session is gone, held
+by a `debug_assert!(restored.0)` in `reset_inventory_on_new_game`. ⇒ The three
+`Update` residents below write only while the latch is false, and no timeline
+may start in that window. ⚠ The ruling landed on the decision page and nobody
+walked its inbound links — the same duplicated-authority drift this row's own
+collapse note describes, one document out.
+
+⛔⛤ **AND RE-READING IT AGAINST THE TREE FOUND A REAL HOLE IN THAT ARGUMENT,
+FIXED 2026-09-19.** The gate asks for EXACTLY ONE primary body;
+`adopt_occurrence_checkpoint_from_save` asked only that the population be
+NON-EMPTY. With two primary bodies the gate reports "not pending" and lets the
+timeline start, `complete_durable_restore`'s `single()` can never raise the
+latch, and the adoption therefore repeats from `Update` on every frame of a live
+timeline — writing `AuthoredOccurrences` (checksummed since v195) and both
+baselines. ⇒ Its guard now uses `complete_durable_restore`'s own spelling,
+`bodies.single().is_err()`, so the gate and all three chain members ask one
+question. Held by
+`a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`
+(`crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon/tests.rs`),
+which asserts the gate LETS THE POPULATION THROUGH before asserting nobody
+writes — the pair, not the consequence. ⚠ Latent rather than measured: the value
+written was constant while the save could not change. What makes it worth the
+line is that the invariant holding it harmless was the mirrors' own `!restored.0`
+guards, stated nowhere near the write. ⭐ The predicate's own doc had asked for
+this — *"keep the two in step"* — and there were three sites, not two.
+
+The ownership
 question the save half raised,
 [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on),
 is still open and no longer blocks anything here. ⚠ Read Q129's pinned-projection
@@ -2769,12 +2797,19 @@ reading the three `app.add_systems` calls in its body
 
 | system | writes | hashed | schedule |
 | --- | --- | --- | --- |
-| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | **yes** | `Update` — ⛔ open |
-| `restore_inventory_from_save` | `OwnedItems` + both item baselines | no | `Update` — ⛔ open, partial waiver below |
-| `complete_durable_restore` | `SaveRestored` | no | `Update` — ⛔ open |
+| `adopt_occurrence_checkpoint_from_save` | `CustodyBaseline`, `OccurrenceBaseline` | **yes** | `Update` — ✅ pre-timeline |
+| `restore_inventory_from_save` | `OwnedItems` + both item baselines | no | `Update` — ✅ pre-timeline |
+| `complete_durable_restore` | `SaveRestored` | no | `Update` — ✅ pre-timeline |
 | the three `persist_*_to_save` | `AmbitionGameSave` | **yes** | ✅ sim schedule |
 | `count_the_dialogue_visit_when_a_conversation_opens` | `AmbitionGameSave` | **yes** | ✅ sim schedule |
 | `reset_inventory_on_new_game` + `reset_occurrence_horizon_on_new_game` | the reset baselines | no | ✅ sim schedule |
+
+⭐ **`Update` IS NOT A WAIVER HERE, IT IS A WINDOW.** All three write only
+while `SaveRestored` is false, the latch rises once and never falls, and the
+Q135 gate refuses to start a timeline while hydration is pending — so these
+three run strictly before frame zero of any session. That argument is only as
+good as the agreement between the gate's population and theirs, which is why
+the 2026-09-19 fix above is part of it rather than a tidy-up.
 
 ⚠ **THE HEADER OF THAT TABLE USED TO READ "the five systems this plugin installs
 into top-level `Update`", AND IT WAS WRONG IN THREE WAYS AT ONCE** — it counted
@@ -2913,7 +2948,9 @@ defect no longer waits on it.
 
 ---
 
-**THE RESTORE CHAIN — the half that is still open.**
+**THE RESTORE CHAIN — the half that was open until Q135 landed.** Kept because
+the measurements below are what the ruling was made on; the ruling itself, and
+the population hole found while re-reading it, are at the head of this row.
 
 ⛔⛤ **THE ONE-SHOT PAIR IS MEASURED AND THE ANSWER IS THE UNFAVOURABLE ONE —
 2026-09-16, `probe_when_the_durable_restore_latch_flips_against_ggrs_start` in
@@ -3162,8 +3199,16 @@ and the population is clean; re-run it when a row passes ~300 lines.
 
 **Acceptance:** Q129 is answered and the three mirrors follow the ruling; ✅ the
 dialog increment has its own answer, which was not the mirrors'; ✅ the one-shot
-pair's ordering against GGRS start is characterised rather than assumed; and Q135
-is answered so the restore chain's three `Update` residents have a road. ⚠ The
+pair's ordering against GGRS start is characterised rather than assumed; and ✅
+Q135 is answered and the restore chain's three `Update` residents have their
+road — the session-start gate, plus the 2026-09-19 population fix that makes the
+gate's promise hold for every population rather than for the singleton one.
+⇒ **WHAT THAT LEAVES IS ONE CLAUSE, AND IT IS ONE THIS ROW SAYS IS NOT A GATE.**
+The body states Q129 *"is still open and no longer blocks anything here"*, and
+the blocking set's framing agrees, placing it among the sub-road balance calls.
+So the row is acceptance-complete but for a ruling that does not block it; ⚠
+whether that closes the row is a maintainer call and is deliberately not taken
+here. ⚠ The
 guard stays banked-but-owed on all of these — see
 [ROLLBACK-MUTATOR-POPULATION](#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state)
 — which is correct, and is why they were not waived to make a count go down.

@@ -3356,8 +3356,12 @@ so `adopt_the_ledger` writes the same empty value it found. The comparison is
 between two identical censuses. Do not quote that arm's green against this question.
 ✅ The seeded save now exists —
 `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` in
-`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs` — and it is
-`#[ignore]`d because it demonstrates an unfixed defect. ⛔ Note its fixture shape:
+`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`. ⛤ **ITS
+`#[ignore]` REASON NO LONGER READS "demonstrates an unfixed defect" AND THIS
+SENTENCE SAID IT DID UNTIL 2026-09-19** — the probe is `#[ignore = "PROBE,
+print-only: ..."]` like its nine siblings, and the defect it found is held by a
+running `#[test]`, `a_mid_session_load_does_not_reach_back_across_the_rewind`.
+⇒ An ignore REASON is a claim about the tree, and it drifts like any other. ⛔ Note its fixture shape:
 staging from OUTSIDE the timeline does nothing, because both the save and the
 latch are rollback-registered and the next rollback restores them. The staging
 must live in the rewinding schedule.

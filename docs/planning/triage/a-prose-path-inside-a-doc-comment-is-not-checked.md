@@ -175,3 +175,44 @@ that name, a `tools/ldtk_intgrid_migration.py` named as *"the source of truth fo
 which value means what"*, and a Mockingbird sprite generator cited as the thing
 you install to regenerate a shipped sheet. All three were live instructions to a
 reader, and all three are now either repointed or labelled as gone.
+
+## The adjacent gap, MEASURED AND DELIBERATELY NOT WIRED — 2026-09-19
+
+⛔⛤ **A CITATION THAT RESOLVES IS NOT A CITATION THAT LANDS.** The checker above
+verifies that `path:N` names a real file and a real line. It cannot ask whether
+line `N` is the thing the surrounding sentence is about. Two live examples found
+the same day, in `consolidation/README.md` and `consolidation-plan.md`: they
+cited two arms of one test file at `:1404` and `:519` while those arms declare
+at `:1420` and `:535`. Both resolved. `:1404` is an `assert!` inside an
+unrelated arm and `:519` is a doc comment naming the OTHER arm.
+
+⭐ **THE SIGNATURE IS WHAT MAKES IT DIAGNOSABLE: BOTH WERE OFF BY EXACTLY THE
+SAME SIXTEEN.** One file gained sixteen lines above both citations, so every
+line citation into it aged together. ⇒ **When one line citation into a file is
+found wrong, check the others into the same file and diff the offsets.** An
+identical offset is one edit, not two mistakes, and it predicts the rest.
+
+⛔ **AND THE OBVIOUS GUARD WAS BUILT, MEASURED, AND REJECTED — WHICH IS THE
+FINDING THIS SECTION EXISTS FOR.** The rule "a citation naming `some_fn` must
+land within a few lines of `fn some_fn(`" flags **42** citations across `docs/`.
+Reading them, the rule is wrong rather than the corpus: **deep-linking into a
+body or a doc comment is deliberate and common here**, and it is usually the
+more useful citation.
+
+- `crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:1078`
+  points at the comment explaining why advance is an EDGE — 16 lines inside the
+  function the prose names, on purpose. ⚠ That path is spelled in full because
+  the first draft of this bullet wrote the bare `input_systems.rs:1078` and the
+  checker reddened it: TWO tracked files carry that suffix. <!-- cite-ok: the bare spelling above is QUOTED as the mistake this bullet records --> The gap this
+  section describes is real, and the checker still caught the writing of it.
+- `held_items/src/lib.rs:996`, `:1016` is a PAIR of citations for a pair of
+  functions; a scanner reading only the first call it a miss.
+- `architecture-census.md:420` names five `propose_*`/`publish_*` systems in
+  one sentence and cites the site of a sixth.
+
+⇒ **Do not wire this rule.** The false positives are the convention working.
+What is worth checking is the narrower thing the real defect had: not "does the
+citation land on a declaration", but "do several citations into one file share
+an offset". That is a much smaller population and it is the shape a file edit
+actually produces. Nobody has built it; this section is the record that the
+wider version was tried and costs more than it finds.

@@ -3,6 +3,12 @@
 use super::*;
 use bevy::prelude::*;
 
+/// A FRESH ATTACKER'S RAGE FACTOR. Every resolver test in this file is about
+/// the PERCENT curve; pinning rage to its baseline keeps the two mechanics
+/// from multiplying into each other's readings. Rage's own arms live beside
+/// the rule they exercise, in `rage_tests` and `rage_and_throws`.
+const NO_RAGE: f32 = 1.0;
+
 fn dummy_entity() -> Entity {
     Entity::from_raw_u32(42).expect("nonzero raw entity index")
 }
@@ -18,6 +24,7 @@ fn launch_under(base: f32, growth: Option<f32>, curve: crate::rules::GrowthBaseC
         0.02,
         1.25,
         curve,
+        NO_RAGE,
     ) {
         HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
         other => panic!("a launch volume resolved as {other:?}"),
@@ -78,7 +85,15 @@ fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
         ceiling: 1.40,
     };
     assert_eq!(
-        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 300, 1.0, 0.02, 1.25, curve),
+        resolved_hitbox_knockback_magnitude(
+            HitboxKnockback::FeelScale(1.6),
+            300,
+            1.0,
+            0.02,
+            1.25,
+            curve,
+            NO_RAGE,
+        ),
         HitKnockbackMagnitude::FeelScale(1.6),
         "a declared kill curve reached a PvE feel scale, which has no percent \
          term for it to act on"
@@ -93,6 +108,7 @@ fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
         0.02,
         1.25,
         curve,
+        NO_RAGE,
     ) {
         HitKnockbackMagnitude::LaunchSpeed(speed) => assert_eq!(
             speed, 160.0,
@@ -101,6 +117,54 @@ fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
         ),
         other => panic!("a fixed-knockback volume resolved as {other:?}"),
     }
+}
+
+/// RAGE RIDES A GROWING LAUNCH AND STOPS AT A SET ONE.
+///
+/// ⭐ RAGE IS RESOLVED HERE RATHER THAN AT THE CALLER, and this is why: the
+/// caller holds a `HitboxKnockback` whose growth may be authored or may be the
+/// ruleset fallback, and only after that collapse can anything tell a set
+/// launch from a weak one. The old caller multiplied every `LaunchSpeed` by
+/// rage, so `Some(0.0)` — the documented way to author a launch that ignores
+/// percent — grew a percent dependence through the ATTACKER'S meter instead of
+/// the victim's.
+///
+/// ⛔ BOTH ARMS READ OFF THE SAME CALL. A set arm alone would pass against a
+/// resolver that had simply stopped raging anything.
+#[test]
+fn rage_rides_a_growing_launch_and_stops_at_a_set_one() {
+    let resolve = |growth: Option<f32>, rage: f32| {
+        match resolved_hitbox_knockback_magnitude(
+            HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth,
+            },
+            100,
+            1.0,
+            0.02,
+            1.0,
+            crate::rules::GrowthBaseCurve::IDENTITY,
+            rage,
+        ) {
+            HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
+            other => panic!("a launch volume resolved as {other:?}"),
+        }
+    };
+
+    assert_eq!(resolve(Some(2.0), NO_RAGE), 320.0);
+    assert_eq!(
+        resolve(Some(2.0), 1.5),
+        480.0,
+        "a raging attacker's growing launch took no multiplier"
+    );
+
+    assert_eq!(resolve(Some(0.0), NO_RAGE), 120.0);
+    assert_eq!(
+        resolve(Some(0.0), 1.5),
+        120.0,
+        "rage moved a SET launch — the one the author wrote `Some(0.0)` to make \
+         the same at every percent"
+    );
 }
 
 #[test]
@@ -112,7 +176,8 @@ fn hitbox_knockback_units_remain_distinct() {
             2.0,
             0.0,
             1.0,
-            crate::rules::GrowthBaseCurve::IDENTITY
+            crate::rules::GrowthBaseCurve::IDENTITY,
+            NO_RAGE,
         ),
         HitKnockbackMagnitude::FeelScale(1.6),
         "world damage-box feel scales do not become engine-unit speeds"
@@ -128,6 +193,7 @@ fn hitbox_knockback_units_remain_distinct() {
             0.0,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            NO_RAGE,
         ),
         HitKnockbackMagnitude::LaunchSpeed(150.0),
         "melee launch speed growth resolves in engine units"
@@ -1663,6 +1729,7 @@ mod ruleset_knockback_growth {
             ruleset_growth,
             percent_scale,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            NO_RAGE,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),
@@ -1782,6 +1849,7 @@ mod ruleset_knockback_growth {
             0.01,
             1.0,
             crate::rules::GrowthBaseCurve::IDENTITY,
+            NO_RAGE,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),

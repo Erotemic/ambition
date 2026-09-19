@@ -228,6 +228,12 @@ fn resolved_hitbox_knockback_magnitude(
     // only inside the match arm below — a caller holding just a
     // `HitboxKnockback` cannot compute the factor to hand in.
     growth_base: crate::rules::GrowthBaseCurve,
+    // ⭐ RAGE ARRIVES HERE RATHER THAN AT THE CALLER because this is the only
+    // place that knows whether the launch GROWS. The two authoring roads for
+    // growth are collapsed below, and a set launch must decline rage — see
+    // [`crate::util::rage_for_growth`]. A caller holding a bare
+    // `HitboxKnockback` cannot make that call without re-deriving the collapse.
+    rage: f32,
 ) -> HitKnockbackMagnitude {
     match knockback {
         // ⛔ A FEEL SCALE TAKES NO GROWTH SCALE, because it has no percent term
@@ -241,6 +247,14 @@ fn resolved_hitbox_knockback_magnitude(
             // decide". Reading a bare `0.0` as unspecified made the documented
             // fixed-knockback case the one value you could not author.
             let growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
+            // ⛔ THE SET-KNOCKBACK FACT IS READ HERE, BEFORE ANY RULESET CURVE
+            // TOUCHES IT. `growth_base` and `growth_scale` below are knobs a
+            // ruleset turns; either could reach zero and make a percent-scaling
+            // move momentarily look set, which would silently switch rage off
+            // game-wide. What this asks is what the AUTHOR wrote (or what the
+            // ruleset fallback authored on its behalf), which is the fact rage
+            // is allowed to consult.
+            let authored_growth = growth;
             // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the scale is applied
             // HERE and not at either author. The line above has already
             // collapsed the two ways a volume can state its growth (an
@@ -277,7 +291,8 @@ fn resolved_hitbox_knockback_magnitude(
                 growth_scale,
             )
             .max(0.0);
-            HitKnockbackMagnitude::LaunchSpeed(launch_speed)
+            let rage = crate::util::rage_for_growth(rage, authored_growth);
+            HitKnockbackMagnitude::LaunchSpeed(launch_speed * rage)
         }
     }
 }
@@ -1026,6 +1041,7 @@ pub fn apply_hitbox_damage(
                     ruleset_growth,
                     growth_scale,
                     rules.growth_base,
+                    rage,
                 );
                 // ⛔ A FEEL SCALE KEEPS TAKING STALING WHOLE. It carries no
                 // `base + growth` to split, so there is no percent term for the
@@ -1035,7 +1051,11 @@ pub fn apply_hitbox_damage(
                 // smuggled in behind a platform-fighter repair.
                 let magnitude = match magnitude {
                     HitKnockbackMagnitude::FeelScale(_) => magnitude.scaled(rage * stale),
-                    HitKnockbackMagnitude::LaunchSpeed(_) => magnitude.scaled(rage),
+                    // ⭐ RAGE ALREADY RODE THIS ARM, inside the resolver, which
+                    // is the only place that can see whether the launch grows
+                    // with percent — a SET launch declines rage and this line
+                    // could not tell one from a weak one.
+                    HitKnockbackMagnitude::LaunchSpeed(_) => magnitude,
                 };
                 let knockback = Some(HitKnockback {
                     // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength

@@ -398,6 +398,20 @@ pub fn emit_hit_feedback(
 /// `growth_scale` is a dimensionless multiplier on the PERCENT TERM ALONE —
 /// the ruleset's [`crate::rules::ResolvedCombatTuning::victim_percent_knockback_scale`] folded
 /// with its staling influence. `1.0` is the law as first written.
+/// The rage factor a launch with this `growth` actually takes.
+///
+/// ⛔⛤ SET KNOCKBACK DOES NOT RAGE, AND THAT IS THE WHOLE POINT OF AUTHORING IT.
+/// A volume or throw written with zero growth launches the same at 0% and at
+/// 150% BY CONSTRUCTION — it is the genre's combo starter and its kill set-up —
+/// and rage is a percent-derived multiplier, so folding it over a set launch
+/// reintroduces exactly the percent dependence the author wrote `0.0` to
+/// remove. Ultimate excludes set knockback from rage for the same reason.
+/// Everything that DOES scale with percent — an ordinary swing and an ordinary
+/// throw alike — takes the factor whole.
+pub fn rage_for_growth(rage: f32, growth: f32) -> f32 {
+    if growth == 0.0 { 1.0 } else { rage }
+}
+
 pub fn scaled_knockback(
     base: f32,
     growth: f32,

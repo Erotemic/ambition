@@ -911,26 +911,42 @@ pub fn apply_feature_hit_events(
                 // CM4: the strike connected — the attacker's playing move
                 // learns it (combo-confirm for OnHit/OnWhiff cancels).
                 //
-                // ⛔⛤ **AND IT CREDITS WHATEVER MOVE IS PLAYING, THOUGH THE
-                // EVENT NAMES ITS AUTHOR — `Q101`.** `event.attacker_move_instance`
-                // is in hand and unread here, while the sibling road
-                // (`mark_move_playback_resolved_hits`) refuses an outcome no
-                // move claims. `landed_hit` is therefore the one contact fact
-                // still attributed by coincidence of timing: `blink`, `dive`,
-                // `mark_recall` and `empowerment` all reach this line with
-                // `attacker_move_instance: None`. Which way it should go is a
-                // gameplay ruling and is `Q101`'s, in
-                // `docs/planning/awaiting-maintainer-decision.md` — this line
-                // is the one that changes under either answer.
+                // ⛔⛤ **AN OUTCOME THAT NAMES ANOTHER OCCURRENCE CREDITS NO
+                // MOVE HERE.** The ruling behind `Q101` (2026-09-10) is that
+                // `Connected` is owned by a specific move occurrence and an
+                // outcome may modify it only with provenance naming that
+                // occurrence. `mark_move_playback_resolved_hits` has enforced
+                // that for `connected`/`blocked` since; this write of
+                // `landed_hit` held `event.attacker_move_instance` and never
+                // read it, so the third contact fact — and `overlapped`, which
+                // is derived from it — was credited by coincidence of timing.
+                // A bolt from a move that has ENDED denied the live move its
+                // whiff cancel, and `blink`'s shockwave wrote its victims into
+                // the live move's dedup ledger.
+                //
+                // ⚠ **`None` IS NOT REFUSED HERE, AND THAT IS THE OPEN HALF.**
+                // An unclaimed outcome — `blink`, `dive`, `mark_recall`,
+                // `empowerment` all reach this line with no instance — still
+                // credits whatever is playing. Whether those abilities should
+                // propagate their launching occurrence or credit nobody is a
+                // GAMEPLAY ruling, `Q101` in
+                // `docs/planning/awaiting-maintainer-decision.md`. Refusing an
+                // explicitly different occurrence needs no ruling: the event
+                // says whose it is.
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
-                    pb.landed_hit = true;
-                    // Persist one-hit-per-target dedup on the MOVE itself. The
-                    // per-swing accumulator below lives on `BodyMelee.swing`, which
-                    // a `MovesetMelee` body rebuilds every frame — so without this
-                    // the strike re-hit + re-fired the hit SFX every active tick.
-                    // `MovePlayback` is the persistent per-strike home.
-                    if record_dedup {
-                        pb.hit_targets.extend(landed_keys.iter().cloned());
+                    let claims_this_use = event
+                        .attacker_move_instance
+                        .is_none_or(|instance| instance == pb.instance);
+                    if claims_this_use {
+                        pb.landed_hit = true;
+                        // Persist one-hit-per-target dedup on the MOVE itself. The
+                        // per-swing accumulator below lives on `BodyMelee.swing`, which
+                        // a `MovesetMelee` body rebuilds every frame — so without this
+                        // the strike re-hit + re-fired the hit SFX every active tick.
+                        // `MovePlayback` is the persistent per-strike home.
+                        if record_dedup {
+                            pb.hit_targets.extend(landed_keys.iter().cloned());
+                        }
                     }
                 }
                 for (entity, mut combat, active_attack) in &mut player_combat_q {

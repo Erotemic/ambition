@@ -28,7 +28,8 @@ that and produced six.
 
 ⛔⛔ **AND SIX WAS STILL WRONG, BECAUSE `queue.md` HAS A CANONICAL FIELD FOR
 THIS AND NEITHER DERIVATION READ IT.** Five open P0/P1 rows carried an explicit
-`**Blocked by:**` line naming **eight** questions — `Q127`, `Q101`, `Q104`,
+`**Blocked by:**` line naming **eight** questions (as of that measurement; the
+set has grown since and the guard is where its size lives) — `Q127`, `Q101`, `Q104`,
 `Q110`, `Q100`, `Q106`, `Q108`, `Q69` — and the six-row table named none of
 them. Both derivations scanned PROSE for gate language in a document that
 states the answer in a field. ⇒ **When a corpus has a structured field for the
@@ -39,10 +40,13 @@ is a different and worse question.**
 REPAIR.** The five rows whose gate lived only in prose — `CUTSCENE-ROLLBACK-DECISION`,
 `ID-PEER`, `ROLLBACK-MUTATOR-POPULATION`, `ROLLBACK-DEAD-SESSION`,
 `MENU-RESET-MIDSESSION` — now state it in the same field, saying exactly what
-their prose already said. **Ten open P0/P1 rows state fifteen gates**, one
-convention holds all of them, and
+their prose already said. One convention holds all of them, and
 `scripts/check_blocking_set_names_every_gate.py` fails if this section omits
-one. Maintaining two derivations of one fact was the defect; keeping both
+one. ⚠ **THE COUNT IS THE GUARD'S TO PRINT, NOT THIS PARAGRAPH'S** — it read
+*"Ten open P0/P1 rows state fifteen gates"* and was stale within a day of being
+written, when `Q147` was filed and `CANDIDATE-GENERATION-ORDER` gained the
+field its own prose had been standing in for. The guard prints the live triple
+on every run; a sentence here can only disagree with it. Maintaining two derivations of one fact was the defect; keeping both
 roads and reconciling them would have been the same defect with a process
 around it.
 
@@ -68,7 +72,7 @@ finds mentions, not gates. `Q128` and `Q137` are likewise recorded BELOW
 | [`Q147`](#q147--must-a-candidate-session-be-built-from-the-generation-its-own-activation-commits-or-from-the-one-current-before-it) | **P1** `CANDIDATE-GENERATION-ORDER`, entirely — the row's only remaining work is the answer | the two ordering edges keep pinning opposite ends of one set, a candidate keeps building from the generation before its own activation commits, and the next reader rediscovers it from scratch. ✔ Today's shape is pinned by a guard meanwhile, so the answer cannot be made moot by a silent move |
 | [`Q138`](#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session) | **P1** `ROLLBACK-DEAD-SESSION` | an invalidated session keeps accepting `step()`, stops advancing `SimTick`, and returns an observation every time — so assertions after it agree with a frozen world forever. `rollback_health()` already knows and `step` does not consult it; whether it should REFUSE is an API contract nobody has set. ⚠ Cardinalities deliberately not restated here — the row says why, and `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` prints the live one |
 
-### The eight from `queue.md`'s `Blocked by:` field
+### The questions `queue.md` names in its `Blocked by:` field
 
 ⭐⭐ **SIX OF THESE ARE ONE DECISION, WHICH IS THE MOST USEFUL THING THIS
 RE-DERIVATION FOUND.** `Q146` (C07), `Q144` (C04), and `Q100`/`Q106`/`Q108`/`Q97`
@@ -97,7 +101,7 @@ as pickable when it is not.
 | question | row | why nothing else is left |
 |---|---|---|
 | [`Q127`](#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific) | **P0** `SETTINGS-ROLLBACK` | the frame-mode half is CLOSED (the acceptance measurement reads 0 simulation readers of `UserSettings`); *"the damage half only"* is what remains, and it is *"after `Q127`"*. Both shapes are stated mechanically viable, so the product rule decides the admitted authority's shape |
-| [`Q101`](#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition) | **P0** `A12` | the row says *"Remaining engineering: finish reflection/contact attribution after the product rule is settled"*, and there is no other remaining engineering. ⭐ **RE-MEASURED 2026-09-19: the reflection half is CLOSED and the contact half is ONE LINE.** `intercept.rs` drops `FiredByMoveInstance` with the ownership change; what is left is `damage/mod.rs:914`, which writes `landed_hit` with `event.attacker_move_instance` in hand and unread. With the refusal inserted as a poison the monolith's 1,212 lib tests go to two failures, one of them the arm that records the gap. ⇒ This is the cheapest of the eight to discharge and the only one whose repair is already sized |
+| [`Q101`](#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition) | **P0** `A12` | the row says *"Remaining engineering: finish reflection/contact attribution after the product rule is settled"*. ⭐ **RE-MEASURED 2026-09-19 AND TWO THIRDS OF IT IS ALREADY DONE**: reflection is closed (`intercept.rs` drops `FiredByMoveInstance` with the ownership change), and an outcome naming a DIFFERENT occurrence is refused as of the same day — that half needed no ruling, because the event says whose it is. ⇒ What is left is `None`: one condition in `apply_feature_hit_events`, or provenance threaded through four ability writers. The cheapest of the set to discharge, and the only one whose repair is sized |
 | [`Q69`](#q69--at-potato-should-character-sprites-fall-back-to-the-0_25x-tier) | **P1** `D-POTATO-ASPECT` | a content/quality call, and the row's only `Blocked by:` |
 
 ⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
@@ -786,6 +790,17 @@ AUTHORED FLOWS ABOVE DO NOT MAKE IT FREE:**
   (`already_hit`, `crates/ambition_combat/src/hitbox/mod.rs:600`, spent at
   `:1163`) — so the move skips a boss or breakable the blink keyed.
 
+✅ **HALF OF IT IS REPAIRED AND OUT OF THIS QUESTION — 2026-09-19, AFTER A
+REVIEW SPLIT THE CASE.** An event carrying `Some(other_instance)` says whose
+outcome it is, so crediting the live move contradicts the 2026-09-10 ruling
+rather than waiting on this one. `apply_feature_hit_events` now refuses it
+(`is_none_or(|instance| instance == pb.instance)`), witnessed by
+`an_outcome_naming_another_occurrence_credits_no_move`, and the monolith's lib
+suite is 1,213 passed / 0 failed with it. ⇒ **WHAT REMAINS OPEN IS `None`
+ALONE**: should `blink`, `dive`, `mark_recall` and `empowerment` propagate the
+occurrence of the move that launched them, or credit nobody? The options below
+are about that.
+
 ✔ **AND THE STATE IS NOW RECORDED BY AN ARM RATHER THAN BY THIS PARAGRAPH —
 2026-09-19.** `an_outcome_naming_a_dead_move_still_confirms_the_one_playing`
 (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/tests.rs`)
@@ -794,15 +809,14 @@ and asserts, in its own words, *recorded, not endorsed*, that the live move is
 confirmed. Its anti-vacuity floor is the victim's health, so a fixture where
 the system never ran cannot pass it.
 
-⭐ **THE BLAST RADIUS IS MEASURED, WHICH IS THE PART A RULING USUALLY HAS TO
-GUESS AT.** With the refusal inserted as a poison — one line, `if
-event.attacker_move_instance != Some(pb.instance) { continue; }` — the
-monolith's 1,212 lib tests go to **two failures**: this arm, which is what it
-is for, and `a_player_slash_folds_the_struck_target_onto_the_move_accumulator`,
-whose fixture writes `attacker_move_instance: None` against a playback at
-instance 0 because it predates the field. ⇒ In this crate the (b) repair is
-one line and one fixture. ⚠ That number is the MONOLITH's; `app_it` and the
-content crates were not run under the poison.
+⭐ **THE BLAST RADIUS OF THE REMAINING HALF IS MEASURED.** Refusing `None` too
+— the strict form, tried as a poison — takes the monolith's lib suite to two
+failures: the arm that records today's `None` behaviour, and
+`a_player_slash_folds_the_struck_target_onto_the_move_accumulator`, whose
+fixture writes `None` against a playback at instance 0 because it predates the
+field. ⇒ In this crate answering (b) costs one condition and one fixture.
+⚠ That number is the MONOLITH's; `app_it` and the content crates were not run
+under the poison.
 
 ⭐ **WHICHEVER WAY THIS IS ANSWERED, `damage/mod.rs:914` IS THE LINE THAT
 CHANGES** — (a) threads the launching occurrence into those four writers and
@@ -4832,6 +4846,13 @@ retire the session that is playing — A10.5's last-good-world guarantee. ⇒ **
 ordering edge can put the commit before construction**: they pin opposite ends
 of one set. A candidate is therefore prepared from the content generation
 current BEFORE its own activation committed.
+
+⚠ **AND IT IS NOT `Q118`'S REMAINING INTERVAL, THOUGH THEY SIT ON THE SAME
+FRAME.** `Q118`'s open half is an AUTHORIZATION going stale inside one
+transaction — a boundary change ordered after the publication breaker and
+before the commit acts on the activation. This question is about which content
+generation a candidate WORLD is constructed from. One is about a permission
+that stops being true; the other is about an input that was read too early.
 
 ⚠ **NOT A SCHEDULE PROBLEM, WHICH IS WHY IT IS HERE.** Every edge involved is
 individually load-bearing and separately witnessed. What is undecided is what a

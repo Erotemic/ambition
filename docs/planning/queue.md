@@ -2172,11 +2172,16 @@ somewhere else and asks nothing**:
 `apply_feature_hit_events`
 (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:914`)
 sets it on the attacker's CURRENT playback for every `HitEvent` that reached an
-actor or a boss, holding `event.attacker_move_instance` unread. ⇒ `overlapped`
-— derived as `landed_hit || connected_hit || blocked_hit` — is still credited
-by coincidence of timing, which is this row's own defect surviving on the one
-road its repair did not walk. The consequences, the authored flow that already
-waits on `Overlapped`, and the two shapes the answer can take are in `Q101`.
+actor or a boss, holding `event.attacker_move_instance` unread.
+
+✅ **THE HALF THAT NEEDED NO RULING IS REPAIRED — 2026-09-19.** An event
+carrying `Some(other_instance)` names its author, so crediting the live move
+contradicted the 2026-09-10 ruling rather than waiting on `Q101`; that case is
+refused now and witnessed by
+`an_outcome_naming_another_occurrence_credits_no_move`. ⇒ What is left of this
+row is the `None` case — `blink`, `dive`, `mark_recall`, `empowerment` — and it
+is the product ruling `Q101` owns, with the authored flow that already waits on
+`Overlapped` recorded there.
 
 ✅ **THE GUARD THIS ROW ASKED FOR ALREADY EXISTS — re-read 2026-09-16, and the row
 was the stale half.** *"A body which has started a move cannot lose

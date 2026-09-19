@@ -397,38 +397,23 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     );
 }
 
-/// ⛔⛤ **AN OUTCOME THAT NAMES A DEAD MOVE STILL CONFIRMS THE ONE PLAYING —
-/// RECORDED 2026-09-19, NOT ENDORSED.**
+/// ⛔⛤ **AN OUTCOME THAT NAMES ANOTHER OCCURRENCE CREDITS NO MOVE — REPAIRED
+/// 2026-09-19, AND THIS ARM ASSERTED THE OPPOSITE FOR ONE AFTERNOON.**
 ///
-/// The 2026-09-10 ruling behind `Q101` says a contact may modify a move's state
-/// only if it carries provenance naming that move occurrence, and
-/// `moveset::verdict_belongs_to` enforces it — for `connected` and `blocked`,
-/// which `mark_move_playback_resolved_hits` writes. `landed_hit` is written
-/// HERE instead, from a `HitEvent` that carries `attacker_move_instance`, and
-/// this system never reads it. ⇒ `MoveContact::overlapped` is derived from
-/// `landed_hit`, so the third contact fact is still credited by coincidence of
-/// timing.
-///
-/// ⚠ **`HitSource::Melee` IS THE SHIPPED CASE, NOT A CONVENIENT ONE.** That is
-/// what `blink`'s arrival shockwave writes
-/// (`crates/ambition_abilities/src/traversal/blink.rs`), with
-/// `attacker: Some(player)` and `attacker_move_instance: None` — so a body that
-/// blinks while a move is playing confirms that move with a contact the move
-/// never made. `dive`, `mark_recall` and `empowerment` reach the same line the
-/// same way.
+/// It was written as a *recorded, not endorsed* witness of the gap, on the
+/// reading that any change here needed `Q101`'s ruling first. A review split
+/// the case correctly: `Some(other)` needs no ruling at all. The ruling behind
+/// `Q101` already says an outcome may modify a move's state only with
+/// provenance naming that occurrence, `mark_move_playback_resolved_hits` has
+/// enforced it for `connected`/`blocked` since 2026-09-10, and an event
+/// carrying `Some(3)` is not an unclaimed outcome — it says whose it is.
 ///
 /// ⭐ **THE ANTI-VACUITY FLOOR IS THE VICTIM'S HEALTH.** Asserting a flag is
-/// `true` passes on a fixture where the system never ran; the health assertion
-/// says the event was delivered and applied, so the flag is this road's answer
-/// and not silence.
-///
-/// ⇒ **WHEN `Q101` IS ANSWERED, THIS ARM FLIPS OR MOVES.** Under (b) — refuse
-/// an unclaimed outcome here the way the sibling road refuses one — the
-/// assertion below becomes `!landed_hit` and this doc becomes a record of the
-/// repair. Under (a) it gains the occurrence and asserts the credit reached the
-/// move that EARNED it. Either way it must not stay as it is.
+/// FALSE passes on a fixture where the system never ran; the health assertion
+/// says the event was delivered and applied, so the refusal is this road's
+/// answer and not silence.
 #[test]
-fn an_outcome_naming_a_dead_move_still_confirms_the_one_playing() {
+fn an_outcome_naming_another_occurrence_credits_no_move() {
     use ambition_combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
 
     let mut app = App::new();
@@ -448,7 +433,7 @@ fn an_outcome_naming_a_dead_move_still_confirms_the_one_playing() {
             MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
         ))
         .id();
-    // THE MOVE THAT IS PLAYING IS USE 7. Nothing in the event names it.
+    // THE MOVE THAT IS PLAYING IS USE 7. The event below names use 3.
     app.world_mut()
         .get_mut::<MovePlayback>(attacker)
         .expect("the attacker is playing a move")
@@ -466,9 +451,85 @@ fn an_outcome_naming_a_dead_move_still_confirms_the_one_playing() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
-        // USE 3 EARNED THIS, and use 3 is over. `verdict_belongs_to` would
-        // refuse it on the sibling road; nothing asks here.
+        // USE 3 EARNED THIS, and use 3 is over.
         attacker_move_instance: Some(3),
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(victim).unwrap().health.current,
+        3,
+        "the event has to be delivered and applied, or the refusal below is \
+         silence rather than an answer"
+    );
+    let pb = app.world().get::<MovePlayback>(attacker).unwrap();
+    assert!(
+        !pb.landed_hit,
+        "an outcome naming move 3 confirmed move 7 — `overlapped` is derived \
+         from this flag, so the live move would lose its whiff cancel to a \
+         contact it never made"
+    );
+    assert!(
+        pb.hit_targets.is_empty(),
+        "the refused outcome still wrote its victim into move 7's per-strike \
+         dedup ledger, so move 7's own strike would skip a body it never hit"
+    );
+}
+
+/// ⚠ **AND THE UNCLAIMED CASE IS STILL CREDITED — RECORDED, NOT ENDORSED.**
+///
+/// `None` means no move claims the outcome. `blink`, `dive`, `mark_recall` and
+/// `empowerment` all reach `apply_feature_hit_events` with
+/// `attacker: Some(body)` and no instance, and the live move is confirmed by
+/// their contact. Whether those abilities should propagate their launching
+/// occurrence or credit nobody is the gameplay ruling `Q101` exists for, in
+/// `docs/planning/awaiting-maintainer-decision.md`.
+///
+/// ⇒ **THIS ARM FLIPS WHEN THAT RULING LANDS**, and it is separated from its
+/// sibling above precisely so the two halves cannot be answered by accident:
+/// one is the occurrence rule applied, the other is a product choice.
+#[test]
+fn an_unclaimed_outcome_still_confirms_the_move_that_is_playing() {
+    use ambition_combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
+
+    let mut app = App::new();
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    register_hit_pipeline_messages(&mut app);
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let attacker = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_characters::actor::BodyCombat::default(),
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<MovePlayback>(attacker)
+        .expect("the attacker is playing a move")
+        .instance = 7;
+
+    let victim = spawn_hostile_actor(&mut app); // HP 5
+    let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: event_volume.into(),
+        damage: 2,
+        // ⚠ WHAT `blink` WRITES: a melee-sourced shockwave owned by the body,
+        // claiming no move use.
+        source: HitSource::Melee,
+        attacker: Some(attacker),
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
     });
 
     app.update();
@@ -481,11 +542,9 @@ fn an_outcome_naming_a_dead_move_still_confirms_the_one_playing() {
     );
     assert!(
         app.world().get::<MovePlayback>(attacker).unwrap().landed_hit,
-        "recorded, not endorsed: an outcome naming move 3 confirmed move 7. \
-         When `Q101` rules that an unclaimed outcome credits nobody, this \
-         becomes the opposite assertion and `damage/mod.rs`'s write learns to \
-         ask `verdict_belongs_to` the way `mark_move_playback_resolved_hits` \
-         already does"
+        "recorded, not endorsed: an unclaimed outcome confirmed move 7. When \
+         `Q101` rules that an ability's contact must name the move that \
+         launched it — or credit nobody — this becomes the opposite assertion"
     );
 }
 

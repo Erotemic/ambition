@@ -5537,17 +5537,17 @@
       "category": "crate_boundary",
       "name": "ambition_platformer2d_rollback_ggrs",
       "owner": "ambition_platformer2d_rollback_ggrs",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary.",
+      "current_truth": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-ROLLBACK-GGRS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The crate adapts external rollback hosting to engine authority, mutation admission, and lifecycle commit. This is a useful independent capability boundary. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-ROLLBACK-GGRS` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
             "scripts/architecture_census.py"

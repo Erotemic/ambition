@@ -56,7 +56,7 @@
     "`blocked_by` names a LIVE gate. A gate that has been discharged moves to `was_blocked_by` with what discharged it and when; the same checker fails if a `blocked_by` entry names a campaign `queue.md` marks done, or names nothing `queue.md` or `awaiting-maintainer-decision.md` can resolve."
   ],
   "static_measurement_snapshot": {
-    "source_commit": "09629b060f6505d600e9558d32646f5555ca42ad",
+    "source_commit": "7b662e3b4b3170e602a3ab7cb512bd747076a259",
     "method": {
       "compiler_used": false,
       "direct_dependency_rule": "declared workspace dependencies from dependencies/build-dependencies and target-specific equivalents; dev-dependencies are reported separately",
@@ -73,20 +73,20 @@
     },
     "workspace": {
       "crates": 80,
-      "nonblank_rust_loc": 787934,
-      "raw_rust_loc": 836584,
-      "repository_tracked_rust_files": 1909,
-      "rust_files": 1883,
-      "test_rust_loc_heuristic": 269454
+      "nonblank_rust_loc": 804352,
+      "raw_rust_loc": 853804,
+      "repository_tracked_rust_files": 1917,
+      "rust_files": 1891,
+      "test_rust_loc_heuristic": 282503
     },
-    "large_module_count": 184,
+    "large_module_count": 188,
     "source_patterns": {
-      "optional_res_occurrences": 726,
-      "optional_res_unique_types": 196,
+      "optional_res_occurrences": 806,
+      "optional_res_unique_types": 203,
       "mechanical_editor_domain_count": 6,
-      "raw_before_after_edges": 471
+      "raw_before_after_edges": 457
     },
-    "explicit_narrow_lifetime_resource_count": 32,
+    "explicit_narrow_lifetime_resource_count": 37,
     "generated_inventory_counts": {
       "adrs": 34,
       "archive_docs": 0,
@@ -109,13 +109,13 @@
         "system_like_functions": 1505,
         "unique_registration_identifiers": 3132
       },
-      "files": 3340,
-      "planning_docs": 127,
-      "symbols": 33606,
-      "tests": 8336,
-      "tools": 11,
-      "_generated_from_commit": "09629b060f65",
-      "_generated_at": "2026-09-16T05:02:47+00:00"
+      "files": 3418,
+      "planning_docs": 129,
+      "symbols": 34142,
+      "tests": 8469,
+      "tools": 10,
+      "_generated_from_commit": "7b662e3b4b31",
+      "_generated_at": "2026-09-19T06:37:22+00:00"
     }
   },
   "workspace_crates": [
@@ -2507,8 +2507,8 @@
     }
   ],
   "static_measurement_refresh": {
-    "commit": "09629b060f6505d600e9558d32646f5555ca42ad",
-    "date": "2026-09-16",
+    "commit": "7b662e3b4b3170e602a3ab7cb512bd747076a259",
+    "date": "2026-09-19",
     "scope": "STATIC MEASUREMENTS ONLY. The semantic items were read at source_commit and have not been re-read; a refreshed count is not a refreshed claim."
   },
   "duplicate_authority_states": {

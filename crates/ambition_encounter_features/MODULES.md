@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`conditions`](src/conditions.rs) | Authored ENCOUNTER conditions — "what became of this arena?" |
-| [`loading`](src/loading.rs) | LDtk → `EncounterSpec` loader plus the content-installed wave book. |
+| [`loading`](src/loading.rs) | Room → `EncounterSpec` loader plus the content-installed wave book. |
 | [`lock_walls`](src/lock_walls.rs) | Lock-wall contribution: the solid blocks that seal an arena's exits while an encounter is in flight. |
 | [`switch_index`](src/switch_index.rs) | The switch INDEX rebuild, which stayed behind when the switch types left. |
 | [`systems`](src/systems.rs) | The Bevy adapters around the generic encounter lifecycle (E8/E9). |

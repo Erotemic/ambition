@@ -315,3 +315,206 @@ mod tests {
         );
     }
 }
+
+/// Does the CPU actually PRESS his gust, or does it merely appear in a list?
+///
+/// ⛔⛤ THE OPTION-LIST TEST NEXT DOOR (`options/tests.rs`) SAID YES AND WAS
+/// MEASURING A FIXTURE. It scored a synthetic gust against a synthetic 40px
+/// jab, so "the shove wins at the ledge" was a fact about a two-move kit.
+/// Against the ELEVEN candidates `attack_kit_of` builds from this table, the
+/// rival beside the blast line is `officer_tilt_forward` — 7 damage, faster,
+/// and reaching 48px — and at the shipped weight the gust placed fourth. ⇒ A
+/// feature is not delivered when its unit test passes; it is delivered when
+/// the character uses it.
+#[cfg(test)]
+mod he_uses_the_gust {
+    use super::officer_moveset;
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::actor::ActorFaction;
+    use ambition_characters::brain::attack_kit::{
+        ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
+    };
+    use ambition_characters::brain::fighter::options::{generate_options, UtilityWeights};
+    use ambition_characters::brain::fighter::Situation;
+    use ambition_characters::perception::{
+        PerceivedActor, Perceived, SelfView, StageView, WorldView,
+    };
+    use ambition_platformer2d_core as ae;
+
+    /// The stage the readings below are in. `Aabb2d::new` takes a CENTRE and a
+    /// HALF-SIZE, so this is `x ∈ 0..800`, `y ∈ 0..600`.
+    ///
+    /// ⚠ `StageView::distance_to_edge` takes the nearest of all FOUR sides, so
+    /// a body standing at `y = 300` is never more than 300 from an edge and
+    /// `foe_edge_proximity` never falls below `1 - 300/400 = 0.25` anywhere on
+    /// this floor. The centre-stage readings below are that floor, not zero.
+    const HALF_STAGE: f32 = 400.0;
+
+    /// ⚠ THE PRESS ROAD, NOT A HAND-PICKED LIST. Mirrors `attack_kit_of` in the
+    /// actor tick — the same `move_for_attack` resolution over the same three
+    /// verbs and five directions — so a move this test scores is a move a
+    /// button reaches.
+    fn kit() -> Vec<AttackCandidate> {
+        let set = officer_moveset();
+        let mut kit: Vec<AttackCandidate> = Vec::new();
+        for (verb, verb_name) in [
+            (AttackVerb::Basic, ambition_entity_catalog::ATTACK_VERB),
+            (AttackVerb::Smash, ambition_entity_catalog::SMASH_VERB),
+            (AttackVerb::Special, ambition_entity_catalog::SPECIAL_VERB),
+        ] {
+            for direction in [
+                AttackDir::Neutral,
+                AttackDir::Forward,
+                AttackDir::Back,
+                AttackDir::Up,
+                AttackDir::Down,
+            ] {
+                let Some(spec) = set.move_for_attack(verb_name, direction, true, false) else {
+                    continue;
+                };
+                if kit.iter().any(|c| c.move_id == spec.id) {
+                    continue;
+                }
+                kit.push(AttackCandidate {
+                    move_id: spec.id.clone(),
+                    frames: spec.frame_data(),
+                    binding: AttackBinding { verb, direction },
+                    legality: ActionLegality::Now,
+                });
+            }
+        }
+        kit
+    }
+
+    fn view(me_x: f32, foe_x: f32) -> WorldView {
+        WorldView {
+            self_view: SelfView {
+                pos: ae::Vec2::new(me_x, 300.0),
+                // He faces the foe. Body-local `+x` is FACING, so a body left
+                // at 1.0 would read a foe on its left as behind every forward
+                // volume and the left blast line would answer differently from
+                // the right one for no reason in the game.
+                facing: if foe_x >= me_x { 1.0 } else { -1.0 },
+                gravity_down: ae::Vec2::new(0.0, 1.0),
+                alive: true,
+                on_ground: true,
+                health_max: 100,
+                ..Default::default()
+            },
+            stage: StageView {
+                bounds: ae::Aabb::new(
+                    ae::Vec2::new(HALF_STAGE, 300.0),
+                    ae::Vec2::new(HALF_STAGE, 300.0),
+                ),
+            },
+            actors: vec![PerceivedActor {
+                id: "foe".to_string(),
+                pos: ae::Vec2::new(foe_x, 300.0),
+                faction: ActorFaction::Enemy,
+                hostile_to_self: true,
+                alive: true,
+                on_ground: true,
+                health_max: 100,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
+    fn best_at(kit: &[AttackCandidate], me: f32, foe: f32) -> String {
+        let v = view(me, foe);
+        let opts = generate_options(
+            Perceived::cheating(&v),
+            Situation::Neutral,
+            kit,
+            &UtilityWeights::v1(),
+        );
+        opts.attacks
+            .first()
+            .map(|a| a.move_id.clone())
+            .expect("his kit offers something at every range tested here")
+    }
+
+    const GUST: &str = "officer_disperse";
+
+    #[test]
+    fn he_shoves_at_the_ledge_and_punches_at_centre() {
+        let kit = kit();
+
+        // ── BESIDE THE BLAST LINE, BOTH OF THEM ─────────────────────────────
+        // Right: the foe stands 40px from `x = 800`. Left: the mirror, which
+        // is here because the body-local frame is the one place a spacing
+        // move could come out handed.
+        assert_eq!(best_at(&kit, 700.0, 760.0), GUST, "right ledge");
+        assert_eq!(best_at(&kit, 740.0, 790.0), GUST, "right ledge, closer in");
+        assert_eq!(best_at(&kit, 100.0, 40.0), GUST, "left ledge");
+
+        // ── AND NOT AT CENTRE STAGE, which is the other half of "intentional".
+        // A CPU that opened every exchange with a damageless shove would be a
+        // worse fighter, not a smarter one.
+        for (me, foe) in [(345.0, 400.0), (400.0, 440.0), (400.0, 360.0)] {
+            assert_ne!(
+                best_at(&kit, me, foe),
+                GUST,
+                "the gust won at centre stage from {me} against {foe}"
+            );
+        }
+    }
+
+    /// ⛔ THE ANTI-VACUITY HALF. `assert_ne!` above passes just as well if the
+    /// gust is not an option at all — which is what the range filter does to a
+    /// pure shove thrown from outside its own push box. This pins that the
+    /// centre-stage readings are a RANKING and not an absence.
+    #[test]
+    fn the_gust_is_on_the_table_at_centre_stage_and_simply_loses() {
+        let kit = kit();
+        let v = view(345.0, 400.0);
+        let opts = generate_options(
+            Perceived::cheating(&v),
+            Situation::Neutral,
+            &kit,
+            &UtilityWeights::v1(),
+        );
+        let winner = opts.attacks.first().expect("his kit offers something");
+        let gust = opts
+            .attacks
+            .iter()
+            .find(|a| a.move_id == GUST)
+            .expect("the gust is offered at centre stage — it just does not win");
+        // ⚠ A RANKING, NOT A SIGN TEST. An earlier draft asserted the gust
+        // scored above zero, which is a claim about `displacement_value`'s
+        // magnitude and therefore moves with the very weight under test — it
+        // reddened at 1.0 for a reason that had nothing to do with vacuity.
+        // What this arm owes is that the centre-stage answer is a COMPARISON.
+        assert_ne!(winner.move_id, GUST, "the winner is not the gust");
+        assert!(
+            gust.score < winner.score,
+            "the gust scored {} and {} scored {}, so they did not compare",
+            gust.score,
+            winner.move_id,
+            winner.score
+        );
+    }
+
+    /// ⚠ THE POPULATION THE WEIGHT MOVES, kept beside the reading that set it.
+    /// If a third push move lands, `displacement_value`'s band was measured
+    /// without it and this test says so before a balance pass wonders why.
+    #[test]
+    fn exactly_two_moves_in_the_roster_author_a_push_region() {
+        let mut pushers: Vec<String> = Vec::new();
+        for (table, set) in crate::authored_movesets::tables() {
+            for m in &set.moves {
+                if m.frame_data().push_coverage.is_some() {
+                    pushers.push(format!("{table}/{}", m.id));
+                }
+            }
+        }
+        pushers.sort();
+        assert_eq!(
+            pushers,
+            vec!["goblin/dirt_kick".to_string(), "officer/officer_disperse".to_string()],
+            "the roster's push-carrying moves changed; `displacement_value`'s \
+             1.25..2.6 band was measured against exactly these two"
+        );
+    }
+}

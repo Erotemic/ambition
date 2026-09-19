@@ -177,20 +177,34 @@ impl UtilityWeights {
             // which is the exact failure the reverted "a grab is worth its
             // forward throw's damage" experiment produced.
             capture_value: 0.5,
-            // ⭐ A SHOVE AT THE BLAST LINE IS WORTH WHAT A HIT IS WORTH, which
-            // is why this equals `reach_fit` rather than sitting under it. The
-            // feature is already scaled by how close the foe is to going off,
-            // so the weight prices the BEST case and the position does the
-            // discriminating: measured on the two-move fixture, a 40px jab at a
-            // 55px gap outscores a 60px gust at centre stage (0.81 vs 0.38) and
-            // loses to it beside the ledge (0.81 vs 0.85).
+            // ⭐ A SHOVE AT THE BLAST LINE IS WORTH MORE THAN A HIT, because
+            // the hit is what the rest of the kit already does better. The
+            // feature is scaled by how close the foe is to going off, so the
+            // weight prices the BEST case and the position does the
+            // discriminating.
             //
-            // ⚠ A v1 STARTING VALUE LIKE ITS NEIGHBOURS, NOT A TUNED ONE, and
-            // the band is wide: anything in roughly `0.95..2.1` flips the ledge
-            // reading without flipping the centre one, so this is a shape
-            // rather than a knife edge. An authored rung that wants a pushier
-            // CPU says so.
-            displacement_value: 1.0,
+            // ⛔⛤ **1.0 WAS BELOW THE BAND AND THE FEATURE WAS INERT ON THE
+            // SHIPPED ROSTER.** The first value was fitted against a two-move
+            // fixture -- a 40px jab and a 60px gust -- where the rival was a
+            // jab and the recorded band was `0.95..2.1`. Measured 2026-09-19
+            // against the REAL Officer kit (eleven candidates, the road
+            // `attack_kit_of` builds), the rival at the ledge is
+            // `officer_tilt_forward`, not a jab, and it wins at every weight up
+            // to 1.2: the gust placed FOURTH beside the blast line. A fixture
+            // with two moves cannot price a move against a kit.
+            //
+            // ⇒ The real band is `1.25..2.6` -- below 1.25 the gust never
+            // wins anywhere, above 2.6 it wins at centre stage, which is the
+            // pushy CPU nobody asked for. 1.8 is the middle of it.
+            //
+            // ⚠ POPULATION: two moves in the whole roster author a push region
+            // (`officer_disperse`, and the goblin's `dirt_kick`, which also
+            // hits). `dirt_kick` never wins at any weight up to 3.0 -- it
+            // competes on `reach_fit` like an ordinary move and its own
+            // `tilt_forward` outscores it -- so the entire behavioural delta of
+            // this number is ONE move on ONE character. See
+            // `officer_moveset.rs::he_shoves_at_the_ledge_and_punches_at_centre`.
+            displacement_value: 1.8,
         }
     }
 }

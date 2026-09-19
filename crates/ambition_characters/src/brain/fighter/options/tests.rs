@@ -446,6 +446,14 @@ fn a_move_that_only_shoves_is_offered_exactly_where_it_can_shove() {
 /// the gap outscores the gust at both ends (a hit is worth more than a push,
 /// and `reach_fit`'s weight says so), which would make this arm a statement
 /// about the weights rather than about the position.
+///
+/// ⛔⛤ **AND IT IS A STATEMENT ABOUT THE SHAPE, NOT ABOUT ANY CHARACTER.** Two
+/// moves is a fixture, not a kit: measured 2026-09-19 against the eleven
+/// candidates the Officer's real table yields, the gust's rival beside the
+/// ledge is his `tilt_forward` and not a jab, and the weight this arm passed at
+/// left the feature inert on the shipped roster. What a character actually
+/// presses is pinned where the character lives —
+/// `ambition_content::officer_moveset::he_uses_the_gust`.
 #[test]
 fn a_shove_outranks_a_near_miss_at_the_ledge_and_not_at_centre() {
     // 40px of reach against a 55px gap: admitted, and poorly.

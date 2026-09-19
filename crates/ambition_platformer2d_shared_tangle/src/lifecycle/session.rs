@@ -382,12 +382,25 @@ pub fn session_world_exists(
 /// condition above.
 ///
 /// ⛔⛤ **IT IS NOT SHARED BY [`SessionWorldRef`] / [`SessionWorldMut`], WHICH
-/// THIS SENTENCE CLAIMED UNTIL 2026-09-18 AND WHICH ARE 193 OF THE PRODUCTION
-/// USES.** Those are `pub type` aliases for `Single<.., With<SessionRoot>>` and
-/// ask no question about scope at all. ⇒ The split is SAFE and worth keeping —
-/// `Single` yields `None` when two roots exist, so an ambiguous moment SKIPS the
-/// system rather than picking one — but it is a different mechanism, and a
+/// THIS SENTENCE CLAIMED UNTIL 2026-09-18 AND WHICH ARE THE OVERWHELMING
+/// MAJORITY OF THE PRODUCTION USES.** Those are `pub type` aliases for
+/// `Single<.., With<SessionRoot>>` and ask no question about scope at all, so a
 /// sentence saying "every form" is what stops the next reader looking.
+///
+/// ⚠ **THE SIZE IS DELIBERATELY NOT A NUMBER HERE.** `BEVY-SESSION-ROOT` in
+/// `docs/planning/consolidation/architecture-census.md` owns it and prints the
+/// method beside it. This comment said `193` until 2026-09-19 while that row
+/// said `183`; both were right and neither carried its method — `183` counts the
+/// parameter form `SessionWorldRef<`, `193` counts the bare name and so includes
+/// the `use` imports. Two correct numbers that look like a contradiction is what
+/// a number copied across a document boundary without its method produces.
+///
+/// ⇒ **AND THE SPLIT IS NOT MERELY PRUDENT, AS OF `Q132` (DECIDED 2026-09-19).**
+/// There is exactly one canonical live `SessionRoot`, so a two-root frame is
+/// INVALID rather than ambiguous. `Single` yielding `None` on such a frame is a
+/// defence against a state that must not occur, not a designed response to one
+/// that may; the scope-aware family below is for the lifecycle code that
+/// legitimately sees both sides of a handoff.
 ///
 /// ⚠ **AND THE REASON THE SIMPLE FORM IS ENOUGH LIVES IN ANOTHER FILE.** Two
 /// roots do not coexist across a system boundary because `SessionScopeSet`

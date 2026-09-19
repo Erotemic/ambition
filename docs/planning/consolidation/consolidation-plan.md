@@ -186,19 +186,37 @@ migrations. Neither of the two cheap wins the row opened with survived
 measurement. Do not force state that must exist before root creation into the
 root.
 
-⭐⭐ **AND THE "REPEATED OWNER GUARD" HAS A SHAPE, MEASURED 2026-09-16: IT IS ONE
-GUARD SPELLED 185 TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
+⭐⭐ **AND THE "REPEATED OWNER GUARD" HAS A SHAPE: IT IS ONE GUARD SPELLED ~183
+TIMES, AND THERE ARE TWO SEMANTICS, NOT ONE.**
 
-| spelling | what it is | production USES |
+⛔⛤ **THE SIZE IS NOT OWNED HERE.** `BEVY-SESSION-ROOT` in
+[`architecture-census.md`](architecture-census.md) is the one owner of this
+population's total and prints four methods beside it. This table carries only
+the SHAPE — the per-spelling split and the two semantics — re-measured
+2026-09-19 under that row's method so the two cannot disagree.
+
+| spelling | what it is | production uses |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 163, in 91 files |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 22, in 14 files |
-| `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 4, in 2 files |
-| `session_root_for_scope` | finds a named scope's root, through the disabling marker | 11, in 6 files |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 167, in 91 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 16, in 13 files |
+| `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 3, in 1 file |
+| `session_root_for_scope` | finds a named scope's root, through the disabling marker | 2, in 2 files |
 
-⚠ **THESE ARE USES, COMMENTS STRIPPED AND TESTS EXCLUDED.** An earlier version of
-this table counted raw grep MENTIONS (177/29) and the prose read them as "sites",
-which overstated the population by about 11%. ⛔ And a peer counting `Single<`
+⚠ **THE METHOD IS THE PARAMETER FORM: `Name<` for the aliases and `name(` for
+the functions**, over `crates/` + `game/` with test files dropped,
+`#[cfg(test)]` modules stripped and comments stripped. The two alias rows sum to
+the census row's **183 in 95 files** by construction, which is the point of
+saying the method out loud.
+
+⛔⛤ **AND THE PREVIOUS VERSION OF THIS TABLE MIXED TWO METHODS INSIDE ITSELF,
+FOUND 2026-09-19.** It read `163/91`, `22/14`, `4/2` and `11/6` under a header
+saying *"comments stripped and tests excluded"*. The alias rows were that; the
+helper rows were not — `session_root_for_scope`'s `6 files` is the ALL-FILES
+count (17 raw mentions in 6 files today), while production code-only is 2 in 2.
+⇒ A header that states one method for a table whose rows were gathered by two is
+worse than no header, because it stops the next reader checking. An earlier
+version before that counted raw grep MENTIONS (177/29) and the prose read them
+as "sites", overstating the population by about 11%. ⛔ And a peer counting `Single<`
 directly got **11** occurrences workspace-wide and could not reproduce any of it
 — correctly, because these two are `pub type` ALIASES for `Single<..>`, so a scan
 keyed on what they EXPAND TO cannot see a single one of their uses. Two honest
@@ -206,9 +224,9 @@ scans of one tree disagreed by an order of magnitude for that reason alone.
 
 ⛔ **THE TWO DISAGREE ONLY ON ONE FRAME, AND THAT IS WHY THIS IS SUBTLE.**
 `Single` matches NOTHING when the count is not exactly one, and a system whose
-`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, all 185
-sites stop running while the four scope-aware ones resolve the live root
-correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
+`Single` fails is SILENTLY SKIPPED — so on a frame holding two roots, every one
+of those alias sites stops running while the scope-aware ones resolve the live
+root correctly. ⇒ The correctness of two hundred sites rests on an invariant that ONE
 production arm asserts:
 `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
 (`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:519`), which counts
@@ -222,7 +240,7 @@ not a refactor, and it was filed as `Q132`.
 
 ⭐ **DECIDED 2026-09-19: the `Single` semantics is the meaning.** There is
 exactly one canonical live `SessionRoot`; a two-root frame is invalid rather
-than skippable. ⇒ The 185 sites are correct as written, the four scope-aware
+than skippable. ⇒ The alias sites are correct as written, the scope-aware
 helpers are for lifecycle code that legitimately sees both sides of a handoff,
 and `unique_session_world_root`'s `assert!` states the invariant rather than
 guessing at it. **The consolidation left here is to say that out loud in one

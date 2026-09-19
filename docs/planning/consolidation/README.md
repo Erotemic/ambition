@@ -158,15 +158,26 @@ Mechanical edit admission is established as an implementation foundation: six pr
 
 ## What is checked mechanically, and what is not
 
-`scripts/check_consolidation_ledger_still_resolves.py` answers the two questions
+`scripts/check_consolidation_ledger_still_resolves.py` answers the questions
 about this ledger that a machine can answer: every cited `source_paths` /
-evidence source is a file that exists, and every CamelCase name in a
-`current_truth` sentence resolves to a definition in the tracked Rust sources.
+evidence source is a file that exists, every CamelCase name in a `current_truth`
+sentence resolves to a definition in the tracked Rust sources, every workspace
+crate it names matches cargo, and each resolvable storage-kind claim is checked
+against source.
 
-MEASURED 2026-09-16, and the result is a NEGATIVE one worth recording: **114
-items, 378 cited paths all exist, 63 names all resolve.** The ledger is not stale
-by either mechanical measure, which bounds the worry that its items were read at
+RE-RUN 2026-09-19, and the result is a NEGATIVE one worth recording: **114
+items, 381 cited paths all exist, 70 names all resolve, 80 workspace crates
+match cargo exactly, and 21 of 29 storage-kind claims verify** (8 skipped
+because the subject is not a resolvable type). The ledger is not stale by any
+of those mechanical measures, which bounds the worry that its items were read at
 `662a9b56096a` and never re-read.
+
+⛤ **THIS PARAGRAPH SAID `378` PATHS AND `63` NAMES, FROM 2026-09-16, AND ALSO
+DESCRIBED THE CHECK AS ANSWERING "the two questions".** It grew two more. ⇒ Ask
+the script for its numbers rather than reading them here; a restated count is a
+copy, and a restated DESCRIPTION of what a check covers is the same copy with
+the failure mode hidden one level deeper — a reader who trusts "the two
+questions" will not look for the other two.
 
 ⚠ **AND THE FIRST RUN REPORTED FOUR UNRESOLVED NAMES, ALL FOUR FALSE.**
 `ResMut` and `TypeId` are Bevy's and std's; `LoadId` is `ambition_load`'s and

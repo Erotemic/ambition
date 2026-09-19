@@ -2364,6 +2364,30 @@ through a bound action the way `M`'s sibling intent already is, not to pick a
 different raw key — a different raw key is the same bug waiting for a preset to
 grow.
 
+⭐⛤ **MEASURED 2026-09-19, AND “PICK A DIFFERENT RAW KEY” IS NOT MERELY WORSE —
+THERE IS NO KEY TO PICK.** Across all FOUR keyboard presets
+(`crates/ambition_input/src/presets.rs`: `arrows_zxc`, `wasd_jkl`,
+`arrows_qwer`, `wasd_uipo`, 21–22 keys each), **exactly ONE letter key is bound
+by no preset: `M`** — and this same menu already reads it. ⇒ The free-key
+shortlist for a minimap toggle is EMPTY, so the bound-action repair is forced
+rather than preferred, and the maintainer's decision is not *"which key"* but
+*"which existing action yields one, or does `minimap` arrive as a modifier on
+`map`"*.
+
+⚠ **AND `M`'s SAFETY IS A COINCIDENCE OF THE CURRENT PRESET SET, WHICH IS THE
+SAME FRAGILITY ONE STEP BEHIND.** `map/input.rs` reads TWO raw keys, `KeyM` and
+`KeyN`. `M` does not collide only because it is the one letter nobody binds;
+the moment a preset takes it, `M` becomes `N`. The difference between them is
+luck, not design — `M` at least has `menu.map` beside it (bound to `Tab` in
+`wasd_jkl`), so the raw read is a debug path over a real action, while `N` has
+no action at all.
+
+⚠ **A COUNT OVER PRESETS MUST COUNT ALL OF THEM.** This measurement first read
+FOUR free letters — `C`, `M`, `X`, `Z` — because it took the three presets this
+row's own paragraph names. The fourth, `arrows_zxc`, binds exactly `Z`, `X` and
+`C`; its name says so. The population was in the file, not in the prose above
+it.
+
 ⚠ **THE FIRST VERSION OF THE GUARD REPORTED A FIFTH AND IT WAS AN ARTEFACT.**
 `presets.rs` ends with a `KeyCode::KeyM => "M"` match that turns a keycode into
 a label for the rebinding UI, so a grep for `KeyCode::(\w+)` counted 39 bound

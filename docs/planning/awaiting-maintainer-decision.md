@@ -1495,8 +1495,13 @@ one at a time before changing anything, and each holds:
   the template is applied nought, one or two times. Now `component-clone`.
 
 ⇒ `the_rollback_schema_matches_its_recorded_baseline` and
-`the_shipped_app_registers_the_same_schema_as_the_sandbox` both pass at v198, so
-all three rows are live in the shipped app, not only in the sandbox.
+`the_shipped_app_registers_the_same_schema_as_the_sandbox` both passed at v198
+when these three rows landed, so all three are live in the shipped app and not
+only in the sandbox. ⚠ **v198 IS WHEN, NOT WHAT IS CURRENT** — the schema is at
+v200 as of 2026-09-19 (`Q137` deleted `GravityFlipSwitch`'s two rows) and the
+baseline holds 489. The version is stated because it dates the reading; re-derive
+the count with `tail -n +2 game/ambition_app/tests/rollback_schema_baseline.txt |
+wc -l` rather than reading a number on a page as today's.
 
 ⭐⭐ **AND `EncounterScript` NOW HAS THE REWIND ARM, WITH THE NUMBER.**
 `the_encounter_script_clock_reaches_the_same_value_with_and_without_a_rewind`

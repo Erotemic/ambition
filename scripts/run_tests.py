@@ -1344,6 +1344,18 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_separated_authorities_stay_separated.py",
             ],
         ),
+        # ⭐ `Q132` (decided 2026-09-19) rules that exactly one canonical live
+        # `SessionRoot` may exist. Two runtime arms hold that in the shipped
+        # composition; neither can see a composition that does not exist yet,
+        # which is how the invariant will actually break. This pins who may
+        # CONSTRUCT a root at all.
+        Job(
+            "every production `SessionRoot` constructor is declared",
+            [
+                sys.executable,
+                "scripts/check_session_root_construction_is_declared.py",
+            ],
+        ),
         # ⛔⛔ THE WRITER-SIDE CENSUS EXISTED, PRINTED A SHORTLIST, AND NO LANE
         # RAN IT — so the number was one somebody had to go and look at, and
         # nothing noticed a resource joining the list. Both of its numbers were

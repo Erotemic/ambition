@@ -11,6 +11,40 @@ question is answered, record the durable ruling in
 [`maintainer-decisions.md`](maintainer-decisions.md), update the owning plan/source,
 and delete the question here.
 
+## What actually blocks architecture work today
+
+**MEASURED 2026-09-19, after `Q132` was decided**, by reading every gate in
+[`queue.md`](queue.md)'s P0/P1 sections and every `DO NOT START BEFORE` in
+[`consolidation-plan.md`](consolidation/consolidation-plan.md) rather than by
+recalling which questions feel important. ⚠ This list is the BLOCKING set, not
+the important set: a question can matter and block nothing, and one below
+blocks a campaign that could not previously be costed.
+
+| question | what it blocks | and if it stays open |
+|---|---|---|
+| [`Q136`](#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) | **P0** `CUTSCENE-ROLLBACK-DECISION` item 1, explicitly (*"blocked on `Q136`, not unowned"*) | five host→sim intents stay live defects. One is now witnessed as a **desync** rather than a dropped input, which is the worse failure of the two |
+| [`Q122`](#q122--which-registry-fields-are-mechanical-and-which-are-presentation) | **P0** `ID-PEER`'s snapshot-schema-fingerprint road | two builds of the same mechanical schema stay two identities if somebody rewords a comment — poison-measured at 166 diff lines for one pluralised word |
+| [`Q144`](#q144--must-every-supported-composition-activate-a-prepared-generation-or-does-direct-entry-keep-the-app-registry-road) | **C04**, and it is now that row's ONLY maintainer hold | C04 cannot start. ⭐ `Q132` narrowed it: the anonymous App-global fallback is already on the wrong side of the scoping rule, so `Q144` now owns only whether direct entry must ACTIVATE a generation or may declare its inputs another explicitly-scoped way |
+| [`Q146`](#q146--what-are-the-supported-composition-profiles-and-which-authorities-must-each-one-carry) | **C07**, entirely | C07 cannot be COSTED, not merely started: *"replace optional fallbacks where the authority is required"* has no population until "required" has a referent |
+
+⭐ **AND TWO THINGS THAT LOOK LIKE BLOCKERS AND ARE NOT, WHICH IS THE USEFUL
+HALF OF MEASURING THIS.**
+
+- [`Q128`](#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count)
+  is a **coordination re-arm condition** on `C03` and `C05`, not a gate: both
+  rows say *"if that road is ruled and started while this migration is in
+  flight, coordinate rather than assume."* Its other half — the timeline
+  comparison — is blocked by `N2`'s absent P2P session, which is engineering
+  rather than a ruling.
+- [`Q145`](#q145--which-way-round-do-the-room-transition-readiness-chain-and-the-presentation-chain-go-in-update)
+  is named by **no queue row and no campaign gate**. It is a live
+  ordering-nondeterminism question held by a ratchet, and answering it unblocks
+  nothing, so it does not belong in a minimal blocking set.
+
+⚠ `Q127`, `Q129`, `Q133`, `Q137`, `Q101`, `Q104` and `Q110` sit inside P0 rows
+as product/balance calls on specific sub-roads rather than as gates on the row.
+They are real and they are not architecture blockers.
+
 ## Gameplay and content
 
 ## Q33 — how should a recharging ranged weapon communicate that it is unavailable?
@@ -3856,6 +3890,57 @@ live room from a stale one. The gate that actually matches option 2 is
 `for_live_session` no longer having a branch that returns `Some` with
 `active.is_none()` — the App-fallback path at `mechanics.rs:185-188`. Corrected
 2026-09-18 together with the progress-meter claim above.
+
+## Q146 — what are the supported composition profiles, and which authorities must each one carry?
+
+**FILED 2026-09-19 BECAUSE `C07`'S GATE NAMED A RULING NOBODY HAD ASKED FOR.**
+Its `DO NOT START BEFORE` reads *"Supported composition profiles must be named
+first"*, and this page's own rule is that every row blocked on a maintainer
+choice must name its `Q` here. It named none for four days. ⇒ The gate was real
+and the question was unasked, which is the failure mode a `hold-ok` annotation
+exists to prevent.
+
+⚠ **`Q144` IS NOT THIS QUESTION, AND `C07` SAYS SO.** `Q144` rules on ONE
+family — whether a supported composition must activate a prepared generation.
+This row needs the general vocabulary across **820 optional `Res`/`ResMut`
+occurrences over 206 unique type spellings** (re-derived 2026-09-17 after the
+instrument was found cutting 12% of its own corpus). Most are not defects.
+
+⭐ **AND THE `Q132` RULING ALREADY SUPPLIED THE TEST, WHICH IS WHY THIS IS NOW
+A SMALLER QUESTION THAN IT WAS.** The scoping rule decided 2026-09-19 says
+*mutable state that could legitimately differ between two sessions,
+generations, participants or timelines coexisting during preparation, handoff,
+rollback, multiplayer or testing must carry explicit scope*, and App-global
+mutable state is appropriate only where simultaneous sessions would
+legitimately share exactly the same value. ⇒ For any given optional authority,
+that rule decides whether the fallback may exist. What it does NOT decide is
+the thing `C07` is gated on: **which compositions the engine promises to
+support**, because "required" means "required IN a profile".
+
+**The decision is the profile list and what each profile guarantees.** Three
+shapes, and they differ in what a missing authority MEANS:
+
+1. **One supported profile — the shell-routed session.** Everything else is a
+   fixture. An optional canonical authority is then a defect by default, and the
+   206 spellings become a finite repair list. ⚠ Costs the most in test estate:
+   between 83 and 113 harness files construct worlds without a shell, and each
+   needs an explicitly-scoped declaration rather than a fallback.
+2. **Two named profiles — shell-routed, and declared direct entry.** Direct
+   entry keeps a road, but it must DECLARE its authorities explicitly instead of
+   inheriting an anonymous App-global default. ⚠ This is the shape `Q144`'s
+   option 1 implies for its own family, and it is the only one that makes
+   "supported composition" a checkable property rather than a description.
+3. **A capability vocabulary rather than a profile list.** Each authority names
+   the capability it requires and each composition declares what it provides,
+   so the matrix is derived rather than enumerated. ⚠ The most general and the
+   most expensive; it also matches the existing capability decision (*"a game
+   may compose this engine WITHOUT a given capability"*, 2026-08-08), so it may
+   already be the vocabulary this engine means.
+
+⛔ **WHAT MAKES THIS BLOCKING RATHER THAN INTERESTING:** `C07` cannot even be
+COSTED without it. "Replace optional fallbacks where the authority is required"
+has no population until "required" has a referent, and the row's own census has
+already carried four different figures for the population it would be counting.
 
 ## Q145 — which way round do the room-transition readiness chain and the presentation chain go in `Update`?
 

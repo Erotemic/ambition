@@ -653,7 +653,9 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 **STATE:** candidate after composition decision. ⚠ **Its census is 820 occurrences over 206 type spellings, RE-DERIVED 2026-09-17 after the instrument was found cutting 12% of its own corpus** — see CURRENT STATE, which now records that the row's two previous figures (732/196 and 726/196) and the hand scan that contradicted them were all wrong in different ways.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** Supported composition profiles must be named first. ⚠ **ONE INSTANCE OF THAT DECISION IS NOW FILED AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across 206 optional-authority spellings, and `Q144` rules on one family.
+**DO NOT START BEFORE:** Supported composition profiles must be named first — **FILED 2026-09-19 as [`Q146`](../awaiting-maintainer-decision.md), which this gate had been naming without a question number for four days.** ⚠ **ONE INSTANCE OF THAT DECISION IS FILED SEPARATELY AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across 206 optional-authority spellings, and `Q144` rules on one family.
+
+⭐ **`Q132`'S SCOPING RULE (2026-09-19) SHRINKS THIS ROW WITHOUT CLOSING IT.** The rule decides, for any given optional authority, whether an App-global fallback may exist at all — that is the per-value test this campaign lacked. What it does not decide is which compositions the engine PROMISES to support, and "required" means "required in a profile". ⇒ `Q146` is now the whole of this gate rather than the vaguer "name the profiles".
 
 ### CURRENT STATE
 

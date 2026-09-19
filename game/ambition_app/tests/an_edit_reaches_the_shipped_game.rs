@@ -492,16 +492,32 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     );
 }
 
-/// ⛔⛤ **DOES THE SHIPPED APP EVER HOLD TWO `SessionRoot`s? MEASURED, BECAUSE 217
-/// SYSTEM PARAMETERS DEPEND ON THE ANSWER AND NOBODY HAD ASKED IT.**
+/// ⛔⛤ **DOES THE SHIPPED APP EVER HOLD TWO `SessionRoot`s? MEASURED, BECAUSE
+/// EVERY `SessionWorldRef`/`SessionWorldMut` SITE DEPENDS ON THE ANSWER AND
+/// NOBODY HAD ASKED IT.**
 ///
-/// `SessionWorldRef` / `SessionWorldMut` are `Single<.., With<SessionRoot>>` —
-/// **217 references across 108 files at HEAD** — and `Single` matches only when
-/// there is EXACTLY ONE. Meanwhile `live_session_world_root` deliberately selects
-/// the root owned by `ActiveSessionScope`, *"so a lingering retired root is not a
-/// candidate rather than an ambiguity"*. ⇒ Two ownership semantics for one fact,
-/// and a 2026-09-13 review said candidate coexistence would make the ordinary one
-/// ambiguous.
+/// ⚠ **THE SIZE OF THAT POPULATION IS NOT THIS ARM'S TO STATE**, and it used to
+/// be: the docstring carried *"217 references across 108 files at HEAD"* while
+/// the census row `BEVY-SESSION-ROOT` carried 193, and on 2026-09-19 the tree
+/// answered 183 or 199 depending on whether comments and test modules are
+/// stripped. Four numbers, two owners, none of them current. The count now lives
+/// once, with its method, in
+/// `docs/planning/consolidation/architecture-census.md`; this arm needs only
+/// that the population is large and that every member is a `Single`.
+///
+/// `SessionWorldRef` / `SessionWorldMut` are `Single<.., With<SessionRoot>>`, and
+/// `Single` matches only when there is EXACTLY ONE. Meanwhile
+/// `live_session_world_root` deliberately selects the root owned by
+/// `ActiveSessionScope`, *"so a lingering retired root is not a candidate rather
+/// than an ambiguity"*. ⇒ Two ownership semantics for one fact, and a 2026-09-13
+/// review said candidate coexistence would make the ordinary one ambiguous.
+///
+/// ⭐ **`Q132` DECIDED IT ON 2026-09-19: there is exactly one canonical live
+/// `SessionRoot`.** So the `Single` reading is the engine's meaning and a
+/// two-root frame is INVALID rather than ambiguous — which makes this arm a
+/// witness of an invariant instead of a measurement of a risk. Its companion
+/// `a_prepared_candidate_never_counts_as_a_canonical_session_root` holds the
+/// other half the ruling asks for.
 ///
 /// ⭐⭐ **BUT "TWO ROOTS CAN EXIST" IS A CLAIM ABOUT THIS COMPOSITION, NOT A
 /// THEOREM — AND IT IS CHEAPER TO MEASURE THAN TO DESIGN AROUND.** The one
@@ -513,8 +529,8 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
 ///
 /// ⇒ This drives a real shell handoff — the road whose world log shows
 /// `session-end` and `session-start` on ONE frame — and counts roots every frame.
-/// If the count never exceeds one, `Single` is unambiguous in production and the
-/// 217 sites are not exposed today; if it does, this arm names the frame.
+/// If the count never exceeds one, `Single` is unambiguous in production and no
+/// site is exposed today; if it does, this arm names the frame.
 #[test]
 fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -592,7 +608,7 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
         "THE SHIPPED APP HOLDS {worst} SESSION ROOT(S) (first activation, frame \
          {worst_frame}) and {handoff_worst} (handoff, frame {handoff_frame}). \
          `SessionWorldRef`/`SessionWorldMut` are `Single<.., With<SessionRoot>>` \
-         at 217 sites, and `Single` matches NOTHING when the count is not one — so \
+         at every site, and `Single` matches NOTHING when the count is not one — so \
          on that frame every one of those systems is silently skipped while \
          `live_session_world_root` would have resolved the live root by scope. \
          That is the two-semantics gap, and this names the frame it opens on."

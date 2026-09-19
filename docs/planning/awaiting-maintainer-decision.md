@@ -2002,11 +2002,11 @@ the pairing rather than a block:
 
 | payload | plugin installed at |
 |---|---|
-| `ChallengeRequested` | `..._actor_monolith/src/features/mod.rs:1401` |
-| `BrainCommand` | `..._actor_monolith/src/features/mod.rs:1402` |
-| `ReleaseProvocation` | `..._actor_monolith/src/features/mod.rs:1403` |
-| `ItemGrantRequested` | `..._actor_monolith/src/features/mod.rs:1404` |
-| `ShopTransactionRequested` | `..._actor_monolith/src/features/mod.rs:1405` |
+| `ChallengeRequested` | `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1401` |
+| `BrainCommand` | `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1402` |
+| `ReleaseProvocation` | `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1403` |
+| `ItemGrantRequested` | `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1404` |
+| `ShopTransactionRequested` | `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1405` |
 | `ConversationEnded` | `crates/ambition_conversation/src/plugin.rs:34` |
 | `RunAuthoredCommand` | `crates/ambition_conversation/src/plugin.rs:38` |
 | `SpawnActorRequest` | `game/ambition_content/src/plugin.rs:140` |

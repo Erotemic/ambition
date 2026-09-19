@@ -5615,17 +5615,17 @@
       "category": "crate_boundary",
       "name": "ambition_body_seed",
       "owner": "ambition_body_seed",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision.",
+      "current_truth": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision. \u2b50 REVIEWED 2026-09-18: it DOES own one concept (the values a body is built from), and it is NOT reusable \u2014 8 workspace dependencies. The measurement is the `CRATE-BODY-SEED` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "crates/ambition_body_seed/Cargo.toml",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Static package size and dependency fanout are evidence only. Review whether the crate owns one reusable body-construction concept before any merge decision. \u2b50 REVIEWED 2026-09-18: it DOES own one concept (the values a body is built from), and it is NOT reusable \u2014 8 workspace dependencies. The measurement is the `CRATE-BODY-SEED` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "crates/ambition_body_seed/Cargo.toml",
             "scripts/architecture_census.py"

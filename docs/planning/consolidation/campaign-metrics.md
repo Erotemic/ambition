@@ -446,11 +446,21 @@ overwrites its own history measures nothing.
 | explicit App resources with session/generation semantics | 32 | 36 | **37** | +5 |
 | duplicate-authority families, open | 4 | — | **1** | −3 |
 
-| metric the rule change touched | baseline (tail cut) | 2026-09-18 (per-item strip) | Δ NOT COMPARABLE |
+| metric the rule change touched | baseline (tail cut) | today (all three rules) | Δ NOT COMPARABLE |
 | --- | ---: | ---: | :--- |
-| `Option<Res<_>>` occurrences | 732 | **806** | rule effect alone was +89 on a stationary tree |
-| `Option<Res<_>>` unique spellings | 196 | **203** | rule effect alone was +9 |
-| test Rust LOC (heuristic) | 265,099 | **282,002** | rule effect alone was +1,529 |
+| `Option<Res<_>>` occurrences | 732 | **806** | the PER-ITEM STRIP alone was +89 on a stationary tree (732 → 821); the comment strip then took 821 → 808 |
+| `Option<Res<_>>` unique spellings | 196 | **203** | the per-item strip alone was +9; the comment strip then took 206 → 203 |
+| test Rust LOC (heuristic) | 265,099 | **282,002** | the per-item strip alone was +1,529 |
+
+⛔⛤ **THAT MIDDLE COLUMN SAID `2026-09-18 (per-item strip)` UNTIL 2026-09-19 AND
+ITS VALUES WERE NEVER THAT RULE'S.** `806` and `203` are COMMENT-STRIPPED
+readings; under the per-item strip alone the same tree read `821 / 206`. So the
+header named rule two, the cells held rule three, and the Δ note described rule
+two's effect — three rules in a table that announces itself as being about two.
+⇒ **On the page whose entire job is "do not subtract across a rule change", the
+rule a number belongs to was carried by a column header and the header was
+wrong.** Each Δ now names which pair it measures, which is the only form that
+survives a fourth rule.
 
 ⛔⛤ **AND THREE ROWS HAVE NO Δ COLUMN, BECAUSE THEIRS WOULD BE A LIE.** The
 counting rule changed between the baseline and today: the baseline cut each

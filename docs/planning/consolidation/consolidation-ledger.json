@@ -5511,17 +5511,17 @@
       "category": "crate_boundary",
       "name": "ambition_game_shell",
       "owner": "ambition_game_shell",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates.",
+      "current_truth": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-GAME-SHELL` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "crates/ambition_game_shell/src/session.rs",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The shell owns a semantic lifecycle not supplied by Bevy: route activation, transaction correlation, session bridge, and publication gates. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-GAME-SHELL` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "crates/ambition_game_shell/src/session.rs",
             "scripts/architecture_census.py"

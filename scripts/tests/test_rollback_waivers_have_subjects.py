@@ -39,7 +39,7 @@ def test_a_module_family_is_matched_by_a_derived_module_PATH():
     `mod c;` and `use crate::b::c`, so a waiver's full path almost never appears
     anywhere. `crates/X/src/a/b.rs` IS the module `X::a::b`.
     """
-    _names, modules = guard._tree_facts()
+    _names, modules, _by_module = guard._tree_facts()
     assert "ambition_platformer2d_rollback_ggrs::probes" in modules, "file-derived path missing"
     assert "ambition_boss_encounter::catalog" in modules
 
@@ -52,7 +52,7 @@ def test_an_INLINE_module_is_in_the_population():
     have two `::`. Poisoned 2026-09-18. It now names a module that has no file,
     so only the inline scan can produce it.
     """
-    _names, modules = guard._tree_facts()
+    _names, modules, _by_module = guard._tree_facts()
     assert "ambition_app::app::cli::cli_arg_tests" in modules, (
         "an inline `mod cli_arg_tests {` inside `app/cli.rs` is missing from the "
         "module population, so a waiver naming any inline module would read as dead"
@@ -85,7 +85,7 @@ def test_the_waiver_FILE_is_not_evidence_for_its_own_rows():
             f"{fixture} is no longer declared in {guard.COVERAGE.name}, so this arm's "
             "premise is gone — point it at whatever fixture that file declares now"
         )
-    names, _modules = guard._tree_facts()
+    names, _modules, _by_module = guard._tree_facts()
     leaked = [f for f in fixtures if f in names]
     assert not leaked, (
         f"{leaked} reached the type population from the waiver file itself, so that "
@@ -102,7 +102,7 @@ def test_a_live_leaf_under_a_dead_module_path_is_not_a_subject():
     waivers whose subject is gone — would never say so. The rot was one path
     segment above where it was looking.
     """
-    names, modules = guard._tree_facts()
+    names, modules, _by_module = guard._tree_facts()
     live = "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding"
     prefix, _, leaf = live.rpartition("::")
     assert leaf in names, "fixture drifted: pick another declared leaf"
@@ -123,7 +123,7 @@ def test_the_relative_spelling_is_still_live():
     both are legitimate: fully qualified from a crate root, and RELATIVE with a
     leading `::`. Measured 2026-09-18: 37 of the 127 qualified subjects use the
     relative form, so an exact match would report all 37 as dead."""
-    _names, modules = guard._tree_facts()
+    _names, modules, _by_module = guard._tree_facts()
     assert guard.module_is_live("::world::rooms::transaction", modules)
     assert guard.module_is_live("", modules), "an unqualified leaf has no path to check"
 
@@ -134,7 +134,7 @@ def test_every_shipped_qualified_subject_has_a_live_module():
     is a ratchet rather than a repair — which is worth pinning, because a rule
     that finds nothing on the day it lands is the one nobody re-checks."""
     rows = guard.waiver_rows()
-    names, modules = guard._tree_facts()
+    names, modules, _by_module = guard._tree_facts()
     qualified = [
         n
         for subs in rows.values()
@@ -144,3 +144,52 @@ def test_every_shipped_qualified_subject_has_a_live_module():
     assert len(qualified) >= 100, f"only {len(qualified)} qualified subjects parsed"
     dead = [n for n in qualified if not guard.module_is_live(n.rpartition("::")[0], modules)]
     assert dead == [], dead
+
+
+def test_a_live_leaf_under_a_LIVE_BUT_WRONG_module_is_not_a_subject():
+    """⛔⛤ THE REVIEW FINDING (2026-09-19): TWO EXISTENCE FACTS ARE NOT A
+    RELATION.
+
+    The rule used to be `leaf in names and module_is_live(prefix)` — the type is
+    declared somewhere, the module exists somewhere, neither claim about the
+    other. This arm is the case that separates the two rules: both halves are
+    TRUE and the pairing is still false, so the old rule passes it and the new
+    one must not. `..::geometry::X` would fail under either, which is why that
+    poison proves nothing here.
+    """
+    names, modules, by_module = guard._tree_facts()
+    real = "ambition_portal2d::tuning::EditablePortalTuning"
+    prefix, _, leaf = real.rpartition("::")
+    assert guard.subject_is_declared_in_module(prefix, leaf, by_module), (
+        "the shipped spelling must read live, or this arm is measuring a typo"
+    )
+
+    wrong = "ambition_portal2d::color"
+    assert leaf in names, "the leaf must be declared SOMEWHERE for this to bite"
+    assert guard.module_is_live(wrong, modules), "the module must be LIVE for this to bite"
+    assert not guard.subject_is_declared_in_module(wrong, leaf, by_module)
+
+
+def test_every_shipped_qualified_subject_is_declared_in_the_module_it_names():
+    """⭐ THE RATCHET, AND THE MEASUREMENT THAT MADE THE STRICT RULE SAFE.
+
+    The loose rule's stated reason was re-exports: a type published under a
+    path other than where it is declared would redden. Measured across the
+    shipped tables — 127 of 127 qualified subjects are declared in the module
+    they name, so the worry has no instance and the strict rule costs nothing.
+    """
+    names, _modules, by_module = guard._tree_facts()
+    qualified = [
+        n
+        for needles in guard.waiver_rows().values()
+        for n in needles
+        if not n.endswith("::") and not n.endswith("<") and "::" in n
+    ]
+    assert len(qualified) >= 100, f"population collapsed to {len(qualified)}"
+    off = [
+        n for n in qualified
+        if not guard.subject_is_declared_in_module(
+            n.rpartition("::")[0], n.rpartition("::")[2], by_module
+        )
+    ]
+    assert not off, f"declared outside the module they name: {off}"

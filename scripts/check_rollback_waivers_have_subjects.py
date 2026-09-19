@@ -31,7 +31,7 @@ this reuses that rule rather than inventing a second one:
     ends with `::`   a module-family waiver  → the spelling appears in source
     ends with `<`    a generic's prefix      → the spelling appears in source
     bare lower-case  a CRATE-prefix waiver   → that crate directory exists
-    otherwise        a full type-path suffix → a type of that name is declared
+    otherwise        a full type-path suffix → that type is declared IN that module
 
 ⚠ The third line is a scope my first rule did not model, and its absence made
 this check's first run report `ambition_menu` as a dead row for a live crate.
@@ -102,8 +102,8 @@ def waiver_rows() -> dict[str, list[str]]:
     return out
 
 
-def _tree_facts() -> tuple[set[str], set[str]]:
-    """`(declared type names, module paths)` over the whole Rust tree.
+def _tree_facts() -> tuple[set[str], set[str], dict[str, set[str]]]:
+    """`(declared type names, module paths, names BY module)` over the Rust tree.
 
     ⛔⛤ **THE MODULE PATHS ARE DERIVED FROM FILE PATHS, NOT SEARCHED FOR IN
     SOURCE**, and the difference is the whole rule. My first version looked for
@@ -120,6 +120,11 @@ def _tree_facts() -> tuple[set[str], set[str]]:
     """
     names: set[str] = set()
     modules: set[str] = set()
+    # ⚠ FILE-GRANULAR, DELIBERATELY. A type declared inside `mod x { .. }` is
+    # credited to the file's module AND to `..::x`, because attributing it to
+    # the wrong one of the two would invent a failure; a superset within one
+    # file keeps this rule from reporting a type that is genuinely right there.
+    by_module: dict[str, set[str]] = {}
     for root in ("crates", "game", "tools", "dev"):
         base = REPO / root
         if not base.is_dir():
@@ -130,7 +135,8 @@ def _tree_facts() -> tuple[set[str], set[str]]:
             if path == COVERAGE:
                 continue
             text = path.read_text(errors="replace")
-            names.update(_TYPE_DECL.findall(text))
+            declared = set(_TYPE_DECL.findall(text))
+            names.update(declared)
             rel = path.relative_to(base)
             parts = list(rel.parts)
             if len(parts) < 2 or parts[1] != "src":
@@ -142,14 +148,17 @@ def _tree_facts() -> tuple[set[str], set[str]]:
                 tail = tail[:-1] + [tail[-1][: -len(".rs")]]
             own = "::".join([crate, *tail])
             modules.add(own)
+            by_module.setdefault(own, set()).update(declared)
             # ⛔⛤ **786 INLINE `mod x { .. }` DECLARATIONS EXIST, AND A
             # FILESYSTEM-ONLY DERIVATION CANNOT SEE ONE.** A waiver naming an
             # inline module would read as dead. Measured 2026-09-18 while
             # chasing the one row this check does flag — the gap was real even
             # though that row turned out not to be an instance of it.
             for inline in _INLINE_MOD.findall(text):
-                modules.add(f"{own}::{inline}" if own else inline)
-    return names, modules
+                nested = f"{own}::{inline}" if own else inline
+                modules.add(nested)
+                by_module.setdefault(nested, set()).update(declared)
+    return names, modules, by_module
 
 
 def module_is_live(prefix: str, modules: set[str]) -> bool:
@@ -162,11 +171,11 @@ def module_is_live(prefix: str, modules: set[str]) -> bool:
     37 of the 127 qualified subjects use the relative form, so an exact match
     would report all 37 as dead.
 
-    ⚠ **WHAT THIS STILL CANNOT SEE**, stated rather than left to be
-    discovered: a re-export. A type declared in `a::b` and published as
-    `crate::T` is legitimately waivable under either spelling, so this asks
-    only that the named module EXISTS — not that the leaf is declared in it.
-    Requiring that would redden every `pub use`.
+    ⚠ This asks only that the module EXISTS. Whether the waiver's leaf is
+    declared IN it is the separate, stronger question
+    [`subject_is_declared_in_module`] answers; keeping both lets a failure say
+    WHICH half broke, and a vanished module is a different repair from a
+    mis-attributed type.
 
     ⭐ MEASURED 2026-09-18 ACROSS THE SHIPPED TABLES: 0 of 127 qualified
     subjects name a module the tree does not have, so this lands as a ratchet
@@ -178,9 +187,41 @@ def module_is_live(prefix: str, modules: set[str]) -> bool:
     return any(m == prefix or m.endswith(f"::{prefix}") for m in modules)
 
 
+def subject_is_declared_in_module(
+    prefix: str, leaf: str, by_module: dict[str, set[str]]
+) -> bool:
+    """Is the waiver's leaf declared in the module the waiver NAMES?
+
+    ⛔⛤ **THE PAIR OF EXISTENCE FACTS WAS NOT A RELATION, AND REVIEW SAID SO
+    (2026-09-19).** The rule here was `leaf in names and module_is_live(prefix)`
+    — the type is declared SOMEWHERE and the module exists SOMEWHERE, two
+    independent claims. `ambition_items::shop::RollbackConfirmationState` would
+    pass on a tree where `shop` is live and the state is declared three crates
+    away, which is the same shape of mis-pointing this check exists to catch,
+    one relation short of where it was looking.
+
+    ⚠ **THE RE-EXPORT WORRY IS REAL AND HAS NO INSTANCE, MEASURED.** A type
+    declared in `a::b` and published as `crate::T` is legitimately waivable
+    under either spelling, and requiring the declaration site would redden it.
+    That was the stated reason for the loose rule. Counted across the shipped
+    tables on 2026-09-19: **127 of 127** qualified subjects are declared in the
+    module they name, so the strict rule lands as a ratchet and costs nothing
+    today. When a re-exported subject does arrive it fails LOUDLY with the
+    module it named, and the repair is to spell the declaring module.
+    """
+    prefix = prefix.strip(":")
+    if not prefix:
+        return True
+    return any(
+        leaf in declared
+        for module, declared in by_module.items()
+        if module == prefix or module.endswith(f"::{prefix}")
+    )
+
+
 def subjectless() -> tuple[dict[str, list[str]], dict[str, int]]:
     rows = waiver_rows()
-    names, modules = _tree_facts()
+    names, modules, by_module = _tree_facts()
     dead: dict[str, list[str]] = {}
     for table, needles in rows.items():
         for needle in needles:
@@ -224,9 +265,22 @@ def subjectless() -> tuple[dict[str, list[str]], dict[str, int]]:
                 # one path segment up from where it was looking. Found by
                 # review.
                 prefix, _, leaf = needle.rpartition("::")
-                if leaf in names and module_is_live(prefix, modules):
+                if leaf in names and subject_is_declared_in_module(
+                    prefix, leaf, by_module
+                ):
                     continue
-            dead.setdefault(table, []).append(needle)
+                # ⚠ THE TWO HALVES FAIL DIFFERENTLY AND WANT DIFFERENT REPAIRS,
+                # so the row says which one broke rather than making the reader
+                # re-derive it. "Declared, but not here" is a re-export or a
+                # moved type; "declared nowhere" is a deleted one.
+                if leaf in names and module_is_live(prefix, modules):
+                    reason = (
+                        f"`{leaf}` is declared in the tree but NOT in the live module "
+                        f"`{prefix.strip(':')}` this row names"
+                    )
+                    dead.setdefault(table, []).append((needle, reason))
+                    continue
+            dead.setdefault(table, []).append((needle, ""))
     sizes = {
         "waiver rows": sum(len(v) for v in rows.values()),
         "declared type names": len(names),
@@ -245,14 +299,16 @@ def main() -> int:
         return 1
 
     if dead:
-        print("FAIL: waiver rows whose subject is not declared anywhere in the tree:")
+        print("FAIL: waiver rows whose subject the tree does not have:")
         for table, needles in sorted(dead.items()):
-            for needle in needles:
+            for needle, reason in needles:
                 print(f"  {table}: {needle}")
+                if reason:
+                    print(f"      {reason}")
         print(
-            "  ⇒ Delete the row. It no longer waives anything, and it PRE-APPROVES any "
-            "future type of that name — which is how a deleted module's waiver becomes a "
-            "silent exemption for its replacement."
+            "  ⇒ Delete the row, or repoint it. It no longer waives what it names, and it "
+            "PRE-APPROVES any future type of that name — which is how a deleted module's "
+            "waiver becomes a silent exemption for its replacement."
         )
         return 1
 

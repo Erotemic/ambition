@@ -61,8 +61,8 @@ pub fn install_avatar_player_input(
     use bevy::prelude::IntoScheduleConfigs as _;
 
     // Derive the canonical persona before brain/effect consumers. Identity
-    // changes refresh the full persona; live HostCode ability edits preserve
-    // authored movement state.
+    // changes refresh the full persona; a live ability edit on an id the
+    // catalog does not know preserves authored movement state.
     app.add_systems(
         schedule.clone(),
         apply_worn_character_gameplay.in_set(PlayerInputSet::Persona),

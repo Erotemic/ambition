@@ -253,13 +253,13 @@ impl PlayerSimulationBundle {
     /// binder, which reads the `WornCharacter` identity the spawn records — not
     /// here, and not app-locally.
     ///
-    /// A row marked [`PlayableKitSource::HostCode`](ambition_characters::actor::character_catalog::PlayableKitSource::HostCode)
-    /// (a protagonist whose combat is a runtime `AbilitySet` concern) keeps the
-    /// code-built kit — the overlay rebuilds it from the body's own `AbilitySet`,
-    /// so wearing that id yields a bundle equivalent to `from_scratch`. This is
-    /// keyed on the ROW's declared kit source, not on "is this the content
-    /// default": a standalone demo whose default character authors its own kit
-    /// gets that authored kit.
+    /// An id the catalog does NOT know (a protagonist whose combat is a runtime
+    /// `AbilitySet` concern) keeps the code-built kit — the overlay rebuilds it
+    /// from the body's own `AbilitySet`, so wearing that id yields a bundle
+    /// equivalent to `from_scratch`. Keyed on MEMBERSHIP, not on "is this the
+    /// content default": a standalone demo whose default character authors its
+    /// own kit gets that authored kit, because the authored arm is settled
+    /// before membership is consulted at all.
     pub fn from_scratch_as_character(
         catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         scratch: ae::BodyClusterScratch,
@@ -282,8 +282,8 @@ impl PlayerSimulationBundle {
     ) -> Self {
         // The body's code-side capability set — the source of the protagonist's
         // kit, captured before `scratch` folds into the movement bundle so the
-        // overlay can rebuild the code kit deterministically (host-code rows and
-        // unknown ids fall back to it).
+        // overlay can rebuild the code kit deterministically (an id the catalog
+        // does not know falls back to it).
         let base_abilities = scratch.abilities.abilities;
         let mut bundle = Self::from_scratch(scratch, health);
         // The SAME overlay the runtime re-wear system applies (name + the resolved

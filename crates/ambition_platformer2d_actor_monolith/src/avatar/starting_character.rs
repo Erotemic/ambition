@@ -131,10 +131,17 @@ impl InitialBodyPolicy {
 // StartingCharacter component + the moveset overlay.
 
 // NOTE: the old `overlay_character_moveset` fallback — empty worn slots kept the player's
-// swipe/bolt/shield — is GONE. A protagonist whose kit is a runtime `AbilitySet` concern opts
-// its ROW into `PlayableKitSource:HostCode` (the kit is rebuilt from the body's persisted
-// `AbilitySet`); the DEFAULT is that the row's authored kit wins — being the content default no
-// longer implies "keep the host's hardcoded kit".
+// swipe/bolt/shield — is GONE, and being the content default no longer implies "keep the
+// host's hardcoded kit": the row's authored kit wins.
+//
+// ⛔⛤ **A ROW CANNOT OPT INTO THE HOST KIT BY NAME, AND THIS SAID IT COULD**
+// until 2026-09-19 — it told an author to mark the row `PlayableKitSource::HostCode`,
+// a spelling `prepared.rs` deleted once the enum turned out to hold one variant
+// and to be answering catalog MEMBERSHIP all along. An instruction nobody can
+// carry out is worse than a missing one, because it reads as a supported route.
+// A body is rebuilt from its persisted `AbilitySet` exactly when the catalog
+// does not know its id; `resolve_playable_action_set` owns that rule and is the
+// only place that should state it.
 
 /// The movement policy for `character_id`, DEFINITION first, catalog second.
 ///
@@ -239,11 +246,24 @@ fn sync_worn_motion_model_preserving_state(
 /// field it writes is a deterministic function of the identity plus the body's
 /// persisted `AbilitySet`, never of the prior ActionSet or moveset:
 ///
-/// - known `Authored` row: use its resolved `default_action_set`; a malformed
-///   missing preset receives a safe peaceful kit rather than host privileges;
-/// - known `HostCode` row: rebuild the host kit from `base_abilities`;
-/// - unknown id: install the explicit host-code compatibility fallback and name
-///   the body after the id so the problem is visible.
+/// - a SEATED body: the match's kit wins outright, before the catalog or the
+///   prepared cast is consulted at all;
+/// - a prepared [`PreparedKit::Authored`] character: its resolved action set,
+///   gated by the body's abilities;
+/// - a prepared [`PreparedKit::Unauthored`] one: the host kit, built from
+///   `base_abilities`;
+/// - no prepared row at all: the catalog's preset when it knows the id — a
+///   malformed missing preset receives a safe peaceful kit rather than host
+///   privileges — and otherwise the compatibility kit, with the body named
+///   after the id so the problem is visible.
+///
+/// The last two bullets are ONE rule seen through two registries, which is why
+/// the ability-only refresh below can gate on catalog membership alone:
+/// preparation only reaches `Unauthored` for an id the catalog does not know,
+/// or with no catalog to ask.
+///
+/// [`PreparedKit::Authored`]: ambition_characters::prepared::PreparedKit::Authored
+/// [`PreparedKit::Unauthored`]: ambition_characters::prepared::PreparedKit::Unauthored
 ///
 /// Returns HOW the resolved persona fires ([`RangedExecution`]); the ECS derive
 /// system synchronizes the charge marker and its mutable state from that.
@@ -333,8 +353,13 @@ pub fn sync_charge_projectile_capability(
 ///
 /// An identity change refreshes the complete persona: display name, effective
 /// kit, projectile capability, and movement identity. An ability-only change is
-/// narrower: only a `HostCode` or unknown compatibility kit depends on
-/// `BodyAbilities`, so only that kit and its projectile capability are rebuilt.
+/// narrower: only the compatibility kit an id the catalog does not know
+/// receives depends on `BodyAbilities`, so only that kit and its projectile
+/// capability are rebuilt. ⚠ That gate is `!catalog.knows(id)` rather than an
+/// inspection of the prepared kit, and the two cannot diverge: the only other
+/// route to `PreparedKit::Unauthored` is preparation with NO catalog, and this
+/// system takes `Res<CharacterCatalog>` unconditionally, so it does not run in
+/// a composition that has none.
 /// In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(

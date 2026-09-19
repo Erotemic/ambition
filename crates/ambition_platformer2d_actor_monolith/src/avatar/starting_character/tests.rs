@@ -179,7 +179,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
             ActorMoveset(Default::default()),
             // A worn body is a FULL body: kinematics + the movement clusters
             // (which include the persisted capability set the overlay rebuilds
-            // a HostCode / unknown kit from).
+            // an unknown id's kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -317,7 +317,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
             ActorMoveset(Default::default()),
             // A worn body is a FULL body: kinematics + the movement clusters
             // (which include the persisted capability set the overlay rebuilds
-            // a HostCode / unknown kit from).
+            // an unknown id's kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -431,7 +431,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
             ActorMoveset(Default::default()),
             // A worn body is a FULL body: kinematics + the movement clusters
             // (which include the persisted capability set the overlay rebuilds
-            // a HostCode / unknown kit from).
+            // an unknown id's kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -508,7 +508,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
             ActorMoveset(Default::default()),
             // A worn body is a FULL body: kinematics + the movement clusters
             // (which include the persisted capability set the overlay rebuilds
-            // a HostCode / unknown kit from).
+            // an unknown id's kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -530,9 +530,21 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
         "wearing the pirate first installs its pistol"
     );
 
-    // Re-wear the HostCode default ("player_robot_v3"): the code kit (Swipe +
-    // Bolt + bubble_shield from sandbox_all abilities) is rebuilt — NO stale
+    // Re-wear the catalog's protagonist row ("player_robot_v3") — NO stale
     // pistol.
+    //
+    // ⛔⛤ **THIS SAID THE BODY GETS "THE CODE KIT (SWIPE + BOLT +
+    // BUBBLE_SHIELD FROM SANDBOX_ALL ABILITIES)" UNTIL 2026-09-19, AND THE LAST
+    // ASSERTION IN THIS FUNCTION REFUTES IT IN ONE LINE** — `*set ==
+    // ActionSet::peaceful()`. `player_robot_v3` IS a catalog row, so it never
+    // reaches the ability-built kit at all; v3 authors that repertoire on its
+    // DEFINITION in `ambition_content`, which this crate cannot see, so here it
+    // resolves to the row's `default_action_set: "peaceful"`.
+    //
+    // ⇒ The guard was never wrong and nothing was under-tested. What failed is
+    // that the fix landed as a NEW paragraph beside the old one instead of
+    // replacing it, leaving the function stating both answers — which is the
+    // shape to look for, not a missing assertion.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
     // AND ASK FOR IT. Writing the identity stopped rebuilding the
     // body: a re-wear is an explicit request, the
@@ -637,12 +649,17 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     );
 }
 
-/// A HostCode row is derived from the body's mutable ability source, so changing
-/// that source must refresh the effective kit even when the worn identity does
-/// not change. This is the live-dev/progression edge the identity-only filter
-/// missed.
+/// The kit an id the catalog does not know receives is derived from the body's
+/// mutable ability source, so changing that source must refresh the effective
+/// kit even when the worn identity does not change. This is the
+/// live-dev/progression edge the identity-only filter missed.
+///
+/// ⚠ THE FIXTURE PROPERTY THAT PUTS THIS ON THAT BRANCH IS THE ID: `"player"`
+/// is in no catalog row, and `install_test_catalog` installs the SHIPPED
+/// catalog. Wear anything that catalog knows and the ability branch never runs,
+/// so this test silently stops testing what it names.
 #[test]
-fn host_code_kit_refreshes_when_body_abilities_change() {
+fn an_unknown_ids_kit_refreshes_when_body_abilities_change() {
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
     use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
@@ -2363,7 +2380,7 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
 /// and this test does NOT prove that, which is worth stating plainly. I
 /// wrote it as a falsifier and it failed to falsify twice. A goblin cannot
 /// express the scenario at all — an ordinary authored character fails the
-/// `HostCode`-or-unknown gate, so the ability branch never runs for it. And for
+/// unknown-id gate, so the ability branch never runs for it. And for
 /// the protagonist, which does pass that gate, BOTH branches derive the same
 /// non-empty kit from the same persisted `AbilitySet`, so a discarded first
 /// derivation is indistinguishable from a kept one by any assertion on the

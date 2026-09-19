@@ -985,7 +985,7 @@ pub struct PreparedCharacterDefinition {
     /// HOW this character fires — see
     /// [`CharacterDefinition::ranged_execution`]. Read by the persona derive so
     /// the charge is a fact about the CHARACTER rather than about which arm of
-    /// `PlayableKitSource` built it.
+    /// [`PreparedKit`] built it.
     pub ranged_execution: crate::brain::RangedExecution,
     /// The policy this creature adopts when provoked, RESOLVED — see
     /// [`CharacterDefinition::provoked_profile_ref`].

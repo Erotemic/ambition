@@ -177,8 +177,9 @@ impl SnapshotState for crate::actor::BodyHealth {
 /// wears. A length-delimited string id — the choice, not the content: the
 /// catalog it names is authored data that survives the rewind. Registered as a
 /// full component (not a resolve) because the id IS the value; the entity's
-/// gameplay/presentation are re-derived from the restored identity (and, for
-/// HostCode, the restored `BodyAbilities`) the following tick.
+/// gameplay/presentation are re-derived from the restored identity (and, for an
+/// id the catalog does not know, the restored `BodyAbilities`) the following
+/// tick.
 impl SnapshotState for crate::actor::WornCharacter {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.id());

@@ -380,17 +380,24 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // The protagonist's PLAYABLE kit is host-code-owned: its combat is the
-            // runtime `AbilitySet` dev-toggle / progression kit, not this catalog
-            // row. `default_action_set: "peaceful"` above describes its Hall
-            // pedestal / NPC face, NOT what the worn home box can do. Being the
-            // content default is now unrelated to keeping the code kit — a demo
-            // whose default authors its own kit (Sanic) gets that kit.
-            //  AUTHORED since 2026-08-11 (GPT 5.6 §5). v3 states its own
-            // repertoire -- a swipe, a bolt and a bubble shield -- on its
-            // definition, and `ranged_execution: ChargedProjectile` keeps the
-            // Hadouken charging now that the charge is a character fact rather
-            // than a property of this row saying `HostCode`.
+            // `default_action_set: "peaceful"` above describes this row's Hall
+            // pedestal / NPC face, NOT what the worn home box can do. v3 states
+            // its own repertoire -- a swipe, a bolt and a bubble shield -- on
+            // its DEFINITION (authored since 2026-08-11, GPT 5.6 §5), and
+            // `ranged_execution: ChargedProjectile` keeps the Hadouken charging
+            // now that the charge is a character fact rather than a property of
+            // this row saying `HostCode`. Being the content default is unrelated
+            // to keeping the code kit — a demo whose default authors its own kit
+            // (Sanic) gets that kit.
+            //
+            // ⛔⛤ **THIS BLOCK CARRIED BOTH ANSWERS IN THE PRESENT TENSE UNTIL
+            // 2026-09-19**: it opened *"the protagonist's PLAYABLE kit is
+            // host-code-owned: its combat is the runtime `AbilitySet`
+            // dev-toggle / progression kit, not this catalog row"* and then, six
+            // lines later, said v3 authors that repertoire on its definition.
+            // The second sentence superseded the first when the definition
+            // landed and the first was never cut, so which one a reader believed
+            // depended on where they stopped reading.
             // The protagonist's blade, and ONLY the protagonist's: the sheet's
             // silhouette is sampled from v3's own hit polygon, so a character
             // with a different swing that named it would wear art cut for

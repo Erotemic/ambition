@@ -2535,18 +2535,18 @@ fn a_seated_fighter_carries_its_authored_mass() {
 /// `PreparedKit::Unauthored` is the one case a per-character value cannot hold: the
 /// host's code-side kit is built from the BODY's own `AbilitySet`. While the
 /// projection was the writer for seated bodies it could not build that — it has
-/// no body abilities — so a seated fighter resolving to `HostCode` got nothing.
+/// no body abilities — so a seated fighter resolving to `Unauthored` got nothing.
 ///
 /// Phase B routed seated bodies through `apply_worn_character_gameplay`, which
 /// DOES have the abilities. This asserts that actually closed the hole rather than
 /// merely making it plausible: a registered character with no authored action set
-/// and no catalog row resolves to `HostCode`, and the seated body must still come
-/// out able to act.
+/// and no catalog row resolves to `Unauthored`, and the seated body must still
+/// come out able to act.
 #[test]
 fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
     let mut app = seating_app();
     // No authored action set, and the empty catalog has no row for it — the two
-    // conditions that make `finalize_character` choose `HostCode`.
+    // conditions that make `finalize_character` choose `PreparedKit::Unauthored`.
     app.register_character(CharacterDefinition::new("drifter", "Drifter", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("drifter")],

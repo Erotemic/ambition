@@ -721,7 +721,7 @@ the state that lets a later edit remove them in silence.
 | existing 3-/4-node flows retain their traces | `every_shipped_flow_still_runs_the_trace_it_was_authored_for` — the SHIPPED flows through the real interpreter, three contact roads each |
 | `Finish` does not remove recovery | `a_finished_flow_leaves_the_move_playing_out_its_recovery` |
 | `Wait` does not extend the move | `a_move_ends_on_its_timeline_with_its_flow_still_waiting` |
-| late contact feedback cannot mutate another move occurrence | `a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it`, with `a_verdict_no_move_claims_reaches_no_move` holding the admission half |
+| late contact feedback cannot mutate another move occurrence — ⚠ **`connected`/`blocked` ONLY, measured 2026-09-19** | `a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it`, with `a_verdict_no_move_claims_reaches_no_move` holding the admission half. ⛔ Both arms drive `mark_move_playback_resolved_hits`, which is the only consumer of `verdict_belongs_to`; the third contact fact, `landed_hit`, has no arm here because it has no guard there — see `Q101` |
 | no generic execution registry | structural: `InstalledTechniques` maps a key to a declaration, and the handler is a system the composition adds |
 
 ### Three findings worth carrying past the packet

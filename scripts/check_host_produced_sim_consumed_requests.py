@@ -522,20 +522,35 @@ _MSG_READER = re.compile(
 )
 
 #: ⛔⛤ **`NarrativeInputWriter<M>` IS A WRITER SPELLING THIS CENSUS DOES NOT
-#: RECOGNISE, AND ADDING IT WOULD MANUFACTURE FALSE CROSSINGS.** Five payload
-#: types reach the simulation through it —`ChallengeRequested`, `BrainCommand`,
-#: `ReleaseProvocation`, `ItemGrantRequested`, `ShopTransactionRequested` — and
-#: every one of them is raised from a HOST system. They are not crossings,
-#: because the writer does not write a message: it records the payload into
-#: `NarrativeInputLedger<M>` stamped with `SimTick + 1`, and
+#: RECOGNISE, AND ADDING IT WOULD MANUFACTURE FALSE CROSSINGS.** They are not
+#: crossings, because the writer does not write a message: it records the
+#: payload into `NarrativeInputLedger<M>` stamped with `SimTick + 1`, and
 #: `release_narrative_inputs` raises the real message at the head of the SIM
 #: schedule, so a resimulated tick re-raises it. The producer this census
 #: should see IS the sim-side release, and it does.
 #:
 #: ⇒ Recorded here because the shape reads exactly like a gap. A future reader
 #: who "closes" it by treating `NarrativeInputWriter` as a `MessageWriter` gets
-#: five host producers for messages with sim readers and five findings that are
-#: the architecture working. See `Q136`'s fourth escape.
+#: a host producer for every one of them and a finding that is the architecture
+#: working. See `Q136`'s fourth escape.
+#:
+#: ⚠ **THE POPULATION IS TEN, AND THIS COMMENT SAID FIVE UNTIL 2026-09-18.**
+#: `ChallengeRequested`, `BrainCommand`, `ReleaseProvocation`,
+#: `ItemGrantRequested`, `ShopTransactionRequested`, `ConversationEnded`,
+#: `RunAuthoredCommand`, `SpawnActorRequest`, `CutRopeRoomReplayRequested`,
+#: `SetFlagRequested`. The five named were the actor-feature payloads; a
+#: hand-written list of an open set is a count nobody re-derives, which is why
+#: the population now has an owner that does —
+#: `scripts/check_narrative_writers_have_a_ledger.py`.
+#:
+#: ⛔⛤ **AND THE EXEMPTION HAD AN UNCHECKED PREMISE, WHICH COST A SHIPPED
+#: DEFECT.** "The ledger is the safe ingress" is true of the MECHANISM and says
+#: nothing about whether the mechanism was INSTALLED. `SetFlagRequested` had a
+#: writer in shipped content and no `NarrativeInputPlugin<SetFlagRequested>`
+#: anywhere, so its `ResMut<NarrativeInputLedger<_>>` could not resolve and the
+#: authored Yarn command recorded nothing — while this census looked away from
+#: it on purpose. Found by review, not by this file. The pairing guard above is
+#: the premise, checked; do not widen this exemption without it.
 
 #: The same two, as FIELDS of a `#[derive(SystemParam)]` bundle.
 #:

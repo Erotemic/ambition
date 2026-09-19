@@ -1387,20 +1387,75 @@ not: each answers a different question, and the Q136 count is the second one's.
             `PlayerHealRequested` (both Q136, both live) and `ResetToCheckpoint`
             (benign, OUTSIDE THE TIMELINE — see the readings below).
             `SetFlagRequested` was a fourth, filed benign, corrected to LIVE by
-            a 2026-09-18 review, and REPAIRED the same day: its producer moved
-            into the rewinding schedule, which is the RE-DERIVED IN THE SIM
-            escape this page had named and had no instance of.
+            a 2026-09-18 review, declared REPAIRED the same day because its
+            producer moved into the rewinding schedule — **and RE-OPENED hours
+            later by a second review, because moving the producer into the sim
+            is not the same fact as the derivation landing on the same TICK.**
 
-        ⛔⛤ So this ruling is responsible for FOUR live intents, not two, and
+            ⛔⛤ **THE ESCAPE WAS CLAIMED ONE STEP TOO EARLY, AND THE STEP IT
+            SKIPPED IS THE ONLY ONE A REWIND CARES ABOUT.**
+            `emit_intro_flag_chains` is ordered
+            `.after(Platformer2dSimulationPhaseMonolith::GameplayEffects)`
+            (`game/ambition_content/src/intro/plugin.rs:146-150`), and
+            `GameplayEffects` is where `apply_flag_effects` CONSUMES
+            `SetFlagRequested`. So the derived message is read on the FOLLOWING
+            tick, and a message in flight between two ticks is not rollback
+            state. On a rewind to the snapshot entering that tick the pending
+            message is not restored, the derivation re-fires in its usual
+            position *after* the consumer, and the target flag lands one tick
+            later than it did in the original timeline.
+
+            ⭐ **TWO FACTS MEASURED 2026-09-18 SAY THIS IS NOT A PRESENTATION
+            DELAY.** `AmbitionGameSave` is rollback state AND is checksummed —
+            `rollback_resource_clone_checksum`
+            (`crates/ambition_persistence/src/rollback_registration.rs:31`) —
+            and a sweep for any message-buffer rollback mechanism in the tree
+            returns nothing. ⇒ A flag arriving a tick late on replay is a
+            difference in checksummed state, which is the desync class, not a
+            late notification.
+
+            ⚠ **AND THE CENSUS CANNOT SETTLE IT, BY CONSTRUCTION.** It
+            classifies on whether the PRODUCER RUNS IN THE SIM SCHEDULE, which
+            is a fact about where a system is installed; it never observes the
+            producer/consumer snapshot boundary. That is why a green census
+            read as a repair.
+
+            ⚠ **WHAT IS REASONED HERE AND NOT YET RUN.** No witness has been
+            executed for this path — the above is the mechanism, not a
+            measurement of a divergence. What would settle it is a rewind arm
+            comparing the exact tick the target flag appears between an
+            uninterrupted timeline and a replayed one, poisoning the ordering
+            back to `.after` to prove the arm sees this specific invariant. The
+            gravity witness landed today
+            (`an_ambient_gravity_request_raised_outside_the_simulation_is_lost`)
+            is the harness shape.
+
+            ⚠ **THE SOURCE'S OWN ARGUMENT FOR `.after` LOOKS WRONG, AND IT IS
+            REASONING RATHER THAN A READING.** The comment says ordering the
+            producer BEFORE the consumer *"would collapse a chain into one
+            tick"*. It would not: a producer running before the consumer
+            observes START-OF-TICK state, so on the tick that establishes `A`
+            it still sees `A` absent, emits `B` only on the next tick, and the
+            chain advances one edge per tick exactly as now — while the
+            emit-then-consume pair sits inside a single tick and re-derives
+            identically on replay.
+
+        ⛔⛤ So this ruling is responsible for FIVE live intents, not two, and
         the second channel was invisible until 2026-09-18 because the script
-        required the `Resource` derive. ⭐ It said FIVE for most of that day:
-        `SetFlagRequested` joined the list when a review corrected its benign
-        verdict and left it again when its producer moved into the rewinding
-        schedule. The four that remain are `CutsceneAdvanceRequest`,
-        `NewGameResetRequested`, `AmbientGravityRequest` and
-        `PlayerHealRequested` — and what the repaired one had that none of
-        these has is a producer that is a pure DERIVATION over rollback state
-        rather than a latched input edge. The filter was right and stays: without
+        required the `Resource` derive. ⭐⛤ **THE COUNT WENT FOUR → FIVE → FOUR
+        → FIVE IN ONE DAY, AND EVERY MOVE WAS A REVIEW RATHER THAN A CODE
+        CHANGE**, which is the honest record of how confident this page was
+        entitled to be. `SetFlagRequested` joined when a review corrected its
+        benign verdict, left when its producer moved into the rewinding
+        schedule, and RETURNED when a second review pointed out that the
+        producer is ordered after its own consumer, so the derivation lands a
+        tick late on replay — see its block above. The five are
+        `CutsceneAdvanceRequest`, `NewGameResetRequested`,
+        `AmbientGravityRequest`, `PlayerHealRequested` and `SetFlagRequested`.
+        ⇒ What the briefly-repaired one has that the others do not is a
+        producer that is a pure DERIVATION over rollback state rather than a
+        latched input edge — which makes its escape REACHABLE, by reordering,
+        and not yet taken. The filter was right and stays: without
         it the first version reported 67 rows, because `App`, `Commands`,
         `NextState` and `Sprite` are not resources. What was wrong was
         believing one channel was the population.

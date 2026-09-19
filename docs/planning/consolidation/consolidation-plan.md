@@ -14,7 +14,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which re-derives its own road count from its table — this cell deliberately states none, having carried "nine of twelve" while the owner said fourteen of seventeen | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
-| 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
+| 4 | C04 | Make activated generation mechanics the only live-session construction source | **STARTABLE 2026-09-19 — the composition ruling discharged the last hold** | medium | ~~C03 owner decision~~ + ~~supported-composition decision~~ (ruled, `Q144`/`Q146`). What remains is the App-registry fallback removal itself. |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | ⛔ **DO NOT START — decided 2026-09-19.** Every gate discharged, but the authority collapse has already happened: the remainder is one value's storage kind, re-measured unchanged, and moving it makes its only four readers worse. Kept for its regression rule | none remaining (was large, re-costed small 2026-09-16) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | **STARTABLE 2026-09-19 — both gates discharged**, the second by C05's own DO-NOT-START ruling | large | ~~C01~~ + ~~C05~~. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
@@ -414,9 +414,14 @@ destructured fields whose only job is to undo the previous session.
 ⭐⛤ **AND THE RULING (2026-09-19) RATIFIES EXACTLY THIS SHAPE RATHER THAN
 DISTURBING IT.** Preparing a replacement while the current session stays live is
 ALLOWED, and the incoming candidate must carry a distinct candidate/prepared
-identity and must not masquerade as a `SessionRoot`. `InactiveCandidate` is that
-distinct identity, and the arm above is the witness that it does not read as a
-canonical root. ⇒ The hidden candidate is not a two-root frame in the sense the
+identity and must not masquerade as a `SessionRoot`. ⭐ **THAT IDENTITY IS
+`CandidateSessionRoot`, LANDED 2026-09-19 (`ef54aeff3`)** — not
+`InactiveCandidate`, which is the Bevy DISABLING component and therefore a
+VISIBILITY fact, not an identity. Before that commit a candidate root wore
+`SessionRoot(scope)` and was distinct only by being hidden, so any reader who
+allowed disabled entities saw two canonical roots; now the marker itself is
+different and the arm above is the witness that it does not read as a canonical
+root. ⇒ The hidden candidate is not a two-root frame in the sense the
 ruling forbids — it is the prescribed lifecycle, and the correctness edge for
 these values is therefore fixed rather than contingent: **exactly one root is
 ever visible, so "before the root exists" means what it already meant.**
@@ -440,9 +445,27 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 ## 4. C04 — Make activated generation mechanics the only live-session construction source
 
-**STATE:** candidate after session ownership stabilizes. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16); what remains is the composition-contract ruling.** Re-scope before costing.
+**STATE:** STARTABLE 2026-09-19. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16), and the composition-contract ruling it waited on landed the same day.** What remains is removing the App-registry fallback.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **STARTABLE.** ⭐⭐ **THE LAST HOLD IS DISCHARGED — RULED 2026-09-19.** Two explicit composition modes: a game must be able to launch DIRECTLY or run inside the shell, and the game is essentially identical in both, the one meaningful semantic difference being that a shell-hosted game can RETURN to the shell (the direct build shows the same menu item, greyed out). ⛔ Shell presence must not alter simulation, mechanics, capabilities, registries, content or game policy, and future platform-level overlays are not a reason to couple more shell behaviour in. Production shell sessions use the prepared/session lifecycle; explicit direct/headless/test compositions may hold SCOPED fixture/direct-entry authority, but no anonymous App-global fallback state returns. ⇒ This row's App-registry fallback is that anonymous state, so it goes. See [`maintainer-decisions.md`](../maintainer-decisions.md). ⚠ The ruling's own instruction: *"Implement this architecture rather than continuing to census hypothetical composition variants."*
+
+⭐⚤ **BUT THE GREYED-OUT-MENU-ITEM CLAUSE HAS NO COMPOSITION TO APPLY TO, AND
+THAT IS A FACT ABOUT THE TREE, NOT A DEFERRAL.** Measured 2026-09-19 in
+`game/ambition_app/src/app/visible_composition.rs:140`: `AmbitionShellHosted` is
+inserted UNCONDITIONALLY, and the `spec.shell_hosted` branch twenty lines later
+chooses only WHICH ROUTE the shell host boots into
+(`compose_ambition_shell_host` vs `..._booting_to(AMBITION_GAMEPLAY_ROUTE)`).
+`cli.rs:791` already says so in its own words: *"Since K2b both arms ARE
+shell-hosted; the flag only chooses the INITIAL ROUTE."* ⇒ Every composition
+that can show the SYSTEM menu has a launcher route, so
+`SystemMenuEntryId::QuitToHome` — pushed unconditionally at
+`crates/ambition_settings_menu/src/system/mod.rs:658` — always has somewhere to
+land. The ruling's parity requirement is satisfied by something STRONGER than
+parity: there is no shell-less arm to grey the row out in. Building a `disabled`
+flag onto `SystemMenuEntry` today would add a state no composition can reach.
+⇒ **Do not implement the greyed-out row until a composition exists that shows
+this menu without `MinimalShellPlugins`;** what C04 owes is the App-registry
+fallback, which is a different sentence of the same ruling.
 
 ⛔⛤ **AND THE `Q132` RULING NARROWS WHAT `Q144` IS ALLOWED TO ANSWER, WHICH MAKES THIS ROW CHEAPER RATHER THAN MORE EXPENSIVE.** The scoping rule says App-global mutable state is appropriate only where simultaneous sessions would legitimately share exactly the same value, and the ruling adds explicitly: *do not preserve ambiguous fallback behaviour merely for old direct-entry tests.* The App-registry fallback this row exists to remove is App-global mutable construction input that two coexisting sessions could legitimately differ on — so it is on the wrong side of the rule ALREADY, independent of how `Q144` rules on composition. ⇒ What `Q144` still owns is whether direct entry must ACTIVATE a prepared generation or may declare its inputs another explicitly-scoped way; it no longer owns whether the anonymous App-global fallback may stay.
 
@@ -476,14 +499,16 @@ preparation road uses `GenerationMechanics::of`.
 one, and says so at the call site. Narrowing `new` to `pub(crate)` was tried and
 fails to compile for exactly that caller.
 
-⇒ **WHAT IS LEFT FOR C04 IS THE RULING, NOT A REFACTOR** — *"decide supported
-direct/headless composition contract"*, already its own DO-NOT-START-BEFORE. The
-same shape C03's third candidate turned out to have. Keep explicit fixture
-construction if still useful; the declared-profile half is delivered.
+⇒ **WHAT IS LEFT FOR C04 IS ONE DELETION.** The ruling it was waiting on
+landed 2026-09-19, so the remaining scope is the App-registry fallback itself —
+the unrefusing road a composition takes when no generation is activated — and
+the ruling says explicitly that it goes. Keep explicit fixture construction
+where it is still useful (the ruling permits SCOPED direct-entry authority); the
+declared-profile half is delivered.
 
 ### DEPENDENCIES / BLOCKERS
 
-Decide supported direct/headless composition contract; C03 owner placement; A10 live/candidate generation owner.
+~~Decide supported direct/headless composition contract~~ — ruled 2026-09-19 (`Q144`/`Q146`). C03 owner placement; A10 live/candidate generation owner.
 
 ### RISK
 

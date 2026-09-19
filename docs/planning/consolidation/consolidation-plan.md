@@ -977,6 +977,26 @@ state that exists only because session identity was OPTIONAL.** That is the
 shape `C04`/`C07` are told to inspect, and it is not to be preserved for the
 benefit of old direct-entry tests.
 
+⭐ **THE RULING HAS THREE MECHANICAL HOLDS AS OF 2026-09-19, AND THEY COVER
+DIFFERENT FAILURES** — consequence 7 asked for production-composition witnesses
+and consequence 8 for candidates not counting as roots:
+
+| hold | what it catches | where |
+|---|---|---|
+| `the_shipped_app_never_holds_two_session_roots_across_a_handoff` | a second CANONICAL root appearing across a real shell handoff | `game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs` |
+| `a_prepared_candidate_never_counts_as_a_canonical_session_root` | a candidate being COUNTED as canonical, and the opposite failure of no candidate being prepared at all | same file |
+| `check_session_root_construction_is_declared.py` (maintenance job 45) | a NEW production site minting a root — the one the runtime arms cannot see | `scripts/` |
+
+⚠ **THE THIRD EXISTS BECAUSE THE FIRST TWO DRIVE ONE ROUTE IN ONE APP.** A host
+that does not exist yet is invisible to them, and that is how this invariant
+will actually break. Four production sites construct a `SessionRoot` today and
+each is declared with what it serves; two of the four are demo content plugins
+with NO production caller, and one is
+`insert_session_world_component`'s fallback, which mints
+`active_scope.unwrap_or(SessionScopeId(0))` — an anonymous default identity,
+which is the very shape the scoping rule names, with one production caller
+(`game/ambition_app/src/app/dev_runtime.rs:626`).
+
 ⭐⛤ **THE RULING'S CATEGORIES MAP ONTO THIS CAMPAIGN'S MEASURED 37, AND EVERY
 CATEGORY IT NAMES HAS MEMBERS HERE — DERIVED 2026-09-19.** `Q132`'s scoping rule
 lists the kinds of state that should generally be scoped. That list is abstract;

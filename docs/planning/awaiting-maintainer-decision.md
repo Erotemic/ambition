@@ -609,6 +609,45 @@ the debug feature, or whether the dependency should stop being unconditional.
 
 Blink, dive, mark-recall and empowerment can create contact outside the ordinary strike verdict road. Decide whether that contact belongs to the launching move occurrence for `Connected`, or is an independent event that must not credit the current move. A12 cannot close reflection/contact attribution until this rule is explicit.
 
+⭐⭐ **THE AFFECTED AUTHORED POPULATION IS ZERO TODAY, MEASURED 2026-09-19 —
+WHICH MAKES THIS CHEAP TO ANSWER NOW AND EXPENSIVE LATER.** Exactly **one**
+authored flow in the whole content crate waits on `Connected`: the goblin's
+`headlong_charge` (`game/ambition_content/src/goblin_moveset.rs:794`, and the
+migrated `assets/data/movesets/goblin.ron:1289` is the same move). It is a
+MELEE charge and launches no ability, so no authored move both launches an
+ability and waits on this signal. ⇒ Neither answer breaks content at HEAD; the
+ruling is about what the vocabulary MEANS before somebody authors the case.
+
+⛔⛤ **AND `Connected` IS NOT THE ONLY THING THAT MOVES, WHICH IS THE PART THE
+QUESTION'S WORDING HIDES.** `MoveContact::overlapped` is DERIVED as
+`landed_hit || connected_hit || blocked_hit`
+(`crates/ambition_combat/src/moveset/mod.rs:788`), and `overlapped` is the
+STALING fact. Staling is recorded on the false→true edge of `landed_hit` in
+`mark_move_playback_landed_hits`, keyed on the `LandedBodyHit`'s **attacker**.
+⇒ Answering "yes" does not only let a flow resolve — it makes the launching
+move STALE when its projectile connects. Answering "no" means a projectile
+move never decays no matter how often its shots land.
+
+**The decision:**
+
+* **(a) Yes — an ability's contact credits the launching move.** A flow can
+  wait on a projectile landing, and a spammed projectile stales like any other
+  move. ⚠ This is the attribution `A12` has to get right: the credit must
+  reach the move OCCURRENCE that launched it, across an idle gap and a rewind,
+  or a later hit stales whatever move happens to be playing then — which is
+  the defect the row exists for, not a side effect of this answer.
+* **(b) No — only the move's own strike counts.** Attribution stays trivially
+  correct. ⛔ Two costs, both measured shapes rather than speculation: a
+  `Wait { on: Connected }` placed after a launch **hangs forever**, which is
+  exactly the failure the `overlapped` derivation comment records for the
+  analogous case (*"a `Wait { on: Overlapped }` could hang forever on a strike
+  that CONNECTED"*); and a projectile-only fighter never stales.
+* **(c) Yes for staling, no for flows** (or the reverse). ⚠ Mechanically
+  possible — they are two different fields — and it splits one authored word
+  into two meanings, which is the thing `FlowSignal`'s own doc keeps warning
+  about (`Overlapped` is true of a blocked strike; a parry is not a `Blocked`).
+  Cheapest to implement and hardest to author against.
+
 ## Q103 — what should an unprepared character id inherit at wear time?
 
 Prepared characters fold catalog movement tuning and motion model at admission, but the wear road still has a fallback for ids outside the prepared registry. Choose one contract: inherit the catalog's authored tuning at wear time, inherit engine defaults, or refuse an unprepared wear. The shipped compositions currently have no orphan prepared ids, so this is a boundary-policy decision rather than a live content defect.

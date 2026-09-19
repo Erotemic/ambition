@@ -3760,6 +3760,39 @@ say that is with both ends and their methods rather than one number in the
 middle. The conclusion the row draws is unchanged at either end: the fallback
 is load-bearing for the TEST ESTATE rather than for the game.
 
+⭐⛤ **AND “PLUS THE DEMOS” WAS THE ONE UNPRICED CLAUSE IN THIS ROW. MEASURED
+2026-09-19: NINE CRATES, AND NOT ONE OF THEM IS VISIBLE TO THE GUARD.**
+
+| crate | what it composes in CODE |
+|---|---|
+| `ambition_demo_mary_o` | `RoomSet` ×10, `SessionSpawnScope` ×5 |
+| `ambition_demo_sanic` | `RoomSet` ×6, `SessionSpawnScope` ×4, `PlatformerEnginePlugins` |
+| `ambition_demo_pocket` | `RoomSet` ×2 |
+| `ambition_demo_smash` | `RoomSet` ×2 |
+| `ambition_demo_twintrack` | `RoomSet` ×2 |
+| `*_app` ×4 (`mary_o`, `sanic`, `smash`, `twintrack`) | `PlatformerEnginePlugins` ×2 each |
+
+⇒ Five library demos build rooms directly and four app crates compose the
+engine plugin group. **None of the nine names `GenerationMechanics` or
+`SessionMechanics` anywhere in code, and none installs a shell plugin**, so
+none carries `SessionGatedSimulation` and every one of them is a direct-entry
+composition by construction. Under option 2 each needs a prepared generation
+activated before it can build a room; under option 1 each is a member of the
+second composition mode that becomes permanent vocabulary.
+
+⛔ **WHY THIS COULD NOT BE READ OFF THE EXISTING GUARD, WHICH IS THE POINT.**
+`check_generation_mechanics_construction_is_declared.py` holds the five live
+sites that NAME a constructor. These nine reach room construction without
+naming one, so they are outside its population by construction — the same
+reason the `for_live_session` branch is invisible to it. A guard over
+constructor call sites cannot price a decision about COMPOSITIONS.
+
+⚠ Measured with comments and test modules stripped, which changed the answer:
+a first pass counted `ambition_demo_mary_o` as touching
+`Platformer2dSimHarness`, and that is a doc comment at `src/lib.rs:4181`
+describing what the harness composes. The same trap this row already records
+for `world/rooms/stage.rs`.
+
 **The decision is whether that stays the architecture.**
 
 1. **Keep the fallback, and make the composition distinction permanent

@@ -340,6 +340,9 @@ measured the same day — `scripts/check_sim_schedule_memory_is_adjudicated.py`
 exists to catch that, and `CutsceneSkipHold`'s census row would have to change
 with the code rather than stay as it is.
 
+<!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
+**Blocked by:** [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) — item 1 only; item 2 is closed.
+
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
 **Owner:** deterministic identity / rollback architecture; see the identity map in
@@ -915,6 +918,14 @@ acceptance shape: **the same layout prepared after DIFFERENT irrelevant
 histories**. ⇒ When a page names a new id that crosses to a peer, the question is
 not whether its construction is ordered; it is what the id is a function OF.
 
+<!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
+**Blocked by:** [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — the snapshot-schema-fingerprint road.
+
+⚠ **NOT GATES ON THIS ROW, AND DELIBERATELY BELOW THE FIELD SO A SCAN DOES NOT
+READ THEM AS ONE.** `Q128` is the TIMELINE half and is additionally blocked on
+`N2`'s absent P2P session; `Q137` gates the twelfth sharp unchecksummed row,
+whose other eleven are covered and agreeing.
+
 **Acceptance:** two Apps that have burned different numbers of local session
 activations can enter the same deterministic match and produce the same canonical
 mechanical identity/checksum. The witness must first assert that their local
@@ -1296,6 +1307,9 @@ mechanism stays, since an empty dict still reddens on a newly stale waiver.
 the three `AmbitionGameSave` mirrors ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on))
 and the two menu writers ([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
 Neither needed a new idea, only a population nobody had quietly narrowed.
+
+<!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
+**Blocked by:** [Q139](awaiting-maintainer-decision.md#q139--what-declares-that-a-presentation-system-writes-transform) — the `Transform` blind spot, this row's only open item.
 
 **Acceptance:** the population is every rollback registration, not one
 registration spelling; `handle_ldtk_hot_reload` is visible without its waiver
@@ -2508,6 +2522,9 @@ to be satisfiable by a frozen world, and its author gets no warning.
    ⇒ Item 0's claim is measured now rather than predicted: the twenty-seventh
    arm WAS exposed, and its author got the warning.
 
+<!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
+**Blocked by:** [Q138](awaiting-maintainer-decision.md#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session).
+
 ### ROLLBACK-BAG-DESYNC — `AmbitionGameSave` disagrees with its own rollback replay — ✅ REPAIRED 2026-09-16, acceptance MET; the authority/representation split is DEFERRED and Q129 is open
 
 **P0 — ✅ REPAIRED 2026-09-16. The acceptance bar below is MET, including the
@@ -3356,6 +3373,9 @@ narrows them to single-player.
 `SystemMenuParams` bundle and never reach `request_reset`. If the bundle is split
 so access matches use, drop those five waivers — they exist only because it
 over-grants.
+
+<!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
+**Blocked by:** [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) (the New Game ingress) and [Q140](awaiting-maintainer-decision.md#q140--may-the-item-menu-show-a-stale-bag-for-one-frame) (the UI half, which that row calls *"one UI question"*).
 
 **Acceptance:** both writes go through a message the sim consumes; the repro arm,
 which currently ASSERTS THE DEFECT so the lane stays green, goes RED and is

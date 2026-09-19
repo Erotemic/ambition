@@ -43,8 +43,25 @@ QUESTION = re.compile(r"\bQ(\d{2,3})\b")
 #: ROW rather than the question name is what makes this a check on the claim.
 ROW = re.compile(r"^\|\s*\[`Q(\d{2,3})`\]", re.M)
 BLOCKED_BY = "**Blocked by:**"
-#: A `Blocked by:` line wraps, and the next line or two carry the rest of the list.
-BLOCKED_SPAN = 3
+
+
+def blocked_by_paragraph(lines: list[str], index: int) -> str:
+    """The `Blocked by:` field, to the blank line that ends it.
+
+    ⛔⛤ **THIS WAS A FIXED THREE-LINE WINDOW UNTIL 2026-09-19, WHICH IS THE
+    EXACT DEFECT THIS GUARD EXISTS TO PUNISH.** The blocking set was wrong
+    twice because a derivation scoped a row by a LINE COUNT instead of by the
+    structure it lives in; this guard then scoped the field the same way, and
+    the first row to carry a qualifying sentence after its field had that
+    sentence's question numbers read as gates. A paragraph ends at a blank
+    line. That boundary is free and it is the one the document actually has.
+    """
+    out = []
+    for line in lines[index:]:
+        if not line.strip():
+            break
+        out.append(line)
+    return " ".join(out)
 
 #: ⛔ ANTI-VACUITY. If the section heading is renamed or the queue's convention
 #: changes, this guard would compare an empty set against an empty set and pass
@@ -69,8 +86,7 @@ def gated_rows() -> dict[str, set[str]]:
         elif line.startswith(BLOCKED_BY):
             if closed or priority not in ("P0", "P1") or row is None:
                 continue
-            blob = " ".join(lines[index : index + BLOCKED_SPAN])
-            found = set(QUESTION.findall(blob))
+            found = set(QUESTION.findall(blocked_by_paragraph(lines, index)))
             if found:
                 out.setdefault(f"{priority} {row}", set()).update(found)
     return out

@@ -49,3 +49,31 @@ def test_the_shipped_section_covers_the_shipped_gates():
 def test_the_floor_is_below_the_shipped_count():
     """⛔ ANTI-VACUITY: a scan that lost the queue's convention must red."""
     assert 0 < guard.MIN_GATED_ROWS <= len(guard.gated_rows())
+
+
+def test_the_field_ends_at_the_blank_line_not_after_n_lines():
+    """⛔⛤ THE GUARD'S OWN VERSION OF THE DEFECT IT PUNISHES.
+
+    It read a fixed three lines from `**Blocked by:**`. That is a LINE COUNT
+    where the document has a structure, which is exactly why the blocking set
+    was wrong twice. Two consequences, both observed on the real pages: a
+    four-entry field was truncated to three (`A9` lost `Q97`), and a
+    qualifying sentence under a short field was swallowed as part of it
+    (`ID-PEER` gained `Q128`/`Q137`, both explicitly not gates).
+    """
+    lines = [
+        "**Blocked by:** [Q100](x),",
+        "[Q106](x),",
+        "[Q108](x),",
+        "and the admission policy in [Q97](x).",
+        "",
+        "⚠ Not a gate: Q999 is history.",
+    ]
+    para = guard.blocked_by_paragraph(lines, 0)
+    found = set(guard.QUESTION.findall(para))
+    assert found == {"100", "106", "108", "97"}
+    assert "999" not in found
+
+
+def test_a_field_at_end_of_file_terminates():
+    assert guard.blocked_by_paragraph(["**Blocked by:** [Q1](x)"], 0).strip()

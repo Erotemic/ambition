@@ -27,20 +27,36 @@ two blockers stated further down (`Q139` sits about eighty lines into
 that and produced six.
 
 ⛔⛔ **AND SIX WAS STILL WRONG, BECAUSE `queue.md` HAS A CANONICAL FIELD FOR
-THIS AND NEITHER DERIVATION READ IT.** Five open P0/P1 rows carry an explicit
+THIS AND NEITHER DERIVATION READ IT.** Five open P0/P1 rows carried an explicit
 `**Blocked by:**` line naming **eight** questions — `Q127`, `Q101`, `Q104`,
 `Q110`, `Q100`, `Q106`, `Q108`, `Q69` — and the six-row table named none of
 them. Both derivations scanned PROSE for gate language in a document that
 states the answer in a field. ⇒ **When a corpus has a structured field for the
 fact you are deriving, deriving it from prose is not a conservative choice, it
-is a different and worse question.** The prose scan was not useless — `Q136`,
-`Q122`, `Q144` and `Q146` are named in prose gates and in no `Blocked by:` line
-— so the population is the UNION of the two, which is why both are stated here.
+is a different and worse question.**
+
+⭐⭐ **SO THE TWO ROADS WERE MERGED INTO ONE, 2026-09-19, WHICH IS THE ACTUAL
+REPAIR.** The five rows whose gate lived only in prose — `CUTSCENE-ROLLBACK-DECISION`,
+`ID-PEER`, `ROLLBACK-MUTATOR-POPULATION`, `ROLLBACK-DEAD-SESSION`,
+`MENU-RESET-MIDSESSION` — now state it in the same field, saying exactly what
+their prose already said. **Ten open P0/P1 rows state fifteen gates**, one
+convention holds all of them, and
+`scripts/check_blocking_set_names_every_gate.py` fails if this section omits
+one. Maintaining two derivations of one fact was the defect; keeping both
+roads and reconciling them would have been the same defect with a process
+around it.
+
+⛔⛤ **AND THE MERGE IMMEDIATELY FOUND TWO MORE GATES THAT BOTH EARLIER
+DERIVATIONS MISSED**, which is the argument for it: `Q97` is the FOURTH entry
+in `A9`'s field and my three-line read of that field stopped before it, and
+`Q140` is named about a hundred and ninety lines into `MENU-RESET-MIDSESSION`
+where its own row says that row *"is blocked on one UI question"*.
 
 ⚠ **AND ONE CANDIDATE THE PROSE SCAN THREW UP IS NOT A BLOCKER:** `Q142` is
 named in `ID-PEER` only as history (*"after `Q142` added three"*), and it is
 three-quarters resolved. Matching on a question number near the word "blocked"
-finds mentions, not gates.
+finds mentions, not gates. `Q128` and `Q137` are likewise recorded BELOW
+`ID-PEER`'s field rather than in it, with a sentence saying why.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
@@ -53,8 +69,8 @@ finds mentions, not gates.
 
 ### The eight from `queue.md`'s `Blocked by:` field
 
-⭐⭐ **FIVE OF THESE ARE ONE DECISION, WHICH IS THE MOST USEFUL THING THIS
-RE-DERIVATION FOUND.** `Q146` (C07), `Q144` (C04), and `Q100`/`Q106`/`Q108`
+⭐⭐ **SIX OF THESE ARE ONE DECISION, WHICH IS THE MOST USEFUL THING THIS
+RE-DERIVATION FOUND.** `Q146` (C07), `Q144` (C04), and `Q100`/`Q106`/`Q108`/`Q97`
 (P1 `A9`, *"establish truthful minimal engine profiles"*) are all asking what
 compositions this engine supports and what each must carry. They are filed
 separately because they arrived separately. ⇒ **Ruling the profile vocabulary
@@ -68,6 +84,8 @@ answers that do not compose.
 | [`Q108`](#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link) | **P1** `A9` | what a featureless facade is allowed to link — the floor of the profile vocabulary |
 | [`Q110`](#q110--may-a-provider-keyed-fragment-registry-gain-a-named-hot-reload-replacement-operation) | **P1** `I2/I3` | whether a provider-keyed registry may gain a named replacement operation, or reload stays refusal-only |
 | [`Q104`](#q104--is-the-rust-move-table-or-the-content-file-the-source-of-a-moveset) | **P1** `I2/I3` | **a duplicate-authority question by its own wording**: Rust move table or content file as the source of a moveset. One fact, two owners, and the campaign this page is running says pick one |
+| [`Q97`](#q97--may-authored-content-name-a-technique-this-composition-did-not-install) | **P1** `A9` | whether admission REFUSES a definition naming an uninstalled capability (today's behaviour) or admits it with a loud degraded diagnostic. ⭐ A sixth member of the profile cluster — its own text says it *"constrains the minimum-profile work in A9"* |
+| [`Q140`](#q140--may-the-item-menu-show-a-stale-bag-for-one-frame) | **P1** `MENU-RESET-MIDSESSION` | that row's UI half, which `Q140` calls *"one UI question"* with *"the engineering half already decided"*: accept a one-frame stale row, or render optimistically |
 
 ⛔ **AND THREE PRODUCT RULINGS THAT GATE A ROW'S ENTIRE REMAINDER.** These are
 not architecture questions and they are not sub-road balance calls either — in
@@ -4505,11 +4523,12 @@ separately over weeks and none of them points at the others:
 | [`Q108`](#q108--which-capabilities-may-a-featureless-ambition_platformer2d-link) | the FLOOR — measured 2026-09-19 at **42 unconditional crates of 56** | **P1** `A9` |
 | [`Q106`](#q106--are-ambition_items-and-ambition_encounter-optional-facade-capabilities) | two specific edges inside that floor | **P1** `A9` |
 | [`Q100`](#q100--should-the-facade-pull-bevydebug-because-it-always-links-ambition_dev_tools) | one edge, and whether it drags `bevy/debug` in with it | **P1** `A9` |
+| [`Q97`](#q97--may-authored-content-name-a-technique-this-composition-did-not-install) | what a composition DOES when authored content names a capability it lacks — refuse, or admit and degrade loudly. Its own text: it *"constrains the minimum-profile work in A9"* | **P1** `A9` |
 
-⇒ **RULING THE VOCABULARY ONCE DISCHARGES ALL FIVE. RULING THEM ONE AT A TIME
-RISKS FIVE ANSWERS THAT DO NOT COMPOSE** — `Q106` answered (a) and `Q108`
+⇒ **RULING THE VOCABULARY ONCE DISCHARGES ALL SIX. RULING THEM ONE AT A TIME
+RISKS SIX ANSWERS THAT DO NOT COMPOSE** — `Q106` answered (a) and `Q108`
 answered (b) contradict each other, and nothing on this page would have said
-so. ⚠ The five are NOT duplicates and must not be collapsed: each names a real
+so. ⚠ The six are NOT duplicates and must not be collapsed: each names a real
 and different facet, and the floor measurement belongs to `Q108` rather than
 here. What was missing was that they are one decision's worth of scope.
 

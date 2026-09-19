@@ -521,6 +521,22 @@ _MSG_READER = re.compile(
     r"(?:mut\s+)?[a-z_]\w*\s*:\s*(?:[\w:]*::)?MessageReader\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)"
 )
 
+#: ⛔⛤ **`NarrativeInputWriter<M>` IS A WRITER SPELLING THIS CENSUS DOES NOT
+#: RECOGNISE, AND ADDING IT WOULD MANUFACTURE FALSE CROSSINGS.** Five payload
+#: types reach the simulation through it —`ChallengeRequested`, `BrainCommand`,
+#: `ReleaseProvocation`, `ItemGrantRequested`, `ShopTransactionRequested` — and
+#: every one of them is raised from a HOST system. They are not crossings,
+#: because the writer does not write a message: it records the payload into
+#: `NarrativeInputLedger<M>` stamped with `SimTick + 1`, and
+#: `release_narrative_inputs` raises the real message at the head of the SIM
+#: schedule, so a resimulated tick re-raises it. The producer this census
+#: should see IS the sim-side release, and it does.
+#:
+#: ⇒ Recorded here because the shape reads exactly like a gap. A future reader
+#: who "closes" it by treating `NarrativeInputWriter` as a `MessageWriter` gets
+#: five host producers for messages with sim readers and five findings that are
+#: the architecture working. See `Q136`'s fourth escape.
+
 #: The same two, as FIELDS of a `#[derive(SystemParam)]` bundle.
 #:
 #: ⛔⛤ **A `MessageReader` ONE LEVEL DOWN WAS INVISIBLE TO BOTH SIDES OF THIS

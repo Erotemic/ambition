@@ -1878,6 +1878,37 @@ four answers, of which exactly one costs nothing and is already in the tree.
 ⇒ A latched edge is what makes an intent losable, and so is a latch re-armed on
 the wrong side of the boundary.
 
+⭐⭐⛤ **AND THERE IS A FOURTH ESCAPE, FULLY BUILT, SHIPPING ON FIVE PAYLOAD
+TYPES, AND THIS PAGE HAD NEVER NAMED IT — FOUND 2026-09-18 WHILE CHECKING A
+SENTENCE IN `Q140`.** A host-raised intent does not have to choose between
+being erased by the rewind and being re-derived inside it. It can be **STAMPED
+WITH THE TICK IT APPLIES FROM AND HELD OUTSIDE ROLLBACK STATE**, which is what
+`ambition_conversation`'s narrative-input ledger does:
+
+| piece | where | what it does |
+|---|---|---|
+| `NarrativeInputWriter::write` | the HOST, wherever the command fires | records the payload against `SimTick + 1` (`crates/ambition_conversation/src/ledger.rs:138-148`) |
+| `NarrativeInputLedger<M>` | a resource DELIBERATELY NOT rollback-registered | waived in `rollback_coverage.rs:158` as *"an EXTERNAL INPUT, stamped with the tick it applies from — the same category as the device input stream, and rewinding it would erase what the simulation was told rather than what it decided"* |
+| `release_narrative_inputs::<M>` | the head of the SIM schedule, inside `GameplaySimulationRoot` | writes the ordinary channel at the stamped tick, so **every resimulation of that tick re-raises the message** |
+| `prune_narrative_inputs::<M>` | `Update`, and the placement is load-bearing | ages entries out past the prediction window; in the sim *"a replayed tick that erases its own input reaches a different history than the run it is reproducing"* |
+
+⇒ **THIS IS THE GENERAL ANSWER THE OTHER THREE ESCAPES ARE SPECIAL CASES OF**,
+and it costs a host producer nothing but a different writer type. It does not
+need the producer to be a pure derivation (escape three), it does not need the
+producer to move into the sim (escape two), and it does not need the intent to
+sit outside the timeline (escape one). `NarrativeInputPlugin` is registered for
+five payloads today — `ChallengeRequested`, `BrainCommand`,
+`ReleaseProvocation`, `ItemGrantRequested` and `ShopTransactionRequested`
+(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1401-1405`).
+
+⚠ **AND THE `+ 1` IS THE PART A REIMPLEMENTATION WOULD GET WRONG.** The ledger
+stamps the NEXT tick, because a host command fires in `Update` after this
+frame's simulation has already run; stamping the tick that has been simulated
+*"would make the original frame and its replay disagree about whether the fact
+was true during it"* (`ledger.rs:165-175`). ⇒ The four live intents below are
+each a candidate for this road, and the question for a maintainer becomes which
+of them should ride it rather than whether a road exists.
+
 ⭐⭐ **AND THE ONE THING THAT COULD HAVE MADE THAT ESCAPE UNAVAILABLE IS
 MEASURED, 2026-09-18: IT CANNOT.** The obvious objection is that the producer is
 CHANGE-GATED — `run_if(resource_exists_and_changed::<AmbitionGameSave>)` — and
@@ -2811,7 +2842,17 @@ flips* — are built, and only one of them is reachable.
 and are applied by `ambition_encounter_features/src/systems.rs`. Authored content
 uses it: censused 2026-09-17 over `game/ambition_content/assets/worlds/*.ldtk`,
 fourteen `Switch` entities, of which `central_hub_main` authors one `FlipGravity`
-and `symmetry_room` the four `SetGravity{Down,Left,Up,Right}`.
+and `symmetry_room` the four `SetGravity{Down,Left,Up,Right}`. ✔ RE-DERIVED
+2026-09-18 by parsing the four `.ldtk` files' `entityInstances`: unchanged, and
+the other nine are `ResetEncounter` ×8 across four levels plus one `ToggleFlag`
+in `switch_lab`.
+
+⚠ **`central_hub_main` IS THE LDtk LEVEL IDENTIFIER, NOT THE RUNTIME ROOM ID**,
+which is `central_hub_complex`. Q143 records a day spent on that exact pair —
+a binding written against the level id could never match a runtime room — so
+this line is spelled the way the asset spells it on purpose, and a future
+reader reconciling the two names should change the binding rather than this
+census.
 
 **The one that does not.** `GravityFlipSwitch`
 (`ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs`) is a tall
@@ -3032,12 +3073,43 @@ should start until the shape is chosen.
 is blocked on one UI question, and the engineering half of it is already decided.
 
 The menu writes `OwnedItems` — a rollback-registered resource — from `Update`,
-outside the simulation schedule. The sanctioned road exists and the menu does not
-use it: `ItemGrantRequested` is `clear_message_on_rollback` and its consumer
-`apply_item_grants` mutates `OwnedItems` from the SIM schedule, beside
-`apply_shop_transactions`. So a conversation that gives you an item is
+outside the simulation schedule. A conversation that gives you an item is
 rollback-correct today and the menu giving you one is not, for the same resource
 in the same crate.
+
+⛔⛤ **BUT THIS ROW NAMED THE WRONG MECHANISM FOR WHY, AND THE CORRECTION
+CHANGES WHAT THE FIX IS — MEASURED 2026-09-18.** It said the sanctioned road is
+that *"`ItemGrantRequested` is `clear_message_on_rollback` and its consumer
+`apply_item_grants` mutates `OwnedItems` from the SIM schedule"*. Both halves
+are true and neither is what makes the conversation correct:
+
+* **`clear_message_on_rollback` is not load-bearing.** Poisoning the equivalent
+  registration for `PlayerHealRequested` changed that arm's outcome not at all
+  — `Messages::clear` leaves `message_count` monotonic, so a reader that already
+  consumed the message reads zero on every resimulated frame whether or not the
+  channel was emptied.
+* **A sim-side CONSUMER does not rescue a host-side PRODUCER.** This file's own
+  `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`
+  measures `ItemGrantRequested` raised from outside the simulation being lost,
+  against an in-sim control that grants. Switching the menu from *"write
+  `OwnedItems` from `Update`"* to *"raise `ItemGrantRequested` from `Update`"*
+  would trade a rollback-mutator defect for a `Q136` lost-intent defect.
+
+⭐ **WHAT ACTUALLY MAKES THE CONVERSATION CORRECT IS THE LEDGER.**
+`cmd_give_item` (`game/ambition_content/src/yarn_vocabulary.rs:245`) does not
+write the message at all — it takes a `NarrativeInputWriter`, which records the
+payload stamped with `SimTick + 1` into `NarrativeInputLedger<ItemGrantRequested>`,
+a resource deliberately kept OUT of rollback state; `release_narrative_inputs`
+then raises the real message at the head of the sim schedule, so every
+resimulation of that tick re-raises it. See the fourth escape under `Q136` for
+the whole shape.
+
+⇒ **SO THE ENGINEERING HALF IS NOT ALREADY DECIDED, AND THE ROAD IT SHOULD TAKE
+IS BUILT.** The menu wants `NarrativeInputPlugin`'s shape — a tick-stamped,
+rollback-exempt ledger released inside the sim — not a bare `MessageWriter`.
+Five payload families already ride it. That does not settle the UI question
+below, which is the real subject of this row and is unchanged by the
+correction.
 
 ⇒ **THE BLOCKER IS NOT THE PATTERN, IT IS ONE FRAME.** The menu READS
 `OwnedItems` in the same frame to render the row it just changed. Deferring the

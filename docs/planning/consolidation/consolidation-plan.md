@@ -672,7 +672,7 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 **STATE:** candidate after composition decision. ⚠ **Its census is 806 occurrences over 203 type spellings (`architecture_census.py`, 2026-09-19), after the instrument was twice found miscounting its own corpus** — see CURRENT STATE, which now records that the row's two previous figures (732/196 and 726/196) and the hand scan that contradicted them were all wrong in different ways.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** Supported composition profiles must be named first — **FILED 2026-09-19 as [`Q146`](../awaiting-maintainer-decision.md), which this gate had been naming without a question number for four days.** ⚠ **ONE INSTANCE OF THAT DECISION IS FILED SEPARATELY AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across 206 optional-authority spellings, and `Q144` rules on one family.
+**DO NOT START BEFORE:** Supported composition profiles must be named first — **FILED 2026-09-19 as [`Q146`](../awaiting-maintainer-decision.md), which this gate had been naming without a question number for four days.** ⚠ **ONE INSTANCE OF THAT DECISION IS FILED SEPARATELY AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across every optional-authority spelling in the tree (203 of them, see CURRENT STATE), and `Q144` rules on one family.
 
 ⭐ **`Q132`'S SCOPING RULE (2026-09-19) SHRINKS THIS ROW WITHOUT CLOSING IT.** The rule decides, for any given optional authority, whether an App-global fallback may exist at all — that is the per-value test this campaign lacked. What it does not decide is which compositions the engine PROMISES to support, and "required" means "required in a profile". ⇒ `Q146` is now the whole of this gate rather than the vaguer "name the profiles".
 
@@ -715,6 +715,51 @@ AUTHORITY that must not silently become live simulation state — an optional
 read of it inside the simulation is the exact shape to check. `SimTick` (14) is
 a simulation clock, which the ruling lists among the things that should be
 scoped.
+
+⭐⭐ **AND A SHARPER CUT THAN FREQUENCY, MEASURED 2026-09-19: INTERSECT THE
+OPTIONAL READS WITH THE STATE THE TREE ALREADY DECLARES SESSION-OWNED.** The
+distribution above ranks by how OFTEN a type is optional; this asks instead
+whether the engine has already said the type belongs to a session. Taking
+`C03`'s 37 session-owned members (`SessionScopedResources` 30 +
+`SessionOwnedCheckpointState` 6 + `SessionMechanics`) and intersecting with
+production `Option<Res<..>>` / `Option<ResMut<..>>` reads gives **11 of the 37,
+across 45 sites**:
+
+| session-owned member | optional sites | files |
+|---|--:|--:|
+| `ControlledSubject` | 13 | 10 |
+| `MintedItemBaseline` | 5 | 3 |
+| `OccurrenceBaseline` | 5 | 3 |
+| `CustodyBaseline` | 5 | 3 |
+| `AuthoredOccurrences` | 5 | 3 |
+| `BaseGravity` | 4 | 2 |
+| `SessionMechanics` | 3 | 3 |
+| `ActiveConversation` | 2 | 2 |
+| `StocksMatchSettled`, `AcceptedCheckpointRestore`, `MovingPlatformSet` | 1 each | 1 each |
+
+⇒ **THIS IS THE POPULATION WHERE THE TRIAGE QUESTION IS SHARPEST**, because the
+`None` arm is reading past a DECLARED session owner rather than past an unknown
+one. ⛔⛤ **AND THE FIRST CANDIDATE PICKED OUT OF IT WAS THE OPPOSITE OF WHAT IT
+LOOKED LIKE, WHICH IS WHY THE TRIAGE IS PER SITE AND NOT PER TYPE.**
+`BaseGravity` is rollback state read optionally by the kaleidoscope menu app
+(`game/ambition_app/src/menu/kaleidoscope_app.rs:603`, *"for the row's direction
+label"*) — rollback state, a menu composition, session-owned member: every
+surface feature of a defect. Following it to its consumer settles it the other
+way. The value is passed as `Option<&BaseGravity>` into `dev_toggles`, whose
+whole use is
+`ctx.base_gravity.map_or("n/a", |g| g.direction_label())` — the `None` arm
+renders a placeholder string. It reads no substitute, writes nothing, and
+manufactures no simulation state. ⇒ **A LEGITIMATE optional read, and the
+clearest example on this page of the rule the row already states**: the
+question is what the `None` arm DOES, and a type's pedigree cannot answer it.
+
+⛔ **SO THIS IS TRIAGE INPUT, NOT A DEFECT LIST, AND `Q146` IS WHY.** What makes
+a site adjudicable is knowing whether its composition is one the engine promises
+to support and must therefore declare this authority, or a presentation surface
+that may legitimately show nothing. Until the profiles are named, the 45 sites
+are a population to walk, not work to start. ⚠ The intersection is keyed on the
+same `Option<Res<T>>` spelling as the table above and inherits its blind spot,
+below.
 
 ⛔ **WHAT THIS MEASUREMENT IS NOT.** It is keyed on the `Option<Res<T>>`
 SPELLING, so it cannot see a fallback expressed another way — and one is

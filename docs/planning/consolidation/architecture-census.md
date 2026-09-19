@@ -35,6 +35,27 @@ The identity correction is still separate active work.
 `DOC_CLAIM` means a current architecture/planning document states it and this census did not independently prove it.
 `NEEDS_COMPILED_VERIFICATION` and `NEEDS_RUNTIME_VERIFICATION` mark facts that static inspection cannot establish.
 
+⭐⛤ **`SOURCE_INFERRED` ALSO HAS NO MEMBERS AS OF 2026-09-18 — 114 ROWS, 114
+`SOURCE_CONFIRMED`**, and the vocabulary stays for the next row that needs it.
+The last twelve were the `CRATE-*` table, which was the only table on this page
+carrying no evidence at all, plus `ID-LOAD` and `TEST-ROLLBACK`.
+
+⚠ **WHAT AN EMPTY WEAKEST CLASS DOES AND DOES NOT MEAN.** It means every row's
+claim has been read against source and the reading is written beside it. It
+does NOT mean every claim is true forever, and three of the twelve were
+CORRECTED rather than merely confirmed: `ID-LOAD`'s “router-minted” named one
+of two minters, `CRATE-RUNTIME`'s “high fan-in” pointed the wrong way (6 in, 37
+out — `CRATE-SHARED-TANGLE` is the high-fan-in crate at 35 in, 4 out), and
+`CRATE-ACTOR-MONOLITH` carried its source's qualifier while dropping its
+instruction. ⇒ A row that has never been measured is not neutral; it is a
+claim nobody has disagreed with yet.
+
+⚠ **AND ONE OF THE TWELVE STATES NO SOURCE FACT AT ALL.** `TEST-ROLLBACK`'s
+second sentence is guidance for a reviewer, and `CRATE-FACADE` asked for a
+review another row had already done — it is collapsed onto that row rather than
+answered twice. Both carry their scope as a clause on the token, the form
+`CAP-OPTIONAL-RES-CENSUS` introduced.
+
 ⭐ **`DOC_CLAIM` HAS NO MEMBERS AS OF 2026-09-18**, and the vocabulary stays for
 the next row that needs it. Both holders were confirmed against source that
 day: `TRANS-FACADE-MIRRORS` by counting the facade's `pub use` roots, and

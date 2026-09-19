@@ -47,7 +47,36 @@ LEDGER = REPO / "docs/planning/consolidation/consolidation-ledger.json"
 
 #: Names owned by Bevy, std or another crate outside this workspace. A definition
 #: for these will never be found here, and their absence is not a finding.
-EXTERNAL = frozenset({"ResMut", "TypeId", "LoadId", "RunGgrsSystems"})
+#:
+#: ⛔⛤ `LoadId` WAS IN THIS SET AND ITS PREMISE WAS FALSE, MEASURED 2026-09-18.
+#: `ambition_load` is a workspace crate and `LoadId` is one of its types; the
+#: reason no definition was found is that it is GENERATED, by `string_id!`
+#: (`crates/ambition_load/src/id.rs:59`). The exemption suppressed the right
+#: name for the wrong reason, which is the failure mode an exemption list has:
+#: it is indistinguishable from the case it claims to be.
+EXTERNAL = frozenset({"ResMut", "TypeId", "RunGgrsSystems"})
+
+#: A macro that declares a type. The scan reads source, not expansions, so a
+#: `pub struct $name(String)` inside `macro_rules!` defines nothing findable and
+#: the INVOCATION is the definition site.
+#:
+#: ⚠ MEASURED 2026-09-18: one macro, eleven generated types across three
+#: crates (`ambition_load`, `ambition_game_shell`, `ambition_load_presentation`).
+#: Only `LoadId` is cited by the ledger today; the other ten would each have
+#: read as a name resolving to nothing the moment a row named one.
+GENERATOR = re.compile(r"\bstring_id!\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)")
+
+#: Names the ledger RECORDS rather than points at: a road that was DELETED,
+#: where the deletion is the fact the row states. Distinct from `EXTERNAL`,
+#: which is about where a live definition lives -- these have no definition
+#: anywhere, on purpose. `architecture-census.md` spells the same escape as a
+#: `cite-ok` comment on the row that names one.
+#:
+#: ⛔ AN ENTRY HERE THAT RESOLVES AGAIN IS A FINDING, NOT A SILENT PASS. The
+#: exemption says "this name is gone"; if the type is redefined the row's claim
+#: is false, and an exemption list that only ever suppresses would hide exactly
+#: that. Each entry carries the commit that removed it.
+DELETED = {"SpawnPlayerCloneRequest": "89d78a4a5"}
 
 IDENT = re.compile(r"\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b")
 
@@ -129,6 +158,30 @@ def stale_mood(items: list[dict]) -> list[str]:
     return out
 
 
+class CorpusError(RuntimeError):
+    """A tracked `.rs` file that could not be read. The corpus is incomplete and
+    no verdict over it means anything."""
+
+
+def workspace_source() -> tuple[list[str], list[str]]:
+    """The tracked Rust corpus, as (relative paths, contents).
+
+    ⚠ ONE OWNER ON PURPOSE. This guard's arms have to scan the same tree the
+    guard scans -- an arm that rebuilt the corpus its own way would be checking
+    a different population and saying nothing about this one.
+    """
+    tracked = subprocess.run(
+        ["git", "ls-files", "*.rs"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.split()
+    blob = []
+    for rel in tracked:
+        try:
+            blob.append((REPO / rel).read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise CorpusError(rel) from exc
+    return tracked, blob
+
+
 def workspace_packages() -> set[str]:
     """Ask cargo which crates the workspace HAS. Do not model it from globs.
 
@@ -170,17 +223,12 @@ def main() -> int:
             if not (REPO / rel).exists():
                 missing.append((item["id"], rel))
 
-    tracked = subprocess.run(
-        ["git", "ls-files", "*.rs"], cwd=REPO, capture_output=True, text=True, check=True
-    ).stdout.split()
-    blob = []
-    for rel in tracked:
-        try:
-            blob.append((REPO / rel).read_text(encoding="utf-8"))
-        except OSError:
-            # ⛔ A swallowed read error reports its own finding as a clean scan.
-            print(f"⛔⛔ could not read {rel}; the corpus is incomplete")
-            return 1
+    try:
+        tracked, blob = workspace_source()
+    except CorpusError as unreadable:
+        # ⛔ A swallowed read error reports its own finding as a clean scan.
+        print(f"⛔⛔ could not read {unreadable}; the corpus is incomplete")
+        return 1
     source = "\n".join(blob)
     if len(source) // 1024 < MIN_CORPUS_KIB:
         print(
@@ -192,13 +240,33 @@ def main() -> int:
     cited_names: dict[str, set[str]] = {}
     for item in items:
         for match in IDENT.finditer(item.get("current_truth", "")):
-            if match.group(1) not in EXTERNAL:
+            if match.group(1) not in EXTERNAL and match.group(1) not in DELETED:
                 cited_names.setdefault(match.group(1), set()).add(item["id"])
+    generated = set(GENERATOR.findall(source))
     unresolved = [
         (name, sorted(ids))
         for name, ids in cited_names.items()
-        if not re.search(rf"\b(struct|enum|trait|type|fn)\s+{name}\b", source)
+        if name not in generated
+        and not re.search(rf"\b(struct|enum|trait|type|fn)\s+{name}\b", source)
     ]
+    # ⛔ THE EXEMPTION, CHECKED IN THE DIRECTION THAT CAN SURPRISE YOU. A
+    # suppression list is only honest while its premise holds, and this one's
+    # premise is "the definition is gone".
+    resurrected = sorted(
+        (name, sha)
+        for name, sha in DELETED.items()
+        if re.search(rf"\b(struct|enum|trait|type|fn)\s+{name}\b", source)
+    )
+    if resurrected:
+        print(f"⛔ {len(resurrected)} name(s) exempted as DELETED are defined again:")
+        for name, sha in resurrected:
+            print(f"    {name}  recorded as removed in {sha}")
+        print(
+            "⚠ The exemption says the road is gone and the tree says it is back, so "
+            "every ledger row that cites the name is now describing something live. "
+            "Drop the DELETED entry and re-triage those rows."
+        )
+        return 1
 
     if missing or unresolved:
         if missing:
@@ -210,9 +278,12 @@ def main() -> int:
             for name, ids in sorted(unresolved):
                 print(f"    {name}  cited by {', '.join(ids)}")
             print(
-                "⚠ TRIAGE EACH BY HAND. A name defined OUTSIDE this workspace is "
-                "invisible here and is not a defect — add it to EXTERNAL. A name "
-                "that genuinely went is a ledger item describing a road that is gone."
+                "⚠ TRIAGE EACH BY HAND, AND THE THREE ANSWERS ARE DIFFERENT. A name "
+                "defined OUTSIDE this workspace goes in EXTERNAL. A name GENERATED by "
+                "a macro is already resolved if the macro is in GENERATOR, and needs "
+                "adding there if it is not — do not reach for EXTERNAL, which would "
+                "record a workspace type as a foreign one. A name that genuinely went "
+                "is a ledger item describing a road that is gone."
             )
         return 1
 

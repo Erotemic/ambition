@@ -1786,8 +1786,20 @@ quietly. That is a cheap follow-up for whoever wants it and is not a defect toda
 
 ### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
 
-**Owner:** unowned. Found 2026-09-16 while measuring THROW-MODIFIERS; unrelated
-to it.
+**Owner:** the diagnostic half is DONE; the remaining acceptance belongs to
+[BRAIN](#brain--finish-truthful-fighter-attack-selection). Found 2026-09-16
+while measuring THROW-MODIFIERS; unrelated to it.
+
+⛤ **THIS SAID "unowned" UNTIL 2026-09-19 AND BOTH HALVES HAD MOVED.** Step 1
+landed, and step 2's instruction — *"Re-file the failure there"* — was carried
+out: `BRAIN` now holds the rung-5 measurement with its own grid (11/7 distinct
+moves, 70%/84% on two moves, 16 of 105 damage reaching an opponent). ⇒ Nothing
+here is unowned work waiting for somebody to notice it. **This row's acceptance
+cannot be met by anything done in this row**, because it requires rung 5's CPUs
+to fight each other, and that is a brain policy defect. Leaving it marked
+unowned invites a second person to re-measure a defect that is already filed,
+diagnosed and owned — which is how the first version of this row went wrong in
+the other direction.
 
 **Current state:** `two_cpus_in_the_shipped_composition_damage_each_other` runs
 at `RUNG_DEFAULT = 9` and passes. Its own doc says *"Sweeping the lower rungs is

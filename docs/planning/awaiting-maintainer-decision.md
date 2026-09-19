@@ -615,7 +615,71 @@ Prepared characters fold catalog movement tuning and motion model at admission, 
 
 ## Q104 — is the Rust move table or the content file the source of a moveset?
 
-Runtime composition consumes the content artifact; the legacy Rust tables remain exporter/parity inputs and contain their own tests. Decide the permanent authoring source. If content is authoritative, retire the duplicate Rust tables after preserving any validation they uniquely provide. If Rust is authoritative, treat generated content as build output rather than an editable source.
+Runtime composition consumes the content artifact; the legacy Rust tables remain
+exporter/parity inputs and contain their own tests. Decide the permanent
+authoring source. If content is authoritative, retire the duplicate Rust tables
+after preserving any validation they uniquely provide. If Rust is authoritative,
+treat generated content as build output rather than an editable source.
+
+⭐⭐ **MEASURED 2026-09-19, AND THE RUNTIME HALF IS ALREADY SETTLED IN SOURCE —
+WHICH NARROWS THIS QUESTION A LOT.** `game/ambition_content/src/moves_are_content.rs`
+states it and is the arm that holds it: *"THE RUST TABLES ARE THE ORACLE AND NOT
+A FALLBACK. No `authored/*.rs` calls `with_moveset` any more;
+`crate::<x>_moveset::<x>_moveset()` is reached from this file and from
+`moveset_source_export`, and by nothing the game runs."* ⇒ Nothing the game runs
+reads a Rust move table. The decision is about the AUTHORING source and the
+duplicate's fate, not about what ships.
+
+**The duplication, counted:**
+
+| | count | |
+|---|--:|---|
+| `.ron` tables in `assets/data/movesets/` | 17 | what the runtime reads |
+| Rust `*_moveset.rs` files | 19 | oracle + exporter only |
+| present as BOTH | **17** | the retirement population |
+| `.ron` only | **0** | — |
+| Rust only | **2** | `archetype`, `player_robot` |
+
+⛔ **AND THE TWO RUST-ONLY FILES ARE NOT ONE THING, WHICH IS WHY "retire the
+duplicates" CANNOT BE A SWEEP.**
+
+- `player_robot_moveset.rs` is *"the player robot's canonical move repertoire —
+  the moves that ARE the protagonist"*. It is a real character table that was
+  never migrated. Under "content is authoritative" it is the remaining work,
+  not a leftover.
+- `archetype_moveset.rs` is **not a per-character table at all**: it is the
+  shared timing source two easter-egg fighters borrow, and its own doc refuses
+  to be copied — *"a second seven-hundred-line file that starts byte-identical
+  to the first is a table that drifts"*. It is a derivation in code, so
+  migrating it to a data file would be the thing it exists to prevent.
+
+⚠ **WHAT THE RUST SIDE UNIQUELY PROVIDES IS THE ORACLE ITSELF**, which the
+question already anticipates. `every_content_move_table_is_the_table_it_used_to_compile_with`
+compares every verb and every move of every migrated character against the
+compiled table, with a population floor first. Retiring the tables retires the
+only thing that can say a migration changed a fighter.
+
+**The decision:**
+
+* **(a) Content is authoritative, retire the 17.** ⚠ The oracle goes with them,
+  so the migration's correctness becomes unfalsifiable at exactly the moment
+  it is finished — the arm's own framing is that a parity test *"passes just as
+  well when the host is still reading the compiled copy"*, and deleting one
+  side ends the comparison rather than concluding it. Needs a replacement
+  check, or an explicit decision that committed `.ron` files are now the
+  baseline and drift is caught by review.
+* **(b) Content is authoritative, KEEP the 17 as a frozen oracle.** Today's
+  state named as the intended end state. ⚠ Costs a permanent second copy of 17
+  tables that nobody may edit, and a rule nothing enforces saying so.
+* **(c) Rust is authoritative, `.ron` becomes build output.** ⚠ Contradicts the
+  measured 0.61 s vs 6.30 s edit loop that motivated the migration
+  (`dev/measurements/m0_move_edit_loop.sh`), and would make the 17 committed
+  `.ron` files generated artifacts that are currently hand-editable.
+
+⚠ **`player_robot` NEEDS AN ANSWER UNDER (a) AND (b) ALIKE** — it is the one
+character whose table has no content file — and `archetype` needs an explicit
+exemption under any of them, because it is code by design rather than by
+omission.
 
 ## Q106 — are `ambition_items` and `ambition_encounter` optional facade capabilities?
 

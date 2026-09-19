@@ -389,6 +389,49 @@ reporting to gating.
 
 Capture techniques are now engine-owned, so shipped capture content no longer creates this mismatch. The remaining policy question is general: if authored content references an uninstalled capability, should admission refuse the definition/cast, or admit it with a loud degraded-capability diagnostic? Current admission refuses per definition. This also constrains the minimum-profile work in A9. Owner: [`engine/authored-technique-admission.md`](engine/authored-technique-admission.md).
 
+⭐ **THE STATUS QUO IS CONFIRMED IN CODE, 2026-09-19 — AND THE NEAREST COMMENT
+SAID THE OPPOSITE.** `finalize_prepared_cast` logs *"N authored effect(s) name
+a technique this composition does not support. The definitions carrying them
+were NOT published"*, and `admit_and_finalize_cast` is *"the fold, plus
+admission, with the definitions it refuses withheld"*
+(`crates/ambition_characters/src/prepared.rs`). ⇒ **Refusal is per definition,
+exactly as this row says.** ⛔ `AuthoredEffectRefusals`' own doc claimed *"today
+they are published anyway and this reports"* and cited THIS question while
+doing it, 1,970 lines from the code that withholds. Corrected at the source; a
+reader checking this row's premise against the nearest comment would have
+concluded the row was wrong about its own status quo.
+
+⚠ **AND THE EMPTY TABLE IS A LEGITIMATE PRODUCTION STATE, WHICH IS WHAT MAKES
+THIS A PROFILE QUESTION.** A composition installing no technique handlers *"does
+not have an UNKNOWN support set. It has the EMPTY one"*, so under today's rule
+every character naming a native effect is withheld there. That is correct for a
+fixture and is precisely the minimum-profile behaviour `A9` has to describe:
+what a featureless build DOES with authored content it cannot run.
+
+⭐ **WHAT IT COST TO ADOPT WAS MEASURED AND IT WAS NOTHING**: 178 blocks, 7,703
+passed, 0 failed with the empty table in place, *"no composition in this
+repository was relying on the unchecked reading"*. ⇒ Whichever way this is
+ruled, the current behaviour is not load-bearing for any existing composition,
+so the ruling is about what a FUTURE profile promises rather than about
+unpicking something.
+
+**The decision:**
+
+* **(a) Keep refusing per definition.** Today's behaviour, named. A character
+  whose author used a capability this build lacks does not exist in that build.
+  ⚠ Under a minimum profile that means the cast silently shrinks with the
+  feature set, and the shipped composition asserts zero refusals
+  (`authored_effects_are_admitted.rs`) so nobody sees it there.
+* **(b) Admit and degrade loudly.** The definition publishes and the unsupported
+  effect is inert, with the refusal list as the diagnostic it already is. ⚠ A
+  move that *"plays and answers nothing"* is the state A11 was built to prevent,
+  so this reverses an argument that has already been made once with a reason.
+* **(c) Make it a PROFILE property** — refuse in a shipping profile, degrade in
+  a development or reduced one. ⚠ Needs the profile vocabulary to exist, which
+  is the cluster under `Q146`; it is listed because this question's own text
+  says it *"constrains the minimum-profile work in A9"*, and (a)/(b) answer it
+  globally for a repository that is about to have profiles.
+
 ## Q102 — is a solid breakable represented as `BlinkWall { Hard }`, or is that a temporary borrow?
 
 The current solid-breakable road publishes hard-wall behavior through the blink-wall vocabulary. Decide whether that is the intended durable representation or whether breakable solidity needs its own semantic fact. Do not split the type only for naming; split it only if the gameplay contracts differ.

@@ -915,9 +915,19 @@ pub fn stage_move_section(
 /// can read this instead of scraping a log, and an inspector can show an author
 /// exactly which move is inert.
 ///
-/// ⚠ Its presence does NOT mean the definitions were withheld — today they are
-/// published anyway and this reports. Whether an uninstalled technique should
-/// refuse outright is Q97.
+/// ⛔⛤ **THIS SAID THE OPPOSITE OF WHAT THE CODE DOES, CORRECTED 2026-09-19.**
+/// It read *"Its presence does NOT mean the definitions were withheld — today
+/// they are published anyway and this reports."* They are withheld:
+/// `finalize_prepared_cast` logs *"The definitions carrying them were NOT
+/// published"*, and `admit_and_finalize_cast` is documented as *"the fold, plus
+/// admission, with the definitions it refuses withheld"*. ⇒ A refusal here
+/// means a definition did not reach the registry, not that a move went inert.
+///
+/// ⚠ The two sentences sat 1,970 lines apart in one file, and this one NAMED
+/// `Q97` — so a reader checking that question's *"current admission refuses per
+/// definition"* against the nearest comment would have concluded the question
+/// was wrong about its own status quo. Whether refusing is the right POLICY is
+/// still `Q97`; what it does today is not in doubt.
 #[derive(bevy::prelude::Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct AuthoredEffectRefusals(pub Vec<EffectRefusal>);
 

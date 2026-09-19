@@ -349,8 +349,35 @@ impl<'w, 's> DerefMut for SessionCommands<'w, 's> {
 pub struct SessionScopedEntity(pub SessionScopeId);
 
 /// Marker on the canonical root entity for a gameplay session.
+///
+/// ⛔ THERE IS EXACTLY ONE, ALIVE OR HIDDEN. A prepared candidate session is
+/// not one — it carries [`CandidateSessionRoot`] until it is adopted, and the
+/// swap happens at exactly one place, `publish_candidate_session`. See that
+/// type for why invisibility is not the invariant.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionRoot(pub SessionScopeId);
+
+/// Marker on the root entity of a PREPARED CANDIDATE session — a world built
+/// under a scope that is not yet authoritative.
+///
+/// ⛔⛤ **A CANDIDATE IS NOT A SESSION ROOT, AND HIDING ONE IS NOT THE SAME
+/// CLAIM — RULED 2026-09-19 (`Q132`).** The candidate used to carry
+/// `SessionRoot` itself and rely on `InactiveCandidate` to keep ordinary
+/// queries from seeing it. That made invisibility the invariant, which is a
+/// different and weaker statement: every construction query that legitimately
+/// says `Allow<InactiveCandidate>` — and several must, because publication
+/// happens while the candidate is still hidden — saw TWO canonical roots for
+/// one live world. The distinct marker makes the claim structural: counting
+/// `SessionRoot` INCLUDING hidden entities is at most one, at every frame of a
+/// handoff.
+///
+/// ⚠ THE `SimId` IS DELIBERATELY SHARED AND THAT IS A DIFFERENT QUESTION. A
+/// hidden candidate carries the live root's `session:root` identity so two
+/// hosts checksum a session identically — pinned by
+/// `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`.
+/// What must not be shared is the CLAIM TO BE THE LIVE ROOT.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CandidateSessionRoot(pub SessionScopeId);
 
 /// Read one component from the exact canonical live session-world root.
 ///
@@ -496,14 +523,55 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
 /// ⚠ `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the marker"*,
 /// not "only hidden ones": an ordinary live session's root is found here exactly
 /// as it is anywhere else.
+///
+/// ⛔⛤ **AND IT ACCEPTS EITHER MARKER, WHICH IS THE WHOLE REASON `Q132`'S
+/// REPRESENTATION COULD LAND.** A candidate's root carries
+/// [`CandidateSessionRoot`] rather than [`SessionRoot`] until it is adopted, so
+/// a publication sink looked up by `SessionRoot` alone would not find the
+/// session it belongs to, the first room's publication would refuse, and the
+/// candidate would die before adoption — taking `publish_candidate_session`
+/// with it. This is a question about the session a transaction BELONGS to, and
+/// a candidate belongs to its own scope as surely as a live session does.
+///
+/// ⚠ ONE ROOT PER SCOPE STILL, ACROSS BOTH MARKERS. A scope holding a
+/// `SessionRoot` and a `CandidateSessionRoot` at once is the duplicate-authority
+/// condition under a new spelling, so the two-root refusal below counts the
+/// union rather than each marker separately.
 pub fn session_root_for_scope(world: &mut World, scope: SessionScopeId) -> Option<Entity> {
-    let mut query = world.try_query_filtered::<(Entity, &SessionRoot), bevy::ecs::query::Allow<
+    // ⛔⛤ **TWO LOOKUPS RATHER THAN ONE `Or`, AND THE REASON IS `try_query`'S
+    // CONTRACT.** `try_query_filtered` answers `None` when ANY component it
+    // names is unregistered in this world, which is the honest "no root" answer
+    // for a single marker and a silent, total blackout for a union: a fixture
+    // that has never built a candidate has never registered
+    // `CandidateSessionRoot`, so one `Or` query would refuse every publication
+    // in every direct-entry composition in the project. MEASURED that way —
+    // `a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate`
+    // went red with `NoSessionRootToPublishInto` against a fixture whose root
+    // carries a perfectly ordinary `SessionRoot`.
+    let mut roots: Vec<Entity> = Vec::new();
+    if let Some(mut query) = world.try_query_filtered::<(Entity, &SessionRoot), bevy::ecs::query::Allow<
         crate::construction::InactiveCandidate,
-    >>()?;
-    let mut found = query
-        .iter(world)
-        .filter(|(_, root)| root.0 == scope)
-        .map(|(entity, _)| entity);
+    >>() {
+        roots.extend(
+            query
+                .iter(world)
+                .filter(|(_, root)| root.0 == scope)
+                .map(|(entity, _)| entity),
+        );
+    }
+    if let Some(mut query) =
+        world.try_query_filtered::<(Entity, &CandidateSessionRoot), bevy::ecs::query::Allow<
+            crate::construction::InactiveCandidate,
+        >>()
+    {
+        roots.extend(
+            query
+                .iter(world)
+                .filter(|(_, root)| root.0 == scope)
+                .map(|(entity, _)| entity),
+        );
+    }
+    let mut found = roots.into_iter();
     let root = found.next()?;
     // ⛔⛤ **TWO ROOTS ON ONE SCOPE IS THE DUPLICATE-AUTHORITY CONDITION A10
     // FORBIDS, AND A `debug_assert` ALONE LETS THE SHIPPED GAME PICK ONE IN

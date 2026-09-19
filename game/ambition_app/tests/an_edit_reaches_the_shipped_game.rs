@@ -2348,16 +2348,23 @@ fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
 /// all"*: the population-blind reading `Q132` itself warned about, where "it ran
 /// and found nothing" and "it never ran" are the same string.
 ///
-/// ⇒ `count_matching_including_hidden_candidates` differs from the ordinary
-/// count by exactly the hidden entities, so the two numbers together state both
-/// halves at once: at most one CANONICAL root on every frame, and at least one
-/// frame where a prepared candidate root existed beside the canonical count and
-/// did not raise it.
+/// ⛔⛤ **AND THE FIRST VERSION OF THIS ARM PROVED THE MASQUERADE AND READ IT AS
+/// AGREEMENT — CORRECTED 2026-09-19 WHEN THE RULING WAS IMPLEMENTED.** It
+/// asserted `visible = 0, including hidden = 1` and called that the candidate
+/// "not counting". What those two numbers actually said is that the candidate
+/// WAS a `SessionRoot` and was merely invisible — which is the weaker claim the
+/// ruling refuses, because every construction query that legitimately says
+/// `Allow<InactiveCandidate>` saw two canonical roots for one live world.
 ///
-/// ⭐ MEASURED 2026-09-19 on this route: frames 1-14 hold `visible = 0` and
-/// `including hidden = 1` — the candidate is prepared before any canonical root
-/// exists and is published afterwards — and no frame ever holds two canonical
-/// roots. That is the ruling's lifecycle observed rather than assumed.
+/// ⇒ The assertion the ruling asks for is on the count INCLUDING hidden
+/// entities: at most one `SessionRoot` on every frame of the handoff, candidate
+/// or not. A prepared candidate carries `CandidateSessionRoot` instead, and
+/// that count is the anti-vacuity premise — without it, "never two" would be
+/// satisfied by a route where no replacement was ever prepared.
+///
+/// ⭐ MEASURED 2026-09-19 on this route with the representation in place:
+/// `SessionRoot` including hidden never exceeds one, and the frames before
+/// adoption hold a `CandidateSessionRoot` beside a canonical count of zero.
 ///
 /// ⛔⛤ **AND THE FIRST POISON PASSED, WHICH IS A FACT ABOUT THE TREE RATHER
 /// THAN ABOUT THIS ARM.** Neutering `hide_candidate_session_root` changed
@@ -2374,6 +2381,7 @@ fn a_superseded_transaction_cannot_publish_in_the_shipped_app() {
 fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
     use bevy::prelude::With;
     type Root = ambition_platformer2d::platformer::lifecycle::SessionRoot;
+    type Candidate = ambition_platformer2d::platformer::lifecycle::CandidateSessionRoot;
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.finish();
@@ -2391,18 +2399,22 @@ fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
     for frame in 0..240 {
         app.update();
         let world = app.world_mut();
-        let visible = world.query::<&Root>().iter(world).count();
-        let total = ambition_platformer2d::platformer::construction::
+        // ⛔ INCLUDING HIDDEN, WHICH IS THE WHOLE ASSERTION. An ordinary query
+        // cannot see a candidate at all, so counting that way answers a
+        // question about VISIBILITY when the ruling is about IDENTITY.
+        let canonical = ambition_platformer2d::platformer::construction::
             count_matching_including_hidden_candidates::<With<Root>>(world);
-        if visible > canonical_high_water {
-            canonical_high_water = visible;
+        let candidates = ambition_platformer2d::platformer::construction::
+            count_matching_including_hidden_candidates::<With<Candidate>>(world);
+        if canonical > canonical_high_water {
+            canonical_high_water = canonical;
             worst_frame = frame;
         }
-        if visible == 1 {
+        if canonical == 1 {
             saw_canonical = true;
         }
-        if total > visible {
-            candidate_frames.push((frame, visible, total));
+        if candidates > 0 {
+            candidate_frames.push((frame, canonical, candidates));
         }
     }
 
@@ -2415,20 +2427,22 @@ fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
 
     assert!(
         canonical_high_water <= 1,
-        "frame {worst_frame} held {canonical_high_water} canonical `SessionRoot`s. \
-         Two published roots are invalid: a replacement may be PREPARED while the \
-         current session is live, but it must carry a distinct candidate identity \
-         rather than standing as a second canonical root"
+        "frame {worst_frame} held {canonical_high_water} `SessionRoot`s counting \
+         HIDDEN entities. Two roots are invalid whether or not one of them is \
+         visible: a replacement may be PREPARED while the current session is \
+         live, but it carries `CandidateSessionRoot` until it is adopted and must \
+         not stand as a second canonical root in the meantime"
     );
 
-    // ⛔ THE HALF THE ORDINARY COUNT CANNOT SEE. A green canonical count means
-    // nothing about the candidate road unless a candidate actually existed.
+    // ⛔ THE PREMISE THE CANONICAL COUNT CANNOT SUPPLY. "At most one root" is
+    // trivially true of a route that never prepared a replacement, so the arm
+    // has to see a candidate exist beside the count it is constraining.
     assert!(
         !candidate_frames.is_empty(),
-        "no frame held a hidden candidate root beside the canonical count, so the \
-         canonical count above is green for an unknown reason — either the \
-         candidate road did not run, or `InactiveCandidate` stopped hiding it and \
-         the candidate is now being counted as canonical. Both are the defect \
-         this arm exists to separate"
+        "no frame held a `CandidateSessionRoot`, so the count above is green for \
+         an unknown reason — either the candidate road did not run, or the \
+         candidate is carrying `SessionRoot` again and the count is one because \
+         the two are being conflated. Both are the defect this arm exists to \
+         separate"
     );
 }

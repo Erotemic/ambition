@@ -681,12 +681,25 @@ pub(crate) fn apply_world_replacement(
         Some(root) if world.get_entity(root).is_err() => {
             Some(format!("publication target {root:?} no longer exists"))
         }
+        // ⛔ EITHER MARKER, BECAUSE A CANDIDATE PUBLISHES ITS FIRST ROOM BEFORE
+        // IT IS ADOPTED. `Q132` gave a prepared candidate its own root identity
+        // (`CandidateSessionRoot`), and this revalidation is about *"is the
+        // target a session's root"*, not *"is it the LIVE one"* — the sink was
+        // chosen by `session_root_for_scope`, which already answered that.
         Some(root)
             if world
                 .get::<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>(root)
-                .is_none() =>
+                .is_none()
+                && world
+                    .get::<ambition_platformer2d_shared_tangle::lifecycle::CandidateSessionRoot>(
+                        root,
+                    )
+                    .is_none() =>
         {
-            Some(format!("publication target {root:?} carries no `SessionRoot`"))
+            Some(format!(
+                "publication target {root:?} carries neither `SessionRoot` nor \
+                 `CandidateSessionRoot`"
+            ))
         }
         Some(root)
             if world

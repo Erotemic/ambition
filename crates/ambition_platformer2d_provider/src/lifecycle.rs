@@ -2228,7 +2228,12 @@ impl PlatformerSessionBuilder<'_, '_> {
                     ambition_platformer2d_shared_tangle::sim_id::SimId::singleton(
                         "session", "root",
                     ),
-                    ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
+                    // ⛔ A CANDIDATE IS NOT A SESSION ROOT — `Q132`, ruled
+                    // 2026-09-19. It becomes one at exactly one place,
+                    // `publish_candidate_session`, and until then a query that
+                    // legitimately allows hidden entities must see ONE
+                    // canonical root, not two.
+                    ambition_platformer2d_shared_tangle::lifecycle::CandidateSessionRoot(scope),
                     // The bare epoch rides alongside the identity that defines it,
                     // from this single value, so layers below `ambition_platformer2d_runtime`
                     // (construction planning) can read the activation generation

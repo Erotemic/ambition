@@ -2452,9 +2452,21 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         // MEASURED 2026-09-15: hiding it at spawn instead — which is what a
         // candidate session prepared off to the side must do — refuses the room
         // with `UnownedIdentity { sim_id: SimId("session:2") }`.
+        //
+        // ⛔⛤ **AND `Q132` MADE THAT PREDICTION COME TRUE, WHICH IS WHY BOTH
+        // MARKERS ARE NAMED HERE.** A prepared candidate's root now carries
+        // `CandidateSessionRoot` rather than masquerading as a `SessionRoot`, so
+        // an exemption spelled with one marker stopped covering the exact entity
+        // the paragraph above describes — measured on the shipped
+        // `ambition_gameplay` route as
+        // `UnownedIdentity { sim_id: SimId("session:root") }`, the room refusing
+        // its own session and the candidate discarded whole.
         if world
             .get::<crate::lifecycle::SessionRoot>(member.entity)
             .is_some()
+            || world
+                .get::<crate::lifecycle::CandidateSessionRoot>(member.entity)
+                .is_some()
         {
             continue;
         }
@@ -3214,6 +3226,25 @@ pub fn publish_candidate_session(
         // See `InactiveCandidate`.
         lower_candidate_barrier(world, entity);
         count += 1;
+    }
+    // ⭐⭐ THE ONE MOMENT A CANDIDATE BECOMES THE SESSION — `Q132`, ruled
+    // 2026-09-19. Everything above makes the population VISIBLE; this makes it
+    // AUTHORITATIVE, and the two are different claims. A candidate carries
+    // `CandidateSessionRoot` from the moment the provider spawns it, so a query
+    // that legitimately allows hidden entities counts one canonical
+    // `SessionRoot` and not two; here, and nowhere else, the candidate stops
+    // being a candidate.
+    //
+    // ⛔ AFTER THE BARRIERS, NOT BEFORE. Between the swap and the unhide there
+    // would be a frame-shaped window in which two entities answer to
+    // `SessionRoot` — the retiring live root and this one — and that window is
+    // exactly what the distinct marker exists to close. An exclusive-world call
+    // has no scheduled system inside it, so no frame actually elapses; the
+    // ordering is written down because the next edit to this function will not
+    // know that.
+    if let Ok(mut entity) = world.get_entity_mut(root) {
+        entity.remove::<crate::lifecycle::CandidateSessionRoot>();
+        entity.insert(crate::lifecycle::SessionRoot(scope));
     }
     count
 }
@@ -4026,11 +4057,14 @@ pub fn verify_projected_roster(
         // ⛔⛤ **AND A CANDIDATE SESSION ROOT IS NOT AN UNOWNED ROOM CANDIDATE.**
         // It carries a canonical `SimId` and no room `TransactionId`, because the
         // transaction that owns it is the SESSION's publication, not any room's.
-        // Same rule, same reason, as the roster check above — see
-        // `verify_committed_roster`.
+        // Same rule, same reason, and the same TWO markers as the roster check
+        // above — see `verify_committed_roster`.
         if world
             .get::<crate::lifecycle::SessionRoot>(member.entity)
             .is_some()
+            || world
+                .get::<crate::lifecycle::CandidateSessionRoot>(member.entity)
+                .is_some()
         {
             continue;
         }

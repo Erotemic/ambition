@@ -2413,64 +2413,75 @@ between actual neighboring phases rather than only `.after(...)` an abstract set
 
 ## P1 — ownership, composition and iteration
 
-### Q132-REPRESENTATION — a prepared candidate must not carry `SessionRoot`, and the publication road is not the one the comments name
+### Q132-REPRESENTATION — ✅ CLOSED 2026-09-19: a prepared candidate carries its own root identity
 
 **P1.** Owner: `ambition_platformer2d_shared_tangle::construction` and the
 provider's session activation.
 
-**Current state:** ruled and not implemented. Jon, 2026-09-19: one canonical
-live `SessionRoot`, and a prepared candidate has a DISTINCT candidate identity
-that must not masquerade as one. Today the provider spawns the candidate with
-`SessionRoot(scope)` + `SimId::singleton("session","root")` +
-`InactiveCandidate`, so the invariant holds only for queries that exclude
-disabled entities — and `Allow<InactiveCandidate>`, which several construction
-queries legitimately use, sees two.
+✅ **RECEIPT.** Jon ruled 2026-09-19: one canonical live `SessionRoot`, and a
+prepared candidate has a DISTINCT candidate identity that must not masquerade
+as one. `CandidateSessionRoot(scope)` is that identity. The provider spawns a
+candidate with it, `publish_candidate_session` swaps it for `SessionRoot` at
+adoption and nowhere else, and the shipped `ambition_gameplay` route promotes
+20 entities through that one line. MEASURED on the route: `SessionRoot`
+counting HIDDEN entities never exceeds one, and frames 1-15 hold a
+`CandidateSessionRoot` beside a canonical count of zero.
 
-⛔⛤ **THE WITNESS PROVES THE MASQUERADE AND READS IT AS AGREEMENT.**
-`a_prepared_candidate_never_counts_as_a_canonical_session_root` asserts
-`visible roots = 0, roots including hidden = 1` — i.e. it establishes that the
-candidate IS a `SessionRoot` and then interprets its invisibility as meaning it
-is not one. The assertion to want is `count(SessionRoot, including hidden) <= 1`
-with a `CandidateSessionRoot` frame as the anti-vacuity premise.
+**The four roads a distinct marker had to reach, none of which is a
+publication function:**
 
-⛔⛤ **ATTEMPTED 2026-09-19 AND REVERTED, AND THE MEASUREMENT IS WHY THE NEXT
-ATTEMPT SHOULD START HERE.** A `CandidateSessionRoot(scope)` marker was added,
-the provider spawned it instead of `SessionRoot`, and the swap was placed first
-at `publish_candidate_session` and then at `lower_candidate_barrier`. Both left
-the shipped app with **no session root at all**, and instrumenting the roads
-says why:
-
-| probe | shipped `ambition_gameplay` route, 240 frames |
+| road | why it had to change |
 |---|---|
-| `publish_candidate_session` | **never called** |
-| `lower_candidate_barrier` | **never called, on any entity** |
-| candidate root entity | exists from frame 1, gone by frame ~13–17 |
-| `SessionRoot` at HEAD | `total = 1` from frame 1; `visible = 1` from frame 17, and it stays |
+| `session_root_for_scope` | the publication SINK lookup — a candidate belongs to its own scope and must be findable as a target before it is adopted |
+| `verify_committed_roster` | exempts a session root from the "every identity is owned" census; the exemption was spelled `SessionRoot` |
+| the projection census's orphan-candidate loop | same exemption, same spelling |
+| `apply_world_replacement`'s revalidation | re-asks that the target carries a root marker at the destructive boundary |
 
-⇒ **The road that makes the live session root visible on the shipped route is
-NEITHER publication function**, though both modules' comments describe them as
-the roads. Until that road is named, moving the marker deletes the root: the
-candidate stops being one and nothing promotes it.
+⛔⛤ **AND THE ROW'S PREVIOUS DIAGNOSIS WAS WRONG IN THE MOST INSTRUCTIVE WAY —
+CORRECTED 2026-09-19.** It said *"the road that makes the live session root
+visible on the shipped route is NEITHER publication function, though both
+modules' comments describe them as the roads"*, on a probe reading
+`publish_candidate_session` — never called. That probe ran **with the broken
+marker swap in the tree**, and the swap is exactly what stopped it being
+called: the roster census refused the candidate's own first room with
+`UnownedIdentity { sim_id: SimId("session:root") }`, the provider discarded the
+candidate whole at frame 15, and adoption never happened. A property measured
+only on the accused is distinguishing BY CONSTRUCTION OF THE SEARCH. The
+control settles it: at HEAD the same probe fires 53 times across
+`shell_host_lifecycle`, and with the exemptions repaired it fires on the
+gameplay route too.
 
-**Next implementation:** find what actually unhides that entity — or what
-despawns it and spawns the visible root — before touching the representation.
-`SessionSpawnScope::apply_to` is the hiding road (`publish_candidate_session`'s
-sibling poison already established that); the UNHIDING road is the open
-question. The representation change itself is small once it is known: a
-`CandidateSessionRoot` marker, the provider spawning it, and one swap at the
-moment of visibility.
+⚠ **THE CENSUS COMMENT HAD ALREADY PREDICTED THIS, IN THOSE WORDS.**
+`verify_committed_roster` said *"THE CURRENT ORDER AVOIDS THIS BY ACCIDENT AND
+THAT IS WHY THE RULE IS WRITTEN DOWN… hiding it at spawn instead — which is
+what a candidate session prepared off to the side must do — refuses the room
+with `UnownedIdentity`"*. The prediction was right, the measurement matched it
+to the violation name, and the first attempt still spent itself looking for a
+hidden publication road. ⇒ Read the refusal before theorising about the road.
 
-⚠ **THE SHARED `SimId` IS A DIFFERENT QUESTION AND SHOULD STAY.** A hidden
-candidate deliberately carries the live root's `session:root` identity so two
-hosts checksum a session identically — pinned by
+⛔ **`try_query_filtered` ANSWERS `None` WHEN ANY COMPONENT IT NAMES IS
+UNREGISTERED, WHICH MAKES A UNION QUERY A BLACKOUT RATHER THAN A WIDENING.**
+The sink lookup was first widened as one `Or<(With<SessionRoot>,
+With<CandidateSessionRoot>)>` query. Every direct-entry fixture in the project
+has never built a candidate, so it has never registered the new component, so
+that one query refused every publication — measured as
+`a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate` going
+red with `NoSessionRootToPublishInto` against a root carrying a perfectly
+ordinary `SessionRoot`. It is two independent lookups now, and the reason is
+written where the next widening will read it.
+
+⚠ **THE SHARED `SimId` STAYS AND IS A DIFFERENT QUESTION.** A hidden candidate
+deliberately carries the live root's `session:root` identity so two hosts
+checksum a session identically — pinned by
 `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`.
 What must not be shared is the CLAIM TO BE THE LIVE ROOT.
 
-**Blocked by:** nothing.
-
-**Acceptance:** counting `SessionRoot` INCLUDING hidden entities never exceeds
-one on any frame of the shipped handoff, a frame holds a prepared candidate
-beside that count, and the shipped route still establishes a session root.
+⭐ **THE WITNESS NOW ASSERTS THE INVARIANT INSTEAD OF PROVING THE MASQUERADE.**
+`a_prepared_candidate_never_counts_as_a_canonical_session_root` used to assert
+`visible = 0, including hidden = 1` and read that as the candidate "not
+counting" — which is a statement that the candidate WAS a `SessionRoot` and
+merely invisible. It counts `SessionRoot` INCLUDING hidden entities now, with a
+`CandidateSessionRoot` frame as the anti-vacuity premise.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 

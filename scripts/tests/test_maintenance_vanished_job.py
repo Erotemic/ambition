@@ -66,3 +66,38 @@ def test_the_baseline_is_a_pinned_ref_not_a_range_or_a_symbol():
         "rolling or symbolic baseline changes what the lane means without "
         "anyone choosing to."
     )
+
+
+def test_the_vanished_baseline_is_a_commit_git_can_actually_reach():
+    """The pinned SHA must be an ancestor of HEAD, not merely well-formed.
+
+    ⛔⛤ THE SIBLING GUARD ABOVE CHECKED THE SHAPE AND NOT THE REACHABILITY, and
+    the baseline spent five weeks as a PRE-EPOCH commit that is an ancestor of
+    no ref — present in the checkout that wrote it as a dangling object, absent
+    from every clone. `check_planning_citations.py` exits 1 when it cannot
+    resolve the ref, so the job was red for everyone but one machine while
+    reading green here.
+
+    ⚠ `--is-ancestor`, not `cat-file -e`. Existence is exactly the test that
+    passed on the machine that had the object; the question is whether git can
+    get there from a ref a clone would fetch. This is the same distinction
+    `test_no_unresolvable_citation_that_the_epoch_did_not_grandfather` draws for
+    prose citations — a commit can exist locally and be reachable from nothing.
+    """
+    import subprocess
+
+    line = next(
+        l for l in PLAN.splitlines() if l.startswith("PLANNING_VANISHED_BASELINE")
+    )
+    ref = line.split("=", 1)[1].strip().strip('"')
+    reachable = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ref, "HEAD"],
+        cwd=REPO,
+        capture_output=True,
+    )
+    assert reachable.returncode == 0, (
+        f"the vanished baseline {ref} is not an ancestor of HEAD, so a fresh "
+        "clone cannot resolve it and the maintenance job fails there while "
+        "passing on any checkout that happens to hold the object. Pin a commit "
+        "on the mainline — the epoch root is the oldest one a clone can read."
+    )

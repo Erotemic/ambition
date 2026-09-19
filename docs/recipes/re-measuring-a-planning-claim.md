@@ -1016,8 +1016,8 @@ manufactures a finding out of a build directory.
 ## A red commit-citation may be about YOUR CHECKOUT, not the citation
 
 ⛔⛔ **I WROTE THE OPPOSITE HERE AN HOUR AGO AND IT WAS FALSE.** The claim was
-that `test_the_live_planning_tree_has_no_fabricated_commit` walks the
-superproject only, so a submodule SHA reads as fabricated and the fix is to
+that `test_no_unresolvable_citation_that_the_epoch_did_not_grandfather` walks
+the superproject only, so a submodule SHA reads as fabricated and the fix is to
 name the repository in prose. **The checker asks the submodule** — its own
 source says so (*"of the eight the survey flagged were submodule commits… the
 checker asks the submodule, which is a fact"*), and my "form that passes"
@@ -1056,7 +1056,7 @@ and both look exactly like a defect in the tree:
 
 | guard | red because | cleared by |
 |---|---|---|
-| `test_the_live_planning_tree_has_no_fabricated_commit` | a superproject `git fetch` does not fetch submodule branches, so a commit written on another machine was absent here | `git submodule foreach git fetch` — nothing edited |
+| `test_no_unresolvable_citation_that_the_epoch_did_not_grandfather` | a superproject `git fetch` does not fetch submodule branches, so a commit written on another machine was absent here | `git submodule foreach git fetch` — nothing edited |
 | `test_no_new_sheet_strands_pages` | the sprite pages it reads are GITIGNORED generated art, regenerated on one box and not the other | nothing; the two boxes disagree and neither is wrong |
 
 ⇒ **Before treating either as a finding, ask what the guard reads and whether

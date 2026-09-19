@@ -1016,7 +1016,30 @@ def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
 #: 2026-09-03: the 45 findings at this ref were triaged down to 13 — 25 rows
 #: recording a deleted name on purpose (now marked `cite-ok`), 2 real renames,
 #: 4 false positives fixed in the checker itself. The 13 that remain are real.
-PLANNING_VANISHED_BASELINE = "98b0bd8079fa5cc84112ea302e1d28826a54bbc3"
+#:
+#: ⛔⛤ **AND ON 2026-09-19 THAT REF TURNED OUT TO BE READABLE FROM NOTHING.**
+#: `98b0bd8079fa5cc84112ea302e1d28826a54bbc3` is PRE-EPOCH (2026-08-13; the
+#: epoch root is 2026-09-06) and is an ancestor of no ref in this repository —
+#: it survived here only as a dangling object in the checkout that wrote it. A
+#: fresh clone cannot resolve it, and the checker exits 1 when it cannot, so
+#: this job was red for everybody but one machine. ⇒ The guard below asserted
+#: the ref was a full pinned SHA and never that git could reach it, which is the
+#: same hazard `test_no_unresolvable_citation_that_the_epoch_did_not_grandfather`
+#: documents at length for planning prose — reaching the lane's own
+#: configuration, where no guard was looking.
+#:
+#: ⚠ AND IT WAS REPORTING NOTHING. Measured the same day over the five doc trees
+#: this job actually passes: **0 findings at the old ref, 2 at the epoch root**.
+#: A baseline can only see a name that was defined AT it, so one that predates a
+#: deletion is blind to it — the 19 comment sites still describing a
+#: `PlayableKitSource::HostCode` deleted before 2026-08-13 were invisible to the
+#: only pass that judges a bare name. Moving FORWARD widens what this can see,
+#: which is the opposite of the intuition the paragraph above is built on.
+#:
+#: ⇒ Advanced to the epoch root, which is the oldest commit a clone can read.
+#: That is forced rather than chosen: there is no older readable ref, so the
+#: "deliberate triage" rule above still governs every FUTURE bump.
+PLANNING_VANISHED_BASELINE = "b924f419cc73845e84fd6216fe3b5d894ca34fb6"
 
 
 def build_maintenance_jobs() -> list[Job]:

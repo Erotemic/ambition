@@ -11,7 +11,8 @@ are REPAIRED. ✅ **Raw public activation is CLOSED, and this line was the stale
 half.** It read *"still open ... plain `pub`"*.
 `close_preparation_barrier_without_admission` now carries
 `#[cfg(any(test, feature = "test-support"))]`
-(`crates/ambition_characters/src/prepared.rs:2727`), so a shipping app does not
+(`crates/ambition_characters/src/prepared.rs:2737`, the attribute on its own
+`pub fn`), so a shipping app does not
 compile it at all. ⚠ **The function is NAMED here since 2026-09-17 because the
 coordinate alone had drifted 450 lines** (`:2277` → `:2727`) and that attribute
 appears six times in the file, so nothing but the git history said which one this

@@ -83,7 +83,7 @@ citations turned out to hide a transition.
 
 **Six mutation sites, three crates.** `begin_ecs_breakable_respawn` is
 `ambition_combat`'s and is called from **three** places — `damage/mod.rs:620`,
-`damage/mod.rs:1007` and `breakables.rs:77` — so the respawn authority is one
+`damage/mod.rs:1019` and `breakables.rs:77` — so the respawn authority is one
 place called from three, the third being the collapse this table used to miss.
 ⚠ **Coordinates re-derived 2026-09-17; the membership did not move.** The two
 monolith call sites drifted (`:602` → `:620`, `:989` → `:1007`) and the four

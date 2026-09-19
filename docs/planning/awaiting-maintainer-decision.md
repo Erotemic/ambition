@@ -4048,8 +4048,14 @@ shapes, and they differ in what a missing authority MEANS:
 1. **One supported profile — the shell-routed session.** Everything else is a
    fixture. An optional canonical authority is then a defect by default, and the
    spellings above become a finite repair list. ⚠ Costs the most in test estate:
-   between 83 and 113 harness files construct worlds without a shell, and each
-   needs an explicitly-scoped declaration rather than a fallback.
+   the harness files that construct worlds without a shell would each need an
+   explicitly-scoped declaration rather than a fallback. ⚠ **THE SIZE IS OWNED
+   BY `DUP-GENERATION-MECHANICS` IN
+   [`architecture-census.md`](consolidation/architecture-census.md)**, which
+   states it with its method — 82 files call a harness constructor and 112 name
+   the type, raw, and the comment strip moves those to 80 and 103. This row
+   carried *"between 83 and 113"*, a range across two DIFFERENT questions read
+   as an uncertainty about one.
 2. **Two named profiles — shell-routed, and declared direct entry.** Direct
    entry keeps a road, but it must DECLARE its authorities explicitly instead of
    inheriting an anonymous App-global default. ⚠ This is the shape `Q144`'s

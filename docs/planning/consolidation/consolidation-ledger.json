@@ -5433,17 +5433,17 @@
       "category": "crate_boundary",
       "name": "ambition_platformer2d_runtime",
       "owner": "ambition_platformer2d_runtime",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone.",
+      "current_truth": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone. \u2b50 MEASURED 2026-09-18, with a correction: \"high fan-in\" is the wrong direction. Six crates depend on this one; it depends on 37, which is the high number and makes it an assembler. The measurement is the `CRATE-RUNTIME` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/planning/engine/architecture-responsibility-map.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "High fan-in composition/service crate. Review lifecycle coordinator versus provider/host assembly boundaries, not LOC alone. \u2b50 MEASURED 2026-09-18, with a correction: \"high fan-in\" is the wrong direction. Six crates depend on this one; it depends on 37, which is the high number and makes it an assembler. The measurement is the `CRATE-RUNTIME` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/planning/engine/architecture-responsibility-map.md",
             "scripts/architecture_census.py"

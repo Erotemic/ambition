@@ -2115,9 +2115,23 @@ noticing. ⇒ Name the subject, never the bare number.
 **Owner:** [`engine/authored-technique-admission.md`](engine/authored-technique-admission.md)
 and combat/projectile occurrence identity.
 
-**Current state:** ranged feedback carries `MoveOccurrence` end to end, so a
-projectile launched by move A cannot be credited to whatever move happens to be
-playing when it lands. Melee stamps use the same occurrence authority.
+**Current state:** ranged feedback carries `MoveOccurrence` end to end, and
+melee stamps use the same occurrence authority.
+
+⛔⛤ **AND THAT SENTENCE WAS TRUE OF TWO OF THE THREE CONTACT FACTS — CORRECTED
+2026-09-19 BY READING THE WRITERS.** It said a projectile launched by move A
+*"cannot be credited to whatever move happens to be playing when it lands"*.
+`verdict_belongs_to` makes that so for `connected` and `blocked`, which are
+written by `mark_move_playback_resolved_hits`. **`landed_hit` is written
+somewhere else and asks nothing**:
+`apply_feature_hit_events`
+(`crates/ambition_platformer2d_actor_monolith/src/features/ecs/damage/mod.rs:914`)
+sets it on the attacker's CURRENT playback for every `HitEvent` that reached an
+actor or a boss, holding `event.attacker_move_instance` unread. ⇒ `overlapped`
+— derived as `landed_hit || connected_hit || blocked_hit` — is still credited
+by coincidence of timing, which is this row's own defect surviving on the one
+road its repair did not walk. The consequences, the authored flow that already
+waits on `Overlapped`, and the two shapes the answer can take are in `Q101`.
 
 ✅ **THE GUARD THIS ROW ASKED FOR ALREADY EXISTS — re-read 2026-09-16, and the row
 was the stale half.** *"A body which has started a move cannot lose
@@ -2171,7 +2185,11 @@ two structural links each had a guard; neither guard reads the NUMBER, and
 at all — the exact shape that hid the `OwnedItems` defect.
 
 **Remaining engineering:** finish reflection/contact attribution after the product
-rule is settled — blocked on `Q101`, below.
+rule is settled — blocked on `Q101`, below. ⭐ **IT IS ONE LINE**, and `Q101`
+names it: either thread the launching occurrence into the four writers that
+reach that site with `attacker_move_instance: None` (`blink`, `dive`,
+`mark_recall`, `empowerment`), or refuse an unclaimed outcome there the way the
+sibling road already refuses one.
 
 **Blocked by:** [Q101](awaiting-maintainer-decision.md#q101--may-an-abilitys-own-contact-satisfy-the-launching-moves-connected-condition).
 

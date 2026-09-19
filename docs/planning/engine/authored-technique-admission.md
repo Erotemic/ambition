@@ -32,12 +32,23 @@ alone would not have settled it.
 
 **A12** — occurrence PROPAGATION landed, and so has occurrence IDENTITY
 (`106c349b5`): `MoveOccurrence(u32)` lives on the BODY and is never removed, so
-an idle gap no longer restarts the count at `0`. ⛔ **TWO BLOCKERS REMAIN, and
-this line previously named the wrong ones.** The count and the current state of
-all four live in `docs/planning/status.md`'s A12 row, which is the single place
-they are tracked; do not restate them here. What is still open is reflection
-pairing a new owner with the old shooter's stamp, and `None` crediting the move
-that happens to be playing. A12b's prepared-revision items remain open, as line
+an idle gap no longer restarts the count at `0`. The current state of all four
+lives in [`queue.md`'s A12 row](../queue.md#a12--finish-move-contact-attribution-and-reflection-identity),
+which is the single place they are tracked; do not restate them here.
+⛔⛤ **AND THIS LINE POINTED AT `status.md`'s A12 ROW UNTIL 2026-09-19, WHICH
+HAS NEVER EXISTED** — `status.md` names A12 once, inside a summary bullet that
+warns in its own words that it is a copy corrections do not reach. A pointer to
+the wrong owner reads exactly like a pointer to the right one.
+
+⛔ **ONE BLOCKER REMAINS, NOT TWO — RE-MEASURED 2026-09-19.** Reflection pairing
+a new owner with the old shooter's stamp is CLOSED: `intercept.rs` removes
+`FiredByMoveInstance` in the same statement that rewrites `ProjectileOwner`,
+witnessed by `a_reflected_shot_drops_the_firers_move_occurrence`. What is still
+open is an unclaimed outcome crediting the move that happens to be playing —
+and it is narrower than *"`None`"*: `verdict_belongs_to` already refuses one on
+the `connected`/`blocked` road, and the survivor is `landed_hit`, written by
+`apply_feature_hit_events` with the provenance in hand and unread. `Q101` owns
+the ruling; `queue.md`'s A12 row carries the measurement. A12b's prepared-revision items remain open, as line
 610 already said. Every acceptance row this page
 owns is witnessed by a named guard; the list is at the bottom of this file under
 *Closure*. What remains open is not implementation — it is Q97's policy half,

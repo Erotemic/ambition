@@ -118,6 +118,33 @@ the sentence above are checked against the ledger by
 `scripts/check_consolidation_ledger_states_are_live.py` on every
 `--maintenance` run.
 
+⭐⛤ **AND SINCE 2026-09-18 A SECOND GUARD ASKS THE TREE RATHER THAN THE OTHER
+DOCUMENT.** The one above holds the ledger and this page in agreement, which is
+two DOCUMENTS saying the same thing; what a `RESOLVED` row claims is about
+SOURCE. For the collapses below that claim reduces to a type being gone, so
+`scripts/check_collapsed_authorities_stay_collapsed.py` fails if
+`GameplaySessionLinks`, `CandidateState`, `SpawnPlayerCloneRequest` or
+<!-- cite-ok: every name in this list is cited BECAUSE it is gone -->
+`AdmittedCheckpointRestore` is code again, and names which row the return
+re-opens. ⭐ Listing them here immediately produced a `--vanished` finding on
+`SpawnPlayerCloneRequest`, and then a SECOND one on the sentence recording the
+<!-- cite-ok: this sentence's subject is that the name is gone -->
+first. A guard whose subject is a deleted name cannot name its subject, or
+describe having named it, without tripping the checker for deleted names. Both
+marked, as that checker's own remedy says to — and the pair is a small
+demonstration of why the collapse ratchet had to strip comments: prose about a
+deletion is where the deleted name lives.
+
+⚠ **THE OBVIOUS SPELLING OF THAT CHECK IS FALSE ON DAY ONE, which is why it did
+not exist.** Every one of those names is still in the tree — four times for
+`GameplaySessionLinks` — in the comments recording the deletion. A string count
+would have been red on its first run and deleted as broken, taking the real
+ratchet with it. It strips comments and string literals first and asks only
+about code. ⇒ It is a ratchet against the deleted abstraction being reinstated,
+NOT a proof the family stayed collapsed: a second owner returning under a
+different name is invisible to it, and the semantic half is the dated review
+below.
+
 | ID | Family | State | Current state | Consolidation direction | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | DUP-SESSION-CURRENT | Current gameplay-session identity family | RESOLVED — semantic review done, one collapse landed | The `after A10` gate is discharged and the audit ran 2026-09-16, so `SOURCE_INFERRED` is now measured. FOUR types carried the `(ShellActivationId, SessionScopeId)` correlation <!-- cite-ok: this row RECORDS the deleted type and its deleted query, so both names are gone by intent -->: `GameplaySessionInstance` (inside `ActiveGameplaySession`), `GameplaySessionLinks`, and the `GameplaySessionWorldRoot` / `GameplayInputOwner` Components. ⇒ `GameplaySessionLinks` is DELETED: activation asserts `active_session.0.is_none()`, so its `Vec` held at most one binding, always the live session's; its `scope_for` had zero production readers; and the retirement block asked BOTH it and `retire_if_activation` in the same statement. The two Components stay — a captured correlation on the entity it describes is what this row's own direction asks for — and `ActiveSessionScope` stays, because "which scope is current" is a simulation-layer question the shell's activation identity cannot answer. | Remaining: none. ⭐ **The layer split stopped being a prose requirement on 2026-09-16**: `ambition_platformer2d_shared_tangle` may no longer reach `ambition_game_shell`, transitively, by `platformer-primitives-stays-a-foundation` in `scripts/check_absence_contracts.py`. The behavioural reason this row gave for the split (*"a scope can be live while `ActiveGameplaySession` is None"*) had no production witness and is retracted in the queue row — `publish` and the session assignment happen in one system run. | SOURCE_CONFIRMED, queue.md's DUP-SESSION-CURRENT row |

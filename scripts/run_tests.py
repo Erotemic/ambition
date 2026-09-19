@@ -1544,6 +1544,15 @@ def build_maintenance_jobs() -> list[Job]:
             "a test static is a channel between arms",
             [sys.executable, "scripts/a_test_static_is_a_channel_between_arms.py"],
         ),
+        # ⭐ The consolidation census calls three duplicate-authority families
+        # RESOLVED, and until 2026-09-18 the only thing holding that was
+        # `check_consolidation_ledger_states_are_live.py`, which checks the
+        # LEDGER against the PAGE — two documents agreeing. What each row claims
+        # is about the tree. This asks the tree. 1 second.
+        Job(
+            "a collapsed authority stays collapsed",
+            [sys.executable, "scripts/check_collapsed_authorities_stay_collapsed.py"],
+        ),
         # Every authored door lands in a real area with a real arrival zone, and
         # no area is a trap. Content, not architecture — and at 0.15 s the
         # cheapest verdict in the lane. 0.2 seconds.

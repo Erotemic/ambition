@@ -160,6 +160,39 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
   from matching AABBs, and not from name strings such as `"ecs-breakable foo"`.
   This ratifies the projectile contact protocol's existing wording.
 
+- **2026-09-19 — exactly one canonical live `SessionRoot` (Q132):** two
+  published/canonical roots are INVALID. Normal lifecycle transitions — game A →
+  menu → game B, game A → direct replacement by game B, and preparing game B
+  while A is still live — must preserve that invariant. Preparing a replacement
+  while the current session stays live is allowed, but the incoming candidate
+  must carry a DISTINCT candidate/prepared-session identity and must not
+  masquerade as a `SessionRoot`. The order is: prepare candidate B → A remains
+  the sole canonical root → retire/terminalize A → publish B atomically as the
+  new canonical root. Do not weaken the invariant for test or direct-entry
+  convenience.
+- **2026-09-19 — session-dependent mutable state must carry explicit scope
+  (Q132, and it governs beyond it):** *if mutable state can legitimately hold
+  different values for two sessions, generations, participants or timelines that
+  could coexist during preparation, handoff, rollback, multiplayer or testing,
+  it must carry the appropriate explicit scope rather than relying on anonymous
+  App-global singleton identity.* Conversely, App-global mutable state is
+  appropriate ONLY when simultaneous sessions would legitimately share exactly
+  the same object or value. This does not require every piece of session state
+  to be an ECS child of `SessionRoot` — explicitly keyed or scoped resources and
+  other clearly owned state are fine. The property that matters is explicit
+  identity and lifecycle ownership. Generally scoped: current room/world/session
+  state, participant state, encounter state, simulation clocks and timeline
+  state, checkpoint/restore state, transient progression, session
+  request/admission queues, admitted mechanics/configuration, rollback
+  authorities, cutscene/session gameplay state. Prepared IMMUTABLE data may
+  instead be generation-scoped and may coexist across generations. Truly
+  application-global infrastructure — render/device services, logging, asset
+  infrastructure, networking transport, caches — stays global where that is
+  genuinely its ownership. User/account settings and durable save data are
+  SEPARATE AUTHORITIES: they must not silently become live simulation state
+  merely because they are App-global, and a mechanical projection from them
+  needs explicit admission into a session.
+
 ## Maintenance rule
 
 When a decision is superseded, edit or replace the row. Do not append a second

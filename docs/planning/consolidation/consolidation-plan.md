@@ -215,12 +215,20 @@ production arm asserts:
 roots every frame across a real shell handoff.
 
 ⚠ So the consolidation here is NOT "delete repeated guards" — they are one alias
-used widely, which is already the consolidated form. It is deciding whether the
+used widely, which is already the consolidated form. It was deciding whether the
 `Single` semantics or the scope semantics is the one this engine means, and the
-answer changes what a handoff frame is allowed to look like. That is a ruling,
-not a refactor, and it is FILED as `Q132` in
-[`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) with the
-three options costed. C03 should not move storage before it is answered.
+answer changes what a handoff frame is allowed to look like. That was a ruling,
+not a refactor, and it was filed as `Q132`.
+
+⭐ **DECIDED 2026-09-19: the `Single` semantics is the meaning.** There is
+exactly one canonical live `SessionRoot`; a two-root frame is invalid rather
+than skippable. ⇒ The 185 sites are correct as written, the four scope-aware
+helpers are for lifecycle code that legitimately sees both sides of a handoff,
+and `unique_session_world_root`'s `assert!` states the invariant rather than
+guessing at it. **The consolidation left here is to say that out loud in one
+place**, so the next author picks a spelling on purpose rather than by import —
+which was option (c)'s one good part, and the ruling makes it a documentation
+job rather than a choice.
 
 ### STEP 3 IS DONE FOR ONE FAMILY: THE CHECKPOINT COORDINATOR'S ROLLBACK PARTITION
 
@@ -375,13 +383,23 @@ destructured fields whose only job is to undo the previous session.
    reset runs — it carries `InactiveCandidate`, a Bevy disabling component, so
    `session_world_entity`'s default query cannot see it. That is HELD by
    `a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`,
-   not assumed. ⚠ **And this is the same frame Q132 is about** — two roots exist, one
-   hidden. A ruling that makes a two-root frame legal to OBSERVE changes what "before
-   the root exists" means for every value here.
+   not assumed. ⚠ **And this is the same frame Q132 was about** — two roots exist, one
+   hidden.
 
-⇒ **THIS IS THE STRONGEST ARGUMENT YET THAT Q132 MUST BE ANSWERED FIRST**, and it is
-a different argument from the one the row already carries: not "185 sites silently
-skip", but "the correctness edge for 35 values is defined by which root is visible".
+⭐⛤ **AND THE RULING (2026-09-19) RATIFIES EXACTLY THIS SHAPE RATHER THAN
+DISTURBING IT.** Preparing a replacement while the current session stays live is
+ALLOWED, and the incoming candidate must carry a distinct candidate/prepared
+identity and must not masquerade as a `SessionRoot`. `InactiveCandidate` is that
+distinct identity, and the arm above is the witness that it does not read as a
+canonical root. ⇒ The hidden candidate is not a two-root frame in the sense the
+ruling forbids — it is the prescribed lifecycle, and the correctness edge for
+these 35 values is therefore fixed rather than contingent: **exactly one root is
+ever visible, so "before the root exists" means what it already meant.**
+
+⚠ What this obliges instead is a POSITIVE one: a candidate must never count as a
+canonical root in any witness of the invariant. That is a requirement on the
+arms, and it is recorded in the campaign's witness list rather than left implicit
+in the query that happens to filter it.
 
 ### DEPENDENCIES / BLOCKERS
 
@@ -399,7 +417,9 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 **STATE:** candidate after session ownership stabilizes. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16); what remains is the composition-contract ruling.** Re-scope before costing.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
-**DO NOT START BEFORE:** C03 owner decision + supported-composition decision. `hold-ok` — this row genuinely delivers ONE half of its own scope (the declared-profile half, MEASURED 2026-09-16) and is STILL HELD on the other: the supported direct/headless composition contract is a ruling nobody has made, and C03's owner decision now depends on `Q132`.
+**DO NOT START BEFORE:** the supported-composition decision (`Q144`). `hold-ok` — this row genuinely delivers ONE half of its own scope (the declared-profile half, MEASURED 2026-09-16) and is STILL HELD on the other: the supported direct/headless composition contract is a ruling nobody has made. ⭐ **`Q132`'S HALF OF THIS GATE IS DISCHARGED (2026-09-19)** — C03's owner decision no longer waits on it, so `Q144` is now this row's ONLY maintainer hold.
+
+⛔⛤ **AND THE `Q132` RULING NARROWS WHAT `Q144` IS ALLOWED TO ANSWER, WHICH MAKES THIS ROW CHEAPER RATHER THAN MORE EXPENSIVE.** The scoping rule says App-global mutable state is appropriate only where simultaneous sessions would legitimately share exactly the same value, and the ruling adds explicitly: *do not preserve ambiguous fallback behaviour merely for old direct-entry tests.* The App-registry fallback this row exists to remove is App-global mutable construction input that two coexisting sessions could legitimately differ on — so it is on the wrong side of the rule ALREADY, independent of how `Q144` rules on composition. ⇒ What `Q144` still owns is whether direct entry must ACTIVATE a prepared generation or may declare its inputs another explicitly-scoped way; it no longer owns whether the anonymous App-global fallback may stay.
 
 ### CURRENT STATE
 
@@ -851,12 +871,50 @@ on 2026-09-16 — so this is no longer "only after"; it is the recommendation.
 `README.md`. Mechanical editor admission does not block this campaign; its shared
 protocol is already the baseline.
 
-⛔ **BUT DO NOT MOVE STORAGE BEFORE `Q132` IS ANSWERED.** It asks whether a
-handoff frame holding two session roots should make 185
-`Single<.., With<SessionRoot>>` sites run or skip, and that ruling decides
-whether such a frame may exist at all — which is precisely what moving
-session-owned storage determines. Measuring and sequencing may start now; moving
-may not.
+⭐⛤ **`Q132` IS DECIDED (2026-09-19), AND THE STORAGE HOLD IS DISCHARGED.** It
+asked whether a handoff frame holding two session roots should make 185
+`Single<.., With<SessionRoot>>` sites run or skip. The ruling answers the
+question underneath it instead: **there is exactly one canonical live
+`SessionRoot`, and two published/canonical roots are INVALID.** So the frame the
+question was about may not exist, the `Single` semantics IS the engine's meaning,
+and the scope-aware helpers are for the lifecycle code that legitimately sees
+both sides of a handoff. The durable ruling is in
+[`maintainer-decisions.md`](../maintainer-decisions.md); moving storage is no
+longer held.
+
+⇒ **AND THE RULING REPLACES THE HOLD WITH A HARDER TARGET, WHICH IS THE PART
+THAT CHANGES THIS CAMPAIGN'S SHAPE.** C03 is not "move fields to a better owner".
+The governing rule is:
+
+> If mutable state can legitimately hold different values for two sessions,
+> generations, participants or timelines that could coexist during preparation,
+> handoff, rollback, multiplayer or testing, it must carry the appropriate
+> explicit scope rather than relying on anonymous App-global singleton identity.
+
+and its converse — App-global mutable state is appropriate ONLY when simultaneous
+sessions would legitimately share exactly the same object. ⚠ **The test is
+"could two coexisting sessions legitimately differ here?", not "is it a
+resource?" and not "does it reset?".** Both of the cheap wins this campaign
+advertised were measured away because they asked the second question.
+
+⚠ **EXPLICIT SCOPE DOES NOT MEAN AN ECS CHILD OF `SessionRoot`.** A keyed or
+scoped resource, or other clearly owned state, satisfies it. The property is
+explicit identity and lifecycle ownership, so this campaign may not use the
+ruling to justify reparenting everything.
+
+⚠ **AND THREE POPULATIONS ARE EXPLICITLY NOT IN SCOPE.** Prepared IMMUTABLE data
+is generation-scoped and may coexist across generations. Truly
+application-global infrastructure — render/device services, logging, asset
+infrastructure, networking transport, caches — stays global where that is
+genuinely its ownership. User/account settings and durable save data are
+SEPARATE AUTHORITIES: they do not become live simulation state by being
+App-global, and a mechanical projection from them needs explicit admission into
+a session.
+
+⛔ **AND THE RULING NAMES A FAILURE MODE TO GO LOOKING FOR: App-global fallback
+state that exists only because session identity was OPTIONAL.** That is the
+shape `C04`/`C07` are told to inspect, and it is not to be preserved for the
+benefit of old direct-entry tests.
 
 ⚠ **AND TWO OF THIS SEQUENCE'S OWN PREMISES WERE MEASURED AWAY ON 2026-09-16**
 (see C03's CURRENT STATE): there is no reset-only subset to lift out, and the two

@@ -52,10 +52,16 @@ condition is named there and not repeated here.
 day old.** C03's three advertised cheap wins were measured on 2026-09-16 and two
 are EMPTY — no session-scoped resource is reset-only, and the two reset lists are
 a disjoint partition rather than two copies. The third turned into a maintainer
-ruling: `Q132` asks whether a handoff frame holding two session roots should make
-185 `SessionWorldRef`/`SessionWorldMut` sites run or skip. ⇒ **C03 can start; it
-should not MOVE STORAGE before Q132 is answered**, because that ruling decides
-whether a two-root frame may exist at all.
+ruling, and it is now ANSWERED: `Q132` asked whether a handoff frame holding two
+session roots should make 185 `SessionWorldRef`/`SessionWorldMut` sites run or
+skip. ⭐ **DECIDED 2026-09-19 — there is exactly one canonical live
+`SessionRoot`, so the question does not arise: a two-root frame is INVALID.** A
+replacement may be prepared while the current session is live, but the candidate
+carries a distinct prepared identity and is not a canonical root. ⇒ **C03's
+storage hold is discharged**, and the ruling replaces it with a stronger target:
+session-dependent mutable state must carry explicit scope rather than anonymous
+App-global identity, so C03 is a migration of OWNERSHIP rather than of fields.
+See [`maintainer-decisions.md`](maintainer-decisions.md).
 
 The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication---done-demolition-closed-2026-09-16).
 

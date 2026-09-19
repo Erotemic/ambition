@@ -742,104 +742,6 @@ with something else, which nobody has proposed a shape for. Recorded by the
 `queue.md` ID-PEER table, which names this as one of two roads still open — the
 other is `Q122` above, the snapshot schema fingerprint hashing prose.
 
-## Q132 — when a handoff frame holds two session roots, should two hundred systems run or skip?
-
-**MEASURED 2026-09-16, and it is C03's real shape rather than the one its row
-carried.** The engine resolves "the live session world" two different ways, and
-they disagree on exactly one kind of frame.
-
-| spelling | what it is | mentions |
-| --- | --- | --- |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 177, in 103 files |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 29, in 19 files |
-| `live_session_world_root` | the root whose scope equals the ACTIVE scope | 4, in 2 files |
-| `session_root_for_scope` | a named scope's root, seen through the disabling marker | 11, in 6 files |
-
-⛔ `Single` matches NOTHING when the count is not exactly one, and a system whose
-`Single` fails is SILENTLY SKIPPED. So on a frame holding two roots, 185 production sites
-stop running and the four scope-aware ones keep working. ⇒ **The correctness of
-two hundred systems rests on an invariant one test arm asserts:**
-`the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-(`game/ambition_app/tests/an_edit_reaches_the_shipped_game.rs:519`), which counts
-roots every frame across a real shell handoff and requires the count never to
-exceed one.
-
-⭐ **THE INVARIANT HOLDS TODAY. This is not a bug report.** The arm passes, and
-`a_candidate_session_replaced_while_pending_is_discarded` passes beside it. The
-question is what the engine MEANS, because the two answers license different
-futures — and C03 is about to move session-owned storage, which is exactly the
-work that decides whether a two-root frame can ever exist.
-
-The choice: **(a)** `Single` is the meaning — a two-root frame is a BUG, and the
-scope-aware helpers exist only for the lifecycle code that legitimately sees both
-sides of a handoff. Then the invariant deserves more than one arm, and C03 may
-freely assume one root. **(b)** Scope is the meaning — a two-root frame is LEGAL
-during a handoff, and 185 production sites are silently skipping on it rather than
-resolving the live root. Then those aliases are wrong and the migration is
-large. **(c)** Keep both deliberately, and say in one place which code is
-entitled to which, so the next author picks on purpose rather than by import.
-
-⚠ **WHAT MAKES THIS URGENT RATHER THAN INTERESTING:** a system that is silently
-skipped produces no error, no log and no failing test — it produces a frame where
-nothing happened. That is the same failure signature as a system that ran and
-found nothing to do, which is why neither the suite nor a reader can tell them
-apart without being told which semantics was intended.
-
-⛔⛤ **AND MEASURED 2026-09-16, THE TREE ALREADY GIVES THREE DIFFERENT ANSWERS,
-NOT TWO.** A third road exists and it is the loudest:
-`unique_session_world_root` (`shared_tangle/src/lifecycle/session.rs:416`) — the
-fallback `live_session_world_root` takes in a host with NO
-`SessionGatedSimulation`, i.e. direct-entry and headless — carries
-`assert!(roots.next().is_none(), "more than one canonical SessionRoot exists")`.
-A plain `assert!`, on in release.
-
-| road | what two roots means | where |
-| --- | --- | --- |
-| `SessionWorldRef<T>` / `SessionWorldMut<T>` — both `Single<.., With<SessionRoot>>` | the system is SILENTLY SKIPPED | **185** production uses, 105 files |
-| `live_session_world_root`, shell-routed | RESOLVE the one whose scope is active | 4 sites |
-| `unique_session_world_root`, direct/headless | **PANIC** | the same 4 sites, other branch |
-
-⇒ So the same condition is impossible, skippable and resolvable depending on
-which road asks, and the shell-routed vs direct split means **a two-root frame
-crashes a headless harness and silently no-ops the shipped game.** That is not a
-disagreement about style; it is three different contracts for one state, and
-whichever the ruling picks, the other two need saying so out loud.
-
-⚠ **AND THE PANIC IS REACHABLE, which is the part a Q should have to show.** Two
-named roads get there:
-- `session_world_entity` → `live_session_world_root` → (no gate) →
-  `unique_session_world_root`. `ambition_platformer2d/src/rollback.rs:444` calls
-  it to refuse a rollback session opened over an unbuilt world — the sim-harness
-  install path.
-- `insert_session_world_component`
-  (`crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs:650`, *"for small direct hosts and
-  focused tests"*) calls `unique_session_world_root` **UNCONDITIONALLY**, not
-  through the gated branch — so that one asserts in ANY host, shell-routed
-  included. Its callers include `ambition_render`'s moving-platform and
-  portal-compositing setup.
-
-⇒ The loud contract is not confined to harnesses: one of its two roads runs in
-the shipped render path.
-
-⭐⭐ **AND THERE IS ONE MITIGATION THAT IS WORTH DOING UNDER ANY OF THE THREE
-ANSWERS: PRINT THE POPULATION BESIDE THE VERDICT.** The ID-PEER owner supplied
-the general form of this signature from their own lane the same day, with two
-instances: a rollback audit reporting *"no component changed across a save/load
-of the same frame"* over **`carriers=0`** — a room authoring no ground item — and
-a `BodyAnimFacts` probe reporting 36 clean comparisons where every field was
-`0.000` and there was ONE distinct census. ⛔ The tell in a third case was that
-two structurally different types produced the SAME digest, which is what an
-empty-collection projection does; read without its population that looks like two
-independent confirmations.
-
-⇒ **"It ran and found nothing" and "it never ran" must be DIFFERENT STRINGS.** A
-carrier count, a row count, a distinct-census count, a root count — anything that
-makes the population visible next to the verdict. For this question the natural
-one is the ROOT COUNT, which
-`the_shipped_app_never_holds_two_session_roots_across_a_handoff` already computes
-every frame. That mitigation does not decide the ruling and is not a substitute
-for it: it makes the failure legible, not impossible.
-
 ## Q131 — ⇒ THE SAME QUESTION AS `Q139`. ASK IT THERE.
 
 ⛔⛤ **THE SECOND DUPLICATED RULING FOUND ON THIS PAGE ON 2026-09-18, AND THE
@@ -905,7 +807,9 @@ condition by scope, silently. ⇒ *"The harness refuses rather than hands back a
 reading nobody can interpret"* is already precedent here, and it is stronger
 than anything either row proposes. ✔ Re-checked 2026-09-18: the assert is still
 there and still ungated. (ToothbrushAmbition's find, filed on their side as part
-of `Q132`.) ⚠ A practical note for anyone reading a failure from it: it fires
+of `Q132`, which was DECIDED 2026-09-19: exactly one canonical live
+`SessionRoot`, so this assert states the invariant rather than guessing at it —
+see [`maintainer-decisions.md`](maintainer-decisions.md).) ⚠ A practical note for anyone reading a failure from it: it fires
 inside a helper, so the arm named in the output is the last one that ran, not
 necessarily the one at fault.
 

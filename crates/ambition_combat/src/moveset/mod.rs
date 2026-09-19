@@ -2984,8 +2984,14 @@ pub fn body_is_helpless(
 /// captured at trigger time.
 ///
 /// This is the single trigger seam for every body. When a held weapon owns the
-/// Attack press, [`held_weapon_attack_move`] resolves the weapon action instead
+/// Attack press, `held_weapon_attack_move` resolves the weapon action instead
 /// of the wearer's normal attack without deleting the wearer's authored moves.
+///
+/// ⚠ NOT AN INTRA-DOC LINK: that helper is private, and rustdoc only started
+/// saying so when this paragraph moved onto a `pub` item. It had been attached
+/// to the private `StartingMove` struct, where rustdoc never resolved it at
+/// all — so reattaching an orphaned doc to the item it describes can expose a
+/// broken reference that was real the whole time and unreachable by the check.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bodies`. `MoveOccurrence` appears in

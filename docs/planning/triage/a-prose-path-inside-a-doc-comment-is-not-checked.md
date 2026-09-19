@@ -764,6 +764,17 @@ three lines of Python anybody can re-run — which is the form this belongs in.
 Same call the corpus already made when `--comment-paths` was registered as a
 gate and demoted the same day.
 
+⭐⛤ **AND REPAIRING ONE COST A RATCHET REGRESSION, WHICH IS THE BEST EVIDENCE
+THE CLASS MATTERS.** Moving `trigger_moveset_moves`' doc onto
+`trigger_moveset_moves` turned `check_doc_link_ratchet.py` red: the paragraph
+contains `[`held_weapon_attack_move`]`, that helper is private, and rustdoc
+does not resolve links on a private item. While the doc was stranded on the
+private `StartingMove` struct the link was never checked; on a `pub fn` it is.
+⇒ **The orphan was HIDING a broken reference that had been real the whole
+time.** 141, then 140 once the link was demoted to plain backticks with the
+reason written at the site. A doc attached to the wrong item is not only
+mis-rendered — it is also outside the checks its right item would face.
+
 ⚠ And the signature has a blind spot it cannot close: the `session.rs` case
 that started this was ONE contiguous `///` block holding two subjects, with no
 blank line at all. Nothing syntactic separates that from a long doc. ⇒ The

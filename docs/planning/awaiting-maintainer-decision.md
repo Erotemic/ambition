@@ -2696,8 +2696,16 @@ assumption.
 had been holding open.** The row asked whether the visit is LOST on a rewind or
 COUNTED TWICE. It can only be lost:
 
-- `ambition_dialog` contains the string `rollback` **zero times**. `DialogState`
-  is a plain `#[derive(Resource)]`, registered on no road.
+- `DialogState` is a plain `#[derive(Resource)]`, registered on no road:
+  re-derived 2026-09-18, no `rollback_resource*`, `register_rollback*`,
+  `clear_*_on_rollback` or `SessionScopedResources` mention names it anywhere in
+  the workspace. ⛔⛤ THIS SAID *"`ambition_dialog` contains the string
+  `rollback` **zero times**"* until 2026-09-18, and it contains it twice now —
+  both inside the comment at `crates/ambition_dialog/src/bridge.rs:160-167`
+  that records THIS finding and the repair it caused. A crate-wide string count
+  is a fine way to find a road and a poor way to own a claim, because writing
+  the claim down falsifies it. The substance is unchanged; the sentence that
+  carried it could not survive its own result.
 - The dispatcher consumed the request with `state.pending_start.take()`, in
   `Update`.
 - ⇒ A rewind restores `AmbitionGameSave` to its pre-increment value. The request

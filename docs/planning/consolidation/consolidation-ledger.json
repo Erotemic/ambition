@@ -5641,17 +5641,17 @@
       "category": "crate_boundary",
       "name": "ambition_mount",
       "owner": "ambition_mount",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names.",
+      "current_truth": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-MOUNT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
       "source_paths": [
         "docs/planning/engine/capability-and-runtime-composition.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The architecture plan uses mount as a model of a capability that owns its plugin/system installation and publishes ordering vocabulary rather than exposing foreign system names. \u2b50 CONFIRMED 2026-09-18: the measurement and its source citations are the `CRATE-MOUNT` row of `docs/planning/consolidation/architecture-census.md`, which is where evidence for this class is written.",
           "sources": [
             "docs/planning/engine/capability-and-runtime-composition.md",
             "scripts/architecture_census.py"

@@ -37,7 +37,17 @@ The value **8** is intentionally retained as the `662a9b...` baseline. The later
 not an edit of the baseline.** Same helper, same counting rules, a later commit —
 `python3 scripts/architecture_census.py`.
 
-| Metric | Baseline `662a9b5` | This reading | Δ |
+⚠ **ITS COLUMN SAID "This reading" AND CARRIED NO DATE UNTIL 2026-09-18.** A
+snapshot page whose newest column is called *"this"* has one reading that ages
+into the present tense while every other column states when it was taken —
+and by then this page held THREE readings of the same metrics, two of which
+disagreed (large modules 185 here against 187 below, nonblank LOC 792,058
+against 800,844) with nothing saying which was later. Recovered from
+`git log -S` on this file: **2026-09-16**, commit `965899a75`. ⇒ Every column
+on this page is dated now, and the current shape is the 2026-09-18 table at the
+bottom rather than whichever table a reader scrolls to first.
+
+| Metric | Baseline `662a9b5` | 2026-09-16 | Δ |
 | --- | ---: | ---: | ---: |
 | Workspace packages | 80 | 80 | — |
 | Workspace Rust files | 1,882 | 1,889 | +7 |
@@ -416,3 +426,58 @@ was measured at `49bfcf4ef` under that day's rule, and this page's rule 2 is tha
 a number carries its method and reference point. Do not subtract across these
 three changes — four of the seven rows moved for a reason that has nothing to do
 with the tree.
+
+## 2026-09-18: the current reading, and one delta that is not comparable
+
+`python3 scripts/architecture_census.py`, which is the instrument this page
+names. ⭐ **THIS SUPERSEDES BOTH READINGS ABOVE AS THE CURRENT SHAPE** — they
+stay because this page is a progress record, and a progress record that
+overwrites its own history measures nothing.
+
+| metric | baseline `662a9b5` | 2026-09-16 | 2026-09-18 | Δ from baseline |
+| --- | ---: | ---: | ---: | ---: |
+| workspace packages | 80 | 80 | **80** | — |
+| workspace Rust files | 1,882 | 1,889 | **1,891** | +9 |
+| repository tracked Rust files | 1,908 | 1,915 | **1,917** | +9 |
+| workspace raw Rust LOC | 825,759 | 840,947 | **853,258** | +27,499 |
+| workspace nonblank Rust LOC | 777,646 | 792,058 | **803,836** | +26,190 |
+| large Rust modules (≥1000 nonblank) | 182 | 185 | **188** | +6 |
+| mechanical editor domains | 6 | 6 | **6** | — |
+| explicit App resources with session/generation semantics | 32 | 36 | **37** | +5 |
+| duplicate-authority families, open | 4 | — | **1** | −3 |
+
+| metric the rule change touched | baseline (tail cut) | 2026-09-18 (per-item strip) | Δ NOT COMPARABLE |
+| --- | ---: | ---: | :--- |
+| `Option<Res<_>>` occurrences | 732 | **806** | rule effect alone was +89 on a stationary tree |
+| `Option<Res<_>>` unique spellings | 196 | **203** | rule effect alone was +9 |
+| test Rust LOC (heuristic) | 265,099 | **282,002** | rule effect alone was +1,529 |
+
+⛔⛤ **AND THREE ROWS HAVE NO Δ COLUMN, BECAUSE THEIRS WOULD BE A LIE.** The
+counting rule changed between the baseline and today: the baseline cut each
+file from its first `#[cfg(test)]` to the end, and the per-item strip replaced
+it. The section below measures that rule's effect ON A STATIONARY TREE, and it
+is large — `Option<Res<_>>` occurrences +89, unique types +9, test LOC +1,529.
+⇒ `806` against `732` mixes a tree change with a rule change and is a
+measurement of neither. The comparable pair for occurrences is **820 → 806**,
+both under the current rule.
+
+⛔ **I PUT THE UNIQUE-SPELLINGS AND TEST-LOC ROWS IN THE Δ TABLE FIRST, IN THE
+PARAGRAPH EXPLAINING WHY THE OCCURRENCES ROW COULD NOT BE THERE.** The reason
+given was that *"both its readings come from the same pattern over the same
+corpus definition"*, which the rule-change table one section down refutes on
+its own rows. ⇒ The lesson is not that a Δ needs care; it is that **knowing a
+rule changed does not tell you which metrics it touched** — that is a second
+question, and the answer is written down two screens away from where the Δ gets
+computed. Read the rule-change table before writing any Δ that crosses it.
+
+⚠ **AND THE ROWS THAT DO CARRY A Δ WERE CHECKED ONE AT A TIME AGAINST THAT
+TABLE, NOT WAVED THROUGH AS A GROUP.** Packages, workspace and tracked file
+counts, raw and nonblank LOC, and large modules are manifest or filesystem
+counts over whole files — no test stripping enters them. `explicit App
+resources with session/generation semantics` reads a source-owned explicit
+list. `duplicate-authority families` comes from the ledger. ⚠ `mechanical
+editor domains` is the one Δ row that IS a pattern metric with a test
+exclusion, and it is not in the rule-change table and reads 6 in all three
+columns — so its Δ of zero is not evidence that the rule missed it, only that
+nothing has moved it either way. Treat that row as unverified across the rule
+boundary.

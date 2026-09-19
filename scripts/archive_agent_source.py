@@ -1410,14 +1410,18 @@ def run_dirstats(archive_root: Path, generated_at: str, log: Log) -> None:
 
 def _load_git_well_archive_api() -> tuple[Any, Any]:
     try:
-        from git_well.git_archive_source import ArchiveSourceContext
-        from git_well.git_archive_source import archive_source
-    except ImportError as ex:
-        raise RuntimeError(
-            'Ambition source archiving requires git-well with the '
-            'programmatic archive hook API. Install or update it with:\n'
-            f'  {sys.executable} -m pip install -U "git_well>=0.3.4"'
-        ) from ex
+        from git_well.archive_source import ArchiveSourceContext
+        from git_well.archive_source import archive_source
+    except ImportError:
+        try:
+            from git_well.git_archive_source import ArchiveSourceContext
+            from git_well.git_archive_source import archive_source
+        except ImportError as ex:
+            raise RuntimeError(
+                'Ambition source archiving requires git-well with the '
+                'programmatic archive hook API. Install or update it with:\n'
+                f'  {sys.executable} -m pip install -U "git_well>=0.3.4"'
+            ) from ex
     return archive_source, ArchiveSourceContext
 
 

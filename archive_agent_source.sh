@@ -9,11 +9,7 @@ for candidate in python python3; do
     if ! command -v "$candidate" >/dev/null 2>&1; then
         continue
     fi
-    if "$candidate" -c \
-        'from git_well.git_archive_source import ArchiveSourceContext, archive_source' \
-        >/dev/null 2>&1; then
-        exec "$candidate" scripts/archive_agent_source.py "$@"
-    fi
+    exec "$candidate" scripts/archive_agent_source.py "$@"
 done
 
 cat >&2 <<'EOF'

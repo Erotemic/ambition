@@ -5485,17 +5485,17 @@
       "category": "crate_boundary",
       "name": "ambition_platformer2d",
       "owner": "ambition_platformer2d",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role.",
+      "current_truth": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role. \u26d4 COLLAPSED 2026-09-18 onto `BEVY-FACADE-REEXPORTS`, which asks the same question about the same crate and answered it by parsing every `pub use` in `ambition_platformer2d`. This row states no separate fact; the measurement is the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/architecture/engine-architecture.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "A facade can be useful, but compatibility mirrors can hide ownership. Review forwarding surface separately from the public SDK role. \u26d4 COLLAPSED 2026-09-18 onto `BEVY-FACADE-REEXPORTS`, which asks the same question about the same crate and answered it by parsing every `pub use` in `ambition_platformer2d`. This row states no separate fact; the measurement is the `BEVY-FACADE-REEXPORTS` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/architecture/engine-architecture.md",
             "scripts/architecture_census.py"

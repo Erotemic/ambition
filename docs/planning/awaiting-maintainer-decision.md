@@ -3993,9 +3993,17 @@ exists to prevent.
 
 ⚠ **`Q144` IS NOT THIS QUESTION, AND `C07` SAYS SO.** `Q144` rules on ONE
 family — whether a supported composition must activate a prepared generation.
-This row needs the general vocabulary across **820 optional `Res`/`ResMut`
-occurrences over 206 unique type spellings** (re-derived 2026-09-17 after the
-instrument was found cutting 12% of its own corpus). Most are not defects.
+This row needs the general vocabulary across every optional `Res`/`ResMut` in
+the tree — **806 occurrences over 203 unique type spellings**, measured by
+`scripts/architecture_census.py` under the comment-stripping rule and re-run
+2026-09-19.
+Most are not defects. ⚠ **THE POPULATION'S OWNER IS
+[`C07`'s CURRENT STATE](consolidation/consolidation-plan.md), NOT THIS ROW**,
+and this row proved why: it said `820 / 206` until 2026-09-19, which is the
+figure from the PREVIOUS counting rule — that one counted prose, and three of
+its types existed only in doc comments. ⇒ Do not subtract across the rules;
+`campaign-metrics.md` carries the rule-by-rule table and the only comparable
+pair on it.
 
 ⭐ **AND THE `Q132` RULING ALREADY SUPPLIED THE TEST, WHICH IS WHY THIS IS NOW
 A SMALLER QUESTION THAN IT WAS.** The scoping rule decided 2026-09-19 says
@@ -4013,7 +4021,7 @@ shapes, and they differ in what a missing authority MEANS:
 
 1. **One supported profile — the shell-routed session.** Everything else is a
    fixture. An optional canonical authority is then a defect by default, and the
-   206 spellings become a finite repair list. ⚠ Costs the most in test estate:
+   spellings above become a finite repair list. ⚠ Costs the most in test estate:
    between 83 and 113 harness files construct worlds without a shell, and each
    needs an explicitly-scoped declaration rather than a fallback.
 2. **Two named profiles — shell-routed, and declared direct entry.** Direct

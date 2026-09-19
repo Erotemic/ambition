@@ -91,3 +91,56 @@ def test_the_waiver_FILE_is_not_evidence_for_its_own_rows():
         f"{leaked} reached the type population from the waiver file itself, so that "
         "file is now evidence for its own rows"
     )
+
+
+def test_a_live_leaf_under_a_dead_module_path_is_not_a_subject():
+    """⛔⛤ THE LEAF WAS THE WHOLE TEST UNTIL 2026-09-18, FOUND BY REVIEW.
+
+    A waiver naming `a::dead::path::LiveType` passed because `LiveType` is
+    declared SOMEWHERE in the tree. So a waiver could keep pointing at a module
+    that had been carved away and this check — whose entire job is finding
+    waivers whose subject is gone — would never say so. The rot was one path
+    segment above where it was looking.
+    """
+    names, modules = guard._tree_facts()
+    live = "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding"
+    prefix, _, leaf = live.rpartition("::")
+    assert leaf in names, "fixture drifted: pick another declared leaf"
+    assert guard.module_is_live(prefix, modules), "the real path must read live"
+
+    # The SAME leaf, under a module that does not exist. The old rule saw only
+    # the leaf, so this read as a live subject.
+    dead = f"ambition_platformer2d_runtime::no_such_module::deeper::{leaf}"
+    assert dead.rpartition("::")[2] in names, "the poison must keep a LIVE leaf"
+    assert not guard.module_is_live(dead.rpartition("::")[0], modules), (
+        "a module path the tree does not have still read as live, which is the "
+        "defect this arm exists for"
+    )
+
+
+def test_the_relative_spelling_is_still_live():
+    """⚠ THE COST OF THE RULE ABOVE, PINNED. Waivers spell the path two ways and
+    both are legitimate: fully qualified from a crate root, and RELATIVE with a
+    leading `::`. Measured 2026-09-18: 37 of the 127 qualified subjects use the
+    relative form, so an exact match would report all 37 as dead."""
+    _names, modules = guard._tree_facts()
+    assert guard.module_is_live("::world::rooms::transaction", modules)
+    assert guard.module_is_live("", modules), "an unqualified leaf has no path to check"
+
+
+def test_every_shipped_qualified_subject_has_a_live_module():
+    """⭐ THE RATCHET, AND IT LANDED GREEN. 0 of 127 qualified subjects across
+    the shipped tables name a module the tree does not have, so this tightening
+    is a ratchet rather than a repair — which is worth pinning, because a rule
+    that finds nothing on the day it lands is the one nobody re-checks."""
+    rows = guard.waiver_rows()
+    names, modules = guard._tree_facts()
+    qualified = [
+        n
+        for subs in rows.values()
+        for n in subs
+        if "::" in n and not n.endswith("::") and not n.endswith("<")
+    ]
+    assert len(qualified) >= 100, f"only {len(qualified)} qualified subjects parsed"
+    dead = [n for n in qualified if not guard.module_is_live(n.rpartition("::")[0], modules)]
+    assert dead == [], dead

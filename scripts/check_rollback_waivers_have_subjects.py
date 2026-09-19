@@ -152,6 +152,32 @@ def _tree_facts() -> tuple[set[str], set[str]]:
     return names, modules
 
 
+def module_is_live(prefix: str, modules: set[str]) -> bool:
+    """Does a waiver's module path name a module the tree actually has?
+
+    ⚠ **SUFFIX MATCH, BECAUSE WAIVERS SPELL THE PATH TWO WAYS** and both are
+    legitimate: fully qualified from a crate root
+    (`ambition_platformer2d_runtime::room_transition::loading::X`) and relative
+    with a leading `::` (`::room_transition::loading::X`). MEASURED 2026-09-18:
+    37 of the 127 qualified subjects use the relative form, so an exact match
+    would report all 37 as dead.
+
+    ⚠ **WHAT THIS STILL CANNOT SEE**, stated rather than left to be
+    discovered: a re-export. A type declared in `a::b` and published as
+    `crate::T` is legitimately waivable under either spelling, so this asks
+    only that the named module EXISTS — not that the leaf is declared in it.
+    Requiring that would redden every `pub use`.
+
+    ⭐ MEASURED 2026-09-18 ACROSS THE SHIPPED TABLES: 0 of 127 qualified
+    subjects name a module the tree does not have, so this lands as a ratchet
+    rather than a repair.
+    """
+    prefix = prefix.strip(":")
+    if not prefix:
+        return True
+    return any(m == prefix or m.endswith(f"::{prefix}") for m in modules)
+
+
 def subjectless() -> tuple[dict[str, list[str]], dict[str, int]]:
     rows = waiver_rows()
     names, modules = _tree_facts()
@@ -190,8 +216,15 @@ def subjectless() -> tuple[dict[str, list[str]], dict[str, int]]:
                 if (REPO / "crates" / needle).is_dir() or (REPO / "game" / needle).is_dir():
                     continue
             else:
-                leaf = needle.rsplit("::", 1)[-1]
-                if leaf in names:
+                # ⛔⛤ **THE LEAF WAS THE WHOLE TEST UNTIL 2026-09-18, AND A DEAD
+                # MODULE PATH STAYED GREEN.** `a::dead::path::LiveType` passed
+                # because `LiveType` is declared SOMEWHERE, so a waiver could
+                # keep pointing at a module that had been carved away and this
+                # check would never say so — exactly the rot it exists to find,
+                # one path segment up from where it was looking. Found by
+                # review.
+                prefix, _, leaf = needle.rpartition("::")
+                if leaf in names and module_is_live(prefix, modules):
                     continue
             dead.setdefault(table, []).append(needle)
     sizes = {

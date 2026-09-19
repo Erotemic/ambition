@@ -107,8 +107,14 @@ a rollback host can rebase/refuse before simulation sees the new authority.
 
 Direct `UserSettings` reads have been removed from the simulation schedule. Values
 that affect mechanics are projected into admitted policy, such as per-seat control
-frame modes and `PlayerDamagePolicy`. The remaining damage-policy lifetime is
-[Q127](../awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+frame modes and `PlayerDamagePolicy`. The remaining damage-policy lifetime was `Q127`, and it is
+[RULED](../maintainer-decisions.md), 2026-09-19: there is to be no generic
+one-dimensional engine difficulty architecture. Difficulty is game policy
+expressed as presets; participant handicaps and CPU brain levels are separate
+concepts, and participant-specific assist/handicap state stays distinct from
+game/match policy. ⚠ The topic is DEPRIORITISED on purpose — preserve enough
+architecture not to be boxed in later and get the default game playing
+exceptionally well first.
 
 ## Established architecture
 

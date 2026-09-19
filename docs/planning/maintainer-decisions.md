@@ -135,6 +135,18 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 | 2026-09-19 | **⭐ A CUTSCENE FADE CARRIES AN EXPLICIT AUTHORED START AND TARGET ALPHA** (`from_alpha` / target alpha or equivalent). ⛔ Do not rely on a hidden *"all cutscenes start black"* convention. ⚠ Cutscenes are currently low priority and the existing authored ones are not valuable enough to justify substantial preservation effort: make the semantics sane with minimal work, update the few authored sites, move on. (Q143) | Medium |
 | 2026-09-19 | **⛔ NOT BLOCKED, DO NOT WAIT FOR A FURTHER RULING** on any of: **Q132** — one canonical live `SessionRoot`, and a prepared candidate has a DISTINCT candidate identity that must not masquerade as `SessionRoot`; **Q136** — choose ingress by semantic ownership, and current rollback correctness is engineering, not a maintainer policy blocker; **Q138** — an invalidated harness must REFUSE or FAIL rather than silently produce frozen observations; **Q139** — do not grow architecture merely to satisfy a static presentation-writer census; **Q122** — mechanical identity fingerprints MECHANICAL FACTS, not explanatory prose; **Q104** — content-authored movesets are the long-term authority and duplicate Rust tables are migration scaffolding, not permanent architecture; **Q110** — mechanical registry changes use proper explicit lifecycle/replacement semantics, and no universal silent overwrite is invented; **Q145** — derive room-transition ordering from actual transaction semantics; **Q141** — durability is per-item and authored, and a runtime-spawned item MAY be durable when explicitly authored that way. | High |
 
+### The census numbers the 2026-09-19 ingress rulings were sized against
+
+⛔ These are TRANSCRIPTION CHECKS, not a second classification. Each census owns
+its own verdicts; the marker states what the ruling was sized against, and the
+script fails if the two disagree. They moved here from
+`awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
+pinned to a page that no longer states the fact is a check against nothing.
+
+<!-- crossing-census: both_side_resources=57 rollback_registered=33 adjudicated_harmless=20 session_edge_only=3 filed=1 unclassified=0 -->
+<!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=42 unlocated_types=15 -->
+
+
 ## Supplemental rulings that were previously stored as long-form sections
 
 - **2026-08-15 — reset semantics:** the checkpoint is the reset baseline. A

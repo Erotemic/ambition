@@ -342,7 +342,11 @@ def crossings() -> dict[str, dict[str, set[str]]]:
 #: population. That is legitimate — the ruling has to say how big it is — and it
 #: is a copy, so it is checked here rather than trusted. The sibling ingress
 #: census carries the same arm for the same reason and the same paragraph.
-RULING = REPO / "docs/planning/awaiting-maintainer-decision.md"
+# ⭐ MOVED 2026-09-19 WITH ITS SUBJECT. `Q136` was ruled and deleted from the
+# live question ledger, and a marker pinned to a page that no longer states
+# the fact is a transcription check against nothing. The durable ruling is
+# where the classification lives now.
+RULING = REPO / "docs/planning/maintainer-decisions.md"
 RULING_MARKER = re.compile(r"<!--\s*crossing-census:\s*([^>]*?)\s*-->")
 MARKER_ENTRY = re.compile(r"(\w+)=(\d+)")
 

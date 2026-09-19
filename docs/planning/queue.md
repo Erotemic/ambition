@@ -298,17 +298,16 @@ on the control frame rather than in a resource — the per-seat frame-mode work
 moved a policy the same way for the same reason — and that is a design question,
 not a missing line. The decision is what is missing, not the registration.
 
-⛔⛤ **AND THE DECISION IS ALREADY FILED, WHICH THIS ROW DID NOT SAY FOR A DAY —
-CORRECTED 2026-09-17.** It is
-[`Q136`](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline),
-*"how does a local menu intent enter the synchronised timeline?"*, and that
-question already names `CutsceneAdvanceRequest` as **the residue of its own
-census** — the one row of fifty-two cross-written resource types that uses none
-of the four shipped stand-down patterns. ⇒ Item 1 is not unowned work waiting for
-someone to notice it; it is BLOCKED on `Q136`, and the four precedents that
-ruling enumerates are what a repair would choose between. A row that states a
-missing decision without routing to the ledger that holds it leaves the decision
-unasked.
+⭐⭐ **AND THE DECISION IS RULED, 2026-09-19.** `Q136` asked *"how does a local
+menu intent enter the synchronised timeline?"*, and the answer
+([`maintainer-decisions.md`](maintainer-decisions.md)) is to choose the ingress
+by SEMANTIC OWNERSHIP — current rollback correctness here is engineering work,
+not a maintainer policy blocker. That question already named
+`CutsceneAdvanceRequest` as **the residue of its own census** — the one row of fifty-two cross-written resource types that uses none
+of the four shipped stand-down patterns. ⇒ Item 1 is not unowned work waiting
+for someone to notice it, and it is no longer waiting for a ruling either: the
+four precedents `Q136` enumerates are what this repair now chooses between on
+semantic-ownership grounds.
 
 ⭐⛤ **AND `Q136` NOW HAS A LANDED ROAD AND A NARROWER BLOCKER — 2026-09-18.** Two
 things changed under this row without changing what it owes:
@@ -461,8 +460,9 @@ is not where a transport contract lives.
 EXCHANGES the identity — the same remainder the state half has, waiting on `N2`.
 ⚠ `SETTINGS-ROLLBACK` is the row that would add the first new field and therefore
 the row that had to notice; it is not blocked by this.
-⚠ And [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline)
-is the likelier first customer: if a cutscene edge is ruled to be gameplay input,
+⚠ And the cutscene edge (`Q136`, [ruled](maintainer-decisions.md) 2026-09-19:
+ingress by semantic ownership)
+is the likelier first customer: if a cutscene edge is gameplay input,
 this is the arm that will speak. ⭐ NARROWED 2026-09-18 to one named field: the
 cutscene SKIP is a hold and `ControlFrame` carries `reset_pressed` without a
 `reset_held`, so what that ruling would add is one bool beside the five `*_held`
@@ -1817,8 +1817,13 @@ five-rung sweep is what can. Rung 5 coming back BIT-IDENTICAL under the change i
 the instrument's own control: no throw lands there, so the road provably did
 nothing, exactly where it should do nothing.
 
-⇒ Filed as [Q133](awaiting-maintainer-decision.md#q133--should-a-throw-obey-rage-when-obeying-it-changes-who-wins) — this is a balance call, not
-a mechanics call, and it is not mine to make.
+⇒ [RULED](maintainer-decisions.md) 2026-09-19 (`Q133`): for the Smash-like
+game, follow Smash — ordinary scaling throws participate in rage, and
+set-knockback keeps its set-knockback semantics as in Ultimate. ⛔ Not a
+universal engine law: rage, and whether a given move or throw obeys it, are
+game-level combat policy the engine must be able to EXPRESS. ⚠ If the CPU-duel
+benchmark moves when throws obey rage, that is combat/AI/balance evidence, not
+a reason to keep a mechanics inconsistency.
 
 ⛔⛤ **THE STALENESS HALF IS A READ WITH NO MATCHING WRITE — it would be inert
 forever and its witness would still be green.** Wear is recorded at exactly ONE
@@ -2317,6 +2322,65 @@ second body tick or hidden writer is introduced; schedule witnesses are placed
 between actual neighboring phases rather than only `.after(...)` an abstract set.
 
 ## P1 — ownership, composition and iteration
+
+### Q132-REPRESENTATION — a prepared candidate must not carry `SessionRoot`, and the publication road is not the one the comments name
+
+**P1.** Owner: `ambition_platformer2d_shared_tangle::construction` and the
+provider's session activation.
+
+**Current state:** ruled and not implemented. Jon, 2026-09-19: one canonical
+live `SessionRoot`, and a prepared candidate has a DISTINCT candidate identity
+that must not masquerade as one. Today the provider spawns the candidate with
+`SessionRoot(scope)` + `SimId::singleton("session","root")` +
+`InactiveCandidate`, so the invariant holds only for queries that exclude
+disabled entities — and `Allow<InactiveCandidate>`, which several construction
+queries legitimately use, sees two.
+
+⛔⛤ **THE WITNESS PROVES THE MASQUERADE AND READS IT AS AGREEMENT.**
+`a_prepared_candidate_never_counts_as_a_canonical_session_root` asserts
+`visible roots = 0, roots including hidden = 1` — i.e. it establishes that the
+candidate IS a `SessionRoot` and then interprets its invisibility as meaning it
+is not one. The assertion to want is `count(SessionRoot, including hidden) <= 1`
+with a `CandidateSessionRoot` frame as the anti-vacuity premise.
+
+⛔⛤ **ATTEMPTED 2026-09-19 AND REVERTED, AND THE MEASUREMENT IS WHY THE NEXT
+ATTEMPT SHOULD START HERE.** A `CandidateSessionRoot(scope)` marker was added,
+the provider spawned it instead of `SessionRoot`, and the swap was placed first
+at `publish_candidate_session` and then at `lower_candidate_barrier`. Both left
+the shipped app with **no session root at all**, and instrumenting the roads
+says why:
+
+| probe | shipped `ambition_gameplay` route, 240 frames |
+|---|---|
+| `publish_candidate_session` | **never called** |
+| `lower_candidate_barrier` | **never called, on any entity** |
+| candidate root entity | exists from frame 1, gone by frame ~13–17 |
+| `SessionRoot` at HEAD | `total = 1` from frame 1; `visible = 1` from frame 17, and it stays |
+
+⇒ **The road that makes the live session root visible on the shipped route is
+NEITHER publication function**, though both modules' comments describe them as
+the roads. Until that road is named, moving the marker deletes the root: the
+candidate stops being one and nothing promotes it.
+
+**Next implementation:** find what actually unhides that entity — or what
+despawns it and spawns the visible root — before touching the representation.
+`SessionSpawnScope::apply_to` is the hiding road (`publish_candidate_session`'s
+sibling poison already established that); the UNHIDING road is the open
+question. The representation change itself is small once it is known: a
+`CandidateSessionRoot` marker, the provider spawning it, and one swap at the
+moment of visibility.
+
+⚠ **THE SHARED `SimId` IS A DIFFERENT QUESTION AND SHOULD STAY.** A hidden
+candidate deliberately carries the live root's `session:root` identity so two
+hosts checksum a session identically — pinned by
+`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`.
+What must not be shared is the CLAIM TO BE THE LIVE ROOT.
+
+**Blocked by:** nothing.
+
+**Acceptance:** counting `SessionRoot` INCLUDING hidden entities never exceeds
+one on any frame of the shipped handoff, a frame holds a prepared candidate
+beside that count, and the shipped route still establishes a session root.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
 
@@ -3674,8 +3738,9 @@ SYNCHRONISED TIMELINE AT ALL", AND IT IS A PEER-VISIBLE DECISION.** A menu press
 is a local input event; in rollback netcode local inputs reach the timeline
 through the INPUT payload GGRS carries, not through a resource or a rewinding
 queue. Putting a New Game bit there changes the input wire format, which two
-peers must agree on. ⇒ Filed as [Q136](awaiting-maintainer-decision.md#q136--how-does-a-local-menu-intent-enter-the-synchronised-timeline) rather
-than resolved by a quiet refactor. ⚠ Both witnesses are green ASSERTING THE
+peers must agree on. ⇒ [RULED](maintainer-decisions.md) 2026-09-19 (`Q136`): the ingress is chosen
+by semantic ownership, so this is engineering rather than a quiet refactor
+nobody sanctioned. ⚠ Both witnesses are green ASSERTING THE
 DEFECT and must be inverted by whatever lands; neither should be satisfied by
 removing a type from the peer checksum, because
 `install_resource_clone_checksum` installs the restore independently of the

@@ -1143,7 +1143,11 @@ def misshapen_readings() -> list[str]:
 #: numbers in prose, and on 2026-09-19 five of them were stale — by the
 #: instrument's OWN repair, which is the worst case: the script got better and
 #: the page it justifies kept the number the older script printed.
-RULING = REPO / "docs/planning/awaiting-maintainer-decision.md"
+# ⭐ MOVED 2026-09-19 WITH ITS SUBJECT. `Q136` was ruled and deleted from the
+# live question ledger, and a marker pinned to a page that no longer states
+# the fact is a transcription check against nothing. The durable ruling is
+# where the classification lives now.
+RULING = REPO / "docs/planning/maintainer-decisions.md"
 RULING_MARKER = re.compile(r"<!--\s*ingress-census:\s*([^>]*?)\s*-->")
 MARKER_ENTRY = re.compile(r"(\w+)=(\d+)")
 

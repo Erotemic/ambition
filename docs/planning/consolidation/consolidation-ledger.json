@@ -2702,11 +2702,10 @@
       "depends_on": [
         "AUTH-CONTENT-IDENTITY"
       ],
-      "blocked_by": [
-        "Q144"
-      ],
+      "blocked_by": [],
       "was_blocked_by": [
-        "A10 candidate-world/session convergence -- DISCHARGED 2026-09-16: `queue.md`'s A10 row is DONE and its demolition is closed. This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted."
+        "A10 candidate-world/session convergence -- DISCHARGED 2026-09-16: `queue.md`'s A10 row is DONE and its demolition is closed. This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted.",
+        "Q144 -- DISCHARGED 2026-09-19, RULED: two explicit composition modes: a game must be able to launch DIRECTLY or run inside the shell, and the game is essentially identical in both, with returning to the shell the one meaningful semantic difference. Shell presence must not alter simulation, mechanics, capabilities, registries, content or game policy. Production shell sessions use the prepared/session lifecycle; explicit direct/headless/test compositions may hold scoped fixture/direct-entry authority, but no anonymous App-global fallback state returns. See docs/planning/maintainer-decisions.md."
       ],
       "metric_tags": [
         "mechanical_authority",

@@ -148,7 +148,7 @@ live in the owner row, because a summary of them here would rot.
 
 | open road | blocked on |
 | --- | --- |
-| the snapshot schema fingerprint hashing English prose | [Q122](awaiting-maintainer-decision.md#q122--which-registry-fields-are-mechanical-and-which-are-presentation) — where the mechanical/presentation line falls. The naive fix is refuted in the row |
+| the snapshot schema fingerprint hashing English prose | not blocked — [RULED](maintainer-decisions.md) 2026-09-19 (`Q122`): mechanical identity fingerprints MECHANICAL FACTS, not explanatory prose. The naive fix is still refuted in the row |
 | the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: two-host differing-history arms measure it, and **the count is in the owner row, not here** — this cell said "one of them" while the row said twelve |
 | the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
 
@@ -184,9 +184,12 @@ editable domain appears; it should not create a second editor-specific rollback
 road.
 
 Mutable user preferences are distinct from admitted mechanical policy. Direct
-`UserSettings` reads have been removed from the simulation schedule; the remaining
-damage-policy lifetime is a product decision in
-[Q127](awaiting-maintainer-decision.md#q127--are-difficulty-assist-and-player-damage-modifiers-match-wide-or-participant-specific).
+`UserSettings` reads have been removed from the simulation schedule. The
+remaining damage-policy lifetime was `Q127` and is
+[RULED](maintainer-decisions.md), 2026-09-19: no generic engine difficulty
+architecture; difficulty is game policy as presets, handicaps and CPU brain
+levels are separate concepts, and the whole topic is deprioritised until the
+default game plays exceptionally well.
 
 ### Persistence and the peer contract
 
@@ -254,9 +257,9 @@ peers agree on. The ruling is
 the measurement and the reproduction are in
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
-⇒ Found beside it, and filed as
-[Q138](awaiting-maintainer-decision.md#q138--should-platformer2dsimharnessstep-refuse-to-step-an-invalidated-session):
-an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
+⇒ Found beside it, and [RULED](maintainer-decisions.md) 2026-09-19 (`Q138`):
+an invalidated harness must REFUSE or FAIL rather than silently produce frozen
+observations. Today an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
 `SimTick` in silence. ⚠ This linked `Q130` until 2026-09-18, which asked the
 SAME question with an older census; `Q130` is now a pointer to `Q138`. And the
 sentence that followed — *"none of them because a guard made it do so"* — has
@@ -270,9 +273,11 @@ The host can consume edited move content without a Cargo/link step. Reload has
 explicit unchanged/stale/refused/activated outcomes rather than unconditional
 generation churn. Remaining design work is to finish one prepare/admit/publish
 contract across reloadable registries and settle the permanent moveset authoring
-source. See [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload),
-[Q104](awaiting-maintainer-decision.md#q104--is-the-rust-move-table-or-the-content-file-the-source-of-a-moveset)
-and [Q110](awaiting-maintainer-decision.md#q110--may-a-provider-keyed-fragment-registry-gain-a-named-hot-reload-replacement-operation).
+source. See [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload).
+⭐ Both rulings landed 2026-09-19 ([`maintainer-decisions.md`](maintainer-decisions.md)):
+content-authored movesets are the long-term authority and duplicate Rust tables
+are migration scaffolding (`Q104`), and mechanical registry changes use explicit
+lifecycle/replacement semantics rather than a universal silent overwrite (`Q110`).
 
 ### Composition and public profiles
 

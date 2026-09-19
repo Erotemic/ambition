@@ -3837,9 +3837,20 @@ host, resolves `Update`, and reads the executable positions of the eight
 systems:
 
 ```text
-readiness chain : 89, 90, 91, 92      (contiguous — it is one `.chain()`)
-app-side writers: 80, 81, 280, 324    (two BEFORE the readiness chain, two long after)
+readiness chain : 95, 96, 97, 98      (contiguous — it is one `.chain()`)
+app-side writers: 81, 82, 310, 323    (two BEFORE the readiness chain, two long after)
 ```
+
+⚠ **RE-RUN 2026-09-19 AND THE POSITIONS MOVED WHILE THE SHAPE DID NOT.** The
+first reading was `89, 90, 91, 92` against `80, 81, 280, 324`; the numbers
+above are today's. ⇒ **AN ABSOLUTE SCHEDULE POSITION IS THE WRONG THING TO
+WRITE DOWN** — it shifts when any system is added anywhere earlier in `Update`,
+so it goes stale without anything about this question changing. The durable
+fact is the SHAPE, and it is unchanged: the readiness chain is contiguous, two
+app-side writers precede it and two trail it by hundreds of slots. The
+conflict count is also unchanged — **16 unordered pairs**, re-measured the same
+day by running the arm itself (`cargo test -p ambition_app --test app_it --
+room_transition`, 16 tests, all passing).
 
 ⇒ **THIS CHANGES THE PRICE OF ALL THREE OPTIONS AND IT IS THE FACT THE RULING
 WAS MISSING.** The reflex when an ordering is unspecified is that some order is

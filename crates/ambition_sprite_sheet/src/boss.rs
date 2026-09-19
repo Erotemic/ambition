@@ -828,8 +828,6 @@ pub fn load_boss_sprite_in(
     load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, label, sheet, quality)
 }
 
-/// Build the Smirking Behemoth boss sprite asset.
-
 /// Derive the published sheet's RON record key (its file root) from the resolved
 /// PNG asset path, e.g. `sprites/flying_spaghetti_monster_boss_spritesheet.png`
 /// → `flying_spaghetti_monster_boss`, or `sprites/gnu_ton_boss/...png` →

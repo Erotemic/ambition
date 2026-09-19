@@ -136,8 +136,6 @@ pub struct ActorClusterSeed {
     pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
 
-/// Convert an authored LDtk actor rectangle}
-
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
 /// runtime collision size into the actor's initial body center.
 ///

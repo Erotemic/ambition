@@ -1656,13 +1656,6 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
     ),
 ];
 
-/// Publish percent and stocks for every seated fighter.
-///
-/// percent is NOT health and the gauge fill says so: it fills as damage
-/// ACCUMULATES, and the number keeps counting past 100% because a platform
-/// fighter's does. Clamping the fill is a rendering decision; clamping the
-/// number would be a lie about the game.
-
 /// THE COMBAT RULES THIS STAGE DECLARES, in one place so the publisher and
 /// its guard cannot hold different copies.
 ///
@@ -1927,6 +1920,17 @@ fn hud_face(
     })
 }
 
+/// Publish percent and stocks for every seated fighter.
+///
+/// percent is NOT health and the gauge fill says so: it fills as damage
+/// ACCUMULATES, and the number keeps counting past 100% because a platform
+/// fighter's does. Clamping the fill is a rendering decision; clamping the
+/// number would be a lie about the game.
+///
+/// ⚠ This sat 270 lines up, blank-line-separated above
+/// `smash_declared_combat_rules`, so that function's rustdoc summary was
+/// "Publish percent and stocks for every seated fighter" and this one had no
+/// doc at all.
 pub fn publish_smash_hud(
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::versus_match::MatchSeat,

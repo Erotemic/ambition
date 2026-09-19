@@ -12,8 +12,6 @@ use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
-/// The scripted stick.
-
 /// Drive one frame with the given control frame.
 fn step(app: &mut App, frame: ControlFrame) {
     app.world_mut()

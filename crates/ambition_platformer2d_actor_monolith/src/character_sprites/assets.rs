@@ -304,15 +304,6 @@ fn sprite_texture_scale(
     }
 }
 
-/// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
-///
-/// Iterates the caller's App-local character catalog and, for each entry,
-/// looks up its [`CharacterSheetSpec`] via [`sheet_for_character_id_in`]. Asset
-/// availability gates through
-/// [`Platformer2dAssetCatalog::try_path_for_load`]; missing
-/// files produce no map entry (callers fall back to colored
-/// rectangles).
-
 /// Decode one DECLARED character's sheet and publish it under every token that
 /// resolves to it.
 ///

@@ -225,21 +225,6 @@ pub fn build_sync_test_session(
     Ok(AmbitionGgrsSession::SyncTest(session))
 }
 
-/// Install an already-built sync-test session as the new frame-zero baseline.
-///
-/// Installation returns nothing and has no recoverable failure — ⚠ **but it is
-/// not unconditionally safe, and this sentence has now been wrong twice.** For a
-/// day it read "cannot fail" while the function returned `Result`. Then it read
-/// that the [`FrameZeroEligibility`] precondition made the work infallible,
-/// which the 2026-09-17 review took apart: the token proves the check RAN, and a
-/// caller can invalidate it before getting here — the lifecycle road rebuilds a
-/// whole room between the two calls. ⇒ What is true is that the fallible,
-/// RECOVERABLE step happens in [`FrameZeroEligibility::check`], one call
-/// earlier, while the old session is still alive; and that this function takes
-/// the census AGAIN, unconditionally, before its first write, where a hidden
-/// candidate is an invariant failure. Rebase resets frame counters and
-/// `Time<GgrsTime>` before installing the session.
-///
 /// Warn when frame zero has no constructed session world: construction via
 /// `Commands` after session start cannot be undone by rollback, so those frames
 /// will checksum-mismatch on resimulation. Empty-world fixtures remain allowed.
@@ -625,6 +610,19 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     }
 }
 
+/// Install an already-built sync-test session as the new frame-zero baseline.
+///
+/// It returns nothing and has no RECOVERABLE failure. Frame counters and
+/// `Time<GgrsTime>` are reset here, before the session goes in.
+///
+/// ⛔⛤ **THIS SUMMARY AND THAT FACT LIVED ON `warn_if_no_world_to_rewind` UNTIL
+/// 2026-09-19**, four hundred lines up: the doc comment carrying them sat above
+/// the wrong `fn`, so rustdoc rendered this function's whole rationale — the
+/// 2026-09-17 review's *"this sentence has now been wrong twice"* paragraph
+/// included — under an unrelated warning helper, while THIS item had no summary
+/// line at all and opened on the ⛔ below. Two owners for one fact, and the
+/// better-written one was attached to nothing that could be wrong about it.
+///
 /// ⛔⛤ **IT REFUSES THE INSTALLATION, NOT MERELY THE REBASE — AND THE REFUSAL
 /// NOW HAPPENS BEFORE YOU CAN CALL THIS AT ALL.** The first version of this
 /// checked candidates inside [`rebase_rollback_carrier_order`], logged that the

@@ -701,3 +701,56 @@ mostly long sentences whose tense sits before the clause naming the symbol. ⇒
 Neither unit is a classifier. The block is the right unit for READING and the
 sentence is the right unit for TRIAGING, and the residue is small enough to
 read by hand — which is the actual answer, not a better regex.
+
+## A THIRD way a comment stops describing its subject: it loses the subject — 2026-09-19
+
+Everything above is about a comment whose CONTENT went stale. This one is about
+a comment whose ATTACHMENT did.
+
+```
+/// Install an already-built sync-test session as the new frame-zero baseline.
+...three paragraphs of rationale, including the 2026-09-17 review's...
+/// Warn when frame zero has no constructed session world:
+fn warn_if_no_world_to_rewind(world: &World) {
+```
+
+Rust attaches both runs to the item below. So the install function's entire
+rationale — the carefully-written *"this sentence has now been wrong twice"*
+paragraph — rendered under an unrelated warning helper four hundred lines from
+the function it is about, while `install_rebased_sync_test_session` had no
+summary line at all. **Two owners for one fact, and the better-written one was
+attached to nothing that could contradict it.**
+
+⭐ **AND IT HAS A ONE-LINE SIGNATURE.** A `///` run, then a genuinely BLANK
+line, then another `///` run, with no item between: the first run is stranded
+and rustdoc silently prepends it to the second's item, so the stranded summary
+becomes the item's summary. Censused tree-wide over `git ls-files '*.rs'`:
+**25 instances.** Sampled four blind before repairing any — `resolve_attack_intent`'s
+parameter semantics parked on a struct, a demo roster doc on a sheet
+registrar, *"The scripted stick."* on `fn step`, and a HUD publisher's whole
+rationale 270 lines from it — and **4 of 4 were real.** Seven are repaired,
+eighteen remain.
+
+⚠ The repairs split three ways, which is why this is not a mechanical rewrite:
+some MOVE (the parameter semantics are still true and still undocumented on the
+live function), some DELETE (`character_sprites/assets.rs` described probing
+and gating that `load_character_sprites_in`'s own doc now explicitly contradicts
+— *"WITHOUT decoding any of it"*), and one was simply a botched edit —
+`body_seed/src/lib.rs` carried `/// Convert an authored LDtk actor rectangle}`,
+truncated mid-sentence with a stray brace, directly above the complete version
+of the same sentence.
+
+⛔ **NOT WIRED AS A CHECK, DELIBERATELY.** `AGENTS.md` line 737: source-text
+machinery needs a *"concrete, recurring, materially harmful failure that cannot
+be enforced more naturally"*, and *"prefer testing real behavior over names,
+phrases, file locations, exact symbols."* Eighteen wrong rustdoc summaries is
+recurring and concrete but not materially harmful, and the signature above is
+three lines of Python anybody can re-run — which is the form this belongs in.
+Same call the corpus already made when `--comment-paths` was registered as a
+gate and demoted the same day.
+
+⚠ And the signature has a blind spot it cannot close: the `session.rs` case
+that started this was ONE contiguous `///` block holding two subjects, with no
+blank line at all. Nothing syntactic separates that from a long doc. ⇒ The
+detectable form is a lower bound, and the undetectable one is the shape that
+produced the best-written orphan in the tree.

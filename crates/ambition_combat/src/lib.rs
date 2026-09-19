@@ -346,12 +346,6 @@ impl AttackSpec {
     }
 }
 
-/// Resolve a directional attack intent from input and current player state.
-///
-/// `axis_y` follows `InputState`: negative means up, positive means down.
-/// `forced_pogo` is used by layouts that expose downward slash/pogo as a
-/// dedicated face-button verb rather than requiring down + attack.
-
 /// Read-only snapshot of the player fields the combat helpers
 /// (`resolve_attack_intent_from_view`, `attack_spec_from_view`,
 /// `attack_hitbox_from_view`) consult. Lets cluster-aware callers
@@ -376,6 +370,16 @@ impl AttackView {
 }
 
 /// Resolve a directional attack intent from input + view state.
+///
+/// `axis_y` follows `InputState`: negative means up, positive means down.
+/// `forced_pogo` is used by layouts that expose downward slash/pogo as a
+/// dedicated face-button verb rather than requiring down + attack.
+///
+/// ⚠ Those two sentences documented the predecessor that took input directly,
+/// and when it became `_from_view` they were left behind — attached, with a
+/// blank line between, to [`AttackView`]'s doc thirty lines up, so rustdoc
+/// printed them as that STRUCT's summary. Both parameters are still here and
+/// still non-obvious, which is why this is a move rather than a deletion.
 pub fn resolve_attack_intent_from_view(
     view: &AttackView,
     axis_x: f32,

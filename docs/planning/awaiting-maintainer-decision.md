@@ -2051,10 +2051,38 @@ WITH THE TICK IT APPLIES FROM AND HELD OUTSIDE ROLLBACK STATE**, which is what
 and it costs a host producer nothing but a different writer type. It does not
 need the producer to be a pure derivation (escape three), it does not need the
 producer to move into the sim (escape two), and it does not need the intent to
-sit outside the timeline (escape one). `NarrativeInputPlugin` is registered for
-five payloads today — `ChallengeRequested`, `BrainCommand`,
-`ReleaseProvocation`, `ItemGrantRequested` and `ShopTransactionRequested`
-(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1401-1405`).
+sit outside the timeline (escape one). `NarrativeInputPlugin` is registered for **ten**
+payloads across **four** sites.
+
+⛤ **THIS SAID FIVE UNTIL 2026-09-19, AND FIVE WAS A SITE RATHER THAN A
+POPULATION.** The five named were the actor-monolith block
+(`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1401-1405`) —
+a contiguous run of registrations that reads like a list of all of them, which
+is exactly why it was copied as one. Measured by
+`scripts/check_narrative_writers_have_a_ledger.py`, which parses both halves of
+the pairing rather than a block:
+
+| payload | plugin installed at |
+|---|---|
+| `ChallengeRequested` | `..._actor_monolith/src/features/mod.rs:1401` |
+| `BrainCommand` | `..._actor_monolith/src/features/mod.rs:1402` |
+| `ReleaseProvocation` | `..._actor_monolith/src/features/mod.rs:1403` |
+| `ItemGrantRequested` | `..._actor_monolith/src/features/mod.rs:1404` |
+| `ShopTransactionRequested` | `..._actor_monolith/src/features/mod.rs:1405` |
+| `ConversationEnded` | `crates/ambition_conversation/src/plugin.rs:34` |
+| `RunAuthoredCommand` | `crates/ambition_conversation/src/plugin.rs:38` |
+| `SpawnActorRequest` | `game/ambition_content/src/plugin.rs:140` |
+| `CutRopeRoomReplayRequested` | `game/ambition_content/src/bosses/mod.rs:287` |
+| `SetFlagRequested` | `game/ambition_content/src/bosses/mod.rs:302` |
+
+⇒ **THE CORRECTION STRENGTHENS THE ARGUMENT RATHER THAN QUALIFYING IT.** The
+escape is not a local convenience of one plugin's own payloads: it is installed
+by the conversation crate for its own two, by the actor monolith for five, and
+by CONTENT for three — a downstream crate adopting the road for payloads it
+does not own. ⚠ `SetFlagRequested`'s registration is the newest and was added
+because it was MISSING while a shipped Yarn command wrote through the ledger;
+see the `SetFlagRequested` row above, which is still live for a different
+reason.
 
 ⚠ **AND THE `+ 1` IS THE PART A REIMPLEMENTATION WOULD GET WRONG.** The ledger
 stamps the NEXT tick, because a host command fires in `Update` after this

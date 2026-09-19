@@ -2777,13 +2777,24 @@ writer was read as an obstacle to measuring the write.**
 
 ✅ **THE "COUNTED TWICE" BRANCH CANNOT HAPPEN, SETTLED BY READING WHAT DRIVES
 IT.** Double counting requires the dialogue START to be replayed through the sim.
-Nothing replays it: the crate `ambition_dialog` contains the string `rollback`
-**zero times**, `DialogState` is a plain `#[derive(Resource)]` with no
-registration on any road, and the dispatcher consumed the request with
+Nothing replays it: `DialogState` is a plain `#[derive(Resource)]` with no
+registration on any road — re-derived 2026-09-18, no `rollback_resource*`,
+`register_rollback*`, `clear_*_on_rollback` or `SessionScopedResources` mention
+names it anywhere in the workspace — and the dispatcher consumed the request
+with
 `state.pending_start.take()` in `Update`. ⇒ On a rewind across the start frame
 `AmbitionGameSave` was restored to its pre-increment value, the request that
 caused the increment was already gone and did not come back, and nothing re-ran
 the dispatcher. **The visit was LOST, full stop** — one outcome, not two.
+
+⛔⛤ **THIS ARGUMENT USED TO OPEN WITH A STRING COUNT THAT WRITING IT DOWN
+FALSIFIED, IN BOTH OF ITS TWO OWNERS.** *"`ambition_dialog` contains the string
+`rollback` zero times"* stood here and in `Q134`; it contains it twice now, and
+both occurrences are inside the comment at
+`crates/ambition_dialog/src/bridge.rs:160-167` that records this very finding
+and the repair it caused. A crate-wide string count is a fine way to FIND a
+road and a poor way to OWN a claim. Corrected in both places 2026-09-18, to the
+thing actually checked.
 
 ⛔ **AND IT WAS NOT HYPOTHETICAL IN A ROLLBACK SESSION.** `plugins.rs:108`
 installs the whole Yarn stack under `#[cfg(feature = "ui")]` and **nothing

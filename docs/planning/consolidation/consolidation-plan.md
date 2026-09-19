@@ -651,7 +651,7 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 
 ## 7. C07 — Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required
 
-**STATE:** candidate after composition decision. ⚠ **Its census is 820 occurrences over 206 type spellings, RE-DERIVED 2026-09-17 after the instrument was found cutting 12% of its own corpus** — see CURRENT STATE, which now records that the row's two previous figures (732/196 and 726/196) and the hand scan that contradicted them were all wrong in different ways.
+**STATE:** candidate after composition decision. ⚠ **Its census is 806 occurrences over 203 type spellings (`architecture_census.py`, 2026-09-19), after the instrument was twice found miscounting its own corpus** — see CURRENT STATE, which now records that the row's two previous figures (732/196 and 726/196) and the hand scan that contradicted them were all wrong in different ways.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **DO NOT START BEFORE:** Supported composition profiles must be named first — **FILED 2026-09-19 as [`Q146`](../awaiting-maintainer-decision.md), which this gate had been naming without a question number for four days.** ⚠ **ONE INSTANCE OF THAT DECISION IS FILED SEPARATELY AS `Q144`** — whether every supported composition must activate a prepared generation, or direct entry keeps the App-registry road — and it is C04's whole remaining scope. It does NOT settle this row: C07 needs the general profile vocabulary across 206 optional-authority spellings, and `Q144` rules on one family.
 
@@ -660,9 +660,16 @@ One construction/publication primitive with explicit policy inputs; fewer roads 
 ⭐⛤ **THE `Q132` RULING ASKED FOR ONE SPECIFIC INSPECTION — *"places where
 App-global fallback state exists only because session identity was OPTIONAL"* —
 AND ITS ENTRY POINT IS MEASURED, 2026-09-19.** Over production source with
-comments and test modules stripped, `Option<Res<..>>` / `Option<ResMut<..>>`
-occurs **714 times over 189 distinct type leaves**, and the distribution is not
-flat:
+comments and test modules stripped, `Option<Res<..>>` / `Option<ResMut<..>>` occurs
+**714 times over 189 distinct type LEAVES**, and the distribution is not flat:
+
+⚠ **714 IS NOT THE 806 ABOVE, AND THE DIFFERENCE IS THE INSTRUMENT RATHER THAN
+THE TREE.** `architecture_census.py` owns the campaign figure and counts more
+spellings of "optional authority" than the bare `Option<Res<T>>` shape scanned
+here; this pass also folds a qualified path onto its LEAF so two spellings of
+one type count once. ⇒ Read 806/203 as the population and the table below as a
+DISTRIBUTION over it, not as a competing total. Neither number supersedes the
+other and the census tool stays the owner.
 
 | optional authority | occurrences | files |
 |---|---|---|
@@ -703,10 +710,18 @@ own job and is gated on `Q146`.
 
 ### CURRENT STATE
 
-Static source contains **820** optional Res/ResMut occurrences over **206**
-unique type spellings, MEASURED 2026-09-17. Most are not defects. Three
-high-authority cases already use composition discriminators: session scope,
-generation mechanics, and content binding.
+Static source contains **806** optional Res/ResMut occurrences over **203**
+unique type spellings — `scripts/architecture_census.py`, re-run 2026-09-19, and
+it is the owner of this figure. Most are not defects. Three high-authority cases
+already use composition discriminators: session scope, generation mechanics, and
+content binding.
+
+⛤ **THIS SENTENCE SAID `820 / 206` UNTIL 2026-09-19 WHILE ITS OWN BODY, TWENTY
+LINES DOWN, ALREADY SAID `806 / 203`.** The correction was written and the
+headline was not updated with it — a body contradicting its own opening, which
+is the exact failure this file records for C01 and then repeated. The history
+below is intact and is why the number moved; the opening now carries the
+current one.
 
 ⛔⛤ **THIS ROW HAS NOW CARRIED FOUR FIGURES AND THE THIRD ONE WAS THE
 INSTRUMENT'S.** It said 732/196, then "at least 850" for an hour on 2026-09-16,

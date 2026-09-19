@@ -5407,17 +5407,17 @@
       "category": "crate_boundary",
       "name": "ambition_platformer2d_actor_monolith",
       "owner": "ambition_platformer2d_actor_monolith",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
-      "current_truth": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout.",
+      "current_truth": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout. \u2b50 MEASURED 2026-09-18, with a correction: the durable architecture says decomposition is not SIZE-driven, and in the same paragraph says this crate is not the desired permanent boundary and the target is a small residual actor kernel. The row carried only the qualifier. The measurement is the `CRATE-ACTOR-MONOLITH` row of `docs/planning/consolidation/architecture-census.md`.",
       "source_paths": [
         "docs/architecture/engine-architecture.md",
         "scripts/architecture_census.py"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout. \u2b50 MEASURED 2026-09-18, with a correction: the durable architecture says decomposition is not SIZE-driven, and in the same paragraph says this crate is not the desired permanent boundary and the target is a small residual actor kernel. The row carried only the qualifier. The measurement is the `CRATE-ACTOR-MONOLITH` row of `docs/planning/consolidation/architecture-census.md`.",
           "sources": [
             "docs/architecture/engine-architecture.md",
             "scripts/architecture_census.py"

@@ -135,3 +135,34 @@ def test_the_writer_LEAVING_the_publish_arm_is_caught_not_just_a_second_one():
 def test_a_read_is_not_counted_as_a_writer():
     sources = [("a.rs", "fn s(a: Res<ActiveMovementTuning>) {}\n")]
     assert guard.production_writers("ActiveMovementTuning", sources) == []
+
+
+def test_the_candidate_cast_accessor_still_returns_a_NESTED_option():
+    """⭐ `DUP-CONTENT-CANDIDATE`'s mechanism is a return type.
+
+    Two `None`s that mean different things: the outer is "this claim is a
+    stranger's", the inner is "this transaction is mine and changes no cast".
+    The accessor's own doc names the failure — flattening them lets a
+    stranger's transaction fall through to the App-global registry.
+    """
+    found = [
+        hit
+        for hit in guard.nested_option_return("characters_for", guard.production_sources())
+        if "content_identity.rs" in hit[0]
+    ]
+    assert found, "the accessor is gone, so this rule would be testing nothing"
+    for _rel, returns in found:
+        assert "Option<Option<" in "".join(returns.split())
+
+
+def test_a_flattened_signature_is_caught():
+    """⛔ THE TIDY-UP THAT READS AS AN IMPROVEMENT. `clippy::option_option` is
+    allowed at the real site on purpose; a reviewer removing the nesting to
+    satisfy the lint is the change this arm exists for."""
+    sources = [
+        ("x/content_identity.rs",
+         "pub fn characters_for(&self, id: &str) -> Option<&Registry> { todo!() }\n"),
+    ]
+    found = guard.nested_option_return("characters_for", sources)
+    assert found == [("x/content_identity.rs", "Option<&Registry>")]
+    assert "Option<Option<" not in found[0][1]

@@ -248,12 +248,23 @@ so the next review re-runs a check rather than re-forms an opinion.
 READING**, held by `check_separated_authorities_stay_separated.py` as maintenance
 job 44: the forbidden derive (`DUP-ROLLBACK-CONFIRMATION`), the production-read
 ban (`DUP-CONSTRUCTION-DIAGNOSTICS`) and the single writer
-(`DUP-EDITOR-STAGES`). ⚠ `DUP-CONTENT-CANDIDATE` is the one still held by
-reading alone, and the reason is stated rather than left as a gap: its claim is
-*"the pending claim must not overwrite the active selection"*, which is a
-property of a DIRECTION OF FALLBACK inside `content_identity_for` rather than a
-count of anything, so no writer census expresses it. That one wants an arm that
-drives the candidate road, not a scan.
+(`DUP-EDITOR-STAGES`). ⭐⛤ **AND THE FOURTH TURNED OUT TO HAVE A MECHANISM TOO, ONE HOUR AFTER THIS
+PARAGRAPH SAID IT DID NOT.** `DUP-CONTENT-CANDIDATE`'s claim — *"the pending
+claim must not overwrite the active selection"* — is enforced by a RETURN TYPE:
+`PendingGenerationInputs::characters_for` returns a NESTED `Option<Option<..>>`
+whose two `None`s mean different things, the outer *"this claim is a
+stranger's"* and the inner *"this transaction is mine and changes no cast"*. Its
+own doc names the failure mode: *"Flattening them would let a stranger's
+transaction silently fall through to the App-global registry."* ⇒ The nesting is
+load-bearing, a tidy-up that collapses it is the whole defect, and it carries an
+`#[allow(clippy::option_option)]` — so the change that breaks it is one a lint
+actively invites. Pinned and poisoned.
+
+⚠ **THAT IS A NARROWER CLAIM THAN THE ROW MAKES, and the gap is stated rather
+than papered over:** the arm holds the SIGNATURE, not the direction of fallback
+at every call site. The row's full claim still wants an arm that drives the
+candidate road. ⇒ Four for four have a dated reading; four for four now also
+have something mechanical, of which one is a partial hold that says so.
 
 
 Do **not** consolidate the staged editor values, active-versus-pending content, rollback confirmation answer, or construction diagnostics into their underlying authorities. They answer different questions.

@@ -91,6 +91,29 @@ SINGLE_PRODUCTION_WRITER = {
     "ActiveMovementTuning": ("publish_editable_movement_tuning", "DUP-EDITOR-STAGES"),
 }
 
+#: ⛤ **`DUP-CONTENT-CANDIDATE` LOOKED LIKE THE ONE FAMILY NO SCAN COULD HOLD,
+#: AND ITS MECHANISM IS A RETURN TYPE.** The row says a pending claim must not
+#: overwrite the active selection, and `characters_for` enforces that with a
+#: NESTED option whose two `None`s mean different things: the outer is *"this
+#: claim is a stranger's, do not use it at all"*, the inner is *"this
+#: transaction is mine and it changes no cast"*. Its own doc states the failure
+#: mode — *"Flattening them would let a stranger's transaction silently fall
+#: through to the App-global registry, which is the shape of the defect this
+#: type exists to prevent"*
+#: (`crates/ambition_platformer2d_runtime/src/content_identity.rs:271-277`).
+#:
+#: ⇒ A tidy-up that collapses the signature to one `Option` is the whole defect,
+#: and it is the kind of change that reads as an improvement in review. The
+#: nesting is load-bearing, so it is pinned.
+#:
+#: ⚠ THIS IS A NARROWER CLAIM THAN THE ROW MAKES, deliberately. It holds the
+#: signature, not the direction of fallback at every call site; the row's full
+#: claim wants an arm that drives the candidate road. Pinning the signature is
+#: what a scan can honestly do, and the census says so beside it.
+NESTED_OPTION_RETURN = {
+    "characters_for": ("DUP-CONTENT-CANDIDATE", "content_identity.rs"),
+}
+
 #: How a read is spelled. `insert_resource` is a write and `Res<T>` is not: the
 #: patterns below are anchored so `insert_resource::<T>` cannot match as one.
 READ_SPELLINGS = (
@@ -186,6 +209,23 @@ def production_writers(name: str, sources) -> list[tuple[str, str, int]]:
     return sorted(out)
 
 
+def nested_option_return(fn_name: str, sources) -> list[tuple[str, str]]:
+    """`(file, return type)` for each production `fn fn_name` that has one."""
+    header = re.compile(rf"\bfn\s+{re.escape(fn_name)}\s*\(")
+    out: list[tuple[str, str]] = []
+    for rel, body in sources:
+        for match in header.finditer(body):
+            # The signature ends at the `{` that opens the body; the return type
+            # is whatever follows `->` before it.
+            brace = body.find("{", match.end())
+            if brace < 0:
+                continue
+            signature = body[match.end() : brace]
+            arrow = signature.rfind("->")
+            out.append((rel, signature[arrow + 2 :].strip() if arrow >= 0 else "()"))
+    return sorted(out)
+
+
 def main() -> int:
     sources = production_sources()
     if len(sources) < FLOOR:
@@ -233,6 +273,25 @@ def main() -> int:
                 "arm, which is where the row's contract puts it"
             )
 
+    for fn_name, (family, where) in sorted(NESTED_OPTION_RETURN.items()):
+        found = [hit for hit in nested_option_return(fn_name, sources) if where in hit[0]]
+        if not found:
+            bad.append(
+                f"`{fn_name}` ({family}) is declared nowhere in production `{where}`, "
+                "so this rule is testing nothing"
+            )
+            continue
+        for rel, returns in found:
+            collapsed_return = "".join(returns.split())
+            if "Option<Option<" not in collapsed_return:
+                bad.append(
+                    f"`{fn_name}` ({rel}) returns `{returns}`, which is no longer a "
+                    "NESTED option. Its two `None`s mean different things — a "
+                    "stranger's claim versus a claim of mine that changes nothing — "
+                    "and flattening them lets a stranger's transaction fall through "
+                    "to the App-global registry"
+                )
+
     for name, family in sorted(WRITE_ONLY_IN_PRODUCTION.items()):
         if declaration_derives(name, sources) is None:
             bad.append(f"`{name}` ({family}) is declared nowhere in production source")
@@ -253,8 +312,9 @@ def main() -> int:
 
     print(
         f"ok: {len(FORBIDDEN_DERIVE)} forbidden-derive, "
-        f"{len(WRITE_ONLY_IN_PRODUCTION)} write-only and "
-        f"{len(SINGLE_PRODUCTION_WRITER)} single-writer separation(s) hold across "
+        f"{len(WRITE_ONLY_IN_PRODUCTION)} write-only, "
+        f"{len(SINGLE_PRODUCTION_WRITER)} single-writer and "
+        f"{len(NESTED_OPTION_RETURN)} nested-option separation(s) hold across "
         f"{len(sources)} production file(s)"
     )
     return 0

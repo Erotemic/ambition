@@ -1847,6 +1847,78 @@ the row before any code does.
 ⇒ ⛔ **Do not re-implement either half from the row text alone.** It reads as one
 20-line change and it is not.
 
+⭐⭐ **THE SET-KNOCKBACK HALF IS LANDED (`45b30500e`), AND THE THROW HALF IS
+IMPLEMENTED, TESTED, POISONED AND HELD.** The ruling has two clauses and they
+separate cleanly in the tree, so they separated in the commits.
+
+**Landed.** Rage now resolves inside `resolved_hitbox_knockback_magnitude`
+instead of at its caller, and a launch whose AUTHORED growth is zero declines
+it. The caller could not make that call: the two authoring roads for growth (an
+explicit `Some(g)`, the ruleset's `base * ruleset_growth`) are collapsed inside
+the resolver, so outside it a set launch and a weak one look the same. The
+predicate reads the collapsed AUTHORED growth, before `growth_base` and
+`growth_scale`, because both are ruleset knobs that can reach zero and would
+switch rage off game-wide if they were allowed to answer this.
+⭐ MEASURED: bit-identical to HEAD on the duel at rungs 6 and 9 — no shipped
+set-knockback volume lands in that bout, so the change is free where it was
+measured and correct where it is not.
+
+**Held, and it is a BALANCE call rather than an engineering one.**
+`crate::util::rage_for_growth` is already shared so the throw road can call it;
+the throw side is four lines (`captors` gains `Option<&BodyHealth>`,
+`apply_capture_throws` keeps the whole `ResolvedCombatTuning` instead of
+projecting one field out of it, and the resolved magnitude takes
+`rage_for_growth(rules.rage_scale(captor_damage), request.knockback_growth)`).
+It is covered by `a_hurt_captor_throws_farther_and_a_set_throw_is_immune`, whose
+two arms were poisoned separately and reddened through their own assertions.
+
+⛔⛤ **AND IT HALVES THE SHIPPED CPU DUEL, WHICH REPRODUCES 2026-09-16 EXACTLY.**
+Re-measured 2026-09-19 against today's tree, `AMBITION_DUEL_RUNG` over all five
+published rungs, `npc_pirate_admiral` mirror:
+
+| rung | HEAD today | set-knockback half only | + throws rage |
+|---|---|---|---|
+| 1 | 1.99 ✅ | — | ✅ |
+| 3 | 1.99 ✅ | — | ✅ |
+| 5 | 0.21 ❌ | — | 0.20 ❌ |
+| 6 | 2.32 ✅ | **2.32 ✅ bit-identical** | 0.64 ❌ |
+| 9 | 1.36 ✅ | **1.36 ✅ bit-identical** | 0.46 ❌ |
+
+Rung 5 fails at HEAD and is not this row's. The whole regression is the throw
+clause, and the bit-identical column is what proves it.
+
+⭐ **THE MECHANISM, WHICH THE 2026-09-16 ROW DID NOT HAVE.** Rung 9 with throws
+raging runs the full 3618-tick budget `decided None`, where HEAD decides at
+2314. The seats are together for 386 of 3618 ticks (11%) against HEAD's 518 of
+2314 (22%), and the move census says what they do instead: `grapeshot` starts
+go 16 → 56 and `call_the_shark` — the up-B recovery — goes 15 → 38 across the
+two seats. Damage dealt INTO THE OTHER SEAT falls 51 → 20. ⇒ A harder throw
+sends both fighters off-stage more often; they spend the bout recovering and
+trading projectiles, and the duel's damage RATE collapses while its length
+grows.
+
+⛔ **AND THE RECOVERY'S LENGTH IS NOT THE LEVER.** `SHARK_RIDE_SECONDS` 5.0 →
+2.0, measured with throws raging, is **bit-identical at rung 9** (0.23/0.23,
+3618 ticks, 386 ticks within 60px, same move census to the count). Do not spend
+the next attempt there.
+
+⚠ **THE GATE'S HEADROOM AT ITS DEFAULT RUNG IS ~4% OF THROW STRENGTH.** The
+2026-09-16 flat-multiplier sweep is the calibration: `×1.01 → 1.36`,
+`×1.02 → 1.18`, `×1.04 → 1.03`, `×1.05 → 0.46`, against a floor of `1.0`. The
+shipped rage is `rage_per_damage: 0.004` capped at `1.4`, which is at most
+`×1.17` and averages well under that over a bout. So the reading is real and the
+instrument is steep, both.
+
+⇒ **What is owed is a tuning decision, not more engineering.** The ruling says a
+moved benchmark is balance evidence and not a reason to keep the inconsistency;
+this is that evidence, measured on the shipped composition. Landing the throw
+clause as ruled turns `two_cpus_in_the_shipped_composition_damage_each_other`
+red at its default rung, and the three roads out of that are (a) retune the
+authored throw bases against a road that now has rage in it, (b) recalibrate the
+duel gate against the new mechanics, or (c) change what a launched fighter does
+with 3200 ticks of airtime. ⛔ None of the three is an engineering judgement and
+none should be taken unilaterally.
+
 ### HEADLESS-STEP-COUNT — ✅ CLOSED 2026-09-16: three arms whose green was wall-clock luck
 
 **Owner:** CalculexAmbition. Measured and closed on the no-GPU box, which is the

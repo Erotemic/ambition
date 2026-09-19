@@ -106,7 +106,8 @@ impl EnemyActorBundle {
     /// from the sheet), `pogo_policy = FromDamageable`, and `pogo_target_volumes`. Each
     /// `spawn_*` site supplies only the fields that actually vary, so adding a new defaulted
     /// bundle field is a one-line change here instead of an edit at all six call sites
-    /// (`spawn_actors.rs` ×4, `spawn_mounts.rs` ×2).
+    /// (`actor_spawn/mod.rs` ×4, `spawn_mounts.rs` ×2 — the first was
+    /// `spawn_actors.rs` before the F1 cut).
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         base: FeatureRenderedBundle,

@@ -302,11 +302,22 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // frame 2, `[sprite-bind] worn character` (the session provider constructing
     // the new world) logged on frame 2, and the ladder moved on frame **3**.
     //
-    // ⇒ A tolerance is a claim that the gap does not matter. Here the gap IS the
-    // defect: `activate_prepared_platformer_sessions` reads
-    // `PreparedCharacterRegistry` inside `GameplaySessionSet::Providers` on the
-    // activation frame, so a family that publishes afterwards publishes into a
-    // world already built without it. This asserts the frame, not the outcome.
+    // ⇒ A tolerance is a claim that the gap does not matter. Here the gap IS
+    // the defect: a publication that lands after the world is built publishes
+    // into a world already built without it. This asserts the frame, not the
+    // outcome.
+    //
+    // ⚠ **THE MECHANISM NAMED HERE UNTIL 2026-09-19 NO LONGER EXISTS**, and it
+    // was the same sentence `reload.rs` carried — one fact with two owners, so
+    // the correction had to be made twice. It read
+    // *"`activate_prepared_platformer_sessions` reads `PreparedCharacterRegistry`
+    // inside `GameplaySessionSet::Providers` on the activation frame"*: that
+    // system was deleted by A10.5 (`c89c68747`), construction moved EARLIER to
+    // `prepare_candidate_platformer_session`, and the builder holds no registry
+    // field — the cast arrives as a `PreparedContent` argument. ⛔ The frame
+    // this test pins is therefore still the right thing to pin, but the reason
+    // it matters is now an open question rather than a settled one; see
+    // CANDIDATE-GENERATION-ORDER in `docs/planning/queue.md`.
     let activation_before = activation_id(&app);
     let mut activated_on = None;
     for frame in 0..240 {

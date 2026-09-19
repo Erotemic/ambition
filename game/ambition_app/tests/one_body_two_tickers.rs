@@ -59,7 +59,7 @@
 //! never had.
 //!
 //! ⚠ **IT CANNOT SEE TWO WRITES INSIDE ONE PHASE.** Two systems in
-//! `ActorSimulation` both advancing one body is invisible here, and that is a
+//! `PlayerSimulation` both advancing one body is invisible here, and that is a
 //! real limit: the probe granularity is the phase, because the phase is what A4
 //! moves. A per-SYSTEM answer needs a probe after every writer, and Bevy 0.19
 //! does not expose a system's component access outside the crate
@@ -280,8 +280,16 @@ fn install_probes(sim: &mut Platformer2dSimHarness) {
     // the tick, in any order.
     //
     // ⇒ MEASURED 2026-09-10, the first run of this file with `.after` alone:
-    // 240 of 240 writes attributed to `ControlInput` and ZERO to
-    // `ActorSimulation`, the phase whose whole job is advancing actors. The
+    // 240 of 240 writes attributed to `PlayerInput` and ZERO to
+    // `PlayerSimulation`, the phase whose whole job is advancing actors.
+    //
+    // ⚠ THOSE TWO WERE RECORDED AS `ControlInput` AND `ActorSimulation` UNTIL
+    // 2026-09-19 — labels `PHASES` above does not emit, so a reader re-running
+    // this could not match the record against its own output. ⛔ And note the
+    // zero has TWO explanations in this file: here it is an instrument artifact
+    // from collapsed probes, and at `PHASES` it is the real behaviour
+    // (`PlayerSimulation` borrows every body and changes no position). Both can
+    // be true of different runs; neither sentence says which run it describes. The
     // probes had collapsed to the end of the tick and whichever ran first
     // collected every change. **The zero doubles that run reported was an
     // artifact of the instrument, not a fact about the composition.**

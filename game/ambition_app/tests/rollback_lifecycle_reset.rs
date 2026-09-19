@@ -417,8 +417,11 @@ fn probe_what_a_rollback_frame_costs() {
 /// `Local` does not rewind: a rollback crossing the frame it routed on would
 /// resimulate with the memory already past the crossing, so one timeline asks
 /// for the crossing and the other believes it already did. The memory is
-/// `CheckpointResumeProgress` now — registered, and probed by WHICH generation
-/// rather than by presence.
+/// `SessionStartupResume` now — registered, and probed by WHICH generation
+/// rather than by presence. ⚠ This said `CheckpointResumeProgress` until
+/// 2026-09-19; A1c/5 deleted that resource's two per-generation latches in
+/// favour of one that names the admitted operation it waits on, rather than
+/// keeping a second completion mechanism beside the reset road's.
 ///
 /// ⚠ WHAT THIS ARM CAN AND CANNOT SEE. Verified 2026-08-31 by poisoning the
 /// memory back to `Local`s: this stays GREEN. A confirmed room transition

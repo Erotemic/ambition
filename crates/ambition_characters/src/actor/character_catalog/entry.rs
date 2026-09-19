@@ -281,9 +281,12 @@ pub struct AxisTuningSpec {
     /// The READ is live (`movement/integration.rs`), so this is not a dead
     /// field — but **no authored character sets it**, and the only production
     /// site that wants the behaviour sets it as a Rust literal two layers below
-    /// the author: the boss spawn in `actor_monolith`'s `spawn_actors`, whose
-    /// `BossPattern` brain commands an exact per-tick velocity and needs the
-    /// limb to take it unsmoothed.
+    /// the author: the boss spawn in `ambition_platformer2d_actor_spawn`'s
+    /// `actor_spawn` module, whose `BossPattern` brain commands an exact
+    /// per-tick velocity and needs the limb to take it unsmoothed. ⚠ That
+    /// pointer said `actor_monolith`'s `spawn_actors` until 2026-09-19; the F1
+    /// cut moved the spawn primitives out of the monolith into their own crate,
+    /// so it named neither the right module nor the right crate.
     ///
     /// ⇒ THE OPEN QUESTION, filed rather than answered: should an authoring
     /// surface exist for a property only the engine's own spawn path asks for?

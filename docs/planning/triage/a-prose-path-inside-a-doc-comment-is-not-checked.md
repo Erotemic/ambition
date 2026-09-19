@@ -661,3 +661,43 @@ matched. Both are repaired and the second is rewrapped so the pass can see it.
 not worth loosening the pattern for — a looser one would match every ordinary
 word. The line-wrap case is the one worth knowing, because it looks correct in
 the source and is invisible to the check.
+
+### The comment block is too coarse, and today is why — 2026-09-19
+
+The line-vs-block section above replaced the LINE with the BLOCK as the unit,
+and that was right: 187 line-local "live" claims were 65 once the block was
+read. Running the same classifier over the new baseline's 54 findings said
+**0 live** after the four repairs. Splitting the block into SENTENCES and
+asking only about the sentence that actually names the symbol said **19**.
+
+⛔⛤ **THE BLOCK CANNOT WORK, AND THE REASON IS THIS PAGE'S OWN HEADLINE.** A
+block is classified as history the moment it contains one history word — and
+the word arrives exactly when somebody adds the CORRECTING sentence. So the
+block-level filter goes quiet at the precise moment the file starts holding
+both answers, which is the state all three of today's findings were in:
+
+- `character_catalog.ron` — *"AUTHORED since 2026-08-11"* six lines under
+  *"the protagonist's PLAYABLE kit is host-code-owned"*.
+- `authored_movesets.rs` — *"THE NAMESPACE IS WIDER THAN THE OLD
+  `CANCEL_CLASS_NAMES` CONST"* <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
+  25 lines under a doc comment introducing the guard with that const as the
+  definition.
+- `starting_character/tests.rs` — the assertion that refutes the comment, in
+  the same function.
+
+⇒ **A history marker anywhere in the block is evidence that somebody noticed,
+not evidence that they finished.** Of the 19, six were real and are repaired:
+`an_edit_reaches_the_shipped_game.rs` (the same false sentence `reload.rs`
+carried — one fact, two owners, so the correction had to be made twice),
+`authored_movesets.rs`, `entry.rs` (a pointer into `actor_monolith` that the
+F1 cut moved to another crate entirely), `rollback_lifecycle_reset.rs` (*"the
+memory is X now"* naming what A1c/5 deleted), and both copies of a recorded
+measurement in `one_body_two_tickers.rs` whose phase labels the instrument no
+longer emits — a reader re-running it could not have matched the record to its
+own output.
+
+⚠ The other thirteen are genuine history that the sentence split reads wrong,
+mostly long sentences whose tense sits before the clause naming the symbol. ⇒
+Neither unit is a classifier. The block is the right unit for READING and the
+sentence is the right unit for TRIAGING, and the residue is small enough to
+read by hand — which is the actual answer, not a better regex.

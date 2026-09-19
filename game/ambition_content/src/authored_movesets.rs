@@ -634,8 +634,15 @@ mod flow_tests {
     /// CONDITIONAL CANCEL.
     ///
     /// A `Cancelable` window's `into` list shares one namespace — literal move
-    /// ids, verbs, and the classes in `CANCEL_CLASS_NAMES`. A name in none of
-    /// the three is a DEAD STRING: the window opens, the press is looked up, and
+    /// ids, verbs, and the classes `cancel_class_names()` derives from
+    /// `cancel_names_for`. A name in none of the three is a DEAD STRING:
+    ///
+    /// ⚠ That read *"the classes in `CANCEL_CLASS_NAMES`"* until 2026-09-19,
+    /// and the body of this very test records why the const went: it omitted
+    /// `smash`, `grab` and `taunt`, which produced a FALSE POSITIVE on the
+    /// medic's `smash`. The correcting paragraph was added 25 lines below and
+    /// this sentence was left standing, so the doc comment introduced the guard
+    /// with the definition the guard itself had rejected. the window opens, the press is looked up, and
     /// nothing answers. Silent, and indistinguishable from a move whose author
     /// never wrote a follow-up.
     ///

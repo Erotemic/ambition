@@ -89,17 +89,28 @@ impl CutsceneRuntime {
         let Some(beat) = self.script.beats.get(self.beat_index) else {
             return CutscenePresentation::default();
         };
+        // ⭐⛤ THE SCREEN DOES NOT UN-FADE BECAUSE THE BEAT ENDED. A fade DOWN
+        // followed by a line of dialogue used to go black, advance, and snap
+        // clear again — `fade_alpha` was `0.0` on every non-Fade arm, so the
+        // primitive worked in exactly the direction the shipped scripts happen
+        // to use and nowhere else. The standing value is the last fade's
+        // TARGET, which keeps the projection a pure function of
+        // `(script, beat_index, elapsed)`.
+        let standing = self.standing_fade();
         match beat {
             CutsceneBeat::Dialogue { speaker, text } => CutscenePresentation {
                 dialogue: Some((speaker.clone(), text.clone())),
+                fade_alpha: standing,
                 ..Default::default()
             },
             CutsceneBeat::Banner { text, seconds } => CutscenePresentation {
                 banner: Some((text.clone(), (seconds - self.elapsed).max(0.0))),
+                fade_alpha: standing,
                 ..Default::default()
             },
             CutsceneBeat::CameraPan { target, .. } => CutscenePresentation {
                 camera_target: Some(*target),
+                fade_alpha: standing,
                 ..Default::default()
             },
             CutsceneBeat::Fade {
@@ -119,11 +130,36 @@ impl CutsceneRuntime {
                 ..Default::default()
             },
             // A wait or a flag write shows nothing — and says so, rather than
-            // leaving the previous beat's picture up.
-            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } => {
-                CutscenePresentation::default()
-            }
+            // leaving the previous beat's picture up. The fade is not a
+            // picture a beat puts up; it is the state of the screen.
+            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } => CutscenePresentation {
+                fade_alpha: standing,
+                ..Default::default()
+            },
         }
+    }
+
+    /// The alpha the screen is already holding when the current beat starts:
+    /// the TARGET of the most recent fade before it, or clear if there is none.
+    ///
+    /// ⛔ IT STOPS AT THE END OF THE CUTSCENE, DELIBERATELY. `presentation()`
+    /// answers `default()` once `finished`, so a script ending on a fade to
+    /// black clears rather than leaving an opaque sheet over a game nobody can
+    /// see through — there is no owner for that sheet after the runtime is
+    /// gone, and a cutscene is not a way to turn the screen off. A script that
+    /// wants to hand black to whatever comes next needs that thing to own it.
+    fn standing_fade(&self) -> f32 {
+        self.script
+            .beats
+            .get(..self.beat_index)
+            .unwrap_or_default()
+            .iter()
+            .rev()
+            .find_map(|beat| match beat {
+                CutsceneBeat::Fade { to_alpha, .. } => Some(to_alpha.clamp(0.0, 1.0)),
+                _ => None,
+            })
+            .unwrap_or(0.0)
     }
 }
 
@@ -489,6 +525,37 @@ mod tests {
         );
         let _ = runtime.tick(0.4, false);
         assert_eq!(runtime.presentation().fade_alpha, 0.5);
+
+        // ⭐ AND THE TARGET STANDS AFTER THE BEAT ENDS. A fade down followed by
+        // a line used to snap clear the instant the beat advanced, which is the
+        // primitive working in one direction only.
+        let hold = CutsceneScript::new(
+            "hold",
+            vec![
+                CutsceneBeat::Fade {
+                    from_alpha: 0.0,
+                    to_alpha: 1.0,
+                    seconds: 0.4,
+                },
+                CutsceneBeat::Dialogue {
+                    speaker: "V".into(),
+                    text: "in the dark".into(),
+                },
+            ],
+        );
+        let mut runtime = CutsceneRuntime::new(hold);
+        let _ = runtime.tick(0.4, false);
+        assert_eq!(runtime.beat_index, 1, "the fade did not advance");
+        assert_eq!(
+            runtime.presentation().fade_alpha,
+            1.0,
+            "the screen un-faded because the beat ended"
+        );
+        // ⛔ AND IT ENDS WITH THE CUTSCENE, which is the other half: nothing
+        // owns an opaque sheet once the runtime is gone.
+        let _ = runtime.tick(0.0, true);
+        assert!(runtime.finished);
+        assert_eq!(runtime.presentation().fade_alpha, 0.0);
 
         // ⚠ AND A ZERO-LENGTH FADE IS A CUT. The ramp divides by `seconds`;
         // this is the arm that says what happens when an author writes 0.

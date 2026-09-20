@@ -3080,29 +3080,25 @@ fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
     );
 }
 
-/// ⭐⭐ **THE AUTHORITY SWITCH A10 NEEDS ALREADY EXISTS, AND THIS IS THE ARM THAT
-/// SAYS SO — MEASURED 2026-09-13 RATHER THAN REASONED.**
+/// ⭐⭐ **A CANDIDATE ROOT IS NOT A SESSION ROOT BY ITS MARKER, AND NOT ONLY BY
+/// BEING HIDDEN.**
 ///
-/// The A10 packet has to represent *live N plus candidate N+1*, and a 2026-09-13
-/// review called the session vocabulary's inability to do that the blocker. For
-/// the ROOM half it is not: `RoomSet` and `RoomGeometry` are COMPONENTS on the
-/// session world root (read everywhere through `SessionWorldRef`, which is
-/// `Single<.., With<SessionRoot>>`), so a candidate world's room state is a
-/// second root.
+/// ⛔⛤ **THIS ARM USED TO CERTIFY THE MODEL THE MAINTAINER REJECTED.** It
+/// spawned the candidate as `(SessionRoot(scope), InactiveCandidate)` and
+/// asserted — in its own words — that *"the candidate root does not carry
+/// `SessionRoot`"* would make the test prove nothing. So the thing it pinned was
+/// *a candidate really is a `SessionRoot`, it is merely disabled*, and it
+/// treated removing the disabling component as the publication. `Q132` ruled the
+/// other way and `ef54aeff3` landed `CandidateSessionRoot`. A green arm holding
+/// the old shape is executable evidence for restoring it, which is worse than no
+/// arm.
 ///
-/// ⇒ **THE QUESTION THIS ANSWERS IS WHETHER THAT SECOND ROOT IS INVISIBLE.**
-/// `InactiveCandidate` is a registered DISABLING component, so a candidate root
-/// may carry `SessionRoot` ITSELF and still not be a candidate for any of the 217
-/// `SessionWorldRef`/`Mut` sites — which is exactly what
-/// `the_shipped_app_never_holds_two_session_roots_across_a_handoff` requires of
-/// any future candidate.
-///
-/// ⛔ **AND THE PUBLICATION IS ONE REMOVAL ON ONE ENTITY**, which makes it atomic
-/// even to the hooks `Q123` proved publication is NOT atomic to — that `[3, 2, 1]`
-/// result came from removing the marker from THREE roots in a loop.
+/// ⇒ What it pins now is the property the new shape has and the old one could
+/// not: the candidate is invisible to `With<SessionRoot>` **for a reason that
+/// survives the hiding being lifted.**
 #[test]
-fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
-    use crate::lifecycle::{SessionRoot, SessionScopeId};
+fn a_candidate_root_is_not_a_session_root_by_marker_and_not_only_by_hiding() {
+    use crate::lifecycle::{CandidateSessionRoot, SessionRoot, SessionScopeId};
     use bevy::prelude::*;
 
     let mut world = World::new();
@@ -3110,22 +3106,24 @@ fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
 
     let live = world.spawn(SessionRoot(SessionScopeId(0))).id();
     let candidate = world
-        .spawn((SessionRoot(SessionScopeId(1)), super::InactiveCandidate::default()))
+        .spawn((
+            CandidateSessionRoot(SessionScopeId(1)),
+            super::InactiveCandidate::default(),
+        ))
         .id();
 
-    // ⚠ THE PREMISE: both entities exist and both carry the marker the query
-    // filters on, or "only one is visible" is a statement about spawning.
+    // ⚠ THE PREMISE: both entities exist and the candidate carries the
+    // candidate marker, or "only one is visible" is a statement about spawning.
     assert!(world.get::<SessionRoot>(live).is_some());
     assert!(
-        world.get::<SessionRoot>(candidate).is_some(),
-        "the candidate root does not carry `SessionRoot`, so hiding it proves \
-         nothing about the queries that select on it"
+        world.get::<CandidateSessionRoot>(candidate).is_some(),
+        "the candidate root carries no candidate identity, so nothing below is \
+         about a candidate"
     );
 
     let mut roots = world.query_filtered::<Entity, With<SessionRoot>>();
-    let visible: Vec<Entity> = roots.iter(&world).collect();
     assert_eq!(
-        visible,
+        roots.iter(&world).collect::<Vec<_>>(),
         vec![live],
         "an ordinary `With<SessionRoot>` query sees the CANDIDATE root, so every \
          `SessionWorldRef`/`Mut` site — `Single`, which matches nothing when the \
@@ -3133,14 +3131,27 @@ fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
          candidate"
     );
 
-    // ⭐ AND PUBLICATION IS THE REMOVAL: one entity, one component, one switch.
+    // ⭐⛤ AND IT IS STILL NOT ONE WITH THE HIDING LIFTED, which is the half the
+    // old arm could not claim at all. Under the rejected model this line
+    // published the candidate; under this one it only makes it visible.
     world.entity_mut(candidate).remove::<super::InactiveCandidate>();
-    let published: Vec<Entity> = roots.iter(&world).collect();
     assert_eq!(
-        published.len(),
+        roots.iter(&world).collect::<Vec<_>>(),
+        vec![live],
+        "lifting the disabling component turned the candidate into a canonical \
+         root, so the identity is still carried by the hiding"
+    );
+
+    // ⭐ PUBLICATION IS THE MARKER SWAP, which is what
+    // `publish_candidate_session` performs on the root it promotes.
+    world
+        .entity_mut(candidate)
+        .remove::<CandidateSessionRoot>()
+        .insert(SessionRoot(SessionScopeId(1)));
+    assert_eq!(
+        roots.iter(&world).count(),
         2,
-        "removing the marker did not publish the candidate root, so the switch is \
-         not the removal"
+        "the swap did not publish the candidate root, so the switch is not the swap"
     );
 }
 

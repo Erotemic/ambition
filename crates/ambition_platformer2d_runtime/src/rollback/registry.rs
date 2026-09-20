@@ -618,7 +618,18 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⚠ NO MECHANICAL STATE LEAVES THE SNAPSHOT, because none was ever in it: the
 /// component had no production insert site, so both rows were always empty.
 /// This is the second bump where the dump SHRINKS, by exactly those two rows.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 200;
+/// ⛔⛤ 200 -> 201: THE `Fade` SNAPSHOT CODEC GREW A FIELD AND THE REGISTRY
+/// LIST DID NOT MOVE. `CutsceneBeat::Fade` now encodes `from_alpha` ahead of
+/// `to_alpha` (`Q143`: both ends of a fade are authored), so a beat inside
+/// `ActiveCutscene`'s snapshot writes one more `f32`. Nothing about the row
+/// changed — same stable name, same encoder type, same projection — and all
+/// four baseline arms passed at v200 without a bump. ⇒ **That is the v140
+/// class exactly, and the commit that landed the codec argued the opposite:**
+/// it said no bump was needed BECAUSE the encoding lives inside the resource's
+/// own snapshot bytes. Those bytes are the wire contract this constant
+/// represents. A codec body is part of the wire format even when the registry
+/// row is not.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 201;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

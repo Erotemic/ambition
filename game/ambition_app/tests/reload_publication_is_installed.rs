@@ -285,11 +285,15 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
     // commit must run `.after(Pending)` to see `RouteActivated`, construction
     // runs `.before` it, and those are opposite ends of the same set. A
     // candidate is therefore prepared from the generation current BEFORE its
-    // own activation commits. Whether that is correct by design or a frame-late
-    // read on the candidate road is a maintainer question — `Q147`, in
-    // `docs/planning/awaiting-maintainer-decision.md`, with `queue.md`'s
-    // `CANDIDATE-GENERATION-ORDER` as its row. This test must not pretend to
-    // answer it.
+    // own activation commits.
+    //
+    // ⛔ THAT WAS FILED AS A MAINTAINER QUESTION AND THE FILING WAS THE ERROR.
+    // `Q147` is WITHDRAWN: nothing was owed a ruling, because the road that
+    // answers it already exists — `PendingGenerationInputs` carries the
+    // incoming generation's values transaction-locally, so a candidate is
+    // built from ITS OWN generation without that generation being published
+    // App-wide first. See `queue.md`'s `CANDIDATE-GENERATION-ORDER`. This test
+    // still must not pretend to answer it; what it pins is the ordering.
     //
     // ✔ AND THE SHAPE IT DESCRIBES IS ASSERTED NOW, one crate down, where both
     // systems are private and nameable by type:

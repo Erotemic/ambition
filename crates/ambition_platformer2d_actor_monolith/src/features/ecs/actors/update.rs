@@ -1934,7 +1934,15 @@ fn resolve_owners_ranged_action(
         .as_deref()
         .and_then(ambition_characters::brain::held_item_by_id)
         .and_then(|item| item.ranged);
+    // ⛔⛤ **A BODY WITH NO RANGED ACTION MAKES NO OFFER, AND THIS USED TO
+    // LEAVE THE REQUEST STANDING — REVIEWED 2026-09-20.** Returning early left
+    // `OwnersRangedAction` in the frame data, and its unjoined `reach()` is
+    // `RANGED_ACTION_REACH` — 1000px, wider than any stage. So the one layer
+    // that had just PROVEN the press fires nothing handed the brain an
+    // instantaneous stage-crossing threat. The request is answered here or it
+    // is answered nowhere; an unanswerable one is NO hazard.
     let Some(spec) = equipped.as_ref().or(body_ranged) else {
+        frames.hazard = None;
         return;
     };
     let flight = spec
@@ -1956,30 +1964,34 @@ fn resolve_owners_ranged_action(
     // it is about to make, not the one it might hold for. Under-claiming a
     // chargeable weapon refuses a shot; over-claiming throws one that lands
     // behind them.
+    //
+    // ⛔⛤ **AND THE OUT-LEG IS PUBLISHED AS ITS LAW, NOT AS AN AVERAGE SPEED
+    // — REVIEWED 2026-09-20, the second finding on this join.** The first
+    // version published `reach` beside `travelled / travel_s`, so that
+    // `reach / speed` came out right; it is right at the TURNAROUND and
+    // nowhere else, because the shot is decelerating the whole way. The
+    // ponytail actually covers 40px of centre travel in 0.111s and the average
+    // said 0.186s — 15px of excess lead at a 200px/s closing speed, which is
+    // the size of `ADMISSION_SLACK_PX`. `ThreatTravel::Boomerang` carries `v0`
+    // and the turnaround and solves for the time itself.
     let v0 = spec.speed.max(0.0);
-    let (travel_s, travelled) = match flight.boomerang_return_s {
-        Some(out_s) => (out_s.max(0.0), v0 * out_s.max(0.0) * 0.5),
-        None => {
-            let life = flight.max_lifetime.max(0.0);
-            (life, v0 * life)
-        }
-    };
-    let reach = (travelled + flight.half_extent.x.abs() + flight.splash_half_extent).max(0.0);
-    if reach <= 0.0 {
-        return;
-    }
-    frames.hazard = Some(MoveHazard::Spawned {
-        reach,
-        // ⭐ THE AVERAGE OVER THE OUTBOUND LEG, NOT THE LAUNCH SPEED, so that
-        // `reach / speed` is the time the hazard actually takes to get there —
-        // which is what the admission lead divides by. Identical to `v0` for
-        // the straight shots, which is every weapon but one.
-        speed: if travel_s > 0.0 {
-            travelled / travel_s
-        } else {
-            0.0
+    let free = flight.half_extent.x.abs() + flight.splash_half_extent;
+    let travel = match flight.boomerang_return_s {
+        Some(out_s) => ambition_entity_catalog::ThreatTravel::Boomerang {
+            v0,
+            out_s: out_s.max(0.0),
+            free,
         },
-    });
+        None => ambition_entity_catalog::ThreatTravel::Straight {
+            speed: v0,
+            span: v0 * flight.max_lifetime.max(0.0),
+            free,
+        },
+    };
+    // A shot that cannot leave the body is not an offer. `free` alone is the
+    // hazard's own half-extent, which is a description of the object rather
+    // than of anything it can do to somebody standing away from it.
+    frames.hazard = (travel.reach() > free).then_some(MoveHazard::Spawned(travel));
 }
 
 /// CAN THE BODY BEGIN THIS MOVE THIS TICK? — asked of the same function that

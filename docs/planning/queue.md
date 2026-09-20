@@ -3185,6 +3185,105 @@ what a move does, so the next thing built on the launch price is built on the
 one the game actually pays. The measurement that would have sent this back is a
 row moving that could not have.
 
+✅⭐ **THE HAZARD CARRIES ITS OWN LAW NOW, NOT A SPEED — 2026-09-20, the
+reorientation the second review asked for:** *"stop extending `MoveHazard`
+with additional scalar approximations."* A pair `{reach, speed}` can only
+describe uniform motion, and two of the four hazard shapes the roster already
+ships are not uniform. Each flattening cost a wrong answer in the same units
+as a right one.
+
+⛔ **A BOOMERANG IS NOT A CONSTANT SPEED, AND ITS AVERAGE IS RIGHT AT EXACTLY
+ONE DISTANCE.** The first repair published `travelled / travel_s` so that
+`reach / speed` came out right — and it does, at the turnaround and nowhere
+else, because the shot decelerates the whole way out. Projectile Polygon's
+ponytail, `v0` 430px/s turning at 0.34s:
+
+| centre travel | the law | the average model |
+|---|---|---|
+| 40px | **0.111s** | 0.186s |
+| 60px | **0.196s** | 0.279s |
+| 73.1px (turnaround) | 0.340s | 0.340s |
+
+At 200px/s of closing speed the first row is 15px of excess lead, which is
+`ADMISSION_SLACK_PX` to the pixel.
+
+⛔ **AND A LAID BOMB IS NOT A STATIONARY PROJECTILE.** `DROP_BOMB` published
+`speed: 0.0`, documented as *"its whole reach is available the moment it
+exists"* — the opposite of what the move authors: *"laying a bomb is not a hit
+— the bomb is."* `DropBombParams::fuse_s` is *"seconds until it goes off by
+itself"*, **four** of them on the shipped polygon. The test that certified the
+old reading used the bomb as its control for *"all reach immediately
+available"*.
+
+⇒ **`ThreatTravel`, and the question it answers is `travel_to(distance)`.**
+
+```text
+Straight  { speed, span, free }   t = (d - free) / speed
+Boomerang { v0, out_s, free }     t = out_s - sqrt(out_s² - 2·out_s·(d-free)/v0)
+Placed    { reach, earliest_s }   t = 0        (it is placed where it is placed)
+```
+
+`free` is ground the hazard covers without flying — its spawn offset, its own
+half-extent, any splash — because a shot touches somebody with its edge. Every
+consumer of the old pair was dividing a gap by a speed; a shape that knows its
+own law answers directly, and one that CANNOT reach a distance returns `None`
+instead of a number. Four variants, all shipped content; a fifth is a new law
+and not a new scalar on an existing one.
+
+⛔⛤ **THE FUSE IS NOT A FLIGHT TIME, AND ONE SWEEP WAS SPENT PROVING IT.**
+The first version answered both questions with one function, so the bomb's
+four seconds were fed to the AIM LEAD — which carries the opponent forward at
+the velocity last seen. Four seconds of that is arithmetic about a walk nobody
+takes: her bomb reaches **72px** (`offset -16`, `blast_radius 56`), so at any
+walking speed at all the extrapolated opponent is outside it. The grid said so
+immediately — `projectile_polygon` **144/228 → 131/183**, repertoire 17
+distinct moves → 15. That is a move being DELETED, not corrected.
+
+⚠ **AND THE FIRST EXPLANATION WAS WRONG, WHICH IS WHY IT WAS MEASURED BEFORE
+IT WAS KEPT.** The reflex was to cap the lead at the width of the room — a
+480px stage cannot contain 800px of walk. Against her real numbers it cannot
+be the mechanism: 72px of reach is exceeded by 4 seconds at 18px/s, and the
+cap only bites above 120px/s. It was reverted unmeasured rather than kept as a
+plausible knob. ⇒ The split is on the TYPE: `travel_to` is the aiming question
+(*where do I point this so it lands on them*) and `live_at_s` is the fuse
+(*when can it hurt anybody at all*). A placed object is aimed nowhere and
+travels for zero. **Nothing prices the fuse yet, and that is written down on
+the type rather than patched into the lead** — *"will they be within 72px in
+four seconds"* is a stage-control question, the same shape as the counters and
+buffs already held off the attack ranking until there is a defensive feature
+to price them with.
+
+⛔⛤ **AND AN UNRESOLVABLE RANGED REQUEST IS NOW NO OFFER AT ALL.**
+`resolve_owners_ranged_action` returned early when neither an equipped weapon
+nor the body's standing kit could answer, which LEFT `OwnersRangedAction` in
+the frame data — and its unjoined `reach()` is `RANGED_ACTION_REACH`, 1000px,
+wider than any stage. So the one layer that had just proven the press fires
+nothing handed the brain an instantaneous stage-crossing threat. The previous
+arm asserted that ON PURPOSE, reasoning that *"the move fires nothing"* is a
+question for whoever decides pressing — and this IS that layer. No shipped
+fighter reaches the state, so it is a structurally invalid API state rather
+than a reproduced bug. The join clears the hazard, keeps the CANDIDATE (a body
+does not lose a move because of what it is not carrying), and
+`MoveHazard::travel_to` refuses to answer for the variant so nobody can
+quietly re-derive one.
+
+⭐⭐ **JUDGED ON THE GAME: 7195% → 7201%, ONE ROW MOVED.** The two sweeps are
+a controlled pair — they differ only in whether the fuse reaches the lead —
+and that is what identifies the polygon's loss as the fuse and nothing else.
+
+| fighter | before | after | moves | distinct | most thrown |
+|---|---|---|---|---|---|
+| `director` | 132% / 129% | 123% / **144%** | 129 → 104 | 17 → 18 | `director_train_of_thought` ×67 → ×45 |
+| `projectile_polygon` (fuse in the lead) | 144% / 228% | 131% / 183% | 123 → 114 | **17 → 15** | — |
+| `projectile_polygon` (fuse out) | 144% / 228% | 144% / 228% | — | — | bit-identical |
+| the other 20 | — | — | — | — | bit-identical |
+
+⚠ The director is the roster's one steered bolt and the only row the flight
+law can reach. He throws it **a third less often** and uses one more distinct
+move, at a mean gap of 151px against 127px — the bolt's own 10px body and
+spawn offset are ground it does not have to fly, so the shot is admitted when
+it will land instead of reflexively. His `took1` rose 129% → 144%.
+
 ✅ **A BURST COVERS GROUND ONLY AFTER ITS IMPULSE FIRES — 2026-09-20, review
 finding #3.** `travel_of` priced a pure-motion move at `speed × total_s`, so a
 move whose impulse arrives a fifth of the way in was credited with a fifth

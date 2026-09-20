@@ -874,20 +874,35 @@ pub fn generate_options(
     // retreating one, which is the direction that refuses a shot rather than
     // throwing one that cannot land.
     //
-    // ⚠ AND THE FLIGHT IS CAPPED BY THE HAZARD'S OWN REACH. A hazard cannot
-    // fly further than it reaches, so `gap` past that would credit a shot
-    // with travel it never makes — and the admission test below is about to
-    // refuse that gap anyway.
+    // ⛔⛤ **AND THE FLIGHT TIME IS THE HAZARD'S TO ANSWER, NOT A GAP DIVIDED
+    // BY A SPEED — REVIEWED 2026-09-20.** This asked for a `speed` and divided,
+    // which is exact only while the hazard travels uniformly. Two of the four
+    // shapes the roster ships do not: a boomerang decelerates to a stop at its
+    // turnaround, and a laid bomb does not travel at all but sits on a fuse.
+    // `ThreatTravel::time_to` solves each one's own law, so the aim is led by
+    // when the thing can actually touch them.
+    //
+    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
+    // time depends on the gap at arrival, which depends on the flight time. A
+    // single pass — measure the gap at the throw, fly for that long — is
+    // exact for a stationary opponent and errs toward UNDER-leading a
+    // retreating one, which is the direction that refuses a shot rather than
+    // throwing one that cannot land.
+    //
+    // ⚠ A GAP PAST THE HAZARD'S REACH GETS ITS LONGEST FLIGHT rather than
+    // `None`'s zero: the admission test below is about to refuse that gap, and
+    // leading by zero would be claiming the shot is instantaneous on exactly
+    // the moves it cannot reach at all.
     let arrival_of = |frames: &ambition_entity_catalog::MoveFrameData,
                       hazard: ambition_entity_catalog::MoveHazard| {
         let thrown_at = threat_at(frames);
-        let speed = hazard.speed();
-        if speed <= 0.0 {
-            return thrown_at;
-        }
         let at_throw = lead_of(thrown_at);
         let gap = (at_throw.0 * at_throw.0 + at_throw.1 * at_throw.1).sqrt();
-        thrown_at + gap.min(hazard.reach()) / speed
+        let flight = hazard
+            .travel_to(gap)
+            .or_else(|| hazard.travel_to(hazard.reach()))
+            .unwrap_or(0.0);
+        thrown_at + flight
     };
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also

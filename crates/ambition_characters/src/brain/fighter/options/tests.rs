@@ -1572,13 +1572,15 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     // A launcher: no volume on the body, and a hazard that crosses the stage.
     let mut bolt = candidate("bolt", 0.2, 0.0);
     bolt.frames.max_damage = 0;
-    // Stationary (`speed: 0.0`) so the whole of its 700px is available the
-    // instant it is thrown — this arm is about the REACH rule and a flight
-    // time would put a second variable in it.
-    bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
-        reach: 700.0,
-        speed: 0.0,
-    });
+    // Placed and live immediately, so the whole of its 700px is available the
+    // instant it exists — this arm is about the REACH rule and a flight time
+    // would put a second variable in it.
+    bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned(
+        ambition_entity_catalog::ThreatTravel::Placed {
+            reach: 700.0,
+            earliest_s: 0.0,
+        },
+    ));
     let kit = vec![jab, buff, bolt];
     let weights = UtilityWeights::default();
 
@@ -2464,10 +2466,12 @@ fn the_move_that_hurls_me_at_the_blastzone_costs_more_than_the_one_that_stays_pu
 /// travels. `director_train_of_thought` crosses 671px at 300px/s, so its shot
 /// lands up to two seconds after it is thrown.
 ///
-/// ⭐ **THE SPEED IS WHAT MAKES THE THIRD ANSWER POSSIBLE**, and it is the
-/// field the old `hazard_reach: f32` folded away: it computed `speed ×
-/// lifetime` and kept only the product. [`ambition_entity_catalog::MoveHazard`]
-/// keeps both.
+/// ⭐ **THE FLIGHT LAW IS WHAT MAKES THE THIRD ANSWER POSSIBLE**, and it is
+/// what the old `hazard_reach: f32` folded away: it computed `speed ×
+/// lifetime` and kept only the product.
+/// [`ambition_entity_catalog::ThreatTravel`] carries the law, and the fourth
+/// arm below is the reason it is a law and not a speed — a hazard that is not
+/// live when it arrives is refused for a reason that has no speed in it.
 ///
 /// ⚠ **TWO CONTROLS, BECAUSE "REFUSED" HAS TWO INNOCENT EXPLANATIONS.** A
 /// stationary hazard over the same geometry must still be admitted — otherwise
@@ -2500,16 +2504,25 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
 
     // 700px of reach, crossed at 300px/s: the shot needs over two seconds to
     // arrive, and in that time the foe has walked past the end of its flight.
-    let travelling = ambition_entity_catalog::MoveHazard::Spawned {
-        reach: 700.0,
-        speed: 300.0,
-    };
-    // The same reach, put where it lands rather than flown there — a laid
-    // bomb. All of it is available the instant it exists.
-    let stationary = ambition_entity_catalog::MoveHazard::Spawned {
-        reach: 700.0,
-        speed: 0.0,
-    };
+    let travelling = ambition_entity_catalog::MoveHazard::Spawned(
+        ambition_entity_catalog::ThreatTravel::Straight {
+            speed: 300.0,
+            span: 700.0,
+            free: 0.0,
+        },
+    );
+    // ⚠ **THE CONTROL IS A PLACEMENT THAT ARMS INSTANTLY, AND IT IS NOT THE
+    // SHIPPED BOMB.** It used to be described as *"a laid bomb"*, which was a
+    // category error the reviewer caught: the polygon's bomb sits on a
+    // four-second fuse and is the subject of its own arm below. What this
+    // control needs is the same 700px of reach with the FLIGHT term removed,
+    // so that a refusal above can only be about the flight.
+    let placed_and_live = ambition_entity_catalog::MoveHazard::Spawned(
+        ambition_entity_catalog::ThreatTravel::Placed {
+            reach: 700.0,
+            earliest_s: 0.0,
+        },
+    );
 
     assert!(
         !offered(travelling, 200.0),
@@ -2517,7 +2530,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
          walking away at 200px/s — it arrives where they were, two seconds ago"
     );
     assert!(
-        offered(stationary, 200.0),
+        offered(placed_and_live, 200.0),
         "THE CONTROL: the same 700px over the same 600px gap, put in place \
          instead of thrown. Refusing this would mean the arm above is about \
          the reach rule and not about the flight"
@@ -2527,5 +2540,42 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
         "THE SECOND CONTROL: the same travelling shot against somebody \
          standing still. Refusing this would mean `speed` is being spent as a \
          penalty rather than as a time"
+    );
+
+    // ⛔⛤ **AND A FUSE IS NOT A FLIGHT TIME — THIS ARM ASSERTED THE OPPOSITE
+    // FOR ONE SWEEP.** Teaching the laid bomb its four-second fuse was right;
+    // feeding that fuse to the AIM LEAD was not. A lead carries the opponent
+    // forward at the velocity last seen, and four seconds of that is
+    // arithmetic about a walk nobody takes: Projectile Polygon's bomb reaches
+    // 72px, so at ANY walking speed the extrapolated opponent is outside it.
+    // Measured on the grid — her row went 144/228 to **131/183** and her
+    // repertoire from 17 distinct moves to 15, which is the move being deleted
+    // rather than corrected.
+    //
+    // ⭐ ⇒ The aim asks `travel_to` (where do I point this so it lands on
+    // them) and the fuse is `live_at_s` (when can it hurt anybody at all). A
+    // placed object is placed where it is placed, so it is aimed nowhere and
+    // travels for zero, and this arm now says THAT. Nothing prices the fuse
+    // yet and that is written down on the type rather than patched in here.
+    let on_a_fuse = ambition_entity_catalog::MoveHazard::Spawned(
+        ambition_entity_catalog::ThreatTravel::Placed {
+            reach: 700.0,
+            earliest_s: 4.0,
+        },
+    );
+    assert!(
+        offered(on_a_fuse, 200.0),
+        "a placed hazard was aimed at where the opponent will be in four \
+         seconds, which is how the polygon lost her bomb"
+    );
+    assert_eq!(
+        on_a_fuse.travel_to(600.0),
+        Some(0.0),
+        "a placed hazard reported a flight time"
+    );
+    assert_eq!(
+        on_a_fuse.live_at_s(),
+        4.0,
+        "the fuse survived being taken out of the lead"
     );
 }

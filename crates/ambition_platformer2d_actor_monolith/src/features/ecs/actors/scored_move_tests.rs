@@ -726,11 +726,14 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
 /// (`MoveHazard::OwnersRangedAction`) and the kit builder resolves it against
 /// the weapon.
 ///
-/// ⚠ **THE THREE ARMS ARE THE THREE ANSWERS**, and the third is the one that
-/// keeps this from being a reach cut dressed as a repair: a body with no
-/// weapon leaves the request standing, because *"the move fires nothing"* is a
-/// question for whoever decides whether to press it, not a reach of zero
-/// invented here.
+/// ⛔⛤ **AND A BODY WITH NO WEAPON MAKES NO OFFER — THIS ARM SAID THE
+/// OPPOSITE UNTIL 2026-09-20.** It asserted that an unresolvable request is
+/// LEFT STANDING, on the reasoning that *"the move fires nothing"* belongs to
+/// whoever decides whether to press it. But the request's unjoined `reach()`
+/// is `RANGED_ACTION_REACH` — 1000px, wider than any stage this game ships —
+/// so *this* layer, having just proven the press fires nothing, was handing
+/// the brain a stage-crossing instantaneous threat. Deciding whether to press
+/// it IS what the kit is for. An unanswerable request is no hazard.
 #[test]
 fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
     use ambition_characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
@@ -755,14 +758,16 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
             .expect("the cannon is the body's one move")
             .frames
             .hazard
-            .expect("a move that fires puts a hazard in the world")
+    };
+    let fired = |kit: &[ambition_characters::brain::attack_kit::AttackCandidate]| {
+        hazard_of(kit).expect("a move that fires puts a hazard in the world")
     };
 
     // 540px/s down a 2.4s straight flight — Projectile Polygon's own cannon,
     // cited rather than imported: this crate is below the content that authors
     // her, and what the arm needs is a weapon SHAPED like a shipped one.
     let cannon = RangedActionSpec::bolt(540.0, 4).with_flight(ProjectileFlight::STRAIGHT);
-    let joined = hazard_of(&attack_kit_of(
+    let joined = fired(&attack_kit_of(
         Some(&moveset),
         true,
         false,
@@ -770,11 +775,16 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         None,
         Some(&cannon),
     ));
-    assert_eq!(
-        joined.speed(),
-        540.0,
-        "the shot's speed did not survive the join, so a brain leading its aim \
-         still has to pretend the bolt arrives where it was thrown"
+    // 540px/s is constant, and the shot's own 10px half-extent is ground it
+    // does not have to fly: 400px away is `(400 - 10) / 540`.
+    assert!(
+        joined
+            .travel_to(400.0)
+            .is_some_and(|t| (t - 390.0 / 540.0).abs() < 1.0e-3),
+        "the shot's flight law did not survive the join ({:?}), so a brain \
+         leading its aim still has to pretend the bolt arrives where it was \
+         thrown",
+        joined.travel_to(400.0)
     );
     // `speed × lifetime`, plus the shot's own half-extent: 540 × 2.4 + 10.
     assert!(
@@ -792,7 +802,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
     // passes for a join that reads any weapon at all and answers one number.
     let pistol = RangedActionSpec::bolt(200.0, 1)
         .with_flight(ProjectileFlight::STRAIGHT.with_lifetime(0.5));
-    let short = hazard_of(&attack_kit_of(
+    let short = fired(&attack_kit_of(
         Some(&moveset),
         true,
         false,
@@ -816,7 +826,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
     // 0.34s reaches 73px plus the shot's 10px body, not 146.
     let ponytail =
         RangedActionSpec::bolt(430.0, 7).with_flight(ProjectileFlight::boomerang(0.34));
-    let thrown = hazard_of(&attack_kit_of(
+    let thrown = fired(&attack_kit_of(
         Some(&moveset),
         true,
         false,
@@ -830,27 +840,55 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
          is 73, so a reading near 156 means the deceleration was dropped",
         thrown.reach()
     );
-    // ⭐ AND ITS SPEED IS THE AVERAGE OVER THAT LEG, so `reach / speed` is the
-    // time it actually takes — which is what the admission lead divides by.
+    // ⛔⛤ **AND ITS ARRIVAL TIME IS SOLVED, NOT AVERAGED — THE SECOND REVIEW
+    // FINDING ON THIS JOIN.** The first repair published the average speed
+    // over the out-leg, so that `reach / speed` came out right. That is right
+    // at the TURNAROUND and nowhere else: the shot is decelerating, so it
+    // covers its first pixels fast and its last pixels barely at all. The
+    // closed form is `t = out_s - sqrt(out_s^2 - 2 out_s d / v0)` for `d` of
+    // CENTRE travel, and at 40px of centre travel (50px of gap, less the
+    // shot's 10px body) it is 0.111s where the average said 0.186s — 15px of
+    // excess lead at a 200px/s closing speed, which is `ADMISSION_SLACK_PX`.
     assert!(
-        (thrown.speed() - 215.0).abs() < 0.5,
-        "a decelerating shot reported its LAUNCH speed ({}px/s), so a brain \
-         leading its aim thinks the tail arrives in half the time it takes",
-        thrown.speed()
+        thrown
+            .travel_to(50.0)
+            .is_some_and(|t| (t - 0.1112).abs() < 1.0e-3),
+        "the ponytail covers 40px of centre travel in 0.111s and the kit says \
+         {:?}; 0.186s is the average-speed model and 0.093s is the launch \
+         speed",
+        thrown.travel_to(50.0)
+    );
+    // ⭐ AND THE TURNAROUND IS WHERE THE TWO MODELS AGREE, which is the control:
+    // an arm that only checked the far end would pass for the average.
+    assert!(
+        thrown
+            .travel_to(thrown.reach())
+            .is_some_and(|t| (t - 0.34).abs() < 1.0e-3),
+        "the ponytail reaches its turnaround at 0.34s and the kit says {:?}",
+        thrown.travel_to(thrown.reach())
+    );
+    assert_eq!(
+        thrown.travel_to(thrown.reach() + 1.0),
+        None,
+        "a boomerang answered a distance past its own turnaround"
     );
 
-    // ⛔ AND NO WEAPON LEAVES THE REQUEST STANDING, unresolved and saying so.
+    // ⛔⛤ AND NO WEAPON MEANS NO HAZARD — not the request left standing, whose
+    // `reach()` is the 1000px placeholder.
+    let unarmed = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
     assert_eq!(
-        hazard_of(&attack_kit_of(
-            Some(&moveset),
-            true,
-            false,
-            Some(&brain),
-            None,
-            None,
-        )),
-        MoveHazard::OwnersRangedAction,
-        "a body that carries no ranged action had its move's request answered \
-         anyway, so a reach was invented for a shot that does not exist"
+        hazard_of(&unarmed),
+        None,
+        "a body that carries no ranged action kept its move's request, and an \
+         unresolved request reads as a {}px instantaneous threat",
+        ambition_entity_catalog::RANGED_ACTION_REACH
     );
+    // ⚠ THE PREMISE: the move is still in the kit. If the join had dropped the
+    // CANDIDATE the assertion above would pass for the wrong reason, and a
+    // body would silently lose a move because of what it is not carrying.
+    assert!(
+        unarmed.iter().any(|c| c.move_id == "cannon"),
+        "the unarmed body lost the move itself, not just its offer"
+    );
+    let _ = MoveHazard::OwnersRangedAction;
 }

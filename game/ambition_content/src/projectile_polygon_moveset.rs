@@ -796,10 +796,28 @@ mod tests {
             .hazard
             .expect("her bomb puts a hazard in the world");
         let reach = hazard.reach();
-        // ⭐ AND IT DOES NOT TRAVEL, which is the other half of what the bomb
-        // road answers: it is DROPPED, so all of its reach is available the
-        // moment it exists and nobody leading an aim has a flight to add.
-        assert_eq!(hazard.speed(), 0.0, "a laid bomb flies nowhere");
+        // ⛔⛤ **AND IT IS NOT LIVE WHEN IT LANDS — THIS ARM SAID IT WAS UNTIL
+        // 2026-09-20.** It asserted `speed == 0.0`, documented as *"all of its
+        // reach is available the moment it exists"*, which is the opposite of
+        // what the move authors: *"laying a bomb is not a hit — the bomb
+        // is"*. The fuse is four seconds, and a brain pricing the drop as an
+        // immediate blast was pricing a trap as a strike.
+        assert_eq!(
+            hazard.live_at_s(),
+            4.0,
+            "her bomb's blast was live before its fuse: {}s",
+            hazard.live_at_s()
+        );
+        // ⚠ AND ITS TRAVEL IS ZERO, WHICH IS THE OTHER HALF OF THE SPLIT: it is
+        // placed where it is placed, so there is nothing to aim. Merging the
+        // two questions spent the fuse as a flight time and deleted the move
+        // from her repertoire — see `ThreatTravel::live_at_s`.
+        assert_eq!(hazard.travel_to(reach - 1.0), Some(0.0));
+        assert_eq!(
+            hazard.travel_to(reach + 1.0),
+            None,
+            "her bomb answered a distance outside its own blast"
+        );
         assert!(
             reach > 0.0 && reach < ambition_entity_catalog::RANGED_ACTION_REACH,
             "her bomb reaches {reach}px, which is either nothing or the \

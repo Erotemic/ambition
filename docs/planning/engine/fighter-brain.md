@@ -398,6 +398,61 @@ collapses it early has silently answered the second one on its own. The
 symptom is indistinguishable from agreement, because both sides produce a
 plausible number in the same units.
 
+### ⛔⛤ A scalar pair can only describe uniform motion, and half the hazards in the game are not uniform
+
+`MoveHazard { reach, speed }` was enough for a bolt and wrong for everything
+else the roster already ships. A boomerang decelerates to a standstill at its
+turnaround, so its average speed is exact at maximum range and nowhere else —
+Projectile Polygon's ponytail covers 40px of centre travel in 0.111s where the
+average said 0.186s, which at a 200px/s closing speed is 15px of excess lead,
+the width of `ADMISSION_SLACK_PX`. A laid bomb does not travel at all and sits
+on a four-second fuse, and `speed: 0.0` was documented as *"the whole reach is
+available the moment it exists"*.
+
+⇒ The type carries the LAW and answers `travel_to(distance)`, which is what
+every consumer of the pair was computing anyway. A shape that cannot reach a
+distance returns `None` rather than a number, because a consumer that falls
+back to a number is leading its aim at a shot that cannot land.
+
+**The rule for the next shape: a new travel law is a new variant, not a new
+scalar on an existing one.** The four that exist are the four that are
+authored.
+
+### ⛔⛤ When a thing arrives and when it can hurt you are two questions, and one function answering both spent a fuse as a flight time
+
+Teaching the laid bomb its fuse was right. Feeding that fuse to the AIM LEAD
+was not, and the grid found it in one sweep: the lead carries the opponent
+forward at the velocity last seen, and four seconds of that is arithmetic
+about a walk nobody takes. Her bomb reaches 72px, so at any walking speed the
+extrapolated opponent is outside it — `projectile_polygon` went 144/228 to
+131/183 and lost two distinct moves. The move was deleted, not corrected.
+
+⚠ **AND THE FIRST EXPLANATION WAS PLAUSIBLE AND WRONG.** The reflex was to
+cap the lead at the width of the room: a 480px stage cannot contain 800px of
+walk. Against the real numbers it cannot be the mechanism — 72px of reach is
+exceeded by four seconds at 18px/s, and a stage-width cap only bites above
+120px/s. Reverting an unmeasured repair is cheaper than keeping a plausible
+knob that would have been load-bearing for the wrong reason.
+
+⇒ `travel_to` is the aiming question and `live_at_s` is the fuse. A placed
+object is aimed nowhere and travels for zero. **Nothing prices the fuse yet,
+and that is recorded on the type rather than patched into the lead**: *"will
+they be within 72px in four seconds"* is a stage-control question, the same
+shape as the counters and buffs deliberately held off the attack ranking until
+there is a defensive feature to price them with.
+
+### ⛔⛤ A layer that has proven a press does nothing must not hand the brain a placeholder
+
+`resolve_owners_ranged_action` returned early when neither an equipped weapon
+nor the body's standing kit could answer a move's ranged request, which left
+`MoveHazard::OwnersRangedAction` standing — and its unjoined reach is the
+1000px placeholder, wider than any stage this game ships. The test asserted
+that on purpose, reasoning that *"the move fires nothing"* belongs to whoever
+decides pressing. The kit builder IS that layer.
+
+⇒ An unanswerable request is no hazard. The candidate stays — a body does not
+lose a move because of what it is not carrying — and the offer goes.
+
 ### ⛔ A near-miss that is measured on only one axis is not measured
 
 The sweep's `gap` column is `|x0 − x1|`. A pair 10px apart in `x` and 300px

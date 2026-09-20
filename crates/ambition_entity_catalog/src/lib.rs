@@ -3620,6 +3620,156 @@ impl LaunchEnvelope {
 /// exactly the reader with no body to ask.
 pub const RANGED_ACTION_REACH: f32 = 1_000.0;
 
+/// **HOW A HAZARD COVERS THE GROUND BETWEEN LEAVING ITS OWNER AND TOUCHING
+/// SOMEBODY** — the law, not a sample of it.
+///
+/// ⛔⛤ **THIS REPLACED `Spawned { reach, speed }`, AND THE REASON IS THE
+/// SECOND REVIEW OF 2026-09-20:** a pair of scalars can only describe uniform
+/// motion, and two of the four shapes the roster already ships are not
+/// uniform. Flattening them cost a wrong answer each time, in the same units
+/// as a right one:
+///
+/// - a BOOMERANG decelerates to a standstill at its turnaround, so its average
+///   speed is right at maximum range and nowhere else. Projectile Polygon's
+///   ponytail (`v0` 430px/s, turning at 0.34s) actually reaches 40px of centre
+///   travel in **0.111s**; the average-speed model said 0.186s. At 200px/s of
+///   closing speed that is 15px of excess lead, which is the size of the
+///   tolerances this layer is being tuned against;
+/// - a laid BOMB is not a stationary projectile whose blast is live when it
+///   lands. It is an object on a FUSE — Projectile Polygon's is four seconds
+///   — and `speed: 0.0` was documented as *"the whole reach is available the
+///   moment it exists"*, which is the opposite of what the move's own
+///   authoring says: *"laying a bomb is not a hit — the bomb is"*.
+///
+/// ⭐ **SO THE QUESTION THE TYPE ANSWERS IS `time_to(distance)`, NOT `speed`.**
+/// Every consumer of the old pair was dividing a gap by a speed to get a
+/// flight time; the shape that knows its own law can answer that directly, and
+/// a shape that CANNOT reach a distance says so instead of returning a number.
+///
+/// ⚠ **ADD A VARIANT WITH THE CONTENT THAT NEEDS IT.** These four are the
+/// shapes authored today. A fifth — a homing shot, a tether, a mine that arms
+/// on proximity — is a new law and not a new scalar on an existing one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ThreatTravel {
+    /// Constant velocity, out to `span` of centre travel.
+    Straight {
+        /// px/s, constant.
+        speed: f32,
+        /// How far the hazard's CENTRE travels before it expires.
+        span: f32,
+        /// Ground the hazard covers without flying: its spawn offset, its own
+        /// half-extent, and any splash. Subtracted before the flight time is
+        /// solved, because a shot touches somebody with its edge.
+        free: f32,
+    },
+    /// A decelerating out-leg that stops at `out_s` and turns around:
+    ///
+    /// ```text
+    /// x(t) = v0 t - v0 t^2 / (2 out_s),   x(out_s) = v0 out_s / 2
+    /// ```
+    ///
+    /// The return leg is deliberately not modelled: a fighter deciding whether
+    /// to THROW one is asking when it first connects, and that is the out-leg.
+    Boomerang {
+        /// Launch speed, px/s, before the deceleration.
+        v0: f32,
+        /// When it reaches the turnaround, seconds after release.
+        out_s: f32,
+        /// As [`Self::Straight::free`].
+        free: f32,
+    },
+    /// An object PUT somewhere, which cannot hurt anybody until `earliest_s`
+    /// and then only within `reach`. A bomb on a fuse.
+    Placed {
+        /// How far from the body the blast can touch somebody.
+        reach: f32,
+        /// Seconds after the object appears before it can go off at all.
+        earliest_s: f32,
+    },
+}
+
+impl ThreatTravel {
+    /// The farthest this hazard can hurt somebody, measured from the body.
+    pub fn reach(self) -> f32 {
+        match self {
+            Self::Straight { span, free, .. } => free + span.max(0.0),
+            Self::Boomerang { v0, out_s, free } => {
+                free + (v0.max(0.0) * out_s.max(0.0) / 2.0)
+            }
+            Self::Placed { reach, .. } => reach,
+        }
+    }
+
+    /// The earliest this hazard can hurt anybody AT ALL, seconds from release.
+    ///
+    /// ⛔⛤ **A SEPARATE QUESTION FROM [`Self::travel_to`], AND MERGING THEM
+    /// COST A FIGHTER HER BOMB — MEASURED 2026-09-20.** The first version
+    /// answered both with one function, so a laid bomb's four-second fuse was
+    /// fed to the aim lead and the brain carried the opponent forward four
+    /// seconds of walking. Her bomb reaches 72px (`offset -16`, `blast_radius
+    /// 56`), so at any walking speed at all the extrapolated opponent is
+    /// outside it: on the 21-fighter grid Projectile Polygon went 144/228 to
+    /// **131/183** and her repertoire from 17 distinct moves to 15.
+    ///
+    /// ⚠ **AND NOTHING PRICES THIS YET, WHICH IS WRITTEN DOWN RATHER THAN
+    /// PATCHED.** *"Will they be within 72px in four seconds"* is not a
+    /// question a velocity answers, and the attack-admission rule prices
+    /// STRIKES. A trap's worth is a stage-control question — the same shape as
+    /// the counters and buffs that are deliberately off the attack ranking
+    /// until there is a defensive feature to price them with. Inventing one to
+    /// keep a move on a list is the wrong order; spending the fuse in the
+    /// lead, which is what merging these did, is worse.
+    pub fn live_at_s(self) -> f32 {
+        match self {
+            Self::Straight { .. } | Self::Boomerang { .. } => 0.0,
+            Self::Placed { earliest_s, .. } => earliest_s.max(0.0),
+        }
+    }
+
+    /// Seconds between the hazard's release and the moment its dangerous
+    /// region first COVERS something `distance` away — `None` when it never
+    /// does.
+    ///
+    /// This is the AIMING question: where do I point this so that it lands on
+    /// them. A placed object is placed where it is placed, so it answers
+    /// `0.0` — there is nothing to aim, and its fuse is [`Self::live_at_s`].
+    ///
+    /// ⚠ THE `None` IS LOAD-BEARING. A consumer that fell back to a number
+    /// here would be leading its aim at a shot that cannot land, which is the
+    /// class of defect that put a 1000px placeholder on the attack menu.
+    pub fn travel_to(self, distance: f32) -> Option<f32> {
+        if distance > self.reach() {
+            return None;
+        }
+        match self {
+            Self::Straight { speed, free, .. } => {
+                let fly = (distance - free).max(0.0);
+                if fly <= 0.0 {
+                    return Some(0.0);
+                }
+                (speed > 0.0).then(|| fly / speed)
+            }
+            Self::Boomerang { v0, out_s, free } => {
+                let fly = (distance - free).max(0.0);
+                if fly <= 0.0 {
+                    return Some(0.0);
+                }
+                if v0 <= 0.0 || out_s <= 0.0 {
+                    return None;
+                }
+                // The EARLIER root of `t^2 - 2 out_s t + 2 out_s fly / v0 = 0`,
+                // which is the out-leg; the later root is the same distance on
+                // the way back, which this does not model. The discriminant is
+                // non-negative exactly while `fly <= v0 out_s / 2`, and the
+                // guard above already established that.
+                let disc = (out_s * out_s - 2.0 * out_s * fly / v0).max(0.0);
+                Some(out_s - disc.sqrt())
+            }
+            Self::Placed { .. } => Some(0.0),
+        }
+    }
+}
+
 /// **WHAT A MOVE PUTS INTO THE WORLD THAT CAN HURT SOMEBODY** — and, for the
 /// one shape the catalog cannot measure, a request for the layer that can.
 ///
@@ -3640,23 +3790,26 @@ pub const RANGED_ACTION_REACH: f32 = 1_000.0;
 /// it at where the opponent was when it left.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MoveHazard {
-    /// An authored hazard the catalog can measure whole.
-    Spawned {
-        /// How far from the body it can hurt somebody.
-        reach: f32,
-        /// How fast it TRAVELS, px/s. `0.0` for a hazard that stays where it
-        /// is put — a laid bomb, a mine — whose whole reach is available the
-        /// moment it exists.
-        speed: f32,
-    },
+    /// An authored hazard the catalog can measure whole, carrying the law it
+    /// travels by rather than a sample of it.
+    Spawned(ThreatTravel),
     /// The move pulls the owner's OWN ranged trigger
     /// ([`MoveEventKind::Ranged`]), whose speed, flight and lifetime are the
     /// BODY's `RangedActionSpec` and not the move's.
     ///
-    /// ⚠ **A REQUEST, NOT AN ANSWER.** [`Self::reach`] and [`Self::speed`]
-    /// answer it with the standing fallback so an unjoined reader is no worse
-    /// off than before this type existed; a reader that CAN see the body is
-    /// expected to replace the variant outright.
+    /// ⚠ **A REQUEST, NOT AN ANSWER.** [`Self::reach`] answers it with the
+    /// standing fallback so an unjoined INTROSPECTING reader is no worse off
+    /// than before this type existed. A reader that can see the body is
+    /// expected to replace the variant outright — and, when the body turns out
+    /// to carry no ranged action at all, to replace it with NOTHING.
+    ///
+    /// ⛔⛤ **IT MUST NEVER REACH A FIGHTER'S KIT, AND IT USED TO.** Reviewed
+    /// 2026-09-20: `resolve_owners_ranged_action` returned early when neither
+    /// an equipped weapon nor the body's standing action could answer, leaving
+    /// the request in place — so the one layer that had just PROVEN the move
+    /// fires nothing handed the brain a 1000px instantaneous threat. The join
+    /// now clears the hazard on that road, and [`Self::travel_to`] refuses to
+    /// answer for this variant so a consumer cannot quietly re-derive one.
     OwnersRangedAction,
 }
 
@@ -3665,17 +3818,26 @@ impl MoveHazard {
     /// for an unresolved ranged action.
     pub fn reach(self) -> f32 {
         match self {
-            Self::Spawned { reach, .. } => reach,
+            Self::Spawned(travel) => travel.reach(),
             Self::OwnersRangedAction => RANGED_ACTION_REACH,
         }
     }
 
-    /// How fast this hazard travels, px/s; `0.0` also means *"not known"* for
-    /// an unresolved ranged action, which reads as an instantaneous threat —
-    /// the same answer every consumer gave before the field existed.
-    pub fn speed(self) -> f32 {
+    /// Seconds from release until this hazard's dangerous region covers
+    /// something `distance` away — `None` when it never does, and `None` for
+    /// an UNRESOLVED ranged action, which has no law to answer with.
+    pub fn travel_to(self, distance: f32) -> Option<f32> {
         match self {
-            Self::Spawned { speed, .. } => speed,
+            Self::Spawned(travel) => travel.travel_to(distance),
+            Self::OwnersRangedAction => None,
+        }
+    }
+
+    /// The earliest this hazard can hurt anybody at all, seconds from release;
+    /// `0.0` for an unresolved ranged action, which claims nothing.
+    pub fn live_at_s(self) -> f32 {
+        match self {
+            Self::Spawned(travel) => travel.live_at_s(),
             Self::OwnersRangedAction => 0.0,
         }
     }
@@ -3723,9 +3885,12 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
         crate::smash_bolt::STEERED_BOLT => effect
             .params
             .hydrate::<crate::smash_bolt::SteeredBoltParams>()
-            .map(|p| MoveHazard::Spawned {
-                reach: p.offset.0.abs() + p.speed * p.lifetime_s + p.radius,
-                speed: p.speed,
+            .map(|p| {
+                MoveHazard::Spawned(ThreatTravel::Straight {
+                    speed: p.speed,
+                    span: p.speed * p.lifetime_s,
+                    free: p.offset.0.abs() + p.radius,
+                })
             })
             .ok(),
         // ⛔⛤ **A DROP BOMB IS DROPPED, NOT THROWN.** It appears at `offset`
@@ -3738,13 +3903,23 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
         crate::smash_bomb::DROP_BOMB => effect
             .params
             .hydrate::<crate::smash_bomb::DropBombParams>()
-            .map(|p| MoveHazard::Spawned {
-                reach: p.offset.0.abs() + p.blast_radius,
-                // ⭐ ZERO, AND IT IS A MEASUREMENT RATHER THAN AN OMISSION: the
-                // bomb is DROPPED. Nothing about it closes a gap, so its whole
-                // reach is available the moment it exists and a consumer
-                // leading its aim has no flight time to add.
-                speed: 0.0,
+            .map(|p| {
+                MoveHazard::Spawned(ThreatTravel::Placed {
+                    reach: p.offset.0.abs() + p.blast_radius,
+                    // ⛔⛤ **THE FUSE, AND IT USED TO BE ZERO.** This published
+                    // `speed: 0.0`, documented as *"the whole reach is
+                    // available the moment it exists"* — the opposite of what
+                    // the move authors. `fuse_s` is *"seconds until it goes
+                    // off by itself"*, four of them on the shipped polygon, so
+                    // a brain pricing the drop as an immediate blast was
+                    // pricing a trap as a strike.
+                    //
+                    // ⚠ IT IS THE EARLIEST, NOT THE ONLY, MOMENT: a bomb also
+                    // detonates on a hard enough impact (`impact_speed`), and
+                    // that road depends on what somebody else does to it. The
+                    // fuse is the part the thrower can count on.
+                    earliest_s: p.fuse_s,
+                })
             })
             .ok(),
         _ => None,

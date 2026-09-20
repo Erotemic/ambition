@@ -28,6 +28,10 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         push_coverage: None,
         max_damage: 1,
         max_knockback: 0.0,
+        // ⚠ ZERO, SO `kill_potential` IS ZERO FOR EVERY FIXTURE MOVE and the
+        // arms below rank on the features they are about. `candidate_with_launch`
+        // is what opts a fixture INTO being a finisher.
+        max_percent_scaled_knockback: 0.0,
         start_impulse: (0.0, 0.0),
         // No self-motion at all. `lifting_candidate` below is what opts a
         // fixture INTO carrying a route, so the ordinary move stays a move.
@@ -51,6 +55,15 @@ fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
         },
         legality: ActionLegality::Now,
     }
+}
+
+/// The same candidate, with an authored launch that GROWS with the victim's
+/// damage — what makes a move a finisher rather than a poke.
+fn candidate_with_launch(id: &str, startup_s: f32, reach: f32, launch: f32) -> AttackCandidate {
+    let mut c = candidate(id, startup_s, reach);
+    c.frames.max_knockback = launch;
+    c.frames.max_percent_scaled_knockback = launch;
+    c
 }
 
 fn stage() -> StageView {
@@ -263,21 +276,58 @@ fn only_a_committed_opponent_makes_a_slow_attacks_frame_advantage_non_negative()
     );
 }
 
-/// Kill potential rises with the VICTIM's damage, not with the move's. In a
-/// smash-percent game a move's value is who it can end.
+/// Kill potential rises with the VICTIM's damage — **and with the launch the
+/// move carries**. In a smash-percent game a move's value is who it can end,
+/// and a jab ends nobody at 150%.
+///
+/// ⛔⛤ THE SECOND HALF WAS MISSING AND MADE THE WHOLE WEIGHT DEAD. The
+/// feature was `foe.damage_frac()` alone — the same number for every
+/// candidate — and an attack's score is only ever compared with another
+/// attack's, so `kill_potential` could not change a ranking at any rung. This
+/// arm passed throughout: one move in the kit, nothing to out-rank.
 #[test]
-fn kill_potential_reads_the_victims_meter() {
-    let kit = [candidate("jab", 0.1, 100.0)];
+fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
     let w = UtilityWeights::v1();
     let mut v = view_with(300.0, 400.0);
 
+    // A single launching move: the share is 1, so the feature is the meter.
+    let kit = [candidate_with_launch("jab", 0.1, 100.0, 80.0)];
     v.actors[0].damage_taken = 0;
     let fresh = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
     v.actors[0].damage_taken = 90;
     let ripe = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
-
     assert!(ripe.best_attack().unwrap().score > fresh.best_attack().unwrap().score);
     assert_eq!(ripe.best_attack().unwrap().features.kill_potential, 0.9);
+
+    // ⭐ AND THE HALF THE OLD ARM COULD NOT ASK, because it needs a SECOND
+    // move: the same damaged foe, two moves that differ only in launch. The
+    // weaker one earns a proportional share and not the meter.
+    let kit = [
+        candidate_with_launch("jab", 0.1, 100.0, 40.0),
+        candidate_with_launch("smash", 0.1, 100.0, 160.0),
+    ];
+    let ranked = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
+    let of = |id: &str| {
+        ranked
+            .attacks
+            .iter()
+            .find(|a| a.move_id == id)
+            .expect("both moves reach")
+            .features
+            .kill_potential
+    };
+    assert_eq!(of("smash"), 0.9, "the kit's best launch earns the full meter");
+    assert!(
+        (of("jab") - 0.225).abs() < 1e-6,
+        "a quarter of the launch earns a quarter of the meter, got {}",
+        of("jab")
+    );
+
+    // ⛔ A MOVE THAT LAUNCHES NOTHING EARNS NOTHING, however hurt the foe is.
+    // That is what keeps a set-knockback shove out of the kill question.
+    let kit = [candidate("poke", 0.1, 100.0)];
+    let ranked = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
+    assert_eq!(ranked.best_attack().unwrap().features.kill_potential, 0.0);
 }
 
 /// Stage risk is a COST. Committing near a blastzone is how a level-9 CPU

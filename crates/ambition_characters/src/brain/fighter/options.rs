@@ -68,7 +68,10 @@ pub struct Features {
     pub reach_fit: f32,
     /// `-1..=1`. Positive when `startup_s` beats the opponent's commitment.
     pub frame_advantage: f32,
-    /// `0..=1`. The victim's accumulated damage fraction.
+    /// `0..=1`. The victim's accumulated damage fraction, scaled by how hard
+    /// THIS move launches relative to the kit's best percent-scaling launch.
+    /// A move that cannot KO harder for the damage taken scores zero here
+    /// however hurt the opponent is.
     pub kill_potential: f32,
     /// `0..=1`. 1 when I am against a blastzone. Costed, not rewarded — its
     /// weight is negative in [`UtilityWeights::v1`].
@@ -377,6 +380,10 @@ pub fn generate_options(
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate lands a volume, which zeroes every payoff below.
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
+    let kit_max_launch = kit
+        .iter()
+        .map(|c| c.frames.max_percent_scaled_knockback)
+        .fold(0.0_f32, f32::max);
     // ⭐ THE KIT'S SLOWEST STARTUP, which is what `frame_advantage` must be
     // normalised by for the RANKING. See the two call sites below: they ask
     // different questions and so want different scales, and the one that asks
@@ -451,7 +458,26 @@ pub fn generate_options(
             let features = Features {
                 reach_fit: coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent),
                 frame_advantage: fa,
-                kill_potential: foe.damage_frac(),
+                // ⛔⛤ **THIS WAS THE SAME NUMBER FOR EVERY CANDIDATE, AND AN
+                // ATTACK'S SCORE IS ONLY EVER COMPARED WITH ANOTHER ATTACK'S.**
+                // `foe.damage_frac()` alone is a fact about the OPPONENT, so it
+                // added a constant to every option and could not change a
+                // single ranking — measured 2026-09-19: `options.attacks` is
+                // read through `first()` and through a lookup by move id, never
+                // against a threshold and never against a movement score. Every
+                // rung of the authored ladder varies `kill_potential` from 0.0
+                // to 0.4 and none of it reached a decision.
+                //
+                // ⇒ A kill is the foe's percent AND THE LAUNCH THIS MOVE
+                // CARRIES. Sharing against the kit's best is the same shape
+                // `expected_payoff` uses for damage, so the feature stays
+                // `0..=1` and the authored weights keep their scale.
+                kill_potential: foe.damage_frac()
+                    * if kit_max_launch > 0.0 {
+                        c.frames.max_percent_scaled_knockback / kit_max_launch
+                    } else {
+                        0.0
+                    },
                 stage_risk,
                 displacement_value: displacement_value(
                     c.frames.push_coverage.as_ref(),

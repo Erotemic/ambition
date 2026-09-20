@@ -79,6 +79,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 push_coverage: None,
                 max_damage: 8,
                 max_knockback: 40.0,
+                max_percent_scaled_knockback: 40.0,
                 start_impulse: (0.0, 0.0),
                 lift_speed: 0.0,
                 lift_at_s: 0.0,

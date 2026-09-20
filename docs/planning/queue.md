@@ -2882,6 +2882,50 @@ cycle — a geometry coincidence, which is why it looked seed-shaped and appeare
 in both directions. ⚠ A mechanism that predicts the observed pattern is not
 thereby the mechanism.
 
+⭐⭐ **AND RUNNING IT AGAINST A SCORING CHANGE IS WHAT IT IS FOR — 2026-09-19,
+`kill_potential`.** The feature was `foe.damage_frac()` alone, identical for
+every candidate, and an attack's score is only ever compared with another
+attack's (`options.attacks` is read through `first()` and through a lookup by
+move id — never against a threshold, never against a movement score). ⇒ **Two
+of the five weights every authored rung tunes could not change a decision**:
+`kill_potential` and `stage_risk` are both facts about the opponent and about
+me, not about the move. `kill_potential` now shares against the kit's best
+percent-scaling launch.
+
+⚠ **THE SWEEP IS DETERMINISTIC, AND THAT WAS MEASURED BEFORE THE DELTAS WERE
+READ.** Two runs at the same tree agree on all 21 fighters to the printed digit.
+Without that control the `used/seen/kit` column looked like it was moving on its
+own and every delta below would have been unreadable.
+
+| | before | after | | | before | after |
+|---|---:|---:|---|---|---:|---:|
+| `npc_carl_stargan` | 116 | **331** | | `perfect_cellular_automaton` | 391 | 205 |
+| `npc_emmy_noether` | 142 | 247 | | `npc_alice` | 290 | 150 |
+| `npc_pirate_admiral` | 46 | 106 | | `pointed_polygon` | 288 | 192 |
+| `sanic` | 80 | 152 | | `npc_ninja_shadow_oni_leader` | 256 | 196 |
+| `npc_bob` | 251 | 329 | | `director` | 278 | 248 |
+| `performer` | 333 | 421 | | **`medic`** | **188** | **39** |
+| `smash_george_booul` | 467 | 536 | | `goblin` (locked) | 24 | 24 |
+| `officer` | 198 | 209 | | `special_patent_clerk` (locked) | 0 | 0 |
+
+**Total 4648 → 4833 (+4%). 12 improved, 3 unchanged, 6 fell.** `npc_carl_stargan`
+went from **2 distinct moves to 19** — a near-lock of exactly the shape this row
+describes, opened by giving the ranking a term that moves as damage accumulates.
+Both hard locks are untouched, which is predicted: a locked fighter deals no
+damage, so the percent term never rises and the new term never engages.
+
+⛔ **ONE REGRESSION CROSSES THE LINE AND IS NOT WAVED THROUGH: `medic`,
+188% → 39%, 16 distinct moves → 8.** Her kit is ORDINARY — measured, every move
+grows with percent except `medic_tourniquet` (damage 4, knockback 96,
+`knockback_growth: Some(0.0)`), which was her most-thrown move at 36 of 101
+starts and is the one move in her kit the new term zeroes. ⇒ Two readings and
+**neither is established**: either the brain lost a move it was correctly
+leaning on, or it stopped farming a move that its own authoring says must not
+get better as the victim softens (`tourniquet_tests`' own words) and the mirror
+damage fell because both seats stopped. **Measure which before tuning
+anything.** That is the next combat item on this row, not a blocker on the
+change that found it.
+
 ⚠ **AND THE INSTRUMENT ALREADY NAMED THEM; NOBODY HAD RUN IT.** The sweep is
 `#[ignore]`d as *"a measurement, not a guard"*, and its one assertion
 (`silent.len() * 2 < ids.len()`) is deliberately about whether the TABLE is

@@ -517,4 +517,75 @@ mod he_uses_the_gust {
              1.25..2.6 band was measured against exactly these two"
         );
     }
+
+    /// **AT 150% HE STOPS POKING AND SWINGS FOR THE KILL.**
+    ///
+    /// ⛔⛤ HE DID NOT, AND THE WEIGHT THAT SHOULD HAVE MADE HIM WAS DEAD.
+    /// `kill_potential` was `foe.damage_frac()` — a fact about the opponent,
+    /// identical for every candidate — and an attack's score is only ever
+    /// compared with another attack's. Every rung of the authored ladder tunes
+    /// that weight from 0.0 to 0.4 and none of it could move a decision:
+    /// measured at 150%, he opened with `officer_jab` at the same gap where he
+    /// opens with it at 0%.
+    ///
+    /// ⇒ A kill is the foe's percent AND the launch this move carries, so the
+    /// feature is now shared against the kit's best percent-scaling launch.
+    #[test]
+    fn a_fresh_opponent_gets_a_poke_and_a_damaged_one_gets_a_smash() {
+        let kit = kit();
+        let best = |dmg: i32| {
+            let mut v = view(400.0, 440.0);
+            v.actors[0].damage_taken = dmg;
+            generate_options(
+                Perceived::cheating(&v),
+                Situation::Neutral,
+                &kit,
+                &UtilityWeights::v1(),
+            )
+            .attacks
+            .first()
+            .map(|a| a.move_id.clone())
+            .expect("his kit answers at this gap")
+        };
+        // Same gap, same stage, same kit — only the percent differs.
+        assert_eq!(best(0), "officer_jab", "he should poke a fresh opponent");
+        assert_eq!(
+            best(150),
+            "officer_smash_down",
+            "at 150% the answer is the move that launches, not the fast one"
+        );
+    }
+
+    /// ⛔⛤ **AND HIS BIGGEST KNOCKBACK NUMBER IS NOT A FINISHER**, which is
+    /// the trap this feature had to avoid. `officer_disperse` authors
+    /// `knockback: 96` — more than his jab, his tilts and his uppercut — and
+    /// `knockback_growth: Some(0.0)`, so it shoves exactly as far at 200% as at
+    /// 0%. A kill question fed `max_knockback` would have made the gust his
+    /// best answer to a damaged opponent, which is the opposite of true.
+    #[test]
+    fn the_gust_earns_no_kill_credit_however_hurt_the_opponent_is() {
+        let gust = officer_moveset()
+            .moves
+            .iter()
+            .find(|m| m.id == "officer_disperse")
+            .expect("the gust")
+            .frame_data();
+        assert_eq!(gust.max_knockback, 96.0, "the authored shove");
+        assert_eq!(
+            gust.max_percent_scaled_knockback, 0.0,
+            "a set launch grows with nothing, so it finishes nobody"
+        );
+
+        // ⭐ THE CONTROL IS AN ORDINARY MOVE OF HIS, not another set one: the
+        // two fields agree everywhere the launch grows, and a derivation that
+        // returned zero for everything would satisfy the arm above forever.
+        let jab = officer_moveset()
+            .moves
+            .iter()
+            .find(|m| m.id == "officer_jab")
+            .expect("the jab")
+            .frame_data();
+        assert_eq!(jab.max_percent_scaled_knockback, jab.max_knockback);
+        assert!(jab.max_knockback > 0.0, "the jab launches at all");
+    }
 }

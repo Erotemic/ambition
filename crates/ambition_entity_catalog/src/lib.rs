@@ -3090,6 +3090,21 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
             .map(|v| v.knockback)
             .fold(0.0_f32, f32::max);
+        // ⭐⭐ THE SAME FOLD OVER THE VOLUMES THAT ACTUALLY GROW WITH PERCENT.
+        // A set launch (`knockback_growth: Some(0.0)`) is the same distance at
+        // 0% and at 200% — `util::rage_for_growth` declines rage for exactly
+        // this authoring — so a scorer asking *"what finishes a damaged
+        // opponent"* must not be handed the gust's 96, which is the strongest
+        // number on the Officer's table and the one move on it that cannot
+        // kill harder for the damage taken.
+        let max_percent_scaled_knockback = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .filter(|v| !matches!(v.knockback_growth, Some(g) if g == 0.0))
+            .map(|v| v.knockback)
+            .fold(0.0_f32, f32::max);
         // LIFT: the against-gravity speed this move COMMANDS of its owner.
         //
         //  the whole point of deriving it here is that a policy layer can then
@@ -3145,6 +3160,7 @@ impl MoveSpec {
             push_coverage,
             max_damage,
             max_knockback,
+            max_percent_scaled_knockback,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
             lift_speed,
             lift_at_s,
@@ -3353,6 +3369,18 @@ pub struct MoveFrameData {
     /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
+    /// The same, over the Active volumes whose launch GROWS with the victim's
+    /// damage — i.e. everything except an explicitly authored set launch
+    /// (`knockback_growth: Some(0.0)`).
+    ///
+    /// ⭐ **THIS IS THE ONE A KILL QUESTION ASKS.** "Which of my moves finishes
+    /// a damaged opponent" is a question about the percent term, and a windbox
+    /// or any other set launch answers it with a flat number that never gets
+    /// better — the gust's 96 is the biggest knockback on the Officer's table
+    /// and the only move on it that cannot KO harder at 150% than at 0%.
+    /// `0.0` for a move whose every launch is set, and for a move that lands
+    /// no volume.
+    pub max_percent_scaled_knockback: f32,
     /// The move's authored self-motion at trigger, body-local (`+x` toward facing, `+y` per the
     /// authoring convention), `(0, 0)` when none.
     pub start_impulse: (f32, f32),

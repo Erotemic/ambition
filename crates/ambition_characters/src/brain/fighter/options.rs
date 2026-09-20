@@ -1220,9 +1220,24 @@ fn travel_of(frames: &ambition_entity_catalog::MoveFrameData) -> Option<Travel> 
     let (mx, my) = motion_of(frames);
     let speed = (mx * mx + my * my).sqrt();
     if speed > 0.0 {
+        // ⛔⛤ **THE BURST STARTS WHEN IT FIRES, AND THIS COUNTED THE WINDUP
+        // AS TRAVEL — REVIEWED 2026-09-20.** `total_s` is the whole move;
+        // `lift_at_s` is when the impulse arrives, and the body is standing
+        // still until then. `medic_rescue_lift` applies `(34, -905)` at 0.12s
+        // of a 0.48s move, so the old product credited it with **435px** of
+        // travel where the burst carries it **326px**.
+        //
+        // ⚠ THE HORIZON IS STILL `total_s`, WHICH IS A CONVENTION AND NOT A
+        // MEASUREMENT. An impulse SETS a velocity; the body keeps it until
+        // gravity or a surface takes it away, which is usually after the move
+        // ends. Ending the reckoning at the move is the same commitment window
+        // every other option on this list is priced over, so the candidates
+        // stay comparable — what is fixed here is the part that was counting
+        // motion during frames the body provably does not move.
+        let carried_s = (frames.total_s - frames.lift_at_s).max(0.0);
         return Some(Travel::Thrown {
             dir: (mx / speed, my / speed),
-            distance: speed * frames.total_s,
+            distance: speed * carried_s,
         });
     }
     // ⛔⛤ **A SUSTAINED RIDE ONLY, NOT EVERY ROUTE THAT PUBLISHES A `carry` —

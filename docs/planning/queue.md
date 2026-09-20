@@ -3185,6 +3185,40 @@ what a move does, so the next thing built on the launch price is built on the
 one the game actually pays. The measurement that would have sent this back is a
 row moving that could not have.
 
+✅ **A BURST COVERS GROUND ONLY AFTER ITS IMPULSE FIRES — 2026-09-20, review
+finding #3.** `travel_of` priced a pure-motion move at `speed × total_s`, so a
+move whose impulse arrives a fifth of the way in was credited with a fifth
+more distance than the body ever travels. `medic_rescue_lift` applies
+`(34, -905)` at 0.12s of a 0.48s move: **435px** priced against **326px**
+travelled. The horizon is still `total_s`, which is a convention rather than a
+measurement — an impulse SETS a velocity and the body keeps it past the end of
+the move — but it is the same commitment window every other option on the list
+is priced over, so the candidates stay comparable. What is fixed is the part
+that counted motion during frames the body provably does not move.
+
+⚠ **THE EXISTING TEST COULD NOT SEE IT, AND SAID SO IN ITS OWN PROSE.** The
+fixture authors `lift_at_s: 0.1` and
+`a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers` described it as
+*"900px/s for a 0.5s move: about 450px of travel"* — the naive product, read
+back as the fixture's description. Reverting the repair leaves that test GREEN.
+The new arm is a FLIP rather than a threshold, because the tent
+`1 - |travelled/gap - 1|` is wide enough that both distances clear
+`MOTION_WORTH_PRESSING` at most gaps: `a_burst_covers_ground_only_after_its_impulse_fires`
+probes at 360px and at 450px and asks which one PEAKS. Two poisons, two
+different arms — counting the windup fails the flip (0.75 against 1) and
+counting ONLY the windup fails the peak (0.25).
+
+⛔⛤ **AND THE GRID SWEEP CANNOT WITNESS IT: 7195% → 7195%, EVERY ROW
+BIT-IDENTICAL.** That is a finding about the instrument. The one shipped move
+on this road is the medic's, and her row is `1/17/34` — she throws
+`medic_tourniquet` 144 times and nothing else, so her lift is never pressed in
+a flat-stage mirror and the price never reaches a decision. The band where the
+decision actually changes is computable and is stated instead of measured: a
+motion is offered while `travelled/gap` sits in `[0.5, 1.5]`, so the old 435px
+offered the lift from 290px to 870px and the true 326px offers it from 217px to
+652px. A 700px gap was 0.62 (pressed) and is 0.47 (not). Nothing on the grid
+stands 700px from a medic.
+
 ⛔⬤ **THE NAMED SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE BRAIN
 IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE IN
 `MoveSpec`.** Grabs, windboxes, bolts, bombs, ranged triggers, summons and

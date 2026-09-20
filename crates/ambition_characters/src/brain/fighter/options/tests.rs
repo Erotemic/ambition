@@ -2203,6 +2203,54 @@ fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
     );
 }
 
+/// ⛔⛤ **A BURST COVERS THE GROUND IT COVERS AFTER IT FIRES, AND THE PRICE
+/// COUNTED THE WINDUP TOO — REVIEWED 2026-09-20.**
+///
+/// `travel_of` multiplied the commanded speed by the WHOLE move duration, so a
+/// move whose impulse arrives a fifth of the way in was credited with a fifth
+/// more distance than the body ever travels. `medic_rescue_lift` — `(34,
+/// -905)` at 0.12s of a 0.48s move — was priced at 435px against a real 326px,
+/// which against a 700px gap is 0.62 (pressed) versus 0.47 (not).
+///
+/// ⚠ **THE ARM IS A FLIP, NOT A THRESHOLD, BECAUSE THE TENT IS WIDE.** The
+/// score is `1 - |travelled/gap - 1|`, so both the true distance and the
+/// inflated one clear `MOTION_WORTH_PRESSING` at most gaps; what the defect
+/// changes is WHICH gap this move is best at, which is the thing the option
+/// layer actually spends. So the two probes are the two candidate answers, and
+/// the question is which one peaks.
+#[test]
+fn a_burst_covers_ground_only_after_its_impulse_fires() {
+    let w = UtilityWeights::v1();
+    // 900px/s, fired at 0.1s of a 0.5s move: 360px of travel, and 450px if the
+    // windup is counted as flight.
+    let kit = [hitless_lifting_candidate("up_b", 900.0)];
+    let overhead_by = |above: f32| {
+        let mut view = view_with(300.0, 300.0);
+        view.actors[0].pos.y = 300.0 - above;
+        generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &w)
+            .motions
+            .first()
+            .map(|m| m.score)
+            .expect("the launch is not on the motion list at all")
+    };
+
+    let where_the_burst_lands = overhead_by(360.0);
+    let where_the_whole_move_would_land = overhead_by(450.0);
+    assert!(
+        where_the_burst_lands > where_the_whole_move_would_land,
+        "this body arrives at 360px and the price says it arrives at 450px: \
+         {where_the_burst_lands} against {where_the_whole_move_would_land}"
+    );
+    // ⭐ AND IT IS THE PEAK, not merely the larger of two — without this the
+    // arm passes for any rule that shrinks the distance, including one that
+    // shrinks it too far.
+    assert!(
+        (where_the_burst_lands - 1.0).abs() < 1e-3,
+        "a burst that exactly covers the gap is the top of the tent: \
+         {where_the_burst_lands}"
+    );
+}
+
 /// ⛔⛤ **THE SAME LAUNCH AT THREE DIFFERENT DISTANCES IS THREE DIFFERENT
 /// DECISIONS, AND THE SCORE USED TO BE THE SAME NUMBER FOR ALL THREE.**
 ///
@@ -2219,7 +2267,11 @@ fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
 #[test]
 fn a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers() {
     let w = UtilityWeights::v1();
-    // 900px/s for a 0.5s move: about 450px of travel, straight up.
+    // 900px/s straight up, fired 0.1s into a 0.5s move: **360px** of
+    // travel, not 450 — the body is in its windup for the first 0.1s.
+    // ⛔ The fixture states that windup (`hitless_lifting_candidate`
+    // authors `lift_at_s: 0.1`), so a probe distance read off the naive
+    // product would be certifying the bug this arm is priced against.
     let kit = [hitless_lifting_candidate("up_b", 900.0)];
 
     // `+y` is toward this body's feet, so a foe overhead is a NEGATIVE local
@@ -2235,22 +2287,22 @@ fn a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers() {
     };
 
     let on_top_of_me = overhead_by(5.0);
-    let a_useful_distance = overhead_by(450.0);
+    let a_useful_distance = overhead_by(360.0);
     let far_beyond_reach = overhead_by(1400.0);
 
     assert!(
         a_useful_distance >= MOTION_WORTH_PRESSING,
-        "a launch that lands on an opponent 450px overhead is the one case \
+        "a launch that lands on an opponent 360px overhead is the one case \
          this move exists for, and it is not worth pressing: {a_useful_distance}"
     );
     assert!(
         on_top_of_me < MOTION_WORTH_PRESSING,
-        "throwing myself 450px into the air to reach somebody 5px away is a \
+        "throwing myself 360px into the air to reach somebody 5px away is a \
          way to leave, not a way to arrive: {on_top_of_me}"
     );
     assert!(
         far_beyond_reach < MOTION_WORTH_PRESSING,
-        "a 450px launch covers less than a third of a 1400px gap, so pressing \
+        "a 360px launch covers about a quarter of a 1400px gap, so pressing \
          it spends the body's whole commitment and still does not arrive: \
          {far_beyond_reach}"
     );

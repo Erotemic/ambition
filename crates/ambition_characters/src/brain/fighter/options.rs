@@ -44,6 +44,36 @@ pub struct MoveOption {
     pub score: f32,
 }
 
+/// A kit move whose only effect is to MOVE THIS BODY, scored by whether that
+/// motion serves the movement objective.
+///
+/// ⛔⛤ **A MOVE IS NOT AN ATTACK BECAUSE IT HAPPENS TO BE ENCODED AS ONE.** The
+/// medic's `medic_rescue_lift` lands no volume and throws her 900 units
+/// straight up. Priced on the attack menu it was ranked by frame advantage
+/// against an opponent it cannot touch, admitted at every range because there
+/// was nothing it could miss, and therefore whatever remained once the gap grew
+/// past the kit's reach — thrown 48 times in 91 starts for 39% damage, each
+/// press widening the gap so the next decision met the same world.
+///
+/// ⭐⭐ **THE QUESTION A SELF-MOTION MOVE ANSWERS IS A MOVEMENT QUESTION:** does
+/// this displacement take me where I am trying to go. That is what
+/// [`MotionOption::score`] measures, and it is why the same move shape can be
+/// the medic's trap (the foe is level with her, so a vertical launch goes
+/// nowhere useful) and Emmy's approach (it closes a gap her kit cannot
+/// otherwise reach) without either being a special case.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MotionOption {
+    pub move_id: String,
+    pub frames: MoveFrameData,
+    /// The press that reaches [`Self::move_id`] — a motion is still performed
+    /// on the attack seam, because that is the button the move is bound to.
+    pub binding: AttackBinding,
+    /// `0..=1`. How much of the way to the objective this motion actually
+    /// travels: its alignment with the direction to the foe, times its share of
+    /// the fastest motion in the kit.
+    pub score: f32,
+}
+
 /// One attack the body's kit can throw, with the frame data a player who read the
 /// tables would know.
 #[derive(Clone, Debug, PartialEq)]
@@ -250,6 +280,9 @@ pub struct OptionSet {
     /// blastzone has exactly one problem, and a move that solves that problem is
     /// not an offensive option, it is the answer to it.
     pub attacks: Vec<AttackOption>,
+    /// Scored pure-motion moves, best first. See [`MotionOption`]. Empty for
+    /// the kits that author none, which is most of them.
+    pub motions: Vec<MotionOption>,
 }
 
 impl OptionSet {
@@ -260,7 +293,33 @@ impl OptionSet {
     pub fn best_movement(&self) -> Option<MoveOption> {
         self.movement.first().copied()
     }
+
+    /// The motion worth performing, or `None` when none of them goes anywhere
+    /// this body wants to be.
+    ///
+    /// ⚠ **A THRESHOLD, NOT `first()`.** Every other list here is consumed by
+    /// taking the head, because an attack list is a RANKING among things worth
+    /// doing. A motion list is not: a kit that authors a vertical launch always
+    /// offers it, and pressing it because it is the only entry is exactly the
+    /// loop this type exists to end. The head is worth pressing only when the
+    /// motion actually carries the body most of the way toward the objective.
+    pub fn best_motion(&self) -> Option<&MotionOption> {
+        self.motions
+            .first()
+            .filter(|motion| motion.score >= MOTION_WORTH_PRESSING)
+    }
 }
+
+/// How well a pure-motion move has to serve the objective before pressing it
+/// beats simply walking.
+///
+/// ⭐ **HALF, AND THE HALF IS THE ARGUMENT.** [`MotionOption`]'s score is
+/// alignment times speed share, so `0.5` is "either it points almost exactly
+/// where I want to go at moderate speed, or it is the fastest thing I own and
+/// points broadly the right way". Below that the body is better off walking,
+/// which costs nothing and can be changed its mind about next tick; a move
+/// cannot.
+pub const MOTION_WORTH_PRESSING: f32 = 0.5;
 
 /// How far past its own reach an attack is still worth considering. Beyond this
 /// the fit is zero rather than negative — an attack that misses by a mile and one
@@ -355,12 +414,24 @@ pub fn generate_options(
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| a.move_id.cmp(&b.move_id))
         });
-        return OptionSet { movement, attacks };
+        // ⚠ NO MOTION LIST IN RECOVERY, and that is not an omission: a body
+        // past the blastzone has one objective and `lifting_candidates` above
+        // already IS the list of moves that serve it, endorsed by the recovery
+        // lens rather than by a gap-closing score.
+        return OptionSet {
+            movement,
+            attacks,
+            motions: Vec::new(),
+        };
     }
     if foe.is_none() {
+        // A motion is scored against where the FOE is. With nobody to go to
+        // there is no objective, which is the same reason the foe-relative
+        // movement verbs are withheld above.
         return OptionSet {
             movement,
             attacks: Vec::new(),
+            motions: Vec::new(),
         };
     }
     let foe = foe.expect("checked");
@@ -655,10 +726,19 @@ pub fn generate_options(
         (None, None) => attack.frames.lift_speed <= 0.0,
     });
 
-    // ⛔⛤ **… UNLESS IT IS ALL THERE IS, AND MEASURING THE BLANKET VERSION IS
-    // WHAT FOUND THAT.** Two fighters own a hitless self-launcher and the move
-    // plays OPPOSITE roles for them — grid sweep, 2026-09-19, 19 of 21 bouts
-    // bit-identical either way:
+    // ⛔⛤ **AND IT DOES NOT COME BACK AS A LAST RESORT, WHICH IS WHAT THE
+    // FIRST REPAIR DID.** That version re-admitted the hitless launcher
+    // whenever `attacks` came out empty, on the reasoning that the alternative
+    // was *"a body that cannot act at all"*. It is not: movement and attack are
+    // chosen separately, so an empty attack menu at long range means WALK
+    // TOWARD THEM, which is usually the right answer and always a cheaper
+    // mistake than arming a vertical launch.
+    //
+    // ⇒ The move is not gone, it is FILED CORRECTLY: `motion_options` below
+    // offers it as what it is, scored by whether its displacement goes where
+    // this body is trying to go. That is what separates the two fighters who
+    // own one — grid sweep, 2026-09-19, 19 of 21 bouts bit-identical either
+    // way:
     //
     // ```text
     // medic  rescue_lift x48/91   gap 91   39%   → tourniquet x40, gap 63, 262%
@@ -666,38 +746,25 @@ pub fn generate_options(
     // ```
     //
     // The medic's lift was a TRAP: she had `tourniquet` at 90px and threw the
-    // lift anyway, which widened the gap so the next decision found the same
-    // world. Emmy's was her APPROACH — her most-thrown move did not change and
-    // her GAP grew from 82 to 123, so without it she stands at a range her
-    // smash cannot reach. Same move shape, opposite jobs, and what separates
-    // them is whether the kit offers anything else here.
+    // lift anyway, widening the gap so the next decision met the same world.
+    // Emmy's was her APPROACH — so without it she ends up at a range her smash
+    // cannot reach. An alignment score tells those apart by reading where the
+    // opponent is, which is the fact that actually differs.
     //
-    // ⇒ A recovery is the LAST RESORT rather than a choice. It leaves the menu
-    // whenever the menu has something on it, and stays when the alternative is
-    // an empty menu and a body that cannot act at all.
+    // ⭐⭐ **AND THE SWEEP SAYS SO: EXACTLY ONE OF 21 BOUTS MOVES, AND IT IS
+    // EMMY.** Grid sweep, 2026-09-20, mirror matches, 3600 ticks, the other
+    // twenty rows bit-identical to the printed digit:
     //
-    // ⚠ THIS IS HALF A REPAIR AND SAYS SO. A move whose only effect is to move
-    // the body belongs in the MOVEMENT list, scored by whether it closes the
-    // gap — not in the attack list scored by frame advantage. That is the
-    // admission-rule work `queue.md`'s BRAIN row already owns.
-    if attacks.is_empty() {
-        attacks = kit
-            .iter()
-            .filter(|c| c.legality == ActionLegality::Now)
-            .filter(|c| {
-                c.frames.coverage.is_none()
-                    && c.frames.push_coverage.is_none()
-                    && c.frames.lift_speed > 0.0
-            })
-            .map(|c| AttackOption {
-                move_id: c.move_id.clone(),
-                frames: c.frames.clone(),
-                binding: c.binding,
-                features: Features::default(),
-                score: 0.0,
-            })
-            .collect();
-    }
+    // ```text
+    //                took0% took1% hitstun moves used  gap  most thrown
+    //   last resort    29%    29%      64    146   8   389  invariant_field x86
+    //   motion list    73%   110%     307     89  12    88  smash_forward   x49
+    // ```
+    //
+    // ⇒ She stops standing 389px away spamming the one move that reaches from
+    // there and starts closing to 88 and swinging, and her situation mix goes
+    // from `Disadvantage 51%` to `Advantage 83%`. That is the whole behavioural
+    // delta of this change, which is what a one-row sweep is for.
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).
@@ -708,7 +775,102 @@ pub fn generate_options(
             .then_with(|| a.move_id.cmp(&b.move_id))
     });
 
-    OptionSet { movement, attacks }
+    let motions = motion_options(kit, foe_local, basis);
+
+    OptionSet {
+        movement,
+        attacks,
+        motions,
+    }
+}
+
+/// Every kit move whose only effect is to move this body, scored by whether
+/// that motion goes where the body is trying to go.
+///
+/// ⛔⛤ **THE OBJECTIVE IS THE FOE, AND THAT IS WHAT MAKES THIS ONE RULE RATHER
+/// THAN A TABLE OF CHARACTER CASES.** The medic's vertical launch and Emmy's
+/// are the same move shape doing opposite jobs — measured on the grid sweep,
+/// 2026-09-19: the medic threw hers 48 times in 91 starts for 39% damage while
+/// `medic_tourniquet` sat unused at 90px, and removing Emmy's cost her 180
+/// points of damage and grew her gap from 82 to 123. What separates them is
+/// not the move, it is WHERE THE OPPONENT IS: the medic's foe is level with
+/// her, so a launch straight up carries her away from the only thing she wants
+/// to reach; Emmy's is above and across, so the same launch is her approach.
+/// Asking for the alignment answers both without naming either.
+///
+/// ⚠ **A SHARE OF THE KIT'S FASTEST MOTION, not an absolute speed**, for the
+/// same reason `expected_payoff` shares against the kit's strongest hit: the
+/// weights stay comparable across bodies whose numbers are on different scales.
+fn motion_options(
+    kit: &[AttackCandidate],
+    foe_local: (f32, f32),
+    basis: ae::AccelerationFrame,
+) -> Vec<MotionOption> {
+    let _ = basis;
+    // ⛔ THE SAME THREE-WAY SPLIT THE ATTACK RETAIN MAKES, read from the other
+    // side: a move that hits is an attack, a move that shoves is a shove, and
+    // what is left over is only motion. A move that touches nothing and moves
+    // nothing is a buff or a summon and belongs to neither list.
+    let is_pure_motion = |c: &AttackCandidate| {
+        c.legality == ActionLegality::Now
+            && c.frames.coverage.is_none()
+            && c.frames.push_coverage.is_none()
+            && motion_of(&c.frames) != (0.0, 0.0)
+    };
+    let fastest = kit
+        .iter()
+        .filter(|c| is_pure_motion(c))
+        .map(|c| {
+            let (x, y) = motion_of(&c.frames);
+            (x * x + y * y).sqrt()
+        })
+        .fold(0.0_f32, f32::max);
+    if fastest <= 0.0 {
+        return Vec::new();
+    }
+    let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
+    let mut motions: Vec<MotionOption> = kit
+        .iter()
+        .filter(|c| is_pure_motion(c))
+        .map(|c| {
+            let (mx, my) = motion_of(&c.frames);
+            let speed = (mx * mx + my * my).sqrt();
+            // ⚠ `0.0` RATHER THAN `1.0` WHEN THE FOE IS ON TOP OF THIS BODY.
+            // With no direction to go, no motion serves the objective — and
+            // this is exactly the state a body that has just launched itself
+            // is NOT in, so treating it as "anywhere is fine" would re-open
+            // the loop.
+            let alignment = if gap > 0.0 {
+                ((mx * foe_local.0 + my * foe_local.1) / (gap * speed)).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            MotionOption {
+                move_id: c.move_id.clone(),
+                frames: c.frames.clone(),
+                binding: c.binding,
+                score: alignment * (speed / fastest),
+            }
+        })
+        .collect();
+    motions.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.move_id.cmp(&b.move_id))
+    });
+    motions
+}
+
+/// The body-local displacement a move COMMANDS of its owner, `+x` toward
+/// facing and `+y` toward its feet.
+///
+/// ⭐ Assembled from the two authored halves rather than from one: `lift_speed`
+/// is the against-gravity component (so it enters as `-y`) and `lift_side` is
+/// the sideways one. A grapple line that hauls its owner mostly sideways and a
+/// genre up-B are the same question asked of the same pair.
+fn motion_of(frames: &MoveFrameData) -> (f32, f32) {
+    (frames.lift_side, -frames.lift_speed)
 }
 
 /// Score how well a move's authored hittable region covers the opponent.

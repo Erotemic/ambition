@@ -474,6 +474,24 @@ fn decide(
                     .attacks
                     .first()
                     .map(|attack| (attack.binding, attack.move_id.clone()))
+            })
+            // ⭐⭐ **AND WHEN NOTHING IN THE KIT CAN REACH THEM, A MOVE THAT
+            // TRAVELS IS STILL AN ANSWER — but only because it TRAVELS THE
+            // RIGHT WAY, which is a movement question and is asked as one.**
+            //
+            // ⛔⛤ The shape this replaces re-admitted a hitless self-launcher
+            // to the ATTACK menu whenever that menu came out empty, reasoning
+            // that the alternative was a body that could not act. It was not:
+            // movement is chosen separately a few lines above and already
+            // offers `Approach`, so an empty attack menu means walk at them.
+            // `best_motion` withholds the press unless the displacement
+            // actually carries this body toward the opponent
+            // ([`MOTION_WORTH_PRESSING`]), which is what stops the medic
+            // arming a vertical launch at a foe standing level with her.
+            .or_else(|| {
+                options
+                    .best_motion()
+                    .map(|motion| (motion.binding, motion.move_id.clone()))
             }),
     };
     // AIM THE STICK NOW, PRESS THE BUTTON LATER — because that is what a hand

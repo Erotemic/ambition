@@ -372,6 +372,7 @@ fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
     let options = OptionSet {
         movement: Vec::new(),
         attacks: vec![attack("jab", frames(0.1, 100.0, 4, 0.0))],
+        motions: Vec::new(),
     };
     let habits = HabitModel::new(0.5);
     let tuning = ShadowTuning::default();
@@ -406,6 +407,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
             attack("jab", frames(0.08, 40.0, 4, 0.0)), // 40 + 12 extent < 80: whiffs
             attack("lunge", frames(0.2, 100.0, 8, 300.0)), // connects
         ],
+        motions: Vec::new(),
     };
     let habits = HabitModel::new(0.5);
     let refined = refine_by_rollout(
@@ -442,6 +444,7 @@ fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
             attack("smash", frames(0.3, 90.0, 20, 700.0)),
             attack("sweep", frames(0.15, 70.0, 6, 150.0)),
         ],
+        motions: Vec::new(),
     };
     let mut habits = HabitModel::new(0.5);
     for _ in 0..4 {
@@ -483,6 +486,7 @@ fn l3_decides_identically_twice() {
             attack("lunge", frames(0.2, 100.0, 8, 300.0)),
             attack("smash", frames(0.3, 90.0, 20, 700.0)),
         ],
+        motions: Vec::new(),
     };
     let mut habits = HabitModel::new(0.5);
     habits.observe(Situation::Advantage, Choice::Shield);
@@ -641,6 +645,7 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
+        motions: Vec::new(),
     };
     let refined = refine_by_rollout(
         Perceived::cheating(&view),
@@ -901,6 +906,7 @@ fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
+        motions: Vec::new(),
     };
     let approach = vec![ambition_characters::brain::fighter::options::MovementVerb::Approach];
     let refine = |lens: Option<&crate::brain::fighter::recovery::RecoveryLens>| {
@@ -969,6 +975,7 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Dodge,
             score: 1.0,
         }],
+        motions: Vec::new(),
     };
     let lens = lens_for(&view, ae::AbilitySet::basic());
     let refined = refine_by_rollout(
@@ -1014,6 +1021,7 @@ fn a_decision_taken_through_the_lens_repeats_exactly() {
                 score: 0.5,
             },
         ],
+        motions: Vec::new(),
     };
     let lens = lens_for(
         &view,
@@ -1127,6 +1135,7 @@ fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
             verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
+        motions: Vec::new(),
     };
     let approach = vec![ambition_characters::brain::fighter::options::MovementVerb::Approach];
     let refine = |view: &WorldView| {
@@ -1205,6 +1214,7 @@ fn a_verb_the_shadow_cannot_model_is_reported_as_unjudged() {
                 score: 0.8,
             },
         ],
+        motions: Vec::new(),
     };
     let refined = refine_by_rollout(
         Perceived::cheating(&view),
@@ -1310,6 +1320,7 @@ fn read_weight_changes_nothing_while_the_shipped_rows_disable_the_rollout() {
     let options = OptionSet {
         movement: Vec::new(),
         attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
+        motions: Vec::new(),
     };
 
     // The shipped rows, on every rung: both rollout fields zero.

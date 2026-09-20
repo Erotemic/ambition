@@ -686,26 +686,39 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
          actually hit"
     );
 
-    // ⛔⛤ AND IT COMES BACK WHEN THE MENU IS OTHERWISE EMPTY, because for one
-    // of the two fighters that own such a move it is the APPROACH: Emmy's
-    // most-thrown move did not change when it was blanket-excluded, her GAP
-    // grew from 82 to 123, and she stopped connecting. A body with no attack
-    // at all is worse off than one pressing its up-B.
+    // ⛔⛤ **AND IT DOES NOT COME BACK AS A LAST RESORT EITHER, WHICH THE FIRST
+    // REPAIR DID.** An empty attack menu is not a body that cannot act —
+    // movement is chosen separately and already offers `Approach` — so the
+    // move belongs on the MOTION list, where it is judged by where it goes.
+    // Here the foe is level with this body and the launch is straight up, so
+    // the motion serves nothing and is withheld.
     let lone = [hitless_lifting_candidate("up_b", 900.0)];
-    let empty_menu = generate_options(
+    let level_foe = generate_options(
         Perceived::cheating(&view_with(300.0, 600.0)),
         Situation::Neutral,
         &lone,
         &w,
     );
+    assert!(
+        level_foe.attacks.is_empty(),
+        "a hitless launcher is not an attack even when it is the only move in \
+         the kit"
+    );
     assert_eq!(
-        empty_menu
-            .attacks
+        level_foe
+            .motions
             .iter()
-            .map(|a| a.move_id.as_str())
+            .map(|m| m.move_id.as_str())
             .collect::<Vec<_>>(),
         vec!["up_b"],
-        "the recovery is excluded even when it is the only thing the kit offers"
+        "it is still OFFERED — as the motion it is"
+    );
+    assert!(
+        level_foe.best_motion().is_none(),
+        "…and withheld, because a launch straight up carries this body away \
+         from an opponent standing level with it. Pressing it is what put the \
+         medic in a loop she could not leave: got {:?}",
+        level_foe.motions.first().map(|m| m.score)
     );
 
     // ⭐ AND IT IS NOT GONE FROM THE BRAIN — the recovery lens owns it, so a
@@ -2009,5 +2022,55 @@ fn a_shove_is_priced_in_the_bodys_own_frame_when_gravity_points_sideways() {
     assert!(
         near_the_top > near_the_side + 0.5,
         "with gravity sideways, forward is up — top {near_the_top}, side {near_the_side}"
+    );
+}
+
+/// ⭐⭐ **THE SAME MOVE IS A TRAP FOR ONE FIGHTER AND AN APPROACH FOR ANOTHER,
+/// AND WHAT SEPARATES THEM IS WHERE THE OPPONENT IS.**
+///
+/// The grid sweep found both, 2026-09-19. The medic threw `medic_rescue_lift`
+/// 48 times in 91 starts for 39% damage with `medic_tourniquet` unused at
+/// 90px; blanket-excluding the same move shape cost Emmy 180 points of damage
+/// and grew her gap from 82 to 123, because for her it was the way in. A rule
+/// that names either fighter is a cheat. Asking whether the displacement
+/// points at the opponent answers both.
+#[test]
+fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
+    let w = UtilityWeights::v1();
+    let kit = [hitless_lifting_candidate("up_b", 900.0)];
+
+    // Level with this body, a long way off: the launch goes nowhere useful.
+    let alongside = generate_options(
+        Perceived::cheating(&view_with(300.0, 600.0)),
+        Situation::Neutral,
+        &kit,
+        &w,
+    );
+    assert!(alongside.best_motion().is_none());
+
+    // ⭐ THE SAME KIT, THE SAME GAP, THE FOE MOVED UPSTAIRS. `+y` is toward
+    // this body's feet, so a foe overhead is a NEGATIVE local `y` — the
+    // direction a lift travels.
+    let mut overhead = view_with(300.0, 320.0);
+    overhead.actors[0].pos.y = 300.0 - 280.0;
+    let above = generate_options(
+        Perceived::cheating(&overhead),
+        Situation::Neutral,
+        &kit,
+        &w,
+    );
+    let pressed = above
+        .best_motion()
+        .expect("a launch toward a foe overhead is worth pressing");
+    assert_eq!(pressed.move_id, "up_b");
+
+    // ⚠ AND THE PREMISE: the two worlds differ ONLY in where the foe stands,
+    // so the flip cannot be attributed to the kit or the weights.
+    assert_eq!(above.motions.len(), alongside.motions.len());
+    assert!(
+        above.motions[0].score > alongside.motions[0].score,
+        "above {} vs alongside {}",
+        above.motions[0].score,
+        alongside.motions[0].score
     );
 }

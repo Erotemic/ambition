@@ -1201,7 +1201,7 @@ the cited function when the row is touched. ⭐ What settled it was not the
 argument but an instrument: the write is ordered `.before(LocalSessionSet::
 Maintain)` and the CHANGE TICKS at frame end say so, which is a fact a guard can
 hold. The witness and the tick numbers are in
-[MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update);
+[MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update--closed-2026-09-19);
 the entry is back in `WAIVERS` on that argument and the bank is eight.
 ⭐ **IT WAS TWELVE, AND ALL FOUR DEPARTURES WERE REPAIRS RATHER THAN AMNESTIES.**
 The three `persist_*_to_save` mirrors left by being FIXED (into the sim
@@ -1371,7 +1371,7 @@ PRESENCE a query filter reads is authoritative even when its value is derived.
 mechanism stays, since an empty dict still reddens on a newly stale waiver.
 ⭐ The widened guard independently names both defects found by harness tonight —
 the three `AmbitionGameSave` mirrors ([Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on))
-and the two menu writers ([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update)).
+and the two menu writers ([MENU-RESET-MIDSESSION](#menu-reset-midsession--the-menu-writes-rollback-state-from-update--closed-2026-09-19)).
 Neither needed a new idea, only a population nobody had quietly narrowed.
 
 <!-- Stated as a field rather than only in prose: two derivations of "what blocks P0/P1" scanned row prose and missed gates recorded only further down. `scripts/check_blocking_set_names_every_gate.py` reads these lines. -->
@@ -3785,7 +3785,7 @@ guard stays banked-but-owed on all of these — see
 [ROLLBACK-MUTATOR-POPULATION](#rollback-mutator-population--the-mutator-guard-sees-a-quarter-of-rollback-state)
 — which is correct, and is why they were not waived to make a count go down.
 
-### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update`
+### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update` — CLOSED 2026-09-19
 
 **Owner:** `game/ambition_app/src/menu` + `ambition_platformer2d_actor_monolith`.
 
@@ -4004,9 +4004,31 @@ inventory state or optimistic-reconciliation machinery to hide one frame —
 finish the existing fix simply and move on. See
 [`maintainer-decisions.md`](maintainer-decisions.md).
 
-**Acceptance:** both writes go through a message the sim consumes; the repro arm,
-which currently ASSERTS THE DEFECT so the lane stays green, goes RED and is
-deleted with this row.
+⛔⛤ **AND THAT ACCEPTANCE WAS THE REFUTED ONE.** This row used to close on
+*"both writes go through a message the sim consumes; the repro arm goes RED"*.
+It cannot: `a_rollback_cleared_message_written_from_outside_the_simulation_is_also_lost`
+measures the substitution and it changes nothing — a `clear_message_on_rollback`
+message produced outside the timeline is exactly as loseable as the resource
+write it replaces, so the arm would stay GREEN and a session doing the refactor
+would report the row closed. ⇒ **Do not make that change**; the refutation is
+above, in this row, measured.
+
+**CLOSED 2026-09-19 — RULED, AND THE REMAINING WINDOW IS OUT OF SCOPE.** (`Q140`)
+*"One frame of stale UI is acceptable… Do not introduce duplicate authoritative
+inventory state or substantial optimistic-reconciliation machinery to hide one
+frame. Finish the existing fix simply and move on; spend no more architecture
+budget here unless playtesting demonstrates a UX problem."* The only ingress
+that would actually carry a menu press into a synchronised timeline is the GGRS
+INPUT PAYLOAD, which is a peer-visible wire-format decision — and **netplay is
+not a goal this year**. The row's own measurement says the defect is INVISIBLE
+IN SINGLE-PLAYER: with no session there is nothing to rewind. ⇒ There is no
+composition shipping this year in which this can be observed, and the ruling
+forbids building for the one that could.
+
+**What stands:** the two witnesses stay, green, asserting the present
+behaviour, and `check_rollback_mutators_run_in_sim.py` keeps naming both
+writers. They are the record that says what to re-measure if netplay is ever
+scheduled — not a deferral with a target, a closed row with a re-arm condition.
 
 ### GUARD-CORPUS / ORPHAN-ARMS — CLOSED 2026-09-16
 

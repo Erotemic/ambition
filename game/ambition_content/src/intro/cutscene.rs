@@ -40,7 +40,11 @@ fn intro_wake_script() -> ambition_cutscene::CutsceneScript {
     ambition_cutscene::CutsceneScript::new(
         "intro_wake",
         vec![
+            // Comes up FROM BLACK. This used to be `to_alpha: 0.0` alone,
+            // which said "end clear" and left where it started to a convention
+            // nothing in the data carried (`Q143`).
             ambition_cutscene::CutsceneBeat::Fade {
+                from_alpha: 1.0,
                 to_alpha: 0.0,
                 seconds: 0.8,
             },
@@ -106,7 +110,11 @@ fn drain_market_arrival_script() -> ambition_cutscene::CutsceneScript {
     ambition_cutscene::CutsceneScript::new(
         "drain_market_arrival",
         vec![
+            // Comes up FROM BLACK. This used to be `to_alpha: 0.0` alone,
+            // which said "end clear" and left where it started to a convention
+            // nothing in the data carried (`Q143`).
             ambition_cutscene::CutsceneBeat::Fade {
+                from_alpha: 1.0,
                 to_alpha: 0.0,
                 seconds: 0.6,
             },

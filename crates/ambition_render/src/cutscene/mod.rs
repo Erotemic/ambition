@@ -35,9 +35,10 @@ use bevy::prelude::*;
 // Both run unconditionally in the presentation half; headless / RL
 // builds skip the registrations.
 
-/// Root entity for the active cutscene UI panel. One per live cutscene;
-/// despawned + respawned each frame `sync_cutscene_ui` runs (cheap —
-/// the panel only exists while a cutscene plays).
+/// Root entity for cutscene screen-space presentation — the card panel, and
+/// the fade sheet, which is a SECOND root rather than a child (see
+/// [`sync_cutscene_ui`]). Despawned + respawned each frame `sync_cutscene_ui`
+/// runs (cheap — they only exist while a cutscene plays).
 #[derive(Component)]
 pub struct CutsceneOverlayRoot;
 
@@ -48,6 +49,8 @@ pub struct CutsceneOverlayRoot;
 /// Layout:
 /// - Banner beats: centered card near the top, no input prompt
 ///   (auto-advances after the beat's timer).
+/// - Fade beats: a full-screen black sheet at the beat's current ramp value,
+///   under the cards.
 /// - Dialogue beats: speaker + body card near the bottom, with a
 ///   "Press Interact / Jump to continue" hint (acknowledge mode).
 /// - Skip-hold progress: thin bar near the bottom-right, only while
@@ -87,9 +90,32 @@ pub fn sync_cutscene_ui(
     let banner = active.presentation.banner.as_ref();
     let dialogue = active.presentation.dialogue.as_ref();
     let skip_progress = skip_hold.progress();
+    let fade_alpha = active.presentation.fade_alpha.clamp(0.0, 1.0);
+
+    // ⭐⛤ THE FADE IS ITS OWN ROOT, and it has to be: the card root below is
+    // placed inside the READING RECT (`place_in_reading_rect`), a sub-region of
+    // the window, and a sheet parented there would darken a rectangle in the
+    // middle of the screen instead of the screen. It sits one layer under the
+    // cards so a line spoken over a fade stays readable.
+    if fade_alpha > 0.001 {
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, fade_alpha)),
+            ZIndex(49),
+            Name::new("Cutscene Fade Sheet"),
+            CutsceneOverlayRoot,
+        ));
+    }
 
     // Bail out early on a fully-empty cutscene state (e.g. between
-    // beats during a Fade or CameraPan). The overlay only spawns when
+    // beats during a CameraPan). The card overlay only spawns when
     // there's actually something to show — the cutscene runtime stays
     // active in `ActiveCutscene` either way.
     if banner.is_none() && dialogue.is_none() && skip_progress <= 0.01 {
@@ -243,5 +269,68 @@ pub fn sync_cutscene_ui(
                     ));
                 });
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_cutscene::{CutsceneBeat, CutsceneRuntime, CutsceneScript, CutsceneSkipHold};
+
+    /// Drive `sync_cutscene_ui` once over a cutscene sitting `elapsed` into a
+    /// fade, and report the alpha of the sheet it drew, if any.
+    fn drawn_fade_alpha(from: f32, to: f32, seconds: f32, elapsed: f32) -> Option<f32> {
+        let script = CutsceneScript::new(
+            "fade",
+            vec![CutsceneBeat::Fade {
+                from_alpha: from,
+                to_alpha: to,
+                seconds,
+            }],
+        );
+        let mut runtime = CutsceneRuntime::new(script);
+        let _ = runtime.tick(elapsed, false);
+        let mut active = ActiveCutscene {
+            presentation: runtime.presentation(),
+            runtime: Some(runtime),
+        };
+        // ⚠ The projection is a cache; the renderer reads THAT, so refresh it
+        // the way the gameplay tick does rather than trusting construction.
+        active.presentation = active.runtime.as_ref().unwrap().presentation();
+
+        let mut app = App::new();
+        app.insert_resource(active)
+            .insert_resource(CutsceneSkipHold::default())
+            .add_systems(Update, sync_cutscene_ui);
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(&Name, &BackgroundColor)>();
+        q.iter(world)
+            .find(|(name, _)| name.as_str() == "Cutscene Fade Sheet")
+            .map(|(_, color)| color.0.alpha())
+    }
+
+    /// ⛔⛤ THE BEAT DREW NOTHING FOR AS LONG AS IT EXISTED. `fade_alpha` had no
+    /// consumer, so an authored fade was a timer the player waited out. This is
+    /// the arm that says a fade is now a picture.
+    #[test]
+    fn a_fade_beat_draws_a_black_sheet_at_the_ramp_value() {
+        // Up from black, halfway through.
+        let half = drawn_fade_alpha(1.0, 0.0, 0.8, 0.4).expect("a fade draws a sheet");
+        assert!(
+            (half - 0.5).abs() < 1e-5,
+            "the sheet was drawn at {half} halfway through a fade up from black"
+        );
+
+        // ⭐ THE CONTROL IS A CLEAR SCREEN, not another fade: a renderer that
+        // always spawned a sheet would satisfy the arm above forever, and a
+        // fully transparent black sheet still costs a UI node every frame of
+        // every cutscene.
+        assert_eq!(
+            drawn_fade_alpha(1.0, 0.0, 0.8, 0.8),
+            None,
+            "a completed fade up left a sheet behind"
+        );
     }
 }

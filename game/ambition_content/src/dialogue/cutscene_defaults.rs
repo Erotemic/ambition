@@ -13,10 +13,14 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
                     text: "// boot sequence".into(),
                     seconds: 1.4,
                 },
-                CutsceneBeat::Fade {
-                    to_alpha: 0.0,
-                    seconds: 0.8,
-                },
+                // ⛔ THE FADE THAT USED TO SIT HERE IS GONE (`Q143`). It was
+                // the SECOND beat, after a visible banner, and it targeted
+                // clear — so once a fade actually draws, the only honest start
+                // alpha for it is the clear screen it already had, which makes
+                // it 0.8 s of nothing. The other two shipped fades open their
+                // scripts and mean "up from black"; this one never meant
+                // anything, and the ruling says these are not worth preserving
+                // effort. Deleted rather than given an invented intent.
                 CutsceneBeat::Dialogue {
                     speaker: "WARDEN".into(),
                     text: "Instance online. You'll know your purpose when you find it.".into(),

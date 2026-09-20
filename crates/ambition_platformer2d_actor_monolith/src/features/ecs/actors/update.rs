@@ -1938,26 +1938,18 @@ fn capture_candidate(
         AttackDir::Neutral,
         grounded,
     )?;
-    // The attempt SUSTAINS across the Active window, so it rides `sustain_effect`
-    // rather than the event list — see `author_standing_grab`.
-    let attempt: CaptureAttemptParams = spec
-        .windows
+    // ⭐ THE GRAB IS STILL THE GATE — a body with no `GRAB_VERB` move offers no
+    // capture candidate — but the REACH, the COVERAGE and the unblockability
+    // are `MoveSpec::frame_data`'s now. They were derived here, which meant
+    // only the move reached through this one verb ever got them: a command grab
+    // bound to `attack_side` carries the same `CAPTURE_ATTEMPT` params and read
+    // as a move with no region at all.
+    spec.windows
         .iter()
         .filter_map(|window| window.sustain_effect.as_ref())
         .find(|effect| effect.key == CAPTURE_ATTEMPT)
-        .and_then(|effect| effect.params.hydrate().ok())?;
-    let mut frames = spec.frame_data();
-    // The box, from the same place the reach below comes from: `max.0` IS the
-    // reach, so computing the corners here would be a fourth copy of the sum.
-    let (min, max) = attempt.coverage();
-    frames.coverage = Some(ambition_entity_catalog::MoveCoverage { min, max });
-    // ⛔ ONE FORMULA, and it lives on `CaptureAttemptParams::reach_x`. This same
-    // sum also draws the tether LINE the player reads, through
-    // `MovePlayback::live_capture_reach`, and the two once kept their own
-    // copies: change one and what a fighter SEES stops matching the distance the
-    // brain AIMS at, with both numbers still perfectly self-consistent.
-    frames.reach = attempt.reach_x();
-    frames.ignores_guard = true;
+        .and_then(|effect| effect.params.hydrate::<CaptureAttemptParams>().ok())?;
+    let frames = spec.frame_data();
     Some(AttackCandidate {
         move_id: spec.id.clone(),
         frames,

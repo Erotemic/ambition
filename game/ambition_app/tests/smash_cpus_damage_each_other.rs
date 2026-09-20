@@ -920,6 +920,28 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
     );
     drop(app);
 
+    // ⭐ ONE FIGHTER AT A TIME WHEN A ROW IS THE QUESTION. The sweep is
+    // twelve minutes and a scoring investigation asks the same fighter five
+    // times; `AMBITION_GRID_ONLY=medic,sanic` narrows it to those rows. The
+    // ASSERTION below is deliberately left alone — with one row it asks "did
+    // this fighter fight", which is exactly the question a narrowed run has.
+    let only = std::env::var("AMBITION_GRID_ONLY").unwrap_or_default();
+    let ids: Vec<String> = if only.is_empty() {
+        ids
+    } else {
+        let wanted: Vec<&str> = only.split(',').map(str::trim).collect();
+        let narrowed: Vec<String> = ids
+            .iter()
+            .filter(|id| wanted.contains(&id.as_str()))
+            .cloned()
+            .collect();
+        assert!(
+            !narrowed.is_empty(),
+            "AMBITION_GRID_ONLY={only} names no fighter on this grid: {ids:?}"
+        );
+        narrowed
+    };
+
     println!(
         "[grid-sweep] {} fighters, mirror matches, {TICKS} ticks each",
         ids.len()
@@ -949,10 +971,28 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
     // fighter that cannot be seated at all prints zeros indistinguishable from a
     // fighter that stands still, and a sweep where that goes unsaid is a table
     // of numbers with holes in it nobody can see.
+    //
+    // ⛔⛤ **AND A ZERO HERE HAS A THIRD CAUSE THAT IS NOT ABOUT THE FIGHTER AT
+    // ALL: THE MIRROR ITSELF.** Two copies of one brain at one rung see
+    // mirrored worlds and rank the same menu the same way. While the menu is
+    // wide, execution noise and changing situations keep them apart; once it
+    // narrows to one or two moves the pair locks into a deterministic limit
+    // cycle and repeats a period exactly, so the move either lands every time
+    // or never. Measured 2026-09-20: `medic`, `pointed_polygon` and `sanic`
+    // all print 0% here — `medic` throwing one move 177 times with
+    // `LandedBodyHit` at ZERO — and all three fight normally the moment
+    // somebody else is seated opposite (`AMBITION_GRID_FOE=smash_george_booul`:
+    // 80%, 88% and 17% dealt, on 23, 24 and 13 distinct moves).
+    //
+    // ⇒ **A 0% ROW IS A QUESTION, NOT A VERDICT**, and the second run is how
+    // it is answered. Do not read a zero here as a broken fighter until it has
+    // been re-run against a foe that is not itself.
     assert!(
         silent.len() * 2 < ids.len(),
         "{} of {} fighters took no damage at all in their own mirror — that is a \
-         seating failure wearing a balance number: {silent:?}",
+         seating failure wearing a balance number, OR the mirror locking: re-run \
+         each with AMBITION_GRID_ONLY=<id> AMBITION_GRID_FOE=<somebody else> \
+         before believing it: {silent:?}",
         silent.len(),
         ids.len()
     );
@@ -976,7 +1016,16 @@ fn mirror_bout(
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
-    let roster = ambition_demo_smash::smash_roster_at_levels([fighter, fighter], &[rung(), rung()]);
+    // ⭐⭐ **A MIRROR IS A ROOM, AND A ROOM IS A POPULATION.** Two copies of
+    // one brain at one rung see mirrored worlds and rank the same menu the
+    // same way, so a fighter whose menu narrows to one move plays a
+    // deterministic limit cycle: the pair repeats a period exactly, and the
+    // move either lands every time or never. `AMBITION_GRID_FOE=<id>` seats
+    // somebody else opposite, which is what says whether a `0%` row is a
+    // broken fighter or a degenerate matchup.
+    let foe = std::env::var("AMBITION_GRID_FOE").unwrap_or_else(|_| fighter.to_string());
+    let roster =
+        ambition_demo_smash::smash_roster_at_levels([fighter, foe.as_str()], &[rung(), rung()]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -1001,7 +1050,18 @@ fn mirror_bout(
     // seats exist, so a variable seating latency can no longer shorten it.
     // See `seat_two_bodies`.
     seat_two_bodies(&mut app, countdown, fighter);
-    for _ in 0..(countdown + TICKS) {
+    let trace = std::env::var("AMBITION_GRID_TRACE").is_ok_and(|v| v != "0");
+    let mut vgap = f32::NAN;
+    // ⛔⛤ **A ZERO IN THE DAMAGE COLUMN HAS A THIRD CAUSE THE HEADER DOES NOT
+    // NAME: THE HIT LANDS AND NOTHING COMES OF IT.** `apply_hitbox_damage`
+    // publishes `LandedBodyHit` when a volume finds a body and a separate
+    // `ResolvedBodyHit` when that becomes damage, and the two are not the
+    // same count. Tallying both separates "never connected" from "connected
+    // and was refused", which no aggregate column here could.
+    let mut landed = 0usize;
+    let mut resolved = 0usize;
+    let mut blocked = 0usize;
+    for tick in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
         for (seat, health, combat, ground) in world
@@ -1059,6 +1119,21 @@ fn mirror_bout(
             if xs.len() == 2 {
                 gaps.push((xs[0] - xs[1]).abs());
             }
+            // ⛔⛤ **AND THE COLUMN ABOVE IS ONE AXIS OF A TWO-AXIS FIGHT.** A
+            // pair 10px apart in `x` and 300px apart in `y` reports `gap 10`,
+            // which reads as point-blank and is a juggle. The published
+            // column is left alone because three sweeps are keyed to its
+            // meaning; the trace carries both so a row can be read.
+            let ys: Vec<f32> = bodies
+                .iter(world)
+                .filter(|(seat, _)| seat.0 < 2)
+                .map(|(_, kin)| kin.pos.y)
+                .collect();
+            vgap = if ys.len() == 2 {
+                (ys[0] - ys[1]).abs()
+            } else {
+                f32::NAN
+            };
         }
         // WHICH QUESTION IS THE BRAIN ANSWERING? `situation_of` is the classifier
         // itself, asked of the live state — not a re-derivation. A fighter that
@@ -1082,6 +1157,20 @@ fn mirror_bout(
                 }
             }
         }
+        {
+            use ambition_platformer2d::combat::hitbox::{
+                BlockedBodyHit, LandedBodyHit, ResolvedBodyHit,
+            };
+            landed += world.resource_mut::<bevy::prelude::Messages<LandedBodyHit>>().drain().count();
+            resolved += world
+                .resource_mut::<bevy::prelude::Messages<ResolvedBodyHit>>()
+                .drain()
+                .count();
+            blocked += world
+                .resource_mut::<bevy::prelude::Messages<BlockedBodyHit>>()
+                .drain()
+                .count();
+        }
         let rows: Vec<(bevy::prelude::Entity, String, f32)> = world
             .query::<(
                 bevy::prelude::Entity,
@@ -1098,6 +1187,24 @@ fn mirror_bout(
             };
             if fresh {
                 *started.entry(id.clone()).or_default() += 1;
+                // ⭐⭐ THE COLUMN THAT SEPARATES "CHOSE BADLY" FROM "CHOSE
+                // WELL AND MISSED". A fighter printing one move 177 times for
+                // zero damage is either being offered nothing else or
+                // throwing something that cannot reach from where it stands,
+                // and the aggregate row cannot tell those apart — it reports
+                // the MEAN gap over the whole bout, while what decides a
+                // whiff is the gap AT THE PRESS. `AMBITION_GRID_TRACE=1`.
+                if trace {
+                    println!(
+                        "[grid-trace] t={:<5} dx={:>6.1} dy={:>6.1} {id} dmg={:.0}/{:.0} \
+                         landed={landed} resolved={resolved} blocked={blocked}",
+                        tick,
+                        gaps.last().copied().unwrap_or(f32::NAN),
+                        vgap,
+                        last[0],
+                        last[1],
+                    );
+                }
             }
             live.insert(entity, (id, t));
         }

@@ -71,6 +71,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 cancel_windows: Vec::new(),
                 reach: 60.0,
                 ignores_guard: false,
+                hazard_reach: 0.0,
                 coverage: Some(ambition_entity_catalog::MoveCoverage {
                     min: (0.0, -12.0),
                     max: (60.0, 12.0),
@@ -1648,4 +1649,64 @@ mod movement_ranking {
     fn nothing_offered_chooses_nothing() {
         assert_eq!(super::super::pick_movement(&[], &[], &[], None), None);
     }
+}
+
+/// ⭐⭐ **WHEN NOTHING IN THE KIT CAN TOUCH THEM, THE MOVE THAT TRAVELS IS WHAT
+/// THE DECISION REACHES FOR — and the arm that does that had no test.**
+///
+/// `wants_attack` ends in `.or_else(|| options.best_motion())`, which only ever
+/// runs on a decision where the attack menu came out EMPTY. Every fixture in
+/// this module hands the brain a foe inside jab range, so nothing here could
+/// reach the arm, and the whole-grid sweep cannot isolate it either: it shows
+/// an outcome, not which branch produced it.
+///
+/// ⚠ THE DISCRIMINATOR IS THE BUTTON. The jab is `Basic` and the launcher is
+/// `Special`, so `special_pressed` without `melee_pressed` says the motion arm
+/// answered and the ranking did not.
+#[test]
+fn a_kit_that_cannot_reach_presses_the_move_that_closes_the_distance() {
+    let mut snapshot = armed_snapshot();
+    let mut launcher = snapshot.attack_kit[0].frames.clone();
+    // Touches nobody and moves its owner — the shape `motion_options` files.
+    launcher.coverage = None;
+    launcher.push_coverage = None;
+    launcher.max_damage = 0;
+    launcher.reach = 0.0;
+    // Sideways, toward the facing, which is where the foe is.
+    launcher.lift_side = 700.0;
+    launcher.lift_speed = 0.0;
+    snapshot
+        .attack_kit
+        .push(ambition_characters::brain::attack_kit::AttackCandidate {
+            move_id: "dash_in".to_string(),
+            frames: launcher,
+            binding: AttackBinding {
+                verb: AttackVerb::Special,
+                direction: AttackDir::Forward,
+            },
+            legality: ambition_characters::brain::attack_kit::ActionLegality::Now,
+        });
+
+    let (cfg, mut state) = rig(immediate_profile());
+    // Four hundred pixels: far outside the 60px jab, and outside the admission
+    // slack that makes a near-miss still worth offering.
+    let view = scene(300.0, 700.0);
+    let mut out = ActorControlFrame::neutral();
+    let mut pressed_special = false;
+    let mut pressed_melee = false;
+    for _ in 0..120 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        pressed_special |= out.special_pressed;
+        pressed_melee |= out.melee_pressed;
+    }
+    assert!(
+        pressed_special,
+        "no tick reached for the one move that closes 400px, so the fallback \
+         that exists for exactly this decision never runs"
+    );
+    assert!(
+        !pressed_melee,
+        "a 60px jab was pressed at a 400px gap, which is the admission defect \
+         this fixture is staged past"
+    );
 }

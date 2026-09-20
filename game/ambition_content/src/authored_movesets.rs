@@ -1727,3 +1727,105 @@ mod table_character_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod offer_census {
+
+    /// PROBE: how far out does an authored hit region START?
+    ///
+    /// ⭐ THE QUESTION BEHIND A SPECIFICATION. The option layer admits a move
+    /// when the opponent lies between the near and far sides of its region,
+    /// forgiving `ADMISSION_SLACK_PX` on each. On the FAR side that slack is
+    /// small against the reach it forgives; on the NEAR side it is compared
+    /// against a number nobody has ever looked at. If every authored box
+    /// starts within the slack, the near test can never refuse anything and
+    /// the layer's *"the region contains them"* is still only *"the region
+    /// reaches them"* — which is worth knowing before anybody tunes it.
+    #[test]
+    #[ignore = "PROBE, print-only: where each authored hit region begins"]
+    fn probe_how_far_out_an_authored_region_begins() {
+        let mut deep: Vec<(String, f32, f32)> = Vec::new();
+        let mut total = 0usize;
+        for (table, set) in super::tables() {
+            for m in &set.moves {
+                let Some(coverage) = m.frame_data().coverage else {
+                    continue;
+                };
+                total += 1;
+                // Straight ahead, against a point target: the near side with
+                // nothing forgiven, which is the number the slack is compared
+                // against.
+                let Some((near, far)) = coverage.span_toward((1.0, 0.0), (0.0, 0.0)) else {
+                    continue;
+                };
+                if near > 0.0 {
+                    deep.push((format!("{table}/{}", m.id), near, far));
+                }
+            }
+        }
+        deep.sort_by(|a, b| b.1.total_cmp(&a.1));
+        for (id, near, far) in deep.iter().take(20) {
+            println!("[near] {id:<48} begins {near:>6.1} ends {far:>6.1}");
+        }
+        println!(
+            "[near] {} of {total} authored hit regions begin away from the body; \
+             deepest {:.1}px",
+            deep.len(),
+            deep.first().map(|d| d.1).unwrap_or(0.0),
+        );
+    }
+    /// PROBE: which roster moves offer the attack scorer nothing to price?
+    ///
+    /// Print-only. `MoveFrameData::coverage` is `None` for four unrelated
+    /// things — a counter, a buff, a projectile launcher and a pure-motion
+    /// recovery — and the option scorer treated them as one, so this printed
+    /// the population before anything was decided about it.
+    ///
+    /// ⚠ **THE MEMBERSHIP RULE HERE IS THE ADMISSION RULE, AND IT MUST STAY
+    /// THAT WAY.** It was a straight copy of `generate_options`' `(None, None)`
+    /// arm when that arm read `lift_speed <= 0.0`; the arm has since learned
+    /// `hazard_reach`, and while this lagged it went on printing 127
+    /// unchanged after a change that freed seven of them —
+    /// a census agreeing with itself rather than with the engine. Poison it by
+    /// widening the arm and watching this number fall.
+    #[test]
+    #[ignore = "PROBE, print-only: the roster's hitless, shoveless, motionless moves"]
+    fn probe_the_moves_that_offer_the_attack_scorer_nothing() {
+        let mut total = 0usize;
+        let mut silent = 0usize;
+        for (table, set) in super::tables() {
+            for m in &set.moves {
+                total += 1;
+                let f = m.frame_data();
+                if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard_reach <= 0.0 {
+                    silent += 1;
+                    let mut keys: Vec<&str> = m
+                        .events
+                        .iter()
+                        .filter_map(|e| match &e.kind {
+                            ambition_entity_catalog::MoveEventKind::Effect(effect) => {
+                                Some(effect.key.as_str())
+                            }
+                            _ => None,
+                        })
+                        .chain(
+                            m.windows
+                                .iter()
+                                .filter_map(|w| w.sustain_effect.as_ref())
+                                .map(|e| e.key.as_str()),
+                        )
+                        .collect();
+                    keys.sort_unstable();
+                    keys.dedup();
+                    println!(
+                        "[offer] {table}/{:<34} route={:?} lift={:>4.0} keys={keys:?}",
+                        m.id,
+                        f.recovery_route,
+                        f.lift_speed,
+                    );
+                }
+            }
+        }
+        println!("[offer] {silent} of {total} authored moves offer the attack scorer nothing");
+    }
+}

@@ -3783,6 +3783,36 @@
       "metric_tags": []
     },
     {
+      "id": "DUP-MOVE-REACH",
+      "category": "duplicate_truth_family",
+      "name": "How far a move reaches, and what region it covers",
+      "owner": "entity_catalog MoveSpec::frame_data",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "One owner answers how far a move reaches and what region it covers: `MoveSpec::frame_data()`. A grab's reach used to be answered twice -- the catalog folded only hit VOLUMES, which a capture is not (it rides an Active window's `sustain_effect`), so the catalog said every grab reaches nowhere, and `capture_candidate` in the actor tick re-derived `reach`, `coverage` and `ignores_guard` from the capture params and overwrote the catalog's answer after the fact. Every OTHER reader of `frame_data()` -- the fighter brain's option layer, the content tests, the offer census -- got the wrong copy. Measured 2026-09-20: the option layer rejected `polygon_brawler_collar` (58px of authored reach) as unable to touch anybody. The fold now runs in the catalog and `capture_candidate` is a legality gate that reads `frame_data()` like every other caller.",
+      "source_paths": [
+        "crates/ambition_entity_catalog/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
+        "crates/ambition_characters/src/brain/fighter/options.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "One owner answers how far a move reaches and what region it covers: `MoveSpec::frame_data()`. A grab's reach used to be answered twice -- the catalog folded only hit VOLUMES, which a capture is not (it rides an Active window's `sustain_effect`), so the catalog said every grab reaches nowhere, and `capture_candidate` in the actor tick re-derived `reach`, `coverage` and `ignores_guard` from the capture params and overwrote the catalog's answer after the fact. Every OTHER reader of `frame_data()` -- the fighter brain's option layer, the content tests, the offer census -- got the wrong copy. Measured 2026-09-20: the option layer rejected `polygon_brawler_collar` (58px of authored reach) as unable to touch anybody. The fold now runs in the catalog and `capture_candidate` is a legality gate that reads `frame_data()` like every other caller.",
+          "sources": [
+            "crates/ambition_entity_catalog/src/lib.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs",
+            "game/ambition_content/src/pugnacious_polygon_moveset.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-20 by the fighter-brain admission work",
+      "duplicate_authority_state": "RESOLVED",
+      "why_it_exists": "`frame_data()` was written as a fold over hit volumes, which is what a swing is. A capture is authored as a sustained effect rather than a volume, so the one consumer that needed a grab's reach -- the actor tick building the attack kit -- computed it locally rather than teaching the fold, and the local answer was invisible to everybody else.",
+      "consolidation_hypothesis": "None outstanding. The SHAPE recurs and is worth watching: a move can reach through something it is not, and each such road has to be taught to the fold or it answers zero. `hazard_reach` now covers spawned hazards and the body's own ranged action; `hazard_reach_of` names the effect keys it has NOT been taught, and an untaught key's zero is a refusal rather than a neutral default.",
+      "metric_tags": []
+    },
+    {
       "id": "LIFE-SESSION-RESOURCE-AGGREGATE",
       "category": "lifecycle",
       "name": "SessionScopedResources process-storage aggregate",

@@ -781,13 +781,25 @@ mod the_decision_log {
 /// while tumbling. Both are read off the BODY here rather than off the frame the
 /// brain emits — a brain asking is not the claim; a body receiving is.
 ///
-/// ⭐ IT RUNS THREE NOISE STREAMS AND ASKS FOR ONE, and that is not laxity — it
-/// is what the spread actually looks like. Measured over three runs of
-/// `bin/match_report`: damage 0–86–217, tumbling 0–97–121, techs 0–29–54, best
-/// charge 0.00–0.00–0.99. One run in three is a fight where almost nothing
-/// happens, so a single fixed match asserting "a charge occurred" is a coin
-/// flip dressed as a regression test — it passed for a week and then failed on a
-/// change that made the fight BETTER.
+/// ⭐ IT RUNS SEVERAL NOISE STREAMS AND ASKS FOR ONE, and that is not laxity —
+/// it is what the spread actually looks like. A single fixed match asserting
+/// "a charge occurred" is a coin flip dressed as a regression test.
+///
+/// ⛔⛤ **AND THREE STREAMS WAS STILL THE COIN FLIP, WHICH IS WHAT THE COMMENT
+/// ABOVE THIS ONE PREDICTED ABOUT ITSELF AND THEN DID NOT ACT ON.** It read
+/// *"it passed for a week and then failed on a change that made the fight
+/// BETTER"*, and on 2026-09-20 it did exactly that again. Measured over TEN
+/// streams rather than three: **charges in 3** (0.98, 0.99, 1.00) and none in
+/// the other seven, so the per-stream rate is about 0.3 and three draws decide
+/// this test only two times in three. The change it went red on had lifted
+/// techs from a recorded 0–29–54 to 44–116 and tumbles from 0–97–121 to
+/// 21–407; the fight was livelier and the sample was the same size.
+///
+/// ⇒ `STREAMS` is set from that rate, not from patience: ten draws at p≈0.3
+/// decide it about 97 times in 100. ⚠ If a future change makes charges
+/// genuinely rarer this gets slower to fail rather than wrong — re-measure the
+/// per-stream rate before raising it again, because a bigger sample hiding a
+/// falling rate is the failure mode a count cannot see.
 ///
 /// The measurement stays strict on WHETHER and deliberately weak on WHEN.
 /// Pinning a charge to a percentage or a tech to a position would be pinning
@@ -801,7 +813,7 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
     // charge reached is 0.00 in all three; at 5400 it is 0.99 in two of them.
     // The old window was hunting an event rarer than itself.
     const WINDOW: usize = 5400;
-    const STREAMS: u64 = 3;
+    const STREAMS: u64 = 10;
 
     let mut charged_in = 0usize;
     let mut teched_in = 0usize;
@@ -825,7 +837,9 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
         charged_in > 0,
         "no CPU held a smash in any of {STREAMS} matches of {WINDOW} ticks — the \
          charge multiplier is authored on every fighter and nobody paid for any \
-         of it (best fraction seen {best_charge:.2})"
+         of it (best fraction seen {best_charge:.2}). This sample decides a \
+         per-stream rate of 0.3 about 97 times in 100, so zero here is a \
+         finding rather than a draw."
     );
     // THE NON-VACUITY GUARD for the tech half. A run of matches in which nobody
     // is ever launched into a tumble has no landing to tech.

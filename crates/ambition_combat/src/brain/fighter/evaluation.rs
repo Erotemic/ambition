@@ -12,13 +12,16 @@
 //! can be asked is: *what did you decide, how often did you press, and do you do
 //! the same thing twice.*
 //!
-//! That is not a degenerate ladder — it is `BrainSnapshot::idle()`, which carries no attack kit,
-//! and the decision tests say so in their own words: *"no scene here can arm one"*. An empty kit
-//! means `generate_options` offers movement only, so there is no attack for a rung's scoring to
-//! differ about.
+//! ⭐ THE KIT FIXTURE LANDED — [`rig_kit`] — and the ladder stopped reading as
+//! degenerate. Before it, the rig ran `BrainSnapshot::idle()`, whose empty
+//! `attack_kit` leaves `generate_options` offering movement only, so every rung
+//! emitted zero presses and no scoring difference could show.
 //!
-//! Same for ladder ordering. Building the kit fixture is this rig's next slice and is what also
-//! unlocks survival/damage.
+//! ⚠ AND A KIT IS NOT ENOUGH ON ITS OWN: [`ScenarioOutcome::apm`] counts attack
+//! presses, an attack is offered only where it can touch the opponent, and the
+//! suite's fixtures are authored far enough apart that the pacing in [`play`]
+//! has to CLOSE for any of them to press at all. Read that comment before
+//! quoting a number from here.
 
 use super::decision::tick_fighter;
 use super::scenarios::{suite, Scenario};
@@ -38,6 +41,13 @@ pub const RIG_TICK_HZ: f32 = 60.0;
 /// Long enough for a rate to be a rate: ten seconds of decisions.
 pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 
+/// How close the rig's opponent comes at the near end of its pacing.
+///
+/// Inside the longest move [`rig_kit`] authors (90px) and outside the shortest
+/// (40px), so the spacing trade-off the scorer is being measured on is live for
+/// part of every pass rather than decided by the fixture's authored gap.
+pub const RIG_ARMS_LENGTH: f32 = 60.0;
+
 /// A kit shaped like the one production builds.
 ///
 /// the rig ran with `BrainSnapshot::idle()` first and every rung emitted zero
@@ -52,7 +62,10 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 /// character would be measuring content instead.
 ///
 fn rig_kit() -> Vec<AttackCandidate> {
-    let frames = |startup_s: f32, reach: f32, damage: i32| ambition_entity_catalog::MoveFrameData {
+    let base_frames = |startup_s: f32,
+                       reach: f32,
+                       damage: i32,
+                       coverage: Option<ambition_entity_catalog::MoveCoverage>| ambition_entity_catalog::MoveFrameData {
         total_s: startup_s + 0.1 + 0.2,
         charge_hold_at_s: None,
         startup_s,
@@ -61,11 +74,8 @@ fn rig_kit() -> Vec<AttackCandidate> {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
-        // A forward poke of that length — the shape these fixtures mean.
-        coverage: (reach > 0.0).then(|| ambition_entity_catalog::MoveCoverage {
-            min: (0.0, -12.0),
-            max: (reach, 12.0),
-        }),
+        hazard_reach: 0.0,
+        coverage,
         // This fixture authors no windbox.
         push_coverage: None,
         push_dir: None,
@@ -82,12 +92,34 @@ fn rig_kit() -> Vec<AttackCandidate> {
         lift_side: 0.0,
         recovery_route: Default::default(),
     };
+    // ⛔⛤ **AND THE `Up` CANDIDATE WAS A THIRD FORWARD POKE.** Every move here
+    // was built with the same `min: (0, -12), max: (reach, 12)` box whatever
+    // direction it was bound to, so the kit had no answer above or below it —
+    // which is the exact defect `MoveCoverage`'s own doc records about George
+    // Booul's vertical game, reproduced in the rig that is supposed to catch
+    // it. The box now follows the binding.
+    let frames = |startup_s: f32, reach: f32, damage: i32, up: bool| {
+        let coverage = (reach > 0.0).then(|| {
+            if up {
+                ambition_entity_catalog::MoveCoverage {
+                    min: (-12.0, -reach),
+                    max: (12.0, 0.0),
+                }
+            } else {
+                ambition_entity_catalog::MoveCoverage {
+                    min: (0.0, -12.0),
+                    max: (reach, 12.0),
+                }
+            }
+        });
+        base_frames(startup_s, reach, damage, coverage)
+    };
     // Fast-and-short, slow-and-long, and an aerial — enough that scoring has a
     // trade-off to make. One candidate is not a choice.
     vec![
         AttackCandidate {
             move_id: "rig_jab".into(),
-            frames: frames(0.03, 40.0, 2),
+            frames: frames(0.03, 40.0, 2, false),
             binding: AttackBinding {
                 verb: AttackVerb::Basic,
                 direction: AttackDir::Forward,
@@ -96,7 +128,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         },
         AttackCandidate {
             move_id: "rig_smash".into(),
-            frames: frames(0.18, 90.0, 12),
+            frames: frames(0.18, 90.0, 12, false),
             binding: AttackBinding {
                 verb: AttackVerb::Smash,
                 direction: AttackDir::Forward,
@@ -105,7 +137,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         },
         AttackCandidate {
             move_id: "rig_uptilt".into(),
-            frames: frames(0.06, 55.0, 5),
+            frames: frames(0.06, 55.0, 5, true),
             binding: AttackBinding {
                 verb: AttackVerb::Basic,
                 direction: AttackDir::Up,
@@ -161,10 +193,42 @@ pub fn play(scenario: &Scenario, profile: FighterBrainProfile, seed: u64) -> Sce
         // So the opponent paces: one slow horizontal sweep across the stage,
         // deterministic in `tick`, which is exactly the case a late-seeing brain
         // must lead and an early-seeing one need not.
+        //
+        // ⛔⛤ **AND IT HAS TO PASS THROUGH REACH, WHICH A FIXED ±120px SWEEP
+        // NEVER DID.** [`ScenarioOutcome::apm`] counts ATTACK presses and
+        // nothing else, and the option layer offers an attack only where the
+        // move's own region touches the opponent. Measured 2026-09-20 against
+        // the 90px longest move [`rig_kit`] authors: the suite's fixtures are
+        // authored 180..620px apart, and four of them are `Recovery`, where a
+        // kit with no lift offers nothing at all — so EIGHT of the nine
+        // scenarios could not contribute one press and the ladder's mean was
+        // one scenario divided by nine. It was invisible while the option layer
+        // admitted anything within three times a move's reach.
+        //
+        // ⇒ The pacing CLOSES: the opponent walks from where the fixture put
+        // them to arm's length and back, once every two seconds. The fixture
+        // still says where they START, which is what `Situation` is classified
+        // from and what `starting_positions` reports; this only says the rig is
+        // a rig.
         let phase = (tick as f32) / (RIG_TICK_HZ * 2.0);
-        let sweep = (phase * std::f32::consts::TAU).sin() * 120.0;
+        let closing = 0.5 - 0.5 * (phase * std::f32::consts::TAU).cos();
+        let me = scenario.view.self_view.pos;
         for (actor, origin) in view.actors.iter_mut().zip(scenario.view.actors.iter()) {
-            actor.pos.x = origin.pos.x + sweep;
+            let arms_length = me + (origin.pos - me).normalize_or_zero() * RIG_ARMS_LENGTH;
+            let was = actor.pos;
+            actor.pos = origin.pos.lerp(arms_length, closing);
+            // ⛔⛤ **AND THE VELOCITY HAS TO SAY THE SAME THING THE POSITION
+            // DOES.** This loop imposes the motion, and it used to leave
+            // `vel` at whatever the fixture authored — so a paced opponent
+            // walked toward this body every tick while reporting that it was
+            // flying off the stage. Nothing read `vel` here, so the
+            // contradiction was free, until attack admission started LEADING
+            // ITS AIM by the relative velocity and `edgeguard_window` stopped
+            // pressing at all: the brain was aiming where the fixture's lie
+            // said the opponent would be. The fixture still says where they
+            // START; it does not also get to say where they are going while
+            // this loop moves them somewhere else.
+            actor.vel = (actor.pos - was) * RIG_TICK_HZ;
         }
         view.sim_time = tick as f32 / RIG_TICK_HZ;
         tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);

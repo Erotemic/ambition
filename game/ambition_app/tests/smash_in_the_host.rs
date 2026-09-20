@@ -5422,6 +5422,7 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 mod launched {
     use super::*;
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::engine_core::Vec2 as EVec2;
     use ambition_platformer2d::platformer::body::BodyKinematics;
@@ -5489,7 +5490,34 @@ mod launched {
                 .unwrap_or_else(|| panic!("{needle} never took the stage: {bodies:?}"))
                 .1
         };
-        (find("george"), find("alice"))
+        let pair = (find("george"), find("alice"));
+        // ⛔⛤ **AND THEY ARE STOOD DOWN, BECAUSE PARKING IS NOT STILLNESS.**
+        // `strike_a_grounded_fighter` re-parks the ATTACKER every pass and the
+        // victim once, on the reasoning that two bodies 320px apart cannot
+        // reach each other. They can: a parked CPU WALKS, and once the option
+        // layer stopped offering moves that cannot reach, these two closed the
+        // gap and fought.
+        //
+        // Measured 2026-09-20 by instrumenting every refusal in the actor
+        // damage drain. Inside one call of the settle loop, in order: the
+        // attacker took 8 from the victim, the victim took 14 and then 13 from
+        // the attacker, and then **100 from `LeftTheWorld`** — she was knocked
+        // off the stage. The fixture's own 11-damage strike then arrived at a
+        // body that had just lost a stock, and the reading it produced was
+        // blamed on the percent meter for the fourth time in this fixture's
+        // life.
+        //
+        // ⭐ `Brain::stand_still()` IS THE IDIOM — the sibling `ring_out`
+        // module in this file already uses it, and `realize_seat` hands exactly
+        // this to a seat nobody drives. ⚠ The insert is not trusted structurally;
+        // it is checked by BEHAVIOUR, in the landed-strike guard inside
+        // `strike_a_grounded_fighter`, which is precisely the assertion a
+        // fighting CPU breaks.
+        for body in [pair.0, pair.1] {
+            app.world_mut().entity_mut(body).insert(Brain::stand_still());
+        }
+        app.update();
+        pair
     }
 
     /// Strike a PARKED, GROUNDED fighter with one authored volume and watch.

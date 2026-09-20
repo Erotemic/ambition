@@ -798,6 +798,45 @@ mod tests {
              grab on a different button",
         );
     }
+
+    /// ⛔⛤ **AND THE BRAIN CAN SEE HOW FAR IT REACHES, WHICH IT COULD NOT.**
+    /// A capture rides an Active window's `sustain_effect`, not its volume
+    /// list, so `frame_data` folded over `volumes` alone called every grab a
+    /// move with no region at all. The actor layer patched that in for exactly
+    /// ONE move — the neutral grab it reaches through `GRAB_VERB` — and this
+    /// one is bound to `attack_side`, so it got nothing: offered at every gap
+    /// on the stage and priced at zero, which on the 2026-09-20 grid sweep is
+    /// what he threw 38 times in 66 starts.
+    ///
+    /// ⚠ THE STANDING GRAB IS THE CONTROL. It is the move that was already
+    /// right, and a derivation that answers only the one that was broken is a
+    /// second special case rather than the removal of one.
+    #[test]
+    fn both_of_his_grabs_tell_the_brain_the_distance_they_close() {
+        let set = pugnacious_polygon_moveset();
+        for id in ["polygon_brawler_collar", "polygon_brawler_grab"] {
+            let spec = set
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("`{id}` is on his table"));
+            let frames = spec.frame_data();
+            let authored = capture_of(&set, id).reach_x();
+            assert_eq!(
+                frames.reach, authored,
+                "`{id}` reaches {authored}px and its frame data says {}",
+                frames.reach,
+            );
+            let coverage = frames
+                .coverage
+                .unwrap_or_else(|| panic!("`{id}` has no region, so no gap can miss it"));
+            assert_eq!(coverage.max.0, authored, "`{id}`'s region stops short of its reach");
+            assert!(
+                frames.ignores_guard,
+                "`{id}` is a capture, and a raised shield is not the answer to one",
+            );
+        }
+    }
     use super::*;
 
     /// ⭐⭐ HIS UP-B OPENS A PARASOL THAT OUTLIVES IT, and the DURATION is the

@@ -2059,6 +2059,30 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so every control frame below reaches nobody"
     );
+    // ⛔⛤ **AND SEAT 1 IS STOOD DOWN, OR "NOTHING STRUCK IT" IS A HOPE.** The
+    // last assertion of this test is that the shark took ZERO damage across the
+    // flight, and the only thing that made that true was a CPU admiral who did
+    // not fight. Measured 2026-09-20, once the option layer stopped offering
+    // moves that cannot reach: the mount finished the trip nine damage down,
+    // which is exactly one `grapeshot` — a HIT, not the quiet drain this test
+    // exists to catch.
+    //
+    // ⭐ ONLY SEAT 1. Seat 0 is the rider every `drive_control_frame` below
+    // speaks to, and standing it down would delete the flight being measured.
+    {
+        let seat1 = {
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &MatchSeat)>();
+            q.iter(world)
+                .find(|(_, seat)| seat.0 == 1)
+                .map(|(entity, _)| entity)
+                .expect("the match seats a second fighter")
+        };
+        app.world_mut()
+            .entity_mut(seat1)
+            .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
+        app.update();
+    }
 
     // ── UP-B FROM THE AIR, which is how a recovery is pressed. ──
     ambition_platformer2d::sim::drive_control_frame(

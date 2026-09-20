@@ -15,6 +15,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
+        hazard_reach: 0.0,
         //  the fixture's move is a FORWARD POKE, and now it says so. `reach`
         // is only the `+x` face of the authored volumes, so a fixture that set it
         // alone described a move with no hittable region at all once the scorer
@@ -670,7 +671,7 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
     // rule is "not while there is something else", so a gap with an empty menu
     // would be the wrong question and the arm below asks it separately.
     let near = generate_options(
-        Perceived::cheating(&view_with(300.0, 380.0)),
+        Perceived::cheating(&view_with(300.0, 355.0)),
         Situation::Neutral,
         &kit,
         &w,
@@ -740,10 +741,33 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
         "the recovery situation does not offer the move that lifts the body"
     );
 
-    // ⛔ AND A HITLESS MOVE THAT DOES NOT LAUNCH ME STAYS — a summon or a
-    // teleport is the *"buff, summon, pure-motion"* case this arm exists to
-    // admit, and asking `offers_a_way_home()` instead of the launch took
-    // `pirate_admiral/call_the_shark` off the menu with them.
+    // ⭐⭐ **A SUMMON IS AN OFFER TO THE OPPONENT AND A TELEPORT IS NOT, AND
+    // THAT IS THE WHOLE LINE.** `call_the_shark` puts 650px of ridable
+    // authority on the field for five seconds — the same kind of offer a bolt
+    // makes — so `MoveSpec::frame_data` folds a `SustainedAuthority`'s reach
+    // into `hazard_reach` and the hazard arm admits it. `phase_shift` moves
+    // only its caster 210px and is on NO list at all.
+    //
+    // ⚠ THE FIXTURE BELOW SETS `hazard_reach` BY HAND, WHICH IS THE ONE THING
+    // THIS FILE CANNOT DERIVE: these candidates are built literally rather
+    // than through `frame_data`, so a `recovery_route` alone would leave the
+    // hazard at zero and this test would pass by agreeing with itself. The
+    // catalog's half of the claim is
+    // `pirate_admiral_moveset`'s own coverage of `call_the_shark`.
+    //
+    // ⭐ THE ALTERNATIVE WAS MEASURED AND IT IS WORSE. Admitting them as
+    // ATTACKS, 21 mirror matches of 3600 ticks: `player_robot_v3` threw
+    // `phase_shift` 157 times — one every 23 ticks, the move's whole
+    // duration — at a mean gap of 223px for **0% damage**, against 103% with
+    // an ordinary menu. A pressed move owns the body through its recovery and
+    // a body in a move does not walk, so putting a travel move on the attack
+    // list does not give a fighter a way to close; it removes the one it had.
+    // `pointed_polygon` and `medic` failed identically.
+    //
+    // ⇒ A teleport's home is `motion_options`, and putting it there is a real
+    // slice: its score normalises by SPEED and a `Teleport` authors a
+    // DISTANCE. Until that ratio is decided, this asserts the silence so the
+    // day somebody fixes it, this test is what tells them they did.
     let mut summon = candidate("summon", 0.3, 0.0);
     summon.frames.coverage = None;
     summon.frames.recovery_route =
@@ -751,6 +775,7 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
             seconds: 5.0,
             reach: 650.0,
         };
+    summon.frames.hazard_reach = 650.0;
     let with_summon = generate_options(
         Perceived::cheating(&view_with(300.0, 600.0)),
         Situation::Neutral,
@@ -764,7 +789,60 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
             .map(|a| a.move_id.as_str())
             .collect::<Vec<_>>(),
         vec!["summon"],
-        "a hitless move that launches nobody and nothing left the neutral menu"
+        "a summon that holds 650px of ground offers the opponent something, \
+         and the foe is 300px away"
+    );
+
+    // ⛔ AND THE SAME SUMMON IS REFUSED BEYOND ITS OWN AUTHORITY, or the arm
+    // above is just "hitless moves are always on".
+    let mut far_summon = candidate("summon", 0.3, 0.0);
+    far_summon.frames.coverage = None;
+    far_summon.frames.hazard_reach = 650.0;
+    let out_of_range = generate_options(
+        // `view_with(me_x, foe_x)` — 900px of gap, past the summon's 650.
+        Perceived::cheating(&view_with(0.0, 900.0)),
+        Situation::Neutral,
+        &[far_summon],
+        &w,
+    );
+    assert!(
+        out_of_range.attacks.is_empty(),
+        "a 650px summon was offered against a foe 900px away: {:?}",
+        out_of_range
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+    );
+
+    // ⛔⛤ **AND A TELEPORT IS ON NEITHER LIST, WHICH IS A COST THIS TEST
+    // STATES RATHER THAN HIDES.** It offers the opponent nothing, and
+    // `motion_of` reads the `lift_*` burst it does not author, so it is
+    // offered nowhere.
+    let mut blink = candidate("blink", 0.3, 0.0);
+    blink.frames.coverage = None;
+    blink.frames.recovery_route =
+        ambition_entity_catalog::RecoveryRoute::Teleport { distance: 210.0 };
+    let with_blink = generate_options(
+        Perceived::cheating(&view_with(300.0, 600.0)),
+        Situation::Neutral,
+        &[blink],
+        &w,
+    );
+    assert!(
+        with_blink.attacks.is_empty() && with_blink.motions.is_empty(),
+        "a teleport is not a swing and is not a step; it should be on neither \
+         list until `motion_of` can price a route: attacks={:?} motions={:?}",
+        with_blink
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+        with_blink
+            .motions
+            .iter()
+            .map(|m| m.move_id.as_str())
+            .collect::<Vec<_>>(),
     );
 
     // ⚠ AND A LIFTER THAT HITS IS UNTOUCHED, which is 13 of the roster's 15:
@@ -1475,14 +1553,28 @@ fn a_body_with_no_jumps_left_is_not_offered_a_jump() {
 /// consumer takes `attacks.first()` whenever L3 names nothing — so the list
 /// being non-empty IS the decision. Scoring it low was never going to be enough.
 ///
-///  a zero-reach move (a buff, a summon) stays: reach is not its question, and
-/// dropping it would delete a whole class of move from every kit that has one.
+/// ⛔⛤ **AND A ZERO-REACH MOVE USED TO STAY, ON THE REASONING THAT REACH IS NOT
+/// ITS QUESTION.** It is not — and neither is any other question this scorer
+/// can ask: with no `reach_fit`, no `expected_payoff` and no `kill_potential`,
+/// a buff scores `frame_advantage` minus `stage_risk`, so the moment the gap
+/// rule above started refusing swings that cannot land, the fast safe move that
+/// does NOTHING became what a fighter pressed at range. Measured on the grid,
+/// 2026-09-20: five of the seven fighters that regressed answered with a
+/// counter or a buff as their most-thrown move, and their mean gap grew.
+///
+/// ⭐ SO THE QUESTION IS *"DOES IT OFFER THE OPPONENT ANYTHING"*, and a
+/// launcher is the arm that keeps this from being *"delete the class"*: it
+/// lands no volume either, and it reaches furthest of anything in a kit.
 #[test]
 fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     let jab = candidate("jab", 0.08, 40.0);
     let mut buff = candidate("buff", 0.2, 0.0);
     buff.frames.max_damage = 0;
-    let kit = vec![jab, buff];
+    // A launcher: no volume on the body, and a hazard that crosses the stage.
+    let mut bolt = candidate("bolt", 0.2, 0.0);
+    bolt.frames.max_damage = 0;
+    bolt.frames.hazard_reach = 700.0;
+    let kit = vec![jab, buff, bolt];
     let weights = UtilityWeights::default();
 
     // In reach: both are offered.
@@ -1514,8 +1606,31 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
          itself off the stage"
     );
     assert!(
-        offered.attacks.iter().any(|a| a.move_id == "buff"),
-        "a zero-reach move has no reach question and must survive the filter"
+        !offered.attacks.iter().any(|a| a.move_id == "buff"),
+        "a move that lands no volume, shoves nobody and carries nobody is still \
+         offered at a 600px gap — and with the jab correctly gone it is the \
+         whole menu, so `attacks.first()` presses it every decision"
+    );
+    // ⭐ THE ANTI-VACUITY HALF. Without it the arm above is satisfied by a
+    // filter that drops every reachless move, which would take the launcher
+    // with it — the one move in the kit that really does reach 600px.
+    assert!(
+        offered.attacks.iter().any(|a| a.move_id == "bolt"),
+        "a launcher whose hazard crosses 700px is not offered at a 600px gap, \
+         so the filter is reading `coverage: None` as 'reaches nowhere' again"
+    );
+    // And it is not offered from beyond what its hazard covers either.
+    let very_far = view_with(300.0, 1200.0);
+    let offered = generate_options(
+        crate::perception::Perceived::cheating(&very_far),
+        Situation::Neutral,
+        &kit,
+        &weights,
+    );
+    assert!(
+        !offered.attacks.iter().any(|a| a.move_id == "bolt"),
+        "the launcher is offered at 900px, past the 700px its hazard travels — \
+         a projectile's reach is a reach, not a licence"
     );
 }
 

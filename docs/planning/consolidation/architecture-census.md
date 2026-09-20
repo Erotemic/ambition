@@ -150,8 +150,8 @@ These are representative writer/read classes. They are not a call-graph export.
 
 ## 2. Duplicate-truth families
 
-The census found eight important families, and the split is DERIVED FROM THE
-LEDGER RATHER THAN COUNTED BY HAND: **0 open, 4 resolved, 4 legitimate
+The census found nine important families, and the split is DERIVED FROM THE
+LEDGER RATHER THAN COUNTED BY HAND: **0 open, 5 resolved, 4 legitimate
 separation.**
 
 ⭐⭐ **THE LAST OPEN ONE CLOSED 2026-09-20**, which is the first time this
@@ -235,8 +235,9 @@ below.
 | DUP-ROLLBACK-CONFIRMATION | Rollback authority versus confirmation answer | LEGITIMATE_SEPARATION | RollbackConfirmationState is deliberately not a Resource. It is derived from ActiveRollbackAuthority for a requested session scope. | Preserve this pattern. Do not promote derived answers into independently mutable resources. | SOURCE_CONFIRMED |
 | DUP-CONSTRUCTION-DIAGNOSTICS | Construction authority versus last-result diagnostics | LEGITIMATE_SEPARATION | LastRoomConstructionCommit and LastConstructionVerification are documented as developer/test evidence. RoomSet and spawned authoritative entities remain live authority. | Keep diagnostics read-only. Do not let future systems use the last-result resources as simulation authority. | SOURCE_CONFIRMED |
 | DUP-ROOM-PUBLICATION | Room replacement publishes through one candidate decision | RESOLVED — by A10's single publication decision | One room replacement is staged whole in `PendingWorldReplacement`, built as HIDDEN candidates, projected and validated, and published only on admission — root components, `MovingPlatformSet`, room entities and generation state are projections of that one decision. A refusal drops the candidates and the staged world and leaves world N untouched. | None. The single-publication shape this row asked for is what `replace_live_world` does. | SOURCE_CONFIRMED |
+| DUP-MOVE-REACH | How far a move reaches, and what region it covers | RESOLVED — the second owner is deleted | `MoveSpec::frame_data()` folded HIT VOLUMES only, and a capture is not a volume — it rides an Active window's `sustain_effect` — so the catalog answered that every grab in the game reaches nowhere. `capture_candidate` in the actor tick re-derived `reach`, `coverage` and `ignores_guard` from the capture params and overwrote the catalog's answer AFTER the kit was built, so the one caller that recomputed was right and every other reader of `frame_data()` was wrong. Measured 2026-09-20: the fighter brain's option layer rejected `polygon_brawler_collar` — 58px of authored reach — as unable to touch anybody. ⇒ The fold moved into the catalog and `capture_candidate` is now a legality gate that reads `frame_data()` like everyone else. | Remaining: none. ⚠ The SHAPE recurs — a move can reach through something it is not, and each road has to be taught to the fold or it answers zero. `hazard_reach` covers spawned hazards and the body's own ranged action, and `hazard_reach_of` names the effect keys it has NOT been taught, because an untaught key's zero is a refusal. | SOURCE_CONFIRMED |
 
-The four families that closed:
+The five families that closed:
 
 - `DUP-SESSION-CURRENT`: reviewed 2026-09-16 once A10 discharged its gate. Shell activation, session scope, links and root identity did live at different layers and most distinctions were valid; the one that was not — `GameplaySessionLinks` <!-- cite-ok: named because it is GONE -->, a one-entry copy of a pair the live instance already carried, with no production reader for its query — is deleted. The rest is a layer split, and it is now a dependency contract rather than a claim (`platformer-primitives-stays-a-foundation`).
 - `DUP-CONTENT-CURRENT`: RESOLVED. Live content identity and live prepared/session values are Components on the session root from one lowering, and the hot reload's generation advance is gated by the room publication verdict.
@@ -276,6 +277,7 @@ The four families that closed:
   operation. Named here so the next reader does not read the asymmetry as an
   oversight.
 - `DUP-ROOM-PUBLICATION`: RESOLVED. One room switch is one publication decision; entity visibility, `RoomSet`, `RoomGeometry`, moving platforms and generation state are its projections.
+- `DUP-MOVE-REACH`: RESOLVED 2026-09-20. A grab's reach had two owners and the catalog's copy — the one every reader but the actor tick saw — said it was zero. The capture fold is in `MoveSpec::frame_data()` now. The reason this went unnoticed is worth keeping: BOTH answers were derived from the same authored params, so neither looked like a copy, and the disagreement was visible only to a consumer that had not existed until the fighter brain started asking whether a move could touch anybody.
 
 ⛔⛤ **THE FOUR `LEGITIMATE_SEPARATION` FAMILIES HAD NO DATED REVIEW UNTIL
 2026-09-19, AND THEY ARE THE ONES THAT ROT QUIETLY.** A `RESOLVED` row claims

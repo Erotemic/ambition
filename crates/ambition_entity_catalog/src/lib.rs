@@ -3072,8 +3072,87 @@ impl MoveSpec {
             .filter(|v| hittable(v))
             .map(extent_x)
             .fold(0.0_f32, f32::max);
-        let coverage = union(&mut active_volumes().filter(|v| hittable(v)).map(box_of));
+        // ⛔⛤ **A CAPTURE IS A REACH, AND IT DOES NOT RIDE `volumes`.**
+        // [`smash_capture::CAPTURE_ATTEMPT`] sustains on an Active window's
+        // `sustain_effect` — a grab is spatially live for a window rather than
+        // a one-shot volume — so a fold over `volumes` alone says a grab has no
+        // region at all. To an option scorer that reads `coverage: None` as
+        // *"this move cannot miss"*, every grab on the roster was offered at
+        // every range and priced at zero.
+        //
+        // ⭐ **ONE OWNER.** `capture_candidate` in the actor layer already
+        // patched this in, for exactly ONE move: the neutral grab it reaches
+        // through `GRAB_VERB`. A command grab bound to an ordinary attack verb
+        // carries the same params and got none of it — measured 2026-09-20,
+        // `pugnacious_polygon/polygon_brawler_collar` on `attack_side` reaches
+        // 58px and read as reachless. The derivation belongs where the params
+        // and the key are declared, so every consumer gets the same answer.
+        let captures = || {
+            self.windows
+                .iter()
+                .filter(|w| matches!(w.tag, WindowTag::Active))
+                .filter_map(|w| w.sustain_effect.as_ref())
+                .filter(|effect| effect.key == crate::smash_capture::CAPTURE_ATTEMPT)
+                .filter_map(|effect| {
+                    effect
+                        .params
+                        .hydrate::<crate::smash_capture::CaptureAttemptParams>()
+                        .ok()
+                })
+        };
+        let capture_box = |p: &crate::smash_capture::CaptureAttemptParams| {
+            let (min, max) = p.coverage();
+            MoveCoverage { min, max }
+        };
+        let reach = reach.max(
+            captures()
+                .map(|p| p.reach_x())
+                .fold(0.0_f32, f32::max),
+        );
+        let coverage = union(
+            &mut active_volumes()
+                .filter(|v| hittable(v))
+                .map(box_of)
+                .chain(captures().map(|p| capture_box(&p))),
+        );
         let push_coverage = union(&mut active_volumes().filter(|v| !hittable(v)).map(box_of));
+        // A SHIELD IS NOT THE ANSWER TO A GRAB, and the catalog can now say so
+        // itself rather than leaving it to whichever caller recognised the
+        // capture. `ignores_guard` stays a caller-settable field for the
+        // unblockables nothing here can recognise.
+        let ignores_guard = captures().next().is_some();
+        // ⭐ AND WHAT IT REACHES THROUGH SOMETHING IT SPAWNS — see
+        // [`hazard_reach_of`]. Every authored effect on the move is asked, the
+        // one-shot events and the window sustains alike, because a technique
+        // may ride either.
+        let hazard_reach = self
+            .events
+            .iter()
+            .filter_map(|event| match &event.kind {
+                MoveEventKind::Effect(effect) => Some(effect),
+                _ => None,
+            })
+            .chain(self.windows.iter().filter_map(|w| w.sustain_effect.as_ref()))
+            .map(hazard_reach_of)
+            .chain(self.events.iter().filter_map(|event| {
+                matches!(event.kind, MoveEventKind::Ranged).then_some(RANGED_ACTION_REACH)
+            }))
+            // ⭐ A SUMMON WITH AUTHORITY OVER GROUND IS A HAZARD, and the line
+            // between the three `RecoveryRoute` kinds is whether the OPPONENT
+            // is offered anything. `SustainedAuthority` puts something on the
+            // field that threatens `reach` px for `seconds` — the admiral's
+            // ridable shark is 650px of it — which is the same offer a bolt
+            // makes and belongs in the same number. A `Teleport` and a
+            // `Burst` move only the caster and offer nobody anything, so they
+            // are not here: a travel move admitted as an ATTACK is pressed
+            // forever and locks the body out of walking, measured at 0%
+            // damage across a whole match. See the `(None, None)` arm in
+            // `brain::fighter::options`.
+            .chain(match self.gates.recovery_route {
+                Some(AuthoredRecoveryRoute::SustainedAuthority { reach, .. }) => Some(reach),
+                _ => None,
+            })
+            .fold(0.0_f32, f32::max);
         // ⭐⭐ AND WHICH WAY IT BLOWS, because a shove's value depends on it.
         // Authored (`launch_dir`) rather than derived from geometry — wind
         // blows ONE WAY, whichever side you walked in from — so a scorer can
@@ -3173,11 +3252,8 @@ impl MoveSpec {
             recovery_s,
             cancel_windows,
             reach,
-            //  a derivation cannot answer this one. A capture is recognised
-            // by its effect KEY, which belongs to the ruleset that authors it,
-            // not to this catalog — so the layer that builds a fighter's option
-            // kit sets it and nothing here guesses.
-            ignores_guard: false,
+            ignores_guard,
+            hazard_reach,
             coverage,
             push_coverage,
             push_dir,
@@ -3257,9 +3333,34 @@ impl MoveCoverage {
     /// moves that both fail to point at the opponent are equally useless, which
     /// is the same judgement `reach` made about a whiff.
     pub fn extent_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> f32 {
+        self.span_toward(toward, inflate).map_or(0.0, |(_, far)| far)
+    }
+
+    /// WHERE THIS MOVE'S REGION STARTS AND STOPS along `toward` — the near and
+    /// far sides of the box, or `None` when the box does not lie that way.
+    ///
+    /// ⛔ **THE NEAR SIDE WAS COMPUTED AND THROWN AWAY.** [`extent_toward`]
+    /// answers the far side, and the option layer read that alone as *"this
+    /// move's region touches them"* — which it is not. An authored strike is a
+    /// box hung OUT from the body: `pointed_polygon`'s thrust spans
+    /// x ∈ [20, 76], so `gap <= far` admits it against somebody standing in
+    /// the hole in the middle of it as happily as at its tip.
+    ///
+    /// ⚠ **AND ON TODAY'S ROSTER THAT COSTS NOTHING, WHICH IS ALSO MEASURED.**
+    /// `probe_how_far_out_an_authored_region_begins`, 2026-09-20: 118 of 340
+    /// authored hit regions begin away from the body and **the deepest begins
+    /// at 24.0px** (`carl_stargan/pale_blue_dot`) — the same 24px the option
+    /// layer forgives on each side, before the foe's own half-extent is added.
+    /// The whole grid is bit-identical with this arm in place, in all 21 rows.
+    /// ⇒ It is here so the code and its own specification agree, and so the
+    /// first authored move with a real hole is priced on the day it lands;
+    /// it is NOT the explanation for any fighter's damage today.
+    ///
+    /// [`extent_toward`]: Self::extent_toward
+    pub fn span_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> Option<(f32, f32)> {
         let len = (toward.0 * toward.0 + toward.1 * toward.1).sqrt();
         if !(len > 0.0) {
-            return 0.0;
+            return None;
         }
         let (dx, dy) = (toward.0 / len, toward.1 / len);
         let (lo_x, hi_x) = (self.min.0 - inflate.0, self.max.0 + inflate.0);
@@ -3275,13 +3376,17 @@ impl MoveCoverage {
             Some((a.min(b), a.max(b)))
         };
         let (Some((nx, fx)), Some((ny, fy))) = (slab(lo_x, hi_x, dx), slab(lo_y, hi_y, dy)) else {
-            return 0.0;
+            return None;
         };
         let far = fx.min(fy);
-        if nx.max(ny) > far || far <= 0.0 {
-            return 0.0;
+        let near = nx.max(ny);
+        if near > far || far <= 0.0 {
+            return None;
         }
-        far
+        // A box the origin sits inside opens at the origin: the region already
+        // touches them, and a negative "near" would read as a hole behind the
+        // body.
+        Some((near.max(0.0), far))
     }
 }
 
@@ -3396,6 +3501,83 @@ impl LaunchEnvelope {
     }
 }
 
+/// **How far an authored technique can hurt somebody, from where the move puts
+/// it.** `0.0` for every key that puts no hazard anywhere, which is most of
+/// them.
+///
+/// ⛔⛤ **`coverage: None` MEANT "THIS MOVE CANNOT MISS" AND FOR A LAUNCHER IT
+/// MEANS THE OPPOSITE.** A move whose damage rides a projectile authors no
+/// Active volume on its owner's body, so it folded to the same `None` as a
+/// counter, a buff and a taunt — and an option scorer offered all four at every
+/// range and priced all four at zero.
+///
+/// ⚠ **THE TABLE IS THE ROSTER'S, NOT A SURVEY OF THE VOCABULARY.** Measured
+/// 2026-09-20 by `authored_movesets::offer_census`: of the moves that land no
+/// volume and shove nobody, exactly two reach through something they spawn —
+/// `director_train_of_thought` (a steered bolt) and `polygon_lay_bomb`. The
+/// other hazard techniques this crate declares — `smash_mine::PLACE_MINE`,
+/// `smash_mark::MARK_BODY`, `smash_tether::TETHER_PULL`,
+/// `smash_homing::HOMING_DASH` — have no authored customer that needs an answer
+/// here, and inventing one for zero callers is the generalisation nobody asked
+/// for. Add the arm with the move.
+///
+/// ⚠ **A KEY THIS HAS NOT BEEN TAUGHT ANSWERS ZERO, and that is a REFUSAL, not
+/// a neutral default**: the admission rule reads zero as *"this move offers the
+/// opponent nothing"* and keeps it off the attack menu. Safe, and loud enough
+/// to notice — a new projectile that is never thrown is the symptom.
+///
+/// ⛔ AND THE BIGGEST PROJECTILE ROAD IS NOT A KEY AT ALL. Every ordinary
+/// ranged move pulls the owner's own trigger through [`MoveEventKind::Ranged`]
+/// — `polygon_ponytail_boomerang` and `polygon_projectile_charge_shot` are
+/// both that shape, and both author no Active volume, so a table of effect
+/// keys alone would have taken the reference projectile fighter's whole game
+/// off the menu. That arm is folded in beside this one and answers
+/// [`RANGED_ACTION_REACH`].
+/// **How far a move that pulls the owner's OWN ranged trigger reaches.**
+///
+/// ⚠ **THE BODY OWNS THE NUMBER, NOT THE MOVE.** [`MoveEventKind::Ranged`]
+/// fires whatever `RangedActionSpec` the BODY carries — its speed, its flight,
+/// its lifetime — and a catalog derivation has no body to ask. So this states
+/// the only thing true of every one of them: a shot crosses ground the swinger
+/// cannot. It is wider than any stage this game ships (the smash platform is
+/// 480px and its blast lines sit inside two widths), so in practice a ranged
+/// move is admitted wherever the opponent is, which is what it was before this
+/// field existed.
+///
+/// ⭐ A LAYER THAT CAN JOIN A MOVE TO ITS BODY'S ACTION MAY NARROW IT — the kit
+/// builder is that layer, the same one that joins a grab to its capture params.
+/// Nothing narrows it today, and the honest cost of not narrowing is a CPU that
+/// fires from further away than its shot can carry.
+pub const RANGED_ACTION_REACH: f32 = 1_000.0;
+
+fn hazard_reach_of(effect: &EffectRef) -> f32 {
+    let reach = match effect.key.as_str() {
+        // A bolt travels under its own power until its clock runs out. Its
+        // speed is documented CONSTANT, so this is the whole flight — and an
+        // UPPER bound, because a steered bolt that turns covers less ground
+        // than one flown straight.
+        crate::smash_bolt::STEERED_BOLT => effect
+            .params
+            .hydrate::<crate::smash_bolt::SteeredBoltParams>()
+            .map(|p| p.offset.0.abs() + p.speed * p.lifetime_s + p.radius)
+            .ok(),
+        // ⛔⛤ **A DROP BOMB IS DROPPED, NOT THROWN.** It appears at `offset`
+        // and the blast is the only thing that travels, so its reach is where
+        // it lands plus how far the blast carries. `impact_speed` is a
+        // DETONATION THRESHOLD — *"minimum contact speed that detonates the
+        // bomb"* — and reading it as a launch speed put the polygon's bomb at
+        // 1096px, further than the bolt and further than the stage, off a
+        // quantity that is not a distance per second of anything.
+        crate::smash_bomb::DROP_BOMB => effect
+            .params
+            .hydrate::<crate::smash_bomb::DropBombParams>()
+            .map(|p| p.offset.0.abs() + p.blast_radius)
+            .ok(),
+        _ => None,
+    };
+    reach.unwrap_or(0.0).max(0.0)
+}
+
 /// The queryable frame data of a move (CM7) — the introspection the fighter
 /// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
 /// (no storage). All times are the owner's proper-time seconds.
@@ -3426,17 +3608,44 @@ pub struct MoveFrameData {
     pub reach: f32,
     /// A guard does not stop this move.
     ///
-    ///  derived by nobody and set by the caller that knows: a hit volume is
-    /// blockable and a CAPTURE is not, and only the layer that recognises a
-    /// capture effect can say which this is. Default `false`, so every ordinary
-    /// move keeps the answer it always had.
+    /// ⭐ **DERIVED FOR A CAPTURE, SETTABLE FOR EVERYTHING ELSE.** A hit volume
+    /// is blockable and a capture is not, and a capture is one thing this
+    /// catalog CAN recognise — [`smash_capture::CAPTURE_ATTEMPT`] is its own
+    /// key, declared here. A ruleset that authors some other unblockable
+    /// — armour break, command strike — still sets this itself, and an
+    /// ordinary move keeps `false`.
+    ///
+    /// ⚠ This said *"derived by nobody"* while `capture_candidate` in the actor
+    /// layer derived it for the one grab it could see, which is how a command
+    /// grab on an ordinary attack verb came to read as blockable.
     ///
     ///  genre-neutral on purpose. Unblockables, command grabs and armour
     /// breaks are the same fact to a planner: *the shield is not the answer to
     /// this one*.
     pub ignores_guard: bool,
-    /// The region this move can hit, body-local, `None` when it lands no
-    /// Active volume at all (a buff, a summon, a pure-motion recovery).
+    /// **How far this move can hurt somebody through something it SPAWNS**, in
+    /// world pixels; `0.0` for the overwhelming majority of moves, which spawn
+    /// nothing.
+    ///
+    /// ⭐ THE OTHER HALF OF [`Self::coverage`]. A launcher authors no Active
+    /// volume on its owner's body, so `coverage` is `None` and a reader that
+    /// stops there concludes the move reaches NOWHERE — for the one class of
+    /// move that reaches furthest. See [`hazard_reach_of`] for the table, and
+    /// for why a key it has not been taught answers zero.
+    pub hazard_reach: f32,
+    /// The region this move can hit, body-local, `None` when the move has no
+    /// way to touch anybody FROM ITS OWN BODY.
+    ///
+    /// ⚠ **`None` IS NOT ONE THING, AND A READER THAT TREATS IT AS ONE IS
+    /// WRONG ABOUT MOST OF THE ROSTER.** Measured 2026-09-20 —
+    /// `authored_movesets::offer_census` — **164 of 470 authored moves** answered
+    /// `None` here, and they are at least four unrelated cases: a counter,
+    /// which reaches nobody until it is struck; a buff or a taunt, which
+    /// reaches nobody at all; a launcher whose damage rides a PROJECTILE and
+    /// can therefore cross the stage; and a pure-motion recovery. An option
+    /// scorer reading `None` as *"this move cannot miss"* offers all four at
+    /// every range and prices all four at zero. A capture used to be a fifth
+    /// and is not any more — see the fold in [`MoveSpec::frame_data`].
     ///
     /// George Booul authors sixteen moves and started five distinct ones per match; the whole
     /// vertical game (anti-air, juggle, spike) was never selected for the reason it exists, because

@@ -2753,19 +2753,219 @@ entire behavioural delta of this number is ONE move on ONE character, and the
 duel stays bit-identical at rungs 6 and 9 for the same reason it did before:
 the pirate admiral's kit carries no windbox.
 
-**(b) "An attack that cannot reach is not an option" admits anything within
-THREE TIMES its reach — NOT YET FIXED.** The filter asks `reach_fit > 0.0`, and
-`REACH_TOLERANCE` is `2.0`, so the soft score stays positive until the gap is
-`3 × reach`. A 48px kick is an option at 140px; `attacks.first()` always
-answers; and a committed move owns the body for longer than the gap between
-decisions. ⇒ The fighter presses an unreachable move, cannot walk while it
-plays, and the next free tick finds the same world.
+**(b) "An attack that cannot reach is not an option" admitted anything within
+THREE TIMES its reach — FIXED 2026-09-20, and the fix needed three more
+owners of "how far does this move reach" before it could land.** The filter
+asked `reach_fit > 0.0`, and `REACH_TOLERANCE` is `2.0`, so the soft score
+stayed positive until the gap was `3 × reach`. A 48px kick was an option at
+140px; `attacks.first()` always answers; and a committed move owns the body for
+longer than the gap between decisions. ⇒ The fighter pressed an unreachable
+move, could not walk while it played, and the next free tick found the same
+world.
 
 ⚠ **THE TOLERANCE IS RIGHT FOR A RANKING AND WRONG FOR AN ADMISSION**, which
 is why the repair is a second function rather than a smaller constant: a
 near-miss SHOULD rank near a hit — that is what makes a brain commit to a
 spacing — but a near-miss is still a miss, and a menu that offers one has no way
 left to say *"walk in first"*.
+
+⭐⭐ **BUILT AND MEASURED ON THE WHOLE GRID, 2026-09-20.** Admission is now
+absolute — the opponent must lie between the near and far sides of the move's
+own region, forgiving `ADMISSION_SLACK_PX` (24px) on each — while scoring keeps
+the `REACH_TOLERANCE` falloff, which is the split this row asked for.
+
+⚠ **THE CONTROL IS ONE RUN OF THE SAME INSTRUMENT, NOT A REMEMBERED NUMBER.**
+Every column is `every_fighter_on_the_grid_can_fight_its_mirror`, 21 mirror
+matches of 3600 ticks, the same binary, the control taken with only the
+behavioural changes stashed. The middle column is kept because it is the
+evidence for the last paragraph of this section. The number after each pair is
+DISTINCT moves started, which is the lock this row is named for.
+
+Total accumulated damage **5019% → 6350% → 6918%**, and every one of the 21
+rows moved.
+
+| fighter | control @ `5e68f6052` | admission only | + leading the aim | Δ |
+|---|---|---|---|---|
+| `npc_bob` | 55% / 71%, 9 | 205% / 193%, 11 | **234% / 247%, 16** | +355 |
+| `npc_pirate_admiral` | 48% / 82%, 15 | 70% / 102%, 13 | **233% / 235%, 13** | +338 |
+| `mary_o_tall` | 80% / 101%, 15 | 237% / 206%, 14 | **206% / 244%, 17** | +269 |
+| `goblin` | 12% / 12%, **1** | 164% / 169%, 13 | **144% / 119%, 17** | +239 |
+| `npc_alice` | 76% / 73%, 10 | 143% / 129%, 20 | **178% / 173%, 20** | +202 |
+| `smash_george_booul` | 122% / 187%, 14 | 372% / 330%, 16 | **252% / 202%, 17** | +145 |
+| `pugnacious_polygon` | 129% / 156%, 20 | 113% / 115%, 13 | **218% / 198%, 20** | +131 |
+| `perfect_cellular_automaton` | 151% / 138%, 18 | 128% / 124%, 15 | **210% / 195%, 18** | +116 |
+| `projectile_polygon` | 132% / 162%, 17 | 187% / 151%, 17 | **179% / 229%, 17** | +114 |
+| `npc_emmy_noether` | 73% / 110%, 12 | 265% / 265%, 9 | **146% / 146%, 11** | +109 |
+| `player_robot_v3` | 179% / 204%, 19 | 142% / 155%, 18 | **225% / 223%, 19** | +65 |
+| `npc_ninja_shadow_oni_leader` | 125% / 178%, 15 | 251% / 221%, 11 | **179% / 182%, 8** | +58 |
+| `pointed_polygon` | 157% / 236%, 18 | **0% / 0%, 3** | **199% / 218%, 16** | +24 |
+| `special_patent_clerk` | 0% / 0%, **1** | 221% / 234%, 17 | 11% / 11%, 2 | +22 |
+| `medic` | 151% / 158%, 21 | **0% / 0%, 1** | **155% / 155%, 1** | +1 |
+| `sanic` | 46% / 54%, 12 | **0% / 0%, 7** | 47% / 52%, 4 | −1 |
+| `director` | 119% / 145%, 18 | 85% / 99%, 17 | 109% / 142%, 19 | −13 |
+| `npc_carl_stargan` | 103% / 141%, 14 | 175% / 138%, 15 | 102% / 94%, 10 | −48 |
+| `officer` | 81% / 143%, 17 | 67% / 70%, 13 | 78% / 97%, 17 | −49 |
+| `performer` | 146% / 163%, 17 | 193% / 174%, 17 | 97% / 133%, 14 | −79 |
+| `npc_oiler` | 230% / 290%, 18 | 217% / 240%, 16 | 189% / 232%, 17 | −99 |
+
+⛔⛤ **AND THE MIDDLE COLUMN IS WHY THERE IS A THIRD ONE. TIGHT ADMISSION ASKED
+ITS QUESTION OF A WORLD THAT HAD ALREADY MOVED ON.** Three fighters fell to
+**0%** there, and the reading that found it contradicts the rule's own
+ceiling: `medic_tourniquet` reaches 80px, so it is admitted only out to 104px,
+and `AMBITION_GRID_TRACE` caught a `medic` mirror STARTING it at a real gap of
+**153.6px**, 177 times in 3600 ticks, with `LandedBodyHit` at zero for the
+bout. A move cannot be admitted past its own ceiling. What was admitted was a
+REMEMBERED opponent.
+
+⇒ `DelayedPerception` is the no-cheat contract made structural, and the delay
+was invisible to everything downstream: a consumer got a `WorldView` and no way
+to ask how late it was. At rung 5 that is `reaction_ms: 300` — eighteen ticks —
+plus the move's own startup still to come, about 100px of walking against an
+`ADMISSION_SLACK_PX` of 24. It went unnoticed for as long as admission forgave
+three times a move's reach; **making the rule honest is what made the staleness
+matter**, which is why (b) could not land alone.
+
+⭐ **`Perceived::staleness_s()` is the repair, and it is one field on the view
+rather than a parameter on a seam.** The buffer reads it off the views' own
+`sim_time` — no tick rate to agree on, and warm-up (which deliberately returns
+the OLDEST view held, not one `delay_ticks` old) reports itself correctly
+instead of being overstated from the configuration. Attack admission then
+carries the foe forward at the relative velocity the view reports, over
+`staleness + startup`.
+
+⚠ **SCORING IS DELIBERATELY LEFT ON THE OBSERVED POSITION**, and this is the
+line that keeps the difficulty ladder intact: `reach_fit` is a judgement about
+VALUE, `reaction_ms` is the shipped difficulty axis, and a brain that predicted
+perfectly everywhere would flatten it. Admission is the ONE judgement here
+about a moment in the future — the tick the hitbox opens — so it is the one
+that leads. The 24px constant was a stand-in for exactly this and stays for the
+residue (the decision interval, which the option layer does not know).
+
+⭐ **IT ALSO CLEANED UP THE LADDER RIG**, which is a second, independent
+witness. `the_ladder_is_ordered_by_press_rate` used to dip at rungs 7 and 9 and
+needed a two-rung window to survive; the curve is now strictly increasing at
+every adjacent pair up to rung 7 — `29.3 33.3 37.3 41.3 44.7 48.7 52.7` — and
+flat at ~52 above it, because uncapped this rig presses ~55 however hard the
+rung is. Higher rungs see a fresher world and therefore lead LESS, and the
+delay had been costing them presses the cap was supposed to be the only thing
+withholding. The test's claim is now strict monotonicity while the cap binds
+plus no fall-back above it, with `CAP_BINDS_THROUGH` derived from the `no cap`
+null control rather than chosen.
+
+⚠ **STILL BELOW CONTROL, AND NOT CHASED:** `npc_oiler` (−99 of 520, 19%),
+`performer` (−79), `officer` (−49), `npc_carl_stargan` (−48). None is a
+collapse and each keeps 10–17 distinct moves. `special_patent_clerk` is the odd
+row — 0% on ONE move in control, 455% on seventeen with admission alone, 22% on
+two with the lead — and he is the next thread to pull, because whatever the
+lead does to him it is not what it does to anybody else.
+
+⭐ **AND THE MIRROR ITSELF IS A POPULATION, WHICH THE ZEROES TAUGHT.** Two
+copies of one brain at one rung rank the same menu the same way; once it
+narrows to one or two moves the pair locks into a deterministic limit cycle and
+repeats a period exactly, so the move either lands every time or never. Seat
+somebody else opposite and all three of those fighters fought:
+`AMBITION_GRID_FOE=smash_george_booul`, same clock — `medic` **80% on 23
+distinct moves**, `pointed_polygon` **88% on 24**, `sanic` **17% on 13**. ⇒ A
+`0%` row in a mirror is a QUESTION, not a verdict; the sweep's assertion now
+says so in its own message, and `AMBITION_GRID_ONLY` / `AMBITION_GRID_FOE` /
+`AMBITION_GRID_TRACE` are how it gets answered.
+
+⚠ **AND ONE SHIPPED FIXTURE WENT RED FOR A REASON THAT WAS NOT A REGRESSION,
+WHICH ITS OWN COMMENT HAD PREDICTED ABOUT ITSELF.**
+`the_repertoire_gets_used::the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`
+ran THREE noise streams and asked for one charge, above a paragraph reading
+*"it passed for a week and then failed on a change that made the fight
+BETTER"*. It did that again. Measured over TEN streams instead of three:
+charges in **3** (0.98, 0.99, 1.00), so the per-stream rate is about 0.3 and
+three draws decide the test only two times in three. The same runs lifted techs
+from a recorded 0–29–54 to 44–116 and tumbles from 0–97–121 to 21–407 — the
+fight was livelier and the sample was the same size. `STREAMS` is now set from
+that rate, and the failure message says what the sample can decide.
+
+⛔⛤ **AND CHASING ONE OF THOSE ROWS FOUND A SECOND OWNER OF "HOW FAR DOES
+THIS MOVE REACH".** A capture rides an Active window's `sustain_effect`, not
+its volume list, so `MoveSpec::frame_data` — which folds over `volumes` — said
+every grab on the roster has NO region at all, and an option scorer reads
+`coverage: None` as *"this move cannot miss"*. `capture_candidate` in the actor
+layer patched the coverage, the reach and the unblockability back in, for
+exactly ONE move: the neutral grab it reaches through `GRAB_VERB`. ⇒ A command
+grab bound to an ordinary attack verb carries the same `CAPTURE_ATTEMPT` params
+and got none of it. `pugnacious_polygon/polygon_brawler_collar` reaches 58px on
+`attack_side` and read as reachless, which is what he threw 38 times in 66
+starts at a mean gap of 143px. The derivation is `frame_data`'s now, where the
+key and the params are declared, and the actor-layer copy is deleted. Held by
+`both_of_his_grabs_tell_the_brain_the_distance_they_close`, whose CONTROL is
+his standing grab — the one that was already right.
+
+⛔⛤ **AND A THIRD OWNER: A MOVE CAN REACH THROUGH SOMETHING IT IS NOT.** With
+grabs fixed, the fighters that still fell were throwing counters and buffs,
+because `coverage: None` was the same answer for four unrelated things.
+`MoveFrameData::hazard_reach` is the new datum, derived in `frame_data`
+beside the capture fold, and it has **two roads, not one**:
+
+1. An EFFECT KEY the catalog has been taught. `hazard_reach_of` prices
+   `smash_bolt::STEERED_BOLT` at `offset + speed × lifetime + radius` and
+   `smash_bomb::DROP_BOMB` at `offset + blast_radius`. ⛔ It names the keys it
+   has NOT been taught (`PLACE_MINE`, `MARK_BODY`, `TETHER_PULL`,
+   `HOMING_DASH`) and states that an untaught key's zero is a REFUSAL.
+2. ⛔⛤ **THE OWNER'S OWN TRIGGER, WHICH IS NOT A KEY AT ALL AND NEARLY TOOK A
+   WHOLE FIGHTER OFF THE MENU.** An ordinary ranged move fires the BODY's
+   `RangedActionSpec` through `MoveEventKind::Ranged`, and both of
+   `projectile_polygon`'s neutral options author no Active volume — *"the
+   projectile IS the damage, as it is for every ranged move"*. A rule built
+   from the effect-key table alone would have deleted her entire game. They
+   answer `RANGED_ACTION_REACH`, a stage-crossing placeholder, because the
+   BODY owns the shot's real speed and flight and a catalog derivation has no
+   body; the kit builder is the layer that could narrow it and does not yet.
+   Held by `her_two_neutral_projectiles_tell_the_brain_they_cross_the_stage`,
+   whose CONTROL is her bomb — which must answer its own arc rather than the
+   placeholder, or the test passes against a catalog that answers every
+   hitless move 1000px.
+
+⚠ **AND THAT CONTROL EARNED ITS KEEP IMMEDIATELY.** The first `DROP_BOMB`
+arithmetic was `impact_speed × fuse_s + blast_radius`, which put her bomb at
+1096px — further than the bolt and further than the stage. `impact_speed` is a
+DETONATION THRESHOLD (*"minimum contact speed that detonates the bomb"*), not a
+launch speed; a drop bomb is DROPPED, so its reach is where it lands plus the
+blast. Read the field's own doc before multiplying it by a time.
+
+⛔⛤ **AND A FOURTH: A MOVE THAT ONLY CARRIES THE BODY IS NOT AN ATTACK, THOUGH
+IT IS VERY TEMPTING TO PUT IT ON THE ONE LIST THAT EXISTS.** A teleport crosses
+210px and the admiral's shark is a ridable summon with 650px of authority;
+`motion_of` reads only the `lift_*` burst and they author none, so they are on
+NO list. Admitting them as ATTACKS cost `player_robot_v3` the whole match:
+`phase_shift×157` — one teleport every 23 ticks, which is its whole duration —
+at a mean gap of **223px** for **0% damage**. A pressed move owns the body
+through its recovery and **a body in a move does not walk**, so putting a travel
+move on the attack list does not give a fighter a way to close; it removes the
+one it had. `pointed_polygon` and `medic` failed identically. ⇒ Backed out, and
+`options/tests.rs` now asserts the SILENCE with that measurement beside it.
+
+⚠ **STILL OWED, AND NAMED SO THE NEXT ATTEMPT STARTS HERE:** those moves belong
+to `motion_options`, whose own comment already says so. It is not a one-liner —
+its score normalises by SPEED against the kit's fastest and a `Teleport` authors
+a DISTANCE, so the two cannot go in one `max` until somebody decides what that
+ratio means.
+
+⚠ **A FIFTH WAS CHECKED AND IS A NO-OP, WHICH IS ALSO A RESULT.** Admission
+asked only the FAR side of a move's region, and an authored strike is a box
+hung OUT from the body — `pointed_polygon`'s thrust spans x ∈ [20, 76] — so
+`gap <= far` admitted it against somebody standing in the hole in the middle of
+it. `MoveCoverage::span_toward` now returns both sides and admission uses both.
+⛔ It refuses nothing today: `probe_how_far_out_an_authored_region_begins` says
+118 of 340 authored regions begin away from the body and **the deepest begins at
+24.0px** — `ADMISSION_SLACK_PX` exactly, before the foe's half-extent is added.
+All 21 rows came back bit-identical. It is here so the code and its own
+specification agree; it did not fix the fighter that prompted it.
+
+⭐ **THE TWO HALVES OF THAT TABLE ARE ONE MECHANISM READ FROM BOTH ENDS.** Every
+row that improved had been LOCKED ON ONE MOVE it could not land and its mean gap
+FELL — `synchronize_clocks×160`, `dirt_kick×204`, `rivet_smash×77`, `slide×60`
+all fall to a third of their starts while the distinct count rises. Every row
+that fell had its most-thrown move change from a poke to something that is not
+one, because **refusing the unreachable swing is right and what the fighter
+falls through to is what costs it.** Each of those fall-throughs turned out to
+be a separate missing datum, and the four paragraphs below are them.
 
 ⭐ **MEASURED WITH BOTH HALVES IN PLACE, and this is what (b) is worth.** Mirror
 bouts, 3618 ticks, same `AMBITION_DUEL_RUNG` harness:
@@ -2806,16 +3006,71 @@ the next attempt does not re-walk them:
    the ledger records the overlap EARLIER than the launch is applied. That is a
    weaker guard, not a fix, and it was reverted.
 
-**Next implementation:** land (b) behind a fixture that establishes its own
-preconditions — the open question is what makes `Brain::stand_still()` leave a
-body ungrounded, since that is the lever the rest of the file already uses.
-Then the remaining half of the owner's F6 problem, which (b) narrows rather than
-closes: a brain still cannot decline to attack — `wants_attack` falls back to
-`options.attacks.first()` on every decision where the body is free. A windbox is
-also not yet a CHOICE; `dirt_kick` as a deliberate spacing shove needs a push
-feature in the scorer, not an accident in the admission rule. Keep press
-generation separate from move utility; do not patch the evaluator with a
-fighter-specific exception.
+⭐⭐ **CLOSED 2026-09-20, AND REPAIR 1 WAS RIGHT ALL ALONG — IT WAS APPLIED IN
+THE WRONG PLACE.** `Brain::stand_still()` on both bodies, inserted in
+`two_seated_fighters` after the seats are bound and followed by one
+`app.update()`, makes both arms green. Traced by instrumenting every refusal in
+the actor damage drain, which printed the whole story in order inside one call
+of the settle loop: the attacker took **8** from the victim, the victim took
+**14** and then **13** from the attacker, and then **100 from
+`LeftTheWorld`** — she had been knocked off the stage. The fixture's own
+11-damage strike then arrived at a body that had just lost a stock.
+
+⇒ **PARKING IS NOT STILLNESS, which is the sentence this fixture needed for
+three years.** It re-parks the attacker every pass and the victim once, on the
+reasoning that two bodies 320px apart cannot reach each other — and a parked CPU
+WALKS. The premise held only while the CPUs were harmless; (b) is what stopped
+them being harmless. Same class as
+`smash_ride::the_admiral_flies_the_shark_around_the_stage_under_his_own_stick`,
+whose last assertion is that the mount took ZERO damage *"across a flight in
+which nothing struck it"* and which read 9 — exactly one `grapeshot`. Three
+fixtures, one premise: **the CPU could not fight.**
+
+⚠ **AND THE ENGINE FACT UNDERNEATH IS WORTH ITS OWN ROW.** The strike published
+`LandedBodyHit` and then neither `ResolvedBodyHit` nor `BlockedBodyHit` — a
+consumer asking *"did my move connect"* gets a landed hit, an entry in
+`HitboxHits` that spends the one-shot slot forever, and no outcome message at
+all. Here the cause was benign (the victim was mid-KO), but the SHAPE is the one
+both this module and `ring_out` have recorded twice as *"the mechanism is not
+established"*, and a landed hit with no outcome is exactly how it looks.
+
+⭐ **THAT POPULATION IS MEASURED AND IT HAS SHRUNK — 164 → 123 OF 470 AUTHORED
+MOVES** (`authored_movesets::offer_census`, 2026-09-20). `MoveFrameData::coverage`
+was `None` for four unrelated things — a counter, a buff, a launcher whose
+damage rides a projectile, and a pure-motion recovery — and the option layer
+treated them as one shape. Captures and hazards are out of that bucket now. Of
+the 123 left, **all but twelve are taunts, throws and pummels**, which are legal
+only while a capture is held and reach this menu never. The twelve are five
+`smash_counter::counter_move`, three `smash_vitality` buffs, three that carry
+the body, and the Performer's flyline.
+
+⚠ **AND THE CENSUS WAS ITSELF A COPY THAT WENT STALE, WHICH IS THE LESSON.**
+Its membership rule was a hand copy of the admission arm, written when that arm
+read `lift_speed <= 0.0`; the arm learned `hazard_reach` and the census went on
+printing 127 unchanged — a census agreeing with itself rather than with the
+engine. The rule is now the arm's rule and the probe's doc says to poison it.
+
+**Next implementation: a brain must be able to DECLINE TO ATTACK, and every
+measurement above now points at it.** `wants_attack` takes
+`options.attacks.first()` whenever the body is free, so with admission honest
+the move that survives at range is whichever one the scorer cannot price — and
+whatever survives is thrown until the world changes, which in a mirror it never
+does. This is what turns each honest narrowing of the menu into a new lock:
+`medic` at 1 distinct move of 17 reachable, 177 presses, zero landed.
+
+⛔ NOT BY A SECOND, SOFTER ADMISSION RULE. A `reach_fit` floor is the same
+number the admission constant already owns, and `ADMISSION_SLACK_PX`'s doc says
+why those two were one number only because one number was cheaper to write.
+What is missing is the brain's memory of its own last move: it cannot perceive
+that it just whiffed, so it re-derives the same ranking from the same world.
+`FighterState` carries `habits` (a model of the OPPONENT) and `last_foe`, and
+nothing at all about what this body just did.
+
+⚠ The two moves left after that are a counter and a buff, and they are the two
+the attack scorer genuinely cannot choose between: pricing them needs a
+DEFENSIVE feature (*"is the opponent committed to a swing"*), not a wider
+admission rule. Keep press generation separate from move utility; do not patch
+the evaluator with a fighter-specific exception.
 
 **Still open — and it is NOT this lock.** `sanic` @5 takes 0% and always did.
 Control run at the parent commit, same harness: the bout ends at **777** ticks
@@ -2823,7 +3078,10 @@ with 5 knockouts and 1275px of axis drift; with (a)+(b), 637 ticks, 6 knockouts,
 943px. Both seats are airborne for all but ~200 ticks and throw `spring_launch`.
 ⇒ That is a body leaving the stage in the first thirteen seconds, a different
 defect from the one-move lock, and the grid below lumped them together because
-both read as *"under 40% damage at rung 5"*.
+both read as *"under 40% damage at rung 5"*. ⭐ Corroborated 2026-09-20 from the
+other side: seated against `smash_george_booul` she deals 17% on 13 distinct
+moves and spends 17% of the bout in `Recovery`, so the brain is choosing — the
+stage is losing her.
 
 **Acceptance:** representative CPUs select movement-compatible and
 movement-transition attacks from their authored menu across the intended

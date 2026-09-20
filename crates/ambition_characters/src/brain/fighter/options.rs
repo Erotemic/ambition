@@ -323,6 +323,37 @@ impl OptionSet {
 /// cannot.
 pub const MOTION_WORTH_PRESSING: f32 = 0.5;
 
+/// How far past the point where a move's own region touches the opponent it is
+/// still ADMITTED, in world pixels.
+///
+/// ⛔⛤ **ADMISSION USED TO BE `reach_fit > 0.0`, WHICH IS A TOLERANCE
+/// MEASURED IN UNITS OF THE MOVE'S OWN REACH — SO THE LONGEST MOVES GOT THE
+/// MOST SLACK.** [`REACH_TOLERANCE`] is `2.0`, so the score stays positive
+/// while `|gap - reach| < 2 · reach`, i.e. out to THREE TIMES reach: a 40px
+/// jab was on the menu at 119px and a 200px sword at 600px. A move that cannot
+/// touch them is not more nearly an option because it is a big move.
+///
+/// ⭐ **AN ABSOLUTE SLACK INSTEAD, THE SAME FOR EVERY MOVE.** `reach` here is
+/// already `extent_toward` inflated by the foe's hurtbox, so `gap <= reach` is
+/// exactly *"this move's region touches them"*. The slack covers the one thing
+/// a static comparison cannot: both bodies are still moving for the interval
+/// until the next decision.
+///
+/// ⚠ **A CONSTANT AND NOT THE FOE'S HALF-WIDTH, though that was the first
+/// version and it reads better.** A perceived body's `half_extent` defaults to
+/// ZERO, which no real body has and every hand-built fixture does — so a rule
+/// scaled by it is razor-tight in exactly the tests that would catch it being
+/// wrong. The same trap as `SelfView::facing` defaulting to `0.0`. 24px is
+/// about a body half-width on this roster and about a decision interval of
+/// walking.
+///
+/// ⚠ **SCORING IS UNCHANGED.** `reach_fit` keeps its falloff — a poke thrown
+/// from too far still scores badly, and a long move at point-blank still scores
+/// badly — because that shape is a judgement about VALUE. This constant is a
+/// judgement about what belongs on the menu at all, and the two were one number
+/// only because one number was cheaper to write.
+const ADMISSION_SLACK_PX: f32 = 24.0;
+
 /// How far past its own reach an attack is still worth considering. Beyond this
 /// the fit is zero rather than negative — an attack that misses by a mile and one
 /// that misses by two are equally useless, and letting the feature go negative
@@ -762,43 +793,168 @@ pub fn generate_options(
     // `coverage: None`, i.e. offered at any range at all, which is the same
     // defect on the other foot. A move that can only PUSH is gated on where it
     // can push.
+    //
+    // ⛔⛤ **AND THE HIT ARM ASKED A QUESTION SCALED BY THE MOVE, WHICH GAVE THE
+    // LONGEST MOVES THE MOST ROPE.** It was `reach_fit > 0.0`, and `reach_fit`
+    // stays positive out to THREE TIMES reach ([`REACH_TOLERANCE`]) — so a 40px
+    // jab was admitted at 119px and a 200px sword at 600px, each scoring low
+    // and each still winning whenever the rest of the kit scored lower. The
+    // admission question is now absolute and the scoring question is left
+    // alone: see [`ADMISSION_SLACK_PX`].
+    // ⛔⛤ **AND IT ASKED ITS QUESTION OF A WORLD THAT HAD ALREADY MOVED ON.**
+    // Admission is the one judgement here about a moment in the FUTURE — the
+    // tick this move's hitbox opens — and it was being made against the
+    // opponent's position in a view that is `reaction_ms` old, plus the whole
+    // of the move's startup still to come. At rung 5 that is 300ms of
+    // staleness and up to 180ms of windup: about 100px of walking, against an
+    // `ADMISSION_SLACK_PX` of 24.
+    //
+    // ⭐ MEASURED, and the number is unambiguous because it contradicts the
+    // rule's own ceiling: a `medic` mirror started `medic_tourniquet` — 80px
+    // of reach, so admitted only out to 104px — at a real gap of **153.6px**,
+    // 177 times in 3600 ticks, with `LandedBodyHit` at ZERO for the bout. A
+    // move cannot be admitted past its ceiling; what was admitted was a
+    // remembered opponent.
+    //
+    // ⇒ **LEAD THE AIM.** Carry the foe forward at the relative velocity the
+    // view reports, over the time between the world the brain SAW and the
+    // tick the hitbox OPENS. Scoring is deliberately left on the observed
+    // position: `reach_fit` is a judgement about VALUE and the difficulty
+    // ladder is built on the brain being late. This says only that a swing is
+    // aimed where somebody is going, which is what a person does and what the
+    // 24px constant was a stand-in for.
+    let lead_of = |startup_s: f32| {
+        let dt = view.staleness_s() + startup_s;
+        if dt <= 0.0 {
+            return foe_local;
+        }
+        let rel = foe.vel - me.vel;
+        let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+        let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
+        (
+            foe_local.0 + rel_local.0 * dt,
+            foe_local.1 + rel_local.1 * dt,
+        )
+    };
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.
-        (Some(_), _) => attack.features.reach_fit > 0.0,
+        (Some(coverage), _) => {
+            // ⚠ ALREADY INFLATED BY THEIR HURTBOX, so this is *"the move's
+            // region touches them"* and not *"the move's region reaches their
+            // centre"*.
+            //
+            // ⛔ **AND IT ASKED ONLY THE FAR SIDE.** An authored strike is a
+            // box hung OUT from the body — `pointed_polygon`'s thrust spans
+            // x ∈ [20, 76] — so `gap <= far` admitted it against somebody
+            // standing in the hole in the middle of it. Both sides now, with
+            // the same slack on each: the near side is forgiven by a decision
+            // interval of walking for exactly the reason the far side is.
+            //
+            // ⚠ **IT REFUSES NOTHING ON TODAY'S ROSTER AND THAT IS MEASURED,
+            // NOT ASSUMED.** `probe_how_far_out_an_authored_region_begins`:
+            // the deepest authored region begins at **24.0px**, which is
+            // `ADMISSION_SLACK_PX` exactly, before the foe's half-extent is
+            // added on top. The whole grid came back bit-identical in all 21
+            // rows. ⇒ This is the code agreeing with its own specification
+            // and nothing more; it did NOT fix the fighter that prompted it,
+            // whose hitboxes find no body at all — see the BRAIN row.
+            let aim = lead_of(attack.frames.startup_s);
+            let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
+                return false;
+            };
+            let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+            gap >= near - ADMISSION_SLACK_PX && gap <= far + ADMISSION_SLACK_PX
+        }
         // Only shoves: offered exactly where the shove lands.
-        (None, Some(push)) => coverage_fit(Some(push), foe_local, foe_extent) > 0.0,
-        // ⛔⛤ TOUCHES NOTHING — a buff, a summon … OR A RECOVERY, AND THAT
-        // LAST ONE IS NOT AN ATTACK. A move that lands no volume and commands a
-        // self-launch throws this body 900 units into the air and reaches
-        // nobody on the way. It was admitted at EVERY range (nothing it could
-        // miss) and priced on `frame_advantage` and `stage_risk` alone, so
-        // whenever the gap grew past the kit's reach it was what remained —
-        // and pressing it widens the gap, which is a loop the next decision
-        // cannot leave. MEASURED 2026-09-19 on the grid sweep: the medic
-        // threw `medic_rescue_lift` 48 times in 91 starts and dealt 39%.
+        (None, Some(push)) => {
+            coverage_fit(Some(push), lead_of(attack.frames.startup_s), foe_extent) > 0.0
+        }
+        // ⛔⛤ **TOUCHES NOTHING — AND THAT WAS FOUR DIFFERENT MOVES WEARING
+        // ONE ANSWER.** This arm admitted every move that lands no volume and
+        // shoves nobody, on the reasoning that a buff or a summon has no reach
+        // question to fail. It has no reach question to PASS either: with no
+        // `reach_fit`, no `expected_payoff` and no `kill_potential`, such a
+        // move scores `frame_advantage` minus `stage_risk` — so the moment the
+        // admission rule above started refusing swings that cannot land, the
+        // fast safe move that does nothing became what a fighter pressed
+        // whenever the opponent was out of range.
         //
-        // ⭐ THE RECOVERY LENS ALREADY OWNS THESE. `Situation::Recovery`
-        // returns `lifting_candidates` and nothing else, so excluding them
-        // here removes a menu entry rather than an ability — a fighter
-        // knocked off the stage still reaches for its up-B, through the
-        // branch that exists for it.
+        // ⭐ MEASURED, AND THE POPULATION IS SMALL ENOUGH TO NAME.
+        // `authored_movesets::offer_census`, 2026-09-20: **123 of 470**
+        // authored moves land here, and all but twelve are taunts, throws and
+        // pummels — legal only while a capture is held, so they reach this
+        // menu never. Of the twelve: five are `smash_counter::counter_move`,
+        // three are `smash_vitality` buffs, three carry the body (two
+        // teleports and the admiral's ridable shark), and one is the
+        // Performer's flyline. ⇒ The question is not
+        // *"does it hit"*, it is **does it offer the opponent anything at
+        // all**, and only two shapes of that answer are yes.
         //
-        // ⚠ ONLY THE HITLESS ONES. Measured over the shipped roster: 15 moves
-        // command a self-launch and 13 of them HIT for 6–9 damage, so they are
-        // ordinary attacks that also lift and `reach_fit` already prices them.
+        // ⛔ THE ROAD THAT NEARLY TOOK A WHOLE FIGHTER OFF THE MENU was the
+        // one that carries no effect key: an ordinary ranged move pulls the
+        // BODY's trigger through `MoveEventKind::Ranged`, and both of
+        // projectile_polygon's neutral options — her boomerang and her charge
+        // shot — author no Active volume at all, because *"the projectile IS
+        // the damage, as it is for every ranged move"*. A rule built from the
+        // effect-key table alone would have deleted her entire game. The
+        // catalog answers them `RANGED_ACTION_REACH`.
         //
-        // ⛔⛤ AND THE TEST IS THE LAUNCH, NOT `offers_a_way_home()` — WHICH IS
-        // WHAT THIS ARM ASKED FIRST AND WAS WRONG. That predicate is true for
-        // every route that gets a body back, and a census on the real question
-        // named FIVE moves rather than two: the two lifts, plus
-        // `pirate_admiral/call_the_shark` (`SustainedAuthority` — a ridable
-        // summon IS a way home) and two `Teleport`s. A summon is exactly the
-        // *"buff, summon, pure-motion"* case this arm exists to ADMIT, and a
-        // 210px teleport toward the opponent CLOSES the gap rather than
-        // widening it. The reasoning above is about being thrown into the air
-        // and it must select on that.
-        (None, None) => attack.frames.lift_speed <= 0.0,
+        // ⚠ A COUNTER AND A BUFF ARE NOT DELETED FROM THE GAME, they are off
+        // the ATTACK ranking — which is the only list that was ever choosing
+        // them, and it chose them by having nothing else left. Pricing them
+        // needs a defensive feature (*"is the opponent committed to a
+        // swing"*), and inventing one to keep them on a list they never won on
+        // merit would be the wrong order.
+        (None, None) => {
+            // Reaches through something it spawns: a bolt, a bomb. Priced
+            // against its own reach, the same absolute question the hit arm
+            // asks.
+            let hazard = attack.frames.hazard_reach;
+            if hazard > 0.0 {
+                let aim = lead_of(attack.frames.startup_s);
+                let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
+                return gap <= hazard + ADMISSION_SLACK_PX;
+            }
+            // ⛔⛤ **AND A ROUTE THAT CARRIES THE BODY IS NOT AN ATTACK,
+            // THOUGH THIS ARM ADMITTED ONE FOR A WHILE.** A teleport lands no
+            // volume and crosses 210px; the admiral's shark is a ridable
+            // summon with 650px of authority. `motion_of` reads only the
+            // `lift_*` burst and these author none, so they are on NO list —
+            // and the reflex is to put them here, because here is a list that
+            // exists.
+            //
+            // ⭐ AND THE LINE BETWEEN THEM IS WHETHER THE OPPONENT IS
+            // OFFERED ANYTHING. A `SustainedAuthority` summon puts something
+            // on the field that threatens `reach` px for `seconds` — the
+            // admiral's ridable shark is 650px of it — which is the same
+            // offer a bolt makes, so the catalog folds it into
+            // `hazard_reach` and it is admitted by the arm above. What is
+            // left here is pure self-displacement: a `Teleport` and a hitless
+            // `Burst` move only the caster.
+            //
+            // ⭐ MEASURED, 21 mirror matches of 3600 ticks, 2026-09-20. It
+            // cost `player_robot_v3` the entire match: `phase_shift×157` —
+            // one teleport every 23 ticks, which is its whole duration — at a
+            // mean gap of **223px**, for **0% damage**, against 103% with an
+            // ordinary menu. A move on the attack list is PRESSED, a pressed
+            // move owns the body through its startup and recovery, and a body
+            // in a move does not walk. So admitting a travel move as an
+            // attack does not give the fighter a way to close: it takes away
+            // the only one it had. `pointed_polygon` and `medic` failed the
+            // same way, all three at 0%.
+            //
+            // ⇒ These belong to `motion_options`, whose own comment already
+            // says so — *"a move that touches nothing and moves nothing is a
+            // buff or a summon and belongs to neither list"*. Teaching
+            // `motion_of` the route is a real slice and not a one-line one:
+            // its score normalises by SPEED against the kit's fastest, and a
+            // `Teleport` authors a DISTANCE, so the two cannot go in the same
+            // max without deciding what that ratio means. Tracked on the
+            // BRAIN row. Until then a teleport is on no list, which costs its
+            // owner a niche option and costs nobody a match.
+            false
+        }
     });
 
     // ⛔⛤ **AND IT DOES NOT COME BACK AS A LAST RESORT, WHICH IS WHAT THE

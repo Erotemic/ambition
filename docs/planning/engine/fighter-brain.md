@@ -128,7 +128,117 @@ capabilities.
 
 If the premise is missing, fix the fixture rather than interpreting the table.
 
+### ⛔⛤ A mirror match is a room, and a narrow menu turns it into a limit cycle
+
+Measured 2026-09-20 on `every_fighter_on_the_grid_can_fight_its_mirror`.
+
+Two copies of one brain at one rung see mirrored worlds and rank the same menu
+the same way. While the menu is WIDE, execution noise and changing situations
+hold the two seats apart and the bout looks like a fight. Once the menu narrows
+to one or two moves, the pair locks into a DETERMINISTIC LIMIT CYCLE: it repeats
+a period exactly, so the move either lands every time or never — and "never" is
+what it printed. `medic` threw `medic_tourniquet` 177 times over 3600 ticks at
+alternating gaps of 9–10px and 153–162px with `dy` zero throughout, and
+`LandedBodyHit` at **zero**. `pointed_polygon` ran the same 127-tick cycle.
+
+⇒ **A `0%` row in a mirror is a QUESTION, NOT A VERDICT.** Seat somebody else
+opposite before believing it. `AMBITION_GRID_FOE=smash_george_booul` on the same
+three fighters, same clock: 80%, 88% and 17% dealt, on 23, 24 and 13 distinct
+moves. All three fight; the mirror was the thing that could not.
+
+⚠ This is the third cause of a zero in that table, and the first two — a fighter
+that cannot be seated, and a fighter with no repertoire — look identical in the
+column. The narrowing tools are `AMBITION_GRID_ONLY`, `AMBITION_GRID_FOE` and
+`AMBITION_GRID_TRACE`, which prints each move start with both axes of the gap
+and the running `landed`/`resolved`/`blocked` tallies. **`landed` is what
+separates "chose badly" from "chose well and missed"**; the aggregate row cannot.
+
+### ⛔⛤ A brain that reasons about a stale world as if it were the present swings where somebody was
+
+Measured 2026-09-20. `DelayedPerception` is the no-cheat contract made
+structural — `reaction_ms` says how late the brain sees the world — and the
+delay was invisible to everything downstream: a consumer received a
+`WorldView` and had no way to ask how old it was, so every geometric question
+in the option layer was asked of the past.
+
+It went unnoticed for as long as attack admission forgave three times a move's
+reach. **Making that rule honest is what made the staleness matter**, and the
+reading that found it contradicts the rule's own ceiling: `medic_tourniquet`
+reaches 80px and is admitted only out to 104px, yet a `medic` mirror STARTED it
+at a real gap of 153.6px, 177 times in 3600 ticks, with `LandedBodyHit` at zero
+for the whole bout. A move cannot be admitted past its ceiling — what was
+admitted was a remembered opponent. At rung 5 the arithmetic is
+`reaction_ms: 300` (eighteen ticks) plus the move's own startup: about 100px of
+walking against a 24px slack.
+
+⇒ `Perceived::staleness_s()` publishes it, read off the buffered views' own
+`sim_time` so no tick rate has to be agreed on and warm-up reports itself
+honestly. Attack admission carries the foe forward at the relative velocity the
+view reports, over `staleness + startup`.
+
+⚠ **SCORING IS DELIBERATELY NOT LED, and that is the line that protects §1.3.**
+`reach_fit` is a judgement about VALUE; `reaction_ms` is the shipped difficulty
+axis; a brain that predicted perfectly everywhere would flatten the ladder.
+Admission is the one judgement here about a moment in the FUTURE — the tick the
+hitbox opens — so it is the one that leads. Anyone widening this should say
+which rung the prediction is supposed to be wrong at, and by how much.
+
+### ⛔ A near-miss that is measured on only one axis is not measured
+
+The sweep's `gap` column is `|x0 − x1|`. A pair 10px apart in `x` and 300px
+apart in `y` prints `gap 10`, which reads as point-blank and is a juggle. The
+column is kept as it is because three recorded sweeps are keyed to its meaning;
+the trace carries both axes so a row can actually be read.
+
 ## Settled findings that still constrain work
+
+### ⛔⛤ A press rate read off this rig is a reading of `apm_cap`, and the rig's opponent has to come within reach for it to be a reading at all
+
+Measured 2026-09-20, seed `0x5EED`, `brain::fighter::evaluation`.
+`ScenarioOutcome::apm` counts ATTACK presses and nothing else, and the option
+layer offers an attack only where the move's own region touches the opponent.
+Three things made that impossible across most of the suite, each invisible
+while the option layer admitted anything within three times a move's reach:
+
+- **The pacing never closed.** The opponent swept ±120px around where the
+  fixture put them, and the fixtures are authored 180..620px apart against a
+  90px longest move. Eight of the nine scenarios could not contribute one
+  press, so the ladder's mean was ONE scenario divided by nine. `play` now
+  walks the opponent in to `RIG_ARMS_LENGTH` and back; the fixture still says
+  where they start.
+- **Every fixture was authored facing away from half its own premise.**
+  `SelfView::facing` defaults to `0.0`, the option layer reads that as `+x`,
+  and `scenarios::body()` never stated one — so `edgeguard_window`'s *"the
+  opponent must come back THROUGH YOU"* was staged back to back. Every
+  authored volume is body-local and forward. `suite()` now derives facing from
+  the nearest hostile.
+- **The rig's `Up` candidate was a third forward poke.** Its coverage box was
+  built the same way for every binding, which is the defect `MoveCoverage`'s
+  own doc records about George Booul's vertical game, reproduced inside the rig
+  meant to catch it.
+
+⭐ **AND WHAT ORDERS THE RUNGS IS THE CAP.** With the fixtures live, null
+controls on noise, rollouts and `read_weight` move the curve by at most 0.7
+APM; removing `apm_cap` turns it into a SAW:
+
+```text
+as shipped   22.7  30.0  31.3  38.0  39.3  46.7  45.3  52.0  46.7
+no cap       46.7  52.7  46.7  52.7  46.7  53.3  46.7  53.3  46.7
+```
+
+⇒ The decision cadence quantises the press rate and the quantum alternates;
+the authored cap is what separates the rungs, and where it stops binding (7 and
+9) the saw shows through. `the_ladder_is_ordered_by_press_rate` therefore
+claims a resolution of TWO rungs, which the no-cap curve fails at its first
+step. See `probe_what_separates_the_rungs` for the controls.
+
+⚠ **AND `ApmLedger::may_press` AVERAGES FROM THE BRAIN'S FIRST TICK**, not over
+a window — so a CPU is most constrained at the start of a bout and least
+constrained after idling. That is the mechanism behind both the cap's grip here
+and the *"a tenth of its own cap"* reading. Recorded, not changed: it is
+shipped difficulty behaviour and moving it moves every APM number in the
+project.
+
 
 ### Level-6 recovery integration regression is closed
 

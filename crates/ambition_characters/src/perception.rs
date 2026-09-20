@@ -1031,16 +1031,41 @@ impl WorldMemory {
 ///
 /// It derefs to the view, so reading is free. Minting is not.
 #[derive(Clone, Copy, Debug)]
-pub struct Perceived<'a>(&'a WorldView);
+pub struct Perceived<'a> {
+    view: &'a WorldView,
+    staleness_s: f32,
+}
 
 impl std::ops::Deref for Perceived<'_> {
     type Target = WorldView;
     fn deref(&self) -> &WorldView {
-        self.0
+        self.view
     }
 }
 
 impl<'a> Perceived<'a> {
+    /// **HOW OLD THIS VIEW IS, IN SECONDS.** Zero for a cheating view.
+    ///
+    /// ⛔⛤ **A BRAIN THAT REASONS ABOUT A STALE WORLD AS IF IT WERE THE
+    /// PRESENT SWINGS WHERE SOMEBODY WAS.** The delay is the whole point of
+    /// [`DelayedPerception`] and it was invisible to everything downstream: a
+    /// consumer got a `WorldView` and no way to ask how late it was, so every
+    /// geometric question in the option layer was asked of the past. At rung 5
+    /// that is `reaction_ms: 300` — eighteen ticks, about 60px of walking —
+    /// and it went unnoticed while attack admission forgave three times a
+    /// move's reach. Measured 2026-09-20, the tick a `medic` mirror started
+    /// `medic_tourniquet`: the real gap was **153.6px** against an admission
+    /// ceiling of 104, so the move was judged against a world that had already
+    /// moved on, and `LandedBodyHit` stayed at zero for the whole bout.
+    ///
+    /// ⚠ **IT IS NOT A LICENCE TO UN-DELAY THE BRAIN.** `reaction_ms` is the
+    /// shipped difficulty axis and predicting perfectly would flatten it. This
+    /// says how stale the view is so a consumer can LEAD ITS AIM the way a
+    /// person does; it does not hand anybody the present.
+    pub fn staleness_s(&self) -> f32 {
+        self.staleness_s
+    }
+
     /// Mint a `Perceived` from a view WITHOUT any latency. The name is the
     /// documentation: this is the frame-perfect path, and it exists for RL rigs,
     /// replay determinism fixtures, and the unit tests of the brain layers
@@ -1050,7 +1075,10 @@ impl<'a> Perceived<'a> {
     /// FB4's profile loader is the only production caller, and only for a row whose
     /// `reaction_ms` is zero, which no shipped row has.
     pub fn cheating(view: &'a WorldView) -> Self {
-        Self(view)
+        Self {
+            view,
+            staleness_s: 0.0,
+        }
     }
 }
 
@@ -1119,7 +1147,23 @@ impl DelayedPerception {
     /// unnecessary. A brain layer cannot accept a live view, because it cannot name
     /// one.
     pub fn perceive(&self) -> Option<Perceived<'_>> {
-        self.buf.front().map(Perceived)
+        // ⭐ THE STALENESS IS READ OFF THE BUFFER, NOT COMPUTED FROM
+        // `delay_ticks`. Two reasons, and the second is the one that would
+        // have bitten: the clock is already in the views, so no tick rate has
+        // to be passed down and agreed on; and during WARM-UP this buffer
+        // deliberately returns the oldest view it holds rather than one
+        // `delay_ticks` old, so a number derived from the configuration would
+        // overstate the lag for exactly the few ticks after a spawn or a room
+        // change.
+        let front = self.buf.front()?;
+        let staleness_s = self
+            .buf
+            .back()
+            .map_or(0.0, |live| (live.sim_time - front.sim_time).max(0.0));
+        Some(Perceived {
+            view: front,
+            staleness_s,
+        })
     }
 
     /// Ticks currently buffered. `delay_ticks + 1` once warm.

@@ -350,6 +350,30 @@ pub fn suite() -> Vec<Scenario> {
         });
     }
 
+    // ⛔⛤ **AND EVERY ONE OF THEM WAS AUTHORED FACING AWAY FROM HALF ITS OWN
+    // PREMISE.** `SelfView::facing` defaults to `0.0`, which the option layer
+    // reads as +x, and `body()` never states one — so `ledge_trap`'s *"an
+    // opponent in front"* happened to be true and `edgeguard_window`'s *"the
+    // opponent must come back THROUGH YOU"* was staged with the body turned the
+    // other way. Every authored volume is body-local and forward, so those
+    // fixtures offered the brain no attack at all and reported a press rate of
+    // zero for every rung. ⇒ The two are fighting each other; a fixture that
+    // leaves them back to back is not the situation it names.
+    //
+    // ⚠ DERIVED, NOT AUTHORED PER SCENARIO. A ninth `facing:` line is a ninth
+    // chance to write the wrong sign, and the fact is the same for all of them.
+    for scenario in &mut out {
+        let me = scenario.view.self_view.pos;
+        if let Some(foe) = scenario
+            .view
+            .actors
+            .iter()
+            .find(|actor| actor.hostile_to_self && actor.alive)
+        {
+            scenario.view.self_view.facing = if foe.pos.x < me.x { -1.0 } else { 1.0 };
+        }
+    }
+
     out
 }
 

@@ -725,6 +725,69 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
 
+    /// ⛔⛤ **HER WHOLE NEUTRAL GAME IS INVISIBLE TO A HIT-VOLUME SCAN.**
+    ///
+    /// The boomerang and the charge shot author no Active volume at all —
+    /// *"the projectile IS the damage, as it is for every ranged move"* — so
+    /// `MoveFrameData::coverage` is `None` for both, and an option layer that
+    /// reads `None` as *"reaches nobody"* takes the reference projectile
+    /// fighter's two neutral options off her own attack menu. Her admission
+    /// rides `hazard_reach` instead, and the only thing in the authoring that
+    /// says so is a `MoveEventKind::Ranged` event.
+    ///
+    /// ⚠ This is a claim about the JOIN, not about the number: 1000px is a
+    /// stage-crossing placeholder the catalog picks because the BODY, not the
+    /// move, owns the shot's real speed and flight. Narrow it where the two
+    /// meet and this test should be retuned, not deleted.
+    #[test]
+    fn her_two_neutral_projectiles_tell_the_brain_they_cross_the_stage() {
+        let set = projectile_polygon_moveset();
+        for id in [
+            "polygon_ponytail_boomerang",
+            "polygon_projectile_charge_shot",
+        ] {
+            let m = set
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("`{id}` is in her moveset"));
+            let frames = m.frame_data();
+            // The premise. If someone gives one of these a hit volume the
+            // test below stops meaning anything, so it is stated out loud.
+            assert!(
+                frames.coverage.is_none(),
+                "`{id}` now authors a hit volume, so this test no longer \
+                 guards the road it was written for",
+            );
+            assert_eq!(
+                frames.hazard_reach,
+                ambition_entity_catalog::RANGED_ACTION_REACH,
+                "`{id}` fires the body's ranged action but tells the option \
+                 layer it reaches nowhere, so it would never be offered",
+            );
+        }
+    }
+
+    /// ⭐ AND THE CONTROL: a move on the same fighter that reaches through
+    /// something it spawns ITSELF answers that thing's flight, not the
+    /// stage-crossing placeholder. Without this, the test above passes just
+    /// as well against a catalog that answers every hitless move 1000px.
+    #[test]
+    fn her_bomb_answers_its_own_flight_rather_than_the_ranged_placeholder() {
+        let set = projectile_polygon_moveset();
+        let bomb = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_lay_bomb")
+            .expect("she lays a bomb");
+        let reach = bomb.frame_data().hazard_reach;
+        assert!(
+            reach > 0.0 && reach < ambition_entity_catalog::RANGED_ACTION_REACH,
+            "her bomb reaches {reach}px, which is either nothing or the \
+             ranged placeholder — neither is its own arc",
+        );
+    }
+
     /// ⛔ THE COMMENT ON HER GRAB CLAIMS 86 + 64 IS THE TETHER'S REACH. That is
     /// a specification, so it is checked here rather than trusted: retune either
     /// move alone and this reddens.

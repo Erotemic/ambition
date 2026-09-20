@@ -405,15 +405,11 @@ mod tests {
             },
             ..Default::default()
         };
-        let app_cap = AuthoredPopulationCap::capped_at(99);
-        let app_brains = AuthoredBrainOverride {
-            preset: Some("app_brain".into()),
-            ..Default::default()
-        };
-        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
-        let bosses = ambition_boss_encounter::BossCatalog::default();
-
-        let _ = (&sheets, &bosses);
+        // ⚠ THERE IS NO "App" SIDE TO SET ANY MORE, and that is the point of
+        // the arms below reading as tautologies now: the only constructor that
+        // took loose registries is deleted, so a generation's knobs cannot
+        // lose to anything. The arms stay because they name WHICH value a
+        // construction spends, and the control below gives them their teeth.
         let mechanics = GenerationMechanics::of(&generation);
 
         assert_eq!(

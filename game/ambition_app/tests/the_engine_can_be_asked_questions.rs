@@ -181,6 +181,108 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
     );
 }
 
+/// ⛔⛤ **AN AGENT CAN NOW READ WHY A RULE DID NOT FIRE, WITHOUT A DEBUGGER —
+/// THE OPEN HALF OF M5.**
+///
+/// The `WhyNot` vocabulary landed 2026-09-02 and every production evaluator
+/// states one. Exactly ONE consumer published them: `GatedLockWallVerdicts`,
+/// keyed by wall id, for the walls of the active room. Every other `no` in the
+/// engine — a quest gate, a dialogue branch, an item condition, a boss phase —
+/// was built on the tick it was wanted, returned to its one caller, and
+/// dropped. The structure existed and was unreadable, which is the worst of
+/// both: the cost of building it with none of the benefit.
+///
+/// ⭐ **AND IT IS DRIVEN THROUGH THE COMPOSED HOST BECAUSE THE RECORDER IS AT
+/// THE CATALOG.** A hand-built `App` would prove the ring works. What this
+/// asks is whether the engine that actually ships routes its questions through
+/// the one door the recorder sits in — including the refusals the catalog
+/// issues itself, which no domain ever sees.
+#[test]
+fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
+    use ambition_platformer2d::platformer::authored_logic::ConditionVerdictLog;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+
+    // ⚠ THE PREMISE, AND IT IS THE INTERESTING HALF OF THE DESIGN: the log is
+    // ABSENT until a composition asks for one, so a shipping build pays a
+    // resource lookup and nothing else. Reading it before installing it must
+    // find nothing, or "the log has my answer" would be true of a world that
+    // never recorded anything.
+    assert!(
+        sim.world().get_resource::<ConditionVerdictLog>().is_none(),
+        "the composed host installs a diagnostic ring nobody asked for"
+    );
+    let flag_set = ConditionId::new("world", "flag_set");
+    let flag = "a_fact_this_run_has_not_recorded";
+    let unrecorded = ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]);
+    assert!(matches!(unrecorded, ConditionOutcome::NotSatisfied(_)));
+
+    sim.world_mut().insert_resource(ConditionVerdictLog::default());
+    assert_eq!(
+        ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
+        unrecorded,
+        "installing the log changed the answer, which would make it an \
+         instrument that perturbs its subject"
+    );
+
+    // THE M5 QUESTION, asked of the world rather than of a debugger.
+    let why = sim
+        .world()
+        .resource::<ConditionVerdictLog>()
+        .why_not_for(&flag_set)
+        .expect("the engine answered no and kept no reason");
+    assert_eq!(why.term, "world.flag_set");
+    assert_eq!(why.subject, flag);
+    assert!(
+        !why.observed.is_empty() && why.observed != "<unstated>",
+        "the world-fact domain returned the fixture's unexplained `no`: {why:?}"
+    );
+
+    // ⭐ AND THE CATALOG'S OWN REFUSALS ARE IN IT, which is the arm that says
+    // the recorder is at the door and not inside the domains. A misspelled id
+    // reaches no evaluator at all, so a per-domain recorder could not see it —
+    // and a misspelled id is exactly what an agent debugging authored content
+    // has just typed.
+    let nonsense = ConditionId::new("world", "flag_set_maybe");
+    assert!(matches!(
+        ask(&sim, &nonsense, &[AuthoredArg::Name(flag.to_string())]),
+        ConditionOutcome::Unanswerable(_)
+    ));
+    let refused = sim
+        .world()
+        .resource::<ConditionVerdictLog>()
+        .latest_for(&nonsense)
+        .expect("the catalog refused a question and kept no record of refusing");
+    assert!(matches!(refused.outcome, ConditionOutcome::Unanswerable(_)));
+    assert!(
+        refused.to_string().contains("flag_set_maybe"),
+        "a verdict renders without naming what was asked: {refused}"
+    );
+
+    // ⚠ AND `None` FROM `why_not_for` HAS THREE CAUSES. A satisfied condition
+    // must not read as "no reason recorded" — without this the arm above
+    // passes for a log that only ever remembers failures, and an agent
+    // checking a rule that DID fire would be told nothing and conclude the
+    // instrument was broken.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(flag, true);
+    assert_eq!(
+        ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
+        ConditionOutcome::Satisfied
+    );
+    let log = sim.world().resource::<ConditionVerdictLog>();
+    assert_eq!(log.why_not_for(&flag_set), None);
+    assert!(
+        log.latest_for(&flag_set)
+            .is_some_and(|v| v.outcome == ConditionOutcome::Satisfied),
+        "a satisfied answer left the log, so `why_not_for(..) == None` cannot \
+         be told apart from never having been asked"
+    );
+}
+
 /// ASKING THE WORLD-FACT DOMAIN READS THE REAL SAVE.
 ///
 /// an unset flag is `NotSatisfied` here, unlike the custody case, and the

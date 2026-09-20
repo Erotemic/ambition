@@ -182,3 +182,88 @@ fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
          spellings of one id, which is the collision `new` asserts against"
     );
 }
+
+/// ⛔ **THE RING'S BOUND IS THE PART A LEAK HIDES IN, AND NOTHING ELSE
+/// EXERCISES IT.** A gated wall asks its condition every sync, so a log that
+/// grows is a leak measured in ticks rather than in allocations, and it would
+/// look exactly like a working log for the whole of a test run.
+#[test]
+fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
+    let log = ConditionVerdictLog::with_capacity(3);
+    let verdict = |n: u32| ConditionVerdict {
+        id: ConditionId::new("test", "counted"),
+        args: vec![AuthoredArg::Number(f64::from(n))],
+        outcome: ConditionOutcome::Satisfied,
+    };
+    for n in 0..10 {
+        log.record(verdict(n));
+    }
+    assert_eq!(log.len(), 3);
+    let kept: Vec<AuthoredArg> = log
+        .recent()
+        .into_iter()
+        .map(|v| v.args[0].clone())
+        .collect();
+    assert_eq!(
+        kept,
+        vec![
+            AuthoredArg::Number(7.0),
+            AuthoredArg::Number(8.0),
+            AuthoredArg::Number(9.0)
+        ],
+        "the ring kept the wrong end: `recent` is oldest-first over what \
+         SURVIVED, and dropping the newest would make a diagnostic that goes \
+         blind exactly when something starts asking a lot of questions"
+    );
+    // ⚠ AND A CAPACITY OF ZERO IS A CAPACITY OF ONE, not a log that silently
+    // records nothing and not one that grows without a bound.
+    //
+    // ⛔⛤ **THIS ARM RECORDED ONCE UNTIL A POISON PASSED THROUGH IT.**
+    // Deleting the `max(1)` left the test green: with a capacity of zero the
+    // first record finds `len() == capacity`, pops an EMPTY deque, and pushes,
+    // so one entry is exactly what a broken bound produces too. The second
+    // record is where the two stories part — `1 == 0` is false, nothing is
+    // evicted, and the ring grows forever. A bound has to be probed past the
+    // bound.
+    let degenerate = ConditionVerdictLog::with_capacity(0);
+    for n in 0..5 {
+        degenerate.record(verdict(n));
+    }
+    assert_eq!(degenerate.len(), 1);
+}
+
+/// ⛔⛤ **`latest_for` IS PER-QUESTION, AND THE OBVIOUS WRONG IMPLEMENTATION —
+/// "the last entry, if it happens to match" — PASSES EVERY SINGLE-CONDITION
+/// TEST.** The world a diagnostic is read in has a gated wall asking its
+/// question every sync, so the newest entry is almost never the one the reader
+/// wants.
+#[test]
+fn the_latest_answer_to_one_question_is_found_behind_other_questions() {
+    let log = ConditionVerdictLog::default();
+    let mine = ConditionId::new("test", "mine");
+    let noisy = ConditionId::new("test", "noisy");
+    log.record(ConditionVerdict {
+        id: mine.clone(),
+        args: vec![],
+        outcome: ConditionOutcome::NotSatisfied(WhyNot::new("test.mine", "subject", "observed")),
+    });
+    for _ in 0..20 {
+        log.record(ConditionVerdict {
+            id: noisy.clone(),
+            args: vec![],
+            outcome: ConditionOutcome::Satisfied,
+        });
+    }
+    assert_eq!(
+        log.why_not_for(&mine),
+        Some(WhyNot::new("test.mine", "subject", "observed")),
+        "the reader's question was buried under a wall's and could not be found"
+    );
+    assert_eq!(log.why_not_for(&noisy), None, "a `yes` has no why-not");
+    assert_eq!(
+        log.why_not_for(&ConditionId::new("test", "never_asked")),
+        None
+    );
+    log.clear();
+    assert!(log.is_empty() && log.why_not_for(&mine).is_none());
+}

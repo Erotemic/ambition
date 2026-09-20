@@ -470,6 +470,26 @@ impl ConditionCatalog {
         id: &ConditionId,
         args: &[AuthoredArg],
     ) -> ConditionOutcome {
+        let outcome = self.answer(world, id, args);
+        // ⛔⛤ **ONE DOOR, ONE RECORDER — AND THAT INCLUDES THE REFUSALS THIS
+        // FUNCTION ISSUES ITSELF.** A misspelled id and a wrong argument kind
+        // never reach a domain, so an evaluator-side recorder would miss
+        // exactly the answers whose caller is least able to explain them. See
+        // [`ConditionVerdictLog`] for why this is not at the twelve call
+        // sites.
+        if let Some(log) = world.get_resource::<ConditionVerdictLog>() {
+            log.record(ConditionVerdict {
+                id: id.clone(),
+                args: args.to_vec(),
+                outcome: outcome.clone(),
+            });
+        }
+        outcome
+    }
+
+    /// The answer itself, with no diagnostic on the path: arity, kinds, then
+    /// the owning domain.
+    fn answer(&self, world: &World, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
         let Some(row) = self.rows.get(id) else {
             return ConditionOutcome::unanswerable(format!(
                 "no condition `{id}` is published; the installed engine knows {} others",
@@ -500,6 +520,165 @@ impl ConditionCatalog {
             }
         }
         (row.evaluate)(world, args)
+    }
+}
+
+/// **WHAT WAS ASKED OF THE ENGINE, AND WHAT CAME BACK** — the per-call verdict
+/// surface `engine/inspection-diagnostics-and-workbench.md` has carried as the
+/// open half of M5 since the `WhyNot` vocabulary landed on 2026-09-02.
+///
+/// ⛔⛤ **THE STRUCTURE EXISTED AND NOBODY COULD READ IT.** Every production
+/// evaluator states a [`WhyNot`] — the term that blocked, the object it names,
+/// that object's state — and exactly one consumer published it:
+/// `GatedLockWallVerdicts`, keyed by wall id, for the walls of the active room.
+/// Every other `no` in the engine was built, returned to its one caller, and
+/// dropped. An agent asking *"why did this rule not fire"* about a quest gate,
+/// a dialogue branch, an item condition or a boss phase had a structured answer
+/// produced on the tick it wanted and no way to see it without a debugger.
+///
+/// ⭐ **RECORDED AT THE CATALOG, NOT AT THE CALLERS, FOR THE REASON THE CATALOG
+/// ALREADY GIVES ABOUT ARITY:** *"an evaluator that had to validate its own
+/// arguments would be fifty domains each writing the same four lines, and the
+/// day one of them wrote them differently the catalog's schema would stop
+/// meaning anything."* The same argument applies to recording, one step out:
+/// twelve call sites remembering to log is twelve chances to forget, and the
+/// ones that forgot would be invisible. [`ConditionCatalog::evaluate`] is the
+/// one door, so it is the one recorder — including for the three
+/// `Unanswerable` refusals it issues itself, which are the answers a caller is
+/// least able to explain and the ones a misspelled id produces.
+///
+/// ⚠ **ABSENT BY DEFAULT, AND ABSENCE IS THE OFF SWITCH.** A composition that
+/// wants the log inserts it; one that does not pays a resource lookup per
+/// evaluation and nothing else. There is no env var and no feature flag,
+/// because the question *"is this world recording"* is already answerable by
+/// asking the world.
+///
+/// ⛔ **IT IS NOT SIMULATION STATE AND IT IS NOT REGISTERED FOR ROLLBACK.**
+/// Two consequences, both deliberate. Nothing in the simulation may READ it —
+/// a rule that branched on what the log remembers would be a rule whose
+/// behaviour depends on whether a diagnostic is installed. And its ORDER is
+/// not deterministic: conditions evaluate from `&World`, so two systems may
+/// ask in parallel and the ring interleaves them however the scheduler ran. A
+/// test may assert on WHAT is in the log; asserting on the order of two
+/// entries from different systems is asserting on the scheduler.
+#[derive(Resource)]
+pub struct ConditionVerdictLog {
+    entries: std::sync::Mutex<std::collections::VecDeque<ConditionVerdict>>,
+    capacity: usize,
+}
+
+/// One answered question: the id, the arguments it was asked with, and the
+/// outcome the owning domain returned.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConditionVerdict {
+    pub id: ConditionId,
+    pub args: Vec<AuthoredArg>,
+    pub outcome: ConditionOutcome,
+}
+
+impl ConditionVerdict {
+    /// The structure behind a `no`, when the answer was one.
+    pub fn why_not(&self) -> Option<&WhyNot> {
+        self.outcome.why_not()
+    }
+}
+
+impl std::fmt::Display for ConditionVerdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.id)?;
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            match arg {
+                AuthoredArg::Reference(id) => write!(f, "{id}")?,
+                AuthoredArg::Name(name) => write!(f, "{name:?}")?,
+                AuthoredArg::Number(n) => write!(f, "{n}")?,
+                AuthoredArg::Truth(t) => write!(f, "{t}")?,
+            }
+        }
+        write!(f, ") => ")?;
+        match &self.outcome {
+            ConditionOutcome::Satisfied => write!(f, "yes"),
+            ConditionOutcome::NotSatisfied(why) => write!(f, "no, {why}"),
+            ConditionOutcome::Unanswerable(reason) => write!(f, "unanswerable: {reason}"),
+        }
+    }
+}
+
+impl Default for ConditionVerdictLog {
+    fn default() -> Self {
+        Self::with_capacity(Self::DEFAULT_CAPACITY)
+    }
+}
+
+impl ConditionVerdictLog {
+    /// ⚠ A BOUND, NOT A BUDGET. A gated wall asks its condition every sync, so
+    /// an unbounded log is a leak measured in ticks. This is large enough that
+    /// a question asked once during a transition survives the walls asking
+    /// theirs for a few frames afterwards, and small enough to be free.
+    pub const DEFAULT_CAPACITY: usize = 256;
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            entries: std::sync::Mutex::new(std::collections::VecDeque::new()),
+            capacity: capacity.max(1),
+        }
+    }
+
+    /// ⚠ **A POISONED LOCK IS DROPPED, NOT PROPAGATED.** Another thread
+    /// panicking while holding a diagnostic's lock must not turn every
+    /// subsequent condition evaluation into a panic — the engine would die of
+    /// its own instrument. The record is lost and the simulation continues,
+    /// which is the correct ordering of those two costs.
+    pub fn record(&self, verdict: ConditionVerdict) {
+        let Ok(mut entries) = self.entries.lock() else {
+            return;
+        };
+        if entries.len() == self.capacity {
+            entries.pop_front();
+        }
+        entries.push_back(verdict);
+    }
+
+    /// Every verdict still in the ring, oldest first.
+    pub fn recent(&self) -> Vec<ConditionVerdict> {
+        self.entries
+            .lock()
+            .map(|entries| entries.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// The last answer to this question, whatever it was asked with.
+    pub fn latest_for(&self, id: &ConditionId) -> Option<ConditionVerdict> {
+        let entries = self.entries.lock().ok()?;
+        entries.iter().rev().find(|v| &v.id == id).cloned()
+    }
+
+    /// The last STRUCTURED NO for this question — the M5 answer, without a
+    /// debugger.
+    ///
+    /// ⚠ `None` has three causes and they are different: never asked, last
+    /// answered yes, or answered `Unanswerable`. Use [`Self::latest_for`] to
+    /// tell them apart; a consumer that reads `None` as *"it passed"* has
+    /// made the same collapse [`ConditionOutcome`] is an enum to prevent.
+    pub fn why_not_for(&self, id: &ConditionId) -> Option<WhyNot> {
+        self.latest_for(id)
+            .and_then(|verdict| verdict.why_not().cloned())
+    }
+
+    pub fn clear(&self) {
+        if let Ok(mut entries) = self.entries.lock() {
+            entries.clear();
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.lock().map(|e| e.len()).unwrap_or(0)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

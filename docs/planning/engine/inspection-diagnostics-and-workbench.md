@@ -107,8 +107,37 @@ tool discovery alike.
   `custody.is_held`), `from_bool_unexplained` is the grep-able fixture arm, a
   standing lock wall publishes its verdict on `GatedLockWallVerdicts` (derived,
   keyed by wall id; `why_standing(wall)`), and the dialogue verb logs the
-  structure at debug. Still open: a queryable surface beyond the walls (a
-  per-call verdict log an agent can read without a debugger).
+  structure at debug. ✔ **AND THE QUERYABLE SURFACE LANDED 2026-09-20:**
+  `ConditionVerdictLog`, a bounded ring recorded by `ConditionCatalog::evaluate`
+  — `recent()`, `latest_for(id)`, `why_not_for(id)`. Every `no` in the engine
+  now survives the tick it was built on, not only the walls'.
+
+  ⛔⛤ **RECORDED AT THE CATALOG, NOT AT THE CALLERS**, for the reason the
+  catalog already gives about arity checking: *"an evaluator that had to
+  validate its own arguments would be fifty domains each writing the same four
+  lines."* Twelve call sites remembering to log is twelve chances to forget,
+  and the ones that forgot would be invisible. The one door is also the only
+  place that sees the catalog's OWN refusals — a misspelled id reaches no
+  evaluator, and a misspelled id is what an agent debugging authored content
+  has just typed.
+
+  ⚠ **ABSENT BY DEFAULT, AND ABSENCE IS THE OFF SWITCH.** No env var and no
+  feature flag: a composition that wants the log inserts the resource, and one
+  that does not pays a resource lookup per evaluation. The composed host does
+  not install it, and the witness asserts that before installing its own —
+  otherwise *"the log has my answer"* would be true of a world that never
+  recorded anything.
+
+  ⛔ **IT IS NOT SIMULATION STATE AND IT IS NOT REGISTERED FOR ROLLBACK.**
+  Nothing in the simulation may read it, or a rule would branch on whether a
+  diagnostic is installed; and its ORDER is not deterministic, because
+  conditions evaluate from `&World` and two systems may ask in parallel. Assert
+  on WHAT is in the log, never on the order of two entries from different
+  systems.
+
+  ⚠ Still open beyond this: the same treatment for COMMANDS
+  (`CommandOutcome` has no equivalent ring), and a way to read the log out of a
+  running process rather than out of a test.
 
 ## Candidate crate / Bevy ecosystem value
 

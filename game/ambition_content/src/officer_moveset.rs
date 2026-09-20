@@ -620,7 +620,7 @@ mod he_uses_the_gust {
             gust.launch.at(fresh(0)),
             "and no amount of damage on the victim changes that"
         );
-        assert!(!gust.launch.grows());
+        assert!(!gust.launch.grows_under(fresh(0)));
 
         // ⭐ THE CONTROL IS AN ORDINARY MOVE OF HIS, not another set one: the
         // two fields agree everywhere the launch grows, and a derivation that

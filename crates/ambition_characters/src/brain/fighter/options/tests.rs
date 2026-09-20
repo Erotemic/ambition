@@ -2323,6 +2323,10 @@ fn a_finisher_is_ranked_under_the_launch_law_the_stage_actually_declares() {
     let declared = crate::perception::LaunchLaw {
         growth_scale: 1.25,
         growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+        // The stage's fallback growth. Both candidates author their own, so it
+        // moves nothing here — stated because a `0.0` would be the undeclared
+        // world wearing the stage's name.
+        ruleset_growth: 0.02,
         rage: 1.0,
     };
     assert_eq!(

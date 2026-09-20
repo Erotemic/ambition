@@ -117,7 +117,6 @@
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `BodyKinematics`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs: unresolved `WorldMemory`",
       "crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs: unresolved `ContentBinding::Content`",
-      "crates/ambition_platformer2d_actor_monolith/src/gravity/lifecycle.rs: unresolved `GravityField`",
       "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs: unresolved `super::drive_music_director`",
       "crates/ambition_platformer2d_actor_monolith/src/music/mod.rs: private `music -> intent`",
       "crates/ambition_platformer2d_actor_monolith/src/music/mod.rs: unresolved `MusicIntent`",

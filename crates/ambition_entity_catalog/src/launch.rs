@@ -143,6 +143,22 @@ pub struct LaunchConditions {
     pub growth_scale: f32,
     /// The ruleset's per-`base` steepening.
     pub growth_base: GrowthBaseCurve,
+    /// **THE RULESET'S FALLBACK GROWTH, AS A FRACTION OF `base`** — what a
+    /// volume that authors `knockback_growth: None` grows by.
+    ///
+    /// ⛔⛤ **`None` AND `Some(0.0)` ARE DIFFERENT AUTHORINGS AND THIS IS WHY
+    /// THE DIFFERENCE HAS TO TRAVEL — REVIEWED 2026-09-20.** `Some(0.0)` is
+    /// FIXED knockback: the author asked for a launch that ignores percent.
+    /// `None` is *"the ruleset decides"*, and on a stage that declares
+    /// `knockback_growth` it decides `base * this`. [`launch_speed`] collapses
+    /// the two roads and it is the only place that does; a caller that
+    /// collapses first has thrown the distinction away before the law sees it.
+    ///
+    /// ⚠ `0.0` IS THE UNDECLARED WORLD and is exactly what
+    /// `DeclaredCombatRules`' own default carries — *"growth has NO world
+    /// baseline to fall back to"* — so an Ambition room resolves `None` to a
+    /// set launch, which is what it has always been.
+    pub ruleset_growth: f32,
     /// The attacker's rage multiplier, already resolved. Applied to the whole
     /// launch, and DECLINED by a set-knockback move — see [`launch_speed`].
     pub rage: f32,
@@ -161,6 +177,7 @@ impl LaunchConditions {
         victim_weight: 1.0,
         growth_scale: 1.0,
         growth_base: GrowthBaseCurve::IDENTITY,
+        ruleset_growth: 0.0,
         rage: 1.0,
     };
 
@@ -189,6 +206,18 @@ impl LaunchConditions {
 /// make a percent-scaling move momentarily look set, which would silently
 /// switch rage off game-wide. The short-circuit reads what the author wrote.
 ///
+/// ⛔⛤ **AND THE TWO AUTHORING ROADS ARE COLLAPSED HERE, WHICH IS THE WHOLE
+/// REASON `growth` IS AN `Option` — REVIEWED 2026-09-20.** `Some(0.0)` is a
+/// FIXED launch and `None` is *"the ruleset decides"*; they are the same
+/// number only in a world that declares no growth. Both sides of the law used
+/// to collapse them, and they collapsed them DIFFERENTLY: the hit resolver
+/// read `None` as `base * ruleset_growth` and the fighter brain's envelope
+/// read it as `0.0`. On the smash stage — `knockback_growth: 0.02`,
+/// `victim_percent_knockback_scale: 1.25` — `cellular_pulse` (base 140,
+/// `None`) resolves to **490px/s at 100%** for the hit resolver and **140** for
+/// the brain, and the brain also called it a set launch and declined its rage.
+/// ⇒ The collapse happens once, here, after the conditions are known.
+///
 /// ⭐⭐ **THE SCALE RIDES THE PERCENT TERM AND NOTHING ELSE, which is the whole
 /// shape of this law.** `base` is what a move is worth against a FRESH
 /// opponent, and a ruleset asking for a steeper percent curve is not asking for
@@ -200,8 +229,9 @@ impl LaunchConditions {
 /// ⛔ AND 0% STILL CONTRIBUTES EXACTLY ZERO, AT EVERY SCALE: the
 /// `victim_damage` factor zeroes the term before the scale can touch it, so no
 /// value of `growth_scale` can move a 0% hit.
-pub fn launch_speed(base: f32, growth: f32, conditions: LaunchConditions) -> f32 {
-    if growth == 0.0 {
+pub fn launch_speed(base: f32, growth: Option<f32>, conditions: LaunchConditions) -> f32 {
+    let authored = growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0));
+    if authored == 0.0 {
         return base.max(0.0);
     }
     let weight = if conditions.victim_weight > 0.0 {
@@ -209,7 +239,7 @@ pub fn launch_speed(base: f32, growth: f32, conditions: LaunchConditions) -> f32
     } else {
         1.0
     };
-    let grown = growth * conditions.growth_base.scale(base);
+    let grown = authored * conditions.growth_base.scale(base);
     let speed = base
         + grown * conditions.growth_scale.max(0.0) * conditions.victim_damage.max(0) as f32
             / weight;
@@ -228,6 +258,7 @@ mod tests {
             victim_weight,
             growth_scale,
             growth_base: GrowthBaseCurve::IDENTITY,
+            ruleset_growth: 0.0,
             rage: 1.0,
         }
     }
@@ -238,7 +269,7 @@ mod tests {
     fn a_zero_growth_launch_is_its_base_at_every_damage_and_weight() {
         for dmg in [0, 5, 50, 999] {
             for w in [0.5, 1.0, 4.0] {
-                assert_eq!(launch_speed(7.5, 0.0, plain(dmg, w, 1.0)), 7.5);
+                assert_eq!(launch_speed(7.5, Some(0.0), plain(dmg, w, 1.0)), 7.5);
             }
         }
     }
@@ -261,7 +292,7 @@ mod tests {
                 // the whole knob and not about the value we happened to choose.
                 for scale in [0.0, 0.865, 1.0, 1.5, 2.0, 2.5, 100.0] {
                     assert_eq!(
-                        launch_speed(46.0, 0.0, plain(dmg, w, scale)),
+                        launch_speed(46.0, Some(0.0), plain(dmg, w, scale)),
                         46.0,
                         "a fixed-knockback move moved at {dmg}% / weight {w} / scale {scale}"
                     );
@@ -273,17 +304,17 @@ mod tests {
     #[test]
     fn a_launch_grows_with_damage_and_divides_by_weight() {
         // base + growth * damage / weight.
-        assert_eq!(launch_speed(10.0, 2.0, plain(0, 1.0, 1.0)), 10.0);
-        assert_eq!(launch_speed(10.0, 2.0, plain(30, 1.0, 1.0)), 70.0);
+        assert_eq!(launch_speed(10.0, Some(2.0), plain(0, 1.0, 1.0)), 10.0);
+        assert_eq!(launch_speed(10.0, Some(2.0), plain(30, 1.0, 1.0)), 70.0);
         // Twice the weight -> half the growth contribution.
-        assert_eq!(launch_speed(10.0, 2.0, plain(30, 2.0, 1.0)), 40.0);
+        assert_eq!(launch_speed(10.0, Some(2.0), plain(30, 2.0, 1.0)), 40.0);
         // Monotonic in accumulated damage.
         assert!(
-            launch_speed(10.0, 2.0, plain(60, 1.0, 1.0))
-                > launch_speed(10.0, 2.0, plain(30, 1.0, 1.0))
+            launch_speed(10.0, Some(2.0), plain(60, 1.0, 1.0))
+                > launch_speed(10.0, Some(2.0), plain(30, 1.0, 1.0))
         );
         // Degenerate weight falls back to the reference body (never divides by 0).
-        assert_eq!(launch_speed(10.0, 2.0, plain(10, 0.0, 1.0)), 30.0);
+        assert_eq!(launch_speed(10.0, Some(2.0), plain(10, 0.0, 1.0)), 30.0);
     }
 
     /// THE PERCENT SCALE MOVES THE PERCENT TERM AND NEVER THE BASE.
@@ -299,7 +330,7 @@ mod tests {
         // EQUALITY, not a tolerance.
         for scale in [0.0, 1.0, 1.5, 2.0, 2.5] {
             assert_eq!(
-                launch_speed(50.0, 1.05, plain(0, 1.0, scale)),
+                launch_speed(50.0, Some(1.05), plain(0, 1.0, scale)),
                 50.0,
                 "a 0% hit changed under percent scale {scale}"
             );
@@ -307,17 +338,17 @@ mod tests {
         // At 100% on a reference body the whole percent term is `growth * 100`,
         // so doubling the scale doubles that term and leaves the base alone:
         // 50 + 1.05*100 = 155 fresh, 50 + 2*1.05*100 = 260 at 2x.
-        assert_eq!(launch_speed(50.0, 1.05, plain(100, 1.0, 1.0)), 155.0);
-        assert_eq!(launch_speed(50.0, 1.05, plain(100, 1.0, 2.0)), 260.0);
+        assert_eq!(launch_speed(50.0, Some(1.05), plain(100, 1.0, 1.0)), 155.0);
+        assert_eq!(launch_speed(50.0, Some(1.05), plain(100, 1.0, 2.0)), 260.0);
         // ⛔ AND THE GAP IS THE PERCENT TERM, NOT THE LAUNCH: 260 is not 2x155.
         // If it ever were, the scale would have swallowed the base too.
         assert!(
-            launch_speed(50.0, 1.05, plain(100, 1.0, 2.0))
-                < 2.0 * launch_speed(50.0, 1.05, plain(100, 1.0, 1.0)),
+            launch_speed(50.0, Some(1.05), plain(100, 1.0, 2.0))
+                < 2.0 * launch_speed(50.0, Some(1.05), plain(100, 1.0, 1.0)),
             "the scale reached the base"
         );
         // A negative scale is clamped rather than inverting the launch.
-        assert_eq!(launch_speed(50.0, 1.05, plain(700, 1.0, -3.0)), 50.0);
+        assert_eq!(launch_speed(50.0, Some(1.05), plain(700, 1.0, -3.0)), 50.0);
     }
 
     /// ⛔ AND THE GROWTH-BASE CURVE CAN ONLY STEEPEN, never nerf a poke — the
@@ -370,6 +401,11 @@ mod tests {
             victim_weight: 0.85,
             growth_scale: 1.25,
             growth_base: GrowthBaseCurve::IDENTITY,
+            // ⭐ AND THE STAGE'S FALLBACK GROWTH, `SMASH_KNOCKBACK_GROWTH`. It
+            // moves nothing in the arms below — both smashes author their own
+            // growth — and it is stated because a `0.0` here would be the
+            // undeclared world wearing the stage's name.
+            ruleset_growth: 0.02,
             rage: 1.0,
         }
     }

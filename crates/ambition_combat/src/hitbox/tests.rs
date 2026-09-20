@@ -2583,3 +2583,115 @@ fn a_blocked_strike_is_an_overlap_and_not_a_connection() {
          whiff escape"
     );
 }
+
+/// ⛔⛤ **THE BRAIN AND THE HIT RESOLVER GAVE DIFFERENT ANSWERS FOR
+/// `knockback_growth: None`, AND MOVING THE LAW INTO ONE FUNCTION DID NOT FIX
+/// IT BY ITSELF — REVIEWED 2026-09-20.**
+///
+/// The two authoring roads are `Some(g)` — a growth the volume states, where
+/// `Some(0.0)` is FIXED knockback — and `None`, which means *"the ruleset
+/// decides"* and resolves to `base * knockback_growth`. Both sides collapsed
+/// them before calling the shared law, and they collapsed them DIFFERENTLY:
+/// this road read `None` as the ruleset fallback and
+/// `LaunchEnvelope::with_volume` read it as `0.0`.
+///
+/// ⭐ **THE DISAGREEMENT IS LIVE ON THE SHIPPED ROSTER AND IT IS NOT SMALL.**
+/// `cellular_pulse` authors `knockback: 140.0, knockback_growth: None` and
+/// `performer_trapdoor` authors `150.0 / None`; both fighters are selectable
+/// in the composed smash host, which declares `knockback_growth: 0.02` and a
+/// percent scale of `1.25`. At 100% against the reference body the resolver
+/// throws the pulse **490px/s** and the brain scored it **140** — and called
+/// it a set launch, so it declined its rage as well.
+///
+/// ⚠ **THE ARM COMPARES THE TWO ROADS RATHER THAN EITHER AGAINST A NUMBER.**
+/// A test that pinned 490 would pass while both sides drifted together in the
+/// wrong direction; what the shared-law commit CLAIMED is that the brain and
+/// the resolver spend one law, and that claim is an equality between two call
+/// sites in two crates.
+#[test]
+fn the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth() {
+    use ambition_entity_catalog::launch::{GrowthBaseCurve, LaunchConditions};
+    use ambition_entity_catalog::LaunchEnvelope;
+
+    /// The pulse's own authoring: the largest base on the roster that declines
+    /// to state a growth.
+    const PULSE_BASE: f32 = 140.0;
+    const AT_PERCENT: i32 = 100;
+
+    // The BRAIN's road: the catalog envelope a fighter's option layer scores.
+    let brain = |growth: Option<f32>, ruleset_growth: f32, growth_scale: f32| {
+        LaunchEnvelope::default()
+            .with_volume(PULSE_BASE, growth)
+            .at(LaunchConditions {
+                victim_damage: AT_PERCENT,
+                victim_weight: 1.0,
+                growth_scale,
+                growth_base: GrowthBaseCurve::IDENTITY,
+                ruleset_growth,
+                rage: NO_RAGE,
+            })
+    };
+    // The RESOLVER's road: what the stage actually throws.
+    let resolver = |growth: Option<f32>, ruleset_growth: f32, growth_scale: f32| {
+        match resolved_hitbox_knockback_magnitude(
+            HitboxKnockback::LaunchSpeed {
+                base: PULSE_BASE,
+                growth,
+            },
+            AT_PERCENT,
+            1.0,
+            ruleset_growth,
+            growth_scale,
+            crate::rules::GrowthBaseCurve::IDENTITY,
+            NO_RAGE,
+        ) {
+            HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
+            other => panic!("a launch volume resolved as {other:?}"),
+        }
+    };
+
+    // ── 1. THE UNDECLARED WORLD: no fallback growth, so `None` IS a set
+    // launch — which is what every Ambition room has always given it.
+    assert_eq!(resolver(None, 0.0, 1.0), PULSE_BASE);
+    assert_eq!(brain(None, 0.0, 1.0), resolver(None, 0.0, 1.0));
+
+    // ── 2. THE SMASH STAGE: `knockback_growth: 0.02`, percent scale `1.25`.
+    // `140 × 0.02 = 2.8` per point, `× 1.25 × 100` = 350 on top of the base.
+    assert_eq!(resolver(None, 0.02, 1.25), 490.0);
+    assert_eq!(
+        brain(None, 0.02, 1.25),
+        resolver(None, 0.02, 1.25),
+        "the fighter brain prices `cellular_pulse` at {} where the stage \
+         throws it {} — the same 350% gap the shared launch law was supposed \
+         to close",
+        brain(None, 0.02, 1.25),
+        resolver(None, 0.02, 1.25),
+    );
+
+    // ── 3. `Some(0.0)` IS FIXED UNDER BOTH, which is the control: without it
+    // the arm above passes for a law that simply ignores the `Option` and
+    // always takes the ruleset's fallback, and the documented way to author a
+    // launch that ignores percent would be gone.
+    for (fallback, scale) in [(0.0, 1.0), (0.02, 1.25)] {
+        assert_eq!(resolver(Some(0.0), fallback, scale), PULSE_BASE);
+        assert_eq!(brain(Some(0.0), fallback, scale), PULSE_BASE);
+    }
+
+    // ⭐ AND "DOES THIS GROW" IS THE SAME QUESTION, WITH THE SAME TWO ANSWERS.
+    // The brain decides whether a move is a finisher with it, and a set launch
+    // declines rage — so a `None` volume read as set is wrong twice.
+    let grows = |ruleset_growth: f32| {
+        LaunchEnvelope::default()
+            .with_volume(PULSE_BASE, None)
+            .grows_under(LaunchConditions {
+                ruleset_growth,
+                ..LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
+            })
+    };
+    assert!(!grows(0.0), "an undeclared world gives `None` no growth at all");
+    assert!(
+        grows(0.02),
+        "on a stage that declares a fallback growth, a `None` volume is a \
+         percent-scaling move and the brain must rank it as one"
+    );
+}

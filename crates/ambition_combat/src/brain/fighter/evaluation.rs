@@ -12,7 +12,7 @@
 //! can be asked is: *what did you decide, how often did you press, and do you do
 //! the same thing twice.*
 //!
-//! ⭐ THE KIT FIXTURE LANDED — [`rig_kit`] — and the ladder stopped reading as
+//! ⭐ THE KIT FIXTURE LANDED — `rig_kit`, below — and the ladder stopped reading as
 //! degenerate. Before it, the rig ran `BrainSnapshot::idle()`, whose empty
 //! `attack_kit` leaves `generate_options` offering movement only, so every rung
 //! emitted zero presses and no scoring difference could show.
@@ -43,7 +43,7 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 
 /// How close the rig's opponent comes at the near end of its pacing.
 ///
-/// Inside the longest move [`rig_kit`] authors (90px) and outside the shortest
+/// Inside the longest move `rig_kit` authors (90px) and outside the shortest
 /// (40px), so the spacing trade-off the scorer is being measured on is live for
 /// part of every pass rather than decided by the fixture's authored gap.
 pub const RIG_ARMS_LENGTH: f32 = 60.0;

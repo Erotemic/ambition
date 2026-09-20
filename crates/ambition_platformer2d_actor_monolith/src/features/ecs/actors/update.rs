@@ -606,6 +606,13 @@ pub fn tick_actor_brains(
                             |rules| ambition_characters::perception::LaunchLaw {
                                 growth_scale: rules.victim_percent_knockback_scale,
                                 growth_base: rules.growth_base,
+                                // ⛔ AND THE FALLBACK GROWTH, WITHOUT WHICH A
+                                // VOLUME THAT AUTHORS `None` READS AS A SET
+                                // LAUNCH. The hit resolver spends this on the
+                                // same volumes; the brain reading `0.0` for
+                                // them put `cellular_pulse` at 140px/s where
+                                // the stage throws it 490.
+                                ruleset_growth: rules.knockback_growth,
                                 rage: rules.rage_scale(body.health.damage_taken()),
                             },
                         ),

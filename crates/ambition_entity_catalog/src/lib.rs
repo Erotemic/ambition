@@ -3507,19 +3507,35 @@ const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 /// now arguments: [`Self::at`] takes a [`launch::LaunchConditions`], and the
 /// fighter brain fills it from the view the stage handed it.
 ///
-/// ⚠ **AND `knockback_growth: None` READS AS A SET LAUNCH HERE**, because that
-/// is what an undeclared world gives it: the ruleset fallback is `base *
-/// knockback_growth`, and `DeclaredCombatRules`' own default growth is `0.0`
-/// ("growth has NO world baseline to fall back to"). A table authored for the
-/// smash demo states its growth, and 38 of that roster's 40 knockback volumes
-/// do.
+/// ⛔⛤ **AND `knockback_growth: None` USED TO READ AS A SET LAUNCH HERE, WHICH
+/// IS A DIFFERENT ANSWER FROM THE ONE THE HIT RESOLVER GIVES — REVIEWED
+/// 2026-09-20, and it is the second half of the same finding.** `Some(0.0)` is
+/// FIXED knockback and `None` is *"the ruleset decides"*; this collapsed both
+/// to `0.0` at fold time, before any ruleset could be consulted, and the
+/// distinction could not be recovered afterwards. On the smash stage
+/// (`knockback_growth: 0.02`, percent scale `1.25`) `cellular_pulse` — base
+/// `140`, growth `None` — is **490px/s at 100%** to the hit resolver and was
+/// **140** here, with [`Self::grows_under`]'s predecessor also calling it a set
+/// launch and declining its rage. ⇒ The `Option` travels; [`launch::launch_speed`]
+/// collapses it once, after the conditions are known.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct LaunchEnvelope {
-    /// The `(base, growth)` of the volume with the largest base — the line that
-    /// wins against a FRESH opponent.
-    pub flat: (f32, f32),
-    /// The `(base, growth)` of the volume with the steepest growth — the line
-    /// that wins once the opponent is worn.
+    /// The volume with the largest base — the line that wins against a FRESH
+    /// opponent. Its growth is `None` when that volume authors none, which is
+    /// the RULESET's fallback and not a set launch.
+    pub flat: (f32, Option<f32>),
+    /// The `(base, growth)` of the volume with the steepest AUTHORED growth —
+    /// the line that wins once the opponent is worn.
+    ///
+    /// ⚠ **A `None` VOLUME CANNOT CLAIM THIS LINE, because its growth is
+    /// `base * ruleset_growth` and no ruleset is in scope at fold time.** That
+    /// loses a move whose largest-base volume authors a growth while a SMALLER
+    /// volume authors `None` and would out-grow it. Measured across the
+    /// shipped tables 2026-09-20: **no authored move mixes the two roads** —
+    /// the three `None` volumes in the game (`cellular_pulse`,
+    /// `performer_trapdoor`, and the robot's) are each their move's only one —
+    /// so [`Self::flat`] carries every one of them and nothing is dropped
+    /// today.
     pub steep: (f32, f32),
 }
 
@@ -3533,17 +3549,18 @@ impl LaunchEnvelope {
     /// in a middle band. Under-reporting is the safe direction for a kill
     /// question, and it costs no allocation in a per-frame scorer.
     pub fn with_volume(self, base: f32, growth: Option<f32>) -> Self {
-        let growth = growth.unwrap_or(0.0);
         Self {
             flat: if base > self.flat.0 {
                 (base, growth)
             } else {
                 self.flat
             },
-            steep: if growth > self.steep.1 {
-                (base, growth)
-            } else {
-                self.steep
+            // ⛔ ONLY AN AUTHORED GROWTH COMPETES FOR THE STEEP LINE — see the
+            // field. A `None` rides the flat line, which is where it always
+            // lands on today's tables because it is its move's only volume.
+            steep: match growth {
+                Some(g) if g > self.steep.1 => (base, g),
+                _ => self.steep,
             },
         }
     }
@@ -3558,7 +3575,11 @@ impl LaunchEnvelope {
     /// scaling both alike.
     pub fn at(self, conditions: launch::LaunchConditions) -> f32 {
         launch::launch_speed(self.flat.0, self.flat.1, conditions)
-            .max(launch::launch_speed(self.steep.0, self.steep.1, conditions))
+            .max(launch::launch_speed(
+                self.steep.0,
+                Some(self.steep.1),
+                conditions,
+            ))
     }
 
     /// Does this move's launch get better as the opponent takes damage?
@@ -3566,8 +3587,18 @@ impl LaunchEnvelope {
     /// The question a set launch answers `false` — a windbox is the same
     /// distance at 0% and at 200%, and [`launch::launch_speed`] declines rage
     /// for exactly that authoring.
-    pub fn grows(self) -> bool {
-        self.flat.1 > 0.0 || self.steep.1 > 0.0
+    ///
+    /// ⛔ **IT TAKES THE CONDITIONS BECAUSE THE ANSWER DEPENDS ON THEM.** A
+    /// volume that authors `knockback_growth: None` is a set launch in an
+    /// undeclared world and a percent-scaling one on a stage that declares a
+    /// fallback growth, which is the same distinction [`Self::flat`] now
+    /// carries. Asking without a ruleset is asking a question with two
+    /// answers.
+    pub fn grows_under(self, conditions: launch::LaunchConditions) -> bool {
+        let resolved = |base: f32, growth: Option<f32>| {
+            growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0))
+        };
+        resolved(self.flat.0, self.flat.1) > 0.0 || self.steep.1 > 0.0
     }
 }
 
@@ -3784,7 +3815,7 @@ pub struct MoveFrameData {
     /// [`MoveHazard::OwnersRangedAction`] is a REQUEST to the one layer that
     /// can see the body rather than a number this derivation made up.
     ///
-    /// ⚠ **A KEY [`hazard_of`] HAS NOT BEEN TAUGHT ANSWERS `None`, and that is
+    /// ⚠ **A KEY `hazard_of` HAS NOT BEEN TAUGHT ANSWERS `None`, and that is
     /// a REFUSAL rather than a neutral default**: the admission rule reads it
     /// as *"this move offers the opponent nothing"* and keeps the move off the
     /// attack menu. Safe, and loud enough to notice — a new projectile that is

@@ -626,7 +626,7 @@ mod tests {
             forward.at(fresh(120)),
             up.at(fresh(120))
         );
-        assert!(up.grows() && forward.grows());
+        assert!(up.grows_under(fresh(0)) && forward.grows_under(fresh(0)));
     }
 
     /// ⭐⭐ THE SLAM'S SHOCK REACHES GROUND THE SLAM ITSELF CANNOT, which is the

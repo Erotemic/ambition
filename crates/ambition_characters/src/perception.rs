@@ -601,6 +601,12 @@ pub struct LaunchLaw {
     pub growth_scale: f32,
     /// The ruleset's per-`base` steepening.
     pub growth_base: ambition_entity_catalog::launch::GrowthBaseCurve,
+    /// The ruleset's FALLBACK growth, for a volume that authors
+    /// `knockback_growth: None`. See
+    /// [`ambition_entity_catalog::launch::LaunchConditions::ruleset_growth`]:
+    /// without it the brain reads every such volume as a set launch, which on
+    /// a stage that declares one is a 350% error and the wrong rage rule.
+    pub ruleset_growth: f32,
     /// This body's own rage multiplier, already resolved. `1.0` in a game that
     /// declares no rage.
     pub rage: f32,
@@ -613,6 +619,7 @@ impl Default for LaunchLaw {
         Self {
             growth_scale: 1.0,
             growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+            ruleset_growth: 0.0,
             rage: 1.0,
         }
     }
@@ -632,6 +639,7 @@ impl LaunchLaw {
             victim_weight: victim.knockback_weight,
             growth_scale: self.growth_scale,
             growth_base: self.growth_base,
+            ruleset_growth: self.ruleset_growth,
             rage: self.rage,
         }
     }

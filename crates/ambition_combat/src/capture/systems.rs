@@ -2816,12 +2816,20 @@ pub fn apply_capture_throws(
         // is in the signature rather than in an absence of code.
         let magnitude = ambition_entity_catalog::launch::launch_speed(
             request.knockback,
-            request.knockback_growth,
+            // ⭐ ALWAYS `Some`, BECAUSE A THROW'S GROWTH IS NOT OPTIONAL.
+            // `CaptureThrowParams::knockback_growth` is a bare `f32` — every
+            // throw in the game states its own — so the ruleset's fallback
+            // road does not exist here and `0.0` means FIXED, exactly as it
+            // does for a volume that authors `Some(0.0)`.
+            Some(request.knockback_growth),
             ambition_entity_catalog::launch::LaunchConditions {
                 victim_damage: health.damage_taken(),
                 victim_weight: weight,
                 growth_scale: percent_scale,
                 growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+                // Unreachable for the same reason: the fallback only applies
+                // to an authoring that declines to state a growth.
+                ruleset_growth: 0.0,
                 rage: rules.rage_scale(captor_health.map(|h| h.damage_taken()).unwrap_or(0)),
             },
         );

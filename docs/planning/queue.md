@@ -3118,6 +3118,72 @@ to identity anyway and the constant keeps today's numbers to the byte — what i
 costs is a trap for whoever declares the next curve, which is why the question
 now sits in the signature.
 
+⛔⍤ **AND ONE SHARED FUNCTION WAS NOT ENOUGH — THE SAME REVIEW CAME BACK THE
+NEXT DAY AND FOUND THE TWO SIDES STILL DISAGREEING ABOUT `knockback_growth:
+None`.** `knockback_growth` has TWO authoring roads and they mean different
+things. `Some(g)` states a growth, and `Some(0.0)` is the documented way to
+author a FIXED launch — a windbox that throws the same distance at 0% and at
+200%. `None` says *"the ruleset decides"*, which the hit resolver answers with
+`base × DeclaredCombatRules::knockback_growth`. Moving the arithmetic into one
+function did not make the sides agree, because each still COLLAPSED the
+`Option` before calling it, and they collapsed it differently: the resolver
+spent the fallback, `LaunchEnvelope::with_volume` spent `unwrap_or(0.0)`.
+
+⛔ **LIVE ON THE SHIPPED ROSTER, AND NOT SMALL.** Exactly two moves in the
+game author `None` — `cellular_pulse` at base 140 and `performer_trapdoor` at
+150, measured over every `movesets/*.ron`, and no move MIXES the two roads,
+which is what keeps the envelope's two lines exact. The smash stage declares
+`knockback_growth: 0.02` with a percent scale of `1.25`, so at 100% against
+the reference body the stage throws the pulse **490px/s** while the brain
+priced it **140** — and, reading it as a set launch, declined its rage as
+well. The brain called the roster's two ruleset-scaling specials set knockback
+and ranked them as pokes.
+
+⇒ **THE COLLAPSE BELONGS TO THE LAW, NOT TO ITS CALLERS.** `launch_speed(base,
+growth: Option<f32>, conditions)` takes the `Option` and `LaunchConditions`
+carries `ruleset_growth`, so there is exactly one place in the workspace where
+a `None` becomes a number and it is inside the thing both sides call.
+`LaunchEnvelope`'s flat line keeps the `Option` rather than resolving it at
+authoring time, and `grows()` became `grows_under(conditions)` because the
+question genuinely has two answers — a `None` volume is a set launch in an
+undeclared world and a percent-scaling one on a stage that declares a
+fallback.
+
+⭐ **THE WITNESS IS AN EQUALITY BETWEEN TWO CRATES, NOT A PINNED NUMBER**, and
+it lives in `ambition_combat` because that is the one crate that can see both
+the hit resolver and `LaunchEnvelope`.
+`hitbox::tests::the_brain_and_the_resolver_agree_about_a_volume_that_authors_no_growth`
+takes the pulse's own `(140, None)` and asks both roads under three worlds:
+undeclared (`ruleset_growth` 0) → a set launch at 140; the smash stage
+(`0.02`, `1.25`) → 490; and `Some(0.0)` → 140 under BOTH, which is the control
+that stops the arm passing for a law that ignores the `Option` entirely. Four
+poisons, four different reddenings: collapsing on the brain side only fails the
+cross-road equality; dropping the fallback from the shared law moves BOTH sides
+together and is caught by the literal 490 instead; ignoring the authored growth
+fails the `Some(0.0)` control; and a `grows_under` that does not read the
+ruleset fails the last arm on its own message.
+
+⭐⭐ **JUDGED ON THE GAME: 7197% → 7195%, and the interesting number is that
+EXACTLY THE TWO PREDICTED ROWS MOVED.** The prediction was written before the
+sweep ran: only `perfect_cellular_automaton` and `performer` carry a `None`
+volume, so only those two rows may differ, and any third would mean the change
+leaked.
+
+| fighter | before | after | hitstun | most thrown |
+|---|---|---|---|---|
+| `perfect_cellular_automaton` | 210% / 195% | 201% / 195% | 1441 → 1432 | `glider_launch` ×29 → ×28 |
+| `performer` | 97% / 133% | **104%** / 133% | 596 → 616 | `performer_the_line` ×21 → ×20 |
+| the other 19 | — | — | — | bit-identical |
+
+⚠ **NET −2 OF 7197 IS FLAT, AND THAT IS THE HONEST READING OF A CORRECTNESS
+FIX.** The two rows moved in opposite directions. `kill_potential` divides by
+`kit_max_launch`, so raising ONE move's launch inside an eighteen-move kit
+mostly raises the denominator every other move is measured against — the
+ranking shifts a little and the fighter's total output barely does. What the
+change buys is not damage: it is that the brain and the stage now agree about
+what a move does, so the next thing built on the launch price is built on the
+one the game actually pays. The measurement that would have sent this back is a
+row moving that could not have.
 
 ⛔⬤ **THE NAMED SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE BRAIN
 IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE IN

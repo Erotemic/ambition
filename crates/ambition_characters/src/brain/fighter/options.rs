@@ -71,7 +71,7 @@ pub struct MotionOption {
     /// `0..=1`. How much of the way to the objective this motion actually
     /// travels — a tent over `travelled / gap`, peaking at 1 where the motion
     /// arrives and falling to 0 as it overshoots to twice the gap. See
-    /// [`motion_options`].
+    /// `motion_options`, which is private to this module.
     pub score: f32,
 }
 
@@ -1335,7 +1335,8 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
 /// a hypothetical.
 ///
 /// ⭐⭐ **ONE QUESTION REPLACES BOTH TERMS: how far can they still travel the
-/// way this push sends them.** [`StageView::exit_distance_along`] answers it in
+/// way this push sends them.** [`crate::perception::StageView::exit_distance_along`]
+/// answers it in
 /// world space, so rotating the authored direction through the body's
 /// acceleration frame is the whole of the frame handling — and left/right
 /// shoves, up/down shoves and sideways gravity all fall out of it instead of

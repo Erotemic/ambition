@@ -360,6 +360,44 @@ per-move staleness. The runtime folds a move's own usage history into
 priced a little high. That is a reordering factor by the rule above, which is
 why it is written down as owed instead of dismissed as common.
 
+### ⛔⛤ Two ways to author one number are two authorings, and one shared function is not enough to share them
+
+`knockback_growth` has two authoring roads and they mean different things.
+`Some(g)` states a growth, and `Some(0.0)` is the documented way to author a
+FIXED launch — a windbox that throws the same distance at 0% and at 200%.
+`None` says *"the ruleset decides"*, and the hit resolver answers it with
+`base × DeclaredCombatRules::knockback_growth`.
+
+Moving the arithmetic into one function did not make the two sides agree,
+because each side still COLLAPSED the `Option` before calling it — and they
+collapsed it differently. The hit resolver spent the ruleset's fallback; the
+catalog's `LaunchEnvelope::with_volume` spent `unwrap_or(0.0)`. Raised by
+review 2026-09-20, one commit after the shared law landed.
+
+It is live on the shipped roster and it is not small. Two moves author `None`:
+`cellular_pulse` at base 140 and `performer_trapdoor` at base 150. The smash
+stage declares `knockback_growth: 0.02` and a percent scale of `1.25`, so at
+100% against the reference body the stage throws the pulse **490px/s** while
+the brain priced it **140** — and, reading it as a set launch, declined its
+rage as well. The brain called the roster's two ruleset-scaling specials set
+knockback and ranked them as pokes.
+
+⇒ **THE COLLAPSE BELONGS TO THE LAW, NOT TO ITS CALLERS.**
+`launch_speed(base, growth: Option<f32>, conditions)` takes the `Option` and
+`LaunchConditions` carries `ruleset_growth`, so there is exactly one place
+where `None` becomes a number and it is inside the thing both sides call.
+`LaunchEnvelope` keeps the `Option` on its flat line rather than resolving it
+at authoring time, and `grows()` became `grows_under(conditions)` because the
+question genuinely has two answers: a `None` volume is a set launch in an
+undeclared world and a percent-scaling one on a stage that declares a fallback.
+
+⚠ **THE GENERAL SHAPE, which is worth more than the fix:** a field whose
+`Option` is resolved by a FALLBACK is answering two questions — *what did the
+author state* and *what does this world make of it* — and any reader that
+collapses it early has silently answered the second one on its own. The
+symptom is indistinguishable from agreement, because both sides produce a
+plausible number in the same units.
+
 ### ⛔ A near-miss that is measured on only one axis is not measured
 
 The sweep's `gap` column is `|x0 − x1|`. A pair 10px apart in `x` and 300px

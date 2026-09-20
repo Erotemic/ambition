@@ -247,22 +247,20 @@ fn resolved_hitbox_knockback_magnitude(
             // decide". Reading a bare `0.0` as unspecified made the documented
             // fixed-knockback case the one value you could not author.
             //
-            // ⛔ AND THE SET-KNOCKBACK FACT IS THIS VALUE, BEFORE ANY RULESET
-            // CURVE TOUCHES IT. `growth_base` and `growth_scale` are knobs a
-            // ruleset turns; either could reach zero and make a percent-scaling
-            // move momentarily look set, which would silently switch rage off
-            // game-wide. What the law asks is what the AUTHOR wrote (or what
-            // the ruleset fallback authored on its behalf), which is the fact
-            // rage is allowed to consult — so this, and not a scaled copy of
-            // it, is what is handed over.
-            let authored_growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
-            // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the scale is applied
-            // HERE and not at either author. The line above has already
-            // collapsed the two ways a volume can state its growth (an
-            // explicitly authored `Some(g)`, or the ruleset's `base *
-            // ruleset_growth` fallback) into one number, so a scale applied
-            // after it reaches both without being restated in two places that
-            // could drift apart.
+            // ⛔⛤ **AND THE COLLAPSE OF THE TWO AUTHORING ROADS USED TO
+            // HAPPEN HERE, WHICH IS HOW THE BRAIN CAME TO DISAGREE WITH THIS
+            // FUNCTION ABOUT `None` — REVIEWED 2026-09-20.** `Some(0.0)` is
+            // FIXED knockback and `None` is *"the ruleset decides"*; this read
+            // `None` as `base * ruleset_growth` and the fighter brain's
+            // envelope read it as `0.0`, so `cellular_pulse` (base 140,
+            // `None`) resolved to 490px/s here and 140 there on the same
+            // stage. Both are now `Option<f32>` all the way into
+            // `launch_speed`, which collapses them ONCE.
+            //
+            // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the ruleset's
+            // fallback travels as a CONDITION rather than being resolved into
+            // a number first: a scale applied after the collapse reaches both
+            // without being restated in two places that could drift apart.
             //
             // ⛔ AND THE ROSTER IS GENUINELY SPLIT BETWEEN THEM, so "both" is a
             // requirement rather than belt-and-braces. Measured 2026-09-12 over
@@ -280,11 +278,11 @@ fn resolved_hitbox_knockback_magnitude(
             // handed to the law below rather than multiplied in here, which is
             // the same statement with one owner instead of two.
             //
-            // ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE. `growth == 0.0`
+            // ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE. `Some(0.0)`
             // times any factor is still `0.0`, and the law short-circuits on
-            // the AUTHORED growth to return `base` — so `Some(0.0)`, which is
-            // the documented way to author a launch that ignores percent, stays
-            // exactly that at every curve.
+            // the AUTHORED growth to return `base` — so the documented way to
+            // author a launch that ignores percent stays exactly that at every
+            // curve.
             //
             // ⭐⭐ **AND THE ARITHMETIC ITSELF LIVES IN THE CATALOG, BECAUSE THE
             // FIGHTER BRAIN HAS TO SPEND THE SAME LAW AND CANNOT SEE THIS
@@ -294,17 +292,19 @@ fn resolved_hitbox_knockback_magnitude(
             // RESOLVES every input below; it no longer owns the line they are
             // spent on. See `ambition_entity_catalog::launch`.
             //
-            // ⚠ `authored_growth` rather than the scaled one is passed, which
-            // is what keeps the set-knockback short-circuit reading what the
-            // AUTHOR wrote: the curve is handed over whole and applied inside.
+            // ⚠ THE AUTHORING IS HANDED OVER UNRESOLVED — the `Option`, the
+            // ruleset's fallback and the curve all travel as inputs — which is
+            // what keeps the set-knockback short-circuit reading what the
+            // AUTHOR wrote rather than a scaled copy of it.
             HitKnockbackMagnitude::LaunchSpeed(ambition_entity_catalog::launch::launch_speed(
                 base,
-                authored_growth,
+                growth,
                 ambition_entity_catalog::launch::LaunchConditions {
                     victim_damage: victim_damage_taken,
                     victim_weight,
                     growth_scale,
                     growth_base,
+                    ruleset_growth,
                     rage,
                 },
             ))

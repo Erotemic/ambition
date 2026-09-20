@@ -61,7 +61,7 @@ fn facet() -> SmashFighterFacet {
 
 /// ⛔ A WEIGHT THE KNOCKBACK TERM DIVIDES BY MAY NOT BE ZERO OR NEGATIVE.
 ///
-/// `scaled_knockback` divides the growth term by this, so 0.0 is a division by
+/// The launch law divides the growth term by this, so 0.0 is a division by
 /// zero and a negative sends the victim TOWARD the attacker. Both are the class
 /// this list is for: authored values whose consequence is invisible until
 /// somebody launches the fighter.

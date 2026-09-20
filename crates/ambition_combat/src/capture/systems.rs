@@ -2163,7 +2163,7 @@ mod tests {
     /// THE RULESET'S PERCENT SCALE REACHES A THROW, AND MOVES ONLY THE PERCENT
     /// TERM.
     ///
-    /// `apply_capture_throws` calls `scaled_knockback` ITSELF rather than going
+    /// `apply_capture_throws` calls the launch law ITSELF rather than going
     /// through the hitbox resolver, so a ruleset knob wired only into the
     /// resolver would silently leave throws on the old curve — and "a throw at
     /// high percent is a kill move" is the sentence that system's own doc
@@ -2171,7 +2171,7 @@ mod tests {
     ///
     /// ⛔ THE ZERO-PERCENT READING NEEDS A `damage: 0` THROW. A throw banks its
     /// own damage BEFORE the launch reads the meter, so the ordinary fixture's
-    /// victim is already at 9 when `scaled_knockback` runs and the percent term
+    /// victim is already at 9 when the launch law runs and the percent term
     /// is not zero there. Asserting invariance on the ordinary throw would be
     /// asserting something false that happens to be nearly true.
     #[test]
@@ -2735,9 +2735,9 @@ pub fn apply_capture_throws(
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     // ⭐ A THROW OBEYS THE SAME PERCENT CURVE AS A SWING. This road calls
-    // `scaled_knockback` itself rather than going through the hitbox resolver,
-    // so a ruleset knob wired only into the resolver would leave throws on the
-    // OLD curve — and "a throw at high percent is a kill move" is the one
+    // `ambition_entity_catalog::launch::launch_speed` itself rather than going
+    // through the hitbox resolver, so a ruleset knob wired only into the
+    // resolver would leave throws on the OLD curve — and "a throw at high percent is a kill move" is the one
     // sentence this system's own doc comment leads with. Optional because a
     // composition without the rules projection still throws.
     rules: Option<Res<crate::rules::ResolvedCombatTuning>>,
@@ -2793,24 +2793,38 @@ pub fn apply_capture_throws(
 
         // 3. An ordinary launch on a body that is now ordinary.
         let weight = tuning.map(|t| t.weight).unwrap_or(1.0);
-        let magnitude = crate::util::scaled_knockback(
-            request.knockback,
-            request.knockback_growth,
-            health.damage_taken(),
-            weight,
-            percent_scale,
-        );
         // ⭐⭐ A THROW RAGES LIKE A SWING — RULED 2026-09-19, and it is the same
         // mirror argument the hitbox road's rage comment makes: the victim's
-        // percent already scaled this launch (the call above), so without rage
-        // the fighter behind on stocks is punished twice by its own damage.
-        // ⛔ EXCEPT A SET THROW, which declines rage for the reason any set
-        // launch does — see [`crate::util::rage_for_growth`].
-        let magnitude = magnitude
-            * crate::util::rage_for_growth(
-                rules.rage_scale(captor_health.map(|h| h.damage_taken()).unwrap_or(0)),
-                request.knockback_growth,
-            );
+        // percent already scaled this launch, so without rage the fighter
+        // behind on stocks is punished twice by its own damage. ⛔ EXCEPT A SET
+        // THROW, which declines rage for the reason any set launch does — the
+        // law below short-circuits on the authored growth and hands back the
+        // base untouched.
+        //
+        // ⛔⛤ **AND THE GROWTH-BASE CURVE IS `IDENTITY` HERE, WHICH IS A
+        // DIVERGENCE FROM THE SWING ROAD AND IS STATED RATHER THAN HIDDEN.**
+        // This road never applied it: before the shared law it simply did not
+        // multiply, and the omission looked like an absence of code rather than
+        // a decision. A declared `GrowthBaseCurve` steepens a big-`base`
+        // VOLUME's percent term and leaves a big-`base` THROW's alone.
+        //
+        // ⚠ THE DIVERGENCE IS LATENT, NOT LIVE: no shipped ruleset declares a
+        // curve today (the smash stage ran `48 / 0.25 / 1.40` and retired it),
+        // so every world resolves this argument to identity anyway and passing
+        // the constant keeps today's numbers to the byte. What it costs is a
+        // trap for whoever declares the next one — which is why the question
+        // is in the signature rather than in an absence of code.
+        let magnitude = ambition_entity_catalog::launch::launch_speed(
+            request.knockback,
+            request.knockback_growth,
+            ambition_entity_catalog::launch::LaunchConditions {
+                victim_damage: health.damage_taken(),
+                victim_weight: weight,
+                growth_scale: percent_scale,
+                growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+                rage: rules.rage_scale(captor_health.map(|h| h.damage_taken()).unwrap_or(0)),
+            },
+        );
         let knockback = ae::hit_response::HitKnockback {
             // A throw is a hit: it stuns.
             reaction: ae::hit_response::HitReaction::Strike,

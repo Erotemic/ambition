@@ -3813,6 +3813,38 @@
       "metric_tags": []
     },
     {
+      "id": "DUP-LAUNCH-LAW",
+      "category": "duplicate_truth_family",
+      "name": "How far a hit launches its victim",
+      "owner": "entity_catalog launch::launch_speed",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "One owner answers how far a hit launches its victim: `ambition_entity_catalog::launch::launch_speed`. It used to be answered twice. `ambition_combat::util::scaled_knockback` resolved a hit as `base + growth x growth_base(base) x growth_scale x victim_damage / weight`, folded with rage; `ambition_entity_catalog::LaunchEnvelope::at` -- the function the fighter brain ranks its FINISHERS with -- evaluated `base + growth x victim_damage`, and its own doc argued the omission was safe because the remaining factors are \"COMMON to every candidate one attacker weighs against one opponent, so none of them can reorder a kit\". Each omitted factor multiplies the PERCENT TERM and not `base`, so it moves the CROSSOVER between two candidates: d* = (b2 - b1) * weight / (growth_scale * growth_base * (g1 - g2)). Measured 2026-09-20: George Booul's forward smash (185, 3.45) beats his up smash (178, 6.28) at 2 points of victim damage under the brain's copy (191.90 against 190.56) and loses to it under the smash stage's declared percent scale 1.25 against a 0.85-weight body (195.15 against 196.47). `scaled_knockback` and `rage_for_growth` are deleted and `GrowthBaseCurve` moved with the law; `ambition_combat` still RESOLVES every input through `ResolvedCombatTuning` and no longer owns the arithmetic they are spent on. The stage's half of the law reaches the brain through `WorldView::launch_law` and `PerceivedActor::knockback_weight`.",
+      "source_paths": [
+        "crates/ambition_entity_catalog/src/launch.rs",
+        "crates/ambition_combat/src/hitbox/mod.rs",
+        "crates/ambition_combat/src/capture/systems.rs",
+        "crates/ambition_characters/src/perception.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "One owner answers how far a hit launches its victim: `ambition_entity_catalog::launch::launch_speed`. It used to be answered twice. `ambition_combat::util::scaled_knockback` resolved a hit as `base + growth x growth_base(base) x growth_scale x victim_damage / weight`, folded with rage; `ambition_entity_catalog::LaunchEnvelope::at` -- the function the fighter brain ranks its FINISHERS with -- evaluated `base + growth x victim_damage`, and its own doc argued the omission was safe because the remaining factors are \"COMMON to every candidate one attacker weighs against one opponent, so none of them can reorder a kit\". Each omitted factor multiplies the PERCENT TERM and not `base`, so it moves the CROSSOVER between two candidates: d* = (b2 - b1) * weight / (growth_scale * growth_base * (g1 - g2)). Measured 2026-09-20: George Booul's forward smash (185, 3.45) beats his up smash (178, 6.28) at 2 points of victim damage under the brain's copy (191.90 against 190.56) and loses to it under the smash stage's declared percent scale 1.25 against a 0.85-weight body (195.15 against 196.47). `scaled_knockback` and `rage_for_growth` are deleted and `GrowthBaseCurve` moved with the law; `ambition_combat` still RESOLVES every input through `ResolvedCombatTuning` and no longer owns the arithmetic they are spent on. The stage's half of the law reaches the brain through `WorldView::launch_law` and `PerceivedActor::knockback_weight`.",
+          "sources": [
+            "crates/ambition_entity_catalog/src/launch.rs",
+            "crates/ambition_combat/src/util.rs",
+            "game/ambition_app/tests/smash_in_the_host.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-20, raised by review",
+      "duplicate_authority_state": "RESOLVED",
+      "why_it_exists": "The crate boundary. The fighter brain lives in `ambition_characters`, which cannot see `ambition_combat`, so when the option layer needed to price a launch it derived its own line in the catalog rather than calling the one that already existed. Neither copy looked like a copy: one is a combat-resolution function and the other a catalog DERIVATION, and the derivation carried an explicit written argument for why the difference could not matter. Sharing meant moving the law DOWN into the crate both sides can see, not moving the brain up.",
+      "consolidation_hypothesis": "None outstanding. TWO things are stated rather than hidden. (1) The throw road passes `GrowthBaseCurve::IDENTITY`: it never applied the curve, and no shipped ruleset declares one today (the smash stage ran 48 / 0.25 / 1.40 and retired it), so the divergence is LATENT and the constant preserves today's numbers to the byte -- what it costs is a trap for whoever declares the next curve. (2) Per-move STALING is folded into the runtime's `growth_scale` and a brain with no move-usage history cannot supply it; it is a reordering factor by this row's own rule and is tracked on queue.md's BRAIN row rather than dismissed as common. RESIDUE, and it generalises past this family: \"common to every candidate\" does not imply \"cannot reorder\". The test is not whether a factor is the same for everyone but whether it multiplies the WHOLE expression; one that scales only part of each candidate's expression moves where the candidates cross.",
+      "metric_tags": []
+    },
+    {
       "id": "LIFE-SESSION-RESOURCE-AGGREGATE",
       "category": "lifecycle",
       "name": "SessionScopedResources process-storage aggregate",

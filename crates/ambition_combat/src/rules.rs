@@ -39,79 +39,12 @@ pub enum LedgeOccupancy {
     Hog,
 }
 
-/// HOW MUCH STEEPER A HEAVY HIT'S PERCENT CURVE IS THAN A LIGHT ONE'S.
-///
-/// ⭐⭐ THIS EXISTS BECAUSE THE ROSTER'S AUTHORING IS HOMOGENEOUS, and that was
-/// MEASURED rather than supposed. Across all 22 bound roles the ratio
-/// `knockback_growth / knockback` sits in 0.019-0.021 — a jab's percent curve
-/// and a forward smash's are the SAME curve, differing only by the constant
-/// `base`. So a kill move is a jab times a number, and the thing a platform
-/// fighter needs — "this one closes stocks and that one does not" — is not
-/// expressible in what the roster currently authors.
-///
-/// ⛔ AND IT IS NOT `victim_percent_knockback_scale` UNDER ANOTHER NAME. That
-/// knob is base-INDEPENDENT: raising it multiplies every move's percent term by
-/// one factor, which is arithmetically identical to raising every authored
-/// growth, and leaves the roster exactly as undifferentiated as it started.
-/// This one reads the volume's own `base`, so it separates moves that knob
-/// cannot.
-///
-/// ⛔ THE PRICE, STATED HERE RATHER THAN DISCOVERED LATER: wherever this is
-/// declared, an authored `knockback_growth` stops reading as px/s-per-percent
-/// at face value, because the number an author writes is multiplied before it
-/// is spent.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GrowthBaseCurve {
-    /// The base knockback at which the steepening is exactly `1.0`. Pick a
-    /// POKE-SIZED base: every volume at or below it is left untouched.
-    pub pivot: f32,
-    /// How sharply the steepening climbs. `0.0` is identity at every pivot.
-    pub exponent: f32,
-    /// The most this curve may multiply any growth by.
-    ///
-    /// ⭐ A CEILING IS NOT DECORATION HERE, and the outlier that motivates it
-    /// was measured. Three bound pulses carry a base past the largest smash
-    /// (185); the largest, `bivalence` at 367.2, authors `growth/base` =
-    /// 0.0093 — less than half the roster's 0.019-0.021. It is deliberately a
-    /// huge-base, low-growth finisher, i.e. the ONE move that most consciously
-    /// departs from the homogeneity this curve keys on. Uncapped it would
-    /// collect the largest multiplier on the roster, which is the opposite of
-    /// what its author said about it.
-    pub ceiling: f32,
-}
-
-impl GrowthBaseCurve {
-    /// The law exactly as it was first written: a no-op at every base. Every
-    /// undeclared world — which is every Ambition room — resolves to this.
-    pub const IDENTITY: Self = Self {
-        pivot: 1.0,
-        exponent: 0.0,
-        ceiling: f32::INFINITY,
-    };
-
-    /// What this curve multiplies a volume's authored growth by.
-    ///
-    /// ⛔ IT CAN ONLY EVER STEEPEN. The `.max(1.0)` on the ratio and the
-    /// `.max(1.0)` on the ceiling each hold the factor at or above `1.0`, so a
-    /// declared curve is never a second way to nerf pokes — nothing measured
-    /// here asked for one, and a curve that could weaken a jab would otherwise
-    /// be reachable by accident from a mistyped pivot.
-    ///
-    /// ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE, because the caller
-    /// multiplies: `growth == 0.0` times any factor is still `0.0`, and
-    /// [`crate::util::scaled_knockback`] short-circuits on that to return
-    /// `base`. `Some(0.0)` — the documented way to author a launch that ignores
-    /// percent — stays exactly that at every curve.
-    pub fn scale(self, base: f32) -> f32 {
-        if self.exponent == 0.0 || self.pivot <= 0.0 || base <= 0.0 {
-            return 1.0;
-        }
-        (base / self.pivot)
-            .max(1.0)
-            .powf(self.exponent)
-            .min(self.ceiling.max(1.0))
-    }
-}
+/// ⭐⭐ **THE CURVE LIVES IN THE CATALOG NOW, BECAUSE THE FIGHTER BRAIN HAS TO
+/// SPEND THE SAME ONE THE HIT RESOLVER DOES AND CANNOT SEE THIS CRATE.** This
+/// module still owns WHICH curve a stage declares — that is a ruleset fact and
+/// stays here — and [`ambition_entity_catalog::launch`] owns what a curve DOES.
+/// See its module doc for the measurement that separated them.
+pub use ambition_entity_catalog::launch::GrowthBaseCurve;
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct DeclaredCombatRules {
@@ -228,7 +161,7 @@ pub struct DeclaredCombatRules {
     ///
     /// ⛔ It cannot make a 0% hit stronger. The term it scales is already zero
     /// there, so a poke stays a poke at any value — see
-    /// [`crate::util::scaled_knockback`].
+    /// [`ambition_entity_catalog::launch::launch_speed`].
     pub victim_percent_knockback_scale: Option<f32>,
     /// A HEAVY HIT'S PERCENT CURVE IS STEEPER THAN A LIGHT ONE'S — see
     /// [`GrowthBaseCurve`] for the measurement that motivates it, the knob it

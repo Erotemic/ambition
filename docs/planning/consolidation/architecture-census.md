@@ -150,15 +150,23 @@ These are representative writer/read classes. They are not a call-graph export.
 
 ## 2. Duplicate-truth families
 
-The census found nine important families, and the split is DERIVED FROM THE
-LEDGER RATHER THAN COUNTED BY HAND: **0 open, 5 resolved, 4 legitimate
-separation.**
+The census found nine important families and review has since added a tenth;
+the split is DERIVED FROM THE LEDGER RATHER THAN COUNTED BY HAND:
+**0 open, 6 resolved, 4 legitimate separation.**
 
 ⭐⭐ **THE LAST OPEN ONE CLOSED 2026-09-20**, which is the first time this
 campaign has had no duplicate-authority pressure to point at.
 `DUP-GENERATION-MECHANICS` is below with its measured cost; what remains in
-this section is four collapses to keep collapsed and four separations to keep
+this section is six collapses to keep collapsed and four separations to keep
 separate, both of which now have mechanical arms.
+
+⚠ **AND THE TENTH FAMILY ARRIVED AFTER THE CENSUS CLOSED, WHICH IS THE POINT
+WORTH KEEPING.** `DUP-LAUNCH-LAW` was not on the original list and was not
+found by widening it: a reviewer read a doc comment that ARGUED a duplicate was
+harmless. Both copies were derived from the same authored numbers, so neither
+looked like a copy, and the one that was wrong carried a paragraph explaining
+why it could not be. ⇒ A closed census is a statement about what the
+instrument could see.
 
 ⛔⛤ **THAT SENTENCE SAID "Four are current consolidation pressure" UNTIL
 2026-09-17, WHILE THREE OF THE ROWS UNDER IT SAID RESOLVED.** `metric_tags` in
@@ -229,7 +237,8 @@ below.
 | --- | --- | --- | --- | --- | --- |
 | DUP-SESSION-CURRENT | Current gameplay-session identity family | RESOLVED — semantic review done, one collapse landed | The `after A10` gate is discharged and the audit ran 2026-09-16, so `SOURCE_INFERRED` is now measured. FOUR types carried the `(ShellActivationId, SessionScopeId)` correlation <!-- cite-ok: this row RECORDS the deleted type and its deleted query, so both names are gone by intent -->: `GameplaySessionInstance` (inside `ActiveGameplaySession`), `GameplaySessionLinks`, and the `GameplaySessionWorldRoot` / `GameplayInputOwner` Components. ⇒ `GameplaySessionLinks` is DELETED: activation asserts `active_session.0.is_none()`, so its `Vec` held at most one binding, always the live session's; its `scope_for` had zero production readers; and the retirement block asked BOTH it and `retire_if_activation` in the same statement. The two Components stay — a captured correlation on the entity it describes is what this row's own direction asks for — and `ActiveSessionScope` stays, because "which scope is current" is a simulation-layer question the shell's activation identity cannot answer. | Remaining: none. ⭐ **The layer split stopped being a prose requirement on 2026-09-16**: `ambition_platformer2d_shared_tangle` may no longer reach `ambition_game_shell`, transitively, by `platformer-primitives-stays-a-foundation` in `scripts/check_absence_contracts.py`. The behavioural reason this row gave for the split (*"a scope can be live while `ActiveGameplaySession` is None"*) had no production witness and is retracted in the queue row — `publish` and the session assignment happen in one system run. | SOURCE_CONFIRMED, queue.md's DUP-SESSION-CURRENT row |
 | DUP-CONTENT-CURRENT | Live content-generation identity family | RESOLVED — published through the room verdict | `PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from ONE lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `publication_succeeded`. | None on this axis. Re-derived 2026-09-16: the gating above closed the road on which these values could move independently of the verdict. | SOURCE_CONFIRMED |
-| DUP-GENERATION-MECHANICS | Activated generation mechanics versus App registries | RESOLVED — the fallback is deleted (2026-09-20) | `GenerationMechanics` holds ONE set of registries and no ranking. Which authority a construction spends is the CALLER's choice, made once at a named constructor: `of` (an activated generation), `for_live_session` (the same, or a refusal) and `for_the_generation_being_built` (the candidate a hot reload is publishing). There is no road on which a live rebuild reaches whatever the App is holding now. | None. A direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own — the scoped fixture authority `Q144` permits — and one that installs nothing is refused. See the bullet below for the measured cost. | SOURCE_CONFIRMED |
+| DUP-GENERATION-MECHANICS | Activated generation mechanics versus App registries | RESOLVED — the fallback is deleted (2026-09-20) | `GenerationMechanics` holds ONE set of registries and no ranking. Which authority a construction spends is the CALLER's choice, made once at a named constructor: `of` (an activated generation) and `for_live_session` (the same, or a REFUSAL). There is no road on which a live rebuild reaches whatever the App is holding now — including the LDtk hot reload, which was the third constructor's one caller and now takes `for_live_session` like everybody else. | None. A direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own — the scoped fixture authority `Q144` permits — and one that installs nothing is refused. See the bullet below for the measured cost. | SOURCE_CONFIRMED |
+| DUP-LAUNCH-LAW | How far a hit launches its victim | RESOLVED — the second owner is deleted (2026-09-20) | `ambition_combat::util::scaled_knockback` resolved a hit as `base + growth × growth_base(base) × growth_scale × victim_damage / weight` folded with rage; `ambition_entity_catalog::LaunchEnvelope::at` — the function that ranks a FIGHTER'S FINISHERS — evaluated `base + growth × victim_damage` and its own doc argued the rest away as *"COMMON to every candidate one attacker weighs against one opponent, so none of them can reorder a kit"*. Each omitted factor multiplies the PERCENT TERM and not `base`, so it moves the CROSSOVER between two candidates: `d* = (b₂ − b₁) · weight / (growth_scale · growth_base · (g₁ − g₂))`. George Booul's forward smash `(185, 3.45)` beat his up smash `(178, 6.28)` at 2 damage under the brain's copy and loses to it under the stage's declared `1.25` against a `0.85`-weight body. ⇒ One owner, `ambition_entity_catalog::launch::launch_speed`, in the crate BOTH sides can see; `scaled_knockback` and `rage_for_growth` are deleted and `GrowthBaseCurve` moved with the law. `ambition_combat` still RESOLVES every input (`ResolvedCombatTuning`) and no longer owns the arithmetic they are spent on. | Remaining: none on this axis. ⚠ TWO things are stated rather than hidden. (1) The throw road passes `GrowthBaseCurve::IDENTITY` — it never applied the curve, no shipped ruleset declares one today, so the divergence is LATENT and the constant keeps today's numbers to the byte. (2) Per-move STALING is folded into the runtime's `growth_scale` and a brain with no usage memory cannot supply it; it is a reordering factor by the rule above and is tracked on queue.md's BRAIN row rather than dismissed as common. | SOURCE_CONFIRMED, witnessed end-to-end by `smash_in_the_host::a_seated_fighters_view_carries_the_launch_law_this_stage_declares` |
 | DUP-EDITOR-STAGES | Mechanical editor desired/admitted/projection stages | LEGITIMATE_SEPARATION | Editable mirrors, pending proposals, admission, admitted authority, and runtime projection are intentionally different stages. The body-profile and ability repairs show that collapsing admission with projection loses state when a target entity is absent. | Consolidate protocol shape and registration, not the distinct values. New editable mechanical domains must use the same stages or explicitly document why a stage is not applicable. | SOURCE_CONFIRMED |
 | DUP-CONTENT-CANDIDATE | Active content selection versus pending generation inputs | LEGITIMATE_SEPARATION | SelectedContentIdentity is active App selection. PendingGeneration and PendingGenerationInputs own candidate transaction values until activation. They must not overwrite the active selection during preparation. | Keep the active/candidate split. A10's scene candidate uses this same lifecycle — one hidden candidate, one admission, no parallel candidate state machine; `CandidateState`, the one abstraction that would have been a second road, was deleted unused. | SOURCE_CONFIRMED |
 | DUP-ROLLBACK-CONFIRMATION | Rollback authority versus confirmation answer | LEGITIMATE_SEPARATION | RollbackConfirmationState is deliberately not a Resource. It is derived from ActiveRollbackAuthority for a requested session scope. | Preserve this pattern. Do not promote derived answers into independently mutable resources. | SOURCE_CONFIRMED |
@@ -247,12 +256,21 @@ The five families that closed:
   authority a construction spent was decided INSIDE the type, by whichever
   constructor a caller happened to pick — `Q144`'s option 1 named that weakness
   in as many words, *"nothing but review enforces that choice at a new call
-  site."* ⇒ There are now three named constructors and no ranking left inside:
-  `of`, `for_live_session` (refuses rather than falling back) and
-  `for_the_generation_being_built` (the hot reload, whose registries ARE the
-  candidate's and which therefore states them rather than declining an
-  `Option`). The `shell_routed` discriminator is gone with the case it
-  protected.
+  site."* ⇒ There are now TWO named constructors and no ranking left inside:
+  `of` and `for_live_session` (which refuses rather than falling back). The
+  `shell_routed` discriminator is gone with the case it protected.
+  ⛔⛤ **A THIRD, `for_the_generation_being_built`, LASTED ONE DAY AND ITS ONE
+  CALLER WAS THE DEFECT.** It existed for the LDtk hot reload, on the reasoning
+  that a reload's registries ARE the candidate's and so should be stated rather
+  than declined through an `Option`. They are not:
+  `prepare_world_replacement_candidate` copies every non-`world.` fingerprint
+  section from the ACTIVE `PreparedContent`, so a world-only reload's candidate
+  CLAIMS the live mechanics while carrying whatever the App happens to hold.
+  The reload published identity A over a room built from mechanics B. It takes
+  `for_live_session` now and REFUSES when there is no live generation;
+  witnessed by
+  `an_ldtk_world_reload_rebuilds_the_room_from_the_generation_not_the_app`
+  (App cap 0 against an uncapped generation).
   ⭐⭐ **AND THE COST WAS MEASURED RATHER THAN ESTIMATED, WHICH IS THE WHOLE
   REASON THIS ROW SAT OPEN.** It had been costed against *"~90 test
   binaries"*, a number that came from counting files that NAME
@@ -302,6 +320,18 @@ each by the cheapest thing that would falsify it:
   before it, and `game/ambition_app/src/app/dev_runtime.rs:764` states *"the
   REASONS are cosmetic … the DECISION above comes from this publication's own
   verdict"*. HOLDS.
+- `DUP-LAUNCH-LAW`: RESOLVED 2026-09-20, raised by review. The two owners did
+  not look like copies: one was a combat-resolution function and the other a
+  catalog DERIVATION, and the derivation's doc carried an explicit argument for
+  why the difference was safe. ⭐ **The residue is the general one and it is
+  filed on the fighter-brain page too: "common to every candidate" does not
+  imply "cannot reorder".** A factor that multiplies only PART of each
+  candidate's expression rescales the parts differently and moves where the
+  candidates cross, however common it is. The test is not *is it the same for
+  everyone* but *does it multiply the whole expression*. ⚠ And the crate
+  boundary was the reason the copy existed at all: the fighter brain cannot see
+  `ambition_combat`, so the law had to move DOWN to be shared rather than the
+  brain moving up.
 - `DUP-EDITOR-STAGES`: the five stages are named source vocabulary, not a
   description of one — `MechanicalEditSet::{Propose, Admit, Publish}`
   (`crates/ambition_platformer2d_core/src/movement/tuning.rs:459-467`),

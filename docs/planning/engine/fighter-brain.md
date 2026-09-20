@@ -262,6 +262,40 @@ owner wrote about it. `reach` on a summon is *how far the admiral rides*;
 is *how far the jump is, in whatever direction the move picks*. Each of the
 three read plausibly and was wrong.
 
+### ⛔⛤ A factor common to two candidates still reorders them if it rides only part of the expression
+
+The brain ranked its finishers with `base + growth × victim_damage` and its own
+doc justified the omission: the ruleset's percent scale, the per-`base`
+steepening, the victim's weight and rage are *"COMMON to every candidate one
+attacker weighs against one opponent, so none of them can reorder a kit"*.
+
+**Common is not the same as uniform.** Each of those factors multiplies the
+PERCENT TERM and leaves `base` alone, so they scale one part of each line and
+not the other — which moves where two lines CROSS:
+
+```text
+d* = (b₂ − b₁) · weight / (growth_scale · growth_base · (g₁ − g₂))
+```
+
+Every omitted factor appears in the crossover. George Booul's forward smash
+`(185, 3.45)` and up smash `(178, 6.28)` cross at about 2 points of victim
+damage under the identity law and have ALREADY crossed there under the smash
+stage's declared `1.25` against a `0.85`-weight body.
+
+⇒ The test for "can this factor be dropped from a ranking" is not *is it the
+same for every candidate* but *does it multiply the whole expression*. A factor
+that divides the candidates' expressions into scaled and unscaled parts is a
+reordering factor however common it is. See
+`ambition_entity_catalog::launch`, which now owns the one copy of the law, and
+`WorldView::launch_law`, which is how a brain receives the half of it that
+belongs to the stage.
+
+⚠ **AND THE ONE FACTOR STILL MISSING IS NAMED RATHER THAN ARGUED AWAY:**
+per-move staleness. The runtime folds a move's own usage history into
+`growth_scale`; a brain with no usage memory cannot, so a repeated finisher is
+priced a little high. That is a reordering factor by the rule above, which is
+why it is written down as owed instead of dismissed as common.
+
 ### ⛔ A near-miss that is measured on only one axis is not measured
 
 The sweep's `gap` column is `|x0 − x1|`. A pair 10px apart in `x` and 300px

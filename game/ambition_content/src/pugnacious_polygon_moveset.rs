@@ -574,6 +574,19 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod tests {
+    /// The launch conditions a CONTENT claim is about: a fresh reference body
+    /// under the undeclared ruleset.
+    ///
+    /// ⚠ **NAMED RATHER THAN IMPLIED.** `LaunchEnvelope::at` used to take a
+    /// bare damage number and silently assume weight `1.0`, no percent scale,
+    /// the identity growth curve and no rage — which is how the fighter brain
+    /// came to rank its finishers under a law the hit resolver does not use.
+    /// An authoring claim IS about that world; a scorer is not, and now both
+    /// have to say which.
+    fn fresh(victim_damage: i32) -> ambition_entity_catalog::launch::LaunchConditions {
+        ambition_entity_catalog::launch::LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
+            .at_damage(victim_damage)
+    }
 
     /// ⛔⛤ **HIS TWO SMASHES CROSS, WHICH IS WHY A KILL QUESTION MAY NOT READ
     /// BASE KNOCKBACK.**
@@ -602,16 +615,16 @@ mod tests {
         let up = frames("polygon_brawler_smash_up").launch;
 
         assert!(
-            forward.at(0) > up.at(0),
+            forward.at(fresh(0)) > up.at(fresh(0)),
             "against a FRESH opponent the forward smash is the harder launch — \
              if this flips, the arm below is no longer measuring a crossing"
         );
         assert!(
-            up.at(120) > forward.at(120),
+            up.at(fresh(120)) > forward.at(fresh(120)),
             "against a worn one the up smash is, and a scorer reading base \
              knockback alone would never pick it: forward={}, up={}",
-            forward.at(120),
-            up.at(120)
+            forward.at(fresh(120)),
+            up.at(fresh(120))
         );
         assert!(up.grows() && forward.grows());
     }

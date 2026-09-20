@@ -231,7 +231,7 @@ fn resolved_hitbox_knockback_magnitude(
     // ⭐ RAGE ARRIVES HERE RATHER THAN AT THE CALLER because this is the only
     // place that knows whether the launch GROWS. The two authoring roads for
     // growth are collapsed below, and a set launch must decline rage — see
-    // [`crate::util::rage_for_growth`]. A caller holding a bare
+    // `ambition_entity_catalog::launch::launch_speed`. A caller holding a bare
     // `HitboxKnockback` cannot make that call without re-deriving the collapse.
     rage: f32,
 ) -> HitKnockbackMagnitude {
@@ -246,15 +246,16 @@ fn resolved_hitbox_knockback_magnitude(
             // ⭐ `Some(0.0)` is FIXED knockback and `None` is "the volume did not
             // decide". Reading a bare `0.0` as unspecified made the documented
             // fixed-knockback case the one value you could not author.
-            let growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
-            // ⛔ THE SET-KNOCKBACK FACT IS READ HERE, BEFORE ANY RULESET CURVE
-            // TOUCHES IT. `growth_base` and `growth_scale` below are knobs a
+            //
+            // ⛔ AND THE SET-KNOCKBACK FACT IS THIS VALUE, BEFORE ANY RULESET
+            // CURVE TOUCHES IT. `growth_base` and `growth_scale` are knobs a
             // ruleset turns; either could reach zero and make a percent-scaling
             // move momentarily look set, which would silently switch rage off
-            // game-wide. What this asks is what the AUTHOR wrote (or what the
-            // ruleset fallback authored on its behalf), which is the fact rage
-            // is allowed to consult.
-            let authored_growth = growth;
+            // game-wide. What the law asks is what the AUTHOR wrote (or what
+            // the ruleset fallback authored on its behalf), which is the fact
+            // rage is allowed to consult — so this, and not a scaled copy of
+            // it, is what is handed over.
+            let authored_growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
             // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the scale is applied
             // HERE and not at either author. The line above has already
             // collapsed the two ways a volume can state its growth (an
@@ -270,29 +271,43 @@ fn resolved_hitbox_knockback_magnitude(
             // Scaling only the fallback would have moved almost nothing;
             // scaling only the authored road would have left every
             // prefab-derived swing flat.
-            // ⭐⭐ AND THE VOLUME'S OWN `base` STEEPENS THAT GROWTH, applied here
-            // for exactly the reason the ruleset scale above is: the line that
-            // collapsed the two authoring roads into one `growth` has already
-            // run, so a factor applied after it reaches BOTH — the explicitly
-            // authored `Some(g)` and the `base * ruleset_growth` fallback —
-            // without being restated in two places that could drift.
+            // ⭐⭐ AND THE VOLUME'S OWN `base` STEEPENS THAT GROWTH, for
+            // exactly the reason the ruleset scale does: the line above has
+            // already collapsed the two authoring roads into one `growth`, so
+            // a factor applied after it reaches BOTH — the explicitly authored
+            // `Some(g)` and the `base * ruleset_growth` fallback — without
+            // being restated in two places that could drift. The curve is
+            // handed to the law below rather than multiplied in here, which is
+            // the same statement with one owner instead of two.
             //
             // ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE. `growth == 0.0`
-            // multiplied by any factor is still `0.0`, and `scaled_knockback`
-            // short-circuits on it to return `base` — so `Some(0.0)`, which is
+            // times any factor is still `0.0`, and the law short-circuits on
+            // the AUTHORED growth to return `base` — so `Some(0.0)`, which is
             // the documented way to author a launch that ignores percent, stays
             // exactly that at every curve.
-            let growth = growth * growth_base.scale(base);
-            let launch_speed = crate::util::scaled_knockback(
+            //
+            // ⭐⭐ **AND THE ARITHMETIC ITSELF LIVES IN THE CATALOG, BECAUSE THE
+            // FIGHTER BRAIN HAS TO SPEND THE SAME LAW AND CANNOT SEE THIS
+            // CRATE.** It had its own copy — `base + growth × victim_damage`,
+            // with a comment arguing the rest could not reorder a kit — and it
+            // ranked finishers the wrong way round for it. This crate still
+            // RESOLVES every input below; it no longer owns the line they are
+            // spent on. See `ambition_entity_catalog::launch`.
+            //
+            // ⚠ `authored_growth` rather than the scaled one is passed, which
+            // is what keeps the set-knockback short-circuit reading what the
+            // AUTHOR wrote: the curve is handed over whole and applied inside.
+            HitKnockbackMagnitude::LaunchSpeed(ambition_entity_catalog::launch::launch_speed(
                 base,
-                growth,
-                victim_damage_taken,
-                victim_weight,
-                growth_scale,
-            )
-            .max(0.0);
-            let rage = crate::util::rage_for_growth(rage, authored_growth);
-            HitKnockbackMagnitude::LaunchSpeed(launch_speed * rage)
+                authored_growth,
+                ambition_entity_catalog::launch::LaunchConditions {
+                    victim_damage: victim_damage_taken,
+                    victim_weight,
+                    growth_scale,
+                    growth_base,
+                    rage,
+                },
+            ))
         }
     }
 }

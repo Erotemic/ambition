@@ -329,6 +329,7 @@ mod tests {
 #[cfg(test)]
 mod he_uses_the_gust {
     use super::officer_moveset;
+
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::actor::ActorFaction;
     use ambition_characters::brain::attack_kit::{
@@ -340,6 +341,20 @@ mod he_uses_the_gust {
         PerceivedActor, Perceived, SelfView, StageView, WorldView,
     };
     use ambition_platformer2d_core as ae;
+
+    /// The launch conditions a CONTENT claim is about: a fresh reference body
+    /// under the undeclared ruleset.
+    ///
+    /// ⚠ **NAMED RATHER THAN IMPLIED.** `LaunchEnvelope::at` used to take a
+    /// bare damage number and silently assume weight `1.0`, no percent scale,
+    /// the identity growth curve and no rage — which is how the fighter brain
+    /// came to rank its finishers under a law the hit resolver does not use.
+    /// An authoring claim IS about that world; a scorer is not, and now both
+    /// have to say which.
+    fn fresh(victim_damage: i32) -> ambition_entity_catalog::launch::LaunchConditions {
+        ambition_entity_catalog::launch::LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
+            .at_damage(victim_damage)
+    }
 
     /// The stage the readings below are in. `Aabb2d::new` takes a CENTRE and a
     /// HALF-SIZE, so this is `x ∈ 0..800`, `y ∈ 0..600`.
@@ -596,13 +611,13 @@ mod he_uses_the_gust {
             .frame_data();
         assert_eq!(gust.max_knockback, 96.0, "the authored shove");
         assert_eq!(
-            gust.launch.at(0),
+            gust.launch.at(fresh(0)),
             0.0,
             "a windbox is not a hit, so it carries no launch a kill question may spend"
         );
         assert_eq!(
-            gust.launch.at(150),
-            gust.launch.at(0),
+            gust.launch.at(fresh(150)),
+            gust.launch.at(fresh(0)),
             "and no amount of damage on the victim changes that"
         );
         assert!(!gust.launch.grows());
@@ -616,7 +631,7 @@ mod he_uses_the_gust {
             .find(|m| m.id == "officer_jab")
             .expect("the jab")
             .frame_data();
-        assert_eq!(jab.launch.at(0), jab.max_knockback);
+        assert_eq!(jab.launch.at(fresh(0)), jab.max_knockback);
         assert!(jab.max_knockback > 0.0, "the jab launches at all");
     }
 

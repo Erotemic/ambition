@@ -451,6 +451,114 @@ fn a_seated_fighter_keeps_its_omniscient_senses() {
     }
 }
 
+/// ⭐⭐ **THE STAGE'S DECLARED LAUNCH LAW REACHES THE BRAIN THAT RANKS ITS
+/// FINISHERS BY IT — IN THE SHIPPED HOST.**
+///
+/// The fighter brain used to evaluate `base + growth × victim_damage` and argue
+/// the ruleset's factors away; it now reads them off
+/// [`WorldView::launch_law`], which `actors/update.rs` fills from
+/// `ResolvedCombatTuning`. Every layer of that is unit-tested and every layer
+/// would still pass if NOTHING INSTALLED THE RESOURCE: the reader carries
+/// `Option<Res<..>>` for headless minimalism, so "absent" resolves to the
+/// identity law and the brain quietly goes back to ranking kits the old way.
+///
+/// ⛔ That is the failure `resolved_combat_tuning.rs` was written about, one
+/// hop further along: *"The question to ask is never 'is the reader right' but
+/// which plugin installs it"*. So this asks the composed host.
+///
+/// ⚠ **BOTH READINGS DISCRIMINATE AGAINST THAT EXACT FAILURE.** The smash
+/// stage declares `victim_percent_knockback_scale` `1.25` where the engine
+/// default is `1.0`, and George's own facet authors a knockback weight of
+/// `1.35` where an unauthored body is the reference `1.0`. A view built from a
+/// missing resource, or peers collected without their `CombatTuning`, reads
+/// `1.0` for both.
+#[test]
+fn a_seated_fighters_view_carries_the_launch_law_this_stage_declares() {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    // Slot 0 is the keyboard human wearing George; slot 1 is the CPU whose
+    // brain this reads. George is seated because his 1.35 is the weight the
+    // second assertion is about — a stand-in would perceive as the reference
+    // body and the reading could not tell a live `CombatTuning` from a default.
+    pick_and_start(&mut app, ambition_demo_smash::SMASH_GEORGE_BOOUL);
+
+    // The declared law is read off a view, and a view only exists once the
+    // brain has been ticked at least once — so this loops on the PROPERTY
+    // rather than counting frames past the 3-2-1 opening.
+    const OBSERVATION_BUDGET: usize = 900;
+    let mut law: Option<(
+        ambition_platformer2d::characters::perception::LaunchLaw,
+        Vec<f32>,
+    )> = None;
+    for _ in 0..OBSERVATION_BUDGET {
+        app.update();
+        let world = app.world_mut();
+        let mut q = world.query::<&Brain>();
+        law = q.iter(world).find_map(|brain| match brain {
+            Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => {
+                let view = state.perception.perceive()?;
+                Some((
+                    view.launch_law,
+                    view.actors.iter().map(|a| a.knockback_weight).collect(),
+                ))
+            }
+            _ => None,
+        });
+        if law.is_some() {
+            break;
+        }
+    }
+    let (law, perceived_weights) = law.unwrap_or_else(|| {
+        panic!(
+            "no seated fighter brain had observed a world view within \
+             {OBSERVATION_BUDGET} updates. This is the PREMISE failing: \
+             either the CPU seat is not carrying a `Fighter` brain, or its \
+             perception requirement is not `TacticalWorld` and it never \
+             builds a view at all — and neither is a statement about the \
+             launch law"
+        )
+    });
+
+    assert_eq!(
+        law.growth_scale, ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE,
+        "the stage declares a percent curve of {} and the brain is ranking \
+         its finishers under {}. The engine default is 1.0, so this reads as \
+         'nothing in the composed host installs `ResolvedCombatTuning` where \
+         the actor update can see it' — every unit test below still passes",
+        ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE, law.growth_scale,
+    );
+    // ⛔ IDENTITY IS THE TRUTH HERE, NOT A WEAK ASSERTION. The stage declares
+    // `growth_base: None` — it ran `48 / 0.25 / 1.40` once and retired it in
+    // favour of explicitly authored `knockback_growth`. Writing the retired
+    // constants in would make this arm certify a law nothing runs; what it
+    // pins is that an UNDECLARED curve arrives as identity rather than as
+    // whatever a stale projection last held.
+    assert_eq!(
+        law.growth_base,
+        ambition_platformer2d::combat::rules::GrowthBaseCurve::IDENTITY,
+        "this stage declares no growth-base curve, so the brain must spend \
+         the identity one the hit resolver does"
+    );
+    assert_eq!(
+        law.rage, 1.0,
+        "nobody has been hit yet, so the attacker's rage multiplier is 1.0. \
+         A value here at the opening means rage is being read off something \
+         other than this body's own damage meter"
+    );
+
+    assert!(
+        perceived_weights.contains(&1.35),
+        "no perceived actor carries George's authored knockback weight of \
+         1.35: {perceived_weights:?}. The brain divides the percent term by \
+         this, so a view that reports the reference 1.0 for every body ranks \
+         every kit against a fighter nobody is playing"
+    );
+}
+
 #[test]
 fn a_two_participant_roster_actually_seats_two_bodies() {
     use ambition_platformer2d::versus_match::MatchSeat;
@@ -4075,7 +4183,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
             (
                 seat.0,
                 format!(
-                    "  seat {}  moves={:<3} innate={:?}\n           {}",
+                    "seat {} moves={:<3} innate={:?}\n {}",
                     seat.0,
                     moveset.0.moves.len(),
                     kit.map(|kit| (
@@ -4913,7 +5021,8 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
                 .map(|spec| spec.id.clone())
         })
         .expect(
-            "this fighter authors no grab, so pressing Y could not prove anything              about reaching one",
+            "this fighter authors no grab, so pressing Y could not prove \
+             anything about reaching one",
         );
 
     // Non-vacuity 2: Y is where the smash layout puts Grab.
@@ -4942,13 +5051,17 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
         assert_eq!(
             bound,
             vec![PhysicalControl::Button(GamepadButton::North)],
-            "inside a smash match Grab has to be on Y, or the press below is              about some other button"
+            "inside a smash match Grab has to be on Y, or the press below is \
+             about some other button"
         );
     }
 
     let fired = move_started_while_holding(&mut app, pad, body, GamepadButton::North);
     let fired = fired.expect(
-        "pressing Y on the pad started NO move. The fighter authors a grab and          the pad binds Y to Grab, so the break is between them — the seat's          control frame, or the action scheme's Grab slot, which STRIPS          `grab_pressed` when the slot is absent",
+        "pressing Y on the pad started NO move. The fighter authors a grab \
+         and the pad binds Y to Grab, so the break is between them — the \
+         seat's control frame, or the action scheme's Grab slot, which \
+         STRIPS `grab_pressed` when the slot is absent",
     );
     assert_eq!(
         fired, grab_id,
@@ -6283,7 +6396,7 @@ mod ring_out {
         let (centre, lateral_needed) = stage_centre_and_reach();
         let volume = authored_volume(&cell.table.contract(), cell.move_id, cell.volume);
         // ⭐ THE DIVISOR ITSELF, not a number copied out of the catalog.
-        // `CombatTuning::weight` is what `scaled_knockback` divides the percent
+        // `CombatTuning::weight` is what the launch law divides the percent
         // term by, and `prepared.rs` only writes it when a character authors a
         // weight — so a fighter that has never thought about it arrives at the
         // reference `1.0` and this read reports that rather than guessing it.
@@ -6768,7 +6881,7 @@ mod ring_out {
         let outcome = jab_from_stage_centre(&mut app, 0, false);
         // ⛔⛔ **THE FIXTURE'S OWN HONESTY CHECK, AND IT IS NOT A TAUTOLOGY.**
         // George's jab authors `knockback: 50.0` / `knockback_growth: 1.05`
-        // (`george_booul_moveset.rs`), and `scaled_knockback` is
+        // (`george_booul_moveset.rs`), and the launch law is
         // `base + growth × scale × percent / weight` — so at percent 0 the
         // growth term is zero WHATEVER the ruleset scale is, and the engine
         // must resolve exactly the authored base.
@@ -7312,7 +7425,8 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
     }
     let _ = body;
     println!(
-        "[sfx-census] {total_cues} cue(s) over 600 ticks, {ticks_with_move} of them          mid-move; worst single tick = {} copies of one cue",
+        "[sfx-census] {total_cues} cue(s) over 600 ticks, {ticks_with_move} \
+         of them mid-move; worst single tick = {} copies of one cue",
         worst.0.max(1)
     );
 

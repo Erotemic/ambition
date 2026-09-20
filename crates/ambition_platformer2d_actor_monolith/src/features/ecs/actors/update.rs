@@ -261,6 +261,11 @@ pub fn tick_actor_brains(
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
     decision_facts: Res<ActorDecisionFacts>,
+    // ⭐ THE STAGE'S DECLARED COMBAT LAW, so a fighter ranking its finishers
+    // spends the same percent curve the hit resolver does. `None` is the
+    // undeclared world — every Ambition room — and resolves to the identity
+    // law, which is exactly what `LaunchLaw::default()` means.
+    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     mut decisions: ResMut<ActorDecisionFrames>,
     mut actors: Query<
         (
@@ -590,6 +595,19 @@ pub fn tick_actor_brains(
                         aggression,
                         motion_model,
                         capture,
+                        // ⚠ RAGE IS THIS BODY'S OWN, so it is resolved per
+                        // body rather than once for the stage: the same
+                        // derivation the hit resolver uses
+                        // (`rules.rage_scale(attacker damage)`), read off the
+                        // meter this fighter is carrying now.
+                        combat_rules.as_deref().map_or_else(
+                            ambition_characters::perception::LaunchLaw::default,
+                            |rules| ambition_characters::perception::LaunchLaw {
+                                growth_scale: rules.victim_percent_knockback_scale,
+                                growth_base: rules.growth_base,
+                                rage: rules.rage_scale(body.health.damage_taken()),
+                            },
+                        ),
                     );
                     // ⭐⭐ ONLY `TacticalWorld` BUILDS A VIEW NOW. `TargetBelief`
                     // — seven of the nine templates — takes the cheap road

@@ -34,6 +34,7 @@ pub mod authoring;
 
 /// The move family's artifact section: its kind, its own version, and the codec
 /// that turns a move table into a payload the content envelope can carry.
+pub mod launch;
 pub mod move_section;
 
 /// The platform-fighter authoring vocabulary — captures, repertoires, counters,
@@ -3483,20 +3484,22 @@ const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 
 /// What a move launches for, as a function of the victim's accumulated damage.
 ///
-/// ⛔⛤ **THE LAUNCH LAW IS A LINE, SO A SINGLE NUMBER CANNOT CARRY IT.**
-/// [`ambition_combat`]'s `scaled_knockback` is `base + growth * damage *
-/// growth_scale / weight`. A summary that keeps only `base` ranks a
+/// ⛔⛤ **THE LAUNCH LAW IS A LINE, SO A SINGLE NUMBER CANNOT CARRY IT.** It is
+/// [`launch::launch_speed`], and this holds the two `(base, growth)` pairs it
+/// is evaluated at. A summary that keeps only `base` ranks a
 /// high-base/low-growth move above a low-base/high-growth one at every damage,
 /// which is backwards everywhere past the crossover — the Pugnacious Polygon's
 /// forward smash `(162, 3.25)` and up smash `(158, 5.83)` cross at about 2
 /// damage.
 ///
-/// ⚠ **WHAT IS DELIBERATELY NOT IN HERE:** `growth_scale`, the victim's weight
-/// and rage. Each is a factor that is COMMON to every candidate one attacker
-/// weighs against one opponent, so none of them can reorder a kit — and a
-/// catalog derivation has no ruleset to read them from. `GrowthBaseCurve` is
-/// the one per-`base` factor, and it is `IDENTITY` in every undeclared world,
-/// which is every Ambition room; only the smash demo declares one.
+/// ⛔⛤ **AND THE REST OF THE LAW USED TO BE ARGUED AWAY HERE.** This doc said
+/// `growth_scale`, the victim's weight and rage were *"COMMON to every
+/// candidate one attacker weighs against one opponent, so none of them can
+/// reorder a kit"*. They multiply the PERCENT TERM and not `base`, so they
+/// move the CROSSOVER rather than scaling both lines alike — reviewed
+/// 2026-09-20, with George Booul's two smashes as the counterexample. They are
+/// now arguments: [`Self::at`] takes a [`launch::LaunchConditions`], and the
+/// fighter brain fills it from the view the stage handed it.
 ///
 /// ⚠ **AND `knockback_growth: None` READS AS A SET LAUNCH HERE**, because that
 /// is what an undeclared world gives it: the ruleset fallback is `base *
@@ -3539,16 +3542,23 @@ impl LaunchEnvelope {
         }
     }
 
-    /// The launch speed against an opponent carrying `damage_taken`.
-    pub fn at(self, damage_taken: i32) -> f32 {
-        let damage = damage_taken.max(0) as f32;
-        (self.flat.0 + self.flat.1 * damage).max(self.steep.0 + self.steep.1 * damage)
+    /// The launch speed this move produces under `conditions` — the upper hull
+    /// of its two lines, each evaluated by [`launch::launch_speed`].
+    ///
+    /// ⛔⛤ **IT TOOK ONLY THE VICTIM'S DAMAGE AND RE-IMPLEMENTED THE LINE, AND
+    /// THAT IS WHY IT RANKED KITS WRONG — see the module doc on
+    /// [`launch`].** The omitted factors multiply the PERCENT TERM and not
+    /// `base`, so they move the crossover between two candidates instead of
+    /// scaling both alike.
+    pub fn at(self, conditions: launch::LaunchConditions) -> f32 {
+        launch::launch_speed(self.flat.0, self.flat.1, conditions)
+            .max(launch::launch_speed(self.steep.0, self.steep.1, conditions))
     }
 
     /// Does this move's launch get better as the opponent takes damage?
     ///
     /// The question a set launch answers `false` — a windbox is the same
-    /// distance at 0% and at 200%, and `util::rage_for_growth` declines rage
+    /// distance at 0% and at 200%, and [`launch::launch_speed`] declines rage
     /// for exactly that authoring.
     pub fn grows(self) -> bool {
         self.flat.1 > 0.0 || self.steep.1 > 0.0

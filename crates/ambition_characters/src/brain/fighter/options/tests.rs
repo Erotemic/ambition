@@ -2258,6 +2258,76 @@ fn a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers() {
     );
 }
 
+/// ⛔⛤ **THE BRAIN RANKED ITS FINISHERS UNDER A LAUNCH LAW THE GAME DOES NOT
+/// USE, AND THE DOC SAID SO WHILE ARGUING IT DID NOT MATTER.**
+///
+/// `LaunchEnvelope::at` evaluated `base + growth × victim_damage` and its own
+/// comment held that the ruleset's percent scale, the per-`base` steepening,
+/// the victim's weight and rage are *"COMMON to every candidate one attacker
+/// weighs against one opponent, so none of them can reorder a kit"*. Every one
+/// of them multiplies the PERCENT TERM and not `base`, so they move the
+/// CROSSOVER between two candidates — see `ambition_entity_catalog::launch`,
+/// which now owns the one copy of the law and carries the arithmetic.
+///
+/// ⭐ THE SUBJECT IS THE PAIR THE REVIEW NAMED: George Booul's forward smash
+/// `(185, 3.45)` against his up smash `(178, 6.28)`, at TWO points of victim
+/// damage — a crossover the identity law puts on the other side.
+///
+/// ⚠ **THE TWO CANDIDATES ARE IDENTICAL IN EVERY OTHER RESPECT**, so the flip
+/// below cannot come from reach, startup or payoff. And the first arm is the
+/// CONTROL: under the identity law the old answer is the RIGHT one, which is
+/// what makes this a statement about the conditions rather than about two
+/// numbers that happen to be close.
+#[test]
+fn a_finisher_is_ranked_under_the_launch_law_the_stage_actually_declares() {
+    let w = UtilityWeights::v1();
+    let kit = [
+        candidate_with_growth("forward_smash", 0.2, 60.0, 185.0, 3.45),
+        candidate_with_growth("up_smash", 0.2, 60.0, 178.0, 6.28),
+    ];
+    let best_under = |law: crate::perception::LaunchLaw, weight: f32| -> String {
+        let mut view = view_with(300.0, 340.0);
+        view.actors[0].damage_taken = 2;
+        view.actors[0].knockback_weight = weight;
+        view.launch_law = law;
+        generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &w)
+            .best_attack()
+            .map(|a| a.move_id.clone())
+            .expect("both candidates reach a foe 40px away")
+    };
+
+    assert_eq!(
+        best_under(Default::default(), 1.0),
+        "forward_smash",
+        "under the identity law against a reference body the forward smash \
+         still wins at two damage — without that the flip below is not about \
+         the conditions"
+    );
+
+    // The smash stage's own declared law, by value: scale `1.25` against a
+    // fighter whose authored knockback weight is `0.85`. Cited rather than
+    // imported — this crate is below the demo.
+    //
+    // ⛔ AND THE GROWTH-BASE CURVE IS `IDENTITY` BECAUSE THE STAGE DECLARES
+    // `growth_base: None`. It once declared `48 / 0.25 / 1.40`; that law was
+    // retired in favour of explicitly authored `knockback_growth`, and writing
+    // the retired constants in here would make this arm certify a model the
+    // stage no longer runs. The flip does not need them: two factors the old
+    // envelope omitted are enough on their own.
+    let declared = crate::perception::LaunchLaw {
+        growth_scale: 1.25,
+        growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+        rage: 1.0,
+    };
+    assert_eq!(
+        best_under(declared, 0.85),
+        "up_smash",
+        "at the SAME victim damage, on the stage this fighter is standing on \
+         and against the body it is actually hitting, the up smash has already \
+         overtaken — and the brain picked the other one"
+    );
+}
+
 /// ⛔⛤ **STAGE RISK USED TO BE THE SAME NUMBER FOR EVERY CANDIDATE, SO IT
 /// COULD NOT COST ONE MOVE MORE THAN ANOTHER.**
 ///

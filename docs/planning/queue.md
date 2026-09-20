@@ -1898,13 +1898,18 @@ set-knockback volume lands in that bout, so the change is free where it was
 measured and correct where it is not.
 
 **Landed, and its cost was evaluated rather than escalated.**
-`crate::util::rage_for_growth` is shared so the throw road calls it;
+`crate::util::rage_for_growth` was shared so the throw road could call it;
 the throw side is four lines (`captors` gains `Option<&BodyHealth>`,
 `apply_capture_throws` keeps the whole `ResolvedCombatTuning` instead of
-projecting one field out of it, and the resolved magnitude takes
-`rage_for_growth(rules.rage_scale(captor_damage), request.knockback_growth)`).
-It is covered by `a_hurt_captor_throws_farther_and_a_set_throw_is_immune`, whose
-two arms were poisoned separately and reddened through their own assertions.
+projecting one field out of it, and the resolved magnitude takes the captor's
+resolved rage). It is covered by
+`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`, whose two arms were
+poisoned separately and reddened through their own assertions.
+⇒ **UPDATED 2026-09-20:** `rage_for_growth` no longer exists as a function. The
+set-launch-declines-rage rule is a branch INSIDE
+`ambition_entity_catalog::launch::launch_speed`, which both roads now call —
+see the launch-law block on the [BRAIN](#brain--finish-truthful-fighter-attack-selection)
+row. The rule is unchanged; it has one owner instead of two callers.
 
 ⛔⛤ **AND IT HALVES THE SHIPPED CPU DUEL, WHICH REPRODUCES 2026-09-16 EXACTLY.**
 Re-measured 2026-09-19 against today's tree, `AMBITION_DUEL_RUNG` over all five
@@ -3014,6 +3019,102 @@ under-lead (zero flight time) is an improvement and not the answer: the truthful
 number is `throw + gap / hazard speed`, and the hazard's SPEED is exactly what
 `MoveFrameData` does not carry — `hazard_reach_of` folds it into a distance and
 throws it away. Which is the next slice, below.
+
+✅ **THE BRAIN AND THE HIT RESOLVER NOW SPEND ONE LAUNCH LAW — 2026-09-20,
+review finding #2.** There were two copies. `ambition_combat` resolved a hit as
+`base + growth × growth_base(base) × growth_scale × victim_damage / weight`,
+all folded with rage; `LaunchEnvelope::at`, which is what ranks a fighter's
+finishers, evaluated `base + growth × victim_damage` and its own doc argued the
+rest away — the omitted factors are *"COMMON to every candidate one attacker
+weighs against one opponent, so none of them can reorder a kit"*.
+
+⛔ **THE ARGUMENT IS WRONG AND IT IS WRONG WHERE IT MATTERS.** Every omitted
+factor multiplies the PERCENT TERM and not `base`, so it moves the CROSSOVER
+between two candidates rather than scaling both lines alike:
+
+```text
+d* = (b₂ − b₁) · weight / (growth_scale · growth_base · (g₁ − g₂))
+```
+
+George Booul's forward smash is `(185, 3.45)` and his up smash `(178, 6.28)`.
+At **two** points of victim damage the brain preferred forward (191.90 against
+190.56); on the smash stage against a Robot v2 the same two moves resolve to
+195.15 against 196.47 — up smash has already overtaken. TWO factors do it:
+the stage's declared percent scale `1.25` and the victim's authored weight
+`0.85`. No curve is needed, which matters because the stage no longer declares
+one (below).
+
+⇒ **ONE OWNER: `ambition_entity_catalog::launch`.** `launch_speed(base,
+growth, LaunchConditions)` is the only copy — set knockback short-circuits to
+`base` and declines rage, and `GrowthBaseCurve` moved here with it.
+`ambition_combat::util::scaled_knockback` and `rage_for_growth` are DELETED;
+`ambition_combat` still resolves every input (`ResolvedCombatTuning`) and no
+longer owns the arithmetic they are spent on, which is what lets the fighter
+brain — which cannot see `ambition_combat` — spend the same law the hit
+resolver does. The hitbox road, the throw road and `LaunchEnvelope::at` all
+call it.
+
+⭐ **AND THE STAGE'S LAW REACHES THE BRAIN THROUGH THE VIEW, WHICH IS WHERE
+PRIVILEGE WOULD HAVE BEEN EASY.** `WorldView::launch_law` carries
+`growth_scale`, `growth_base` and this body's own `rage`;
+`PerceivedActor::knockback_weight` carries the foe's. A ruleset's percent curve
+is a property of the stage a fighter is standing on and a body knows how hurt
+it is — the no-cheat rule is about the OPPONENT's hidden state, and this is
+neither hidden nor the opponent's. One factor is deliberately absent and named
+rather than argued away: per-move STALING, which the runtime folds into
+`growth_scale` and a brain with no usage history cannot. That one genuinely can
+reorder a kit; it is the whiff/usage-memory slice below.
+
+⛔⛤ **THE PLUMBING IS WITNESSED IN THE COMPOSED HOST, BECAUSE EVERY LAYER OF IT
+WOULD PASS WITH NOTHING INSTALLING THE RESOURCE.** Each combat reader carries
+`Option<Res<ResolvedCombatTuning>>` for headless minimalism, so "absent"
+resolves to the identity law and the brain silently returns to the old ranking.
+`smash_in_the_host::a_seated_fighters_view_carries_the_launch_law_this_stage_declares`
+boots the shipped host, seats George against a CPU, and reads the CPU's own
+delayed view: `growth_scale == 1.25` against an engine default of `1.0`, and a
+perceived `knockback_weight` of `1.35` against an unauthored body's `1.0`. Both
+poisoned separately and both reddened through their own assertion.
+
+⚠ **AND THE STAGE DECLARES NO GROWTH-BASE CURVE, WHICH TWO NEW TESTS HAD TO BE
+CORRECTED FOR BEFORE THEY LANDED.** `ambition_demo_smash` ran
+`GrowthBaseCurve { pivot: 48, exponent: 0.25, ceiling: 1.40 }` and RETIRED it
+(`growth_base: None`, with its reasons beside it: base knockback is not a
+move's role, an authored `knockback_growth` stopped meaning what it says, and
+it never reached throws at all). Both arms had been written citing the retired
+constants as *"the law the stage declares"* — a test certifying a model nothing
+runs, which is the same failure the shark arm was reverted for the day before.
+`SMASH_GROWTH_BASE_{PIVOT,EXPONENT,CEILING}` are still in the demo and are now
+documentation of a retired law.
+
+⭐⭐ **JUDGED ON THE GAME: 6775% → 7059% (+4.2%), THREE OF TWENTY-ONE ROWS
+MOVED AND ALL THREE MOVED UP.** Same instrument as the batch above — 21 mirror
+matches of 3600 ticks — against the sweep taken at `570f81c0c`.
+
+| fighter | before | after | moves | distinct | most thrown |
+|---|---|---|---|---|---|
+| `npc_bob` | 234% / 247% | 270% / 281% | 103 → 107 | 16 → 18 | `piston_charge` ×19 → ×20 |
+| `npc_oiler` | 189% / 232% | 224% / 263% | 103 → 108 | 17 → 17 | `slick_dash` ×16 → ×17 |
+| `npc_carl_stargan` | 102% / 94% | 161% / 183% | **24 → 62** | **10 → 18** | `planetary_orbit` ×7 → ×15 |
+| the other 18 | — | — | — | — | bit-identical |
+
+⚠ **THE SHAPE IS THE SAME IN ALL THREE AND IT IS THE SHAPE THIS CHANGE
+PREDICTS:** more of the kit used, more presses, more hitstun. `kill_potential`
+divides by `kit_max_launch`, so a percent scale common to the whole kit
+CANCELS; what moves is the ORDER, and a fighter whose second-best finisher was
+being offered first now has a different move at the top of its menu. Carl is
+the loud one — 24 move starts to 62 on 10 distinct to 18 — and he is the row
+most exposed to it, a kit of big-base pulses whose crossovers all sit low.
+⛔ No row fell, which is the reading that would have sent this back.
+
+⚠ **ONE DIVERGENCE IS STATED RATHER THAN HIDDEN, AND IT IS LATENT.** The throw
+road passes `GrowthBaseCurve::IDENTITY`: it never applied the curve, and before
+the shared law the omission looked like an absence of code rather than a
+decision. A declared curve would steepen a big-`base` VOLUME and leave a
+big-`base` THROW alone. Nothing declares one today, so every world resolves it
+to identity anyway and the constant keeps today's numbers to the byte — what it
+costs is a trap for whoever declares the next curve, which is why the question
+now sits in the signature.
+
 
 ⛔⬤ **THE NAMED NEXT SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE
 BRAIN IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE

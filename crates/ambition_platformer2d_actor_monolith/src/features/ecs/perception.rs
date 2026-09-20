@@ -91,6 +91,9 @@ impl Default for Perception {
 /// player-robot body exactly as for an enemy (guardrail #1) — this struct names
 /// no character type.
 pub struct PerceptionBody {
+    /// What the stage's ruleset and this body's own rage do to any launch it
+    /// throws. See [`ambition_characters::perception::LaunchLaw`].
+    pub launch_law: ambition_characters::perception::LaunchLaw,
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
@@ -200,6 +203,10 @@ pub struct PerceptionPeer {
     /// The smash-percent axis (CM1) and its denominator — kill potential.
     pub damage_taken: i32,
     pub health_max: i32,
+    /// Knockback weight (CM1), so a fighter ranking its finishers divides the
+    /// percent term by the same number the hit resolver does. See
+    /// [`ambition_characters::perception::PerceivedActor::knockback_weight`].
+    pub knockback_weight: f32,
 }
 
 /// A live projectile the viewer may perceive. `faction` + `team` are the frozen
@@ -310,11 +317,27 @@ pub fn collect_perception_peers(
         // The published motion facts, for the two a watcher can see: tumbling,
         // and hanging on a ledge.
         Option<&ae::BodyMotionFacts>,
+        // ⭐ HOW HEAVY THIS BODY IS. `None` is the reference body, which is the
+        // same answer `knockback_growth_inputs` gives a body with no tuning.
+        Option<&ambition_combat::components::CombatTuning>,
     )>,
 ) {
     peers.0.clear();
-    for (entity, id, sim_id, kin, health, faction, ground, shield, combat, melee, team, facts) in
-        &bodies
+    for (
+        entity,
+        id,
+        sim_id,
+        kin,
+        health,
+        faction,
+        ground,
+        shield,
+        combat,
+        melee,
+        team,
+        facts,
+        tuning,
+    ) in &bodies
     {
         // ⛔⛤ **THE MECHANICAL ROAD HAS NO FALLBACK FROM CANONICAL IDENTITY TO
         // `Entity`, AND FOR A DAY IT HAD ONE.** This was
@@ -378,6 +401,7 @@ pub fn collect_perception_peers(
         };
         let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
+            knockback_weight: tuning.map_or(1.0, |t| t.weight),
             entity,
             id: stable_id,
             pos: kin.pos,
@@ -841,6 +865,7 @@ pub fn build_world_view(
             ledge_hanging: p.ledge_hanging,
             damage_taken: p.damage_taken,
             health_max: p.health_max,
+            knockback_weight: p.knockback_weight,
         })
         .collect();
 
@@ -897,6 +922,7 @@ pub fn build_world_view(
         portals,
         sim_time,
         remainder,
+        launch_law: body.launch_law,
     }
 }
 
@@ -1007,6 +1033,12 @@ pub(crate) fn perception_body_for(
     // authorities the caller already holds, and a lookup here would be a second
     // reader of a relationship the combat layer owns.
     capture: ambition_combat::capture::systems::CaptureFacts,
+    // ⭐⭐ THE STAGE'S LAUNCH LAW, RESOLVED BY THE CALLER FOR THIS BODY —
+    // passed for the same reason `capture` is: the ruleset is an authority the
+    // caller already holds, and a second reader here would be a second copy of
+    // "what does this stage do to a launch". See
+    // [`ambition_characters::perception::LaunchLaw`].
+    launch_law: ambition_characters::perception::LaunchLaw,
 ) -> PerceptionBody {
     // the fallback below reads a PRESENT non-axis model (a crawler has no
     // air-dodge window, so "no window open, no endlag" is the honest answer for
@@ -1024,6 +1056,7 @@ pub(crate) fn perception_body_for(
         axis_motion.params,
     );
     PerceptionBody {
+        launch_law,
         // The identity `build_world_view` uses to skip this body's own row.
         // Taken from the body's OWN peer row rather than passed separately: it
         // is the same entity `peers_seen_by` compared against, and a body with

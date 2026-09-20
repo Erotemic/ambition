@@ -60,8 +60,11 @@ use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 // (E2): they are the shared victim-gate predicates every damage EMITTER
 // reads — combat vocabulary, not victim-side application code.
 
-// `scaled_knockback` moved to `ambition_combat::util` (E2): the CM1
-// knockback-scaling LAW is combat model vocabulary.
+// The CM1 knockback-scaling LAW left this crate at E2 for `ambition_combat`,
+// and left THAT crate on 2026-09-20 for
+// `ambition_entity_catalog::launch::launch_speed` — so the fighter brain,
+// which cannot see `ambition_combat`, spends the same law the hit resolver
+// does instead of a second simpler copy.
 
 // Re-exported here because this is where its consumers learned to name it.
 

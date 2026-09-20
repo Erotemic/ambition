@@ -276,6 +276,19 @@ pub struct PerceivedActor {
     pub damage_taken: i32,
     /// This body's max health, so `damage_taken` normalizes. `0` = unknown.
     pub health_max: i32,
+    /// Knockback weight (CM1): heavier bodies launch less under the same growth
+    /// term. `1.0` is the reference body.
+    ///
+    /// ⚠ **NOT PRIVILEGED STATE.** A fighter can see who they are fighting, and
+    /// how heavy a body is is exactly what it looks like. It rides here because
+    /// the launch law divides the percent term by it — see [`LaunchLaw`] — and
+    /// a brain that omitted it ranked its own finishers in the wrong order
+    /// against anybody who is not the reference body.
+    ///
+    /// ⚠ `0.0` from a fixture that says nothing reads as the reference body:
+    /// `launch_speed` treats a non-positive weight as `1.0`, which is the same
+    /// answer the hit resolver gives a body carrying no `CombatTuning`.
+    pub knockback_weight: f32,
 }
 
 impl PerceivedActor {
@@ -555,6 +568,73 @@ pub struct WorldView {
     /// Zero everywhere while the cap does not bind, which is every shipped
     /// room today.
     pub remainder: AttentionRemainder,
+    /// What the STAGE'S RULESET and this body's own rage contribute to any
+    /// launch it throws. See [`LaunchLaw`].
+    pub launch_law: LaunchLaw,
+}
+
+/// The half of the launch law that is a fact about the STAGE and the ATTACKER,
+/// so a brain ranking its kit against one opponent reads it once.
+///
+/// ⛔⛤ **THE BRAIN USED TO EVALUATE `base + growth × victim_damage` AND ARGUE
+/// THE REST AWAY.** [`ambition_entity_catalog::LaunchEnvelope`]'s own doc said
+/// the omitted factors are *"COMMON to every candidate one attacker weighs
+/// against one opponent, so none of them can reorder a kit"*. They multiply the
+/// PERCENT TERM and not `base`, so they move the CROSSOVER between two
+/// candidates — see [`ambition_entity_catalog::launch`] for the arithmetic and
+/// for the George Booul pair that crosses the wrong way without them.
+///
+/// ⚠ **THIS IS NOT PRIVILEGED STATE.** A ruleset's percent curve is a property
+/// of the stage the fighter is standing on, and a body knows how hurt it is;
+/// the no-cheat rule is about the OPPONENT's hidden state, and this is neither
+/// hidden nor the opponent's.
+///
+/// ⚠ **AND ONE FACTOR IS DELIBERATELY ABSENT: PER-MOVE STALING.** The runtime
+/// folds a move's own staleness into `growth_scale`, and a brain with no
+/// move-usage history cannot. That one genuinely CAN reorder a kit, so it is
+/// named here rather than argued away — it is the whiff/usage memory slice on
+/// the BRAIN row, and until then a repeated finisher is priced a little high.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LaunchLaw {
+    /// The ruleset's scale on the percent term. `1.0` is the law as first
+    /// written, and the smash stage declares more than that.
+    pub growth_scale: f32,
+    /// The ruleset's per-`base` steepening.
+    pub growth_base: ambition_entity_catalog::launch::GrowthBaseCurve,
+    /// This body's own rage multiplier, already resolved. `1.0` in a game that
+    /// declares no rage.
+    pub rage: f32,
+}
+
+impl Default for LaunchLaw {
+    /// The undeclared world: no percent scale, identity curve, no rage — which
+    /// is every Ambition room, and what a fixture that says nothing means.
+    fn default() -> Self {
+        Self {
+            growth_scale: 1.0,
+            growth_base: ambition_entity_catalog::launch::GrowthBaseCurve::IDENTITY,
+            rage: 1.0,
+        }
+    }
+}
+
+impl LaunchLaw {
+    /// The full conditions for a launch thrown at `victim`.
+    ///
+    /// ⭐ The one seam where the stage's half and the victim's half meet, so a
+    /// scorer cannot assemble them two ways.
+    pub fn against(
+        self,
+        victim: &PerceivedActor,
+    ) -> ambition_entity_catalog::launch::LaunchConditions {
+        ambition_entity_catalog::launch::LaunchConditions {
+            victim_damage: victim.damage_taken,
+            victim_weight: victim.knockback_weight,
+            growth_scale: self.growth_scale,
+            growth_base: self.growth_base,
+            rage: self.rage,
+        }
+    }
 }
 
 impl WorldView {

@@ -54,7 +54,8 @@ pub struct SmashFighterFacet {
     /// facet authored before this field existed.
     #[serde(default)]
     pub body: Option<FighterBodyAuthoring>,
-    /// How hard this fighter is to LAUNCH — the divisor in `scaled_knockback`.
+    /// How hard this fighter is to LAUNCH — the divisor in the launch law
+    /// (`ambition_entity_catalog::launch::launch_speed`).
     ///
     /// ⭐ A CHARACTER OWNS ITS OWN WEIGHT. This lived in the Smash demo as a
     /// `match definition.id` table until 2026-08-31: a game-owned map from
@@ -298,7 +299,7 @@ impl SmashFighterFacet {
             body.problems(&mut out);
         }
         // ⛔ POSITIVE, not merely finite, for the same reason the body's
-        // magnitudes are: `scaled_knockback` DIVIDES by this. Zero is a division
+        // magnitudes are: the launch law DIVIDES by this. Zero is a division
         // by zero and a negative weight launches a fighter toward the attacker.
         if let Some(weight) = self.knockback_weight {
             if !weight.is_finite() || weight <= 0.0 {

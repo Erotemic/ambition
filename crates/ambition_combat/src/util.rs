@@ -385,64 +385,14 @@ pub fn emit_hit_feedback(
     }
 }
 
-/// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
-/// hit's base knockback. A body that has accumulated more damage launches
-/// farther under the same hit, scaled down by its weight. Pure and
-/// frame-agnostic so it is unit-tested directly and reused by every hit path.
-///
-/// `base` is the volume's flat knockback; `growth` is the authored `knockback_growth`;
-/// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
-/// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
-/// exactly, so every un-authored volume is byte-identical to today.
-///
-/// `growth_scale` is a dimensionless multiplier on the PERCENT TERM ALONE —
-/// the ruleset's [`crate::rules::ResolvedCombatTuning::victim_percent_knockback_scale`] folded
-/// with its staling influence. `1.0` is the law as first written.
-/// The rage factor a launch with this `growth` actually takes.
-///
-/// ⛔⛤ SET KNOCKBACK DOES NOT RAGE, AND THAT IS THE WHOLE POINT OF AUTHORING IT.
-/// A volume or throw written with zero growth launches the same at 0% and at
-/// 150% BY CONSTRUCTION — it is the genre's combo starter and its kill set-up —
-/// and rage is a percent-derived multiplier, so folding it over a set launch
-/// reintroduces exactly the percent dependence the author wrote `0.0` to
-/// remove. Ultimate excludes set knockback from rage for the same reason.
-/// Everything that DOES scale with percent — an ordinary swing and an ordinary
-/// throw alike — takes the factor whole.
-pub fn rage_for_growth(rage: f32, growth: f32) -> f32 {
-    if growth == 0.0 { 1.0 } else { rage }
-}
-
-pub fn scaled_knockback(
-    base: f32,
-    growth: f32,
-    victim_damage_taken: i32,
-    victim_weight: f32,
-    growth_scale: f32,
-) -> f32 {
-    if growth == 0.0 {
-        return base;
-    }
-    let weight = if victim_weight > 0.0 {
-        victim_weight
-    } else {
-        1.0
-    };
-    // ⭐⭐ THE SCALE RIDES THE PERCENT TERM AND NOTHING ELSE, which is the whole
-    // shape of this law. `base` is what a move is worth against a FRESH
-    // opponent, and a ruleset asking for a steeper percent curve is not asking
-    // for a stronger jab — it is asking for the DIFFERENCE between a fresh
-    // opponent and a worn one to be larger. Folding the scale over the sum
-    // instead would inflate every launch in the game by the same factor and
-    // make a 0% poke lethal, which is precisely what a percent mechanic exists
-    // not to do.
-    //
-    // ⛔ AND 0% STILL CONTRIBUTES EXACTLY ZERO, AT EVERY SCALE: the
-    // `victim_damage_taken` factor zeroes the term before the scale can touch
-    // it, so no value of `growth_scale` can move a 0% hit. That is what keeps
-    // this a percent term rather than a knockback buff, and it is asserted
-    // rather than merely described.
-    base + growth * growth_scale.max(0.0) * victim_damage_taken.max(0) as f32 / weight
-}
+// ⭐⭐ **THE KNOCKBACK-SCALING LAW USED TO LIVE HERE AND IT LIVES IN THE
+// CATALOG NOW.** `scaled_knockback` and `rage_for_growth` were this crate's,
+// and the fighter brain — which cannot see this crate — kept a second, simpler
+// copy that ranked its own finishers wrong. Both are gone;
+// `ambition_entity_catalog::launch::launch_speed` is the one line, with the
+// set-knockback short-circuit and the rage rule folded into it. This crate
+// still RESOLVES every input (see `crate::rules::ResolvedCombatTuning`); it no
+// longer owns the arithmetic they are spent on.
 
 #[cfg(test)]
 mod hit_feedback_tests {

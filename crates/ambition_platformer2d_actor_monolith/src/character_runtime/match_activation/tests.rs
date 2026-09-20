@@ -3049,10 +3049,11 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     );
 }
 
-/// A character authors how hard it is to LAUNCH —, and the second half of the knockback
-/// loop.
+/// A character authors how hard it is to LAUNCH — the second half of the
+/// knockback loop.
 ///
-/// `CombatTuning::weight` divides the growth term (`scaled_knockback`), so it is
+/// `CombatTuning::weight` divides the growth term (the launch law,
+/// `ambition_entity_catalog::launch::launch_speed`), so it is
 /// what makes a heavy fighter resist a launch a light one cannot. It could be
 /// stated only on a roster ARCHETYPE until now, which meant two characters
 /// seated from one archetype weighed the same and could not differ — in a

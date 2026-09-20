@@ -525,15 +525,23 @@ pub fn generate_options(
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate lands a volume, which zeroes every payoff below.
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
-    // ⛔⛤ **AGAINST THIS OPPONENT, NOT AGAINST A FRESH ONE.** The launch law is
-    // `base + growth * damage`, so which of my moves finishes hardest is a
+    // ⭐⭐ **THE LAUNCH LAW THIS BODY IS ACTUALLY FIGHTING UNDER, ASSEMBLED
+    // ONCE.** It used to be `base + growth × victim_damage` and nothing else,
+    // on the reasoning that the ruleset's percent scale, the per-`base`
+    // steepening, the victim's weight and rage are common to every candidate.
+    // They multiply the PERCENT TERM and not `base`, so they move the CROSSOVER
+    // between two candidates rather than scaling both — see
+    // `ambition_entity_catalog::launch`, which is the one copy of the law now.
+    let launch_conditions = view.launch_law.against(foe);
+    // ⛔⛤ **AGAINST THIS OPPONENT, NOT AGAINST A FRESH ONE.** The percent term
+    // rides the victim's meter, so which of my moves finishes hardest is a
     // question whose ANSWER MOVES as the opponent wears down — the Pugnacious
     // Polygon's forward and up smashes swap places at about 2 damage. Evaluating
-    // the kit at the foe's own meter is the only way the share below ranks the
-    // same order the game's own arithmetic would.
+    // the kit under the conditions above is the only way the share below ranks
+    // the same order the game's own arithmetic would.
     let kit_max_launch = kit
         .iter()
-        .map(|c| c.frames.launch.at(foe.damage_taken))
+        .map(|c| c.frames.launch.at(launch_conditions))
         .fold(0.0_f32, f32::max);
     // ⭐ THE KIT'S SLOWEST STARTUP, which is what `frame_advantage` must be
     // normalised by for the RANKING. See the two call sites below: they ask
@@ -683,7 +691,7 @@ pub fn generate_options(
                 // product.
                 kill_potential: foe.damage_frac()
                     * if kit_max_launch > 0.0 {
-                        c.frames.launch.at(foe.damage_taken) / kit_max_launch
+                        c.frames.launch.at(launch_conditions) / kit_max_launch
                     } else {
                         0.0
                     }

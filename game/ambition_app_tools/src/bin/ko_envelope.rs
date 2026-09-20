@@ -198,7 +198,7 @@ impl Launcher {
     }
 
     /// Fixed knockback: the launch ignores the victim's percent AND weight,
-    /// because `scaled_knockback` short-circuits a zero growth and returns
+    /// because the launch law short-circuits a zero growth and returns
     /// `base` untouched.
     fn is_fixed(&self) -> bool {
         self.authored_growth() == Some(0.0)
@@ -1699,7 +1699,7 @@ impl KoProbe {
             }
             // ⭐ OBSERVE THE THROW'S LAUNCH, DO NOT RECOMPUTE IT.
             //
-            // ⛔ The tempting alternative is to evaluate `scaled_knockback` on the
+            // ⛔ The tempting alternative is to evaluate the launch law on the
             // authored `CaptureThrowParams` and report that. It would be a
             // FABRICATION dressed as a measurement: the probe would print the
             // formula's own prediction and agree with itself no matter what the
@@ -2993,7 +2993,7 @@ fn run_probe() {
                 // ⭐ THE TUMBLE CROSSING IS SOLVED, NOT SWEPT — and the solve
                 // CHECKS ITS OWN PREMISE instead of assuming it.
                 //
-                // `scaled_knockback` is linear in victim percent, so three
+                // The launch law is linear in victim percent, so three
                 // samples answer what a 13-trial sweep answered: two fix the
                 // line, the third must land on it. Measured against the slow
                 // path's own jab row (base 55.0, growth 1.10): l(0)=55.0,

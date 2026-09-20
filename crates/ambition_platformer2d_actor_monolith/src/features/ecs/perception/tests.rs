@@ -2,6 +2,7 @@ use super::*;
 
 fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
     PerceptionBody {
+        launch_law: Default::default(),
         // A fixture hands in a peer list it built itself, with no row for the
         // viewer; there is nobody to exclude.
         viewer: None,
@@ -38,6 +39,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
 
 fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
     PerceptionPeer {
+        knockback_weight: 1.0,
         team: None,
         entity: bevy::prelude::Entity::PLACEHOLDER,
         id: id.to_string(),

@@ -135,9 +135,22 @@ tool discovery alike.
   on WHAT is in the log, never on the order of two entries from different
   systems.
 
-  ⚠ Still open beyond this: the same treatment for COMMANDS
-  (`CommandOutcome` has no equivalent ring), and a way to read the log out of a
-  running process rather than out of a test.
+  ✔ **AND THE VERBS JOINED THE QUESTIONS IN ONE RING, 2026-09-20.**
+  `AuthoredVerdictLog` holds `AuthoredVerdict::{Asked, Ran}` and
+  `CommandCatalog::run` records at its own one door, with `latest_run(id)` and
+  `refusal_of(id)` beside `latest_for` and `why_not_for`. One stream rather
+  than two, because *"the door did not open when I pressed it"* has two shapes
+  needing different repairs — a condition answered no and the verb never ran,
+  or the condition passed and the verb refused for a reason of its own — and
+  the join between them IS the diagnosis.
+
+  ⚠ The command half's ORDER is trustworthy where the condition half's is
+  not: commands run through one dispatcher holding `&mut World`, so they
+  serialise. A test may rely on the order of two entries it issued itself from
+  one thread, and on nothing else.
+
+  ⚠ Still open beyond this: a way to read the log out of a RUNNING process
+  rather than out of a test.
 
 ## Candidate crate / Bevy ecosystem value
 

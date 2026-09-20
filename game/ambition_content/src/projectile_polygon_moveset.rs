@@ -803,10 +803,10 @@ mod tests {
         // is"*. The fuse is four seconds, and a brain pricing the drop as an
         // immediate blast was pricing a trap as a strike.
         assert_eq!(
-            hazard.live_at_s(),
+            hazard.detonates_by_s(),
             4.0,
-            "her bomb's blast was live before its fuse: {}s",
-            hazard.live_at_s()
+            "her bomb's fuse is not the four seconds it authors: {}s",
+            hazard.detonates_by_s()
         );
         // ⚠ AND ITS TRAVEL IS ZERO, WHICH IS THE OTHER HALF OF THE SPLIT: it is
         // placed where it is placed, so there is nothing to aim. Merging the

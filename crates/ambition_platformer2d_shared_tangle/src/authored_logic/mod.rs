@@ -475,14 +475,14 @@ impl ConditionCatalog {
         // FUNCTION ISSUES ITSELF.** A misspelled id and a wrong argument kind
         // never reach a domain, so an evaluator-side recorder would miss
         // exactly the answers whose caller is least able to explain them. See
-        // [`ConditionVerdictLog`] for why this is not at the twelve call
+        // [`AuthoredVerdictLog`] for why this is not at the twelve call
         // sites.
-        if let Some(log) = world.get_resource::<ConditionVerdictLog>() {
-            log.record(ConditionVerdict {
+        if let Some(log) = world.get_resource::<AuthoredVerdictLog>() {
+            log.record(AuthoredVerdict::Asked(ConditionVerdict {
                 id: id.clone(),
                 args: args.to_vec(),
                 outcome: outcome.clone(),
-            });
+            }));
         }
         outcome
     }
@@ -523,9 +523,16 @@ impl ConditionCatalog {
     }
 }
 
-/// **WHAT WAS ASKED OF THE ENGINE, AND WHAT CAME BACK** — the per-call verdict
+/// **WHAT THE ENGINE WAS ASKED, AND WHAT IT ANSWERED** — the per-call verdict
 /// surface `engine/inspection-diagnostics-and-workbench.md` has carried as the
 /// open half of M5 since the `WhyNot` vocabulary landed on 2026-09-02.
+///
+/// ⭐ **QUESTIONS AND VERBS IN ONE ORDERED STREAM, BECAUSE THE INTERESTING
+/// THING IS THE PAIR.** *"The door did not open when I pressed it"* is a
+/// condition's structured `no` followed by the command that never ran, or a
+/// satisfied condition followed by a command that refused for its own reason —
+/// and which of those it is, is the whole diagnosis. Two logs would make the
+/// reader join them by hand, and the join is the answer.
 ///
 /// ⛔⛤ **THE STRUCTURE EXISTED AND NOBODY COULD READ IT.** Every production
 /// evaluator states a [`WhyNot`] — the term that blocked, the object it names,
@@ -562,9 +569,71 @@ impl ConditionCatalog {
 /// test may assert on WHAT is in the log; asserting on the order of two
 /// entries from different systems is asserting on the scheduler.
 #[derive(Resource)]
-pub struct ConditionVerdictLog {
-    entries: std::sync::Mutex<std::collections::VecDeque<ConditionVerdict>>,
+pub struct AuthoredVerdictLog {
+    entries: std::sync::Mutex<std::collections::VecDeque<AuthoredVerdict>>,
     capacity: usize,
+}
+
+/// One entry: a question that was answered, or a verb that was attempted.
+#[derive(Clone, Debug, PartialEq)]
+pub enum AuthoredVerdict {
+    Asked(ConditionVerdict),
+    Ran(CommandVerdict),
+}
+
+impl std::fmt::Display for AuthoredVerdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Asked(v) => write!(f, "{v}"),
+            Self::Ran(v) => write!(f, "{v}"),
+        }
+    }
+}
+
+/// One attempted verb: the id, the arguments, and what the owning domain did.
+///
+/// ⚠ `PartialEq` without `Eq`, because [`AuthoredArg::Number`] is an `f64`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CommandVerdict {
+    pub id: CommandId,
+    pub args: Vec<AuthoredArg>,
+    pub outcome: CommandOutcome,
+}
+
+impl CommandVerdict {
+    /// The reason nothing happened, when nothing did.
+    pub fn refusal(&self) -> Option<&str> {
+        match &self.outcome {
+            CommandOutcome::Done => None,
+            CommandOutcome::Refused(reason) => Some(reason),
+        }
+    }
+}
+
+impl std::fmt::Display for CommandVerdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.id)?;
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            render_arg(f, arg)?;
+        }
+        write!(f, ") => ")?;
+        match &self.outcome {
+            CommandOutcome::Done => write!(f, "done"),
+            CommandOutcome::Refused(reason) => write!(f, "refused: {reason}"),
+        }
+    }
+}
+
+fn render_arg(f: &mut std::fmt::Formatter<'_>, arg: &AuthoredArg) -> std::fmt::Result {
+    match arg {
+        AuthoredArg::Reference(id) => write!(f, "{id}"),
+        AuthoredArg::Name(name) => write!(f, "{name:?}"),
+        AuthoredArg::Number(n) => write!(f, "{n}"),
+        AuthoredArg::Truth(t) => write!(f, "{t}"),
+    }
 }
 
 /// One answered question: the id, the arguments it was asked with, and the
@@ -590,12 +659,7 @@ impl std::fmt::Display for ConditionVerdict {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            match arg {
-                AuthoredArg::Reference(id) => write!(f, "{id}")?,
-                AuthoredArg::Name(name) => write!(f, "{name:?}")?,
-                AuthoredArg::Number(n) => write!(f, "{n}")?,
-                AuthoredArg::Truth(t) => write!(f, "{t}")?,
-            }
+            render_arg(f, arg)?;
         }
         write!(f, ") => ")?;
         match &self.outcome {
@@ -606,13 +670,13 @@ impl std::fmt::Display for ConditionVerdict {
     }
 }
 
-impl Default for ConditionVerdictLog {
+impl Default for AuthoredVerdictLog {
     fn default() -> Self {
         Self::with_capacity(Self::DEFAULT_CAPACITY)
     }
 }
 
-impl ConditionVerdictLog {
+impl AuthoredVerdictLog {
     /// ⚠ A BOUND, NOT A BUDGET. A gated wall asks its condition every sync, so
     /// an unbounded log is a leak measured in ticks. This is large enough that
     /// a question asked once during a transition survives the walls asking
@@ -631,7 +695,7 @@ impl ConditionVerdictLog {
     /// subsequent condition evaluation into a panic — the engine would die of
     /// its own instrument. The record is lost and the simulation continues,
     /// which is the correct ordering of those two costs.
-    pub fn record(&self, verdict: ConditionVerdict) {
+    pub fn record(&self, verdict: AuthoredVerdict) {
         let Ok(mut entries) = self.entries.lock() else {
             return;
         };
@@ -641,8 +705,9 @@ impl ConditionVerdictLog {
         entries.push_back(verdict);
     }
 
-    /// Every verdict still in the ring, oldest first.
-    pub fn recent(&self) -> Vec<ConditionVerdict> {
+    /// Every verdict still in the ring, oldest first — questions and verbs
+    /// interleaved in the order they were recorded.
+    pub fn recent(&self) -> Vec<AuthoredVerdict> {
         self.entries
             .lock()
             .map(|entries| entries.iter().cloned().collect())
@@ -652,7 +717,29 @@ impl ConditionVerdictLog {
     /// The last answer to this question, whatever it was asked with.
     pub fn latest_for(&self, id: &ConditionId) -> Option<ConditionVerdict> {
         let entries = self.entries.lock().ok()?;
-        entries.iter().rev().find(|v| &v.id == id).cloned()
+        entries.iter().rev().find_map(|entry| match entry {
+            AuthoredVerdict::Asked(v) if &v.id == id => Some(v.clone()),
+            _ => None,
+        })
+    }
+
+    /// The last attempt at this verb, whatever it was called with.
+    pub fn latest_run(&self, id: &CommandId) -> Option<CommandVerdict> {
+        let entries = self.entries.lock().ok()?;
+        entries.iter().rev().find_map(|entry| match entry {
+            AuthoredVerdict::Ran(v) if &v.id == id => Some(v.clone()),
+            _ => None,
+        })
+    }
+
+    /// The reason this verb last did nothing — the M5 answer for the mutation
+    /// half.
+    ///
+    /// ⚠ `None` has three causes, as with [`Self::why_not_for`]: never run,
+    /// last run succeeded, or evicted from the ring.
+    pub fn refusal_of(&self, id: &CommandId) -> Option<String> {
+        self.latest_run(id)
+            .and_then(|verdict| verdict.refusal().map(str::to_string))
     }
 
     /// The last STRUCTURED NO for this question — the M5 answer, without a

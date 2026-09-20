@@ -199,7 +199,7 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
 /// issues itself, which no domain ever sees.
 #[test]
 fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
-    use ambition_platformer2d::platformer::authored_logic::ConditionVerdictLog;
+    use ambition_platformer2d::platformer::authored_logic::AuthoredVerdictLog;
 
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 4);
@@ -210,7 +210,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     // find nothing, or "the log has my answer" would be true of a world that
     // never recorded anything.
     assert!(
-        sim.world().get_resource::<ConditionVerdictLog>().is_none(),
+        sim.world().get_resource::<AuthoredVerdictLog>().is_none(),
         "the composed host installs a diagnostic ring nobody asked for"
     );
     let flag_set = ConditionId::new("world", "flag_set");
@@ -218,7 +218,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     let unrecorded = ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]);
     assert!(matches!(unrecorded, ConditionOutcome::NotSatisfied(_)));
 
-    sim.world_mut().insert_resource(ConditionVerdictLog::default());
+    sim.world_mut().insert_resource(AuthoredVerdictLog::default());
     assert_eq!(
         ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
         unrecorded,
@@ -229,7 +229,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     // THE M5 QUESTION, asked of the world rather than of a debugger.
     let why = sim
         .world()
-        .resource::<ConditionVerdictLog>()
+        .resource::<AuthoredVerdictLog>()
         .why_not_for(&flag_set)
         .expect("the engine answered no and kept no reason");
     assert_eq!(why.term, "world.flag_set");
@@ -251,7 +251,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     ));
     let refused = sim
         .world()
-        .resource::<ConditionVerdictLog>()
+        .resource::<AuthoredVerdictLog>()
         .latest_for(&nonsense)
         .expect("the catalog refused a question and kept no record of refusing");
     assert!(matches!(refused.outcome, ConditionOutcome::Unanswerable(_)));
@@ -273,7 +273,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
         ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
         ConditionOutcome::Satisfied
     );
-    let log = sim.world().resource::<ConditionVerdictLog>();
+    let log = sim.world().resource::<AuthoredVerdictLog>();
     assert_eq!(log.why_not_for(&flag_set), None);
     assert!(
         log.latest_for(&flag_set)

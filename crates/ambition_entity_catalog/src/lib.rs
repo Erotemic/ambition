@@ -3678,13 +3678,37 @@ pub enum ThreatTravel {
         /// As [`Self::Straight::free`].
         free: f32,
     },
-    /// An object PUT somewhere, which cannot hurt anybody until `earliest_s`
-    /// and then only within `reach`. A bomb on a fuse.
+    /// An object PUT somewhere, which goes off by itself after
+    /// `detonates_by_s` and can hurt somebody within `reach`. A bomb on a
+    /// fuse.
     Placed {
         /// How far from the body the blast can touch somebody.
+        ///
+        /// ⚠ **A RADIUS, AND THE PLACEMENT IS A VECTOR — DEBT, REVIEWED
+        /// 2026-09-20.** The polygon's bomb is authored at `offset (-16, +14)`
+        /// with a 56px blast, deliberately BEHIND and below her, and this
+        /// collapses that to `|offset.x| + blast_radius` = 72px. Two opponents
+        /// 70px in front and 70px behind get the same answer though the bomb
+        /// is 32px closer to one of them, and the `y` is discarded outright. A
+        /// placed trap has a POSITION, a SHAPE and an activation law, not a
+        /// reach — and the repair is to carry the region, not to add another
+        /// scalar. Tracked on queue.md's BRAIN row; not done here because the
+        /// front/back asymmetry is 32px on a 480px stage and the seam it
+        /// belongs to is the resolved offer.
         reach: f32,
-        /// Seconds after the object appears before it can go off at all.
-        earliest_s: f32,
+        /// Seconds after the object appears before it goes off BY ITSELF.
+        ///
+        /// ⛔⛤ **A DEADLINE, NOT AN EARLIEST — THIS FIELD WAS CALLED
+        /// `earliest_s` FOR ONE COMMIT AND THE NAME WAS A LIE.** The shipped
+        /// bomb detonates *"in four seconds OR on a sufficiently hard
+        /// impact, whichever happens first"* (`DropBombParams::impact_speed`
+        /// is the threshold), and the runtime implements exactly that. So
+        /// four seconds is the LATEST it waits, not the soonest it can go, and
+        /// a reader told otherwise would refuse a trap an opponent is about to
+        /// run into. The impact road depends on what somebody else does to the
+        /// object and is not modelled; the deadline is the part the thrower
+        /// can count on.
+        detonates_by_s: f32,
     },
 }
 
@@ -3700,7 +3724,12 @@ impl ThreatTravel {
         }
     }
 
-    /// The earliest this hazard can hurt anybody AT ALL, seconds from release.
+    /// When this hazard goes off by itself, seconds from release; `0.0` for
+    /// anything that is dangerous from the moment it exists.
+    ///
+    /// ⚠ **A DEADLINE, NOT AN EARLIEST.** A bomb also detonates on a hard
+    /// enough impact, which is sooner and depends on what somebody else does
+    /// to it. See [`Self::Placed::detonates_by_s`].
     ///
     /// ⛔⛤ **A SEPARATE QUESTION FROM [`Self::travel_to`], AND MERGING THEM
     /// COST A FIGHTER HER BOMB — MEASURED 2026-09-20.** The first version
@@ -3719,10 +3748,12 @@ impl ThreatTravel {
     /// until there is a defensive feature to price them with. Inventing one to
     /// keep a move on a list is the wrong order; spending the fuse in the
     /// lead, which is what merging these did, is worse.
-    pub fn live_at_s(self) -> f32 {
+    pub fn detonates_by_s(self) -> f32 {
         match self {
             Self::Straight { .. } | Self::Boomerang { .. } => 0.0,
-            Self::Placed { earliest_s, .. } => earliest_s.max(0.0),
+            Self::Placed {
+                detonates_by_s, ..
+            } => detonates_by_s.max(0.0),
         }
     }
 
@@ -3732,7 +3763,8 @@ impl ThreatTravel {
     ///
     /// This is the AIMING question: where do I point this so that it lands on
     /// them. A placed object is placed where it is placed, so it answers
-    /// `0.0` — there is nothing to aim, and its fuse is [`Self::live_at_s`].
+    /// `0.0` — there is nothing to aim, and its fuse is
+    /// [`Self::detonates_by_s`].
     ///
     /// ⚠ THE `None` IS LOAD-BEARING. A consumer that fell back to a number
     /// here would be leading its aim at a shot that cannot land, which is the
@@ -3833,11 +3865,11 @@ impl MoveHazard {
         }
     }
 
-    /// The earliest this hazard can hurt anybody at all, seconds from release;
-    /// `0.0` for an unresolved ranged action, which claims nothing.
-    pub fn live_at_s(self) -> f32 {
+    /// When this hazard goes off by itself, seconds from release; `0.0` for
+    /// an unresolved ranged action, which claims nothing.
+    pub fn detonates_by_s(self) -> f32 {
         match self {
-            Self::Spawned(travel) => travel.live_at_s(),
+            Self::Spawned(travel) => travel.detonates_by_s(),
             Self::OwnersRangedAction => 0.0,
         }
     }
@@ -3918,7 +3950,7 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                     // detonates on a hard enough impact (`impact_speed`), and
                     // that road depends on what somebody else does to it. The
                     // fuse is the part the thrower can count on.
-                    earliest_s: p.fuse_s,
+                    detonates_by_s: p.fuse_s,
                 })
             })
             .ok(),

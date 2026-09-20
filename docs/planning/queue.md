@@ -3253,6 +3253,28 @@ four seconds"* is a stage-control question, the same shape as the counters and
 buffs already held off the attack ranking until there is a defensive feature
 to price them with.
 
+⚠⬤ **TWO DEBTS ON `Placed`, RAISED BY REVIEW OF `11f402eebbc0` AND LEFT
+OPEN ON PURPOSE.**
+
+1. **A PLACED TRAP HAS A POSITION, AND `reach` IS A RADIUS.** The polygon's
+   bomb is authored at `offset (-16, +14)` with a 56px blast — deliberately
+   BEHIND and below her — and `hazard_of` collapses that to
+   `|offset.x| + blast_radius` = 72px. Two opponents 70px in front and 70px
+   behind get the same admission answer though the bomb is 32px closer to one
+   of them, and the `y` is discarded outright. ⇒ The repair is to carry the
+   dangerous REGION relative to the body, at the resolved-offer seam, **not**
+   another reach scalar. Not done here: 32px of asymmetry on a 480px stage is
+   smaller than the observability gap that would tell us whether it matters in
+   play.
+2. **`detonates_by_s` IS A DEADLINE, AND IT WAS NAMED `earliest_s` FOR ONE
+   COMMIT.** The bomb goes off *"in four seconds OR on a sufficiently hard
+   impact, whichever happens first"*, and the runtime implements exactly that,
+   so four seconds is the LATEST it waits rather than the soonest it can go.
+   Renamed here rather than deferred, because nothing consumes it yet and the
+   next thing to read it is a diagnostic — a misleading field is worse once
+   something reports it as authoritative. The impact road depends on what
+   somebody else does to the object and stays unmodelled.
+
 ⛔⛤ **AND AN UNRESOLVABLE RANGED REQUEST IS NOW NO OFFER AT ALL.**
 `resolve_owners_ranged_action` returned early when neither an equipped weapon
 nor the body's standing kit could answer, which LEFT `OwnersRangedAction` in

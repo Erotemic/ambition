@@ -53,6 +53,91 @@ fn the_composed_engine_publishes_a_world_fact_command() {
     );
 }
 
+/// ⛔⛤ **AND THE VERB'S REFUSAL LANDS IN THE SAME RING AS THE QUESTION'S `no`,
+/// WHICH IS THE PAIR THAT IS ACTUALLY THE DIAGNOSIS.**
+///
+/// *"The door did not open when I pressed it"* has two shapes and they need
+/// different repairs: a condition answered no and the command never ran, or
+/// the condition passed and the command refused for a reason of its own. Two
+/// separate logs would make a reader join them by hand, and the join is the
+/// answer. So `AuthoredVerdictLog` holds both, in the order they happened.
+///
+/// ⚠ **THE COMMAND SIDE'S ORDER IS TRUSTWORTHY AND THE CONDITION SIDE'S IS
+/// NOT.** Commands run through one dispatcher holding `&mut World`, so they
+/// serialise; conditions evaluate from `&World` and two systems may ask in
+/// parallel. This arm reads a command and a condition it ITSELF issued, in one
+/// thread, which is the only ordering claim the log supports.
+#[test]
+fn a_refused_verb_and_the_question_it_followed_are_in_one_readable_stream() {
+    use ambition_platformer2d::platformer::authored_logic::{
+        AuthoredVerdict, AuthoredVerdictLog,
+    };
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    sim.world_mut().insert_resource(AuthoredVerdictLog::default());
+
+    let flag = "a_fact_no_authored_command_will_record";
+    let flag_set = ConditionId::new("world", "flag_set");
+    // The question first, then a verb the engine will refuse: the argument is
+    // a Name where the schema wants a Truth, which no domain ever sees.
+    let _ = sim.world().resource::<ConditionCatalog>().clone().evaluate(
+        sim.world(),
+        &flag_set,
+        &[AuthoredArg::Name(flag.to_string())],
+    );
+    let set_flag = CommandId::new("world", "set_flag");
+    sim.world_mut().write_message(RunAuthoredCommand::new(
+        set_flag.clone(),
+        vec![
+            AuthoredArg::Name(flag.to_string()),
+            AuthoredArg::Name("yes-please".to_string()),
+        ],
+    ));
+    sim.step_n(base(), 1);
+
+    let log = sim.world().resource::<AuthoredVerdictLog>();
+    let refusal = log
+        .refusal_of(&set_flag)
+        .expect("the engine refused a verb and kept no reason");
+    assert!(
+        refusal.contains("on") && refusal.contains("Truth"),
+        "the refusal does not name the argument or the kind it wanted: {refusal}"
+    );
+    // ⚠ AND THE WORLD DID NOT CHANGE, which is what makes the refusal the
+    // interesting record rather than a warning beside a mutation that happened
+    // anyway.
+    assert!(matches!(
+        sim.world().resource::<ConditionCatalog>().clone().evaluate(
+            sim.world(),
+            &flag_set,
+            &[AuthoredArg::Name(flag.to_string())],
+        ),
+        ConditionOutcome::NotSatisfied(_)
+    ));
+
+    // THE PAIR, read in order out of one stream.
+    let stream = log.recent();
+    let asked = stream
+        .iter()
+        .position(|entry| matches!(entry, AuthoredVerdict::Asked(v) if v.id == flag_set))
+        .expect("the question is not in the log");
+    let ran = stream
+        .iter()
+        .position(|entry| matches!(entry, AuthoredVerdict::Ran(v) if v.id == set_flag))
+        .expect("the verb is not in the log");
+    assert!(
+        asked < ran,
+        "the question was asked before the verb ran and the stream says \
+         otherwise: {stream:?}"
+    );
+    assert!(
+        stream[ran].to_string().contains("refused"),
+        "a verdict renders without saying what happened: {}",
+        stream[ran]
+    );
+}
+
 /// A REQUESTED COMMAND TRAVELS THE WHOLE ROAD AND CHANGES THE WORLD.
 ///
 /// the acceptance for the command half, in the composed app. The request

@@ -189,20 +189,23 @@ fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
 /// look exactly like a working log for the whole of a test run.
 #[test]
 fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
-    let log = ConditionVerdictLog::with_capacity(3);
+    let log = AuthoredVerdictLog::with_capacity(3);
     let verdict = |n: u32| ConditionVerdict {
         id: ConditionId::new("test", "counted"),
         args: vec![AuthoredArg::Number(f64::from(n))],
         outcome: ConditionOutcome::Satisfied,
     };
     for n in 0..10 {
-        log.record(verdict(n));
+        log.record(AuthoredVerdict::Asked(verdict(n)));
     }
     assert_eq!(log.len(), 3);
     let kept: Vec<AuthoredArg> = log
         .recent()
         .into_iter()
-        .map(|v| v.args[0].clone())
+        .map(|entry| match entry {
+            AuthoredVerdict::Asked(v) => v.args[0].clone(),
+            AuthoredVerdict::Ran(v) => v.args[0].clone(),
+        })
         .collect();
     assert_eq!(
         kept,
@@ -225,9 +228,9 @@ fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
     // record is where the two stories part — `1 == 0` is false, nothing is
     // evicted, and the ring grows forever. A bound has to be probed past the
     // bound.
-    let degenerate = ConditionVerdictLog::with_capacity(0);
+    let degenerate = AuthoredVerdictLog::with_capacity(0);
     for n in 0..5 {
-        degenerate.record(verdict(n));
+        degenerate.record(AuthoredVerdict::Asked(verdict(n)));
     }
     assert_eq!(degenerate.len(), 1);
 }
@@ -239,20 +242,20 @@ fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
 /// wants.
 #[test]
 fn the_latest_answer_to_one_question_is_found_behind_other_questions() {
-    let log = ConditionVerdictLog::default();
+    let log = AuthoredVerdictLog::default();
     let mine = ConditionId::new("test", "mine");
     let noisy = ConditionId::new("test", "noisy");
-    log.record(ConditionVerdict {
+    log.record(AuthoredVerdict::Asked(ConditionVerdict {
         id: mine.clone(),
         args: vec![],
         outcome: ConditionOutcome::NotSatisfied(WhyNot::new("test.mine", "subject", "observed")),
-    });
+    }));
     for _ in 0..20 {
-        log.record(ConditionVerdict {
+        log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: noisy.clone(),
             args: vec![],
             outcome: ConditionOutcome::Satisfied,
-        });
+        }));
     }
     assert_eq!(
         log.why_not_for(&mine),

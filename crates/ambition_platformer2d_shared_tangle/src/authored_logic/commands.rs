@@ -185,6 +185,27 @@ impl CommandCatalog {
     /// domains each writing the same four lines is fifty chances for one of them
     /// to write them differently.
     fn run(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg]) -> CommandOutcome {
+        let outcome = self.perform(world, id, args);
+        // ⛔⛤ **THE SAME ONE DOOR THE CONDITION SIDE RECORDS AT, AND FOR THE
+        // SAME REASON — see [`super::AuthoredVerdictLog`].** The verbs land in
+        // the SAME ring as the questions, because *"the door did not open when
+        // I pressed it"* is a condition's structured `no` followed by a
+        // command that never ran, or a satisfied condition followed by a
+        // command that refused for its own reason, and which of those it is is
+        // the diagnosis. Two rings would make the reader do that join by hand.
+        if let Some(log) = world.get_resource::<super::AuthoredVerdictLog>() {
+            log.record(super::AuthoredVerdict::Ran(super::CommandVerdict {
+                id: id.clone(),
+                args: args.to_vec(),
+                outcome: outcome.clone(),
+            }));
+        }
+        outcome
+    }
+
+    /// The verb itself, with no diagnostic on the path: arity, kinds, then the
+    /// owning domain.
+    fn perform(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg]) -> CommandOutcome {
         let Some(row) = self.rows.get(id) else {
             return CommandOutcome::refused(format!(
                 "no command `{id}` is published; the installed engine knows {} others",

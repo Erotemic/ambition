@@ -1578,7 +1578,7 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned(
         ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
-            earliest_s: 0.0,
+            detonates_by_s: 0.0,
         },
     ));
     let kit = vec![jab, buff, bolt];
@@ -2520,7 +2520,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
     let placed_and_live = ambition_entity_catalog::MoveHazard::Spawned(
         ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
-            earliest_s: 0.0,
+            detonates_by_s: 0.0,
         },
     );
 
@@ -2560,7 +2560,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
     let on_a_fuse = ambition_entity_catalog::MoveHazard::Spawned(
         ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
-            earliest_s: 4.0,
+            detonates_by_s: 4.0,
         },
     );
     assert!(
@@ -2574,7 +2574,7 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
         "a placed hazard reported a flight time"
     );
     assert_eq!(
-        on_a_fuse.live_at_s(),
+        on_a_fuse.detonates_by_s(),
         4.0,
         "the fuse survived being taken out of the lead"
     );

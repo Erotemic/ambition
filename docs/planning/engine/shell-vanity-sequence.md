@@ -34,10 +34,17 @@ Status: **OPEN — VC5 only**
 > which is the number a clear screen reads. ⇒ **A consumer built for
 > `fade_alpha` would draw nothing for every fade shipped content authors**, and
 > the row would look closed while the player still waits 2.2 s for a screen that
-> never changes. The missing piece is the RAMP and the value it ramps FROM;
-> where it starts is an authored-content question, filed as `Q143` in
-> [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
-> Held by `a_fade_beat_projects_its_target_at_every_instant_rather_than_a_ramp`.
+> never changes. The missing piece was the RAMP and the value it ramps FROM;
+> where it starts is an authored-content question that was filed as `Q143`.
+>
+> ✅ **BOTH HALVES LANDED 2026-09-19.** `CutsceneBeat::Fade` gained
+> `from_alpha`, `presentation()` interpolates between the two ends over
+> `elapsed` (with a zero-length beat still reading as a cut), `standing_fade`
+> carries the last Fade's target across the beats that follow it, and the
+> render layer draws the sheet as a second root at `ZIndex(49)`. The two
+> opening fades declare `from_alpha: 1.0`. Held by
+> `a_fade_ramps_from_its_authored_start_to_its_authored_target` and
+> `a_fade_beat_draws_a_black_sheet_at_the_ramp_value`.
 > ⚠ **VC5 does not inherit that ruling.** The launcher fade knows both ends of
 > its own ramp — transparent to authored opacity — so the shared thing is the
 > screen-alpha CONSUMER, not the question of where a cutscene fade begins.

@@ -151,8 +151,14 @@ These are representative writer/read classes. They are not a call-graph export.
 ## 2. Duplicate-truth families
 
 The census found eight important families, and the split is DERIVED FROM THE
-LEDGER RATHER THAN COUNTED BY HAND: **1 open, 3 resolved, 4 legitimate
+LEDGER RATHER THAN COUNTED BY HAND: **0 open, 4 resolved, 4 legitimate
 separation.**
+
+⭐⭐ **THE LAST OPEN ONE CLOSED 2026-09-20**, which is the first time this
+campaign has had no duplicate-authority pressure to point at.
+`DUP-GENERATION-MECHANICS` is below with its measured cost; what remains in
+this section is four collapses to keep collapsed and four separations to keep
+separate, both of which now have mechanical arms.
 
 ⛔⛤ **THAT SENTENCE SAID "Four are current consolidation pressure" UNTIL
 2026-09-17, WHILE THREE OF THE ROWS UNDER IT SAID RESOLVED.** `metric_tags` in
@@ -223,18 +229,52 @@ below.
 | --- | --- | --- | --- | --- | --- |
 | DUP-SESSION-CURRENT | Current gameplay-session identity family | RESOLVED — semantic review done, one collapse landed | The `after A10` gate is discharged and the audit ran 2026-09-16, so `SOURCE_INFERRED` is now measured. FOUR types carried the `(ShellActivationId, SessionScopeId)` correlation <!-- cite-ok: this row RECORDS the deleted type and its deleted query, so both names are gone by intent -->: `GameplaySessionInstance` (inside `ActiveGameplaySession`), `GameplaySessionLinks`, and the `GameplaySessionWorldRoot` / `GameplayInputOwner` Components. ⇒ `GameplaySessionLinks` is DELETED: activation asserts `active_session.0.is_none()`, so its `Vec` held at most one binding, always the live session's; its `scope_for` had zero production readers; and the retirement block asked BOTH it and `retire_if_activation` in the same statement. The two Components stay — a captured correlation on the entity it describes is what this row's own direction asks for — and `ActiveSessionScope` stays, because "which scope is current" is a simulation-layer question the shell's activation identity cannot answer. | Remaining: none. ⭐ **The layer split stopped being a prose requirement on 2026-09-16**: `ambition_platformer2d_shared_tangle` may no longer reach `ambition_game_shell`, transitively, by `platformer-primitives-stays-a-foundation` in `scripts/check_absence_contracts.py`. The behavioural reason this row gave for the split (*"a scope can be live while `ActiveGameplaySession` is None"*) had no production witness and is retracted in the queue row — `publish` and the session assignment happen in one system run. | SOURCE_CONFIRMED, queue.md's DUP-SESSION-CURRENT row |
 | DUP-CONTENT-CURRENT | Live content-generation identity family | RESOLVED — published through the room verdict | `PreparedContent`, `PreparedContentIdentity` and `ActiveContentBinding` are Components carried by the session root, derived from ONE lowering of the prepared source; the hot reload's advance of the session's content generation is gated by `publication_succeeded`. | None on this axis. Re-derived 2026-09-16: the gating above closed the road on which these values could move independently of the verdict. | SOURCE_CONFIRMED |
-| DUP-GENERATION-MECHANICS | Activated generation mechanics versus App registries | OPEN_PRESSURE — known transitional layer; the ruling is asked as `Q144` | GenerationMechanics reads SessionMechanics when a generation is active, but can read App registries for direct-entry compositions with no activated generation. | If all supported gameplay compositions gain a normal prepared-generation owner, delete the App-registry fallback from live construction. Otherwise keep the composition distinction explicit. ⚠ Option 1's stated weakness (*"nothing but review enforces that choice at a new call site"*) is now held by `check_generation_mechanics_construction_is_declared.py`, option-independently. | SOURCE_CONFIRMED |
+| DUP-GENERATION-MECHANICS | Activated generation mechanics versus App registries | RESOLVED — the fallback is deleted (2026-09-20) | `GenerationMechanics` holds ONE set of registries and no ranking. Which authority a construction spends is the CALLER's choice, made once at a named constructor: `of` (an activated generation), `for_live_session` (the same, or a refusal) and `for_the_generation_being_built` (the candidate a hot reload is publishing). There is no road on which a live rebuild reaches whatever the App is holding now. | None. A direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own — the scoped fixture authority `Q144` permits — and one that installs nothing is refused. See the bullet below for the measured cost. | SOURCE_CONFIRMED |
 | DUP-EDITOR-STAGES | Mechanical editor desired/admitted/projection stages | LEGITIMATE_SEPARATION | Editable mirrors, pending proposals, admission, admitted authority, and runtime projection are intentionally different stages. The body-profile and ability repairs show that collapsing admission with projection loses state when a target entity is absent. | Consolidate protocol shape and registration, not the distinct values. New editable mechanical domains must use the same stages or explicitly document why a stage is not applicable. | SOURCE_CONFIRMED |
 | DUP-CONTENT-CANDIDATE | Active content selection versus pending generation inputs | LEGITIMATE_SEPARATION | SelectedContentIdentity is active App selection. PendingGeneration and PendingGenerationInputs own candidate transaction values until activation. They must not overwrite the active selection during preparation. | Keep the active/candidate split. A10's scene candidate uses this same lifecycle — one hidden candidate, one admission, no parallel candidate state machine; `CandidateState`, the one abstraction that would have been a second road, was deleted unused. | SOURCE_CONFIRMED |
 | DUP-ROLLBACK-CONFIRMATION | Rollback authority versus confirmation answer | LEGITIMATE_SEPARATION | RollbackConfirmationState is deliberately not a Resource. It is derived from ActiveRollbackAuthority for a requested session scope. | Preserve this pattern. Do not promote derived answers into independently mutable resources. | SOURCE_CONFIRMED |
 | DUP-CONSTRUCTION-DIAGNOSTICS | Construction authority versus last-result diagnostics | LEGITIMATE_SEPARATION | LastRoomConstructionCommit and LastConstructionVerification are documented as developer/test evidence. RoomSet and spawned authoritative entities remain live authority. | Keep diagnostics read-only. Do not let future systems use the last-result resources as simulation authority. | SOURCE_CONFIRMED |
 | DUP-ROOM-PUBLICATION | Room replacement publishes through one candidate decision | RESOLVED — by A10's single publication decision | One room replacement is staged whole in `PendingWorldReplacement`, built as HIDDEN candidates, projected and validated, and published only on admission — root components, `MovingPlatformSet`, room entities and generation state are projections of that one decision. A refusal drops the candidates and the staged world and leaves world N untouched. | None. The single-publication shape this row asked for is what `replace_live_world` does. | SOURCE_CONFIRMED |
 
-The ONE campaign-counted pressure family, and the three that closed:
+The four families that closed:
 
 - `DUP-SESSION-CURRENT`: reviewed 2026-09-16 once A10 discharged its gate. Shell activation, session scope, links and root identity did live at different layers and most distinctions were valid; the one that was not — `GameplaySessionLinks` <!-- cite-ok: named because it is GONE -->, a one-entry copy of a pair the live instance already carried, with no production reader for its query — is deleted. The rest is a layer split, and it is now a dependency contract rather than a claim (`platformer-primitives-stays-a-foundation`).
 - `DUP-CONTENT-CURRENT`: RESOLVED. Live content identity and live prepared/session values are Components on the session root from one lowering, and the hot reload's generation advance is gated by the room publication verdict.
-- `DUP-GENERATION-MECHANICS`: **the only one still open, and re-measured 2026-09-17 because this bullet said less than source does.** A live rebuild does not merely *prefer* the generation's values: `GenerationMechanics::for_live_session` REFUSES — returns `None` — when `SessionGatedSimulation` is present and the generation is missing, and every live-rebuild road takes that constructor. ⛔⛤ **THE ROAD LIST THAT USED TO SIT HERE SAID "reset, room transition ×2, room stage" AND THE LAST ONE WAS PROSE**: `world/rooms/stage.rs` names the constructor in a doc comment on `RoomConstructionError::LiveGenerationMechanicsMissing` and never calls it. ⇒ The population is now MEASURED rather than restated, by `scripts/check_generation_mechanics_construction_is_declared.py`, which strips comments first and requires each of the five live sites to carry a reading. Ask it for the count; this bullet owns the argument, not the number. The only production caller of the fallback-capable `GenerationMechanics::new` is the hot reload, which states `None` because it is building the generation that replaces the live one. ⇒ The shipped composition has no second construction source today; what keeps the row open is that the App-registry road stays REACHABLE for compositions that have no generation by design. Whether that is the architecture or a migration is a maintainer decision, asked as `Q144`, and **`Q144` owns the size of that population** — this bullet owns the argument, the same split it already declares two sentences up for the live-site count. ⛔⛤ It said *"112 files construct through `Platformer2dSimHarness`"* until 2026-09-18, which was a MENTION count wearing a CONSTRUCTION count's words. ⭐ **RE-MEASURED 2026-09-19 AND THIS ROW OWNS THE PAIR: 112 files name the type and 82 call one of its four constructors** (`new`, `new_with_options`, `new_with_timestep`, `build`), over `crates/` + `game/`, all files, RAW — and a cost estimate cares about the second. ⚠ **THE STRIP IS WORTH NINE FILES ON THE MENTION SIDE**: with comments stripped the same sweep reads 103 and 80, so the two sides of this pair do not even move together. It read `113 / 83` on 2026-09-18. ⇒ A number that crosses a document boundary has to bring its method with it, and this copy had left its method behind twice — once by using the wrong verb, and once by not saying which strip.
+- `DUP-GENERATION-MECHANICS`: **RESOLVED 2026-09-20, and it was the last one.**
+  The type held two sources and ranked them: `active: Option<&SessionMechanics>`
+  beside five `app_*` registries, with every accessor choosing. So which
+  authority a construction spent was decided INSIDE the type, by whichever
+  constructor a caller happened to pick — `Q144`'s option 1 named that weakness
+  in as many words, *"nothing but review enforces that choice at a new call
+  site."* ⇒ There are now three named constructors and no ranking left inside:
+  `of`, `for_live_session` (refuses rather than falling back) and
+  `for_the_generation_being_built` (the hot reload, whose registries ARE the
+  candidate's and which therefore states them rather than declining an
+  `Option`). The `shell_routed` discriminator is gone with the case it
+  protected.
+  ⭐⭐ **AND THE COST WAS MEASURED RATHER THAN ESTIMATED, WHICH IS THE WHOLE
+  REASON THIS ROW SAT OPEN.** It had been costed against *"~90 test
+  binaries"*, a number that came from counting files that NAME
+  `Platformer2dSimHarness`. Poisoning the `!shell_routed && active.is_none()`
+  branch and running `cargo test --workspace --all-targets --no-fail-fast`
+  reddened **13 tests in two files**: five in `session/reset/tests.rs`, which
+  share one `min_app()`, and seven in `demo_shell_smoke.rs`, plus the arm that
+  asserted the branch existed. ⚠ The 740-test `app_it` suite — the whole
+  harness population the estimate was about — **passed untouched**, because
+  that harness reaches `compose_ambition_gameplay_host` →
+  `MinimalShellPlugins` → `GameplaySessionBridgePlugin`, so it activates a
+  generation exactly like the shipped game does. ⇒ A cost estimate that counts
+  MENTIONS of a type is not a cost estimate; run the poison.
+  ⚠ What replaced the fallback in those two files is one line each: the
+  composition declares a `SessionMechanics`, which is the scoped
+  fixture/direct-entry authority the ruling explicitly permits.
+  ⚠ AND ONE READER OF THE SAME RANKING IS DELIBERATELY UNCHANGED:
+  `perception_extent_for` still takes `shell_routed` and still falls back to
+  the App. It is not a construction road — `ensure_perception` attaches senses
+  to bodies as they appear, in compositions that never rebuild a room — so
+  refusing there would leave a fixture's bodies blind rather than refuse an
+  operation. Named here so the next reader does not read the asymmetry as an
+  oversight.
 - `DUP-ROOM-PUBLICATION`: RESOLVED. One room switch is one publication decision; entity visibility, `RoomSet`, `RoomGeometry`, moving platforms and generation state are its projections.
 
 ⛔⛤ **THE FOUR `LEGITIMATE_SEPARATION` FAMILIES HAD NO DATED REVIEW UNTIL

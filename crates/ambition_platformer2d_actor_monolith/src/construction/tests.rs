@@ -4065,11 +4065,12 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &crate::session::mechanics::GenerationMechanics::new(
-                None,
+            &crate::session::mechanics::GenerationMechanics::for_the_generation_being_built(
                 Some(&fixture_cast()),
                 &Default::default(),
                 &ambition_boss_encounter::BossCatalog::default(),
+                None,
+                None,
             ),
             // The world it is being committed into, which is still N.
             live.0,
@@ -4132,11 +4133,12 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-                &crate::session::mechanics::GenerationMechanics::new(
-                    None,
+                &crate::session::mechanics::GenerationMechanics::for_the_generation_being_built(
                     Some(&fixture_cast()),
                     &Default::default(),
                     &ambition_boss_encounter::BossCatalog::default(),
+                    None,
+                    None,
                 ),
                 // … to be committed INTO a world running 4.
                 expected.0,

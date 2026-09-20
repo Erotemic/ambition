@@ -14,7 +14,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which re-derives its own road count from its table — this cell deliberately states none, having carried "nine of twelve" while the owner said fourteen of seventeen | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
-| 4 | C04 | Make activated generation mechanics the only live-session construction source | **STARTABLE 2026-09-19 — the composition ruling discharged the last hold** | medium | ~~C03 owner decision~~ + ~~supported-composition decision~~ (ruled, `Q144`/`Q146`). What remains is the App-registry fallback removal itself. |
+| 4 | C04 | Make activated generation mechanics the only live-session construction source | ✅ **DELIVERED 2026-09-20** | medium | ~~C03 owner decision~~ + ~~supported-composition decision~~ + ~~the App-registry fallback removal~~ — all landed. `DUP-GENERATION-MECHANICS` is RESOLVED. |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | ⛔ **DO NOT START — decided 2026-09-19.** Every gate discharged, but the authority collapse has already happened: the remainder is one value's storage kind, re-measured unchanged, and moving it makes its only four readers worse. Kept for its regression rule | none remaining (was large, re-costed small 2026-09-16) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | **STARTABLE 2026-09-19 — both gates discharged**, the second by C05's own DO-NOT-START ruling | large | ~~C01~~ + ~~C05~~. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
@@ -445,7 +445,7 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 ## 4. C04 — Make activated generation mechanics the only live-session construction source
 
-**STATE:** STARTABLE 2026-09-19. ⚠ **Its declared-profile half is MEASURED DELIVERED (2026-09-16), and the composition-contract ruling it waited on landed the same day.** What remains is removing the App-registry fallback.
+**STATE:** ✅ **DELIVERED 2026-09-20.** The App-registry fallback is deleted from live construction, and `DUP-GENERATION-MECHANICS` — the last open duplicate-authority family in the census — is RESOLVED with it.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **STARTABLE.** ⭐⭐ **THE LAST HOLD IS DISCHARGED — RULED 2026-09-19.** Two explicit composition modes: a game must be able to launch DIRECTLY or run inside the shell, and the game is essentially identical in both, the one meaningful semantic difference being that a shell-hosted game can RETURN to the shell (the direct build shows the same menu item, greyed out). ⛔ Shell presence must not alter simulation, mechanics, capabilities, registries, content or game policy, and future platform-level overlays are not a reason to couple more shell behaviour in. Production shell sessions use the prepared/session lifecycle; explicit direct/headless/test compositions may hold SCOPED fixture/direct-entry authority, but no anonymous App-global fallback state returns. ⇒ This row's App-registry fallback is that anonymous state, so it goes. See [`maintainer-decisions.md`](../maintainer-decisions.md). ⚠ The ruling's own instruction: *"Implement this architecture rather than continuing to census hypothetical composition variants."*
 
@@ -493,18 +493,41 @@ not inferred. Every live-rebuild road (`session/reset/mod.rs`,
 `room_transition/loading.rs`, `world/rooms/stage.rs`) goes through it; the
 preparation road uses `GenerationMechanics::of`.
 
-⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` IS CORRECT.**
-`game/ambition_app/src/app/dev_runtime.rs:525` — the HOT RELOAD, which passes
-`None` on purpose because it is BUILDING the generation that replaces the live
-one, and says so at the call site. Narrowing `new` to `pub(crate)` was tried and
-fails to compile for exactly that caller.
+⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` WAS CORRECT, WHICH
+IS WHY IT SURVIVED THE DELETION UNDER A NEW NAME.**
+`game/ambition_app/src/app/dev_runtime.rs:526` — the HOT RELOAD, which is
+BUILDING the generation that replaces the live one, so the registries it was
+handed are the candidate's. It used to say so by passing `None` and letting the
+App fallback answer; it now says so by calling
+`GenerationMechanics::for_the_generation_being_built`, which is the same
+statement with no fallback road attached to it.
 
-⇒ **WHAT IS LEFT FOR C04 IS ONE DELETION.** The ruling it was waiting on
-landed 2026-09-19, so the remaining scope is the App-registry fallback itself —
-the unrefusing road a composition takes when no generation is activated — and
-the ruling says explicitly that it goes. Keep explicit fixture construction
-where it is still useful (the ruling permits SCOPED direct-entry authority); the
-declared-profile half is delivered.
+✅ **THAT DELETION LANDED 2026-09-20, AND THE SHAPE IT LEFT IS THREE NAMED
+CONSTRUCTORS WITH NO RANKING INSIDE THE TYPE.** `GenerationMechanics` held
+`active: Option<&SessionMechanics>` beside five `app_*` registries and every
+accessor chose between them, so which authority a construction spent was
+decided inside the type rather than by the caller. It now holds ONE set of
+registries, and the caller states which road it is on: `of` (an activated
+generation), `for_live_session` (the same, or a refusal) and
+`for_the_generation_being_built` (the hot reload, whose registries ARE the
+candidate's). The `shell_routed` flag is gone with the case it protected.
+
+⭐⭐ **THE COST WAS MEASURED, AND THE ESTIMATE THAT HELD THIS ROW WAS WRONG BY
+AN ORDER OF MAGNITUDE.** The row had been costed against *"~90 test binaries"*
+— a number from counting files that NAME `Platformer2dSimHarness`. Poisoning
+the `!shell_routed && active.is_none()` branch and running the whole workspace
+reddened **13 tests in two files**: five in `session/reset/tests.rs` sharing
+one `min_app()`, and seven in `demo_shell_smoke.rs`. The 740-test `app_it`
+suite passed untouched, because the harness composes `MinimalShellPlugins` and
+therefore activates a generation exactly as the shipped game does. ⇒ Both
+files now declare a scoped `SessionMechanics`, one line each, which is the
+direct-entry authority the ruling permits.
+
+⚠ **WHAT WAS DELIBERATELY NOT TOUCHED:** `perception_extent_for` carries the
+same `shell_routed` fallback and keeps it. It is not a construction road —
+`ensure_perception` attaches senses to bodies as they appear in compositions
+that never rebuild a room — so a refusal there blinds a fixture instead of
+refusing an operation.
 
 ### DEPENDENCIES / BLOCKERS
 

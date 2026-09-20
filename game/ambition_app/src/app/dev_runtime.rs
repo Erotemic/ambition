@@ -516,22 +516,20 @@ pub(super) fn reload_ldtk_world_from_disk(
         ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
             construction_recipes,
             character_catalog,
-            // ⛔⛤ **A HOT RELOAD BUILDS THE NEXT GENERATION, NOT THE LIVE ONE**,
-            // so it states `None` and means it: the values it was HANDED are the
-            // candidate's, and reading the session's frozen mechanics here would
-            // rebuild the world from the generation this reload is replacing.
-            // Saying so is the point of the parameter — see
-            // `ActorConstructionContext::for_content_replacement`.
-            &ambition_platformer2d::actors::session::mechanics::GenerationMechanics::new(
-                None,
+            // ⛔⛤ **A HOT RELOAD BUILDS THE NEXT GENERATION, NOT THE LIVE ONE**:
+            // the values it was HANDED are the candidate's, and reading the
+            // session's frozen mechanics here would rebuild the world from the
+            // generation this reload is replacing. It used to say so by passing
+            // `None` for the active generation and letting the App fallback
+            // answer; since that fallback was deleted it says so by NAME, which
+            // is the same statement without a road attached to it.
+            &ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_the_generation_being_built(
                 prepared_characters,
                 authored_sheets,
                 boss_catalog,
-            )
-            // ⚠ NO ACTIVATED GENERATION ON THIS ROAD — the hot reload is
-            // PREPARING one — so the App's knobs are what there is. See
-            // `GenerationMechanics`.
-            .with_app_developer_knobs(forced_brains, population_cap),
+                forced_brains,
+                population_cap,
+            ),
             // ⛔ THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
             // boundary compares against this, so the preflight's own generation
             // is not refused as stale by the generation it is introducing —

@@ -116,151 +116,138 @@ impl SessionMechanics {
     }
 }
 
-/// Read the generation's mechanics, falling back to the App's registries.
+/// The mechanical registries ONE construction reads — and only one set of them.
 ///
-/// ⛔⛤ **THE FALLBACK IS FOR COMPOSITIONS WITH NO ACTIVATED GENERATION, NOT FOR
-/// CONVENIENCE.** Fixtures, demos and the headless harnesses build rooms without
-/// ever going through provider activation, and refusing them a cast would turn a
-/// lifecycle improvement into a compatibility break across ~90 test binaries.
+/// ⛔⛤ **THIS USED TO HOLD TWO SOURCES AND RANK THEM, WHICH IS THE LAST OPEN
+/// DUPLICATE-AUTHORITY FAMILY IN THE CENSUS (`DUP-GENERATION-MECHANICS`).** It
+/// carried `active: Option<&SessionMechanics>` beside five `app_*` registries
+/// and every accessor chose between them, so which authority a construction
+/// spent was decided inside the type, by whichever constructor the caller
+/// happened to pick. `Q144`'s option 1 named its own weakness in as many
+/// words: *"nothing but review enforces that choice at a new call site."*
 ///
-/// ⚠ **SO THE GUARANTEE IS CONDITIONAL AND THE CONDITION IS NAMED:** wherever a
-/// generation HAS been activated, its values win over anything the App is
-/// holding now. That is the property the review asked for and the property the
-/// acceptance arm poisons. A composition with no activated generation has no
-/// generation to be stale against — the same honest gap
-/// `ActiveContentBinding` documents for the same reason.
+/// ⭐⭐ **THE CHOICE IS NOW THE CALLER'S AND IT IS MADE ONCE, AT A NAMED
+/// CONSTRUCTOR.** Three roads, three constructors, no ranking left inside:
+///
+/// ```text
+/// of                            an activated generation's frozen values
+/// for_live_session              the same, or a REFUSAL
+/// for_the_generation_being_built  the candidate a hot reload is publishing
+/// ```
+///
+/// ⇒ There is no longer a road on which a live rebuild can silently reach
+/// whatever the App is holding now. The 2026-09-19 composition ruling asked
+/// for exactly that: *"explicit direct/headless/test compositions may hold
+/// scoped fixture/direct-entry authority where needed, but no anonymous
+/// App-global fallback state returns."*
+///
+/// ⚠ **AND THE COST OF DELETING THE FALLBACK WAS MEASURED, NOT ESTIMATED.**
+/// The row had been costed against *"~90 test binaries"*. Poisoning the
+/// `!shell_routed && active.is_none()` branch and running the whole workspace
+/// (2026-09-20) reddened THIRTEEN tests in two files: five in
+/// `session/reset/tests.rs`, which share one `min_app()`, and seven in
+/// `demo_shell_smoke.rs`, plus the arm that asserted the branch existed. The
+/// 740-test `app_it` suite — the whole `Platformer2dSimHarness` population the
+/// estimate was about — passed untouched, because that harness composes
+/// `MinimalShellPlugins` and therefore activates a generation like the shipped
+/// game does.
 pub struct GenerationMechanics<'a> {
-    active: Option<&'a SessionMechanics>,
-    app_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-    app_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    app_bosses: &'a ambition_boss_encounter::BossCatalog,
-    app_forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
-    app_population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
+    characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+    sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    bosses: &'a ambition_boss_encounter::BossCatalog,
+    forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
+    population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
 }
 
 impl<'a> GenerationMechanics<'a> {
-    pub fn new(
-        active: Option<&'a SessionMechanics>,
-        app_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-        app_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        app_bosses: &'a ambition_boss_encounter::BossCatalog,
-    ) -> Self {
+    /// An activated generation's frozen values, and nothing else.
+    ///
+    /// ⭐ **THE ROAD THAT CANNOT BE WITHOUT A GENERATION: ACTIVATION, AND NOW
+    /// EVERY LIVE REBUILD TOO.** The provider holds the exact frozen record it
+    /// is building from and has no handles to fall back to — `Q121` removed
+    /// them — so offering it a fallback parameter would be offering it a value
+    /// it must never use. Once the fallback left the live roads, the same is
+    /// true of them.
+    pub fn of(generation: &'a SessionMechanics) -> Self {
         Self {
-            active,
-            app_characters,
-            app_sheets,
-            app_bosses,
-            app_forced_brains: None,
-            app_population_cap: None,
+            characters: generation.characters.as_ref(),
+            sheets: &generation.sheets,
+            bosses: &generation.bosses,
+            forced_brains: Some(&generation.forced_brains),
+            population_cap: Some(&generation.population_cap),
         }
     }
 
     /// The generation a LIVE room rebuild must read — or `None`, which is a
     /// refusal.
     ///
-    /// ⛔⛤ **`new`'s App FALLBACK CANNOT TELL TWO CASES APART, AND A 2026-09-13
-    /// REVIEW NAMED THE COST.** *"This composition intentionally has no
-    /// generation"* (a direct-entry demo, a headless harness, ~90 fixtures) and
-    /// *"this shell session should have generation mechanics and they are
-    /// missing"* are one `Option`. The first must keep working; the second must
-    /// FAIL, because rebuilding a live world out of whatever the App is holding
-    /// now is how a session prepared under N walks through a door into N+1.
+    /// ⛔⛤ **A 2026-09-13 REVIEW NAMED THE COST OF GETTING THIS WRONG.**
+    /// Rebuilding a live world out of whatever the App is holding now is how a
+    /// session prepared under generation N walks through a door into N+1. The
+    /// first repair distinguished *"this composition intentionally has no
+    /// generation"* from *"this shell session should have one and it is
+    /// missing"* with a `shell_routed` flag read off `SessionGatedSimulation`,
+    /// and refused only the second.
     ///
-    /// ⭐ **THE DISCRIMINATOR IS `SessionGatedSimulation`, WHICH ALREADY EXISTS
-    /// AND ALREADY MEANS THIS**: installed only by `ambition_game_shell`'s
-    /// session plugin, *"never inserted by direct-entry apps or headless
-    /// harnesses"*. Composition MODE is asked, not inferred.
-    ///
-    /// ⚠ **FOR ROADS THAT REBUILD A LIVE ROOM — a door, a death, a reset — AND
-    /// NOT FOR ROADS PREPARING THE NEXT GENERATION.** A hot reload legitimately
-    /// has no active generation to read: it is building the one that replaces it,
-    /// and states `None` on purpose. Those keep [`Self::new`].
-    pub fn for_live_session(
-        shell_routed: bool,
-        active: Option<&'a SessionMechanics>,
-        app_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-        app_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        app_bosses: &'a ambition_boss_encounter::BossCatalog,
-    ) -> Option<Self> {
-        if shell_routed && active.is_none() {
-            return None;
-        }
-        Some(Self::new(active, app_characters, app_sheets, app_bosses))
+    /// ⭐ **THE FLAG IS GONE BECAUSE THE CASE IT PROTECTED IS GONE.** It
+    /// existed to keep the App-registry road open for direct-entry
+    /// compositions; the composition ruling closed that road, so a live rebuild
+    /// with no generation is a refusal whoever asks. A composition that means
+    /// to rebuild rooms declares its construction inputs — a `SessionMechanics`
+    /// it installs itself is the scoped fixture authority the ruling permits —
+    /// and one that declares nothing is told no rather than handed the App.
+    pub fn for_live_session(active: Option<&'a SessionMechanics>) -> Option<Self> {
+        active.map(Self::of)
     }
 
-    /// The App's developer knobs, for a composition with NO activated generation.
+    /// The values a road that is BUILDING the next generation hands
+    /// construction.
     ///
-    /// ⚠ Separate from [`Self::new`] because most callers have no such
-    /// resources: a builder method keeps the fallback OPTIONAL at the call site
-    /// rather than making every fixture name two values it does not have.
-    pub fn with_app_developer_knobs(
-        mut self,
+    /// ⚠ **NOT A FALLBACK, AND THE DIFFERENCE IS THE WHOLE REASON THIS IS ITS
+    /// OWN CONSTRUCTOR.** A hot reload legitimately has no active generation to
+    /// read: it is assembling the one that replaces the live one, so the
+    /// registries it was handed ARE the candidate's. Reading the session's
+    /// frozen mechanics here would rebuild the world from the generation the
+    /// reload is replacing. It states its inputs outright instead of declining
+    /// an `Option` and being given the App by default.
+    pub fn for_the_generation_being_built(
+        characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+        sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
+        bosses: &'a ambition_boss_encounter::BossCatalog,
         forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
         population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
     ) -> Self {
-        self.app_forced_brains = forced_brains;
-        self.app_population_cap = population_cap;
-        self
-    }
-
-    /// A generation's values with NO App fallback.
-    ///
-    /// ⭐ **FOR THE ROAD THAT CANNOT BE WITHOUT A GENERATION: ACTIVATION.** The
-    /// provider holds the exact frozen record it is building from and has no
-    /// handles to fall back to — Q121 removed them — so offering it a fallback
-    /// parameter would be offering it a value it must never use.
-    pub fn of(generation: &'a SessionMechanics) -> Self {
         Self {
-            active: Some(generation),
-            app_characters: None,
-            app_sheets: &generation.sheets,
-            app_bosses: &generation.bosses,
-            app_forced_brains: None,
-            app_population_cap: None,
+            characters,
+            sheets,
+            bosses,
+            forced_brains,
+            population_cap,
         }
     }
 
     pub fn characters(
         &self,
     ) -> Option<&'a ambition_characters::prepared::PreparedCharacterRegistry> {
-        match self.active {
-            Some(generation) => generation.characters.as_ref(),
-            None => self.app_characters,
-        }
+        self.characters
     }
 
     pub fn sheets(&self) -> &'a ambition_sprite_sheet::character::sheets::AuthoredSheets {
-        match self.active {
-            Some(generation) => &generation.sheets,
-            None => self.app_sheets,
-        }
+        self.sheets
     }
 
     pub fn bosses(&self) -> &'a ambition_boss_encounter::BossCatalog {
-        match self.active {
-            Some(generation) => &generation.bosses,
-            None => self.app_bosses,
-        }
+        self.bosses
     }
 
     /// The forced brain preset/profile this construction must use.
-    ///
-    /// ⛔ **AN ACTIVATED GENERATION'S VALUE WINS OVER WHATEVER THE App HOLDS
-    /// NOW**, which is the whole point: the identity was taken over this value,
-    /// so construction reading a newer one would build B under identity A.
     pub fn forced_brains(&self) -> Option<&'a ambition_characters::brain::AuthoredBrainOverride> {
-        match self.active {
-            Some(generation) => Some(&generation.forced_brains),
-            None => self.app_forced_brains,
-        }
+        self.forced_brains
     }
 
     /// The population ceiling this construction must spend.
     pub fn population_cap(&self) -> Option<&'a ambition_characters::actor::AuthoredPopulationCap> {
-        match self.active {
-            Some(generation) => Some(&generation.population_cap),
-            None => self.app_population_cap,
-        }
+        self.population_cap
     }
 }
 
@@ -361,24 +348,16 @@ mod tests {
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let bosses = ambition_boss_encounter::BossCatalog::default();
 
-        // ⛔ THE ASSERTION THE ARM IS FOR.
+        let _ = (&sheets, &bosses);
+
+        // ⛔ THE ASSERTION THE ARM IS FOR — and since the fallback was deleted
+        // it is structural rather than a ranking: a live rebuild is given the
+        // generation and has nowhere else to read.
         assert_eq!(
-            health(
-                GenerationMechanics::new(Some(&generation), Some(&app_now), &sheets, &bosses)
-                    .characters()
-            ),
+            health(GenerationMechanics::of(&generation).characters()),
             Some(9),
             "a room rebuilt inside an activated generation was built from a cast \
              the App published later and this session never activated",
-        );
-
-        // ⚠ THE FALLBACK, AND IT IS A NAMED CONDITION RATHER THAN A DEFAULT:
-        // a composition that never went through provider activation has no
-        // generation to be stale against, and must keep building rooms.
-        assert_eq!(
-            health(GenerationMechanics::new(None, Some(&app_now), &sheets, &bosses).characters()),
-            Some(3),
-            "a composition with no activated generation lost its cast",
         );
 
         // ⛔ AND AN ACTIVATED GENERATION THAT PUBLISHED NO CAST MEANS NO CAST —
@@ -386,17 +365,27 @@ mod tests {
         // silently substituting a stranger's registry for it is the defect this
         // whole type removes, one layer down.
         assert_eq!(
+            health(GenerationMechanics::of(&SessionMechanics::default()).characters()),
+            None,
+            "a castless generation was handed the App's cast",
+        );
+
+        // ⭐ THE CONTROL, AND IT IS THE ONE ROAD THAT MAY STILL STATE App
+        // VALUES: a hot reload is BUILDING the next generation, so what it was
+        // handed is the candidate's and it says so at its own constructor.
+        assert_eq!(
             health(
-                GenerationMechanics::new(
-                    Some(&SessionMechanics::default()),
+                GenerationMechanics::for_the_generation_being_built(
                     Some(&app_now),
                     &sheets,
                     &bosses,
+                    None,
+                    None,
                 )
                 .characters()
             ),
-            None,
-            "a castless generation was handed the App's cast",
+            Some(3),
+            "the reload road lost the candidate registries it was handed",
         );
     }
 
@@ -435,8 +424,8 @@ mod tests {
         let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let bosses = ambition_boss_encounter::BossCatalog::default();
 
-        let mechanics = GenerationMechanics::new(Some(&generation), None, &sheets, &bosses)
-            .with_app_developer_knobs(Some(&app_brains), Some(&app_cap));
+        let _ = (&sheets, &bosses);
+        let mechanics = GenerationMechanics::of(&generation);
 
         assert_eq!(
             mechanics.population_cap(),
@@ -453,60 +442,58 @@ mod tests {
              under this identity are not the actors it was fingerprinted over"
         );
 
-        // ⭐ THE CONTROL: with NO activated generation the App's values are what
-        // there is, so a projection that simply ignored the App would pass the
-        // arm above and break every fixture.
-        let no_generation =
-            GenerationMechanics::new(None, None, &sheets, &bosses)
-                .with_app_developer_knobs(Some(&app_brains), Some(&app_cap));
+        // ⭐ THE CONTROL: the reload road still carries whatever knobs it was
+        // handed, so the arms above are about READING THE GENERATION rather
+        // than about the type having stopped carrying knobs at all.
+        let being_built = GenerationMechanics::for_the_generation_being_built(
+            None,
+            &sheets,
+            &bosses,
+            Some(&app_brains),
+            Some(&app_cap),
+        );
         assert_eq!(
-            no_generation.population_cap(),
+            being_built.population_cap(),
             Some(&AuthoredPopulationCap::capped_at(99)),
-            "a composition with no activated generation lost the App's cap, so the \
-             assertion above is about ignoring the App rather than about ranking"
+            "the reload road lost the cap it was handed"
         );
     }
 
-    /// ⛔⛤ **A SHELL SESSION THAT HAS LOST ITS GENERATION MUST NOT REBUILD A LIVE
-    /// ROOM FROM THE App — AND `new`'s FALLBACK COULD NOT SAY SO.**
+    /// ⛔⛤ **A LIVE ROOM REBUILD WITH NO GENERATION IS A REFUSAL, WHOEVER
+    /// ASKS — AND IT USED TO DEPEND ON WHO WAS ASKING.**
     ///
-    /// A 2026-09-13 review named the class: *"this composition intentionally has
-    /// no generation"* and *"this shell session should have generation mechanics
-    /// and they are missing"* were one `Option`. The first is ~90 direct-entry
-    /// fixtures and must keep working; the second must FAIL, because rebuilding a
-    /// live world from whatever the App holds now is exactly how a session
-    /// prepared under N walks through a door into N+1.
+    /// A 2026-09-13 review named the class: *"this composition intentionally
+    /// has no generation"* and *"this shell session should have generation
+    /// mechanics and they are missing"* were one `Option`, and the first
+    /// repair told them apart with a `shell_routed` flag so the direct-entry
+    /// half could keep reading the App.
     ///
-    /// ⭐ **BOTH DIRECTIONS, AND THE SECOND IS THE CONTROL.** A constructor that
-    /// simply refused whenever there was no generation would pass the first
-    /// assertion and break every fixture in the tree.
+    /// ⭐ **THE FLAG IS GONE BECAUSE THE RULING DELETED THE CASE IT
+    /// PROTECTED.** *"No anonymous App-global fallback state returns"*
+    /// (2026-09-19), so a composition that means to rebuild rooms installs a
+    /// `SessionMechanics` of its own — the scoped fixture authority the same
+    /// ruling permits — and one that installs nothing is told no.
+    ///
+    /// ⚠ **THE COST OF THAT WAS MEASURED BEFORE IT WAS PAID:** poisoning the
+    /// branch and running the whole workspace reddened thirteen tests in two
+    /// files, not the *"~90 test binaries"* the row had been costed at.
     #[test]
-    fn a_live_room_rebuild_refuses_a_shell_session_with_no_generation() {
-        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
-        let bosses = ambition_boss_encounter::BossCatalog::default();
-
+    fn a_live_room_rebuild_refuses_when_there_is_no_generation_to_rebuild_from() {
         assert!(
-            GenerationMechanics::for_live_session(true, None, None, &sheets, &bosses).is_none(),
-            "a shell-routed composition with NO activated generation was handed \
-             the App's registries to rebuild a live room out of"
+            GenerationMechanics::for_live_session(None).is_none(),
+            "a live rebuild with no activated generation was handed something to \
+             build out of anyway"
         );
 
-        // ⭐ THE CONTROL: a direct-entry fixture states no generation and means it.
-        assert!(
-            GenerationMechanics::for_live_session(false, None, None, &sheets, &bosses).is_some(),
-            "a direct-entry composition was refused for having no generation, \
-             which is the one composition entitled to have none"
-        );
-
-        // ⭐ AND THE ORDINARY CASE: a shell session WITH its generation proceeds,
-        // reading that generation rather than the App.
+        // ⭐ AND THE ORDINARY CASE: a session WITH its generation proceeds,
+        // reading that generation. Without this arm the assertion above is
+        // satisfied by a constructor that refuses everything.
         let generation = SessionMechanics::default();
-        let mechanics =
-            GenerationMechanics::for_live_session(true, Some(&generation), None, &sheets, &bosses)
-                .expect("a shell session holding its generation may rebuild");
+        let mechanics = GenerationMechanics::for_live_session(Some(&generation))
+            .expect("a session holding its generation may rebuild");
         assert!(
             mechanics.characters().is_none(),
-            "the projection read the App rather than the generation it was given"
+            "the projection invented a cast the generation does not carry"
         );
     }
 

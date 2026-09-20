@@ -1382,8 +1382,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         construction_recipes,
         active_binding,
         brain_profiles,
-        forced_brains,
-        population_cap,
         mut plan_prefetch,
     ): (
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
@@ -1396,14 +1394,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
         >,
-        // ⭐ AND WHAT A DEVELOPER FORCED THEM TO. The PREFETCH builds the same
-        // plan the transition will commit, so a plan built without the override
-        // and a transition built with it would disagree about the cast — the
-        // prefetch would be discarded, silently, on every forced run. The
-        // population cap rides for the same reason: a capped hall prefetched
-        // uncapped is a different room.
-        Option<Res<ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
-        Option<Res<ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
+        // ⛔⛤ THE DEVELOPER KNOBS USED TO RIDE HERE, so a plan built without
+        // the override and a transition built with it could not disagree about
+        // the cast. They come from the GENERATION now and there is nowhere
+        // else to read them, so the two cannot disagree by construction — see
+        // `GenerationMechanics`.
         ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
@@ -1425,7 +1420,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         prepared_characters,
         authored_sheets,
         generation,
-        session_gate,
     ): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
@@ -1439,10 +1433,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // entries can never be right — a silent, permanent miss at best, and a
         // promoted plan built from the wrong cast at worst.
         Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
-        // ⛔ COMPOSITION MODE, beside the generation because it is what says
-        // whether that generation is OWED. See
-        // `GenerationMechanics::for_live_session`.
-        Option<Res<ambition_platformer2d::platformer::lifecycle::SessionGatedSimulation>>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
@@ -1459,11 +1449,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // the very fallback the door now refuses, laundered through the cache.
     let Some(mechanics) =
         ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
-            session_gate.is_some(),
             generation.as_deref(),
-            prepared_characters.as_deref(),
-            &authored_sheets,
-            &boss_catalog,
         )
     else {
         // No prefetch this frame. The door prepares its own plan, and refuses for
@@ -1472,11 +1458,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.identity = None;
         return;
     };
-    let mechanics = mechanics
-        // ⛔ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. This is a PREFETCH
-        // of the plan a transition will use, so it must project exactly what that
-        // transition projects or the cache key describes a different world.
-        .with_app_developer_knobs(forced_brains.as_deref(), population_cap.as_deref());
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.identity = None;

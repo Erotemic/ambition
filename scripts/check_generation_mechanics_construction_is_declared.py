@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Every live `GenerationMechanics` construction declares WHICH road it is on.
 
-⛔⛤ **THIS EXISTS BECAUSE `Q144`'S OPTION 1 NAMES ITS OWN WEAKNESS AND NOTHING
-HELD IT.** `DUP-GENERATION-MECHANICS` is the last open duplicate-authority
-family in the consolidation census: a generation's frozen mechanics and the App
-registries are two owners of one fact, discriminated by which CONSTRUCTOR a
-road picks. Option 1 keeps that separation as permanent vocabulary and says
-outright that *"nothing but review enforces that choice at a new call site."*
-This is the enforcement, and it is deliberately option-INDEPENDENT:
+⛔⛤ **THIS EXISTS BECAUSE `Q144`'S OPTION 1 NAMED ITS OWN WEAKNESS AND NOTHING
+HELD IT** — *"nothing but review enforces that choice at a new call site."* A
+generation's frozen mechanics and the App registries were two owners of one
+fact, discriminated by which CONSTRUCTOR a road picks, and this is the
+enforcement of that choice.
 
-  * under option 1 it is the missing guard;
-  * under option 2 (every composition prepares a generation) it is a CENSUS of
-    which road each site is on — but see the limit below, because the quantity
-    option 2 drives to zero is not one this instrument counts;
-  * under option 3 (split the type) it is the list of signatures to change.
+⭐⭐ **AND THE FAMILY CLOSED ON 2026-09-20, WHICH CHANGES WHAT THIS SCRIPT IS
+FOR RATHER THAN RETIRING IT.** The App-registry fallback is deleted:
+`for_live_session` now refuses whenever there is no generation, and the hot
+reload states its candidate registries at a constructor that names the road.
+So the type no longer ranks two authorities — but the CHOICE is still made per
+call site, and a new site can still pick the wrong one. What this holds is
+that somebody looked; what it never could hold is whether they were right.
 
 ⛔⛤ **WHAT THIS CANNOT WITNESS, AND IT USED TO CLAIM OTHERWISE.** Until
 2026-09-18 the three places below said option 2 drives the `new`/`of` rows to
@@ -100,10 +100,10 @@ CONSTRUCTORS: dict[str, str] = {
         "with no active generation"
     ),
     "of": "the caller already holds the generation, so no fallback is offered",
-    "new": (
-        "the caller states its generation and its App registry explicitly, "
-        "including stating `None` for either — the only road that can read the "
-        "App registries"
+    "for_the_generation_being_built": (
+        "the caller is ASSEMBLING the next generation, so the registries it "
+        "was handed are the candidate's and it states them outright — the one "
+        "road that is not reading an activated generation, and not a fallback"
     ),
 }
 
@@ -122,7 +122,7 @@ CONSTRUCTORS: dict[str, str] = {
 #: count does not RISE, which says every prose mention of these constructors in
 #: production code lives in a comment — and `strip_comments` has already removed
 #: them before this pattern runs. That is the property `Q144`'s own table lacked.
-CALL = re.compile(r"\bGenerationMechanics\s*::\s*(for_live_session|of|new)\s*\(")
+CALL = re.compile(r"\bGenerationMechanics\s*::\s*(for_live_session|of|for_the_generation_being_built)\s*\(")
 
 #: `(path, constructor) -> (how many calls, the reading)`.
 DECLARED: dict[tuple[str, str], tuple[int, str]] = {
@@ -161,19 +161,20 @@ DECLARED: dict[tuple[str, str], tuple[int, str]] = {
         "activating, so there is nothing to fall back to and `of` is the "
         "signature that says so (read 2026-09-18)",
     ),
-    ("game/ambition_app/src/app/dev_runtime.rs", "new"): (
+    (
+        "game/ambition_app/src/app/dev_runtime.rs",
+        "for_the_generation_being_built",
+    ): (
         1,
-        "⚠ HOT RELOAD, AND THE ONLY LIVE READER OF THE APP REGISTRIES. It "
-        "passes `None` for the generation ON PURPOSE: it is building the "
-        "generation that REPLACES the live one, and reading the session's "
-        "frozen mechanics here would rebuild the world from the generation "
-        "being replaced. ⛔ THIS ROW SAID IT WAS THE ONE OPTION 2 DELETES UNTIL "
-        "2026-09-18, AND `mechanics.rs:174-177` SAYS THE OPPOSITE IN SO MANY "
-        "WORDS — *\"Those keep `Self::new`\"*. A reload states `None` because it "
-        "is PREPARING a generation, which is not the fallback option 2 removes; "
-        "it survives every option. See the module docstring for what this "
-        "instrument can and cannot witness (read 2026-09-18, corrected "
-        "2026-09-18)",
+        "HOT RELOAD. It is building the generation that REPLACES the live one, "
+        "so the registries it was handed are the candidate's and reading the "
+        "session's frozen mechanics here would rebuild the world from the "
+        "generation being replaced. ⛔ THIS ROW SAID IT WAS THE ONE OPTION 2 "
+        "DELETES UNTIL 2026-09-18, AND THE CONSTRUCTOR DOC SAID THE OPPOSITE. "
+        "It survived, and on 2026-09-20 it stopped being a `new` that declined "
+        "an `Option` and became a constructor that NAMES the road — the "
+        "fallback the census row was about is gone and this one is not it "
+        "(read 2026-09-18, corrected 2026-09-18, renamed 2026-09-20)",
     ),
 }
 
@@ -281,9 +282,9 @@ def main() -> int:
     for ctor in CONSTRUCTORS:
         print(f"  ::{ctor:<17} {by_ctor.get(ctor, 0)}")
     print(
-        "  ⚠ these are CONSTRUCTOR choices, not fallback USES. The quantity Q144's\n"
-        "    option 2 drives to zero is `for_live_session`'s `active.is_none()` branch,\n"
-        "    which no static count reaches — see this script's docstring."
+        "  ⚠ these are CONSTRUCTOR choices. The fallback branch they used to be a\n"
+        "    proxy for is gone (2026-09-20): a live rebuild with no generation\n"
+        "    refuses. What this holds now is that each site's choice was looked at."
     )
     return 0
 

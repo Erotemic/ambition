@@ -193,24 +193,20 @@ use ambition_platformer2d_world::rooms::RoomSet;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w, 's> {
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
-    /// ⛔⛤ **THE APP'S REGISTRIES ARE THE FALLBACK NOW, NOT THE ANSWER.** A reset
-    /// rebuilds the start room of the generation this session is RUNNING, so it
-    /// reads that generation's frozen mechanics when one has been activated —
-    /// see `SessionMechanics` for why these two reads are a pair rather than a
-    /// choice, and for the compositions that legitimately have no generation.
-    authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
-    /// The mechanics of the generation this session was activated under.
-    generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
-    /// ⛔ COMPOSITION MODE, beside the generation because it is what says whether
-    /// that generation is OWED. Installed only by `ambition_game_shell`'s session
-    /// plugin — *"never inserted by direct-entry apps or headless harnesses"* — so
-    /// its presence distinguishes *"this composition intentionally has no
-    /// generation"* from *"this shell session lost the one it had"*. See
+    /// The mechanics of the generation this session was activated under — the
+    /// ONLY construction source a reset has.
+    ///
+    /// ⛔⛤ **SIX App REGISTRIES USED TO TRAVEL BESIDE IT AND THEY ARE GONE.**
+    /// `AuthoredSheets`, `BossCatalog`, `PreparedCharacterRegistry`,
+    /// `AuthoredBrainOverride`, `AuthoredPopulationCap` and the
+    /// `SessionGatedSimulation` flag that chose between them were this
+    /// system's half of `DUP-GENERATION-MECHANICS`: a reset in a composition
+    /// with no activated generation rebuilt the start room out of whatever the
+    /// App happened to be holding. The 2026-09-19 composition ruling closed
+    /// that road — *"no anonymous App-global fallback state returns"* — so a
+    /// reset with no generation declines instead. See
     /// `GenerationMechanics::for_live_session`.
-    session_gate: Option<
-        Res<'w, ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
-    >,
+    generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
     placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
@@ -220,9 +216,6 @@ pub struct ResetPlayState<'w, 's> {
     /// The construction recipe table — reset re-plans the start room's planned
     /// families through the SAME recipes setup/transition/restore use.
     recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
-    /// `Option` like every other reader of it: a composition with no registered characters is
-    /// the ordinary case.
-    prepared_characters: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     /// The session's live content binding, so a reset's plan states the SAME
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
@@ -243,15 +236,6 @@ pub struct ResetPlayState<'w, 's> {
     /// policy and came back from every reset without it.
     brain_profiles:
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
-    /// What a DEVELOPER has forced every authored actor's brain to. Absent =
-    /// no developer tools = the author decides. Beside the policies because it
-    /// is the same class of authority: lowering consults it while BUILDING a
-    /// brain, which the actor kernel used to do by calling into
-    /// `ambition_dev_tools` directly.
-    forced_brains: Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
-    /// The developer's actor population cap, same class of authority as the
-    /// brain override and threaded the same way.
-    population_cap: Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -348,30 +332,17 @@ pub fn process_new_game_reset_request(
     // `GenerationMechanics::for_live_session`; the decline below is this
     // function's existing *"DECLINE, do not die"* road.
     let Some(mechanics) = crate::session::mechanics::GenerationMechanics::for_live_session(
-        play_state.session_gate.is_some(),
         play_state.generation.as_deref(),
-        play_state.prepared_characters.as_deref(),
-        &play_state.authored_sheets,
-        &play_state.boss_catalog,
     ) else {
         bevy::log::error!(
             target: "ambition_platformer2d::reset",
-            "sandbox reset declined: this composition routes gameplay through a \
-             shell session, so the start room is rebuilt from the generation's own \
-             registries — and `SessionMechanics` is absent. The running session is \
-             untouched."
+            "sandbox reset declined: a reset rebuilds a LIVE room, so it is built \
+             from the generation this session is running and there is no \
+             `SessionMechanics` to build from. A composition that means to reset \
+             rooms declares one. The running session is untouched."
         );
         return;
     };
-    let mechanics = mechanics
-    // ⛔⛤ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. A reset in a
-    // composition with an activated generation must rebuild from the values that
-    // generation's identity was taken over — see `GenerationMechanics`. These two
-    // are what a fixture with no generation gets instead.
-    .with_app_developer_knobs(
-        play_state.forced_brains.as_deref(),
-        play_state.population_cap.as_deref(),
-    );
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         &room_set,
         start_index,

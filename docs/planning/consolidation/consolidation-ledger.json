@@ -2677,14 +2677,14 @@
       "owner": "ambition_platformer2d_actor_monolith::session::mechanics",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction prefers it over App registries.",
+      "current_truth": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction reads it and nothing else; the App-registry fallback was deleted 2026-09-20.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction prefers it over App registries.",
+          "claim": "SessionMechanics holds generation-owned cast, sheets, boss catalog, forced brain override, population cap, and perception extent. Live-session construction reads it and nothing else; the App-registry fallback was deleted 2026-09-20.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
           ]
@@ -2693,7 +2693,7 @@
       "semantic_lifetime": "content generation within a gameplay session",
       "representation": "Resource",
       "authoritative_for": "which frozen registries and developer mechanical inputs live-session construction must consume",
-      "classification": "generation authority with direct-entry fallback",
+      "classification": "the single generation authority for live construction",
       "overlaps_with": [
         "DUP-GENERATION-MECHANICS",
         "TRANS-DIRECT-GENERATION-FALLBACK"
@@ -3620,30 +3620,29 @@
       "owner": "actor_monolith session mechanics + domain registries",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "GenerationMechanics reads SessionMechanics when a generation is active, but can read App registries for direct-entry compositions with no activated generation.",
+      "current_truth": "`GenerationMechanics` holds ONE set of registries and no ranking. Three named constructors decide which authority a construction spends: `of` (an activated generation), `for_live_session` (the same, or a refusal), and `for_the_generation_being_built` (the candidate a hot reload is publishing). The App-registry fallback for compositions with no activated generation is deleted; a direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own, which is the scoped fixture authority Q144 permits.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "GenerationMechanics reads SessionMechanics when a generation is active, but can read App registries for direct-entry compositions with no activated generation.",
+          "claim": "`GenerationMechanics` holds ONE set of registries and no ranking. Three named constructors decide which authority a construction spends: `of` (an activated generation), `for_live_session` (the same, or a refusal), and `for_the_generation_being_built` (the candidate a hot reload is publishing). The App-registry fallback for compositions with no activated generation is deleted; a direct/headless composition that means to rebuild rooms installs a `SessionMechanics` of its own, which is the scoped fixture authority Q144 permits.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
           ]
         }
       ],
       "semantic_lifetime": "generation versus App",
-      "classification": "KNOWN_TRANSITIONAL_LAYER",
-      "duplicate_authority_state": "OPEN_PRESSURE",
+      "classification": "collapsed onto the generation",
+      "duplicate_authority_state": "RESOLVED",
       "overlaps_with": [
         "AUTH-SESSION-MECHANICS",
         "TRANS-DIRECT-GENERATION-FALLBACK"
       ],
       "why_it_exists": "Direct demos and headless fixtures can construct rooms without provider activation.",
-      "consolidation_hypothesis": "If all supported gameplay compositions gain a normal prepared-generation owner, delete the App-registry fallback from live construction. Otherwise keep the composition distinction explicit.",
+      "consolidation_hypothesis": "Delivered 2026-09-20. The deletion's cost was measured rather than estimated: poisoning the `!shell_routed && active.is_none()` branch reddened 13 tests in two files (`session/reset/tests.rs`'s one `min_app`, and `demo_shell_smoke.rs`), not the ~90 test binaries the row had been costed at -- the 740-test `app_it` suite passed untouched because `Platformer2dSimHarness` composes `MinimalShellPlugins` and activates a generation like the shipped game does.",
       "metric_tags": [
-        "suspect_duplicate_authority",
         "transitional_related"
       ]
     },
@@ -5294,21 +5293,21 @@
       "owner": "actor_monolith session mechanics",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "`GenerationMechanics` is a three-state contract asserted per state: shell + generation takes the generation and the App loses; direct-entry + no generation takes the App override and is the one composition entitled to supply it; shell + no generation REFUSES rather than falling back. A composition discriminator, not a fallback.",
+      "current_truth": "DELETED 2026-09-20. The three-state contract is two: a live rebuild reads the activated generation or REFUSES, whoever asks. The `shell_routed` discriminator is gone with the case it protected -- a direct/headless composition that rebuilds rooms declares a scoped `SessionMechanics` instead of falling through to the App.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "`GenerationMechanics` is a three-state contract asserted per state: shell + generation takes the generation and the App loses; direct-entry + no generation takes the App override and is the one composition entitled to supply it; shell + no generation REFUSES rather than falling back. A composition discriminator, not a fallback.",
+          "claim": "DELETED 2026-09-20. The three-state contract is two: a live rebuild reads the activated generation or REFUSES, whoever asks. The `shell_routed` discriminator is gone with the case it protected -- a direct/headless composition that rebuilds rooms declares a scoped `SessionMechanics` instead of falling through to the App.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
           ]
         }
       ],
-      "classification": "real supported compatibility composition",
-      "consolidation_hypothesis": "Candidate deletion road after provider/session generation activation is universal or direct compositions get an explicit prepared generation.",
+      "classification": "deleted road",
+      "consolidation_hypothesis": "None. The road is gone; the declaration that replaces it is in the demo fixture and in `session/reset/tests.rs::min_app`.",
       "metric_tags": [
         "known_transitional"
       ]

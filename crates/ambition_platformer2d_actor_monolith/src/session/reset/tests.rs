@@ -317,6 +317,21 @@ fn min_app_that_can_hide_a_candidate(filter: bool) -> App {
             Vec::new(),
         ),
     );
+    // ⛔⛤ **THE SCOPED CONSTRUCTION AUTHORITY, DECLARED, because a reset
+    // rebuilds a LIVE room and there is no longer an App-registry road to
+    // rebuild it from.** This fixture used to get one for free: the processor
+    // read five App resources whenever no generation had been activated, which
+    // is the anonymous fallback the 2026-09-19 composition ruling deleted
+    // (*"explicit direct/headless/test compositions may hold scoped
+    // fixture/direct-entry authority where needed, but no anonymous App-global
+    // fallback state returns"*). Stating it is the fixture doing what a
+    // composition is now required to do.
+    //
+    // ⚠ AND IT IS LOAD-BEARING FOR THE REFUSAL ARMS TOO: without it
+    // `a_declined_reset_leaves_the_running_session_untouched` would decline at
+    // the mechanics gate and pass without ever reaching the missing room it is
+    // about.
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.insert_resource(EditableMovementTuning::default());
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // The processor now emits `RespawnRoomVisualsRequested` instead of spawning

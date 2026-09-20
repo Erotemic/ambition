@@ -2687,7 +2687,7 @@ THE ADMISSION RULE, IN TWO PLACES.** Measured 2026-09-19.
 `reach` folded over every Active volume, windboxes included, and
 [`authoring::wake`] *asserts* that the push reaches further than the hit — so
 for every waked move the brain's only statement about where it could land was
-the DUST's extent. `goblin::dirt_kick` read as an 82px poke whose boot stops at
+the DUST's extent. The goblin's `dirt_kick` read as an 82px poke whose boot stops at
 48, and its own shove held the gap open at exactly the range where it could not
 hit. ⇒ `MoveFrameData::push_coverage` now carries the windbox region and
 `coverage`/`reach` carry the hittable one. Pinned by

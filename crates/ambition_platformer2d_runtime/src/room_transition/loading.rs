@@ -649,12 +649,12 @@ pub fn begin_room_transition_load_system(
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
     let (
-        prepared_characters,
+        _prepared_characters,
         brain_profiles,
-        forced_brains,
-        population_cap,
+        _forced_brains,
+        _population_cap,
         generation,
-        session_gate,
+        _session_gate,
     ) = character_authorities;
     // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
     // ⛔⛤ **A DOOR REBUILDS A LIVE ROOM, SO A SHELL SESSION WITHOUT ITS
@@ -662,21 +662,10 @@ pub fn begin_room_transition_load_system(
     // `GenerationMechanics::for_live_session` — the `None` here becomes a
     // preparation error below, on the road this system already has for a room it
     // cannot prepare.
-    let shell_routed = session_gate.is_some();
     let mechanics =
         ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
-            shell_routed,
             generation.as_deref(),
-            prepared_characters.as_deref(),
-            &construction_services.5,
-            &construction_services.3,
-        )
-        .map(|mechanics| mechanics
-        // ⛔⛤ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. A door that
-        // rebuilds a room inside an activated generation must use the values that
-        // generation's identity was taken over; these two are what a composition
-        // with no activated generation gets instead. See `GenerationMechanics`.
-        .with_app_developer_knobs(forced_brains.as_deref(), population_cap.as_deref()));
+        );
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already
     // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is

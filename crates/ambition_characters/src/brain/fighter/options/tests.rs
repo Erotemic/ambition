@@ -2074,3 +2074,66 @@ fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
         alongside.motions[0].score
     );
 }
+
+/// ⛔⛤ **STAGE RISK USED TO BE THE SAME NUMBER FOR EVERY CANDIDATE, SO IT
+/// COULD NOT COST ONE MOVE MORE THAN ANOTHER.**
+///
+/// An attack's score is only ever compared with another attack's, and
+/// `edge_proximity(me.pos)` is a fact about the BODY: it added a constant to
+/// every option. The arm that showed the same jab scoring lower near a ledge
+/// was proving arithmetic — both moves fell by the same amount, so the ranking
+/// never moved. This asks the question the feature is named for: standing in
+/// the same place, does the move that throws me at the blast line cost more
+/// than the one that does not.
+#[test]
+fn the_move_that_hurls_me_at_the_blastzone_costs_more_than_the_one_that_stays_put() {
+    let w = UtilityWeights::v1();
+
+    let planted = candidate("planted", 0.1, 100.0);
+    let mut hurled = candidate("hurled", 0.1, 100.0);
+    hurled.frames.start_impulse = (1400.0, 0.0);
+    let kit = [planted, hurled];
+
+    let risk_at = |me_x: f32, foe_x: f32, id: &str| {
+        generate_options(
+            Perceived::cheating(&view_with(me_x, foe_x)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        )
+        .attacks
+        .iter()
+        .find(|a| a.move_id == id)
+        .unwrap_or_else(|| panic!("{id} must reach at ({me_x}, {foe_x})"))
+        .features
+        .stage_risk
+    };
+
+    // Backed against the right wall with the foe in front.
+    assert!(
+        risk_at(700.0, 780.0, "hurled") > risk_at(700.0, 780.0, "planted"),
+        "a move that carries this body at the wall must cost more than one \
+         thrown from the same spot: hurled {} planted {}",
+        risk_at(700.0, 780.0, "hurled"),
+        risk_at(700.0, 780.0, "planted")
+    );
+
+    // ⭐⭐ THE CONTROL THAT MAKES THAT A CLAIM ABOUT DIRECTION. The mirrored
+    // spot is 100 units from the LEFT wall, so `distance_to_edge` reads
+    // exactly the same there — the old constant could not tell these two
+    // worlds apart at all — and the identical lunge now has seven hundred
+    // units of room ahead of it instead of one hundred.
+    let outboard = risk_at(700.0, 780.0, "hurled");
+    let inboard = risk_at(100.0, 180.0, "hurled");
+    assert!(
+        inboard < outboard,
+        "lunging into the stage is not the hazard lunging off it is: inboard \
+         {inboard}, outboard {outboard}"
+    );
+    assert_eq!(
+        risk_at(700.0, 780.0, "planted"),
+        risk_at(100.0, 180.0, "planted"),
+        "the premise: a move with no self-motion reads the same in both, so \
+         the difference above is the DIRECTION and not the position"
+    );
+}

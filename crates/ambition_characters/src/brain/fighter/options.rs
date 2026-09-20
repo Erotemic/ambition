@@ -103,8 +103,10 @@ pub struct Features {
     /// A move that cannot KO harder for the damage taken scores zero here
     /// however hurt the opponent is.
     pub kill_potential: f32,
-    /// `0..=1`. 1 when I am against a blastzone. Costed, not rewarded — its
-    /// weight is negative in [`UtilityWeights::v1`].
+    /// `0..=1`. What THIS ACTION exposes me to: how far its self-motion
+    /// carries me toward a blast line (or how near one I already stand),
+    /// scaled by how long I am committed to having gone there. Costed, not
+    /// rewarded — its weight is negative in [`UtilityWeights::v1`].
     pub stage_risk: f32,
     /// `0..=1`. The move's power (its `max_damage` over the kit's strongest),
     /// gated by the positive part of `frame_advantage` — payoff only counts
@@ -460,7 +462,7 @@ pub fn generate_options(
             (1.0 - view.stage.distance_to_edge(pos) / half_stage).clamp(0.0, 1.0)
         }
     };
-    let stage_risk = edge_proximity(me.pos);
+    let stage_risk_here = edge_proximity(me.pos);
     // ⭐⛤ WHERE THE FOE STANDS, IN WORLD SPACE, so a body-local push direction
     // can be rotated into it and asked how much stage is left THAT WAY. The
     // pusher's own frame and facing travel with it because the authored
@@ -470,6 +472,15 @@ pub fn generate_options(
         facing: me.facing,
         stage: &view.stage,
         at: foe.pos,
+    };
+    // ⭐ THE SAME GEOMETRY READ ON MYSELF. Edge pressure costs me and pays when
+    // it is them, and it was already one formula asked of two subjects; this
+    // keeps that true now that the question has a DIRECTION in it.
+    let my_world = PushGeometry {
+        basis,
+        facing: me.facing,
+        stage: &view.stage,
+        at: me.pos,
     };
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
@@ -564,6 +575,33 @@ pub fn generate_options(
                 0.0
             };
             let reach_fit = coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent);
+            // ⚠ BOTH AUTHORED HALVES OF THE SELF-MOTION, because a move can
+            // lunge (`start_impulse`) or command a burst (`lift_*`) and either
+            // is what puts the body somewhere else. A crude integration over
+            // the move's own length is the honest resolution available to a
+            // static table: it is the distance the body would cover if nothing
+            // bled the impulse off, which is the WORST case, and a risk term
+            // is the one place to take the worst case.
+            //
+            // ⛔⛤ **AND A MOVE THAT OFFERS A WAY HOME IS NOT COSTED FOR MOVING
+            // THE BODY, WHICH IS THE WHOLE OF ITS JOB.** Charging every metre
+            // travelled against the nearest blast line prices a recovery at
+            // maximum — a 900px/s rise over most of a second leaves any stage
+            // this game has — so the CPU stopped throwing one at all: measured
+            // over 3600 ticks, the two Georges threw nineteen different moves
+            // and never his up-B
+            // (`the_repertoire_gets_used::the_cpu_throws_its_authored_recovery_during_a_match`).
+            // The feature is about being carried somewhere you did not mean to
+            // go; a route home is the one motion that is meant.
+            let travel = if c.frames.recovery_route.offers_a_way_home() {
+                0.0
+            } else {
+                let (ix, iy) = c.frames.start_impulse;
+                let (mx, my) = motion_of(&c.frames);
+                let (lx, ly) = (ix + mx, iy + my);
+                let speed = (lx * lx + ly * ly).sqrt();
+                my_world.travel_share(lx, ly, speed * c.frames.total_s)
+            };
             let features = Features {
                 reach_fit,
                 frame_advantage: fa,
@@ -619,7 +657,44 @@ pub fn generate_options(
                     }
                     * reach_fit.max(fa.max(0.0)),
 
-                stage_risk,
+                // ⛔⛤ **THIS WAS THE SAME NUMBER FOR EVERY CANDIDATE TOO, AND
+                // FOR THE SAME REASON `kill_potential` WAS.** `edge_proximity`
+                // of where this body is STANDING is a fact about the body, not
+                // about the action, so it added a constant to every option and
+                // could not rank. The test that showed the same jab scoring
+                // lower near a ledge was proving arithmetic.
+                //
+                // ⇒ A risk is what THIS ACTION exposes me to: how far its own
+                // self-motion carries me toward a blast line. `max` with the
+                // standing reading rather than replacing it, because the two
+                // are the same hazard stated twice — a body already against
+                // the line is at risk without moving, and a body mid-stage is
+                // at risk if the move throws it out.
+                //
+                // ⚠ **AND NOT SCALED BY COMMITMENT, THOUGH THE FIRST VERSION
+                // WAS.** Multiplying by the move's share of the kit's longest
+                // duration penalises every slow move a second time —
+                // `frame_advantage` already prices startup — and the smash
+                // demo said so immediately: no CPU charged a smash, threw a
+                // recovery, or pressed an authored route in 3600 ticks. The
+                // duration is in this feature only through the distance the
+                // self-motion covers.
+                //
+                // ⭐⭐ **AND THE SWEEP SAYS WHO THIS IS FOR: ONE ROW OF 21, AND
+                // IT IS THE OILER.** Grid sweep, 2026-09-20, mirror matches,
+                // 3600 ticks, the other twenty bit-identical:
+                //
+                // ```text
+                //               took0% took1% hitstun moves used/seen/kit
+                //   constant      160%   172%     768    70   10/  0/0
+                //   per-action    230%   290%    1309   125   18/ 16/32
+                // ```
+                //
+                // ⇒ He throws nearly twice as many moves and almost twice as
+                // much of his kit. A constant cost cannot say which of his
+                // swings walks him off, so it was paid on all of them equally
+                // and he simply swung less.
+                stage_risk: stage_risk_here.max(travel),
                 displacement_value: displacement_value(
                     c.frames.push_coverage.as_ref(),
                     c.frames.push_dir,
@@ -987,6 +1062,29 @@ impl PushGeometry<'_> {
     /// `1.0` at the blast line, falling to `0.0` at a stage half-span away —
     /// the same normalisation [`Features::stage_risk`] uses, so "near the edge"
     /// stays one fact read on two subjects.
+    /// How much of the stage left in this direction a body travelling
+    /// `distance` along it spends.
+    ///
+    /// ⭐ The self-facing half of [`Self::pressure`]: that one asks *how near
+    /// the line are they*, this one asks *how much nearer does this carry me*.
+    /// `1.0` when the travel reaches the blast line, `0.0` for a body that
+    /// commits to no self-motion at all.
+    pub fn travel_share(&self, local_x: f32, local_y: f32, distance: f32) -> f32 {
+        if distance <= 0.0 {
+            return 0.0;
+        }
+        let facing = if self.facing < 0.0 { -1.0 } else { 1.0 };
+        let world = self.basis.side * (local_x * facing) + self.basis.down * local_y;
+        if world.length_squared() <= 0.0 {
+            return 0.0;
+        }
+        let exit = self.stage.exit_distance_along(self.at, world.normalize());
+        if !exit.is_finite() || exit <= 0.0 {
+            return 1.0;
+        }
+        (distance / exit).clamp(0.0, 1.0)
+    }
+
     pub fn pressure(&self, local_x: f32, local_y: f32) -> f32 {
         let facing = if self.facing < 0.0 { -1.0 } else { 1.0 };
         let world = self.basis.side * (local_x * facing) + self.basis.down * local_y;

@@ -37,6 +37,7 @@ mod progression_schedule;
 pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
+pub mod runtime_census;
 mod room_schedule;
 pub mod room_transition;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
@@ -552,6 +553,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             )
             .add(RoomTransitionSchedulePlugin)
             .add(RoomTransitionComposerPlugin)
+            // ⭐ In the GROUP, beside the transaction it reports on, because
+            // `[census] rooms` is only useful in a host that actually crosses
+            // rooms and every one of those composes this group. It registers
+            // nothing unless the census is enabled.
+            .add(crate::runtime_census::RoomCensusPlugin)
             // The one `RoomReplayRequested` consumer + the two content slots
             // that must precede it. In the group because content in EVERY host
             // emits the request: without a consumer here, a standalone demo

@@ -56,9 +56,36 @@ reader who greps this page for "census" finds only the prohibition.** Measured a
 ```text
 assets  camera  churn  conditions  config  draws  ecs  frame  ggrs_driver
 membership  owners  owners_in  phases  phases_cpu  phases_trust  phases_warning
-populations  portal  render_pass  render_pass_summary  render_targets  schedules
-sim_phases  views  visual_quality
+populations  portal  render_pass  render_pass_summary  render_targets  rooms
+schedules  sim_phases  views  visual_quality
 ```
+
+⛔⛤ **AND UNTIL 2026-09-20 EVERY ONE OF THEM DESCRIBED THE MACHINE, NOT THE
+WORLD.** Entities, archetypes, schedules, draw calls, render passes, phase
+costs — and no answer to *"where am I"*. A room transition that stalled,
+committed into the wrong room, or opened a transaction nobody closed was
+diagnosable only with a debugger or by reading four files across three crates.
+`[census] rooms` is the missing one:
+
+```text
+[census] rooms t=2.500 sessions=1 [scope=? rooms=72 active=blink_run[7]
+  start=blink_run[7] biome=lab] crossing=none
+```
+
+⭐ **IT PRINTS THE INDEX BESIDE THE AUTHORED ID ON PURPOSE.** Today *"which
+room is live"* is `RoomSet::active: usize` — an index into a list of
+DEFINITIONS — which is exactly the conflation OW1 on
+[`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
+has to unpick. Printing both is the cheapest way to watch the day they stop
+corresponding.
+
+⚠ Three things it does rather than the obvious alternative, each because the
+alternative hides a state somebody is looking for: it prints a row for a world
+with NO session (a `Single`-based system silently does not run, which reads as
+the census being off); it prints EVERY session root rather than the first
+(two of them is where OW1 is heading); and it prints `crossing=none` rather
+than omitting the field (a stalled crossing and a quiet world must not produce
+the same text).
 
 Those are DERIVED, read-only emission — the `⭐ good` half of the distinction
 above, not the forbidden half. They are the largest existing implementation of

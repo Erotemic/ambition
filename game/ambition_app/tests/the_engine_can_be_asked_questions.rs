@@ -24,6 +24,9 @@ use ambition_platformer2d::platformer::authored_logic::{
 use ambition_platformer2d::platformer::sim_id::SimId;
 use std::path::Path;
 
+use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopeId};
+use bevy::prelude::With;
+
 use crate::common::{base, fixed_60hz_room_sim};
 
 const ROOM: &str = "blink_run";
@@ -884,5 +887,125 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
          these three reds as a maintainer question for a day; the cause was one \
          missing submodule commit.)",
         unresolved.join("\n  "),
+    );
+}
+
+/// ⛔⛤ **TWENTY-FIVE CENSUS SURFACES AND NOT ONE OF THEM ANSWERED "WHERE AM
+/// I".**
+///
+/// Every existing `[census]` row describes the machine — entities,
+/// archetypes, schedules, draw calls, render passes, phase costs. None
+/// describes the WORLD. A room transition that stalls, commits into the wrong
+/// room, or opens a transaction nobody closes was diagnosable only with a
+/// debugger or by reading four files across three crates.
+///
+/// ⭐ **AND IT IS THE FIRST FACT THE OPEN-WORLD WORK NEEDS.** OW1 on
+/// `engine/open-world-runtime-and-residency.md` is *"two instances of one
+/// room; audit selection/identity/query/teardown paths"*, and today *"which
+/// room is live"* is answered by `RoomSet::active: usize` — an INDEX into a
+/// list of definitions, which is the conflation OW1 exists to unpick. The row
+/// prints the index beside the authored id so the day they stop corresponding
+/// is visible rather than inferred.
+///
+/// ⚠ **THE ARM IS AGAINST THE SESSION'S OWN ANSWER, NOT A LITERAL.** Pinning
+/// the room name would make this a test about the fixture. What is checked is
+/// that the row agrees with `RoomSet` about which room is active — which is
+/// the only thing a derived, read-only surface can get wrong.
+#[test]
+fn the_room_census_names_the_room_the_session_is_actually_in() {
+    use ambition_platformer2d::world::rooms::RoomSet;
+    use ambition_platformer2d::runtime::runtime_census::room_census_row;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+
+    let (active_id, active_index, room_count) = {
+        let mut query = sim
+            .world_mut()
+            .query_filtered::<&RoomSet, With<SessionRoot>>();
+        let world = sim.world();
+        let room_set = query
+            .iter(world)
+            .next()
+            .expect("the composed session root carries a RoomSet");
+        (
+            room_set.active_spec().id.clone(),
+            room_set.active,
+            room_set.rooms.len(),
+        )
+    };
+
+    let row = {
+        let mut query = sim
+            .world_mut()
+            .query_filtered::<(&RoomSet, Option<&SessionScopeId>), With<SessionRoot>>();
+        let world = sim.world();
+        let rows: Vec<_> = query.iter(world).collect();
+        room_census_row(1.5, rows.into_iter(), None)
+    };
+
+    assert!(
+        row.contains(&format!("active={active_id}[{active_index}]")),
+        "the row does not name the room the session is in \
+         (`{active_id}` at index {active_index}): {row}"
+    );
+    assert!(
+        row.contains(&format!("rooms={room_count}")),
+        "the row does not count the rooms this session was built with \
+         ({room_count}): {row}"
+    );
+    assert!(
+        row.contains("sessions=1"),
+        "one composed host, one session root: {row}"
+    );
+    // ⚠ AND "NOTHING IS CROSSING" IS PRINTED RATHER THAN OMITTED. A row that
+    // said nothing about the transaction would make a stalled crossing and a
+    // quiet world produce the same text, which is the one comparison a reader
+    // watching a sequence of samples is actually making.
+    assert!(row.contains("crossing=none"), "{row}");
+
+    // ⛔⛤ **AND `active` IS FOLLOWED, NOT `start` — A POISON PASSED THROUGH
+    // THIS ARM UNTIL IT MOVED THE ROOM.** This fixture boots into the room it
+    // starts in, so `active == start`, and printing the wrong one of the two
+    // produced a byte-identical row. Every arm above still passed. The only
+    // way to separate them is to make them differ.
+    //
+    // ⚠ THE ROOM IS MOVED BY HAND AND NOTHING IS STEPPED AFTERWARDS. A real
+    // crossing is a whole transaction; what is under test is a derived row, so
+    // what it needs is for its SOURCE to change. The world is left
+    // inconsistent for the two lines it takes to read the row, and nothing
+    // runs in between.
+    let elsewhere = {
+        let mut query = sim
+            .world_mut()
+            .query_filtered::<&mut RoomSet, With<SessionRoot>>();
+        let world = sim.world_mut();
+        let mut room_set = query
+            .iter_mut(world)
+            .next()
+            .expect("the composed session root carries a RoomSet");
+        let elsewhere = (0..room_set.rooms.len())
+            .find(|index| *index != room_set.active)
+            .expect("this session was built with one room, so `active` and \
+                     `start` can never differ and this arm cannot run");
+        room_set.active = elsewhere;
+        room_set.rooms[elsewhere].id.clone()
+    };
+    let moved = {
+        let mut query = sim
+            .world_mut()
+            .query_filtered::<(&RoomSet, Option<&SessionScopeId>), With<SessionRoot>>();
+        let world = sim.world();
+        let rows: Vec<_> = query.iter(world).collect();
+        room_census_row(2.5, rows.into_iter(), None)
+    };
+    assert!(
+        moved.contains(&format!("active={elsewhere}")),
+        "the row did not follow the active room to `{elsewhere}`: {moved}"
+    );
+    assert!(
+        moved.contains(&format!("start={active_id}[{active_index}]")),
+        "the row's `start` moved with the active room, so the two columns are \
+         one fact printed twice: {moved}"
     );
 }

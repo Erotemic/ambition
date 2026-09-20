@@ -205,21 +205,73 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
             .map(|kin| kin.pos.x)
             .expect("the rider has kinematics")
     };
+    // ⛔⛤ **THE RIVAL STANDS DOWN FOR THIS MEASUREMENT, AND IT IS NOT A
+    // CONVENIENCE — THE CLAIM IS ABOUT THE MOUNT, NOT ABOUT WHO WINS A SHOVING
+    // MATCH.** This asserted net rightward displacement over 60 held frames in
+    // an app containing a live CPU admiral, so the number it produced was the
+    // SUM of the stick and whatever the rival was doing. Measured 2026-09-20,
+    // with the rival left live: 30.8px, 61.7, then **33.6, −10.3, 1.9, 3.9** —
+    // he steers out and is pushed back, riding the whole way. The fixture read
+    // that as *"the mount is not answering the rider's stick"*.
+    //
+    // ⚠ **AND IT WENT RED ON A CHANGE THAT MADE THE FIGHT BETTER**, which is
+    // this file's own recorded failure mode one assertion higher: *"a perfectly
+    // correct rival [looked] like a broken assertion."* Taking `call_the_shark`
+    // off the attack menu — its authoring says it *"hits nobody"* — stopped the
+    // rival spending presses on a move that cannot touch anybody, so it started
+    // throwing real ones.
+    //
+    // ⇒ Stand the rival down, and assert the DIFFERENTIAL: the pair goes the
+    // way the stick points, both ways. A rival cannot manufacture that, and a
+    // mount that ignored the stick could not produce it at any threshold.
+    {
+        let rivals: Vec<Entity> = {
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &MatchSeat)>();
+            q.iter(world)
+                .filter(|(_, seat)| seat.0 != 0)
+                .map(|(entity, _)| entity)
+                .collect()
+        };
+        assert!(
+            !rivals.is_empty(),
+            "no rival to stand down, so this is not the mirror match the \
+             assertions above are about"
+        );
+        for rival in rivals {
+            app.world_mut()
+                .entity_mut(rival)
+                .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
+        }
+    }
     let before = x_of(&mut app, seat0);
-    press(
-        &mut app,
-        60,
-        ambition_platformer2d::engine_core::ControlFrame {
-            axis_x: 1.0,
-            ..Default::default()
-        },
-    );
-    let travelled = x_of(&mut app, seat0) - before;
+    let hold = |app: &mut App, axis_x: f32| {
+        press(
+            app,
+            40,
+            ambition_platformer2d::engine_core::ControlFrame {
+                axis_x,
+                ..Default::default()
+            },
+        );
+    };
+    hold(&mut app, 1.0);
+    let after_right = x_of(&mut app, seat0);
+    hold(&mut app, -1.0);
+    let after_left = x_of(&mut app, seat0);
+    let (right_leg, left_leg) = (after_right - before, after_left - after_right);
     assert!(
-        travelled > 40.0,
-        "the admiral moved {travelled:.1}px while holding right in the saddle — \
+        right_leg > 40.0,
+        "the admiral moved {right_leg:.1}px while holding right in the saddle — \
          the mount is not answering the rider's stick, which is the whole of \
          'effectively fly around using the control stick'"
+    );
+    assert!(
+        left_leg < -30.0,
+        "the admiral moved {left_leg:.1}px while holding LEFT, having moved \
+         {right_leg:.1}px holding right — a mount that carries its rider one \
+         way whatever the stick says is not being flown, and the rightward leg \
+         alone cannot tell that apart from a drift"
     );
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),
@@ -1250,12 +1302,25 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
          the ability is designed around"
     );
 
+    // ⛔⛤ **THE RIDER HOLDS ALTITUDE, AND THAT IS THE MECHANIC RATHER THAN A
+    // CONVENIENCE.** Both loops used to hold NEUTRAL, which let the pair settle
+    // onto the platform — and the arm below has `!grounded` as its PREMISE,
+    // because a pirate who has touched the stage has had his recovery answered
+    // by the floor rather than by the lease. It held only while the rival
+    // admiral was quiet; when `call_the_shark` left the neutral attack menu the
+    // rival started throwing moves that connect, and the drift changed.
+    // Measured 2026-09-20: grounded at the moment the lease expired.
+    //
+    // ⭐ Holding up is what a rider waiting out a lease does — *"effectively
+    // fly around for a limited time using the control stick"* — so this asks
+    // the question the test is named for without standing anybody down.
+    let fly_up = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        ..Default::default()
+    };
     // ── STILL ABOARD WELL INSIDE THE LEASE. ──
     for _ in 0..120 {
-        ambition_platformer2d::sim::drive_control_frame(
-            app.world_mut(),
-            ambition_platformer2d::engine_core::ControlFrame::default(),
-        );
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), fly_up);
         app.update();
     }
     assert!(
@@ -1272,10 +1337,7 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     // answered for.
     let mut at_release = None;
     for _ in 0..300 {
-        ambition_platformer2d::sim::drive_control_frame(
-            app.world_mut(),
-            ambition_platformer2d::engine_core::ControlFrame::default(),
-        );
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), fly_up);
         app.update();
         if app.world().get::<RidingOn>(seat0).is_none() {
             at_release = Some((
@@ -1720,8 +1782,38 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     let human = seat(&mut app, 0);
     let cpu = seat(&mut app, 1);
 
-    // The human presses; the CPU admiral summons on its own, which is what makes
-    // this two riders rather than one pressing twice.
+    // ⛔⛤ **THE CPU IS PUT WHERE ITS UP-B IS FOR, AND UNTIL 2026-09-20 IT DID
+    // NOT HAVE TO BE.** This read *"the CPU admiral summons on its own, which
+    // is what makes this two riders rather than one pressing twice"*, and that
+    // was true only because `call_the_shark` was on the neutral ATTACK menu —
+    // priced as 650px of offensive reach, which its own authoring denies
+    // (*"there is no hurtbox on this up-b, it's purely a mobility special"*).
+    // With the move off that menu the CPU reaches it through the RECOVERY lens,
+    // which is the only road it was ever meant to be on, and a CPU standing on
+    // the stage never needs one. Measured: no second rider in **3600** ticks of
+    // a live mirror, against 600 before.
+    //
+    // ⭐ SO GIVE IT THE SITUATION RATHER THAN THE PRESS. Put it off the
+    // platform and airborne — `classify` returns `Recovery` when there is no
+    // ground below — and it summons within a few ticks on the shipped road.
+    // ⚠ Inside the blast lines on purpose: this is a fighter that needs to come
+    // home, not one being killed.
+    {
+        use ambition_platformer2d::platformer::body::BodyKinematics;
+        let mut kin = app
+            .world_mut()
+            .get_mut::<BodyKinematics>(cpu)
+            .expect("the seated CPU has kinematics");
+        // Far enough out and low enough that a double jump does not reach:
+        // placed at the ledge's height it simply jumped home and never needed
+        // the shark, which is a correct fighter defeating the premise.
+        kin.pos.x = 860.0;
+        kin.pos.y = 520.0;
+        kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+    }
+
+    // The human presses; the CPU recovers. Both leases are the ride's own five
+    // seconds, so they overlap by construction once both have started.
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,

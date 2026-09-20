@@ -75,6 +75,10 @@ fn rig_kit() -> Vec<AttackCandidate> {
         reach,
         ignores_guard: false,
         hazard_reach: 0.0,
+        // `None` keeps every fixture's aim on `startup_s`, which is what the
+        // lead read before this field existed. A fixture that means to test the
+        // SPLIT states its own time.
+        threat_live_at_s: None,
         coverage,
         // This fixture authors no windbox.
         push_coverage: None,

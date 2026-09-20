@@ -69,8 +69,9 @@ pub struct MotionOption {
     /// on the attack seam, because that is the button the move is bound to.
     pub binding: AttackBinding,
     /// `0..=1`. How much of the way to the objective this motion actually
-    /// travels: its alignment with the direction to the foe, times its share of
-    /// the fastest motion in the kit.
+    /// travels — a tent over `travelled / gap`, peaking at 1 where the motion
+    /// arrives and falling to 0 as it overshoots to twice the gap. See
+    /// [`motion_options`].
     pub score: f32,
 }
 
@@ -823,6 +824,18 @@ pub fn generate_options(
     // ladder is built on the brain being late. This says only that a swing is
     // aimed where somebody is going, which is what a person does and what the
     // 24px constant was a stand-in for.
+    // ⛔⛤ **AND IT LEADS BY WHEN THE THREAT GOES LIVE, NOT BY `startup_s` —
+    // REVIEWED 2026-09-20.** `startup_s` is *"time until the first Active
+    // window"* and falls back to the WHOLE MOVE DURATION when there is none,
+    // which is the shape of every projectile move in the game. Leading by it
+    // aims past the opponent on exactly the moves thrown at somebody who is
+    // moving: `polygon_projectile_charge_shot` fires at 0.26s and reports
+    // `startup_s` 0.58s, so at 200px/s of closing speed the aim is 64px long —
+    // wider than `ADMISSION_SLACK_PX`. `MoveFrameData::threat_live_at_s` asks
+    // the mechanic instead. Equal to `startup_s` for an ordinary strike.
+    let threat_at = |frames: &ambition_entity_catalog::MoveFrameData| {
+        frames.threat_live_at_s.unwrap_or(frames.startup_s)
+    };
     let lead_of = |startup_s: f32| {
         let dt = view.staleness_s() + startup_s;
         if dt <= 0.0 {
@@ -859,7 +872,7 @@ pub fn generate_options(
             // rows. ⇒ This is the code agreeing with its own specification
             // and nothing more; it did NOT fix the fighter that prompted it,
             // whose hitboxes find no body at all — see the BRAIN row.
-            let aim = lead_of(attack.frames.startup_s);
+            let aim = lead_of(threat_at(&attack.frames));
             let Some((near, far)) = coverage.span_toward(aim, foe_extent) else {
                 return false;
             };
@@ -868,7 +881,7 @@ pub fn generate_options(
         }
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => {
-            coverage_fit(Some(push), lead_of(attack.frames.startup_s), foe_extent) > 0.0
+            coverage_fit(Some(push), lead_of(threat_at(&attack.frames)), foe_extent) > 0.0
         }
         // ⛔⛤ **TOUCHES NOTHING — AND THAT WAS FOUR DIFFERENT MOVES WEARING
         // ONE ANSWER.** This arm admitted every move that lands no volume and
@@ -886,7 +899,8 @@ pub fn generate_options(
         // pummels — legal only while a capture is held, so they reach this
         // menu never. Of the twelve: five are `smash_counter::counter_move`,
         // three are `smash_vitality` buffs, three carry the body (two
-        // teleports and the admiral's ridable shark), and one is the
+        // teleports and the admiral's ridable shark — all three now on the
+        // MOTION list, see the tail of this arm), and one is the
         // Performer's flyline. ⇒ The question is not
         // *"does it hit"*, it is **does it offer the opponent anything at
         // all**, and only two shapes of that answer are yes.
@@ -912,26 +926,17 @@ pub fn generate_options(
             // asks.
             let hazard = attack.frames.hazard_reach;
             if hazard > 0.0 {
-                let aim = lead_of(attack.frames.startup_s);
+                let aim = lead_of(threat_at(&attack.frames));
                 let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
                 return gap <= hazard + ADMISSION_SLACK_PX;
             }
             // ⛔⛤ **AND A ROUTE THAT CARRIES THE BODY IS NOT AN ATTACK,
             // THOUGH THIS ARM ADMITTED ONE FOR A WHILE.** A teleport lands no
             // volume and crosses 210px; the admiral's shark is a ridable
-            // summon with 650px of authority. `motion_of` reads only the
-            // `lift_*` burst and these author none, so they are on NO list —
-            // and the reflex is to put them here, because here is a list that
-            // exists.
-            //
-            // ⭐ AND THE LINE BETWEEN THEM IS WHETHER THE OPPONENT IS
-            // OFFERED ANYTHING. A `SustainedAuthority` summon puts something
-            // on the field that threatens `reach` px for `seconds` — the
-            // admiral's ridable shark is 650px of it — which is the same
-            // offer a bolt makes, so the catalog folds it into
-            // `hazard_reach` and it is admitted by the arm above. What is
-            // left here is pure self-displacement: a `Teleport` and a hitless
-            // `Burst` move only the caster.
+            // summon with 650px of authority. Neither authors a `lift_*`
+            // burst, so `motion_of` answered `(0, 0)` and they were on NO
+            // list — and the reflex is to put them here, because here is a
+            // list that exists.
             //
             // ⭐ MEASURED, 21 mirror matches of 3600 ticks, 2026-09-20. It
             // cost `player_robot_v3` the entire match: `phase_shift×157` —
@@ -944,15 +949,31 @@ pub fn generate_options(
             // the only one it had. `pointed_polygon` and `medic` failed the
             // same way, all three at 0%.
             //
-            // ⇒ These belong to `motion_options`, whose own comment already
-            // says so — *"a move that touches nothing and moves nothing is a
-            // buff or a summon and belongs to neither list"*. Teaching
-            // `motion_of` the route is a real slice and not a one-line one:
-            // its score normalises by SPEED against the kit's fastest, and a
-            // `Teleport` authors a DISTANCE, so the two cannot go in the same
-            // max without deciding what that ratio means. Tracked on the
-            // BRAIN row. Until then a teleport is on no list, which costs its
-            // owner a niche option and costs nobody a match.
+            // ⛔ **AND FOLDING THE SUMMON INTO `hazard_reach` SO IT LANDED ON
+            // THE ARM ABOVE WAS THE SAME MISTAKE WEARING THE OTHER HAT.** The
+            // argument was that a summon holding ground for `seconds` makes an
+            // opponent the same offer a bolt does. `call_the_shark`'s own
+            // authoring refutes it — *"there is no hurtbox on this up-b, it's
+            // purely a mobility special"*, the summoned body is `Neutral` and
+            // deals no contact damage, and the `reach` is authored as half the
+            // RIDE's straight-line distance. A number describing how far I can
+            // GO is not a number describing how far I can HURT.
+            //
+            // ⇒ Both shapes belong to [`motion_options`], and they are there
+            // now — the SUMMON is, at least: [`travel_of`] reads the ride's
+            // own reach, and the score is a ratio against the gap rather than
+            // a share of the kit's fastest SPEED, which is what made a
+            // distance and a velocity incomparable and held this slice.
+            //
+            // ⛔ THE TELEPORT IS STILL ON NEITHER LIST, and that is now a
+            // MEASURED refusal rather than an unfinished one: it goes where the
+            // move AIMS, which for an up-special is straight up, so pricing it
+            // as travel toward the opponent cost `player_robot_v3` his match at
+            // two different prices. See [`travel_of`].
+            //
+            // What is left on this arm is what genuinely offers nobody
+            // anything: counters, buffs, and the moves that are legal only
+            // inside a hold.
             false
         }
     });
@@ -1029,9 +1050,22 @@ pub fn generate_options(
 /// to reach; Emmy's is above and across, so the same launch is her approach.
 /// Asking for the alignment answers both without naming either.
 ///
-/// ⚠ **A SHARE OF THE KIT'S FASTEST MOTION, not an absolute speed**, for the
-/// same reason `expected_payoff` shares against the kit's strongest hit: the
-/// weights stay comparable across bodies whose numbers are on different scales.
+/// ⛔⛤ **AND IT IS SCORED IN PIXELS AGAINST THE GAP, NOT AS A SHARE OF THE
+/// KIT'S FASTEST MOTION — REVIEWED 2026-09-20.** The share was chosen so that
+/// *"the weights stay comparable across bodies whose numbers are on different
+/// scales"*, and it bought that by throwing away the only thing that makes a
+/// displacement useful or useless. `alignment × speed/fastest` has no length in
+/// it, so the gap magnitude cancels: a full-strength recovery scored exactly the
+/// same against an opponent 5px away as against one 280px away, and
+/// `medic_rescue_lift` — which applies about `(34, -905)` — was worth the same
+/// whether it arrived or flew past.
+///
+/// ⭐ **THE SCORE IS A SYMMETRIC TENT OVER `travelled / gap`**, peaking at 1
+/// where the motion arrives and reaching 0 at nothing and at twice the gap
+/// alike. Comparability across bodies is preserved by the RATIO, which is what
+/// the share was reaching for — a ratio of two lengths is dimensionless
+/// whatever scale the body is on. See [`travel_of`] for where the distance
+/// comes from.
 fn motion_options(
     kit: &[AttackCandidate],
     foe_local: (f32, f32),
@@ -1041,47 +1075,66 @@ fn motion_options(
     // ⛔ THE SAME THREE-WAY SPLIT THE ATTACK RETAIN MAKES, read from the other
     // side: a move that hits is an attack, a move that shoves is a shove, and
     // what is left over is only motion. A move that touches nothing and moves
-    // nothing is a buff or a summon and belongs to neither list.
+    // nothing is a buff and belongs to neither list.
     let is_pure_motion = |c: &AttackCandidate| {
         c.legality == ActionLegality::Now
             && c.frames.coverage.is_none()
             && c.frames.push_coverage.is_none()
-            && motion_of(&c.frames) != (0.0, 0.0)
+            && travel_of(&c.frames).is_some()
     };
-    let fastest = kit
-        .iter()
-        .filter(|c| is_pure_motion(c))
-        .map(|c| {
-            let (x, y) = motion_of(&c.frames);
-            (x * x + y * y).sqrt()
-        })
-        .fold(0.0_f32, f32::max);
-    if fastest <= 0.0 {
+    // ⚠ NOTHING TO GO TOWARD IS NOT "ANYWHERE IS FINE". With the foe on top of
+    // this body there is no direction that serves the objective, and this is
+    // exactly the state a body that has just launched itself is NOT in — so
+    // scoring every motion 1 here would re-open the loop this list exists to
+    // close.
+    let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
+    if gap <= 0.0 {
         return Vec::new();
     }
-    let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
     let mut motions: Vec<MotionOption> = kit
         .iter()
         .filter(|c| is_pure_motion(c))
-        .map(|c| {
-            let (mx, my) = motion_of(&c.frames);
-            let speed = (mx * mx + my * my).sqrt();
-            // ⚠ `0.0` RATHER THAN `1.0` WHEN THE FOE IS ON TOP OF THIS BODY.
-            // With no direction to go, no motion serves the objective — and
-            // this is exactly the state a body that has just launched itself
-            // is NOT in, so treating it as "anywhere is fine" would re-open
-            // the loop.
-            let alignment = if gap > 0.0 {
-                ((mx * foe_local.0 + my * foe_local.1) / (gap * speed)).clamp(0.0, 1.0)
-            } else {
-                0.0
+        .filter_map(|c| {
+            let travelled = match travel_of(&c.frames)? {
+                Travel::Thrown { dir, distance } => {
+                    let alignment =
+                        ((dir.0 * foe_local.0 + dir.1 * foe_local.1) / gap).clamp(0.0, 1.0);
+                    alignment * distance
+                }
+                // ⭐ A STEERED RIDE GOES WHERE IT IS POINTED, so there is no
+                // alignment to lose: the whole distance counts toward whatever
+                // the objective is. That is the mechanic — the admiral's shark
+                // is flown with the control stick — and it is why a vehicle is
+                // worth more than a burst of the same length.
+                Travel::Steered { distance } => distance,
             };
-            MotionOption {
+            let fraction = travelled / gap;
+            // ⛔⛤ **SYMMETRIC, AND THE ASYMMETRIC VERSION WAS MEASURED AND
+            // REJECTED THE SAME DAY.** The first tent forgave overshoot at half
+            // the rate it punished falling short, reasoning that *"arriving
+            // long is a fighter who is now past the opponent, which in a
+            // platform game is a position rather than a loss"*. That is a
+            // statement about recovering to the STAGE, and this score's
+            // objective is the FOE. Overshooting them does not close the gap —
+            // it puts the same gap on the other side, so the next decision
+            // meets the same world and presses again.
+            //
+            // ⭐ MEASURED on the grid sweep: at the forgiving falloff
+            // `player_robot_v3` threw `phase_shift` **186 times** at a mean
+            // gap of 129px for **27%/22%** on 9 distinct moves — 210px of
+            // teleport into a 129px gap is 1.6×, which the forgiving rule
+            // scored 0.69 and the symmetric one scores 0.37. That is the same
+            // limit cycle the move caused when it was on the ATTACK list, and
+            // it found the other list.
+            //
+            // ⇒ Worth nothing at twice the gap in either direction.
+            let score = (1.0 - (fraction - 1.0).abs()).max(0.0);
+            Some(MotionOption {
                 move_id: c.move_id.clone(),
                 frames: c.frames.clone(),
                 binding: c.binding,
-                score: alignment * (speed / fastest),
-            }
+                score,
+            })
         })
         .collect();
     motions.sort_by(|a, b| {
@@ -1091,6 +1144,80 @@ fn motion_options(
             .then_with(|| a.move_id.cmp(&b.move_id))
     });
     motions
+}
+
+/// What a motion move actually MOVES this body — how far, and whether the
+/// direction is the move's or the rider's.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Travel {
+    /// A commanded velocity, in the direction the move throws, carried for as
+    /// long as the move owns the body.
+    Thrown { dir: (f32, f32), distance: f32 },
+    /// A vehicle the rider STEERS while it carries them, so only the distance
+    /// is fixed and the direction is whatever is asked for.
+    Steered { distance: f32 },
+}
+
+/// The travel a move offers its owner, or `None` when it offers none.
+///
+/// ⛔⛤ **A MOVE CAN CARRY ITS OWNER WITHOUT COMMANDING A VELOCITY, AND READING
+/// ONLY THE IMPULSE HID THE WHOLE CLASS.** `call_the_shark` commands no impulse
+/// at all — the climb is the player's to steer — so `motion_of` answers
+/// `(0, 0)` and the admiral's only recovery fell off this list. It had been
+/// patched onto the ATTACK list instead, as 650px of `hazard_reach`, which is a
+/// different thing entirely: its authoring says *"there is no hurtbox on this
+/// up-b, it's purely a mobility special"* and its `reach` is authored as half
+/// the RIDE's straight-line distance. ⇒ Recovery authority is read here, where
+/// travel is what is being priced, and the ride's own `reach` is the number it
+/// already published for exactly this question.
+///
+/// ⚠ **`total_s` IS AN UPPER BOUND ON A THROWN DISTANCE, AND IS USED BECAUSE IT
+/// IS THE NON-ARBITRARY WINDOW.** A thrown body keeps travelling after the move
+/// ends and is slowed by gravity and drag while it does, and neither is
+/// knowable here — [`ae::AccelerationFrame`] carries the two axes' DIRECTIONS
+/// and no magnitude. What the move does own is how long it owns the body, and
+/// past that edge the brain is deciding again anyway.
+fn travel_of(frames: &ambition_entity_catalog::MoveFrameData) -> Option<Travel> {
+    let (mx, my) = motion_of(frames);
+    let speed = (mx * mx + my * my).sqrt();
+    if speed > 0.0 {
+        return Some(Travel::Thrown {
+            dir: (mx / speed, my / speed),
+            distance: speed * frames.total_s,
+        });
+    }
+    // ⛔⛤ **A SUSTAINED RIDE ONLY, NOT EVERY ROUTE THAT PUBLISHES A `carry` —
+    // AND THE TELEPORT WAS TRIED AND MEASURED OUT.** `RecoveryRoute::carry`
+    // answers the RECOVERY planner's question, *"this gets you home from
+    // within this far"*, and for a ride that is also the answer to *"how far
+    // can I travel toward anything"*, because the rider flies it with the
+    // control stick. For a teleport it is not: `phase_shift` is authored
+    // *"aimed, like every recovery: the stick, then straight up"*, so pressing
+    // it as an approach moves the robot 210px UP, and the gap it was pressed
+    // to close is still there.
+    //
+    // ⭐ MEASURED on the grid sweep, both prices. Admitting a `Teleport` here
+    // cost `player_robot_v3` his match either way: **27%/22% on 9 distinct
+    // moves with `phase_shift×186`** under a forgiving overshoot rule, and
+    // **32%/39% on 11 with `phase_shift×54`** under the symmetric one, against
+    // **225%/223% on 19** with the move on no list at all. Two prices, one
+    // outcome ⇒ the defect is not the price.
+    //
+    // ⚠ **WHAT IS OWED, so the next attempt starts here:** a teleport's
+    // destination is a fact about the MOVE — `TeleportParams` carries
+    // `behind_nearest_foe`, `behind_gap` and an aim that falls back to
+    // straight up — and none of it reaches `MoveFrameData`. That is the same
+    // gap the resolved-action-offer slice on the BRAIN row names: the brain
+    // should be handed what pressing this move DOES, not a scalar published
+    // for a different question.
+    match frames.recovery_route {
+        ambition_entity_catalog::RecoveryRoute::SustainedAuthority { reach, .. }
+            if reach > 0.0 =>
+        {
+            Some(Travel::Steered { distance: reach })
+        }
+        _ => None,
+    }
 }
 
 /// The body-local displacement a move COMMANDS of its owner, `+x` toward

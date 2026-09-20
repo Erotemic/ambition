@@ -1141,6 +1141,36 @@ items, four verifications, and the only artifact any of them produced was this
 row. A priority queue that outlives its work does not fail loudly — it spends
 the next reader's first hour and looks like diligence while doing it.
 
+⭐ **RE-VERIFIED 2026-09-20, AND THIS TIME BY RUNNING THE ARMS RATHER THAN
+READING THE SITES — which is what the paragraph above was still missing.** The
+row said the repairs are in the comments; it did not say anybody had watched
+them hold.
+
+- **Atomicity: POISONED.** Moving `stop_session` back above the `── PREPARE ──`
+  block reddens exactly
+  `a_hidden_candidate_keeps_the_running_session_instead_of_replacing_it`, on its
+  own message — *"stopped the running session and then failed to install its
+  replacement"* — while its control,
+  `a_policy_change_replaces_the_local_session`, stays GREEN. A poison that
+  reddened both would have said only that the fixture was broken.
+- **Q142: instrument re-run, unchanged.**
+  `check_presence_filtered_state_is_rollback_registered.py` reads **121
+  presence-filtered components across 21 registering crates, 92 registered, 27
+  waived, 2 owed** — the same as 2026-09-19. The two owed are `PostBossNpc` and
+  `SmirkingBehemothVictoryNpc`; `RecharacterizeBody` is registered and
+  witnessed. ⛔ The page's own table was still captioned *"the one still open,
+  and the three that closed"* while listing four rows and omitting one of the
+  two actually owed — repaired, and it now points at the instrument for
+  membership rather than restating it.
+- **Layout identity: still zero code.** `grep -rn 'ResourceLayoutId\|PreparedActorResourcePlanId'`
+  over `crates/` and `game/` matches **0 files**, so the ⚠ above is exact.
+
+⚠ AND `session.rs` CARRIED THE LAST OF IT, in a test comment reading *"that
+step cannot fail"* about the install. True but imprecise in the way this review
+keeps correcting: it cannot REFUSE — no `Result`, so no caller owes a
+post-destructive branch — and it can still ABORT, because it re-censuses before
+its first destructive write and fails the invariant there. Now says so.
+
 ### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state
 
 **Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
@@ -2929,6 +2959,78 @@ DETONATION THRESHOLD (*"minimum contact speed that detonates the bomb"*), not a
 launch speed; a drop bomb is DROPPED, so its reach is where it lands plus the
 blast. Read the field's own doc before multiplying it by a time.
 
+⛔⛤ **AND ADMITTING THE RANGED MOVE EXPOSED THAT IT WAS BEING AIMED BY THE
+WRONG CLOCK.** The lead carries the foe forward over `staleness + startup_s`,
+and `startup_s` is *"time until the first Active window"* — which **falls back
+to the WHOLE MOVE DURATION** when there is none. That is the shape of every
+ranged move in the game, so the moment they reached the menu they were aimed
+past the opponent:
+
+| move | throws at | `startup_s` | error at 200px/s |
+|---|---|---|---|
+| `polygon_projectile_charge_shot` | 0.26s | 0.58s | 64px |
+| `polygon_ponytail_boomerang` | 0.16s | 0.40s | 48px |
+| `polygon_lay_bomb` | 0.18s | 0.46s | 56px |
+
+Each is wider than the `ADMISSION_SLACK_PX` this rule is tuned around. ⇒
+`MoveFrameData::threat_live_at_s` is **when this move first offers the opponent
+anything**, folded from the same three roads `hazard_reach` uses — an Active
+window's own `start_s`, a `Ranged` or hazardous `Effect` event's `at_s`, and a
+hazardous sustain's window — and `None` when it offers nothing, which is
+exactly the population the attack menu's third arm refuses. ⛔ NOT an overload
+of `startup_s`: the two are equal for an ordinary strike by construction and
+separate only where the move reaches through something it spawns. Held by
+`a_projectile_threatens_when_it_is_thrown_not_when_the_move_ends` against the
+authored constants, with `a_strike_threatens_when_its_hitbox_opens` as the
+control — without which *"the threat time is early"* is also true of a field
+that is simply always early.
+
+⭐⭐ **THE WHOLE 2026-09-20 REVIEW BATCH, JUDGED ON THE GAME: 6918% → 6775%,
+AND EXACTLY THREE OF TWENTY-ONE ROWS MOVED.** Same instrument, same 21 mirror
+matches of 3600 ticks, same binary; the column it is measured against is
+`+ leading the aim` in the table above. The three corrections in the batch are
+the shark off `hazard_reach`, `threat_live_at_s` replacing `startup_s` in the
+lead, and a travel-aware `MotionOption`.
+
+| fighter | + leading the aim | + the review batch | Δ | why this row and not the others |
+|---|---|---|---|---|
+| `npc_pirate_admiral` | 233% / 235% | 239% / 201% | −28 | `call_the_shark` leaves the attack menu. It is the roster's only `SustainedAuthority`. |
+| `projectile_polygon` | 179% / 229% | 184% / 229% | +5 | Her boomerang, charge shot and bomb are aimed by their throw time instead of the end of the move. |
+| `director` | 109% / 142% | 34% / 97% | −120 | His steered bolt is the roster's only `STEERED_BOLT`. ⭐ **AND THIS ONE IS THE MIRROR, NOT THE CHANGE** — see below. |
+| the other 18 | — | — | **0** | bit-identical, every one. |
+
+⭐ **THE `director` ROW IS A QUESTION AND IT HAS BEEN ANSWERED.** A 34%/97%
+split inside a MIRROR is the asymmetry this row's own protocol says to re-seat:
+`AMBITION_GRID_FOE=smash_george_booul`, same clock, gives **218% / 131% on 30
+distinct moves** with the bolt thrown 19 times at a mean gap of 57px — against
+11 distinct and 39 throws at 158px in the mirror. He is not broken; two copies
+of one brain narrowed onto one move again.
+
+⚠ **AND THE BOLT DOES POINT AT REAL UNFINISHED WORK, WHICH IS WHY THE ROW WAS
+WORTH CHASING.** `threat_live_at_s` is when the bolt is THROWN, and a bolt is
+not a threat where it is thrown — it crosses 671px at 300px/s, so it arrives up
+to two seconds later. Replacing an over-lead (the whole move duration) with an
+under-lead (zero flight time) is an improvement and not the answer: the truthful
+number is `throw + gap / hazard speed`, and the hazard's SPEED is exactly what
+`MoveFrameData` does not carry — `hazard_reach_of` folds it into a distance and
+throws it away. Which is the next slice, below.
+
+⛔⬤ **THE NAMED NEXT SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE
+BRAIN IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE
+IN `MoveSpec`.** Grabs, windboxes, bolts, bombs, ranged triggers, summons and
+recovery routes each arrived as a separate patch onto `MoveFrameData`, and the
+ranged fix is only half done even now: `polygon_projectile_charge_shot` is
+ADMITTED by `hazard_reach` and then scored with `coverage: none`,
+`reach_fit: 0`, `damage: 0`, `launch: 0`, because its real speed, flight,
+damage and launch live in the BODY's `RangedActionSpec` and not in the move at
+all. `RANGED_ACTION_REACH = 1000` is a placeholder standing where that join
+should be. ⇒ The next repair is not another `hazard_reach` arm: it is resolving
+a fighter candidate from **what pressing this move actually does for this
+actor** — a direct hit derives its threat from hit volumes, a ranged/effect
+move resolves against the mechanic it actually spawns, pure movement produces
+no opponent threat — and handing the brain that resolved offer instead of a
+`MoveSpec` to interpret. Raised by review 2026-09-20.
+
 ⛔⛤ **AND A FOURTH: A MOVE THAT ONLY CARRIES THE BODY IS NOT AN ATTACK, THOUGH
 IT IS VERY TEMPTING TO PUT IT ON THE ONE LIST THAT EXISTS.** A teleport crosses
 210px and the admiral's shark is a ridable summon with 650px of authority;
@@ -2938,14 +3040,69 @@ NO list. Admitting them as ATTACKS cost `player_robot_v3` the whole match:
 at a mean gap of **223px** for **0% damage**. A pressed move owns the body
 through its recovery and **a body in a move does not walk**, so putting a travel
 move on the attack list does not give a fighter a way to close; it removes the
-one it had. `pointed_polygon` and `medic` failed identically. ⇒ Backed out, and
-`options/tests.rs` now asserts the SILENCE with that measurement beside it.
+one it had. `pointed_polygon` and `medic` failed identically.
 
-⚠ **STILL OWED, AND NAMED SO THE NEXT ATTEMPT STARTS HERE:** those moves belong
-to `motion_options`, whose own comment already says so. It is not a one-liner —
-its score normalises by SPEED against the kit's fastest and a `Teleport` authors
-a DISTANCE, so the two cannot go in one `max` until somebody decides what that
-ratio means.
+⛔⛤ **AND THE FIRST REPAIR PUT THE SUMMON BACK ON THE ATTACK LIST BY ANOTHER
+DOOR, WHICH A REVIEW CAUGHT THE NEXT DAY.** `frame_data` folded a
+`SustainedAuthority`'s reach into `hazard_reach`, arguing that a summon holding
+ground for `seconds` makes the opponent the same offer a bolt does — and a test
+was written certifying it. `call_the_shark`'s own authoring refutes it in as
+many words: *"There is no hurtbox on this up-b, it's purely a mobility
+special"*; it is a `hitless_special` rather than a strike with an empty volume
+list; the summoned shark is `Neutral` and deals no contact damage; and its
+`reach` is authored as **half the ride's straight-line distance**, which is a
+statement about where the ADMIRAL can go. ⇒ A number describing how far I can
+GO is not a number describing how far I can HURT, and a test asserting the
+wrong model is worse than no test. Backed out; `pirate_admiral_moveset` now
+asserts `hazard_reach == 0.0` and `threat_live_at_s == None` beside the route.
+
+⭐⭐ **AND TAKING IT OFF THE NEUTRAL MENU REDDENED THREE `smash_ride` FIXTURES,
+ALL THREE BECAUSE THE FIGHT GOT BETTER — which is this file's own recorded
+failure mode, printed in its own words one assertion above two of them:** *"a
+perfectly correct rival [looked] like a broken assertion."* Each was measured
+before it was touched, and each repair is about what the test CLAIMS:
+
+| fixture | what it measured | what it now measures |
+|---|---|---|
+| `the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off` | net rightward displacement over 60 held frames, in an app with a live CPU rival: `30.8, 61.7, 33.6, −10.3, 1.9, 3.9` — he steers out and is pushed back, aboard the whole way | the rival stands down and the DIFFERENTIAL is asserted — right `+67.5px`, left `−48.3px`. A rival cannot manufacture that and a mount ignoring the stick cannot produce it |
+| `two_admirals_ride_their_own_sharks_at_the_same_time` | that a CPU standing on the stage summons a recovery on its own — true only while the move was on the neutral ATTACK menu. **No second rider in 3600 ticks**, against 600 before | the CPU is put where its up-B is FOR: off the platform and below the ledge, so `classify` returns `Recovery`. ⚠ At the ledge's own height it simply double-jumped home and never needed the shark — a correct fighter defeating the premise |
+| `the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves` | held NEUTRAL through the lease, so the pair settled onto the platform and the `!grounded` PREMISE of its recovery-charge arm failed | holds UP, which is what a rider waiting out a lease does and what *"fly around using the control stick"* means |
+
+⇒ **A fixture that shares an app with a live CPU is measuring the CPU too.**
+All three read as mount defects and none of them was one.
+
+✅ **AND HALF THE SLICE THAT WAS OWED LANDED WITH IT — 2026-09-20.** The block
+was stated as *"its score normalises by SPEED against the kit's fastest and a
+`Teleport` authors a DISTANCE, so the two cannot go in one `max` until somebody
+decides what that ratio means"*. The ratio was the wrong question: the motion
+score had no LENGTH in it at all, so the gap magnitude cancelled and a
+full-strength recovery was worth the same at 5px as at 280px as at 900px —
+`medic_rescue_lift` applies about `(34, -905)` and was priced identically
+everywhere. ⇒ `MotionOption` is priced in pixels against the gap. `travel_of`
+reads a thrown velocity over the move's own duration, or a summoned RIDE's own
+reach for a route that carries without commanding one, and the score is a
+symmetric tent over `travelled / gap`: 1 where the motion arrives, 0 at nothing
+and at twice the gap alike. Held by
+`a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers` — 5px / 450px /
+1400px on one kit, with the middle one asserted to be the PEAK rather than
+merely above the press threshold.
+
+⛔⛤ **AND THE TELEPORT WAS PUT ON THAT LIST AND MEASURED BACK OFF IT THE SAME
+DAY, WHICH IS THE THIRD TIME THIS MOVE HAS TAUGHT THE SAME LESSON.** Pricing
+`RecoveryRoute::Teleport { distance }` as travel toward the opponent cost
+`player_robot_v3` his match at BOTH prices tried: **27%/22% on 9 distinct with
+`phase_shift×186`** under a forgiving overshoot rule, and **32%/39% on 11 with
+×54** under the symmetric one, against **225%/223% on 19** with the move
+offered nowhere. Two prices, one outcome ⇒ the defect is not the price. The
+authoring says what it is: *"Aimed, like every recovery: the stick, then
+straight up"* — a teleport goes where the MOVE aims, so pressing it as an
+approach moves the robot 210px upward and the gap it was pressed to close is
+still there. `carry()` answers the RECOVERY planner's question and a ride's
+`reach` happens to answer the approach question too, because a rider steers;
+a teleport's does not. ⚠ **WHAT IS OWED:** the destination is a fact about the
+move — `TeleportParams` carries `behind_nearest_foe`, `behind_gap` and an aim
+— and none of it reaches `MoveFrameData`. That is the resolved-action-offer
+slice below, not another price.
 
 ⚠ **A FIFTH WAS CHECKED AND IS A NO-OP, WHICH IS ALSO A RESULT.** Admission
 asked only the FAR side of a move's region, and an authored strike is a box
@@ -3065,6 +3222,32 @@ What is missing is the brain's memory of its own last move: it cannot perceive
 that it just whiffed, so it re-derives the same ranking from the same world.
 `FighterState` carries `habits` (a model of the OPPONENT) and `last_foe`, and
 nothing at all about what this body just did.
+
+⛔⛤ **AND THE OBVIOUS SHAPE OF THAT REPAIR WAS BUILT, MEASURED AND BACKED OUT
+2026-09-20 — RECORDED SO THE NEXT ATTEMPT STARTS PAST IT.** The build was:
+`BodyCombat::strikes_connected`, a monotone tally incremented on the existing
+false→true `connected_hit` edge in `mark_move_playback_resolved_hits` (which is
+where `verdict_belongs_to` has already settled provenance, so no second reader
+of the channel has to repeat it); published through `PerceptionBody` into
+`SelfView`; remembered by the brain as `last_seen_connects` /
+`presses_since_contact`; and after three presses with nothing landed, ONE
+decision declines to press so movement can close.
+
+⇒ **The decline was a NO-OP, and the measurement says why in one line: the
+presses are 24 ticks apart and a decision is 5.** Press rate is bounded by the
+MOVE's duration, not by the decision cadence, so the decision the gate skips is
+one the body was never going to press on — it is already inside the move it
+threw. Subject and control both pressed exactly 10 times in 240 ticks.
+
+⚠ **THE FACT IS STILL MISSING AND THE WINDOW IS THE OPEN QUESTION.** To change
+anything the refusal has to last long enough that the body actually walks, and
+the non-arbitrary length is the one the move itself names — *spend as long
+going somewhere as you would have spent swinging* (`frames.total_s`), rather
+than a tick count chosen to make a fighter behave. That needs one more piece of
+brain state and its snapshot projection, which is why it is a slice and not a
+follow-up line. ⛔ Do not re-derive the plumbing: the edge, the port and the
+projection are all named above and all compiled and passed the four suites; it
+is the POLICY that was not earned.
 
 ⚠ The two moves left after that are a counter and a buff, and they are the two
 the attack scorer genuinely cannot choose between: pricing them needs a

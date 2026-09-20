@@ -946,3 +946,110 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod threat_timing_tests {
+    use super::*;
+
+    /// ⛔⛤ **A PROJECTILE GOES LIVE WHEN IT IS THROWN, AND `startup_s` SAYS IT
+    /// GOES LIVE WHEN THE MOVE ENDS.**
+    ///
+    /// `startup_s` is *"time until the first Active window"* and falls back to
+    /// the whole move duration when a move has none — which is the shape of
+    /// every ranged move in the game, because the projectile IS the attack.
+    /// A consumer leading a moving target by that number aims hundreds of
+    /// milliseconds past them: reviewed 2026-09-20, `charge_shot` fires at
+    /// 0.26s and reports `startup_s` 0.58s, which at a closing speed of
+    /// 200px/s is 64px of error against an `ADMISSION_SLACK_PX` of 24.
+    ///
+    /// ⭐ THIS IS THE SUBJECT. Its CONTROL is
+    /// [`a_strike_threatens_when_its_hitbox_opens`], which asserts the two
+    /// numbers are the SAME for an ordinary swing — without it, "the threat
+    /// time is early" would also be satisfied by a field that is simply always
+    /// early, and the split this field exists for would be invisible.
+    #[test]
+    fn a_projectile_threatens_when_it_is_thrown_not_when_the_move_ends() {
+        let set = projectile_polygon_moveset();
+        // ⭐ THE AUTHORED TRIGGER TIMES, read from the constants the moves are
+        // BUILT from rather than re-derived from the events the derivation
+        // itself folds — otherwise the arm restates the implementation and
+        // agrees with any mistake in it.
+        for (id, thrown_at) in [
+            ("polygon_projectile_charge_shot", CHARGE_FIRE_AT_S),
+            ("polygon_ponytail_boomerang", PONYTAIL_THROWN_AT_S),
+            ("polygon_lay_bomb", BOMB_LAID_AT_S),
+        ] {
+            let spec = set
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} is on the reference projectile fighter"));
+            let f = spec.frame_data();
+            let live = f.threat_live_at_s.unwrap_or_else(|| {
+                panic!(
+                    "{id} threatens nobody at any time, so it is off the attack \
+                     menu entirely — see `hazard_reach`"
+                )
+            });
+            assert!(
+                live < f.startup_s,
+                "{id} throws at {live:.2}s and reports `startup_s` {:.2}s; \
+                 equal means a consumer leading by the threat time is leading \
+                 by the whole move duration after all",
+                f.startup_s
+            );
+            // ⚠ AND IT IS THE AUTHORED THROW, not merely "something smaller".
+            assert!(
+                (live - thrown_at).abs() < 1e-4,
+                "{id} is authored to throw at {thrown_at:.3}s and reports its \
+                 threat live at {live:.3}s"
+            );
+        }
+    }
+
+    /// ⭐ THE CONTROL: for a move whose threat IS its hitbox, the two numbers
+    /// are the same by construction. See the arm above for why this matters.
+    #[test]
+    fn a_strike_threatens_when_its_hitbox_opens() {
+        let set = projectile_polygon_moveset();
+        let jab = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_jab")
+            .expect("she has a jab");
+        let f = jab.frame_data();
+        assert_eq!(
+            f.threat_live_at_s,
+            Some(f.startup_s),
+            "an ordinary swing's threat is its first Active window, so the two \
+             must agree — if they can differ here, the subject arm's \
+             `live < startup_s` is a statement about the FIELD rather than \
+             about ranged moves"
+        );
+    }
+
+    /// ⭐ AND A MOVE THAT OFFERS THE OPPONENT NOTHING SAYS SO WITH `None`,
+    /// which is the same population the attack menu's third arm refuses.
+    #[test]
+    fn a_move_that_threatens_nobody_names_no_time() {
+        let set = projectile_polygon_moveset();
+        let lift = set
+            .moves
+            .iter()
+            .find(|m| m.id == "polygon_projectile_recoil_lift")
+            .expect("she has a recoil lift");
+        let f = lift.frame_data();
+        if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard_reach <= 0.0 {
+            assert_eq!(
+                f.threat_live_at_s, None,
+                "a move with no coverage, no shove and no hazard named a time \
+                 at which it threatens somebody"
+            );
+        } else {
+            assert!(
+                f.threat_live_at_s.is_some(),
+                "a move that covers, shoves or spawns a hazard must say WHEN"
+            );
+        }
+    }
+}

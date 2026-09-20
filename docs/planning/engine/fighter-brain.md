@@ -183,6 +183,85 @@ Admission is the one judgement here about a moment in the FUTURE — the tick th
 hitbox opens — so it is the one that leads. Anyone widening this should say
 which rung the prediction is supposed to be wrong at, and by how much.
 
+### ⛔⛤ The tick a move goes live is not the tick its hitbox opens
+
+Reviewed 2026-09-20, one day after the section above landed. The lead is over
+`staleness + startup_s`, and `startup_s` is derived as *"time until the first
+Active window"* with a fallback: **a move with no Active window at all reports
+its whole duration.** Every ranged move in the game is that shape, because the
+projectile is the attack — so the moment `hazard_reach` put them on the menu,
+the lead began aiming them past the opponent.
+
+```text
+polygon_projectile_charge_shot   throws 0.26s   startup_s 0.58s
+polygon_ponytail_boomerang       throws 0.16s   startup_s 0.40s
+polygon_lay_bomb                 throws 0.18s   startup_s 0.46s
+```
+
+At 200px/s of closing speed the first two aim 64px and 48px long, both wider
+than the 24px slack the admission rule is tuned around. ⇒
+`MoveFrameData::threat_live_at_s` answers the question the lead is actually
+asking, folded from the three roads that can threaten — an Active window's own
+`start_s`, a `Ranged` or hazardous `Effect` event's `at_s`, and the window
+carrying a hazardous sustain — and `None` where the move offers the opponent
+nothing.
+
+⚠ **THE GENERAL SHAPE, STATED ONCE SO IT IS NOT RE-LEARNED:** a field derived
+with a fallback answers TWO questions, and the second answer is a guess wearing
+the first one's units. `startup_s`'s fallback is a sensible answer to *"how
+long am I committed"* and a wrong answer to *"when does this become dangerous"*.
+Give the second question its own field rather than the first field a second
+meaning.
+
+### ⛔⛤ Recovery authority is a travel number and answers a movement question
+
+Reviewed 2026-09-20. `AuthoredRecoveryRoute::SustainedAuthority { seconds,
+reach }` was folded into `hazard_reach` on the argument that a summon holding
+ground for `seconds` makes the opponent the same offer a bolt does. Its one
+production instance refutes it: `call_the_shark`'s authoring says *"There is no
+hurtbox on this up-b, it's purely a mobility special"*, the summoned shark is
+`Neutral` and deals no contact damage, and the `reach` is authored as half the
+RIDE's straight-line distance.
+
+⇒ **Two independent questions, two numbers.** Recovery authority answers *"what
+movement does this give me"*; hazard reach answers *"what can this do to
+them"*. A future summon that does both states its offensive half as an effect,
+like every other hazard the catalog prices. The travel half is read on the
+motion road through `RecoveryRoute::carry`, which is the number both carrying
+kinds already publish.
+
+⚠ **AND THE MOTION SCORE HAD TO LEARN LENGTH BEFORE IT COULD RECEIVE IT.** It
+was `alignment × speed / the kit's fastest speed`, which contains no length, so
+the gap magnitude cancels: a full-strength recovery was worth the same against
+an opponent 5px away as against one 900px away. It is now a symmetric tent over
+`travelled / gap`, which is dimensionless for the same reason the speed share
+was — a ratio of two lengths — while actually depending on how far there is to
+go.
+
+### ⛔⛤ A number published for one question does not answer a neighbouring one
+
+Three findings in two days are the same shape, and the shape is worth naming
+once. `RecoveryRoute::carry` answers the RECOVERY planner: *"this gets you home
+from within this far."* A `SustainedAuthority` ride's `carry` happens to answer
+*"how far can I travel toward anything"* too, because the rider steers it. A
+`Teleport`'s does NOT: `phase_shift` is authored *"aimed, like every recovery:
+the stick, then straight up"*, so it goes where the MOVE aims and not where the
+reader wants to go.
+
+⭐ **MEASURED, AND THE MEASUREMENT IS WHY THIS IS A RULE AND NOT A PREFERENCE.**
+Pricing a teleport as travel toward the opponent cost `player_robot_v3` his
+match at two different prices — 27%/22% on 9 distinct moves with
+`phase_shift×186`, then 32%/39% on 11 with ×54 — against 225%/223% on 19 with
+the move offered nowhere. **Two prices, one outcome ⇒ the defect is not the
+price.** When a change that should be a tuning knob produces the same failure at
+both ends of its range, stop tuning and ask what the number means.
+
+⇒ Before spending a published scalar on a new question, read the sentence its
+owner wrote about it. `reach` on a summon is *how far the admiral rides*;
+`startup_s` on a hitless move is *the whole duration*; `distance` on a teleport
+is *how far the jump is, in whatever direction the move picks*. Each of the
+three read plausibly and was wrong.
+
 ### ⛔ A near-miss that is measured on only one axis is not measured
 
 The sweep's `gap` column is `|x0 − x1|`. A pair 10px apart in `x` and 300px

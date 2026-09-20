@@ -965,5 +965,44 @@ mod tests {
              straight-line ride — a recovery turns back toward the stage, and a \
              search that over-claims kills the fighter it meant to save"
         );
+
+        // ⛔⛤ **AND THAT 650px IS TRAVEL, NOT THREAT — CERTIFIED HERE BECAUSE
+        // FOR ONE DAY THE CATALOG SAID OTHERWISE.** `frame_data` folded a
+        // `SustainedAuthority`'s reach into `hazard_reach`, on the argument
+        // that a summon holding ground for five seconds makes an opponent the
+        // same offer a bolt does. This move's own authoring refuses that in as
+        // many words — *"There is no hurtbox on this up-b, it's purely a
+        // mobility special"* — the summoned shark is `Neutral` and deals no
+        // contact damage, and `reach` is authored as HALF THE RIDE'S
+        // straight-line distance, which is a fact about where the admiral can
+        // GO. Reviewed 2026-09-20.
+        //
+        // ⇒ The brain reads the same number on the MOTION road
+        // (`brain::fighter::options::travel_of` → `RecoveryRoute::carry`), and
+        // the attack menu is offered nothing at all.
+        assert_eq!(
+            frames.hazard_reach, 0.0,
+            "the mobility special is advertised as {}px of OFFENSIVE reach, so \
+             the CPU admiral will summon a shark at an opponent it cannot \
+             touch and stand in the resulting move while they walk up",
+            frames.hazard_reach
+        );
+        assert_eq!(
+            frames.threat_live_at_s, None,
+            "a move that threatens nobody named a time at which it does"
+        );
+        assert!(
+            frames.coverage.is_none() && frames.push_coverage.is_none(),
+            "the up-b grew a volume: coverage={:?} push={:?}",
+            frames.coverage,
+            frames.push_coverage
+        );
+        // ⭐ AND THE CARRY IS STILL READABLE, so "off the attack menu" did not
+        // become "off every menu" — which is what happened the first time.
+        assert_eq!(
+            frames.recovery_route.carry(),
+            reach,
+            "the travel a motion planner reads is not the ride's own reach"
+        );
     }
 }

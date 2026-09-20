@@ -16,6 +16,10 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         reach,
         ignores_guard: false,
         hazard_reach: 0.0,
+        // `None` keeps every fixture's aim on `startup_s`, which is what the
+        // lead read before this field existed. A fixture that means to test the
+        // SPLIT states its own time.
+        threat_live_at_s: None,
         //  the fixture's move is a FORWARD POKE, and now it says so. `reach`
         // is only the `+x` face of the authored volumes, so a fixture that set it
         // alone described a move with no hittable region at all once the scorer
@@ -741,108 +745,103 @@ fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu(
         "the recovery situation does not offer the move that lifts the body"
     );
 
-    // ⭐⭐ **A SUMMON IS AN OFFER TO THE OPPONENT AND A TELEPORT IS NOT, AND
-    // THAT IS THE WHOLE LINE.** `call_the_shark` puts 650px of ridable
-    // authority on the field for five seconds — the same kind of offer a bolt
-    // makes — so `MoveSpec::frame_data` folds a `SustainedAuthority`'s reach
-    // into `hazard_reach` and the hazard arm admits it. `phase_shift` moves
-    // only its caster 210px and is on NO list at all.
+    // ⛔⛤ **A SUMMON IS NOT AN OFFER TO THE OPPONENT, AND FOR ONE DAY THIS
+    // TEST SAID IT WAS.** The claim was that `call_the_shark` puts 650px of
+    // ridable authority on the field for five seconds, which is the kind of
+    // offer a bolt makes — so `frame_data` folded a `SustainedAuthority`'s
+    // reach into `hazard_reach` and the hazard arm admitted it.
     //
-    // ⚠ THE FIXTURE BELOW SETS `hazard_reach` BY HAND, WHICH IS THE ONE THING
-    // THIS FILE CANNOT DERIVE: these candidates are built literally rather
-    // than through `frame_data`, so a `recovery_route` alone would leave the
-    // hazard at zero and this test would pass by agreeing with itself. The
-    // catalog's half of the claim is
-    // `pirate_admiral_moveset`'s own coverage of `call_the_shark`.
+    // ⛔ `call_the_shark`'S AUTHORING REFUTES IT IN ITS OWN WORDS: *"There is
+    // no hurtbox on this up-b, it's purely a mobility special"*; it is a
+    // `hitless_special` rather than a strike carrying an empty volume list;
+    // the summoned shark is `Neutral` and deals no contact damage; and its
+    // `reach` is authored as HALF THE RIDE'S STRAIGHT-LINE DISTANCE, which is
+    // how far the admiral can GO. Recovery authority answers *"what movement
+    // does this give me"* and hazard reach answers *"what can this do to
+    // them"*. A future summon that does both states its offensive half as an
+    // effect, like every other hazard in the table.
     //
-    // ⭐ THE ALTERNATIVE WAS MEASURED AND IT IS WORSE. Admitting them as
-    // ATTACKS, 21 mirror matches of 3600 ticks: `player_robot_v3` threw
-    // `phase_shift` 157 times — one every 23 ticks, the move's whole
-    // duration — at a mean gap of 223px for **0% damage**, against 103% with
-    // an ordinary menu. A pressed move owns the body through its recovery and
-    // a body in a move does not walk, so putting a travel move on the attack
-    // list does not give a fighter a way to close; it removes the one it had.
-    // `pointed_polygon` and `medic` failed identically.
-    //
-    // ⇒ A teleport's home is `motion_options`, and putting it there is a real
-    // slice: its score normalises by SPEED and a `Teleport` authors a
-    // DISTANCE. Until that ratio is decided, this asserts the silence so the
-    // day somebody fixes it, this test is what tells them they did.
-    let mut summon = candidate("summon", 0.3, 0.0);
-    summon.frames.coverage = None;
-    summon.frames.recovery_route =
+    // ⇒ **BOTH CARRYING ROUTES ARE MOTION.** `travel_of` reads
+    // `RecoveryRoute::carry`, which is the distance a summon and a teleport
+    // already publish, and the motion score is a ratio against the gap rather
+    // than a share of the kit's fastest SPEED — which is exactly the
+    // "what does that ratio mean" question that held this slice while a
+    // distance and a velocity had to share one maximum.
+    let carrying = |id: &str, route: ambition_entity_catalog::RecoveryRoute| {
+        let mut c = candidate(id, 0.3, 0.0);
+        c.frames.coverage = None;
+        c.frames.recovery_route = route;
+        c
+    };
+    let summon = carrying(
+        "summon",
         ambition_entity_catalog::RecoveryRoute::SustainedAuthority {
             seconds: 5.0,
             reach: 650.0,
-        };
-    summon.frames.hazard_reach = 650.0;
-    let with_summon = generate_options(
-        Perceived::cheating(&view_with(300.0, 600.0)),
+        },
+    );
+    let blink = carrying(
+        "blink",
+        ambition_entity_catalog::RecoveryRoute::Teleport { distance: 210.0 },
+    );
+    let carriers = generate_options(
+        // `view_with(me_x, foe_x)` — 650px of gap, which is exactly where the
+        // ride arrives.
+        Perceived::cheating(&view_with(300.0, 950.0)),
         Situation::Neutral,
-        &[summon],
+        &[summon, blink],
         &w,
     );
+    assert!(
+        carriers.attacks.is_empty(),
+        "a move that carries its owner and touches nobody was offered as an \
+         ATTACK. Measured across 21 mirror matches of 3600 ticks: a pressed \
+         move owns the body through its recovery and a body in a move does \
+         not walk, so `player_robot_v3` threw `phase_shift` 157 times — one \
+         every 23 ticks, the move's whole duration — at a mean gap of 223px \
+         for 0% damage, against 103% with an ordinary menu. Offered: {:?}",
+        carriers
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+    );
+    // ⭐ AND THE RIDE IS ON THE LIST THAT PRICES TRAVEL, worth 1 because it
+    // arrives: a rider steers with the control stick, so the whole 650px
+    // counts toward whatever the objective is.
+    let priced: Vec<(&str, f32)> = carriers
+        .motions
+        .iter()
+        .map(|m| (m.move_id.as_str(), m.score))
+        .collect();
     assert_eq!(
-        with_summon
-            .attacks
-            .iter()
-            .map(|a| a.move_id.as_str())
-            .collect::<Vec<_>>(),
+        priced.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
         vec!["summon"],
-        "a summon that holds 650px of ground offers the opponent something, \
-         and the foe is 300px away"
-    );
-
-    // ⛔ AND THE SAME SUMMON IS REFUSED BEYOND ITS OWN AUTHORITY, or the arm
-    // above is just "hitless moves are always on".
-    let mut far_summon = candidate("summon", 0.3, 0.0);
-    far_summon.frames.coverage = None;
-    far_summon.frames.hazard_reach = 650.0;
-    let out_of_range = generate_options(
-        // `view_with(me_x, foe_x)` — 900px of gap, past the summon's 650.
-        Perceived::cheating(&view_with(0.0, 900.0)),
-        Situation::Neutral,
-        &[far_summon],
-        &w,
+        "the summoned ride is not on the motion list, so the admiral whose \
+         only way to close a 650px gap is his shark is offered nothing: \
+         {priced:?}"
     );
     assert!(
-        out_of_range.attacks.is_empty(),
-        "a 650px summon was offered against a foe 900px away: {:?}",
-        out_of_range
-            .attacks
-            .iter()
-            .map(|a| a.move_id.as_str())
-            .collect::<Vec<_>>(),
+        (priced[0].1 - 1.0).abs() < 1e-4,
+        "a 650px ride into a 650px gap arrives exactly, which is the peak of \
+         the score: {priced:?}"
     );
 
-    // ⛔⛤ **AND A TELEPORT IS ON NEITHER LIST, WHICH IS A COST THIS TEST
-    // STATES RATHER THAN HIDES.** It offers the opponent nothing, and
-    // `motion_of` reads the `lift_*` burst it does not author, so it is
-    // offered nowhere.
-    let mut blink = candidate("blink", 0.3, 0.0);
-    blink.frames.coverage = None;
-    blink.frames.recovery_route =
-        ambition_entity_catalog::RecoveryRoute::Teleport { distance: 210.0 };
-    let with_blink = generate_options(
-        Perceived::cheating(&view_with(300.0, 600.0)),
-        Situation::Neutral,
-        &[blink],
-        &w,
-    );
+    // ⛔⛤ **AND THE TELEPORT IS ON NEITHER LIST, WHICH IS A MEASURED REFUSAL
+    // AND NOT AN UNFINISHED ONE.** It was put on this list and taken off
+    // again the same day: a teleport goes where the move AIMS — `phase_shift`
+    // is authored *"aimed, like every recovery: the stick, then straight up"*
+    // — so pricing its `distance` as travel toward the opponent moves the
+    // robot 210px upward and leaves the gap exactly where it was. Two
+    // different overshoot prices, one outcome: **27%/22% on 9 distinct with
+    // `phase_shift×186`**, then **32%/39% on 11 with ×54**, against
+    // **225%/223% on 19** with the move offered nowhere. ⇒ The destination is
+    // a fact about the move (`TeleportParams` carries `behind_nearest_foe`,
+    // `behind_gap` and an aim) and none of it reaches `MoveFrameData`; that is
+    // the resolved-action-offer slice, not a price.
     assert!(
-        with_blink.attacks.is_empty() && with_blink.motions.is_empty(),
-        "a teleport is not a swing and is not a step; it should be on neither \
-         list until `motion_of` can price a route: attacks={:?} motions={:?}",
-        with_blink
-            .attacks
-            .iter()
-            .map(|a| a.move_id.as_str())
-            .collect::<Vec<_>>(),
-        with_blink
-            .motions
-            .iter()
-            .map(|m| m.move_id.as_str())
-            .collect::<Vec<_>>(),
+        !priced.iter().any(|(id, _)| *id == "blink"),
+        "a teleport is priced as travel toward the opponent again: {priced:?}"
     );
 
     // ⚠ AND A LIFTER THAT HITS IS UNTOUCHED, which is 13 of the roster's 15:
@@ -2166,8 +2165,16 @@ fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
     // ⭐ THE SAME KIT, THE SAME GAP, THE FOE MOVED UPSTAIRS. `+y` is toward
     // this body's feet, so a foe overhead is a NEGATIVE local `y` — the
     // direction a lift travels.
-    let mut overhead = view_with(300.0, 320.0);
-    overhead.actors[0].pos.y = 300.0 - 280.0;
+    //
+    // ⚠ **450px, WHICH IS WHERE THIS LAUNCH ARRIVES** (900px/s for the
+    // fixture's 0.5s move). The height used to be 280px and was arbitrary,
+    // because the score contained no LENGTH and only the direction mattered;
+    // now that a motion is priced against the gap it actually has to cross,
+    // the distance is load-bearing and the arm states one where the move does
+    // its job. The ALONGSIDE control is untouched, so the flip this test is
+    // about is still attributed to where the opponent is.
+    let mut overhead = view_with(300.0, 300.0);
+    overhead.actors[0].pos.y = 300.0 - 450.0;
     let above = generate_options(
         Perceived::cheating(&overhead),
         Situation::Neutral,
@@ -2187,6 +2194,67 @@ fn a_launch_is_pressed_at_a_foe_above_and_withheld_at_one_alongside() {
         "above {} vs alongside {}",
         above.motions[0].score,
         alongside.motions[0].score
+    );
+}
+
+/// ⛔⛤ **THE SAME LAUNCH AT THREE DIFFERENT DISTANCES IS THREE DIFFERENT
+/// DECISIONS, AND THE SCORE USED TO BE THE SAME NUMBER FOR ALL THREE.**
+///
+/// The motion score was `alignment × speed / kit's fastest speed`. There is no
+/// LENGTH anywhere in that expression, so the gap magnitude cancels: a
+/// full-strength recovery was worth exactly as much against an opponent 5px
+/// away as against one 280px away as against one 900px away. Reviewed
+/// 2026-09-20; `medic_rescue_lift` applies about `(34, -905)` and is the
+/// production instance.
+///
+/// ⭐ THE THREE CASES, all on one kit and one direction so the only thing that
+/// varies is how far there is to go. The MIDDLE one is the useful one: a
+/// motion is worth pressing when it approximately arrives.
+#[test]
+fn a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers() {
+    let w = UtilityWeights::v1();
+    // 900px/s for a 0.5s move: about 450px of travel, straight up.
+    let kit = [hitless_lifting_candidate("up_b", 900.0)];
+
+    // `+y` is toward this body's feet, so a foe overhead is a NEGATIVE local
+    // `y` — the direction the lift travels. Only the height changes.
+    let overhead_by = |above: f32| {
+        let mut view = view_with(300.0, 300.0);
+        view.actors[0].pos.y = 300.0 - above;
+        generate_options(Perceived::cheating(&view), Situation::Neutral, &kit, &w)
+            .motions
+            .first()
+            .map(|m| m.score)
+            .expect("the launch is not on the motion list at all")
+    };
+
+    let on_top_of_me = overhead_by(5.0);
+    let a_useful_distance = overhead_by(450.0);
+    let far_beyond_reach = overhead_by(1400.0);
+
+    assert!(
+        a_useful_distance >= MOTION_WORTH_PRESSING,
+        "a launch that lands on an opponent 450px overhead is the one case \
+         this move exists for, and it is not worth pressing: {a_useful_distance}"
+    );
+    assert!(
+        on_top_of_me < MOTION_WORTH_PRESSING,
+        "throwing myself 450px into the air to reach somebody 5px away is a \
+         way to leave, not a way to arrive: {on_top_of_me}"
+    );
+    assert!(
+        far_beyond_reach < MOTION_WORTH_PRESSING,
+        "a 450px launch covers less than a third of a 1400px gap, so pressing \
+         it spends the body's whole commitment and still does not arrive: \
+         {far_beyond_reach}"
+    );
+    // ⚠ AND THE MIDDLE IS THE PEAK, not merely above a threshold two ends
+    // happen to miss — without this the arm passes for a score that rises
+    // monotonically with distance and clips at both ends.
+    assert!(
+        a_useful_distance > on_top_of_me && a_useful_distance > far_beyond_reach,
+        "arriving is not the best case: on_top={on_top_of_me} \
+         useful={a_useful_distance} beyond={far_beyond_reach}"
     );
 }
 

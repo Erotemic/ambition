@@ -3137,22 +3137,75 @@ impl MoveSpec {
             .chain(self.events.iter().filter_map(|event| {
                 matches!(event.kind, MoveEventKind::Ranged).then_some(RANGED_ACTION_REACH)
             }))
-            // ⭐ A SUMMON WITH AUTHORITY OVER GROUND IS A HAZARD, and the line
-            // between the three `RecoveryRoute` kinds is whether the OPPONENT
-            // is offered anything. `SustainedAuthority` puts something on the
-            // field that threatens `reach` px for `seconds` — the admiral's
-            // ridable shark is 650px of it — which is the same offer a bolt
-            // makes and belongs in the same number. A `Teleport` and a
-            // `Burst` move only the caster and offer nobody anything, so they
-            // are not here: a travel move admitted as an ATTACK is pressed
-            // forever and locks the body out of walking, measured at 0%
-            // damage across a whole match. See the `(None, None)` arm in
-            // `brain::fighter::options`.
-            .chain(match self.gates.recovery_route {
-                Some(AuthoredRecoveryRoute::SustainedAuthority { reach, .. }) => Some(reach),
-                _ => None,
-            })
+            // ⛔⛤ **AND NOT A `SustainedAuthority` SUMMON, WHICH THIS BRIEFLY
+            // CLAIMED — REVIEWED 2026-09-20.** The argument was that the line
+            // between the `RecoveryRoute` kinds is whether the OPPONENT is
+            // offered anything, and that a summon holding ground for `seconds`
+            // makes a bolt's offer. The admiral's shark is the production
+            // instance and its authoring says the opposite in as many words:
+            // *"There is no hurtbox on this up-b, it's purely a mobility
+            // special"*, it is a `hitless_special` rather than a strike with an
+            // empty volume list, and the summoned body is `Neutral` and deals
+            // no contact damage. Its `reach` is authored as HALF THE RIDE'S
+            // STRAIGHT-LINE DISTANCE — how far the admiral can travel, not how
+            // far he threatens.
+            //
+            // ⇒ Recovery authority answers *"what movement does this give
+            // ME"*; hazard reach answers *"what can this do to THEM"*. They are
+            // independent, and a future summon that does both states its
+            // offensive half as an effect like everything else here. The travel
+            // half is read by [`RecoveryRoute::carry`] on the MOTION road —
+            // see `brain::fighter::options::motion_options`.
             .fold(0.0_f32, f32::max);
+        // ⭐⭐ **AND *WHEN* IT GOES LIVE, WHICH IS NOT `startup_s` FOR ANYTHING
+        // THAT REACHES THROUGH A THING IT SPAWNS — REVIEWED 2026-09-20.**
+        //
+        // `startup_s` is *"time until the first Active window"*, and a move with
+        // no Active window at all falls back to its WHOLE DURATION. Every
+        // projectile move in the game is that shape, so a consumer leading a
+        // moving target by `startup_s` leads it by the wrong number:
+        //
+        // ```text
+        // polygon_projectile_charge_shot   event 0.26s   startup_s 0.58s
+        // polygon_ponytail_boomerang       event 0.16s   startup_s 0.40s
+        // polygon_lay_bomb                 event 0.18s   startup_s 0.46s
+        // ```
+        //
+        // At a closing speed of 200px/s the first two aim 64px and 48px past
+        // the opponent — larger than `ADMISSION_SLACK_PX`, so the error is
+        // bigger than the margin the admission rule is tuned to.
+        //
+        // ⇒ The three roads that can threaten are asked for their OWN time:
+        // an Active window opens at its own `start_s`, a `Ranged` trigger and a
+        // hazardous `Effect` fire at their event `at_s`, and a sustained
+        // hazard is live for the window that carries it. `None` means the move
+        // offers the opponent nothing, which is the same population
+        // `hazard_reach == 0 && coverage.is_none() && push_coverage.is_none()`
+        // describes — stated once, here, rather than re-derived by each reader.
+        let threat_live_at_s = (coverage.is_some() || push_coverage.is_some())
+            .then_some(startup_s)
+            .into_iter()
+            .chain(self.events.iter().filter_map(|event| match &event.kind {
+                MoveEventKind::Ranged => Some(event.at_s),
+                MoveEventKind::Effect(effect) => {
+                    (hazard_reach_of(effect) > 0.0).then_some(event.at_s)
+                }
+                _ => None,
+            }))
+            .chain(
+                self.windows
+                    .iter()
+                    .filter(|w| matches!(w.tag, WindowTag::Active))
+                    .filter(|w| {
+                        w.sustain_effect
+                            .as_ref()
+                            .is_some_and(|effect| hazard_reach_of(effect) > 0.0)
+                    })
+                    .map(|w| w.start_s),
+            )
+            .fold(None::<f32>, |acc, t| {
+                Some(acc.map_or(t, |best: f32| best.min(t)))
+            });
         // ⭐⭐ AND WHICH WAY IT BLOWS, because a shove's value depends on it.
         // Authored (`launch_dir`) rather than derived from geometry — wind
         // blows ONE WAY, whichever side you walked in from — so a scorer can
@@ -3254,6 +3307,7 @@ impl MoveSpec {
             reach,
             ignores_guard,
             hazard_reach,
+            threat_live_at_s,
             coverage,
             push_coverage,
             push_dir,
@@ -3633,6 +3687,23 @@ pub struct MoveFrameData {
     /// move that reaches furthest. See [`hazard_reach_of`] for the table, and
     /// for why a key it has not been taught answers zero.
     pub hazard_reach: f32,
+
+    /// **WHEN this move first offers the OPPONENT anything**, on the move's own
+    /// timeline. `None` when it offers nothing — a pure-motion move, a buff, a
+    /// recovery summon.
+    ///
+    /// ⛔⛤ **NOT `startup_s`, AND OVERLOADING `startup_s` FOR THIS IS THE
+    /// DEFECT IT EXISTS TO CLOSE.** `startup_s` is *"time until the first
+    /// Active window"* and falls back to the WHOLE MOVE DURATION when there is
+    /// none, which is every projectile move in the game. A consumer leading a
+    /// moving target by `startup_s` therefore aims hundreds of milliseconds too
+    /// far ahead on exactly the moves whose whole point is to be thrown at
+    /// somebody who is moving. See the derivation in [`MoveSpec::frame_data`].
+    ///
+    /// ⚠ Equal to `startup_s` for an ordinary strike, by construction — a
+    /// strike's threat IS its first Active window. The two numbers separate
+    /// only where the move reaches through something it spawns.
+    pub threat_live_at_s: Option<f32>,
     /// The region this move can hit, body-local, `None` when the move has no
     /// way to touch anybody FROM ITS OWN BODY.
     ///

@@ -279,5 +279,3 @@ fn probe_ladder_census() {
         println!("L{level}: mean apm {apm:.1} (cap {cap:.0})  distinct frames {frames}");
     }
 }
-
-

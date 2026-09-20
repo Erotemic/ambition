@@ -165,6 +165,53 @@ impl StageView {
         }
     }
 
+    /// How far `p` can travel along `dir` before it leaves the stage.
+    ///
+    /// ⛔⛤ **[`Self::distance_to_edge`] IS THE WRONG QUESTION FOR A SHOVE, AND
+    /// IT WAS BEING ASKED.** That one takes the minimum over all FOUR sides, so
+    /// a body standing mid-stage but near the ceiling reads as maximally
+    /// edge-pressured — and a sideways gust was priced as though it were about
+    /// to push them out, with the side blast lines a whole stage away. What a
+    /// push is worth is a question about the direction the push GOES.
+    ///
+    /// ⭐ **WORLD SPACE, WHICH IS ALSO WHAT MAKES IT SURVIVE ARBITRARY
+    /// GRAVITY.** The authored push direction is body-local; rotating it into
+    /// the world through the body's acceleration frame and asking this is one
+    /// question that covers left/right shoves, up/down shoves and a stage the
+    /// body is standing sideways on. The previous model — generic edge
+    /// proximity times a left/right sign taken from world `x` — could not, and
+    /// said it was in "the same frame" while it was not.
+    ///
+    /// `0.0` when `p` is already outside, and `f32::INFINITY` for a zero
+    /// direction (nothing is being pushed anywhere, so nothing is nearer to
+    /// going out).
+    pub fn exit_distance_along(&self, p: ae::Vec2, dir: ae::Vec2) -> f32 {
+        if self.offstage(p) {
+            return 0.0;
+        }
+        let along = |half_span: f32, component: f32| {
+            if component > 0.0 {
+                Some(half_span / component)
+            } else {
+                None
+            }
+        };
+        // The slab test, one axis at a time: the exit is the NEAREST positive
+        // crossing, because a ray leaving a box leaves through the first plane
+        // it reaches.
+        let x = along(self.bounds.max.x - p.x, dir.x)
+            .or_else(|| along(p.x - self.bounds.min.x, -dir.x));
+        let y = along(self.bounds.max.y - p.y, dir.y)
+            .or_else(|| along(p.y - self.bounds.min.y, -dir.y));
+        let t = match (x, y) {
+            (Some(x), Some(y)) => x.min(y),
+            (Some(x), None) => x,
+            (None, Some(y)) => y,
+            (None, None) => return f32::INFINITY,
+        };
+        t * dir.length()
+    }
+
     /// Distance from `p` to the nearest stage edge (0 when already outside).
     /// The corner-pressure feature L2 scores stage position risk with.
     pub fn distance_to_edge(&self, p: ae::Vec2) -> f32 {

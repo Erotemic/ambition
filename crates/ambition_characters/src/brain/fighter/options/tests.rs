@@ -29,10 +29,10 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         push_dir: None,
         max_damage: 1,
         max_knockback: 0.0,
-        // ⚠ ZERO, SO `kill_potential` IS ZERO FOR EVERY FIXTURE MOVE and the
+        // ⚠ EMPTY, SO `kill_potential` IS ZERO FOR EVERY FIXTURE MOVE and the
         // arms below rank on the features they are about. `candidate_with_launch`
         // is what opts a fixture INTO being a finisher.
-        max_percent_scaled_knockback: 0.0,
+        launch: ambition_entity_catalog::LaunchEnvelope::default(),
         start_impulse: (0.0, 0.0),
         // No self-motion at all. `lifting_candidate` below is what opts a
         // fixture INTO carrying a route, so the ordinary move stays a move.
@@ -63,7 +63,28 @@ fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
 fn candidate_with_launch(id: &str, startup_s: f32, reach: f32, launch: f32) -> AttackCandidate {
     let mut c = candidate(id, startup_s, reach);
     c.frames.max_knockback = launch;
-    c.frames.max_percent_scaled_knockback = launch;
+    // A flat finisher: all base, no percent term. `candidate_with_growth` is the
+    // arm that separates the two halves of the launch law.
+    c.frames.launch = ambition_entity_catalog::LaunchEnvelope::default().with_volume(launch, None);
+    c
+}
+
+/// A candidate whose launch is authored as a `(base, growth)` LINE.
+///
+/// ⛔ What `candidate_with_launch` cannot express, and the shape the whole
+/// percent mechanic is about: a move can be weaker than another against a fresh
+/// opponent and stronger against a worn one.
+fn candidate_with_growth(
+    id: &str,
+    startup_s: f32,
+    reach: f32,
+    base: f32,
+    growth: f32,
+) -> AttackCandidate {
+    let mut c = candidate(id, startup_s, reach);
+    c.frames.max_knockback = base;
+    c.frames.launch =
+        ambition_entity_catalog::LaunchEnvelope::default().with_volume(base, Some(growth));
     c
 }
 
@@ -329,6 +350,54 @@ fn kill_potential_reads_the_victims_meter_and_the_moves_launch() {
     let kit = [candidate("poke", 0.1, 100.0)];
     let ranked = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
     assert_eq!(ranked.best_attack().unwrap().features.kill_potential, 0.0);
+}
+
+/// ⛔⛤ **THE FINISHER CHANGES AS THE OPPONENT WEARS DOWN, AND A COLLAPSED
+/// SCALAR RANKED IT BACKWARDS.**
+///
+/// The launch law is `base + growth * damage`. A summary that keeps only
+/// `base` says the bigger base always finishes harder, which is false
+/// everywhere past the two lines' crossing — and the roster authors the
+/// crossing: the Pugnacious Polygon's forward smash is `(162, 3.25)` and his
+/// up smash is `(158, 5.83)`, which swap at about 2 damage.
+///
+/// ⭐ The arm asks for the SWAP rather than for a magnitude, because a
+/// magnitude is a claim about the weight and this is a claim about the order.
+#[test]
+fn a_low_base_high_growth_finisher_overtakes_a_flat_one_as_the_foe_wears_down() {
+    let w = UtilityWeights::v1();
+    let mut v = view_with(300.0, 400.0);
+    // Deliberately his real numbers, so the arm fails if the roster stops
+    // authoring a crossing at all.
+    let kit = [
+        candidate_with_growth("forward_smash", 0.1, 100.0, 162.0, 3.25),
+        candidate_with_growth("up_smash", 0.1, 100.0, 158.0, 5.83),
+    ];
+    let share = |view: &crate::perception::WorldView, id: &str| {
+        generate_options(Perceived::cheating(view), Situation::Neutral, &kit, &w)
+            .attacks
+            .iter()
+            .find(|a| a.move_id == id)
+            .expect("both moves reach")
+            .features
+            .kill_potential
+    };
+
+    // ⚠ THE PREMISE: at ZERO damage the meter is zero and both shares are zero,
+    // so the comparison has to be made where the feature is alive at all. One
+    // point of damage is where the forward smash is still ahead on the line.
+    v.actors[0].damage_taken = 1;
+    assert!(
+        share(&v, "forward_smash") > share(&v, "up_smash"),
+        "against a nearly fresh opponent the bigger BASE is the finisher"
+    );
+
+    v.actors[0].damage_taken = 90;
+    assert!(
+        share(&v, "up_smash") > share(&v, "forward_smash"),
+        "against a worn opponent the steeper GROWTH is the finisher, and a \
+         scorer that folded launch to its base could never say so"
+    );
 }
 
 /// Stage risk is a COST. Committing near a blastzone is how a level-9 CPU
@@ -1851,5 +1920,94 @@ fn every_utility_weight_can_change_a_score() {
         perturbations.len(),
         field_count,
         "the perturbation list has drifted from the struct's fields"
+    );
+}
+
+/// ⛔⛤ **A LOW CEILING IS NOT A SIDE BLAST LINE, AND THE SHOVE FEATURE COULD
+/// NOT TELL THEM APART.**
+///
+/// `StageView::distance_to_edge` is the minimum over all FOUR sides, so a body
+/// standing in the middle of the stage but near the top read as maximally
+/// edge-pressured. Multiplied by a left/right sign, that paid a sideways gust
+/// almost full ledge value with both side walls a stage away.
+///
+/// ⭐ The arm is a COMPARISON against the same push at the same height by the
+/// side wall, because an absolute number here would only re-state whatever the
+/// normalisation happens to be.
+#[test]
+fn a_foe_under_the_ceiling_is_not_near_the_side_blast_line_a_shove_threatens() {
+    let stage = stage();
+    let basis = ae::AccelerationFrame::new(ae::Vec2::new(0.0, 1.0));
+    let pressure_at = |x: f32, y: f32| {
+        PushGeometry {
+            basis,
+            facing: 1.0,
+            stage: &stage,
+            at: ae::Vec2::new(x, y),
+        }
+        // A pure sideways shove, which is what the gust authors.
+        .pressure(1.0, 0.0)
+    };
+
+    // Mid-stage horizontally, a hair under the ceiling. Nothing about a
+    // sideways push is urgent here.
+    let under_the_ceiling = pressure_at(400.0, 5.0);
+    // The same height, against the right wall, where it very much is.
+    let at_the_wall = pressure_at(795.0, 5.0);
+    assert!(
+        at_the_wall > under_the_ceiling + 0.5,
+        "a shove at the wall must be worth far more than the same shove under \
+         the ceiling — wall {at_the_wall}, ceiling {under_the_ceiling}"
+    );
+    assert!(
+        under_the_ceiling < 0.25,
+        "the ceiling is not the blast line this push sends them through, got \
+         {under_the_ceiling}"
+    );
+
+    // ⭐ AND THE SIGN IS STILL THERE: shoving the same cornered body INBOARD is
+    // a rescue, so it is worth nothing at all.
+    let inboard = PushGeometry {
+        basis,
+        facing: -1.0,
+        stage: &stage,
+        at: ae::Vec2::new(795.0, 300.0),
+    }
+    .pressure(1.0, 0.0);
+    assert!(
+        inboard < at_the_wall,
+        "pushing a cornered body back toward centre is not ledge control"
+    );
+}
+
+/// ⭐⭐ **AND IT SURVIVES SIDEWAYS GRAVITY, WHICH THE SIGNED VERSION DID NOT.**
+///
+/// The old feature took its outward direction from WORLD `x` while `push_dir`
+/// is body-local, and called them the same frame. On a stage the body stands
+/// sideways on they are ninety degrees apart, so a shove aimed at the near
+/// blast line was priced as one aimed along it.
+#[test]
+fn a_shove_is_priced_in_the_bodys_own_frame_when_gravity_points_sideways() {
+    let stage = stage();
+    // Gravity toward world `+x`: the body's feet point right, so its local
+    // forward `+x` is world `-y` (up the screen).
+    let basis = ae::AccelerationFrame::new(ae::Vec2::new(1.0, 0.0));
+    let pressure_at = |x: f32, y: f32| {
+        PushGeometry {
+            basis,
+            facing: 1.0,
+            stage: &stage,
+            at: ae::Vec2::new(x, y),
+        }
+        .pressure(1.0, 0.0)
+    };
+
+    // Under this gravity a forward shove travels along world `-y`, so the
+    // victim who is ABOUT to be pushed out is the one near the TOP.
+    let near_the_top = pressure_at(400.0, 5.0);
+    let near_the_side = pressure_at(795.0, 300.0);
+    assert!(
+        near_the_top > near_the_side + 0.5,
+        "with gravity sideways, forward is up — top {near_the_top}, side {near_the_side}"
     );
 }

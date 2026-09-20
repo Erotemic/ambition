@@ -3107,21 +3107,26 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
             .map(|v| v.knockback)
             .fold(0.0_f32, f32::max);
-        // ⭐⭐ THE SAME FOLD OVER THE VOLUMES THAT ACTUALLY GROW WITH PERCENT.
-        // A set launch (`knockback_growth: Some(0.0)`) is the same distance at
-        // 0% and at 200% — `util::rage_for_growth` declines rage for exactly
-        // this authoring — so a scorer asking *"what finishes a damaged
-        // opponent"* must not be handed the gust's 96, which is the strongest
-        // number on the Officer's table and the one move on it that cannot
-        // kill harder for the damage taken.
-        let max_percent_scaled_knockback = self
-            .windows
-            .iter()
-            .filter(|w| matches!(w.tag, WindowTag::Active))
-            .flat_map(|w| w.volumes.iter())
-            .filter(|v| !matches!(v.knockback_growth, Some(g) if g == 0.0))
-            .map(|v| v.knockback)
-            .fold(0.0_f32, f32::max);
+        // ⛔⛤ **A COLLAPSED SCALAR RANKED FINISHING POWER BACKWARDS.** This used
+        // to fold `max(knockback)` over the volumes whose growth was not an
+        // authored `Some(0.0)`, which throws away the growth MAGNITUDE — the
+        // half of the launch law that decides a finisher. The Pugnacious
+        // Polygon authors the counterexample on his own table: forward smash
+        // `(162, 3.25)` against up smash `(158, 5.83)`. A base fold says the
+        // forward smash finishes harder; the two lines cross at about 2 damage
+        // and from there the up smash is not close.
+        //
+        // ⇒ Keep the LINE. `LaunchEnvelope::at` evaluates it against the
+        // opponent actually in front of the brain.
+        //
+        // ⚠ HITTABLE volumes only, which the fold above did not ask. A windbox
+        // moves a body and finishes nobody, so it has no business in a kill
+        // question even when it is authored with growth.
+        let launch = active_volumes()
+            .filter(|v| hittable(v))
+            .fold(LaunchEnvelope::default(), |envelope, v| {
+                envelope.with_volume(v.knockback, v.knockback_growth)
+            });
         // LIFT: the against-gravity speed this move COMMANDS of its owner.
         //
         //  the whole point of deriving it here is that a policy layer can then
@@ -3178,7 +3183,7 @@ impl MoveSpec {
             push_dir,
             max_damage,
             max_knockback,
-            max_percent_scaled_knockback,
+            launch,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
             lift_speed,
             lift_at_s,
@@ -3317,6 +3322,80 @@ pub const CHARGE_POSE_FRACTION: f32 = 0.50;
 /// volume, for a move whose windup is so short that the fraction lands on it.
 const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 
+/// What a move launches for, as a function of the victim's accumulated damage.
+///
+/// ⛔⛤ **THE LAUNCH LAW IS A LINE, SO A SINGLE NUMBER CANNOT CARRY IT.**
+/// [`ambition_combat`]'s `scaled_knockback` is `base + growth * damage *
+/// growth_scale / weight`. A summary that keeps only `base` ranks a
+/// high-base/low-growth move above a low-base/high-growth one at every damage,
+/// which is backwards everywhere past the crossover — the Pugnacious Polygon's
+/// forward smash `(162, 3.25)` and up smash `(158, 5.83)` cross at about 2
+/// damage.
+///
+/// ⚠ **WHAT IS DELIBERATELY NOT IN HERE:** `growth_scale`, the victim's weight
+/// and rage. Each is a factor that is COMMON to every candidate one attacker
+/// weighs against one opponent, so none of them can reorder a kit — and a
+/// catalog derivation has no ruleset to read them from. `GrowthBaseCurve` is
+/// the one per-`base` factor, and it is `IDENTITY` in every undeclared world,
+/// which is every Ambition room; only the smash demo declares one.
+///
+/// ⚠ **AND `knockback_growth: None` READS AS A SET LAUNCH HERE**, because that
+/// is what an undeclared world gives it: the ruleset fallback is `base *
+/// knockback_growth`, and `DeclaredCombatRules`' own default growth is `0.0`
+/// ("growth has NO world baseline to fall back to"). A table authored for the
+/// smash demo states its growth, and 38 of that roster's 40 knockback volumes
+/// do.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct LaunchEnvelope {
+    /// The `(base, growth)` of the volume with the largest base — the line that
+    /// wins against a FRESH opponent.
+    pub flat: (f32, f32),
+    /// The `(base, growth)` of the volume with the steepest growth — the line
+    /// that wins once the opponent is worn.
+    pub steep: (f32, f32),
+}
+
+impl LaunchEnvelope {
+    /// Fold one Active volume's authored launch in.
+    ///
+    /// ⚠ **TWO LINES, NOT ALL OF THEM, and the limit is stated rather than
+    /// hidden.** The true envelope of `n` volumes is the upper hull of `n`
+    /// lines; keeping the flattest and the steepest reproduces it exactly for
+    /// one or two volumes and UNDER-reports a third volume that would win only
+    /// in a middle band. Under-reporting is the safe direction for a kill
+    /// question, and it costs no allocation in a per-frame scorer.
+    pub fn with_volume(self, base: f32, growth: Option<f32>) -> Self {
+        let growth = growth.unwrap_or(0.0);
+        Self {
+            flat: if base > self.flat.0 {
+                (base, growth)
+            } else {
+                self.flat
+            },
+            steep: if growth > self.steep.1 {
+                (base, growth)
+            } else {
+                self.steep
+            },
+        }
+    }
+
+    /// The launch speed against an opponent carrying `damage_taken`.
+    pub fn at(self, damage_taken: i32) -> f32 {
+        let damage = damage_taken.max(0) as f32;
+        (self.flat.0 + self.flat.1 * damage).max(self.steep.0 + self.steep.1 * damage)
+    }
+
+    /// Does this move's launch get better as the opponent takes damage?
+    ///
+    /// The question a set launch answers `false` — a windbox is the same
+    /// distance at 0% and at 200%, and `util::rage_for_growth` declines rage
+    /// for exactly that authoring.
+    pub fn grows(self) -> bool {
+        self.flat.1 > 0.0 || self.steep.1 > 0.0
+    }
+}
+
 /// The queryable frame data of a move (CM7) — the introspection the fighter
 /// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
 /// (no storage). All times are the owner's proper-time seconds.
@@ -3397,18 +3476,15 @@ pub struct MoveFrameData {
     /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
-    /// The same, over the Active volumes whose launch GROWS with the victim's
-    /// damage — i.e. everything except an explicitly authored set launch
-    /// (`knockback_growth: Some(0.0)`).
+    /// What this move LAUNCHES for, against an opponent at a stated damage.
     ///
-    /// ⭐ **THIS IS THE ONE A KILL QUESTION ASKS.** "Which of my moves finishes
-    /// a damaged opponent" is a question about the percent term, and a windbox
-    /// or any other set launch answers it with a flat number that never gets
-    /// better — the gust's 96 is the biggest knockback on the Officer's table
-    /// and the only move on it that cannot KO harder at 150% than at 0%.
-    /// `0.0` for a move whose every launch is set, and for a move that lands
-    /// no volume.
-    pub max_percent_scaled_knockback: f32,
+    /// ⭐ **THIS IS THE ONE A KILL QUESTION ASKS**, and it is a line rather than
+    /// a number because the launch law is one: `base + growth * damage`. "Which
+    /// of my moves finishes a damaged opponent" cannot be answered by either
+    /// term alone — a windbox or any other set launch answers it with a flat
+    /// number that never gets better, and the biggest `base` on a table is
+    /// routinely NOT the biggest launch once the opponent is worn.
+    pub launch: LaunchEnvelope,
     /// The move's authored self-motion at trigger, body-local (`+x` toward facing, `+y` per the
     /// authoring convention), `(0, 0)` when none.
     pub start_impulse: (f32, f32),

@@ -171,7 +171,29 @@ impl UtilityWeights {
         Self {
             reach_fit: 1.0,
             frame_advantage: 0.6,
-            kill_potential: 0.4,
+            // ⛔⛤ **0.4 WAS BELOW THE BAND, SO A CORRECT FEATURE STILL COULD
+            // NOT MOVE A DECISION.** Making `kill_potential` move-relative gave
+            // it the power to rank; it did not give it the SIZE to win. Swept
+            // 2026-09-20 against the real Officer kit at one gap, reading which
+            // move he opens with as the opponent's meter climbs:
+            //
+            // ```text
+            //   w        0%      40%      80%     120%     150%
+            //   0.4-0.6  jab      jab      jab      jab      jab
+            //   0.7      jab      jab      jab   smash_up smash_up
+            //   0.8-1.5  jab      jab   smash_up smash_up smash_up
+            //   1.6+     jab  smash_down smash_up smash_up smash_up
+            // ```
+            //
+            // ⇒ Below 0.7 he pokes a dying opponent; at 1.6 he starts winding
+            // up a smash against a nearly fresh one. The band is `0.7..1.6` and
+            // 1.1 is the middle of the plateau inside it.
+            //
+            // ⚠ AND THE AUTHORED LADDER HAS TO MOVE WITH IT: its rungs ran
+            // `0.00..0.40`, entirely under the floor of this band, so every
+            // shipped CPU was spending a dead weight. See
+            // `game/ambition_content/assets/data/fighter_brain_ladder.ron`.
+            kill_potential: 1.1,
             stage_risk: -0.8,
             expected_payoff: 0.5,
             // a v1 starting value like its neighbours, not a tuned one.
@@ -368,19 +390,15 @@ pub fn generate_options(
         }
     };
     let stage_risk = edge_proximity(me.pos);
-    let foe_edge_proximity = edge_proximity(foe.pos);
-    // ⭐⛤ WHICH WAY IS OFF THE STAGE, FROM WHERE THE FOE IS STANDING, in the
-    // same body-local frame `foe_local` is in — so a push direction and a
-    // danger direction can be compared without either one leaving the frame.
-    // `+1` when shoving FORWARD sends them out, `-1` when forward sends them
-    // home. The nearer of the two side blast lines is the one a horizontal
-    // shove is about; the vertical ones are not what a gust threatens.
-    let outward_local_x = {
-        let bounds = view.stage.bounds;
-        let to_right = bounds.max.x - foe.pos.x;
-        let to_left = foe.pos.x - bounds.min.x;
-        let outward_world = if to_right <= to_left { 1.0 } else { -1.0 };
-        outward_world * if me.facing < 0.0 { -1.0 } else { 1.0 }
+    // ⭐⛤ WHERE THE FOE STANDS, IN WORLD SPACE, so a body-local push direction
+    // can be rotated into it and asked how much stage is left THAT WAY. The
+    // pusher's own frame and facing travel with it because the authored
+    // direction is in the PUSHER's axes. See [`displacement_value`].
+    let push_world = PushGeometry {
+        basis,
+        facing: me.facing,
+        stage: &view.stage,
+        at: foe.pos,
     };
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
@@ -393,9 +411,15 @@ pub fn generate_options(
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate lands a volume, which zeroes every payoff below.
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
+    // ⛔⛤ **AGAINST THIS OPPONENT, NOT AGAINST A FRESH ONE.** The launch law is
+    // `base + growth * damage`, so which of my moves finishes hardest is a
+    // question whose ANSWER MOVES as the opponent wears down — the Pugnacious
+    // Polygon's forward and up smashes swap places at about 2 damage. Evaluating
+    // the kit at the foe's own meter is the only way the share below ranks the
+    // same order the game's own arithmetic would.
     let kit_max_launch = kit
         .iter()
-        .map(|c| c.frames.max_percent_scaled_knockback)
+        .map(|c| c.frames.launch.at(foe.damage_taken))
         .fold(0.0_f32, f32::max);
     // ⭐ THE KIT'S SLOWEST STARTUP, which is what `frame_advantage` must be
     // normalised by for the RANKING. See the two call sites below: they ask
@@ -468,8 +492,9 @@ pub fn generate_options(
             } else {
                 0.0
             };
+            let reach_fit = coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent);
             let features = Features {
-                reach_fit: coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent),
+                reach_fit,
                 frame_advantage: fa,
                 // ⛔⛤ **THIS WAS THE SAME NUMBER FOR EVERY CANDIDATE, AND AN
                 // ATTACK'S SCORE IS ONLY EVER COMPARED WITH ANOTHER ATTACK'S.**
@@ -485,20 +510,51 @@ pub fn generate_options(
                 // CARRIES. Sharing against the kit's best is the same shape
                 // `expected_payoff` uses for damage, so the feature stays
                 // `0..=1` and the authored weights keep their scale.
+                // ⛔⛤ **AND IT IS GATED ON LANDING, WHICH THE FIRST LIVE VERSION
+                // WAS NOT — MEASURED, AND THE MEASUREMENT IS A WHOLE MATCH.**
+                // While the feature was inert the smash demo's CPUs knocked
+                // each other off the stage; on the first tick it could actually
+                // rank with, they stopped, and every fighter stayed inside the
+                // room for the entire bout
+                // (`the_stage_kills::every_live_fighter_stays_inside_the_frame`,
+                // green at `faf775f9e` and red from `1b7ec5ce2`). ⇒ Paying a
+                // finisher its full worth from ACROSS THE STAGE buys a smash
+                // that whiffs, and a bout of whiffed smashes accumulates no
+                // damage and therefore no kills.
+                //
+                // ⚠ **THE GATE IS `reach_fit` OR A COMMITTED OPPONENT, AND BOTH
+                // HALVES ARE THERE BECAUSE A MATCH REDDENED WITHOUT THEM.**
+                //
+                //  * `expected_payoff`'s frame gate ALONE is zero against an
+                //    uncommitted opponent, which is most of neutral — it would
+                //    have traded one dead weight for another.
+                //  * `reach_fit` ALONE deleted the charge. A smash is chosen
+                //    from OUTSIDE its own reach, held while the gap closes, and
+                //    released fat; gating its worth on the reach it has RIGHT
+                //    NOW means it is only ever worth throwing point-blank,
+                //    where its startup loses to every jab in the kit. Measured:
+                //    *"no CPU held a smash in any of 3 matches of 5400 ticks"*
+                //    (`the_repertoire_gets_used::the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`).
+                //
+                // ⇒ A finisher is worth something when it can TOUCH them, and
+                // also when they cannot ANSWER — which is the window a charge
+                // exists for, and the reason the two are a `max` rather than a
+                // product.
                 kill_potential: foe.damage_frac()
                     * if kit_max_launch > 0.0 {
-                        c.frames.max_percent_scaled_knockback / kit_max_launch
+                        c.frames.launch.at(foe.damage_taken) / kit_max_launch
                     } else {
                         0.0
-                    },
+                    }
+                    * reach_fit.max(fa.max(0.0)),
+
                 stage_risk,
                 displacement_value: displacement_value(
                     c.frames.push_coverage.as_ref(),
                     c.frames.push_dir,
                     foe_local,
                     foe_extent,
-                    foe_edge_proximity,
-                    outward_local_x,
+                    push_world,
                 ),
                 // TWO DIFFERENT QUESTIONS, so two different scales. The
                 // ranking's `fa` asks *how exposed does this leave me* and is
@@ -702,34 +758,86 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
 /// geometric question of the HITTABLE region and the two must not be summed
 /// into one number, because that is the merge the coverage split undid.
 ///
-/// ⛔⛤ **AND IT IS SIGNED, WHICH THE FIRST VERSION WAS NOT.** Coverage says
+/// ⛔⛤ **AND IT IS DIRECTIONAL, WHICH THE FIRST VERSION WAS NOT.** Coverage says
 /// the push REACHES them and edge proximity says they are near going off;
 /// neither says the push sends them THAT WAY. Wind blows one way — the gust's
 /// `push_dir` is authored, not derived from geometry — so a fighter who has
 /// crossed to the OUTBOARD side of a cornered opponent shoves them back toward
-/// centre with the same coverage and the same edge proximity. The old feature
-/// paid full ledge value for a rescue. `outward_local_x` is which way is off
-/// the stage from where the foe stands, in the same body-local frame as
-/// `foe_local`, and the push is worth its component along it.
+/// centre with the same coverage and the same edge proximity, and the first
+/// feature paid full ledge value for a rescue.
 ///
-/// ⚠ HORIZONTAL ONLY, deliberately. A side blast line is what a shove
-/// threatens; the vertical component of `push_dir` is what gets the victim
-/// airborne, which is a different question this feature does not ask.
+/// ⛔⛤ **AND THE SECOND VERSION ASKED THE RIGHT QUESTION OF THE WRONG
+/// GEOMETRY, TWICE.** It multiplied a generic `distance_to_edge` — the minimum
+/// over all FOUR sides — by a left/right sign taken from WORLD `x`. So a foe
+/// standing mid-stage under a low ceiling collected almost full side-shove ledge
+/// pressure with both side blast lines a stage away; and the sign was computed
+/// in world space while `push_dir` is body-local, which are the same frame only
+/// while gravity points down. Arbitrary gravity is a shipped mechanic here, not
+/// a hypothetical.
+///
+/// ⭐⭐ **ONE QUESTION REPLACES BOTH TERMS: how far can they still travel the
+/// way this push sends them.** [`StageView::exit_distance_along`] answers it in
+/// world space, so rotating the authored direction through the body's
+/// acceleration frame is the whole of the frame handling — and left/right
+/// shoves, up/down shoves and sideways gravity all fall out of it instead of
+/// each needing a rule. A shove that sends them INBOARD has a long exit
+/// distance and is worth nothing, which is the rescue case arriving for free
+/// rather than as a separate sign.
 pub fn displacement_value(
     push_coverage: Option<&ambition_entity_catalog::MoveCoverage>,
     push_dir: Option<(f32, f32)>,
     foe_local: (f32, f32),
     foe_extent: (f32, f32),
-    foe_edge_proximity: f32,
-    outward_local_x: f32,
+    push_world: PushGeometry<'_>,
 ) -> f32 {
+    let fit = coverage_fit(push_coverage, foe_local, foe_extent);
+    if fit <= 0.0 {
+        return 0.0;
+    }
     // A move that shoves but authors no direction is not read as shoving
     // NOWHERE — it is read as shoving forward, which is what an unauthored
     // launch resolves to everywhere else.
-    let toward_danger = (push_dir.map_or(1.0, |(x, _)| x) * outward_local_x).clamp(0.0, 1.0);
-    coverage_fit(push_coverage, foe_local, foe_extent)
-        * foe_edge_proximity.clamp(0.0, 1.0)
-        * toward_danger
+    let (local_x, local_y) = push_dir.unwrap_or((1.0, 0.0));
+    fit * push_world.pressure(local_x, local_y)
+}
+
+/// The world geometry a body-local push direction has to be asked against.
+///
+/// ⭐ A PARAMETER OBJECT because the three values only mean anything together:
+/// the frame that rotates a body-local direction into the world, the stage that
+/// owns the blast lines, and the point being pushed. Passing them singly is how
+/// the previous version ended up comparing a body-local `x` against a world one.
+#[derive(Clone, Copy)]
+pub struct PushGeometry<'a> {
+    /// The PUSHER's acceleration frame — the authored direction is in the
+    /// pusher's body-local axes, not the victim's.
+    pub basis: ae::AccelerationFrame,
+    /// `-1.0` when the pusher faces world-left, so `+x` local is `-side` world.
+    pub facing: f32,
+    pub stage: &'a crate::perception::StageView,
+    /// Where the victim is standing.
+    pub at: ae::Vec2,
+}
+
+impl PushGeometry<'_> {
+    /// How close this victim is to leaving the stage along a body-local push.
+    ///
+    /// `1.0` at the blast line, falling to `0.0` at a stage half-span away —
+    /// the same normalisation [`Features::stage_risk`] uses, so "near the edge"
+    /// stays one fact read on two subjects.
+    pub fn pressure(&self, local_x: f32, local_y: f32) -> f32 {
+        let facing = if self.facing < 0.0 { -1.0 } else { 1.0 };
+        let world = self.basis.side * (local_x * facing) + self.basis.down * local_y;
+        if world.length_squared() <= 0.0 {
+            return 0.0;
+        }
+        let half_stage = (self.stage.bounds.max - self.stage.bounds.min).length() * 0.5;
+        if half_stage <= 0.0 {
+            return 1.0;
+        }
+        let exit = self.stage.exit_distance_along(self.at, world.normalize());
+        (1.0 - exit / half_stage).clamp(0.0, 1.0)
+    }
 }
 
 /// Context value of acquiring a capture on `foe`, normalized to `[0, 1]`.

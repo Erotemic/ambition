@@ -72,7 +72,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         max_damage: damage,
         max_knockback: 0.0,
         // This rig's moves author no launch, so no move on it is a finisher.
-        max_percent_scaled_knockback: 0.0,
+        launch: ambition_entity_catalog::LaunchEnvelope::default(),
         start_impulse: (0.0, 0.0),
         // The rig's moves displace nobody: it measures the DECIDING, and a
         // candidate that carried a way home would put a recovery route into

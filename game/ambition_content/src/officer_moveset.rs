@@ -529,7 +529,19 @@ mod he_uses_the_gust {
     /// opens with it at 0%.
     ///
     /// ⇒ A kill is the foe's percent AND the launch this move carries, so the
-    /// feature is now shared against the kit's best percent-scaling launch.
+    /// feature is now shared against the kit's best launch AT THAT PERCENT.
+    ///
+    /// ⛔⛤ **AND THE MOVE HE SWINGS IS THE UP SMASH, NOT THE DOWN SMASH — the
+    /// arm said `officer_smash_down` while the launch summary was
+    /// `max(base knockback)`.** Under the real law his down smash is `(142,
+    /// 2.82)` and his up smash is `(158, 5.83)`: 565 against 1032 at 150%. The
+    /// biggest base belongs to the FORWARD smash and the biggest launch, at any
+    /// percent worth finishing at, to the up smash. The old expectation was a
+    /// reading of the defect.
+    ///
+    /// ⚠ AND THE 80% ROW IS HERE BECAUSE THE SWITCH HAS TO HAPPEN SOMEWHERE
+    /// MEASURABLE — a test that only reads 0% and 150% passes for a weight that
+    /// switches at 1% as happily as for one that switches at 149%.
     #[test]
     fn a_fresh_opponent_gets_a_poke_and_a_damaged_one_gets_a_smash() {
         let kit = kit();
@@ -550,9 +562,21 @@ mod he_uses_the_gust {
         // Same gap, same stage, same kit — only the percent differs.
         assert_eq!(best(0), "officer_jab", "he should poke a fresh opponent");
         assert_eq!(
+            best(40),
+            "officer_jab",
+            "and still poke a lightly damaged one — above the band's ceiling he \
+             starts winding up a smash here, which is the pushy CPU nobody asked for"
+        );
+        assert_eq!(
+            best(80),
+            "officer_smash_up",
+            "by 80% the answer is the move that launches, not the fast one"
+        );
+        assert_eq!(
             best(150),
-            "officer_smash_down",
-            "at 150% the answer is the move that launches, not the fast one"
+            "officer_smash_up",
+            "and it stays the answer, because his up smash is the one whose \
+             launch keeps climbing: (158, 5.83) against the down smash's (142, 2.82)"
         );
     }
 
@@ -572,9 +596,16 @@ mod he_uses_the_gust {
             .frame_data();
         assert_eq!(gust.max_knockback, 96.0, "the authored shove");
         assert_eq!(
-            gust.max_percent_scaled_knockback, 0.0,
-            "a set launch grows with nothing, so it finishes nobody"
+            gust.launch.at(0),
+            0.0,
+            "a windbox is not a hit, so it carries no launch a kill question may spend"
         );
+        assert_eq!(
+            gust.launch.at(150),
+            gust.launch.at(0),
+            "and no amount of damage on the victim changes that"
+        );
+        assert!(!gust.launch.grows());
 
         // ⭐ THE CONTROL IS AN ORDINARY MOVE OF HIS, not another set one: the
         // two fields agree everywhere the launch grows, and a derivation that
@@ -585,7 +616,7 @@ mod he_uses_the_gust {
             .find(|m| m.id == "officer_jab")
             .expect("the jab")
             .frame_data();
-        assert_eq!(jab.max_percent_scaled_knockback, jab.max_knockback);
+        assert_eq!(jab.launch.at(0), jab.max_knockback);
         assert!(jab.max_knockback > 0.0, "the jab launches at all");
     }
 

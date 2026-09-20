@@ -575,6 +575,47 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
 
+    /// ⛔⛤ **HIS TWO SMASHES CROSS, WHICH IS WHY A KILL QUESTION MAY NOT READ
+    /// BASE KNOCKBACK.**
+    ///
+    /// Forward smash is `(162, 3.25)` and up smash is `(158, 5.83)`. The bigger
+    /// BASE belongs to the forward smash and the bigger LAUNCH, everywhere past
+    /// a couple of points of damage, belongs to the up smash. A brain feature
+    /// folded to `max(base)` ranks his finisher backwards for the whole match.
+    ///
+    /// ⚠ **THE ARM IS ABOUT THE ORDER, NOT THE NUMBERS.** It asserts the two
+    /// lines actually cross and which side wins on each side of the crossing,
+    /// so re-tuning either smash keeps it green as long as the roster still
+    /// authors a base/growth tradeoff at all — and turns it red the moment the
+    /// derivation goes back to throwing growth away.
+    #[test]
+    fn his_up_smash_out_launches_his_forward_smash_once_the_opponent_is_worn() {
+        let set = super::pugnacious_polygon_moveset();
+        let frames = |id: &str| {
+            set.moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} is on his table"))
+                .frame_data()
+        };
+        let forward = frames("polygon_brawler_smash_forward").launch;
+        let up = frames("polygon_brawler_smash_up").launch;
+
+        assert!(
+            forward.at(0) > up.at(0),
+            "against a FRESH opponent the forward smash is the harder launch — \
+             if this flips, the arm below is no longer measuring a crossing"
+        );
+        assert!(
+            up.at(120) > forward.at(120),
+            "against a worn one the up smash is, and a scorer reading base \
+             knockback alone would never pick it: forward={}, up={}",
+            forward.at(120),
+            up.at(120)
+        );
+        assert!(up.grows() && forward.grows());
+    }
+
     /// ⭐⭐ THE SLAM'S SHOCK REACHES GROUND THE SLAM ITSELF CANNOT, which is the
     /// entire reason it exists — and the pair of numbers that says so is split
     /// across two different authoring vocabularies, so nothing but a test holds

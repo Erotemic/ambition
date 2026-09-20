@@ -3,6 +3,15 @@
 // perception buffer. Rollout fields remain zero until rollout fidelity is good
 // enough to enable them without changing lower-level behavior. Utility weights
 // are authored difficulty parameters; low levels intentionally omit some cues.
+//
+// ⛔⛤ THE `kill_potential` COLUMN RAN 0.00..0.40 AND EVERY ROW OF IT WAS UNDER
+// THE BAND. Measured 2026-09-20 against the Officer's real kit, the weight has
+// to reach 0.7 before a damaged opponent changes which move a CPU opens with,
+// and at 1.6 he starts winding up a smash against a nearly fresh one — so the
+// whole authored column sat in the region where the cue is spelled and cannot
+// act. The column now climbs into `0.7..1.6` at the rungs that are supposed to
+// hunt kills, and stays at zero for the two that are not. See
+// `UtilityWeights::v1` for the sweep it was read off.
 [
     // Level 1 — half a second late, barely acts, sprays. Reads nothing.
     (level: 1, reaction_ms: 500.0, apm_cap:  60.0, execution_noise: 0.40,
@@ -15,32 +24,32 @@
 
     (level: 3, reaction_ms: 400.0, apm_cap: 120.0, execution_noise: 0.30,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.30, kill_potential: 0.10, stage_risk: -0.30, expected_payoff: 0.10)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.30, kill_potential: 0.25, stage_risk: -0.30, expected_payoff: 0.10)),
 
     // Level 4 — the first rung that notices the opponent has habits.
     (level: 4, reaction_ms: 350.0, apm_cap: 160.0, execution_noise: 0.25,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.1,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.40, kill_potential: 0.20, stage_risk: -0.40, expected_payoff: 0.20)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.40, kill_potential: 0.50, stage_risk: -0.40, expected_payoff: 0.20)),
 
     (level: 5, reaction_ms: 300.0, apm_cap: 200.0, execution_noise: 0.20,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.2,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.50, kill_potential: 0.30, stage_risk: -0.50, expected_payoff: 0.30)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.50, kill_potential: 0.70, stage_risk: -0.50, expected_payoff: 0.30)),
 
     (level: 6, reaction_ms: 260.0, apm_cap: 240.0, execution_noise: 0.16,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.3,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.60, expected_payoff: 0.40)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.90, stage_risk: -0.60, expected_payoff: 0.40)),
 
     (level: 7, reaction_ms: 220.0, apm_cap: 280.0, execution_noise: 0.12,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.5,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.70, expected_payoff: 0.45)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 1.05, stage_risk: -0.70, expected_payoff: 0.45)),
 
     (level: 8, reaction_ms: 185.0, apm_cap: 320.0, execution_noise: 0.08,
      rollout_depth: 0, rollout_k: 0, read_weight: 0.7,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.80, expected_payoff: 0.50)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 1.15, stage_risk: -0.80, expected_payoff: 0.50)),
 
     // Level 9 — 150ms, nine ticks at 60Hz. A very good human's reaction time, not
     // zero. Its skill is the read (`read_weight: 1.0`), not the reflex.
     (level: 9, reaction_ms: 150.0, apm_cap: 360.0, execution_noise: 0.05,
      rollout_depth: 0, rollout_k: 0, read_weight: 1.0,
-     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 0.40, stage_risk: -0.80, expected_payoff: 0.50)),
+     utility_weights: (reach_fit: 1.0, frame_advantage: 0.60, kill_potential: 1.15, stage_risk: -0.80, expected_payoff: 0.50)),
 ]

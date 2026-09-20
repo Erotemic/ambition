@@ -2951,7 +2951,10 @@ beside the capture fold, and it has **two roads, not one**:
    from the effect-key table alone would have deleted her entire game. They
    answer `RANGED_ACTION_REACH`, a stage-crossing placeholder, because the
    BODY owns the shot's real speed and flight and a catalog derivation has no
-   body; the kit builder is the layer that could narrow it and does not yet.
+   body. ⇒ **UPDATED 2026-09-20:** the kit builder does narrow it now, and the
+   datum is no longer a bare distance — `MoveFrameData::hazard` is an
+   `Option<MoveHazard>` whose `OwnersRangedAction` variant is a REQUEST this
+   placeholder only stands in for. See the resolved-action-offer block below.
    Held by `her_two_neutral_projectiles_tell_the_brain_they_cross_the_stage`,
    whose CONTROL is her bomb — which must answer its own arc rather than the
    placeholder, or the test passes against a catalog that answers every
@@ -2979,7 +2982,7 @@ past the opponent:
 
 Each is wider than the `ADMISSION_SLACK_PX` this rule is tuned around. ⇒
 `MoveFrameData::threat_live_at_s` is **when this move first offers the opponent
-anything**, folded from the same three roads `hazard_reach` uses — an Active
+anything**, folded from the same three roads the hazard fold uses — an Active
 window's own `start_s`, a `Ranged` or hazardous `Effect` event's `at_s`, and a
 hazardous sustain's window — and `None` when it offers nothing, which is
 exactly the population the attack menu's third arm refuses. ⛔ NOT an overload
@@ -3116,21 +3119,99 @@ costs is a trap for whoever declares the next curve, which is why the question
 now sits in the signature.
 
 
-⛔⬤ **THE NAMED NEXT SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE
-BRAIN IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE
-IN `MoveSpec`.** Grabs, windboxes, bolts, bombs, ranged triggers, summons and
+⛔⬤ **THE NAMED SLICE, AND EVERY PARAGRAPH ABOVE IS EVIDENCE FOR IT: THE BRAIN
+IS RECONSTRUCTING COMBAT SEMANTICS FROM WHICHEVER PIECES HAPPEN TO LIVE IN
+`MoveSpec`.** Grabs, windboxes, bolts, bombs, ranged triggers, summons and
 recovery routes each arrived as a separate patch onto `MoveFrameData`, and the
-ranged fix is only half done even now: `polygon_projectile_charge_shot` is
-ADMITTED by `hazard_reach` and then scored with `coverage: none`,
-`reach_fit: 0`, `damage: 0`, `launch: 0`, because its real speed, flight,
-damage and launch live in the BODY's `RangedActionSpec` and not in the move at
-all. `RANGED_ACTION_REACH = 1000` is a placeholder standing where that join
-should be. ⇒ The next repair is not another `hazard_reach` arm: it is resolving
-a fighter candidate from **what pressing this move actually does for this
-actor** — a direct hit derives its threat from hit volumes, a ranged/effect
-move resolves against the mechanic it actually spawns, pure movement produces
-no opponent threat — and handing the brain that resolved offer instead of a
-`MoveSpec` to interpret. Raised by review 2026-09-20.
+ranged half was the loudest: `polygon_projectile_charge_shot` was ADMITTED by a
+`hazard_reach` of `RANGED_ACTION_REACH = 1000` — a constant wider than any
+stage this game ships — and then scored with `coverage: none`, `reach_fit: 0`,
+`damage: 0`, `launch: 0`, because its real speed, flight, damage and launch
+live in the BODY's `RangedActionSpec` and not in the move at all. Raised by
+review 2026-09-20: *"continuing to add exceptions for ranged actions, bombs,
+summons, bolts, etc. will create a second approximate combat model."*
+
+✅ **INCREMENT ONE LANDED 2026-09-20: THE HAZARD IS A VALUE, AND THE
+PLACEHOLDER IS A REQUEST.** `hazard_reach: f32` is gone;
+`MoveFrameData::hazard` is an `Option<MoveHazard>` with two variants —
+`Spawned { reach, speed }` for a hazard the catalog can measure whole, and
+`OwnersRangedAction` for the one shape it cannot. Three things fall out of the
+shape rather than out of a new special case:
+
+* **The speed stops being thrown away.** The old fold computed `speed ×
+  lifetime` and kept only the product, so a consumer could ask when a bolt is
+  THROWN and never when it ARRIVES. Admission now leads to the arrival:
+  `thrown_at + min(gap, reach) / speed`, one fixed-point pass, exact for a
+  standing opponent and erring toward under-leading a retreating one — the
+  direction that refuses a shot rather than throwing one that cannot land.
+  Held by `a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives`,
+  with a stationary-hazard control and a stationary-foe control, because
+  *"refused"* has two innocent explanations.
+* **The placeholder became a question with an owner.** `OwnersRangedAction` is
+  a REQUEST, and `attack_kit_of` — the same layer that already joins a grab to
+  its capture params — answers it from the body's `ActionSet`, in the
+  runtime's own precedence (what the move EQUIPS, then the body's standing
+  kit). Projectile Polygon's cannon resolves to **1306px** (540px/s × 2.4s +
+  the shot's own body) against the 1000px constant, and a body carrying no
+  weapon leaves the request STANDING rather than having a reach of zero
+  invented for it.
+* **A key the catalog has not been taught answers `None`**, which the type now
+  says out loud where a `0.0` had to be explained.
+
+⛔⛤ **AND THE JOIN GOT THE BOOMERANG WRONG BY A FACTOR OF TWO ON THE FIRST
+PASS**, caught by reading the flight's own doc after the sweep. A boomerang is
+a constant deceleration to a stop, so `speed × boomerang_return_s` is twice how
+far it gets: the displacement is `v0·t − v0·t²/2·out_s`, which at the
+turnaround is `v0 · out_s / 2`. The ponytail's 430px/s over 0.34s reaches
+**73px** plus the shot's 10px body, not 156. ⇒ The same shape as the whole
+slice one layer down — a TIME and a SPEED beside each other are not a distance
+unless the motion is uniform — and the hazard's published `speed` is now the
+AVERAGE over the outbound leg, so `reach / speed` is the time it actually
+takes.
+
+⭐⭐ **JUDGED ON THE GAME: 7059% → 7197% (+2.0%), FOUR OF TWENTY-ONE ROWS
+MOVED, AND THE TWO THAT ROSE ARE THE TWO THE PREVIOUS SWEEP LEFT AS OPEN
+QUESTIONS.**
+
+| fighter | before | after | moves | distinct | most thrown |
+|---|---|---|---|---|---|
+| `director` | 34% / 97% | **132% / 129%** | 62 → 129 | 11 → 17 | `director_train_of_thought` ×39 → ×67 |
+| `officer` | 78% / 97% | **116% / 127%** | 61 → 96 | 17 → 15 | `officer_the_draw` ×20 → ×30 |
+| `npc_pirate_admiral` | 239% / 201% | 245% / 176% | 97 → 92 | 14 → 11 | `run_out_the_guns` ×53 → ×48 |
+| `projectile_polygon` | 184% / 229% | 144% / 228% | 121 → 123 | 17 → 17 | `polygon_ponytail_boomerang` ×25 → `polygon_projectile_charge_shot` ×35 |
+| the other 17 | — | — | — | — | bit-identical |
+
+⭐ **THE DIRECTOR'S ROW WAS THIS FILE'S OWN OPEN QUESTION AND IT IS ANSWERED.**
+The previous sweep recorded him at 34%/97% and said a split like that inside a
+MIRROR is the two copies narrowing onto one move; the same paragraph named the
+cause — *"a bolt is not a threat where it is thrown … the truthful number is
+`throw + gap / hazard speed`, and the hazard's SPEED is exactly what
+`MoveFrameData` does not carry."* With the speed carried he fights on 17
+distinct moves instead of 11 and throws the bolt 67 times instead of 39.
+
+⚠ **AND THE POLYGON'S ROW FELL, WITH A CAUSE THAT NAMES INCREMENT TWO.** Her
+side-B stopped being a stage-crosser: the ponytail's real outbound reach is
+83px, not the 1000px placeholder, so the brain correctly stopped throwing it at
+range — and fell through to the charge shot, which deals `4` where the
+boomerang deals `7`. The option layer cannot see either number: `max_damage`
+folds Active volumes and a shot is not one. ⇒ A fighter choosing between two
+projectiles on reach and frame advantage alone picks the weaker one, which is
+exactly the hole increment two fills, and the sweep predicts its direction.
+
+⚠ **WHAT INCREMENT ONE DID NOT DO, STATED WITH ITS NUMBERS SO THE NEXT ONE
+STARTS FROM THEM.** A ranged move is still scored `damage: 0` and `launch: 0`:
+`max_damage` folds Active volumes and a shot is not one. The numbers are on the
+same `RangedActionSpec` the reach came from — her cannon authors `damage: 4`,
+and its `RangedCharge` multiplies that by `3.5` for a full hold — so this is
+the same join one field further, not a new road. It is held back only because
+it re-prices `expected_payoff` across every ranged fighter and the grid sweep
+reads one change at a time.
+
+⚠ **AND THE TELEPORT'S DESTINATION IS STILL MISSING**, which is the other half
+the review named: `TeleportParams` carries `behind_nearest_foe`, `behind_gap`
+and an aim, and none of it reaches the brain. See the teleport paragraph
+below — it is a fact about the MOVE, so it belongs in the same resolved offer
+and not in a third price.
 
 ⛔⛤ **AND A FOURTH: A MOVE THAT ONLY CARRIES THE BODY IS NOT AN ATTACK, THOUGH
 IT IS VERY TEMPTING TO PUT IT ON THE ONE LIST THAT EXISTS.** A teleport crosses

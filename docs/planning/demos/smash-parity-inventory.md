@@ -142,7 +142,7 @@ brain does offer both verbs; they are valued in a way that collapses the triangl
 
 ```text
 Shield   offered ONLY in Disadvantage AND only while a hostile
-         `phase.is_attacking()` (options.rs:1561) — deliberate, and the comment
+         `phase.is_attacking()` (options.rs:1643) — deliberate, and the comment
          says why: shield used to be an ABSORBING STATE two cornered fighters
          entered in the opening second and never left
 Grab     `capture_value` = GRAB_BEATS_GUARD (only if the foe's shield is UP)

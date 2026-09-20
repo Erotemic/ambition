@@ -71,7 +71,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 cancel_windows: Vec::new(),
                 reach: 60.0,
                 ignores_guard: false,
-                hazard_reach: 0.0,
+                hazard: None,
                 // `None` keeps every fixture's aim on `startup_s`, which is what the
                 // lead read before this field existed. A fixture that means to test the
                 // SPLIT states its own time.

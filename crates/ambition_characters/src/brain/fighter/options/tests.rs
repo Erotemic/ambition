@@ -15,7 +15,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         cancel_windows: Vec::new(),
         reach,
         ignores_guard: false,
-        hazard_reach: 0.0,
+        hazard: None,
         // `None` keeps every fixture's aim on `startup_s`, which is what the
         // lead read before this field existed. A fixture that means to test the
         // SPLIT states its own time.
@@ -1572,7 +1572,13 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     // A launcher: no volume on the body, and a hazard that crosses the stage.
     let mut bolt = candidate("bolt", 0.2, 0.0);
     bolt.frames.max_damage = 0;
-    bolt.frames.hazard_reach = 700.0;
+    // Stationary (`speed: 0.0`) so the whole of its 700px is available the
+    // instant it is thrown — this arm is about the REACH rule and a flight
+    // time would put a second variable in it.
+    bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+        reach: 700.0,
+        speed: 0.0,
+    });
     let kit = vec![jab, buff, bolt];
     let weights = UtilityWeights::default();
 
@@ -2388,5 +2394,82 @@ fn the_move_that_hurls_me_at_the_blastzone_costs_more_than_the_one_that_stays_pu
         risk_at(100.0, 180.0, "planted"),
         "the premise: a move with no self-motion reads the same in both, so \
          the difference above is the DIRECTION and not the position"
+    );
+}
+
+/// ⛔⛤ **A BOLT IS NOT A THREAT WHERE IT IS THROWN, AND ADMISSION AIMED AS IF
+/// IT WERE.**
+///
+/// The lead was repaired twice in one day and both repairs were about the
+/// THROW. First it led by `startup_s`, which for a projectile move is the
+/// whole duration — a large over-lead. Then by
+/// `MoveFrameData::threat_live_at_s`, the instant the hazard leaves — which is
+/// exact for a swing and an under-lead of the entire flight for anything that
+/// travels. `director_train_of_thought` crosses 671px at 300px/s, so its shot
+/// lands up to two seconds after it is thrown.
+///
+/// ⭐ **THE SPEED IS WHAT MAKES THE THIRD ANSWER POSSIBLE**, and it is the
+/// field the old `hazard_reach: f32` folded away: it computed `speed ×
+/// lifetime` and kept only the product. [`ambition_entity_catalog::MoveHazard`]
+/// keeps both.
+///
+/// ⚠ **TWO CONTROLS, BECAUSE "REFUSED" HAS TWO INNOCENT EXPLANATIONS.** A
+/// stationary hazard over the same geometry must still be admitted — otherwise
+/// the arm is measuring the reach rule — and a stationary FOE must be admitted
+/// against the travelling hazard — otherwise `speed` is being read as a
+/// penalty rather than as a flight time.
+#[test]
+fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
+    let weights = UtilityWeights::default();
+    // 600px of gap, and the foe walking away at 200px/s.
+    let retreating = |vel: f32| {
+        let mut view = view_with(300.0, 900.0);
+        view.actors[0].vel = ae::Vec2::new(vel, 0.0);
+        view
+    };
+    let offered = |hazard: ambition_entity_catalog::MoveHazard, foe_vel: f32| {
+        let mut bolt = candidate("bolt", 0.2, 0.0);
+        bolt.frames.hazard = Some(hazard);
+        let view = retreating(foe_vel);
+        generate_options(
+            crate::perception::Perceived::cheating(&view),
+            Situation::Neutral,
+            std::slice::from_ref(&bolt),
+            &weights,
+        )
+        .attacks
+        .iter()
+        .any(|a| a.move_id == "bolt")
+    };
+
+    // 700px of reach, crossed at 300px/s: the shot needs over two seconds to
+    // arrive, and in that time the foe has walked past the end of its flight.
+    let travelling = ambition_entity_catalog::MoveHazard::Spawned {
+        reach: 700.0,
+        speed: 300.0,
+    };
+    // The same reach, put where it lands rather than flown there — a laid
+    // bomb. All of it is available the instant it exists.
+    let stationary = ambition_entity_catalog::MoveHazard::Spawned {
+        reach: 700.0,
+        speed: 0.0,
+    };
+
+    assert!(
+        !offered(travelling, 200.0),
+        "a 700px shot at 300px/s was offered at a 600px gap against somebody \
+         walking away at 200px/s — it arrives where they were, two seconds ago"
+    );
+    assert!(
+        offered(stationary, 200.0),
+        "THE CONTROL: the same 700px over the same 600px gap, put in place \
+         instead of thrown. Refusing this would mean the arm above is about \
+         the reach rule and not about the flight"
+    );
+    assert!(
+        offered(travelling, 0.0),
+        "THE SECOND CONTROL: the same travelling shot against somebody \
+         standing still. Refusing this would mean `speed` is being spent as a \
+         penalty rather than as a time"
     );
 }

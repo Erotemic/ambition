@@ -857,6 +857,38 @@ pub fn generate_options(
             foe_local.1 + rel_local.1 * dt,
         )
     };
+    // ⛔⛤ **A HAZARD IS NOT A THREAT WHERE IT IS THROWN, AND THE BRAIN AIMED
+    // AS IF IT WERE.** `threat_at` says when the bolt LEAVES; a bolt that
+    // leaves is still seconds from arriving. Measured on
+    // `director_train_of_thought`, the roster's one steered bolt: it crosses
+    // 671px at 300px/s, so against somebody 400px away the shot lands about
+    // 1.3s after the throw and the aim was short by the whole of the
+    // opponent's walk. Replacing the old over-lead (`startup_s`, i.e. the
+    // whole move) with an under-lead (zero flight) was an improvement and not
+    // the answer; this is the answer.
+    //
+    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
+    // time depends on the gap at arrival, which depends on the flight time. A
+    // single pass — measure the gap at the throw, fly for that long — is
+    // exact for a stationary opponent and errs toward UNDER-leading a
+    // retreating one, which is the direction that refuses a shot rather than
+    // throwing one that cannot land.
+    //
+    // ⚠ AND THE FLIGHT IS CAPPED BY THE HAZARD'S OWN REACH. A hazard cannot
+    // fly further than it reaches, so `gap` past that would credit a shot
+    // with travel it never makes — and the admission test below is about to
+    // refuse that gap anyway.
+    let arrival_of = |frames: &ambition_entity_catalog::MoveFrameData,
+                      hazard: ambition_entity_catalog::MoveHazard| {
+        let thrown_at = threat_at(frames);
+        let speed = hazard.speed();
+        if speed <= 0.0 {
+            return thrown_at;
+        }
+        let at_throw = lead_of(thrown_at);
+        let gap = (at_throw.0 * at_throw.0 + at_throw.1 * at_throw.1).sqrt();
+        thrown_at + gap.min(hazard.reach()) / speed
+    };
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.
@@ -929,14 +961,13 @@ pub fn generate_options(
         // swing"*), and inventing one to keep them on a list they never won on
         // merit would be the wrong order.
         (None, None) => {
-            // Reaches through something it spawns: a bolt, a bomb. Priced
-            // against its own reach, the same absolute question the hit arm
-            // asks.
-            let hazard = attack.frames.hazard_reach;
-            if hazard > 0.0 {
-                let aim = lead_of(threat_at(&attack.frames));
+            // Reaches through something it puts in the world: a bolt, a
+            // bomb, the body's own shot. Priced against its own reach, the
+            // same absolute question the hit arm asks.
+            if let Some(hazard) = attack.frames.hazard {
+                let aim = lead_of(arrival_of(&attack.frames, hazard));
                 let gap = (aim.0 * aim.0 + aim.1 * aim.1).sqrt();
-                return gap <= hazard + ADMISSION_SLACK_PX;
+                return gap <= hazard.reach() + ADMISSION_SLACK_PX;
             }
             // ⛔⛤ **AND A ROUTE THAT CARRIES THE BODY IS NOT AN ATTACK,
             // THOUGH THIS ARM ADMITTED ONE FOR A WHILE.** A teleport lands no

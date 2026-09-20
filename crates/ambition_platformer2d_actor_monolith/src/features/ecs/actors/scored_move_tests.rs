@@ -322,7 +322,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
     let moveset = ActorMoveset(jab_uptilt_and_dash());
     let brain = fighter_brain();
 
-    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
+    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
     let standing_ids: Vec<&str> = standing.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
         standing_ids,
@@ -331,7 +331,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
          attack is not a new option everywhere, it is the answer to one stance"
     );
 
-    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None);
+    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None, None);
     let dashing_ids: Vec<&str> = dashing.iter().map(|c| c.move_id.as_str()).collect();
     assert!(
         dashing_ids.contains(&"dash_attack"),
@@ -370,7 +370,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
 fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
 
     let ids: Vec<&str> = kit.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
@@ -411,7 +411,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
@@ -433,7 +433,7 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
 
     let view = scene(16.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
@@ -458,7 +458,7 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
 #[test]
 fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None, None);
     let grab = kit
         .iter()
         .find(|candidate| candidate.move_id == "grab")
@@ -648,6 +648,7 @@ fn the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept() {
         false,
         Some(&fighter_brain()),
         Some(&playback),
+        None,
     );
     let blocked: Vec<&str> = kit
         .iter()
@@ -698,6 +699,7 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
         false,
         Some(&fighter_brain()),
         Some(&playback),
+        None,
     );
     assert!(!kit.is_empty(), "an empty kit would make this arm vacuous");
     assert!(
@@ -705,5 +707,150 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
             == ambition_characters::brain::attack_kit::ActionLegality::BlockedByPlayback),
         "a body mid-swing, before its cancel window opens, was told it could start \
          something"
+    );
+}
+
+/// ⛔⛤ **A RANGED MOVE WAS ADMITTED AT A THOUSAND PIXELS BECAUSE NOBODY HAD
+/// JOINED IT TO THE WEAPON IT FIRES.**
+///
+/// `MoveEventKind::Ranged` pulls whatever `RangedActionSpec` the BODY carries,
+/// so `MoveSpec::frame_data()` — which has no body — answered
+/// `RANGED_ACTION_REACH`, a constant wider than any stage this game ships. Its
+/// own doc named the cost: *"a CPU that fires from further away than its shot
+/// can carry"*, and the review of 2026-09-20 named the shape: *"the new
+/// `RANGED_ACTION_REACH = 1000` placeholder is evidence of a deeper split in
+/// authority."*
+///
+/// ⭐ THIS IS THE LAYER THAT CAN ANSWER IT, and it is the same layer that
+/// already joins a grab to its capture params. The catalog states a REQUEST
+/// (`MoveHazard::OwnersRangedAction`) and the kit builder resolves it against
+/// the weapon.
+///
+/// ⚠ **THE THREE ARMS ARE THE THREE ANSWERS**, and the third is the one that
+/// keeps this from being a reach cut dressed as a repair: a body with no
+/// weapon leaves the request standing, because *"the move fires nothing"* is a
+/// question for whoever decides whether to press it, not a reach of zero
+/// invented here.
+#[test]
+fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
+    use ambition_characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
+    use ambition_entity_catalog::{MoveEvent, MoveEventKind, MoveHazard};
+
+    let mut shot = strike("cannon", 20.0);
+    // The body's own trigger, and no Active volume: the projectile IS the
+    // damage, which is the shape of every ranged move in the game.
+    shot.windows.clear();
+    shot.events.push(MoveEvent {
+        at_s: 0.18,
+        kind: MoveEventKind::Ranged,
+    });
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([("attack".to_string(), "cannon".to_string())]),
+        moves: vec![shot],
+    });
+    let brain = fighter_brain();
+    let hazard_of = |kit: &[ambition_characters::brain::attack_kit::AttackCandidate]| {
+        kit.iter()
+            .find(|c| c.move_id == "cannon")
+            .expect("the cannon is the body's one move")
+            .frames
+            .hazard
+            .expect("a move that fires puts a hazard in the world")
+    };
+
+    // 540px/s down a 2.4s straight flight — Projectile Polygon's own cannon,
+    // cited rather than imported: this crate is below the content that authors
+    // her, and what the arm needs is a weapon SHAPED like a shipped one.
+    let cannon = RangedActionSpec::bolt(540.0, 4).with_flight(ProjectileFlight::STRAIGHT);
+    let joined = hazard_of(&attack_kit_of(
+        Some(&moveset),
+        true,
+        false,
+        Some(&brain),
+        None,
+        Some(&cannon),
+    ));
+    assert_eq!(
+        joined.speed(),
+        540.0,
+        "the shot's speed did not survive the join, so a brain leading its aim \
+         still has to pretend the bolt arrives where it was thrown"
+    );
+    // `speed × lifetime`, plus the shot's own half-extent: 540 × 2.4 + 10.
+    assert!(
+        (joined.reach() - 1306.0).abs() < 1.0,
+        "her cannon crosses 1306px and the kit says {}px",
+        joined.reach()
+    );
+    assert_ne!(
+        joined.reach(),
+        ambition_entity_catalog::RANGED_ACTION_REACH,
+        "the placeholder survived the join, which is the whole defect"
+    );
+
+    // ⭐ A SHORTER WEAPON IS A SHORTER OFFER — without this the arm above
+    // passes for a join that reads any weapon at all and answers one number.
+    let pistol = RangedActionSpec::bolt(200.0, 1)
+        .with_flight(ProjectileFlight::STRAIGHT.with_lifetime(0.5));
+    let short = hazard_of(&attack_kit_of(
+        Some(&moveset),
+        true,
+        false,
+        Some(&brain),
+        None,
+        Some(&pistol),
+    ));
+    assert!(
+        short.reach() < joined.reach(),
+        "a 200px/s shot with half a second of life reaches {}px and a 540px/s \
+         shot with 2.4s reaches {}px — the join is not reading the weapon",
+        short.reach(),
+        joined.reach()
+    );
+
+    // ⛔⛤ AND A BOOMERANG IS NOT `speed × out_s`, WHICH IS THE ARITHMETIC THE
+    // FIRST VERSION OF THIS JOIN USED. `ProjectileFlight::boomerang` is a
+    // constant deceleration to a stop, so the shot's displacement at the
+    // turnaround is `v0 · out_s / 2` — HALF the straight-line product, and its
+    // own doc states the formula. The ponytail's real numbers: 430px/s over
+    // 0.34s reaches 73px plus the shot's 10px body, not 146.
+    let ponytail =
+        RangedActionSpec::bolt(430.0, 7).with_flight(ProjectileFlight::boomerang(0.34));
+    let thrown = hazard_of(&attack_kit_of(
+        Some(&moveset),
+        true,
+        false,
+        Some(&brain),
+        None,
+        Some(&ponytail),
+    ));
+    assert!(
+        (thrown.reach() - 83.1).abs() < 0.5,
+        "the ponytail reaches {}px; `430 × 0.34` is 146 and `430 × 0.34 / 2` \
+         is 73, so a reading near 156 means the deceleration was dropped",
+        thrown.reach()
+    );
+    // ⭐ AND ITS SPEED IS THE AVERAGE OVER THAT LEG, so `reach / speed` is the
+    // time it actually takes — which is what the admission lead divides by.
+    assert!(
+        (thrown.speed() - 215.0).abs() < 0.5,
+        "a decelerating shot reported its LAUNCH speed ({}px/s), so a brain \
+         leading its aim thinks the tail arrives in half the time it takes",
+        thrown.speed()
+    );
+
+    // ⛔ AND NO WEAPON LEAVES THE REQUEST STANDING, unresolved and saying so.
+    assert_eq!(
+        hazard_of(&attack_kit_of(
+            Some(&moveset),
+            true,
+            false,
+            Some(&brain),
+            None,
+            None,
+        )),
+        MoveHazard::OwnersRangedAction,
+        "a body that carries no ranged action had its move's request answered \
+         anyway, so a reach was invented for a shot that does not exist"
     );
 }

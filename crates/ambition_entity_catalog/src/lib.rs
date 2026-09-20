@@ -3123,10 +3123,10 @@ impl MoveSpec {
         // unblockables nothing here can recognise.
         let ignores_guard = captures().next().is_some();
         // ⭐ AND WHAT IT REACHES THROUGH SOMETHING IT SPAWNS — see
-        // [`hazard_reach_of`]. Every authored effect on the move is asked, the
+        // [`hazard_of`]. Every authored effect on the move is asked, the
         // one-shot events and the window sustains alike, because a technique
         // may ride either.
-        let hazard_reach = self
+        let hazard = self
             .events
             .iter()
             .filter_map(|event| match &event.kind {
@@ -3134,9 +3134,10 @@ impl MoveSpec {
                 _ => None,
             })
             .chain(self.windows.iter().filter_map(|w| w.sustain_effect.as_ref()))
-            .map(hazard_reach_of)
+            .filter_map(hazard_of)
             .chain(self.events.iter().filter_map(|event| {
-                matches!(event.kind, MoveEventKind::Ranged).then_some(RANGED_ACTION_REACH)
+                matches!(event.kind, MoveEventKind::Ranged)
+                    .then_some(MoveHazard::OwnersRangedAction)
             }))
             // ⛔⛤ **AND NOT A `SustainedAuthority` SUMMON, WHICH THIS BRIEFLY
             // CLAIMED — REVIEWED 2026-09-20.** The argument was that the line
@@ -3157,7 +3158,14 @@ impl MoveSpec {
             // offensive half as an effect like everything else here. The travel
             // half is read by [`RecoveryRoute::carry`] on the MOTION road —
             // see `brain::fighter::options::motion_options`.
-            .fold(0.0_f32, f32::max);
+            //
+            // ⚠ **THE FARTHEST-REACHING ONE WINS, WHICH IS THE SAME RULE THE
+            // `max` BEFORE IT APPLIED** — and it is still the rule for a move
+            // that puts TWO hazards out, which nothing on the roster does. The
+            // day one does, the honest answer is a list; picking the longest
+            // is the answer that preserves today's behaviour exactly and says
+            // so here rather than pretending to be general.
+            .max_by(|a, b| a.reach().total_cmp(&b.reach()));
         // ⭐⭐ **AND *WHEN* IT GOES LIVE, WHICH IS NOT `startup_s` FOR ANYTHING
         // THAT REACHES THROUGH A THING IT SPAWNS — REVIEWED 2026-09-20.**
         //
@@ -3181,16 +3189,14 @@ impl MoveSpec {
         // hazardous `Effect` fire at their event `at_s`, and a sustained
         // hazard is live for the window that carries it. `None` means the move
         // offers the opponent nothing, which is the same population
-        // `hazard_reach == 0 && coverage.is_none() && push_coverage.is_none()`
+        // `hazard.is_none() && coverage.is_none() && push_coverage.is_none()`
         // describes — stated once, here, rather than re-derived by each reader.
         let threat_live_at_s = (coverage.is_some() || push_coverage.is_some())
             .then_some(startup_s)
             .into_iter()
             .chain(self.events.iter().filter_map(|event| match &event.kind {
                 MoveEventKind::Ranged => Some(event.at_s),
-                MoveEventKind::Effect(effect) => {
-                    (hazard_reach_of(effect) > 0.0).then_some(event.at_s)
-                }
+                MoveEventKind::Effect(effect) => hazard_of(effect).map(|_| event.at_s),
                 _ => None,
             }))
             .chain(
@@ -3200,7 +3206,7 @@ impl MoveSpec {
                     .filter(|w| {
                         w.sustain_effect
                             .as_ref()
-                            .is_some_and(|effect| hazard_reach_of(effect) > 0.0)
+                            .is_some_and(|effect| hazard_of(effect).is_some())
                     })
                     .map(|w| w.start_s),
             )
@@ -3307,7 +3313,7 @@ impl MoveSpec {
             cancel_windows,
             reach,
             ignores_guard,
-            hazard_reach,
+            hazard,
             threat_live_at_s,
             coverage,
             push_coverage,
@@ -3565,9 +3571,88 @@ impl LaunchEnvelope {
     }
 }
 
-/// **How far an authored technique can hurt somebody, from where the move puts
-/// it.** `0.0` for every key that puts no hazard anywhere, which is most of
-/// them.
+/// **What an UNJOINED reader gets for a move that pulls the owner's own
+/// ranged trigger.**
+///
+/// ⚠ **THE BODY OWNS THE NUMBER, NOT THE MOVE.** [`MoveEventKind::Ranged`]
+/// fires whatever `RangedActionSpec` the BODY carries — its speed, its flight,
+/// its lifetime — and a catalog derivation has no body to ask. So this states
+/// the only thing true of every one of them: a shot crosses ground the swinger
+/// cannot. It is wider than any stage this game ships (the smash platform is
+/// 480px and its blast lines sit inside two widths), so to a reader that
+/// cannot narrow it, a ranged move is admitted wherever the opponent is.
+///
+/// ⭐ A LAYER THAT CAN JOIN A MOVE TO ITS BODY'S ACTION NARROWS IT — the kit
+/// builder is that layer, the same one that joins a grab to its capture params,
+/// and [`MoveHazard::OwnersRangedAction`] is the request it answers. This is
+/// what an UNJOINED reader gets, and a reader holding only a `MoveSpec` is
+/// exactly the reader with no body to ask.
+pub const RANGED_ACTION_REACH: f32 = 1_000.0;
+
+/// **WHAT A MOVE PUTS INTO THE WORLD THAT CAN HURT SOMEBODY** — and, for the
+/// one shape the catalog cannot measure, a request for the layer that can.
+///
+/// ⛔⛤ **THIS REPLACED A BARE `hazard_reach: f32`, AND THE REASON IS THE
+/// REVIEW FINDING OF 2026-09-20:** *"continuing to add exceptions for ranged
+/// actions, bombs, summons, bolts, etc. will create a second approximate
+/// combat model."* A single distance answered three different questions at
+/// once — how far the hazard gets, whether there IS one, and whose number it
+/// is — so each new road was a new special case folded into one `max`, and the
+/// one road whose numbers live on the BODY had a placeholder folded in beside
+/// real measurements with nothing marking it.
+///
+/// ⭐ **THE SPEED IS THE FIELD THAT WAS BEING THROWN AWAY.** The old fold
+/// computed `speed × lifetime` and kept only the product, so a consumer
+/// leading its aim could not ask when the hazard ARRIVES — only when it is
+/// thrown. Measured on `director_train_of_thought`: the bolt crosses 671px at
+/// 300px/s, so it lands up to two seconds after the throw, and the brain aimed
+/// it at where the opponent was when it left.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MoveHazard {
+    /// An authored hazard the catalog can measure whole.
+    Spawned {
+        /// How far from the body it can hurt somebody.
+        reach: f32,
+        /// How fast it TRAVELS, px/s. `0.0` for a hazard that stays where it
+        /// is put — a laid bomb, a mine — whose whole reach is available the
+        /// moment it exists.
+        speed: f32,
+    },
+    /// The move pulls the owner's OWN ranged trigger
+    /// ([`MoveEventKind::Ranged`]), whose speed, flight and lifetime are the
+    /// BODY's `RangedActionSpec` and not the move's.
+    ///
+    /// ⚠ **A REQUEST, NOT AN ANSWER.** [`Self::reach`] and [`Self::speed`]
+    /// answer it with the standing fallback so an unjoined reader is no worse
+    /// off than before this type existed; a reader that CAN see the body is
+    /// expected to replace the variant outright.
+    OwnersRangedAction,
+}
+
+impl MoveHazard {
+    /// How far this hazard reaches, with [`RANGED_ACTION_REACH`] standing in
+    /// for an unresolved ranged action.
+    pub fn reach(self) -> f32 {
+        match self {
+            Self::Spawned { reach, .. } => reach,
+            Self::OwnersRangedAction => RANGED_ACTION_REACH,
+        }
+    }
+
+    /// How fast this hazard travels, px/s; `0.0` also means *"not known"* for
+    /// an unresolved ranged action, which reads as an instantaneous threat —
+    /// the same answer every consumer gave before the field existed.
+    pub fn speed(self) -> f32 {
+        match self {
+            Self::Spawned { speed, .. } => speed,
+            Self::OwnersRangedAction => 0.0,
+        }
+    }
+}
+
+/// **WHAT AN AUTHORED TECHNIQUE PUTS IN THE WORLD THAT CAN HURT SOMEBODY**,
+/// from where the move puts it. `None` for every key that puts no hazard
+/// anywhere, which is most of them.
 ///
 /// ⛔⛤ **`coverage: None` MEANT "THIS MOVE CANNOT MISS" AND FOR A LAUNCHER IT
 /// MEANS THE OPPOSITE.** A move whose damage rides a projectile authors no
@@ -3585,10 +3670,11 @@ impl LaunchEnvelope {
 /// here, and inventing one for zero callers is the generalisation nobody asked
 /// for. Add the arm with the move.
 ///
-/// ⚠ **A KEY THIS HAS NOT BEEN TAUGHT ANSWERS ZERO, and that is a REFUSAL, not
-/// a neutral default**: the admission rule reads zero as *"this move offers the
-/// opponent nothing"* and keeps it off the attack menu. Safe, and loud enough
-/// to notice — a new projectile that is never thrown is the symptom.
+/// ⚠ **A KEY THIS HAS NOT BEEN TAUGHT ANSWERS `None`, and that is a REFUSAL,
+/// not a neutral default**: the admission rule reads the absence as *"this
+/// move offers the opponent nothing"* and keeps it off the attack menu. Safe,
+/// and loud enough to notice — a new projectile that is never thrown is the
+/// symptom.
 ///
 /// ⛔ AND THE BIGGEST PROJECTILE ROAD IS NOT A KEY AT ALL. Every ordinary
 /// ranged move pulls the owner's own trigger through [`MoveEventKind::Ranged`]
@@ -3596,26 +3682,9 @@ impl LaunchEnvelope {
 /// both that shape, and both author no Active volume, so a table of effect
 /// keys alone would have taken the reference projectile fighter's whole game
 /// off the menu. That arm is folded in beside this one and answers
-/// [`RANGED_ACTION_REACH`].
-/// **How far a move that pulls the owner's OWN ranged trigger reaches.**
-///
-/// ⚠ **THE BODY OWNS THE NUMBER, NOT THE MOVE.** [`MoveEventKind::Ranged`]
-/// fires whatever `RangedActionSpec` the BODY carries — its speed, its flight,
-/// its lifetime — and a catalog derivation has no body to ask. So this states
-/// the only thing true of every one of them: a shot crosses ground the swinger
-/// cannot. It is wider than any stage this game ships (the smash platform is
-/// 480px and its blast lines sit inside two widths), so in practice a ranged
-/// move is admitted wherever the opponent is, which is what it was before this
-/// field existed.
-///
-/// ⭐ A LAYER THAT CAN JOIN A MOVE TO ITS BODY'S ACTION MAY NARROW IT — the kit
-/// builder is that layer, the same one that joins a grab to its capture params.
-/// Nothing narrows it today, and the honest cost of not narrowing is a CPU that
-/// fires from further away than its shot can carry.
-pub const RANGED_ACTION_REACH: f32 = 1_000.0;
-
-fn hazard_reach_of(effect: &EffectRef) -> f32 {
-    let reach = match effect.key.as_str() {
+/// [`MoveHazard::OwnersRangedAction`].
+fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
+    let hazard = match effect.key.as_str() {
         // A bolt travels under its own power until its clock runs out. Its
         // speed is documented CONSTANT, so this is the whole flight — and an
         // UPPER bound, because a steered bolt that turns covers less ground
@@ -3623,7 +3692,10 @@ fn hazard_reach_of(effect: &EffectRef) -> f32 {
         crate::smash_bolt::STEERED_BOLT => effect
             .params
             .hydrate::<crate::smash_bolt::SteeredBoltParams>()
-            .map(|p| p.offset.0.abs() + p.speed * p.lifetime_s + p.radius)
+            .map(|p| MoveHazard::Spawned {
+                reach: p.offset.0.abs() + p.speed * p.lifetime_s + p.radius,
+                speed: p.speed,
+            })
             .ok(),
         // ⛔⛤ **A DROP BOMB IS DROPPED, NOT THROWN.** It appears at `offset`
         // and the blast is the only thing that travels, so its reach is where
@@ -3635,11 +3707,21 @@ fn hazard_reach_of(effect: &EffectRef) -> f32 {
         crate::smash_bomb::DROP_BOMB => effect
             .params
             .hydrate::<crate::smash_bomb::DropBombParams>()
-            .map(|p| p.offset.0.abs() + p.blast_radius)
+            .map(|p| MoveHazard::Spawned {
+                reach: p.offset.0.abs() + p.blast_radius,
+                // ⭐ ZERO, AND IT IS A MEASUREMENT RATHER THAN AN OMISSION: the
+                // bomb is DROPPED. Nothing about it closes a gap, so its whole
+                // reach is available the moment it exists and a consumer
+                // leading its aim has no flight time to add.
+                speed: 0.0,
+            })
             .ok(),
         _ => None,
     };
-    reach.unwrap_or(0.0).max(0.0)
+    // ⛔ A NON-POSITIVE REACH IS NO HAZARD, not a hazard of zero length: the
+    // admission rule reads the ABSENCE as "this move offers the opponent
+    // nothing", and a `Some` carrying 0.0 would be admitted at point blank.
+    hazard.filter(|h| h.reach() > 0.0)
 }
 
 /// The queryable frame data of a move (CM7) — the introspection the fighter
@@ -3687,16 +3769,27 @@ pub struct MoveFrameData {
     /// breaks are the same fact to a planner: *the shield is not the answer to
     /// this one*.
     pub ignores_guard: bool,
-    /// **How far this move can hurt somebody through something it SPAWNS**, in
-    /// world pixels; `0.0` for the overwhelming majority of moves, which spawn
-    /// nothing.
+    /// **What this move puts into the world that can hurt somebody** — `None`
+    /// for the overwhelming majority of moves, which put nothing.
     ///
     /// ⭐ THE OTHER HALF OF [`Self::coverage`]. A launcher authors no Active
     /// volume on its owner's body, so `coverage` is `None` and a reader that
     /// stops there concludes the move reaches NOWHERE — for the one class of
-    /// move that reaches furthest. See [`hazard_reach_of`] for the table, and
-    /// for why a key it has not been taught answers zero.
-    pub hazard_reach: f32,
+    /// move that reaches furthest.
+    ///
+    /// ⛔ **IT IS A [`MoveHazard`] AND NOT A DISTANCE, and the distance is
+    /// what the review of 2026-09-20 asked to stop patching.** See that type:
+    /// the hazard's SPEED is what lets a consumer ask when the hazard ARRIVES
+    /// rather than when it is thrown, and
+    /// [`MoveHazard::OwnersRangedAction`] is a REQUEST to the one layer that
+    /// can see the body rather than a number this derivation made up.
+    ///
+    /// ⚠ **A KEY [`hazard_of`] HAS NOT BEEN TAUGHT ANSWERS `None`, and that is
+    /// a REFUSAL rather than a neutral default**: the admission rule reads it
+    /// as *"this move offers the opponent nothing"* and keeps the move off the
+    /// attack menu. Safe, and loud enough to notice — a new projectile that is
+    /// never thrown is the symptom.
+    pub hazard: Option<MoveHazard>,
 
     /// **WHEN this move first offers the OPPONENT anything**, on the move's own
     /// timeline. `None` when it offers nothing — a pure-motion move, a buff, a

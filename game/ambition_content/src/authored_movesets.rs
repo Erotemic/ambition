@@ -1797,7 +1797,7 @@ mod offer_census {
             for m in &set.moves {
                 total += 1;
                 let f = m.frame_data();
-                if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard_reach <= 0.0 {
+                if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard.is_none() {
                     silent += 1;
                     let mut keys: Vec<&str> = m
                         .events

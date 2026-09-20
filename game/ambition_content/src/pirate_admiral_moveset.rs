@@ -968,7 +968,7 @@ mod tests {
 
         // ⛔⛤ **AND THAT 650px IS TRAVEL, NOT THREAT — CERTIFIED HERE BECAUSE
         // FOR ONE DAY THE CATALOG SAID OTHERWISE.** `frame_data` folded a
-        // `SustainedAuthority`'s reach into `hazard_reach`, on the argument
+        // `SustainedAuthority`'s reach into the move's hazard, on the argument
         // that a summon holding ground for five seconds makes an opponent the
         // same offer a bolt does. This move's own authoring refuses that in as
         // many words — *"There is no hurtbox on this up-b, it's purely a
@@ -981,11 +981,11 @@ mod tests {
         // (`brain::fighter::options::travel_of` → `RecoveryRoute::carry`), and
         // the attack menu is offered nothing at all.
         assert_eq!(
-            frames.hazard_reach, 0.0,
-            "the mobility special is advertised as {}px of OFFENSIVE reach, so \
+            frames.hazard, None,
+            "the mobility special is advertised as {:?} of OFFENSIVE reach, so \
              the CPU admiral will summon a shark at an opponent it cannot \
              touch and stand in the resulting move while they walk up",
-            frames.hazard_reach
+            frames.hazard
         );
         assert_eq!(
             frames.threat_live_at_s, None,

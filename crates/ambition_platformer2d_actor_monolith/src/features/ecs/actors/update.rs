@@ -518,6 +518,7 @@ pub fn tick_actor_brains(
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
                         capture,
+                        action_set.and_then(|actions| actions.ranged.as_ref()),
                     );
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
@@ -1748,6 +1749,14 @@ pub(super) fn attack_kit_of(
     // `ActionLegality`. `None` means nothing owns the body and everything is
     // startable.
     playback: Option<&ambition_combat::moveset::MovePlayback>,
+    // ⭐⭐ **THE BODY'S OWN RANGED ACTION, WHICH IS THE HALF OF A RANGED MOVE
+    // THE CATALOG CANNOT SEE.** A move that pulls `MoveEventKind::Ranged`
+    // fires whatever `RangedActionSpec` the body carries — its speed, its
+    // flight, its lifetime — so `MoveSpec::frame_data()` answers
+    // `MoveHazard::OwnersRangedAction`, a REQUEST, and this is the layer that
+    // answers it. Exactly the join this function already performs between a
+    // grab and its capture params.
+    ranged: Option<&ambition_characters::brain::RangedActionSpec>,
 ) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -1859,9 +1868,11 @@ pub(super) fn attack_kit_of(
             if kit.iter().any(|c| c.move_id == spec.id) {
                 continue;
             }
+            let mut frames = spec.frame_data();
+            resolve_owners_ranged_action(spec, &mut frames, ranged);
             kit.push(AttackCandidate {
                 move_id: spec.id.clone(),
-                frames: spec.frame_data(),
+                frames,
                 binding: AttackBinding { verb, direction },
                 legality: legality_of(playback, verb_name, running_now, &spec.id),
             });
@@ -1873,6 +1884,95 @@ pub(super) fn attack_kit_of(
         kit.push(grab);
     }
     kit
+}
+
+/// **ANSWER THE CATALOG'S REQUEST FOR THE BODY'S OWN RANGED ACTION.**
+///
+/// ⛔⛤ **THE REVIEW OF 2026-09-20 NAMED THE PLACEHOLDER THIS REPLACES.**
+/// `RANGED_ACTION_REACH = 1_000.0` is wider than any stage this game ships, so
+/// a ranged move was admitted wherever the opponent stood and its own doc said
+/// the honest cost was *"a CPU that fires from further away than its shot can
+/// carry"*. The numbers exist — they are on the body — and this is the only
+/// layer that holds both halves.
+///
+/// ⭐ **REACH IS THE FLIGHT, NOT A CONSTANT.** A shot crosses `speed ×
+/// lifetime` and then expires; a BOOMERANG turns around at
+/// `boomerang_return_s`, so its reach is how far it gets before it turns and
+/// not how far it travels in total. The splash it bursts with is added,
+/// because a shot that stops short of somebody can still catch them.
+///
+/// ⚠ **NO RESOLVABLE SHOT LEAVES THE REQUEST STANDING.** A move authored to
+/// fire a weapon its body does not carry cannot produce a shot at all, and
+/// *"should this be pressed"* is a question for the layer that decides
+/// pressing — not a reach of zero invented at the join. The request keeps
+/// answering with the standing fallback, which is what every reader saw
+/// before this function existed.
+fn resolve_owners_ranged_action(
+    move_spec: &ambition_entity_catalog::MoveSpec,
+    frames: &mut ambition_entity_catalog::MoveFrameData,
+    body_ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+) {
+    use ambition_entity_catalog::MoveHazard;
+    if !matches!(frames.hazard, Some(MoveHazard::OwnersRangedAction)) {
+        return;
+    }
+    // ⛔ **THE RUNTIME'S OWN PRECEDENCE: WHAT THE MOVE EQUIPS, THEN THE BODY'S
+    // STANDING KIT.** The admiral's side-B draws `admiral_gun_sword` and fires
+    // THAT, not whatever he was carrying; reading the body alone would describe
+    // a different shot for the one move in the game that brandishes. The same
+    // order `moveset_export`'s derived view resolves in, and for the same
+    // reason — it is the order `brain_effects` fires in.
+    let equipped = move_spec
+        .equips
+        .as_deref()
+        .and_then(ambition_characters::brain::held_item_by_id)
+        .and_then(|item| item.ranged);
+    let Some(spec) = equipped.as_ref().or(body_ranged) else {
+        return;
+    };
+    let flight = spec
+        .flight
+        .clone()
+        .unwrap_or(ambition_characters::brain::action_set::ProjectileFlight::STRAIGHT);
+    // ⛔⛤ **A BOOMERANG IS DECELERATING THE WHOLE WAY OUT, SO `speed ×
+    // boomerang_return_s` IS TWICE HOW FAR IT GETS.** `ProjectileFlight`'s own
+    // doc states the displacement — *"the return is a constant acceleration
+    // `-v0 / out_s` … so the shot's displacement is `v0·t − v0·t²/2·out_s`"* —
+    // which at the turnaround is `v0 · out_s / 2`. The ponytail's `430px/s`
+    // over `0.34s` reaches **73px**, not 146; reading the straight-line
+    // product would have offered her side-B at twice the range it covers.
+    // Read the flight's arithmetic, not its two numbers.
+    //
+    // ⚠ THE UNCHARGED SHOT, DELIBERATELY. A `RangedCharge` multiplies speed as
+    // well as damage, so a full hold flies further — but admission asks *"can
+    // this press reach them"* and the press the brain is weighing is the one
+    // it is about to make, not the one it might hold for. Under-claiming a
+    // chargeable weapon refuses a shot; over-claiming throws one that lands
+    // behind them.
+    let v0 = spec.speed.max(0.0);
+    let (travel_s, travelled) = match flight.boomerang_return_s {
+        Some(out_s) => (out_s.max(0.0), v0 * out_s.max(0.0) * 0.5),
+        None => {
+            let life = flight.max_lifetime.max(0.0);
+            (life, v0 * life)
+        }
+    };
+    let reach = (travelled + flight.half_extent.x.abs() + flight.splash_half_extent).max(0.0);
+    if reach <= 0.0 {
+        return;
+    }
+    frames.hazard = Some(MoveHazard::Spawned {
+        reach,
+        // ⭐ THE AVERAGE OVER THE OUTBOUND LEG, NOT THE LAUNCH SPEED, so that
+        // `reach / speed` is the time the hazard actually takes to get there —
+        // which is what the admission lead divides by. Identical to `v0` for
+        // the straight shots, which is every weapon but one.
+        speed: if travel_s > 0.0 {
+            travelled / travel_s
+        } else {
+            0.0
+        },
+    });
 }
 
 /// CAN THE BODY BEGIN THIS MOVE THIS TICK? — asked of the same function that
@@ -2009,11 +2109,15 @@ fn build_enemy_brain_snapshot(
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
     // The capture relationship, resolved by the caller — which holds the capture
     // query. Threaded rather than looked up so the brain layer keeps its
-    // property of reading no ECS. LAST on purpose, and a STRUCT for the same
-    // reason: inserting a term mid-list silently shifted two positional
-    // arguments into the wrong slots and the compiler reported it as a type
-    // error three parameters away.
+    // property of reading no ECS. A STRUCT rather than loose terms because
+    // inserting one mid-list silently shifted two positional arguments into
+    // the wrong slots and the compiler reported it as a type error three
+    // parameters away — which is why anything added after it goes AFTER it.
     capture: ambition_combat::capture::systems::CaptureFacts,
+    // The body's own ranged action, for the same reason `capture` is threaded:
+    // it is an authority the caller already holds, and a ranged MOVE's numbers
+    // live on it. See `attack_kit_of`.
+    ranged: Option<&ambition_characters::brain::RangedActionSpec>,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: body.kin.pos,
@@ -2046,6 +2150,7 @@ fn build_enemy_brain_snapshot(
             motion_facts.running,
             brain,
             playback,
+            ranged,
         ),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity

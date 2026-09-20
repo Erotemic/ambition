@@ -759,11 +759,22 @@ mod tests {
                 "`{id}` now authors a hit volume, so this test no longer \
                  guards the road it was written for",
             );
+            // ⭐ THE REQUEST, NOT A DISTANCE — and that is the point of the
+            // variant. Her shot's speed, flight and lifetime are on the BODY,
+            // so the catalog says so instead of inventing a number; the kit
+            // builder answers it with her own `RangedActionSpec`. A reader
+            // that never joins a body still gets the standing
+            // `RANGED_ACTION_REACH` through `MoveHazard::reach`, which is
+            // asserted beside it so the fallback stays a measured claim.
             assert_eq!(
-                frames.hazard_reach,
-                ambition_entity_catalog::RANGED_ACTION_REACH,
+                frames.hazard,
+                Some(ambition_entity_catalog::MoveHazard::OwnersRangedAction),
                 "`{id}` fires the body's ranged action but tells the option \
                  layer it reaches nowhere, so it would never be offered",
+            );
+            assert_eq!(
+                frames.hazard.expect("checked above").reach(),
+                ambition_entity_catalog::RANGED_ACTION_REACH,
             );
         }
     }
@@ -780,7 +791,15 @@ mod tests {
             .iter()
             .find(|m| m.id == "polygon_lay_bomb")
             .expect("she lays a bomb");
-        let reach = bomb.frame_data().hazard_reach;
+        let hazard = bomb
+            .frame_data()
+            .hazard
+            .expect("her bomb puts a hazard in the world");
+        let reach = hazard.reach();
+        // ⭐ AND IT DOES NOT TRAVEL, which is the other half of what the bomb
+        // road answers: it is DROPPED, so all of its reach is available the
+        // moment it exists and nobody leading an aim has a flight to add.
+        assert_eq!(hazard.speed(), 0.0, "a laid bomb flies nowhere");
         assert!(
             reach > 0.0 && reach < ambition_entity_catalog::RANGED_ACTION_REACH,
             "her bomb reaches {reach}px, which is either nothing or the \
@@ -1039,7 +1058,7 @@ mod threat_timing_tests {
             .find(|m| m.id == "polygon_projectile_recoil_lift")
             .expect("she has a recoil lift");
         let f = lift.frame_data();
-        if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard_reach <= 0.0 {
+        if f.coverage.is_none() && f.push_coverage.is_none() && f.hazard.is_none() {
             assert_eq!(
                 f.threat_live_at_s, None,
                 "a move with no coverage, no shove and no hazard named a time \

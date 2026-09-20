@@ -1766,6 +1766,101 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
 /// the character's name, a character row to the map it lives in, and a row's
 /// spritesheet to its manifest. Each was written after the pairing had already
 /// gone wrong once.
+/// ⭐⭐ **THE SHIPPED HOST PUTS BOTH HALVES OF A RANGED MOVE ON ONE BODY.**
+///
+/// A move that fires the owner's own weapon carries
+/// `MoveHazard::OwnersRangedAction` — a REQUEST, because a catalog derivation
+/// has no body to ask — and the kit builder answers it from the body's
+/// `ActionSet`. That join is asserted against the production builder in
+/// `scored_move_tests::a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires`.
+///
+/// ⛔ **WHAT A UNIT TEST CANNOT SAY IS WHETHER THE COMPOSED GAME PUTS THE TWO
+/// HALVES TOGETHER**, and they arrive by different roads: the moves come from
+/// `assets/data/movesets/projectile_polygon.ron` through the content pack, and
+/// the cannon from `authored/projectile_polygon.rs` through the character
+/// definition. Either can be seated without the other, and the failure is
+/// silent — the request simply stands and the brain goes back to the
+/// thousand-pixel placeholder.
+///
+/// ⚠ THE NUMBERS ARE HERS, not a shape: `540px/s` down a `STRAIGHT` flight.
+/// Re-tuning the cannon reddens this, which is correct — the arm is about the
+/// reach the brain is handed being HER shot.
+#[test]
+fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
+    use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    pick_and_start(&mut app, "projectile_polygon");
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::characters::actor::WornCharacter,
+        &ActorMoveset,
+        Option<&ActionSet>,
+    )>();
+    let (moveset, actions) = q
+        .iter(world)
+        .find(|(worn, _, _)| worn.id() == "projectile_polygon")
+        .map(|(_, moveset, actions)| (moveset.0.clone(), actions.cloned()))
+        .expect(
+            "no seated body is wearing `projectile_polygon`, so this measures \
+             nothing about the shipped host",
+        );
+
+    // HALF ONE: a move on her table states the request.
+    let requesting: Vec<&str> = moveset
+        .moves
+        .iter()
+        .filter(|m| {
+            m.frame_data().hazard
+                == Some(ambition_platformer2d::entity_catalog::MoveHazard::OwnersRangedAction)
+        })
+        .map(|m| m.id.as_str())
+        .collect();
+    assert!(
+        !requesting.is_empty(),
+        "the reference ranged fighter seated in the shipped host has no move \
+         that fires her own weapon. Her table came from somewhere else, or \
+         `MoveEventKind::Ranged` stopped reaching `frame_data`"
+    );
+
+    // HALF TWO: the same body carries the weapon that answers it.
+    let cannon = actions
+        .and_then(|a| a.ranged)
+        .expect("she is seated without the cannon her whole archetype is");
+    assert_eq!(
+        cannon.speed, 540.0,
+        "her cannon's authored speed did not survive registration, so the \
+         reach the kit builder resolves is somebody else's shot"
+    );
+    let flight = cannon
+        .flight
+        .clone()
+        .expect("her cannon authors its flight so the charge tiers have a size to scale");
+    // What the join computes: `speed × lifetime` plus the shot's own body.
+    let reach = cannon.speed * flight.max_lifetime + flight.half_extent.x.abs();
+    assert!(
+        reach > ambition_platformer2d::entity_catalog::RANGED_ACTION_REACH,
+        "her shot resolves to {reach}px against a {}px placeholder. That is \
+         not a failure on its own — but the two must not agree, or this arm \
+         cannot tell a resolved reach from an unresolved one",
+        ambition_platformer2d::entity_catalog::RANGED_ACTION_REACH,
+    );
+    assert!(
+        (reach - 1306.0).abs() < 1.0,
+        "her cannon resolves to {reach}px and the unit test that pins the join \
+         asserts 1306px — the two describe the same weapon and must agree"
+    );
+}
+
 #[test]
 fn every_smash_roster_id_resolves_in_the_shipped_host() {
     use ambition_demo_smash::select::SMASH_ROSTER;

@@ -213,6 +213,70 @@ long am I committed"* and a wrong answer to *"when does this become dangerous"*.
 Give the second question its own field rather than the first field a second
 meaning.
 
+### ⛔⛤ And a hazard is not a threat where it is thrown
+
+The third correction to the same lead, one day after the second, and the first
+one that is not a substitution. Leading by `startup_s` over-led by the whole
+move; leading by `threat_live_at_s` is exact for a SWING and under-leads
+anything that travels by the whole of its flight. `director_train_of_thought`
+crosses 671px at 300px/s, so against somebody 400px away the shot lands about
+1.3 seconds after it leaves the hand.
+
+⭐ **THE FIELD THAT MAKES THE THIRD ANSWER POSSIBLE WAS BEING COMPUTED AND
+DISCARDED.** `hazard_reach_of` evaluated `speed × lifetime` and kept only the
+product, so the one quantity a consumer needs to convert a distance into a
+TIME was thrown away inside the derivation that had it.
+`MoveHazard::Spawned { reach, speed }` keeps both, and admission leads to
+`thrown_at + min(gap, reach) / speed`.
+
+⚠ **ONE FIXED-POINT PASS, AND THE ERROR IS DIRECTIONAL ON PURPOSE.** The
+flight time depends on the gap at arrival, which depends on the flight time.
+Measuring the gap at the throw and flying for that long is exact against a
+standing opponent and under-leads a retreating one — which refuses a shot
+rather than throwing one that lands behind them, and refusing is the cheaper
+mistake for the same reason the admission rule is absolute.
+
+⚠ **AND A ZERO SPEED IS A MEASUREMENT.** A laid bomb is DROPPED: nothing about
+it closes a gap, so all of its reach is available the instant it exists. The
+same `0.0` also stands for *"not known"* on an unresolved ranged action, which
+reads as an instantaneous threat — exactly what every consumer assumed before
+the field existed, so an unjoined reader is no worse off than it was.
+
+### ⛔⛤ A placeholder is a request, and a request needs an owner
+
+`MoveEventKind::Ranged` fires whatever `RangedActionSpec` the BODY carries, and
+a catalog derivation has no body to ask. The answer was
+`RANGED_ACTION_REACH = 1000` — wider than any stage this game ships — folded
+into the same `max` as measured bolt and bomb flights, with nothing in the
+value saying which numbers were real. Its own doc named the cost: *"a CPU that
+fires from further away than its shot can carry."*
+
+⇒ **The catalog states the REQUEST.** `MoveHazard::OwnersRangedAction` is not
+a distance; the accessors answer it with the standing constant so an unjoined
+reader is unchanged, and the layer that CAN see the body replaces the variant
+outright. That layer is `attack_kit_of`, which is already the one that joins a
+grab to its capture params — so the join has a home rather than a new one.
+
+⚠ **THE PRECEDENCE IS THE RUNTIME'S, COPIED RATHER THAN INVENTED:** what the
+move EQUIPS, then the body's standing kit. The admiral's side-B draws
+`admiral_gun_sword` and fires that; reading the body alone would describe a
+different shot for the one move in the game that brandishes.
+
+⚠ **AND NO RESOLVABLE WEAPON LEAVES THE REQUEST STANDING.** A move authored to
+fire a weapon its body does not have cannot produce a shot at all, and *"should
+this be pressed"* is a question for the layer that decides pressing — not a
+reach of zero invented at the join.
+
+⛔⛤ **AND THE FIRST JOIN GOT THE BOOMERANG WRONG BY EXACTLY A FACTOR OF TWO**,
+which is the same lesson one layer down: `boomerang_return_s` is a TIME and
+`speed` is a SPEED, and their product is not the distance, because the shot is
+decelerating the whole way out. `ProjectileFlight::boomerang`'s own doc states
+the displacement — `v0·t − v0·t²/2·out_s`, i.e. `v0 · out_s / 2` at the
+turnaround. The ponytail reaches **73px**, not 146. ⇒ Read the flight's
+ARITHMETIC, not its two numbers; and the hazard's `speed` is published as the
+AVERAGE over that leg, so `reach / speed` is the time it actually takes, which
+is what the admission lead divides by.
+
 ### ⛔⛤ Recovery authority is a travel number and answers a movement question
 
 Reviewed 2026-09-20. `AuthoredRecoveryRoute::SustainedAuthority { seconds,

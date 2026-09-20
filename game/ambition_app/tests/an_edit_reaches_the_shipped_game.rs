@@ -689,7 +689,7 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
 }
 
 /// The shipped app, gameplay activated, ready to be told to reload its world.
-fn a_running_shipped_session() -> bevy::prelude::App {
+pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.finish();
     app.update();
@@ -711,7 +711,7 @@ fn dev_preset_flash(app: &bevy::prelude::App) -> f32 {
         .preset_flash
 }
 
-fn press_apply_reload(app: &mut bevy::prelude::App) {
+pub(crate) fn press_apply_reload(app: &mut bevy::prelude::App) {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>()
         .preset_flash = 0.0;

@@ -27,6 +27,20 @@ fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
     )
 }
 
+/// THE GENERATION A CONTENT REPLACEMENT IS PUBLISHED OVER, for the two tests
+/// that build a replacement plan.
+///
+/// `'static` for the same reason as [`fixture_cast`]: `GenerationMechanics`
+/// borrows it and the context borrows that.
+fn replacement_mechanics() -> &'static crate::session::mechanics::SessionMechanics {
+    static MECHANICS: std::sync::OnceLock<crate::session::mechanics::SessionMechanics> =
+        std::sync::OnceLock::new();
+    MECHANICS.get_or_init(|| crate::session::mechanics::SessionMechanics {
+        characters: Some(fixture_cast().clone()),
+        ..Default::default()
+    })
+}
+
 /// THE FIXTURE CAST every construction test builds bodies from.
 ///
 /// `'static` because `ActorConstructionContext` BORROWS the cast, and a
@@ -4065,13 +4079,7 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
         ActorConstructionContext::for_content_replacement(
             &recipes,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &crate::session::mechanics::GenerationMechanics::for_the_generation_being_built(
-                Some(&fixture_cast()),
-                &Default::default(),
-                &ambition_boss_encounter::BossCatalog::default(),
-                None,
-                None,
-            ),
+            &crate::session::mechanics::GenerationMechanics::of(&replacement_mechanics()),
             // The world it is being committed into, which is still N.
             live.0,
             // The INCOMING generation — what a reload is publishing.
@@ -4133,13 +4141,7 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
             ActorConstructionContext::for_content_replacement(
                 &recipes,
                 &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-                &crate::session::mechanics::GenerationMechanics::for_the_generation_being_built(
-                    Some(&fixture_cast()),
-                    &Default::default(),
-                    &ambition_boss_encounter::BossCatalog::default(),
-                    None,
-                    None,
-                ),
+                &crate::session::mechanics::GenerationMechanics::of(&replacement_mechanics()),
                 // … to be committed INTO a world running 4.
                 expected.0,
                 // built FROM generation 5 …

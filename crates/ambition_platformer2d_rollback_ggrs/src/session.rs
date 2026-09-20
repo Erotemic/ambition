@@ -2227,7 +2227,15 @@ mod tests {
             .expect("a one-player baseline SyncTest session is valid");
 
         // A destructive mutation would happen HERE in a real commit; only after
-        // it succeeds do we touch the world, and that step cannot fail.
+        // it succeeds do we touch the world.
+        //
+        // ⚠ THE INSTALL CANNOT REFUSE, WHICH IS NOT THE SAME AS "CANNOT
+        // FAIL". It returns no `Result`, so there is no arm a caller has to
+        // write for a refusal arriving after its destructive half — that is
+        // the property this test exists for. It can still ABORT: it
+        // re-censuses before its first destructive write and fails the
+        // invariant there, because the eligibility token proves the check
+        // ran, not that its answer still holds.
         let mut world = World::new();
         let mut old_timeline = Time::<GgrsTime>::new_with(GgrsTime);
         old_timeline.advance_to(std::time::Duration::from_secs(9));

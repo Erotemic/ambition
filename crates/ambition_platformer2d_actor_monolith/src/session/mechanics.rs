@@ -130,13 +130,26 @@ impl SessionMechanics {
 /// CONSTRUCTOR.** Three roads, three constructors, no ranking left inside:
 ///
 /// ```text
-/// of                            an activated generation's frozen values
-/// for_live_session              the same, or a REFUSAL
-/// for_the_generation_being_built  the candidate a hot reload is publishing
+/// of                an activated generation's frozen values
+/// for_live_session  the same, or a REFUSAL
 /// ```
 ///
-/// ⇒ There is no longer a road on which a live rebuild can silently reach
-/// whatever the App is holding now. The 2026-09-19 composition ruling asked
+/// ⛔⛤ **THERE WAS A THIRD, `for_the_generation_being_built`, AND ITS ONE
+/// PRODUCTION CALLER WAS THE DEFECT IT WAS WRITTEN FOR.** It handed
+/// construction five App registries under the argument that *"a hot reload
+/// legitimately has no active generation to read: it is assembling the one that
+/// replaces the live one"*. That is true of a MECHANICAL replacement and false
+/// of the only caller there was: `reload_ldtk_world_from_disk` builds its
+/// candidate with `prepare_world_replacement_candidate`, which copies every
+/// non-`world.` fingerprint section out of the ACTIVE content — so the candidate
+/// published *"same mechanics, new world"* over a room built from whatever the
+/// App happened to hold. Reviewed 2026-09-20.
+///
+/// ⇒ A road that really does replace the mechanics builds the new
+/// `SessionMechanics` and reads it through [`Self::of`], so the values
+/// construction spends and the values the identity is taken over are one
+/// object. There is no constructor left that accepts loose registries, and
+/// therefore no road on which a live rebuild can reach the App at all. The 2026-09-19 composition ruling asked
 /// for exactly that: *"explicit direct/headless/test compositions may hold
 /// scoped fixture/direct-entry authority where needed, but no anonymous
 /// App-global fallback state returns."*
@@ -198,32 +211,6 @@ impl<'a> GenerationMechanics<'a> {
     /// and one that declares nothing is told no rather than handed the App.
     pub fn for_live_session(active: Option<&'a SessionMechanics>) -> Option<Self> {
         active.map(Self::of)
-    }
-
-    /// The values a road that is BUILDING the next generation hands
-    /// construction.
-    ///
-    /// ⚠ **NOT A FALLBACK, AND THE DIFFERENCE IS THE WHOLE REASON THIS IS ITS
-    /// OWN CONSTRUCTOR.** A hot reload legitimately has no active generation to
-    /// read: it is assembling the one that replaces the live one, so the
-    /// registries it was handed ARE the candidate's. Reading the session's
-    /// frozen mechanics here would rebuild the world from the generation the
-    /// reload is replacing. It states its inputs outright instead of declining
-    /// an `Option` and being given the App by default.
-    pub fn for_the_generation_being_built(
-        characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-        sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        bosses: &'a ambition_boss_encounter::BossCatalog,
-        forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
-        population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
-    ) -> Self {
-        Self {
-            characters,
-            sheets,
-            bosses,
-            forced_brains,
-            population_cap,
-        }
     }
 
     pub fn characters(
@@ -370,22 +357,24 @@ mod tests {
             "a castless generation was handed the App's cast",
         );
 
-        // ⭐ THE CONTROL, AND IT IS THE ONE ROAD THAT MAY STILL STATE App
-        // VALUES: a hot reload is BUILDING the next generation, so what it was
-        // handed is the candidate's and it says so at its own constructor.
+        // ⭐ THE CONTROL: a generation that DID publish this cast hands it over.
+        // Without it the arms above would also pass if the type had stopped
+        // carrying a cast at all.
+        //
+        // ⚠ It reaches construction by being INSIDE a `SessionMechanics`, which
+        // is the whole remaining road. A caller that means to build the next
+        // generation's mechanics assembles that value; it cannot hand five
+        // loose registries to a room any more.
         assert_eq!(
             health(
-                GenerationMechanics::for_the_generation_being_built(
-                    Some(&app_now),
-                    &sheets,
-                    &bosses,
-                    None,
-                    None,
-                )
+                GenerationMechanics::of(&SessionMechanics {
+                    characters: Some(app_now.clone()),
+                    ..SessionMechanics::default()
+                })
                 .characters()
             ),
             Some(3),
-            "the reload road lost the candidate registries it was handed",
+            "a generation that published a cast did not hand it to construction",
         );
     }
 
@@ -442,20 +431,18 @@ mod tests {
              under this identity are not the actors it was fingerprinted over"
         );
 
-        // ⭐ THE CONTROL: the reload road still carries whatever knobs it was
-        // handed, so the arms above are about READING THE GENERATION rather
+        // ⭐ THE CONTROL: a generation prepared under a DIFFERENT cap hands that
+        // one over, so the arms above are about READING THE GENERATION rather
         // than about the type having stopped carrying knobs at all.
-        let being_built = GenerationMechanics::for_the_generation_being_built(
-            None,
-            &sheets,
-            &bosses,
-            Some(&app_brains),
-            Some(&app_cap),
-        );
+        let capped_generation = SessionMechanics {
+            population_cap: AuthoredPopulationCap::capped_at(99),
+            ..SessionMechanics::default()
+        };
+        let other_generation = GenerationMechanics::of(&capped_generation);
         assert_eq!(
-            being_built.population_cap(),
+            other_generation.population_cap(),
             Some(&AuthoredPopulationCap::capped_at(99)),
-            "the reload road lost the cap it was handed"
+            "the generation's own cap did not reach construction"
         );
     }
 

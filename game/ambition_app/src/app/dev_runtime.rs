@@ -115,22 +115,24 @@ pub(super) fn handle_ldtk_hot_reload(
     catalogs: (
         Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition_platformer2d::character::AuthoredSheets>,
-        Res<ambition_platformer2d::boss_encounter::BossCatalog>,
         Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Res<world_manifest::WorldManifest>,
-        Option<Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
         >,
-        // What a developer forced the cast's brains to; a reload that dropped it
-        // would un-force a cast mid-measurement.
-        Option<Res<ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
-        // And the population cap, for the same reason: a reload that dropped
-        // it would rebuild the hall uncapped under a capped measurement.
-        Option<Res<ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
+        // ⭐⭐ **WHAT THE LIVE GENERATION FROZE — AND THE ONLY ROAD BY WHICH A
+        // MECHANICAL REGISTRY REACHES THIS RELOAD.** `Res<AuthoredSheets>`,
+        // `Res<BossCatalog>`, `Res<PreparedCharacterRegistry>`,
+        // `Res<AuthoredBrainOverride>` and `Res<AuthoredPopulationCap>` used to
+        // sit in this tuple and be handed to the room build as the candidate's
+        // mechanics. They are gone rather than merely unused, because a
+        // `SystemParam` a road still holds is one edit away from being spent:
+        // that is the same argument that took them out of the reset and
+        // transition roads. See the construction site for why the frozen ones
+        // are the correct answer for a WORLD-only reload.
+        Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
     ),
     mut content_identity: (
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -252,12 +254,8 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.3,
             &catalogs.4,
             &catalogs.5,
-            &catalogs.6,
-            &catalogs.7,
-            catalogs.8.as_deref(),
-            catalogs.9.as_deref(),
-            catalogs.10.as_deref(),
-            catalogs.11.as_deref(),
+            catalogs.6.as_deref(),
+            catalogs.7.as_deref(),
             &mut content_identity.0,
             // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
             // in: the reload writes it behind the room's verdict now, through the
@@ -409,24 +407,23 @@ pub(super) fn reload_ldtk_world_from_disk(
     watch_path: &std::path::Path,
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    authored_sheets: &ambition_platformer2d::character::AuthoredSheets,
-    boss_catalog: &ambition_platformer2d::boss_encounter::BossCatalog,
     placement_lowering: &ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,
     content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
     construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
     world_manifest: &world_manifest::WorldManifest,
-    prepared_characters: Option<
-        &ambition_platformer2d::characters::prepared::PreparedCharacterRegistry,
-    >,
+    // The published controller policies a PLACEMENT may name. NOT part of
+    // `SessionMechanics` — no generation freezes them, on any road, which is why
+    // the live transition takes them from the App too.
     brain_profiles: Option<
         &ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry,
     >,
-    // What a DEVELOPER has forced every authored actor's brain to. A hot reload
-    // rebuilds the room, and a reload that dropped the override would quietly
-    // un-force a cast mid-measurement — which is the one thing a measurement
-    // knob must not do.
-    forced_brains: Option<&ambition_platformer2d::characters::brain::AuthoredBrainOverride>,
-    population_cap: Option<&ambition_platformer2d::characters::actor::AuthoredPopulationCap>,
+    // The live generation's FROZEN mechanics — see the construction site below.
+    // `Option` because the resource is absent before any generation activates,
+    // and that case is a REFUSAL rather than a fallback, exactly as
+    // `for_live_session` demands of every other live rebuild road.
+    session_mechanics: Option<
+        &ambition_platformer2d::actors::session::mechanics::SessionMechanics,
+    >,
     prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
@@ -506,30 +503,50 @@ pub(super) fn reload_ldtk_world_from_disk(
         ),
     );
 
+    // ⛔⛤ **A WORLD-ONLY RELOAD IS NOT A NEW MECHANICAL GENERATION, AND ITS OWN
+    // CANDIDATE IDENTITY SAYS SO.** `prepare_world_replacement_candidate` (above)
+    // copies every fingerprint section that does not start with `world.` out of
+    // the ACTIVE `PreparedContent`, so the candidate published here CLAIMS the
+    // live session's cast, sheets, bosses, forced brains and population cap. If
+    // the room were then built from whatever the App happens to be holding now,
+    // the reload would publish identity A over a world built from mechanics B —
+    // exactly the split `SessionMechanics` exists to prevent, since App
+    // registries differing from the frozen generation is a SUPPORTED state.
+    //
+    // ⇒ The mechanics come from the live generation. A mechanical change is a
+    // full generation replacement, which recomputes the mechanical sections of
+    // the fingerprint and publishes a new `SessionMechanics` with them; it is
+    // not something a world reload may smuggle.
+    let live_mechanics =
+        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
+            session_mechanics,
+        )
+        .ok_or_else(|| {
+            vec![
+                "ldtk reload refused: no active generation to rebuild the room from \
+                 (SessionMechanics is absent, so the candidate's claim that the \
+                 mechanics are unchanged has nothing to be unchanged FROM)"
+                    .to_string(),
+            ]
+        })?;
+
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
         transaction.next_room_set.active,
         transaction.next_spec.clone(),
         placement_lowering,
         content_staging,
-        boss_catalog,
+        // ⛔ THE FROZEN BOSSES, ON THE SAME GROUNDS AS EVERY OTHER MECHANICAL
+        // REGISTRY BELOW — and this is what the other two live rebuild roads
+        // already pass here (`room_transition/loading.rs`, `session/reset`).
+        // This slot fed the App's `Res<BossCatalog>`, so a world-only reload
+        // could have built the room's boss FEATURES from the App while its
+        // actors came from the generation.
+        live_mechanics.bosses(),
         session_scope,
         ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
             construction_recipes,
             character_catalog,
-            // ⛔⛤ **A HOT RELOAD BUILDS THE NEXT GENERATION, NOT THE LIVE ONE**:
-            // the values it was HANDED are the candidate's, and reading the
-            // session's frozen mechanics here would rebuild the world from the
-            // generation this reload is replacing. It used to say so by passing
-            // `None` for the active generation and letting the App fallback
-            // answer; since that fallback was deleted it says so by NAME, which
-            // is the same statement without a road attached to it.
-            &ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_the_generation_being_built(
-                prepared_characters,
-                authored_sheets,
-                boss_catalog,
-                forced_brains,
-                population_cap,
-            ),
+            &live_mechanics,
             // ⛔ THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
             // boundary compares against this, so the preflight's own generation
             // is not refused as stale by the generation it is introducing —

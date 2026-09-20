@@ -375,10 +375,20 @@ impl<'a> ActorConstructionContext<'a> {
     pub fn for_content_replacement(
         recipes: &'a crate::construction::ActorConstructionRegistry,
         characters: &'a CharacterCatalog,
-        // ⚠ A REPLACEMENT'S MECHANICS ARE THE CANDIDATE'S, NOT THE SESSION'S.
-        // `GenerationMechanics::new(None, ..)` is how a reload says so — reading
-        // the live session's frozen mechanics here would rebuild the world from
-        // the generation this reload is replacing.
+        // ⛔⛤ **WHICH MECHANICS A REPLACEMENT SPENDS IS DECIDED BY WHAT ITS
+        // CANDIDATE IDENTITY CLAIMS, NOT BY THE WORD "REPLACEMENT".** This
+        // used to say *"a replacement's mechanics are the candidate's, not the
+        // session's"* flatly, and the one production caller —
+        // `reload_ldtk_world_from_disk` — replaces the WORLD while its candidate
+        // copies every non-`world.` fingerprint section out of the active
+        // content. Under the flat rule it built the room from the App and
+        // published *"mechanics unchanged"* over it. Reviewed 2026-09-20.
+        //
+        // ⇒ A world-only replacement passes the live generation's frozen
+        // mechanics; a road that really does replace them assembles the new
+        // `SessionMechanics` first, so the values spent and the values
+        // fingerprinted are one object. There is no constructor that takes
+        // loose registries any more.
         mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
         // The generation still live in the world being published INTO. The
         // staleness comparison at the boundary is against this.

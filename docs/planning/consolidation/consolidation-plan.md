@@ -14,7 +14,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | **COMPLETE 2026-09-15.** Post-A10 demolition is the active lane | large | — |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | **IS** the active campaign: [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which re-derives its own road count from its table — this cell deliberately states none, having carried "nine of twelve" while the owner said fourteen of seventeen | large | — (it is the campaign the others waited on; its own checkpoint is discharged) |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | **STARTABLE 2026-09-16 — every gate discharged** | large | ~~ID-PEER checkpoint~~ + ~~shell/content A-supersedes-B witness~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity), which also names the one re-arm condition (`Q128`). |
-| 4 | C04 | Make activated generation mechanics the only live-session construction source | ✅ **DELIVERED 2026-09-20** | medium | ~~C03 owner decision~~ + ~~supported-composition decision~~ + ~~the App-registry fallback removal~~ — all landed. `DUP-GENERATION-MECHANICS` is RESOLVED. |
+| 4 | C04 | Make activated generation mechanics the only live-session construction source | ✅ **DELIVERED 2026-09-20**, reopened and re-closed the same day | medium | ~~C03 owner decision~~ + ~~supported-composition decision~~ + ~~the App-registry fallback removal~~ + ~~the LDtk world reload, which was exempted on a false premise and built the room from the App under an identity claiming otherwise~~ — all landed. `DUP-GENERATION-MECHANICS` is RESOLVED, and there is no constructor left that accepts loose registries. |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | ⛔ **DO NOT START — decided 2026-09-19.** Every gate discharged, but the authority collapse has already happened: the remainder is one value's storage kind, re-measured unchanged, and moving it makes its only four readers worse. Kept for its regression rule | none remaining (was large, re-costed small 2026-09-16) | ~~Shell/content A-supersedes-B witness~~ + ~~identity checkpoint~~. Both discharged; the peer-identity one by its owner, [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity). |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | **STARTABLE 2026-09-19 — both gates discharged**, the second by C05's own DO-NOT-START ruling | large | ~~C01~~ + ~~C05~~. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
@@ -445,7 +445,7 @@ Fewer independent process truths; session teardown becomes entity/owner retireme
 
 ## 4. C04 — Make activated generation mechanics the only live-session construction source
 
-**STATE:** ✅ **DELIVERED 2026-09-20.** The App-registry fallback is deleted from live construction, and `DUP-GENERATION-MECHANICS` — the last open duplicate-authority family in the census — is RESOLVED with it.
+**STATE:** ✅ **DELIVERED 2026-09-20**, and reopened and re-closed the same day. The App-registry fallback is deleted from live construction, and `DUP-GENERATION-MECHANICS` — the last open duplicate-authority family in the census — is RESOLVED with it. ⛔ The first close left one exempt road, the LDtk world reload, whose exemption was argued from the word *"replacement"* rather than from what its candidate identity claims; see **WHAT COULD DISAPPEAR** below. Nothing in the tree now hands construction a registry that did not come out of a `SessionMechanics`.
 **IMPLEMENTATION CAMPAIGN SIZE:** medium
 **STARTABLE.** ⭐⭐ **THE LAST HOLD IS DISCHARGED — RULED 2026-09-19.** Two explicit composition modes: a game must be able to launch DIRECTLY or run inside the shell, and the game is essentially identical in both, the one meaningful semantic difference being that a shell-hosted game can RETURN to the shell (the direct build shows the same menu item, greyed out). ⛔ Shell presence must not alter simulation, mechanics, capabilities, registries, content or game policy, and future platform-level overlays are not a reason to couple more shell behaviour in. Production shell sessions use the prepared/session lifecycle; explicit direct/headless/test compositions may hold SCOPED fixture/direct-entry authority, but no anonymous App-global fallback state returns. ⇒ This row's App-registry fallback is that anonymous state, so it goes. See [`maintainer-decisions.md`](../maintainer-decisions.md). ⚠ The ruling's own instruction: *"Implement this architecture rather than continuing to census hypothetical composition variants."*
 
@@ -493,14 +493,53 @@ not inferred. Every live-rebuild road (`session/reset/mod.rs`,
 `room_transition/loading.rs`, `world/rooms/stage.rs`) goes through it; the
 preparation road uses `GenerationMechanics::of`.
 
-⚠ **AND THE ONE PRODUCTION CALLER OF THE UNREFUSING `new` WAS CORRECT, WHICH
-IS WHY IT SURVIVED THE DELETION UNDER A NEW NAME.**
-`game/ambition_app/src/app/dev_runtime.rs:526` — the HOT RELOAD, which is
-BUILDING the generation that replaces the live one, so the registries it was
-handed are the candidate's. It used to say so by passing `None` and letting the
-App fallback answer; it now says so by calling
-`GenerationMechanics::for_the_generation_being_built`, which is the same
-statement with no fallback road attached to it.
+⛔⛤ **AND THE ONE PRODUCTION CALLER THAT SURVIVED THE DELETION UNDER A NEW NAME
+WAS NOT CORRECT — REVIEWED AND REPAIRED 2026-09-20.** The claim was that
+`game/ambition_app/src/app/dev_runtime.rs`'s HOT RELOAD is *"BUILDING the
+generation that replaces the live one, so the registries it was handed are the
+candidate's"*, and it said so by calling
+`GenerationMechanics::for_the_generation_being_built`.
+
+That is true of a MECHANICAL replacement and false of the only caller there was.
+`reload_ldtk_world_from_disk` builds its candidate with
+`provider::prepare_world_replacement_candidate`, which copies every fingerprint
+section whose name does not begin with `world.` out of the ACTIVE
+`PreparedContent` — cast, sheets, bosses, forced brains, population cap. So the
+candidate PUBLISHED *"the same mechanical generation, only the world changed"*
+over a room built from whatever the App was holding when Apply was pressed. App
+registries differing from the frozen generation is not a hypothetical: it is the
+supported state `SessionMechanics` exists for, and it is what every arm of
+`a_room_is_built_from_its_generation.rs` poisons. ⇒ Identity A over mechanics B,
+which is the duplicate-authority defect this row claims to eliminate, on the
+road a developer uses most.
+
+✅ **THE REPAIR, SAME DAY.** The reload takes the live generation's frozen
+mechanics (`for_live_session`, refusing with a diagnostic when no generation is
+active, exactly as `room_transition/loading.rs` does) and passes
+`live_mechanics.bosses()` in `prepare_spec`'s positional boss slot, which is
+what the other two live rebuild roads already pass there. Its
+`Res<AuthoredSheets>`, `Res<BossCatalog>`, `Res<PreparedCharacterRegistry>`,
+`Res<AuthoredBrainOverride>` and `Res<AuthoredPopulationCap>` are GONE from the
+system's params rather than merely unused — a `SystemParam` a road still holds
+is one edit away from being spent, which is the same argument that took them out
+of reset and transition. `for_the_generation_being_built` is deleted with its
+last caller: a road that really does replace the mechanics assembles the new
+`SessionMechanics` and reads it through `of`, so the values construction spends
+and the values the identity is taken over are one object.
+
+⭐ **WITNESSED, AND THE FIRST WITNESS DID NOT WORK.**
+`a_room_is_built_from_its_generation::an_ldtk_world_reload_rebuilds_the_room_from_the_generation_not_the_app`
+is the fourth road in a file that already covered the door, the death rebuild
+and the new-game reset. Its first version used this file's usual poison — swap
+the App's `PreparedCharacterRegistry` for an empty one — and the poison PASSED:
+`npc_kernel_guide` kept its body. `WornCharacter` is worn from the
+`CharacterCatalog`, which is App-sourced on EVERY live road and is not part of
+`SessionMechanics` at all, so the prepared registry refines a body that already
+exists rather than deciding it. The shipped arm uses the POPULATION CAP instead,
+which `RoomFeatureConstructionPlan::prepare` spends before `plan_room` and which
+therefore decides whether the row exists: App capped at 0, generation uncapped.
+Poisoned (the reload reading a `SessionMechanics` capped at 0) it fails on the
+room-cast assertion with `left: [] / right: ["npc_kernel_guide"]`.
 
 ✅ **THAT DELETION LANDED 2026-09-20, AND THE SHAPE IT LEFT IS THREE NAMED
 CONSTRUCTORS WITH NO RANKING INSIDE THE TYPE.** `GenerationMechanics` held
@@ -508,9 +547,10 @@ CONSTRUCTORS WITH NO RANKING INSIDE THE TYPE.** `GenerationMechanics` held
 accessor chose between them, so which authority a construction spent was
 decided inside the type rather than by the caller. It now holds ONE set of
 registries, and the caller states which road it is on: `of` (an activated
-generation), `for_live_session` (the same, or a refusal) and
-`for_the_generation_being_built` (the hot reload, whose registries ARE the
-candidate's). The `shell_routed` flag is gone with the case it protected.
+generation) and `for_live_session` (the same, or a refusal). A third,
+`for_the_generation_being_built`, survived that deletion for the hot reload and
+was itself deleted on 2026-09-20 — see the finding above. The `shell_routed`
+flag is gone with the case it protected.
 
 ⭐⭐ **THE COST WAS MEASURED, AND THE ESTIMATE THAT HELD THIS ROW WAS WRONG BY
 AN ORDER OF MAGNITUDE.** The row had been costed against *"~90 test binaries"*

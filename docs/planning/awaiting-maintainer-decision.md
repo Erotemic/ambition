@@ -1573,7 +1573,16 @@ new one. The control failed with `[0]` and looked exactly like an insert that
 never landed. What separated them was reading the same world from OUTSIDE the
 schedule: the marker is there at tick 40 and gone at 41.
 
-**The one still open, and the three that closed:**
+**The three that closed, and the two still open.** ⚠ The count in that sentence
+is the instrument's, not this table's, and the two do not both appear below:
+`scripts/check_presence_filtered_state_is_rollback_registered.py` reads
+**121 presence-filtered components across 21 registering crates, 92 registered,
+27 waived, 2 owed** (re-run 2026-09-20, unchanged from 2026-09-19). The two owed
+are `PostBossNpc`, whose row is below, and `SmirkingBehemothVictoryNpc`, which
+this table predates and which is set out after it — a component the question
+could not name until the instrument learned to see `game/ambition_content` on
+2026-09-18. ⇒ Read the instrument for membership; this table is why each row is
+not hygiene.
 
 | component | the filter that reads it | why it is not hygiene |
 |---|---|---|

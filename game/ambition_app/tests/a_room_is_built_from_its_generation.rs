@@ -618,3 +618,135 @@ fn an_ordinary_room_transition_stamps_its_roots_with_the_session_content() {
          identity `TransactionId::peer_stable_checksum` exists to provide."
     );
 }
+
+/// Every room-scoped CHARACTER body the live `bevy::App` world holds, by the
+/// character it wears.
+///
+/// ⛔ **ROOM-SCOPED, because the PLAYER is not.** The player body transits a
+/// world reload rather than being rebuilt, so counting it would make "the room
+/// was rebuilt with its cast intact" true of a reload that built an empty room.
+///
+/// ⚠ **AND `WornCharacter` ALONE IS NOT A PROBE FOR THE PREPARED CAST — MEASURED
+/// 2026-09-20.** The first version of the arm below replaced the App's
+/// `PreparedCharacterRegistry` with [`an_empty_cast`], the way the three arms
+/// above do, and the poison PASSED: `npc_kernel_guide` still had a body. These
+/// bodies are worn from the `CharacterCatalog`, which is App-sourced on EVERY
+/// live road (`room_transition/loading.rs` included) and is not part of
+/// `SessionMechanics` at all; the prepared registry refines a body that already
+/// exists. So the lever the arm uses is the POPULATION CAP, which is spent
+/// before `plan_room` and therefore decides whether the row exists.
+fn app_room_scoped_characters(app: &mut bevy::prelude::App) -> Vec<String> {
+    let world = app.world_mut();
+    let mut query = world.query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<ambition_platformer2d::platformer::lifecycle::RoomScopedEntity>>();
+    let mut out: Vec<String> = query.iter(world).map(|worn| worn.0.to_string()).collect();
+    out.sort();
+    out
+}
+
+/// ⛔⛤ **THE FOURTH ROAD, AND THE ONE THAT WAS STILL WRONG: THE LDtk WORLD
+/// RELOAD — REVIEWED 2026-09-20.**
+///
+/// The three arms above cover the door, the death rebuild and the new-game
+/// reset. The hot reload was argued to be exempt: it is *"building the next
+/// generation"*, so the registries it was handed are the candidate's, and it
+/// said so by calling `GenerationMechanics::for_the_generation_being_built`.
+///
+/// ⛔ **THE EXEMPTION CONTRADICTED THE CANDIDATE'S OWN IDENTITY.**
+/// `reload_ldtk_world_from_disk` builds its candidate with
+/// `prepare_world_replacement_candidate`, which copies every fingerprint
+/// section that does not start with `world.` out of the ACTIVE content — cast,
+/// sheets, bosses, forced brains, population cap. So the candidate published
+/// *"the same mechanical generation, only the world changed"* over a room built
+/// from whatever the App held at the moment Apply was pressed. App registries
+/// differing from the frozen generation is not hypothetical: it is the
+/// SUPPORTED state `SessionMechanics` exists for, and it is what the three arms
+/// above each poison.
+///
+/// ⭐ **THE LEVER IS THE POPULATION CAP** — see [`app_room_scoped_characters`]
+/// for why the cast is not one here. A cap of ZERO in the App, with the running
+/// generation uncapped, is the sharpest form of the disagreement: the quota is
+/// spent before `plan_room`, so a road reading the App rebuilds a hall with no
+/// authored actor in it at all.
+///
+/// ⚠ **NO FILE IS WRITTEN.** Pressing Apply re-reads the same project, which is
+/// an equivalent reload — it still prepares a candidate, still builds the room,
+/// still publishes it. `a_committed_world_reload_applies_its_effects` owns the
+/// proof that this keypress commits at all; this arm re-checks `applied_count`
+/// because a REFUSED reload builds nothing and would satisfy every assertion
+/// below for the wrong reason.
+#[test]
+fn an_ldtk_world_reload_rebuilds_the_room_from_the_generation_not_the_app() {
+    let mut app = crate::an_edit_reaches_the_shipped_game::a_running_shipped_session();
+
+    let before = app_room_scoped_characters(&mut app);
+    assert!(
+        !before.is_empty(),
+        "the running session's room holds no room-scoped character body, so a \
+         cap that admits none of them cannot be told apart from the state this \
+         test starts in"
+    );
+    // ⭐ AND THE GENERATION THE SESSION IS RUNNING IS UNCAPPED, which is what
+    // makes a capped App a DISAGREEMENT rather than two registries agreeing.
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .expect("a running shipped session activated no generation")
+            .population_cap,
+        ambition_platformer2d::characters::actor::AuthoredPopulationCap::UNCAPPED,
+        "the activated generation is already capped, so the poison below is not \
+         a disagreement with it"
+    );
+
+    // ⛔ THE App AND THE GENERATION NOW DISAGREE — without replacing the
+    // session, which is the whole point: a world reload is not a session
+    // replacement and must not behave like one. This is the shape of an
+    // ordinary developer edit-to-play loop: change a knob, press Apply.
+    app.world_mut().insert_resource(
+        ambition_platformer2d::characters::actor::AuthoredPopulationCap::capped_at(0),
+    );
+
+    let applied_before = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .applied_count;
+    crate::an_edit_reaches_the_shipped_game::press_apply_reload(&mut app);
+    let reload = app
+        .world()
+        .resource::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
+        .clone();
+    assert!(
+        reload.applied_count > applied_before,
+        "the reload did not apply, so nothing was rebuilt and this arm says \
+         nothing about what a COMMITTED reload builds from: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+
+    let after = app_room_scoped_characters(&mut app);
+    assert_eq!(
+        after, before,
+        "an LDtk WORLD reload rebuilt the room under the App's population cap \
+         instead of the generation the running session activated. The candidate \
+         it published claims the mechanics are UNCHANGED — \
+         `prepare_world_replacement_candidate` copied every non-`world.` \
+         fingerprint section out of the active content — so the world it built \
+         and the identity it published are of different generations."
+    );
+
+    // ⛔⛤ AND THE GENERATION ITSELF IS UNTOUCHED, which is the other half: the
+    // reload's publication closure updates `PreparedContent`,
+    // `PreparedContentIdentity`, `ActiveContentBinding` and the LDtk runtime
+    // index — and NOT `SessionMechanics`. A reload that really did change the
+    // mechanics would have to publish them here, atomically, and recompute the
+    // mechanical sections of the fingerprint. It does neither, so the next door
+    // and the next death must still find the generation this session activated.
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .expect("the world reload left the session with no generation at all")
+            .population_cap,
+        ambition_platformer2d::characters::actor::AuthoredPopulationCap::UNCAPPED,
+        "the world reload republished the session's frozen mechanics as the \
+         App's, so every LATER rebuild reads the stranger too"
+    );
+}

@@ -2702,9 +2702,26 @@ exactly where it can push and then priced as though pushing were worth nothing
 — a move the CPU may pick and has no reason to. The Officer's neutral special
 `the_order_to_disperse` is exactly that move. ⇒ `Features::displacement_value`
 is the answer: `coverage_fit(push_coverage) × how close the foe is to a blast
-line`, with its own authored weight. ⛔ NOT `reach_fit` under another name —
-feeding push coverage back into reach would re-merge the two regions the split
-exists to keep apart and price a gust as a hit.
+line × whether the push sends them THAT WAY`, with its own authored weight.
+⛔ NOT `reach_fit` under another name — feeding push coverage back into reach
+would re-merge the two regions the split exists to keep apart and price a gust
+as a hit.
+
+⛔⛤ **THE THIRD TERM WAS MISSING AND THE FEATURE PAID FOR A RESCUE.** Coverage
+says the push REACHES them; proximity says they are near going off; neither
+says the push sends them toward the line. Wind blows ONE WAY — the gust's
+`push_dir` is authored precisely so it does not flip to suit the geometry — so
+an Officer who has crossed to the OUTBOARD side of a cornered opponent shoves
+them back to centre with the same coverage and the same proximity, and scored
+it as ledge control. `MoveFrameData::push_dir` carries the authored direction
+and `outward_local_x` carries which way is off the stage from where the foe
+stands, both in the body-local frame `foe_local` already uses. ⚠ Horizontal
+only: a side blast line is what a shove threatens, and the vertical component
+is a different question. Held by
+`a_shove_that_pushes_the_cornered_foe_back_inboard_is_not_ledge_control`, whose
+inboard CONTROL is the same foe at the same edge proximity — without it the arm
+is satisfied by a gust that never wins anywhere. Poisoned by forcing the term
+to 1.0, which reddens it alone.
 
 ⛔⛤ **AND THE FEATURE SHIPPED INERT, WHICH THE PIN COULD NOT SEE.** The first
 pin, `a_shove_outranks_a_near_miss_at_the_ledge_and_not_at_centre`, scored a

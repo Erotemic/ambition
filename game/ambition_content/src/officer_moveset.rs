@@ -588,4 +588,44 @@ mod he_uses_the_gust {
         assert_eq!(jab.max_percent_scaled_knockback, jab.max_knockback);
         assert!(jab.max_knockback > 0.0, "the jab launches at all");
     }
+
+    /// **AND THE SAME SHOVE FROM THE OTHER SIDE IS A RESCUE, SO IT IS NOT
+    /// WORTH LEDGE VALUE.**
+    ///
+    /// ⛔⛤ THE FIRST VERSION OF `displacement_value` PAID FOR BOTH. It was
+    /// `coverage_fit(push) × how near the foe is to a blast line` — coverage
+    /// says the push REACHES them and proximity says they are near going off,
+    /// and neither says the push sends them THAT WAY. Wind blows one way: the
+    /// gust's `push_dir` is authored precisely so it does not flip to suit the
+    /// geometry. So an Officer who has crossed to the OUTBOARD side of a
+    /// cornered opponent shoves them back toward centre stage — same coverage,
+    /// same proximity, opposite worth — and scored it as ledge control.
+    ///
+    /// ⚠ THE ARMS ABOVE COULD NOT SEE THIS. They test the right ledge and its
+    /// mirror, which are the same orientation twice: attacker inboard, foe
+    /// cornered. A mirror is not a control for handedness of INTENT.
+    #[test]
+    fn a_shove_that_pushes_the_cornered_foe_back_inboard_is_not_ledge_control() {
+        let kit = kit();
+        // The foe is cornered at 760, 40px from the right blast line — the
+        // SAME foe position as the winning arm above. The Officer has crossed
+        // to 790, outboard of them, so he faces left and his forward gust
+        // blows toward centre.
+        let best = best_at(&kit, 790.0, 760.0);
+        assert_ne!(
+            best, GUST,
+            "the gust won from the outboard side, where its authored push \
+             sends a cornered opponent back to safety"
+        );
+
+        // ⭐ THE CONTROL IS THE SAME FOE AT THE SAME EDGE PROXIMITY, attacked
+        // from inboard. Without it this arm is satisfied by a gust that never
+        // wins anywhere, which is what the weight was doing before 1.8.
+        assert_eq!(
+            best_at(&kit, 700.0, 760.0),
+            GUST,
+            "the inboard control stopped winning, so the arm above is about \
+             the weight and not about the direction"
+        );
+    }
 }

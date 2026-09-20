@@ -3074,6 +3074,23 @@ impl MoveSpec {
             .fold(0.0_f32, f32::max);
         let coverage = union(&mut active_volumes().filter(|v| hittable(v)).map(box_of));
         let push_coverage = union(&mut active_volumes().filter(|v| !hittable(v)).map(box_of));
+        // ⭐⭐ AND WHICH WAY IT BLOWS, because a shove's value depends on it.
+        // Authored (`launch_dir`) rather than derived from geometry — wind
+        // blows ONE WAY, whichever side you walked in from — so a scorer can
+        // ask whether this push sends the victim toward a blast line or away
+        // from one. Body-local, `+x` toward facing, the same frame
+        // `push_coverage` is in. `None` when the move shoves nobody.
+        let push_dir = active_volumes()
+            .filter(|v| !hittable(v))
+            .find_map(|v| v.launch_dir)
+            .map(|(x, y)| {
+                let len = (x * x + y * y).sqrt();
+                if len > 0.0 {
+                    (x / len, y / len)
+                } else {
+                    (0.0, 0.0)
+                }
+            });
         // Power = the strongest Active volume, derived exactly like `reach`.
         let max_damage = self
             .windows
@@ -3158,6 +3175,7 @@ impl MoveSpec {
             ignores_guard: false,
             coverage,
             push_coverage,
+            push_dir,
             max_damage,
             max_knockback,
             max_percent_scaled_knockback,
@@ -3361,6 +3379,16 @@ pub struct MoveFrameData {
     /// the merged reading said every waked move could hit as far as it could
     /// shove.
     pub push_coverage: Option<MoveCoverage>,
+    /// Which way the shove blows, body-local and unit-length (`+x` toward
+    /// facing, `+y` toward the feet), from the windbox volumes' authored
+    /// `launch_dir`. `None` when the move shoves nobody.
+    ///
+    /// ⛔ A SHOVE'S VALUE IS SIGNED. Coverage says the push REACHES the
+    /// opponent; it says nothing about whether the push sends them toward the
+    /// blast line or rescues them off it. Two geometrically opposite
+    /// situations — the attacker inboard of the victim, and the attacker
+    /// outboard of them — have the same coverage and opposite worth.
+    pub push_dir: Option<(f32, f32)>,
     /// Highest `damage` any Active volume deals — the move's POWER, so an
     /// option scorer can price a smash above a jab (FB6a; §9 of
     /// fighter-brain.md recorded that nothing could). `0` for a move that

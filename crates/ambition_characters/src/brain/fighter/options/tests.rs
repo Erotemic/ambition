@@ -26,6 +26,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         }),
         // This fixture authors no windbox.
         push_coverage: None,
+        push_dir: None,
         max_damage: 1,
         max_knockback: 0.0,
         // ⚠ ZERO, SO `kill_potential` IS ZERO FOR EVERY FIXTURE MOVE and the
@@ -994,6 +995,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
         frames: MoveFrameData {
             // This fixture authors no windbox.
             push_coverage: None,
+            push_dir: None,
             max_damage: 20,
             ..frames(0.25, 100.0, 0.4)
         },
@@ -1013,6 +1015,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
         frames: MoveFrameData {
             // This fixture authors no windbox.
             push_coverage: None,
+            push_dir: None,
             max_damage: 4,
             ..frames(0.1, 100.0, 0.2)
         },

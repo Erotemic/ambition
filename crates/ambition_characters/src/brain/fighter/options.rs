@@ -369,6 +369,19 @@ pub fn generate_options(
     };
     let stage_risk = edge_proximity(me.pos);
     let foe_edge_proximity = edge_proximity(foe.pos);
+    // ⭐⛤ WHICH WAY IS OFF THE STAGE, FROM WHERE THE FOE IS STANDING, in the
+    // same body-local frame `foe_local` is in — so a push direction and a
+    // danger direction can be compared without either one leaving the frame.
+    // `+1` when shoving FORWARD sends them out, `-1` when forward sends them
+    // home. The nearer of the two side blast lines is the one a horizontal
+    // shove is about; the vertical ones are not what a gust threatens.
+    let outward_local_x = {
+        let bounds = view.stage.bounds;
+        let to_right = bounds.max.x - foe.pos.x;
+        let to_left = foe.pos.x - bounds.min.x;
+        let outward_world = if to_right <= to_left { 1.0 } else { -1.0 };
+        outward_world * if me.facing < 0.0 { -1.0 } else { 1.0 }
+    };
     // A committed opponent cannot answer for `phase_remaining` seconds. An
     // uncommitted one answers immediately, so any startup at all is a gamble.
     let their_commitment = if is_punishable(foe, me.gravity_down) {
@@ -481,9 +494,11 @@ pub fn generate_options(
                 stage_risk,
                 displacement_value: displacement_value(
                     c.frames.push_coverage.as_ref(),
+                    c.frames.push_dir,
                     foe_local,
                     foe_extent,
                     foe_edge_proximity,
+                    outward_local_x,
                 ),
                 // TWO DIFFERENT QUESTIONS, so two different scales. The
                 // ranking's `fa` asks *how exposed does this leave me* and is
@@ -613,13 +628,35 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
 /// feature about the push region specifically: [`coverage_fit`] asks the same
 /// geometric question of the HITTABLE region and the two must not be summed
 /// into one number, because that is the merge the coverage split undid.
+///
+/// ⛔⛤ **AND IT IS SIGNED, WHICH THE FIRST VERSION WAS NOT.** Coverage says
+/// the push REACHES them and edge proximity says they are near going off;
+/// neither says the push sends them THAT WAY. Wind blows one way — the gust's
+/// `push_dir` is authored, not derived from geometry — so a fighter who has
+/// crossed to the OUTBOARD side of a cornered opponent shoves them back toward
+/// centre with the same coverage and the same edge proximity. The old feature
+/// paid full ledge value for a rescue. `outward_local_x` is which way is off
+/// the stage from where the foe stands, in the same body-local frame as
+/// `foe_local`, and the push is worth its component along it.
+///
+/// ⚠ HORIZONTAL ONLY, deliberately. A side blast line is what a shove
+/// threatens; the vertical component of `push_dir` is what gets the victim
+/// airborne, which is a different question this feature does not ask.
 pub fn displacement_value(
     push_coverage: Option<&ambition_entity_catalog::MoveCoverage>,
+    push_dir: Option<(f32, f32)>,
     foe_local: (f32, f32),
     foe_extent: (f32, f32),
     foe_edge_proximity: f32,
+    outward_local_x: f32,
 ) -> f32 {
-    coverage_fit(push_coverage, foe_local, foe_extent) * foe_edge_proximity.clamp(0.0, 1.0)
+    // A move that shoves but authors no direction is not read as shoving
+    // NOWHERE — it is read as shoving forward, which is what an unauthored
+    // launch resolves to everywhere else.
+    let toward_danger = (push_dir.map_or(1.0, |(x, _)| x) * outward_local_x).clamp(0.0, 1.0);
+    coverage_fit(push_coverage, foe_local, foe_extent)
+        * foe_edge_proximity.clamp(0.0, 1.0)
+        * toward_danger
 }
 
 /// Context value of acquiring a capture on `foe`, normalized to `[0, 1]`.

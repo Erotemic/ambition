@@ -77,6 +77,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 }),
                 // This fixture authors no windbox.
                 push_coverage: None,
+                push_dir: None,
                 max_damage: 8,
                 max_knockback: 40.0,
                 max_percent_scaled_knockback: 40.0,

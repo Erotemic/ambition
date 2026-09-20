@@ -566,6 +566,142 @@ fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandida
     c
 }
 
+/// The same, with no hittable region at all — an up-B that is purely a way
+/// home. Two of the shipped roster's fifteen self-launchers are this shape.
+fn hitless_lifting_candidate(id: &str, lift_speed: f32) -> AttackCandidate {
+    let mut c = lifting_candidate(id, lift_speed, 0.1);
+    c.frames.coverage = None;
+    c.frames.reach = 0.0;
+    c.frames.max_damage = 0;
+    c
+}
+
+/// ⛔⛤ **A MOVE THAT TOUCHES NOTHING AND THROWS ME IN THE AIR IS NOT AN
+/// ATTACK OPTION, AND IT USED TO BE OFFERED AT EVERY RANGE.**
+///
+/// The admission rule sorts candidates by what they touch, and its third arm
+/// — *"touches nothing — a buff, a summon, a pure-motion move"* — admitted a
+/// hitless recovery too. Nothing it could MISS, so nothing filtered it, and
+/// with `reach_fit` and `expected_payoff` both zero it was priced on
+/// `frame_advantage` and `stage_risk` alone. Whenever the gap grew past the
+/// rest of the kit's reach it was what remained — and pressing it widens the
+/// gap, so the next decision finds the same world one recovery later.
+///
+/// ⚠ MEASURED, NOT REASONED: on the 21-fighter grid sweep the medic threw
+/// `medic_rescue_lift` 48 times in 91 starts and dealt 39%.
+#[test]
+fn a_hitless_recovery_is_not_on_the_neutral_menu_and_is_the_whole_recovery_menu() {
+    let kit = [
+        candidate("jab", 0.1, 40.0),
+        hitless_lifting_candidate("up_b", 900.0),
+    ];
+    let w = UtilityWeights::v1();
+
+    // ⚠ A RANGE WHERE THE JAB IS STILL OFFERED — not the longest one. The
+    // rule is "not while there is something else", so a gap with an empty menu
+    // would be the wrong question and the arm below asks it separately.
+    let near = generate_options(
+        Perceived::cheating(&view_with(300.0, 380.0)),
+        Situation::Neutral,
+        &kit,
+        &w,
+    );
+    assert!(
+        near.attacks.iter().any(|a| a.move_id == "jab"),
+        "the premise: the jab must be on the menu, or excluding the recovery \
+         proves nothing about preferring the alternative"
+    );
+    assert!(
+        !near.attacks.iter().any(|a| a.move_id == "up_b"),
+        "a hitless recovery sits on the neutral menu beside a move that can \
+         actually hit"
+    );
+
+    // ⛔⛤ AND IT COMES BACK WHEN THE MENU IS OTHERWISE EMPTY, because for one
+    // of the two fighters that own such a move it is the APPROACH: Emmy's
+    // most-thrown move did not change when it was blanket-excluded, her GAP
+    // grew from 82 to 123, and she stopped connecting. A body with no attack
+    // at all is worse off than one pressing its up-B.
+    let lone = [hitless_lifting_candidate("up_b", 900.0)];
+    let empty_menu = generate_options(
+        Perceived::cheating(&view_with(300.0, 600.0)),
+        Situation::Neutral,
+        &lone,
+        &w,
+    );
+    assert_eq!(
+        empty_menu
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["up_b"],
+        "the recovery is excluded even when it is the only thing the kit offers"
+    );
+
+    // ⭐ AND IT IS NOT GONE FROM THE BRAIN — the recovery lens owns it, so a
+    // body that needs to come home still reaches for it. Without this arm the
+    // one above is satisfied by deleting the move from the kit.
+    let recovering = generate_options(
+        Perceived::cheating(&view_with(300.0, 600.0)),
+        Situation::Recovery,
+        &kit,
+        &w,
+    );
+    assert_eq!(
+        recovering
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["up_b"],
+        "the recovery situation does not offer the move that lifts the body"
+    );
+
+    // ⛔ AND A HITLESS MOVE THAT DOES NOT LAUNCH ME STAYS — a summon or a
+    // teleport is the *"buff, summon, pure-motion"* case this arm exists to
+    // admit, and asking `offers_a_way_home()` instead of the launch took
+    // `pirate_admiral/call_the_shark` off the menu with them.
+    let mut summon = candidate("summon", 0.3, 0.0);
+    summon.frames.coverage = None;
+    summon.frames.recovery_route =
+        ambition_entity_catalog::RecoveryRoute::SustainedAuthority {
+            seconds: 5.0,
+            reach: 650.0,
+        };
+    let with_summon = generate_options(
+        Perceived::cheating(&view_with(300.0, 600.0)),
+        Situation::Neutral,
+        &[summon],
+        &w,
+    );
+    assert_eq!(
+        with_summon
+            .attacks
+            .iter()
+            .map(|a| a.move_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["summon"],
+        "a hitless move that launches nobody and nothing left the neutral menu"
+    );
+
+    // ⚠ AND A LIFTER THAT HITS IS UNTOUCHED, which is 13 of the roster's 15:
+    // an uppercut is an ordinary attack that also rises, and `reach_fit`
+    // already prices it.
+    let hitting = [lifting_candidate("uppercut", 745.0, 0.1)];
+    let close = generate_options(
+        Perceived::cheating(&view_with(300.0, 340.0)),
+        Situation::Neutral,
+        &hitting,
+        &w,
+    );
+    assert_eq!(
+        close.best_attack().map(|a| a.move_id.as_str()),
+        Some("uppercut"),
+        "excluding hitless recoveries also removed one that hits"
+    );
+}
+
 /// A RECOVERING BODY IS OFFERED THE MOVE THAT LIFTS IT, AND ONLY THAT MOVE.
 ///
 ///  and the selection is geometric. Nothing here names a character, a verb

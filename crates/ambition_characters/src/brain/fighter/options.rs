@@ -566,9 +566,82 @@ pub fn generate_options(
         (Some(_), _) => attack.features.reach_fit > 0.0,
         // Only shoves: offered exactly where the shove lands.
         (None, Some(push)) => coverage_fit(Some(push), foe_local, foe_extent) > 0.0,
-        // Touches nothing — a buff, a summon, a pure-motion move.
-        (None, None) => true,
+        // ⛔⛤ TOUCHES NOTHING — a buff, a summon … OR A RECOVERY, AND THAT
+        // LAST ONE IS NOT AN ATTACK. A move that lands no volume and commands a
+        // self-launch throws this body 900 units into the air and reaches
+        // nobody on the way. It was admitted at EVERY range (nothing it could
+        // miss) and priced on `frame_advantage` and `stage_risk` alone, so
+        // whenever the gap grew past the kit's reach it was what remained —
+        // and pressing it widens the gap, which is a loop the next decision
+        // cannot leave. MEASURED 2026-09-19 on the grid sweep: the medic
+        // threw `medic_rescue_lift` 48 times in 91 starts and dealt 39%.
+        //
+        // ⭐ THE RECOVERY LENS ALREADY OWNS THESE. `Situation::Recovery`
+        // returns `lifting_candidates` and nothing else, so excluding them
+        // here removes a menu entry rather than an ability — a fighter
+        // knocked off the stage still reaches for its up-B, through the
+        // branch that exists for it.
+        //
+        // ⚠ ONLY THE HITLESS ONES. Measured over the shipped roster: 15 moves
+        // command a self-launch and 13 of them HIT for 6–9 damage, so they are
+        // ordinary attacks that also lift and `reach_fit` already prices them.
+        //
+        // ⛔⛤ AND THE TEST IS THE LAUNCH, NOT `offers_a_way_home()` — WHICH IS
+        // WHAT THIS ARM ASKED FIRST AND WAS WRONG. That predicate is true for
+        // every route that gets a body back, and a census on the real question
+        // named FIVE moves rather than two: the two lifts, plus
+        // `pirate_admiral/call_the_shark` (`SustainedAuthority` — a ridable
+        // summon IS a way home) and two `Teleport`s. A summon is exactly the
+        // *"buff, summon, pure-motion"* case this arm exists to ADMIT, and a
+        // 210px teleport toward the opponent CLOSES the gap rather than
+        // widening it. The reasoning above is about being thrown into the air
+        // and it must select on that.
+        (None, None) => attack.frames.lift_speed <= 0.0,
     });
+
+    // ⛔⛤ **… UNLESS IT IS ALL THERE IS, AND MEASURING THE BLANKET VERSION IS
+    // WHAT FOUND THAT.** Two fighters own a hitless self-launcher and the move
+    // plays OPPOSITE roles for them — grid sweep, 2026-09-19, 19 of 21 bouts
+    // bit-identical either way:
+    //
+    // ```text
+    // medic  rescue_lift x48/91   gap 91   39%   → tourniquet x40, gap 63, 262%
+    // emmy   smash_fwd   x52/95   gap 82  247%   → smash_fwd  x65, gap 123,  67%
+    // ```
+    //
+    // The medic's lift was a TRAP: she had `tourniquet` at 90px and threw the
+    // lift anyway, which widened the gap so the next decision found the same
+    // world. Emmy's was her APPROACH — her most-thrown move did not change and
+    // her GAP grew from 82 to 123, so without it she stands at a range her
+    // smash cannot reach. Same move shape, opposite jobs, and what separates
+    // them is whether the kit offers anything else here.
+    //
+    // ⇒ A recovery is the LAST RESORT rather than a choice. It leaves the menu
+    // whenever the menu has something on it, and stays when the alternative is
+    // an empty menu and a body that cannot act at all.
+    //
+    // ⚠ THIS IS HALF A REPAIR AND SAYS SO. A move whose only effect is to move
+    // the body belongs in the MOVEMENT list, scored by whether it closes the
+    // gap — not in the attack list scored by frame advantage. That is the
+    // admission-rule work `queue.md`'s BRAIN row already owns.
+    if attacks.is_empty() {
+        attacks = kit
+            .iter()
+            .filter(|c| c.legality == ActionLegality::Now)
+            .filter(|c| {
+                c.frames.coverage.is_none()
+                    && c.frames.push_coverage.is_none()
+                    && c.frames.lift_speed > 0.0
+            })
+            .map(|c| AttackOption {
+                move_id: c.move_id.clone(),
+                frames: c.frames.clone(),
+                binding: c.binding,
+                features: Features::default(),
+                score: 0.0,
+            })
+            .collect();
+    }
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).

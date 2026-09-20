@@ -2931,17 +2931,42 @@ describes, opened by giving the ranking a term that moves as damage accumulates.
 Both hard locks are untouched, which is predicted: a locked fighter deals no
 damage, so the percent term never rises and the new term never engages.
 
-⛔ **ONE REGRESSION CROSSES THE LINE AND IS NOT WAVED THROUGH: `medic`,
-188% → 39%, 16 distinct moves → 8.** Her kit is ORDINARY — measured, every move
-grows with percent except `medic_tourniquet` (damage 4, knockback 96,
-`knockback_growth: Some(0.0)`), which was her most-thrown move at 36 of 101
-starts and is the one move in her kit the new term zeroes. ⇒ Two readings and
-**neither is established**: either the brain lost a move it was correctly
-leaning on, or it stopped farming a move that its own authoring says must not
-get better as the victim softens (`tourniquet_tests`' own words) and the mirror
-damage fell because both seats stopped. **Measure which before tuning
-anything.** That is the next combat item on this row, not a blocker on the
-change that found it.
+⛔ **ONE REGRESSION CROSSED THE LINE AND WAS NOT WAVED THROUGH: `medic`,
+188% → 39%, 16 distinct moves → 8** — **and both of the readings this row
+first offered were wrong.** They were about `medic_tourniquet` losing its kill
+credit. Measured instead of guessed, her RANKING is healthy at every position
+sampled: jab at 0%, `smash_down` at 150%, `tourniquet` still her answer at a
+90px gap. Nothing was wrong with what she picks.
+
+⭐⛤ **THE CAUSE IS THE ADMISSION RULE'S THIRD ARM, WHICH IS HALF OF `(b)`
+BELOW.** *"Touches nothing — a buff, a summon, a pure-motion move"* also
+admitted a hitless RECOVERY. `medic_rescue_lift` lands no volume, so nothing it
+could miss filters it, and with `reach_fit` and `expected_payoff` both zero it
+was priced on `frame_advantage` and `stage_risk` alone. Whenever the gap grew
+past the rest of the kit's reach it was what remained — and pressing it throws
+her 905 units into the air, which WIDENS the gap, so the next decision finds
+the same world one recovery later. She threw it 48 times in 91 starts. The
+`kill_potential` change did not create this; it moved her trajectory into it.
+
+⚠ **AND THE FIRST FIX WAS MEASURED AND WITHDRAWN, WHICH IS THE PART WORTH
+KEEPING.** Excluding every hitless recovery from the neutral menu fixed the
+medic (39 → 262, 8 → 20 moves) and cost `npc_emmy_noether` 180% (247 → 67):
+her most-thrown move did not change and her GAP grew from 82 to 123, so the
+same move is a TRAP for one fighter and the APPROACH for the other. ⛔ A
+second finding came out of the same run: the predicate
+`recovery_route.offers_a_way_home()` selected FIVE moves, not the two the
+comment claimed — `pirate_admiral/call_the_shark` is a `SustainedAuthority`
+summon and two more are `Teleport`s, and a summon is exactly what that arm
+exists to admit. The census had keyed on `lift_speed`; the filter had not.
+
+⇒ **LANDED AS A LAST RESORT RATHER THAN AN EXCLUSION.** A hitless
+self-launcher leaves the menu whenever the menu has something else on it and
+comes back when the alternative is an empty menu. Grid sweep: **exactly 1 of 21
+bouts moves** — medic 39 → 262, Emmy bit-identical at 247 — and no fighter is
+under 40% but the two hard locks. ⚠ It is HALF a repair and says so at the
+code: a move whose only effect is to move the body belongs in the MOVEMENT
+list, scored by whether it closes the gap, not in the attack list scored by
+frame advantage. That is `(b)`'s work.
 
 ⚠ **AND THE INSTRUMENT ALREADY NAMED THEM; NOBODY HAD RUN IT.** The sweep is
 `#[ignore]`d as *"a measurement, not a guard"*, and its one assertion

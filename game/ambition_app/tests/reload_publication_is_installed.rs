@@ -728,3 +728,133 @@ fn the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances() {
          admission answer a publisher reads is one frame stale"
     );
 }
+
+/// ⭐⭐ **A LIVE SESSION AT GENERATION N CANNOT BE REPROJECTED TO N+1 BEFORE
+/// ITS REPLACEMENT IS AUTHORITATIVE — AND THE REASON IS THE FRAME LAYOUT, NOT
+/// AN EDGE.**
+///
+/// A 2026-09-19 review raised this as a concrete hole. `project_authored_fighter_ladder`
+/// stopped filtering on `Added<Brain>` (it had to — a brain built behind an
+/// `InactiveCandidate` barrier consumed the edge while hidden), so it now
+/// rewrites EVERY fighter's profile from the App-global `AuthoredFighterLadder`
+/// on every tick. `commit_content_generation` publishes that ladder at N+1
+/// `.after(AmbitionGameShellSet::Pending)` and `.before(GameplaySessionSet::Providers)`,
+/// where candidate B is adopted. If a simulation tick could fall in that
+/// interval, session A would be observed carrying N+1 while still live.
+///
+/// ⭐⛤ **MEASURED, AND THE REVIEW'S INSTRUMENT WOULD HAVE ANSWERED THE WRONG
+/// QUESTION.** It asked for a dependency edge between `GameplaySimulationRoot`
+/// and the commit. There is none and there cannot be: **the two systems are in
+/// different schedules.** The projection is in the SIM schedule
+/// (`GgrsSchedule` under this host) and the commit is in `Update`, so no
+/// reachability walk over one graph can relate them, and "no path found" would
+/// have read as "ambiguous" when it actually means "not comparable".
+///
+/// ⇒ What makes the interval safe is that the sim advance happens in
+/// `PreUpdate` (`RunGgrsSystems`) and the whole commit-to-adoption interval
+/// happens inside one `Update` pass. `Main` runs `PreUpdate` before `Update`,
+/// so the frame is: advance the timeline, THEN publish and adopt together.
+///
+/// ⚠ **THAT IS TRUE BY LAYOUT AND NOTHING SAID SO, WHICH IS THE REVIEW'S REAL
+/// POINT.** This arm is what says it. It reddens if the projection moves into
+/// `Update`, if the advance moves out of `PreUpdate`, or if the commit stops
+/// being ordered before adoption — the three moves that open the hole, each of
+/// which looks harmless on its own.
+#[test]
+fn no_simulation_tick_falls_between_the_generation_commit_and_its_adoption() {
+    use ambition_platformer2d::rollback::RunGgrsSystems;
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+
+    let projection = ambition_platformer2d::actors::features::ecs::fighter_ladder::project_authored_fighter_ladder;
+
+    // ⛔ THE PREMISE, AND IT IS THE HALF THAT MAKES THIS ARM ABOUT THE SHIPPED
+    // GAME: both systems are registered exactly once, in the schedules the
+    // reasoning above names. An absent projection satisfies every claim below.
+    let sim_graph = schedules
+        .get(ambition_platformer2d::rollback::GgrsSchedule)
+        .expect("this host's simulation schedule exists")
+        .graph();
+    let update_graph = schedules
+        .get(Update)
+        .expect("the Update schedule exists")
+        .graph();
+    assert_eq!(
+        is_registered(sim_graph, projection),
+        1,
+        "the fighter-ladder projection is not in the simulation schedule, so \
+         the frame-layout argument below does not apply to it"
+    );
+    assert_eq!(
+        is_registered(update_graph, projection),
+        0,
+        "the fighter-ladder projection is ALSO in `Update`, where it can run \
+         between the generation commit and the candidate's adoption and rewrite \
+         the LIVE session's brains to N+1"
+    );
+    assert_eq!(
+        is_registered(
+            update_graph,
+            ambition_content::reload::commit_content_generation
+        ),
+        1,
+        "the generation commit is not the single `Update` system this arm \
+         assumes it is"
+    );
+
+    // ⛔ AND THE ADVANCE IS NOT IN `Update` EITHER. `RunGgrsSystems` is where
+    // this host steps `GgrsSchedule`; if it were configured into `Update` the
+    // interval could contain a whole simulation tick even with the projection
+    // where it is.
+    // ⚠ ASKED AS "IS THE SET IN THIS GRAPH AT ALL", because `systems_in`
+    // PANICS on a set the schedule does not hold — and "not configured here"
+    // is exactly the answer this arm wants, not an error.
+    assert!(
+        update_graph
+            .system_sets
+            .get_key(bevy::ecs::schedule::SystemSet::intern(&RunGgrsSystems))
+            .is_none(),
+        "the GGRS advance is configured in `Update`, so a simulation tick can \
+         fall between the generation commit and the candidate's adoption"
+    );
+    // ⭐ AND THE CONTROL FOR THAT NEGATIVE: the set IS in `PreUpdate`, so the
+    // absence above is a placement fact and not a renamed or deleted set.
+    assert!(
+        schedules
+            .get(PreUpdate)
+            .expect("the PreUpdate schedule exists")
+            .graph()
+            .system_sets
+            .get_key(bevy::ecs::schedule::SystemSet::intern(&RunGgrsSystems))
+            .is_some(),
+        "`RunGgrsSystems` is in neither `Update` nor `PreUpdate`, so the \
+         assertion above is about a set that no longer exists"
+    );
+
+    // ⭐ AND THE INTERVAL IS ONE `Update` PASS. The commit reaching adoption in
+    // the dependency graph is what makes "between them" a span inside a single
+    // pass rather than a gap across frames. `Main` puts `PreUpdate` before
+    // `Update`, so a span inside one `Update` contains no advance.
+    let ordering = Ordering::of(update_graph);
+    let commit = vec![key_of(
+        update_graph,
+        ambition_content::reload::commit_content_generation,
+    )];
+    let providers = systems_in(
+        update_graph,
+        ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
+    );
+    assert!(
+        !providers.is_empty(),
+        "`GameplaySessionSet::Providers` holds no systems, so ordering the \
+         commit against it says nothing"
+    );
+    assert!(
+        ordering.reaches(&commit, &providers),
+        "the commit is not ordered before adoption, so publication and \
+         adoption are not one span and the frame-layout argument does not \
+         close the interval"
+    );
+}

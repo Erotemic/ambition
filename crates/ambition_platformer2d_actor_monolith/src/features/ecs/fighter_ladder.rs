@@ -32,6 +32,23 @@ use ambition_characters::brain::{Brain, StateMachineCfg};
 /// reader in the schedule, which is a busier thing than the projection it
 /// would be reporting. The mutable borrow is taken only by the fighter that is
 /// actually being rewritten.
+///
+/// ⛔⛤ **IT MUST STAY IN THE SIMULATION SCHEDULE, AND THAT IS A TRANSACTION
+/// CONSTRAINT RATHER THAN A PERFORMANCE ONE.** A 2026-09-19 review raised it:
+/// `AuthoredFighterLadder` is an App-global resource that
+/// `commit_content_generation` republishes at generation N+1 partway through
+/// `Update` — `.after(AmbitionGameShellSet::Pending)`, `.before(GameplaySessionSet::Providers)`
+/// — and the candidate that owns N+1 is adopted at the far end of that span.
+/// A projection running inside the span would rewrite the LIVE session's
+/// fighters to a generation that is not yet authoritative, which is exactly
+/// the split the reload architecture exists to prevent.
+///
+/// ⇒ It cannot, because this host advances the simulation from `PreUpdate`
+/// (`RunGgrsSystems`) and the whole commit-to-adoption span is inside one
+/// `Update` pass. **Moving this system into `Update` opens the hole**, and so
+/// does moving the advance out of `PreUpdate`. Held by
+/// `reload_publication_is_installed::no_simulation_tick_falls_between_the_generation_commit_and_its_adoption`,
+/// poison-verified by registering this system in `Update` as well.
 pub fn project_authored_fighter_ladder(
     ladder: Option<bevy::prelude::Res<ambition_characters::brain::fighter::AuthoredFighterLadder>>,
     mut brains: bevy::prelude::Query<&mut Brain>,

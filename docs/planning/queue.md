@@ -3595,18 +3595,34 @@ a move that runs 0.65s plus a committed tail: **he is inside this move for the
 entire match**, which is why only two of his thirty-three authored moves are
 ever started.
 
-⚠ **THE MECHANISM IS UNATTRIBUTED AND THREE CANDIDATES ARE WRITTEN DOWN
-RATHER THAN ONE GUESSED AT.** (1) A CLASH — the two seats are in phase (`[sym]`
-splits by a pixel at tick 223), `arbitrate_attack_clashes` cancels two meeting
-attacks, and two identical moves thrown at the same instant would trade
-forever. (2) The move's OWN counter stance, a `smash_counter` over `0.0..0.20`
-that answers the ATTACKER with time dilation. (3) Something upstream of both.
-⛔ **STALING CANNOT BE THE ANSWER AND THAT IS EVIDENCE, NOT AN ASSUMPTION**:
-`BodyStaleMoves` records what LANDED, his move lands nothing, so his ring
-stays empty — and his row is bit-identical across the staling sweep, which is
-that reading measured rather than argued. A brain with no memory of a move
-that keeps producing NOTHING is the whiff half of the whiff/usage-memory
-slice, and it is the half neither of these increments touched.
+⭐⭐ **AND HE IS NOT A BROKEN FIGHTER — HE IS A PERFECT MIRROR, ATTRIBUTED
+2026-09-21 BY A CONTROLLED PAIR.** The same command, the same commit, the same
+host, differing only in `AMBITION_DUEL_RUNG`:
+
+| | rung 9 | rung 5 |
+|---|---|---|
+| pool | 11% / 11% | **161% / 181%** |
+| starts / distinct | 80 / **2** | 49 / **11** |
+| `synchronize_clocks` | ×79, **0 damage** | ×26, **71 damage** |
+| knockouts | 0 | 3 |
+
+⇒ His down-special works; it lands 71 damage in the bout where the mirror is
+broken. **What rung 9 is, is stated in the harness's own doc**: it is *"the
+ONLY rung where `execution_noise * interval()` rounds to zero … so the
+per-seat cognition seed is drawn and discarded and a symmetric mirror bout is
+deterministically bit-identical."* Two identical brains, in identical
+situations, with no noise between them, make identical decisions forever — and
+this one kit has a fixed point the other twenty do not.
+
+⚠ **SO THE GATE'S ONE FAILURE IS THE GATE MEASURING A DEGENERATE
+CONFIGURATION, AND THE GATE IS STILL WORTH KEEPING.** Twenty of twenty-one
+rows pass it, in all three sweeps above. ⛔ It is NOT a licence to lower the
+threshold: what a lockstep exposes is a brain with no memory of a move that
+keeps producing NOTHING, which is the WHIFF half of the whiff/usage-memory
+slice — and that half is untouched. ⛔ **STALING CANNOT BE THE ANSWER AND THAT
+IS MEASURED, NOT ASSUMED**: `BodyStaleMoves` records what LANDED, his move
+lands nothing, so his ring stays empty — and his row is bit-identical across
+the staling sweep, which is that reading taken rather than argued.
 
 ⚠ **AND THE TELEPORT'S DESTINATION IS STILL MISSING**, which is the other half
 the review named: `TeleportParams` carries `behind_nearest_foe`, `behind_gap`

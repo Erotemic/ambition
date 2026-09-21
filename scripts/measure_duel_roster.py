@@ -8,6 +8,28 @@ grid offers: **20 measured, 15 clear the 0.5 gate, 1 sits AT it, 4 fail, and the
 4 do not share a mechanism** — two barely press, two press constantly and convert
 nothing. ⇒ The row is two rows.
 
+⭐⭐ **RE-MEASURED 2026-09-21 AT `9c261b7f1`, AND THE POPULATION OF FAILURES IS
+NOW ONE.** Twenty-one ids, twenty-one measured, **twenty clear the gate and
+`special_patent_clerk` fails it** — the same reading in three consecutive
+sweeps of the whole grid. ⚠ The comparison is of the same ASSERTION in the same
+test and not of the same column: this re-measure reads the `took X / Y of pool`
+figures off the `[duel]` line, which are window-independent, rather than the
+damage/min this file folds.
+
+⛔⛤ **AND THAT LAST FAILURE IS ATTRIBUTED, WHICH THE 2026-09-10 ROW COULD NOT
+DO.** It is not a broken fighter: the same commit, the same host and the same
+command at `AMBITION_DUEL_RUNG=5` give him **161% / 181% on 11 distinct moves
+with 3 knockouts**, where rung 9 gives 11% / 11% on TWO. His down-special
+lands 71 damage in the bout where the mirror is broken and zero in the bout
+where it is not. ⇒ What rung 9 is, `smash_cpus_damage_each_other`'s own doc
+says: the only rung where the execution noise rounds to zero, so a symmetric
+mirror is deterministically bit-identical. Two identical brains with no noise
+between them make identical decisions forever, and this one kit has a fixed
+point the other twenty do not. The gate is measuring a degenerate
+configuration, not a fighter — and what a lockstep exposes is a brain with no
+memory of a move that keeps producing nothing (the WHIFF half of the
+whiff/usage-memory slice, still open on queue.md's BRAIN row).
+
 ⛔⛔ **THE POPULATION IS THE ASSEMBLED GRID, NOT A LIST OF MOVESETS.** The first
 run of this sweep used `authored_movesets::tables()` — whose own header warns it
 is *"NOT THE SELECTABLE CAST"* — and was about to report three different causes

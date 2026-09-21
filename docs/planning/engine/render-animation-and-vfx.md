@@ -132,10 +132,24 @@ The current engine already has:
 - a generic body-clock read model and visible clock presentation;
 - shared render-basis logic for sheet-authored player/actor sprites.
 
-The old Mary-O offset investigation is closed at the architecture seam: player
-and actor presentation share the same render-basis authority. Do not retain that
-investigation diary here; re-run the capture/probe tools if a new visual defect
-appears.
+Player and actor presentation share the same render-basis authority. That was
+stated here as "the old Mary-O offset investigation is closed at the
+architecture seam", and it was too strong: sharing the basis logic is not the
+same as binding it at the right moment. Reopened and re-closed 2026-09-21 on the
+readiness half — `bind_worn_character_presentation` initialized
+`CharacterAnimator::render_basis` before `BodyPoseView` existed, so the one
+initialization the design allows was spent on a collision-derived guess that the
+binder's only key (the worn identity) could never invalidate. Mary-O's small form
+drew misaligned against her box until a wand swapped her identity. A sheet-backed
+presentation is now FINAL only once the pose exists; before it, the body is drawn
+provisionally and stays eligible.
+
+Still do not retain an investigation diary here. The two rules this left behind
+are: a presentation basis is chosen once, and it may only be chosen when the
+authored answer is available. Re-run the capture/probe tools if a new visual
+defect appears — noting that `capture_mary_o` in a headless environment renders
+placeholder rectangles, because nothing in that composition registers decode
+demand, so it cannot validate a binding fix.
 
 ## Current work
 

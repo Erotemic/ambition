@@ -672,3 +672,138 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
         "the display name is a token too, and it was retired alongside the id"
     );
 }
+
+/// **AN ACTOR BIND IS ONE-SHOT, SO ITS GEOMETRY MUST BE COMPLETE BEFORE IT.**
+///
+/// `BoundFeatureKind` keys on kind + COLLISION size only (`feature_kind.rs`),
+/// so a render size that is corrected AFTER the bind never reaches the sprite:
+/// the collision footprint the key remembers has not changed, and nothing
+/// invalidates it. That is deliberate, not an oversight — widening the key to
+/// every presentation input would make a settling body rebuild its sprite
+/// repeatedly, and the animator's basis is meant to be chosen once.
+///
+/// Locked here because it is the CONSTRAINT the construction seam has to
+/// satisfy: an actor must be geometry-complete at its first observable
+/// snapshot, because presentation will not take a second answer. The Mary-O
+/// snake violated it — construction sized the body from the catalog join while
+/// `sync_sprite_posed_bodies` resized it from the sheet a tick later, leaving
+/// exactly one tick of final collision beside a 5x spawn render size — and the
+/// fix was to give construction the sheet's body authority, not to widen this
+/// key.
+///
+/// ⚠ The control is the same sequence with the collision size ALSO changing:
+/// that one does rebind, which is what says this is about the key's contents
+/// rather than about the binder never re-running.
+#[test]
+fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
+    fn bind_then_correct(collision_changes: bool) -> (Option<Vec2>, Option<Vec2>) {
+        let mut app = asset_app();
+        app.insert_resource(quality(VisualQualityProfile::High));
+        let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
+        the_image_lands(&mut app, &art);
+        let mut assets = GameAssets::default();
+        assets.characters.publish(ACTOR_NAME, art);
+        app.insert_resource(assets);
+
+        // The snake's own numbers: collision already final, render still the
+        // spawn/catalog size.
+        let collision = ambition_platformer2d_core::Vec2::new(21.3, 9.5);
+        let stale_render = ambition_platformer2d_core::Vec2::new(118.2, 118.2);
+        let correct_render = ambition_platformer2d_core::Vec2::new(23.3, 23.3);
+
+        let feature_view = |size| ambition_sim_view::FeatureView {
+            size,
+            ..a_feature_view()
+        };
+        let actor_view = |render_size| ambition_sim_view::ActorRenderView {
+            sprite_character_id: None,
+            name: ACTOR_NAME.to_string(),
+            sprite_override_name: None,
+            is_sandbag: false,
+            render_size: Some(render_size),
+            dream_seed: None,
+        };
+
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            feature_view(collision),
+        )]));
+        app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            actor_view(stale_render),
+        )]));
+        app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+        app.add_systems(Update, super::upgrade_actor_sprites);
+
+        let body = app
+            .world_mut()
+            .spawn(FeatureVisual {
+                id: ACTOR_ID.to_string(),
+            })
+            .id();
+        app.update();
+        // ⛔ THE BASIS, NOT `Sprite.custom_size`: the constructor applies
+        // frame-zero TRIM, so the sprite's quad is a per-frame derivation and
+        // reading it measured the trim rather than the bind.
+        let basis = |app: &App| {
+            app.world()
+                .get::<ambition_sprite_sheet::character::CharacterAnimator>(body)
+                .and_then(|a| a.render_basis)
+                .map(|b| b.render_size)
+        };
+        let bound_at = basis(&app);
+
+        // The correction the posed-body pass makes on the next tick.
+        let next_collision = if collision_changes {
+            ambition_platformer2d_core::Vec2::new(12.0, 6.0)
+        } else {
+            collision
+        };
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            feature_view(next_collision),
+        )]));
+        app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            actor_view(correct_render),
+        )]));
+        app.update();
+        let after = basis(&app);
+        (bound_at, after)
+    }
+
+    let (bound_at, after) = bind_then_correct(false);
+    let (control_bound, control_after) = bind_then_correct(true);
+    println!(
+        "[latch] collision UNCHANGED: bound={bound_at:?} after_correction={after:?}\n\
+         [latch] collision CHANGED  : bound={control_bound:?} after_correction={control_after:?}"
+    );
+    // ANTI-VACUITY: the fixture must actually have bound something, and it
+    // must have bound the STALE size, or the arm below proves nothing.
+    let bound_at = bound_at.expect("the fixture must bind an animator with a render basis");
+    assert!(
+        (bound_at.x - 118.2).abs() < 1.0,
+        "the fixture did not bind the STALE render size ({bound_at:?}), so the \
+         correction below has nothing to fail to reach"
+    );
+
+    let after = after.expect("the animator still exists after the correction");
+    assert!(
+        (after.x - 118.2).abs() < 1.0,
+        "the corrected render size reached an already-bound sprite ({after:?}). \
+         If the key was deliberately widened, this lock is what has to be \
+         retired WITH that decision — the construction seam upstream is written \
+         against a bind that takes one answer"
+    );
+
+    // THE CONTROL: change the collision size too, and the same sequence
+    // rebinds. Without this the arm above could be about binding never
+    // updating at all.
+    let control = control_after.expect("the control animator exists");
+    assert!(
+        (control.x - 23.3).abs() < 1.0,
+        "the CONTROL failed: even with the collision size changing the quad did \
+         not follow ({control:?}), so this fixture cannot tell a missing cache \
+         key from a binder that never re-runs"
+    );
+}

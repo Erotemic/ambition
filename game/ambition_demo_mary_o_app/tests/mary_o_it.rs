@@ -29,6 +29,7 @@ mod rollback_registration;
 mod rollback_restore;
 mod rollback_room_memory;
 mod replay_rebuilds_the_snakes;
+mod snake_geometry_timeline;
 mod room_replay;
 mod scripted_level_run;
 mod shell_cycle;

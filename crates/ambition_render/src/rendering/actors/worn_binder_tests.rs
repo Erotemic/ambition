@@ -39,7 +39,31 @@ fn two_character_assets() -> GameAssets {
     assets
 }
 
+/// A worn player the sim has already published a pose for — the ordinary shape.
+///
+/// The pose is not decoration here: a sheet-backed presentation is FINAL only
+/// once `BodyPoseView` exists, because that is where the authored quad and
+/// offset come from and `CharacterAnimator::render_basis` is initialized once.
+/// A fixture with no pose exercises the PROVISIONAL state instead — see
+/// [`spawn_worn_before_its_pose`].
 fn spawn_worn(app: &mut App, id: &str) -> Entity {
+    app.world_mut()
+        .spawn((
+            PlayerVisual,
+            WornCharacter::new(id),
+            ambition_sim_view::BodyPoseView {
+                base_size: ambition_platformer2d_core::Vec2::new(
+                    ambition_platformer2d_core::DEFAULT_PLAYER_BODY_WIDTH,
+                    ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT,
+                ),
+                ..Default::default()
+            },
+        ))
+        .id()
+}
+
+/// A worn player in the window before the sim has published its pose.
+fn spawn_worn_before_its_pose(app: &mut App, id: &str) -> Entity {
     app.world_mut()
         .spawn((PlayerVisual, WornCharacter::new(id)))
         .id()
@@ -235,7 +259,7 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
             },
         ))
         .id();
-    // A body that never states one still binds, on the engine default.
+    // A body whose pose publishes the engine default binds on that.
     let plain = spawn_worn(&mut app, "goblin");
 
     app.update();
@@ -253,7 +277,7 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
     let fallback = app
         .world()
         .get::<super::PlayerSpriteBaseline>(plain)
-        .expect("a body with no authored baseline still binds");
+        .expect("a body at the default standing size still binds");
     assert_eq!(
         fallback.standing_collision,
         ambition_platformer2d_core::Vec2::new(
@@ -403,5 +427,105 @@ fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
     assert!(
         actual_size.distance(baseline.standing_render) > 1.0,
         "this fixture must prove the packed frame is not drawn at the full logical render size"
+    );
+}
+
+/// **A WORN PLAYER IS NOT FINALLY BOUND UNTIL ITS POSE EXISTS.**
+///
+/// `CharacterAnimator::render_basis` is initialized once — every later frame is
+/// derived from it — and the authored quad and offset that belong in it live on
+/// `BodyPoseView`. So the readiness rule and the one-basis rule are the same
+/// rule: a sheet-backed presentation may not be installed before the pose, or
+/// the single initialization is spent on a collision-derived guess that the
+/// binder's only key (the worn identity) can never invalidate.
+///
+/// Pre-pose the player is still DRAWN — the fallback rectangle, marked with the
+/// identity — and still ELIGIBLE, because it carries no animator. When the pose
+/// lands the first final basis is the authored one, with no identity change.
+#[test]
+fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    let mut assets = GameAssets::default();
+    assets
+        .characters
+        .publish("player_robot_v3", fixture("player_robot_v3"));
+    app.insert_resource(assets);
+    app.add_systems(Update, bind_worn_character_presentation);
+
+    let player = spawn_worn_before_its_pose(&mut app, "player_robot_v3");
+    app.update();
+
+    let basis = |app: &App| {
+        app.world()
+            .get::<CharacterAnimator>(player)
+            .and_then(|a| a.render_basis)
+            .map(|b| b.render_size)
+    };
+
+    // Not finally bound: no animator, so nothing has claimed the one basis.
+    assert!(
+        basis(&app).is_none(),
+        "a worn player with no pose took the one render basis on a guess"
+    );
+    // Still drawn, and still marked — a pre-pose player is never invisible.
+    assert!(
+        app.world().get::<Sprite>(player).is_some(),
+        "the pre-pose player must still draw something"
+    );
+    assert_eq!(
+        app.world()
+            .get::<PlayerSpriteCharacter>(player)
+            .expect("the pre-pose bind marks the identity")
+            .id,
+        "player_robot_v3"
+    );
+
+    // The pose lands, carrying the sheet's authored quad and offset — what
+    // `sync_sprite_posed_bodies` publishes once it has run. The worn identity
+    // does NOT change.
+    let authored = ambition_platformer2d_core::Vec2::new(70.0, 84.0);
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ambition_sim_view::BodyPoseView {
+            size: authored,
+            base_size: authored,
+            authored_render: Some(authored),
+            authored_offset: Some(ambition_platformer2d_core::Vec2::new(0.0, -3.0)),
+            ..Default::default()
+        });
+    app.update();
+
+    let authored_quad = Vec2::new(authored.x, authored.y);
+    // ANTI-VACUITY: a collision-derived bind of this same body would NOT have
+    // produced the authored quad, so the arm below is not satisfied by a
+    // fixture whose two answers coincide.
+    let (collision_derived, _) = super::character_render_basis(
+        &fixture("player_robot_v3").spec,
+        authored,
+        None,
+        None,
+    );
+    assert!(
+        collision_derived.distance(authored_quad) > 1.0,
+        "the collision-derived quad ({collision_derived:?}) already equals the \
+         authored one, so this fixture cannot witness which one was bound"
+    );
+
+    let first_final = basis(&app).expect("the pose makes the sheet bind final");
+    assert!(
+        first_final.distance(authored_quad) < 1.0,
+        "the FIRST final basis is {first_final:?}, not the authored {authored_quad:?} \
+         the pose published — the binder spent its one initialization before the \
+         authored answer existed"
+    );
+
+    // And it is initialized ONCE: a further pass over an unchanged pose leaves
+    // the basis alone rather than re-deriving it.
+    app.update();
+    assert_eq!(
+        basis(&app),
+        Some(first_final),
+        "the basis must be initialized once; a later pass re-derived it"
     );
 }

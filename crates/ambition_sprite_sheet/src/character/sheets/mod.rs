@@ -652,5 +652,68 @@ mod geometry;
 pub use atlas::*;
 pub use geometry::*;
 
+/// The three geometry facts one pose resolves to, in world units.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PosedBodyGeometry {
+    /// Collision + hurt box extents.
+    pub collision: Vec2,
+    /// Sprite quad extents (the whole sheet frame).
+    pub render: Vec2,
+    /// Where to draw the quad's centre, relative to the body's centre. Non-zero
+    /// whenever the art does not sit dead-centre in its frame — which is the
+    /// normal case, and exactly the placement a hand-authored box gets wrong.
+    pub sprite_offset: Vec2,
+}
+
+/// Resolve one pose's geometry from the baked sheet registry.
+///
+/// `None` when the target has no manifest record or the record publishes no
+/// usable body metrics — the caller then leaves the body exactly as authored,
+/// because a silent fallback to "the whole frame is the body" would inflate
+/// every collision box on a sheet that simply forgot to publish.
+pub fn posed_body_geometry(
+    target: &str,
+    anim: CharacterAnim,
+    world_per_pixel: f32,
+) -> Option<PosedBodyGeometry> {
+    let record = record_for_sheet_key(target)?;
+    let metrics = record.body_metrics.as_ref()?;
+    let bbox = metrics.pose_body_bbox(anim)?;
+    let frame_w = record.frame_width.max(1) as f32;
+    let frame_h = record.frame_height.max(1) as f32;
+    let (cx, cy) = bbox.center();
+    Some(PosedBodyGeometry {
+        collision: Vec2::new(bbox.w as f32, bbox.h as f32) * world_per_pixel,
+        render: Vec2::new(frame_w, frame_h) * world_per_pixel,
+        // Sheet pixel space and world space share the same handedness (both run
+        // +y downward — see the `coordinate_system` block every actor sidecar
+        // emits), so this is a plain scale with no axis flip. Drawing the frame
+        // centre HERE puts the art's rectangle on the collision box.
+        sprite_offset: Vec2::new(frame_w * 0.5 - cx, frame_h * 0.5 - cy) * world_per_pixel,
+    })
+}
+
+/// The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
+/// measured one.
+///
+/// So this refuses rather than returning a number that looks usable (`BodyMetrics::authored_body`
+/// is the sheet's own claim, emitted only when a target authored the box).
+///
+/// The `Idle` pose is the standing body — the same rectangle
+/// `sync_sprite_posed_bodies` restores `base_size` to.
+pub fn authored_body_pixel_size(target: &str) -> Option<Vec2> {
+    let record = record_for_sheet_key(target)?;
+    let metrics = record.body_metrics.as_ref()?;
+    if !metrics.authored_body {
+        return None;
+    }
+    // Asked of the same function the per-tick sync asks, at a scale of 1.0 so
+    // the answer is in pixels — so the two cannot disagree about what the sheet
+    // says.
+    posed_body_geometry(target, CharacterAnim::Idle, 1.0)
+        .map(|geometry| geometry.collision)
+        .filter(|size| size.x > 0.0 && size.y > 0.0)
+}
+
 #[cfg(test)]
 mod tests;

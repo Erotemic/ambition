@@ -827,8 +827,10 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
 
-    // Snake head sits at y = 300 - 16 = 284 (size.y = 32). Player feet land in the
-    // stomp band just onto that head, falling (+y is down), overlapping in x.
+    // The snake is a sheet-authored character, so its body height is the sheet's,
+    // not the seed's. The player is therefore placed against the head plane the
+    // spawned body actually has, read back below, rather than against a constant
+    // this fixture would have to keep in step with the art.
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
     let mut app = App::new();
@@ -863,17 +865,6 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
-
-    // A falling player whose feet are on the snake's head.
-    app.world_mut().spawn((
-        PrimaryPlayer,
-        ae::BodyKinematics {
-            pos: ae::Vec2::new(400.0, 270.0),
-            vel: ae::Vec2::new(0.0, 120.0),
-            size: ae::Vec2::new(30.0, 48.0),
-            facing: 1.0,
-        },
-    ));
 
     // One real snake, spawned through the ordinary encounter-mob path so it carries
     // genuine BodyCombat + ActorConfig, then tagged a walker the way staging does.
@@ -921,6 +912,28 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.world_mut()
         .entity_mut(snake)
         .insert(SnakeShell::Walking);
+
+    // A falling player whose feet are on the snake's head — measured off the body
+    // the spawn produced. `player_touch` narrows the stomp band to half the body
+    // height, so a guessed offset would classify as a side hit on a short enemy.
+    {
+        let body = *app
+            .world()
+            .entity(snake)
+            .get::<ae::BodyKinematics>()
+            .expect("the spawned snake carries a body");
+        let head = body.pos.y - body.size.y * 0.5;
+        const PLAYER_HEIGHT: f32 = 48.0;
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(body.pos.x, head + 0.5 - PLAYER_HEIGHT * 0.5),
+                vel: ae::Vec2::new(0.0, 120.0),
+                size: ae::Vec2::new(30.0, PLAYER_HEIGHT),
+                facing: 1.0,
+            },
+        ));
+    }
 
     // Unharmed, threatening, unfrozen before the stomp.
     {

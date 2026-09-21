@@ -1393,6 +1393,10 @@ pub fn spawn_runtime_minion_into(
     // a liveness nobody records.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
+    // Read before the seed is moved into the plan: the geometry this body was
+    // BUILT from, so the components it is spawned with come from that one
+    // resolution. See `spawn_render_geometry`.
+    let posed = enemy.posed;
     EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),
         id.clone(),
@@ -1415,13 +1419,18 @@ pub fn spawn_runtime_minion_into(
             &mount.pilotable_classes,
         );
     }
-    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
+    let (render, sprite_offset) = spawn_render_geometry(
+        posed,
         authored_sheets,
         catalog,
         &name,
         aabb.half_size() * 2.0,
-    ) {
+    );
+    if let Some(rs) = render {
         scope.insert(ambition_combat::components::ActorRenderSize(rs));
+    }
+    if let Some(offset) = sprite_offset {
+        scope.insert(ambition_combat::components::ActorSpriteOffset(offset));
     }
 }
 
@@ -1809,6 +1818,10 @@ pub(super) fn spawn_solo_enemy_into(
     faction: ambition_combat::components::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
+    // Read before the seed is moved into the plan: the geometry this body was
+    // BUILT from, so the components it is spawned with come from that one
+    // resolution. See `spawn_render_geometry`.
+    let posed = enemy.posed;
     EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
@@ -1822,13 +1835,18 @@ pub(super) fn spawn_solo_enemy_into(
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
     // `CenteredAabb` sync derives from the sprite-sized collision.
-    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
+    let (render, sprite_offset) = spawn_render_geometry(
+        posed,
         authored_sheets,
         catalog,
         &authored.name,
         authored.aabb.half_size() * 2.0,
-    ) {
+    );
+    if let Some(rs) = render {
         scope.insert(ambition_combat::components::ActorRenderSize(rs));
+    }
+    if let Some(offset) = sprite_offset {
+        scope.insert(ambition_combat::components::ActorSpriteOffset(offset));
     }
 }
 /// Human label for an authored NPC: the catalog `display_name` for the
@@ -2054,6 +2072,10 @@ pub fn spawn_encounter_mob(
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
+    // Read before the seed is moved into the plan: the geometry this body was
+    // BUILT from, so the components it is spawned with come from that one
+    // resolution. See `spawn_render_geometry`.
+    let posed = enemy.posed;
     let entity = EnemyActorSpawnPlan::hostile(
         format!("Encounter mob: {id}"),
         id.clone(),
@@ -2074,15 +2096,22 @@ pub fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
-    if let Some(rs) = ambition_body_seed::sprite_render_size_for_name_in(
+    let (render, sprite_offset) = spawn_render_geometry(
+        posed,
         authored_sheets,
         catalog,
         character.unwrap_or(&id),
         size * 0.5 * 2.0,
-    ) {
+    );
+    if let Some(rs) = render {
         commands
             .entity(entity)
             .insert(ambition_combat::components::ActorRenderSize(rs));
+    }
+    if let Some(offset) = sprite_offset {
+        commands
+            .entity(entity)
+            .insert(ambition_combat::components::ActorSpriteOffset(offset));
     }
 }
 
@@ -2202,5 +2231,112 @@ mod runtime_giant_refusal_tests {
         let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
         registry
+    }
+}
+
+/// The presentation geometry a body is spawned with: the sprite quad and where
+/// to draw it, or `None` for a body that publishes neither.
+///
+/// ⛔⛤ **THE SEED'S RESOLUTION FIRST — 2026-09-21.** A character that authors a
+/// `BodySource` has already had all three geometry facts resolved ONCE, from
+/// its sheet, by `ActorClusterSeed::new_character_in`; `kin.size` is the
+/// collision third and [`ActorClusterSeed::posed`] carries the other two. The
+/// catalog join below is the road for every body that authors none, and for a
+/// body that DOES it answers differently — Mary-O's Solid Snake was spawned
+/// with a 118x118 quad against the sheet's 23x23 and corrected a moment later
+/// by `sync_sprite_posed_bodies`.
+///
+/// That correction is not free: an actor bind is keyed on kind + collision size
+/// alone (`BoundFeatureKind`), so a quad corrected after the bind never reaches
+/// the sprite. Whether the correction beat the binder was a system-ordering
+/// accident. Seeding from the one resolution removes the race rather than
+/// winning it.
+fn spawn_render_geometry(
+    posed: Option<ambition_sprite_sheet::character::sheets::PosedBodyGeometry>,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    catalog: &CharacterCatalog,
+    name: &str,
+    ldtk_fallback: ae::Vec2,
+) -> (Option<ae::Vec2>, Option<ae::Vec2>) {
+    match posed {
+        Some(geometry) => (Some(geometry.render), Some(geometry.sprite_offset)),
+        // No authored body source: the catalog join is this body's only
+        // answer, and it publishes no quad offset.
+        None => (
+            ambition_body_seed::sprite_render_size_for_name_in(
+                authored_sheets,
+                catalog,
+                name,
+                ldtk_fallback,
+            ),
+            None,
+        ),
+    }
+}
+
+#[cfg(test)]
+mod spawn_render_geometry_tests {
+    use super::{ae, spawn_render_geometry};
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_sprite_sheet::character::sheets::{AuthoredSheets, PosedBodyGeometry};
+
+    /// A body that resolved its own geometry is spawned from THAT, and from the
+    /// right third of it.
+    ///
+    /// The quad is `render` and the offset is `sprite_offset`; handing the
+    /// collision size to either is the slip this guards, because collision is
+    /// the one of the three that is already correct on the body and so the
+    /// mistake looks plausible everywhere it is read.
+    #[test]
+    fn a_resolved_body_is_spawned_from_its_own_geometry() {
+        let geometry = PosedBodyGeometry {
+            collision: ae::Vec2::new(21.3, 9.5),
+            render: ae::Vec2::new(23.3, 23.3),
+            sprite_offset: ae::Vec2::new(-1.0, -0.9),
+        };
+        // Deliberately distinct from all three, so a fall-through to the
+        // catalog road cannot be mistaken for a pass.
+        let ldtk = ae::Vec2::new(108.0, 48.0);
+
+        let (render, offset) = spawn_render_geometry(
+            Some(geometry),
+            &AuthoredSheets::default(),
+            &CharacterCatalog::empty(),
+            "solid_snake",
+            ldtk,
+        );
+        assert_eq!(
+            render,
+            Some(geometry.render),
+            "the spawned quad is not the sheet's render size"
+        );
+        assert_eq!(
+            offset,
+            Some(geometry.sprite_offset),
+            "the spawned quad offset is not the sheet's"
+        );
+        assert_ne!(
+            render,
+            Some(geometry.collision),
+            "the quad was seeded from the COLLISION third of the geometry"
+        );
+    }
+
+    /// And a body that resolved none still goes down the catalog road, so the
+    /// arm above is about the seed being consumed rather than about this
+    /// function having one branch.
+    #[test]
+    fn a_body_with_no_resolved_geometry_falls_through_to_the_catalog_road() {
+        let (render, offset) = spawn_render_geometry(
+            None,
+            &AuthoredSheets::default(),
+            &CharacterCatalog::empty(),
+            "solid_snake",
+            ae::Vec2::new(108.0, 48.0),
+        );
+        // An empty catalog names no character, so the join declines — the
+        // point is that this branch ASKS it, and publishes no offset either way.
+        assert_eq!(render, None);
+        assert_eq!(offset, None, "the catalog road has no quad offset to give");
     }
 }

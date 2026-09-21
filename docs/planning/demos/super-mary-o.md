@@ -69,6 +69,19 @@ Remaining acceptance work
   cannot add the component and silently get nothing — and reads the sim-side
   pose pin (`ActorAnimOverride`), never the render-side locomotion picker, so
   the collision box does not depend on whether anyone is watching.
+  - ⛔ **AMENDED 2026-09-21 — the seam was only half of it.** "The sheet is now
+    the authority" was true of the per-tick pass and false of CONSTRUCTION: the
+    body was still BUILT from the catalog join (108×48) and resized to the
+    sheet's rectangle on its first pose tick, with the demo patching the
+    difference in `tag_mary_o_snakes`. Presentation binding inside that one-tick
+    window latched a quad five times too big and nothing invalidated it — the
+    reported "the snake's size is inconsistent, and stomping it makes the
+    in-box sprite small" is exactly that bind surviving until a stomp changed
+    the collision size. The snake and the slop now declare
+    `BodySource::SpriteAuthored`; construction resolves the same
+    `posed_body_geometry` call, and both demo geometry patches are deleted.
+    `posed_body_geometry` itself moved down to `ambition_sprite_sheet` so the
+    body seed can reach it.
 - ✅ **The brainless sliding shell** (landed 2026-07-21). A stomped crony leaves
   a shell: walking into a resting one launches it away from the touched side (so
   you aim it), walking into a sliding one stops it dead. A sliding shell runs

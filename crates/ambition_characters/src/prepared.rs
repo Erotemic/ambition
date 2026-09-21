@@ -180,6 +180,21 @@ pub struct CharacterBodyBlueprint<'a> {
     /// What this body's ranged verb LOOKS like. See
     /// [`CharacterDefinition::ranged_vfx`].
     pub ranged_vfx: Option<&'a str>,
+    /// ⛔⛤ **WHERE THIS BODY'S GEOMETRY COMES FROM, CARRIED INTO CONSTRUCTION —
+    /// ADDED 2026-09-21.** This type says it holds *"everything construction
+    /// needs to build this character's body"* and did not hold the one field
+    /// that says how big the body IS. So construction re-derived the size from
+    /// the catalog/sheet join while the later grant installed `SpritePosedBody`
+    /// from THIS value — two derivations of one authored scale, and they
+    /// disagree: for Mary-O's Solid Snake the seed said 108x48 (the catalog's
+    /// default `Standard` standing height) and the sheet said 21.3x9.5.
+    pub body: Option<&'a crate::actor::definition::BodySource>,
+    /// The sheet target [`Self::body`] is resolved against. Carried beside it
+    /// because `BodySource::SpriteAuthored` names a SCALE and the sheet names
+    /// the rectangles that scale applies to — neither answers alone. This crate
+    /// cannot see `ambition_sprite_sheet`, so it hands both declarations to
+    /// construction rather than resolving them here.
+    pub sheet: Option<&'a str>,
 }
 
 /// Why this character cannot build a body on its own, named rather than
@@ -272,6 +287,8 @@ impl PreparedCharacterDefinition {
             death_traits: self.death_traits.as_ref(),
             abilities: self.abilities,
             ranged_vfx: self.ranged_vfx.as_deref(),
+            body: self.body.as_ref(),
+            sheet: self.sheet.as_deref(),
         }
     }
 }

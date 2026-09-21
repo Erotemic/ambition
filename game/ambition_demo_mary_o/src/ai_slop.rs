@@ -15,7 +15,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
-use ambition_platformer2d::combat::components::CenteredAabb;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
@@ -148,20 +147,43 @@ pub const AI_SLOP_BODY_WIDTH: f32 = 28.0;
 /// `mary_o_world_per_pixel`: the sheets are regenerated regularly and every
 /// regeneration re-measures the alpha bbox, so a scale pinned to today's pixel
 /// count silently resizes the creature the first time a crop moves by a pixel.
-pub fn ai_slop_half_size() -> ae::Vec2 {
-    let fallback = ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5);
+pub fn ai_slop_world_per_pixel() -> f32 {
+    // ⛔ ONE OWNER FOR THE SCALE, the same shape `snake_world_per_pixel` has.
+    // The character DECLARATION needs this number (`with_sprite_authored_body`)
+    // and so does anything asking how big a slop is, and a scale derived twice
+    // is the defect this whole slice is about.
+    //
+    // Stable fallback for a composition with no baked art: the authored width
+    // over itself is 1.0, which keeps `ai_slop_half_size` at the square it
+    // used to return there.
     let Some(sheet) = ambition_platformer2d::character_sprites::posed_body_geometry(
         AI_SLOP_SHEET_TARGET,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         1.0,
     ) else {
-        return fallback;
+        return 1.0;
     };
     if sheet.collision.x <= 0.0 || sheet.collision.y <= 0.0 {
-        return fallback;
+        return 1.0;
     }
-    let world_per_pixel = AI_SLOP_BODY_WIDTH / sheet.collision.x;
-    sheet.collision * world_per_pixel * 0.5
+    AI_SLOP_BODY_WIDTH / sheet.collision.x
+}
+
+/// Half-extents of an AI Slop's body, in world units.
+///
+/// The SAME resolution construction performs — `posed_body_geometry` at
+/// [`ai_slop_world_per_pixel`] — so a test that checks the drawn quad against
+/// the body's box is not comparing two derivations of one scale. Nothing in
+/// the game asks this any more; the body is built at this size.
+pub fn ai_slop_half_size() -> ae::Vec2 {
+    ambition_platformer2d::character_sprites::posed_body_geometry(
+        AI_SLOP_SHEET_TARGET,
+        ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
+        ai_slop_world_per_pixel(),
+    )
+    .map_or(ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5), |sheet| {
+        sheet.collision * 0.5
+    })
 }
 
 /// Is this actor an AI Slop?
@@ -187,29 +209,27 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 /// placement in LDtk gets a predictable answer instead of two different ones.
 pub fn tag_mary_o_ai_slop(
     mut commands: Commands,
-    mut fresh: Query<
+    fresh: Query<
         (
             Entity,
             &ActorConfig,
-            &mut CenteredAabb,
-            &mut ae::BodyKinematics,
         ),
         Without<AiSlop>,
     >,
 ) {
-    for (entity, config, mut body, mut kin) in &mut fresh {
+    for (entity, config) in &fresh {
         if is_ai_slop_brain(&config.brain) {
-            let half = ai_slop_half_size();
-            // WRITE THE AUTHORITY, NOT ONLY THE MIRROR. `CenteredAabb` is DERIVED from
-            // `BodyKinematics.size` — `reset_to_spawn` and the mount seam both do `aabb.half_size =
-            // kin.size * 0.5` — so writing the box alone reached the slop for two ticks and was
-            // then overwritten by the size the spawn gave it.
+            // ⛔⛤ **THE GEOMETRY WRITES ARE GONE — 2026-09-21.** This pass used
+            // to set `kin.size` and `CenteredAabb::half_size` here, under a
+            // comment reading *"WRITE THE AUTHORITY, NOT ONLY THE MIRROR"*.
+            // That correction was right about its own bug and still left the
+            // deeper one: a body was BUILT at the catalog's size and corrected
+            // afterwards, so the two answers merely disagreed for fewer ticks.
+            // The slop now declares `BodySource::SpriteAuthored` and
+            // construction resolves the sheet's rectangle before the body
+            // exists, which is the version of that sentence with no window in
+            // it at all.
             //
-            // `kin.size` is a FULL size and `half_size` is half of it; the
-            // authored width (`AI_SLOP_BODY_WIDTH`) is the FULL width, which is
-            // why `ai_slop_half_size()` is doubled here and not there.
-            kin.size = half * 2.0;
-            body.half_size = half;
             // The dormancy policy rides the same tag pass rather than the spawn
             // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
             // what an actor IS and dormancy is a per-character decision the

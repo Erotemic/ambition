@@ -218,6 +218,47 @@ so the next person does not repeat it:
   baseline a platform fighter's body uses is the product call, and eleven of
   fourteen fighters not authoring one is a missing author.
 
+⛔⛤ **THE RE-CENSUS MISSED A RESIDUAL, FOUND 2026-09-21 AS A VISUAL BUG.** The
+bullet above reads *"every hit is a character setting its OWN facts where it is
+constructed — … `mary_o::snake` … — which is authoring"*, and that was true of
+every line it looked at. The residual was in the shape the sweep could not see:
+not a write to a fact the character does not own, but a fact the character
+**never authored** being answered by a **second derivation** downstream.
+
+`mary_o::snake` declared no `BodySource`. `CharacterBodyBlueprint` — whose
+doc-comment says it holds "everything construction needs to build this
+character's body" — had no field for one, so `ActorClusterSeed::new_character_in`
+sized the body from `sprite_body_collision_for_character_id_from_data` (the
+catalog join, which answers from `body_kind`'s default standing height) while
+`sync_sprite_posed_bodies` sized the same body from `posed_body_geometry` (the
+sheet). Two derivations of one authored scale, 108x48 against 21.3x9.5, with the
+demo patching the difference back in `tag_mary_o_snakes` — the migration's
+signature failure, one layer further down than the sweep looked.
+
+**What the sweep would have had to ask** to see it: not *"who writes a character
+fact they do not own"* but *"which character facts does construction re-derive
+instead of reading from the character"*. A missing author and a redundant
+derivation are the same defect seen from the two ends, and only the second
+spelling finds a character that authors nothing.
+
+Closed 2026-09-21: `mary_o::snake` and `mary_o::ai_slop` author
+`BodySource::SpriteAuthored`, `CharacterBodyBlueprint` carries `body` and
+`sheet`, construction resolves through the same `posed_body_geometry` call the
+pose pass uses, and both demo geometry patches are deleted. Guarded by
+`ambition_body_seed`'s `a_sprite_authored_body_is_constructed_from_its_sheet`.
+
+⚠ **AND THE SAME DEFECT WAS ONE COMPONENT OVER.** Fixing the collision size
+alone left the SPAWN SITES asking `sprite_render_size_for_name_in` — the
+catalog join again — for `ActorRenderSize`, so the snake was still born with a
+118x118 quad against the sheet's 23x23 and corrected a moment later. It was
+invisible: `sync_sprite_posed_bodies` happened to run before any binder in the
+same tick, so a once-per-tick instrument reads it as clean, and the fix was
+only distinguishable from the bug by probing the spawn site directly.
+`ActorClusterSeed` now carries the resolved `PosedBodyGeometry` and the spawn
+sites seed the quad and the quad offset from it (`spawn_render_geometry`).
+⭐ The general lesson: **a geometry fact is three components, and closing one
+of them reads exactly like closing the seam.**
+
 ⚠ **ONE ASYMMETRY FOUND, AND IT IS NOT A D166 SLICE.** `CharacterDefinition` has
 twenty-two `with_*` builders — abilities, locomotion, mount, contact damage,
 moveset, sheet, hurtboxes, canonical height — and **none for `vitals`**, so every

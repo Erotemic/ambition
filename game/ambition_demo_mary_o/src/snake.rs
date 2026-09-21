@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
-use ambition_platformer2d::combat::components::{CenteredAabb, FeatureId};
+use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -423,7 +423,13 @@ pub fn register_solid_snake_sheet(
 /// exercises the registration production uses. A fixture registering something
 /// else would be measuring itself.
 pub fn register_solid_snake_character(app: &mut App) {
-    register_mary_o_enemy_character(app, SNAKE_SHEET_TARGET, SNAKE_DISPLAY_NAME, 46.0);
+    register_mary_o_enemy_character(
+        app,
+        SNAKE_SHEET_TARGET,
+        SNAKE_DISPLAY_NAME,
+        46.0,
+        snake_world_per_pixel(),
+    );
 }
 
 /// Register AI Slop as a CHARACTER. Same shape, one creature over: a plain
@@ -434,13 +440,28 @@ pub fn register_ai_slop_character(app: &mut App) {
         crate::ai_slop::AI_SLOP_SHEET_TARGET,
         crate::ai_slop::AI_SLOP_DISPLAY_NAME,
         42.0,
+        crate::ai_slop::ai_slop_world_per_pixel(),
     );
 }
 
 /// Both of Mary-O's enemies, which differ only in their art and their pace: one
 /// hit point, a forward walk that reverses at walls, contact damage as their
 /// whole offense, and a policy that notices nobody.
-fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_speed: f32) {
+fn register_mary_o_enemy_character(
+    app: &mut App,
+    id: &str,
+    display: &str,
+    run_speed: f32,
+    // ⛔⛤ **THE BODY IS DECLARED HERE NOW, NOT PATCHED ON LATER — 2026-09-21.**
+    // Both enemies used to receive their geometry from an `AfterIntegrate` tag
+    // pass (`tag_mary_o_snakes` / `tag_mary_o_ai_slop`) that reached into a
+    // built body and rewrote its box. `character_body.rs` names that seam as
+    // the thing `register_character` exists to delete: *"body geometry was
+    // still declared through a second seam"*. Declaring `SpriteAuthored` makes
+    // construction resolve the sheet's rectangles ITSELF, so the body is the
+    // right size on the frame it is built and no later pass has to correct it.
+    world_per_pixel: f32,
+) {
     use ambition_platformer2d::character::CharacterDefinition;
     use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
@@ -450,6 +471,7 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
 
     let mut definition = CharacterDefinition::new(id, display, crate::provider::MARY_O_EXPERIENCE)
         .with_sheet(id)
+        .with_sprite_authored_body(world_per_pixel)
         .with_locomotion(CharacterLocomotion {
             run_speed,
             move_style: MoveStyleSpec::Walk,
@@ -479,22 +501,15 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
 // its SIZE stays, and the difference is the rule: how big a snake is comes
 // from its sheet; where it patrols comes from the level.
 
-/// The half-extents a freshly staged snake spawns with.
-///
-/// Read from the SAME sheet rectangle the shell system will hold it to, so the
-/// body never pops on its first tick. A sheet that publishes no body metrics
-/// (`--no-assets`, a stripped test fixture) falls back to a plain tile-ish box:
-/// the snake still walks and is still stompable, it just isn't art-shaped.
-fn snake_half_size() -> ae::Vec2 {
-    ambition_platformer2d::character_sprites::posed_body_geometry(
-        SNAKE_SHEET_TARGET,
-        CharacterAnim::Idle,
-        snake_world_per_pixel(),
-    )
-    .map_or(ae::Vec2::new(14.0, 16.0), |geometry| {
-        geometry.collision * 0.5
-    })
-}
+// ⛔⛤ `snake_half_size` WAS HERE, AND CONSTRUCTION MADE IT REDUNDANT —
+// 2026-09-21. It resolved the sheet's idle rectangle so a tag pass could write
+// it onto an already-built body, and its own doc claimed that kept the body
+// from popping on its first tick. It did not: the engine had already built the
+// body at the CATALOG's size, so writing this here produced the pop rather
+// than preventing it. The character now declares
+// `BodySource::SpriteAuthored`, and the seed resolves the same rectangle
+// before the body exists. Deleting the second answer is the repair; keeping
+// both in sync was never going to be.
 
 /// Identify snakes by their authored `CharacterBrain` archetype key.
 ///
@@ -504,29 +519,31 @@ pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY)
 }
 
-/// Tag freshly staged snakes with `SnakeShell::Walking` (so the shell system
-/// finds its own) and with `SpritePosedBody` (so its body geometry comes from
-/// the sheet, per pose — the box a stomp shrinks).
+/// Tag freshly staged snakes with the RUNTIME state a snake has: its shell
+/// phase and its dormancy policy.
 ///
-/// and give it the sheet's box on the spot, which is not redundant with `SpritePosedBody`.
-/// The authored placement's rectangle is what the engine spawns a body at, and a snake's LDtk
-/// rect is one tile-ish while its sheet body is more than twice as wide.
+/// ⛔⛤ **AND NOT ITS GEOMETRY, SINCE 2026-09-21.** This pass used to write
+/// `CenteredAabb::half_size` and insert `SpritePosedBody` here, in
+/// `AfterIntegrate`, on a body the engine had already built at a different
+/// size. `character_body.rs` names that seam directly — *"body geometry was
+/// still declared through a second seam, which is the problem
+/// `register_character` exists to delete"* — and it was measurable: a snake
+/// spent its first tick with the sheet's collision box (21.3x9.5) beside the
+/// catalog's render size (118.2x118.2), and presentation binding inside that
+/// one-tick window latched a quad five times too big that nothing afterwards
+/// invalidated.
 ///
-/// the rule is unchanged: how big a snake is comes from its sheet, where
-/// it patrols comes from the level. This is only the sheet answering sooner.
+/// The rule is unchanged and now has one owner: how big a snake is comes from
+/// its sheet, via `BodySource::SpriteAuthored` on its character definition,
+/// resolved by construction. Where it patrols still comes from the level.
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
-    mut fresh: Query<(Entity, &ActorConfig, &mut CenteredAabb), Without<SnakeShell>>,
+    fresh: Query<(Entity, &ActorConfig), Without<SnakeShell>>,
 ) {
-    for (entity, config, mut body) in &mut fresh {
+    for (entity, config) in &fresh {
         if is_snake_brain(&config.brain) {
-            body.half_size = snake_half_size();
             commands.entity(entity).try_insert((
                 SnakeShell::Walking,
-                ambition_platformer2d::sprite_sheet::character::SpritePosedBody::new(
-                    SNAKE_SHEET_TARGET,
-                    snake_world_per_pixel(),
-                ),
                 // a kicked shell is unaffected, which is why this is safe.
                 // Dormancy sleeps the BRAIN and clears the control frame;
                 // `run_snake_shells` propels a slide by writing the body's

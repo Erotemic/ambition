@@ -134,6 +134,21 @@ pub struct ActorClusterSeed {
     pub caps: ambition_combat::CombatCapabilities,
     /// Victim-owned contact material/profile resolved from the catalog row.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
+    /// ⛔⛤ **THE PRESENTATION HALF OF THE BODY THIS SEED RESOLVED, OR `None`
+    /// FOR A CHARACTER THAT AUTHORS NO `BodySource` — 2026-09-21.**
+    ///
+    /// [`Self::kin`]`.size` is the collision third of one
+    /// [`PosedBodyGeometry`]; the render quad and the quad offset are the other
+    /// two, and they are not this crate's to insert — a seed is plain data and
+    /// the spawn sites own which components a body gets. Carrying them means
+    /// the spawn site can seed a body's geometry from the SAME resolution that
+    /// sized it, instead of asking the catalog join a second time and getting a
+    /// different answer (Solid Snake: 118x118 against the sheet's 23x23).
+    ///
+    /// `None` is the ordinary case and means "nothing here overrides the
+    /// catalog road", so every body that does not author a sprite body is
+    /// untouched by this.
+    pub posed: Option<ambition_sprite_sheet::character::sheets::PosedBodyGeometry>,
 }
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
@@ -434,6 +449,14 @@ impl ActorClusterSeed {
                 ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
                 "an NPC placement's death is permanent (ADR 0022)"
             );
+            // ⛔ THE SEED'S OWN RESOLUTION WINS. `render_size` above is the
+            // catalog join's answer, computed before we knew this placement
+            // names a character that authors its body. When it does, the seed
+            // has already resolved all three geometry facts from the sheet,
+            // and handing the caller the catalog's render size beside the
+            // sheet's collision size is the two-derivations defect on the
+            // peaceful road.
+            let render_size = seed.posed.map(|geometry| geometry.render).or(render_size);
             return (seed, render_size);
         }
         let seed = Self {
@@ -493,6 +516,9 @@ impl ActorClusterSeed {
             body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
             caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
+            // This is the road for a placement that names no character it can
+            // build a body from, so there is no `BodySource` to have resolved.
+            posed: None,
         };
         (seed, render_size)
     }
@@ -554,6 +580,8 @@ impl ActorClusterSeed {
             autonomous_profile,
             abilities,
             ranged_vfx,
+            body: body_source,
+            sheet,
             ..
         } = body;
         // a body with no policy still needs one to be paced against. The
@@ -564,13 +592,43 @@ impl ActorClusterSeed {
         // same character resolves it — one body per character, however it is
         // spawned.
         let ldtk_collision = aabb.half_size() * 2.0;
+        // ⛔⛤ **THE AUTHORED BODY SOURCE FIRST, AND IT IS THE SAME RESOLUTION
+        // THE LIVE POSE PASS USES — 2026-09-21.** A `SpriteAuthored` character
+        // states the scale its art is drawn at, and `sync_sprite_posed_bodies`
+        // sizes it every tick from `posed_body_geometry`. Construction used to
+        // ignore that and ask the catalog/sheet join instead, which answers
+        // from the catalog's standing height — so a body was built at one
+        // scale and resized to another on its first pose tick. For Mary-O's
+        // Solid Snake that was 108x48 becoming 21.3x9.5, with the render size
+        // following a tick later still; presentation binding inside that window
+        // latched a quad five times too big and nothing invalidated it.
+        //
+        // ⚠ `Idle` is the STANDING pose, which is what a spawn is and what
+        // `base_size` is restored to — the same pose that pass reads for
+        // `base_size`. Asking one function is the point: two derivations of one
+        // authored scale is the defect, not the arithmetic in either.
+        let posed = match (body_source, sheet) {
+            (
+                Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
+                    world_per_pixel,
+                }),
+                Some(sheet),
+            ) => ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                sheet,
+                ambition_sprite_sheet::character::CharacterAnim::Idle,
+                *world_per_pixel,
+            ),
+            _ => None,
+        };
         let sprite_body = ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
             authored,
             catalog.data(),
             character_id,
             ldtk_collision,
         );
-        let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
+        let collision_size = posed
+            .map(|geometry| geometry.collision)
+            .unwrap_or_else(|| sprite_body.map_or(ldtk_collision, |body| body.collision));
         // ASKED ONCE, AT PREPARATION. This read
         // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a
         // constructor rediscovering what the character is.
@@ -713,6 +771,9 @@ impl ActorClusterSeed {
             // second writer.
             caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
+            // Resolved above, beside the collision size, and carried rather
+            // than re-derived — see the field's own note.
+            posed,
         }
     }
     pub fn into_components(self) -> ActorClusterBundle {
@@ -783,6 +844,8 @@ pub fn fixture_body_blueprint(
         death_traits: None,
         abilities: None,
         ranged_vfx: None,
+        body: None,
+        sheet: None,
     }
 }
 
@@ -865,6 +928,8 @@ mod tests {
             death_traits: None,
             abilities: None,
             ranged_vfx: None,
+            body: None,
+            sheet: None,
         }
     }
 
@@ -921,6 +986,106 @@ mod tests {
     }
 
     use super::*;
+
+    /// **A SPRITE-AUTHORED BODY IS BUILT FROM THE SHEET, NOT FROM THE CATALOG.**
+    ///
+    /// `sync_sprite_posed_bodies` sizes a `BodySource::SpriteAuthored` body every
+    /// tick from `posed_body_geometry`. Construction asked the catalog join
+    /// instead, which answers from the catalog's standing height — so the body
+    /// was BUILT at one scale and RESIZED to another on its first pose tick, and
+    /// presentation binding inside that window latched the wrong quad with
+    /// nothing left to invalidate it.
+    ///
+    /// The fix is not to make the binder recover. It is that there is only one
+    /// resolution of one authored scale, so the two answers cannot differ — this
+    /// asserts they are the SAME CALL's answer, not that they are merely close.
+    #[test]
+    fn a_sprite_authored_body_is_constructed_from_its_sheet() {
+        const SHEET: &str = "robot";
+        const WORLD_PER_PIXEL: f32 = 0.5;
+
+        let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let catalog = CharacterCatalog::empty();
+        // Deliberately NOT the sheet's answer, so a constructor that ignores the
+        // body source cannot pass by coincidence.
+        let ldtk = ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(108.0, 48.0));
+
+        let seed_for = |body: Option<&ambition_characters::actor::definition::BodySource>| {
+            let mut blueprint = test_blueprint(
+                "sheet_body",
+                "Sheet Body",
+                10,
+                Default::default(),
+                Default::default(),
+                false,
+            );
+            blueprint.body = body;
+            blueprint.sheet = Some(SHEET);
+            ActorClusterSeed::new_character_in(
+                &authored,
+                &catalog,
+                "sheet_body",
+                blueprint,
+                ldtk,
+                ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+                &[],
+            )
+        };
+
+        let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+            SHEET,
+            ambition_sprite_sheet::character::CharacterAnim::Idle,
+            WORLD_PER_PIXEL,
+        )
+        .expect("the baked `robot` sheet resolves a posed body");
+
+        // ANTI-VACUITY: the sheet's answer must differ from the box the
+        // placement carries, or "construction used the sheet" is unfalsifiable.
+        let placement_size = ldtk.half_size() * 2.0;
+        assert!(
+            from_the_sheet.collision.distance(placement_size) > 1.0,
+            "the sheet resolves {:?}, which is the placement box {placement_size:?} —              this fixture cannot tell the two authorities apart",
+            from_the_sheet.collision
+        );
+
+        let source = ambition_characters::actor::definition::BodySource::SpriteAuthored {
+            world_per_pixel: WORLD_PER_PIXEL,
+        };
+        let built = seed_for(Some(&source)).kin.size;
+        assert_eq!(
+            built, from_the_sheet.collision,
+            "a `SpriteAuthored` body was constructed at {built:?} while the pose              pass sizes it at {:?} — two derivations of one authored scale, and              the body is resized out from under whatever already bound it",
+            from_the_sheet.collision
+        );
+
+        // ALL THREE FACTS, NOT ONLY THE BOX. The render quad and the quad
+        // offset are the other two thirds of the same resolution, and the
+        // spawn sites seed the body's `ActorRenderSize` / `ActorSpriteOffset`
+        // from them (`spawn_render_geometry`). Asserting only the collision
+        // size would leave the catalog join answering for the other two — the
+        // exact split this slice exists to close, one component over.
+        assert_eq!(
+            seed_for(Some(&source)).posed,
+            Some(from_the_sheet),
+            "the seed did not carry the resolved presentation geometry, so the \
+             spawn site has nothing to seed the quad and offset from and falls \
+             back to the catalog join"
+        );
+
+        // THE CONTROL: a character that authors NO body source still gets the
+        // placement's box, so the arm above is about the source being consumed
+        // rather than about the sheet being consulted unconditionally.
+        let unsourced_seed = seed_for(None);
+        assert_eq!(
+            unsourced_seed.posed, None,
+            "a body that authors no source carries a resolved sheet geometry"
+        );
+        let unsourced = unsourced_seed.kin.size;
+        assert_eq!(
+            unsourced, placement_size,
+            "a body that authors no source was sized from a sheet it never named"
+        );
+    }
 
     /// A mechanical body is one whose CATALOG ROW says so — the engine knows
     /// the tag vocabulary, never a character id. An unknown/absent row is

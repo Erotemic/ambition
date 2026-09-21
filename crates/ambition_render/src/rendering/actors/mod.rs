@@ -195,26 +195,6 @@ pub fn bind_worn_character_presentation(
     >,
 ) {
     for (entity, worn, bound, has_sheet, base_size) in &players {
-        // Seed the baseline from the BODY, not from a constant.
-        //
-        // `PlayerSpriteBaseline::standing_collision` is the reference the render
-        // scales the art against (`base_size / standing_collision` in
-        // `sync_visuals`), and that ratio exists for ONE reason: the dev menu's
-        // live body-profile experiment. Seeding it with the default player size
-        // meant the ratio was also non-1 for any body that is simply not the
-        // default size — so Mary-O growing to her tall collider stretched the
-        // tall sheet's art by 1.5 (`render size 70x84 -> 70x125`) instead of
-        // just drawing the tall art at the tall size.
-        //
-        // Her forms have their own SHEETS. Growing should swap which art is
-        // drawn and how big her box is; it should never scale the art. Binding
-        // against the body's real baseline makes the ratio 1 for every form,
-        // and leaves the dev experiment working — that changes `base_size`
-        // after the bind, which is exactly the deviation the scale is for.
-        let player_collision = base_size.map(|pose| pose.base_size).unwrap_or(BVec2::new(
-            ae::DEFAULT_PLAYER_BODY_WIDTH,
-            ae::DEFAULT_PLAYER_BODY_HEIGHT,
-        ));
         // Resolve the sheet — absent `GameAssets` (art-free demo) and an id with no
         // sheet both fall through to the rectangle, so a worn player is ALWAYS drawn.
         let asset = assets.as_ref().and_then(|a| a.characters.sheet(worn.id()));
@@ -241,26 +221,63 @@ pub fn bind_worn_character_presentation(
         // one is the POINT: the stale baseline is the deviation being shown.
         // ⇒ A stale baseline here is unobservable for the bodies that change
         // size, and load-bearing for the bodies that read it.
-        if already_bound && (has_sheet || asset.is_none()) {
+        // ⭐ A SHEET-BACKED PRESENTATION IS FINAL ONLY ONCE THE POSE EXISTS.
+        //
+        // `CharacterAnimator::render_basis` is initialized ONCE, by design: the
+        // basis is the logical quad every later frame is derived from, and a
+        // body whose basis changes under it pops. That invariant only holds if
+        // the initialization has the authored answer to hand, and the authored
+        // quad and offset come from `BodyPoseView` — the two arrive together or
+        // not at all (`pose_view`'s `sheet_authored_body`).
+        //
+        // Binding the sheet before the pose existed therefore burned the ONE
+        // initialization on a collision-derived guess, and nothing afterwards
+        // could correct it: the only key this binder has is the worn identity,
+        // which does not change when a pose appears. Mary-O's small form bound
+        // pre-pose and stayed misaligned against her box until a wand swapped
+        // her identity — the latch releasing, not the pose landing.
+        //
+        // So a player with a sheet but no pose is drawn PROVISIONALLY (the
+        // fallback rectangle below) and remains eligible: it carries no
+        // `CharacterAnimator`, so `has_sheet` is false and the next pass rebinds
+        // for real. The first final basis is the authored basis.
+        let sheet_bind = asset.zip(base_size);
+        if already_bound && (has_sheet || sheet_bind.is_none()) {
             continue;
         }
-        if let Some(asset) = asset {
+        if let Some((asset, pose)) = sheet_bind {
+            // The baseline is the BODY's own standing size, never a constant.
+            //
+            // `PlayerSpriteBaseline::standing_collision` is the reference the
+            // render scales the art against (`base_size / standing_collision`
+            // in `sync_visuals`), and that ratio exists for ONE reason: the dev
+            // menu's live body-profile experiment. Seeding it with the default
+            // player size made the ratio non-1 for any body that is simply not
+            // the default size — so Mary-O growing to her tall collider
+            // stretched the tall sheet's art by 1.5 (`render size 70x84 ->
+            // 70x125`) instead of just drawing the tall art at the tall size.
+            //
+            // Her forms have their own SHEETS. Growing should swap which art is
+            // drawn and how big her box is; it should never scale the art.
+            // Binding against the body's real baseline makes the ratio 1 for
+            // every form, and leaves the dev experiment working — that changes
+            // `base_size` after the bind, which is exactly the deviation the
+            // scale is for.
+            let player_collision = pose.base_size;
             let (sprite, anchor, animator, baseline) = player_presentation_for_collision(
                 asset,
                 player_collision,
-                base_size.and_then(|pose| pose.authored_render),
-                base_size.and_then(|pose| pose.authored_offset),
+                pose.authored_render,
+                pose.authored_offset,
             );
             let player_render = baseline.standing_render;
             // A visible sprite RESIZE mid-launch has no other trace: nothing
             // else records that the quad changed size, or which of the bind
             // sites seeded it, and the render size is not linear in collision.
-            // ⚠ The two sites no longer differ in HOW they seed the baseline --
-            // both go through `player_presentation_for_collision` -- but they
-            // still differ in WHICH collision box they have: this one falls back
-            // to the default body constant when a body carries no pose, and the
-            // rebind below always has one. So knowing which fired is still the
-            // difference between diagnosing a pop and guessing at it.
+            // ⚠ Both bind sites go through `player_presentation_for_collision`
+            // and both now require a pose, so neither can seed from a constant.
+            // The line still says WHICH one fired, which is the difference
+            // between diagnosing a pop and guessing at it.
             eprintln!(
                 "[sprite-bind] worn character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
                  (seed: body baseline)",
@@ -296,9 +313,21 @@ pub fn bind_worn_character_presentation(
                 },
             ));
         } else {
-            // No sheet for this identity: draw the colored-rectangle fallback and
+            // No sheet for this identity YET: draw the colored-rectangle and
             // strip any sheet-derived presentation a PRIOR identity installed, so a
             // rebind never leaves a stale animator/anchor/baseline behind.
+            //
+            // "Yet", because this is also the PROVISIONAL state of a body whose
+            // sheet exists but whose pose has not been published: the rectangle
+            // is a placeholder the loop above upgrades as soon as the pose
+            // lands. A body with no pose has no measured standing size either,
+            // so the placeholder is drawn at the engine default — the one place
+            // that constant is still the honest answer, because there is
+            // nothing else to ask.
+            let player_collision = base_size.map(|pose| pose.base_size).unwrap_or(BVec2::new(
+                ae::DEFAULT_PLAYER_BODY_WIDTH,
+                ae::DEFAULT_PLAYER_BODY_HEIGHT,
+            ));
             commands
                 .entity(entity)
                 // Same reasoning as the bind above: the whole chain targets a

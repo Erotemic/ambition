@@ -3623,14 +3623,45 @@ did not invalidate them. ⚠ The gap between 53 and 50 is not itself significant
 at 15 seeds; the defensible claims are *nothing improved on the baseline* and
 *two settings clearly damaged it*.
 
-⛔ **WHAT THE SWEEP DID FIND IS THAT `6 vs 5` IS NOT A STEP.** It is the only
-pair that fails to clear the bar in ALL SIX arms, and the only one that ever
-inverts. Across all 90 paired seeds it favours the higher rung 56 times — the
-weakest margin on the ladder, against `3 v 1`'s 90 of 90. Six different weight
-settings cannot move it, so it is not a weights problem: rung 5 and rung 6
-differ only by reaction 300→260ms, apm 200→240, noise 0.20→0.16 and read
-0.20→0.30, and that is apparently not enough to be felt. ⇒ The next question
-about this ladder is the SIZE of its middle step, not the price of its moves.
+⛔ **WHAT THE SWEEP DID FIND IS THAT ONE RUNG IS NOT A STEP.** `6 vs 5` is the
+only pair that fails to clear the bar in ALL SIX arms, and the only one that
+ever inverts; across all 90 paired seeds it favours the higher rung 56 times,
+against `3 v 1`'s 90 of 90. Six different weight settings cannot move it, so it
+is not a weights problem.
+
+⚠ **AND THE FIRST VERSION OF THIS PARAGRAPH READ IT AS A FACT ABOUT THE 5/6
+PAIR, WHICH THE SWEEP CANNOT SUPPORT.** `--rungs 1,3,5,6,9` makes four adjacent
+pairs spanning **2, 2, 1 and 3 rungs** — `6 v 5` is the ONLY one-rung gap in
+the design, so "the weakest pair" and "the only pair measured at one rung"
+are the same set, and nothing here separates them. ⇒ The claim the data
+supports is about the ladder's step SIZE PER RUNG, not about rung 6. Telling
+them apart costs one sweep: `--rungs 3,4,6,7,8` measures `4 v 3`, `7 v 6` and
+`8 v 7` at one rung each, and if those also sit near 56/90 the pair is
+innocent.
+
+⭐⭐ **ONE CAUSE IS ALREADY PINNED IN THE TREE, AND IT SHRINKS EVERY STEP.**
+All nine shipped rungs author `rollout_depth: 0, rollout_k: 0`
+(`game/ambition_content/assets/data/fighter_brain_ladder.ron`, whose header says
+so: *"Rollout fields remain zero until rollout fidelity is good enough"*). Two
+consequences:
+
+  * `FighterBrainProfile::for_level` — the ENGINE's ladder, used by any game
+    shipping no rows — turns L3 on at `level >= 6`. So the one QUALITATIVE step
+    the ladder design has sits exactly at the 5→6 boundary, and the shipped
+    ladder does not take it. Every shipped rung is L2.
+  * `read_weight` rises 0.0 → 1.0 across the rungs and reads like a main
+    difficulty axis, and it is consumed only inside `refine_by_rollout`, behind
+    `uses_rollouts()`. It reaches nothing. Pinned by
+    `read_weight_changes_nothing_while_the_shipped_rows_disable_the_rollout`,
+    which found it the same way this sweep works — an arm that came back
+    BYTE-IDENTICAL to its control.
+
+⇒ Rung 5 and rung 6 are authored four numbers apart and only **three** of them
+can act: reaction 300→260ms, apm 200→240, noise 0.20→0.16. The fourth, read
+0.2→0.3, is inert on every rung of the ladder. That is not the whole answer —
+`9 v 6` carries the largest inert `read_weight` delta on the ladder (0.7) and
+still went 15:0 — but it is the part that is certain, and it says the ladder is
+being measured at less than its authored resolution until rollouts land.
 
 ⛔⛤ **AND ONE FIGHTER ON THE SHIPPED GRID CANNOT FIGHT AT ALL — MEASURED
 2026-09-21, AND STALING DOES NOT TOUCH IT.** `special_patent_clerk` is the

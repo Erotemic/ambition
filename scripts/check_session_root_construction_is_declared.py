@@ -44,12 +44,26 @@ from test_paths import file_is_test_only, is_test_path, strip_test_modules  # no
 from a_rollback_arm_must_refuse_a_frozen_world import code_only  # noqa: E402
 
 #: Every production file allowed to construct a `SessionRoot`, and why.
-#: MEASURED 2026-09-19. A new entry is a decision about `Q132`'s invariant and
+#: RE-MEASURED 2026-09-21. A new entry is a decision about `Q132`'s invariant and
 #: belongs in a commit that says so.
+#:
+#: ⛔⛤ **THE CANONICAL ROAD MOVED ON 2026-09-19 AND THIS LIST DID NOT FOLLOW IT
+#: THE SAME DAY.** It named `ambition_platformer2d_provider/src/lifecycle.rs`
+#: as *"the provider's session activation — the canonical road"*; `ef54aeff3`
+#: ("A candidate is not the session, and hiding one never said that") made the
+#: provider spawn a `CandidateSessionRoot` instead, and moved the one moment a
+#: candidate BECOMES the session into the admission path below. ⇒ The population
+#: did not grow, it MOVED — which this guard reported as one undeclared entry
+#: and one declared-but-gone, the shape a move always takes here.
 DECLARED: dict[str, str] = {
-    "crates/ambition_platformer2d_provider/src/lifecycle.rs": (
-        "the provider's session activation — the canonical road, and the one "
-        "that publishes a root as part of a prepared bundle"
+    "crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs": (
+        "the A10 candidate-admission path, and the ONE moment a candidate stops "
+        "being a candidate — `Q132`'s invariant expressed as a swap rather than "
+        "an insert: `CandidateSessionRoot` is removed and `SessionRoot` inserted "
+        "in the same statement. ⚠ It cannot coexist with another root because it "
+        "runs AFTER the retirement barriers inside an exclusive-world call, so no "
+        "frame elapses in which the retiring live root and this one both answer "
+        "to `SessionRoot`. The ordering is the argument; the site says so itself"
     ),
     "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs": (
         "`insert_session_world_component`'s fallback, *\"for small direct hosts "

@@ -49,6 +49,19 @@ INSTRUMENT.** MEASURED 2026-09-18 over the production corpus, comments and
     GenerationMechanics::of                1   provider activation
     GenerationMechanics::new               1   hot reload, and it states `None`
 
+⭐ RE-MEASURED 2026-09-21 and it is still five, with one road having changed
+constructor rather than the population having grown:
+
+    GenerationMechanics::for_live_session   4   reset, room transition x2, world-only reload
+    GenerationMechanics::of                1   provider activation
+
+⚠ Both drifts were found by RUNNING this guard, not by reading it, and the
+second was hidden behind the first: `undeclared` returns before `vanished` is
+printed, so the world-only reload's new `for_live_session` masked the fact that
+`for_the_generation_being_built` had no caller left. A guard that reports one
+finding per run tells you how many runs you need, not how many findings there
+are.
+
 ⛔⛤ **AND THAT MEASUREMENT CORRECTED `Q144`'S OWN TABLE, WHICH COUNTED FOUR
 `for_live_session` ROADS.** The fourth was *"room stage"*, and
 `world/rooms/stage.rs` never constructs mechanics: it owns the ERROR VARIANT
@@ -163,20 +176,42 @@ DECLARED: dict[tuple[str, str], tuple[int, str]] = {
     ),
     (
         "game/ambition_app/src/app/dev_runtime.rs",
-        "for_the_generation_being_built",
+        "for_live_session",
     ): (
         1,
-        "HOT RELOAD. It is building the generation that REPLACES the live one, "
-        "so the registries it was handed are the candidate's and reading the "
-        "session's frozen mechanics here would rebuild the world from the "
-        "generation being replaced. ⛔ THIS ROW SAID IT WAS THE ONE OPTION 2 "
-        "DELETES UNTIL 2026-09-18, AND THE CONSTRUCTOR DOC SAID THE OPPOSITE. "
-        "It survived, and on 2026-09-20 it stopped being a `new` that declined "
-        "an `Option` and became a constructor that NAMES the road — the "
-        "fallback the census row was about is gone and this one is not it "
-        "(read 2026-09-18, corrected 2026-09-18, renamed 2026-09-20)",
+        "WORLD-ONLY RELOAD, and it is the OPPOSITE road to the hot reload three "
+        "lines below in the same file — which is the whole reason this pair has "
+        "to be declared per constructor rather than per file. "
+        "`prepare_world_replacement_candidate` copies every non-`world.` "
+        "fingerprint section out of the ACTIVE `PreparedContent`, so the "
+        "candidate CLAIMS the live session's cast, sheets, bosses and forced "
+        "brains; building the room from whatever the App happens to hold would "
+        "publish identity A over a world built from mechanics B, and App "
+        "registries differing from the frozen generation is a SUPPORTED state. "
+        "⇒ A mechanical change is a full generation replacement and is not "
+        "something a world reload may smuggle. Added by `a49ae6654` on "
+        "2026-09-20 and undeclared until this guard was run on 2026-09-21 "
+        "(read 2026-09-21)",
     ),
 }
+
+# ⛔⛤ **THE `for_the_generation_being_built` ROW IS DELETED, AND SO IS ITS
+# CONSTRUCTOR.** It read *"HOT RELOAD. It is building the generation that
+# REPLACES the live one"* — and `a49ae6654` (2026-09-20) found that argument was
+# made from the word "replacement" rather than from what the candidate CLAIMS:
+# `prepare_world_replacement_candidate` copies every non-`world.` fingerprint
+# section out of the ACTIVE content, so the reload published "same mechanics,
+# new world" over a room built from whatever the App was holding. The road now
+# takes the live generation's frozen mechanics through `for_live_session`, and
+# that commit says in its own words: *"`for_the_generation_being_built` is
+# deleted with its last caller"*. ⚠ `mechanics.rs` today declares only `of` and
+# `for_live_session`.
+#
+# ⛔ THE NAME STAYS IN `CALL` ON PURPOSE. A pattern that can still see a
+# constructor nobody defines costs one alternation and catches its
+# re-introduction as UNDECLARED; deleting it would narrow the corpus so that
+# bringing the road back is invisible, which is the failure this file's own
+# floors exist against.
 
 #: ⛔ THE FLOORS. `production files` is the load-bearing one: widening
 #: `lib/test_paths` makes every consumer see less, and a consumer that sees less

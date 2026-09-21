@@ -144,7 +144,19 @@ script fails if the two disagree. They moved here from
 pinned to a page that no longer states the fact is a check against nothing.
 
 <!-- crossing-census: both_side_resources=57 rollback_registered=33 adjudicated_harmless=20 session_edge_only=3 filed=1 unclassified=0 -->
-<!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=42 unlocated_types=15 -->
+<!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=41 unlocated_types=15 -->
+
+⛔⛤ **`unlocated` WENT 42 → 41 ON 2026-09-21, AND THE ONE THAT LEFT IS NAMED
+RATHER THAN SUBTRACTED.** Diffed against `ace00e006`, the commit that wrote this
+marker, by running `unlocated_message_systems` over both trees: the set lost
+exactly `gravity_flip_switch_system` and gained nothing. That is `9732f9d45`
+(Q137) deleting the unreachable gravity pressure plate — **the same commit, the
+same afternoon, also took the alias census from 183 to 182**, and neither guard
+was run against it. ⇒ One deletion, two stale transcriptions on two different
+pages, and both were found by running the guards rather than by reading either
+page. ⚠ A number that falls because its subject was correctly deleted is not
+drift in the population; it is drift in the TRANSCRIPTION, which is exactly what
+these markers exist to catch.
 
 
 ## Supplemental rulings that were previously stored as long-form sections

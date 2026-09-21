@@ -839,7 +839,18 @@ pub(crate) fn safe_respawn_player(
         motion_model,
         clusters,
         to,
-        ae::ResetFacing::Toward(1.0),
+        // ⛔⛤ **`Keep`, BECAUSE THIS FUNCTION HAS NO SOURCE FOR A DIRECTION —
+        // REVIEW 2026-09-21.** A hazard respawn returns the body to
+        // `last_safe_pos`, somewhere it already stood; falling in a pit is not
+        // an event that turns anybody around. This said `Toward(1.0)` for one
+        // commit, which moved `reset_body_clusters`' old hardcoded `facing =
+        // 1.0` up a level rather than removing it: the constant was still
+        // invented, just by a different function. `PlayerSafetyState` records
+        // a position and no orientation, so `Keep` is the only answer here
+        // that is not made up — and widening that state (and its rollback
+        // schema) to carry one is not worth doing until a checkpoint is shown
+        // to need an authored facing.
+        ae::ResetFacing::Keep,
         tuning.air_jumps,
     );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;

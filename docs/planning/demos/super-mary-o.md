@@ -173,7 +173,13 @@ Remaining acceptance work
     identity-shaped defaults are `BodyMana` and `BodyOffense`, and neither has
     a victim — nothing in the tree authors a mana pool other than the default
     `100/0/0`, and the sole writer of `damage_multiplier` is a dev-tools
-    editable. Size and facing were the whole of it;
+    editable. Size and facing were the whole of it. ⛔⛤ **AND A REVIEW CAUGHT THE
+    REPAIR ONE SITE SHORT THE SAME DAY**: the hazard respawn in
+    `ambition_damage` was handed `Toward(1.0)` to preserve behaviour, which
+    moved the invented constant up a level rather than removing it — a body
+    that falls in a pit is returned to a place it already stood, so nothing
+    there knows which way it faces. Converting a hardcode into a parameter
+    collapses the duplicate only where a caller then supplies a real answer;
   - pit B opened directly into the secret vault instead of being a pit — fixed
     when the level was lengthened for World 1-2 (below); guarded by
     `no_pit_drops_into_the_secret_vault` rather than trusted, since the bug is

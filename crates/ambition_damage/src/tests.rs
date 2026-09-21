@@ -2263,3 +2263,84 @@ fn the_lifecycle_guard_installer_registers_the_guard() {
         "the staged-hit lifecycle guard was not registered by its own installer"
     );
 }
+
+/// A HAZARD RESPAWN RETURNS THE BODY WITHOUT TURNING IT AROUND.
+///
+/// ⛔⛤ **THIS CALL SITE PASSED `ResetFacing::Toward(1.0)` FOR ONE COMMIT —
+/// REVIEW 2026-09-21.** Making `reset_body_clusters` ask its caller was the
+/// right correction, but answering it here with a constant moved the invented
+/// fact up a level instead of removing it: `safe_respawn_player` returns the
+/// body to `PlayerSafetyState::last_safe_pos`, a place it already stood, and
+/// nothing in this function knows which way is forward for it.
+///
+/// ⚠ DRIVEN THROUGH THE REAL FUNCTION with its real `SystemParam` writers,
+/// because the primitive's own arm (`the_reset_leaves_the_facing_to_its_caller`)
+/// already proves `Keep` keeps — what was unguarded is which variant THIS site
+/// hands it.
+///
+/// ⚠ BOTH SIGNS. A body already facing right passes under a hardcoded
+/// `Toward(1.0)` too, so a one-sided arm would not witness the defect.
+#[test]
+fn a_hazard_respawn_does_not_turn_the_body_around() {
+    use bevy::ecs::system::SystemState;
+    use bevy::prelude::*;
+
+    for before in [-1.0f32, 1.0] {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>()
+            .add_message::<VfxMessage>()
+            .add_message::<ClockResetRequest>();
+
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(
+            ae::Vec2::new(10.0, 10.0),
+            ae::AbilitySet::default(),
+        );
+        scratch.kinematics.facing = before;
+        scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
+        let mut model = ae::MotionModel::axis_swept(Default::default());
+        let safe = ae::Vec2::new(64.0, 96.0);
+        let safety = PlayerSafetyState {
+            last_safe_pos: safe,
+            ..Default::default()
+        };
+        let mut combat = BodyCombat::default();
+
+        let world = app.world_mut();
+        let mut state = SystemState::<(
+            SfxWriter,
+            MessageWriter<VfxMessage>,
+            MessageWriter<ClockResetRequest>,
+        )>::new(world);
+        {
+            let mut clusters = scratch.as_mut();
+            let (mut sfx, mut vfx, mut clocks) =
+                state.get_mut(world).expect("the writers resolve against this App");
+            super::safe_respawn_player(
+                &mut sfx,
+                None,
+                &mut vfx,
+                &mut clusters,
+                &mut clocks,
+                &safety,
+                &mut combat,
+                ae::MovementTuning::default(),
+                Platformer2dFeelTuningMonolith::default(),
+                ae::Vec2::new(500.0, 500.0),
+                &mut model,
+            );
+        }
+        state.apply(world);
+
+        assert_eq!(
+            scratch.kinematics.pos, safe,
+            "non-vacuity: the respawn did not move the body to its safe position, \
+             so the facing assertion below is about a call that did nothing"
+        );
+        assert_eq!(
+            scratch.kinematics.facing, before,
+            "a body that fell in a hazard came back facing {} instead of the {before} \
+             it fell in facing — the respawn invented a direction it has no source for",
+            scratch.kinematics.facing
+        );
+    }
+}

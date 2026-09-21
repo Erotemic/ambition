@@ -122,6 +122,13 @@ ADJUDICATED: dict[tuple[str, str], str] = {
     ): "the same once-built immutable fixture cast as the row above",
     (
         "crates/ambition_platformer2d_actor_monolith/src/construction/tests.rs",
+        "MECHANICS",
+    ): "the SessionMechanics wrapper around that same cast, once-built by "
+    "`get_or_init` and read only afterwards: `GenerationMechanics` borrows it "
+    "for `'static`, so a per-arm local could not outlive the plan it is handed "
+    "to, and no arm holds a handle that could change it",
+    (
+        "crates/ambition_platformer2d_actor_monolith/src/construction/tests.rs",
         "CANDIDATE_INSERTIONS",
     ): "a single-arm recorder, reset at entry to each phase. ⚠ LATENT: a second "
     "arm touching it inherits the defect this checker exists for",

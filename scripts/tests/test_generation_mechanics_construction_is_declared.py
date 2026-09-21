@@ -8,6 +8,7 @@ the doc comment on an error variant. The arms below plant both shapes.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -83,20 +84,39 @@ def test_no_declared_row_outlives_its_site():
     assert not stale, f"declared rows with no site left: {stale}"
 
 
-def test_the_new_road_is_the_one_q144_option_2_must_delete():
-    """⚠ AN ASSERTION ABOUT THE SHAPE OF THE ANSWER, NOT ABOUT A COUNT.
+def test_no_constructor_reads_the_app_registries_any_more():
+    """Q144 OPTION 2 LANDED, AND THIS HOLDS IT SHUT.
 
-    `::new` is the only constructor that can read the App registries, so it is
-    what makes `DUP-GENERATION-MECHANICS` reachable rather than theoretical. If
-    this ever reads zero, option 2 has landed and the census row can close —
-    which is a change to make deliberately, here and on the page, not a test to
-    relax.
+    This arm used to assert `len(new_roads) == 1` and say that a zero *"means
+    option 2 landed ... a change to make deliberately, here and on the page"*.
+    It landed: `a49ae6654` moved the LDtk hot reload — the last caller — onto
+    `for_live_session`, and `GenerationMechanics::new` was deleted with it, so
+    `DUP-GENERATION-MECHANICS` reads RESOLVED in the census. The arm is
+    re-pointed rather than relaxed.
+
+    ⛔ TWO CHECKS, BECAUSE ZERO CALL SITES IS THE WEAKER CLAIM. A constructor
+    that still EXISTS with no caller is one import away from coming back, and
+    the census row's argument is *"there is no constructor left that accepts
+    loose registries"* — a statement about the TYPE. So: nobody calls it, and
+    there is nothing to call.
     """
     new_roads = {k for k in guard.construction_sites() if k[1] == "new"}
-    assert len(new_roads) == 1, (
-        "the live `GenerationMechanics::new` population moved. One road (the hot reload in "
-        f"dev_runtime.rs) is the 2026-09-18 reading; found {sorted(new_roads)}. Zero means "
-        "Q144 option 2 landed; more than one means a second App-registry reader appeared."
+    assert not new_roads, (
+        "a second App-registry reader appeared: `GenerationMechanics::new` is called at "
+        f"{sorted(new_roads)}. `DUP-GENERATION-MECHANICS` reads RESOLVED in "
+        "architecture-census.md on the strength of there being no such road."
+    )
+
+    home = REPO / "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs"
+    body = strip_comments(home.read_text())
+    constructors = sorted(set(re.findall(r"pub fn (\w+)\(\s*\n?\s*(?:generation|active)", body)))
+    assert constructors == ["for_live_session", "of"], (
+        "the `GenerationMechanics` constructor set moved; the census row's claim is that "
+        f"`of` and `for_live_session` are all there is. Found {constructors}."
+    )
+    assert "pub fn new(" not in body, (
+        "`GenerationMechanics::new` is back. It is the constructor that accepts loose "
+        "registries, which is the whole of `DUP-GENERATION-MECHANICS`."
     )
 
 

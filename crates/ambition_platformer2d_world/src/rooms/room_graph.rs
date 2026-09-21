@@ -102,6 +102,28 @@ pub enum RoomSetRefused {
         start_room: String,
         rooms: Vec<String>,
     },
+    /// Two rooms answer to one id, so the set holds two answers to *"which
+    /// room is this"*.
+    ///
+    /// ⛔⛤ **IT WAS ACCEPTED, AND THE TWO ANSWERS DISAGREED — REVIEW
+    /// 2026-09-21.** The constructor's `by_id` is a `HashMap`, so a duplicate
+    /// insert keeps the LAST room; [`RoomSet::room_index_by_id`] is a linear
+    /// `position()`, so it returns the FIRST. Given `rooms[0].id ==
+    /// rooms[1].id == "lab"`, `try_from_parts("lab", ..)` starts in room 1 and
+    /// every authored link naming `"lab"` resolves to room 1, while
+    /// `set_active_by_id("lab")` moves the session to room 0. One `RoomSet`
+    /// then means two different rooms depending on which road asked.
+    ///
+    /// ⚠ NOT REPRODUCED IN SHIPPED CONTENT — no authored set holds a duplicate
+    /// today. It is refused because definition identity is about to carry more
+    /// weight rather than less: OW1 separates *"which room DEFINITION"* from
+    /// *"which live occurrence"*, and a definition id that names two
+    /// definitions cannot be the stable half of that pair.
+    DuplicateRoomId {
+        id: String,
+        first: usize,
+        second: usize,
+    },
 }
 
 impl std::fmt::Display for RoomSetRefused {
@@ -115,6 +137,12 @@ impl std::fmt::Display for RoomSetRefused {
             Self::UnknownStartRoom { start_room, rooms } => write!(
                 f,
                 "no room is named `{start_room}`; this set holds {rooms:?}"
+            ),
+            Self::DuplicateRoomId { id, first, second } => write!(
+                f,
+                "two rooms are named `{id}` (indices {first} and {second}); the id lookup \
+                 would answer {first} and the link/start resolution would answer {second}, \
+                 so the set holds two answers to which room this is"
             ),
         }
     }

@@ -75,6 +75,18 @@ impl RoomSet {
         let mut room_nodes = Vec::new();
         let mut by_id = HashMap::new();
         for (index, room) in rooms.iter().enumerate() {
+            // ⛔ REFUSED BEFORE THE INSERT, because the insert is what loses
+            // the first room: `by_id` keeps the LAST and
+            // `RoomSet::room_index_by_id` returns the FIRST, so accepting a
+            // duplicate builds a set whose two lookup roads name two rooms.
+            // See `RoomSetRefused::DuplicateRoomId`.
+            if let Some((first, _)) = by_id.get(&room.id) {
+                return Err(RoomSetRefused::DuplicateRoomId {
+                    id: room.id.clone(),
+                    first: *first,
+                    second: index,
+                });
+            }
             let node = graph.add_node(room.id.clone());
             room_nodes.push(node);
             by_id.insert(room.id.clone(), (index, node));
@@ -738,6 +750,70 @@ mod room_identity_tests {
         assert_eq!(built.active(), 1);
         assert_eq!(built.start(), 1);
         assert_eq!(built.active_spec().id, "cellar");
+    }
+
+    /// TWO ROOMS UNDER ONE ID IS TWO ANSWERS TO "WHICH ROOM IS THIS".
+    ///
+    /// ⛔⛤ **ACCEPTED UNTIL 2026-09-21, AND THE TWO ROADS DISAGREED IMMEDIATELY
+    /// — RAISED BY REVIEW.** `by_id` is a `HashMap`, so the duplicate insert
+    /// kept the LAST room and drove both the start resolution and every
+    /// authored link; [`RoomSet::room_index_by_id`] is a linear `position()`,
+    /// so it answered the FIRST and drove `set_active_by_id`. One set, two
+    /// meanings of `lab`, decided by which road asked.
+    ///
+    /// ⚠ **THE ARM ASSERTS THE DISAGREEMENT AND NOT ONLY THE REFUSAL**, so it
+    /// still says what the refusal is FOR after somebody forgets. It builds
+    /// the two roads' answers out of the same duplicate list and shows they
+    /// differ — which is what makes `DuplicateRoomId` a correctness refusal
+    /// rather than a tidiness rule.
+    #[test]
+    fn two_rooms_with_one_id_are_refused_because_the_two_lookup_roads_disagree() {
+        let world = || {
+            ae::World::new(
+                "w".to_string(),
+                ae::Vec2::new(320.0, 240.0),
+                ae::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            )
+        };
+        let duplicated = || vec![RoomSpec::new("lab", world()), RoomSpec::new("lab", world())];
+
+        assert_eq!(
+            RoomSet::try_from_parts("lab", duplicated(), Vec::new())
+                .map(|_| ())
+                .err()
+                .expect("a set with two `lab`s was built"),
+            RoomSetRefused::DuplicateRoomId {
+                id: "lab".to_string(),
+                first: 0,
+                second: 1,
+            },
+        );
+
+        // ⭐ WHY IT MATTERS, NOT JUST THAT IT REFUSES. The `HashMap` road keeps
+        // the last duplicate and the `position` road finds the first, so a set
+        // that got built would answer 1 at construction/link time and 0 at
+        // runtime lookup time.
+        let mut by_id = std::collections::HashMap::new();
+        for (index, room) in duplicated().iter().enumerate() {
+            by_id.insert(room.id.clone(), index);
+        }
+        let hashmap_road = by_id["lab"];
+        let position_road = duplicated().iter().position(|room| room.id == "lab").unwrap();
+        assert_ne!(
+            hashmap_road, position_road,
+            "the two roads agree on a duplicate id, so this refusal is guarding nothing \
+             and the reason recorded on `DuplicateRoomId` is wrong"
+        );
+
+        // Anti-vacuity: distinct ids still build.
+        let built = RoomSet::try_from_parts(
+            "lab",
+            vec![RoomSpec::new("lab", world()), RoomSpec::new("cellar", world())],
+            Vec::new(),
+        )
+        .expect("two distinctly named rooms are a perfectly ordinary set");
+        assert_eq!(built.active_spec().id, "lab");
     }
 
     /// The start road and the active road are ONE mutation law.

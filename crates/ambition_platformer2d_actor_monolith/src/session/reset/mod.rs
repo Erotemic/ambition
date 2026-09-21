@@ -325,7 +325,7 @@ pub fn process_new_game_reset_request(
         return;
     };
 
-    let start_index = room_set.start;
+    let start_index = room_set.start();
     // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
     // ⛔⛤ **A RESET REBUILDS A LIVE ROOM, so a shell session that has lost its
     // generation DECLINES rather than rebuilding from the App's registries.** See

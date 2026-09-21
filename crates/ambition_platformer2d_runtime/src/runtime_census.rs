@@ -25,7 +25,7 @@
 //! answers into one line. It must never become a place a consumer reads
 //! instead of asking the owner.
 
-use bevy::prelude::{App, Last, Plugin, Query, Res, With};
+use bevy::prelude::{App, Last, Plugin, Query, Res};
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
@@ -97,10 +97,10 @@ pub fn room_census_row<'a>(
         row.push_str(&format!(
             " [scope={scope} rooms={} active={}[{}] start={}[{}]",
             room_set.rooms.len(),
-            id_at(room_set.active),
-            room_set.active,
-            id_at(room_set.start),
-            room_set.start,
+            id_at(room_set.active()),
+            room_set.active(),
+            id_at(room_set.start()),
+            room_set.start(),
         ));
         // ⚠ **`active_metadata()` INDEXES DIRECTLY AND WOULD PANIC ON THE
         // STATE THIS ROW EXISTS TO REPORT.** `id_at` above is careful with an
@@ -110,7 +110,7 @@ pub fn room_census_row<'a>(
         // printing `active=<out-of-range>[73]`.
         if let Some(biome) = room_set
             .rooms
-            .get(room_set.active)
+            .get(room_set.active())
             .and_then(|room| room.metadata.biome.as_deref())
         {
             row.push_str(&format!(" biome={biome}"));

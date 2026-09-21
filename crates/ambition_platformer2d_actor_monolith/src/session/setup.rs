@@ -174,7 +174,7 @@ pub fn simulation_world(
         ));
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         room_set,
-        room_set.active,
+        room_set.active(),
         placement_lowering,
         content_staging,
         boss_catalog,

@@ -235,7 +235,7 @@ fn authorized_plan(
         .and_then(|scope| scope.current());
     let source_room = {
         let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
-        rooms.iter(world).next().map(|set| set.active)
+        rooms.iter(world).next().map(|set| set.active())
     };
     let Some(state) = world
         .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()

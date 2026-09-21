@@ -485,7 +485,7 @@ fn active_metadata_returns_active_room_metadata() {
         Vec::new(),
     );
     assert_eq!(set.active_metadata(), &m1);
-    set.set_active(1);
+    set.set_active(1).expect("the fixture set holds two rooms");
     assert_eq!(set.active_metadata(), &m2);
 }
 
@@ -606,7 +606,8 @@ fn sync_active_room_metadata_publishes_active_value() {
         app.world_mut(),
     )
     .expect("session room set")
-    .set_active(1);
+    .set_active(1)
+    .expect("the session set holds two rooms");
     app.update();
     assert_eq!(
         &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<

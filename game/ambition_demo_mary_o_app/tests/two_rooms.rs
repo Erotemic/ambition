@@ -67,7 +67,7 @@ fn active_room(app: &mut App) -> String {
     let mut query = app.world_mut().query::<&RoomSet>();
     let world = app.world();
     let set = query.iter(world).next().expect("the session has a RoomSet");
-    set.rooms[set.active].id.clone()
+    set.active_spec().id.clone()
 }
 
 fn place_player(app: &mut App, pos: Vec2) {
@@ -130,7 +130,7 @@ fn she_walks_out_of_one_room_and_into_another() {
         let mut query = app.world_mut().query::<&RoomSet>();
         let world = app.world();
         let set = query.iter(world).next().expect("a RoomSet");
-        set.rooms[set.active].world.size
+        set.active_spec().world.size
     };
     let inside =
         |pos: Vec2| pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y;

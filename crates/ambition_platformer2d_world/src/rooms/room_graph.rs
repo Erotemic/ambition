@@ -138,12 +138,43 @@ pub struct RoomLoaded {
 /// Small room graph for early loading-zone tests.
 #[derive(Component, Clone, Debug)]
 pub struct RoomSet {
+    /// ⚠ **STILL PUBLIC, AND THAT IS THE LIMIT OF THE INVARIANT BELOW.** Both
+    /// indices are now private and can only be written to a room that exists,
+    /// but a caller holding `&mut RoomSet` can still shorten this vector out
+    /// from under them. Closing it would move 94 read sites (`rooms.len()`,
+    /// `rooms.get(i)`, `rooms.iter()`) for a hole nothing in the workspace
+    /// reaches through: no caller mutates this vector after construction (the
+    /// one `rooms.push` in the workspace belongs to the menu map, a different
+    /// type).
     pub rooms: Vec<RoomSpec>,
-    pub active: usize,
-    /// Index of the room the player starts in on a fresh sandbox.
+    /// Which room of [`Self::rooms`] is live, read through [`RoomSet::active`]
+    /// and written through [`RoomSet::set_active`] / [`RoomSet::set_active_by_id`].
+    ///
+    /// ⛔⛤ **NOT PUBLIC, BECAUSE IT IS AN INVARIANT RATHER THAN A VALUE.** It
+    /// must index `rooms`, and nothing outside this type was checking: three
+    /// callers assigned it directly and `set_active` CLAMPED an out-of-range
+    /// index instead of refusing, so a session told to build room 7 of a set of
+    /// two woke up in room 1 wearing room 7's geometry. That was measured by
+    /// accident on 2026-09-14 and guarded on exactly ONE road
+    /// (`StagedWorldViolation::TargetRoomOutOfRange`), which left every other
+    /// writer holding the old silent rule.
+    ///
+    /// ⚠ It answers *which DEFINITION is live*, and that is not the same
+    /// question as *which live INSTANCE this is* — with two instances of one
+    /// room both would carry this index. Splitting the second question out is
+    /// OW1 in `docs/planning/engine/open-world-runtime-and-residency.md`; this
+    /// field being trustworthy is its precondition, not its answer.
+    pub(crate) active: usize,
+    /// Index of the room the player starts in on a fresh sandbox, read through
+    /// [`RoomSet::start`] and written through [`RoomSet::set_start_by_id`].
     /// Captured at `from_parts` time so the "reset sandbox" flow can
     /// warp the player back without round-tripping through LDtk.
-    pub start: usize,
+    ///
+    /// Private for the same reason as [`Self::active`]: it must index `rooms`,
+    /// and a type that enforces that invariant on one of its two indices
+    /// enforces nothing. Nothing outside this crate ever wrote it — which is
+    /// what makes closing it cost four call sites instead of thirty.
+    pub(crate) start: usize,
     pub(crate) graph: Graph<String, TransitionEdge>,
     pub(crate) room_nodes: Vec<NodeIndex>,
 }

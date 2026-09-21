@@ -42,7 +42,7 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
         .expect("a direct-gameplay session installs one live room set");
         let source = room_set
             .rooms
-            .get(room_set.active)
+            .get(room_set.active())
             .expect("the active room index names a room")
             .id
             .clone();

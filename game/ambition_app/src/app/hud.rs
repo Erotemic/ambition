@@ -284,7 +284,7 @@ pub(super) fn update_hud(
     if developer_tools.compact_hud {
         let world_name = &world.0.name;
         let mode_label = mode.get().label();
-        let room_index = room_set.active + 1;
+        let room_index = room_set.active() + 1;
         let room_count = room_set.rooms.len();
         let vx = player_vel.x;
         let vy = player_vel.y;
@@ -321,7 +321,7 @@ pub(super) fn update_hud(
     // at it during play.
     let world_name = &world.0.name;
     let mode_label = mode.get().label();
-    let room_index = room_set.active + 1;
+    let room_index = room_set.active() + 1;
     let room_count = room_set.rooms.len();
     let combo_symbols = hud_combo.symbols();
     let preset_name = &preset.name;

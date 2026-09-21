@@ -72,10 +72,24 @@ impl RoomSet {
             }
         }
 
-        let active = by_id
-            .get(start_room.as_ref())
-            .map(|(index, _)| *index)
-            .unwrap_or(0);
+        // ⛔⛤ **THE LAST SILENT ROAD INTO `active`, AND IT IS A FALLBACK
+        // RATHER THAN A REFUSAL BY NECESSITY.** Every other way to move the
+        // active room now says no when the room does not exist; this one cannot,
+        // because `from_parts` has no failure channel and 61 callers. What it
+        // can do is stop being quiet: an unresolvable start room is reported the
+        // same way an unresolvable link room two loops above is, so a session
+        // that boots somewhere nobody asked for leaves a trace.
+        let active = match by_id.get(start_room.as_ref()) {
+            Some((index, _)) => *index,
+            None => {
+                eprintln!(
+                    "room graph warning: unknown start room '{}'; starting in '{}' instead",
+                    start_room.as_ref(),
+                    rooms.first().map_or("<no rooms at all>", |room| room.id.as_str()),
+                );
+                0
+            }
+        };
         Self {
             rooms,
             active,
@@ -215,9 +229,49 @@ impl RoomSet {
         &self.active_spec().metadata
     }
 
-    pub fn set_active(&mut self, index: usize) -> &RoomSpec {
-        self.active = index.min(self.rooms.len().saturating_sub(1));
-        self.active_spec()
+    /// Which room of [`Self::rooms`] is live right now.
+    pub fn active(&self) -> usize {
+        self.active
+    }
+
+    /// Which room of [`Self::rooms`] a fresh sandbox starts in.
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    /// Seat the session in room `index`, or refuse.
+    ///
+    /// ⛔⛤ **THIS CLAMPED UNTIL 2026-09-20, AND THE CLAMP WAS SILENT.** It was
+    /// `self.active = index.min(len - 1)`, so an out-of-range index did not
+    /// fail — it moved the session to the LAST room of the set while its caller
+    /// went on publishing the geometry of the room it had asked for. Measured
+    /// by accident 2026-09-14 by a poison that staged `usize::MAX` and got a
+    /// room change instead of a refusal.
+    ///
+    /// `None` means the index named no room and **nothing was written**: the
+    /// previously active room is still active. One road already refused such a
+    /// plan before staging (`StagedWorldViolation::TargetRoomOutOfRange`); that
+    /// check stays, and now the setter it protects cannot be talked into the
+    /// clamp by anybody else.
+    #[must_use = "`None` means the index named no room and the active room did                   NOT change: report it, or the session silently stays put"]
+    pub fn set_active(&mut self, index: usize) -> Option<&RoomSpec> {
+        if index >= self.rooms.len() {
+            return None;
+        }
+        self.active = index;
+        Some(&self.rooms[index])
+    }
+
+    /// Seat the session in the room with this authored id, or refuse.
+    ///
+    /// The id road, spelled once. Two callers outside this crate resolved an id
+    /// to a position and then assigned the private field themselves, which is
+    /// the same lookup written three times and the reason the field could be
+    /// written at all.
+    #[must_use = "`None` means the id matched no room and the active room did                   NOT change: report it, or the session silently stays put"]
+    pub fn set_active_by_id(&mut self, id: &str) -> Option<&RoomSpec> {
+        let index = self.room_index_by_id(id)?;
+        self.set_active(index)
     }
 
     /// Find the loading zone the controlled body's frame path enters this tick.
@@ -515,6 +569,90 @@ mod room_identity_tests {
             None,
             "a room's display title resolved as its id: the second name is back, \
              and `same_destination` can now read one room as two destinations"
+        );
+    }
+
+    fn two_rooms() -> RoomSet {
+        let world = |name: &str| {
+            ae::World::new(
+                name.to_string(),
+                ae::Vec2::new(320.0, 240.0),
+                ae::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            )
+        };
+        RoomSet::from_parts(
+            "hub",
+            vec![
+                RoomSpec::new("hub", world("hub")),
+                RoomSpec::new("cellar", world("cellar")),
+            ],
+            Vec::new(),
+        )
+    }
+
+    /// ⛔⛤ **AN INDEX THAT NAMES NO ROOM MOVES NOBODY.**
+    ///
+    /// `set_active` was `self.active = index.min(len - 1)`, so asking for room 7
+    /// of a set of two did not fail — it seated the session in room 1 while its
+    /// caller went on publishing room 7's geometry. One road refused such a plan
+    /// before staging; the setter itself accepted it from anyone.
+    ///
+    /// ⭐ THE SECOND ASSERTION IS THE ONE THE CLAMP WOULD FAIL. A refusal that
+    /// returns `None` AFTER moving the active room is the same defect wearing a
+    /// return value, so what is pinned is that the room did not move.
+    ///
+    /// ⛔⛤ **AND THE ROOM IT REFUSES FROM IS CHOSEN, NOT INCIDENTAL.** The
+    /// clamp's destination is `len - 1`, which in a set of two is room 1 — so a
+    /// fixture that refuses while ALREADY in room 1 watches the clamp write the
+    /// value that was already there and reads clean. Measured: the first version
+    /// of this test refused from room 1 and the clamp poison PASSED it. Every
+    /// refusal below is made from room 0.
+    #[test]
+    fn an_index_that_names_no_room_is_refused_and_nothing_moves() {
+        let mut set = two_rooms();
+        assert!(
+            set.set_active(1).is_some(),
+            "a valid index must still seat the session"
+        );
+        assert_eq!(set.active_spec().id, "cellar");
+        assert!(set.set_active(0).is_some());
+
+        assert!(
+            set.set_active(7).is_none(),
+            "room 7 of a set of two was accepted"
+        );
+        assert_eq!(
+            set.active(),
+            0,
+            "the refusal moved the active room anyway — the clamp is back, only              now it reports itself as a refusal"
+        );
+        assert_eq!(set.active_spec().id, "hub");
+
+        // `usize::MAX` is the value the 2026-09-14 poison staged by accident.
+        assert!(set.set_active(usize::MAX).is_none());
+        assert_eq!(set.active(), 0);
+    }
+
+    /// The id road refuses the same way, and it is the road two callers outside
+    /// this crate used to hand-roll by resolving an id and assigning the field.
+    #[test]
+    fn an_id_that_names_no_room_is_refused_and_nothing_moves() {
+        let mut set = two_rooms();
+        assert_eq!(
+            set.set_active_by_id("cellar").map(|room| room.id.as_str()),
+            Some("cellar"),
+            "an authored id must seat the session in that room and hand it back"
+        );
+
+        assert!(
+            set.set_active_by_id("a_room_this_world_does_not_have")
+                .is_none()
+        );
+        assert_eq!(
+            set.active(),
+            1,
+            "a refused id moved the active room, so a caller that ignores the              `None` runs in a room nobody asked for"
         );
     }
 }

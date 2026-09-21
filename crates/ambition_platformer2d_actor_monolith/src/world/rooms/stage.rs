@@ -1291,7 +1291,7 @@ mod tests {
             RoomSet,
         >(app.world())
         .expect("the session root carries a room set")
-        .active;
+        .active();
         let platforms = app
             .world()
             .resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
@@ -1727,16 +1727,20 @@ mod tests {
     /// ⛔⛤ **A ROOM THAT WOULD SEAT THE SESSION OUT OF RANGE IS REFUSED, AND THE
     /// DEFECT IT CATCHES IS SILENT.**
     ///
-    /// `RoomSet::set_active` is `self.active = index.min(len - 1)`. An
-    /// out-of-range index does not panic — it CLAMPS, and the session wakes in
+    /// `RoomSet::set_active` WAS `self.active = index.min(len - 1)`. An
+    /// out-of-range index did not panic — it CLAMPED, and the session woke in
     /// the last room of the set wearing the geometry of the one it was told to
     /// build. ⭐ MEASURED BY ACCIDENT 2026-09-14: a poison written to test
     /// something else staged `usize::MAX` and moved the active room instead of
     /// failing.
     ///
-    /// ⚠ The clamp itself is NOT changed here. It has callers outside this road
-    /// and its own contract; what changes is that this road refuses to hand it a
-    /// value it would have to clamp.
+    /// ⚠ The clamp is gone as of 2026-09-20 — the setter returns `None` and
+    /// writes nothing — and this road still refuses, because the two refusals
+    /// happen at different moments. This one is a PREFLIGHT: it says no while
+    /// the outgoing room is still standing. The setter's `None` arrives inside
+    /// `apply_world_replacement`, after the teardown, where the only honest
+    /// answer left is a panic. What this test pins is that the plan never gets
+    /// that far.
     #[test]
     fn a_room_that_would_seat_the_session_out_of_range_is_refused() {
         let platform = MovingPlatformState::from_authored(

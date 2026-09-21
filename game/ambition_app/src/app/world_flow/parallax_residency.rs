@@ -80,7 +80,7 @@ pub(crate) fn retire_departed_parallax_themes(
     if !room_set.is_changed() {
         return;
     }
-    let Some(active) = room_set.rooms.get(room_set.active) else {
+    let Some(active) = room_set.rooms.get(room_set.active()) else {
         return;
     };
 

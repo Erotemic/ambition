@@ -36,8 +36,8 @@ review.
 baseline is **1666 commits** behind `main` — an ancestor, verified with
 `git merge-base --is-ancestor` rather than by the commit merely existing. All
 eight cited paths still resolve. Two claims were re-read in full and hold:
-`RoomSet` is still `{ rooms: Vec<RoomSpec>, active: usize, start: usize, .. }`,
-so one index still selects one live room; and `PrefetchIdentity` is still
+`RoomSet` is still `{ rooms, active, start, .. }`, so one index still selects
+one live room; and `PrefetchIdentity` is still
 exactly `(content_epoch, session_scope, source_room_id)`, so a prepared plan
 is still keyed by the world it was prepared for. **The other four rows'
 claims were NOT re-read** and are carried forward on the baseline's authority,
@@ -45,9 +45,23 @@ which is what a row dated nine days and 1666 commits ago is worth. A reader
 about to depend on one should re-read it; a reader about to CHANGE one should
 update this note with what they found.
 
+⭐ **AND ONE OF THEM WAS CHANGED THE SAME DAY, WHICH IS WHAT THAT SENTENCE IS
+FOR.** `active` is no longer a public field. Five callers outside its crate
+assigned it directly — two production (hot reload and definition
+normalization) and three fixtures — and its setter CLAMPED an out-of-range index rather
+than refusing — a session told to build room 7 of a set of two woke in room 1
+wearing room 7's geometry, measured by accident 2026-09-14 and guarded on
+exactly one road. It is now private behind `RoomSet::active()` /
+`set_active()` / `set_active_by_id()`, both setters return `None` and write
+nothing when the room does not exist, and both refusals are poison-verified.
+⚠ **THIS DOES NOT ADVANCE OW1 BY ITSELF.** One index still selects one live
+room; what changed is that the index can no longer be a value nobody checked.
+An index that can be silently wrong cannot be promoted to an instance
+identity, so this is OW1's precondition and not its first cut.
+
 | Locator | Current fact | Limit |
 | --- | --- | --- |
-| `crates/ambition_platformer2d_world/src/rooms/room_graph.rs`, `RoomSet` | One `active: usize` selects a room | Multiple definitions in the graph do not mean multiple live instances |
+| `crates/ambition_platformer2d_world/src/rooms/room_graph.rs`, `RoomSet` | One private `active` index selects a room, through one checked road (2026-09-20) | Multiple definitions in the graph do not mean multiple live instances |
 | Runtime `room_transition/prefetch.rs`, `PrefetchIdentity` and `RoomConstructionPlanPrefetch` | Prepared plans are keyed by epoch/session/source room | A cached plan is data, not a simulated room |
 | Shared `lifecycle/markers.rs` and `lifecycle/continuity.rs` | Residency/custody and occurrence continuity have existing homes | Do not replace them with an extension-owned world mirror |
 | Actor monolith `features/ecs/dormancy.rs` | Existing dormancy concerns actor work within a live room | It is not an off-room world simulator |

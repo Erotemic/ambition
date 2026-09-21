@@ -173,7 +173,7 @@ pub(crate) fn prepare_first_room_art_system(
                 );
                 let owners = RoomResidencyOwners::for_room(
                     room_set,
-                    room_set.active,
+                    room_set.active(),
                     &staged_actor_names,
                     &worn,
                     claimed.iter().map(String::as_str),

@@ -341,16 +341,11 @@ pub(super) fn prepare_ldtk_reload_transaction(
     }
 
     let mut next_room_set = project.to_room_set(manifest, &crate::composed_ldtk_vocabulary())?;
-    let Some(next_active) = next_room_set
-        .rooms
-        .iter()
-        .position(|room| room.id == current_room_id)
-    else {
+    if next_room_set.set_active_by_id(current_room_id).is_none() {
         return Err(vec![format!(
             "LDtk reload would delete current active area '{current_room_id}'. Move the player elsewhere or restore that activeArea before applying."
         )]);
-    };
-    next_room_set.active = next_active;
+    }
     let next_spec = next_room_set.active_spec().clone();
 
     let mut hard_errors = Vec::new();
@@ -531,7 +526,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         })?;
 
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
-        transaction.next_room_set.active,
+        transaction.next_room_set.active(),
         transaction.next_spec.clone(),
         placement_lowering,
         content_staging,

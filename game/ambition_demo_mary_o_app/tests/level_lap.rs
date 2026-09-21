@@ -23,7 +23,7 @@ fn room_id(app: &mut App) -> Option<String> {
     let mut q = app.world_mut().query::<&RoomSet>();
     q.iter(app.world())
         .next()
-        .map(|set| set.rooms[set.active].id.clone())
+        .map(|set| set.active_spec().id.clone())
 }
 
 /// Where the controlled body is, if she exists at all.

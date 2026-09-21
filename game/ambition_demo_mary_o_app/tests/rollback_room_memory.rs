@@ -103,7 +103,7 @@ fn active_room(app: &mut App) -> Option<String> {
     query
         .iter(world)
         .next()
-        .map(|set| set.rooms[set.active].id.clone())
+        .map(|set| set.active_spec().id.clone())
 }
 
 fn place_player(app: &mut App, pos: Vec2) {

@@ -24,7 +24,7 @@ use ambition_platformer2d::platformer::authored_logic::{
 use ambition_platformer2d::platformer::sim_id::SimId;
 use std::path::Path;
 
-use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopeId};
+use ambition_platformer2d::platformer::lifecycle::SessionRoot;
 use bevy::prelude::With;
 
 use crate::common::{base, fixed_60hz_room_sim};
@@ -1004,7 +1004,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
             .expect("the composed session root carries a RoomSet");
         (
             room_set.active_spec().id.clone(),
-            room_set.active,
+            room_set.active(),
             room_set.rooms.len(),
         )
     };
@@ -1079,11 +1079,14 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
             .next()
             .expect("the composed session root carries a RoomSet");
         let elsewhere = (0..room_set.rooms.len())
-            .find(|index| *index != room_set.active)
+            .find(|index| *index != room_set.active())
             .expect("this session was built with one room, so `active` and \
                      `start` can never differ and this arm cannot run");
-        room_set.active = elsewhere;
-        room_set.rooms[elsewhere].id.clone()
+        room_set
+            .set_active(elsewhere)
+            .expect("`elsewhere` was chosen from this set's own index range")
+            .id
+            .clone()
     };
     let moved = {
         let mut query = sim

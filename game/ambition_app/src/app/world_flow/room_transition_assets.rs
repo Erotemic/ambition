@@ -1458,7 +1458,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.identity = None;
         return;
     };
-    let Some(source_room) = room_set.rooms.get(room_set.active) else {
+    let Some(source_room) = room_set.rooms.get(room_set.active()) else {
         cache.entries.clear();
         cache.identity = None;
         return;

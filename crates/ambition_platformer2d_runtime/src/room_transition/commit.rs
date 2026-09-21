@@ -876,7 +876,7 @@ pub fn commit_ready_room_transition_system(
         );
         return;
     };
-    let room_set_active = room_set.active;
+    let room_set_active = room_set.active();
     let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
         room.id == active.target_room_id()
             && active

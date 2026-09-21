@@ -65,7 +65,7 @@ fn active_room(app: &mut App) -> String {
     query
         .iter(world)
         .next()
-        .map(|set| set.rooms[set.active].id.clone())
+        .map(|set| set.active_spec().id.clone())
         .unwrap_or_default()
 }
 

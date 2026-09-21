@@ -425,12 +425,20 @@ pub enum StagedWorldViolation {
     /// The staged active-room index is not a valid index into the room set that
     /// would be live.
     ///
-    /// ⛔⛤ **AND THE CONSEQUENCE IS SILENT, WHICH IS WHY THIS EXISTS.**
-    /// `RoomSet::set_active` is `self.active = index.min(len - 1)` — an
-    /// out-of-range index does not panic, it CLAMPS, and the session wakes up in
+    /// ⛔⛤ **THE CONSEQUENCE WAS SILENT, WHICH IS WHY THIS EXISTS.**
+    /// `RoomSet::set_active` was `self.active = index.min(len - 1)` — an
+    /// out-of-range index did not panic, it CLAMPED, and the session woke up in
     /// the last room of the set with the geometry of the one it was told to
     /// build. Measured by accident 2026-09-14: a poison that staged
     /// `usize::MAX` moved the active room rather than failing.
+    ///
+    /// ⭐ **THE SETTER REFUSES TOO AS OF 2026-09-20, AND THIS CHECK IS STILL THE
+    /// ONE THAT MATTERS.** `set_active` now returns `None` and writes nothing,
+    /// so no caller can be talked into the clamp. But it is reached from
+    /// `apply_world_replacement`, AFTER the outgoing room has been torn down — a
+    /// refusal there has no good answer left, and the publication asserts rather
+    /// than limps. This violation is the one that can still say no while the old
+    /// world is standing, which is the whole reason a preflight exists.
     TargetRoomOutOfRange { target: usize, rooms: usize },
     /// The staged geometry is not the geometry of the staged room.
     ///
@@ -503,8 +511,8 @@ impl std::fmt::Display for StagedWorldViolation {
             Self::TargetRoomOutOfRange { target, rooms } => write!(
                 f,
                 "this room would become active room {target} of a set holding \
-                 {rooms}; `set_active` CLAMPS rather than failing, so publishing \
-                 would silently seat the session in a different room"
+                 {rooms}; there is no such room, and by the time the setter could \
+                 say so the outgoing world would already be gone"
             ),
             Self::GeometryIsNotTheTargetRoom { target, geometry } => write!(
                 f,
@@ -780,7 +788,22 @@ pub(crate) fn apply_world_replacement(
     }
     match session_world_component_mut_at::<ambition_platformer2d_world::rooms::RoomSet>(world, root) {
         Some(mut rooms) => {
-            rooms.set_active(pending.target_index);
+            // ⛔⛤ **A HARD FAILURE, BECAUSE THE PUBLICATION IS ALREADY
+            // DESTRUCTIVE BY THE TIME WE ARE HERE.** The staged verifier refuses
+            // `TargetRoomOutOfRange` before anything is torn down, so reaching
+            // this arm means the verifier and the setter disagree about the same
+            // set. Logging and carrying on would leave the session seated in the
+            // OLD room while the geometry, platforms and staged population below
+            // become the NEW one -- the exact silent split the violation exists
+            // to prevent, only now with the old world already gone.
+            let rooms_len = rooms.rooms.len();
+            assert!(
+                rooms.set_active(pending.target_index).is_some(),
+                "published room {} of a set holding {rooms_len}: the staged \
+                 verifier passed a target the room set refuses, so the session \
+                 would keep its old active room under the new geometry",
+                pending.target_index,
+            );
         }
         None => bevy::log::error!(
             target: "ambition_platformer2d::construction",

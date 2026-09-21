@@ -659,8 +659,10 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
                     .expect("alternate authored room exists");
-                room_set.set_active(index);
-                let spec = room_set.active_spec().clone();
+                let spec = room_set
+                    .set_active(index)
+                    .expect("`index` came from this set's own id lookup")
+                    .clone();
                 geometry.0 = spec.world.clone();
                 active_room.0 = spec.metadata.clone();
             },

@@ -850,7 +850,7 @@ fn add_world_fingerprint_sections(
     let start_room = source
         .room_set()
         .rooms
-        .get(source.room_set().start)
+        .get(source.room_set().start())
         .map(|room| room.id.as_str())
         .unwrap_or("<missing>");
     builder
@@ -2934,7 +2934,10 @@ mod tests {
             vec![first, second],
             Vec::new(),
         );
-        room_set.active = room_set.room_index_by_id(active_room).unwrap();
+        assert!(
+            room_set.set_active_by_id(active_room).is_some(),
+            "fixture asked for room `{active_room}`, which this set does not hold"
+        );
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
@@ -3517,7 +3520,9 @@ mod tests {
         let content = fixture_content(two_room_fixture_source("same-room"), &characters, &staging);
         let before = content.identity();
         let mut live = content.source().instantiate_live();
-        live.room_set.active = live.room_set.room_index_by_id("second-room").unwrap();
+        live.room_set
+            .set_active_by_id("second-room")
+            .expect("the fixture set holds `second-room`");
 
         assert_eq!(live.active_room_id(), "second-room");
         assert_eq!(content.identity(), before);

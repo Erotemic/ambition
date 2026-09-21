@@ -71,13 +71,20 @@ diagnosable only with a debugger or by reading four files across three crates.
 `[census] rooms` is the missing one:
 
 ```text
-[census] rooms t=2.500 sessions=1 [scope=? rooms=72 active=blink_run[7]
+[census] rooms t=1.500 sessions=1 [scope=0 rooms=72 active=blink_run[7]
   start=blink_run[7] biome=lab] crossing=none
 ```
 
+⚠ That row is MEASURED, not illustrative — it is what
+`the_room_census_names_the_room_the_session_is_actually_in` emits from the
+composed `ambition_app` host. ⛔ **IT SAID `scope=?` HERE UNTIL 2026-09-20**,
+copied from a version of the census that asked for the scope as a sibling
+component of `SessionRoot` when the scope lives inside it; the page had
+faithfully reproduced a defect.
+
 ⭐ **IT PRINTS THE INDEX BESIDE THE AUTHORED ID ON PURPOSE.** Today *"which
-room is live"* is `RoomSet::active: usize` — an index into a list of
-DEFINITIONS — which is exactly the conflation OW1 on
+room is live"* is a private `usize` index into a list of DEFINITIONS — which
+is exactly the conflation OW1 on
 [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
 has to unpick. Printing both is the cheapest way to watch the day they stop
 corresponding.

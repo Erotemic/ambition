@@ -816,7 +816,7 @@ pub fn begin_room_transition_load_system(
 
         let superseded = state.active.take().map(|active| active.barrier.load_id);
         let sequence = state.mint_sequence();
-        let source_room = room_set.active;
+        let source_room = room_set.active();
         let source_room_id = room_set
             .rooms
             .get(source_room)

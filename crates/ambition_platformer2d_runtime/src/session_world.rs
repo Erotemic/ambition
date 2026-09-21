@@ -183,13 +183,15 @@ impl PreparedPlatformerSource {
     }
 
     /// Normalize a replacement world to the immutable definition's activation
-    /// room. Live room movement mutates the session's `RoomSet::active`, but it
+    /// room. Live room movement mutates the session's active room, but it
     /// must not become authored content merely because hot reload was requested
     /// from another room.
+    ///
+    /// `None` means the definition has no room with that id, so there is no
+    /// normalized replacement to offer.
     pub fn with_definition_active_room(&self, room_id: &str) -> Option<Self> {
         let mut room_set = self.room_set.clone();
-        room_set.active = room_set.room_index_by_id(room_id)?;
-        let active_spec = room_set.active_spec().clone();
+        let active_spec = room_set.set_active_by_id(room_id)?.clone();
         // `mut` only under `ldtk`: the block that mutates the installed index is
         // behind that feature, so without it the binding is read-only.
         #[cfg_attr(not(feature = "ldtk"), allow(unused_mut))]

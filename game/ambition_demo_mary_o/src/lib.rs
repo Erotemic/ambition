@@ -2477,7 +2477,7 @@ fn cycle_level_on_flag_tally(
     // this function asked for that some other authority commits without the
     // active room ever changing under `follow_the_active_room` (a same-room
     // destination, which `LevelDestination::Room(<this room>)` can express).
-    if set.rooms[set.active].id == target {
+    if set.active_spec().id == target {
         departure.dwell = 0.0;
         departure.target = None;
         rearm_for_the_next_lap(&mut sequence, &mut level);

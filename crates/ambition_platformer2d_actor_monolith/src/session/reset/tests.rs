@@ -634,7 +634,18 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
         let mut reg = app.world_mut().resource_mut::<EncounterRegistry>();
         reg.specs_loaded = true;
     }
-    // Point the session at a room that does not exist. Preparation must refuse.
+    // Point the session at a room that does not exist. Preparation must refuse
+    // with `RoomConstructionError::UnknownRoom`, which is the decline this test
+    // is about — NOT the mechanics gate above it, which the fixture declares a
+    // generation specifically to get past.
+    //
+    // ⛔⛤ **THE MISSING ROOM IS A SET WITH NO ROOMS, BECAUSE `start = 999` IS
+    // NO LONGER A STATE THAT EXISTS — 2026-09-20.** This used to reach into the
+    // component and write an out-of-range index by hand. `RoomSet::start` is
+    // private now and both roads that write it resolve an authored id first, so
+    // an index past the end is unconstructible and a fixture that injected one
+    // was rehearsing an impossible world. An EMPTY set is reachable through the
+    // ordinary constructor and lands on the same refusal: index 0 of no rooms.
     //
     // the `RoomSet` is a session-world COMPONENT, not a resource — it belongs
     // to the session root so it dies with the session rather than outliving it
@@ -645,7 +656,11 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
                 ambition_platformer2d_world::rooms::RoomSet,
             >(app.world_mut())
             .expect("the fixture staged a room set");
-        rooms.start = 999;
+        *rooms = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "a_room_this_session_does_not_have",
+            Vec::new(),
+            Vec::new(),
+        );
     }
     {
         let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();

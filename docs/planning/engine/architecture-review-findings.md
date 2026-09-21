@@ -542,12 +542,30 @@ change carries its reasoning in its own commit.
 
 | # | finding | disposition |
 |---|---|---|
-| 1 | Q142 framed three rollback defects as a maintainer decision | ✔ FIXED — `EncounterScript`, `ReleaseOnDeath` and `RecharacterizeBody` registered, schema v197 → v198, and **all three now have a poison-verified rewind witness** (2026-09-17); `PostBossNpc` stays open because its question is what an admitted REPLAY sweeps |
+| 1 | Q142 framed three rollback defects as a maintainer decision | ✔ FIXED — `EncounterScript`, `ReleaseOnDeath` and `RecharacterizeBody` registered, schema v197 → v198, and **all three now have a poison-verified rewind witness** (2026-09-17); **TWO stay open, not one** — `PostBossNpc`, because its question is what an admitted REPLAY sweeps, and `SmirkingBehemothVictoryNpc`, which joined on 2026-09-18 when the instrument learned to see `game/ambition_content`. ⛔ This cell said "`PostBossNpc` stays open" until 2026-09-21; the owed LIST belongs to `scripts/check_presence_filtered_state_is_rollback_registered.py`, which names both and prints why each is not registered by analogy. Re-run 2026-09-21: **121 presence-filtered components across 21 registering crates, 92 registered, 27 waived, 2 owed** |
 | 2 | the frame-zero carrier rebase cannot see a hidden construction candidate | ✔ FIXED, **twice — and the first fix refused the wrong thing** (see below). The INSTALLATION refuses now, before it mutates anything; ⛔ including candidates would be worse, because an order INDEX is positional and a candidate on one peer only shifts every index after it |
 | 3 | the rebase fails open on a missing or duplicate `SimId` | ◐ FILED AT THE CODE — the alternative today is not a refusal, it is keeping the App-lifetime history, which is wrong by more. The condition that flips it is a real remote peer, and the comment says so |
 | 4 | `clean_workspace_crates.sh` released the build lock before deleting | ✔ FIXED — an open descriptor is held across `du`/`find`/`mv`/`rm`. Measured both ways on a 9,000-file tree: 0 lock steals against 12. ⛔ **A second half of the same race was found by the follow-up review**: the `-e` test took NO lock when the profile had no `.cargo-lock` yet, so cargo could create and acquire it mid-delete. Apply mode now OPENS the path for append (creating it) and locks unconditionally |
 | 5 | the Fade audit counted one authored fade where three ship | ✔ FIXED — `test_intro`, `intro_wake`, `drain_market_arrival`; 2.2 s of invisible wait across three rooms. The planning page that quoted the number was the second copy and is corrected too |
 | 6 | the audit campaign is drifting into machinery `AGENTS.md` forbids | ◐ PART — the source-comment PATH gate is demoted to reporting; the writer-set ratchet keeps its ratchet and now states, at the top of the file, that moving a writer between schedules leaves it green and what behavioural arm should replace it |
+
+✔ **ALL SIX RE-VERIFIED AGAINST HEAD, 2026-09-21, by opening the code and
+running the instrument** — because four of them were still being carried forward
+as open work by a standing goal, and a re-investigation that ends in "already
+done" is cheap only the first time.
+
+| # | what was checked, today | reading |
+| --- | --- | --- |
+| 1 | `check_presence_filtered_state_is_rollback_registered.py` | 121 / 92 registered / 27 waived / **2 owed**, and the two are `PostBossNpc` and `SmirkingBehemothVictoryNpc` — the row above is corrected to match |
+| 2 | `lifecycle_commit.rs:190-200` | the post-commit refusal branch is GONE, with the comment saying it "can no longer be written"; the install is reached through the token |
+| 2b | `local_session.rs:440-476` | a `── COMMIT: from here nothing may fail ──` marker sits AFTER both the build and `FrameZeroEligibility::check`, so every fallible preflight happens while the old session is still alive |
+| 2c | `session.rs:652+` | the install re-censuses and `assert_eq!`s before its first destructive write — so "cannot fail" was the wrong paraphrase, corrected above |
+| 4 | `awaiting-maintainer-decision.md` Q142 | already says the `RecharacterizeBody` arm landed, with its poison reading `[1, 1, 1, 1, 0]`; no contradiction remains on that page |
+
+⚠ **THIS IS A RE-CHECK, NOT A NEW DISPOSITION.** Nothing moved from open to
+closed here; what moved is that two sentences on THIS page had drifted from the
+code they describe, which is the failure this page exists to avoid and had
+started committing itself.
 
 ⛔⛤ **FINDING 2 WAS MARKED FIXED WHILE THE END-TO-END INVARIANT WAS STILL NOT
 ENFORCED, AND THE FOLLOW-UP REVIEW OF 2026-09-17 CAUGHT IT IN ONE SENTENCE:
@@ -569,9 +587,19 @@ destructive half — the room authoritative with the previous timeline's order
 history installed, or no session at all — and *"continuing execution from there
 is worse than terminating."* ⇒ The refusal moved to
 `FrameZeroEligibility::check`, whose token is the only way to reach
-`install_rebased_sync_test_session`, which **cannot fail**. Both impossible
-branches are DELETED rather than hardened into panics, because a branch that
-does not typecheck needs no handler. One count serves every reader
+`install_rebased_sync_test_session`, which has no RECOVERABLE failure. Both
+impossible branches are DELETED rather than hardened into panics, because a
+branch that does not typecheck needs no handler.
+
+⛔ **THIS SENTENCE SAID "which cannot fail" UNTIL 2026-09-21, AND THAT IS NOT
+WHAT THE FUNCTION SAYS ABOUT ITSELF.** It carries an unconditional
+`assert_eq!` over a re-taken `census_rollback_carriers`, before its first
+destructive write, precisely because the token proves the check RAN and not
+that its answer still holds — so it can and does abort, it simply cannot hand a
+refusal back to a caller that has nothing to do with one. "Cannot fail" invites
+exactly the reasoning the 2026-09-17 review was written against. ⇒ The function's
+own doc is the owner of this distinction and states it correctly; this page now
+defers to it rather than paraphrasing it into something weaker. One count serves every reader
 (`census_rollback_carriers`), because two spellings of "how many are hidden" is
 how the two disagree.
 

@@ -164,9 +164,9 @@ tool discovery alike.
 
   ✔ **AND THE VERBS JOINED THE QUESTIONS IN ONE RING, 2026-09-20.**
   `AuthoredVerdictLog` holds `AuthoredVerdict::{Asked, Ran}` and
-  `CommandCatalog::run` records at its own one door, with `latest_run(id)` and
-  `refusal_of(id)` beside `latest_for` and `why_not_for`. One stream rather
-  than two, because *"the door did not open when I pressed it"* has two shapes
+  `CommandCatalog::run` records at its own one door, with `latest_run` and
+  `refusal_of` beside `latest_for` and `why_not_for`. One stream rather than
+  two, because *"the door did not open when I pressed it"* has two shapes
   needing different repairs — a condition answered no and the verb never ran,
   or the condition passed and the verb refused for a reason of its own — and
   the join between them IS the diagnosis.
@@ -176,8 +176,52 @@ tool discovery alike.
   serialise. A test may rely on the order of two entries it issued itself from
   one thread, and on nothing else.
 
+  ⛔⛤ **AN INVOCATION IS `(id, args)`, NOT `id` — CORRECTED 2026-09-20, ONE DAY
+  AFTER THE RING LANDED.** `world.flag_set` is one id with as many subjects as
+  the game has flags and `inventory.holds` one with as many as it has items,
+  so a tick that asks about two doors is ordinary:
+
+  ```text
+  world.flag_set("door_A") -> no
+  world.flag_set("door_B") -> no
+  ```
+
+  An id-keyed lookup then hands somebody investigating door A the reason door
+  B is shut — in the same units, in the same words, with nothing marking it.
+  Lookups take the arguments; `latest_for_id` and `latest_run_of_id` survive as
+  browsing helpers and are named so nobody reaches for them by accident.
+  ⇒ **A DERIVED SURFACE CAN BE WRONG IN THE SHAPE OF ITS KEY, AND THAT IS
+  INVISIBLE TO A TEST THAT USES THE SAME KEY.**
+
+  ⛔⛤ **AND A DIAGNOSTIC OUTSIDE ROLLBACK STILL NEEDS ROLLBACK IDENTITY.**
+  Conditions are evaluated inside the simulation schedule, so a host that
+  re-simulates a mispredicted frame answers the same question twice. Without a
+  stamp the ring holds a speculative `no` beside its corrected `yes` and *"this
+  rule oscillated"* reads exactly like *"the first prediction was rolled back
+  and never became history"*. `VerdictStamp { simulation: Option<(session,
+  frame)>, confirmed }` is filled from `ConfirmedFrameBoundary`, and `record`
+  REPLACES a verdict with the same `(id, args, frame)` in place — the rule
+  `GameplayTraceBuffer` already settled
+  (`crates/ambition_gameplay_trace/src/buffer.rs`, which keys its own rows by
+  `simulation_identity() -> Option<(u64, i32)>` and replaces on correction),
+  adopted rather than re-derived. ⚠ No planning page owns that buffer, which
+  is why this cites the source: the obvious-looking
+  `runtime-frame-history.md` is a GENERATED perf table and resolves as a link
+  while answering a different question. An UNSTAMPED verdict is never replaced: an absent
+  boundary means no rollback host, so it happened once.
+  `confirm_through(session, frame)` re-stamps what the host later settles,
+  keyed on the session too, because a generation bump names a timeline that no
+  longer exists.
+
+  ⚠ **THE GENERAL RULE THIS LEAVES:** a diagnostic kept out of rollback state
+  is not thereby independent of rollback. Out of rollback is about what gets
+  REWOUND; the timeline identity is about what the record MEANS.
+
   ⚠ Still open beyond this: a way to read the log out of a RUNNING process
-  rather than out of a test.
+  rather than out of a test; and authored SOURCE context on a verdict (which
+  wall, dialogue node, encounter or quest asked), which would let the stream
+  establish that two neighbouring entries belong to one authored interaction
+  rather than merely to one tick.
 
 ## Candidate crate / Bevy ecosystem value
 

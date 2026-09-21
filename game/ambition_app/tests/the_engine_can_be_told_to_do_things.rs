@@ -98,7 +98,13 @@ fn a_refused_verb_and_the_question_it_followed_are_in_one_readable_stream() {
 
     let log = sim.world().resource::<AuthoredVerdictLog>();
     let refusal = log
-        .refusal_of(&set_flag)
+        .refusal_of(
+            &set_flag,
+            &[
+                AuthoredArg::Name(flag.to_string()),
+                AuthoredArg::Name("yes-please".to_string()),
+            ],
+        )
         .expect("the engine refused a verb and kept no reason");
     assert!(
         refusal.contains("on") && refusal.contains("Truth"),

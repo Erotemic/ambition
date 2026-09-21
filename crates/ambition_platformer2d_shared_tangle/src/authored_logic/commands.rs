@@ -198,6 +198,7 @@ impl CommandCatalog {
                 id: id.clone(),
                 args: args.to_vec(),
                 outcome: outcome.clone(),
+                stamp: super::verdict_stamp(world),
             }));
         }
         outcome

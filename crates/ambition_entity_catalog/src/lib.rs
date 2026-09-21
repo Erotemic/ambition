@@ -3946,10 +3946,14 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
                     // a brain pricing the drop as an immediate blast was
                     // pricing a trap as a strike.
                     //
-                    // ⚠ IT IS THE EARLIEST, NOT THE ONLY, MOMENT: a bomb also
-                    // detonates on a hard enough impact (`impact_speed`), and
-                    // that road depends on what somebody else does to it. The
-                    // fuse is the part the thrower can count on.
+                    // ⚠ IT IS THE LATEST, NOT THE ONLY, MOMENT: a bomb also
+                    // detonates on a hard enough impact (`impact_speed`),
+                    // which is SOONER and depends on what somebody else does
+                    // to it. The deadline is the part the thrower can count
+                    // on. (This comment said "earliest" for one commit, beside
+                    // the field the rename had just corrected — which is the
+                    // worse half of a rename, because prose is what a reader
+                    // trusts when the name and the comment disagree.)
                     detonates_by_s: p.fuse_s,
                 })
             })

@@ -233,7 +233,7 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     let why = sim
         .world()
         .resource::<AuthoredVerdictLog>()
-        .why_not_for(&flag_set)
+        .why_not_for(&flag_set, &[AuthoredArg::Name(flag.to_string())])
         .expect("the engine answered no and kept no reason");
     assert_eq!(why.term, "world.flag_set");
     assert_eq!(why.subject, flag);
@@ -255,13 +255,84 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     let refused = sim
         .world()
         .resource::<AuthoredVerdictLog>()
-        .latest_for(&nonsense)
+        .latest_for(&nonsense, &[AuthoredArg::Name(flag.to_string())])
         .expect("the catalog refused a question and kept no record of refusing");
     assert!(matches!(refused.outcome, ConditionOutcome::Unanswerable(_)));
     assert!(
         refused.to_string().contains("flag_set_maybe"),
         "a verdict renders without naming what was asked: {refused}"
     );
+
+    // ⛔⛤ **AND THE ANSWER CARRIES THE FRAME IT WAS PRODUCED ON, READ OFF THE
+    // HOST'S OWN BOUNDARY — REVIEWED 2026-09-20.** A diagnostic kept out of
+    // rollback state still needs rollback IDENTITY: a re-simulated frame
+    // answers the same question twice, and without a stamp the ring presents
+    // an abandoned prediction and its correction as two equally authoritative
+    // entries. The replacement rule itself is witnessed in the crate's own
+    // tests; this is about the stamp being FILLED rather than being a field
+    // nobody writes.
+    //
+    // ⛔ **A POISON PASSED THROUGH THE FIRST VERSION OF THIS ARM.** It read
+    // whatever boundary the harness happened to have and asserted the stamp
+    // matched — and this harness has NONE, so only the absent branch ever ran
+    // and breaking the present one was invisible. Both branches have to be
+    // taken, which means installing the resource rather than hoping for it.
+    use ambition_platformer2d::engine_core::ConfirmedFrameBoundary;
+    use ambition_platformer2d::platformer::authored_logic::VerdictStamp;
+    let stamp_now = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<AuthoredVerdictLog>()
+            .latest_for(&flag_set, &[AuthoredArg::Name(flag.to_string())])
+            .expect("the question is in the log")
+            .stamp
+    };
+    assert!(
+        sim.world().get_resource::<ConfirmedFrameBoundary>().is_none(),
+        "this harness grew a rollback host, so the premise below is stale"
+    );
+    // ⚠ THE ABSENT CASE IS NOT A HOLE. That resource's own module says an
+    // absent boundary means there is no rollback host and frames are
+    // confirmed, so an answer produced here happened once and can never be
+    // replaced.
+    assert_eq!(
+        stamp_now(&sim),
+        VerdictStamp {
+            simulation: None,
+            confirmed: true,
+        },
+        "no rollback host, so the answer should read as settled and \
+         unrepeatable"
+    );
+
+    sim.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 314,
+        confirmed: 313,
+        session: 9,
+    });
+    let _ = ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]);
+    assert_eq!(
+        stamp_now(&sim),
+        VerdictStamp {
+            simulation: Some((9, 314)),
+            confirmed: false,
+        },
+        "the stamp does not name the frame the host says it is on, so a \
+         corrected pass could not find its predecessor — and a guess would \
+         read as history"
+    );
+    // ⭐ AND THE CONFIRMED HALF IS READ, not assumed: the same question on a
+    // frame the host has already settled is not a guess.
+    sim.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 314,
+        confirmed: 314,
+        session: 9,
+    });
+    let _ = ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]);
+    assert!(
+        stamp_now(&sim).confirmed,
+        "a settled frame's answer still reads as speculative"
+    );
+    sim.world_mut().remove_resource::<ConfirmedFrameBoundary>();
 
     // ⚠ AND `None` FROM `why_not_for` HAS THREE CAUSES. A satisfied condition
     // must not read as "no reason recorded" — without this the arm above
@@ -277,9 +348,12 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
         ConditionOutcome::Satisfied
     );
     let log = sim.world().resource::<AuthoredVerdictLog>();
-    assert_eq!(log.why_not_for(&flag_set), None);
+    assert_eq!(
+        log.why_not_for(&flag_set, &[AuthoredArg::Name(flag.to_string())]),
+        None
+    );
     assert!(
-        log.latest_for(&flag_set)
+        log.latest_for(&flag_set, &[AuthoredArg::Name(flag.to_string())])
             .is_some_and(|v| v.outcome == ConditionOutcome::Satisfied),
         "a satisfied answer left the log, so `why_not_for(..) == None` cannot \
          be told apart from never having been asked"
@@ -938,7 +1012,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let row = {
         let mut query = sim
             .world_mut()
-            .query_filtered::<(&RoomSet, Option<&SessionScopeId>), With<SessionRoot>>();
+            .query::<(&RoomSet, &SessionRoot)>();
         let world = sim.world();
         let rows: Vec<_> = query.iter(world).collect();
         room_census_row(1.5, rows.into_iter(), None)
@@ -957,6 +1031,26 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     assert!(
         row.contains("sessions=1"),
         "one composed host, one session root: {row}"
+    );
+    // ⛔⛤ **THE SCOPE IS ASSERTED, AND IT WAS NOT — WHICH IS HOW THE ROW
+    // PRINTED `scope=?` FOR EVERY REAL ROOT FOR ONE COMMIT.** The census asked
+    // for `Option<&SessionScopeId>` as a SIBLING of `SessionRoot`, and the
+    // scope lives inside it (`SessionRoot(pub SessionScopeId)`), so the
+    // Option never matched. This arm repeated the same wrong query and never
+    // looked at the value: an instrument's own test agreeing with its defect.
+    let scope = {
+        let mut query = sim.world_mut().query::<&SessionRoot>();
+        let world = sim.world();
+        query
+            .iter(world)
+            .next()
+            .expect("the composed session root exists")
+            .0
+             .0
+    };
+    assert!(
+        row.contains(&format!("scope={scope}")),
+        "the row does not name the session's own scope ({scope}): {row}"
     );
     // ⚠ AND "NOTHING IS CROSSING" IS PRINTED RATHER THAN OMITTED. A row that
     // said nothing about the transaction would make a stalled crossing and a
@@ -994,7 +1088,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let moved = {
         let mut query = sim
             .world_mut()
-            .query_filtered::<(&RoomSet, Option<&SessionScopeId>), With<SessionRoot>>();
+            .query::<(&RoomSet, &SessionRoot)>();
         let world = sim.world();
         let rows: Vec<_> = query.iter(world).collect();
         room_census_row(2.5, rows.into_iter(), None)

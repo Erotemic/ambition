@@ -28,7 +28,7 @@
 use bevy::prelude::{App, Last, Plugin, Query, Res, With};
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_world::rooms::RoomSet;
 
 use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
@@ -44,7 +44,7 @@ use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 /// most likely to be looking.
 pub fn report_room_census(
     census: Res<RuntimeCensus>,
-    sessions: Query<(&RoomSet, Option<&SessionScopeId>), With<SessionRoot>>,
+    sessions: Query<(&RoomSet, &SessionRoot)>,
     crossing: Option<Res<RoomTransitionLoadState>>,
 ) {
     let Some(at) = census.due() else {
@@ -71,15 +71,23 @@ pub fn report_room_census(
 /// `RoomSet` and checks the id against the session's.
 pub fn room_census_row<'a>(
     at: f64,
-    sessions: impl ExactSizeIterator<Item = (&'a RoomSet, Option<&'a SessionScopeId>)>,
+    sessions: impl ExactSizeIterator<Item = (&'a RoomSet, &'a SessionRoot)>,
     crossing: Option<&ActiveRoomTransitionLoad>,
 ) -> String {
     let mut row = format!("[census] rooms t={at:.3} sessions={}", sessions.len());
     // ⚠ EVERY session, not the first. A composition with two session roots is
     // the state OW1 is heading for, and a row that silently reported one of
     // them would go on looking correct through the whole of that work.
-    for (room_set, scope) in sessions {
-        let scope = scope.map_or_else(|| "?".to_string(), |id| id.0.to_string());
+    for (room_set, root) in sessions {
+        // ⛔⛤ **THE SCOPE IS INSIDE `SessionRoot`, AND ASKING FOR IT AS A
+        // SIBLING COMPONENT PRINTED `?` FOR EVERY REAL ROOT — REVIEWED
+        // 2026-09-20.** `SessionRoot(pub SessionScopeId)` IS the scope; a root
+        // does not normally also carry a standalone `SessionScopeId`, so
+        // `Option<&SessionScopeId>` matched nothing and the field was a
+        // constant wearing a variable's clothes. The test repeated the same
+        // wrong query and never asserted the value, which is how a
+        // diagnostic's own arm can agree with its defect.
+        let scope = root.0 .0.to_string();
         let id_at = |index: usize| {
             room_set
                 .rooms
@@ -94,8 +102,17 @@ pub fn room_census_row<'a>(
             id_at(room_set.start),
             room_set.start,
         ));
-        let metadata = room_set.active_metadata();
-        if let Some(biome) = metadata.biome.as_deref() {
+        // ⚠ **`active_metadata()` INDEXES DIRECTLY AND WOULD PANIC ON THE
+        // STATE THIS ROW EXISTS TO REPORT.** `id_at` above is careful with an
+        // out-of-range `active`; one line later the metadata read went through
+        // `&self.rooms[self.active]`, so a world broken in exactly the way
+        // that makes somebody run this would kill the instrument instead of
+        // printing `active=<out-of-range>[73]`.
+        if let Some(biome) = room_set
+            .rooms
+            .get(room_set.active)
+            .and_then(|room| room.metadata.biome.as_deref())
+        {
             row.push_str(&format!(" biome={biome}"));
         }
         row.push(']');

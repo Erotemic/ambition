@@ -194,6 +194,7 @@ fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
         id: ConditionId::new("test", "counted"),
         args: vec![AuthoredArg::Number(f64::from(n))],
         outcome: ConditionOutcome::Satisfied,
+        stamp: VerdictStamp::default(),
     };
     for n in 0..10 {
         log.record(AuthoredVerdict::Asked(verdict(n)));
@@ -249,24 +250,200 @@ fn the_latest_answer_to_one_question_is_found_behind_other_questions() {
         id: mine.clone(),
         args: vec![],
         outcome: ConditionOutcome::NotSatisfied(WhyNot::new("test.mine", "subject", "observed")),
+        stamp: VerdictStamp::default(),
     }));
     for _ in 0..20 {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: noisy.clone(),
             args: vec![],
             outcome: ConditionOutcome::Satisfied,
+            stamp: VerdictStamp::default(),
         }));
     }
     assert_eq!(
-        log.why_not_for(&mine),
+        log.why_not_for(&mine, &[]),
         Some(WhyNot::new("test.mine", "subject", "observed")),
         "the reader's question was buried under a wall's and could not be found"
     );
-    assert_eq!(log.why_not_for(&noisy), None, "a `yes` has no why-not");
+    assert_eq!(log.why_not_for(&noisy, &[]), None, "a `yes` has no why-not");
     assert_eq!(
-        log.why_not_for(&ConditionId::new("test", "never_asked")),
+        log.why_not_for(&ConditionId::new("test", "never_asked"), &[]),
         None
     );
     log.clear();
-    assert!(log.is_empty() && log.why_not_for(&mine).is_none());
+    assert!(log.is_empty() && log.why_not_for(&mine, &[]).is_none());
+}
+
+/// ⛔⛤ **ONE CONDITION ID IS MANY QUESTIONS, AND THE LOOKUP USED TO ANSWER FOR
+/// WHICHEVER WAS ASKED LAST — REVIEWED 2026-09-20.**
+///
+/// `world.flag_set` is one id with as many subjects as the game has flags;
+/// `inventory.holds` one with as many as it has items. So a tick that asks
+/// about two doors is ordinary, and an id-keyed `why_not_for` hands somebody
+/// investigating the first one the reason the SECOND is shut — in the same
+/// units, in the same words, with nothing marking it.
+///
+/// ⚠ THE ARM THAT EXISTED PROTECTED AGAINST A DIFFERENT ID BURYING THE ENTRY
+/// (`test.mine` under twenty `test.noisy`). That is the rarer case. Two
+/// subjects of ONE id is the common one, and it was unguarded.
+#[test]
+fn two_subjects_of_one_condition_are_independently_answerable() {
+    let log = AuthoredVerdictLog::default();
+    let flag_set = ConditionId::new("world", "flag_set");
+    let asked = |door: &str, why: &str| {
+        log.record(AuthoredVerdict::Asked(ConditionVerdict {
+            id: flag_set.clone(),
+            args: vec![AuthoredArg::Name(door.to_string())],
+            outcome: ConditionOutcome::NotSatisfied(WhyNot::new("world.flag_set", door, why)),
+            stamp: VerdictStamp::default(),
+        }));
+    };
+    asked("door_A", "unset");
+    asked("door_B", "unset, and nobody has the key either");
+
+    let door = |name: &str| {
+        log.why_not_for(&flag_set, &[AuthoredArg::Name(name.to_string())])
+            .map(|why| why.observed)
+    };
+    assert_eq!(door("door_A").as_deref(), Some("unset"));
+    assert_eq!(
+        door("door_B").as_deref(),
+        Some("unset, and nobody has the key either"),
+        "the second subject's own reason is not retrievable"
+    );
+    assert_eq!(
+        door("door_C"),
+        None,
+        "a subject nobody asked about answered with somebody else's reason"
+    );
+    // ⚠ AND THE BROWSING HELPER STILL ANSWERS THE COARSE QUESTION, honestly
+    // named. Deleting it would push a reader who genuinely wants "did anybody
+    // ask this at all" into reconstructing it from `recent()`.
+    assert_eq!(
+        log.latest_for_id(&flag_set).map(|v| v.args),
+        Some(vec![AuthoredArg::Name("door_B".to_string())]),
+        "`latest_for_id` is the most recent ASKING, whatever its subject"
+    );
+}
+
+/// ⛔⛤ **A ROLLBACK HOST RE-SIMULATES A FRAME IT GUESSED WRONG ABOUT, AND AN
+/// APPEND-ONLY RING TURNS THAT INTO A CONTRADICTORY HISTORY — REVIEWED
+/// 2026-09-20.**
+///
+/// Keeping the ring out of rollback state is right: rewinding the evidence
+/// erases what an observer came to read. But without an identity the ring
+/// holds a speculative `no` and a corrected `yes` side by side, and *"this
+/// rule oscillated"* reads exactly like *"the first prediction was rolled back
+/// and never became history"*.
+///
+/// ⭐ THE RULE IS `GameplayTraceBuffer`'S: key the occurrence by
+/// `(session, frame)` and let the corrected pass REPLACE its predecessor.
+#[test]
+fn a_corrected_rollback_pass_replaces_its_prediction_instead_of_appending() {
+    let log = AuthoredVerdictLog::default();
+    let gate = ConditionId::new("world", "flag_set");
+    let record = |outcome: ConditionOutcome, frame: i32, confirmed: bool| {
+        log.record(AuthoredVerdict::Asked(ConditionVerdict {
+            id: gate.clone(),
+            args: vec![AuthoredArg::Name("door_A".to_string())],
+            outcome,
+            stamp: VerdictStamp {
+                simulation: Some((7, frame)),
+                confirmed,
+            },
+        }));
+    };
+    let no = ConditionOutcome::NotSatisfied(WhyNot::new("world.flag_set", "door_A", "unset"));
+
+    record(no.clone(), 120, false);
+    // Somebody else's question lands between the two passes, so the
+    // replacement cannot be "overwrite the last entry".
+    log.record(AuthoredVerdict::Asked(ConditionVerdict {
+        id: ConditionId::new("world", "flag_set"),
+        args: vec![AuthoredArg::Name("door_B".to_string())],
+        outcome: ConditionOutcome::Satisfied,
+        stamp: VerdictStamp {
+            simulation: Some((7, 120)),
+            confirmed: false,
+        },
+    }));
+    record(ConditionOutcome::Satisfied, 120, false);
+
+    assert_eq!(
+        log.len(),
+        2,
+        "the abandoned prediction is still in the ring beside its correction: \
+         {:?}",
+        log.recent()
+    );
+    assert_eq!(
+        log.latest_for(&gate, &[AuthoredArg::Name("door_A".to_string())])
+            .map(|v| v.outcome),
+        Some(ConditionOutcome::Satisfied)
+    );
+    // ⚠ AND IT REPLACED IN PLACE. The ring's order is the order things
+    // HAPPENED, and a correction did not happen after the question that
+    // followed it.
+    assert_eq!(
+        log.recent()[0].args(),
+        &[AuthoredArg::Name("door_A".to_string())],
+        "the corrected entry moved to the back, so the stream no longer reads \
+         in the order the frame ran"
+    );
+
+    // ⭐ A DIFFERENT FRAME IS A DIFFERENT OCCURRENCE, which is the control: a
+    // rule that genuinely flips between frames must still show both.
+    record(no.clone(), 121, false);
+    assert_eq!(log.len(), 3);
+
+    // ⭐ AND AN UNSTAMPED VERDICT IS NEVER REPLACED. With no rollback host
+    // nothing can be re-simulated, so two identical questions are two askings
+    // — collapsing them would hide a rule being hammered every tick.
+    let plain = AuthoredVerdictLog::default();
+    for _ in 0..3 {
+        plain.record(AuthoredVerdict::Asked(ConditionVerdict {
+            id: gate.clone(),
+            args: vec![],
+            outcome: ConditionOutcome::Satisfied,
+            stamp: VerdictStamp::default(),
+        }));
+    }
+    assert_eq!(plain.len(), 3);
+}
+
+/// ⚠ **CONFIRMATION ARRIVES AFTER THE ANSWER DOES**, so an entry recorded on a
+/// speculative frame must be able to become settled without being asked again.
+/// A reader that only ever saw `confirmed: false` would conclude the engine
+/// never settles anything.
+#[test]
+fn a_frame_the_host_later_confirms_stops_reading_as_a_guess() {
+    let log = AuthoredVerdictLog::default();
+    let gate = ConditionId::new("world", "flag_set");
+    let at = |frame: i32, session: u64| {
+        log.record(AuthoredVerdict::Asked(ConditionVerdict {
+            id: gate.clone(),
+            args: vec![AuthoredArg::Number(f64::from(frame))],
+            outcome: ConditionOutcome::Satisfied,
+            stamp: VerdictStamp {
+                simulation: Some((session, frame)),
+                confirmed: false,
+            },
+        }));
+    };
+    at(10, 1);
+    at(11, 1);
+    // ⚠ A DIFFERENT SESSION AT THE SAME FRAME NUMBER. Without the session in
+    // the key, confirming session 1 would settle a row belonging to a
+    // timeline that no longer exists — the exact reason
+    // `ConfirmedFrameBoundary` carries a generation.
+    at(10, 2);
+
+    log.confirm_through(1, 10);
+    let settled: Vec<bool> = log.recent().iter().map(|e| e.stamp().confirmed).collect();
+    assert_eq!(
+        settled,
+        vec![true, false, false],
+        "confirmation reached the wrong rows: {:?}",
+        log.recent()
+    );
 }

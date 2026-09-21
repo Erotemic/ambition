@@ -482,6 +482,7 @@ impl ConditionCatalog {
                 id: id.clone(),
                 args: args.to_vec(),
                 outcome: outcome.clone(),
+                stamp: verdict_stamp(world),
             }));
         }
         outcome
@@ -581,6 +582,88 @@ pub enum AuthoredVerdict {
     Ran(CommandVerdict),
 }
 
+impl AuthoredVerdict {
+    /// The arguments this invocation carried — the half of its identity that
+    /// the id does not supply.
+    pub fn args(&self) -> &[AuthoredArg] {
+        match self {
+            Self::Asked(v) => &v.args,
+            Self::Ran(v) => &v.args,
+        }
+    }
+
+    pub fn stamp(&self) -> VerdictStamp {
+        match self {
+            Self::Asked(v) => v.stamp,
+            Self::Ran(v) => v.stamp,
+        }
+    }
+
+    fn stamp_mut(&mut self) -> &mut VerdictStamp {
+        match self {
+            Self::Asked(v) => &mut v.stamp,
+            Self::Ran(v) => &mut v.stamp,
+        }
+    }
+
+    /// Same question or verb, same arguments, same simulation frame — the key
+    /// a corrected rollback pass replaces on. See [`VerdictStamp`].
+    fn same_occurrence(&self, other: &Self) -> bool {
+        let same_call = match (self, other) {
+            (Self::Asked(a), Self::Asked(b)) => a.id == b.id && a.args == b.args,
+            (Self::Ran(a), Self::Ran(b)) => a.id == b.id && a.args == b.args,
+            _ => false,
+        };
+        same_call
+            && self.stamp().simulation.is_some()
+            && self.stamp().simulation == other.stamp().simulation
+    }
+}
+
+/// **WHEN AN ANSWER WAS PRODUCED, AND WHETHER THAT MOMENT SURVIVED.**
+///
+/// ⛔⛤ **A DIAGNOSTIC OUTSIDE ROLLBACK STILL NEEDS ROLLBACK IDENTITY —
+/// REVIEWED 2026-09-20.** Keeping the ring out of rollback state is right:
+/// rewinding the evidence would erase exactly what an observer came to read.
+/// But a rollback host RE-SIMULATES a frame it guessed wrong about, so without
+/// a stamp the ring holds
+///
+/// ```text
+/// frame N (speculative)  world.flag_set("door_A") => no
+/// frame N (corrected)    world.flag_set("door_A") => yes
+/// ```
+///
+/// as two entries with nothing to say one belonged to an abandoned future —
+/// and *"this rule oscillated"* reads identically to *"the first prediction
+/// was rolled back and never became history"*. For a surface whose entire
+/// purpose is to explain the engine, unlabelled duplication is the wrong
+/// answer.
+///
+/// ⭐ **THE RULE IS THE ONE `GameplayTraceBuffer` ALREADY SETTLED:** key the
+/// occurrence by `(session, frame)` and let a corrected pass REPLACE its
+/// predecessor, rather than appending contradictory histories. That buffer
+/// carries the same `Option<(u64, i32)>` under the same name and for the same
+/// reason.
+///
+/// ⚠ **`None` MEANS NO ROLLBACK HOST, NOT "UNKNOWN".** `ConfirmedFrameBoundary`
+/// is absent exactly when nothing can rewind, and its own module says that
+/// case means *"confirm everything"*. An unstamped verdict is therefore never
+/// replaced: it happened once, in a timeline with no alternatives.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VerdictStamp {
+    /// `(rollback session generation, simulation frame)`, or `None` when no
+    /// rollback host is installed.
+    pub simulation: Option<(u64, i32)>,
+    /// Was the frame this answer was produced on already settled?
+    ///
+    /// ⚠ **A SPECULATIVE `true` IS IMPOSSIBLE AND A SPECULATIVE `false` IS
+    /// NOT A VERDICT ABOUT THE RULE.** A reader treating an unconfirmed entry
+    /// as history is reading a guess; the replacement rule above means the
+    /// entry it eventually reads is the corrected one, and this says whether
+    /// that has happened yet.
+    pub confirmed: bool,
+}
+
 impl std::fmt::Display for AuthoredVerdict {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -598,6 +681,7 @@ pub struct CommandVerdict {
     pub id: CommandId,
     pub args: Vec<AuthoredArg>,
     pub outcome: CommandOutcome,
+    pub stamp: VerdictStamp,
 }
 
 impl CommandVerdict {
@@ -643,6 +727,7 @@ pub struct ConditionVerdict {
     pub id: ConditionId,
     pub args: Vec<AuthoredArg>,
     pub outcome: ConditionOutcome,
+    pub stamp: VerdictStamp,
 }
 
 impl ConditionVerdict {
@@ -699,10 +784,51 @@ impl AuthoredVerdictLog {
         let Ok(mut entries) = self.entries.lock() else {
             return;
         };
+        // ⛔⛤ **A CORRECTED ROLLBACK PASS REPLACES ITS PREDECESSOR, IT DOES
+        // NOT APPEND — the rule `GameplayTraceBuffer` already settled.** Two
+        // entries for one `(question, arguments, frame)` would make "this
+        // rule oscillated" and "the first prediction was rolled back" read
+        // the same, which for a surface that exists to explain the engine is
+        // the wrong kind of honest. An UNSTAMPED verdict is never replaced:
+        // no rollback host means nothing can be re-simulated, so it happened
+        // once. See [`VerdictStamp`].
+        //
+        // ⚠ IT REPLACES IN PLACE rather than moving the entry to the back,
+        // because the ring's order is the order things HAPPENED and a
+        // correction did not happen later than the question after it.
+        if let Some(existing) = entries
+            .iter_mut()
+            .rev()
+            .find(|entry| entry.same_occurrence(&verdict))
+        {
+            *existing = verdict;
+            return;
+        }
         if entries.len() == self.capacity {
             entries.pop_front();
         }
         entries.push_back(verdict);
+    }
+
+    /// Re-stamp every entry whose frame the host has since confirmed.
+    ///
+    /// ⚠ **CONFIRMATION ARRIVES AFTER THE ANSWER DOES**, so an entry recorded
+    /// on a speculative frame stays marked speculative until something tells
+    /// the ring otherwise. A reader that only ever saw `confirmed: false`
+    /// would conclude the engine never settles.
+    pub fn confirm_through(&self, session: u64, confirmed_frame: i32) {
+        let Ok(mut entries) = self.entries.lock() else {
+            return;
+        };
+        for entry in entries.iter_mut() {
+            let stamp = entry.stamp();
+            if stamp.confirmed {
+                continue;
+            }
+            if matches!(stamp.simulation, Some((s, f)) if s == session && f <= confirmed_frame) {
+                entry.stamp_mut().confirmed = true;
+            }
+        }
     }
 
     /// Every verdict still in the ring, oldest first — questions and verbs
@@ -714,8 +840,35 @@ impl AuthoredVerdictLog {
             .unwrap_or_default()
     }
 
+    /// The last answer to this question ASKED WITH THESE ARGUMENTS.
+    ///
+    /// ⛔⛤ **THE ID ALONE IS NOT THE QUESTION — REVIEWED 2026-09-20.**
+    /// `world.flag_set` is one id with as many subjects as the game has
+    /// flags, and `inventory.holds` one with as many as it has items, so
+    ///
+    /// ```text
+    /// world.flag_set("door_A") -> no
+    /// world.flag_set("door_B") -> no
+    /// ```
+    ///
+    /// is an ordinary tick, after which an id-keyed lookup hands somebody
+    /// investigating door A the reason door B is shut. In the same units, in
+    /// the same words, with nothing marking it. [`Self::latest_for_id`] is
+    /// the browsing helper and is named so nobody reaches for it by accident.
+    pub fn latest_for(&self, id: &ConditionId, args: &[AuthoredArg]) -> Option<ConditionVerdict> {
+        let entries = self.entries.lock().ok()?;
+        entries.iter().rev().find_map(|entry| match entry {
+            AuthoredVerdict::Asked(v) if &v.id == id && v.args == args => Some(v.clone()),
+            _ => None,
+        })
+    }
+
     /// The last answer to this question, whatever it was asked with.
-    pub fn latest_for(&self, id: &ConditionId) -> Option<ConditionVerdict> {
+    ///
+    /// ⚠ A BROWSING HELPER. With more than one subject in flight this is
+    /// *"the most recent time anybody asked"*, which is a different question
+    /// from *"why is this one shut"*. Use [`Self::latest_for`] for that.
+    pub fn latest_for_id(&self, id: &ConditionId) -> Option<ConditionVerdict> {
         let entries = self.entries.lock().ok()?;
         entries.iter().rev().find_map(|entry| match entry {
             AuthoredVerdict::Asked(v) if &v.id == id => Some(v.clone()),
@@ -723,8 +876,19 @@ impl AuthoredVerdictLog {
         })
     }
 
-    /// The last attempt at this verb, whatever it was called with.
-    pub fn latest_run(&self, id: &CommandId) -> Option<CommandVerdict> {
+    /// The last attempt at this verb WITH THESE ARGUMENTS — see
+    /// [`Self::latest_for`] for why the id alone is not the invocation.
+    pub fn latest_run(&self, id: &CommandId, args: &[AuthoredArg]) -> Option<CommandVerdict> {
+        let entries = self.entries.lock().ok()?;
+        entries.iter().rev().find_map(|entry| match entry {
+            AuthoredVerdict::Ran(v) if &v.id == id && v.args == args => Some(v.clone()),
+            _ => None,
+        })
+    }
+
+    /// The last attempt at this verb, whatever it was called with. A browsing
+    /// helper, as [`Self::latest_for_id`] is.
+    pub fn latest_run_of_id(&self, id: &CommandId) -> Option<CommandVerdict> {
         let entries = self.entries.lock().ok()?;
         entries.iter().rev().find_map(|entry| match entry {
             AuthoredVerdict::Ran(v) if &v.id == id => Some(v.clone()),
@@ -737,8 +901,8 @@ impl AuthoredVerdictLog {
     ///
     /// ⚠ `None` has three causes, as with [`Self::why_not_for`]: never run,
     /// last run succeeded, or evicted from the ring.
-    pub fn refusal_of(&self, id: &CommandId) -> Option<String> {
-        self.latest_run(id)
+    pub fn refusal_of(&self, id: &CommandId, args: &[AuthoredArg]) -> Option<String> {
+        self.latest_run(id, args)
             .and_then(|verdict| verdict.refusal().map(str::to_string))
     }
 
@@ -749,8 +913,8 @@ impl AuthoredVerdictLog {
     /// answered yes, or answered `Unanswerable`. Use [`Self::latest_for`] to
     /// tell them apart; a consumer that reads `None` as *"it passed"* has
     /// made the same collapse [`ConditionOutcome`] is an enum to prevent.
-    pub fn why_not_for(&self, id: &ConditionId) -> Option<WhyNot> {
-        self.latest_for(id)
+    pub fn why_not_for(&self, id: &ConditionId, args: &[AuthoredArg]) -> Option<WhyNot> {
+        self.latest_for(id, args)
             .and_then(|verdict| verdict.why_not().cloned())
     }
 
@@ -766,6 +930,26 @@ impl AuthoredVerdictLog {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+/// Stamp an answer with the simulation frame it was produced on.
+///
+/// ⚠ **THE ABSENT RESOURCE IS THE NO-ROLLBACK CASE AND IT IS THE COMMON ONE.**
+/// `ConfirmedFrameBoundary`'s own module says so: *"When the resource is
+/// absent, there is no rollback host and frames are treated as confirmed."*
+/// A headless fixture, a demo shell and a single-player sandbox all land here,
+/// and an answer they produce happened exactly once.
+pub(crate) fn verdict_stamp(world: &World) -> VerdictStamp {
+    match world.get_resource::<ambition_platformer2d_core::ConfirmedFrameBoundary>() {
+        None => VerdictStamp {
+            simulation: None,
+            confirmed: true,
+        },
+        Some(boundary) => VerdictStamp {
+            simulation: Some((boundary.session, boundary.current)),
+            confirmed: boundary.is_confirmed(boundary.current),
+        },
     }
 }
 

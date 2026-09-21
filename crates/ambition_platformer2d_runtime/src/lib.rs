@@ -557,6 +557,18 @@ impl PluginGroup for PlatformerEnginePlugins {
             // `[census] rooms` is only useful in a host that actually crosses
             // rooms and every one of those composes this group. It registers
             // nothing unless the census is enabled.
+            //
+            // ⛔⛤ **AND THE CLOCK COMES WITH IT — THE REPORTER SHIPPED WITHOUT
+            // ITS RESOURCE FOR ONE COMMIT.** `RuntimeCensusPlugin` initializes
+            // `RuntimeCensus` and advances its `due_at`, and it was composed
+            // by `ambition_app` ALONE. So the demo hosts — Mary-O, Sanic,
+            // Twintrack, Smash — got the reporter from this group and not the
+            // `Res<RuntimeCensus>` it takes: with `AMBITION_PROFILE_CENSUS=1`
+            // set, exactly the hosts the row claimed to serve either skipped
+            // it silently or failed on the missing parameter. ⇒ An
+            // engine-wide facility gets an engine-wide composition owner, and
+            // `ambition_app` no longer adds a second one.
+            .add(ambition_dev_tools::runtime_census::RuntimeCensusPlugin)
             .add(crate::runtime_census::RoomCensusPlugin)
             // The one `RoomReplayRequested` consumer + the two content slots
             // that must precede it. In the group because content in EVERY host

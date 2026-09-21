@@ -41,7 +41,24 @@ fn catalog(sim: &Platformer2dSimHarness) -> ConditionCatalog {
 }
 
 fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
-    catalog(sim).evaluate(sim.world(), id, args, &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
+    ask_as(
+        sim,
+        &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"),
+        id,
+        args,
+    )
+}
+
+/// The same road, with the SOURCE chosen — `AuthoredAsk` is half of a
+/// verdict's identity, so an arm about two different askers has to be able to
+/// be two different askers.
+fn ask_as(
+    sim: &Platformer2dSimHarness,
+    asked_by: &ambition_platformer2d::platformer::authored_logic::AuthoredAsk,
+    id: &ConditionId,
+    args: &[AuthoredArg],
+) -> ConditionOutcome {
+    catalog(sim).evaluate(sim.world(), id, args, asked_by)
 }
 
 /// TWO INDEPENDENT DOMAINS PUBLISHED QUESTIONS INTO ONE CATALOG.
@@ -1294,8 +1311,8 @@ fn the_verdict_census_says_what_is_blocked_and_who_asked() {
     let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
     let row = verdict_census_row(2.5, Some(&entries));
     assert!(
-        row.contains("blocked=1[probe:a test]"),
-        "the row does not name who is blocked: {row}"
+        row.contains("stuck=1[probe:a test]"),
+        "the row does not name who is stuck: {row}"
     );
     assert!(row.contains("no=1"), "the row does not count the `no`: {row}");
     assert!(
@@ -1303,14 +1320,18 @@ fn the_verdict_census_says_what_is_blocked_and_who_asked() {
         "the row does not carry the refusal itself: {row}"
     );
 
-    // ⭐ THE CONTROL: setting the flag makes the same question answer yes, and
-    // a row that said "blocked" whatever the world was doing would read the
-    // same here.
+    // ⛔⛤ **THE CONTROL USED TO `clear()` THE RING, AND THAT IS WHAT HID THE
+    // DEFECT — REVIEW 2026-09-21.** `blocked` inserted a source on every
+    // negative and nothing removed one, so the only way a later `yes` could
+    // clear the row was for the earlier `no` to stop existing. A running game
+    // does not empty its diagnostic ring whenever a condition flips, so the
+    // control was measuring a world that cannot happen. The history stays
+    // here, which is the whole arm: both answers are in the ring and the row
+    // has to fold them.
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .data_mut()
         .set_flag(shut, true);
-    sim.world().resource::<AuthoredVerdictLog>().clear();
     assert_eq!(
         ask(&sim, &flag_set, &[AuthoredArg::Name(shut.to_string())]),
         ConditionOutcome::Satisfied
@@ -1318,8 +1339,70 @@ fn the_verdict_census_says_what_is_blocked_and_who_asked() {
     let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
     let open = verdict_census_row(3.5, Some(&entries));
     assert!(
-        open.contains("blocked=0") && !open.contains("last-no:"),
-        "the door opened and the census still reports it stuck: {open}"
+        open.contains("stuck=0"),
+        "the door opened, the `no` is still in the ring, and the census still calls it \
+         stuck: {open}"
+    );
+    // ⭐ AND THE FORENSIC HALF IS STILL THERE, so "nothing is stuck" is not
+    // being bought by forgetting. The `no` happened; `ever-no` is where it
+    // lives, and `last-no` still renders it.
+    assert!(
+        open.contains("ever-no=1") && open.contains("last-no:"),
+        "the refusal vanished from the record rather than being superseded: {open}"
+    );
+    assert!(
+        open.contains("asked=2"),
+        "the premise is that BOTH answers are in this ring: {open}"
+    );
+
+    // ⛔⛤ **ONE SOURCE'S SECOND QUESTION IS NOT ITS FIRST — AND A POISON GOT
+    // THROUGH HERE.** Folding the ring by SOURCE alone left every arm above
+    // green: `probe:a test` ended on a `yes` and the other asker ended on a
+    // `no`, so "last answer per source" and "last answer per question" agreed
+    // on both. They disagree exactly here — the same asker with one satisfied
+    // question and one still refused, the satisfied one answered LAST. A
+    // source-keyed fold reports nothing stuck and the refusal disappears.
+    let second_shut = "a_third_door_this_asker_also_cannot_open";
+    assert!(
+        matches!(
+            ask(&sim, &flag_set, &[AuthoredArg::Name(second_shut.to_string())]),
+            ConditionOutcome::NotSatisfied(_)
+        ),
+        "the premise is a second, still-refused question from the SAME asker"
+    );
+    assert_eq!(
+        ask(&sim, &flag_set, &[AuthoredArg::Name(shut.to_string())]),
+        ConditionOutcome::Satisfied,
+        "and the satisfied one answers LAST, so a source-keyed fold would end on a yes"
+    );
+    let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
+    let mixed = verdict_census_row(3.8, Some(&entries));
+    assert!(
+        mixed.contains("stuck=1[probe:a test]"),
+        "one asker's later `yes` about a DIFFERENT question cleared its outstanding \
+         `no`: {mixed}"
+    );
+
+    // ⛔ A DIFFERENT SOURCE'S IDENTICAL QUESTION IS NOT A REPEAT, so a `yes`
+    // from one does not unstick another. Without this, folding by id+args
+    // alone would let any passer-by clear somebody else's gate.
+    let other = ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new(
+        "probe",
+        "a different asker",
+    );
+    let still_shut = "a_second_door_nobody_has_opened";
+    let _ = ask_as(
+        &sim,
+        &other,
+        &flag_set,
+        &[AuthoredArg::Name(still_shut.to_string())],
+    );
+    let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
+    let two = verdict_census_row(4.0, Some(&entries));
+    assert!(
+        two.contains("stuck=2[probe:a different asker probe:a test]"),
+        "the second source's refusal is not its own, or it swallowed the first \
+         asker's outstanding one: {two}"
     );
 
     // ⛔ AND NO RING IS NOT AN EMPTY RING. A reader who has just enabled the
@@ -1328,7 +1411,7 @@ fn the_verdict_census_says_what_is_blocked_and_who_asked() {
     let absent = verdict_census_row(4.5, None);
     assert!(absent.contains("log=absent"), "{absent}");
     assert!(
-        !absent.contains("blocked="),
-        "an absent ring reported a blocked count: {absent}"
+        !absent.contains("stuck="),
+        "an absent ring reported a stuck count: {absent}"
     );
 }

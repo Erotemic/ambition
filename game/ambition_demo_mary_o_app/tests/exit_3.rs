@@ -157,3 +157,32 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     assert_eq!(MARY_O_MODE, "mary_o");
     assert!(STARTING_TIME > 0.0);
 }
+
+/// ⛔⛤ **A DEMO HOST HAD THE CENSUS REPORTERS AND NOT THE CLOCK THEY TAKE —
+/// REVIEWED 2026-09-20.**
+///
+/// `RuntimeCensusPlugin` initializes `RuntimeCensus` and advances its `due_at`,
+/// and for one commit it was composed by `ambition_app` ALONE while
+/// `[census] rooms` went into `PlatformerEnginePlugins`. So with
+/// `AMBITION_PROFILE_CENSUS=1` set, exactly the hosts the row claimed to serve
+/// — this one, Sanic, Twintrack, Smash — got a reporter taking a
+/// `Res<RuntimeCensus>` that nothing had inserted.
+///
+/// ⭐ **THIS IS THE CHEAPEST PLACE THE SPLIT IS VISIBLE**, because a demo app
+/// is the composition that has the engine group and none of `ambition_app`.
+/// The assertion is about the RESOURCE rather than about captured stderr: the
+/// row's content is witnessed in the app suite, and what was missing here was
+/// the thing that makes any row possible at all.
+#[test]
+fn a_demo_host_gets_the_census_clock_the_engine_group_reports_on() {
+    use ambition_platformer2d::dev_tools::runtime_census::RuntimeCensus;
+
+    let mut app = build_demo_app();
+    app.update();
+    assert!(
+        app.world().get_resource::<RuntimeCensus>().is_some(),
+        "this host composes `PlatformerEnginePlugins`, which registers census \
+         reporters — without the clock they take, an enabled census either \
+         fails on the missing parameter or silently never reports"
+    );
+}

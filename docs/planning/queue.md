@@ -3515,6 +3515,99 @@ projectile stepper (it is one fact with one owner today and that owner is a
 `systems.rs` call site); and what `max_knockback` means for a launcher, since
 the fighter rollout spends it as `LaunchSpeed(frames.max_knockback)`.
 
+✅ **AND THE THIRD FACTOR THE HIT RESOLVER SPENDS REACHED THE SCORER —
+STALING, 2026-09-21.** `LaunchConditions::growth_scale`'s own doc has said
+since the launch law was collapsed that it is *"its
+`victim_percent_knockback_scale` folded with THIS MOVE'S STALING INFLUENCE"*.
+The brain carried the first factor and not the second, and it carried no
+damage staling at all: `apply_hitbox_damage` resolves a landing as
+`damage × stale_scale(n)`, so on the smash stage's declared
+`0.05 / 0.55 / 0.30` a move landed nine times recently deals **55%** of what
+`expected_payoff` priced it at. A specification on the type and one term in
+the value.
+
+* `AttackCandidate::wear` is a `MoveWear` — `{ damage, launch_growth }` —
+  resolved by `attack_kit_of` from the body's own `BodyStaleMoves` ring and
+  the stage's `ResolvedCombatTuning`, in the layer that already joins a grab
+  to its capture params and a ranged move to its weapon. ⛔ It is NOT in
+  `MoveFrameData`: that is a pure derivation of a `MoveSpec`, and two bodies
+  holding one moveset wear their moves differently.
+* ⛔ **THE TWO HALVES ARE SEPARATE BECAUSE THE RESOLVER'S OWN SPLIT IS.** The
+  damage answer is spent whole; the launch answer is that weakening attenuated
+  by the declared influence and applied to the PERCENT TERM only, never to
+  `base`. Multiplying the whole launch by the stale factor is what once threw
+  away half of everything at high percent and stopped the stock ending.
+* ⭐ Both the share AND its scale take the wear, because a kit whose best
+  answer is worn out has a genuinely lower ceiling.
+
+⭐⭐ **JUDGED ON THE GAME: 7151% → 7096%, THIRTEEN OF TWENTY-ONE ROWS MOVED,
+SIX UP AND SEVEN DOWN.** Same instrument and stamp as the two sweeps above.
+
+| fighter | before | after | starts | distinct | most thrown |
+|---|---|---|---|---|---|
+| `npc_emmy_noether` | 146% / 146% | **193% / 193%** | 48+48 → 50+50 | 11+11 → 10+10 | `smash_forward` ×14 → ×10 |
+| `npc_ninja_shadow_oni_leader` | 179% / 182% | **202% / 206%** | 27+27 → 30+32 | 8+5 → 7+9 | `iaijutsu` ×14 → ×19 |
+| `projectile_polygon` | 104% / 218% | **144% / 228%** | 68+53 → 70+53 | 14+13 → 15+14 | `charge_shot` ×19 → ×18 |
+| `pugnacious_polygon` | 218% / 198% | 230% / 224% | 58+51 → 47+55 | 17+18 → 18+18 | `uppercut` ×10 → `haymaker` ×12 |
+| `goblin` | 144% / 119% | 170% / 123% | 65+62 → 68+67 | 15+12 → 15+11 | `dirt_kick` ×38 → ×45 |
+| `director` | 123% / 144% | 128% / 155% | 52+52 → 48+48 | 13+15 → 12+12 | `train_of_thought` ×20 → ×21 |
+| `npc_oiler` | 224% / 263% | 229% / 217% | 52+56 → 50+52 | 16+14 → 13+13 | `slick_dash` ×9 → `tilt_forward` ×10 |
+| `pointed_polygon` | 199% / 218% | 197% / 220% | 58+53 → 56+51 | 14+12 → 14+13 | `rising_edge` ×15 → `point` ×11 |
+| `mary_o_tall` | 206% / 244% | 206% / 240% | 65+71 → 60+65 | 13+13 → **16+13** | `slide` ×17 → ×15 |
+| `officer` | 116% / 127% | 116% / 127% | 56+40 → 56+40 | 14+8 → 14+9 | `the_draw` ×17 → ×17 |
+| `npc_alice` | 178% / 173% | 170% / 170% | 42+45 → 36+33 | 18+17 → 14+10 | `dash_attack` ×5 → `cipher_sweep` ×6 |
+| `player_robot_v3` | 225% / 223% | **163% / 179%** | 61+58 → 51+47 | 17+18 → 14+14 | `rocket_dash` ×15 → ×14 |
+| `perfect_cellular_automaton` | 201% / 195% | **125% / 103%** | 53+55 → 30+39 | 16+12 → 11+14 | `glider_launch` ×15 → ×9 |
+| the other 8 | — | bit-identical | — | — | — |
+
+⭐⭐ **AND THE POLYGON'S ROW CAME BACK BIT-IDENTICAL TO WHERE IT STARTED.**
+Against the sweep taken before ANY of this slice, `projectile_polygon` is
+byte-for-byte the pre-change run: the 40 points the damage half cost her are
+not approximately recovered, they are exactly undone. Her charge shot LANDS —
+88 damage across 19 presses — so it stales, and once it does her launchers
+price below her up smash again and the original order is restored. ⇒ **The
+two halves are one change**: pricing what a move deals without pricing what
+repetition costs is half a model, and the half was what moved her.
+
+⚠ **SEVEN ROWS FELL AND THE TWO HARD ONES ARE NAMED.** `player_robot_v3`
+(−106) and `perfect_cellular_automaton` (−168) both press LESS (61+58 → 51+47
+and 53+55 → 30+39). The net is −55 of 7151, which is flat, and −105 of 7201
+across the whole slice. ⛔ **THE READING IS THE SAME AS THE DAMAGE HALF'S AND
+SO IS THE JUDGEMENT.** The runtime has staled every landing since the
+mechanic shipped; a scorer spending un-staled numbers was reading a price the
+game does not pay, and no weight repairs a false input. What the sweep shows
+is that **the utility weights were fitted while `wear` was identically 1.0**
+— which is now stated in three places for three different features, and is
+the case for the ladder rig rather than for another scalar.
+
+⛔⛤ **AND ONE FIGHTER ON THE SHIPPED GRID CANNOT FIGHT AT ALL — MEASURED
+2026-09-21, AND STALING DOES NOT TOUCH IT.** `special_patent_clerk` is the
+grid's only duel-gate failure, and his row is the same in every sweep above
+because it is the same in every sweep: **80 move starts across TWO distinct
+moves, 79 of them `synchronize_clocks`, and eleven damage for the whole
+bout.** Both seats identically, hitstun `[12, 12]`, zero knockouts.
+
+⚠ **AND HE IS NOT OUT OF RANGE — HE IS ON TOP OF HIM.** `ticks within 60px:
+3573 of 3618`, closest 0px, and `synchronize_clocks` is a real strike (damage
+8, a 44 × 12 slice at his feet), so this is not the admission rule refusing a
+hopeless swing. 80 starts over 3618 ticks is one press every 45 ticks against
+a move that runs 0.65s plus a committed tail: **he is inside this move for the
+entire match**, which is why only two of his thirty-three authored moves are
+ever started.
+
+⚠ **THE MECHANISM IS UNATTRIBUTED AND THREE CANDIDATES ARE WRITTEN DOWN
+RATHER THAN ONE GUESSED AT.** (1) A CLASH — the two seats are in phase (`[sym]`
+splits by a pixel at tick 223), `arbitrate_attack_clashes` cancels two meeting
+attacks, and two identical moves thrown at the same instant would trade
+forever. (2) The move's OWN counter stance, a `smash_counter` over `0.0..0.20`
+that answers the ATTACKER with time dilation. (3) Something upstream of both.
+⛔ **STALING CANNOT BE THE ANSWER AND THAT IS EVIDENCE, NOT AN ASSUMPTION**:
+`BodyStaleMoves` records what LANDED, his move lands nothing, so his ring
+stays empty — and his row is bit-identical across the staling sweep, which is
+that reading measured rather than argued. A brain with no memory of a move
+that keeps producing NOTHING is the whiff half of the whiff/usage-memory
+slice, and it is the half neither of these increments touched.
+
 ⚠ **AND THE TELEPORT'S DESTINATION IS STILL MISSING**, which is the other half
 the review named: `TeleportParams` carries `behind_nearest_foe`, `behind_gap`
 and an aim, and none of it reaches the brain. See the teleport paragraph

@@ -129,6 +129,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 direction: AttackDir::Forward,
             },
             legality: ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
         AttackCandidate {
             move_id: "rig_smash".into(),
@@ -138,6 +139,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 direction: AttackDir::Forward,
             },
             legality: ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
         AttackCandidate {
             move_id: "rig_uptilt".into(),
@@ -147,6 +149,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 direction: AttackDir::Up,
             },
             legality: ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
     ]
 }

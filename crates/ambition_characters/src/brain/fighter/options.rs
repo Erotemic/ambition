@@ -530,7 +530,16 @@ pub fn generate_options(
     // whole kit priced at zero power and `expected_payoff` could not separate
     // her two shots — see `MoveFrameData::strongest_hit`, which is the one
     // place the two roads meet.
-    let kit_max_damage = kit.iter().map(|c| c.frames.strongest_hit()).max().unwrap_or(0);
+    //
+    // ⛔⛤ **AND WORN, WHICH THE HIT RESOLVER HAS ALWAYS BEEN AND THIS NEVER
+    // WAS.** A landing resolves as `damage × stale_scale(n)`; on the smash
+    // stage's declared `0.05 / 0.55` a move landed nine times recently deals
+    // **55%** of what this priced it at. Both the share and its scale take the
+    // wear, because a kit whose best answer is worn out has a genuinely lower
+    // ceiling — scaling only the numerator would make a worn move look weak
+    // against a fresh kit maximum that no longer exists.
+    let worn_damage = |c: &AttackCandidate| c.frames.strongest_hit() as f32 * c.wear.damage;
+    let kit_max_damage = kit.iter().map(worn_damage).fold(0.0_f32, f32::max);
     // ⭐⭐ **THE LAUNCH LAW THIS BODY IS ACTUALLY FIGHTING UNDER, ASSEMBLED
     // ONCE.** It used to be `base + growth × victim_damage` and nothing else,
     // on the reasoning that the ruleset's percent scale, the per-`base`
@@ -545,9 +554,20 @@ pub fn generate_options(
     // Polygon's forward and up smashes swap places at about 2 damage. Evaluating
     // the kit under the conditions above is the only way the share below ranks
     // the same order the game's own arithmetic would.
+    // ⛔⛤ **AND THE PERCENT TERM IS WORN PER CANDIDATE.** The hit resolver
+    // spends `victim_percent_knockback_scale × knockback_stale_scale(..)` and
+    // this carried only the first factor, though
+    // `LaunchConditions::growth_scale`'s own doc names both. A worn move keeps
+    // its base — a fresh opponent is thrown just as far — and loses the reach
+    // it gains from a damaged one, which is the split the resolver made and
+    // the reason it made it.
+    let worn_conditions = |c: &AttackCandidate| ambition_entity_catalog::launch::LaunchConditions {
+        growth_scale: launch_conditions.growth_scale * c.wear.launch_growth,
+        ..launch_conditions
+    };
     let kit_max_launch = kit
         .iter()
-        .map(|c| c.frames.launch.at(launch_conditions))
+        .map(|c| c.frames.launch.at(worn_conditions(c)))
         .fold(0.0_f32, f32::max);
     // ⭐ THE KIT'S SLOWEST STARTUP, which is what `frame_advantage` must be
     // normalised by for the RANKING. See the two call sites below: they ask
@@ -723,8 +743,8 @@ pub fn generate_options(
                 Some(hazard) => arrival_of(&c.frames, hazard),
                 None => threat_at(&c.frames),
             };
-            let power = if kit_max_damage > 0 {
-                c.frames.strongest_hit() as f32 / kit_max_damage as f32
+            let power = if kit_max_damage > 0.0 {
+                worn_damage(c) / kit_max_damage
             } else {
                 0.0
             };
@@ -805,7 +825,7 @@ pub fn generate_options(
                 // product.
                 kill_potential: foe.damage_frac()
                     * if kit_max_launch > 0.0 {
-                        c.frames.launch.at(launch_conditions) / kit_max_launch
+                        c.frames.launch.at(worn_conditions(c)) / kit_max_launch
                     } else {
                         0.0
                     }

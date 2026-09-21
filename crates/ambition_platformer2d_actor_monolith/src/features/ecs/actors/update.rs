@@ -327,6 +327,13 @@ pub fn tick_actor_brains(
                 // A brain inferring "I look like I am in recovery" would be answering a different
                 // question and would be wrong for every move with a cancel window.
                 Option<&ambition_combat::moveset::MovePlayback>,
+                // THE RING OF THIS BODY'S RECENT LANDINGS, so the attack kit
+                // can price a worn move the way the hit resolver will resolve
+                // it. Here for the same reason the moveset and the playback
+                // above are. `Option` because `ActorMoveset` `#[require]`s the
+                // component, so a body with no moveset has no ring — and no
+                // kit to stale either.
+                Option<&ambition_combat::stale::BodyStaleMoves>,
                 // WHAT IS TRUE OF THIS BODY'S LOCOMOTION, published once per
                 // tick by the movement kernel. The brain snapshot's
                 // `turns_at_walls` reads it instead of the spawn-time
@@ -427,6 +434,7 @@ pub fn tick_actor_brains(
             perception,
             moveset,
             playback,
+            stale_moves,
             motion_facts,
             motion_model,
         ),
@@ -519,6 +527,17 @@ pub fn tick_actor_brains(
                         &motion_facts.copied().unwrap_or_default(),
                         capture,
                         action_set.and_then(|actions| actions.ranged.as_ref()),
+                        // ⭐ HOW WORN THIS BODY'S MOVES ARE, resolved with the
+                        // stage's own rules — the same pair the hit resolver
+                        // spends. Both halves must be present: a ring with no
+                        // declared rules stales nothing, and declared rules
+                        // with no ring have nothing to stale.
+                        stale_moves.zip(combat_rules.as_deref()).map(
+                            |(recent, rules)| WornMoves {
+                                recent: *recent,
+                                rules: *rules,
+                            },
+                        ),
                     );
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
@@ -1728,6 +1747,42 @@ pub(crate) fn compute_crowding_by_id(
     crowding_by_id
 }
 
+/// **THE STALING THIS BODY IS CARRYING, AND THE RULES THAT SPEND IT.**
+///
+/// ⛔⛤ **THE HIT RESOLVER HAS ALWAYS SPENT THIS AND THE SCORER COULD NOT SEE
+/// IT.** `apply_hitbox_damage` resolves a landing as `damage × stale_scale(n)`
+/// and its launch's percent term as
+/// `victim_percent_knockback_scale × knockback_stale_scale(..)`; the brain's
+/// `LaunchLaw` carried only the first factor of that product, although
+/// `LaunchConditions::growth_scale`'s own doc names both. On the smash stage's
+/// declared `0.05 / 0.55 / 0.30` a fully worn move deals **55%** of what the
+/// brain priced it at.
+///
+/// ⭐ RESOLVED HERE, and the arithmetic stays in `ambition_combat::rules` —
+/// the brain crate cannot see that crate, and a second copy of the curve is
+/// the defect the launch law was collapsed to remove. This is the same shape
+/// as `LaunchLaw::rage`, which also travels as a number the caller resolved.
+#[derive(Clone, Copy)]
+pub(super) struct WornMoves {
+    /// The body's own ring of recent LANDINGS. A move that whiffed is not in
+    /// it: staling exists to stop one good answer being the only answer.
+    pub recent: ambition_combat::stale::BodyStaleMoves,
+    pub rules: ambition_combat::rules::ResolvedCombatTuning,
+}
+
+impl WornMoves {
+    fn of(self, move_id: &str) -> ambition_characters::brain::attack_kit::MoveWear {
+        let occurrences = self
+            .recent
+            .occurrences(ambition_combat::stale::stale_move_hash(move_id));
+        let damage = self.rules.stale_scale(occurrences);
+        ambition_characters::brain::attack_kit::MoveWear {
+            damage,
+            launch_growth: self.rules.knockback_stale_scale(damage),
+        }
+    }
+}
+
 /// The attacks this body can actually throw, as the fighter brain reads them.
 ///
 /// One row per move in the contract, with the frame data a player who read the
@@ -1764,6 +1819,11 @@ pub(super) fn attack_kit_of(
     // answers it. Exactly the join this function already performs between a
     // grab and its capture params.
     ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+    // ⭐ AND HOW WORN EACH MOVE IS ON THIS BODY, for the same reason `ranged`
+    // and `capture` are threaded: the caller holds the authority and the brain
+    // layer reads no ECS. `None` is a composition with no staling state or no
+    // declared rules, which is every move fresh. See `WornMoves`.
+    worn: Option<WornMoves>,
 ) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -1877,17 +1937,30 @@ pub(super) fn attack_kit_of(
             }
             let mut frames = spec.frame_data();
             resolve_owners_ranged_action(spec, &mut frames, ranged);
+            let wear = worn.map_or(
+                ambition_characters::brain::attack_kit::MoveWear::FRESH,
+                |worn| worn.of(&spec.id),
+            );
             kit.push(AttackCandidate {
                 move_id: spec.id.clone(),
                 frames,
                 binding: AttackBinding { verb, direction },
                 legality: legality_of(playback, verb_name, running_now, &spec.id),
+                wear,
             });
         }
     }
     // AND THE GRAB, which the three loops above cannot reach: it answers its
     // own button, not a direction on one of theirs.
-    if let Some(grab) = capture_candidate(moveset, grounded, playback) {
+    if let Some(mut grab) = capture_candidate(moveset, grounded, playback) {
+        // ⚠ A GRAB STALES LIKE EVERYTHING ELSE. It deals no damage, so the
+        // `damage` half moves nothing in `power`; the `launch_growth` half is
+        // what its THROW is priced on, and a thrown opponent is the reason a
+        // repeated grab is supposed to stop working.
+        grab.wear = worn.map_or(
+            ambition_characters::brain::attack_kit::MoveWear::FRESH,
+            |worn| worn.of(&grab.move_id),
+        );
         kit.push(grab);
     }
     kit
@@ -2109,6 +2182,8 @@ fn capture_candidate(
         // `grab_dash` to `grab` on its own, and this candidate is the standing
         // one. `false` is the honest answer rather than a value carried in.
         legality: legality_of(playback, ambition_entity_catalog::GRAB_VERB, false, &spec.id),
+        // Filled by the caller, which is the layer holding the stale ring.
+        wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
     })
 }
 
@@ -2148,6 +2223,9 @@ fn build_enemy_brain_snapshot(
     // it is an authority the caller already holds, and a ranged MOVE's numbers
     // live on it. See `attack_kit_of`.
     ranged: Option<&ambition_characters::brain::RangedActionSpec>,
+    // How worn this body's moves are, for the same reason `ranged` is here.
+    // See `WornMoves`.
+    worn: Option<WornMoves>,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: body.kin.pos,
@@ -2181,6 +2259,7 @@ fn build_enemy_brain_snapshot(
             brain,
             playback,
             ranged,
+            worn,
         ),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity

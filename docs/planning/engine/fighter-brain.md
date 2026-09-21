@@ -326,6 +326,44 @@ payoff is now paid in full — a swing's worth is discounted by the gap and a
 shot's is not. That is the missing term, and it is a feature (hazard coverage),
 not another scalar.
 
+### ⛔⛤ The resolver stales every landing and the chooser could not see it
+
+Reviewed 2026-09-21. `apply_hitbox_damage` resolves a landing as
+`damage × stale_scale(n)` and its launch's percent term as
+`victim_percent_knockback_scale × knockback_stale_scale(..)`. The brain's
+`LaunchLaw` carried only the first factor of that second product and no damage
+staling at all — while `LaunchConditions::growth_scale`'s own doc had named
+both factors since the launch law was collapsed into one copy. **A
+specification written on the type and one term carried in the value.**
+
+At the smash stage's declared `stale_step 0.05 / stale_floor 0.55 /
+stale_knockback_influence 0.30`, a move landed nine times recently deals
+**55%** of what `expected_payoff` priced it at, and its percent term keeps
+**86.5%** of its growth.
+
+⇒ `AttackCandidate::wear` carries `MoveWear { damage, launch_growth }`,
+resolved by `attack_kit_of` from the body's own `BodyStaleMoves` ring and the
+stage's `ResolvedCombatTuning`. ⛔ It is NOT part of `MoveFrameData`: that is a
+pure derivation of a `MoveSpec` and two bodies holding one moveset wear their
+moves differently — the same distinction `max_damage` keeps against a
+hazard's damage, one layer down.
+
+⛔ **THE TWO HALVES ARE SEPARATE BECAUSE THE RESOLVER'S SPLIT IS.** The damage
+answer is spent whole; the launch answer is that same weakening attenuated by
+the declared influence, applied to the PERCENT TERM and never to `base` — a
+worn move throws a FRESH opponent exactly as far as it always did. Collapsing
+them is what once threw away half of everything at high percent and stopped
+the stock ending, and a test that priced the launch with the DAMAGE scale
+passed a first, looser version of this arm: the band it checked admitted the
+confusion the two fields exist to prevent, so the arm pins the ratio the
+fixture's own arithmetic predicts.
+
+⭐ **AND IT IS WHAT MADE THE HAZARD-DAMAGE HALF WHOLE.** Pricing what a move
+deals without pricing what repeating it costs moved Projectile Polygon's row
+down 40 points; with staling in the kit her row is **bit-identical to the
+pre-change run**. Her charge shot lands, so it stales, and her launchers
+price below her up smash again.
+
 ### ⛔⛤ Recovery authority is a travel number and answers a movement question
 
 Reviewed 2026-09-20. `AuthoredRecoveryRoute::SustainedAuthority { seconds,

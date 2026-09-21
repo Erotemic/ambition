@@ -73,6 +73,64 @@ pub struct AttackCandidate {
     /// [`ActionLegality`]. Supplied by the caller, which is the only layer that
     /// can see the running `MovePlayback`.
     pub legality: ActionLegality,
+    /// **HOW WORN THIS MOVE IS ON THIS BODY** — the staling the hit resolver
+    /// will apply, resolved by the caller. [`MoveWear::FRESH`] for a world that
+    /// declares no staling and for a move nobody has landed lately.
+    pub wear: MoveWear,
+}
+
+/// **WHAT THIS BODY'S OWN RECENT LANDINGS ARE ABOUT TO DO TO THIS MOVE.**
+///
+/// ⛔⛤ **THE HIT RESOLVER SPENT IT AND THE SCORER COULD NOT SEE IT.**
+/// `apply_hitbox_damage` resolves a landing as `damage × stale_scale(n)` and
+/// `growth_scale = victim_percent_knockback_scale × knockback_stale_scale(..)`;
+/// the brain's `LaunchLaw` carried only the first half of that product, while
+/// `LaunchConditions::growth_scale`'s own doc had said all along that it is
+/// *"its `victim_percent_knockback_scale` folded with THIS MOVE'S STALING
+/// INFLUENCE"*. A specification on the type and one term in the value.
+///
+/// ⚠ **A FACT ABOUT THE BODY'S HISTORY, NOT ABOUT THE MOVE** — which is why it
+/// sits on the candidate and not in [`MoveFrameData`]. `frame_data` is a pure
+/// derivation of a `MoveSpec`; two bodies holding the same moveset wear their
+/// moves differently, and the same body wears them differently each tick.
+///
+/// ⚠ **RESOLVED BY THE CALLER, LIKE `LaunchLaw::rage`.** The arithmetic is
+/// `ambition_combat::rules::ResolvedCombatTuning`'s and stays there — the brain
+/// crate cannot see that crate, and the alternative to carrying the resolved
+/// numbers is a second copy of the curve, which is the defect the launch law
+/// was collapsed to remove.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MoveWear {
+    /// Multiplies what the move DEALS. `1.0` fresh; Smash's authored floor is
+    /// `0.55`, reached after nine recent landings at a step of `0.05`.
+    pub damage: f32,
+    /// Multiplies the launch's PERCENT TERM and nothing else — the ruleset's
+    /// declared `stale_knockback_influence` attenuating the same weakening on
+    /// its way to the launch. At Smash's `0.30` a fully stale move keeps
+    /// `1 − 0.30 × (1 − 0.55)` = `0.865` of its growth while its damage falls
+    /// to 55%.
+    ///
+    /// ⛔ NOT APPLIED TO `base`. A worn move launches as far from a fresh
+    /// opponent as it ever did; what it loses is the reach it gains from a
+    /// worn one. The hit resolver made exactly this split and the reason is
+    /// recorded there: multiplying the whole launch by the stale factor threw
+    /// away half of everything at high percent and the stock stopped ending.
+    pub launch_growth: f32,
+}
+
+impl MoveWear {
+    /// A move nobody has landed lately, and every world that declares no
+    /// staling.
+    pub const FRESH: Self = Self {
+        damage: 1.0,
+        launch_growth: 1.0,
+    };
+}
+
+impl Default for MoveWear {
+    fn default() -> Self {
+        Self::FRESH
+    }
 }
 
 /// CAN this action begin right now? — a question about the BODY's state,

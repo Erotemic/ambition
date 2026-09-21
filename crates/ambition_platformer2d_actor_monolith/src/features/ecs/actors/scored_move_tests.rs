@@ -322,7 +322,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
     let moveset = ActorMoveset(jab_uptilt_and_dash());
     let brain = fighter_brain();
 
-    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
+    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
     let standing_ids: Vec<&str> = standing.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
         standing_ids,
@@ -331,7 +331,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
          attack is not a new option everywhere, it is the answer to one stance"
     );
 
-    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None, None);
+    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None, None, None);
     let dashing_ids: Vec<&str> = dashing.iter().map(|c| c.move_id.as_str()).collect();
     assert!(
         dashing_ids.contains(&"dash_attack"),
@@ -370,7 +370,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
 fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
 
     let ids: Vec<&str> = kit.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
@@ -411,7 +411,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
@@ -433,7 +433,7 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
 
     let view = scene(16.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
@@ -458,7 +458,7 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
 #[test]
 fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None, None, None);
     let grab = kit
         .iter()
         .find(|candidate| candidate.move_id == "grab")
@@ -527,6 +527,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
                 direction: AttackDir::Neutral,
             },
             legality: ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
         AttackCandidate {
             move_id: "unblockable".to_string(),
@@ -536,6 +537,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
                 direction: AttackDir::Neutral,
             },
             legality: ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         },
     ];
     let profile = FighterBrainProfile::for_level(8);
@@ -649,6 +651,7 @@ fn the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept() {
         Some(&fighter_brain()),
         Some(&playback),
         None,
+        None,
     );
     let blocked: Vec<&str> = kit
         .iter()
@@ -699,6 +702,7 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
         false,
         Some(&fighter_brain()),
         Some(&playback),
+        None,
         None,
     );
     assert!(!kit.is_empty(), "an empty kit would make this arm vacuous");
@@ -774,6 +778,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         Some(&brain),
         None,
         Some(&cannon),
+        None,
     ));
     // 540px/s is constant, and the shot's own 10px half-extent is ground it
     // does not have to fly: 400px away is `(400 - 10) / 540`.
@@ -809,6 +814,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         Some(&brain),
         None,
         Some(&pistol),
+        None,
     ));
     assert!(
         short.reach() < joined.reach(),
@@ -833,6 +839,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         Some(&brain),
         None,
         Some(&ponytail),
+        None,
     ));
     assert!(
         (thrown.reach() - 83.1).abs() < 0.5,
@@ -875,7 +882,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
 
     // ⛔⛤ AND NO WEAPON MEANS NO HAZARD — not the request left standing, whose
     // `reach()` is the 1000px placeholder.
-    let unarmed = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None);
+    let unarmed = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
     assert_eq!(
         hazard_of(&unarmed),
         None,
@@ -932,7 +939,7 @@ fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
     });
     let brain = fighter_brain();
     let frames_with = |ranged: Option<&RangedActionSpec>| {
-        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, ranged)
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, ranged, None)
             .into_iter()
             .find(|c| c.move_id == "cannon")
             .expect("the cannon is the body's one move")
@@ -1003,6 +1010,7 @@ fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
         Some(&brain),
         None,
         Some(&cannon),
+        None,
     )
     .into_iter()
     .find(|c| c.move_id == "cannon")
@@ -1015,4 +1023,101 @@ fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
          is an overwrite",
         both.strongest_hit()
     );
+}
+
+/// ⛔⛤ **THE HIT RESOLVER HAS STALED EVERY LANDING SINCE THE MECHANIC EXISTED
+/// AND THE BRAIN THAT CHOOSES THE MOVES COULD NOT SEE IT.**
+///
+/// `apply_hitbox_damage` resolves a landing as `damage × stale_scale(n)` and
+/// its launch's percent term as
+/// `victim_percent_knockback_scale × knockback_stale_scale(..)`. The brain's
+/// `LaunchLaw` carried only the first factor of that product — while
+/// `LaunchConditions::growth_scale`'s own doc had said all along that it is
+/// *"its `victim_percent_knockback_scale` folded with THIS MOVE'S STALING
+/// INFLUENCE"*. A specification on the type and one term in the value.
+///
+/// ⚠ **THE NUMBERS ARE THE SHIPPED STAGE'S**, cited rather than imported for
+/// the reason the ranged arms above state: this crate sits below the content
+/// that declares them. `ambition_demo_smash` authors `stale_step: 0.05`,
+/// `stale_floor: 0.55`, `stale_knockback_influence: Some(0.30)`.
+#[test]
+fn a_move_this_body_keeps_landing_reaches_the_kit_already_worn() {
+    use ambition_characters::brain::attack_kit::MoveWear;
+    use ambition_combat::stale::{stale_move_hash, BodyStaleMoves};
+
+    let jab = strike_hitting_for("jab", 20.0, 10);
+    let smash = strike_hitting_for("smash_forward", 40.0, 16);
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "jab".to_string()),
+            ("smash_forward".to_string(), "smash_forward".to_string()),
+        ]),
+        moves: vec![jab, smash],
+    });
+    let brain = fighter_brain();
+
+    let smash_rules = ambition_combat::rules::ResolvedCombatTuning {
+        stale_step: 0.05,
+        stale_floor: 0.55,
+        stale_knockback_influence: 0.30,
+        ..Default::default()
+    };
+    // Nine recent landings of the jab and nothing else — the ring's whole
+    // length, which is the genre's own queue and the floor's reference point.
+    let mut ring = BodyStaleMoves::default();
+    for _ in 0..9 {
+        ring.record(stale_move_hash("jab"));
+    }
+
+    let wear_of = |worn: Option<super::update::WornMoves>, id: &str| {
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, worn)
+            .into_iter()
+            .find(|c| c.move_id == id)
+            .unwrap_or_else(|| panic!("the kit offers no `{id}`"))
+            .wear
+    };
+    let worn = Some(super::update::WornMoves {
+        recent: ring,
+        rules: smash_rules,
+    });
+
+    let jab_wear = wear_of(worn, "jab");
+    // `1 - 0.05 * 9 = 0.55`, which is exactly the declared floor.
+    assert!(
+        (jab_wear.damage - 0.55).abs() < 1.0e-6,
+        "nine landings of the jab left it at {} of its damage; 1.0 means the \
+         ring never reached the kit",
+        jab_wear.damage
+    );
+    // `1 - 0.30 * (1 - 0.55) = 0.865` — the damage falls to 55% while the
+    // percent term keeps 86.5%, which is the split the hit resolver makes.
+    assert!(
+        (jab_wear.launch_growth - 0.865).abs() < 1.0e-6,
+        "the worn jab's percent term reads {}; 0.55 is the damage answer \
+         spent twice and 1.0 is the influence never applied",
+        jab_wear.launch_growth
+    );
+
+    // ⭐ THE CONTROL, and without it the arm passes for a join that stales
+    // everything in the kit: the smash is in the same ring and has landed
+    // nothing.
+    assert_eq!(
+        wear_of(worn, "smash_forward"),
+        MoveWear::FRESH,
+        "a move this body has never landed came back worn"
+    );
+
+    // ⭐ AND THE SECOND CONTROL IS THE UNDECLARED WORLD — every Ambition room.
+    // `stale_step: 0.0` is no staling, so the same ring must change nothing.
+    let ambition = Some(super::update::WornMoves {
+        recent: ring,
+        rules: ambition_combat::rules::ResolvedCombatTuning::default(),
+    });
+    assert_eq!(
+        wear_of(ambition, "jab"),
+        MoveWear::FRESH,
+        "a world that declares no staling staled a move anyway"
+    );
+    // ⭐ AND NO AUTHORITY AT ALL, which is a composition with no stale ring.
+    assert_eq!(wear_of(None, "jab"), MoveWear::FRESH);
 }

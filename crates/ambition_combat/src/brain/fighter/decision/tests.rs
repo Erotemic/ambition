@@ -98,6 +98,7 @@ fn armed_snapshot() -> BrainSnapshot {
                 direction: AttackDir::Forward,
             },
             legality: ambition_characters::brain::attack_kit::ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         }],
         abilities: Some(ae::AbilitySet::basic()),
         ..BrainSnapshot::idle()
@@ -1689,6 +1690,7 @@ fn a_kit_that_cannot_reach_presses_the_move_that_closes_the_distance() {
                 direction: AttackDir::Forward,
             },
             legality: ambition_characters::brain::attack_kit::ActionLegality::Now,
+            wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
         });
 
     let (cfg, mut state) = rig(immediate_profile());

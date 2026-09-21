@@ -7102,6 +7102,7 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
             direction: AttackDir::Forward,
         },
         legality: ActionLegality::Now,
+        wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
     }];
     snapshot.actor_pos = ae::Vec2::new(300.0, 300.0);
     snapshot.actor_facing = 1.0;

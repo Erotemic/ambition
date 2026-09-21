@@ -60,6 +60,9 @@ fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
             direction: AttackDir::Forward,
         },
         legality: ActionLegality::Now,
+        // A move nobody has landed lately, which is what every fixture here
+        // means unless it says otherwise.
+        wear: crate::brain::attack_kit::MoveWear::FRESH,
     }
 }
 
@@ -1299,6 +1302,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             direction: AttackDir::Forward,
         },
         legality: ActionLegality::Now,
+        wear: crate::brain::attack_kit::MoveWear::FRESH,
     };
     let jab = AttackCandidate {
         move_id: "jab".to_string(),
@@ -1307,6 +1311,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             direction: AttackDir::Forward,
         },
         legality: ActionLegality::Now,
+        wear: crate::brain::attack_kit::MoveWear::FRESH,
         frames: MoveFrameData {
             // This fixture authors no windbox.
             push_coverage: None,
@@ -1669,6 +1674,7 @@ fn grab_candidate(reach: f32) -> AttackCandidate {
             direction: AttackDir::Neutral,
         },
         legality: ActionLegality::Now,
+        wear: crate::brain::attack_kit::MoveWear::FRESH,
     }
 }
 
@@ -2751,5 +2757,160 @@ fn a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move() 
         payoff(strike).is_some_and(|p| p > 0.0),
         "a 0.08s jab into a 0.4s window lost its payoff, so the change \
          reached further than launchers"
+    );
+}
+
+/// ⛔⛤ **A WORN MOVE WAS PRICED AT ITS FRESH DAMAGE, AND THE HIT RESOLVER HAD
+/// BEEN STALING IT ALL ALONG.**
+///
+/// `expected_payoff` is the move's power over the kit's strongest, and it read
+/// `MoveFrameData` — a pure derivation of the `MoveSpec`, identical for a move
+/// thrown once and a move thrown nine times. The runtime resolves the landing
+/// as `damage × stale_scale(n)`, so on the smash stage's declared `0.05 / 0.55`
+/// the scorer was pricing a fully worn move at 182% of what it deals.
+///
+/// ⭐ **AND THE CONTROL IS THE SWAP.** "The fresh one wins" is also what
+/// declaration order produces, so the two candidates exchange their wear and
+/// the other one must win.
+#[test]
+fn a_move_this_body_has_worn_out_loses_to_the_one_it_has_not() {
+    use crate::brain::attack_kit::MoveWear;
+    // Identical in every respect the scorer can see EXCEPT the wear: same
+    // startup, same reach, same damage, same coverage.
+    let worn_pair = |a: MoveWear, b: MoveWear| {
+        let mut first = candidate("overused", 0.1, 100.0);
+        first.frames.max_damage = 10;
+        first.wear = a;
+        let mut second = candidate("rested", 0.1, 100.0);
+        second.frames.max_damage = 10;
+        second.wear = b;
+        vec![first, second]
+    };
+    // The floor and the influence the smash stage declares, reached after nine
+    // recent landings.
+    let worn = MoveWear {
+        damage: 0.55,
+        launch_growth: 0.865,
+    };
+
+    // A committed opponent, because `expected_payoff` is gated on the move
+    // plausibly landing and that gate is zero for everybody in neutral.
+    let mut view = view_with(300.0, 400.0);
+    view.actors[0].phase = BodyPhase::AttackRecovery;
+    view.actors[0].phase_remaining = 0.6;
+    let weights = UtilityWeights::v1();
+    let best = |kit: Vec<AttackCandidate>| {
+        generate_options(
+            Perceived::cheating(&view),
+            Situation::Advantage,
+            &kit,
+            &weights,
+        )
+        .best_attack()
+        .map(|a| a.move_id.clone())
+    };
+
+    assert_eq!(
+        best(worn_pair(worn, MoveWear::FRESH)).as_deref(),
+        Some("rested"),
+        "the worn move still outbid the fresh one, so the wear never reached \
+         the payoff"
+    );
+    assert_eq!(
+        best(worn_pair(MoveWear::FRESH, worn)).as_deref(),
+        Some("overused"),
+        "THE CONTROL: with the wear exchanged the winner did not change, so \
+         this arm is reading the list order"
+    );
+}
+
+/// ⛔⛤ **AND THE PERCENT TERM IS WORN SEPARATELY, WHICH IS THE HALF A SINGLE
+/// SCALE WOULD HAVE GOT WRONG.**
+///
+/// The hit resolver spends `victim_percent_knockback_scale ×
+/// knockback_stale_scale(..)` on the launch's GROWTH and leaves `base` alone —
+/// the reason is recorded where it made the split: multiplying the whole
+/// launch by the stale factor threw away half of everything at high percent
+/// and the stock stopped ending. So a worn finisher must launch a FRESH
+/// opponent exactly as far as it always did and a worn one less far.
+#[test]
+fn wearing_a_finisher_out_costs_it_the_percent_term_and_not_its_base() {
+    use crate::brain::attack_kit::MoveWear;
+    let worn = MoveWear {
+        damage: 0.55,
+        launch_growth: 0.865,
+    };
+    // Base 100 growing 2.0 per point, against a FLAT 150 that never grows.
+    // The two cross somewhere in the percent range, which is what makes the
+    // share below able to move at all — a kit of one candidate always shares
+    // 1.0 against itself.
+    let kit = |wear: MoveWear| {
+        let mut finisher = candidate_with_growth("finisher", 0.1, 100.0, 100.0, 2.0);
+        finisher.wear = wear;
+        // ⚠ THE REFERENCE IS FRESH, SET, AND BIGGER THAN EITHER READING OF
+        // THE FINISHER. A launch with no growth declines the percent term
+        // entirely (`launch_speed` short-circuits on zero growth), so the
+        // wear cannot touch it — and keeping it above both readings means
+        // `kit_max_launch` is the SAME number in the two runs, so the share
+        // moves only because the finisher did. A yardstick that the subject
+        // can overtake is not a yardstick.
+        let mut reference = candidate_with_launch("reference", 0.1, 100.0, 400.0);
+        reference.wear = MoveWear::FRESH;
+        vec![finisher, reference]
+    };
+    let kill_of = |damage_taken: i32, wear: MoveWear| {
+        let mut view = view_with(300.0, 400.0);
+        view.actors[0].damage_taken = damage_taken;
+        generate_options(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &kit(wear),
+            &UtilityWeights::v1(),
+        )
+        .attacks
+        .iter()
+        .find(|a| a.move_id == "finisher")
+        .map(|a| a.features.kill_potential)
+        .expect("the finisher is in the kit")
+    };
+
+    // ⚠ AT 0% THERE IS NOTHING TO LOSE. `kill_potential` rides the foe's
+    // damage fraction, so this reads zero either way — which is the
+    // base-is-untouched claim at the one percent where base is the whole
+    // launch, and it is a CONTROL rather than the subject.
+    assert_eq!(kill_of(0, worn), kill_of(0, MoveWear::FRESH), "0%");
+
+    // ⭐ AT 60% THE PERCENT TERM IS MOST OF THE LAUNCH, and the worn
+    // finisher's share of the kit's best must fall.
+    let fresh = kill_of(60, MoveWear::FRESH);
+    let stale = kill_of(60, worn);
+    assert!(fresh > 0.0, "the fixture scored no kill potential at all");
+    assert!(
+        stale < fresh,
+        "a worn finisher was priced to finish as hard as a fresh one \
+         ({stale} vs {fresh})"
+    );
+    // ⛔⛤ **AND THE AMOUNT, NOT A BAND — A LOOSE ONE TOOK A POISON CLEAN.**
+    // This said `stale > fresh * 0.55`, reasoning that 55% of the fresh share
+    // would mean the DAMAGE answer had been spent on the launch. Spending
+    // `wear.damage` on the growth term instead resolves to 0.249 against a
+    // fresh 0.33 — comfortably inside that band and exactly the confusion the
+    // two fields exist to prevent. ⇒ The ratio is arithmetic the fixture can
+    // state: `kill_potential` is `damage_frac × launch / kit_max_launch`, so
+    // the foe's meter and the yardstick cancel and what is left is the two
+    // launches. Written out from the fixture's own numbers rather than as a
+    // constant, so a reader can see which factor rides which term.
+    let base = 100.0_f32;
+    let growth = 2.0_f32;
+    let victim_damage = 60.0_f32;
+    let expected =
+        (base + growth * worn.launch_growth * victim_damage) / (base + growth * victim_damage);
+    assert!(
+        (stale / fresh - expected).abs() < 1.0e-4,
+        "the worn finisher kept {} of its fresh kill share; {expected} is the \
+         influence riding the GROWTH, and {} would be the damage answer spent \
+         on the launch instead",
+        stale / fresh,
+        (base + growth * worn.damage * victim_damage) / (base + growth * victim_damage),
     );
 }

@@ -395,6 +395,9 @@ mod he_uses_the_gust {
                     frames: spec.frame_data(),
                     binding: AttackBinding { verb, direction },
                     legality: ActionLegality::Now,
+                    // A fixture kit built here, not by the production join:
+                    // nothing in it has landed anything.
+                    wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
                 });
             }
         }

@@ -1991,7 +1991,18 @@ fn resolve_owners_ranged_action(
     // A shot that cannot leave the body is not an offer. `free` alone is the
     // hazard's own half-extent, which is a description of the object rather
     // than of anything it can do to somebody standing away from it.
-    frames.hazard = (travel.reach() > free).then_some(MoveHazard::Spawned(travel));
+    // ⭐ **AND WHAT IT TAKES OFF THEM, WHICH IS THE OTHER HALF OF THE SAME
+    // JOIN.** `MoveFrameData::max_damage` folds Active volumes and a shot is
+    // not one, so every ranged move reached the option scorer priced at zero
+    // power. The number is on the same `RangedActionSpec` the reach came from.
+    //
+    // ⚠ THE UNCHARGED SHOT, for the reason stated above the flight: a
+    // `RangedCharge` multiplies damage as well as speed, and the press being
+    // weighed is the one about to be made.
+    frames.hazard = (travel.reach() > free).then_some(MoveHazard::Spawned {
+        travel,
+        damage: spec.damage,
+    });
 }
 
 /// CAN THE BODY BEGIN THIS MOVE THIS TICK? — asked of the same function that

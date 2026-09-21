@@ -1575,12 +1575,17 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
     // Placed and live immediately, so the whole of its 700px is available the
     // instant it exists — this arm is about the REACH rule and a flight time
     // would put a second variable in it.
-    bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned(
-        ambition_entity_catalog::ThreatTravel::Placed {
+    bolt.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+        travel: ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
             detonates_by_s: 0.0,
         },
-    ));
+        // This arm is about the ADMISSION rule, so the hazard deals what the
+        // candidate's volumes do — nothing. A damage here would price the
+        // bolt above the jab and change which move wins, which is a different
+        // question than whether it is offered at all.
+        damage: 0,
+    });
     let kit = vec![jab, buff, bolt];
     let weights = UtilityWeights::default();
 
@@ -2504,25 +2509,27 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
 
     // 700px of reach, crossed at 300px/s: the shot needs over two seconds to
     // arrive, and in that time the foe has walked past the end of its flight.
-    let travelling = ambition_entity_catalog::MoveHazard::Spawned(
-        ambition_entity_catalog::ThreatTravel::Straight {
+    let travelling = ambition_entity_catalog::MoveHazard::Spawned {
+        travel: ambition_entity_catalog::ThreatTravel::Straight {
             speed: 300.0,
             span: 700.0,
             free: 0.0,
         },
-    );
+        damage: 0,
+    };
     // ⚠ **THE CONTROL IS A PLACEMENT THAT ARMS INSTANTLY, AND IT IS NOT THE
     // SHIPPED BOMB.** It used to be described as *"a laid bomb"*, which was a
     // category error the reviewer caught: the polygon's bomb sits on a
     // four-second fuse and is the subject of its own arm below. What this
     // control needs is the same 700px of reach with the FLIGHT term removed,
     // so that a refusal above can only be about the flight.
-    let placed_and_live = ambition_entity_catalog::MoveHazard::Spawned(
-        ambition_entity_catalog::ThreatTravel::Placed {
+    let placed_and_live = ambition_entity_catalog::MoveHazard::Spawned {
+        travel: ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
             detonates_by_s: 0.0,
         },
-    );
+        damage: 0,
+    };
 
     assert!(
         !offered(travelling, 200.0),
@@ -2557,12 +2564,13 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
     // placed object is placed where it is placed, so it is aimed nowhere and
     // travels for zero, and this arm now says THAT. Nothing prices the fuse
     // yet and that is written down on the type rather than patched in here.
-    let on_a_fuse = ambition_entity_catalog::MoveHazard::Spawned(
-        ambition_entity_catalog::ThreatTravel::Placed {
+    let on_a_fuse = ambition_entity_catalog::MoveHazard::Spawned {
+        travel: ambition_entity_catalog::ThreatTravel::Placed {
             reach: 700.0,
             detonates_by_s: 4.0,
         },
-    );
+        damage: 0,
+    };
     assert!(
         offered(on_a_fuse, 200.0),
         "a placed hazard was aimed at where the opponent will be in four \
@@ -2577,5 +2585,171 @@ fn a_travelling_hazard_is_aimed_where_the_foe_will_be_when_it_arrives() {
         on_a_fuse.detonates_by_s(),
         4.0,
         "the fuse survived being taken out of the lead"
+    );
+}
+
+/// ⛔⛤ **TWO LAUNCHERS WERE INDISTINGUISHABLE ON POWER, HOWEVER HARD EITHER
+/// ONE HIT.**
+///
+/// `expected_payoff` is a move's damage over the kit's strongest, and it asked
+/// `MoveFrameData::max_damage` — a fold over ACTIVE VOLUMES. A launcher
+/// authors none, so a kit of nothing but launchers had `kit_max_damage == 0`
+/// and every candidate's power was zero: the feature was not merely wrong
+/// about the order, it was switched off for the whole projectile half of the
+/// roster.
+///
+/// ⚠ **THE SUBJECT IS THE ORDER, so the two candidates differ in ONE thing.**
+/// Same startup, same (absent) volume, same hazard reach and law; only the
+/// damage the hazard deals. Projectile Polygon's real pair is `7` and `4`.
+///
+/// ⭐ **AND THE CONTROL IS THE SWAP**, because "the stronger one wins" is also
+/// what declaration order, `Vec` order and a stable sort would produce. With
+/// the numbers exchanged the other move must win, or this arm is measuring the
+/// list and not the feature.
+#[test]
+fn the_stronger_of_two_launchers_is_the_one_offered() {
+    let launcher = |id: &str, damage: i32| {
+        let mut c = candidate(id, 0.2, 0.0);
+        // No volume on the body: the shot IS the damage, which is the shape
+        // this arm exists for.
+        c.frames.max_damage = 0;
+        c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+            // Placed and live at once, so neither candidate's flight time can
+            // enter the aim lead and separate them for a second reason.
+            travel: ambition_entity_catalog::ThreatTravel::Placed {
+                reach: 700.0,
+                detonates_by_s: 0.0,
+            },
+            damage,
+        });
+        c
+    };
+    let weights = UtilityWeights::v1();
+    // ⛔ A COMMITTED OPPONENT, AND THE FEATURE'S OWN DOC SAYS WHY. Payoff is
+    // `power` GATED on the move plausibly landing, and in neutral that gate
+    // is zero for everybody — deliberately, so power cannot smuggle itself
+    // into every exchange. Asking this question of a neutral view would
+    // measure the tie-break.
+    let view = {
+        let mut v = view_with(300.0, 400.0);
+        v.actors[0].phase = BodyPhase::AttackRecovery;
+        v.actors[0].phase_remaining = 0.6;
+        v
+    };
+    let best = |kit: &[AttackCandidate]| {
+        generate_options(
+            crate::perception::Perceived::cheating(&view),
+            Situation::Advantage,
+            kit,
+            &weights,
+        )
+        .attacks
+        .first()
+        .map(|a| a.move_id.clone())
+    };
+
+    assert_eq!(
+        best(&[launcher("ponytail", 7), launcher("cannon", 4)]).as_deref(),
+        Some("ponytail"),
+        "the 4-damage shot outranked the 7-damage one"
+    );
+    assert_eq!(
+        best(&[launcher("ponytail", 4), launcher("cannon", 7)]).as_deref(),
+        Some("cannon"),
+        "THE CONTROL: with the damages exchanged the winner did not change, \
+         so this arm is reading the list order and not the damage"
+    );
+}
+
+/// ⛔⛤ **THE PAYOFF GATE ASKED `startup_s`, AND FOR A LAUNCHER THAT IS THE
+/// WHOLE MOVE — SO EVERY RANGED MOVE IN THE GAME WAS PRICED AT ZERO POWER
+/// WHATEVER IT DEALT.**
+///
+/// `startup_s` is *"time until the first Active window"* and falls back to the
+/// move's DURATION when there is none, which is the shape of every launcher.
+/// The gate is `their_commitment > startup_s`: it was asking whether the
+/// opponent is committed for longer than the attacker's entire animation.
+///
+/// ⭐ **THIS IS THE SAME DEFECT THE AIM LEAD WAS CORRECTED FOR ONE DAY AND ONE
+/// FIELD EARLIER**, which is why it is worth a test rather than a one-line
+/// change: a field derived with a fallback answers two questions, and fixing
+/// the first reader does not fix the second. The lead got
+/// `threat_live_at_s`; this gets *when the move CONNECTS*, which for a shot is
+/// the throw plus the flight.
+#[test]
+fn a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move() {
+    // A launcher shaped like `polygon_projectile_charge_shot`: fires at 0.26s,
+    // reports `startup_s` 0.58s because it lands no volume.
+    let launcher = |id: &str, travel: ambition_entity_catalog::ThreatTravel| {
+        let mut c = candidate(id, 0.58, 0.0);
+        c.frames.threat_live_at_s = Some(0.26);
+        c.frames.max_damage = 0;
+        c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+            travel,
+            damage: 9,
+        });
+        c
+    };
+    // Instant: placed and live, so `connects_at` is the throw itself.
+    let instant = ambition_entity_catalog::ThreatTravel::Placed {
+        reach: 700.0,
+        detonates_by_s: 0.0,
+    };
+    // The same 700px of reach, crossed at 100px/s. Against a foe 100px away
+    // the flight alone is a second — longer than any opening.
+    let slow = ambition_entity_catalog::ThreatTravel::Straight {
+        speed: 100.0,
+        span: 700.0,
+        free: 0.0,
+    };
+
+    // A committed opponent: 0.4s of recovery left, which is longer than the
+    // 0.26s throw and SHORTER than the 0.58s animation. That band is exactly
+    // where the old gate and the new one disagree.
+    let mut view = view_with(300.0, 400.0);
+    view.actors[0].phase = BodyPhase::AttackRecovery;
+    view.actors[0].phase_remaining = 0.4;
+    let weights = UtilityWeights::v1();
+    let payoff = |c: AttackCandidate| {
+        let id = c.move_id.clone();
+        generate_options(
+            Perceived::cheating(&view),
+            Situation::Advantage,
+            &[c],
+            &weights,
+        )
+        .attacks
+        .iter()
+        .find(|a| a.move_id == id)
+        .map(|a| a.features.expected_payoff)
+    };
+
+    assert!(
+        payoff(launcher("quick", instant)).is_some_and(|p| p > 0.0),
+        "a shot that is live the moment it is thrown, into a window twice as \
+         long as the throw, was still worth nothing"
+    );
+    // ⭐ THE CONTROL, and it is what separates this from simply swapping one
+    // field for another: the SAME reach and the same throw, but the shot
+    // needs a second to get there, so the opening is gone before it arrives.
+    assert_eq!(
+        payoff(launcher("slow", slow)),
+        Some(0.0),
+        "a shot with a second of flight was paid for an opening that closes \
+         in 0.4s, so the gate is reading the throw and not the arrival"
+    );
+
+    // ⚠ AND AN ORDINARY STRIKE IS UNTOUCHED. `threat_live_at_s` is `None`
+    // here, so `connects_at` falls back to `startup_s` — the reading this
+    // gate has always had for a move that hits with its own body.
+    // ⚠ 150px of reach, because the foe is 100px away and an attack that
+    // cannot span the gap is not offered at all — a 40px jab would leave the
+    // list empty and the arm would read `None` as a lost payoff.
+    let mut strike = candidate("jab", 0.08, 150.0);
+    strike.frames.max_damage = 9;
+    assert!(
+        payoff(strike).is_some_and(|p| p > 0.0),
+        "a 0.08s jab into a 0.4s window lost its payoff, so the change \
+         reached further than launchers"
     );
 }

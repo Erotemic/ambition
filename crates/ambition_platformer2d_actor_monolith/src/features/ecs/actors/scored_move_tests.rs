@@ -892,3 +892,127 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
     );
     let _ = MoveHazard::OwnersRangedAction;
 }
+
+/// ⛔⛤ **A RANGED MOVE WAS SCORED AT ZERO POWER, AND THAT COST THE ROSTER'S
+/// PROJECTILE FIGHTER HER BEST SHOT.**
+///
+/// `MoveFrameData::max_damage` folds ACTIVE VOLUMES, and a launcher authors
+/// none — the projectile IS the damage. So the option scorer's
+/// `expected_payoff`, which is a move's power over the kit's strongest, read
+/// `0` for every ranged move in the game. Nothing was wrong with the
+/// arithmetic; the number it spent was about a volume that does not exist.
+///
+/// ⭐ It is the SAME JOIN as the reach above, one field further: the numbers
+/// are on the `RangedActionSpec` the kit builder already had in its hand.
+///
+/// ⚠ **THE ORDERING IS THE POINT, NOT THE MAGNITUDE.** Projectile Polygon's
+/// ponytail deals `7` and her cannon `4`. With both reading `0` the only
+/// things separating them were reach and frame advantage — and once the
+/// boomerang's true 83px replaced the 1000px placeholder she stopped throwing
+/// it at range and fell through to the weaker shot, which is the loss the
+/// grid sweep recorded (`144% / 228%`, ponytail ×25 → charge shot ×35) and
+/// the loss this closes.
+#[test]
+fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
+    use ambition_characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
+    use ambition_entity_catalog::{MoveEvent, MoveEventKind};
+
+    // ⚠ THE VOLUME IS KEPT, and it is the control for the `max` below: a
+    // launcher that also swings must report the LARGER of the two, never the
+    // sum and never whichever road was consulted last. `2` is under both
+    // shipped shots, so a reading of 2 means the hazard was ignored.
+    let mut shot = strike_hitting_for("cannon", 20.0, 2);
+    shot.events.push(MoveEvent {
+        at_s: 0.18,
+        kind: MoveEventKind::Ranged,
+    });
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([("attack".to_string(), "cannon".to_string())]),
+        moves: vec![shot],
+    });
+    let brain = fighter_brain();
+    let frames_with = |ranged: Option<&RangedActionSpec>| {
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, ranged)
+            .into_iter()
+            .find(|c| c.move_id == "cannon")
+            .expect("the cannon is the body's one move")
+            .frames
+    };
+
+    // Her cannon and her ponytail, cited rather than imported for the reason
+    // the reach arm above states: this crate sits below the content that
+    // authors her.
+    let cannon = RangedActionSpec::bolt(540.0, 4).with_flight(ProjectileFlight::STRAIGHT);
+    let ponytail = RangedActionSpec::bolt(430.0, 7).with_flight(ProjectileFlight::boomerang(0.34));
+
+    let fired = frames_with(Some(&cannon));
+    assert_eq!(
+        fired.hazard.map(ambition_entity_catalog::MoveHazard::damage),
+        Some(4),
+        "the shot's damage did not survive the join, so the one layer holding \
+         both halves threw the number away"
+    );
+    assert_eq!(
+        fired.max_damage, 2,
+        "the join wrote over the move's own volume damage; `max_damage` is a \
+         fact about what the BODY swings and the rollout reads it as one"
+    );
+    assert_eq!(
+        fired.strongest_hit(),
+        4,
+        "a move that swings for 2 and fires for 4 is worth 4"
+    );
+
+    let thrown = frames_with(Some(&ponytail));
+    assert_eq!(thrown.strongest_hit(), 7);
+    assert!(
+        thrown.strongest_hit() > fired.strongest_hit(),
+        "the ponytail (7) did not outrank the cannon (4); with both at zero \
+         the scorer could only separate them on reach, and the boomerang \
+         reaches less"
+    );
+
+    // ⭐ THE CONTROL, and it is the arm that fails if the join simply pours
+    // the weapon's damage in wherever it finds one: a body carrying NO ranged
+    // action has no shot to be worth anything, so the move is worth what it
+    // swings for.
+    let unarmed = frames_with(None);
+    assert_eq!(unarmed.hazard, None);
+    assert_eq!(
+        unarmed.strongest_hit(),
+        2,
+        "an unarmed body's move reported a shot's damage"
+    );
+
+    // ⚠ AND A MOVE THAT SWINGS HARDER THAN IT SHOOTS KEEPS ITS SWING —
+    // without this the `max` passes for a plain overwrite in the other
+    // direction.
+    let mut heavy = strike_hitting_for("cannon", 20.0, 9);
+    heavy.events.push(MoveEvent {
+        at_s: 0.18,
+        kind: MoveEventKind::Ranged,
+    });
+    let heavy_set = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([("attack".to_string(), "cannon".to_string())]),
+        moves: vec![heavy],
+    });
+    let both = attack_kit_of(
+        Some(&heavy_set),
+        true,
+        false,
+        Some(&brain),
+        None,
+        Some(&cannon),
+    )
+    .into_iter()
+    .find(|c| c.move_id == "cannon")
+    .expect("the cannon is the body's one move")
+    .frames;
+    assert_eq!(
+        both.strongest_hit(),
+        9,
+        "a 9-damage swing with a 4-damage shot reported {}; 13 is a sum and 4 \
+         is an overwrite",
+        both.strongest_hit()
+    );
+}

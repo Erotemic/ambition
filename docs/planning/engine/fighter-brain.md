@@ -226,8 +226,18 @@ crosses 671px at 300px/s, so against somebody 400px away the shot lands about
 DISCARDED.** `hazard_reach_of` evaluated `speed × lifetime` and kept only the
 product, so the one quantity a consumer needs to convert a distance into a
 TIME was thrown away inside the derivation that had it.
-`MoveHazard::Spawned { reach, speed }` keeps both, and admission leads to
-`thrown_at + min(gap, reach) / speed`.
+
+⛔⛤ **AND THE FIRST REPAIR KEPT IT AS A PAIR OF SCALARS, WHICH THE SECOND
+REVIEW OF THE SAME DAY SENT BACK.** This section said
+`MoveHazard::Spawned { reach, speed }` and `thrown_at + min(gap, reach) /
+speed` for one commit. A speed beside a time is a distance only while the
+motion is UNIFORM, and two of the four shapes the roster ships are not: a
+boomerang decelerates to a standstill at its turnaround (the ponytail covers
+40px of centre travel in 0.111s where the average said 0.186s) and a laid bomb
+does not travel at all — it sits on a four-second fuse. ⇒ The hazard carries
+its LAW: `ThreatTravel::{Straight, Boomerang, Placed}`, answering
+`travel_to(distance)` and `None` for a distance it never covers. A new travel
+shape is a new variant, never a new scalar on an existing one.
 
 ⚠ **ONE FIXED-POINT PASS, AND THE ERROR IS DIRECTIONAL ON PURPOSE.** The
 flight time depends on the gap at arrival, which depends on the flight time.
@@ -236,11 +246,12 @@ standing opponent and under-leads a retreating one — which refuses a shot
 rather than throwing one that lands behind them, and refusing is the cheaper
 mistake for the same reason the admission rule is absolute.
 
-⚠ **AND A ZERO SPEED IS A MEASUREMENT.** A laid bomb is DROPPED: nothing about
-it closes a gap, so all of its reach is available the instant it exists. The
-same `0.0` also stands for *"not known"* on an unresolved ranged action, which
-reads as an instantaneous threat — exactly what every consumer assumed before
-the field existed, so an unjoined reader is no worse off than it was.
+⛔ **AND A FUSE IS NOT A FLIGHT.** `travel_to` answers *"where do I point this
+so it lands on them"* and `detonates_by_s` answers *"when can it hurt anybody
+at all"*; feeding the second to the aim lead carried the opponent forward four
+seconds of walking and cost Projectile Polygon her bomb outright. A placed
+object is aimed nowhere and travels for zero. Nothing prices the fuse yet, and
+that is recorded on the type rather than patched into the lead.
 
 ### ⛔⛤ A placeholder is a request, and a request needs an owner
 
@@ -276,6 +287,44 @@ turnaround. The ponytail reaches **73px**, not 146. ⇒ Read the flight's
 ARITHMETIC, not its two numbers; and the hazard's `speed` is published as the
 AVERAGE over that leg, so `reach / speed` is the time it actually takes, which
 is what the admission lead divides by.
+
+### ⛔⛤ And the payoff gate was shut on every launcher in the game
+
+Reviewed 2026-09-21, and it is the THIRD reader of `startup_s` to be caught by
+the same fallback. `expected_payoff` is a move's power gated by whether it fits
+the opening — `frame_advantage(startup_s, their_commitment, startup_s)` — and
+`startup_s` is *"time until the first Active window"* falling back to the whole
+DURATION when there is none, which is every launcher. So the gate asked whether
+the opponent was committed for longer than the attacker's entire animation, and
+`expected_payoff` was structurally zero for the whole projectile half of the
+roster whatever a shot dealt.
+
+⭐ **THE MEASUREMENT IS WHAT MADE THIS VISIBLE, AND IT WAS TAKEN FOR THE OTHER
+HALF.** Giving `MoveHazard::Spawned` its `damage` moved exactly **one of
+twenty-one** grid rows, and that row moved through the NORMALISER — a laid
+bomb's 12 becoming the largest thing in an aerial kit — rather than through any
+launcher being priced. A number that reaches the kit and cannot reach a decision
+is a mechanism wired to nothing; the sweep is what told the difference.
+
+⇒ **The gate asks when the move CONNECTS**: `arrival_of` for a hazard, which is
+the same throw-plus-flight the admission rule already computes one block down,
+and `threat_live_at_s` otherwise — identical to `startup_s` for an ordinary
+strike by construction, so only launchers move. The three closures that answer
+it (`threat_at`, `lead_of`, `arrival_of`) moved above the scoring, because two
+consumers asking the same question must not be two derivations of it.
+
+⚠ **THE GRID CANNOT WITNESS THE GATE, AND THE CROSSOVER SAYS WHY.**
+`connects_at` for `polygon_projectile_charge_shot` is `0.26 + (gap − 10)/540`,
+equal to its `startup_s` of `0.58` at a gap of **183px**: more generous inside
+that, stricter beyond it, and all 21 rows bit-identical either way. The gate
+only opens against an opponent committed for longer than the arrival, and that
+window never co-occurred with a launcher being the best option on the menu.
+
+⚠ **AND THE ASYMMETRY THAT IS LEFT IS NAMED RATHER THAN PATCHED.** A launcher
+has `coverage: None`, so its `reach_fit` is ZERO at every range while its
+payoff is now paid in full — a swing's worth is discounted by the gap and a
+shot's is not. That is the missing term, and it is a feature (hazard coverage),
+not another scalar.
 
 ### ⛔⛤ Recovery authority is a travel number and answers a movement question
 

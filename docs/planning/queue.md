@@ -3419,14 +3419,101 @@ folds Active volumes and a shot is not one. ⇒ A fighter choosing between two
 projectiles on reach and frame advantage alone picks the weaker one, which is
 exactly the hole increment two fills, and the sweep predicts its direction.
 
-⚠ **WHAT INCREMENT ONE DID NOT DO, STATED WITH ITS NUMBERS SO THE NEXT ONE
-STARTS FROM THEM.** A ranged move is still scored `damage: 0` and `launch: 0`:
-`max_damage` folds Active volumes and a shot is not one. The numbers are on the
-same `RangedActionSpec` the reach came from — her cannon authors `damage: 4`,
-and its `RangedCharge` multiplies that by `3.5` for a full hold — so this is
-the same join one field further, not a new road. It is held back only because
-it re-prices `expected_payoff` across every ranged fighter and the grid sweep
-reads one change at a time.
+✅ **INCREMENT TWO LANDED 2026-09-21: THE DAMAGE, AND THE GATE THAT WAS
+SWALLOWING IT.** Two halves, and the second exists because the grid measured
+the first as inert.
+
+* **The hazard carries what it deals.** `MoveHazard::Spawned` is
+  `{ travel, damage }`; `hazard_of` reads `SteeredBoltParams::damage` and
+  `DropBombParams::damage`, and `resolve_owners_ranged_action` answers the
+  ranged request with the weapon's — the same join one field further, in the
+  layer that already holds both halves. `MoveFrameData::max_damage` stays
+  VOLUMES ONLY, because the fighter rollout applies it when the foe is inside
+  `frames.reach`, which is where a volume lands and not where a shot arrives;
+  the scorer asks `MoveFrameData::strongest_hit`, which is the `max` of the
+  two and the one place they meet.
+* **And `expected_payoff`'s gate asked `startup_s`.** That field falls back to
+  the move's whole DURATION when there is no Active window — the shape of
+  every launcher — so `their_commitment > startup_s` was asking whether the
+  opponent is committed for longer than the attacker's entire animation. The
+  gate was structurally shut on every ranged move in the game, and a damage
+  that reaches the kit but cannot reach a decision is a mechanism wired to
+  nothing. ⇒ It asks when the move CONNECTS: `arrival_of` for a hazard (the
+  same answer admission already computes one block down), `threat_live_at_s`
+  for everything else, which is `startup_s` for an ordinary strike by
+  construction. ⭐ **THE SAME DEFECT AS THE AIM LEAD, ONE FIELD OVER AND ONE
+  DAY LATER** — a field derived with a fallback answers two questions, and
+  fixing the first reader does not fix the second.
+
+⭐⭐ **JUDGED ON THE GAME: 7201% → 7151% (−0.7%), ONE OF TWENTY-ONE ROWS
+MOVED — AND IT FELL.** Three sweeps at `1732c98ed`, 21 mirror matches of 3618
+ticks, `NoWindow`, rung 9, this host. Before / damage only / damage + gate:
+
+| fighter | before | +damage | +gate | starts | distinct | most thrown |
+|---|---|---|---|---|---|---|
+| `projectile_polygon` | 144% / 228% | **104% / 218%** | 104% / 218% | 70+53 → 68+53 | 15+14 → **14+13** | `charge_shot` ×18 → ×19 |
+| the other 20 | — | bit-identical | bit-identical | — | — | — |
+
+⛔⛤ **THE FIRST SWEEP IS WHY THE SECOND HALF EXISTS, AND IT IS THE MORE
+USEFUL OF THE TWO.** Damage alone moved ONE row, and it did not move it by
+pricing a launcher: the boomerang (7), the cannon (4) and the bomb (12) are
+all under her largest volume (16), so `kit_max_damage` is unchanged in a
+standing kit — but her AERIAL menu tops out lower, and on those ticks the
+bomb becomes the kit's largest and re-prices everything against it. ⚠ **A
+DENOMINATOR CANNOT REORDER, and that is what identifies the cause**: `power`
+is a ratio, so raising `kit_max_damage` scales every attack's payoff by one
+factor and attacks are only ever compared with each other. What moved the
+decisions is the NUMERATOR — three moves going from a false `0` to their real
+damage — and what displaced was her up smash: seat 1 threw it four times for
+31 damage and now throws it once for none.
+
+⛔ **AND THE GATE IS BIT-IDENTICAL IN ALL 21 ROWS, WHICH IS A FACT ABOUT THE
+CROSSOVER RATHER THAN ABOUT THE FIX.** `connects_at` for her charge shot is
+`0.26 + (gap − 10) / 540`, which equals its `startup_s` of `0.58` at a gap of
+**183px** — so the new gate is more generous inside that (where these two
+spend 1418 of 3618 ticks) and stricter beyond it, and neither direction
+changed a decision. The gate only opens against an opponent committed for
+LONGER than the arrival, and on this grid that window never co-occurred with
+a launcher being the best thing on the menu. Held by
+`a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move`,
+whose two controls are a slow shot (the opening closes before it lands) and
+an ordinary jab (unchanged).
+
+⚠ **THE FALL IS REPORTED RATHER THAN TUNED AWAY, AND HERE IS THE JUDGEMENT.**
+A scorer reading `0` for a move that deals `7` is not mis-tuned, it is blind,
+and no weight fixes a false zero. What the sweep actually shows is that **the
+utility weights were fitted while every launcher's payoff was identically
+zero**, so switching the term on for a whole class of move is a re-pricing
+those weights have never seen. She still fights — 104% / 218% is far above
+the 0.5 gate — and the cost is one row and 0.7% of the pool.
+
+⚠ **AND THE NAMED ASYMMETRY THAT WOULD PRICE IT PROPERLY, so the next
+increment does not start by re-deriving it.** A launcher has `coverage: None`,
+so `reach_fit` is **zero for it at every range** while its `expected_payoff`
+is now paid in full — a swing's worth is discounted by the gap and a shot's is
+not. That is the term a projectile's value is actually missing, and it is a
+new feature (hazard coverage) rather than another scalar.
+
+⛔⛤ **AND THE LAUNCH HALF IS NOT A MISSING JOIN — IT IS A UNIT — WITH ITS
+ARITHMETIC WRITTEN DOWN HERE.** A ranged move is still scored `launch: 0`, and
+the reason is not that nobody plumbed it: a projectile hit writes
+`HitKnockbackMagnitude::FeelScale(0.85)`
+(`projectile/systems.rs`), a DIMENSIONLESS multiple of the victim's feel
+tuning, while an authored volume writes `LaunchSpeed { base, growth }` in
+px/s, which is what `LaunchEnvelope` is made of. Resolved against the shipped
+`enemy_knockback_{x,y}` of `360 / 260` — no live ruleset declares its own —
+`0.85` is a launch of about **377px/s, FLAT**: larger than every shipped
+smash's base (George Booul's forward smash is 185, the largest pulse on the
+roster is `bivalence` at 367) and, because the projectile road applies no
+percent term, overtaken by them the moment the opponent is worn. ⇒ So the
+brain is not merely missing a number, it is missing a CONVERSION, and
+`LaunchConditions` — *"everything about the WORLD and the VICTIM that a launch
+depends on"* — is the value that does not carry it. Three things to settle
+before this lands, and none of them is a scalar: whether the feel reference
+belongs on `LaunchConditions`; whether `0.85` stops being a literal in the
+projectile stepper (it is one fact with one owner today and that owner is a
+`systems.rs` call site); and what `max_knockback` means for a launcher, since
+the fighter rollout spends it as `LaunchSpeed(frames.max_knockback)`.
 
 ⚠ **AND THE TELEPORT'S DESTINATION IS STILL MISSING**, which is the other half
 the review named: `TeleportParams` carries `behind_nearest_foe`, `behind_gap`

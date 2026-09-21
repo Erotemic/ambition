@@ -109,7 +109,7 @@ pub struct Features {
     /// scaled by how long I am committed to having gone there. Costed, not
     /// rewarded — its weight is negative in [`UtilityWeights::v1`].
     pub stage_risk: f32,
-    /// `0..=1`. The move's power (its `max_damage` over the kit's strongest),
+    /// `0..=1`. The move's power (its `strongest_hit` over the kit's strongest),
     /// gated by the positive part of `frame_advantage` — payoff only counts
     /// when the move plausibly lands. Zero across the board in neutral, so the
     /// original four features decide there (FB6a).
@@ -523,8 +523,14 @@ pub fn generate_options(
     };
 
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
-    // no candidate lands a volume, which zeroes every payoff below.
-    let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
+    // no candidate can hurt anybody, which zeroes every payoff below.
+    //
+    // ⛔⛤ **IT ASKED `max_damage` UNTIL 2026-09-21, WHICH IS VOLUMES ONLY.** A
+    // launcher's damage rides the thing it spawns, so a projectile fighter's
+    // whole kit priced at zero power and `expected_payoff` could not separate
+    // her two shots — see `MoveFrameData::strongest_hit`, which is the one
+    // place the two roads meet.
+    let kit_max_damage = kit.iter().map(|c| c.frames.strongest_hit()).max().unwrap_or(0);
     // ⭐⭐ **THE LAUNCH LAW THIS BODY IS ACTUALLY FIGHTING UNDER, ASSEMBLED
     // ONCE.** It used to be `base + growth × victim_damage` and nothing else,
     // on the reasoning that the ruleset's percent scale, the per-`base`
@@ -587,6 +593,101 @@ pub fn generate_options(
     // judgement. Tracked as D188.
     // ⇒ the scale to pass, when the weights are refitted, is
     // `kit.iter().map(|c| c.frames.startup_s).fold(0.0, f32::max)`.
+    // ⛔⛤ **AND IT ASKED ITS QUESTION OF A WORLD THAT HAD ALREADY MOVED ON.**
+    // Admission is the one judgement here about a moment in the FUTURE — the
+    // tick this move's hitbox opens — and it was being made against the
+    // opponent's position in a view that is `reaction_ms` old, plus the whole
+    // of the move's startup still to come. At rung 5 that is 300ms of
+    // staleness and up to 180ms of windup: about 100px of walking, against an
+    // `ADMISSION_SLACK_PX` of 24.
+    //
+    // ⭐ MEASURED, and the number is unambiguous because it contradicts the
+    // rule's own ceiling: a `medic` mirror started `medic_tourniquet` — 80px
+    // of reach, so admitted only out to 104px — at a real gap of **153.6px**,
+    // 177 times in 3600 ticks, with `LandedBodyHit` at ZERO for the bout. A
+    // move cannot be admitted past its ceiling; what was admitted was a
+    // remembered opponent.
+    //
+    // ⇒ **LEAD THE AIM.** Carry the foe forward at the relative velocity the
+    // view reports, over the time between the world the brain SAW and the
+    // tick the hitbox OPENS. Scoring is deliberately left on the observed
+    // position: `reach_fit` is a judgement about VALUE and the difficulty
+    // ladder is built on the brain being late. This says only that a swing is
+    // aimed where somebody is going, which is what a person does and what the
+    // 24px constant was a stand-in for.
+    // ⛔⛤ **AND IT LEADS BY WHEN THE THREAT GOES LIVE, NOT BY `startup_s` —
+    // REVIEWED 2026-09-20.** `startup_s` is *"time until the first Active
+    // window"* and falls back to the WHOLE MOVE DURATION when there is none,
+    // which is the shape of every projectile move in the game. Leading by it
+    // aims past the opponent on exactly the moves thrown at somebody who is
+    // moving: `polygon_projectile_charge_shot` fires at 0.26s and reports
+    // `startup_s` 0.58s, so at 200px/s of closing speed the aim is 64px long —
+    // wider than `ADMISSION_SLACK_PX`. `MoveFrameData::threat_live_at_s` asks
+    // the mechanic instead. Equal to `startup_s` for an ordinary strike.
+    let threat_at = |frames: &ambition_entity_catalog::MoveFrameData| {
+        frames.threat_live_at_s.unwrap_or(frames.startup_s)
+    };
+    let lead_of = |startup_s: f32| {
+        let dt = view.staleness_s() + startup_s;
+        if dt <= 0.0 {
+            return foe_local;
+        }
+        let rel = foe.vel - me.vel;
+        let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
+        let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
+        (
+            foe_local.0 + rel_local.0 * dt,
+            foe_local.1 + rel_local.1 * dt,
+        )
+    };
+    // ⛔⛤ **A HAZARD IS NOT A THREAT WHERE IT IS THROWN, AND THE BRAIN AIMED
+    // AS IF IT WERE.** `threat_at` says when the bolt LEAVES; a bolt that
+    // leaves is still seconds from arriving. Measured on
+    // `director_train_of_thought`, the roster's one steered bolt: it crosses
+    // 671px at 300px/s, so against somebody 400px away the shot lands about
+    // 1.3s after the throw and the aim was short by the whole of the
+    // opponent's walk. Replacing the old over-lead (`startup_s`, i.e. the
+    // whole move) with an under-lead (zero flight) was an improvement and not
+    // the answer; this is the answer.
+    //
+    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
+    // time depends on the gap at arrival, which depends on the flight time. A
+    // single pass — measure the gap at the throw, fly for that long — is
+    // exact for a stationary opponent and errs toward UNDER-leading a
+    // retreating one, which is the direction that refuses a shot rather than
+    // throwing one that cannot land.
+    //
+    // ⛔⛤ **AND THE FLIGHT TIME IS THE HAZARD'S TO ANSWER, NOT A GAP DIVIDED
+    // BY A SPEED — REVIEWED 2026-09-20.** This asked for a `speed` and divided,
+    // which is exact only while the hazard travels uniformly. Two of the four
+    // shapes the roster ships do not: a boomerang decelerates to a stop at its
+    // turnaround, and a laid bomb does not travel at all but sits on a fuse.
+    // `ThreatTravel::time_to` solves each one's own law, so the aim is led by
+    // when the thing can actually touch them.
+    //
+    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
+    // time depends on the gap at arrival, which depends on the flight time. A
+    // single pass — measure the gap at the throw, fly for that long — is
+    // exact for a stationary opponent and errs toward UNDER-leading a
+    // retreating one, which is the direction that refuses a shot rather than
+    // throwing one that cannot land.
+    //
+    // ⚠ A GAP PAST THE HAZARD'S REACH GETS ITS LONGEST FLIGHT rather than
+    // `None`'s zero: the admission test below is about to refuse that gap, and
+    // leading by zero would be claiming the shot is instantaneous on exactly
+    // the moves it cannot reach at all.
+    let arrival_of = |frames: &ambition_entity_catalog::MoveFrameData,
+                      hazard: ambition_entity_catalog::MoveHazard| {
+        let thrown_at = threat_at(frames);
+        let at_throw = lead_of(thrown_at);
+        let gap = (at_throw.0 * at_throw.0 + at_throw.1 * at_throw.1).sqrt();
+        let flight = hazard
+            .travel_to(gap)
+            .or_else(|| hazard.travel_to(hazard.reach()))
+            .unwrap_or(0.0);
+        thrown_at + flight
+    };
+
     let mut attacks: Vec<AttackOption> = kit
         .iter()
         // AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION. (measured
@@ -609,8 +710,21 @@ pub fn generate_options(
         .map(|c| {
             use crate::brain::attack_kit::AttackVerb;
             let fa = frame_advantage(c.frames.startup_s, their_commitment, kit_slowest_startup);
+            // ⭐ **WHEN THIS MOVE CAN ACTUALLY TOUCH THEM**, which for a
+            // launcher is the throw plus the flight and for a swing is the
+            // tick its hitbox opens. `threat_at` alone is when the thing
+            // LEAVES; a bolt that has left is still seconds from arriving.
+            //
+            // ⚠ NOT USED BY `fa` ABOVE, and the split is the point. That term
+            // prices EXPOSURE — how long this press commits the body, which
+            // is a fact about the animation and stays `startup_s`. A shot's
+            // flight costs the thrower nothing.
+            let connects_at = match c.frames.hazard {
+                Some(hazard) => arrival_of(&c.frames, hazard),
+                None => threat_at(&c.frames),
+            };
             let power = if kit_max_damage > 0 {
-                c.frames.max_damage as f32 / kit_max_damage as f32
+                c.frames.strongest_hit() as f32 / kit_max_damage as f32
             } else {
                 0.0
             };
@@ -746,16 +860,38 @@ pub fn generate_options(
                 // ranking's `fa` asks *how exposed does this leave me* and is
                 // measured against the kit's slowest move, so a jab and a smash
                 // differ. The payoff gate asks *does this move FIT the opening*,
-                // which is a comparison between one move's startup and one
-                // window and is normalised by that move's own startup — the
-                // original reading, kept exactly where it was right.
+                // which is a comparison between one move's own timing and one
+                // window and is normalised by that timing — the original
+                // reading, kept exactly where it was right.
                 //
                 // Collapsing them cost the demo its smashes: with one shared
                 // scale a slow move's negative `fa` zeroed its payoff in every
                 // situation, and the CPU stopped charging entirely.
+                //
+                // ⛔⛤ **AND IT ASKED `startup_s`, WHICH FOR A PROJECTILE IS THE
+                // WHOLE MOVE — SO THE GATE WAS STRUCTURALLY SHUT ON EVERY
+                // RANGED MOVE IN THE GAME.** `startup_s` falls back to the
+                // move's duration when there is no Active window, which is the
+                // shape of every launcher, so `their_commitment > startup_s`
+                // asked whether the opponent is committed for longer than the
+                // entire animation. It almost never is.
+                //
+                // ⭐ MEASURED, and this is why the measurement was worth
+                // taking before the second half landed: giving the hazard its
+                // damage moved **1 of 21** grid rows, and that row moved
+                // through the NORMALISER (a laid bomb's 12 becoming the kit's
+                // largest on ticks where her aerials are the menu) rather than
+                // through any launcher being priced. A number that reaches the
+                // kit and cannot reach a decision is a mechanism wired to
+                // nothing.
+                //
+                // ⇒ The gate asks WHEN THIS MOVE CONNECTS, which is the same
+                // question `arrival_of` already answers for admission one
+                // block down: a swing connects when its hitbox opens, a shot
+                // when it arrives. Identical to `startup_s` for an ordinary
+                // strike by construction, so only launchers move.
                 expected_payoff: power
-                    * frame_advantage(c.frames.startup_s, their_commitment, c.frames.startup_s)
-                        .max(0.0),
+                    * frame_advantage(connects_at, their_commitment, connects_at).max(0.0),
                 // Only a capture asks this question, and `capture_value` answers
                 // zero for everything else — stated at the call site so the
                 // feature cannot quietly start pricing ordinary swings.
@@ -810,100 +946,10 @@ pub fn generate_options(
     // and each still winning whenever the rest of the kit scored lower. The
     // admission question is now absolute and the scoring question is left
     // alone: see [`ADMISSION_SLACK_PX`].
-    // ⛔⛤ **AND IT ASKED ITS QUESTION OF A WORLD THAT HAD ALREADY MOVED ON.**
-    // Admission is the one judgement here about a moment in the FUTURE — the
-    // tick this move's hitbox opens — and it was being made against the
-    // opponent's position in a view that is `reaction_ms` old, plus the whole
-    // of the move's startup still to come. At rung 5 that is 300ms of
-    // staleness and up to 180ms of windup: about 100px of walking, against an
-    // `ADMISSION_SLACK_PX` of 24.
-    //
-    // ⭐ MEASURED, and the number is unambiguous because it contradicts the
-    // rule's own ceiling: a `medic` mirror started `medic_tourniquet` — 80px
-    // of reach, so admitted only out to 104px — at a real gap of **153.6px**,
-    // 177 times in 3600 ticks, with `LandedBodyHit` at ZERO for the bout. A
-    // move cannot be admitted past its ceiling; what was admitted was a
-    // remembered opponent.
-    //
-    // ⇒ **LEAD THE AIM.** Carry the foe forward at the relative velocity the
-    // view reports, over the time between the world the brain SAW and the
-    // tick the hitbox OPENS. Scoring is deliberately left on the observed
-    // position: `reach_fit` is a judgement about VALUE and the difficulty
-    // ladder is built on the brain being late. This says only that a swing is
-    // aimed where somebody is going, which is what a person does and what the
-    // 24px constant was a stand-in for.
-    // ⛔⛤ **AND IT LEADS BY WHEN THE THREAT GOES LIVE, NOT BY `startup_s` —
-    // REVIEWED 2026-09-20.** `startup_s` is *"time until the first Active
-    // window"* and falls back to the WHOLE MOVE DURATION when there is none,
-    // which is the shape of every projectile move in the game. Leading by it
-    // aims past the opponent on exactly the moves thrown at somebody who is
-    // moving: `polygon_projectile_charge_shot` fires at 0.26s and reports
-    // `startup_s` 0.58s, so at 200px/s of closing speed the aim is 64px long —
-    // wider than `ADMISSION_SLACK_PX`. `MoveFrameData::threat_live_at_s` asks
-    // the mechanic instead. Equal to `startup_s` for an ordinary strike.
-    let threat_at = |frames: &ambition_entity_catalog::MoveFrameData| {
-        frames.threat_live_at_s.unwrap_or(frames.startup_s)
-    };
-    let lead_of = |startup_s: f32| {
-        let dt = view.staleness_s() + startup_s;
-        if dt <= 0.0 {
-            return foe_local;
-        }
-        let rel = foe.vel - me.vel;
-        let facing = if me.facing < 0.0 { -1.0 } else { 1.0 };
-        let rel_local = (rel.dot(basis.side) * facing, rel.dot(basis.down));
-        (
-            foe_local.0 + rel_local.0 * dt,
-            foe_local.1 + rel_local.1 * dt,
-        )
-    };
-    // ⛔⛤ **A HAZARD IS NOT A THREAT WHERE IT IS THROWN, AND THE BRAIN AIMED
-    // AS IF IT WERE.** `threat_at` says when the bolt LEAVES; a bolt that
-    // leaves is still seconds from arriving. Measured on
-    // `director_train_of_thought`, the roster's one steered bolt: it crosses
-    // 671px at 300px/s, so against somebody 400px away the shot lands about
-    // 1.3s after the throw and the aim was short by the whole of the
-    // opponent's walk. Replacing the old over-lead (`startup_s`, i.e. the
-    // whole move) with an under-lead (zero flight) was an improvement and not
-    // the answer; this is the answer.
-    //
-    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
-    // time depends on the gap at arrival, which depends on the flight time. A
-    // single pass — measure the gap at the throw, fly for that long — is
-    // exact for a stationary opponent and errs toward UNDER-leading a
-    // retreating one, which is the direction that refuses a shot rather than
-    // throwing one that cannot land.
-    //
-    // ⛔⛤ **AND THE FLIGHT TIME IS THE HAZARD'S TO ANSWER, NOT A GAP DIVIDED
-    // BY A SPEED — REVIEWED 2026-09-20.** This asked for a `speed` and divided,
-    // which is exact only while the hazard travels uniformly. Two of the four
-    // shapes the roster ships do not: a boomerang decelerates to a stop at its
-    // turnaround, and a laid bomb does not travel at all but sits on a fuse.
-    // `ThreatTravel::time_to` solves each one's own law, so the aim is led by
-    // when the thing can actually touch them.
-    //
-    // ⚠ **ONE FIXED-POINT PASS, STATED RATHER THAN ITERATED.** The flight
-    // time depends on the gap at arrival, which depends on the flight time. A
-    // single pass — measure the gap at the throw, fly for that long — is
-    // exact for a stationary opponent and errs toward UNDER-leading a
-    // retreating one, which is the direction that refuses a shot rather than
-    // throwing one that cannot land.
-    //
-    // ⚠ A GAP PAST THE HAZARD'S REACH GETS ITS LONGEST FLIGHT rather than
-    // `None`'s zero: the admission test below is about to refuse that gap, and
-    // leading by zero would be claiming the shot is instantaneous on exactly
-    // the moves it cannot reach at all.
-    let arrival_of = |frames: &ambition_entity_catalog::MoveFrameData,
-                      hazard: ambition_entity_catalog::MoveHazard| {
-        let thrown_at = threat_at(frames);
-        let at_throw = lead_of(thrown_at);
-        let gap = (at_throw.0 * at_throw.0 + at_throw.1 * at_throw.1).sqrt();
-        let flight = hazard
-            .travel_to(gap)
-            .or_else(|| hazard.travel_to(hazard.reach()))
-            .unwrap_or(0.0);
-        thrown_at + flight
-    };
+    // ⭐ THE AIM LEAD AND THE ARRIVAL TIME ARE RESOLVED ABOVE, BESIDE THE
+    // SCORING THAT ALSO SPENDS THEM — see `threat_at` / `lead_of` /
+    // `arrival_of`. They were defined here, between the scoring and this
+    // filter, while admission was their only consumer.
     attacks.retain(|attack| match (&attack.frames.coverage, &attack.frames.push_coverage) {
         // Hits somewhere: the hit is the question, and the shove it may also
         // carry is not a reason to swing at nobody.

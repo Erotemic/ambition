@@ -3824,7 +3824,28 @@ impl ThreatTravel {
 pub enum MoveHazard {
     /// An authored hazard the catalog can measure whole, carrying the law it
     /// travels by rather than a sample of it.
-    Spawned(ThreatTravel),
+    Spawned {
+        /// How it covers the ground between leaving its owner and touching
+        /// somebody.
+        travel: ThreatTravel,
+        /// **WHAT IT TAKES OFF THEM WHEN IT ARRIVES.**
+        ///
+        /// ⛔⛤ **A HAZARD MOVE WAS PRICED AT ZERO POWER UNTIL 2026-09-21.**
+        /// [`MoveFrameData::max_damage`] folds ACTIVE VOLUMES and a shot is
+        /// not one, so the one class of move whose whole job is to deal
+        /// damage from across the stage reported dealing none. Measured on
+        /// Projectile Polygon: her ponytail boomerang deals `7` and her
+        /// charge shot `4`, and the option scorer could see neither — so
+        /// once increment one gave the boomerang its true 83px of reach she
+        /// fell through to the weaker shot at range, which is the loss that
+        /// named this field.
+        ///
+        /// ⚠ **THE UNCHARGED SHOT, for the same reason the travel law is
+        /// the uncharged one**: a `RangedCharge` multiplies damage as well
+        /// as speed, and the press a brain is weighing is the one it is
+        /// about to make rather than the one it might hold for.
+        damage: i32,
+    },
     /// The move pulls the owner's OWN ranged trigger
     /// ([`MoveEventKind::Ranged`]), whose speed, flight and lifetime are the
     /// BODY's `RangedActionSpec` and not the move's.
@@ -3850,7 +3871,7 @@ impl MoveHazard {
     /// for an unresolved ranged action.
     pub fn reach(self) -> f32 {
         match self {
-            Self::Spawned(travel) => travel.reach(),
+            Self::Spawned { travel, .. } => travel.reach(),
             Self::OwnersRangedAction => RANGED_ACTION_REACH,
         }
     }
@@ -3860,7 +3881,7 @@ impl MoveHazard {
     /// an UNRESOLVED ranged action, which has no law to answer with.
     pub fn travel_to(self, distance: f32) -> Option<f32> {
         match self {
-            Self::Spawned(travel) => travel.travel_to(distance),
+            Self::Spawned { travel, .. } => travel.travel_to(distance),
             Self::OwnersRangedAction => None,
         }
     }
@@ -3869,8 +3890,23 @@ impl MoveHazard {
     /// an unresolved ranged action, which claims nothing.
     pub fn detonates_by_s(self) -> f32 {
         match self {
-            Self::Spawned(travel) => travel.detonates_by_s(),
+            Self::Spawned { travel, .. } => travel.detonates_by_s(),
             Self::OwnersRangedAction => 0.0,
+        }
+    }
+
+    /// **WHAT THIS HAZARD TAKES OFF WHOEVER IT REACHES** — `0` for an
+    /// UNRESOLVED ranged action, whose damage is on the BODY and not in
+    /// anything the catalog can read.
+    ///
+    /// ⚠ **`0` HERE IS A REFUSAL AND NOT A MEASUREMENT**, the same way
+    /// [`Self::travel_to`]'s `None` is: a reader that can see the body is
+    /// expected to replace the variant outright. See
+    /// [`MoveFrameData::strongest_hit`], which is where the two roads meet.
+    pub fn damage(self) -> i32 {
+        match self {
+            Self::Spawned { damage, .. } => damage,
+            Self::OwnersRangedAction => 0,
         }
     }
 }
@@ -3918,11 +3954,14 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
             .params
             .hydrate::<crate::smash_bolt::SteeredBoltParams>()
             .map(|p| {
-                MoveHazard::Spawned(ThreatTravel::Straight {
-                    speed: p.speed,
-                    span: p.speed * p.lifetime_s,
-                    free: p.offset.0.abs() + p.radius,
-                })
+                MoveHazard::Spawned {
+                    travel: ThreatTravel::Straight {
+                        speed: p.speed,
+                        span: p.speed * p.lifetime_s,
+                        free: p.offset.0.abs() + p.radius,
+                    },
+                    damage: p.damage,
+                }
             })
             .ok(),
         // ⛔⛤ **A DROP BOMB IS DROPPED, NOT THROWN.** It appears at `offset`
@@ -3936,26 +3975,34 @@ fn hazard_of(effect: &EffectRef) -> Option<MoveHazard> {
             .params
             .hydrate::<crate::smash_bomb::DropBombParams>()
             .map(|p| {
-                MoveHazard::Spawned(ThreatTravel::Placed {
-                    reach: p.offset.0.abs() + p.blast_radius,
-                    // ⛔⛤ **THE FUSE, AND IT USED TO BE ZERO.** This published
-                    // `speed: 0.0`, documented as *"the whole reach is
-                    // available the moment it exists"* — the opposite of what
-                    // the move authors. `fuse_s` is *"seconds until it goes
-                    // off by itself"*, four of them on the shipped polygon, so
-                    // a brain pricing the drop as an immediate blast was
-                    // pricing a trap as a strike.
-                    //
-                    // ⚠ IT IS THE LATEST, NOT THE ONLY, MOMENT: a bomb also
-                    // detonates on a hard enough impact (`impact_speed`),
-                    // which is SOONER and depends on what somebody else does
-                    // to it. The deadline is the part the thrower can count
-                    // on. (This comment said "earliest" for one commit, beside
-                    // the field the rename had just corrected — which is the
-                    // worse half of a rename, because prose is what a reader
-                    // trusts when the name and the comment disagree.)
-                    detonates_by_s: p.fuse_s,
-                })
+                MoveHazard::Spawned {
+                    travel: ThreatTravel::Placed {
+                        reach: p.offset.0.abs() + p.blast_radius,
+                        // ⛔⛤ **THE FUSE, AND IT USED TO BE ZERO.** This published
+                        // `speed: 0.0`, documented as *"the whole reach is
+                        // available the moment it exists"* — the opposite of what
+                        // the move authors. `fuse_s` is *"seconds until it goes
+                        // off by itself"*, four of them on the shipped polygon, so
+                        // a brain pricing the drop as an immediate blast was
+                        // pricing a trap as a strike.
+                        //
+                        // ⚠ IT IS THE LATEST, NOT THE ONLY, MOMENT: a bomb also
+                        // detonates on a hard enough impact (`impact_speed`),
+                        // which is SOONER and depends on what somebody else does
+                        // to it. The deadline is the part the thrower can count
+                        // on. (This comment said "earliest" for one commit, beside
+                        // the field the rename had just corrected — which is the
+                        // worse half of a rename, because prose is what a reader
+                        // trusts when the name and the comment disagree.)
+                        detonates_by_s: p.fuse_s,
+                    },
+                    // The blast at the CENTRE, which is what the move's own
+                    // authoring calls its damage. A body caught at the edge
+                    // of the radius takes the same number today; if the blast
+                    // ever falls off with distance that is a law for
+                    // `ThreatTravel::Placed` to carry, not a second scalar.
+                    damage: p.damage,
+                }
             })
             .ok(),
         _ => None,
@@ -4097,6 +4144,13 @@ pub struct MoveFrameData {
     /// option scorer can price a smash above a jab (FB6a; §9 of
     /// fighter-brain.md recorded that nothing could). `0` for a move that
     /// lands no volume.
+    ///
+    /// ⛔ **A MOVE'S OWN VOLUMES ONLY, AND A SCORER SHOULD ASK
+    /// [`Self::strongest_hit`] INSTEAD.** A launcher's damage rides the thing
+    /// it spawns, so this is `0` for the whole projectile half of the roster.
+    /// It stays volume-only because a second reader wants exactly that: the
+    /// fighter rollout applies it when the foe is inside [`Self::reach`],
+    /// which is where a VOLUME lands and not where a shot arrives.
     pub max_damage: i32,
     /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
@@ -4138,6 +4192,34 @@ pub struct MoveFrameData {
     /// gate to find out whether a move is a recovery at all. The fields above
     /// remain what a BURST is made of; this is which kind of route it is.
     pub recovery_route: RecoveryRoute,
+}
+
+impl MoveFrameData {
+    /// **THE MOST ONE USE OF THIS MOVE CAN TAKE OFF SOMEBODY** — its own
+    /// volumes or what it puts in the world, whichever is larger.
+    ///
+    /// ⛔⛤ **AN OPTION SCORER ASKING [`Self::max_damage`] PRICED EVERY
+    /// PROJECTILE AT ZERO.** That field folds Active volumes and a shot is not
+    /// one, so `expected_payoff` — the move's power over the kit's strongest —
+    /// was `0` for the whole launcher half of the roster. Measured on
+    /// Projectile Polygon, whose two projectiles are her game: the ponytail
+    /// boomerang deals `7` and the charge shot `4`, and with both reading `0`
+    /// the only things separating them were reach and frame advantage. Once
+    /// increment one gave the boomerang its true 83px of reach she stopped
+    /// throwing it at range and fell through to the WEAKER shot.
+    ///
+    /// ⚠ **A `max`, NOT A SUM.** A move that both swings and throws can only
+    /// connect with one of them on a given body, and the payoff term prices
+    /// what a press is worth, not what a whole exchange might total.
+    ///
+    /// ⚠ **AND AN UNRESOLVED [`MoveHazard::OwnersRangedAction`] CONTRIBUTES
+    /// NOTHING**, because its damage is on the BODY. The kit builder is the
+    /// layer that joins the two and replaces the variant; a reader holding
+    /// only a `MoveSpec` gets the volumes, which is all it can honestly know.
+    pub fn strongest_hit(&self) -> i32 {
+        self.max_damage
+            .max(self.hazard.map_or(0, MoveHazard::damage))
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -2349,6 +2349,11 @@ fn a_motion_is_priced_by_how_much_of_the_gap_it_actually_covers() {
 /// CONTROL: under the identity law the old answer is the RIGHT one, which is
 /// what makes this a statement about the conditions rather than about two
 /// numbers that happen to be close.
+// `6.28` is George's AUTHORED up-smash growth, not TAU — see
+// `george_booul_moveset.rs`, which carries the same allow. The pair `(185,
+// 3.45)` / `(178, 6.28)` is the one the review named, so rounding either to
+// please the lint would make this a test about two invented numbers.
+#[allow(clippy::approx_constant)]
 #[test]
 fn a_finisher_is_ranked_under_the_launch_law_the_stage_actually_declares() {
     let w = UtilityWeights::v1();

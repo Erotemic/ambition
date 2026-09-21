@@ -1051,7 +1051,6 @@ fn mirror_bout(
     // See `seat_two_bodies`.
     seat_two_bodies(&mut app, countdown, fighter);
     let trace = std::env::var("AMBITION_GRID_TRACE").is_ok_and(|v| v != "0");
-    let mut vgap = f32::NAN;
     // ⛔⛤ **A ZERO IN THE DAMAGE COLUMN HAS A THIRD CAUSE THE HEADER DOES NOT
     // NAME: THE HIT LANDS AND NOTHING COMES OF IT.** `apply_hitbox_damage`
     // publishes `LandedBodyHit` when a volume finds a body and a separate
@@ -1106,7 +1105,7 @@ fn mirror_bout(
                 }
             }
         }
-        {
+        let vgap = {
             let mut bodies = world.query::<(
                 &MatchSeat,
                 &ambition_platformer2d::engine_core::BodyKinematics,
@@ -1129,12 +1128,12 @@ fn mirror_bout(
                 .filter(|(seat, _)| seat.0 < 2)
                 .map(|(_, kin)| kin.pos.y)
                 .collect();
-            vgap = if ys.len() == 2 {
+            if ys.len() == 2 {
                 (ys[0] - ys[1]).abs()
             } else {
                 f32::NAN
-            };
-        }
+            }
+        };
         // WHICH QUESTION IS THE BRAIN ANSWERING? `situation_of` is the classifier
         // itself, asked of the live state — not a re-derivation. A fighter that
         // throws one move three times a second is answering the SAME question

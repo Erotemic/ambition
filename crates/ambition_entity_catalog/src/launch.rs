@@ -374,6 +374,12 @@ mod tests {
 
     /// George Booul's forward smash `(185, 3.45)` and up smash `(178, 6.28)`,
     /// which is the pair the review named.
+    // `6.28` is George's AUTHORED growth, copied from
+    // `george_booul_moveset.rs` so this fixture is the shipped move and not a
+    // number that resembles it — rounding it away to satisfy the lint would
+    // silently make the test about something else. The authoring site carries
+    // the same allow for the same reason.
+    #[allow(clippy::approx_constant)]
     fn george() -> (crate::LaunchEnvelope, crate::LaunchEnvelope) {
         (
             crate::LaunchEnvelope::default().with_volume(185.0, Some(3.45)),

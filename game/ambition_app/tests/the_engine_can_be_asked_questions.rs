@@ -360,6 +360,116 @@ fn an_unsatisfied_condition_leaves_its_reason_somewhere_an_agent_can_read_it() {
     );
 }
 
+/// ⛔⛤ **THE RING KNEW ABOUT ROLLBACK AND THE HOST NEVER TOLD IT ANYTHING —
+/// REVIEWED 2026-09-20.**
+///
+/// `confirm_through` re-stamps a frame the host has since settled, and its
+/// only caller was its own unit test. So in a real rollback host a verdict
+/// recorded while speculative stayed speculative forever: the frame settled,
+/// nothing told the ring, and the diagnostic reported a real historical event
+/// as a guess. The mechanism was right and wired to nothing.
+///
+/// This drives the COMPOSED engine's simulation schedule rather than calling
+/// the two log methods, because "wired to nothing" is exactly what a direct
+/// call cannot catch.
+///
+/// ⚠ THE HARNESS HAS NO ROLLBACK HOST, so the boundary is installed here —
+/// the same reason the stamp arm above installs one.
+#[test]
+fn a_settled_frame_stops_reading_as_a_guess_without_being_asked_again() {
+    use ambition_platformer2d::engine_core::ConfirmedFrameBoundary;
+    use ambition_platformer2d::platformer::authored_logic::AuthoredVerdictLog;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    sim.world_mut().insert_resource(AuthoredVerdictLog::default());
+
+    let flag_set = ConditionId::new("world", "flag_set");
+    let flag = "a_flag_only_this_test_asks_about";
+    let subject = [AuthoredArg::Name(flag.to_string())];
+    let stamp_of = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<AuthoredVerdictLog>()
+            .latest_for(&flag_set, &subject)
+            .map(|verdict| verdict.stamp)
+    };
+
+    // Asked while frame 314 is still a guess.
+    sim.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 314,
+        confirmed: 313,
+        session: 9,
+    });
+    let _ = ask(&sim, &flag_set, &subject);
+    assert_eq!(
+        stamp_of(&sim).map(|stamp| stamp.confirmed),
+        Some(false),
+        "the premise is that this answer starts speculative"
+    );
+
+    // The host moves on and settles 314. Nothing asks the question again.
+    sim.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 315,
+        confirmed: 314,
+        session: 9,
+    });
+    sim.step(base());
+    assert_eq!(
+        stamp_of(&sim),
+        Some(ambition_platformer2d::platformer::authored_logic::VerdictStamp {
+            simulation: Some((9, 314)),
+            confirmed: true,
+        }),
+        "the host settled frame 314 and the ring still calls that answer a \
+         guess, so every real historical event reads as speculative forever"
+    );
+}
+
+/// ⛔⛤ **AND A RE-SIMULATED FRAME CLEARS WHAT THE ABANDONED PASS RECORDED.**
+///
+/// The companion to the arm above, on the same wiring: the reconciliation
+/// system calls `begin_pass` for the frame about to run. Driven through the
+/// composed schedule for the same reason.
+#[test]
+fn a_frame_simulated_again_does_not_keep_the_pass_that_was_abandoned() {
+    use ambition_platformer2d::engine_core::ConfirmedFrameBoundary;
+    use ambition_platformer2d::platformer::authored_logic::AuthoredVerdictLog;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    sim.world_mut().insert_resource(AuthoredVerdictLog::default());
+
+    let flag_set = ConditionId::new("world", "flag_set");
+    let subject = [AuthoredArg::Name(
+        "a_flag_only_the_abandoned_pass_asks_about".to_string(),
+    )];
+    sim.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 420,
+        confirmed: 419,
+        session: 3,
+    });
+    let _ = ask(&sim, &flag_set, &subject);
+    assert!(
+        sim.world()
+            .resource::<AuthoredVerdictLog>()
+            .latest_for(&flag_set, &subject)
+            .is_some(),
+        "the premise is that the abandoned pass recorded something"
+    );
+
+    // The host rewinds and runs 420 again. This pass never asks.
+    sim.step(base());
+    assert_eq!(
+        sim.world()
+            .resource::<AuthoredVerdictLog>()
+            .latest_for(&flag_set, &subject),
+        None,
+        "a question only the abandoned pass asked is still being reported as \
+         part of the history that survived"
+    );
+}
+
+
 /// ASKING THE WORLD-FACT DOMAIN READS THE REAL SAVE.
 ///
 /// an unset flag is `NotSatisfied` here, unlike the custody case, and the

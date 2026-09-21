@@ -606,17 +606,12 @@ impl AuthoredVerdict {
         }
     }
 
-    /// Same question or verb, same arguments, same simulation frame — the key
-    /// a corrected rollback pass replaces on. See [`VerdictStamp`].
-    fn same_occurrence(&self, other: &Self) -> bool {
-        let same_call = match (self, other) {
-            (Self::Asked(a), Self::Asked(b)) => a.id == b.id && a.args == b.args,
-            (Self::Ran(a), Self::Ran(b)) => a.id == b.id && a.args == b.args,
-            _ => false,
-        };
-        same_call
-            && self.stamp().simulation.is_some()
-            && self.stamp().simulation == other.stamp().simulation
+    /// Was this recorded on `(session, frame)`?
+    ///
+    /// The key a rollback pass CLEARS. See [`AuthoredVerdictLog::begin_pass`]
+    /// for why it is the frame and not the call.
+    fn recorded_on(&self, session: u64, frame: i32) -> bool {
+        self.stamp().simulation == Some((session, frame))
     }
 }
 
@@ -639,17 +634,20 @@ impl AuthoredVerdict {
 /// purpose is to explain the engine, unlabelled duplication is the wrong
 /// answer.
 ///
-/// ⭐ **THE RULE IS THE ONE `GameplayTraceBuffer` ALREADY SETTLED:** key the
-/// occurrence by `(session, frame)` and let a corrected pass REPLACE its
-/// predecessor, rather than appending contradictory histories. That buffer
-/// carries the same `Option<(u64, i32)>` under the same name and for the same
-/// reason.
+/// ⭐ **A CORRECTED PASS REPLACES ITS PREDECESSOR — BY THE FRAME, NOT BY THE
+/// CALL.** `GameplayTraceBuffer` carries the same `Option<(u64, i32)>` under
+/// the same name, and the analogy stops one step short of this stream:
+/// that buffer holds ONE observation per `(session, frame)`, so replacement
+/// there IS the entry. This stream holds arbitrarily many, and a re-simulated
+/// frame can ask different questions a different number of times, so
+/// [`AuthoredVerdictLog::begin_pass`] clears the frame's whole batch and lets
+/// it refill.
 ///
 /// ⚠ **`None` MEANS NO ROLLBACK HOST, NOT "UNKNOWN".** `ConfirmedFrameBoundary`
 /// is absent exactly when nothing can rewind, and its own module says that
 /// case means *"confirm everything"*. An unstamped verdict is therefore never
-/// replaced: it happened once, in a timeline with no alternatives.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// cleared: it happened once, in a timeline with no alternatives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VerdictStamp {
     /// `(rollback session generation, simulation frame)`, or `None` when no
     /// rollback host is installed.
@@ -662,6 +660,23 @@ pub struct VerdictStamp {
     /// entry it eventually reads is the corrected one, and this says whether
     /// that has happened yet.
     pub confirmed: bool,
+}
+
+/// ⛔⛤ **HAND-WRITTEN, BECAUSE THE DERIVE BUILT A STATE THIS TYPE SAYS IS
+/// IMPOSSIBLE — REVIEWED 2026-09-20.** `#[derive(Default)]` produced
+/// `{ simulation: None, confirmed: false }`, and `None` means NO ROLLBACK
+/// HOST, which the boundary's own module defines as *"confirm everything"*.
+/// The public default therefore contradicted the field docs two lines above
+/// it. Not a shipped defect — [`verdict_stamp`] never used it — but a
+/// fixture reaching for `default()` was being handed a world that cannot
+/// exist.
+impl Default for VerdictStamp {
+    fn default() -> Self {
+        Self {
+            simulation: None,
+            confirmed: true,
+        }
+    }
 }
 
 impl std::fmt::Display for AuthoredVerdict {
@@ -784,30 +799,53 @@ impl AuthoredVerdictLog {
         let Ok(mut entries) = self.entries.lock() else {
             return;
         };
-        // ⛔⛤ **A CORRECTED ROLLBACK PASS REPLACES ITS PREDECESSOR, IT DOES
-        // NOT APPEND — the rule `GameplayTraceBuffer` already settled.** Two
-        // entries for one `(question, arguments, frame)` would make "this
-        // rule oscillated" and "the first prediction was rolled back" read
-        // the same, which for a surface that exists to explain the engine is
-        // the wrong kind of honest. An UNSTAMPED verdict is never replaced:
-        // no rollback host means nothing can be re-simulated, so it happened
-        // once. See [`VerdictStamp`].
+        // ⛔⛤ **APPEND, ALWAYS — AND THIS MATCHED `(id, args, frame)` AND
+        // OVERWROTE UNTIL A REVIEW SHOWED THAT IS NOT AN OCCURRENCE KEY
+        // (2026-09-20).** The engine accepts a command buffer holding
+        // `world.set_flag("x")` twice in ONE frame and runs both; two
+        // authored sources can ask one condition with one argument list in
+        // one frame. The old rule read the second as a rollback correction of
+        // the first, so the log claimed one thing happened where two did — a
+        // stream describing itself as the interleaved order of authored
+        // actions cannot represent multiplicity and be wrong about it.
         //
-        // ⚠ IT REPLACES IN PLACE rather than moving the entry to the back,
-        // because the ring's order is the order things HAPPENED and a
-        // correction did not happen later than the question after it.
-        if let Some(existing) = entries
-            .iter_mut()
-            .rev()
-            .find(|entry| entry.same_occurrence(&verdict))
-        {
-            *existing = verdict;
-            return;
-        }
+        // ⭐ THE REPLACEMENT IS PER FRAME, NOT PER CALL: see
+        // [`Self::begin_pass`]. `GameplayTraceBuffer`'s analogy runs out
+        // here — that buffer holds ONE observation per `(session, frame)` and
+        // this one holds arbitrarily many, so matching individual entries was
+        // borrowing a key from a stream of a different shape.
         if entries.len() == self.capacity {
             entries.pop_front();
         }
         entries.push_back(verdict);
+    }
+
+    /// A new simulation pass over `frame` is about to run: drop what the last
+    /// pass over it recorded.
+    ///
+    /// ⛔⛤ **THE UNIT OF ROLLBACK REPLACEMENT IS THE FRAME'S WHOLE BATCH.** A
+    /// re-simulated frame may ask different questions in a different order and
+    /// may ask one question a different NUMBER of times, so there is no
+    /// entry-to-entry correspondence between the abandoned pass and the
+    /// corrected one to match on. An execution-order ordinal would invent
+    /// one, and conditions evaluate from `&World` — two systems may ask in
+    /// parallel, so that ordinal would not be stable. Clearing the frame and
+    /// letting it refill is the only replacement this stream's shape
+    /// supports.
+    ///
+    /// ⚠ A frame the corrected pass asks NOTHING on ends up empty rather than
+    /// holding the abandoned pass's entries, which is the point: those
+    /// questions were never asked in the history that survived.
+    ///
+    /// Returns how many entries it dropped, so a caller can witness that a
+    /// rollback actually cleared something.
+    pub fn begin_pass(&self, session: u64, frame: i32) -> usize {
+        let Ok(mut entries) = self.entries.lock() else {
+            return 0;
+        };
+        let before = entries.len();
+        entries.retain(|entry| !entry.recorded_on(session, frame));
+        before - entries.len()
     }
 
     /// Re-stamp every entry whose frame the host has since confirmed.

@@ -331,49 +331,64 @@ fn two_subjects_of_one_condition_are_independently_answerable() {
 /// 2026-09-20.**
 ///
 /// Keeping the ring out of rollback state is right: rewinding the evidence
-/// erases what an observer came to read. But without an identity the ring
-/// holds a speculative `no` and a corrected `yes` side by side, and *"this
-/// rule oscillated"* reads exactly like *"the first prediction was rolled back
-/// and never became history"*.
+/// erases what an observer came to read. But without a replacement rule the
+/// ring holds a speculative `no` and a corrected `yes` side by side, and
+/// *"this rule oscillated"* reads exactly like *"the first prediction was
+/// rolled back and never became history"*.
 ///
-/// ⭐ THE RULE IS `GameplayTraceBuffer`'S: key the occurrence by
-/// `(session, frame)` and let the corrected pass REPLACE its predecessor.
+/// ⛔⛤ **AND THE FIRST RULE WAS THE WRONG KEY — REVIEWED THE SAME DAY.** It
+/// matched `(id, args, frame)` and overwrote, borrowed from
+/// `GameplayTraceBuffer`, which holds ONE observation per `(session, frame)`.
+/// This stream holds arbitrarily many: the engine runs
+/// `world.set_flag("x")` twice from one command buffer, and two authored
+/// sources can ask one condition with one argument list in one frame. So the
+/// unit of replacement is the FRAME'S WHOLE BATCH, cleared by `begin_pass`
+/// before the corrected pass refills it.
 #[test]
-fn a_corrected_rollback_pass_replaces_its_prediction_instead_of_appending() {
+fn a_corrected_rollback_pass_clears_the_frame_it_is_about_to_redo() {
     let log = AuthoredVerdictLog::default();
     let gate = ConditionId::new("world", "flag_set");
-    let record = |outcome: ConditionOutcome, frame: i32, confirmed: bool| {
+    let record = |door: &str, outcome: ConditionOutcome, frame: i32| {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: gate.clone(),
-            args: vec![AuthoredArg::Name("door_A".to_string())],
+            args: vec![AuthoredArg::Name(door.to_string())],
             outcome,
             stamp: VerdictStamp {
                 simulation: Some((7, frame)),
-                confirmed,
+                confirmed: false,
             },
         }));
     };
-    let no = ConditionOutcome::NotSatisfied(WhyNot::new("world.flag_set", "door_A", "unset"));
+    let no = || ConditionOutcome::NotSatisfied(WhyNot::new("world.flag_set", "door_A", "unset"));
 
-    record(no.clone(), 120, false);
-    // Somebody else's question lands between the two passes, so the
-    // replacement cannot be "overwrite the last entry".
-    log.record(AuthoredVerdict::Asked(ConditionVerdict {
-        id: ConditionId::new("world", "flag_set"),
-        args: vec![AuthoredArg::Name("door_B".to_string())],
-        outcome: ConditionOutcome::Satisfied,
-        stamp: VerdictStamp {
-            simulation: Some((7, 120)),
-            confirmed: false,
-        },
-    }));
-    record(ConditionOutcome::Satisfied, 120, false);
+    // ⭐ THE SPECULATIVE PASS OVER FRAME 120, AND ONE QUESTION ASKED TWICE.
+    // The old rule collapsed those two into one entry and called the second a
+    // correction of the first.
+    record("door_A", no(), 120);
+    record("door_A", no(), 120);
+    record("door_B", ConditionOutcome::Satisfied, 120);
+    // A neighbouring frame, which the rollback below must NOT touch.
+    record("door_A", ConditionOutcome::Satisfied, 119);
+    assert_eq!(
+        log.len(),
+        4,
+        "two askings of one question in one frame collapsed into one: {:?}",
+        log.recent()
+    );
+
+    // The host rewinds and re-simulates 120. This time the gate is open and
+    // nobody asks about `door_B` at all.
+    assert_eq!(
+        log.begin_pass(7, 120),
+        3,
+        "the new pass over frame 120 did not clear what the abandoned one recorded"
+    );
+    record("door_A", ConditionOutcome::Satisfied, 120);
 
     assert_eq!(
         log.len(),
         2,
-        "the abandoned prediction is still in the ring beside its correction: \
-         {:?}",
+        "the abandoned prediction is still in the ring beside its correction: {:?}",
         log.recent()
     );
     assert_eq!(
@@ -381,24 +396,31 @@ fn a_corrected_rollback_pass_replaces_its_prediction_instead_of_appending() {
             .map(|v| v.outcome),
         Some(ConditionOutcome::Satisfied)
     );
-    // ⚠ AND IT REPLACED IN PLACE. The ring's order is the order things
-    // HAPPENED, and a correction did not happen after the question that
-    // followed it.
+    // ⭐ AND `door_B` IS GONE RATHER THAN STALE. It was asked in a future that
+    // was abandoned; a reader finding it there would be reading a question
+    // the surviving history never asked.
     assert_eq!(
-        log.recent()[0].args(),
-        &[AuthoredArg::Name("door_A".to_string())],
-        "the corrected entry moved to the back, so the stream no longer reads \
-         in the order the frame ran"
+        log.latest_for(&gate, &[AuthoredArg::Name("door_B".to_string())]),
+        None,
+        "a question only the abandoned pass asked is still being reported"
+    );
+    // ⭐ THE CONTROL: the neighbouring frame is untouched.
+    assert_eq!(
+        log.recent()[0].stamp().simulation,
+        Some((7, 119)),
+        "clearing frame 120 took frame 119 with it"
     );
 
-    // ⭐ A DIFFERENT FRAME IS A DIFFERENT OCCURRENCE, which is the control: a
-    // rule that genuinely flips between frames must still show both.
-    record(no.clone(), 121, false);
-    assert_eq!(log.len(), 3);
+    // ⭐ A DIFFERENT SESSION AT THE SAME FRAME NUMBER IS A DIFFERENT PASS.
+    assert_eq!(
+        log.begin_pass(9, 120),
+        0,
+        "clearing session 9's frame 120 cleared session 7's"
+    );
 
-    // ⭐ AND AN UNSTAMPED VERDICT IS NEVER REPLACED. With no rollback host
-    // nothing can be re-simulated, so two identical questions are two askings
-    // — collapsing them would hide a rule being hammered every tick.
+    // ⭐ AND AN UNSTAMPED VERDICT IS NEVER CLEARED. With no rollback host
+    // nothing can be re-simulated, so two identical questions are two
+    // askings — collapsing them would hide a rule being hammered every tick.
     let plain = AuthoredVerdictLog::default();
     for _ in 0..3 {
         plain.record(AuthoredVerdict::Asked(ConditionVerdict {

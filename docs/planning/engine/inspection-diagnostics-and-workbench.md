@@ -216,19 +216,41 @@ tool discovery alike.
   stamp the ring holds a speculative `no` beside its corrected `yes` and *"this
   rule oscillated"* reads exactly like *"the first prediction was rolled back
   and never became history"*. `VerdictStamp { simulation: Option<(session,
-  frame)>, confirmed }` is filled from `ConfirmedFrameBoundary`, and `record`
-  REPLACES a verdict with the same `(id, args, frame)` in place — the rule
-  `GameplayTraceBuffer` already settled
-  (`crates/ambition_gameplay_trace/src/buffer.rs`, which keys its own rows by
-  `simulation_identity() -> Option<(u64, i32)>` and replaces on correction),
-  adopted rather than re-derived. ⚠ No planning page owns that buffer, which
-  is why this cites the source: the obvious-looking
+  frame)>, confirmed }` is filled from `ConfirmedFrameBoundary`. ⚠ No planning
+  page owns `GameplayTraceBuffer`, which the first version of this rule was
+  borrowed from, which is why this cites the source
+  (`crates/ambition_gameplay_trace/src/buffer.rs`): the obvious-looking
   `runtime-frame-history.md` is a GENERATED perf table and resolves as a link
-  while answering a different question. An UNSTAMPED verdict is never replaced: an absent
-  boundary means no rollback host, so it happened once.
+  while answering a different question.
+
+  ⛔⛤ **AND BORROWING THAT KEY WAS THE MISTAKE — REVIEWED AND REPAIRED
+  2026-09-20.** `record` matched `(id, args, frame)` and overwrote, which is
+  right for a buffer holding ONE observation per `(session, frame)` and wrong
+  for a stream holding arbitrarily many. The engine runs
+  `world.set_flag("x")` twice from one command buffer and two authored sources
+  can ask one condition with one argument list in one frame; the old rule read
+  the second as a rollback correction of the first, so the log claimed one
+  thing happened where two did. ⇒ **THE UNIT OF REPLACEMENT IS THE FRAME'S
+  WHOLE BATCH.** `begin_pass(session, frame)` drops what a previous pass over
+  that frame recorded and lets the corrected pass refill; `record` always
+  appends. An execution-order ordinal would have invented a correspondence the
+  passes do not have, and conditions evaluate from `&World` — two systems may
+  ask in parallel — so it would not have been stable either. An UNSTAMPED
+  verdict is never cleared: an absent boundary means no rollback host, so it
+  happened once.
+
+  ⛔⛤ **AND THE CONFIRMATION SIDE WAS WIRED TO NOTHING — SAME REVIEW.**
   `confirm_through(session, frame)` re-stamps what the host later settles,
-  keyed on the session too, because a generation bump names a timeline that no
-  longer exists.
+  keyed on the session too because a generation bump names a timeline that no
+  longer exists — and its only caller was its own unit test, so in a real host
+  `confirmed` never became true and every settled historical event went on
+  reading as a guess. `AuthoredVerdictTimelinePlugin`
+  (`crates/ambition_platformer2d_runtime/src/authored_verdict_timeline.rs`)
+  runs both jobs before `GameplaySimulationRoot` on every simulated frame,
+  under `resource_exists::<ConfirmedFrameBoundary>`, and no-ops when the
+  opt-in ring is absent. ⚠ The arms drive the COMPOSED schedule rather than
+  calling the two methods, because *"wired to nothing"* is exactly what a
+  direct call cannot catch.
 
   ⚠ **THE GENERAL RULE THIS LEAVES:** a diagnostic kept out of rollback state
   is not thereby independent of rollback. Out of rollback is about what gets

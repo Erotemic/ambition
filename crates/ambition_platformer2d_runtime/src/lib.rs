@@ -37,6 +37,7 @@ mod progression_schedule;
 pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
+pub mod authored_verdict_timeline;
 pub mod runtime_census;
 mod room_schedule;
 pub mod room_transition;
@@ -488,6 +489,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // seal walls and the authored-condition ones. Their adjacency is the
             // point — see the plugin's module doc.
             .add(crate::world_gating::WorldGatingSchedulePlugin)
+            .add(crate::authored_verdict_timeline::AuthoredVerdictTimelinePlugin)
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_platformer2d_actor_monolith::features::GameplayEffectsSchedulePlugin)

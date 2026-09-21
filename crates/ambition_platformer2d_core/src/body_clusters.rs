@@ -852,7 +852,8 @@ pub fn announce_body_restarts(
 /// so the axis policy's private maneuver state is reset wholesale too.
 ///
 /// `air_jumps_default` is the mid-air jump count to restore when the body's own
-/// `BodyAbilities` does not name one.
+/// `BodyAbilities` does not name one. `facing` is the direction the body comes
+/// back looking — see [`ResetFacing`] for why the reset does not decide it.
 ///
 /// ```ignore
 /// ae::reset_body_clusters(..);
@@ -866,10 +867,60 @@ pub fn announce_body_restarts(
 /// nothing saying so. An authority that requires a follow-up call is not an
 /// authority — it is a two-step ritual, and the second step is the one people
 /// forget. Now the question is asked at the call site, where the answer is.
+/// Which way a reset body should be looking.
+///
+/// ⛔⛤ **`reset_body_clusters` USED TO HARDCODE `facing = 1.0`, A FACT IT DOES
+/// NOT OWN — MEASURED 2026-09-21.** Where a body comes back is the caller's
+/// answer (that is what `spawn` is for); which way it LOOKS is the same kind of
+/// answer, and the reset was deciding it. In the smash demo's mirror rig the
+/// two seats respawn on opposite sides of stage centre, so the seat that lands
+/// on the RIGHT came back facing away from its opponent: at paired decision
+/// #418 of a `--rungs 6,6 --seeds 1` mirror bout both seats printed `facing=+1`
+/// with their bodies 64px apart at x=288 and x=352, and the returning
+/// right-hand fighter's first aerial resolved `air_back` where its mirror image
+/// got `air_forward` — a different move, with different damage and startup, on
+/// the first swing after every death, decided by nothing but which side of
+/// centre the seat respawns on.
+///
+/// ⚠ 64px is the point: no deadzone or float story reaches that far. The two
+/// bodies' positions mirrored exactly and the facing did not, which is what
+/// says the asymmetry is a hardcode rather than a rounding.
+///
+/// ⛔ **AND THIS IS THE SECOND FIELD, NOT THE FIRST.** `reset_body_clusters`
+/// hardcoded the default body SIZE too, which sent a grown Mary-O who fell in a
+/// pit back small while still wearing the cap (fixed `4e4bd0fd8`, recorded in
+/// `docs/planning/demos/super-mary-o.md`). That repair argued the case at
+/// length two lines above the facing write and then fixed one field. The class
+/// is the point: a reset restores engine-owned state, and anything an
+/// AUTHORITY OUTSIDE THE ENGINE decided is not that.
+///
+/// ⭐ **THE REST OF THE CLASS WAS THEN MEASURED RATHER THAN LEFT AS A WARNING
+/// — 2026-09-21.** The other two writes that default an identity-shaped fact
+/// are `BodyMana` and `BodyOffense`, and neither has a victim in this
+/// workspace: every construction of `BodyMana` in the tree is the same
+/// `ResourceMeter::new(100.0, 0.0, 0.0)` the default already is, so no
+/// character authors a pool to lose; and the only writer of
+/// `damage_multiplier` is a dev-tools editable, where losing an editor
+/// override on a reset is the intended behaviour. `size` and `facing` were the
+/// whole of it.
+///
+/// The same lesson this function's own doc already records for
+/// `air_jumps_default`: an authority that silently picks is not an authority.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ResetFacing {
+    /// Leave the body looking whichever way it already was.
+    Keep,
+    /// Face the sign of this value; `0.0` is `Keep`, matching
+    /// `ActorControlFrame::facing`'s convention so the two spellings of
+    /// "desired facing" agree.
+    Toward(f32),
+}
+
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     spawn: Vec2,
+    facing: ResetFacing,
     air_jumps_default: u8,
 ) {
     use crate::movement::{ComboMark, MovementOp};
@@ -893,7 +944,11 @@ pub fn reset_body_clusters(
     let air_jumps = abilities.air_jump_count(air_jumps_default);
 
     clusters.kinematics.size = body;
-    clusters.kinematics.facing = 1.0;
+    if let ResetFacing::Toward(side) = facing {
+        if side != 0.0 {
+            clusters.kinematics.facing = side.signum();
+        }
+    }
     crate::movement::transit_body(
         model,
         clusters,
@@ -1400,6 +1455,7 @@ mod reset_tests {
             model,
             &mut clusters,
             spawn,
+            ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1431,6 +1487,7 @@ mod reset_tests {
             model,
             &mut clusters,
             spawn,
+            ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1455,12 +1512,59 @@ mod reset_tests {
         let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let generous = crate::movement::DEFAULT_TUNING.air_jumps + 3;
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, Vec2::ZERO, generous);
+        reset_body_clusters(model, &mut clusters, Vec2::ZERO, ResetFacing::Keep, generous);
         assert_eq!(
             scratch.jump.air_jumps_available, generous,
             "the reset restored the engine default over the tuning the caller \
              named, which is the bug that made every call site carry a follow-up"
         );
+    }
+
+    /// THE RESET DOES NOT DECIDE WHICH WAY THE BODY LOOKS.
+    ///
+    /// ⛔⛤ It used to: `clusters.kinematics.facing = 1.0`, unconditionally, for
+    /// every reset path in the workspace. The versus stage worked around it with
+    /// a bare write on the next line; the smash respawn did not, and sent every
+    /// odd-numbered seat back facing away from the stage (see [`ResetFacing`]).
+    ///
+    /// ⚠ BOTH DIRECTIONS OF `Toward`, and a `Keep` that starts from a facing the
+    /// old code would have overwritten. A one-sided arm would pass against the
+    /// hardcode it exists to forbid.
+    #[test]
+    fn the_reset_leaves_the_facing_to_its_caller() {
+        let cases = [
+            (ResetFacing::Keep, -1.0f32, -1.0f32),
+            (ResetFacing::Keep, 1.0, 1.0),
+            (ResetFacing::Toward(-1.0), 1.0, -1.0),
+            (ResetFacing::Toward(1.0), -1.0, 1.0),
+            // A sign, not a magnitude: the smash respawn hands over a
+            // stage-centre offset in pixels.
+            (ResetFacing::Toward(-64.0), 1.0, -1.0),
+            // `0.0` is `Keep`, matching `ActorControlFrame::facing`.
+            (ResetFacing::Toward(0.0), -1.0, -1.0),
+        ];
+        for (asked, before, expected) in cases {
+            let mut scratch = BodyClusterScratch::new_with_abilities(
+                Vec2::new(10.0, 10.0),
+                crate::abilities::AbilitySet::default(),
+            );
+            scratch.kinematics.facing = before;
+            let model = &mut crate::movement::MotionModel::axis_swept(Default::default());
+            {
+                let mut clusters = scratch.as_mut();
+                reset_body_clusters(
+                    model,
+                    &mut clusters,
+                    Vec2::ZERO,
+                    asked,
+                    crate::movement::DEFAULT_TUNING.air_jumps,
+                );
+            }
+            assert_eq!(
+                scratch.kinematics.facing, expected,
+                "reset asked {asked:?} of a body facing {before}",
+            );
+        }
     }
 
     /// Any reset announces itself. The seven production callers of
@@ -1478,6 +1582,7 @@ mod reset_tests {
             model,
             &mut clusters,
             Vec2::new(10.0, 20.0),
+            ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
         assert!(scratch.lifetime.restart_pending);

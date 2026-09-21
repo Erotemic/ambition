@@ -69,7 +69,15 @@ pub fn arrive_body_in_room(
 ) {
     let incoming = clusters.kinematics.vel;
     let fly_enabled = clusters.flight.fly_enabled;
-    crate::reset_body_clusters(model, clusters, spawn, air_jumps_default);
+    // ⛔⛤ `ResetFacing::Keep`, AND THE ARRIVAL IS WHERE THAT ANSWER LIVES.
+    // `reset_body_clusters` used to spin every reset body to `facing = 1.0`; an
+    // ARRIVAL is a body that TRAVELLED here, so its heading is a fact it brought
+    // with it. With `ArrivalMomentum::Preserve` the old behaviour put the two
+    // motion facts in disagreement in the same way the sweep sample below was:
+    // a body that walked LEFT through a door came out still moving left and
+    // looking right. This wrapper is a named verb, so it answers rather than
+    // asking its caller — which is the difference between it and the primitive.
+    crate::reset_body_clusters(model, clusters, spawn, crate::ResetFacing::Keep, air_jumps_default);
     let abilities = clusters.abilities.abilities;
     clusters.flight.fly_enabled = if abilities.fly && !abilities.fly_toggle {
         true
@@ -443,6 +451,46 @@ mod tests {
             "the collapsed sweep must carry the velocity the body actually has, \
              not the zero the reset transited through",
         );
+    }
+
+    /// AN ARRIVAL KEEPS THE HEADING IT TRAVELLED WITH.
+    ///
+    /// ⛔⛤ **`reset_body_clusters` HARDCODED `facing = 1.0` AND NOTHING AFTER
+    /// THE ARRIVAL PUT IT BACK — 2026-09-21.** A body walking LEFT through a
+    /// door arrived still moving left (`ArrivalMomentum::Preserve` restores the
+    /// velocity) and looking right: the same two-motion-facts-disagreeing shape
+    /// as the sweep-sample defect the arm above exists for, one field over.
+    ///
+    /// ⚠ Both momentum modes, because the facing is not a momentum fact and a
+    /// one-mode arm would let the other regress. A `Reset` arrival stops, and a
+    /// body that stops does not turn around.
+    #[test]
+    fn an_arrival_does_not_turn_the_body_around() {
+        for momentum in [ArrivalMomentum::Preserve, ArrivalMomentum::Reset] {
+            let mut scratch = BodyClusterScratch::new_with_abilities(
+                Vec2::new(10.0, 10.0),
+                AbilitySet::default(),
+            );
+            scratch.kinematics.vel = Vec2::new(-400.0, 0.0);
+            scratch.kinematics.facing = -1.0;
+            let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
+            let facing = {
+                let mut clusters = scratch.as_mut();
+                arrive_body_in_room(
+                    &mut model,
+                    &mut clusters,
+                    Vec2::new(200.0, 48.0),
+                    1,
+                    momentum,
+                );
+                clusters.kinematics.facing
+            };
+            assert_eq!(
+                facing, -1.0,
+                "a body that walked in from the right arrived facing the door it \
+                 came through ({momentum:?})",
+            );
+        }
     }
 
     /// The other half of the policy: a RESET arrival is at rest everywhere.

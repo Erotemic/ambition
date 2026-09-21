@@ -213,8 +213,9 @@ a mirror-symmetry defect in a query the whole brain reads, poison-verified four
 ways — and it is **not** the cause of the seat bias. Do not close the seat term
 against it.
 
-⚠ **AND A SECOND DIVERGENCE IS STILL OPEN: A FACING THAT STOPPED MIRRORING.**
-With the floor tie fixed, `smash_duelist_a` against itself still diverges at
+⛤ **AND A SECOND DIVERGENCE: A FACING THAT STOPPED MIRRORING. THE RESPAWN
+TURNED BOTH FIGHTERS RIGHT — FOUND 2026-09-21.**
+With the floor tie fixed, `smash_duelist_a` against itself still diverged at
 decision #418 of 638: both bodies at mirrored `x=288`/`x=352`, `vx=0`, same
 situation, same offered verbs, same (correctly mirrored) support box — and
 **seat 0 throws `air_forward` while seat 1 throws `air_back`**. Those are
@@ -225,17 +226,66 @@ second time in one session that the missing field was the deciding one. With it:
 **both seats face `+1`.** Seat 1 is at 352 with its foe at 288, so it is facing
 AWAY, and `attack_dir_from_axis` folds the stick as `forward = axis.x * facing`
 — a back air is then the *correct* move for the state it is in. The defect is
-upstream of the choice: the facing is what failed to mirror, and both bodies are
-airborne, where `may_turn` correctly forbids turning.
+upstream of the choice: the facing is what failed to mirror.
 
-⛔ **"PLAYER 2 SYSTEMATICALLY FACES THE WRONG WAY" IS REFUTED — MEASURED, before
-it could become the story.** Over the whole bout each seat faces away from its
-foe on exactly **140 of 638** paired decisions (87 and 85 of those grounded and
-free to turn). The facing default is not seat-biased; the divergence at #418 is
-a one-off that the pair had not recovered from. ⇒ The next instrument is
-tick-level, not decision-level: facing is mirrored at decision #417 and not at
-#418, so whatever turned one body and not the other happened inside that
-five-tick gap.
+⇒ **CAUSE: `reset_body_clusters` hardcoded `clusters.kinematics.facing = 1.0`**,
+and decision #418 is the first decision after both fighters were knocked out.
+Decision #417 has both seats in `situation=Recovery` at `x=475`/`x=165`, falling
+off opposite edges; #418 has them at 288 and 352, which are exactly
+`respawn_placement(stage_centre(), 0)` and `(…, 1)`. The reset is seat-blind, so
+it faced both fighters right — correct for the seat placed LEFT of centre and
+backwards for the seat placed right of it. Nothing "turned one body and not the
+other" inside the five-tick gap; one operation turned **both**, and only one of
+them was already facing that way.
+
+⚠ **64px IS WHY THIS IS NOT A ROUNDING STORY.** The two bodies' positions
+mirrored exactly (`640 - 352 = 288`) while their facings did not, at a
+separation far outside any deadzone. The earlier candidate — a straddle of
+`side_toward`'s `0.001` band on a near-zero horizontal delta — is refuted by
+that one number, and `side_toward` returns only `{0.0, ±1.0}` so the
+`|local_axis.x| > 0.01` gate in `player.rs` cannot straddle either.
+
+⇒ **FIXED** by making the facing a call-site answer (`ResetFacing::{Keep,
+Toward}`) instead of a value the reset picks, the same correction
+`reset_body_clusters` already carries for `air_jumps_default` and for
+`base_size`. The smash respawn now faces the returning fighter toward stage
+centre, which is mirror-exact by construction; the versus round boundary had
+been patching the hardcode with a bare `kinematics.facing = …` on the next line
+and now states its answer in the call; a room arrival keeps the heading it
+travelled with, so a body that walks LEFT through a door no longer comes out
+moving left and looking right. Held by
+`the_reset_leaves_the_facing_to_its_caller`,
+`an_arrival_does_not_turn_the_body_around` and the respawn arm of
+`the_stage_kills`.
+
+⭐ **VERIFIED ON THE PROBE THAT FOUND IT.** Same bout re-run after the fix
+(`--rungs 6,6 --seeds 1 --seconds 54 --noise 0`, `smash_duelist_a` both seats):
+**12 paired-decision divergences became 11, and the one that left is #418.**
+Seat 1's post-respawn line went `x=352 facing=+1 attack=air_back` →
+`x=352 facing=-1 attack=air_forward`, which is seat 0's `x=288 facing=+1
+attack=air_forward` mirrored exactly. ⚠ The other ten are byte-identical to the
+run before the fix, which is the control: this changed the respawn facing and
+nothing else about the bout.
+
+⚠ **WHAT REMAINS IS POSITION DRIFT, AND ONE OF IT IS NOT SUB-PIXEL.** Of the
+eleven, one pair (#433) differs by a single unit of `round()` on `x` and
+`floor_edge` — the instrument's floor. The other ten are decisions #628–#637,
+where the two bodies' `x` has drifted **4 units apart** (309 against 313) and
+the seats disagree about `ground` itself: one is standing and its mirror image
+is airborne, which cascades into different `routes`, a different `phase`
+(`Neutral` against `Hitstun`) and a different `situation`. That is a genuine
+divergence with a real cause still to find, and it is NOT the rounding floor
+this page warns about above. It is the next thread on this probe.
+
+⛔ **"PLAYER 2 SYSTEMATICALLY FACES THE WRONG WAY" WAS REFUTED BEFORE THE CAUSE
+WAS FOUND, AND STAYS REFUTED.** Over the whole bout each seat faces away from
+its foe on exactly **140 of 638** paired decisions (87 and 85 of those grounded
+and free to turn) — a symmetric number, so the facing default was never
+seat-biased in aggregate even while the respawn was. ⛔ **AND THIS DOES NOT
+CLOSE THE SEAT TERM EITHER.** Like the floor tie before it, this is a real
+mirror-symmetry defect in a road the whole brain reads, and it is a separate
+question from why seat 0 takes two thirds of decided pairs. Re-measure the null
+control before crediting it.
 
 ⚠ `smash_george_booul` does not diverge this way at all — his attack histogram
 is identical between the seats, move for move, across the whole bout — so

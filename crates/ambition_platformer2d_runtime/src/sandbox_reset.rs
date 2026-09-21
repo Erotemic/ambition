@@ -71,7 +71,13 @@ pub fn reset_sandbox(
     feel: Platformer2dFeelTuningMonolith,
 ) {
     let reset_from = clusters.kinematics.pos;
-    ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
+    ae::reset_body_clusters(
+        motion_model,
+        clusters,
+        world.spawn,
+        ae::ResetFacing::Toward(1.0),
+        tuning.air_jumps,
+    );
     clusters.mana.meter.refill_full();
     if let Some(safety) = safety {
         safety.last_safe_pos = world.spawn;

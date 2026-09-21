@@ -272,17 +272,48 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
     // that respawns at its blast position is outside the stage and falls again.
     {
         use ambition_platformer2d::actor::BodyKinematics;
+        // ⛔ SEAT 1's OWN PLACEMENT, and on the x ALONE. This read seat 0's
+        // point with a 240px radius, and the two seats' points are only 64px
+        // apart — so the arm passed whichever seat came back, which is not what
+        // "where the ruleset says" means. The y is deliberately not pinned:
+        // placement is above the platform and the body has been falling for the
+        // frames the restart announcement needed.
         let respawn =
-            ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 0);
-        let pos = app
+            ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 1);
+        let kin = app
             .world()
             .get::<BodyKinematics>(launched)
-            .expect("the fighter still has a body")
-            .pos;
+            .expect("the fighter still has a body");
         assert!(
-            (pos - respawn).length() < 240.0,
-            "the fighter restarted at {pos:?}, nowhere near the ruleset's \
-             respawn placement {respawn:?}"
+            (kin.pos.x - respawn.x).abs() < 32.0,
+            "the fighter restarted at x={}, not at seat 1's respawn column {}",
+            kin.pos.x,
+            respawn.x
+        );
+
+        // ⛔⛤ **AND IT CAME BACK LOOKING AT THE STAGE — MEASURED 2026-09-21.**
+        // `reset_body_clusters` hardcoded `facing = 1.0`, so the seat that
+        // respawns to the RIGHT of centre — this one — returned facing away
+        // from the platform and its opponent. The consequence is not cosmetic:
+        // `attack_dir_from_axis` folds `axis.x * facing`, so the returning
+        // fighter's first aerial resolved `air_back` where its mirror image
+        // across the stage got `air_forward`. In a `--rungs 6,6 --seeds 1`
+        // mirror bout that showed up as the two seats' decisions diverging at
+        // paired decision #418 with their bodies 64px apart at x=288 and
+        // x=352 — far too wide for any deadzone or rounding story.
+        //
+        // ⚠ Asserted as a DIRECTION toward centre rather than a literal `-1`,
+        // because which sign that is depends on which side seat 1 is placed,
+        // and that is `respawn_placement`'s answer rather than this test's.
+        let inward = (ambition_demo_smash::stage_centre().x - respawn.x).signum();
+        assert_eq!(
+            kin.facing, inward,
+            "the fighter respawned at x={} facing {} — the stage centre is at \
+             x={}, so it came back looking away from the platform it just \
+             returned to",
+            respawn.x,
+            kin.facing,
+            ambition_demo_smash::stage_centre().x
         );
     }
 }

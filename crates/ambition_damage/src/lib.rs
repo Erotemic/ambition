@@ -835,7 +835,13 @@ pub(crate) fn safe_respawn_player(
     motion_model: &mut ae::MotionModel,
 ) {
     let to = safety.last_safe_pos;
-    ae::reset_body_clusters(motion_model, clusters, to, tuning.air_jumps);
+    ae::reset_body_clusters(
+        motion_model,
+        clusters,
+        to,
+        ae::ResetFacing::Toward(1.0),
+        tuning.air_jumps,
+    );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
     combat.recoil_lock_timer = 0.0;

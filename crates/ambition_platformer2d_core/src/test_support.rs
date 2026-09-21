@@ -113,6 +113,7 @@ pub(crate) fn update_player_with_tuning_clusters(
             model,
             clusters,
             world.spawn,
+            crate::ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
     }
@@ -166,6 +167,7 @@ pub(crate) fn update_player_control_with_tuning_scratch(
             model,
             &mut clusters,
             world.spawn,
+            crate::ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
     }
@@ -210,6 +212,7 @@ pub(crate) fn update_player_simulation_with_clusters(
             model,
             clusters,
             world.spawn,
+            crate::ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
     }

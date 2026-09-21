@@ -551,7 +551,13 @@ pub fn process_new_game_reset_request(
         )) = player.single_mut(world)
         {
             let mut clusters = cluster_item.as_clusters_mut();
-            ae::reset_body_clusters(&mut motion_model, &mut clusters, spawn, air_jumps);
+            ae::reset_body_clusters(
+                &mut motion_model,
+                &mut clusters,
+                spawn,
+                ae::ResetFacing::Toward(1.0),
+                air_jumps,
+            );
             clusters.mana.meter.refill_full();
             anim.reset();
             combat.reset();

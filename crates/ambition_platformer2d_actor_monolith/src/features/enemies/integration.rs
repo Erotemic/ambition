@@ -211,6 +211,17 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                     motion_model,
                     &mut self.clusters_mut(),
                     spawn,
+                    // An IN-PLACE revive moves the body nowhere, so nothing
+                    // about it turned around. ⚠ The authored `SpawnFacing` is
+                    // not available to restore instead: `SpawnBaseline` records
+                    // pos, size and gravity scale and no facing, so a revive
+                    // could not return one even if it wanted to. Measured
+                    // 2026-09-21 over `mary_o.ldtk`: 30 authored entities face
+                    // Left and 0 of them author a respawn interval, so no
+                    // shipped content reaches this arm with a facing to lose —
+                    // which is why the baseline is not being widened (and its
+                    // rollback schema bumped) for it today.
+                    ae::ResetFacing::Keep,
                     ae::DEFAULT_TUNING.air_jumps,
                 );
             }

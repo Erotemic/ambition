@@ -2197,10 +2197,32 @@ fn place_respawning_fighters(
         // Velocity is zeroed by the reset itself, which is what a fighter that
         // keeps the velocity that threw it off the stage needs: otherwise it
         // respawns already travelling toward the blast zone it just left.
+        let placement = respawn_placement(stage_centre(), seat);
         ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
-            respawn_placement(stage_centre(), seat),
+            placement,
+            // ⛔⛤ **FACING INWARD, BECAUSE THE RESET USED TO FACE EVERYBODY
+            // RIGHT — MEASURED 2026-09-21.** `respawn_placement` alternates
+            // seats either side of centre, so a hardcoded `+1` sent the
+            // odd-seat fighter back looking AWAY from the platform it just
+            // returned to. In a mirror bout (`--rungs 6,6 --seeds 1`,
+            // identical characters, no noise) that made the two seats'
+            // decisions stop mirroring the moment they respawned: at paired
+            // decision #418 both printed `facing=+1` with bodies 64px apart at
+            // x=288 and x=352, and the right-hand fighter's first aerial came
+            // out `air_back` where its mirror image got `air_forward` — a
+            // different move, on the first swing after every death, chosen by
+            // the seat index.
+            //
+            // ⚠ Toward CENTRE, not toward the opponent: this system places one
+            // body and knows nothing about the other, and in a 4-seat match
+            // "the opponent" is not a single direction. Centre is where the
+            // stage is, which is what a returning fighter needs to be looking
+            // at, and it is mirror-exact by construction.
+            ambition_platformer2d::engine_core::ResetFacing::Toward(
+                stage_centre().x - placement.x,
+            ),
             // This demo's fighters run the engine's default air game; a stage
             // that tuned it would pass its own number here, which is the point
             // of the parameter.

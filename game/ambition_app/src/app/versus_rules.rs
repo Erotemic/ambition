@@ -521,12 +521,19 @@ fn begin_round(
             &mut model,
             &mut clusters,
             at,
+            // ⛔⛤ **ONE OWNER OF THE POST-RESET FACING, NOT TWO — 2026-09-21.**
+            // This used to read `ResetFacing::Toward`'s value into a bare
+            // `clusters.kinematics.facing = facing` on the line AFTER the reset,
+            // because the reset hardcoded `+1` and had to be corrected. That is
+            // the same two-step ritual `reset_body_clusters`' own doc says an
+            // authority must not require, and it is what the smash respawn
+            // forgot to do (see `ResetFacing`).
+            ae::ResetFacing::Toward(facing),
             // The versus stage does not override the air game; a stage that did
             // would pass its own number, which is why this is asked rather than
             // assumed.
             ae::DEFAULT_TUNING.air_jumps,
         );
-        clusters.kinematics.facing = facing;
         //  through the ONE teardown path. Stripping the component alone
         // leaves the swing's strike boxes standing until the next tick's orphan
         // sweep, so an entity from the previous round outlives the round -- the

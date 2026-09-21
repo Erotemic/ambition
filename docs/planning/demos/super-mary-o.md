@@ -162,7 +162,18 @@ Remaining acceptance work
     `the_pipe_leads_into_a_sealed_vault_and_back_out`;
   - `reset_body_clusters` hardcoded the default body size, so a grown Mary-O
     who fell in a pit came back small while still wearing the cap — FIXED
-    (`4e4bd0fd8`);
+    (`4e4bd0fd8`). ⛔⛤ **AND THE REPAIR WAS MADE FOR ONE FIELD RATHER THAN FOR
+    THE CLASS — 2026-09-21.** `clusters.kinematics.facing = 1.0` sat two lines
+    below the paragraph that argued why `base_size` must not be hardcoded, and
+    survived it by four months: every reset in the workspace spun the body to
+    face right, so the smash demo's odd-numbered seat came back from a knockout
+    looking away from the stage and threw a back air where its mirror image
+    threw a forward air. Now `ResetFacing::{Keep, Toward}`. The class was then
+    measured rather than left as a warning: the reset's only other
+    identity-shaped defaults are `BodyMana` and `BodyOffense`, and neither has
+    a victim — nothing in the tree authors a mana pool other than the default
+    `100/0/0`, and the sole writer of `damage_multiplier` is a dev-tools
+    editable. Size and facing were the whole of it;
   - pit B opened directly into the secret vault instead of being a pit — fixed
     when the level was lengthened for World 1-2 (below); guarded by
     `no_pit_drops_into_the_secret_vault` rather than trusted, since the bug is

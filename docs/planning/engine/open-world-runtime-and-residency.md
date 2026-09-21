@@ -28,8 +28,22 @@ a universal partition tree before the first two-room proof.
 
 ## Source baseline, not completion claims
 
-Inspection baseline: `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`.
-The following source was inspected; runtime behavior was not rerun in this review.
+Inspection baseline: `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266` (2026-09-11).
+The following source was inspected; runtime behavior was not rerun in that
+review.
+
+⚠ **FRESHNESS PASS 2026-09-20, AND IT SAYS EXACTLY WHAT IT CHECKED.** The
+baseline is **1666 commits** behind `main` — an ancestor, verified with
+`git merge-base --is-ancestor` rather than by the commit merely existing. All
+eight cited paths still resolve. Two claims were re-read in full and hold:
+`RoomSet` is still `{ rooms: Vec<RoomSpec>, active: usize, start: usize, .. }`,
+so one index still selects one live room; and `PrefetchIdentity` is still
+exactly `(content_epoch, session_scope, source_room_id)`, so a prepared plan
+is still keyed by the world it was prepared for. **The other four rows'
+claims were NOT re-read** and are carried forward on the baseline's authority,
+which is what a row dated nine days and 1666 commits ago is worth. A reader
+about to depend on one should re-read it; a reader about to CHANGE one should
+update this note with what they found.
 
 | Locator | Current fact | Limit |
 | --- | --- | --- |

@@ -114,6 +114,55 @@ When a rig change, seat assignment or comparison design is under question, run a
 mechanically identical/null pairing. Seat or fixture bias that survives the null
 must be separated from fighter-quality claims.
 
+⛔⛔ **THIS RULE STOOD FOR A WEEK WITH NOTHING BEHIND IT, AND THE ONE THING THAT
+LOOKED LIKE ITS EVIDENCE WAS A DIFFERENT MEASUREMENT.** `ladder-rig`'s `--rungs`
+flag documented `--rungs 6,6` as the null — *"do two IDENTICAL fighters split
+evenly?"* — but equal rungs do not make equal fighters. With no
+`--character`/`--opponent` the row seats the demo's two default ids, and those
+are two different bodies: MEASURED 2026-09-21, `smash_duelist_a` wears
+`player_robot_v3` (256px frames, 133 authored animations, body bbox 57x91) and
+`smash_duelist_b` wears `player_robot_v2` (64px, 42 animations, bbox 17x37).
+Same eight hitboxes, so the same active volumes — a different hurtbox, and 91
+animations one of them does not author. That row returns `LOWER outfights
+[3:12 = 80%, p=0.035]`: a real fighter result, which read as a null would have
+condemned the instrument.
+
+⭐⭐ **THE NULL CONTROL NOW EXISTS AND ITS FIRST RUN FAILED.** One rung, one
+fighter in both seats, paired by exchanging the two seats' NOISE STREAMS — the
+only thing left that tells the seats apart once the rung and the body are the
+same:
+
+```bash
+cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
+  --rungs 6,6 --paired --seeds 40 \
+  --character smash_duelist_a --opponent smash_duelist_a \
+  --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron
+```
+
+| fighter (both seats) | seat 0 : seat 1 | tied | p |
+| --- | --- | --- | --- |
+| `smash_duelist_a` | 17 : 6 | 17 | **0.035** |
+| `smash_duelist_b` | 11 : 4 | 25 | 0.118 (within spread) |
+| `smash_george_booul` | 12 : 8 | 20 | 0.503 (within spread) |
+| **pooled** | **40 : 18 (69%)** | 62 | **0.0054** |
+
+⇒ **Seat 0 takes 69% of decided pairs at rung 6, and all three fighters lean the
+same way.** `--paired` cancels this on the rung and fighter arms, which is what
+those arms are for; what is new is its SIZE. An UNPAIRED row does not cancel it,
+unpaired is the DEFAULT, and every ladder number recorded before `--paired`
+existed was unpaired — so discount those by roughly a 69:31 seat term rather
+than by nothing.
+
+⚠ **NOT THE PLACEMENT, and that was checked rather than assumed.**
+`ambition_demo_smash::respawn_placement` alternates seats outward from the stage
+centre, so seats 0 and 1 sit at ±32px of a symmetric 480px platform, and the
+initial seating is the same call. Decision order within a tick is the obvious
+remaining candidate and has **not** been measured. Named, not chased.
+
+⭐ The ties are the arm's own evidence: 62 of 174 pairs came out exactly level,
+which is what exchanging one term and nothing else should do to a third of
+seeds. An arm that returned no ties would be swapping more than it claimed.
+
 ### Use enough clock for the outcome being measured
 
 A short clock that leaves many unresolved bouts measures pace/partial damage,

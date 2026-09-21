@@ -13,13 +13,21 @@
 //! 2026-09-04, each because a measurement had been quietly answering a different
 //! question than the one asked):
 //!
-//! - `--paired` — run each seed TWICE with the rungs swapped between seats and
-//!   test the WITHIN-SEED difference. Every cell of the 15-seed matrix came back
-//!   `(within spread)` because seed variance exceeded the effect; pairing removes
-//!   that variance rather than out-sampling it, and cancels the seat/placement
-//!   confound (7 of the 9 fixtures put SELF, always the higher rung, offstage).
-//!   ⇒ It changed 14 of 36 verdicts: a 24:12 skew toward the lower rung became
-//!   16:19. The unpaired reading was measuring the seat.
+//! - `--paired` — run each seed TWICE with ONE TERM swapped between the seats
+//!   and test the WITHIN-SEED difference. Every cell of the 15-seed matrix came
+//!   back `(within spread)` because seed variance exceeded the effect; pairing
+//!   removes that variance rather than out-sampling it, and cancels the
+//!   seat/placement confound (7 of the 9 fixtures put SELF, always the higher
+//!   rung, offstage). ⇒ It changed 14 of 36 verdicts: a 24:12 skew toward the
+//!   lower rung became 16:19. The unpaired reading was measuring the seat.
+//!
+//!   ⭐⭐ **WHICH TERM DEPENDS ON THE ROW, and the header used to name only one
+//!   of the three.** `Pairing::of` is the table: unequal rungs swap the RUNGS;
+//!   one rung with two fighters swaps the FIGHTERS; one rung with one fighter
+//!   swaps the two seats' NOISE STREAMS, which is the seat null control and the
+//!   only row that reports its seats where it measured them. A control that
+//!   cancels the wrong term is worse than no control, because the output still
+//!   looks symmetric.
 //! - `--stage <name>` — which layout to fight on, named as the select screen's
 //!   own stage button spells it (today: `flat`, `platforms`, `narrow`; the flag
 //!   resolves through `SmashStageChoice::ALL`, so this list cannot go stale).
@@ -211,14 +219,60 @@ pub struct LadderRigArgs {
     /// Rungs to walk, comma-separated, consecutive pairs compared. Defaults to
     /// the registered ladder `1,3,5,6,9`.
     ///
-    /// ⭐⭐ **THE NULL CONTROL THIS RIG COULD NOT RUN.** Every verdict it has ever
-    /// printed compares two DIFFERENT levels, so nothing has ever answered the
-    /// prior question: **do two IDENTICAL fighters split evenly?** `--rungs 6,6`
-    /// asks exactly that. If a rung against itself does not come out near even
-    /// under `--paired`, the bias is in the instrument — seats, fixtures, or the
-    /// verdict — and every difference this rig has attributed to skill is
-    /// suspect by that amount. A measurement tool that cannot measure zero
-    /// cannot be trusted about small numbers.
+    /// ⭐⭐ **THE NULL CONTROL, AND `--rungs 6,6` ALONE IS NOT IT.** Nothing here
+    /// had ever answered the prior question — *do two IDENTICAL fighters split
+    /// evenly?* — and a measurement tool that cannot measure zero cannot be
+    /// trusted about small numbers. But equal rungs do not make equal fighters:
+    /// with no `--character`/`--opponent` the row still seats the demo's two
+    /// DEFAULT ids, and those are two different bodies.
+    ///
+    /// ⚠ MEASURED 2026-09-21, not inferred from the ids. `smash_duelist_a`
+    /// wears `player_robot_v3` — 256px frames, 133 authored animations, body
+    /// bbox 57x91 (0.22 x 0.36 of the frame). `smash_duelist_b` wears
+    /// `player_robot_v2` — 64px frames, 42 animations, bbox 17x37 (0.27 x
+    /// 0.58). They author the SAME eight hitboxes, so the active volumes match;
+    /// what differs is the hurtbox the other fighter has to hit and the 91
+    /// animations one of them does not author at all.
+    ///
+    /// ⇒ So `--rungs 6,6 --paired` on the defaults is a FIGHTER comparison
+    /// wearing a null control's clothes, and it returns a real result:
+    /// `LOWER outfights [3:12 = 80%, p=0.035]` on the shipped ladder — Robot v2
+    /// beating Robot v3 at one rung, printed unqualified. Read as the null it
+    /// claimed to be, that number would have condemned the instrument.
+    ///
+    /// ⇒ **THE NULL CONTROL IS `--rungs X,X --character F --opponent F
+    /// --paired`**, which pairs by swapping the two seats' NOISE STREAMS (see
+    /// [`Mirror::Noise`]) because with one rung and one fighter the stream is
+    /// the only thing left that tells the seats apart. Anything but `even`
+    /// there is the seat, and every ladder verdict carries it.
+    ///
+    /// ⛔⛔ **AND THE FIRST RUN OF IT FAILED.** Rung 6 against itself, shipped
+    /// ladder, 40 paired seeds each:
+    ///
+    /// ```text
+    /// smash_duelist_a     seat0 17 : 6  seat1   (+17 tied)   p = 0.035
+    /// smash_duelist_b     seat0 11 : 4  seat1   (+25 tied)   p = 0.118  (within spread)
+    /// smash_george_booul  seat0 12 : 8  seat1   (+20 tied)   p = 0.503  (within spread)
+    /// pooled              seat0 40 : 18 seat1   (+62 tied)   p = 0.0054
+    /// ```
+    ///
+    /// ⇒ **Seat 0 takes 69% of decided pairs, and all three fighters lean the
+    /// same way.** So this rig has a seat term worth roughly 69:31 on a decided
+    /// pair, and an UNPAIRED row — which is the DEFAULT, and which every number
+    /// recorded before `--paired` existed used — carries it undiscounted. The
+    /// paired rung and fighter arms cancel it, which is what they are for; they
+    /// now also have its size.
+    ///
+    /// ⚠ NOT THE PLACEMENT, checked rather than assumed:
+    /// `ambition_demo_smash::respawn_placement` alternates the seats outward
+    /// from the stage centre, so seats 0 and 1 sit at ±32px of a symmetric
+    /// platform and the initial seating is the same call. The cause is
+    /// somewhere else — decision order within a tick is the obvious candidate
+    /// and has not been measured. ⇒ Named, not chased.
+    ///
+    /// ⭐ The TIES are the arm's own evidence that it works: 62 of 174 pairs
+    /// (36%) came out exactly level, which is what exchanging a term and
+    /// nothing else should do to a third of seeds.
     #[arg(long)]
     pub rungs: Option<String>,
     /// Run each seed TWICE with the rungs swapped between seats, and report the
@@ -383,7 +437,7 @@ pub fn run(cli: LadderRigArgs) {
         // one. This mode had no such line while `--paired` silently did nothing
         // here, so a reader had two reasons to be misled and no way to see either.
         if args().paired {
-            "PAIRED — each seed run twice with the rungs swapped between seats"
+            pairing_axis()
         } else {
             "unpaired"
         }
@@ -985,20 +1039,43 @@ fn weights_from_args(
     Some(weights)
 }
 
-fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
+fn force_noise_seed(app: &mut bevy::app::App, seed: u64, swap_streams: bool) -> bool {
     use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
     let world = app.world_mut();
     let mut brains = world.query::<(&MatchSeat, &mut Brain)>();
     let mut applied = false;
     for (seat, mut brain) in brains.iter_mut(world) {
         if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut *brain {
-            // A zero stream is a legitimate SplitMix64 state but an unhelpful
-            // one to start every seat on; the seat index separates them.
-            state.noise = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (seat.0 as u64 + 1);
+            // ⛔ THE STREAM IS KEYED ON THE SEAT, WHICH IS WHY IT CAN BE THE
+            // CONTROL AND WHY IT HAD TO BECOME ONE. A zero stream is a
+            // legitimate SplitMix64 state but an unhelpful one to start every
+            // seat on, so the seat index separates them — and that makes the
+            // stream a per-seat term indistinguishable from placement until
+            // something swaps it. `Mirror::Noise` is that something: XOR with 1
+            // exchanges the two seats' streams and leaves every other seat fact
+            // where it was.
+            state.noise = noise_stream(seed, seat.0, swap_streams);
             applied = true;
         }
     }
     applied
+}
+
+/// The SplitMix64 state one seat starts on, for one seed and one pairing.
+///
+/// ⭐⭐ **THE PROPERTY IS AN EXCHANGE, NOT A DIFFERENCE, and the two look alike
+/// at the call site.** [`Mirror::Noise`] cancels the stream term by giving each
+/// seat the OTHER seat's stream — so `swap_streams` must permute the two
+/// streams, not derive two fresh ones. `seat + 1` would also "swap" in the
+/// sense of changing both, and would put a third and fourth stream into the
+/// pair with nothing cancelled, leaving a null control that still measures
+/// noise. `^ 1` is an involution on the two seats and is the whole reason this
+/// is one line with a name.
+fn noise_stream(seed: u64, seat: usize, swap_streams: bool) -> u64 {
+    // A zero stream is a legitimate state but an unhelpful one to start every
+    // seat on, hence the `+ 1`.
+    let stream_of = seat ^ usize::from(swap_streams);
+    seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (stream_of as u64 + 1)
 }
 
 /// Run rung pairs through scenarios reproducible by body placement alone.
@@ -1088,8 +1165,7 @@ fn run_scenarios(seeds: usize) {
         // answer the same question with different controls, and two runs whose
         // headers do not say which cannot be compared.
         if args().paired {
-            "PAIRED — each seed run twice with the rungs swapped between seats, \
-             tested on within-seed differences"
+            pairing_axis()
         } else {
             "unpaired — seat 0 is always the higher rung"
         },
@@ -1288,6 +1364,42 @@ fn fighters_seated(swapped: bool) -> [String; 2] {
         [b, a]
     } else {
         [a, b]
+    }
+}
+
+/// What `--paired` actually swaps for THIS run, in the words the header prints.
+///
+/// ⛔⛔ **THE HEADER SAID "the rungs swapped between seats" ON EVERY RUN, AND ON
+/// AN EQUAL-RUNG ROW THAT IS THE ONE THING IT DOES NOT SWAP.** `bouts_for_seed`
+/// has three pairings and the design line named one of them, so a reader of a
+/// `--rungs 6,6` table was told the control cancelled a term the row does not
+/// contain. ⇒ The axis is derived from the same two inputs the pairing branches
+/// on, so a fourth arm cannot leave this line behind.
+fn pairing_axis() -> &'static str {
+    let rungs = rungs();
+    let equal = |p: &[u8]| p[0] == p[1];
+    let [a, b] = fighters();
+    match (
+        rungs.windows(2).all(equal),
+        rungs.windows(2).any(equal),
+        a == b,
+    ) {
+        (false, false, _) => "PAIRED — each seed run twice with the RUNGS swapped between seats",
+        (true, _, false) => {
+            "PAIRED — one rung on both sides, so the variable is the FIGHTER: each seed runs \
+             twice with the two ids swapped between seats"
+        }
+        (true, _, true) => {
+            "PAIRED — ⭐ SEAT NULL CONTROL: one rung, one fighter, each seed run twice with the \
+             two seats' NOISE STREAMS swapped. `higher`/`lower` below are SEAT 0 and SEAT 1 and \
+             nothing else distinguishes them, so any verdict but `even` here is the INSTRUMENT \
+             and every ladder number carries it"
+        }
+        (false, true, _) => {
+            "PAIRED — ⚠ MIXED: this rung list contains both equal and unequal pairs, so the rows \
+             below do not share a control. Equal-rung rows swap fighters or noise streams; \
+             unequal ones swap the rungs. Run them separately to compare"
+        }
     }
 }
 
@@ -1797,6 +1909,32 @@ fn report_row(label: &str, bouts: &[Bout]) {
     );
 }
 
+/// What the SECOND bout of a `--paired` seed exchanges between the two seats.
+///
+/// ⭐⭐ **THE AXIS IS THE WHOLE DESIGN, because a control that cancels the wrong
+/// term produces symmetric-looking output that reads as rigour.** Each variant
+/// is the control for exactly one question, and picking the wrong one answers a
+/// different question in the same columns.
+///
+/// ⚠ `Rungs` is absent on purpose: the rung swap is expressed by handing
+/// `run_bout_at` its two rungs the other way round, so it never reaches here.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Mirror {
+    /// The first bout of a pair, and every unpaired bout.
+    Straight,
+    /// The two fighter ids change seats. The control for *is A stronger than B*.
+    Fighters,
+    /// The two seats' NOISE STREAMS change places, and nothing else does.
+    ///
+    /// ⭐⭐ **THIS IS THE ONE THAT MAKES THE NULL CONTROL RUNNABLE.** One rung
+    /// against itself with one fighter in both seats has no variable left except
+    /// the seat — placement, and the stream `force_noise_seed` derives from the
+    /// seat index. Swapping the streams cancels the stream, and what survives the
+    /// pair is the SEAT TERM alone: the number every ladder verdict carries and
+    /// none of them had ever been measured against.
+    Noise,
+}
+
 /// Every bout one seed contributes, honouring `--paired`.
 ///
 /// ⛔⛔ **THIS EXISTS BECAUSE `--paired` WAS WIRED INTO ONE OF THE THREE MODES AND
@@ -1812,74 +1950,142 @@ fn bouts_for_seed(
     seed: u64,
     start: Option<&ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Vec<Bout> {
-    let straight = run_bout_at(higher, lower, seed, start.cloned(), false);
+    let straight = run_bout_at(higher, lower, seed, start.cloned(), Mirror::Straight);
     if !args().paired {
         return vec![straight];
     }
 
-    // ⭐⭐ EQUAL RUNGS, DIFFERENT FIGHTERS: pair on the FIGHTER instead.
-    //
-    // `--rungs 5,5 --character A --opponent B` asks a real question — is A
-    // stronger than B at one rung — and its variable is the fighter, not the
-    // rung. ⇒ Swapping the rungs there is the tautology the guard below names,
-    // but swapping the SEATS the two fighters occupy is the same control applied
-    // to the actual variable, and it cancels the seat term exactly as the rung
-    // form does.
-    //
-    // ⛔⛔ AND THE ABSENCE OF THIS WAS A DEFECT, NOT A MISSING FEATURE. `--paired`
-    // swapped the RUNGS, so a fighter comparison got a control that cancelled the
-    // wrong term — and **a control that cancels the wrong term is worse than no
-    // control, because it produces symmetric-looking output that reads as
-    // rigour.** The degenerate arm below printed perfectly equal columns and an
-    // `even` verdict, which is what a careful null control looks like.
-    //
-    // ⚠ Measured cost, not a hypothetical: an UNPAIRED `5 vs 5` run of George
-    // against a stand-in gave a **329% : 225%** damage gap and still reported
-    // `(within spread)`, because unpaired seed variance is exactly what `--paired`
-    // removes. ⇒ The question could be ASKED and could not be ANSWERED, and
-    // nothing in the output said so.
-    // ⚠ THE TEST IS ON THE IDS, AND TWO IDS CAN NAME THE SAME FIGHTER. The demo's
-    // default pair — `smash_duelist_a` and `smash_duelist_b` — both receive
-    // `fighter_moveset()`, so swapping them exchanges the SEATS and nothing else.
-    // ⇒ That is not degenerate; it is the seat-bias null control, and a useful
-    // one. But it means this arm measures *whatever differs between the two ids*,
-    // which for the Robots is placement and for George-against-a-Robot is the
-    // whole kit. **Read the arm by what the ids resolve to, not by the fact that
-    // they differ.**
+    // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND — ON TWO ARMS OF THREE — THE
+    // RESULT PUT BACK THE RIGHT WAY ROUND. `run_bout_at(lower, higher, ..)`
+    // seats the LOWER rung where the fixture puts SELF, so `mirrored` swaps the
+    // pair back and every `[0]` stays "the higher rung"; reporting the raw
+    // mirror would average each rung with the other one. The seat null is the
+    // exception and `Pairing::reorient` is where that is decided, ONCE.
     let [a, b] = fighters();
-    if higher == lower && a != b {
-        // ⛔ `mirrored()` puts the columns back the right way round, exactly as
-        // the rung form does: the swapped bout seats fighter B where the fixture
-        // puts SELF, so every `[0]` below still means "the `--character` fighter".
-        let swapped = run_bout_at(higher, lower, seed, start.cloned(), true);
-        return vec![straight, swapped.mirrored()];
+    let pairing = Pairing::of(higher, lower, a == b);
+    let swapped = if pairing.swap_rungs {
+        run_bout_at(lower, higher, seed, start.cloned(), pairing.mirror)
+    } else {
+        run_bout_at(higher, lower, seed, start.cloned(), pairing.mirror)
+    };
+    vec![
+        straight,
+        if pairing.reorient {
+            swapped.mirrored()
+        } else {
+            swapped
+        },
+    ]
+}
+
+/// How one seed becomes a pair: what the second bout swaps, and whether its
+/// columns are turned back round before they are reported.
+///
+/// ⛔⛔ **THIS IS A TABLE BECAUSE A TEST COULD NOT OTHERWISE SEE THE CHOICE.**
+/// The three arms each ended in their own `return vec![straight, ...]`, so the
+/// decision "does the seat null mirror?" lived at a call site and nothing could
+/// ask it. Poisoning that site — adding `.mirrored()` to the noise arm, which
+/// averages each seat with the other and returns `Even` for any pair whatsoever
+/// — left **every test in this file green**, because the tests pin
+/// `paired_outcomes` and the defect was in which orientation the row handed it.
+/// That is this file's own recorded failure mode: *a test that constructs its
+/// subject cannot witness that subject being bypassed*.
+///
+/// ⇒ One road now, and `the_seat_null_is_the_one_pairing_that_must_not_reorient`
+/// reads the table rather than a hand-built pair.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Pairing {
+    /// What the second bout exchanges between the seats.
+    mirror: Mirror,
+    /// Whether the second bout is run with its two rungs the other way round.
+    swap_rungs: bool,
+    /// Whether the second bout's per-seat columns are swapped back, so that
+    /// index 0 keeps meaning what the straight bout's index 0 meant.
+    reorient: bool,
+}
+
+impl Pairing {
+    /// ⚠ `same_fighter` is whether the two IDS RESOLVE to one fighter, which is
+    /// not the same as the ids being equal in spelling — and the distinction is
+    /// what made the fighter arm masquerade as a seat null for a week. The
+    /// caller compares the ids; see `Mirror::Fighters`' arm for what that buys
+    /// and what it does not.
+    fn of(higher: u8, lower: u8, same_fighter: bool) -> Self {
+        match (higher == lower, same_fighter) {
+            // Unequal rungs: the ladder's own question. The rung is the variable.
+            (false, _) => Self {
+                mirror: Mirror::Straight,
+                swap_rungs: true,
+                reorient: true,
+            },
+            // ⭐⭐ EQUAL RUNGS, DIFFERENT FIGHTERS: pair on the FIGHTER instead.
+            //
+            // `--rungs 5,5 --character A --opponent B` asks a real question — is
+            // A stronger than B at one rung — and its variable is the fighter,
+            // not the rung, so swapping the rungs would cancel a term the row
+            // does not contain. Swapping the SEATS the two fighters occupy is
+            // the same control applied to the actual variable.
+            //
+            // ⛔⛔ THE ABSENCE OF THIS WAS A DEFECT, NOT A MISSING FEATURE.
+            // `--paired` swapped the RUNGS, so a fighter comparison got a
+            // control that cancelled the wrong term — and **a control that
+            // cancels the wrong term is worse than no control, because it
+            // produces symmetric-looking output that reads as rigour.** The old
+            // equal-rung arm printed perfectly equal columns and an `even`
+            // verdict, which is what a careful null control looks like.
+            //
+            // ⚠ Measured cost, not a hypothetical: an UNPAIRED `5 vs 5` run of
+            // George against a stand-in gave a **329% : 225%** damage gap and
+            // still reported `(within spread)`, because unpaired seed variance
+            // is exactly what `--paired` removes. ⇒ The question could be ASKED
+            // and could not be ANSWERED, and nothing in the output said so.
+            //
+            // ⛔⛔ AND THIS ARM IS NOT A SEAT NULL CONTROL, THOUGH THE COMMENT
+            // HERE SAID IT WAS. It claimed the demo's default pair —
+            // `smash_duelist_a` and `smash_duelist_b` — both receive
+            // `fighter_moveset()` and so "swapping them exchanges the SEATS and
+            // nothing else". The moveset half is true. The "nothing else" is
+            // not: the two ids wear different sheets and the sheet carries the
+            // body. MEASURED 2026-09-21 — v3 is 256px frames with 133 authored
+            // animations and a 57x91 body bbox, v2 is 64px with 42 and 17x37.
+            // The same eight hitboxes, so the same active volumes; a different
+            // hurtbox, and 91 animations on one side the other does not author.
+            // ⇒ It is a real and useful FIGHTER comparison and it answers
+            // `LOWER outfights [3:12 = 80%, p=0.035]` at rung 6 on the shipped
+            // ladder. It is simply not the question a reader of `--rungs 6,6`
+            // was told it was. **Read the arm by what the ids RESOLVE to, not
+            // by the fact that they differ.**
+            (true, false) => Self {
+                mirror: Mirror::Fighters,
+                swap_rungs: false,
+                reorient: true,
+            },
+            // ⭐⭐ ONE RUNG, ONE FIGHTER: THE SEAT NULL CONTROL, AND IT IS NOT
+            // DEGENERATE — which is what the arm it replaced believed.
+            //
+            // That arm warned and fell through, reasoning that with both rungs
+            // and both ids equal the swapped call is the SAME call, so the pair
+            // is `[B, B.mirrored()]` — equal columns by construction, on a
+            // biased instrument as readily as an unbiased one. Right about the
+            // FIGHTER swap, wrong about the row: the two seats are still not
+            // interchangeable, because `noise_stream` derives each brain's
+            // stream from its seat index. ⇒ Exchange the STREAMS and the pair
+            // cancels the one term that tells the seats apart, leaving the
+            // seat's own placement — the term every ladder verdict carries.
+            //
+            // ⛔ AND IT MUST NOT REORIENT. Everywhere else `[0]` means "the
+            // higher rung" or "the `--character` fighter" and the mirror puts it
+            // back. Here the subject IS the seat, so index 0 has to keep meaning
+            // seat 0 in both halves; mirroring would average each seat with the
+            // other and hand back the equal columns this arm exists to stop
+            // manufacturing.
+            (true, true) => Self {
+                mirror: Mirror::Noise,
+                swap_rungs: false,
+                reorient: false,
+            },
+        }
     }
-    // ⛔⛔ PAIRING A RUNG WITH ITSELF IS A TAUTOLOGY, and it looks like a clean
-    // null control, which is how it fooled its own author. With `higher ==
-    // lower` the swapped call below is the SAME call, so the pair is `[B,
-    // B.mirrored()]` — a bout averaged with its own transpose. The columns come
-    // out equal by construction, for any bout, on a biased instrument as
-    // readily as an unbiased one. ⇒ Run `--rungs X,X` WITHOUT `--paired` to
-    // measure the seat term; the paired form measures nothing.
-    // ⚠ Reached only when the fighters are the SAME too — the arm above handles
-    // equal rungs with different fighters, which is a real comparison. With both
-    // equal there is genuinely no variable and the mirrored bout is the same bout.
-    if higher == lower {
-        eprintln!(
-            "[ladder_rig] ⛔ --paired with a rung against itself ({higher} vs {lower}) AND \
-             one fighter against itself is degenerate: the mirrored bout is the SAME \
-             bout, so equal columns are guaranteed and prove nothing about bias. Drop \
-             --paired to measure the seat term, or pass different \
-             --character/--opponent to compare FIGHTERS at one rung."
-        );
-    }
-    // ⛔ THE SAME SEED, THE ROLES SWAPPED, AND THE RESULT PUT BACK THE RIGHT WAY
-    // ROUND. `run_bout_at(lower, higher, ..)` seats the LOWER rung where the
-    // fixture puts SELF, so `mirrored` swaps the pair back and every `[0]` below
-    // still means "the higher rung". Reporting the raw mirror would average each
-    // rung with the other one.
-    let swapped = run_bout_at(lower, higher, seed, start.cloned(), false);
-    vec![straight, swapped.mirrored()]
 }
 
 impl Bout {
@@ -2094,7 +2300,7 @@ fn run_bout_at(
     lower: u8,
     seed: u64,
     start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
-    swap_fighters: bool,
+    mirror: Mirror,
 ) -> Bout {
     let mut app = build_demo_app();
     // ⛔ BEFORE the warm-up updates, because `project_authored_fighter_ladder`
@@ -2128,10 +2334,10 @@ fn run_bout_at(
     // tool: `PreparedCharacterRegistry` is what the composition actually
     // prepared, so it cannot drift from what can be seated, and a fighter added
     // to the demo needs no edit here.
-    assert_seatable(&app, fighters_seated(swap_fighters));
+    assert_seatable(&app, fighters_seated(mirror == Mirror::Fighters));
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            fighters_seated(swap_fighters),
+            fighters_seated(mirror == Mirror::Fighters),
             &[higher, lower],
         ));
     app.world_mut()
@@ -2162,7 +2368,7 @@ fn run_bout_at(
     for tick in 0..ticks() {
         app.update();
         if !seeded {
-            seeded = force_noise_seed(&mut app, seed);
+            seeded = force_noise_seed(&mut app, seed, mirror == Mirror::Noise);
             if seeded {
                 // Only when the caller asked. Forcing unconditionally is what
                 // flattened the ladder; see `weights_from_args`.
@@ -2859,6 +3065,142 @@ mod tests {
             hi, lo,
             "a pure seat effect survived the pairing, so `--paired` is not \
              cancelling the thing it exists to cancel"
+        );
+    }
+
+    /// ⭐⭐ THE SEAT NULL CONTROL CANCELS THE STREAM ONLY IF THE SWAP IS AN
+    /// EXCHANGE, and a swap that merely CHANGES both streams passes every
+    /// eyeball check.
+    ///
+    /// [`Mirror::Noise`] is the arm that made the null control runnable: one
+    /// rung, one fighter, and the pair differs only in which seat holds which
+    /// noise stream. That cancels the stream across the pair **only** if the two
+    /// halves hold the same two streams in the other order. `seat + 1` would
+    /// also make both halves differ from each other and from the straight bout —
+    /// and would put streams 1,2 in one half and 2,3 in the other, so the pair
+    /// would carry three streams, cancel nothing, and report the noise it was
+    /// built to remove. The columns would look no different.
+    #[test]
+    fn swapping_the_noise_streams_exchanges_them_rather_than_making_new_ones() {
+        for seed in [0u64, 1, 7, 12_345, u64::MAX] {
+            let (seat0, seat1) = (
+                noise_stream(seed, 0, false),
+                noise_stream(seed, 1, false),
+            );
+            // The premise: the seats are separated at all. Without this the
+            // exchange below is vacuously satisfied.
+            assert_ne!(
+                seat0, seat1,
+                "seed {seed} gave both seats the same stream, so there is \
+                 nothing for the null control to cancel"
+            );
+            assert_eq!(
+                noise_stream(seed, 0, true),
+                seat1,
+                "seed {seed}: seat 0 must receive SEAT 1's stream, not a third one"
+            );
+            assert_eq!(
+                noise_stream(seed, 1, true),
+                seat0,
+                "seed {seed}: seat 1 must receive SEAT 0's stream, not a fourth one"
+            );
+        }
+    }
+
+    /// ⛔⛔ THE THREE PAIRINGS, READ OFF THE TABLE THAT DECIDES THEM — and the
+    /// reason the table exists is that the version of this test which built its
+    /// own pair could not see the defect.
+    ///
+    /// Each arm cancels exactly one term, and picking the wrong one answers a
+    /// different question in the same columns. The seat null is the arm that
+    /// must NOT re-orient: its subject is the seat, so index 0 has to keep
+    /// meaning seat 0 in both halves. ⚠ The poison to run against this is
+    /// `reorient: true` on the `(true, true)` arm; with the old shape the
+    /// equivalent poison — `.mirrored()` at the call site — left every test in
+    /// this file green.
+    #[test]
+    fn the_seat_null_is_the_one_pairing_that_must_not_reorient() {
+        let ladder = Pairing::of(9, 6, false);
+        assert_eq!(
+            ladder,
+            Pairing {
+                mirror: Mirror::Straight,
+                swap_rungs: true,
+                reorient: true
+            },
+            "unequal rungs: the rung is the variable, so the rungs swap and the \
+             columns come back round"
+        );
+        // Same rungs, two fighters — and `same_fighter` is about what the ids
+        // RESOLVE to, which is why this arm is not the null control.
+        assert_eq!(
+            Pairing::of(6, 6, false),
+            Pairing {
+                mirror: Mirror::Fighters,
+                swap_rungs: false,
+                reorient: true
+            },
+            "one rung, two fighters: swapping the RUNGS there is a tautology"
+        );
+        let null = Pairing::of(6, 6, true);
+        assert_eq!(
+            null,
+            Pairing {
+                mirror: Mirror::Noise,
+                swap_rungs: false,
+                reorient: false
+            },
+            "one rung and one fighter is the SEAT null: exchange the noise \
+             streams, and do NOT re-orient — mirroring averages each seat with \
+             the other and returns `even` for any pair whatsoever"
+        );
+        // Stated as the property rather than the triple, so the reason survives
+        // a fourth arm: only the arm whose subject is the seat keeps its columns.
+        assert!(
+            !null.reorient && ladder.reorient,
+            "exactly the seat-null arm reports its seats where it measured them"
+        );
+    }
+
+    /// ⛔⛔ AND THE NOISE ARM MUST NOT MIRROR, WHICH IS THE OPPOSITE OF EVERY
+    /// OTHER ARM'S REQUIREMENT.
+    ///
+    /// On the rung and fighter arms `[0]` means "the higher rung" / "the
+    /// `--character` fighter" and [`Bout::mirrored`] is what puts it back. On
+    /// the seat null the SUBJECT IS THE SEAT, so index 0 has to keep meaning
+    /// seat 0 in both halves. Mirroring the second half there averages each seat
+    /// with the other and returns `Even` for any pair whatsoever — the
+    /// equal-columns-by-construction failure the arm was written to stop
+    /// manufacturing, and it would look like a clean null.
+    #[test]
+    fn the_seat_null_reports_a_seat_that_wins_both_halves_and_a_mirror_hides_it() {
+        // Seat 0 deals more in both halves: `damage_taken[1]` is what seat 1
+        // absorbed, which is what seat 0 dealt.
+        let half = |taken: [f32; 2]| Bout {
+            damage_taken: taken,
+            ..bout()
+        };
+        // Stocks equal so the verdict falls through to damage, as every real
+        // 6-vs-6 bout on the shipped ladder does.
+        let level = |b: Bout| Bout { stocks: [0, 0], ..b };
+        // Seat 0 out-deals seat 1 by the SAME 20 in each half — the signature
+        // of a term that belongs to the seat rather than to the bout — while
+        // the halves are otherwise different bouts.
+        let pair = [level(half([10.0, 30.0])), level(half([26.0, 46.0]))];
+        assert_eq!(
+            paired_outcomes(&pair),
+            vec![PairedOutcome::Higher],
+            "seat 0 dealt more in both halves, so the raw pair must say so"
+        );
+
+        // The same pair with the second half mirrored, which is what every
+        // other arm does and what this one must not.
+        let mirrored = [pair[0], pair[1].mirrored()];
+        assert_eq!(
+            paired_outcomes(&mirrored),
+            vec![PairedOutcome::Even],
+            "mirroring the seat-null half averaged the two seats and erased the \
+             very term the arm exists to measure"
         );
     }
 }

@@ -637,6 +637,108 @@ fn a_body_on_the_lip_reports_the_edge_it_is_standing_on() {
     assert_eq!(view_at(560.0).floor_ahead(1.0), None);
 }
 
+/// ⛔⛔ TWO FLOORS AT ONE HEIGHT, AND THE BODY — NOT THE LIST — DECIDES.
+///
+/// `supporting_floor` keeps every standable solid under the body's FOOTPRINT
+/// (deliberately the footprint, so the test above still passes) and then takes
+/// the nearest by height. Two platforms at the same height are exactly tied,
+/// and `min_by` returns the FIRST minimum — so the answer was whatever order
+/// the terrain list happened to be in, which is not a fact about the body and
+/// is the same for every body in the room.
+///
+/// ⚠ THE POPULATION IS THE SMASH STAGE'S RESPAWN PLATFORMS: one per seat, one
+/// height, 96px wide, 64px apart, so a body between them overlaps both. And it
+/// was MEASURED, in the one configuration where every symmetry is exact by
+/// construction — a zero-noise mirror bout of `smash_george_booul` against
+/// itself. Seat 0 at `x=302` and seat 1 at `x=338`, mirror images about the 320
+/// centre, **both reported `support_x=[240..336]`**: seat 1 was standing on its
+/// opponent's floor. It then read `floor_edge=-3` (past the lip) against its
+/// twin's `+35`, classified `Disadvantage` where its twin said `Neutral`, and
+/// lost `Approach` from its offered verbs.
+///
+/// ⇒ The fixture below is those measured numbers.
+#[test]
+fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
+    // The two respawn platforms, as the smash stage places them: centres at
+    // 320±32, 96 wide, top at y=300.
+    let left = wall(ae::Vec2::new(288.0, 316.0), ae::Vec2::new(48.0, 16.0));
+    let right = wall(ae::Vec2::new(352.0, 316.0), ae::Vec2::new(48.0, 16.0));
+    // Feet on the top face, as the lip test derives it.
+    let view_at = |x: f32, terrain: Vec<PerceivedSolid>| WorldView {
+        self_view: self_view_at(ae::Vec2::new(x, 284.0), ActorFaction::Enemy),
+        viewport: Viewport::around(ae::Vec2::new(x, 284.0), ae::Vec2::splat(500.0)),
+        terrain,
+        ..Default::default()
+    };
+    let span = |view: &WorldView| {
+        let floor = view.supporting_floor().expect("a body over two platforms             is over at least one");
+        (floor.min.x, floor.max.x)
+    };
+
+    // The premise: at 302 and 338 the footprint really does reach both, so the
+    // tie is live. Without this the test passes on there being nothing to break.
+    let both = vec![left, right];
+    let reversed = vec![right, left];
+    assert!(
+        302.0 + 10.0 > 304.0 && 338.0 - 10.0 < 336.0,
+        "the measured positions no longer straddle both platforms, so this          fixture has stopped reproducing the tie"
+    );
+
+    // Each body stands on the platform its own CENTRE is over.
+    assert_eq!(span(&view_at(302.0, both.clone())), (240.0, 336.0));
+    assert_eq!(span(&view_at(338.0, both.clone())), (304.0, 400.0));
+
+    // And the answer does not depend on the order the terrain arrived in —
+    // which is the whole defect, and the only thing that changed.
+    assert_eq!(span(&view_at(302.0, reversed.clone())), (240.0, 336.0));
+    assert_eq!(span(&view_at(338.0, reversed)), (304.0, 400.0));
+
+    // ⇒ The consequence the brain actually reads: two mirror-image bodies now
+    // report mirror-image distances to their floor's edge, where before they
+    // reported +35 and -3.
+    let (seat0, seat1) = (view_at(302.0, both.clone()), view_at(338.0, both));
+    assert_eq!(
+        seat0.floor_edge_distance(),
+        seat1.floor_edge_distance(),
+        "two bodies in mirror-image positions over mirror-image platforms          disagree about how much floor they have"
+    );
+    assert!(
+        seat0.floor_edge_distance().is_some_and(|d| d > 0.0),
+        "both should be ON their platform, not past its lip"
+    );
+
+    // ⭐ AND THE SIGN MATTERS: two floors the body is over BOTH are still a
+    // tie under a zero-clamped gap, and would go back to the list. A body at
+    // 320 is over both platforms; the answer must be the one it is furthest
+    // from falling off, and there is exactly one of those.
+    let wide = wall(ae::Vec2::new(320.0, 316.0), ae::Vec2::new(120.0, 16.0));
+    let over_both = vec![left, wide];
+    assert_eq!(
+        span(&view_at(320.0, over_both.clone())),
+        (200.0, 440.0),
+        "standing over two floors, a body takes the one whose edge is furthest"
+    );
+    assert_eq!(
+        span(&view_at(320.0, vec![wide, left])),
+        (200.0, 440.0),
+        "and not the one the terrain list happened to hold first"
+    );
+
+    // ⛔ `floor_below` HAS THE SAME TIE AND SHARES THE FIX, so it is asserted
+    // here rather than left to the reader to assume. It answers a different
+    // question — *what is under me, at any distance* — but it picks its answer
+    // the same way, and a tie-break that only reached one of the two would be
+    // the "three floor questions each spelled `Solid | OneWay` inline" defect
+    // recorded on `is_standable`, one layer along.
+    let below = |view: &WorldView| {
+        let floor = view.floor_below().expect("a body over a platform has one below it");
+        (floor.min.x, floor.max.x)
+    };
+    assert_eq!(below(&view_at(302.0, vec![left, right])), (240.0, 336.0));
+    assert_eq!(below(&view_at(338.0, vec![left, right])), (304.0, 400.0));
+    assert_eq!(below(&view_at(338.0, vec![right, left])), (304.0, 400.0));
+}
+
 /// ⭐ `PerceivedActor` IS BUILT ~1,900 TIMES PER TICK and its width is the
 /// multiplier on that. Measured 2026-09-01 in `hall_of_characters` at 130
 /// bodies: every actor builds one per perceived peer, ~14.4 of them, every tick.

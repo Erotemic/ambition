@@ -719,6 +719,45 @@ impl WorldView {
         )
     }
 
+    /// How far `x` is from a solid's horizontal span — ZERO when the body's
+    /// centre is over it, and the size of the overhang when it is not.
+    ///
+    /// ⛔⛔ **THE TIE-BREAK BETWEEN TWO FLOORS AT THE SAME HEIGHT USED TO BE
+    /// TERRAIN LIST ORDER, WHICH IS NOT A FACT ABOUT THE BODY.** Both floor
+    /// queries pick the nearest solid under the body's FOOTPRINT — deliberately
+    /// the footprint and not the centre, so a body on the very lip of a
+    /// platform is not blind about the edge it is standing on — and `min_by`
+    /// returns the FIRST minimum. Two platforms at one height are exactly tied,
+    /// so both bodies took whichever the terrain list happened to hold first.
+    ///
+    /// ⚠ MEASURED 2026-09-21 in a zero-noise MIRROR bout, where every symmetry
+    /// is exact by construction: `smash_george_booul` against itself, seat 0 at
+    /// `x=302` and seat 1 at `x=338` — mirror images about the 320 centre —
+    /// **both reported `support_x=[240..336]`**, seat 0's respawn platform.
+    /// Seat 1 was standing on its opponent's floor. `floor_ahead` is exactly
+    /// right given that box, so seat 1 read `floor_edge=-3` (past the lip)
+    /// against its twin's `+35`, classified `Disadvantage` where its twin
+    /// classified `Neutral`, and lost `Approach` from its offered verbs. The
+    /// respawn platforms are the population that makes this reachable: there is
+    /// one per seat, at one height, 96px wide and 64px apart, so a body between
+    /// them overlaps both.
+    ///
+    /// ⇒ SIGNED, and the sign is what removes the last of the list order.
+    /// Negative means the body's centre is over the solid, by how far from the
+    /// nearer edge; positive means it is past the end, by the overhang. So the
+    /// smaller value is *"the floor I am furthest from falling off"*, which
+    /// separates two floors the body is over as well as two it is beside.
+    /// Clamping at zero would make every containing floor tie again and hand
+    /// those back to the list.
+    ///
+    /// ⚠ It mirrors exactly because it is a distance from `pos.x`: reflect the
+    /// body and the solid about any axis and both terms swap, so the order
+    /// between two candidates is unchanged. A position in a list has no such
+    /// property, which is the whole bug.
+    fn horizontal_gap(solid: &ae::Aabb, x: f32) -> f32 {
+        (solid.min.x - x).max(x - solid.max.x)
+    }
+
     pub fn floor_below(&self) -> Option<ae::Aabb> {
         let me = &self.self_view;
         let feet = me.pos.y + me.half_extent.y;
@@ -730,7 +769,15 @@ impl WorldView {
                     && solid.aabb.max.x >= me.pos.x - me.half_extent.x
                     && solid.aabb.min.y >= feet - me.half_extent.y
             })
-            .min_by(|a, b| (a.aabb.min.y - feet).total_cmp(&(b.aabb.min.y - feet)))
+            .min_by(|a, b| {
+                (a.aabb.min.y - feet)
+                    .total_cmp(&(b.aabb.min.y - feet))
+                    // Ties are real and common — see `horizontal_gap`.
+                    .then_with(|| {
+                        Self::horizontal_gap(&a.aabb, me.pos.x)
+                            .total_cmp(&Self::horizontal_gap(&b.aabb, me.pos.x))
+                    })
+            })
             .map(|solid| solid.aabb)
     }
 
@@ -766,6 +813,14 @@ impl WorldView {
                 (a.aabb.min.y - feet)
                     .abs()
                     .total_cmp(&(b.aabb.min.y - feet).abs())
+                    // ⛔ THE TIE IS WHERE THE MIRROR BROKE. Two respawn
+                    // platforms sit at one height, so this comparison was
+                    // decided by terrain list order for every body between
+                    // them. See `horizontal_gap`.
+                    .then_with(|| {
+                        Self::horizontal_gap(&a.aabb, me.pos.x)
+                            .total_cmp(&Self::horizontal_gap(&b.aabb, me.pos.x))
+                    })
             })?;
         Some(support.aabb)
     }

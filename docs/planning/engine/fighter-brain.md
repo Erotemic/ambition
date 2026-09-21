@@ -155,9 +155,97 @@ than by nothing.
 
 ⚠ **NOT THE PLACEMENT, and that was checked rather than assumed.**
 `ambition_demo_smash::respawn_placement` alternates seats outward from the stage
-centre, so seats 0 and 1 sit at ±32px of a symmetric 480px platform, and the
-initial seating is the same call. Decision order within a tick is the obvious
-remaining candidate and has **not** been measured. Named, not chased.
+centre, so seats 0 and 1 sit at ±32px of a symmetric 480px platform;
+`ambition_match::prepared::seat_placement` does the same for the initial seating
+and faces both inward. Decision publication is order-independent too — the
+decision phase collects every body's frame into a plain value and a later phase
+is the only writer of `ActorControl`, so seat 1 cannot read seat 0's press.
+
+### The mirror-divergence probe, and what it found
+
+⭐⭐ **THE INSTRUMENT FOR "WHERE DOES THE MIRROR BREAK" IS ALREADY IN THE TREE,
+and it needs no statistics at all.** `--noise 0` zeroes `execution_noise`, which
+is the fighter brain's ONLY consumer of its per-seat stream — so one fighter
+against itself at one rung becomes two deterministic policies in a
+mirror-symmetric world. Every divergence is then a defect, visible in ONE bout,
+at a named tick:
+
+```bash
+AMBITION_FIGHTER_TRACE=1 cargo run --release -p ambition_demo_smash_app \
+  --bin smash_tool -- ladder-rig --rungs 6,6 --seeds 1 --seconds 54 \
+  --character smash_george_booul --opponent smash_george_booul --noise 0
+```
+
+The trace emits one line per decision per seat. Reflect seat 1's `x` about the
+stage centre, negate its `vx` and `emit_x`, and compare field by field; the
+first mismatch is the defect.
+
+⛔⛔ **IT FOUND ONE IMMEDIATELY: `supporting_floor` BROKE TIES BY TERRAIN LIST
+ORDER.** Seat 0 at `x=302` and seat 1 at `x=338` — exact mirror images about the
+320 centre, same velocity, same phase — **both reported
+`support_x=[240..336]`**, which is seat 0's respawn platform. Seat 1 was
+standing on its opponent's floor. `floor_ahead` is exactly right given that box,
+so seat 1 read `floor_edge=-3` (past the lip) against its twin's `+35`,
+classified `Disadvantage` where its twin said `Neutral`, and lost `Approach`
+from its offered verbs.
+
+The population that makes it reachable is the smash stage's respawn platforms:
+one per seat, one height, 96px wide and 64px apart, so a body between them
+overlaps both — and two solids at the same height are an exact tie for
+`min_by`, which returns the first. ⇒ Fixed by breaking the tie on a signed
+horizontal gap from the body's own centre, which mirrors by construction where
+a list position cannot. Held by
+`two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`.
+
+⛔⛔ **AND IT DOES NOT EXPLAIN THE SEAT TERM.** The same 40-seed null control,
+re-run against the fix:
+
+| fighter (both seats) | before | after |
+| --- | --- | --- |
+| `smash_duelist_a` | 17 : 6, p=**0.035** | 16 : 6, p=0.052 |
+| `smash_duelist_b` | 11 : 4, p=0.118 | 11 : 4, p=0.118 (identical — the tie never fired for this kit) |
+| `smash_george_booul` | 12 : 8, p=0.503 | 11 : 9, p=0.824 |
+| **pooled** | **40 : 18 (69%), p=0.0054** | **38 : 19 (67%), p=0.0163** |
+
+Two of three cells barely moved and one did not move at all, so seat 0 still
+takes two thirds of decided pairs. The repair is right on its own terms — it is
+a mirror-symmetry defect in a query the whole brain reads, poison-verified four
+ways — and it is **not** the cause of the seat bias. Do not close the seat term
+against it.
+
+⚠ **AND A SECOND DIVERGENCE IS STILL OPEN: A FACING THAT STOPPED MIRRORING.**
+With the floor tie fixed, `smash_duelist_a` against itself still diverges at
+decision #418 of 638: both bodies at mirrored `x=288`/`x=352`, `vx=0`, same
+situation, same offered verbs, same (correctly mirrored) support box — and
+**seat 0 throws `air_forward` while seat 1 throws `air_back`**. Those are
+different moves with different hitboxes; `air_back` reaches BEHIND the body.
+
+⭐ The line could not explain it until `facing` was added to it, which is the
+second time in one session that the missing field was the deciding one. With it:
+**both seats face `+1`.** Seat 1 is at 352 with its foe at 288, so it is facing
+AWAY, and `attack_dir_from_axis` folds the stick as `forward = axis.x * facing`
+— a back air is then the *correct* move for the state it is in. The defect is
+upstream of the choice: the facing is what failed to mirror, and both bodies are
+airborne, where `may_turn` correctly forbids turning.
+
+⛔ **"PLAYER 2 SYSTEMATICALLY FACES THE WRONG WAY" IS REFUTED — MEASURED, before
+it could become the story.** Over the whole bout each seat faces away from its
+foe on exactly **140 of 638** paired decisions (87 and 85 of those grounded and
+free to turn). The facing default is not seat-biased; the divergence at #418 is
+a one-off that the pair had not recovered from. ⇒ The next instrument is
+tick-level, not decision-level: facing is mirrored at decision #417 and not at
+#418, so whatever turned one body and not the other happened inside that
+five-tick gap.
+
+⚠ `smash_george_booul` does not diverge this way at all — his attack histogram
+is identical between the seats, move for move, across the whole bout — so
+whatever this is, it is reachable by one kit and not the other.
+
+⚠ **THE MIRROR CANNOT BE EXPECTED TO HOLD BELOW A PIXEL.** After the fix george
+still diverges at decision #143, by `floor_edge` 108 against 109 — one unit of
+`round()`. Reflecting a trajectory about `x=320` is not a float-exact operation,
+and both sides accumulate their own rounding. Read a sub-pixel disagreement as
+the instrument's floor, not as a finding.
 
 ⭐ The ties are the arm's own evidence: 62 of 174 pairs came out exactly level,
 which is what exchanging one term and nothing else should do to a third of

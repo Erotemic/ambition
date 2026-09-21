@@ -144,9 +144,15 @@ fn a_command_published_by_a_foreign_domain_is_requestable_from_authored_yarn() {
                 AuthoredArg::Name("the baker is a spy".to_string()),
                 AuthoredArg::Truth(true),
             ],
+            // ⛔⛤ THIS SAID `("probe", "a test")` AND WAS LANDED RED. The
+            // provenance is not incidental to this acceptance — it is the
+            // whole point of the field: a request that cannot name its author
+            // is the anonymous stream the change removed. `talking()` opens
+            // the conversation on the node titled `Start`, and the request
+            // road stamps `dialogue:<node>`, so a placeholder here asserts
+            // that the provenance is WRONG and passes only if it is.
             ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
-                "probe",
-                "a test",
+                "dialogue", "Start",
             ),
         )],
     );

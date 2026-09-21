@@ -985,14 +985,34 @@ fn trace_decision(
     // the subject leads the line for the same reason the fact carries one: two
     // fighters on a stage produced two interleaved streams with nothing to tell
     // them apart, and this trace exists because reasoning about that failed.
+    // ⭐⭐ WHICH BOX THE BODY THINKS IT IS STANDING ON, not merely whether it
+    // found one. `floor_ahead` is mirror-symmetric GIVEN a support box — it is
+    // `max.x - pos.x` one way and `pos.x - min.x` the other — so a `floor_edge`
+    // that differs between two mirror-identical bodies can only mean they chose
+    // DIFFERENT boxes, and `supported=true` on both says nothing about which.
+    // ⚠ Found by needing it: a zero-noise mirror bout had one seat reading
+    // `floor_edge=Some(35)` and its twin `Some(-3)` at mirrored positions, and
+    // no field in this line could say why.
+    let support = view
+        .supporting_floor()
+        .map(|floor| format!("[{:.0}..{:.0}]", floor.min.x, floor.max.x));
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} facing={:+.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} terrain={} supported={} support_x={} offered={:?} vetoed={:?} unmodelled={:?} chose={:?} least_bad={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
         },
         me.pos.x,
         me.vel.x,
+        // ⭐⭐ THE FIELD THAT DECIDES FORWARD FROM BACK, and it was the one the
+        // line did not carry. `attack_dir_from_axis` folds the stick into the
+        // body's frame as `forward = axis.x * facing`, so two bodies with
+        // mirrored positions and mirrored sticks throw the SAME relative aerial
+        // only while their facings are mirrored too. A zero-noise mirror bout
+        // has one seat throwing `air_forward` and its twin `air_back` from
+        // states this line reported as identical — because the one quantity
+        // that could explain it was absent.
+        me.facing,
         me.on_ground,
         me.phase,
         view.stage.is_known(),
@@ -1007,7 +1027,8 @@ fn trace_decision(
         // reached me and none of it is under my feet", and those want opposite
         // fixes.
         view.terrain.len(),
-        view.supporting_floor().is_some(),
+        support.is_some(),
+        support.as_deref().unwrap_or("none"),
         offered,
         vetoed,
         unmodelled,
@@ -1079,6 +1100,7 @@ fn trace_decision(
         .field("recovery_routes", format!("{proposed:?}"))
         .field("pos_x", me.pos.x)
         .field("vel_x", me.vel.x)
+        .field("facing", me.facing)
         .field("on_ground", me.on_ground)
         .field("phase", format!("{:?}", me.phase))
         .field("stage_known", view.stage.is_known())
@@ -1086,6 +1108,9 @@ fn trace_decision(
             "floor_edge_distance",
             view.floor_edge_distance().unwrap_or(f32::INFINITY),
         )
+        // Rendered from the same value as the line above, so the two cannot
+        // drift — this file's standing rule for the pair.
+        .field("support_x", support.clone().unwrap_or_else(|| "none".to_string()))
         .field("emit_locomotion_x", frame.locomotion.x);
         if let Some(subject) = subject {
             fact = fact.about(SubjectKey::Sim(subject.to_string()));

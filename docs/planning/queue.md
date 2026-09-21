@@ -3599,8 +3599,38 @@ into the ladder ROWS (`FighterBrainLadder::rungs_mut`) before the resource is
 inserted, so the projection projects the sweep instead of reverting it. After
 the change, on the shipped ladder: `reach_fit=0` → `89% : 74%`, `reach_fit=999`
 → `49% : 54%`, `--apm 1` → `0% : 0%`, `--apm 600` unchanged, and `--no-rollout`
-correctly unchanged because the shipped rows already carry rollout `0/0`. **The
-refit is now runnable; it has not been run.**
+correctly unchanged because the shipped rows already carry rollout `0/0`.
+
+⭐⭐ **THE REFIT IS RUN, AND ITS ANSWER IS *DON'T* — MEASURED 2026-09-21.** Six
+arms, `--rungs 1,3,5,6,9 --paired --seeds 15` on the shipped ladder, scored on
+the only objective the ladder has: does the higher rung outfight the lower one
+at every adjacent pair. `--weight-scale` moves a weight relative to each rung's
+AUTHORED value, so the ramp survives and the arms differ in one number.
+
+| arm | 3 v 1 | 5 v 3 | 6 v 5 | 9 v 6 | pairs favouring the higher rung |
+| --- | --- | --- | --- | --- | --- |
+| **shipped (baseline)** | 15:0 | 12:3 | 11:4 | 15:0 | **53 / 60** |
+| `kill_potential` x0.7 | 15:0 | 14:1 | 10:5 | 13:2 | 52 / 60 |
+| `expected_payoff` x1.5 | 15:0 | 12:3 | 11:4 | 12:3 | 50 / 60 |
+| `expected_payoff` x0.5 | 15:0 | 10:5 | 10:5 | 15:0 | 50 / 60 |
+| `kill_potential` x1.3 | 15:0 | 12:3 | **7:8 inverted** | 13:2 | 47 / 60 |
+| `frame_advantage` x1.5 | 15:0 | 11:4 | **7:8 inverted** | 10:5 | 43 / 60 |
+
+⇒ **No arm beat the baseline and two inverted a rung pair.** The weights fitted
+before the launcher-payoff, staling and hazard-damage repairs still order the
+ladder at least as well as any single-weight move tried, so those three repairs
+did not invalidate them. ⚠ The gap between 53 and 50 is not itself significant
+at 15 seeds; the defensible claims are *nothing improved on the baseline* and
+*two settings clearly damaged it*.
+
+⛔ **WHAT THE SWEEP DID FIND IS THAT `6 vs 5` IS NOT A STEP.** It is the only
+pair that fails to clear the bar in ALL SIX arms, and the only one that ever
+inverts. Across all 90 paired seeds it favours the higher rung 56 times — the
+weakest margin on the ladder, against `3 v 1`'s 90 of 90. Six different weight
+settings cannot move it, so it is not a weights problem: rung 5 and rung 6
+differ only by reaction 300→260ms, apm 200→240, noise 0.20→0.16 and read
+0.20→0.30, and that is apparently not enough to be felt. ⇒ The next question
+about this ladder is the SIZE of its middle step, not the price of its moves.
 
 ⛔⛤ **AND ONE FIGHTER ON THE SHIPPED GRID CANNOT FIGHT AT ALL — MEASURED
 2026-09-21, AND STALING DOES NOT TOUCH IT.** `special_patent_clerk` is the

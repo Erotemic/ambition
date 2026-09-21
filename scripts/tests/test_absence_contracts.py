@@ -650,6 +650,42 @@ def test_the_peer_visible_schema_ratchet_holds_against_the_live_tree():
     assert contracts.peer_checksum_schema_violations(root) == []
 
 
+def test_the_frozen_prior_is_at_the_live_version_or_this_ratchet_compares_nothing():
+    """⛔⛤ **THE ARM ABOVE WAS VACUOUS FOR EIGHT SCHEMA VERSIONS, AND GREEN.**
+
+    `peer_checksum_schema_violations` compares row sets only when
+    `frozen["version"] == version`; a version bump is the whole permission to
+    move rows. So the moment a commit bumps `GGRS_ROLLBACK_SCHEMA_VERSION` and
+    does not RE-FREEZE this baseline, the live-tree arm stops comparing
+    anything and keeps passing — the baseline was last frozen at `v194` on
+    2026-09-16 and the tree reached `v202`, with three rows entering the peer
+    checksum unwitnessed in between.
+
+    ⚠ The synthetic arms below could not see it: each builds its own baseline
+    at the live version, so they exercise the comparison the real tree had
+    stopped performing. A guard's unit tests are not a claim about the corpus
+    it guards.
+
+    ⇒ Re-freezing IS the maintenance this invariant costs: bump the version,
+    re-record the rows. This arm is what says so out loud.
+    """
+    import json
+
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    frozen = json.loads(
+        (root / contracts.ROLLBACK_SCHEMA_BASELINE).read_text()
+    )["peer_checksum_schema"]
+    version, _rows = contracts.peer_checksum_schema(root)
+    assert frozen["version"] == version, (
+        f"the frozen prior is at {frozen['version']} and the tree is at {version}, so "
+        "`test_the_peer_visible_schema_ratchet_holds_against_the_live_tree` compares "
+        "nothing and passes. Re-freeze: set both `version` and `rows` in "
+        f"{contracts.ROLLBACK_SCHEMA_BASELINE} from the live dump."
+    )
+
+
 def test_a_checksum_feeding_row_that_lands_without_a_version_bump_is_caught(
     tmp_path, monkeypatch
 ):

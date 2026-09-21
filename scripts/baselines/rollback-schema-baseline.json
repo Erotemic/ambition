@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v194",
+    "version": "ggrs-rollback-schema-v202",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -88,6 +88,7 @@
       "cutscene.playback\tresource-canonical\tActiveCutscene\tbevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection",
       "encounter.lifecycle\tcomponent-canonical\tEncounterLifecycle",
       "encounter.participants\tcomponent-clone-canonical-checksum\tEncounterParticipants",
+      "encounter.script\tcomponent-clone-custom-checksum\tEncounterScript\tbevy_ggrs clone snapshot + cursor and beat-elapsed bits",
       "encounter.waves\tcomponent-clone-resolved\tEncounterWaves",
       "entity.sim_id\tcomponent-canonical\tSimId",
       "entity.spawn_origin\tcomponent-canonical\tSpawnOrigin",
@@ -123,6 +124,7 @@
       "resource.owned_items_baseline\tresource-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity checksum projection",
       "resource.pending_lifecycle_commit\tresource-canonical\tPendingLifecycleCommit\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit checksum projection",
+      "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",
       "resource.projectile_seq_counter\tresource-canonical\tProjectileSeqCounter\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.quest_last_room\tresource-clone-custom-checksum\tLastQuestRoom\tbevy_ggrs clone snapshot + the room the RoomEntered producer last announced",
       "resource.quest_registry\tresource-clone-custom-checksum\tQuestRegistry\tbevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection",
@@ -143,6 +145,7 @@
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "root.ldtk_runtime_index\tcomponent-clone-custom-checksum\tLdtkRuntimeIndex\tbevy_ggrs clone snapshot + active LDtk area checksum",
+      "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
       "root.room_set\tcomponent-clone-custom-checksum\tRoomSet\tbevy_ggrs clone snapshot + active/start room identity checksum",
       "scope.room\tcomponent-canonical\tRoomScopedEntity",
       "smash.hold_state\tcomponent-canonical\tSmashHoldState"
@@ -261,6 +264,7 @@
     "ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl",
     "ambition_platformer2d_shared_tangle::time::SimDt",
     "ambition_platformer2d_world::collision::MovingPlatformSet",
+    "ambition_platformer2d_world::rooms::LiveRoomInstance",
     "ambition_projectiles::FiredByMoveInstance",
     "ambition_projectiles::PlayerProjectileState",
     "ambition_projectiles::ProjectileKind",

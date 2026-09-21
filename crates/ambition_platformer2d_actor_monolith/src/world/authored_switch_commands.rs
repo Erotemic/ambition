@@ -130,7 +130,13 @@ pub fn request_authored_switch_commands(
 ) {
     for activation in activations.read() {
         if let Some(call) = prepared.get(activation.activation.id.as_str()) {
-            requests.write(RunAuthoredCommand::prepared(call));
+            requests.write(RunAuthoredCommand::prepared(
+                call,
+                ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+                    "switch",
+                    activation.activation.id.as_str(),
+                ),
+            ));
         }
     }
 }

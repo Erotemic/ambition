@@ -95,8 +95,8 @@ impl PreparedCommand {
 impl RunAuthoredCommand {
     /// Ask for a prepared verb. The only bridge from preparation to the
     /// request channel, so a requester never assembles arguments by hand.
-    pub fn prepared(call: &PreparedCommand) -> Self {
-        Self::new(call.id.clone(), call.args.clone())
+    pub fn prepared(call: &PreparedCommand, asked_by: super::AuthoredAsk) -> Self {
+        Self::new(call.id.clone(), call.args.clone(), asked_by)
     }
 }
 
@@ -143,8 +143,13 @@ impl ConditionCatalog {
     ///
     /// the point of the prepared form: the tick evaluates, and everything that
     /// could have been wrong about the call was already wrong at prepare time.
-    pub fn ask(&self, world: &World, prepared: &PreparedCondition) -> ConditionOutcome {
-        self.evaluate(world, &prepared.id, &prepared.args)
+    pub fn ask(
+        &self,
+        world: &World,
+        prepared: &PreparedCondition,
+        asked_by: &super::AuthoredAsk,
+    ) -> ConditionOutcome {
+        self.evaluate(world, &prepared.id, &prepared.args, asked_by)
     }
 }
 

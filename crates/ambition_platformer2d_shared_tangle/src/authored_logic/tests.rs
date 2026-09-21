@@ -65,16 +65,16 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
         catalog.evaluate(
             app.world(),
             &id,
-            &[AuthoredArg::Reference(SimId::placement("axe"))]
-        ),
+            &[AuthoredArg::Reference(SimId::placement("axe"))],
+            &crate::authored_logic::AuthoredAsk::new("probe", "a test")),
         ConditionOutcome::Satisfied
     );
     assert!(matches!(
         catalog.evaluate(
             app.world(),
             &id,
-            &[AuthoredArg::Reference(SimId::placement("rock"))]
-        ),
+            &[AuthoredArg::Reference(SimId::placement("rock"))],
+            &crate::authored_logic::AuthoredAsk::new("probe", "a test")),
         ConditionOutcome::NotSatisfied(_)
     ));
 }
@@ -108,7 +108,7 @@ fn the_catalog_composes_domains_without_either_naming_the_other() {
 fn asking_an_unpublished_condition_is_unanswerable_rather_than_false() {
     let app = App::new();
     let catalog = ConditionCatalog::default();
-    let outcome = catalog.evaluate(app.world(), &ConditionId::new("nobody", "cares"), &[]);
+    let outcome = catalog.evaluate(app.world(), &ConditionId::new("nobody", "cares"), &[], &crate::authored_logic::AuthoredAsk::new("probe", "a test"));
     assert!(matches!(outcome, ConditionOutcome::Unanswerable(_)));
     assert!(!outcome.is_satisfied());
 }
@@ -125,13 +125,13 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     let catalog = app.world().resource::<ConditionCatalog>().clone();
     let id = ConditionId::new("custody", "is_carried");
 
-    let ConditionOutcome::Unanswerable(too_few) = catalog.evaluate(app.world(), &id, &[]) else {
+    let ConditionOutcome::Unanswerable(too_few) = catalog.evaluate(app.world(), &id, &[], &crate::authored_logic::AuthoredAsk::new("probe", "a test")) else {
         panic!("no arguments must be refused");
     };
     assert!(too_few.contains("occurrence"), "{too_few}");
 
     let ConditionOutcome::Unanswerable(wrong_kind) =
-        catalog.evaluate(app.world(), &id, &[AuthoredArg::Name("axe".to_string())])
+        catalog.evaluate(app.world(), &id, &[AuthoredArg::Name("axe".to_string())], &crate::authored_logic::AuthoredAsk::new("probe", "a test"))
     else {
         panic!("a Name where a Reference belongs must be refused");
     };
@@ -193,6 +193,7 @@ fn the_verdict_ring_forgets_its_oldest_answer_rather_than_growing() {
     let verdict = |n: u32| ConditionVerdict {
         id: ConditionId::new("test", "counted"),
         args: vec![AuthoredArg::Number(f64::from(n))],
+        asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
         outcome: ConditionOutcome::Satisfied,
         stamp: VerdictStamp::default(),
     };
@@ -249,6 +250,7 @@ fn the_latest_answer_to_one_question_is_found_behind_other_questions() {
     log.record(AuthoredVerdict::Asked(ConditionVerdict {
         id: mine.clone(),
         args: vec![],
+        asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
         outcome: ConditionOutcome::NotSatisfied(WhyNot::new("test.mine", "subject", "observed")),
         stamp: VerdictStamp::default(),
     }));
@@ -256,6 +258,7 @@ fn the_latest_answer_to_one_question_is_found_behind_other_questions() {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: noisy.clone(),
             args: vec![],
+            asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
             outcome: ConditionOutcome::Satisfied,
             stamp: VerdictStamp::default(),
         }));
@@ -294,6 +297,7 @@ fn two_subjects_of_one_condition_are_independently_answerable() {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: flag_set.clone(),
             args: vec![AuthoredArg::Name(door.to_string())],
+            asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
             outcome: ConditionOutcome::NotSatisfied(WhyNot::new("world.flag_set", door, why)),
             stamp: VerdictStamp::default(),
         }));
@@ -352,6 +356,7 @@ fn a_corrected_rollback_pass_clears_the_frame_it_is_about_to_redo() {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: gate.clone(),
             args: vec![AuthoredArg::Name(door.to_string())],
+            asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
             outcome,
             stamp: VerdictStamp {
                 simulation: Some((7, frame)),
@@ -426,6 +431,7 @@ fn a_corrected_rollback_pass_clears_the_frame_it_is_about_to_redo() {
         plain.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: gate.clone(),
             args: vec![],
+            asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
             outcome: ConditionOutcome::Satisfied,
             stamp: VerdictStamp::default(),
         }));
@@ -445,6 +451,7 @@ fn a_frame_the_host_later_confirms_stops_reading_as_a_guess() {
         log.record(AuthoredVerdict::Asked(ConditionVerdict {
             id: gate.clone(),
             args: vec![AuthoredArg::Number(f64::from(frame))],
+            asked_by: crate::authored_logic::AuthoredAsk::new("probe", "a test"),
             outcome: ConditionOutcome::Satisfied,
             stamp: VerdictStamp {
                 simulation: Some((session, frame)),

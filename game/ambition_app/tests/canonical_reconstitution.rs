@@ -1654,7 +1654,7 @@ fn a_replay_retracts_the_boss_defeat_a_gate_would_have_read() {
         let id = ConditionId::parse("boss.cleared").expect("`boss.cleared` is a well-formed id");
         let world = sim.world_mut();
         world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-            catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.to_string())])
+            catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.to_string())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
         })
     };
 
@@ -1751,7 +1751,7 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
             let after = {
                 let world = sim.world_mut();
                 world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())])
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
                 })
             };
             report.push(format!(
@@ -1850,7 +1850,7 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
             let after = {
                 let world = sim.world_mut();
                 world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())])
+                    catalog.evaluate(world, &id, &[AuthoredArg::Name(placement.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
                 })
             };
             report.push(format!(
@@ -1939,7 +1939,7 @@ fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
     let ask = |sim: &mut Platformer2dSimHarness| {
         let world = sim.world_mut();
         world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-            catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())])
+            catalog.evaluate(world, &id, &[AuthoredArg::Name(asked.clone())], &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
         })
     };
 

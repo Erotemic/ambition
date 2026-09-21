@@ -144,6 +144,10 @@ fn a_command_published_by_a_foreign_domain_is_requestable_from_authored_yarn() {
                 AuthoredArg::Name("the baker is a spy".to_string()),
                 AuthoredArg::Truth(true),
             ],
+            ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+                "probe",
+                "a test",
+            ),
         )],
     );
 }

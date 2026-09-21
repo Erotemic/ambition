@@ -409,6 +409,26 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 // read save state on every `<<if>>` evaluation without touching
 // Bevy resources.
 
+/// Which authored thing is asking, for the three Yarn functions below.
+///
+/// ⭐ **THE NODE, READ FROM THE LIVE CONVERSATION.** The verdict ring records
+/// who asked, and *"a Yarn function"* is not a source an author can find in a
+/// script — `kernel.yarn`'s shop menu alone calls `can_afford` ten times.
+/// ⚠ A Yarn function running with no live conversation is a fixture, not a
+/// shipped road, and it gets a subject that SAYS so rather than a
+/// plausible-looking blank.
+fn asking_node(
+    world: &bevy::prelude::World,
+) -> ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk {
+    ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+        "dialogue",
+        world
+            .get_resource::<ambition_conversation::ActiveConversation>()
+            .and_then(|active| active.live())
+            .map_or("<no live conversation>", |live| live.instance.node()),
+    )
+}
+
 /// `boss_cleared(id)` — ask the boss domain's published condition.
 ///
 /// ⛔ THE THIRD ANSWER COLLAPSES THE WAY THE CATALOG SPECIFIES. Yarn's `<<if>>`
@@ -429,8 +449,9 @@ fn ask_boss_cleared(In(id): In<String>, world: &mut World) -> bool {
         );
         return false;
     }
+    let asked_by = asking_node(world);
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())])
+        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())], &asked_by)
     });
     outcome.is_satisfied()
 }
@@ -453,8 +474,9 @@ fn ask_quest_active(In(id): In<String>, world: &mut World) -> bool {
         );
         return false;
     }
+    let asked_by = asking_node(world);
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())])
+        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())], &asked_by)
     });
     outcome.is_satisfied()
 }
@@ -492,8 +514,14 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
         );
         return false;
     }
+    let asked_by = asking_node(world);
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(world, &condition, &[AuthoredArg::Number(f64::from(price))])
+        catalog.evaluate(
+            world,
+            &condition,
+            &[AuthoredArg::Number(f64::from(price))],
+            &asked_by,
+        )
     });
     outcome.is_satisfied()
 }

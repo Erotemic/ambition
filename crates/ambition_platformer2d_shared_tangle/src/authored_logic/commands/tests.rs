@@ -46,8 +46,11 @@ fn descriptor(domain: &str, verb: &str) -> CommandDescriptor {
 }
 
 fn request(app: &mut App, id: &CommandId, args: Vec<AuthoredArg>) {
-    app.world_mut()
-        .write_message(RunAuthoredCommand::new(id.clone(), args));
+    app.world_mut().write_message(RunAuthoredCommand::new(
+        id.clone(),
+        args,
+        crate::authored_logic::AuthoredAsk::new("probe", "a test"),
+    ));
 }
 
 /// A CRATE THAT IS NOT THE ENGINE CAN PUBLISH A COMMAND, AND THE ONLY ROAD TO
@@ -143,7 +146,7 @@ fn asking_for_an_unpublished_command_is_refused_with_a_reason() {
         app.world_mut(),
         &CommandId::new("nobody", "cares"),
         &[AuthoredArg::Name("C".to_string())],
-    ) else {
+        &crate::authored_logic::AuthoredAsk::new("probe", "a test")) else {
         panic!("an unpublished command must be refused");
     };
     assert!(reason.contains("knows 1 others"), "{reason}");
@@ -159,13 +162,13 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     let catalog = app.world().resource::<CommandCatalog>().clone();
     let id = CommandId::new("world", "ring");
 
-    let CommandOutcome::Refused(too_few) = catalog.run(app.world_mut(), &id, &[]) else {
+    let CommandOutcome::Refused(too_few) = catalog.run(app.world_mut(), &id, &[], &crate::authored_logic::AuthoredAsk::new("probe", "a test")) else {
         panic!("no arguments must be refused");
     };
     assert!(too_few.contains("note"), "{too_few}");
 
     let CommandOutcome::Refused(wrong_kind) =
-        catalog.run(app.world_mut(), &id, &[AuthoredArg::Number(1.0)])
+        catalog.run(app.world_mut(), &id, &[AuthoredArg::Number(1.0)], &crate::authored_logic::AuthoredAsk::new("probe", "a test"))
     else {
         panic!("a Number where a Name belongs must be refused");
     };

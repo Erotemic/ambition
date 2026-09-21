@@ -41,7 +41,7 @@ fn catalog(sim: &Platformer2dSimHarness) -> ConditionCatalog {
 }
 
 fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
-    catalog(sim).evaluate(sim.world(), id, args)
+    catalog(sim).evaluate(sim.world(), id, args, &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
 }
 
 /// TWO INDEPENDENT DOMAINS PUBLISHED QUESTIONS INTO ONE CATALOG.

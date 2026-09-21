@@ -469,6 +469,7 @@ impl ConditionCatalog {
         world: &World,
         id: &ConditionId,
         args: &[AuthoredArg],
+        asked_by: &AuthoredAsk,
     ) -> ConditionOutcome {
         let outcome = self.answer(world, id, args);
         // ⛔⛤ **ONE DOOR, ONE RECORDER — AND THAT INCLUDES THE REFUSALS THIS
@@ -481,6 +482,7 @@ impl ConditionCatalog {
             log.record(AuthoredVerdict::Asked(ConditionVerdict {
                 id: id.clone(),
                 args: args.to_vec(),
+                asked_by: asked_by.clone(),
                 outcome: outcome.clone(),
                 stamp: verdict_stamp(world),
             }));
@@ -599,6 +601,15 @@ impl AuthoredVerdict {
         }
     }
 
+    /// Which authored thing asked — the half of the identity that the id and
+    /// the arguments do not carry. See [`AuthoredAsk`].
+    pub fn asked_by(&self) -> &AuthoredAsk {
+        match self {
+            Self::Asked(v) => &v.asked_by,
+            Self::Ran(v) => &v.asked_by,
+        }
+    }
+
     fn stamp_mut(&mut self) -> &mut VerdictStamp {
         match self {
             Self::Asked(v) => &mut v.stamp,
@@ -662,6 +673,59 @@ pub struct VerdictStamp {
     pub confirmed: bool,
 }
 
+/// **WHO ASKED, WHICH NEITHER THE ID NOR THE ARGUMENTS SAY.**
+///
+/// ⛔⛤ **A STREAM OF AUTHORED ACTIONS THAT CANNOT NAME THEIR AUTHOR IS A
+/// STREAM OF ANONYMOUS ONES — THE OPEN HALF OF M5, CLOSED 2026-09-21.** The
+/// ring recorded `world.flag_set("cellar_key") -> no` and nothing else. Two
+/// neighbouring entries could belong to one dialogue node working through its
+/// conditions, or to a lock wall and a shop line that happen to ask about the
+/// same flag in the same tick, and an agent reading the stream had no way to
+/// tell — so *"why is this door shut"* could only be answered by grepping for
+/// everything in the game that mentions that flag.
+///
+/// ⚠ **THE KIND IS AN OPEN `&'static str`, LIKE [`ConditionId`]'S DOMAIN.** A
+/// closed enum would be the central registry this whole contract exists to
+/// avoid: a domain publishes its own questions and nothing central learns they
+/// exist, so a domain that starts ASKING them must not have to register that
+/// either. `lock_wall`, `dialogue`, `shop_line`, `switch`.
+///
+/// ⚠ **IT DOES NOT MAKE AN INVOCATION UNIQUE, AND MUST NOT BE READ AS IF IT
+/// DID.** One lock wall asking one question twice in one frame is two entries
+/// with one `AuthoredAsk`, which is honest: they were two askings by one
+/// source. What it adds is that a DIFFERENT source's identical question is no
+/// longer indistinguishable from a repeat.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AuthoredAsk {
+    kind: &'static str,
+    subject: String,
+}
+
+impl AuthoredAsk {
+    /// `kind` names the sort of authored thing (`lock_wall`, `dialogue`);
+    /// `subject` names WHICH one, spelled as the author would recognise it.
+    pub fn new(kind: &'static str, subject: impl Into<String>) -> Self {
+        Self {
+            kind,
+            subject: subject.into(),
+        }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        self.kind
+    }
+
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+}
+
+impl std::fmt::Display for AuthoredAsk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.kind, self.subject)
+    }
+}
+
 /// ⛔⛤ **HAND-WRITTEN, BECAUSE THE DERIVE BUILT A STATE THIS TYPE SAYS IS
 /// IMPOSSIBLE — REVIEWED 2026-09-20.** `#[derive(Default)]` produced
 /// `{ simulation: None, confirmed: false }`, and `None` means NO ROLLBACK
@@ -695,6 +759,8 @@ impl std::fmt::Display for AuthoredVerdict {
 pub struct CommandVerdict {
     pub id: CommandId,
     pub args: Vec<AuthoredArg>,
+    /// Which authored thing asked for it. See [`AuthoredAsk`].
+    pub asked_by: AuthoredAsk,
     pub outcome: CommandOutcome,
     pub stamp: VerdictStamp,
 }
@@ -710,8 +776,9 @@ impl CommandVerdict {
 }
 
 impl std::fmt::Display for CommandVerdict {
+    /// The source leads, for the reason [`ConditionVerdict`]'s does.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(", self.id)?;
+        write!(f, "{} {}(", self.asked_by, self.id)?;
         for (i, arg) in self.args.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
@@ -741,6 +808,8 @@ fn render_arg(f: &mut std::fmt::Formatter<'_>, arg: &AuthoredArg) -> std::fmt::R
 pub struct ConditionVerdict {
     pub id: ConditionId,
     pub args: Vec<AuthoredArg>,
+    /// Which authored thing asked. See [`AuthoredAsk`].
+    pub asked_by: AuthoredAsk,
     pub outcome: ConditionOutcome,
     pub stamp: VerdictStamp,
 }
@@ -753,8 +822,12 @@ impl ConditionVerdict {
 }
 
 impl std::fmt::Display for ConditionVerdict {
+    /// ⚠ **THE SOURCE LEADS.** A reader scanning the stream is looking for
+    /// one authored interaction's entries among everybody else's, and a
+    /// prefix is what makes that scannable — `lock_wall:cellar_gate
+    /// world.flag_set("cellar_key") => no, …`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(", self.id)?;
+        write!(f, "{} {}(", self.asked_by, self.id)?;
         for (i, arg) in self.args.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;

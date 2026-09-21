@@ -143,18 +143,28 @@ tool discovery alike.
   materialization/residency, build/test cost and target-profile configuration;
 - **structured "why not" explanation** — an unsatisfied condition should report
   the term that blocked it, the object it names and that object's current state,
-  not a log line. This is M5 of
-  [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
-  and it is a product requirement, not polish. ✔ THE VOCABULARY LANDED
+  not a log line. **THIS BULLET IS `M5`** — the label eight places in the code
+  and this page use for it. ⚠ It said *"this is M5 of
+  [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)"*
+  until 2026-09-21, and that page labels its work `O1`–`O4` and has no `M5`:
+  the link resolved, the label did not, and a reader following it to find the
+  requirement found four other ones. That page owns the authored-logic
+  CONTRACT this requirement is about; the requirement itself is here, which is
+  where it has always been written out. It is a product requirement, not
+  polish. ✔ THE VOCABULARY LANDED
   2026-09-02: `ConditionOutcome::NotSatisfied(WhyNot { term, subject, observed })`
   — every production evaluator states one (`world.flag_set`, `inventory.holds`,
   `custody.is_held`), `from_bool_unexplained` is the grep-able fixture arm, a
   standing lock wall publishes its verdict on `GatedLockWallVerdicts` (derived,
   keyed by wall id; `why_standing(wall)`), and the dialogue verb logs the
   structure at debug. ✔ **AND THE QUERYABLE SURFACE LANDED 2026-09-20:**
-  `ConditionVerdictLog`, a bounded ring recorded by `ConditionCatalog::evaluate`
-  — `recent()`, `latest_for(id)`, `why_not_for(id)`. Every `no` in the engine
-  now survives the tick it was built on, not only the walls'.
+  `AuthoredVerdictLog`, a bounded ring recorded by `ConditionCatalog::evaluate`
+  and `CommandCatalog::run` — `recent()`, `latest_for(id, args)`,
+  `why_not_for(id, args)`, `latest_run(id, args)`, `refusal_of(id, args)`.
+  Every `no` in the engine now survives the tick it was built on, not only the
+  walls'. ⚠ It was named `ConditionVerdictLog` with id-only lookups on the day
+  it landed; both changed within a day and this sentence is what a reader of
+  the old names is looking for.
 
   ⛔⛤ **RECORDED AT THE CATALOG, NOT AT THE CALLERS**, for the reason the
   catalog already gives about arity checking: *"an evaluator that had to
@@ -256,11 +266,22 @@ tool discovery alike.
   is not thereby independent of rollback. Out of rollback is about what gets
   REWOUND; the timeline identity is about what the record MEANS.
 
+  ⭐⛤ **AUTHORED SOURCE CONTEXT LANDED 2026-09-21, AND IT IS WHAT MAKES THE
+  STREAM READABLE.** Every invocation carries an `AuthoredAsk { kind, subject }`
+  — `lock_wall:alice_private_return_lock`, `dialogue:<node>`,
+  `switch:<activation id>` — and the source LEADS the rendered entry, because a
+  reader scanning the ring is looking for one authored interaction's entries
+  among everybody else's. Required at the seam rather than optional: a
+  `None` would be a silent default and a caller that forgot would be invisible.
+  ⚠ The kind is an open `&'static str`, like a `ConditionId`'s domain — a
+  closed enum would be the central registry this contract exists to avoid.
+  ⚠ **IT DOES NOT MAKE AN INVOCATION UNIQUE.** One wall asking one question
+  twice in one frame is two entries with one source, which is honest; what it
+  adds is that a DIFFERENT source's identical question is no longer
+  indistinguishable from a repeat.
+
   ⚠ Still open beyond this: a way to read the log out of a RUNNING process
-  rather than out of a test; and authored SOURCE context on a verdict (which
-  wall, dialogue node, encounter or quest asked), which would let the stream
-  establish that two neighbouring entries belong to one authored interaction
-  rather than merely to one tick.
+  rather than out of a test.
 
 ## Candidate crate / Bevy ecosystem value
 

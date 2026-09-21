@@ -85,7 +85,7 @@ fn a_refused_verb_and_the_question_it_followed_are_in_one_readable_stream() {
         sim.world(),
         &flag_set,
         &[AuthoredArg::Name(flag.to_string())],
-    );
+        &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"));
     let set_flag = CommandId::new("world", "set_flag");
     sim.world_mut().write_message(RunAuthoredCommand::new(
         set_flag.clone(),
@@ -93,6 +93,7 @@ fn a_refused_verb_and_the_question_it_followed_are_in_one_readable_stream() {
             AuthoredArg::Name(flag.to_string()),
             AuthoredArg::Name("yes-please".to_string()),
         ],
+        ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"),
     ));
     sim.step_n(base(), 1);
 
@@ -118,7 +119,7 @@ fn a_refused_verb_and_the_question_it_followed_are_in_one_readable_stream() {
             sim.world(),
             &flag_set,
             &[AuthoredArg::Name(flag.to_string())],
-        ),
+        &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test")),
         ConditionOutcome::NotSatisfied(_)
     ));
 
@@ -167,7 +168,7 @@ fn a_requested_command_reaches_the_domain_and_the_save() {
             sim.world(),
             &flag_set,
             &[AuthoredArg::Name(flag.to_string())],
-        )
+        &ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"))
     };
 
     assert!(
@@ -182,6 +183,7 @@ fn a_requested_command_reaches_the_domain_and_the_save() {
             AuthoredArg::Name(flag.to_string()),
             AuthoredArg::Truth(true),
         ],
+        ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"),
     ));
     // One tick: the dispatcher runs in `AuthoredCommandSet`, which is ordered
     // before `GameplayEffects` precisely so the `SetFlagRequested` it writes is
@@ -223,6 +225,7 @@ fn a_command_nobody_published_is_refused_by_the_running_engine() {
     sim.world_mut().write_message(RunAuthoredCommand::new(
         CommandId::new("world", "unset_flag"),
         vec![AuthoredArg::Name("whatever".to_string())],
+        ambition_platformer2d::platformer::authored_logic::AuthoredAsk::new("probe", "a test"),
     ));
     sim.step_n(base(), 2);
 }

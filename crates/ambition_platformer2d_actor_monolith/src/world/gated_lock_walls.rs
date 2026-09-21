@@ -320,7 +320,17 @@ fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
                 );
                 return true;
             };
-            let verdict = catalog.ask(world, &question);
+            // ⭐ THE WALL NAMES ITSELF. Its id is what an author sees in the
+            // level, and it is what makes two walls asking one flag in one
+            // tick two readable entries rather than an apparent repeat.
+            let verdict = catalog.ask(
+                world,
+                &question,
+                &ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+                    "lock_wall",
+                    cached.wall.id.clone(),
+                ),
+            );
             let stands = !verdict.is_satisfied();
             verdicts.insert(cached.wall.id.clone(), verdict);
             stands

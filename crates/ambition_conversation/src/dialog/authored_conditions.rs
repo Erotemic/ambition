@@ -62,12 +62,24 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
         );
         return false;
     }
+    // ⭐ **WHICH NODE ASKED, read from the live conversation rather than
+    // invented.** The verdict ring records who asked, and *"a dialogue node"*
+    // is not a source an author can find in a script. ⚠ A Yarn function
+    // running with no live conversation is a fixture, not a shipped road; it
+    // gets a subject that SAYS so instead of a plausible-looking blank.
+    let asked_by = ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+        "dialogue",
+        world
+            .get_resource::<crate::ActiveConversation>()
+            .and_then(|active| active.live())
+            .map_or("<no live conversation>", |live| live.instance.node()),
+    );
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
         let args = match prepare_argument(&catalog, &id, raw_arg) {
             Ok(args) => args,
             Err(refusal) => return refusal,
         };
-        catalog.evaluate(world, &id, &args)
+        catalog.evaluate(world, &id, &args, &asked_by)
     });
     match &outcome {
         ConditionOutcome::Unanswerable(reason) => {

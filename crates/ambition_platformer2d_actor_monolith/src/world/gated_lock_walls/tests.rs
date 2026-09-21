@@ -745,3 +745,41 @@ fn a_wall_gated_on_the_body_follows_the_vessel_the_participant_drives() {
         "the driven vessel climbs, so the wall opens for it"
     );
 }
+
+/// ⭐⛤ **THE WALL NAMES ITSELF IN THE VERDICT RING — THE OPEN HALF OF M5,
+/// CLOSED 2026-09-21.**
+///
+/// The ring recorded `world.flag_set("alice_can_return") -> no` and nothing
+/// about WHO asked, so a reader could not tell one wall's question from a
+/// dialogue node's, a shop line's, or a second wall gated on the same flag —
+/// and *"why is this door shut"* meant grepping the level for everything that
+/// mentions the flag.
+///
+/// ⚠ THIS DRIVES THE PRODUCTION SYSTEM. `sync_authored_gated_lock_walls` is
+/// what builds the `AuthoredAsk`; a test that constructed one itself would be
+/// asserting that a struct literal holds what it was given.
+#[test]
+fn the_ring_says_which_wall_asked() {
+    use ambition_platformer2d_shared_tangle::authored_logic::AuthoredVerdictLog;
+
+    let mut app = world_with_one_gated_wall();
+    app.world_mut().insert_resource(AuthoredVerdictLog::default());
+    app.update();
+
+    let log = app.world().resource::<AuthoredVerdictLog>();
+    let asked: Vec<String> = log
+        .recent()
+        .iter()
+        .map(|verdict| verdict.asked_by().to_string())
+        .collect();
+    assert!(
+        !asked.is_empty(),
+        "the wall asked nothing, so this arm measures no source at all"
+    );
+    assert!(
+        asked
+            .iter()
+            .any(|source| source == "lock_wall:alice_private_return_lock"),
+        "the ring does not say which wall asked: {asked:?}"
+    );
+}

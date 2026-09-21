@@ -184,7 +184,13 @@ impl CommandCatalog {
     /// same way and for the same reason the condition catalog checks them: fifty
     /// domains each writing the same four lines is fifty chances for one of them
     /// to write them differently.
-    fn run(&self, world: &mut World, id: &CommandId, args: &[AuthoredArg]) -> CommandOutcome {
+    fn run(
+        &self,
+        world: &mut World,
+        id: &CommandId,
+        args: &[AuthoredArg],
+        asked_by: &super::AuthoredAsk,
+    ) -> CommandOutcome {
         let outcome = self.perform(world, id, args);
         // ⛔⛤ **THE SAME ONE DOOR THE CONDITION SIDE RECORDS AT, AND FOR THE
         // SAME REASON — see [`super::AuthoredVerdictLog`].** The verbs land in
@@ -197,6 +203,7 @@ impl CommandCatalog {
             log.record(super::AuthoredVerdict::Ran(super::CommandVerdict {
                 id: id.clone(),
                 args: args.to_vec(),
+                asked_by: asked_by.clone(),
                 outcome: outcome.clone(),
                 stamp: super::verdict_stamp(world),
             }));
@@ -299,11 +306,20 @@ impl PublishCommand for App {
 pub struct RunAuthoredCommand {
     pub id: CommandId,
     pub args: Vec<AuthoredArg>,
+    /// Which authored thing asked for it. Carried on the REQUEST rather than
+    /// derived at the pump, because the pump is one system draining a channel
+    /// and by then every requester looks the same. See
+    /// [`super::AuthoredAsk`].
+    pub asked_by: super::AuthoredAsk,
 }
 
 impl RunAuthoredCommand {
-    pub fn new(id: CommandId, args: Vec<AuthoredArg>) -> Self {
-        Self { id, args }
+    pub fn new(id: CommandId, args: Vec<AuthoredArg>, asked_by: super::AuthoredAsk) -> Self {
+        Self {
+            id,
+            args,
+            asked_by,
+        }
     }
 }
 
@@ -350,7 +366,8 @@ pub fn run_requested_authored_commands(world: &mut World) {
     }
     world.resource_scope::<CommandCatalog, _>(|world, catalog| {
         for request in requests {
-            if let CommandOutcome::Refused(reason) = catalog.run(world, &request.id, &request.args)
+            if let CommandOutcome::Refused(reason) =
+                catalog.run(world, &request.id, &request.args, &request.asked_by)
             {
                 tracing::warn!(
                     target: "crate::authored_logic",

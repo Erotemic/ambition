@@ -33,7 +33,10 @@ fn prepare(app: &App, line: &str) -> Result<PreparedCommand, String> {
 /// perform are the ones a real request would carry rather than a hand-built
 /// vector that could disagree with preparation.
 fn perform(app: &mut App, call: &PreparedCommand) -> CommandOutcome {
-    let request = RunAuthoredCommand::prepared(call);
+    let request = RunAuthoredCommand::prepared(
+        call,
+        ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new("probe", "a test"),
+    );
     signal(app.world_mut(), &request.args)
 }
 

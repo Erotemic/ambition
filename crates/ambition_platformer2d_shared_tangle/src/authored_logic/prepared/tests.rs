@@ -120,7 +120,10 @@ fn an_authored_line_from_a_foreign_domain_prepares_then_runs() {
     );
 
     app.world_mut()
-        .write_message(RunAuthoredCommand::prepared(&call));
+        .write_message(RunAuthoredCommand::prepared(
+            &call,
+            crate::authored_logic::AuthoredAsk::new("probe", "a test"),
+        ));
     assert!(
         app.world().resource::<Gossip>().0.is_empty(),
         "a REQUESTED command had already happened; then the dispatcher is not what \
@@ -253,7 +256,7 @@ fn a_prepared_question_is_validated_once_and_asked_without_reassembly() {
 
     assert!(
         matches!(
-            conditions.ask(app.world(), &gate),
+            conditions.ask(app.world(), &gate, &crate::authored_logic::AuthoredAsk::new("probe", "a test")),
             ConditionOutcome::NotSatisfied(_)
         ),
         "nobody has gossiped yet"
@@ -265,7 +268,7 @@ fn a_prepared_question_is_validated_once_and_asked_without_reassembly() {
         .push("encounter:town_square".to_string());
 
     assert_eq!(
-        conditions.ask(app.world(), &gate),
+        conditions.ask(app.world(), &gate, &crate::authored_logic::AuthoredAsk::new("probe", "a test")),
         ConditionOutcome::Satisfied,
         "the SAME prepared question answers differently as the world moves — which \
          is what makes preparing it once legitimate"

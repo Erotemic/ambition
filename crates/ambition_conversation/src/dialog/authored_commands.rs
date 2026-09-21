@@ -49,8 +49,13 @@ pub fn install_command_binding(
 fn request_authored_command(
     In((raw_id, a0, a1, a2)): In<(String, Option<String>, Option<String>, Option<String>)>,
     catalog: Option<Res<CommandCatalog>>,
+    active: Option<Res<crate::ActiveConversation>>,
     mut narrative: NarrativeInputWriter<RunAuthoredCommand>,
 ) {
+    let node = active
+        .as_deref()
+        .and_then(|active| active.live())
+        .map(|live| live.instance.node().to_string());
     let Some(id) = CommandId::parse(&raw_id) else {
         warn!(
             target: "crate::dialog::authored_commands",
@@ -84,7 +89,18 @@ fn request_authored_command(
     };
     let authored = [a0, a1, a2];
     match prepare_arguments(descriptor, &authored) {
-        Ok(args) => narrative.write(RunAuthoredCommand::new(id, args)),
+        Ok(args) => narrative.write(RunAuthoredCommand::new(
+            id,
+            args,
+            // ⭐ STAMPED AT THE REQUEST, not at the pump: by the time
+            // `run_requested_authored_commands` drains the channel every
+            // requester looks the same. The node is the source an author can
+            // find in a script.
+            ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk::new(
+                "dialogue",
+                node.unwrap_or_else(|| "<no live conversation>".to_string()),
+            ),
+        )),
         Err(refusal) => warn!(
             target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …) was refused: {refusal}",

@@ -984,20 +984,12 @@ impl Plugin for SanicDemoContentPlugin {
                 SANIC_CHARACTER_ID,
             ),
         );
-        let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
+        ambition_platformer2d::provider::install_direct_session_root(
             app,
             source,
             &provider::sanic_authored_catalogs(),
         )
         .expect("Sanic direct prepared-content assembly must succeed");
-        app.world_mut().spawn((
-            ambition_platformer2d::platformer::lifecycle::SessionRoot(
-                ambition_platformer2d::platformer::lifecycle::SessionScopeId(0),
-            ),
-            content.source().instantiate_live(),
-            content.identity(),
-            content,
-        ));
         app.add_systems(
             bevy::app::Startup,
             sanic_setup.in_set(ambition_platformer2d::runtime::demo_fixture::SimulationSetupSet),

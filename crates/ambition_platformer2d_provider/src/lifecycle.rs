@@ -1027,6 +1027,76 @@ pub fn prepare_platformer_content_for_app(
     )
 }
 
+/// Assemble a direct-entry app's content AND stand its session root up.
+///
+/// ⭐⭐ **ONE FACT, ONE OWNER: WHAT A DIRECT-ENTRY SESSION ROOT IS.**
+/// [`prepare_platformer_content_for_app`] already says *"direct demos use this
+/// instead of hand-building an un-fingerprinted live session root"* — and then
+/// stopped one line short of the root, so the four-component spawn that
+/// FOLLOWS it was authored three times: `ambition_demo_sanic`,
+/// `ambition_demo_mary_o`, and the host's own demo gate, whose comment calls it
+/// *"the shape every demo app copies"*. Copying a spawn is how the copies come
+/// to disagree about what a root carries; the census instrument and the
+/// rollback identity both read that bundle.
+///
+/// ⛔ **TWO REFUSALS, BOTH COMPOSITION ERRORS RATHER THAN CONTENT
+/// DIAGNOSTICS**, which is why they abort instead of returning `Err`. A
+/// `ContentDiagnostic` is something an author can fix in content; neither of
+/// these is.
+///
+///  * A second `SessionRoot` — `Q132` ruled that exactly one canonical live
+///    root exists and that a two-root frame is invalid rather than skippable.
+///    Every `SessionWorldRef` site is a `Single`, so on such a frame they all
+///    stop running silently.
+///  * A shell-gated App — `SessionGatedSimulation` is the declaration that
+///    gameplay belongs to shell-routed activations, and a build-time root at
+///    scope 0 beside an activation's root is exactly the coexistence
+///    `live_session_world_root`'s own doc records as having panicked once.
+pub fn install_direct_session_root(
+    app: &mut App,
+    source: PreparedPlatformerSource,
+    authored: &crate::authoring::AuthoredCatalogFragments,
+) -> Result<Entity, ContentDiagnostic> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId,
+    };
+
+    assert!(
+        !app.world().contains_resource::<SessionGatedSimulation>(),
+        "install_direct_session_root was called on a shell-gated App. Gameplay there \
+         belongs to a shell activation, which mints its own root; a build-time root at \
+         scope 0 beside it is two canonical roots for one world"
+    );
+    let existing = app
+        .world_mut()
+        .query::<(Entity, &SessionRoot)>()
+        .iter(app.world())
+        .next()
+        .map(|(entity, root)| (entity, root.0));
+    assert!(
+        existing.is_none(),
+        "install_direct_session_root was called on an App that already holds a \
+         SessionRoot ({existing:?}). One composition, one canonical live root"
+    );
+
+    let scope = app
+        .world()
+        .get_resource::<ActiveSessionScope>()
+        .and_then(ActiveSessionScope::current)
+        .unwrap_or(SessionScopeId(0));
+    let content = prepare_platformer_content_for_app(app, source, authored)?;
+    Ok(app
+        .world_mut()
+        .spawn((
+            bevy::prelude::Name::new("direct session world"),
+            SessionRoot(scope),
+            content.source().instantiate_live(),
+            content.identity(),
+            content,
+        ))
+        .id())
+}
+
 /// Which content identity does THIS preparation fingerprint against?
 ///
 /// ⛔⛤ **THE APP'S SELECTION WAS THE ONLY ANSWER, AND A HOT RELOAD HAD TO
@@ -2882,6 +2952,51 @@ mod tests {
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
+    }
+
+    /// A DIRECT ROOT REFUSES TO BE THE SECOND ONE.
+    ///
+    /// ⭐ The refusal is what makes [`install_direct_session_root`] a ROAD
+    /// rather than a shorthand. Three compositions hand-built this spawn and
+    /// none of them could have said no: a plugin that spawns a root
+    /// unconditionally at build time is exactly the *"build-time root
+    /// coexisting with an activation's"* coexistence
+    /// `live_session_world_root`'s doc records as having panicked once.
+    ///
+    /// ⚠ BOTH ARMS ABORT BEFORE PREPARATION, which is why they need no
+    /// registries: a composition error is not something a content author can
+    /// fix, so it cannot wait for a `ContentDiagnostic`.
+    #[test]
+    #[should_panic(expected = "already holds a SessionRoot")]
+    fn a_second_direct_root_is_refused_rather_than_spawned_beside_the_first() {
+        let mut app = App::new();
+        app.world_mut()
+            .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+                SessionScopeId(0),
+            ));
+        let _ = install_direct_session_root(
+            &mut app,
+            fixture_source(128.0),
+            &AuthoredCatalogFragments::new("alpha", "same-provider"),
+        );
+    }
+
+    /// A SHELL-GATED APP HAS NO DIRECT ROOT TO INSTALL.
+    ///
+    /// `SessionGatedSimulation` IS the declaration that gameplay belongs to
+    /// shell-routed activations. A direct root at scope 0 standing beside the
+    /// activation's is two canonical roots for one world, and every
+    /// `SessionWorldRef` in the tree is a `Single` that matches neither.
+    #[test]
+    #[should_panic(expected = "shell-gated App")]
+    fn a_shell_gated_app_refuses_a_direct_root() {
+        let mut app = App::new();
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>();
+        let _ = install_direct_session_root(
+            &mut app,
+            fixture_source(128.0),
+            &AuthoredCatalogFragments::new("alpha", "same-provider"),
+        );
     }
 
     fn isolated_room_fixture_source(room_id: &str) -> PreparedPlatformerSource {

@@ -191,6 +191,13 @@ shell-routed session with no generation — and what stays reachable is the
 App-registry road for compositions that have none by design. That is a product
 decision, asked as `Q144`, not an unowned cleanup.
 
+⇒ **AND IT CLOSED: RESOLVED 2026-09-20**, when `a49ae6654` moved the LDtk hot
+reload — the last caller of the App-registry constructor — onto
+`for_live_session` and `GenerationMechanics::new` went with it. The reading in
+the table above is left at its date; the live count is 0 open / 6 resolved / 4
+legitimate separation, owned by
+[`architecture-census.md`](architecture-census.md#2-duplicate-truth-families).
+
 ## 2026-09-17: a COUNTING-RULE change, not a tree change
 
 ⛔⛤ **`scripts/architecture_census.py` WAS CUTTING EACH FILE FROM ITS FIRST

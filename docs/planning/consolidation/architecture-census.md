@@ -393,6 +393,40 @@ candidate road. ⇒ Four for four have a dated reading; four for four now also
 have something mechanical, of which one is a partial hold that says so.
 
 
+⭐⭐ **THE LEDGER IS NOW 0 OPEN / 6 RESOLVED / 4 LEGITIMATE_SEPARATION, AND THAT
+IS A STATEMENT ABOUT ITS OWN POPULATION.** Every row here is a NAMED FAMILY —
+two types, or a type and a resource, that somebody wrote down as candidates for
+one fact. Two duplicated authorities found on 2026-09-21 were neither, and no
+census in this directory could have found either, because neither has a name:
+
+- **A FORMULA SPELLED TWICE IN THE FILE THAT DECLARES ITS ONE HOME.**
+  `VolumeShape::leading_edge_x` exists precisely because the sum
+  `offset + half_extent` written at a call site is a second answer to *"how far
+  does this reach"* — its doc says so — and eleven hundred lines later
+  `MoveFrameData::coverage` wrote it out twice more, on the same type. Found by
+  `test_the_grab_reach_is_one_formula`, which is aimed at a DIFFERENT formula
+  and only reached this one because `lib.rs` entered its population when the
+  coverage derivation started hydrating capture params. ⇒ `coverage_box()` is
+  the one spelling and the edge is a projection of it.
+- **A SPAWN COPIED ACROSS THREE COMPOSITIONS.**
+  `prepare_platformer_content_for_app`'s own doc says *"direct demos use this
+  instead of hand-building an un-fingerprinted live session root"* and then
+  stopped one line short of the root, so the four-component spawn that follows
+  it was authored in `ambition_demo_sanic`, `ambition_demo_mary_o` and the
+  host's demo gate — whose comment calls it *"the shape every demo app
+  copies"*. ⇒ `install_direct_session_root` owns it, and being a road it can
+  now REFUSE: a second `SessionRoot` (`Q132`: one canonical live root, and a
+  two-root frame is invalid rather than skippable) and a shell-gated App (a
+  build-time root at scope 0 beside an activation's is the coexistence
+  `live_session_world_root`'s doc records as having panicked once). Neither
+  refusal was expressible while three plugins spawned unconditionally.
+
+⇒ **A CLOSED LEDGER MEANS THE NAMED FAMILIES ARE ANSWERED, NOT THAT THE TREE
+HOLDS NO DUPLICATED AUTHORITY.** The two above were found by a guard aimed
+elsewhere and by following a road to where it stops; the ledger's method — a
+row per family somebody noticed — cannot reach either, and saying so is cheaper
+than the next reader concluding from `0 open` that the class is gone.
+
 Do **not** consolidate the staged editor values, active-versus-pending content, rollback confirmation answer, or construction diagnostics into their underlying authorities. They answer different questions.
 
 ## 3. Lifecycle-state census

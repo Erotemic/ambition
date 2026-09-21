@@ -66,20 +66,12 @@ impl Plugin for FixtureContentPlugin {
             ambition_platformer2d_runtime::demo_fixture::ActiveRoomMetadata::default(),
             ambition_platformer2d_runtime::demo_fixture::StartingCharacter::default(),
         );
-        let content = ambition_platformer2d_provider::prepare_platformer_content_for_app(
+        ambition_platformer2d_provider::install_direct_session_root(
             app,
             source,
             &ambition_platformer2d_provider::AuthoredCatalogFragments::new("player", "fixture"),
         )
         .expect("fixture direct prepared-content assembly must succeed");
-        app.world_mut().spawn((
-            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
-                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
-            ),
-            content.source().instantiate_live(),
-            content.identity(),
-            content,
-        ));
         // ⛔⛤ **THE SCOPED CONSTRUCTION AUTHORITY, DECLARED — AND THIS IS THE
         // LINE EVERY DEMO APP NOW COPIES ALONG WITH THE REST OF THE SHAPE.**
         // A direct composition never goes through provider activation, so it

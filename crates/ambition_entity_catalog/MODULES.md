@@ -9,6 +9,7 @@
 | [`action_scheme`](src/action_scheme.rs) | Device-free character action vocabulary. |
 | [`authoring`](src/authoring.rs) | The primitives a character's move table is written with — shared, because the second character to author one must not begin by copying the first. |
 | [`brain_profile_ref`](src/brain_profile_ref.rs) | Naming a shared autonomous-controller policy, in the two forms an authored reference and a resolved identity need to be. |
+| [`launch`](src/launch.rs) | **THE LAUNCH LAW, AND THE ONLY COPY OF IT.** |
 | [`move_section`](src/move_section.rs) | The move family's own artifact section — fast-iteration packet I2, step 1/3. |
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 | [`smash_bolt`](src/smash_bolt.rs) | Authored payload for the steerable bolt technique. |
@@ -32,7 +33,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

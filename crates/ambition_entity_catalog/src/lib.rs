@@ -1000,12 +1000,33 @@ impl VolumeShape {
     /// re-inlining it for a hit volume — which is the same mistake on a
     /// different type, so this is the same repair.
     pub fn leading_edge_x(&self) -> f32 {
+        self.coverage_box().max.0
+    }
+
+    /// The body-local box this volume occupies.
+    ///
+    /// ⭐ **THE ONE SPELLING OF THE SUM, AND [`leading_edge_x`] IS NOW A
+    /// PROJECTION OF IT.** Both a leading edge and a coverage box are
+    /// `offset ± half_extent`, so a file holding one of them will write the
+    /// other out by hand — `MoveFrameData::coverage` did, twice, inside the
+    /// same file that declares the edge and explains why not to. A second
+    /// spelling of a box is a second answer to *"how far does this reach"*
+    /// that agrees until somebody changes one.
+    ///
+    /// [`leading_edge_x`]: VolumeShape::leading_edge_x
+    pub fn coverage_box(&self) -> MoveCoverage {
         match *self {
             VolumeShape::Rect {
                 offset,
                 half_extents,
-            } => offset.0 + half_extents.0,
-            VolumeShape::Circle { offset, radius } => offset.0 + radius,
+            } => MoveCoverage {
+                min: (offset.0 - half_extents.0, offset.1 - half_extents.1),
+                max: (offset.0 + half_extents.0, offset.1 + half_extents.1),
+            },
+            VolumeShape::Circle { offset, radius } => MoveCoverage {
+                min: (offset.0 - radius, offset.1 - radius),
+                max: (offset.0 + radius, offset.1 + radius),
+            },
         }
     }
 }
@@ -3039,26 +3060,8 @@ impl MoveSpec {
                 .filter(|w| matches!(w.tag, WindowTag::Active))
                 .flat_map(|w| w.volumes.iter())
         };
-        let extent_x = |v: &HitVolume| match v.shape {
-            VolumeShape::Rect {
-                offset,
-                half_extents,
-            } => offset.0 + half_extents.0,
-            VolumeShape::Circle { offset, radius } => offset.0 + radius,
-        };
-        let box_of = |v: &HitVolume| match v.shape {
-            VolumeShape::Rect {
-                offset,
-                half_extents,
-            } => MoveCoverage {
-                min: (offset.0 - half_extents.0, offset.1 - half_extents.1),
-                max: (offset.0 + half_extents.0, offset.1 + half_extents.1),
-            },
-            VolumeShape::Circle { offset, radius } => MoveCoverage {
-                min: (offset.0 - radius, offset.1 - radius),
-                max: (offset.0 + radius, offset.1 + radius),
-            },
-        };
+        let extent_x = |v: &HitVolume| v.shape.leading_edge_x();
+        let box_of = |v: &HitVolume| v.shape.coverage_box();
         let union = |volumes: &mut dyn Iterator<Item = MoveCoverage>| {
             volumes.reduce(|a, b| MoveCoverage {
                 min: (a.min.0.min(b.min.0), a.min.1.min(b.min.1)),

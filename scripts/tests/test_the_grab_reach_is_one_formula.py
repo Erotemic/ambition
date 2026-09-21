@@ -62,6 +62,43 @@ COPY = re.compile(r"(\w+\.)?offset\.(0|x)\s*\+\s*(\w+\.)?half_extents\.(0|x)")
 MENTIONS = ("CaptureAttemptParams", "live_capture_reach")
 
 
+# ⛔⛤ **THE SECOND HOME, AND IT IS A DIFFERENT FORMULA WEARING THE SAME
+# ARITHMETIC.** A `HitVolume`'s box is also `offset ± half_extent`, and this
+# guard's population filter is a FILE filter: `lib.rs` names
+# `CaptureAttemptParams` in code (it hydrates capture params to price a grab),
+# so the whole file entered scope and the volume box's own declaration was
+# reported as a copy of the capture reach. Exempting the file would drop three
+# real roads; exempting the ARITHMETIC would delete the guard. ⇒ Exempt exactly
+# the body of the one function that owns the volume box, by brace span, and
+# assert below that the sum is actually in it — so moving the formula out
+# reddens this instead of quietly widening the hole.
+VOLUME_BOX_HOME = (
+    "crates/ambition_entity_catalog/src/lib.rs",
+    "pub fn coverage_box(&self) -> MoveCoverage {",
+)
+
+
+def _exempt_span(rel: str, text: str) -> range:
+    """The line numbers (1-indexed) of `VOLUME_BOX_HOME`'s body, or nothing."""
+    path, signature = VOLUME_BOX_HOME
+    if rel != path:
+        return range(0)
+    lines = text.splitlines()
+    start = next(
+        (n for n, line in enumerate(lines, start=1) if signature in line), None
+    )
+    assert start is not None, (
+        f"{path} no longer declares `{signature}` — the volume box's one home "
+        "moved, and this guard is exempting a span that does not exist"
+    )
+    depth = 0
+    for n in range(start, len(lines) + 1):
+        depth += lines[n - 1].count("{") - lines[n - 1].count("}")
+        if depth <= 0:
+            return range(start, n + 1)
+    raise AssertionError(f"{path}: `{signature}` has no closing brace")
+
+
 def _rust_sources():
     for root in ("crates", "game"):
         for path in sorted(REPO.glob(f"{root}/**/*.rs")):
@@ -116,11 +153,25 @@ def test_the_grab_reach_sum_lives_only_on_capture_attempt_params():
         if path.resolve() == HOME.resolve():
             continue
         checked += 1
+        rel = path.relative_to(REPO).as_posix()
+        exempt = _exempt_span(rel, text)
+        found_in_home = False
         for number, line in enumerate(text.splitlines(), start=1):
             code = line.split("//", 1)[0]
-            if COPY.search(code):
-                rel = path.relative_to(REPO)
-                strays.append(f"{rel}:{number}: {line.strip()}")
+            if not COPY.search(code):
+                continue
+            if number in exempt:
+                found_in_home = True
+                continue
+            strays.append(f"{rel}:{number}: {line.strip()}")
+        # ⛔ ANTI-VACUITY ON THE EXEMPTION ITSELF. An exemption that covers
+        # nothing is an exemption nobody will notice has stopped being needed.
+        if exempt:
+            assert found_in_home, (
+                f"{rel}: the exempt span for `{VOLUME_BOX_HOME[1]}` no longer "
+                "contains the sum, so this guard is holding a hole open for a "
+                "formula that has moved"
+            )
 
     # ⛔ ANTI-VACUITY ON THE POPULATION. A rename of `CaptureAttemptParams` would
     # empty this sweep and every assertion would pass on a corpus of nothing.

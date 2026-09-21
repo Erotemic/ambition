@@ -196,8 +196,40 @@ pub struct LadderRigArgs {
     #[arg(long)]
     pub scenarios: bool,
     /// Override a utility weight, as `NAME=VALUE`. Repeatable.
+    ///
+    /// ⛔⛔ **IT REPLACES THE WHOLE WEIGHT SET ON EVERY RUNG WITH
+    /// `UtilityWeights::v1()` PLUS YOUR FIELDS, WHICH FLATTENS AN AUTHORED
+    /// LADDER'S WEIGHT RAMP.** `v1()` IS the shipped ladder's rung-9 row, so on
+    /// a `--ladder` run this hands rung 1 the hardest fighter's scoring and
+    /// leaves only reaction/APM/noise/read to separate the rungs. That is a
+    /// legitimate controlled arm — one weight set, nine reaction profiles — and
+    /// it is NOT "the shipped ladder with one number moved". The header prints
+    /// every rung after the override, so a flattened table says so in its own
+    /// rows; read them.
+    ///
+    /// ⇒ For the other question use [`Self::weight_scales`].
     #[arg(long = "weight", value_name = "NAME=VALUE")]
     pub weights: Vec<String>,
+
+    /// Multiply one utility weight on EVERY rung by a factor, as
+    /// `NAME=FACTOR`. Repeatable.
+    ///
+    /// ⭐⭐ **THIS IS THE ONE A REFIT WANTS, and until 2026-09-21 there was no
+    /// way to ask it.** A refit moves a weight *relative to what the ladder
+    /// authored*, keeping the ramp that makes rung 1 a beginner: `--weight-scale
+    /// kill_potential=1.3` gives rung 1 `0.00` (still nothing), rung 5 `0.91`
+    /// and rung 9 `1.495`. `--weight kill_potential=1.3` would give all nine
+    /// `1.3` and delete the ramp.
+    ///
+    /// ⚠ Scaling a weight that is authored as ZERO cannot move it, by
+    /// construction — rungs 1 and 2 author `kill_potential: 0.00`, so no factor
+    /// reaches them. That is the ladder saying those rungs do not price kills,
+    /// and a refit that needs to change it wants `--weight`, or an edited
+    /// `.ron`.
+    ///
+    /// ⚠ Applied AFTER `--weight`, so passing both scales the value you set.
+    #[arg(long = "weight-scale", value_name = "NAME=FACTOR")]
+    pub weight_scales: Vec<String>,
     /// Disable rollout search for the run.
     #[arg(long)]
     pub no_rollout: bool,
@@ -422,10 +454,20 @@ pub fn run(cli: LadderRigArgs) {
         // claims and the line below is the one that says which rows a rung
         // actually got: this rig prints both, and an earlier wording had them
         // contradicting each other on consecutive lines.
-        None => println!(
+        // ⚠ `--weight-scale` is an override too, and this arm used to call the
+        // run "not overridden" while a factor was multiplying every rung. It
+        // does not print the factors itself: they are on the `ladder:` line,
+        // beside the rows they modified, which is where a reader can see what
+        // they did.
+        None if args().weight_scales.is_empty() => println!(
             "[ladder_rig] weights: not overridden — each rung keeps whatever its \
              profile source gave it (the `ladder:` line ABOVE names the file it \
              read and prints every rung)"
+        ),
+        None => println!(
+            "[ladder_rig] weights: the AUTHORED per-rung weights, SCALED — no `--weight` \
+             replaced them, so the ladder's ramp is intact and `--weight-scale` multiplied \
+             it. The `ladder:` line ABOVE names the factors and prints every rung after them"
         ),
     }
     // ⭐ THE BAR SITS WITH THE STATISTICS rather than among the
@@ -543,31 +585,57 @@ pub fn run(cli: LadderRigArgs) {
 /// the resource is inserted, so the projection projects it; with no ladder the
 /// floor owns the profile and the override goes onto the live brains. Same
 /// value, same function, and the road is chosen by who owns the fact.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct ProfileOverride {
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ProfileOverride<'a> {
     weights: Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights>,
     apm_cap: Option<f32>,
     execution_noise: Option<f32>,
     reaction_ms: Option<f32>,
     /// `--no-rollout` zeroes both rollout fields together; they are one knob.
     no_rollout: bool,
+    /// `--weight-scale` factors by weight name.
+    ///
+    /// ⚠ A borrowed slice rather than fields, because these multiply the
+    /// AUTHORED row: `apply` never sees the ladder, only one profile at a time,
+    /// so the factor has to travel with the override rather than be folded into
+    /// a value up front.
+    scales: &'a [(String, f32)],
 }
 
-impl ProfileOverride {
+impl<'a> ProfileOverride<'a> {
+    /// An override that changes nothing — the reference every `from_args`
+    /// answer is compared against, and the fixture a test starts from.
+    const NOTHING: Self = Self {
+        weights: None,
+        apm_cap: None,
+        execution_noise: None,
+        reaction_ms: None,
+        no_rollout: false,
+        scales: &[],
+    };
+
     /// What the caller asked for, or `None` when they asked for nothing.
     ///
     /// ⚠ `None` and an all-default `Some` are different: an override that
     /// changes no field still costs a profile write, and on the ladder road that
     /// write is what a reader would mistake for the flag working.
     fn from_args() -> Option<Self> {
+        // Parsed once per process and leaked so the override can borrow it: the
+        // scales live as long as `args()` does, and threading a lifetime from a
+        // `OnceLock` through every call site buys nothing a leak of one small
+        // `Vec` does not.
+        static SCALES: std::sync::OnceLock<Vec<(String, f32)>> = std::sync::OnceLock::new();
+        let scales =
+            SCALES.get_or_init(|| named_numbers("--weight-scale", &args().weight_scales));
         let me = Self {
             weights: weights_from_args(),
             apm_cap: flag_value("--apm").and_then(|v| v.parse().ok()),
             execution_noise: flag_value("--noise").and_then(|v| v.parse().ok()),
             reaction_ms: flag_value("--reaction-ms").and_then(|v| v.parse().ok()),
             no_rollout: args().no_rollout,
+            scales,
         };
-        (me != Self::default()).then_some(me)
+        (me != Self::NOTHING).then_some(me)
     }
 
     fn apply(
@@ -589,6 +657,14 @@ impl ProfileOverride {
         if self.no_rollout {
             profile.rollout_depth = 0;
             profile.rollout_k = 0;
+        }
+        // ⛔ LAST, AND MULTIPLYING WHATEVER IS THERE. The point of a scale is to
+        // move a weight relative to what the ROW authored, so it must see the
+        // row (or the `--weight` value that replaced it), not a constant.
+        for (name, factor) in self.scales {
+            if let Some(field) = weight_field_mut(&mut profile.utility_weights, name) {
+                *field *= factor;
+            }
         }
     }
 }
@@ -981,11 +1057,25 @@ fn report_which_ladder_is_in_play() {
         // The digest is over the file TEXT actually parsed, so two runs agree if
         // and only if they read the same bytes.
         let rungs = ladder_rungs_summary();
+        // ⛔ AND IT SAYS WHETHER THE ROWS BELOW ARE STILL THE FILE'S. The
+        // override now goes INTO the rows (`ProfileOverride`), so the rungs
+        // printed underneath can differ from the bytes the digest covers — and
+        // a reader comparing two logs by digest would conclude they used the
+        // same rows. The digest still describes the FILE, which is what it is
+        // for; this clause describes what happened to it afterwards.
         println!(
-            "[ladder_rig] ladder: the AUTHORED rows from `{}` (digest {}) — \
-             AuthoredFighterLadder is installed",
+            "[ladder_rig] ladder: the rows from `{}` (digest {}) — \
+             AuthoredFighterLadder is installed.{}",
             args().ladder.as_deref().unwrap_or("<none>"),
             ladder_digest().unwrap_or_else(|| "n/a".to_string()),
+            match ProfileOverride::from_args() {
+                None => " Authored, unmodified.".to_string(),
+                Some(over) => format!(
+                    " ⚠ MODIFIED BY THIS RUN before installing: {over:?}. The digest is the \
+                     FILE's and does NOT cover these changes — two runs agreeing on it did \
+                     not necessarily measure the same rungs. The rungs below are what ran."
+                ),
+            },
         );
         for line in rungs {
             println!("[ladder_rig]   {line}");
@@ -1003,33 +1093,65 @@ fn report_which_ladder_is_in_play() {
     }
 }
 
+/// One weight by name, for the two flags that address weights by name.
+///
+/// ⛔ `displacement_value` USED TO BE MISSING FROM THE MATCH and the arm said
+/// *"no weight named 'displacement_value'"*, so the one weight a reader might
+/// reach for after the knockback work was the one the rig refused. A field
+/// added to `UtilityWeights` and not added here is invisible to the only tool
+/// that can sweep it.
+fn weight_field_mut<'a>(
+    weights: &'a mut ambition_platformer2d::characters::brain::fighter::UtilityWeights,
+    name: &str,
+) -> Option<&'a mut f32> {
+    Some(match name {
+        "reach_fit" => &mut weights.reach_fit,
+        "frame_advantage" => &mut weights.frame_advantage,
+        "kill_potential" => &mut weights.kill_potential,
+        "stage_risk" => &mut weights.stage_risk,
+        "expected_payoff" => &mut weights.expected_payoff,
+        "capture_value" => &mut weights.capture_value,
+        "displacement_value" => &mut weights.displacement_value,
+        _ => return None,
+    })
+}
+
+/// Parse a repeated `NAME=VALUE` flag into named numbers, refusing rather than
+/// defaulting on anything it does not understand.
+fn named_numbers(flag: &str, pairs: &[String]) -> Vec<(String, f32)> {
+    pairs
+        .iter()
+        .map(|pair| {
+            let Some((name, value)) = pair.split_once('=') else {
+                eprintln!("[ladder_rig] {flag} wants name=value, got '{pair}'");
+                std::process::exit(2);
+            };
+            let Ok(value) = value.parse::<f32>() else {
+                eprintln!("[ladder_rig] '{value}' is not a number");
+                std::process::exit(2);
+            };
+            // Refused here rather than silently ignored, so a typo is not a run
+            // that measured the unmodified weights under a header claiming
+            // otherwise.
+            let mut probe = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
+            if weight_field_mut(&mut probe, name).is_none() {
+                eprintln!("[ladder_rig] no weight named '{name}'");
+                std::process::exit(2);
+            }
+            (name.to_string(), value)
+        })
+        .collect()
+}
+
 fn weights_from_args(
 ) -> Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights> {
     if args().weights.is_empty() {
         return None;
     }
     let mut weights = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
-    for pair in &args().weights {
-        let Some((name, value)) = pair.split_once('=') else {
-            eprintln!("[ladder_rig] --weight wants name=value, got '{pair}'");
-            std::process::exit(2);
-        };
-        let Ok(value) = value.parse::<f32>() else {
-            eprintln!("[ladder_rig] '{value}' is not a number");
-            std::process::exit(2);
-        };
-        match name {
-            "reach_fit" => weights.reach_fit = value,
-            "frame_advantage" => weights.frame_advantage = value,
-            "kill_potential" => weights.kill_potential = value,
-            "stage_risk" => weights.stage_risk = value,
-            "expected_payoff" => weights.expected_payoff = value,
-            "capture_value" => weights.capture_value = value,
-            other => {
-                eprintln!("[ladder_rig] no weight named '{other}'");
-                std::process::exit(2);
-            }
-        }
+    for (name, value) in named_numbers("--weight", &args().weights) {
+        *weight_field_mut(&mut weights, &name).expect("named_numbers refused unknown names") =
+            value;
     }
     Some(weights)
 }
@@ -3109,50 +3231,87 @@ mod tests {
             FighterBrainProfile, UtilityWeights,
         };
         let authored = FighterBrainProfile::for_level(6);
+        let authored_kill = authored.utility_weights.kill_potential;
+        // Non-vacuity for the scale case: doubling zero is zero, and the
+        // assertion would pass without the scale ever being read.
+        assert_ne!(
+            authored_kill, 0.0,
+            "the fixture rung authors no kill weight, so scaling it proves nothing"
+        );
 
         // An override that asks for nothing changes nothing — the premise that
         // makes each single-field case below attributable.
         let mut untouched = authored;
-        ProfileOverride::default().apply(&mut untouched);
+        ProfileOverride::NOTHING.apply(&mut untouched);
         assert_eq!(untouched, authored, "an empty override moved a field");
 
         let mut weights = UtilityWeights::v1();
         weights.reach_fit = 0.0;
-        let cases: [(ProfileOverride, fn(&FighterBrainProfile) -> bool); 5] = [
+        let kill_doubled = [("kill_potential".to_string(), 2.0_f32)];
+        // 0.5 set, then doubled, is 1.0 — a value neither flag produces alone,
+        // so the assertion cannot pass on either one being ignored.
+        let set_kill_to_half = UtilityWeights {
+            kill_potential: 0.5,
+            ..UtilityWeights::v1()
+        };
+        let cases: [(ProfileOverride, &dyn Fn(&FighterBrainProfile) -> bool); 7] = [
             (
                 ProfileOverride {
                     weights: Some(weights),
-                    ..Default::default()
+                    ..ProfileOverride::NOTHING
                 },
-                |p| p.utility_weights.reach_fit == 0.0,
+                &|p: &FighterBrainProfile| p.utility_weights.reach_fit == 0.0,
             ),
             (
                 ProfileOverride {
                     apm_cap: Some(1.0),
-                    ..Default::default()
+                    ..ProfileOverride::NOTHING
                 },
-                |p| p.apm_cap == 1.0,
+                &|p: &FighterBrainProfile| p.apm_cap == 1.0,
             ),
             (
                 ProfileOverride {
                     execution_noise: Some(0.0),
-                    ..Default::default()
+                    ..ProfileOverride::NOTHING
                 },
-                |p| p.execution_noise == 0.0,
+                &|p: &FighterBrainProfile| p.execution_noise == 0.0,
             ),
             (
                 ProfileOverride {
                     reaction_ms: Some(2000.0),
-                    ..Default::default()
+                    ..ProfileOverride::NOTHING
                 },
-                |p| p.reaction_ms == 2000.0,
+                &|p: &FighterBrainProfile| p.reaction_ms == 2000.0,
             ),
             (
                 ProfileOverride {
                     no_rollout: true,
-                    ..Default::default()
+                    ..ProfileOverride::NOTHING
                 },
-                |p| p.rollout_depth == 0 && p.rollout_k == 0,
+                &|p: &FighterBrainProfile| p.rollout_depth == 0 && p.rollout_k == 0,
+            ),
+            // ⭐ A SCALE MULTIPLIES THE ROW, which is the whole difference from
+            // `--weight`: rung 6 authors `kill_potential: 0.90`, so x2 is 1.80
+            // and not the `v1` row's 1.15 with a 2 in it.
+            (
+                ProfileOverride {
+                    scales: &kill_doubled,
+                    ..ProfileOverride::NOTHING
+                },
+                &|p: &FighterBrainProfile| p.utility_weights.kill_potential == authored_kill * 2.0,
+            ),
+            // ⛔ AND THE ORDER BETWEEN THEM IS PART OF THE CONTRACT. `--weight`
+            // replaces the set, `--weight-scale` multiplies what is there — so
+            // passing both must scale the value you SET. Applying the scale
+            // first makes `--weight` silently discard it, which is a run whose
+            // header names a factor that never reached a fighter.
+            (
+                ProfileOverride {
+                    weights: Some(set_kill_to_half),
+                    scales: &kill_doubled,
+                    ..ProfileOverride::NOTHING
+                },
+                &|p: &FighterBrainProfile| p.utility_weights.kill_potential == 1.0,
             ),
         ];
         for (over, moved) in cases {

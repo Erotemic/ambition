@@ -3580,6 +3580,28 @@ is that **the utility weights were fitted while `wear` was identically 1.0**
 — which is now stated in three places for three different features, and is
 the case for the ladder rig rather than for another scalar.
 
+⛔⛔ **AND THE LADDER RIG COULD NOT HAVE DONE THAT REFIT — MEASURED 2026-09-21,
+AND THE FLAG HAD BEEN INERT ON THAT ROAD SINCE `--ladder` WAS ADDED.** A refit
+has to run on the SHIPPED ladder, and `--weight` wrote the LIVE brain's
+`cfg.profile`, which `project_authored_fighter_ladder` rewrites every tick for
+any fighter whose profile differs from its authored rung. That filter is gone
+deliberately — no tick-based filter composes with the disabling component a
+candidate session builds behind — so the projection is a CONTINUOUS authority
+and a second writer loses within one tick. ⇒ On `--ladder <shipped>`,
+`--weight reach_fit=0` and `--weight reach_fit=999` produced byte-identical
+bouts, as did `--apm 1` and `--apm 600`; all four equalled each other, because
+the only lasting effect was the `FighterState` rebuild the losing write
+provoked. The same flags on the engine FLOOR, where the projection returns
+early, moved every number (`--apm 1`: `21% : 9%` → `0% : 0%`).
+
+⇒ Fixed by giving the fact ONE owner: with a ladder installed the override goes
+into the ladder ROWS (`FighterBrainLadder::rungs_mut`) before the resource is
+inserted, so the projection projects the sweep instead of reverting it. After
+the change, on the shipped ladder: `reach_fit=0` → `89% : 74%`, `reach_fit=999`
+→ `49% : 54%`, `--apm 1` → `0% : 0%`, `--apm 600` unchanged, and `--no-rollout`
+correctly unchanged because the shipped rows already carry rollout `0/0`. **The
+refit is now runnable; it has not been run.**
+
 ⛔⛤ **AND ONE FIGHTER ON THE SHIPPED GRID CANNOT FIGHT AT ALL — MEASURED
 2026-09-21, AND STALING DOES NOT TOUCH IT.** `special_patent_clerk` is the
 grid's only duel-gate failure, and his row is the same in every sweep above

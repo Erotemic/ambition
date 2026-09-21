@@ -307,6 +307,17 @@ pub struct LadderRigArgs {
     /// the rig measures THAT ladder instead of the engine floor.
     ///
     /// ⭐⭐ **THIS IS THE FLAG THAT LETS THE RIG MEASURE THE SHIPPED FIGHTER.**
+    ///
+    /// ⛔⛔ AND UNTIL 2026-09-21 IT SILENTLY DISABLED EVERY OTHER TUNING FLAG.
+    /// Installing the resource hands `cfg.profile` to
+    /// `project_authored_fighter_ladder`, which rewrites any live profile that
+    /// differs from its rung on every tick — so `--weight`, `--apm`, `--noise`
+    /// and `--reaction-ms`, all of which wrote live brains, were reverted within
+    /// a tick. MEASURED: `--apm 1` and `--apm 600` produced byte-identical bouts
+    /// on this road; on the floor they are `0% : 0%` and `21% : 9%`. The
+    /// override now goes into the ROWS this flag reads, so it survives. See
+    /// `ProfileOverride`.
+    ///
     /// Every number this tool has ever produced was taken on the engine floor:
     /// the demo app installs no `AuthoredFighterLadder`, so `profile_for_level`
     /// falls back to `FighterBrainProfile::for_level`. That floor differs from
@@ -451,120 +462,6 @@ pub fn run(cli: LadderRigArgs) {
     }
 }
 
-/// Give BOTH fighters distinct noise streams derived from one seed.
-///
-/// distinct, not shared. Two brains stepping the same stream would make
-/// the higher rung's jitter a function of the lower one's, which is a
-/// correlation no real match has — and it would hide exactly the kind of
-/// difference this rig exists to find.
-/// Override every live fighter's utility weights.
-///
-/// ⭐ THE RIG COULD COMPARE RUNGS AND NOT WEIGHTS, and a weight is what three
-/// open rows are waiting on. `frame_advantage` is degenerate against an
-/// uncommitted opponent (D188); fixing its scale doubles one matchup and thirds
-/// another, and the weights it is read against were fitted while it was a
-/// constant. Refitting them needs exactly this: the same bout machinery, the
-/// same seeds, one number changed.
-///
-/// Applied to the live `FighterState`'s config after seating, beside the noise
-/// stream and for the same reason — the brain does not exist until then.
-///
-/// ⛔ It is an OVERRIDE, not a model of how a fighter gets its weights. A live
-/// CPU's come from its profile; sweeping them here is the point, so this
-/// deliberately does not go through that seam. Do not "fix" it to match the
-/// builder.
-fn force_utility_weights(
-    app: &mut bevy::app::App,
-    weights: ambition_platformer2d::characters::brain::fighter::UtilityWeights,
-) -> bool {
-    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            cfg.profile.utility_weights = weights;
-            found = true;
-        }
-    }
-    found
-}
-
-/// `--no-rollout`: zero `rollout_depth`/`rollout_k` on every live fighter.
-///
-/// ⭐ THE A/B FOR THE l6 REGRESSION. `--sweep-below` measures l1 and l6 failing to
-/// recover from below while l3/l5/l9 succeed, and l6 is exactly where
-/// `for_level` switches rollout on — but l9 has the same rollout and recovers, so
-/// the correlation needs a controlled test rather than a story. Re-run the sweep
-/// with this flag: if l6 then recovers, rollout is the cause; if it still fails,
-/// rollout is a coincidence and the suspect list moves on.
-///
-/// ⚠ It pokes the LIVE cfg, exactly as `force_utility_weights` does, because the
-/// published policy is what builds the profile and a rig must not fork it.
-fn force_no_rollout(app: &mut bevy::app::App) -> bool {
-    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            cfg.profile.rollout_depth = 0;
-            cfg.profile.rollout_k = 0;
-            found = true;
-        }
-    }
-    found
-}
-
-/// `--reaction-ms N`: override every live fighter's reaction time.
-///
-/// ⭐ THE A/B FOR THE l1 FAILURE, which `--no-rollout` does NOT rescue, so it has a
-/// different cause. The published ladder runs 500ms at l1 down to 150ms at l9, and
-/// the `recovery_below` fixture drops the body **208px above the blastzone**
-/// (mapped y=512 on a 640x480 stage whose fall margin puts death at y=720). If the
-/// fall is shorter than half a second, l1 simply cannot react in time and its
-/// 45/45 is arithmetic rather than a defect. Setting this to 0 answers it: if l1
-/// then recovers, reaction time is the whole story.
-fn force_reaction_ms(app: &mut bevy::app::App, reaction_ms: f32) -> bool {
-    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            cfg.profile.reaction_ms = reaction_ms;
-            found = true;
-        }
-    }
-    found
-}
-
-/// `--apm N` / `--noise X`: override the other two per-level knobs.
-///
-/// ⭐ THE REMAINING SUSPECTS FOR l1, after `--no-rollout` and `--reaction-ms 0`
-/// BOTH left it failing 45/45. `for_level` gives l1 the lowest `apm_cap` (120 —
-/// two actions per second, which can throttle a recovery input) and the highest
-/// `execution_noise` (0.45). Testing both at once first: if l1 still fails,
-/// neither is the cause and the suspect moves out of the profile entirely.
-fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option<f32>) -> bool {
-    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
-    let world = app.world_mut();
-    let mut q = world.query::<&mut Brain>();
-    let mut found = false;
-    for mut brain in q.iter_mut(world) {
-        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
-            if let Some(apm) = apm {
-                cfg.profile.apm_cap = apm;
-            }
-            if let Some(noise) = noise {
-                cfg.profile.execution_noise = noise;
-            }
-            found = true;
-        }
-    }
-    found
-}
-
 /// The weights this run measures under: `v1` unless `--weight name=value` says
 /// otherwise, repeatable.
 ///
@@ -621,6 +518,81 @@ fn force_apm_and_noise(app: &mut bevy::app::App, apm: Option<f32>, noise: Option
 /// ⛔ A parse failure EXITS rather than falling back to the floor. Falling back
 /// would produce a run whose header says one thing and whose fighters carry
 /// another, which is the failure this file has spent a day removing.
+/// The profile fields this run overrides, as ONE value applied wherever the
+/// profile is owned.
+///
+/// ⛔⛔ **THE OVERRIDES USED TO POKE LIVE BRAINS, AND ON THE SHIPPED LADDER THAT
+/// LOST EVERY TICK.** `project_authored_fighter_ladder` carries no change filter
+/// — it cannot, because no tick-based filter composes with the disabling
+/// component a candidate session builds behind — so it re-reads every fighter
+/// every tick and rewrites any `cfg.profile` that differs from its rung,
+/// rebuilding `FighterState` with it. ⇒ A `--weight` written onto a live brain
+/// was reverted within one tick, and the only lasting effect was the state
+/// rebuild it provoked.
+///
+/// ⚠ MEASURED 2026-09-21, which is how it was found. On `--ladder <shipped>`,
+/// `--apm 1` and `--apm 600` produced byte-identical bouts, as did
+/// `--weight reach_fit=0` and `--weight reach_fit=999`, and all four equalled
+/// each other — the value never mattered, only whether a force had happened at
+/// all. The same flags on the ENGINE FLOOR, where no ladder resource exists and
+/// the projection returns early, moved every number: `--apm 1` took the fight
+/// from `21% : 9%` to `0% : 0%`. **The rig's entire reason to exist on the
+/// shipped ladder was a no-op, and every header it printed claimed otherwise.**
+///
+/// ⇒ ONE OWNER. With a ladder installed the override goes into the ROWS before
+/// the resource is inserted, so the projection projects it; with no ladder the
+/// floor owns the profile and the override goes onto the live brains. Same
+/// value, same function, and the road is chosen by who owns the fact.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct ProfileOverride {
+    weights: Option<ambition_platformer2d::characters::brain::fighter::UtilityWeights>,
+    apm_cap: Option<f32>,
+    execution_noise: Option<f32>,
+    reaction_ms: Option<f32>,
+    /// `--no-rollout` zeroes both rollout fields together; they are one knob.
+    no_rollout: bool,
+}
+
+impl ProfileOverride {
+    /// What the caller asked for, or `None` when they asked for nothing.
+    ///
+    /// ⚠ `None` and an all-default `Some` are different: an override that
+    /// changes no field still costs a profile write, and on the ladder road that
+    /// write is what a reader would mistake for the flag working.
+    fn from_args() -> Option<Self> {
+        let me = Self {
+            weights: weights_from_args(),
+            apm_cap: flag_value("--apm").and_then(|v| v.parse().ok()),
+            execution_noise: flag_value("--noise").and_then(|v| v.parse().ok()),
+            reaction_ms: flag_value("--reaction-ms").and_then(|v| v.parse().ok()),
+            no_rollout: args().no_rollout,
+        };
+        (me != Self::default()).then_some(me)
+    }
+
+    fn apply(
+        self,
+        profile: &mut ambition_platformer2d::characters::brain::fighter::FighterBrainProfile,
+    ) {
+        if let Some(weights) = self.weights {
+            profile.utility_weights = weights;
+        }
+        if let Some(apm) = self.apm_cap {
+            profile.apm_cap = apm;
+        }
+        if let Some(noise) = self.execution_noise {
+            profile.execution_noise = noise;
+        }
+        if let Some(ms) = self.reaction_ms {
+            profile.reaction_ms = ms;
+        }
+        if self.no_rollout {
+            profile.rollout_depth = 0;
+            profile.rollout_k = 0;
+        }
+    }
+}
+
 fn authored_ladder(
 ) -> Option<ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder> {
     use ambition_platformer2d::characters::brain::fighter::{
@@ -631,10 +603,33 @@ fn authored_ladder(
         eprintln!("[ladder_rig] --ladder {path}: {err}");
         std::process::exit(2);
     });
-    let ladder = FighterBrainLadder::from_ron(&text).unwrap_or_else(|err| {
+    let mut ladder = FighterBrainLadder::from_ron(&text).unwrap_or_else(|err| {
         eprintln!("[ladder_rig] --ladder {path} did not parse: {err}");
         std::process::exit(2);
     });
+    // ⛔ THE OVERRIDE GOES IN HERE, NOT ONTO THE LIVE BRAINS, because with this
+    // resource installed the projection owns `cfg.profile` and rewrites it every
+    // tick. See `ProfileOverride` for the measurement that found it.
+    if let Some(over) = ProfileOverride::from_args() {
+        for rung in ladder.rungs_mut() {
+            over.apply(rung);
+        }
+        // ⚠ A SWEEP CAN MAKE A LADDER THAT IS NO LONGER A LADDER — `--apm 1`
+        // flattens every rung's cap onto one number — and the caller is entitled
+        // to know before reading the rows as a difficulty curve. Reported, not
+        // refused: flattening a field deliberately is exactly what a controlled
+        // arm does.
+        let problems = ladder.problems();
+        if !problems.is_empty() {
+            eprintln!(
+                "[ladder_rig] ⚠ the overridden ladder is no longer well-formed \
+                 ({} problem(s)) — fine for a controlled arm, not for a \
+                 difficulty reading: {}",
+                problems.len(),
+                problems.join("; ")
+            );
+        }
+    }
     Some(AuthoredFighterLadder(ladder))
 }
 
@@ -1076,6 +1071,33 @@ fn noise_stream(seed: u64, seat: usize, swap_streams: bool) -> u64 {
     // seat on, hence the `+ 1`.
     let stream_of = seat ^ usize::from(swap_streams);
     seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (stream_of as u64 + 1)
+}
+
+/// Apply this run's [`ProfileOverride`] to every live fighter — the FLOOR road.
+///
+/// ⛔ Four functions used to do this, one per flag, each with its own
+/// `world.query::<&mut Brain>()` and its own `found` nobody read. They are one
+/// function because they are one decision: *this run measures a modified
+/// profile*. Splitting it by flag is what let the ladder road keep three of
+/// them while the fourth was the only one anybody re-checked.
+///
+/// ⚠ It pokes the LIVE cfg rather than going through the published policy,
+/// which is the point of a sweep and deliberately not a model of how a fighter
+/// gets its weights. Do not "fix" it to match the builder. ⛔ But it is only
+/// correct where the floor owns the profile: with an `AuthoredFighterLadder`
+/// installed the override belongs in the ROWS, and `ProfileOverride` says why.
+fn force_profile(app: &mut bevy::app::App, over: ProfileOverride) -> bool {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
+            over.apply(&mut cfg.profile);
+            found = true;
+        }
+    }
+    found
 }
 
 /// Run rung pairs through scenarios reproducible by body placement alone.
@@ -2363,28 +2385,22 @@ fn run_bout_at(
     // Apply the seed to the live `FighterState` after seating, when the brain and
     // its noise stream exist.
     let mut seeded = false;
-    let weights = weights_from_args();
+    let overrides = ProfileOverride::from_args();
+    // Who owns `cfg.profile` for this run: the installed ladder, or the floor.
+    let ladder_owns_profile = args().ladder.is_some();
     let mut placed = start.is_none();
     for tick in 0..ticks() {
         app.update();
         if !seeded {
             seeded = force_noise_seed(&mut app, seed, mirror == Mirror::Noise);
             if seeded {
-                // Only when the caller asked. Forcing unconditionally is what
-                // flattened the ladder; see `weights_from_args`.
-                if let Some(weights) = weights {
-                    force_utility_weights(&mut app, weights);
-                }
-                if args().no_rollout {
-                    force_no_rollout(&mut app);
-                }
-                if let Some(ms) = flag_value("--reaction-ms").and_then(|v| v.parse().ok()) {
-                    force_reaction_ms(&mut app, ms);
-                }
-                let apm = flag_value("--apm").and_then(|v| v.parse().ok());
-                let noise = flag_value("--noise").and_then(|v| v.parse().ok());
-                if apm.is_some() || noise.is_some() {
-                    force_apm_and_noise(&mut app, apm, noise);
+                // ⛔ ONLY ON THE FLOOR ROAD. With a ladder installed the rows
+                // already carry this override and the projection would revert
+                // anything written here within one tick — see `ProfileOverride`.
+                // Only when the caller asked, too: forcing unconditionally is
+                // what flattened the ladder; see `weights_from_args`.
+                if let Some(over) = overrides.filter(|_| !ladder_owns_profile) {
+                    force_profile(&mut app, over);
                 }
             }
         }
@@ -3066,6 +3082,91 @@ mod tests {
             "a pure seat effect survived the pairing, so `--paired` is not \
              cancelling the thing it exists to cancel"
         );
+    }
+
+    /// ⭐⭐ EVERY OVERRIDE MOVES ITS OWN FIELD AND NOTHING ELSE, because the
+    /// four separate force functions this replaced could not be compared.
+    ///
+    /// ⚠ The `apply`-moves-one-field property is the cheap half. The half that
+    /// mattered is WHERE it is applied: with an `AuthoredFighterLadder`
+    /// installed the same value has to go into the ladder ROWS, because
+    /// `project_authored_fighter_ladder` rewrites any live profile that differs
+    /// from its rung, every tick. That is the engine's fact and it is pinned
+    /// where it lives, by
+    /// `a_profile_written_from_outside_is_reverted_on_the_very_next_tick`.
+    ///
+    /// ⚠ AND NO UNIT TEST HERE WITNESSES THE ROAD CHOICE — checked, not assumed.
+    /// Poisoning `run_bout_at` to poke live brains on the ladder road as well
+    /// leaves this whole file green, because with the override already in the
+    /// rows the extra write is REDUNDANT rather than wrong. The defect was
+    /// writing the brains INSTEAD of the rows, and only a bout can witness
+    /// that: `--ladder <shipped> --rungs 6,6 --seconds 15 --apm 1` deals
+    /// `0% : 0%` where `--apm 600` deals `68% : 43%`, and before this change
+    /// both dealt `54% : 56%`.
+    #[test]
+    fn each_override_moves_its_own_field_and_leaves_the_rest_authored() {
+        use ambition_platformer2d::characters::brain::fighter::{
+            FighterBrainProfile, UtilityWeights,
+        };
+        let authored = FighterBrainProfile::for_level(6);
+
+        // An override that asks for nothing changes nothing — the premise that
+        // makes each single-field case below attributable.
+        let mut untouched = authored;
+        ProfileOverride::default().apply(&mut untouched);
+        assert_eq!(untouched, authored, "an empty override moved a field");
+
+        let mut weights = UtilityWeights::v1();
+        weights.reach_fit = 0.0;
+        let cases: [(ProfileOverride, fn(&FighterBrainProfile) -> bool); 5] = [
+            (
+                ProfileOverride {
+                    weights: Some(weights),
+                    ..Default::default()
+                },
+                |p| p.utility_weights.reach_fit == 0.0,
+            ),
+            (
+                ProfileOverride {
+                    apm_cap: Some(1.0),
+                    ..Default::default()
+                },
+                |p| p.apm_cap == 1.0,
+            ),
+            (
+                ProfileOverride {
+                    execution_noise: Some(0.0),
+                    ..Default::default()
+                },
+                |p| p.execution_noise == 0.0,
+            ),
+            (
+                ProfileOverride {
+                    reaction_ms: Some(2000.0),
+                    ..Default::default()
+                },
+                |p| p.reaction_ms == 2000.0,
+            ),
+            (
+                ProfileOverride {
+                    no_rollout: true,
+                    ..Default::default()
+                },
+                |p| p.rollout_depth == 0 && p.rollout_k == 0,
+            ),
+        ];
+        for (over, moved) in cases {
+            let mut profile = authored;
+            over.apply(&mut profile);
+            assert!(moved(&profile), "{over:?} did not move the field it names");
+            // And nothing else did. `level` is the one field no flag touches and
+            // the one the projection keys on, so losing it would send the
+            // fighter to a different rung entirely.
+            assert_eq!(
+                profile.level, authored.level,
+                "{over:?} moved the level, which is how a rung finds its row"
+            );
+        }
     }
 
     /// ⭐⭐ THE SEAT NULL CONTROL CANCELS THE STREAM ONLY IF THE SWAP IS AN

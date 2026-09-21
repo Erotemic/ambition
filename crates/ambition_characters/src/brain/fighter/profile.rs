@@ -138,6 +138,35 @@ impl FighterBrainLadder {
         &self.rungs
     }
 
+    /// The rungs, writable — for a TOOL that sweeps one authored field across
+    /// the whole ladder before installing it.
+    ///
+    /// ⛔⛔ **THE ALTERNATIVE IS POKING LIVE BRAINS, AND THAT LOSES SILENTLY,
+    /// EVERY TICK.** `project_authored_fighter_ladder` is a CONTINUOUS
+    /// authority over `FighterCfg::profile`: it deliberately carries no change
+    /// filter (no tick-based filter composes with a disabling component, so a
+    /// candidate session's brains would keep the engine floor), which means it
+    /// re-reads every fighter every tick and rewrites any profile that differs
+    /// from its rung — rebuilding `FighterState` with it. ⇒ A second writer of a
+    /// LIVE profile is reverted within one tick, and resets that fighter's
+    /// pending press and habit state on every tick it keeps trying.
+    ///
+    /// ⚠ MEASURED 2026-09-21, not reasoned: `ladder-rig --ladder <shipped>` gave
+    /// byte-identical bouts for `--apm 1` and `--apm 600`, and for every
+    /// `--weight` value including `reach_fit=0` against `reach_fit=999`, because
+    /// none of them survived a tick. The same flags on the ENGINE FLOOR — where
+    /// no ladder resource exists and the projection returns early — moved every
+    /// number. The rig's whole reason to exist on the shipped ladder was a
+    /// no-op and nothing said so.
+    ///
+    /// ⇒ **When a ladder is installed, the ladder is the owner, and an override
+    /// belongs here.** Callers that change ordering-relevant fields should ask
+    /// [`Self::problems`] afterwards rather than assume the sweep kept the
+    /// ladder well-formed.
+    pub fn rungs_mut(&mut self) -> &mut [FighterBrainProfile] {
+        &mut self.rungs
+    }
+
     pub fn level(&self, level: u8) -> Option<&FighterBrainProfile> {
         self.rungs.iter().find(|r| r.level == level)
     }

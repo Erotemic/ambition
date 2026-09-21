@@ -197,6 +197,105 @@ mod ladder_projection_tests {
         );
     }
 
+    /// ⛔⛔ **THE PROJECTION IS A CONTINUOUS AUTHORITY OVER `cfg.profile`, AND A
+    /// SECOND WRITER LOSES WITHIN ONE TICK WITHOUT BEING TOLD.**
+    ///
+    /// That is a consequence of the filter being GONE rather than widened — see
+    /// the note on the system — and it is correct: a candidate session's brains
+    /// must reach the authored rung however long they sat behind a disabling
+    /// component. But it makes any other writer of a live fighter's profile a
+    /// loser, silently, every tick, and nothing in the type system says so.
+    ///
+    /// ⚠ MEASURED COST, not a hypothesis. `ladder-rig`'s `--weight`, `--apm`,
+    /// `--noise` and `--reaction-ms` all wrote live profiles, so on the shipped
+    /// ladder — the road added specifically so the rig could measure the
+    /// SHIPPED fighter — `--apm 1` and `--apm 600` produced byte-identical
+    /// bouts, as did `reach_fit=0` against `reach_fit=999`. The rig now writes
+    /// the ladder ROWS instead, which is the owner. ⇒ This test is what a
+    /// future second writer reads before making the same mistake.
+    #[test]
+    fn a_profile_written_from_outside_is_reverted_on_the_very_next_tick() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+        let projected = profile_of(app.world().get::<Brain>(entity).expect("brain"));
+        assert_eq!(projected.apm_cap, 60.0, "premise: rung 1 was projected");
+
+        // A second writer, long after the brain stopped being newly added.
+        for _ in 0..5 {
+            app.update();
+        }
+        let mut live = app.world_mut().get_mut::<Brain>(entity);
+        let Some(Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. })) = live.as_deref_mut()
+        else {
+            panic!("not a fighter brain")
+        };
+        cfg.profile.apm_cap = 999.0;
+        drop(live);
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")).apm_cap,
+            999.0,
+            "premise: the outside write landed at all"
+        );
+
+        app.update();
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")).apm_cap,
+            60.0,
+            "an outside write to a live fighter's profile survived a tick — if \
+             that is now true, `ladder-rig` and anything else routed through \
+             `FighterBrainLadder::rungs_mut` to avoid this can go back to \
+             poking brains, and this test should say so"
+        );
+    }
+
+    /// ⛔⛔ **AND THE REVERT IS NOT A NO-OP: IT REBUILDS `FighterState`.**
+    ///
+    /// This is what makes losing expensive rather than merely futile. The
+    /// projection's rewrite ends in `FighterState::new(cfg, stream)`, so a
+    /// second writer that keeps trying does not just fail — it wipes that
+    /// fighter's pending press, reaction ledger and habits on every tick it
+    /// tries, which is a fighter that can never finish a thought. A reader who
+    /// knows only "my write gets reverted" would expect a harmless no-op.
+    #[test]
+    fn the_revert_rebuilds_the_state_so_a_losing_writer_wipes_the_fighter_each_tick() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+
+        // Something the brain is in the middle of, and a profile write beside it.
+        let mut live = app.world_mut().get_mut::<Brain>(entity);
+        let Some(Brain::StateMachine(StateMachineCfg::Fighter { cfg, state })) = live.as_deref_mut()
+        else {
+            panic!("not a fighter brain")
+        };
+        state.ticks_until_decision = 7;
+        cfg.profile.apm_cap = 999.0;
+        drop(live);
+
+        app.update();
+
+        let Some(Brain::StateMachine(StateMachineCfg::Fighter { state, .. })) =
+            app.world().get::<Brain>(entity)
+        else {
+            panic!("not a fighter brain")
+        };
+        assert_ne!(
+            state.ticks_until_decision, 7,
+            "the profile was reverted without rebuilding the state — which would \
+             make a losing writer harmless, and is a better world than the one \
+             this test was written against"
+        );
+    }
+
     /// **THE PROJECTION MUST NOT RE-CHOOSE THE COGNITIVE STREAM.**
     ///
     /// This is the second half of the same-character CPU symmetry defect, and it is the half that

@@ -267,15 +267,30 @@ attack=air_forward` mirrored exactly. ⚠ The other ten are byte-identical to th
 run before the fix, which is the control: this changed the respawn facing and
 nothing else about the bout.
 
-⚠ **WHAT REMAINS IS POSITION DRIFT, AND ONE OF IT IS NOT SUB-PIXEL.** Of the
-eleven, one pair (#433) differs by a single unit of `round()` on `x` and
-`floor_edge` — the instrument's floor. The other ten are decisions #628–#637,
-where the two bodies' `x` has drifted **4 units apart** (309 against 313) and
+⚠ **WHAT REMAINS IS POSITION DRIFT, AND IT IS AN EVENT.** Of the eleven, one
+(#433) is a single unit on `x` and `floor_edge` that heals by the next
+decision. The other ten are decisions #628–#637, where the bodies sit at
+`x=309` and `x=327` — 636 rather than 640, so **4 units of asymmetry** — and
 the seats disagree about `ground` itself: one is standing and its mirror image
 is airborne, which cascades into different `routes`, a different `phase`
-(`Neutral` against `Hitstun`) and a different `situation`. That is a genuine
-divergence with a real cause still to find, and it is NOT the rounding floor
-this page warns about above. It is the next thread on this probe.
+(`Neutral` against `Hitstun`) and a different `situation`. See the drift table
+below for why neither is the rounding floor this page used to claim.
+
+⇒ **AND #628 IS NOT A BODY COLLISION, WHICH IS WHERE THE OBVIOUS GUESS WENT.**
+Decisions #624–#627 mirror exactly (`166+474`, `189+451`, `211+429`, `234+406`,
+all 640) with both fighters running at each other at 270px/s under `Approach`;
+at #628 both are at `vx=0` about 18px apart and seat 1 is airborne throwing
+`air_down` while seat 0 is grounded. Two candidates were checked and both are
+refuted: there is **no actor-versus-actor solidity** in the workspace, so
+nothing pushed them apart; and a mutual footstool is geometrically impossible
+between bodies at one height, because `feet_on_head` measures
+`stomper.feet − victim.head`, which for equal bodies on one floor is a whole
+body height rather than the small `band` it must fall inside. ⇒ What lifted
+seat 1 happened inside the ~17 ticks between two decisions, and the decision
+cadence cannot see it. **This one really does want a tick-level body trace, and
+no such trace exists in the tree today** (`AMBITION_FIGHTER_TRACE` is
+per-decision, `AMBITION_GRID_TRACE` lives in a test). Next thread on this
+probe.
 
 ⛔ **"PLAYER 2 SYSTEMATICALLY FACES THE WRONG WAY" WAS REFUTED BEFORE THE CAUSE
 WAS FOUND, AND STAYS REFUTED.** Over the whole bout each seat faces away from
@@ -287,15 +302,35 @@ mirror-symmetry defect in a road the whole brain reads, and it is a separate
 question from why seat 0 takes two thirds of decided pairs. Re-measure the null
 control before crediting it.
 
-⚠ `smash_george_booul` does not diverge this way at all — his attack histogram
-is identical between the seats, move for move, across the whole bout — so
-whatever this is, it is reachable by one kit and not the other.
+⚠ `smash_george_booul` never showed the respawn divergence, and the reason is
+POPULATION rather than kit: his 54-second bout contains no knockout, so the
+respawn that carried the defect is never reached. His attack histogram is
+identical between the seats, move for move, across the whole bout. Do not read
+his clean run as evidence about a kit.
 
-⚠ **THE MIRROR CANNOT BE EXPECTED TO HOLD BELOW A PIXEL.** After the fix george
-still diverges at decision #143, by `floor_edge` 108 against 109 — one unit of
-`round()`. Reflecting a trajectory about `x=320` is not a float-exact operation,
-and both sides accumulate their own rounding. Read a sub-pixel disagreement as
-the instrument's floor, not as a finding.
+⛔⛤ **"THE MIRROR CANNOT BE EXPECTED TO HOLD BELOW A PIXEL" WAS TOO
+PESSIMISTIC, AND MEASURING IT CHANGED WHAT THE PROBE IS FOR — 2026-09-21.**
+This paragraph used to reason that reflecting a trajectory about `x=320` is not
+a float-exact operation, so both sides accumulate their own rounding, and to
+conclude that a sub-pixel disagreement is the instrument's floor rather than a
+finding. The first half is true and the conclusion does not follow. Tracking
+`x0 + x1 - 640` across all 638 paired decisions of the duelist mirror bout:
+
+| decisions | drift |
+| --- | --- |
+| 0–432 | **0** |
+| 433 | −1 |
+| 434–627 | **0** |
+| 628 | −4, then +20, +49, +66 |
+
+**Exactly zero on 627 of 638 decisions.** Whatever rounding the reflection
+incurs is not accumulating — it is being absorbed, decision after decision, by
+a simulation that snaps bodies to surfaces and quantises its own state. ⇒ A
+drift is therefore a *event*, not a floor: #433's single unit heals in one
+decision, and #628 is a step that then runs away. Do not dismiss a small
+disagreement here; ask what happened on that decision. (George's #143
+`floor_edge` 108-against-109 is the one-unit kind, and it is worth the same
+question rather than the shrug this paragraph used to give it.)
 
 ⭐ The ties are the arm's own evidence: 62 of 174 pairs came out exactly level,
 which is what exchanging one term and nothing else should do to a third of

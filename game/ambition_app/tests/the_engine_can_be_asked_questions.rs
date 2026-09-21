@@ -1256,3 +1256,79 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
          one fact printed twice: {moved}"
     );
 }
+
+/// ⭐⛤ **A RUNNING GAME CAN NOW BE ASKED WHAT IS STUCK — the last open item on
+/// the verdict stream, 2026-09-21.**
+///
+/// `AuthoredVerdictLog` holds the structured `no`, who asked it and which
+/// frame produced it, and every consumer of it was an `assert!`. Diagnosing a
+/// stuck gate in a running game still meant attaching a debugger or writing a
+/// test that reproduces the thing you are trying to understand.
+///
+/// ⚠ THE RING IS FILLED BY THE PRODUCTION RECORDER, not by hand:
+/// `ConditionCatalog::evaluate` records, the real world-fact evaluator
+/// answers, and the row is a projection of what that left behind. A
+/// hand-built ring would be asserting that a formatter formats.
+#[test]
+fn the_verdict_census_says_what_is_blocked_and_who_asked() {
+    use ambition_platformer2d::platformer::authored_logic::AuthoredVerdictLog;
+    use ambition_platformer2d::runtime::verdict_census::verdict_census_row;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    sim.world_mut().insert_resource(AuthoredVerdictLog::default());
+
+    let flag_set = ConditionId::new("world", "flag_set");
+    let shut = "a_door_nobody_has_opened";
+    // The evaluator's own words, not this test's: the premise is that a REAL
+    // refusal reached the ring, and pinning the wording here would make the
+    // arm about the message rather than about the census.
+    assert!(
+        matches!(
+            ask(&sim, &flag_set, &[AuthoredArg::Name(shut.to_string())]),
+            ConditionOutcome::NotSatisfied(_)
+        ),
+        "the premise is a real refusal from the real evaluator"
+    );
+
+    let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
+    let row = verdict_census_row(2.5, Some(&entries));
+    assert!(
+        row.contains("blocked=1[probe:a test]"),
+        "the row does not name who is blocked: {row}"
+    );
+    assert!(row.contains("no=1"), "the row does not count the `no`: {row}");
+    assert!(
+        row.contains(&format!("last-no: probe:a test world.flag_set(\"{shut}\")")),
+        "the row does not carry the refusal itself: {row}"
+    );
+
+    // ⭐ THE CONTROL: setting the flag makes the same question answer yes, and
+    // a row that said "blocked" whatever the world was doing would read the
+    // same here.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(shut, true);
+    sim.world().resource::<AuthoredVerdictLog>().clear();
+    assert_eq!(
+        ask(&sim, &flag_set, &[AuthoredArg::Name(shut.to_string())]),
+        ConditionOutcome::Satisfied
+    );
+    let entries = sim.world().resource::<AuthoredVerdictLog>().recent();
+    let open = verdict_census_row(3.5, Some(&entries));
+    assert!(
+        open.contains("blocked=0") && !open.contains("last-no:"),
+        "the door opened and the census still reports it stuck: {open}"
+    );
+
+    // ⛔ AND NO RING IS NOT AN EMPTY RING. A reader who has just enabled the
+    // census and installed nothing must not be told their game asks no
+    // authored questions.
+    let absent = verdict_census_row(4.5, None);
+    assert!(absent.contains("log=absent"), "{absent}");
+    assert!(
+        !absent.contains("blocked="),
+        "an absent ring reported a blocked count: {absent}"
+    );
+}

@@ -38,6 +38,7 @@ pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
 pub mod authored_verdict_timeline;
+pub mod verdict_census;
 pub mod runtime_census;
 mod room_schedule;
 pub mod room_transition;
@@ -572,6 +573,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // `ambition_app` no longer adds a second one.
             .add(ambition_dev_tools::runtime_census::RuntimeCensusPlugin)
             .add(crate::runtime_census::RoomCensusPlugin)
+            // Beside it, and for the same reason: the authored-verdict ring is
+            // the engine-wide answer to "why did this not fire", and a host
+            // that composes authored logic at all composes this group.
+            .add(crate::verdict_census::VerdictCensusPlugin)
             // The one `RoomReplayRequested` consumer + the two content slots
             // that must precede it. In the group because content in EVERY host
             // emits the request: without a consumer here, a standalone demo

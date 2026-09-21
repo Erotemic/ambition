@@ -51,17 +51,22 @@ This distinction is load-bearing and has been misread before, so state it here:
 ⛔ **The `⛔ bad` bullet above is about a runtime OWNING an authoritative census
 of every gameplay domain. It is NOT about the `[census]` diagnostic lines, and a
 reader who greps this page for "census" finds only the prohibition.** Measured at
-`768c67c6e` and re-measured 2026-09-20, the engine's SOURCE can emit
-**26 distinct `[census]` surfaces** — `grep -rnE '\[census\] [a-z_]+'` over
-tracked `.rs`, with comment lines excluded, because a naive grep also finds
-`perception` in a test comment and reports 27:
+`768c67c6e`, re-measured 2026-09-20 and again 2026-09-21, the engine's SOURCE
+can emit **27 distinct `[census]` surfaces** — `grep -rnE '\[census\] [a-z_]+'`
+over tracked `.rs`, with comment lines excluded, because a naive grep also
+finds `perception` in a test comment and reports one more:
 
 ```text
 assets  camera  churn  conditions  config  draws  ecs  frame  ggrs_driver
 membership  owners  owners_in  phases  phases_cpu  phases_trust  phases_warning
 populations  portal  render_pass  render_pass_summary  render_targets  rooms
-schedules  sim_phases  views  visual_quality
+schedules  sim_phases  verdicts  views  visual_quality
 ```
+
+⚠ **"TRACKED" IS PART OF THE METHOD AND IT BIT ON THE WAY IN.** Run while
+`verdict_census.rs` was still untracked, that command answers 26 — the file
+is on disk, `cargo` compiles it, and `git ls-files` does not see it. A count
+re-derived before `git add` is a count of the last commit.
 
 ⛔⛤ **AND UNTIL 2026-09-20 EVERY ONE OF THEM DESCRIBED THE MACHINE, NOT THE
 WORLD.** Entities, archetypes, schedules, draw calls, render passes, phase
@@ -280,8 +285,44 @@ tool discovery alike.
   adds is that a DIFFERENT source's identical question is no longer
   indistinguishable from a repeat.
 
-  ⚠ Still open beyond this: a way to read the log out of a RUNNING process
-  rather than out of a test.
+  ⭐⛤ **AND A RUNNING GAME CAN BE ASKED WHAT IS STUCK, 2026-09-21 — the last
+  open item on this stream.** Every consumer of the ring was an `assert!`, so
+  diagnosing a stuck gate in a running game still meant a debugger or a test
+  that reproduces the thing you are trying to understand. `[census] verdicts`
+  is a derived, read-only projection of the ring that exists — no second ring,
+  which is what the review's *"rather than adding more independent diagnostic
+  rings"* asked for:
+
+  ```text
+  [census] verdicts t=2.500 ring=1 asked=1 ran=0 no=1 unanswerable=0
+    refused=0 speculative=0 blocked=1[probe:a test] | last-no: probe:a test
+    world.flag_set("a_door_nobody_has_opened") => no, world.flag_set on
+    `a_door_nobody_has_opened`: the save has no such flag set
+  ```
+
+  ⚠ That row is MEASURED, from the app-level arm that fills the ring through
+  the real evaluator. ⛔ It prints WHO IS BLOCKED rather than every entry: 256
+  entries rendered per sample is a firehose nobody reads, and the question a
+  periodic line answers is *"what is refusing right now, and who is asking"*.
+  The blocked SET is counted in full and a bounded sample printed, so the cap
+  is never mistaken for the population, and it is a `BTreeSet` because two
+  samples are compared by eye. ⛔ **`log=absent` IS NOT AN EMPTY RING** — a
+  reader who just enabled the census and installed nothing must not be told
+  their game asks no authored questions.
+
+  ⭐ And it reaches a RUNNING PROCESS, not only a test. Measured 2026-09-21,
+  `AMBITION_PROFILE_CENSUS=1 cargo run --bin mary_o_demo -- 400`:
+
+  ```text
+  [census] rooms    t=1.699 sessions=1 [scope=0 rooms=3 active=mary_o_1_1[0]
+    start=mary_o_1_1[0] live=#0] crossing=none
+  [census] verdicts t=1.699 log=absent (insert `AuthoredVerdictLog` to record)
+  ```
+
+  ⚠ `log=absent` is the correct reading there and is the point of the arm: the
+  ring is opt-in, the shipped demo installs none, and the row still emits on
+  the census clock beside `[census] rooms`. A row that only ever appeared in a
+  test would prove the formatter, not the reach.
 
 ## Candidate crate / Bevy ecosystem value
 

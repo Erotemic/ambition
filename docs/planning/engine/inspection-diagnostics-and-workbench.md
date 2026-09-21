@@ -51,7 +51,10 @@ This distinction is load-bearing and has been misread before, so state it here:
 ⛔ **The `⛔ bad` bullet above is about a runtime OWNING an authoritative census
 of every gameplay domain. It is NOT about the `[census]` diagnostic lines, and a
 reader who greps this page for "census" finds only the prohibition.** Measured at
-`768c67c6e`, the engine emits **25 distinct `[census]` surfaces**:
+`768c67c6e` and re-measured 2026-09-20, the engine's SOURCE can emit
+**26 distinct `[census]` surfaces** — `grep -rnE '\[census\] [a-z_]+'` over
+tracked `.rs`, with comment lines excluded, because a naive grep also finds
+`perception` in a test comment and reports 27:
 
 ```text
 assets  camera  churn  conditions  config  draws  ecs  frame  ggrs_driver

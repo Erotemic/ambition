@@ -113,6 +113,21 @@ owners owners_in phases phases_trust populations portal render_pass_summary
 render_targets schedules sim_phases views
 ```
 
+⭐ **RE-MEASURED 2026-09-20 AT A DIFFERENT TICK COUNT, WHICH IS PART OF THE
+NUMBER.** `--ticks 400` on the same binary emits **24**, adding `phases_cpu`,
+`visual_quality` and `rooms` to the list above. The tick count is stated
+because it bounds what a run can show: a surface sampled at 1 Hz needs the run
+to last, and a one-shot startup report needs it to have started.
+
+⚠ **AND A RUN'S KINDS ARE A SUBSET OF THE SOURCE'S, SO A MISSING ROW IS TWO
+DIFFERENT FINDINGS.** The source can emit **26**
+(`engine/inspection-diagnostics-and-workbench.md` carries the list and the
+method). The two this run did not produce are `render_pass` and
+`phases_warning`, both of which are conditional on a render backend this
+headless run does not have — absent by construction, not degraded. ⇒ Compare
+a suspect run against the 24 above, and reach for the 26 only to ask whether a
+surface exists at all.
+
 ⭐ **AND FOUR QUALIFIERS THAT MUST READ CORRECTLY BEFORE YOU BELIEVE ANYTHING:**
 
 | token | healthy value here | what a wrong value means |

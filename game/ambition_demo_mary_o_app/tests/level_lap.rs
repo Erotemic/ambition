@@ -122,3 +122,91 @@ fn finishing_each_level_lands_in_the_next_one_and_the_lap_closes() {
     // Startup would have sent this one to 1-2.
     leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_1_ROOM_ID);
 }
+
+/// ⭐⛤ **THE ROOM YOU COME BACK TO IS NOT THE ROOM YOU LEFT, AND UNTIL
+/// 2026-09-20 NOTHING IN THIS WORLD COULD SAY SO.**
+///
+/// The lap above closes: 1-1 → 1-2 → 1-3 → 1-1. `RoomSet` therefore reports
+/// the SAME active index at both ends, because an index selects a
+/// DEFINITION — and `RoomConstructionPlanId` reports the same thing for the
+/// same reason, being a content hash whose own doc excludes commit-time
+/// facts. `LiveRoomInstance` is the identity neither of them has: it is minted
+/// by the one road that seats a session in a published room, so the two 1-1s
+/// are two live rooms.
+///
+/// ⚠ THE FIRST ASSERTION IS THE ANTI-VACUITY ONE. If the lap did not return to
+/// the room it started in, "the index repeated and the instance did not" would
+/// be true of any two different rooms and would prove nothing.
+///
+/// ⭐ MEASURED, so the shape is on the record rather than only the relation:
+/// `opened=#0 midway=#1 closed=#3 index=0`. Three legs, three publications,
+/// and the activation room is `#0` because a session's first live room is not
+/// published by the road that seats a crossing — it IS the session.
+///
+/// This is OW1's precondition in
+/// `docs/planning/engine/open-world-runtime-and-residency.md`, exercised on the
+/// shipped crossing rather than on a hand-built set.
+#[test]
+fn a_lap_comes_back_to_the_same_room_definition_and_a_different_live_room() {
+    use ambition_platformer2d::world::rooms::LiveRoomInstance;
+
+    fn live_room(app: &mut App) -> LiveRoomInstance {
+        let mut q = app.world_mut().query::<&LiveRoomInstance>();
+        *q.iter(app.world())
+            .next()
+            .expect("the live session root carries a live-room instance")
+    }
+
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    for _ in 0..300 {
+        app.update();
+    }
+
+    let opened_in = room_id(&mut app).expect("the session opened somewhere");
+    let opening_index = {
+        let mut q = app.world_mut().query::<&RoomSet>();
+        q.iter(app.world())
+            .next()
+            .expect("the session has a RoomSet")
+            .active()
+    };
+    let opening_instance = live_room(&mut app);
+
+    leg(&mut app, LEVEL_1_1_ROOM_ID, LEVEL_1_2_ROOM_ID);
+    let midway_instance = live_room(&mut app);
+    leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
+    leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_1_ROOM_ID);
+
+    let closing_index = {
+        let mut q = app.world_mut().query::<&RoomSet>();
+        q.iter(app.world())
+            .next()
+            .expect("the session has a RoomSet")
+            .active()
+    };
+    let closing_instance = live_room(&mut app);
+
+    assert_eq!(
+        room_id(&mut app).as_deref(),
+        Some(opened_in.as_str()),
+        "the lap did not close, so nothing below is about coming BACK to a room"
+    );
+    assert_eq!(
+        closing_index, opening_index,
+        "one room definition must keep one index across a lap: the selection is \
+         into a list of definitions and the list did not change"
+    );
+    assert_ne!(
+        closing_instance, opening_instance,
+        "the 1-1 she came back to carries the identity of the 1-1 she left, so \
+         nothing in this world can tell one live room from the other — which is \
+         the conflation OW1 exists to unpick"
+    );
+    assert!(
+        opening_instance.ordinal() < midway_instance.ordinal()
+            && midway_instance.ordinal() < closing_instance.ordinal(),
+        "the instance must advance on every publication, not merely differ at \
+         the ends: opened {opening_instance}, midway {midway_instance}, closed \
+         {closing_instance}"
+    );
+}

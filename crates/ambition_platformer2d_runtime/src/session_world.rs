@@ -16,7 +16,9 @@ use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
+use ambition_platformer2d_world::rooms::{
+    ActiveRoomMetadata, LiveRoomInstance, RoomMusicRequest, RoomSet,
+};
 use ambition_platformer2d_core::RoomGeometry;
 #[cfg(feature = "ldtk")]
 use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
@@ -214,6 +216,7 @@ impl PreparedPlatformerSource {
         PlatformerSessionWorld {
             catalogs: self.catalogs.clone(),
             room_set: self.room_set.clone(),
+            live_room: LiveRoomInstance::ACTIVATION,
             geometry: self.geometry.clone(),
             active_room: self.active_room.clone(),
             starting_character: self.starting_character.clone(),
@@ -240,6 +243,12 @@ pub struct PlatformerSessionRequests {
 pub struct PlatformerSessionWorld {
     pub catalogs: PlatformerSessionCatalogs,
     pub room_set: RoomSet,
+    /// ⛔ **NOT PART OF THE PREPARED SOURCE, AND THAT IS THE DISTINCTION.** A
+    /// definition can be instantiated more than once; an instance identity is
+    /// minted when a room is PUBLISHED, so a live session always starts at
+    /// [`LiveRoomInstance::ACTIVATION`] no matter how many times its source has
+    /// been instantiated before.
+    pub live_room: LiveRoomInstance,
     pub geometry: RoomGeometry,
     pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,

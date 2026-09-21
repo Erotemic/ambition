@@ -58,4 +58,14 @@ where
     );
     registrar
         .rollback_component_clone::<super::RoomMusicRequest>(OWNER, "root.room_music_request");
+    // ⭐ **WHICH LIVE ROOM, WHICH `root.room_set` CANNOT SAY.** The room-set
+    // checksum above folds the active INDEX and the active room's id, and both
+    // read the same after a session leaves a room and comes back — so a rewind
+    // past the second publication restores a world the checksum above cannot
+    // distinguish from the one before it. This row is the distinction, and it
+    // is canonical rather than clone because the whole value is the identity.
+    registrar.rollback_component_canonical::<super::LiveRoomInstance>(
+        OWNER,
+        "root.live_room_instance",
+    );
 }

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v201
+ggrs-rollback-schema-v202
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -470,6 +470,7 @@ root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone sna
 root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; not in the session checksum
 root.ldtk_runtime_index	component-clone-custom-checksum	LdtkRuntimeIndex	bevy_ggrs clone snapshot + active LDtk area checksum
+root.live_room_instance	component-canonical	LiveRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.room_music_request	component-clone	RoomMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback

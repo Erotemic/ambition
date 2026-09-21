@@ -9,7 +9,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_str,
+    put_str, put_u64,
     Reader, SnapshotState,
 };
 
@@ -25,5 +25,22 @@ impl SnapshotState for crate::collision::MovingPlatformSet {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Self::from_snapshot_ron(r.str()?)
+    }
+}
+
+/// Which live room the session is standing in.
+///
+/// One `u32` and no projection: the whole value IS the identity, so there is
+/// nothing to compare less than all of. ⚠ Two peers agreeing on the world must
+/// agree on this — a peer that has published one more room than another is in a
+/// different live room, and that is a divergence worth naming rather than a
+/// host-local count — so it feeds the session checksum.
+impl SnapshotState for crate::rooms::LiveRoomInstance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u64(out, u64::from(self.ordinal()));
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let ordinal = u32::try_from(r.u64()?).ok()?;
+        Some(Self::from_ordinal(ordinal))
     }
 }

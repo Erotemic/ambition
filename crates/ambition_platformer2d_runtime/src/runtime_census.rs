@@ -29,7 +29,7 @@ use bevy::prelude::{App, Last, Plugin, Query, Res};
 
 use ambition_dev_tools::runtime_census::RuntimeCensus;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
-use ambition_platformer2d_world::rooms::RoomSet;
+use ambition_platformer2d_world::rooms::{LiveRoomInstance, RoomSet};
 
 use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 
@@ -44,7 +44,7 @@ use crate::room_transition::{ActiveRoomTransitionLoad, RoomTransitionLoadState};
 /// most likely to be looking.
 pub fn report_room_census(
     census: Res<RuntimeCensus>,
-    sessions: Query<(&RoomSet, &SessionRoot)>,
+    sessions: Query<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>,
     crossing: Option<Res<RoomTransitionLoadState>>,
 ) {
     let Some(at) = census.due() else {
@@ -71,14 +71,16 @@ pub fn report_room_census(
 /// `RoomSet` and checks the id against the session's.
 pub fn room_census_row<'a>(
     at: f64,
-    sessions: impl ExactSizeIterator<Item = (&'a RoomSet, &'a SessionRoot)>,
+    sessions: impl ExactSizeIterator<
+        Item = (&'a RoomSet, &'a SessionRoot, Option<&'a LiveRoomInstance>),
+    >,
     crossing: Option<&ActiveRoomTransitionLoad>,
 ) -> String {
     let mut row = format!("[census] rooms t={at:.3} sessions={}", sessions.len());
     // ⚠ EVERY session, not the first. A composition with two session roots is
     // the state OW1 is heading for, and a row that silently reported one of
     // them would go on looking correct through the whole of that work.
-    for (room_set, root) in sessions {
+    for (room_set, root, live_room) in sessions {
         // ⛔⛤ **THE SCOPE IS INSIDE `SessionRoot`, AND ASKING FOR IT AS A
         // SIBLING COMPONENT PRINTED `?` FOR EVERY REAL ROOT — REVIEWED
         // 2026-09-20.** `SessionRoot(pub SessionScopeId)` IS the scope; a root
@@ -94,8 +96,14 @@ pub fn room_census_row<'a>(
                 .get(index)
                 .map_or("<out-of-range>", |room| room.id.as_str())
         };
+        // ⭐ **THE INSTANCE, WHICH IS NOT THE INDEX.** `active=blink_run[7]`
+        // reads the same on the way out of a room and on the way back in;
+        // `live=#3` does not. A root that carries no instance prints `live=?`
+        // rather than `#0`, because a partial composition and a session in its
+        // activation room are different worlds and `#0` is the second one.
+        let live = live_room.map_or_else(|| "?".to_string(), LiveRoomInstance::to_string);
         row.push_str(&format!(
-            " [scope={scope} rooms={} active={}[{}] start={}[{}]",
+            " [scope={scope} rooms={} active={}[{}] start={}[{}] live={live}",
             room_set.rooms.len(),
             id_at(room_set.active()),
             room_set.active(),

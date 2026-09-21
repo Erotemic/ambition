@@ -72,7 +72,7 @@ diagnosable only with a debugger or by reading four files across three crates.
 
 ```text
 [census] rooms t=1.500 sessions=1 [scope=0 rooms=72 active=blink_run[7]
-  start=blink_run[7] biome=lab] crossing=none
+  start=blink_run[7] live=#0 biome=lab] crossing=none
 ```
 
 ⚠ That row is MEASURED, not illustrative — it is what
@@ -81,6 +81,13 @@ composed `ambition_app` host. ⛔ **IT SAID `scope=?` HERE UNTIL 2026-09-20**,
 copied from a version of the census that asked for the scope as a sibling
 component of `SessionRoot` when the scope lives inside it; the page had
 faithfully reproduced a defect.
+
+⭐ **AND `live=` IS THE ONE FIELD THAT IS NOT A FACT ABOUT THE DEFINITION.**
+`active=blink_run[7]` reads the same on the way out of a room and on the way
+back in; `LiveRoomInstance` is minted by the one road that seats a session in
+a published room, so it does not. A root carrying no instance prints `live=?`,
+because a partial composition and a session in its activation room are
+different worlds and `#0` is the second one.
 
 ⭐ **IT PRINTS THE INDEX BESIDE THE AUTHORED ID ON PURPOSE.** Today *"which
 room is live"* is a private `usize` index into a list of DEFINITIONS — which

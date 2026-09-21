@@ -810,6 +810,24 @@ pub(crate) fn apply_world_replacement(
             "publication target {root:?} carries no `RoomSet` at application,              so the active room stays where it was"
         ),
     }
+    // ⭐ **THE LIVE ROOM GETS AN IDENTITY THE ROOM DEFINITION DOES NOT HAVE.**
+    // One line above, the session was seated in a room DEFINITION by index — the
+    // same index every time it stands there. This mints the instance: leaving
+    // `blink_run` and coming back is two live rooms, and nothing else in this
+    // world can tell them apart. See `LiveRoomInstance`; it is OW1's
+    // precondition and it is minted HERE because this is the one road that
+    // seats a session in a published room.
+    //
+    // ⚠ A publication with no instance component is not an error. A candidate
+    // root is a partial world by construction, and a composition that never
+    // needs the identity should not be forced to carry it — the census reports
+    // its absence rather than inventing an ordinal.
+    if let Some(mut live_room) = session_world_component_mut_at::<
+        ambition_platformer2d_world::rooms::LiveRoomInstance,
+    >(world, root)
+    {
+        live_room.advance();
+    }
     match session_world_component_mut_at::<ambition_platformer2d_core::RoomGeometry>(world, root) {
         Some(mut geometry) => geometry.0 = pending.geometry,
         None => bevy::log::error!(

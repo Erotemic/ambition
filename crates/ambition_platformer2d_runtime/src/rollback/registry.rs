@@ -629,7 +629,23 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// own snapshot bytes. Those bytes are the wire contract this constant
 /// represents. A codec body is part of the wire format even when the registry
 /// row is not.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 201;
+/// ⛔⛤ 201 -> 202: A LIVE ROOM GOT AN IDENTITY THE ROOM DEFINITION DOES NOT
+/// HAVE. One row enters: `root.live_room_instance`, `component-canonical`,
+/// a `u32` ordinal minted by the one road that seats a session in a published
+/// room. Real mechanical growth, not a wording change — the value is
+/// snapshotted and it feeds the session checksum.
+/// ⭐ WHY IT IS NOT DERIVABLE FROM WHAT WAS ALREADY THERE. `root.room_set`'s
+/// checksum folds the active index, the start index and the active room's id,
+/// and all three read identically after a session leaves a room and comes
+/// back — so the state before and after a round trip is one value to every
+/// existing row. `RoomConstructionPlanId` cannot fill the gap either: it is a
+/// CONTENT hash whose own doc excludes `SessionSpawnScope` and `TransactionId`
+/// on purpose, so two constructions of one room share it.
+/// ⚠ It is OW1's precondition in
+/// `docs/planning/engine/open-world-runtime-and-residency.md` and not OW1: one
+/// index still selects one live room, and this identity lives on the session
+/// root because that is where the one live room lives.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 202;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

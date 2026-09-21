@@ -987,7 +987,7 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
 /// the only thing a derived, read-only surface can get wrong.
 #[test]
 fn the_room_census_names_the_room_the_session_is_actually_in() {
-    use ambition_platformer2d::world::rooms::RoomSet;
+    use ambition_platformer2d::world::rooms::{LiveRoomInstance, RoomSet};
     use ambition_platformer2d::runtime::runtime_census::room_census_row;
 
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -1012,7 +1012,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let row = {
         let mut query = sim
             .world_mut()
-            .query::<(&RoomSet, &SessionRoot)>();
+            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
         let world = sim.world();
         let rows: Vec<_> = query.iter(world).collect();
         room_census_row(1.5, rows.into_iter(), None)
@@ -1051,6 +1051,46 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     assert!(
         row.contains(&format!("scope={scope}")),
         "the row does not name the session's own scope ({scope}): {row}"
+    );
+    // ⛔⛤ **AND THE LIVE-ROOM IDENTITY IS READ FROM A SESSION THAT HAS MOVED,
+    // because this fixture never crosses a room.** `scope=?` printed for one
+    // commit because this arm repeated the census's own wrong query and never
+    // looked at the value; `live=` is the same trap one field along, and worse,
+    // because the honest value HERE is `#0`. Measured: a poison printing the
+    // constant `LiveRoomInstance::ACTIVATION` instead of reading the component
+    // PASSED against a session standing in its activation room. So the arm
+    // moves the session's live room by hand and asserts the row follows it.
+    let moved_to = {
+        let mut query = sim.world_mut().query::<&mut LiveRoomInstance>();
+        let world = sim.world_mut();
+        let mut live = query
+            .iter_mut(world)
+            .next()
+            .expect("the composed session root carries a live-room instance");
+        live.advance();
+        live.advance();
+        *live
+    };
+    assert_ne!(
+        moved_to,
+        LiveRoomInstance::ACTIVATION,
+        "the arm must read a value a constant cannot be"
+    );
+    let after_moving = {
+        let mut query = sim
+            .world_mut()
+            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
+        let world = sim.world();
+        let rows: Vec<_> = query.iter(world).collect();
+        room_census_row(1.5, rows.into_iter(), None)
+    };
+    assert!(
+        after_moving.contains(&format!("live={moved_to}")),
+        "the row does not name the live room the session is standing in ({moved_to}): {after_moving}"
+    );
+    assert!(
+        after_moving.contains(&format!("active={active_id}[{active_index}]")),
+        "moving the LIVE ROOM moved the active DEFINITION too, which would mean the row is reading one field for both questions: {after_moving}"
     );
     // ⚠ AND "NOTHING IS CROSSING" IS PRINTED RATHER THAN OMITTED. A row that
     // said nothing about the transaction would make a stalled crossing and a
@@ -1091,7 +1131,7 @@ fn the_room_census_names_the_room_the_session_is_actually_in() {
     let moved = {
         let mut query = sim
             .world_mut()
-            .query::<(&RoomSet, &SessionRoot)>();
+            .query::<(&RoomSet, &SessionRoot, Option<&LiveRoomInstance>)>();
         let world = sim.world();
         let rows: Vec<_> = query.iter(world).collect();
         room_census_row(2.5, rows.into_iter(), None)

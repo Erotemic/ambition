@@ -31,7 +31,7 @@ fn compose_minimal_room(
         Vec2::new(100.0, 100.0),
         Vec::new(),
     );
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "harness_room",
         vec![RoomSpec::new("harness_room", world)],
         Vec::new(),

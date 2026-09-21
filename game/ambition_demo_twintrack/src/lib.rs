@@ -811,7 +811,7 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
     let room = twintrack_room();
     PreparedPlatformerSource::new(
         TWINTRACK_EXPERIENCE,
-        RoomSet::from_parts(TWINTRACK_ROOM_ID, vec![room.clone()], Vec::new()),
+        RoomSet::from_parts_or_panic(TWINTRACK_ROOM_ID, vec![room.clone()], Vec::new()),
         ae::RoomGeometry(room.world.clone()),
         ActiveRoomMetadata(room.metadata),
         StartingCharacter::new(TWINTRACK_CHARACTER_ID),

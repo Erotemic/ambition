@@ -59,7 +59,7 @@ mod tests {
             .add_systems(Update, push_room_entered_quest_events);
         app.world_mut().spawn((
             SessionRoot(SessionScopeId(1)),
-            RoomSet::from_parts(room_id, vec![room(room_id)], Vec::new()),
+            RoomSet::from_parts_or_panic(room_id, vec![room(room_id)], Vec::new()),
         ));
         app
     }

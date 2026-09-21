@@ -2868,7 +2868,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "same-room",
             vec![room],
             Vec::new(),
@@ -2894,7 +2894,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             room_id,
             vec![room],
             Vec::new(),
@@ -2929,7 +2929,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        let mut room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        let mut room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "same-room",
             vec![first, second],
             Vec::new(),
@@ -3648,7 +3648,7 @@ mod mechanical_registries_reach_the_identity {
         let room = ambition_platformer2d_world::rooms::RoomSpec::new("room", world.clone());
         PreparedPlatformerSource::new(
             "fixture",
-            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "room",
                 vec![room],
                 Vec::new(),

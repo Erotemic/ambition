@@ -311,7 +311,7 @@ fn min_app_that_can_hide_a_candidate(filter: bool) -> App {
     };
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "test",
             vec![room_spec],
             Vec::new(),
@@ -639,26 +639,53 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
     // is about — NOT the mechanics gate above it, which the fixture declares a
     // generation specifically to get past.
     //
-    // ⛔⛤ **THE MISSING ROOM IS A SET WITH NO ROOMS, BECAUSE `start = 999` IS
-    // NO LONGER A STATE THAT EXISTS — 2026-09-20.** This used to reach into the
-    // component and write an out-of-range index by hand. `RoomSet::start` is
-    // private now and both roads that write it resolve an authored id first, so
-    // an index past the end is unconstructible and a fixture that injected one
-    // was rehearsing an impossible world. An EMPTY set is reachable through the
-    // ordinary constructor and lands on the same refusal: index 0 of no rooms.
+    // ⛔⛤ **THE REFUSAL IS AN AUTHORED PLACEMENT NOTHING CAN LOWER, AND THE
+    // TWO FIXTURES BEFORE IT WERE BOTH IMPOSSIBLE WORLDS — 2026-09-20.** This
+    // started as `rooms.start = 999`, written by hand through a public field.
+    // When the indices went private it became a room set with NO ROOMS, which
+    // a review correctly called swapping one unconstructible world for another
+    // — and then `try_from_parts` made that one unconstructible too.
+    //
+    // ⭐ So it stopped injecting a broken `RoomSet` at all. The room set is
+    // valid; the ROOM authors an `Interactable` placement, and this fixture
+    // installs `PlacementLoweringRegistry::default()`, which registers no
+    // interpreter for any kind. `plan_room` refuses with
+    // `PlacementLoweringError` before touching the live world — an authoring
+    // mistake a shipped map can make, which is exactly the preflight this test
+    // is about.
+    //
+    // ⚠ NOT the mechanics gate above it: the fixture declares a
+    // `SessionMechanics` specifically so this arm gets past that one, and a
+    // decline there would pass this test while measuring nothing.
     //
     // the `RoomSet` is a session-world COMPONENT, not a resource — it belongs
     // to the session root so it dies with the session rather than outliving it
     // as a global.
     {
+        use ambition_entity_catalog::placements::{
+            InteractableSpec, InteractionKindSpec, PlacementSchema,
+        };
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "a_room_nothing_can_lower",
+            dummy_world(),
+        );
+        room.placements
+            .push(ambition_platformer2d_world::placements::PlacementRecord::new(
+                "a_door_with_no_interpreter",
+                PlacementSchema::Interactable(InteractableSpec::new(
+                    "Enter",
+                    InteractionKindSpec::Door { target: None },
+                )),
+                ae::Aabb::new(ae::Vec2::new(128.0, 32.0), ae::Vec2::splat(16.0)),
+            ));
         let mut rooms =
             ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
                 ambition_platformer2d_world::rooms::RoomSet,
             >(app.world_mut())
             .expect("the fixture staged a room set");
-        *rooms = ambition_platformer2d_world::rooms::RoomSet::from_parts(
-            "a_room_this_session_does_not_have",
-            Vec::new(),
+        *rooms = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "a_room_nothing_can_lower",
+            vec![room],
             Vec::new(),
         );
     }

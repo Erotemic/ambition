@@ -4708,7 +4708,7 @@ impl SmashStageChoice {
 ///
 /// ⚠ **BOTH STAGES ARE IN THE SET; the choice picks the STARTING one.** Building
 /// only the chosen room would make the other unreachable to anything that later
-/// wants to move between them, and `RoomSet::from_parts` takes a `Vec<RoomSpec>`
+/// wants to move between them, and `RoomSet::from_parts_or_panic` takes a `Vec<RoomSpec>`
 /// precisely so a set can hold rooms it does not start in. The geometry and
 /// metadata handed alongside are the STARTING room's, which is what the
 /// lifecycle activates.
@@ -4731,7 +4731,7 @@ fn smash_prepared_session_world(
     // which its worn fighters still fall back to.
     ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
-        RoomSet::from_parts(choice.room_id(), rooms.clone(), Vec::new()),
+        RoomSet::from_parts_or_panic(choice.room_id(), rooms.clone(), Vec::new()),
         geometry,
         metadata,
         StartingCharacter::new(SMASH_CHARACTER_ID),

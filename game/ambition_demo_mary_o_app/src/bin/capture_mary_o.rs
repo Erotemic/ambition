@@ -68,11 +68,13 @@ fn main() {
                 let asked = args
                     .next()
                     .unwrap_or_else(|| fail("--room needs a room id"));
-                // validated here, because the seam it feeds does NOT refuse.
-                // `RoomSet::from_parts` activates room 0 for an id it does not
-                // hold, so an unknown `--room` would photograph 1-1 and report
-                // success — a capture tool that silently shoots the wrong subject
-                // is worse than one that cannot shoot it at all.
+                // validated here for the ERROR, not for the guard — the
+                // guard moved into the constructor on 2026-09-20. It used to
+                // be true that the seam did not refuse: `RoomSet::from_parts`
+                // activated room 0 for an id it did not hold, so an unknown
+                // `--room` photographed 1-1 and reported success. What this
+                // still buys is a list of the rooms that DO exist, printed
+                // before anything boots.
                 let known = ambition_demo_mary_o::provider::mary_o_room_ids();
                 if !known.iter().any(|id| id == &asked) {
                     fail(&format!("unknown room '{asked}'; Mary-O has {known:?}"));

@@ -500,7 +500,7 @@ mod subjectless_replay_tests {
             chains: Vec::new(),
             edges: Default::default(),
         };
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             room_id,
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 room_id, world,

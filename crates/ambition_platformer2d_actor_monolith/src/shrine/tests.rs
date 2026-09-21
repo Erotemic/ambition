@@ -224,7 +224,7 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
         );
         insert_session_world_component(
             app.world_mut(),
-            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "shrine_room",
                 vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                     "shrine_room",

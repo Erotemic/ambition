@@ -82,6 +82,46 @@ impl RoomSpec {
     }
 }
 
+/// Why a room set could not be built.
+///
+/// ⛔⛤ **BOTH VARIANTS WERE SILENT UNTIL 2026-09-20 — ONE A FALLBACK AND ONE
+/// A TIME BOMB.** An unresolvable start room selected room 0, so a caller
+/// asking for room X ran a different one; an empty `rooms` produced
+/// `active = start = 0` indexing nothing, which makes [`RoomSet::active_spec`]
+/// and the room-set rollback checksum panic at whatever unrelated moment first
+/// reads them. Neither is a state the type can represent, so neither is a
+/// state it will build.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RoomSetRefused {
+    /// No rooms at all, so no index can name a live one.
+    NoRooms { start_room: String },
+    /// The named start room is not in the set. The ids that ARE present are
+    /// carried because the usual cause is a typo or a stale id, and a refusal
+    /// that does not say what WAS there sends its reader back to the map.
+    UnknownStartRoom {
+        start_room: String,
+        rooms: Vec<String>,
+    },
+}
+
+impl std::fmt::Display for RoomSetRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoRooms { start_room } => write!(
+                f,
+                "a room set holding no rooms cannot start in `{start_room}`, or \
+                 anywhere else"
+            ),
+            Self::UnknownStartRoom { start_room, rooms } => write!(
+                f,
+                "no room is named `{start_room}`; this set holds {rooms:?}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RoomSetRefused {}
+
 #[derive(Clone, Debug)]
 pub(crate) struct TransitionEdge {
     pub(crate) from_zone: String,

@@ -59,9 +59,23 @@ room; what changed is that the index can no longer be a value nobody checked.
 An index that can be silently wrong cannot be promoted to an instance
 identity, so this is OW1's precondition and not its first cut.
 
+⛔⛤ **AND THE FIRST ATTEMPT AT THAT INVARIANT WAS HALF OF IT — CAUGHT BY
+REVIEW THE SAME DAY.** Privatising the indices fixed their MUTATION roads and
+left the CONSTRUCTOR building states they forbid: `from_parts` selected room 0
+for a start id it did not hold (so a caller asking for room X ran a different
+one) and built `active = start = 0` over an EMPTY `rooms`, an index naming
+nothing that `active_spec()` and the room-set rollback checksum both
+dereference. The commit had even argued the fallback was necessary because
+`from_parts` has 61 callers — which is migration cost, not a contract.
+⇒ `RoomSet::try_from_parts` returns `Result<_, RoomSetRefused>` and the
+twelve production callers take it; `from_parts_or_panic` is the fifty
+fixtures' road and enforces the SAME invariant, so no `RoomSet` anywhere holds
+an index that names no room. `set_start_by_id` goes through `set_active`
+rather than assigning the field beside it — one field, one mutation law.
+
 | Locator | Current fact | Limit |
 | --- | --- | --- |
-| `crates/ambition_platformer2d_world/src/rooms/room_graph.rs`, `RoomSet` | One private `active` index selects a room, through one checked road (2026-09-20) | Multiple definitions in the graph do not mean multiple live instances |
+| `crates/ambition_platformer2d_world/src/rooms/room_graph.rs`, `RoomSet` | One private `active` index selects a room, through one checked road, and no road builds an index that names no room (2026-09-20) | Multiple definitions in the graph do not mean multiple live instances |
 | Runtime `room_transition/prefetch.rs`, `PrefetchIdentity` and `RoomConstructionPlanPrefetch` | Prepared plans are keyed by epoch/session/source room | A cached plan is data, not a simulated room |
 | Shared `lifecycle/markers.rs` and `lifecycle/continuity.rs` | Residency/custody and occurrence continuity have existing homes | Do not replace them with an extension-owned world mirror |
 | Actor monolith `features/ecs/dormancy.rs` | Existing dormancy concerns actor work within a live room | It is not an off-room world simulator |

@@ -1702,7 +1702,7 @@ mod tests {
             Vec::new(),
         );
         let room_set =
-            RoomSet::from_parts("arena", vec![RoomSpec::new("arena", world)], Vec::new());
+            RoomSet::from_parts_or_panic("arena", vec![RoomSpec::new("arena", world)], Vec::new());
         let registry = Default::default();
         let catalog =
             ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(

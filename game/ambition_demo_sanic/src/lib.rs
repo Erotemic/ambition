@@ -977,7 +977,7 @@ impl Plugin for SanicDemoContentPlugin {
         let room = sanic_speedway();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             SANIC_EXPERIENCE,
-            RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
+            RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
             ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(

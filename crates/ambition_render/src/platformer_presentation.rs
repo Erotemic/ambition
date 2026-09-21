@@ -392,7 +392,7 @@ mod tests {
             ),
         );
         room.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
-        RoomSet::from_parts("late_theme_room", vec![room], Vec::new())
+        RoomSet::from_parts_or_panic("late_theme_room", vec![room], Vec::new())
     }
 
     /// How many actual room visuals this session has on screen.
@@ -498,7 +498,7 @@ mod tests {
                     ambition_platformer2d_core::Vec2::new(8.0, 16.0),
                 ),
             ));
-        RoomSet::from_parts("npc_room", vec![room], Vec::new())
+        RoomSet::from_parts_or_panic("npc_room", vec![room], Vec::new())
     }
 
     fn a_view() -> ambition_sim_view::FeatureView {

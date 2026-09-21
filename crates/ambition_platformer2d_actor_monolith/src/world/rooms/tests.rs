@@ -60,7 +60,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         activation: LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
     }];
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "a",
         vec![room_a, room_b],
         vec![RoomLink {
@@ -204,7 +204,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         activation: LoadingZoneActivation::Walk,
         aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
     }];
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "a",
         vec![room_a, room_b],
         vec![RoomLink {
@@ -340,7 +340,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             activation: LoadingZoneActivation::EdgeExit,
             aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
         }];
-        let set = RoomSet::from_parts(
+        let set = RoomSet::from_parts_or_panic(
             "a",
             vec![room_a, room_b],
             vec![RoomLink {
@@ -476,7 +476,7 @@ fn active_metadata_returns_active_room_metadata() {
         rise_out_margin: None,
         next_room: None,
     };
-    let mut set = RoomSet::from_parts(
+    let mut set = RoomSet::from_parts_or_panic(
         "first",
         vec![
             spec_with(m1.clone(), "first"),
@@ -575,7 +575,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         rise_out_margin: None,
         next_room: None,
     };
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "hub",
         vec![
             spec_with(m_hub.clone(), "hub"),
@@ -990,7 +990,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
         activation: LoadingZoneActivation::EdgeExit,
         aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), zone_half),
     }];
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "a",
         vec![room, room_b],
         vec![RoomLink {
@@ -1129,7 +1129,7 @@ fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
 /// A root that holds a world: `rooms` plus the geometry a session collides
 /// against.
 fn a_root_holding(world: &mut bevy::prelude::World, room: &str) -> bevy::prelude::Entity {
-    let set = RoomSet::from_parts(room, vec![spec_with(RoomMetadata::default(), room)], Vec::new());
+    let set = RoomSet::from_parts_or_panic(room, vec![spec_with(RoomMetadata::default(), room)], Vec::new());
     world
         .spawn((
             set,
@@ -1170,7 +1170,7 @@ fn a_replacement_refused_at_application_leaves_the_outgoing_world_standing() {
         let world = app.world_mut();
         let mut root = world.spawn((
             SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
-            RoomSet::from_parts("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
+            RoomSet::from_parts_or_panic("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
         ));
         if with_geometry {
             root.insert(ambition_platformer2d_core::RoomGeometry(empty_world("r")));
@@ -1238,7 +1238,7 @@ fn a_replacement_refused_for_missing_platform_state_leaves_the_outgoing_world_st
         let root = world
             .spawn((
                 SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)),
-                RoomSet::from_parts("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
+                RoomSet::from_parts_or_panic("r", vec![spec_with(RoomMetadata::default(), "r")], Vec::new()),
                 ambition_platformer2d_core::RoomGeometry(empty_world("r")),
             ))
             .id();
@@ -1373,7 +1373,7 @@ fn a_staged_world_is_refused_when_its_target_carries_no_sink_for_it() {
         .id();
     // A root with the room set and no geometry.
     let no_geometry = world
-        .spawn(RoomSet::from_parts(
+        .spawn(RoomSet::from_parts_or_panic(
             "r",
             vec![spec_with(RoomMetadata::default(), "r")],
             Vec::new(),
@@ -1524,7 +1524,7 @@ fn app_with_a_door(
             activation: LoadingZoneActivation::Door,
             aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(24.0, 24.0)),
         }];
-        let set = RoomSet::from_parts(
+        let set = RoomSet::from_parts_or_panic(
             "a",
             vec![room_a, room_b],
             vec![RoomLink {

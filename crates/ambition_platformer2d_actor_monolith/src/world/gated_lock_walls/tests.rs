@@ -165,7 +165,7 @@ fn world_with_one_wall_gated_by(gated_by: &str) -> App {
     );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "alice_relay",
             vec![room_with_one_wall(Some(gated_by), "alice_relay")],
             Vec::new(),
@@ -281,7 +281,7 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_until_the_catalog_moves()
     app.init_resource::<ConditionCatalog>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "alice_relay",
             vec![room_with_one_wall(Some(FLAG), "alice_relay")],
             Vec::new(),

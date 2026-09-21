@@ -185,7 +185,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
         .publish_command(ring_descriptor(), ring);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "symmetry_room",
             vec![room_with_one_switch(on_activate, "symmetry_room")],
             Vec::new(),

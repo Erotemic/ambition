@@ -28,7 +28,7 @@ pub fn sanic_session_world() -> SanicSessionWorld {
     let room = sanic_speedway();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    let room_set = RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room], Vec::new());
+    let room_set = RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room], Vec::new());
     SanicSessionWorld {
         geometry,
         room_set,

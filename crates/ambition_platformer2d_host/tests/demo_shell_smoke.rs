@@ -61,7 +61,7 @@ impl Plugin for FixtureContentPlugin {
         let room = RoomSpec::new("fixture_room", world.clone());
         let source = ambition_platformer2d_runtime::PreparedPlatformerSource::new(
             "fixture",
-            RoomSet::from_parts("fixture_room", vec![room], Vec::new()),
+            RoomSet::from_parts_or_panic("fixture_room", vec![room], Vec::new()),
             RoomGeometry(world),
             ambition_platformer2d_runtime::demo_fixture::ActiveRoomMetadata::default(),
             ambition_platformer2d_runtime::demo_fixture::StartingCharacter::default(),

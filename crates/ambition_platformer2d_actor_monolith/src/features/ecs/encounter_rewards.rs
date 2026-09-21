@@ -242,9 +242,22 @@ mod retire_on_rearm_tests {
         // logic left took the same param.
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            // ⚠ A REAL ROOM, because a set with none is no longer a thing the
+            // constructor will build (2026-09-20). Nothing here reads the
+            // room; the component only has to EXIST so the `Single`-based
+            // system above runs at all, which is what the paragraph above is
+            // about.
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
                 "test_room",
-                Vec::new(),
+                vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                    "test_room",
+                    ambition_platformer2d_core::World::new(
+                        "test_room",
+                        ambition_platformer2d_core::Vec2::new(320.0, 240.0),
+                        ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                        Vec::new(),
+                    ),
+                )],
                 Vec::new(),
             ),
         );

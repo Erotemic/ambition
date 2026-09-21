@@ -97,7 +97,7 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     // match now; `FIGHTERS[0]` remains as this experience's catalog default.
     PreparedPlatformerSource::for_match(
         VERSUS_EXPERIENCE,
-        RoomSet::from_parts(VERSUS_ROOM_ID, vec![room], Vec::new()),
+        RoomSet::from_parts_or_panic(VERSUS_ROOM_ID, vec![room], Vec::new()),
         geometry,
         metadata,
         StartingCharacter::new(FIGHTERS[0]),

@@ -24,11 +24,53 @@ impl RoomSet {
     ///
     /// LDtk uses this path directly so it can own authored world data without
     /// passing through a legacy RON world manifest.
-    pub fn from_parts(
+    /// ⛔⛤ **THE FIXTURE ROAD. PRODUCTION TAKES [`Self::try_from_parts`].**
+    /// Named so the wrong choice is visible at the call site rather than in a
+    /// doc comment: this one PANICS on a world the type cannot represent, and
+    /// a shipped game wants a refusal it can report.
+    ///
+    /// It is not a second constructor — it is `try_from_parts` plus an
+    /// `expect`. Both enforce the same invariant, so no `RoomSet` anywhere can
+    /// hold an index that names no room.
+    pub fn from_parts_or_panic(
         start_room: impl AsRef<str>,
         rooms: Vec<RoomSpec>,
         links: Vec<RoomLink>,
     ) -> Self {
+        let start = start_room.as_ref().to_string();
+        Self::try_from_parts(start_room, rooms, links)
+            .unwrap_or_else(|why| panic!("fixture room set for start room `{start}`: {why}"))
+    }
+
+    /// Build a runtime room graph from already-materialized runtime rooms, or
+    /// refuse.
+    ///
+    /// ⛔⛤ **IT USED TO FALL BACK, AND THE FALLBACK WAS THE SAME DEFECT THE
+    /// CLAMP WAS — REVIEWED AND CLOSED 2026-09-20.** An unresolvable start room
+    /// silently selected room 0, so a caller asking for room X got a session
+    /// running a different one and no way to tell; worse, an EMPTY `rooms`
+    /// produced `active = start = 0` indexing nothing, which makes
+    /// [`RoomSet::active_spec`] and the room-set rollback checksum panic. The
+    /// same-day commit that privatised the indices claimed those indices "must
+    /// index `rooms`" while this constructor could still build a set where
+    /// they do not.
+    ///
+    /// ⚠ The 61 callers were migration cost, not a reason: twelve of them are
+    /// production and fifty are fixtures, which take
+    /// [`Self::from_parts_or_panic`].
+    pub fn try_from_parts(
+        start_room: impl AsRef<str>,
+        rooms: Vec<RoomSpec>,
+        links: Vec<RoomLink>,
+    ) -> Result<Self, RoomSetRefused> {
+        // Checked first and separately, because the two diagnoses differ: a set
+        // with no rooms is a caller that built nothing, and there is no
+        // "registered kinds"-style list to print back at them.
+        if rooms.is_empty() {
+            return Err(RoomSetRefused::NoRooms {
+                start_room: start_room.as_ref().to_string(),
+            });
+        }
         let mut graph = Graph::<String, TransitionEdge>::new();
         let mut room_nodes = Vec::new();
         let mut by_id = HashMap::new();
@@ -72,31 +114,19 @@ impl RoomSet {
             }
         }
 
-        // ⛔⛤ **THE LAST SILENT ROAD INTO `active`, AND IT IS A FALLBACK
-        // RATHER THAN A REFUSAL BY NECESSITY.** Every other way to move the
-        // active room now says no when the room does not exist; this one cannot,
-        // because `from_parts` has no failure channel and 61 callers. What it
-        // can do is stop being quiet: an unresolvable start room is reported the
-        // same way an unresolvable link room two loops above is, so a session
-        // that boots somewhere nobody asked for leaves a trace.
-        let active = match by_id.get(start_room.as_ref()) {
-            Some((index, _)) => *index,
-            None => {
-                eprintln!(
-                    "room graph warning: unknown start room '{}'; starting in '{}' instead",
-                    start_room.as_ref(),
-                    rooms.first().map_or("<no rooms at all>", |room| room.id.as_str()),
-                );
-                0
-            }
+        let Some(&(active, _)) = by_id.get(start_room.as_ref()) else {
+            return Err(RoomSetRefused::UnknownStartRoom {
+                start_room: start_room.as_ref().to_string(),
+                rooms: rooms.into_iter().map(|room| room.id).collect(),
+            });
         };
-        Self {
+        Ok(Self {
             rooms,
             active,
             start: active,
             graph,
             room_nodes,
-        }
+        })
     }
 
     /// Canonical directed room links for fingerprinting and inspection.
@@ -167,11 +197,17 @@ impl RoomSet {
     #[must_use = "false means the id matched no room and the start was NOT \
                   changed: report it, or the session silently starts elsewhere"]
     pub fn set_start_by_id(&mut self, id: &str) -> bool {
-        let Some(index) = self.room_index_by_id(id) else {
+        // ⛔⛤ **THROUGH `set_active`, NOT BESIDE IT — REVIEWED 2026-09-20.**
+        // This assigned `self.active` directly, which was a SECOND
+        // implementation of the rule governing that field. No runtime defect
+        // today (its one caller resolves the id first, and so does this), but
+        // an invariant, publication hook or instance synchronisation added to
+        // `set_active` later would simply not happen here. One field, one
+        // mutation law.
+        if self.set_active_by_id(id).is_none() {
             return false;
-        };
-        self.active = index;
-        self.start = index;
+        }
+        self.start = self.active;
         true
     }
 
@@ -557,7 +593,7 @@ mod room_identity_tests {
             Vec::new(),
         );
         let rooms = vec![RoomSpec::new(id, world)];
-        let set = RoomSet::from_parts(id, rooms, Vec::new());
+        let set = RoomSet::from_parts_or_panic(id, rooms, Vec::new());
 
         assert_eq!(
             set.room_index_by_id(id),
@@ -581,7 +617,7 @@ mod room_identity_tests {
                 Vec::new(),
             )
         };
-        RoomSet::from_parts(
+        RoomSet::from_parts_or_panic(
             "hub",
             vec![
                 RoomSpec::new("hub", world("hub")),
@@ -632,6 +668,100 @@ mod room_identity_tests {
         // `usize::MAX` is the value the 2026-09-14 poison staged by accident.
         assert!(set.set_active(usize::MAX).is_none());
         assert_eq!(set.active(), 0);
+    }
+
+    /// ⛔⛤ **A SET THAT CANNOT SEAT ANYBODY IS NOT BUILT.**
+    ///
+    /// `from_parts` used to select room 0 for an id it did not hold, and to
+    /// build `active = start = 0` over an EMPTY `rooms` — an index naming
+    /// nothing, which [`RoomSet::active_spec`] and the room-set rollback
+    /// checksum both dereference. The same-day commit that privatised those
+    /// indices claimed they "must index `rooms`" while this constructor could
+    /// still produce a set where they do not; a review caught the gap.
+    ///
+    /// ⭐ THE SECOND HALF OF EACH ARM IS THE ONE THAT MATTERS. A refusal is
+    /// only a refusal if the caller gets nothing back: an `Err` beside a
+    /// half-built set would be the clamp again, one level up.
+    #[test]
+    fn a_set_that_cannot_seat_anybody_is_refused_rather_than_built() {
+        let world = || {
+            ae::World::new(
+                "w".to_string(),
+                ae::Vec2::new(320.0, 240.0),
+                ae::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            )
+        };
+
+        // An id no room carries. The old fallback ran the caller's session in
+        // `hub` and said nothing.
+        let refused = RoomSet::try_from_parts(
+            "a_room_this_world_does_not_have",
+            vec![
+                RoomSpec::new("hub", world()),
+                RoomSpec::new("cellar", world()),
+            ],
+            Vec::new(),
+        );
+        assert_eq!(
+            refused
+                .map(|_| "BUILT A SET")
+                .map_err(|why| why)
+                .err()
+                .expect("an unresolvable start room built a set anyway"),
+            RoomSetRefused::UnknownStartRoom {
+                start_room: "a_room_this_world_does_not_have".to_string(),
+                rooms: vec!["hub".to_string(), "cellar".to_string()],
+            },
+        );
+
+        // No rooms at all. The old constructor returned a set whose
+        // `active_spec()` panics, at whatever unrelated moment first read it.
+        assert_eq!(
+            RoomSet::try_from_parts("hub", Vec::new(), Vec::new())
+                .map(|_| ())
+                .err()
+                .expect("a set holding no rooms was built with an index naming nothing"),
+            RoomSetRefused::NoRooms {
+                start_room: "hub".to_string()
+            },
+        );
+
+        // Anti-vacuity: the same call with a resolvable id must SUCCEED, or
+        // both assertions above would hold for a constructor that refuses
+        // everything.
+        let built = RoomSet::try_from_parts("cellar", vec![
+            RoomSpec::new("hub", world()),
+            RoomSpec::new("cellar", world()),
+        ], Vec::new())
+        .expect("a set holding `cellar` can start in it");
+        assert_eq!(built.active(), 1);
+        assert_eq!(built.start(), 1);
+        assert_eq!(built.active_spec().id, "cellar");
+    }
+
+    /// The start road and the active road are ONE mutation law.
+    ///
+    /// `set_start_by_id` assigned `self.active` directly — a second
+    /// implementation of the rule `set_active` owns. No runtime defect at the
+    /// time (its caller resolved the id first), but an invariant added to
+    /// `set_active` later would simply not have happened here.
+    #[test]
+    fn setting_the_start_room_moves_the_active_room_through_the_same_road() {
+        let mut set = two_rooms();
+        assert!(set.set_start_by_id("cellar"));
+        assert_eq!(set.active(), 1);
+        assert_eq!(set.start(), 1);
+
+        assert!(
+            !set.set_start_by_id("a_room_this_world_does_not_have"),
+            "an unresolvable id reported success"
+        );
+        assert_eq!(
+            (set.active(), set.start()),
+            (1, 1),
+            "a refused start moved the session anyway"
+        );
     }
 
     /// The id road refuses the same way, and it is the road two callers outside

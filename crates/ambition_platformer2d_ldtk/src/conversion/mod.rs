@@ -105,7 +105,11 @@ impl LdtkProject {
             links.extend(doc.links);
             rooms.push(doc.spec);
         }
-        Ok(RoomSet::from_parts(start_room, rooms, links))
+        // ⚠ The `start_room` computed above already resolves against
+        // `area_levels`, so the refusal here is not a second guess at the same
+        // question — it is the EMPTY project, where that fallback has nothing
+        // to fall back to and hands over the entry id for a set with no rooms.
+        RoomSet::try_from_parts(start_room, rooms, links).map_err(|why| vec![why.to_string()])
     }
 
     pub(crate) fn collect_room_links(&self) -> Vec<RoomLink> {
@@ -1386,7 +1390,7 @@ mod tests {
         let rebaked =
             ambition_platformer2d_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
         assert_eq!(baked, rebaked, "serialize∘parse is a fixed point");
-        let twin_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        let twin_set = ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             reloaded.spec.id.clone(),
             vec![reloaded.spec],
             reloaded.links,

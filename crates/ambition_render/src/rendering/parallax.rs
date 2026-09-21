@@ -767,7 +767,7 @@ mod theme_load_tests {
             ),
         );
         room.metadata.visual_profile.parallax_theme = Some(theme_key.to_string());
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "second_biome",
             vec![room],
             Vec::new(),

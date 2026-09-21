@@ -198,7 +198,7 @@ fn pocket_prepared_session_world() -> PreparedPlatformerSource {
     let metadata = ActiveRoomMetadata(room.metadata.clone());
     PreparedPlatformerSource::new(
         POCKET_EXPERIENCE,
-        RoomSet::from_parts(POCKET_ROOM_ID, vec![room], Vec::new()),
+        RoomSet::from_parts_or_panic(POCKET_ROOM_ID, vec![room], Vec::new()),
         geometry,
         metadata,
         StartingCharacter::new(POCKET_CHARACTER_ID),

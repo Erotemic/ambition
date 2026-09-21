@@ -36,7 +36,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
                 Vec2::new(640.0, 40.0),
             )],
         );
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             room_id,
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 room_id, world,
@@ -171,7 +171,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     );
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "here",
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 "here", world,
@@ -244,7 +244,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     insert_session_world_component(
         app.world_mut(),
         // Opens in `entry`; the player rested in `rest_room`.
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),
@@ -358,7 +358,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
     };
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),
@@ -508,7 +508,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
     };
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),
@@ -589,7 +589,7 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "here",
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 "here",
@@ -890,7 +890,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "here",
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 "here",
@@ -1300,7 +1300,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
     };
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),
@@ -1401,7 +1401,7 @@ fn a_startup_resume_whose_operation_is_retracted_asks_again() {
     };
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),
@@ -1472,7 +1472,7 @@ fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "here",
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 "here",
@@ -1650,7 +1650,7 @@ fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabe
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
     insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
             "here",
             vec![ambition_platformer2d_world::rooms::RoomSpec::new(
                 "here",

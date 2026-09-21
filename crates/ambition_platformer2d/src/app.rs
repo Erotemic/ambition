@@ -1504,19 +1504,38 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
 
     Some(Box::new(move |app: &mut App| {
         use crate::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet, StartingCharacter};
-        let Some(first) = rooms.first().cloned() else {
-            return;
+        // ⚠ The silent `rooms.first()` guard that stood here is gone: an empty
+        // set is `RoomSetRefused::NoRooms` below, which SAYS SO instead of
+        // returning quietly from a composition callback.
+        // ⛔⛤ **ONE RESOLUTION, NOT TWO THAT AGREED BY ACCIDENT.** The
+        // geometry was picked by `find(id == starting_room).unwrap_or(first)`
+        // while the room set was built by handing the same id to a constructor
+        // that ALSO fell back to room 0 — two independent guesses at "what if
+        // the declared starting room is not in the set", consistent only
+        // because both happened to choose the first room. The set resolves it
+        // once now and refuses if it cannot, and the geometry is read off the
+        // room the set actually activated.
+        let room_set = match RoomSet::try_from_parts(
+            starting_room.clone(),
+            rooms.clone(),
+            Vec::new(),
+        ) {
+            Ok(room_set) => room_set,
+            Err(why) => {
+                bevy::log::error!(
+                    target: "ambition_platformer2d::composition",
+                    "experience `{id}` declares a room set this engine cannot build, \
+                     so it installs no session: {why}"
+                );
+                return;
+            }
         };
-        let starting = rooms
-            .iter()
-            .find(|room| room.id == starting_room)
-            .cloned()
-            .unwrap_or(first);
+        let starting = room_set.active_spec().clone();
         let geometry = crate::engine_core::RoomGeometry(starting.world.clone());
         let metadata = ActiveRoomMetadata(starting.metadata.clone());
         let prepared = crate::runtime::PreparedPlatformerSource::new(
             id.clone(),
-            RoomSet::from_parts(starting_room.clone(), rooms.clone(), Vec::new()),
+            room_set,
             geometry,
             metadata,
             StartingCharacter::new(starting_character.clone()),

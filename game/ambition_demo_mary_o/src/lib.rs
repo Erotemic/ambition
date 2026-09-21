@@ -1502,7 +1502,7 @@ impl Plugin for MaryODemoContentPlugin {
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,
-            RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
+            RoomSet::from_parts_or_panic(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
             ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
@@ -3890,7 +3890,7 @@ mod tests {
         );
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ambition_platformer2d::world::rooms::RoomSet::from_parts(
+            ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
                 LEVEL_1_1_ROOM_ID,
                 vec![level_1_1(), level_1_2::level_1_2()],
                 Vec::new(),

@@ -1193,7 +1193,7 @@ mod tests {
         );
         insert_session_world_component(
             app.world_mut(),
-            RoomSet::from_parts("n", vec![empty_spec("n"), candidate_spec()], Vec::new()),
+            RoomSet::from_parts_or_panic("n", vec![empty_spec("n"), candidate_spec()], Vec::new()),
         );
         let outgoing = ["n_body_a", "n_body_b"]
             .into_iter()

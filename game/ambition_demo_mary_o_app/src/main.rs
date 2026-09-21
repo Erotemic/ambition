@@ -42,11 +42,12 @@ fn main() {
 
 /// Which room to open in. Absent means 1-1, the shipped entry.
 ///
-/// validated here, for the reason `capture_mary_o` already states at its own
-/// `--room`: the seam it feeds does NOT refuse. `RoomSet::from_parts` activates
-/// room 0 for an id it does not hold, so an unknown room would silently open 1-1
-/// and look like success — and a reviewer who asked for 1-3, got 1-1, and saw
-/// nothing new would conclude the authoring was broken.
+/// validated here, and the reason CHANGED on 2026-09-20. It used to be the
+/// only guard: `RoomSet::from_parts` activated room 0 for an id it did not
+/// hold, so an unknown room silently opened 1-1 and looked like success. The
+/// constructor refuses now, so this is the good ERROR — a named list of the
+/// rooms that exist, before the app boots — in front of a backstop that can no
+/// longer be bypassed.
 fn parse_room() -> Option<String> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {

@@ -100,21 +100,26 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 }
 
 /// Build the session world with `entry` active, then derive geometry/metadata
-/// from the room the resulting `RoomSet` actually activated. Unknown ids use the
-/// set's fallback room, keeping active-room identity and geometry consistent.
+/// from the room the resulting `RoomSet` actually activated.
+///
+/// ⚠ **AN UNKNOWN `entry` PANICS, AND USED TO OPEN 1-1 INSTEAD.** This said
+/// *"unknown ids use the set's fallback room"* until 2026-09-20, which is what
+/// made both `--room` roads validate the id themselves. They still do, because
+/// a named list of the rooms that exist beats a panic; this is the backstop
+/// behind them.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // The fixture course is neither of them: it is a self-contained probe room
     // with no loading zones that loops on its own goal (`exit_for_room`), so a
     // session running it carries it INSTEAD of the shipped levels. Its links go
     // with its rooms — an edge naming a room the set does not hold is a
-    // `from_parts` warning on stderr and nothing else, which is how the course
+    // `try_from_parts` warning on stderr and nothing else, which is how the course
     // has been printing two of them.
     let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
         (vec![crate::test_course::test_course()], Vec::new())
     } else {
         (crate::authored_levels(), crate::authored_room_links())
     };
-    let room_set = RoomSet::from_parts(entry, rooms, links);
+    let room_set = RoomSet::from_parts_or_panic(entry, rooms, links);
     let active = room_set.active_spec();
     let geometry = ae::RoomGeometry(active.world.clone());
     let metadata = ActiveRoomMetadata(active.metadata.clone());
@@ -598,7 +603,7 @@ mod tests {
     /// Every room id boots into ITS OWN geometry, not into 1-1's.
     ///
     /// this went red on `mary_o_1_2`. The seam branched on the test course and built 1-1
-    /// for everything else, while handing `entry` straight to `RoomSet::from_parts` — so asking
+    /// for everything else, while handing `entry` straight to the room-set constructor — so asking
     /// for 1-2 produced a world whose active room WAS 1-2 and whose `geometry`/`metadata` were
     /// 1-1's.
     ///

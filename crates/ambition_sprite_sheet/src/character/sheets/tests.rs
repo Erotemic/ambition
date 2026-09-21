@@ -598,54 +598,109 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
 /// direction is the safe one: a false EQUAL needs both sides NaN in the SAME
 /// field, which means both indices parsed the same broken RON, which is
 /// agreement, and agreement is what this test establishes.
+/// Split baked sheet keys by the tier marker `build.rs::baked_key_for_path`
+/// appends, returning the BARE roots under each marker (`""` for the base
+/// tier).
+///
+/// ⚠ SPLIT ON THE LAST DOT AND ONLY FOR THE THREE KNOWN MARKERS. A sheet root
+/// may contain dots of its own, and a key ending in something that merely looks
+/// like a marker is a base-tier sheet, not a variant of a name nobody
+/// published.
+fn tier_partition<'a>(
+    keys: impl Iterator<Item = &'a str>,
+) -> std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>> {
+    let mut out: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
+        std::collections::BTreeMap::new();
+    for key in keys {
+        let (root, marker) = ["0_5x", "0_25x", "potato"]
+            .into_iter()
+            .find_map(|marker| key.strip_suffix(marker).and_then(|head| {
+                head.strip_suffix('.').map(|root| (root, marker))
+            }))
+            .unwrap_or((key, ""));
+        out.entry(marker).or_default().insert(root);
+    }
+    out
+}
+
 #[test]
 fn the_registry_and_the_record_index_are_one_map_built_twice() {
     let index = record_index();
     let registry =
         crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS);
 
-    // ⛔ THE ANTI-VACUITY FLOOR, FIRST AND BEFORE ANY COMPARISON. Two empty maps
-    // are equal, and an empty corpus is the most common way a check in this
-    // crate passes while measuring nothing.
+    // ⛔ THE ANTI-VACUITY CHECK, FIRST AND BEFORE ANY COMPARISON. Two empty
+    // maps are equal, and an empty corpus is the most common way a check in
+    // this crate passes while measuring nothing.
     //
-    // ⛔⛤ 800 AGAINST A SHIPPED 870, AND THE TIGHTNESS IS THE POINT. This
-    // population is GENERATED — `build.rs` globs `assets/sprites{,_0_5x,_0_25x,
-    // _potato}` for `*_spritesheet.ron`, which is gitignored publish output — so
-    // the failure mode is not "drifts down by a few". It is "the glob matched a
-    // different tree and half the sheets vanished", and a loose floor waves
-    // exactly that through. A floor on a derived population is a floor on its
-    // GENERATOR: if somebody legitimately halves the sheet count they should
-    // have to come here and say so in the commit message. That is the tax
-    // working, not the tax hurting.
+    // ⛔⛤ **THIS WAS `len() > 800` AND THE ROSTER COULD NOT REACH IT — MEASURED
+    // 2026-09-21, AND THE OLD MESSAGE'S OWN THIRD CAUSE IS WHAT THE
+    // MEASUREMENT FALSIFIES.** It said a short reading is "a machine-state
+    // problem [that] belongs in the publish step", and told the next reader not
+    // to lower the floor. But `scripts/regen/sprites.sh`'s roster claims **175**
+    // `_spritesheet.ron` across **173 targets**, every one of them present on
+    // this box (`check_published_sheets_are_present.py`: all 173 rostered
+    // targets have published art) — so a box whose output exactly matches the
+    // roster bakes 700 files, and packed atlases expanding to per-target keys
+    // take it to roughly 728. This box reads 780 only because it also carries
+    // **13 unclaimed sheets per tier** — `goblin`, `robot`, `boss`,
+    // `perfect_cellular_automaton` and nine more — publish output for targets
+    // the roster no longer names. ⇒ 800 was a floor that could be met only by
+    // keeping STALE output, and publishing the whole roster on a clean box
+    // could never discharge it. That is not a machine-state problem.
+    //
+    // ⭐⭐ **SO THE MAGNITUDE IS REPLACED BY THE STRUCTURE IT WAS STANDING IN
+    // FOR.** The failure the old floor existed to catch is named in its own
+    // comment: *"the glob matched a different tree and half the sheets
+    // vanished"*. `build.rs` bakes four sibling directories under one key
+    // space, tagging three of them `.0_5x` / `.0_25x` / `.potato`, so the tree
+    // it matched says so in the keys: four tiers publishing THE SAME NAMES is a
+    // property of a correctly-globbed tree, and it moves with the roster
+    // instead of with whoever's box set the number. A glob that lost one
+    // directory, matched a different tree, or published a tier late fails it
+    // exactly.
+    let tiers = tier_partition(index.keys().map(String::as_str));
+    let base = tiers.get("").cloned().unwrap_or_default();
+    for marker in ["0_5x", "0_25x", "potato"] {
+        let variant = tiers.get(marker).cloned().unwrap_or_default();
+        let unpublished: Vec<&str> = base.difference(&variant).copied().collect();
+        let orphaned: Vec<&str> = variant.difference(&base).copied().collect();
+        assert!(
+            unpublished.is_empty() && orphaned.is_empty(),
+            "the `{marker}` tier does not publish the same sheets as the base tier: \
+             {} in the base tier with no `{marker}` variant (e.g. {:?}), {} `{marker}` \
+             variants with no base sheet (e.g. {:?}). `build.rs` globs four sibling \
+             directories into one key space, so four tiers holding the same names is \
+             how a correctly-globbed tree states itself -- a glob that matched a \
+             different tree, lost a directory, or caught a tier mid-publish breaks \
+             here.",
+            unpublished.len(),
+            &unpublished[..unpublished.len().min(5)],
+            orphaned.len(),
+            &orphaned[..orphaned.len().min(5)],
+        );
+    }
+
+    // ⛔ AND A MAGNITUDE STILL, BECAUSE A UNIFORM HALVING KEEPS THE TIERS
+    // AGREEING. 150 is BELOW the 175 the roster claims and far above a halved
+    // 94, so it is a floor on the GENERATOR that a correctly-pruned box clears
+    // and a truncated glob does not. ⚠ The reference point is the roster
+    // (`scripts/regen/sprites.sh`, 173 targets / 175 sheets on 2026-09-21), not
+    // this box: re-derive it from there, never from a remembered reading.
     assert!(
-        index.len() > 800,
-        "the baked record index holds {} sheet(s), below the floor of 800. THREE \
-         causes, and the third is the likely one on a fresh box:\n\
-         \x20 1. the baked table did not compile in, so every comparison below \
-         would pass vacuously;\n\
-         \x20 2. the publish glob matched a different tree;\n\
-         \x20 3. ⭐ THIS CHECKOUT HAS FEWER PUBLISHED BASE SHEETS THAN THE TREE \
-         THE FLOOR WAS WRITTEN AGAINST. Not one `*_spritesheet.ron` is tracked in \
-         git — the whole population is publish output — so this floor is a claim \
-         about the BOX as much as about the tree. MEASURED 2026-09-16 on a \
-         checkout reading {}: 188 base sheets per tier over four tiers, where the \
-         870 the floor was set under implies roughly 217. `find \
-         crates/ambition_platformer2d_actor_monolith/assets -name \
-         '*_spritesheet.ron' | wc -l` is the one-line check, and \
-         `scripts/check_published_sheets_are_present.py` can report ALL ROSTERED \
-         TARGETS PRESENT while the count is short, because it asks about the \
-         roster and this asks about the corpus.\n\
-         ⛔ DO NOT LOWER THE FLOOR TO GO GREEN. A loose floor waves through cause \
-         2, which is what it exists for; a short checkout is a machine-state \
-         problem and belongs in the publish step, not here.",
-        index.len(),
-        index.len(),
+        base.len() > 150,
+        "the base tier holds {} sheet(s), below the floor of 150 -- the publish \
+         roster claims 175, so either the baked table did not compile in (every \
+         comparison below would pass vacuously) or the glob matched a truncated \
+         tree. `find crates/ambition_platformer2d_actor_monolith/assets/sprites \
+         -name '*_spritesheet.ron' | wc -l` is the one-line check.",
+        base.len(),
     );
-    assert!(
-        registry.len() > 800,
-        "the registry holds {} sheet(s), below the floor of 800 — same vacuity, \
-         other side",
+    assert_eq!(
         registry.len(),
+        index.len(),
+        "the registry and the record index disagree about how many sheets exist \
+         before a single key is compared -- same vacuity, other side",
     );
 
     // ⛔ BOTH DIRECTIONS. A subset test passes when one side silently drops keys.

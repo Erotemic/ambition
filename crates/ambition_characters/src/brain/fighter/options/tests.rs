@@ -2625,11 +2625,19 @@ fn the_stronger_of_two_launchers_is_the_one_offered() {
         // this arm exists for.
         c.frames.max_damage = 0;
         c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
-            // Placed and live at once, so neither candidate's flight time can
-            // enter the aim lead and separate them for a second reason.
-            travel: ambition_entity_catalog::ThreatTravel::Placed {
-                reach: 700.0,
-                detonates_by_s: 0.0,
+            // ⚠ **A SHOT THAT IS LIVE WHERE IT IS THROWN, NOT A PLACED
+            // OBJECT.** `free` is the ground a hazard covers WITHOUT flying,
+            // so this reaches 700px at zero flight time and neither
+            // candidate's flight can separate them for a second reason. It
+            // said `Placed { detonates_by_s: 0.0 }` until 2026-09-21, which
+            // was borrowing a TRAP's zero-flight answer to stand in for an
+            // instant SHOT — and a trap's damage is deliberately not priced
+            // as immediate, so the fixture stopped exercising the property
+            // this arm is named for.
+            travel: ambition_entity_catalog::ThreatTravel::Straight {
+                speed: 100.0,
+                span: 0.0,
+                free: 700.0,
             },
             damage,
         });
@@ -2687,6 +2695,81 @@ fn the_stronger_of_two_launchers_is_the_one_offered() {
 /// the first reader does not fix the second. The lead got
 /// `threat_live_at_s`; this gets *when the move CONNECTS*, which for a shot is
 /// the throw plus the flight.
+/// A TRAP'S DAMAGE IS NOT AN IMMEDIATE PUNISH.
+///
+/// ⛔⛤ **RAISED BY REVIEW 2026-09-21.** `ThreatTravel::Placed` answers a zero
+/// flight because a laid object does not travel, and that is the right answer
+/// to the AIMING question. The payoff term read it as *"the damage is
+/// available the moment it is dropped"*, so the polygon's 12-damage bomb was
+/// priced as a punish inside its 72px reach — while the type's own doc says
+/// nothing prices the four-second fuse. The runtime model had learned that a
+/// bomb is not a projectile and the decision model was still spending it as
+/// one.
+///
+/// ⚠ **THE CONTROL IS A FLYING SHOT WITH THE SAME DAMAGE AND THE SAME ZERO
+/// FLIGHT**, so the arm cannot pass because the whole payoff term is dead or
+/// because the window was too short: one number changes, and it is the one the
+/// law now answers.
+#[test]
+fn a_laid_trap_is_not_priced_as_damage_that_lands_when_it_is_laid() {
+    let hazard = |travel: ambition_entity_catalog::ThreatTravel| {
+        let mut c = candidate("thing", 0.2, 0.0);
+        // No volume: what this move does to somebody, it does through the
+        // thing it puts in the world.
+        c.frames.max_damage = 0;
+        c.frames.hazard = Some(ambition_entity_catalog::MoveHazard::Spawned {
+            travel,
+            damage: 12,
+        });
+        c
+    };
+    // A bomb: reaches 72px, goes off by itself in four seconds.
+    let laid = ambition_entity_catalog::ThreatTravel::Placed {
+        reach: 72.0,
+        detonates_by_s: 4.0,
+    };
+    // The SAME reach and the same zero flight, but it flies — `free` is the
+    // ground a hazard covers without flying.
+    let thrown = ambition_entity_catalog::ThreatTravel::Straight {
+        speed: 100.0,
+        span: 0.0,
+        free: 72.0,
+    };
+
+    // Point blank and committed, which is the most favourable reading a
+    // trap could get: the opponent is inside the blast and cannot leave.
+    let view = {
+        let mut v = view_with(300.0, 340.0);
+        v.actors[0].phase = BodyPhase::AttackRecovery;
+        v.actors[0].phase_remaining = 0.6;
+        v
+    };
+    let weights = UtilityWeights::v1();
+    let payoff = |c: AttackCandidate| {
+        generate_options(
+            Perceived::cheating(&view),
+            Situation::Advantage,
+            &[c],
+            &weights,
+        )
+        .attacks
+        .first()
+        .map(|a| a.features.expected_payoff)
+    };
+
+    assert_eq!(
+        payoff(hazard(laid)),
+        Some(0.0),
+        "a four-second fuse was priced as damage that lands on the tick the bomb \
+         is dropped"
+    );
+    assert!(
+        payoff(hazard(thrown)).is_some_and(|p| p > 0.0),
+        "the control says nothing is worth anything here, so the arm above is not \
+         about traps"
+    );
+}
+
 #[test]
 fn a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move() {
     // A launcher shaped like `polygon_projectile_charge_shot`: fires at 0.26s,
@@ -2701,10 +2784,15 @@ fn a_launchers_payoff_is_gated_on_when_its_shot_arrives_not_on_the_whole_move() 
         });
         c
     };
-    // Instant: placed and live, so `connects_at` is the throw itself.
-    let instant = ambition_entity_catalog::ThreatTravel::Placed {
-        reach: 700.0,
-        detonates_by_s: 0.0,
+    // Instant: 700px of reach covered WITHOUT flying (`free`), so
+    // `connects_at` is the throw itself. ⚠ It said `Placed` until 2026-09-21 —
+    // a trap's zero flight standing in for an instant shot, which stopped
+    // being a valid stand-in when a trap's damage stopped being priced as
+    // immediate.
+    let instant = ambition_entity_catalog::ThreatTravel::Straight {
+        speed: 100.0,
+        span: 0.0,
+        free: 700.0,
     };
     // The same 700px of reach, crossed at 100px/s. Against a foe 100px away
     // the flight alone is a second — longer than any opening.

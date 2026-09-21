@@ -3889,6 +3889,45 @@ impl MoveHazard {
         }
     }
 
+    /// Does this hazard's DAMAGE land at the time [`Self::travel_to`] answers?
+    ///
+    /// ⛔⛤ **`Placed` ANSWERS `Some(0.0)` AND THAT IS RIGHT FOR AIMING AND
+    /// WRONG FOR PAYING — REVIEW 2026-09-21.** A laid object does not travel,
+    /// so *"how long until it can touch somebody at this distance"* is
+    /// genuinely zero; the option scorer then read that as *"the damage is
+    /// available the moment it is dropped"* and spent the polygon's 12-damage
+    /// bomb as an immediate punish, inside the 72px `Placed` reach. The bomb's
+    /// activation is a four-second fuse OR a hard impact, whichever comes
+    /// first — and this type's own doc already says nothing prices the fuse.
+    ///
+    /// ⇒ **THE SPLIT IS BETWEEN TWO QUESTIONS, NOT A NEW SCALAR.** `travel_to`
+    /// stays the aiming answer. This says whether the arrival is also the
+    /// moment the damage happens, which is true of a thing that FLIES and
+    /// false of a thing that WAITS. A trap's worth is a stage-control
+    /// question, and until the brain has a feature for that its direct strike
+    /// payoff is honestly zero rather than optimistically immediate.
+    ///
+    /// ⚠ **`OwnersRangedAction` IS FALSE FOR A DIFFERENT REASON, AND THE
+    /// DIFFERENCE IS WORTH KEEPING:** its numbers live on the BODY, so an
+    /// unresolved request cannot answer either question. [`Self::damage`]
+    /// already contributes nothing for it; this keeps the timing half
+    /// consistent instead of letting an unresolvable request read as a
+    /// same-instant hit.
+    ///
+    /// ⛔ A NEW TRAVEL LAW MUST ANSWER THIS. That is why it is a match on the
+    /// variant rather than a field on `Spawned`: adding a variant is a compile
+    /// error here, and a defaulted `true` is exactly the optimistic reading
+    /// this removes.
+    pub fn strikes_on_arrival(self) -> bool {
+        match self {
+            Self::Spawned { travel, .. } => match travel {
+                ThreatTravel::Straight { .. } | ThreatTravel::Boomerang { .. } => true,
+                ThreatTravel::Placed { .. } => false,
+            },
+            Self::OwnersRangedAction => false,
+        }
+    }
+
     /// When this hazard goes off by itself, seconds from release; `0.0` for
     /// an unresolved ranged action, which claims nothing.
     pub fn detonates_by_s(self) -> f32 {

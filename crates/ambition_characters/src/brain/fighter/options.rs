@@ -748,6 +748,37 @@ pub fn generate_options(
             } else {
                 0.0
             };
+            // ⛔⛤ **A TRAP'S DAMAGE IS NOT SPENT WHEN THE TRAP IS LAID —
+            // REVIEW 2026-09-21.** `connects_at` comes from `arrival_of`, and
+            // `ThreatTravel::Placed` answers a zero flight because a laid
+            // object does not travel. That is the right answer to the AIMING
+            // question and the wrong one to *"when does the damage happen"*:
+            // the polygon's bomb is a four-second fuse or a hard impact,
+            // neither of which anything here models, so the 12 damage was
+            // being priced as an immediate punish inside its 72px reach.
+            //
+            // ⇒ `MoveHazard::strikes_on_arrival` is the law's own answer, so
+            // a new travel shape has to state it. When the hazard's damage
+            // does not land on arrival, the payoff sees the move's VOLUMES —
+            // `max_damage`, which is volumes-only — rather than zero, so a
+            // move that both swings and lays something keeps the half that
+            // does connect.
+            //
+            // ⚠ **THIS IS NOT "TRAPS ARE WORTHLESS".** It is that their worth
+            // is a stage-control question the brain has no feature for, and an
+            // honest zero on the strike term is better than an optimistic
+            // number on the wrong timeline. `reach_fit` and admission still
+            // see the hazard.
+            let payoff_power = match c.frames.hazard {
+                Some(hazard) if !hazard.strikes_on_arrival() => {
+                    if kit_max_damage > 0.0 {
+                        c.frames.max_damage as f32 * c.wear.damage / kit_max_damage
+                    } else {
+                        0.0
+                    }
+                }
+                _ => power,
+            };
             let reach_fit = coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent);
             // ⚠ BOTH AUTHORED HALVES OF THE SELF-MOTION, because a move can
             // lunge (`start_impulse`) or command a burst (`lift_*`) and either
@@ -910,7 +941,7 @@ pub fn generate_options(
                 // block down: a swing connects when its hitbox opens, a shot
                 // when it arrives. Identical to `startup_s` for an ordinary
                 // strike by construction, so only launchers move.
-                expected_payoff: power
+                expected_payoff: payoff_power
                     * frame_advantage(connects_at, their_commitment, connects_at).max(0.0),
                 // Only a capture asks this question, and `capture_value` answers
                 // zero for everything else — stated at the call site so the

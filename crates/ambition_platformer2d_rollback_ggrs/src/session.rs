@@ -1063,6 +1063,13 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             GgrsSchedule,
             (publish_ggrs_input, count_advance_run)
                 .chain()
+                // ⛔ THE BOUNDARY THIS PUBLISHES IS A FACT OTHER SYSTEMS ORDER
+                // AGAINST, AND `.before(CoreSimulation)` DOES NOT SAY SO. A
+                // reader ordered against the wider `GameplaySimulationRoot`
+                // got no edge to this system at all — see
+                // `ConfirmedFrameBoundaryPublished`, which is what the reader
+                // names now.
+                .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         )
         .add_systems(
@@ -1998,6 +2005,65 @@ mod carrier_order_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// THE FRAME THE BRIDGE PUBLISHES IS ANNOUNCED AS A SET, AND THIS IS THE
+    /// HALF THAT CAN QUIETLY VANISH.
+    ///
+    /// ⛔⛤ **REVIEW 2026-09-21: THE READER AND THIS PUBLISHER HAD NO EDGE.**
+    /// `reconcile_authored_verdicts_with_the_timeline` reads `current` /
+    /// `confirmed` to decide which frame's verdict batch to clear, ordered
+    /// `.before(GameplaySimulationRoot)`; this pair was ordered
+    /// `.before(CoreSimulation)`, a set NESTED in that one, so both
+    /// constraints were satisfiable in either order. Bevy serialised them for
+    /// the shared resource and picked — and the wrong pick clears frame N's
+    /// batch on the pass that records N+1, so a 256-entry ring could never
+    /// hold more than one frame.
+    ///
+    /// ⚠ **THE READER'S OWN ARM CANNOT COVER THIS.** It asserts an edge to
+    /// `ConfirmedFrameBoundaryPublished`, which a `.after` registers whether
+    /// or not anything joined it — so a membership dropped here would leave
+    /// that arm green over an empty set. Hence an arm on each side of the
+    /// contract, in the crate that owns its half.
+    #[test]
+    fn the_boundary_publisher_is_a_member_of_the_set_readers_order_against() {
+        use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules, SystemKey, SystemSet as _};
+
+        let mut app = App::new();
+        install_session_bridge(&mut app);
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules
+            .get(GgrsSchedule.intern())
+            .expect("the bridge registers systems in GgrsSchedule");
+        let graph = schedule.graph();
+
+        let published = graph
+            .system_sets
+            .get_key(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished.intern())
+            .expect(
+                "the bridge must put its boundary publication in \
+                 ConfirmedFrameBoundaryPublished; without the set nothing downstream can \
+                 order against the frame this pass is about",
+            );
+        // BY SHAPE, NEVER BY NAME: `system.name()` is a placeholder unless the
+        // build graph unifies `bevy_ecs/debug`. The membership edge is a
+        // HIERARCHY edge, and at least one system must carry it.
+        let members: Vec<SystemKey> = graph
+            .systems
+            .iter()
+            .map(|(key, _, _)| key)
+            .filter(|key| {
+                graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(NodeId::Set(published), NodeId::System(*key))
+            })
+            .collect();
+        assert!(
+            !members.is_empty(),
+            "no system in GgrsSchedule belongs to ConfirmedFrameBoundaryPublished, so the \
+             reconciliation's `.after` edge points at an empty set and orders against nothing"
+        );
+    }
 
     fn schema_entry(name: &str) -> crate::RollbackRegistrationDescriptor {
         crate::RollbackRegistrationDescriptor {

@@ -64,7 +64,9 @@ pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
 pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shape, volume_shape};
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
-pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
+pub use confirmed_frame::{
+    world_state_is_confirmed, ConfirmedFrameBoundary, ConfirmedFrameBoundaryPublished,
+};
 pub use content_epoch::{ContentEpoch, PeerContentIdentity};
 pub use control_frame::AttackStrengthHint;
 pub use control_frame::ControlFrame;

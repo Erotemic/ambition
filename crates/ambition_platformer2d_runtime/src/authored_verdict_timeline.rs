@@ -56,11 +56,79 @@ impl Plugin for AuthoredVerdictTimelinePlugin {
         app.add_systems(
             sim,
             reconcile_authored_verdicts_with_the_timeline
+                // ⛔⛤ **`.before(GameplaySimulationRoot)` IS NOT AFTER THE
+                // PUBLISHER, AND THAT IS THE WHOLE ORDERING — REVIEW
+                // 2026-09-21.** The GGRS bridge publishes this frame's
+                // boundary `.before(CoreSimulation)`, which is NESTED inside
+                // `GameplaySimulationRoot`, so nothing related the two and the
+                // reconciliation could read the PREVIOUS pass's `current` —
+                // clearing frame N's batch while the simulation was about to
+                // record N+1. See `ConfirmedFrameBoundaryPublished`; in a
+                // composition with no rollback host the set is empty and this
+                // edge is a no-op.
+                .after(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(GameplaySimulationRoot)
                 // ⚠ The BOUNDARY, not the log: a host with no rollback has no
                 // timeline to reconcile against, and `Res<ConfirmedFrameBoundary>`
                 // would fail parameter validation rather than skip.
                 .run_if(resource_exists::<ambition_platformer2d_core::ConfirmedFrameBoundary>),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemKey, SystemSet as _};
+    use bevy::prelude::App;
+
+    /// THE RECONCILIATION RUNS AFTER THE FRAME IT RECONCILES AGAINST IS
+    /// PUBLISHED.
+    ///
+    /// ⛔⛤ **THE EDGE IT USED TO HAVE DID NOT REACH THE PUBLISHER — REVIEW
+    /// 2026-09-21.** `.before(GameplaySimulationRoot)` and the bridge's
+    /// `.before(CoreSimulation)` do not relate two systems when the second set
+    /// is NESTED in the first: both constraints are satisfied in either order.
+    /// They touch one resource, so Bevy serialises them and picks; a pick is
+    /// not a guarantee, and the wrong pick makes `begin_pass` clear the
+    /// PREVIOUS frame's batch every pass.
+    ///
+    /// ⚠ **THIS IS THE READER'S HALF AND IT IS HALF.** The other half — that
+    /// the publisher is actually IN the set — is asserted where the publisher
+    /// lives (`ambition_platformer2d_rollback_ggrs::session`), because a set
+    /// nothing joined would make this arm pass over an empty edge.
+    #[test]
+    fn the_reconciliation_is_ordered_after_the_boundary_is_published() {
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
+
+        let mut app = App::new();
+        app.add_plugins(super::AuthoredVerdictTimelinePlugin);
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules.get(sim).expect("the plugin creates the schedule");
+        let graph = schedule.graph();
+
+        // BY SHAPE, NEVER BY NAME — `system.name()` is a placeholder unless the
+        // build graph unifies `bevy_ecs/debug`, so a name-keyed lookup passes
+        // under one `-p` and fails under another. This plugin schedules exactly
+        // one system.
+        let systems: Vec<SystemKey> = graph.systems.iter().map(|(key, _, _)| key).collect();
+        assert_eq!(
+            systems.len(),
+            1,
+            "AuthoredVerdictTimelinePlugin schedules the reconciliation and nothing else"
+        );
+        let published = graph
+            .system_sets
+            .get_key(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished.intern())
+            .expect("the `.after` registers the set even with no members");
+        assert!(
+            graph
+                .dependency()
+                .graph()
+                .contains_edge(NodeId::Set(published), NodeId::System(systems[0])),
+            "the reconciliation must run AFTER ConfirmedFrameBoundaryPublished — it reads \
+             `boundary.current` to decide which frame's batch to clear, and reading the \
+             previous pass's value deletes the verdicts that pass recorded"
         );
     }
 }

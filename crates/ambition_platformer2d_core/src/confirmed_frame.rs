@@ -42,6 +42,34 @@ impl ConfirmedFrameBoundary {
     }
 }
 
+/// Ordering boundary: [`ConfirmedFrameBoundary`] holds THIS pass's frame.
+///
+/// ⛔⛤ **A READER AND THE PUBLISHER HAD NO EDGE, AND CONFLICTING RESOURCE
+/// ACCESS IS NOT AN ORDER — FOUND BY REVIEW 2026-09-21.** The GGRS bridge
+/// publishes `current` / `confirmed` in a system ordered only
+/// `.before(CoreSimulation)`;
+/// `reconcile_authored_verdicts_with_the_timeline` read them ordered only
+/// `.before(GameplaySimulationRoot)`. `CoreSimulation` is NESTED in
+/// `GameplaySimulationRoot`, so the reader's edge does not reach the writer
+/// and Bevy was free to run them either way — it serialises them because they
+/// touch one resource, which decides nothing about which goes first.
+///
+/// Reading it early is not a missing update, it is the PREVIOUS pass's frame:
+/// the reconciliation clears the batch belonging to frame N while the
+/// simulation is about to record frame N+1, so every frame's verdicts were
+/// deleted one pass after they were recorded and a 256-entry history ring
+/// could never hold more than the current frame.
+///
+/// ⚠ **AN EMPTY SET IN A COMPOSITION WITH NO ROLLBACK HOST, DELIBERATELY** —
+/// the same shape as `BodyCustodySettled`. `.after(ConfirmedFrameBoundaryPublished)`
+/// is then a no-op rather than a missing dependency, which is what lets a
+/// fixed-tick game order against a fact only a rollback backend produces.
+/// ⛔ It lives here, beside the resource, because the reader is in the runtime
+/// and the writer is in the GGRS bridge: a set either of them owned would make
+/// the other depend on a backend it must not name.
+#[derive(bevy_ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ConfirmedFrameBoundaryPublished;
+
 /// Run condition: the world holds no predicted state right now.
 ///
 /// Absent resource → no rollback host → always true. Use for irreversible

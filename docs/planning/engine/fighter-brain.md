@@ -153,6 +153,48 @@ unpaired is the DEFAULT, and every ladder number recorded before `--paired`
 existed was unpaired — so discount those by roughly a 69:31 seat term rather
 than by nothing.
 
+⭐⭐⛤ **THE SEAT TERM IS THE CONTESTED-GRAB TIE-BREAK — MEASURED 2026-09-21 BY
+INVERTING IT.** The cause stood unknown from the day this control was built.
+`ambition_combat::capture::systems` resolves two bodies that grab each other on
+one tick by sorting the accepted edges on the captor's `SimId` and letting a
+greedy pass take the first, so the lower `SimId` — seat 0 — wins every
+contested grab. Inverting that one comparator (`.reverse()` on the sort, nothing
+else) and re-running the identical control:
+
+| arm | seat 0 : seat 1 | tied | dealt% | peak% |
+| --- | --- | --- | --- | --- |
+| at HEAD | **16 : 6**, p=0.052 | 18 | 311 : 311 | 160.5 : 158.0 |
+| tie-break inverted | **7 : 15**, p=0.134 | 18 | 313 : 311 | **158.0 : 160.5** |
+
+**The term flips sign.** The tie count is identical at 18 and the peak-damage
+columns are exchanged to the decimal, which is what says the inversion swapped
+the two seats' outcomes rather than perturbing the bout into a different one.
+
+⛔ **THIS IS NOT A BUG REPORT ABOUT THE TIE-BREAK.** `capture::systems` argues
+the case in its own comment and the argument is sound: a mirror is a FIXED
+POINT, so identical inputs give identical states however a tie is resolved, and
+the only reflection-preserving resolution is granting nobody a grab — which was
+tried and measured at **zero captures in a minute over 126 attempts**. One
+winner it is, and Ultimate resolves a same-frame grab by port for the same
+reason. The tie-break is right.
+
+⛔⛤ **WHAT IS WRONG IS THIS PAGE'S OWN DESCRIPTION OF THE CONTROL**, three
+paragraphs up: *"paired by exchanging the two seats' NOISE STREAMS — the only
+thing left that tells the seats apart once the rung and the body are the same"*.
+Measurably false. The `SimId` ordering also tells them apart, and a pairing that
+exchanges NOISE cannot cancel a term keyed on SEAT — which is exactly why 40
+paired seeds left a 69:31 lean standing and why three separate repairs
+(the floor tie, the respawn facing) failed to move it. ⇒ **To cancel it, the
+pairing must exchange the SEATS, not the noise streams.** That is a rig change
+with a consequence — every recorded paired number was measured under the
+noise-only pairing — so it is written down here rather than made in passing.
+
+⚠ **BOUNDS.** One fighter (`smash_duelist_a`), one rung (6), 40 paired seeds,
+one inversion. It shows the term is *dominated* by the tie-break in this cell;
+it does not show the tie-break is the whole of it in every cell, and the
+inverted arm's 7:15 is not a clean mirror of 16:6 (p=0.134 against 0.052), so
+something else contributes. The other two fighters' cells were not re-run.
+
 ⚠ **NOT THE PLACEMENT, and that was checked rather than assumed.**
 `ambition_demo_smash::respawn_placement` alternates seats outward from the stage
 centre, so seats 0 and 1 sit at ±32px of a symmetric 480px platform;
@@ -211,7 +253,9 @@ Two of three cells barely moved and one did not move at all, so seat 0 still
 takes two thirds of decided pairs. The repair is right on its own terms — it is
 a mirror-symmetry defect in a query the whole brain reads, poison-verified four
 ways — and it is **not** the cause of the seat bias. Do not close the seat term
-against it.
+against it. ⭐ **THE CAUSE WAS FOUND ON 2026-09-21 AND IT IS THE CONTESTED-GRAB
+TIE-BREAK** — see the inversion experiment above. Neither this repair nor the
+respawn-facing one could have moved it, which is why both left it standing.
 
 ⛤ **AND A SECOND DIVERGENCE: A FACING THAT STOPPED MIRRORING. THE RESPAWN
 TURNED BOTH FIGHTERS RIGHT — FOUND 2026-09-21.**
@@ -276,21 +320,29 @@ is airborne, which cascades into different `routes`, a different `phase`
 (`Neutral` against `Hitstun`) and a different `situation`. See the drift table
 below for why neither is the rounding floor this page used to claim.
 
-⇒ **AND #628 IS NOT A BODY COLLISION, WHICH IS WHERE THE OBVIOUS GUESS WENT.**
+⇒ **AND #628 IS A CONTESTED GRAB, WHICH IS ADJUDICATED RATHER THAN BROKEN.**
 Decisions #624–#627 mirror exactly (`166+474`, `189+451`, `211+429`, `234+406`,
-all 640) with both fighters running at each other at 270px/s under `Approach`;
-at #628 both are at `vx=0` about 18px apart and seat 1 is airborne throwing
-`air_down` while seat 0 is grounded. Two candidates were checked and both are
-refuted: there is **no actor-versus-actor solidity** in the workspace, so
-nothing pushed them apart; and a mutual footstool is geometrically impossible
-between bodies at one height, because `feet_on_head` measures
-`stomper.feet − victim.head`, which for equal bodies on one floor is a whole
-body height rather than the small `band` it must fall inside. ⇒ What lifted
-seat 1 happened inside the ~17 ticks between two decisions, and the decision
-cadence cannot see it. **This one really does want a tick-level body trace, and
-no such trace exists in the tree today** (`AMBITION_FIGHTER_TRACE` is
-per-decision, `AMBITION_GRID_TRACE` lives in a test). Next thread on this
-probe.
+all 640) with both fighters running at each other at 270px/s under `Approach`.
+Two guesses were checked and both refuted: there is **no actor-versus-actor
+solidity** in the workspace, so nothing pushed them apart, and a mutual
+footstool is geometrically impossible between bodies at one height because
+`feet_on_head` measures `stomper.feet − victim.head`, a whole body height for
+equal bodies on one floor against the small `band` it must fall inside.
+
+⇒ A throwaway tick-level probe in the rig's own bout loop — printing
+`x0 + x1 − 640` every tick — put it at **tick 3139**, where the mirror error
+goes from `1.2e-4` to `dx=−5.4, dy=2.0, dvx=540` in ONE tick. Seat 1 is
+teleported to `seat0.x + 18, seat0.y − 2` with seat 0's velocity, sharing seat
+0's fractional part to the digit (`.29166`). That is a body being CARRIED, and
+`-2.0` is `hold_offset_local`'s y exactly: **seat 0 grabbed seat 1.** The two
+ran into each other, both reached for a grab on the same tick, and
+`capture::systems` awarded it by `SimId`.
+
+⇒ So the remaining divergences are not a defect. `capture::systems` argues this
+case in its own comment and the argument holds — a mirror is a fixed point, and
+granting NEITHER was measured at zero captures in a minute. ⭐ **But it is the
+seat term**, which had been open since the null control was built; see the
+inversion experiment above.
 
 ⛔ **"PLAYER 2 SYSTEMATICALLY FACES THE WRONG WAY" WAS REFUTED BEFORE THE CAUSE
 WAS FOUND, AND STAYS REFUTED.** Over the whole bout each seat faces away from

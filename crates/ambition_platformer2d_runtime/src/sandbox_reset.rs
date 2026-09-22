@@ -76,9 +76,10 @@ pub fn reset_sandbox(
         clusters,
         world.spawn,
         ae::ResetFacing::Toward(1.0),
+        // A sandbox reset hands the pool back full.
+        ae::ResetMeter::Full,
         tuning.air_jumps,
     );
-    clusters.mana.meter.refill_full();
     if let Some(safety) = safety {
         safety.last_safe_pos = world.spawn;
     }

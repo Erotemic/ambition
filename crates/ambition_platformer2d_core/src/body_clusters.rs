@@ -894,15 +894,16 @@ pub fn announce_body_restarts(
 /// is the point: a reset restores engine-owned state, and anything an
 /// AUTHORITY OUTSIDE THE ENGINE decided is not that.
 ///
-/// ⭐ **THE REST OF THE CLASS WAS THEN MEASURED RATHER THAN LEFT AS A WARNING
-/// — 2026-09-21.** The other two writes that default an identity-shaped fact
-/// are `BodyMana` and `BodyOffense`, and neither has a victim in this
-/// workspace: every construction of `BodyMana` in the tree is the same
-/// `ResourceMeter::new(100.0, 0.0, 0.0)` the default already is, so no
-/// character authors a pool to lose; and the only writer of
-/// `damage_multiplier` is a dev-tools editable, where losing an editor
-/// override on a reset is the intended behaviour. `size` and `facing` were the
-/// whole of it.
+/// ⚠ `BodyMana` is the THIRD field of this shape, and a census of `BodyMana`
+/// CONSTRUCTIONS missed it because the authority that shapes a meter is a
+/// mutator: `ambition_demo_smash`'s `adopt_the_limit_cap` writes `meter.max` and
+/// `meter.current` onto a live body, with no `BodyMana` literal to find. A
+/// Smash fighter's meter is a Limit — capped by the match, starting EMPTY —
+/// where a mana pool starts full, so a reset that defaulted the meter handed a
+/// respawning fighter a full one. See [`ResetMeter`].
+///
+/// `BodyOffense` is still unclaimed: its only writer is a dev-tools editable,
+/// where losing an editor override on a reset is the intended behaviour.
 ///
 /// The same lesson this function's own doc already records for
 /// `air_jumps_default`: an authority that silently picks is not an authority.
@@ -916,11 +917,30 @@ pub enum ResetFacing {
     Toward(f32),
 }
 
+/// What a reset does to the body's resource meter.
+///
+/// A reset restores the body; it does not get to decide what the meter IS. Its
+/// `max` and rates are owned by whoever declared the resource — a match's Limit
+/// cap, a character's pool — and none of those authorities is this function.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ResetMeter {
+    /// Leave the meter untouched, values and shape alike.
+    Keep,
+    /// Refill to the meter's OWN max, keeping that max and its rates. This is
+    /// what every road that is not running a Limit means, and for a body whose
+    /// max is the default pool it is the old `BodyMana::default()` exactly.
+    Full,
+    /// Empty it, keeping its max and rates — a meter that is EARNED rather than
+    /// spent down, which is what a Limit is.
+    Empty,
+}
+
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     spawn: Vec2,
     facing: ResetFacing,
+    meter: ResetMeter,
     air_jumps_default: u8,
 ) {
     use crate::movement::{ComboMark, MovementOp};
@@ -976,7 +996,13 @@ pub fn reset_body_clusters(
     *clusters.shield = BodyShieldState::default();
     *clusters.body_mode = BodyModeState::default();
     *clusters.env_contact = BodyEnvironmentContact::default();
-    *clusters.mana = BodyMana::default();
+    // The meter's SHAPE survives the reset; only its value is the reset's
+    // business, and which value is the caller's. See `ResetMeter`.
+    match meter {
+        ResetMeter::Keep => {}
+        ResetMeter::Full => clusters.mana.meter.current = clusters.mana.meter.max,
+        ResetMeter::Empty => clusters.mana.meter.current = 0.0,
+    }
     *clusters.offense = BodyOffense::default();
     *clusters.action_buffer = BodyActionBuffer::default();
     *clusters.lifetime = BodyLifetime {
@@ -1456,6 +1482,7 @@ mod reset_tests {
             &mut clusters,
             spawn,
             ResetFacing::Keep,
+            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1488,6 +1515,7 @@ mod reset_tests {
             &mut clusters,
             spawn,
             ResetFacing::Keep,
+            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1512,7 +1540,7 @@ mod reset_tests {
         let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let generous = crate::movement::DEFAULT_TUNING.air_jumps + 3;
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, Vec2::ZERO, ResetFacing::Keep, generous);
+        reset_body_clusters(model, &mut clusters, Vec2::ZERO, ResetFacing::Keep, ResetMeter::Full, generous);
         assert_eq!(
             scratch.jump.air_jumps_available, generous,
             "the reset restored the engine default over the tuning the caller \
@@ -1557,6 +1585,7 @@ mod reset_tests {
                     &mut clusters,
                     Vec2::ZERO,
                     asked,
+                    ResetMeter::Full,
                     crate::movement::DEFAULT_TUNING.air_jumps,
                 );
             }
@@ -1583,6 +1612,7 @@ mod reset_tests {
             &mut clusters,
             Vec2::new(10.0, 20.0),
             ResetFacing::Keep,
+            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
         assert!(scratch.lifetime.restart_pending);

@@ -222,6 +222,8 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                     // which is why the baseline is not being widened (and its
                     // rollback schema bumped) for it today.
                     ae::ResetFacing::Keep,
+                    // A revived body comes back with its pool.
+                    ae::ResetMeter::Full,
                     ae::DEFAULT_TUNING.air_jumps,
                 );
             }

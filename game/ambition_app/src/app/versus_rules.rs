@@ -529,6 +529,9 @@ fn begin_round(
             // authority must not require, and it is what the smash respawn
             // forgot to do (see `ResetFacing`).
             ae::ResetFacing::Toward(facing),
+            // The versus stage declares no earned meter, so a round boundary
+            // hands the pool back.
+            ae::ResetMeter::Full,
             // The versus stage does not override the air game; a stage that did
             // would pass its own number, which is why this is asked rather than
             // assumed.

@@ -851,6 +851,9 @@ pub(crate) fn safe_respawn_player(
         // schema) to carry one is not worth doing until a checkpoint is shown
         // to need an authored facing.
         ae::ResetFacing::Keep,
+        // A hazard respawn hands the pool back. No ruleset whose meter is
+        // EARNED rather than spent down respawns through here.
+        ae::ResetMeter::Full,
         tuning.air_jumps,
     );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;

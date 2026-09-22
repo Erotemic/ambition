@@ -77,7 +77,7 @@ pub fn arrive_body_in_room(
     // a body that walked LEFT through a door came out still moving left and
     // looking right. This wrapper is a named verb, so it answers rather than
     // asking its caller — which is the difference between it and the primitive.
-    crate::reset_body_clusters(model, clusters, spawn, crate::ResetFacing::Keep, air_jumps_default);
+    crate::reset_body_clusters(model, clusters, spawn, crate::ResetFacing::Keep, crate::ResetMeter::Full, air_jumps_default);
     let abilities = clusters.abilities.abilities;
     clusters.flight.fly_enabled = if abilities.fly && !abilities.fly_toggle {
         true

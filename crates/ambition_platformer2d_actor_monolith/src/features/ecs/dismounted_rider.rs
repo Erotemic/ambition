@@ -155,13 +155,10 @@ pub fn rebuild_dismounted_rider_brains(
         if match_seat.is_some() {
             continue;
         }
-        // ⛔ A BODY WITH NO BASELINE KEEPS ITS REPERTOIRE, it does not get an
-        // empty one. This read `combat_kit.cloned().unwrap_or_default()`, and the
-        // component it defaulted was absent on the PLAYER — so the fail-open was
-        // the live path for a human rider, rebuilding her live `ActionSet` from an
-        // all-`None` kit on the way down. The baseline feeds only the action set
-        // (the brain is chosen from the config and the held item), so absence
-        // costs the repertoire rebuild and nothing else.
+        // A body with no baseline keeps its repertoire rather than being given
+        // an empty one. The baseline feeds only the action set — the brain is
+        // chosen from the config and the held item — so absence costs the
+        // repertoire rebuild and nothing else.
         let (brain, action_set) = match identity_kit {
             Some(identity_kit) => {
                 let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain_and_action_set(
@@ -300,27 +297,13 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
         );
     }
 
-    /// **A RIDER WITH NO REPERTOIRE BASELINE KEEPS THE ONE IT HAS.**
+    /// A rider whose repertoire baseline is absent keeps the repertoire it has.
     ///
-    /// The rebuild read `combat_kit.cloned().unwrap_or_default()` under the
-    /// comment *"a rider always carries a CombatKit; fall back defensively"* —
-    /// and the component it defaulted was ABSENT ON THE PLAYER, measured: a
-    /// worn player body carries `IdentityKit` and `ActionSet` and no durable kit
-    /// at all. So for a human rider the "defensive" branch was the ONLY branch,
-    /// and coming off a mount rebuilt her live `ActionSet` from an all-`None`
-    /// baseline — every verb she was holding, gone, permanently.
-    ///
-    /// ⭐ THE FIXTURE IS THE POINT: this rider carries a live melee and NO
-    /// baseline, which is the shape the invention used to overwrite. A body whose
-    /// baseline is genuinely unknown must keep what it has; inventing an empty
-    /// one is not a safe default, it is a disarm.
-    ///
-    /// ⚠ THE EDIT THAT MAKES THIS FALSE is restoring any `unwrap_or_default()`
-    /// on the baseline. POISONED, and the measured failure is worse than `None`:
-    /// the empty baseline falls through `action_set.melee.is_none()` into
-    /// `default_fighting_kit()`, so the rider came down holding a STRANGER'S
-    /// swipe — damage 1 / reach 28 where its own was damage 4 / reach 44. Two
-    /// fail-opens in series, the second wearing the first's output as its input.
+    /// Defaulting the baseline instead would rebuild the live `ActionSet` from an
+    /// empty one, which then falls through `melee.is_none()` into the ruleset's
+    /// provoked swipe — so a missing baseline disarms the body and re-arms it
+    /// with somebody else's weapon. The brain half still runs: it is chosen from
+    /// the config and the held item and reads no baseline.
     #[test]
     fn a_rider_with_no_baseline_is_not_handed_an_empty_one() {
         let mut app = App::new();
@@ -339,7 +322,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
             )),
             ..Default::default()
         };
-        // No `IdentityKit`: the player's shape, measured.
+        // A rider carrying a live repertoire and NO baseline to rebuild from.
         let rider = app
             .world_mut()
             .spawn((rider_config(), live.clone(), fighter_brain()))

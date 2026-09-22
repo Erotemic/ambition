@@ -482,7 +482,7 @@ gun is not an occurrence.** Read side by side:
 | | ordinary held item | portal gun |
 |---|---|---|
 | in the world | `GroundItem` with a `SimId` | `PortalGunPickup`, no identity |
-| pickup | `HeldItem` + `ItemCustody::Held { holder }`; the object PERSISTS | pickup entity despawned; `PortalGun { active }` + `StashedActionSet` on the body; `owned.grant(Item::PortalGun, 1)` |
+| pickup | `HeldItem` + `ItemCustody::Held { holder }`; the object PERSISTS | pickup entity despawned; `PortalGun { active }` on the body, repertoire refolded for that hand; `owned.grant(Item::PortalGun, 1)` |
 | drop | the same object returns to the ground | `unequip_portal_gun`, then `spawn_room_scoped(PortalGunPickup { … })` — a FRESH token |
 | durable record | custody + the whereabouts ledger, rebuilt by `restore_custody_to_checkpoint` | `OwnedItems`, granted on pickup and **never revoked on drop** |
 

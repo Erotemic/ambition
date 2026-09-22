@@ -598,8 +598,8 @@ pub fn process_new_game_reset_request(
 
 /// On a sandbox reset, despawn the transient world items **the room rebuild does not own** —
 /// placed portals + in-flight shots, a dropped weapon, a summoned puppy-slug ally — and strip
-/// the player's held state (`HeldItem` / `StashedActionSet` / `PortalGun`), restoring its base
-/// `ActionSet`.
+/// the player's held state (`HeldItem` / `PortalGun`), re-deriving its repertoire for the
+/// emptied hand.
 ///
 /// **AND NOTHING THAT IS ROOM-SCOPED, because the room is already rebuilt by
 /// the time this runs.** [`process_new_game_reset_request`] retires every
@@ -655,11 +655,7 @@ pub fn clear_transient_on_sandbox_reset(
         ),
     >,
     mut players: Query<
-        (
-            Entity,
-            &mut ambition_characters::brain::ActionSet,
-            Option<&ambition_held_items::StashedActionSet>,
-        ),
+        (Entity, ambition_combat::hand::RepertoireQuery),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
@@ -669,13 +665,9 @@ pub fn clear_transient_on_sandbox_reset(
     for entity in &transient {
         commands.entity(entity).despawn();
     }
-    for (player, mut action_set, stashed) in &mut players {
-        if let Some(stash) = stashed {
-            *action_set = stash.0.clone();
-        }
-        commands
-            .entity(player)
-            .remove::<ambition_held_items::StashedActionSet>();
+    for (player, mut repertoire) in &mut players {
+        // Both hand components go below, so the hand this refolds for is empty.
+        repertoire.refold(ambition_characters::repertoire::Hand::Empty);
         commands
             .entity(player)
             .remove::<ambition_combat::held_items::HeldItem>();

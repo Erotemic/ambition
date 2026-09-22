@@ -79,6 +79,7 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
             base_size: Vec2::new(24.0, 40.0),
         },
         ambition_characters::brain::ActionSet::default(),
+        ambition_characters::brain::action_set::IdentityKit::default(),
         control,
     ));
     if matches!(carrying, Carrying::Item | Carrying::Both) {

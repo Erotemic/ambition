@@ -68,7 +68,6 @@ actor.senses_undecided	component-clone	SensesUndecided	bevy_ggrs clone snapshot;
 actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; not in the session checksum
 actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; not in the session checksum
 actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; not in the session checksum
-actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

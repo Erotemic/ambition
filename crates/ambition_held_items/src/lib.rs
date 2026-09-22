@@ -31,8 +31,9 @@ pub mod conditions;
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActionSet, HeldItemSpec};
+use ambition_characters::brain::HeldItemSpec;
 use ambition_characters::control::ActorControl;
+use ambition_combat::hand::{RepertoireQuery, RepertoireQueryItem};
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
@@ -843,10 +844,6 @@ pub fn record_placed_ground_items(
     );
 }
 
-/// The player's pre-pickup `ActionSet`, restored when the held item is thrown.
-#[derive(Component, Clone)]
-pub struct StashedActionSet(pub ActionSet);
-
 /// Authored axe held item: a keep-on-use heavy melee swing (placeholder tuning).
 pub fn axe_spec() -> HeldItemSpec {
     ambition_characters::brain::held_item_by_id("axe").expect("axe is a built-in held item")
@@ -915,8 +912,8 @@ pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
 
 /// TAKE custody of a held item — one operation, both ends.
 ///
-/// Stash the current action set, overlay the item's verbs, and attach
-/// [`HeldItem`]. Every way a body comes to hold a weapon calls this: the world
+/// Attach [`HeldItem`] and re-derive the body's repertoire for the hand it now
+/// has. Every way a body comes to hold a weapon calls this: the world
 /// pickup ([`pickup_held_item_system`]) and the inventory menu. There is no
 /// second place that writes half of it.
 ///
@@ -930,18 +927,28 @@ pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
 pub fn equip_held_spec(
     commands: &mut Commands,
     player: Entity,
-    action_set: &mut ActionSet,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
     spec: HeldItemSpec,
 ) {
-    commands
-        .entity(player)
-        .insert(StashedActionSet(action_set.clone()));
-    let held = HeldItem::new(spec.clone());
-    // The held item *replaces* the player's attack verbs (move-style/special
-    // are kept), exactly as the world pickup does.
-    action_set.melee = spec.melee;
-    action_set.ranged = spec.ranged;
+    let held = HeldItem::new(spec);
+    // The hand becomes exactly this item: a body holds one thing, and every
+    // caller has emptied the hand (or found it empty) before taking custody.
+    repertoire.refold(ambition_characters::repertoire::Hand::Holding(&held.spec));
     commands.entity(player).insert(held);
+}
+
+/// Empty a body's hand of whatever it holds — a held item, the portal gun, or
+/// both — as ONE transition, so the repertoire is folded once for the hand it is
+/// left with rather than once per queued removal.
+pub fn empty_hand(
+    commands: &mut Commands,
+    player: Entity,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
+) {
+    repertoire.refold(ambition_characters::repertoire::Hand::Empty);
+    commands.entity(player).remove::<HeldItem>();
+    #[cfg(feature = "portal")]
+    commands.entity(player).remove::<PortalGun>();
 }
 
 /// The catalog [`Item`](ambition_items::Item) a body's hand holds, if the
@@ -963,8 +970,8 @@ pub fn item_in_hand(
 
 /// RELEASE custody of a held item — the twin of [`equip_held_spec`].
 ///
-/// Restore the stashed action set and detach [`HeldItem`]. The body stops
-/// holding it here and nowhere else.
+/// Detach [`HeldItem`] and re-derive the repertoire for the emptied hand. The
+/// body stops holding it here and nowhere else.
 ///
 /// Nothing here has an item query to fix that with (the menu calls this from `Update`, in another
 /// crate), so custody is re-derived from the hand instead: see [`return_released_items`]. A caller
@@ -972,19 +979,16 @@ pub fn item_in_hand(
 pub fn unequip_held(
     commands: &mut Commands,
     player: Entity,
-    action_set: &mut ActionSet,
-    stashed: Option<&StashedActionSet>,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
 ) {
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
+    repertoire.refold_with_held(None);
     commands.entity(player).remove::<HeldItem>();
-    commands.entity(player).remove::<StashedActionSet>();
 }
 
 /// TAKE custody of the portal gun — the portal-gun twin of
-/// [`equip_held_spec`]. Stash the action set, attach an active [`PortalGun`],
-/// and clear the melee swing so `Attack` fires portals.
+/// [`equip_held_spec`]. Attach an active [`PortalGun`] and re-derive the
+/// repertoire for a hand holding it, which has no melee swing, so `Attack` fires
+/// portals.
 ///
 /// The gun equips through its own component rather than a `HeldItemSpec`, which
 /// is why it needs a twin at all; [`item_in_hand`] reads the active gun as
@@ -996,34 +1000,28 @@ pub fn unequip_held(
 pub fn equip_portal_gun(
     commands: &mut Commands,
     player: Entity,
-    action_set: &mut ActionSet,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
     pair: u8,
 ) {
-    commands
-        .entity(player)
-        .insert(StashedActionSet(action_set.clone()));
+    repertoire.refold(ambition_characters::repertoire::Hand::PortalGun);
     // Both facts, because they outlive each other differently: the gun in the
     // hand, and the pair this body owns even after the hand is emptied.
     commands
         .entity(player)
         .insert((PortalGun::for_pair(pair), OwnedPortalGunPair(pair)));
-    action_set.melee = None;
 }
 
 /// RELEASE custody of the portal gun — the portal-gun twin of
-/// [`unequip_held`]. Detach [`PortalGun`] and restore the stashed action set.
+/// [`unequip_held`]. Detach [`PortalGun`] and re-derive the repertoire for what
+/// the hand holds without it.
 #[cfg(feature = "portal")]
 pub fn unequip_portal_gun(
     commands: &mut Commands,
     player: Entity,
-    action_set: &mut ActionSet,
-    stashed: Option<&StashedActionSet>,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
 ) {
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
+    repertoire.refold_with_gun(false);
     commands.entity(player).remove::<PortalGun>();
-    commands.entity(player).remove::<StashedActionSet>();
 }
 
 /// EVERY BODY WHOSE PRESSES ARE SOMEBODY'S — the population a press-gated item
@@ -1113,22 +1111,17 @@ impl DrivenBodies<'_, '_> {
 pub fn pickup_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
-    mut bodies: Query<(
-        &mut ActorControl,
-        &BodyKinematics,
-        &mut ActionSet,
-        Option<&HeldItem>,
-    )>,
+    mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery)>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
 ) {
     for player in driven.entities() {
-        let Ok((mut control, kin, mut action_set, held)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
             continue;
         };
         // One item at a time: already holding a physical item, or the portal gun.
-        if held.is_some() {
+        if repertoire.held.is_some() {
             continue;
         }
         #[cfg(feature = "portal")]
@@ -1164,7 +1157,7 @@ pub fn pickup_held_item_system(
                 // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
                 //
                 // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-                equip_held_spec(&mut commands, player, &mut action_set, ground.spec.clone());
+                equip_held_spec(&mut commands, player, &mut repertoire, ground.spec.clone());
                 // The Attack press is *consumed* by the pickup so the same press
                 // doesn't also fire the just-equipped item this frame. Clear the
                 // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -1258,13 +1251,7 @@ pub fn throw_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
-    mut bodies: Query<(
-        &mut ActorControl,
-        &BodyKinematics,
-        &mut ActionSet,
-        &HeldItem,
-        Option<&StashedActionSet>,
-    )>,
+    mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery), With<HeldItem>>,
     // The object this body is CARRYING, found by the custody it records rather
     // than by the hand remembering an entity handle.
     mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
@@ -1278,7 +1265,10 @@ pub fn throw_held_item_system(
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     for player in driven.entities() {
-        let Ok((mut control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
+            continue;
+        };
+        let Some(held) = repertoire.held else {
             continue;
         };
         // ⭐ TWO WAYS TO LET GO, AND THEY DIFFER ONLY IN THE LAUNCH.
@@ -1343,7 +1333,7 @@ pub fn throw_held_item_system(
         // The rule the note still carries is the useful part: only the equipped slot moves here, never
         // the stored quantity — the spend belongs at the MINT, where the quantity actually becomes an
         // object.
-        unequip_held(&mut commands, player, &mut action_set, stashed);
+        unequip_held(&mut commands, player, &mut repertoire);
         // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
         // is still a live entity carrying its own identity, so the throw resets its custody and writes
         // the launch onto it.

@@ -269,6 +269,9 @@ pub fn project_prepared_character_definitions(
         Option<&ambition_combat::CombatTuning>,
         Option<&ProjectedCharacterKit>,
     )>,
+    // The hand a re-granted kit is folded with.
+    held: Query<&ambition_combat::held_items::HeldItem>,
+    #[cfg(feature = "portal")] guns: Query<&ambition_portal2d::PortalGun>,
 ) {
     let Some(registry) = registry else {
         return;
@@ -327,6 +330,13 @@ pub fn project_prepared_character_definitions(
             // `MatchRules::body_over`, which is the only place the two are
             // weighed against each other.
             prepared.movement_tuning,
+            ambition_combat::hand::hand(held.get(entity).ok(), {
+                #[cfg(feature = "portal")]
+                let active = guns.get(entity).is_ok_and(|gun| gun.active);
+                #[cfg(not(feature = "portal"))]
+                let active = false;
+                active
+            }),
         );
     }
 }

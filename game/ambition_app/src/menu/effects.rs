@@ -6,8 +6,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
-use ambition_platformer2d::held_items::{equip_held_spec, held_spec_for_item, item_in_hand, unequip_held, StashedActionSet};
-use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_for_item, item_in_hand};
 use ambition_platformer2d::combat::held_items::HeldItem;
 use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::items::{Inventory, Item, ItemCategory, OwnedItems};
@@ -93,8 +92,7 @@ pub(crate) type MenuEffectPlayers<'w, 's> = Query<
     's,
     (
         Entity,
-        &'static mut ActionSet,
-        Option<&'static StashedActionSet>,
+        ambition_platformer2d::combat::hand::RepertoireQuery,
         // Which portal pair this body owns, if it owns a gun at all. Read so a
         // menu re-equip hands back the gun the player actually has rather than
         // a fresh default one.
@@ -107,11 +105,7 @@ pub(crate) type MenuEffectPlayers<'w, 's> = Query<
 pub(crate) type MenuEffectPlayers<'w, 's> = Query<
     'w,
     's,
-    (
-        Entity,
-        &'static mut ActionSet,
-        Option<&'static StashedActionSet>,
-    ),
+    (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
     (With<PlayerEntity>, With<PrimaryPlayer>),
 >;
 
@@ -219,50 +213,39 @@ pub(crate) fn apply_menu_action(
             }
             if let Ok(parts) = players.single_mut() {
                 #[cfg(feature = "portal")]
-                let (player, mut action_set, stashed, owned_pair) = parts;
+                let (player, mut repertoire, owned_pair) = parts;
                 #[cfg(not(feature = "portal"))]
-                let (player, mut action_set, stashed) = parts;
+                let (player, mut repertoire) = parts;
                 // Clear whatever weapon is currently held (a held item OR the
-                // portal gun) so we re-stash the true base, then equip the new one.
-                // The hand is the only record of what is equipped (I1): there is
-                // no catalog slot to keep in step any more.
-                if stashed.is_some() {
-                    unequip_held(commands, player, &mut action_set, stashed);
-                    #[cfg(feature = "portal")]
-                    commands
-                        .entity(player)
-                        .remove::<ambition_platformer2d::portal::PortalGun>();
-                }
+                // portal gun), then equip the new one. The hand is the only
+                // record of what is equipped (I1).
+                empty_hand(commands, player, &mut repertoire);
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
                     ambition_platformer2d::held_items::equip_portal_gun(
                         commands,
                         player,
-                        &mut action_set,
+                        &mut repertoire,
                         // The pair this body owns; 0 only if it never held one.
                         owned_pair.map_or(0, |owned| owned.0),
                     );
                 } else if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec);
+                    equip_held_spec(commands, player, &mut repertoire, spec);
                 }
                 #[cfg(not(feature = "portal"))]
                 if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec);
+                    equip_held_spec(commands, player, &mut repertoire, spec);
                 }
             }
         }
         MenuAction::Unequip(_item) => {
             if let Ok(parts) = players.single_mut() {
                 #[cfg(feature = "portal")]
-                let (player, mut action_set, stashed, _owned_pair) = parts;
+                let (player, mut repertoire, _owned_pair) = parts;
                 #[cfg(not(feature = "portal"))]
-                let (player, mut action_set, stashed) = parts;
+                let (player, mut repertoire) = parts;
                 // Detach both possible weapon front-ends (held item + portal gun).
-                unequip_held(commands, player, &mut action_set, stashed);
-                #[cfg(feature = "portal")]
-                commands
-                    .entity(player)
-                    .remove::<ambition_platformer2d::portal::PortalGun>();
+                empty_hand(commands, player, &mut repertoire);
             }
         }
         MenuAction::UseConsumable(Item::HealthCell) => {

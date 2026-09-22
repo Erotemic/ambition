@@ -19,10 +19,11 @@ pub mod minted_horizon;
 use bevy::prelude::*;
 
 use ambition_characters::brain::{ActionSet, HeldItemSpec};
+use ambition_combat::hand::RepertoireQuery;
 use ambition_combat::held_items::HeldItem;
 use ambition_held_items::{
     equip_held_spec, held_spec_by_id, unequip_held, GroundItem, ItemCustody,
-    StashedActionSet, MINTED_ITEM_HALF_EXTENT,
+    MINTED_ITEM_HALF_EXTENT,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
@@ -163,9 +164,7 @@ pub fn restore_custody_to_checkpoint(
     mut bodies: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
-        &mut ActionSet,
-        Option<&HeldItem>,
-        Option<&StashedActionSet>,
+        RepertoireQuery,
     )>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -187,7 +186,7 @@ pub fn restore_custody_to_checkpoint(
         Entity,
     > = bodies
         .iter()
-        .map(|(entity, sim_id, _, _, _)| (sim_id.clone(), entity))
+        .map(|(entity, sim_id, _)| (sim_id.clone(), entity))
         .collect();
 
     // Collected first: the loop below borrows `bodies` mutably, and an item's
@@ -219,10 +218,10 @@ pub fn restore_custody_to_checkpoint(
         match wanted {
             // ── the checkpoint saw this in a hand; put it back there ──────────
             Some(holder) => {
-                let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
+                let Ok((_, _, mut repertoire)) = bodies.get_mut(holder) else {
                     continue;
                 };
-                equip_held_spec(&mut commands, holder, &mut action_set, spec);
+                equip_held_spec(&mut commands, holder, &mut repertoire, spec);
                 if let Ok((_, _, mut ground, mut custody)) = items.get_mut(entity) {
                     *custody = ItemCustody::Held { holder };
                     // A carried item is not in flight — the same zeroing the
@@ -242,9 +241,9 @@ pub fn restore_custody_to_checkpoint(
                     // `return_released_items` does: an equip-swap can leave the
                     // body holding something else entirely, and stripping THAT
                     // hand would take away an item this reset has no claim on.
-                    if let Ok((_, _, mut action_set, held, stashed)) = bodies.get_mut(holder) {
-                        if held.is_some_and(|held| held.id() == spec.id.as_str()) {
-                            unequip_held(&mut commands, holder, &mut action_set, stashed);
+                    if let Ok((_, _, mut repertoire)) = bodies.get_mut(holder) {
+                        if repertoire.held.is_some_and(|held| held.id() == spec.id.as_str()) {
+                            unequip_held(&mut commands, holder, &mut repertoire);
                         }
                     }
                 }
@@ -392,7 +391,7 @@ pub fn restore_custody_to_checkpoint(
         let Some((origin, pos, half_extent, name, held)) = rebuilt else {
             continue;
         };
-        let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
+        let Ok((_, _, mut repertoire)) = bodies.get_mut(holder) else {
             continue;
         };
         // the occurrence's OWN `SimId` and provenance, which is what makes
@@ -417,7 +416,7 @@ pub fn restore_custody_to_checkpoint(
                 ItemCustody::Held { holder },
             ),
         );
-        equip_held_spec(&mut commands, holder, &mut action_set, held);
+        equip_held_spec(&mut commands, holder, &mut repertoire, held);
     }
 }
 
@@ -776,15 +775,8 @@ pub fn apply_custody_handoffs(
         if !holds_it {
             continue;
         }
-        let stashed = world.get::<StashedActionSet>(holder).cloned();
-        let Some(mut action_set) = world.get_mut::<ActionSet>(holder) else {
-            continue;
-        };
-        if let Some(stash) = stashed {
-            *action_set = stash.0.clone();
-        }
+        ambition_combat::hand::refold_in_world_with_held(world, holder, None);
         world.entity_mut(holder).remove::<HeldItem>();
-        world.entity_mut(holder).remove::<StashedActionSet>();
         stripped += 1;
     }
     stripped

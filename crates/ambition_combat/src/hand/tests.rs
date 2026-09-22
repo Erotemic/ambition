@@ -11,7 +11,7 @@ use ambition_characters::brain::action_set::{
     ActionSet, IdentityKit, RangedActionSpec, RangedStyle,
 };
 use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, OnHit, WornEquipment};
-use ambition_combat::moveset::{ActorMoveset, RANGED_VERB};
+use crate::moveset::{ActorMoveset, RANGED_VERB};
 
 use super::reconcile_effective_repertoire;
 
@@ -300,4 +300,50 @@ fn swapping_the_identity_baseline_replaces_the_old_kit_and_keeps_the_grant() {
          blame because it is the only thing anybody looks at"
     );
     assert!(live.ranged.is_some(), "the grant still stands");
+}
+
+/// THE PORTAL GUN IS A HAND, AND THE RECONCILE MUST SEE IT. A body whose own
+/// identity swings, holding the gun: an equipment change re-folds the
+/// repertoire, and a fold that read only `HeldItem` would see an empty hand and
+/// give the swing back while the gun is still in it.
+#[cfg(feature = "portal")]
+#[test]
+fn an_equipment_change_while_holding_the_portal_gun_does_not_restore_the_swing() {
+    use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
+    let swing = Some(MeleeActionSpec::Swipe(SwipeSpec {
+        windup_s: 0.1,
+        active_s: 0.1,
+        recover_s: 0.1,
+        damage: 1,
+        reach_px: 32.0,
+    }));
+    let mut app = App::new();
+    let identity = IdentityKit {
+        action_set: ActionSet {
+            melee: swing,
+            ..ActionSet::peaceful()
+        },
+        ..Default::default()
+    };
+    let body = app
+        .world_mut()
+        .spawn((
+            identity,
+            ActionSet::peaceful(),
+            ActorMoveset(Default::default()),
+            WornEquipment::default(),
+            crate::hand::PortalGun::for_pair(0),
+        ))
+        .id();
+    app.add_systems(Update, reconcile_effective_repertoire);
+    app.update();
+    app.world_mut()
+        .get_mut::<WornEquipment>(body)
+        .unwrap()
+        .equip(granting_row("spark", None));
+    app.update();
+
+    let live = app.world().get::<ActionSet>(body).unwrap();
+    assert!(live.melee.is_none(), "the gun is in the hand, so the swing is not");
+    assert!(live.ranged.is_some(), "and the equipment change itself still landed");
 }

@@ -12,7 +12,7 @@ crate-type = ["rlib"]
 [features]
 # The portal gun is a held item with its own crate; a composition without
 # portals pays nothing for it.
-portal = ["dep:ambition_portal2d"]
+portal = ["dep:ambition_portal2d", "ambition_combat/portal"]
 
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

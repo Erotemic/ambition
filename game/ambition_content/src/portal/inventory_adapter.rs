@@ -4,24 +4,23 @@
 //! [`PortalGunPickup`](ambition_portal2d::PortalGunPickup) body, but the *policy* of
 //! how the Ambition player acquires / relinquishes the gun is content-specific:
 //!
-//! - equipping replaces the player's melee `Attack` (the same
-//!   [`StashedActionSet`] path the held axe / gun-sword use), so `Attack` fires
-//!   portals instead of swinging;
+//! - equipping puts the gun in the player's hand, and the repertoire derived for
+//!   that hand has no melee `Attack` (the same fold the held axe / gun-sword
+//!   take), so `Attack` fires portals instead of swinging;
 //! - acquiring reflects ownership + equipped state into the 24-item
 //!   [`OwnedItems`] roster so the OoT menu shows it.
 //!
 //! These translate the reusable [`PickUpPortalGun`] / [`DropPortalGun`] intents
 //! (emitted by the input adapter) and the [`PortalGunEquipped`] outcome into
-//! Ambition item state. The reusable portal core never imports `ambition_platformer2d_actor_monolith::items`,
-//! `StashedActionSet`, or `HeldItem`.
+//! Ambition item state. The reusable portal core never imports `ambition_platformer2d_actor_monolith::items`
+//! or `HeldItem`.
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::ActionSet;
 use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d::actor::SpawnScopedExt;
 use ambition_platformer2d_actor_monolith::features::HeldItem;
-use ambition_held_items::StashedActionSet;
+use ambition_combat::hand::RepertoireQuery;
 #[cfg(test)]
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
@@ -52,8 +51,7 @@ pub fn drop_portal_gun_system(
     mut holders: Query<
         (
             &BodyKinematics,
-            &mut ActionSet,
-            Option<&StashedActionSet>,
+            RepertoireQuery,
             &mut ambition_characters::control::ActorControl,
             &PortalGun,
         ),
@@ -83,8 +81,7 @@ fn drop_one_portal_gun(
     holders: &mut Query<
         (
             &BodyKinematics,
-            &mut ActionSet,
-            Option<&StashedActionSet>,
+            RepertoireQuery,
             &mut ambition_characters::control::ActorControl,
             &PortalGun,
         ),
@@ -92,14 +89,14 @@ fn drop_one_portal_gun(
     >,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
-    let Ok((kin, mut action_set, stashed, mut actor_control, gun)) = holders.get_mut(player) else {
+    let Ok((kin, mut repertoire, mut actor_control, gun)) = holders.get_mut(player) else {
         return;
     };
     // Committed: this body IS dropping its gun, so the press is answered.
     actor_control.0.melee_pressed = false;
     // CUSTODY, one operation: detach the gun and restore the swing it replaced.
     // The same release the inventory menu performs; the hand is the record.
-    unequip_portal_gun(commands, player, &mut action_set, stashed);
+    unequip_portal_gun(commands, player, &mut repertoire);
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn_room_scoped((
         PortalGunPickup {
@@ -129,7 +126,7 @@ pub fn pickup_portal_gun_system(
     // can't grab a gun it already holds, nor while holding a ground item.
     mut bodies: Query<(
         &BodyKinematics,
-        &mut ActionSet,
+        RepertoireQuery,
         Has<PortalGun>,
         Has<HeldItem>,
     )>,
@@ -179,7 +176,7 @@ fn pick_up_one_portal_gun(
     commands: &mut Commands,
     bodies: &mut Query<(
         &BodyKinematics,
-        &mut ActionSet,
+        RepertoireQuery,
         Has<PortalGun>,
         Has<HeldItem>,
     )>,
@@ -189,7 +186,7 @@ fn pick_up_one_portal_gun(
     equipped: &mut MessageWriter<PortalGunEquipped>,
     sfx: &mut ambition_sfx::SfxWriter,
 ) {
-    let Ok((kin, mut action_set, has_gun, has_held)) = bodies.get_mut(player) else {
+    let Ok((kin, mut repertoire, has_gun, has_held)) = bodies.get_mut(player) else {
         return;
     };
     // Already holding the gun, or holding a ground item → no pickup.
@@ -213,7 +210,7 @@ fn pick_up_one_portal_gun(
             // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
             // The pickup's pair travels with it: the gun you now hold is
             // whichever pair was on the floor, not whichever pair is default.
-            equip_portal_gun(commands, player, &mut action_set, pickup.pair);
+            equip_portal_gun(commands, player, &mut repertoire, pickup.pair);
             claimed.insert(entity);
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });

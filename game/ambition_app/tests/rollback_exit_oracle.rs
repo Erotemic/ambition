@@ -495,10 +495,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored item spec; immutable while it lies on the ground",
         ),
         (
-            "ambition_held_items::StashedActionSet",
-            "authored action set held across a possession",
-        ),
-        (
             "ambition_characters::actor::body::BodyAnimFacts",
             "republished every tick from motion by the body animator",
         ),

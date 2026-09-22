@@ -430,7 +430,6 @@ pub(super) struct EnemyActorSpawnPlan {
     aggression: ambition_combat::components::ActorAggression,
     brain: ambition_characters::brain::Brain,
     action_set: ambition_characters::brain::ActionSet,
-    held_item: Option<ambition_characters::brain::HeldItemSpec>,
     /// The archetype's data-driven signature move repertoire, if any (§A1, Path B).
     moveset: Option<ambition_entity_catalog::MovesetContract>,
 }
@@ -453,7 +452,6 @@ impl EnemyActorSpawnPlan {
         // `grant_prepared_character_body` moments later, so nothing at all is both the honest
         // answer and the only one.
         let action_set = ambition_characters::brain::ActionSet::peaceful();
-        let held_item = None;
         // A character's signature moves AND its basic melee/ranged fold into ONE
         // moveset — the melee subsumption (§A1 / §3a): a plain swing is an
         // `"attack"`-verb move run by the SAME moveset runtime as the specials.
@@ -480,7 +478,6 @@ impl EnemyActorSpawnPlan {
             aggression: ambition_combat::components::ActorAggression::hostile(),
             brain,
             action_set,
-            held_item,
             moveset,
         }
     }
@@ -547,9 +544,6 @@ impl EnemyActorSpawnPlan {
                     self.action_set,
                     ambition_characters::control::ActorControl::default(),
         ));
-        if let Some(item) = self.held_item {
-            scope.insert(HeldItem::new(item));
-        }
         // Data-driven signature moves: the body carries its authored repertoire as
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
         // edge through the shared moveset runtime (§A1, Path B).
@@ -1612,6 +1606,21 @@ pub fn spawn_enemy_with_faction_into(
         // `grant_prepared_character_body`), so the re-template pass reads this
         // body as current and never touches it. That pass is now what it was
         // always for: a cast hot reload, or a deliberate runtime re-wear.
+        // THE WEAPON THE CHARACTER CARRIES, resolved before the kit is granted so
+        // the kit is written already holding it. The plan resolves its held item
+        // from `enemy.spec`, which for a character-first body is inert; the fact
+        // is the character's. An id the registry does not know is a WARNING, not
+        // a refusal: the body is fine without it.
+        let held = definition.held_item.as_deref().and_then(|id| {
+            let spec = ambition_characters::brain::held_item_by_id(id);
+            if spec.is_none() {
+                bevy::log::warn!(
+                    "character `{}` holds `{id}`, which is not a registered held item",
+                    definition.id.as_str()
+                );
+            }
+            spec.map(HeldItem::new)
+        });
         crate::character_body::grant_prepared_character_body(
             &mut scope.entity_scope(),
             definition,
@@ -1620,27 +1629,12 @@ pub fn spawn_enemy_with_faction_into(
             // A room placement answers to no match: the character's own feel is
             // the whole answer here (see `MatchRules::body_over`).
             definition.movement_tuning,
+            held.as_ref().map_or(ambition_characters::repertoire::Hand::Empty, |held| {
+                ambition_characters::repertoire::Hand::Holding(&held.spec)
+            }),
         );
-        // THE WEAPON THE CHARACTER CARRIES. The plan resolves its held item
-        // from `enemy.spec`, which for a character-first body is inert — so a
-        // migrated raider spawned empty-handed and dropped nothing when it died,
-        // which is most of what a raider is. Inserted here for the same reason
-        // the mount role is: the fact is the character's, and this is the road
-        // that believes the character.
-        //
-        //  an id the registry does not know is a WARNING, not a refusal: the
-        // body is fine without it, and a silent nothing is what made the archetype
-        // path's typos invisible.
-        if let Some(id) = definition.held_item.as_deref() {
-            match ambition_characters::brain::held_item_by_id(id) {
-                Some(spec) => {
-                    scope.insert(HeldItem::new(spec));
-                }
-                None => bevy::log::warn!(
-                    "character `{}` holds `{id}`, which is not a registered held item",
-                    definition.id.as_str()
-                ),
-            }
+        if let Some(held) = held {
+            scope.insert(held);
         }
         //  a body that states no mount gets no role, and that is the whole
         // rule now. The other arm read the archetype row this placement's brain

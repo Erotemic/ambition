@@ -48,9 +48,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
             .spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 ambition_characters::brain::ActionSet::default(),
-                ambition_held_items::StashedActionSet(
-                    ambition_characters::brain::ActionSet::default(),
-                ),
+                ambition_characters::brain::action_set::IdentityKit::default(),
                 ambition_combat::held_items::HeldItem::new(ambition_held_items::axe_spec()),
             ))
             .id();
@@ -116,12 +114,6 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
             .get::<ambition_portal2d::PortalGun>(player)
             .is_none(),
         "portal gun removed from player"
-    );
-    assert!(
-        app.world()
-            .get::<ambition_held_items::StashedActionSet>(player)
-            .is_none(),
-        "stashed action set cleared"
     );
 }
 

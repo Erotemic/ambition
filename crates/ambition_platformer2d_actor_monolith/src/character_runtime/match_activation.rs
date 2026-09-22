@@ -193,6 +193,8 @@ fn realize_seat(
         // (`MatchRules:body_over`), and a materializer that re-read the definition would
         // silently drop the stage's body — which is the whole of slice 1b.
         seat.effective_movement_tuning,
+        // `CallerResolved` writes no kit, so there is nothing to fold a hand into.
+        ambition_characters::repertoire::Hand::Empty,
     );
     body
 }

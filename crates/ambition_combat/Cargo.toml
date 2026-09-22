@@ -38,6 +38,9 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # sprite's per-animation boxes. Downward: `sprite_sheet` names neither `combat`
 # nor `boss_encounter`.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+# `PortalGun`, one of the things a hand can hold. Downward: `portal2d` sees only
+# `_core` and `shared_tangle`.
+ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
 # Only the schema handler parses RON here.
 ron = { workspace = true, optional = true }
@@ -50,3 +53,5 @@ bevy = { version = "0.19.1", default-features = false }
 content_pack = ["dep:ambition_content_pack", "dep:ron"]
 # Publish this crate's causal facts (the stock lifecycle, for now).
 causal = ["dep:ambition_causal"]
+# The portal gun occupies a body's hand, so the hand resolution must see it.
+portal = ["dep:ambition_portal2d"]

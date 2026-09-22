@@ -1,6 +1,5 @@
 //! Canonical 24-slot item catalog and owned-item state.
 
-pub mod equipment;
 pub mod shop;
 
 /// The `item_catalog` authored-content schema this capability owns. Behind the

@@ -147,6 +147,9 @@ pub fn grant_prepared_character_body(
     // shape the kit already paid for once (`KitOwnership::CallerResolved`).
     // A caller with no match to answer to passes `prepared.movement_tuning`.
     movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
+    // What the body's hand holds as this batch lands, so a granted kit is written
+    // already folded with it. Only the `Grant` arm writes a kit to fold.
+    hand: ambition_characters::repertoire::Hand<'_>,
 ) {
     {
         // ⭐⭐ EVERY GRANTED CHARACTER BODY PUBLISHES ITS POSE READ MODEL. Which
@@ -185,26 +188,25 @@ pub fn grant_prepared_character_body(
             // seated bodies `IdentityKit` and `BodyAbilities` makes the WRITER
             // identical, which is the half that stops it happening again.
             let projected_moveset = prepared.kit.projectable_moveset().cloned();
-            if let Some(moveset) = projected_moveset.clone() {
-                // The routing markers are NOT set here. They are derived from the
-                // live `ActorMoveset` by `reconcile_moveset_routing_markers` —
-                // deriving them is what makes them right for the persona path too,
-                // which replaces the moveset and never knew the markers existed.
-                scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
-            }
             if let Some(action_set) = prepared.kit.action_set().cloned() {
-                // ⭐ THE BASELINE AND THE LIVE SET, FROM ONE RESOLUTION — which is
-                // the `IdentityKit` half the comment above says closes this seam.
-                // It wrote a `CombatKit` copy instead, so a seated body's
-                // pre-equipment repertoire lived in a component the worn road did
-                // not write and the equipment derivation does not read.
-                scope.insert((
-                    ambition_characters::brain::action_set::IdentityKit::of(
-                        action_set.clone(),
-                        projected_moveset.unwrap_or_default(),
-                    ),
+                // THE BASELINE AND THE LIVE PAIR, FROM ONE RESOLUTION: the live
+                // `ActionSet` + `ActorMoveset` are the repertoire fold of this
+                // identity and the hand, so a body granted while holding
+                // something is not written empty-handed and folded again later.
+                let identity = ambition_characters::brain::action_set::IdentityKit::of(
                     action_set,
-                ));
+                    projected_moveset.clone().unwrap_or_default(),
+                );
+                let live =
+                    ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
+                if projected_moveset.is_some() {
+                    // The routing markers are NOT set here. They are derived from
+                    // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
+                    scope.insert(ambition_combat::moveset::ActorMoveset(live.moveset));
+                }
+                scope.insert((identity, live.action_set));
+            } else if let Some(moveset) = projected_moveset {
+                scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
         }
         // The rest is what the persona derive does not own on ANY path: the

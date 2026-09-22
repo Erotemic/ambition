@@ -230,20 +230,17 @@ fn load_the_save(sim: &mut Platformer2dSimHarness) {
 fn equip_the_counted_item(
     mut commands: bevy::prelude::Commands,
     mut bodies: bevy::prelude::Query<
-        (
-            Entity,
-            &mut ambition_platformer2d::characters::brain::ActionSet,
-        ),
+        (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
-    let (player, mut action_set) = bodies.single_mut().expect("one primary body");
+    let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
     let spec = ambition_platformer2d::held_items::held_spec_for_item(COUNTED_ITEM)
         .expect("the javelin is a wired weapon with a held spec");
     ambition_platformer2d::held_items::equip_held_spec(
         &mut commands,
         player,
-        &mut action_set,
+        &mut repertoire,
         spec,
     );
 }

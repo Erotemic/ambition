@@ -4,7 +4,7 @@
 use super::*;
 // ⚠ Not re-exported by the parent any more: the axe/javelin ROWS moved into
 // `ambition_characters`, so this file is the only remaining user of these types.
-use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
+use ambition_characters::brain::{ActionSet, MeleeActionSpec, SwipeSpec};
 use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
@@ -32,6 +32,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
             ambition_characters::control::ActorControl::default(),
             // `fire_held_ranged_system` reads the resolved frame (ADR 0024).
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
@@ -364,15 +365,21 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, (pickup_held_item_system, fire_held_ranged_system));
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
-    // Give the player a default melee swing so we can see it get cleared.
-    app.world_mut().get_mut::<ActionSet>(player).unwrap().melee =
-        Some(MeleeActionSpec::Swipe(SwipeSpec {
-            windup_s: 0.1,
-            active_s: 0.1,
-            recover_s: 0.1,
-            damage: 1,
-            reach_px: 32.0,
-        }));
+    // Give the player a melee swing of its own so we can see it get cleared.
+    // It is the IDENTITY's, because the live set is derived from it.
+    let own_swing = Some(MeleeActionSpec::Swipe(SwipeSpec {
+        windup_s: 0.1,
+        active_s: 0.1,
+        recover_s: 0.1,
+        damage: 1,
+        reach_px: 32.0,
+    }));
+    app.world_mut()
+        .get_mut::<ambition_characters::brain::action_set::IdentityKit>(player)
+        .unwrap()
+        .action_set
+        .melee = own_swing.clone();
+    app.world_mut().get_mut::<ActionSet>(player).unwrap().melee = own_swing;
     app.world_mut().spawn(GroundItem {
         spec: gunsword_spec(),
         pos: Vec2::new(100.0, 100.0),
@@ -456,6 +463,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
                 facing: 1.0,
             },
             ActionSet::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
             ambition_characters::control::ActorControl::default(),
         ))
         .id();
@@ -904,16 +912,14 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
     fn stow_from_menu(
         mut commands: Commands,
         mut requested: ResMut<StowRequested>,
-        mut bodies: Query<(Entity, &mut ActionSet, Option<&StashedActionSet>)>,
+        mut bodies: Query<(Entity, RepertoireQuery)>,
     ) {
         if !requested.0 {
             return;
         }
         requested.0 = false;
-        for (body, mut action_set, stashed) in &mut bodies {
-            // The menu passes no catalog in this fixture; `None` is its "no
-            // inventory behind this body" case, not "skip the bookkeeping".
-            unequip_held(&mut commands, body, &mut action_set, stashed);
+        for (body, mut repertoire) in &mut bodies {
+            unequip_held(&mut commands, body, &mut repertoire);
         }
     }
 
@@ -1677,6 +1683,7 @@ mod multi_seat {
                     base_size: Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
+                ambition_characters::brain::action_set::IdentityKit::default(),
                 ambition_characters::control::ActorControl::default(),
                 ambition_characters::control::DrivingParticipant(
                     ambition_characters::control::PlayerSlot(slot),

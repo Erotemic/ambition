@@ -1,4 +1,5 @@
 use super::*;
+use ambition_characters::brain::action_set::{ActionSet, IdentityKit};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{arm_portal_pickups, PortalGunColor};
 
@@ -18,6 +19,7 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             },
             PortalGun::default(),
             ActionSet::default(),
+            IdentityKit::default(),
             // Production bodies carry an intent frame; the drop spends the
             // Attack press on it when it commits.
             ambition_characters::control::ActorControl::default(),
@@ -47,6 +49,7 @@ fn picking_up_the_portal_gun_activates_it() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
+            IdentityKit::default(),
             // No PortalGun yet — the single pickup item grants it.
         ))
         .id();
@@ -113,6 +116,7 @@ fn picking_up_the_gun_announces_who_equipped_it() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
+            IdentityKit::default(),
         ))
         .id();
     app.world_mut().spawn(PortalGunPickup {
@@ -194,6 +198,7 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             ActionSet::default(),
+            IdentityKit::default(),
             ambition_characters::control::ActorControl::default(),
             // No PortalGun yet — the world pickup is what grants it.
         ))
@@ -445,6 +450,7 @@ fn two_seats_grabbing_one_gun_produce_exactly_one_gun() {
                     base_size: Vec2::new(24.0, 40.0),
                 },
                 ActionSet::default(),
+                IdentityKit::default(),
             ))
             .id()
     };

@@ -41,6 +41,7 @@ pub mod feel;
 pub mod finish_zoom;
 pub mod footstool;
 pub mod hazard_runtime;
+pub mod hand;
 pub mod hazards;
 pub mod held_items;
 pub mod hit_camera_shake;

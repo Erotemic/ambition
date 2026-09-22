@@ -186,8 +186,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(ambition_portal2d::PortalPickupArming),
         );
 
-        // The drop consumer touches Ambition item state (StashedActionSet), so
-        // it lives in the content adapter. It reads DropPortalGun, so order it
+        // The drop consumer touches Ambition item state (the body's hand and
+        // repertoire), so it lives in the content adapter. It reads DropPortalGun, so order it
         // with the rest of the portal weapon systems.
         app.add_systems(
             sim,

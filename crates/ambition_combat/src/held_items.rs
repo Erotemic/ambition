@@ -122,7 +122,15 @@ pub fn brandish_the_playing_move_s_weapon(
         Option<&HeldItem>,
         Option<&MoveBrandishedItem>,
     )>,
+    // The swap changes the hand, so it re-derives the repertoire from the hand it
+    // leaves behind — a put-back removal is invisible to any `Changed` filter.
+    mut repertoires: Query<crate::hand::RepertoireQuery>,
 ) {
+    let mut refold = |entity: Entity, held: Option<&HeldItem>| {
+        if let Ok(mut repertoire) = repertoires.get_mut(entity) {
+            repertoire.refold_with_held(held);
+        }
+    };
     for (entity, playback, held, brandished) in &bodies {
         let wants = playback.and_then(|pb| {
             pb.spec
@@ -152,8 +160,10 @@ pub fn brandish_the_playing_move_s_weapon(
                     );
                     continue;
                 };
+                let brandishing = HeldItem::new(spec);
+                refold(entity, Some(&brandishing));
                 commands.entity(entity).insert((
-                    HeldItem::new(spec),
+                    brandishing,
                     MoveBrandishedItem {
                         move_id: move_id.to_string(),
                         // ⛔ WHAT WAS THERE BEFORE THIS MOVE, which is not
@@ -177,9 +187,12 @@ pub fn brandish_the_playing_move_s_weapon(
                 // that legitimately ends with an empty hand.
                 match active.previous.clone() {
                     Some(spec) => {
-                        body.insert(HeldItem::new(spec));
+                        let restored = HeldItem::new(spec);
+                        refold(entity, Some(&restored));
+                        body.insert(restored);
                     }
                     None => {
+                        refold(entity, None);
                         body.remove::<HeldItem>();
                     }
                 }

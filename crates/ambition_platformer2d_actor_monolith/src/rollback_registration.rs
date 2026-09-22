@@ -285,10 +285,6 @@ where
     );
     registrar
         .rollback_map_entities::<crate::features::PendingChallenge>(OWNER, "map.pending_challenge");
-    registrar.rollback_component_clone::<ambition_held_items::StashedActionSet>(
-        OWNER,
-        "actor.stashed_action_set",
-    );
     registrar.rollback_component_clone_probed::<ambition_body_seed::PersonaBaseline>(
         OWNER,
         "actor.persona_baseline",

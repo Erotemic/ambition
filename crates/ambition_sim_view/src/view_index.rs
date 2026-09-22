@@ -298,8 +298,8 @@ pub fn rebuild_feature_view_index(
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
             ),
         ),
-        // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
-        // `sync_boss_actor_components`) but are their OWN feature family below. Without this
+        // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
+        // construction) but are their OWN feature family below. Without this
         // exclusion a boss matches here too and — because the actor family is inserted before the
         // boss family (first-wins priority) — it gets classified as an invisible generic `Actor`
         // (its `ActorStatus`/`ActorConfig` are absent), shadowing the boss view → the boss renders

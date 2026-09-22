@@ -133,7 +133,7 @@ pub use ecs::{
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
     snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
     sync_actor_poses_from_feature_aabbs,
-    sync_boss_actor_components, sync_boss_encounter_phase,
+    sync_boss_encounter_phase,
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
@@ -971,7 +971,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 tick_boss_brains_system,
                 integrate_boss_bodies,
                 update_ecs_bosses,
-                sync_boss_actor_components,
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()

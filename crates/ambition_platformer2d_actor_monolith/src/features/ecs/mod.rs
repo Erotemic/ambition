@@ -106,7 +106,7 @@ pub use ambition_boss_encounter::ecs::boss_component_snapshot;
 pub use ambition_boss_encounter::ecs::BossSpriteMetricsApplied;
 pub use ambition_boss_encounter::ecs::{
     boss_spawn_hurtboxes, derive_boss_sprite_metrics, drive_boss_animators,
-    project_boss_attack_state_from_move, sync_boss_actor_components, sync_boss_encounter_phase,
+    project_boss_attack_state_from_move, sync_boss_encounter_phase,
     tick_boss_brains_system, trigger_boss_attack_moves, update_ecs_bosses,
 };
 // ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.

@@ -1,5 +1,4 @@
-//! Boss component sync: mirror boss cluster state onto the generic actor
-//! read-model components, derive sprite metrics + render targets, and build the
+//! Boss construction snapshot, sprite metrics + render targets, and the
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
 use ambition_sprite_sheet::ActorSpriteMetrics;
@@ -13,7 +12,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
 use crate::attack_geometry::bounding_aabb;
-use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
+use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sprite_sheet::SheetRegistry;
@@ -25,45 +24,15 @@ use bevy::prelude::Commands;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct BossSpriteMetricsApplied;
 
-/// Build the shared actor combat read-model snapshot for a boss.
-///
-/// Bosses still own encounter-specific state through [`BossFeature`] and the boss encounter
-/// registry, but their generic combat shape is now exposed through the same `ActorIdentity` /
-/// `BodyHealth` / `BodyCombat` components used by NPCs and enemies. This keeps future faction,
-/// targeting, HUD, and held-item work from needing to pattern-match directly on `BossFeature` for
-/// ordinary combat facts. IT NO LONGER RETURNS A `BodyCombat` (AC3.2).
-///
-/// The liveness the caller now writes in place is the last derived fact this
-/// produced, and AC3.1.A deletes even that.
+/// A boss's shared actor components at construction: its identity, and its
+/// INITIAL disposition. Hostile is where a boss starts; from then on the
+/// general runtime owns `ActorDisposition` (targeting stand-down, release
+/// pacification), exactly as for every other actor.
 pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, ActorDisposition) {
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
     )
-}
-
-/// Keep boss shared-actor read models synced from the boss runtime and brain
-/// attack state. Boss integration remains in [`update_ecs_bosses`]; this system
-/// only mirrors generic combat facts into components shared with NPC/enemy
-/// actors.
-///
-/// `ActorIdentity` is not among them: it is written once, at spawn, from the
-/// same `BossConfig` this would read, and neither changes afterwards.
-pub fn sync_boss_actor_components(
-    mut bosses: Query<
-        (
-            crate::BossClusterRef,
-            &BossAttackState,
-            &mut ActorDisposition,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    for (feature, _attack_state, mut disposition) in &mut bosses {
-        // AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at all.
-        let (_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
-        *disposition = next_disposition;
-    }
 }
 
 /// The sprite-registry target id a boss draws from — its authored

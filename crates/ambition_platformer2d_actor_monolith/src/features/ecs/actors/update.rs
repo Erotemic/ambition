@@ -356,7 +356,7 @@ pub fn tick_actor_brains(
             ),
         ),
         // Exclude BOSSES too: they carry the shared actor read-models
-        // (`ActorIdentity`/`ActorDisposition`/… synced by `sync_boss_actor_components`) but have NO
+        // (`ActorIdentity`/`ActorDisposition`/… written at construction) but have NO
         // actor cluster, so without this they'd match here (cluster = `None`) and get ticked by the
         // actor loop ON TOP of their own `tick_boss_brains_system` — a double brain tick.
         (

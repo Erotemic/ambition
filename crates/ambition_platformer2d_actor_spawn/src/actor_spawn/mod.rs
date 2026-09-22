@@ -1190,10 +1190,9 @@ pub fn spawn_boss_with_overrides_into(
         boss_capability,
     ));
     // A boss's pre-equipment baseline is the pair it resolved: the capability
-    // repertoire above and the moveset derived from it. It used to carry a
-    // `CombatKit` copy of the first half, which `sync_boss_actor_components`
-    // then rewrote from the LIVE set every frame — a baseline that followed its
-    // own overlay, so a granted verb could never be revoked.
+    // repertoire above and the moveset derived from it. Nothing rewrites it from
+    // the live set: a baseline that followed its own overlay could never revoke
+    // a granted verb.
     scope.insert(ambition_characters::brain::action_set::IdentityKit::of(
         boss_baseline,
         boss_attack_moves

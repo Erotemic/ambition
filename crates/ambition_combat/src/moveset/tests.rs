@@ -4442,22 +4442,50 @@ fn a_ranged_weapon_in_hand_silences_the_wearers_jab() {
 }
 
 /// A weapon that DOES author a swing answers with its own, not the wearer's.
+///
+/// Held the way every pickup holds it: the item lands with the fold's live
+/// moveset, and the press reads that.
 #[test]
 fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
     let mut app = trigger_app();
     let armed = spawn_pressing_body(&mut app);
-    app.world_mut()
-        .entity_mut(armed)
-        .insert(crate::held_items::HeldItem::new(
-            ambition_characters::brain::HeldItemSpec {
-                id: "test_axe".into(),
-                melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
-                    ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
-                )),
-                ranged: None,
-                use_behavior: ambition_characters::brain::HeldUseBehavior::Auto,
-            },
-        ));
+    let axe = ambition_characters::brain::HeldItemSpec {
+        id: "test_axe".into(),
+        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
+        )),
+        ranged: None,
+        use_behavior: ambition_characters::brain::HeldUseBehavior::Auto,
+    };
+    // The wearer also authors a forward tilt, which the weapon's generated
+    // family does not name — so only releasing the wearer's melee verbs keeps
+    // it from answering a forward press.
+    let mut wearer = swat_moveset();
+    let mut tilt = swat();
+    tilt.id = "wearer_tilt".into();
+    wearer.verbs.insert("attack_forward".into(), tilt.id.clone());
+    wearer.moves.push(tilt);
+    let identity = ambition_characters::brain::action_set::IdentityKit::of(
+        ambition_characters::brain::ActionSet::peaceful(),
+        wearer,
+    );
+    let live = ambition_characters::repertoire::effective_repertoire(
+        &identity,
+        None,
+        ambition_characters::repertoire::Hand::Holding(&axe),
+    );
+    let forward = live
+        .moveset
+        .move_for_directional_verb(ATTACK_VERB, AttackDir::Forward, true)
+        .map(|m| m.id.clone());
+    assert!(
+        forward.is_some() && forward.as_deref() != Some("wearer_tilt"),
+        "a forward press while holding the axe reached {forward:?}, not the axe's swing",
+    );
+    app.world_mut().entity_mut(armed).insert((
+        ActorMoveset(live.moveset),
+        crate::held_items::HeldItem::new(axe),
+    ));
     app.update();
 
     let played = playing_id(&app, armed).expect("a weapon with a swing answers the press");

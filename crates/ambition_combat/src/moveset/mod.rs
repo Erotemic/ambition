@@ -2425,29 +2425,6 @@ fn record_impulse_authorship(
     );
 }
 
-/// Resolve the held weapon's directional Attack move, or `None` when the item
-/// handles that press through another runtime path (for example a projectile or
-/// throw system).
-///
-/// A weapon with melee vocabulary uses the normal moveset builder and therefore
-/// inherits the directional attack family. The wearer's own attack timelines
-/// remain intact for unequip/rewind; only press resolution changes. Keeping the
-/// Attack slot present also preserves the touch-control prompt for non-melee
-/// held items.
-fn held_weapon_attack_move(
-    spec: &ambition_characters::brain::HeldItemSpec,
-    dir: AttackDir,
-    grounded: bool,
-) -> Option<MoveSpec> {
-    let melee = spec.melee.as_ref()?;
-    // Built per press rather than cached: the alternative is a second copy of
-    // the wearer's contract to keep coherent across equip / unequip / rewind,
-    // and this runs once on a press edge for the one body holding the weapon.
-    build_actor_moveset(None, Some(melee), None, None)?
-        .move_for_directional_verb(ATTACK_VERB, dir, grounded)
-        .cloned()
-}
-
 /// WHICH DIRECTIONS RISE out of a raised guard — the platform-fighter half of
 /// the out-of-shield rule, and the only half that belongs to combat.
 ///
@@ -2986,15 +2963,9 @@ pub fn body_is_helpless(
 /// are executed by the locomotion path from the same control frame. Facing is
 /// captured at trigger time.
 ///
-/// This is the single trigger seam for every body. When a held weapon owns the
-/// Attack press, `held_weapon_attack_move` resolves the weapon action instead
-/// of the wearer's normal attack without deleting the wearer's authored moves.
-///
-/// ⚠ NOT AN INTRA-DOC LINK: that helper is private, and rustdoc only started
-/// saying so when this paragraph moved onto a `pub` item. It had been attached
-/// to the private `StartingMove` struct, where rustdoc never resolved it at
-/// all — so reattaching an orphaned doc to the item it describes can expose a
-/// broken reference that was real the whole time and unreachable by the check.
+/// This is the single trigger seam for every body. A held weapon's Attack move
+/// is read from the live `ActorMoveset`, where the repertoire fold made the
+/// weapon's attack family the body's whole melee vocabulary.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bodies`. `MoveOccurrence` appears in
@@ -3026,8 +2997,8 @@ pub fn trigger_moveset_moves(
         // The playing move, if any — the CM4 cancel seam. `None` = the plain
         // trigger path.
         Option<&mut MovePlayback>,
-        // What this body is holding. A weapon in hand OWNS the Attack press
-        // ([`held_weapon_attack_move`]); every other verb is untouched.
+        // What this body is holding. A held item OWNS the Attack press; every
+        // other verb is untouched.
         Option<&crate::held_items::HeldItem>,
         // Is this body RUNNING? Read for the dash attack, off the PUBLISHED
         // fact — ADR 0024's read surface, which is what a consumer outside the
@@ -3469,11 +3440,9 @@ pub fn trigger_moveset_moves(
             } else {
                 (ATTACK_VERB, AttackDir::Down, grounded)
             };
-            // A WEAPON IN HAND OWNS THIS PRESS. With something held, the
-            // wearer's own repertoire is not consulted at all — the weapon
-            // answers with its swing, or it answers elsewhere and nothing runs
-            // here (see [`held_weapon_attack_move`] for why this arbitrates
-            // instead of revoking the wearer's verbs).
+            // A HELD ITEM OWNS THIS PRESS: a weapon answers with its swing
+            // (no smash or running variant — those are the wearer's), and an
+            // item with no melee answers on its own road, so nothing runs here.
             // A RUN PRE-EMPTS THE SMASH GESTURE, and it has to, because
             // the two inputs are the same one. `resolve_attack_gesture` calls a
             // press a SMASH when a direction FLICK preceded it inside the
@@ -3502,7 +3471,18 @@ pub fn trigger_moveset_moves(
                     )
                     .is_some();
             let spec = if let Some(held) = held {
-                held_weapon_attack_move(&held.spec, dir, gesture_grounded)
+                // The fold made the weapon's attack family the body's whole
+                // melee vocabulary; an item with no melee answers elsewhere.
+                held.spec
+                    .melee
+                    .is_some()
+                    .then(|| {
+                        moveset
+                            .0
+                            .move_for_directional_verb(ATTACK_VERB, dir, gesture_grounded)
+                            .cloned()
+                    })
+                    .flatten()
             } else {
                 moveset
                     .0
@@ -4635,12 +4615,7 @@ fn verb_for_move<'a>(moveset: &'a MovesetContract, id: &str) -> Option<&'a str> 
 /// Kept as one predicate for both routing-marker derivation and live playback
 /// projection so a directional-only or smash-only moveset cannot be routed one
 /// way and presented another.
-fn is_melee_verb(verb: &str) -> bool {
-    verb == ATTACK_VERB
-        || verb.starts_with("attack_")
-        || verb == SMASH_VERB
-        || verb.starts_with("smash_")
-}
+use ambition_entity_catalog::is_melee_verb;
 
 /// Whether a move is a melee swing versus a ranged shot or a content special.
 ///

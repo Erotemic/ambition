@@ -4048,6 +4048,15 @@ pub const ATTACK_VERB: &str = "attack";
 pub const SMASH_VERB: &str = "smash";
 /// The canonical verb id a body's ranged shot binds to in its moveset.
 pub const RANGED_VERB: &str = "ranged";
+
+/// The melee verb family: the attack and smash bases and every variant of them
+/// (directional, aerial, dash).
+pub fn is_melee_verb(verb: &str) -> bool {
+    verb == ATTACK_VERB
+        || verb.starts_with("attack_")
+        || verb == SMASH_VERB
+        || verb.starts_with("smash_")
+}
 /// The canonical verb id a body's signature special binds to in its moveset.
 /// `special_pressed` resolves the facing-relative directional `special` chain;
 /// a body only has a real special when its moveset authors a matching

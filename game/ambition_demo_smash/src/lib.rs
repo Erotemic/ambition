@@ -217,6 +217,8 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
+    // The Limit is the match's meter: every seat is built with its cap, empty.
+    roster.rules.earned_meter_cap = Some(crate::limit::SMASH_LIMIT.cap);
     // Every fighter gets the ruleset's FLOOR, keeps whatever of its own kit the
     // CEILING permits, and brings nothing else from its home game. The gap
     // between the two constants is exactly one verb, and it is the one Jon named:
@@ -1180,16 +1182,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             crate::match_scope::sweep_objects_from_ended_matches
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
-        );
-        // ⛔⛔ THE CAP ADOPTION RUNS BEFORE ANYTHING PRICES A MOVE. A stock loss
-        // hands the body a fresh `BodyMana` in `CombatSet::Settle` — a 100-point
-        // pool that starts FULL — and `Trigger` reads a move's cost before
-        // `ContentFlavor` would have emptied it, so the frame after dying used to
-        // offer the Limit for free. See `adopt_the_limit_cap`.
-        app.add_systems(
-            sim,
-            crate::limit::adopt_the_limit_cap
-                .before(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
         );
         app.add_systems(
             sim,
@@ -2640,7 +2632,7 @@ struct SmashPresentationPrior {
     cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
     /// ⛔ THE LIMIT RULE IS STAGE STATE TOO, and it was the third instance in one
     /// day of smash plugin state reaching the composing app. Inserted at plugin
-    /// BUILD, `fill_limit_meters` and `adopt_the_limit_cap` walk every
+    /// BUILD, `fill_limit_meters` walked every
     /// `BodyMana` in whatever app installed the ruleset — so Ambition's own
     /// player had its mana pool re-capped and emptied by a rule for a mode it
     /// was not in. Jon's `99ab15e32` and this morning's `PlayerManaRegen` were
@@ -2697,9 +2689,7 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             cone: cone.map(|r| r.clone()),
             limit: limit.map(|r| *r),
         });
-        commands.insert_resource(crate::limit::SmashLimitFill(
-            ambition_platformer2d::entity_catalog::smash_limit::LimitMeterFill::JONS_BASELINE,
-        ));
+        commands.insert_resource(crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT));
         commands
             .insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0));
         // A viewer-dependent cone is undefined with no primary player, and a

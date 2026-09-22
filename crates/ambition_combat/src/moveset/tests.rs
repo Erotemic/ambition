@@ -7281,8 +7281,8 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         moves: vec![priced(cost)],
     };
 
-    // ── the predicate, all four states: a fence needs both sides, plus the two
-    // ways a body legitimately does not participate.
+    // ── the predicate, all four states: a fence needs both sides, a free move,
+    // and a body with no meter at all.
     assert!(
         super::afford_meter(&priced(30.0), Some(30.0)),
         "exactly enough was refused — a cost has to be payable AT its price"
@@ -7296,8 +7296,8 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         "a FREE move consulted the meter, so an empty fighter cannot jab"
     );
     assert!(
-        super::afford_meter(&priced(30.0), None),
-        "a body with no BodyMana is a bare fixture, not a fighter who is broke"
+        !super::afford_meter(&priced(30.0), None),
+        "a body with no meter paid a priced move: a missing resource read as free"
     );
 
     // ── the wiring: two identical worlds that differ only in the meter.

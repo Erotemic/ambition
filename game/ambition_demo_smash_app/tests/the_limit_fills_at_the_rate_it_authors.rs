@@ -147,6 +147,22 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
          guard is asking an empty world"
     );
 
+    // Every seat is BUILT with the match's Limit, not adopted into it.
+    let mut app = a_live_match(None);
+    let caps: Vec<f32> = app
+        .world_mut()
+        .query_filtered::<&BodyMana, With<MatchSeat>>()
+        .iter(app.world())
+        .map(|mana| mana.meter.max)
+        .collect();
+    assert!(
+        !caps.is_empty()
+            && caps
+                .iter()
+                .all(|cap| *cap == ambition_demo_smash::limit::SMASH_LIMIT.cap),
+        "a seat's meter capacity is not the match's Limit: {caps:?}",
+    );
+
     let (leaking, _) = gained_over_the_window(Some(PLATFORMER_RATE));
     // Two seconds of 14.0/s is 28 points of Limit that nobody authored.
     let leak = leaking - shipped;

@@ -2585,9 +2585,8 @@ struct StartingMove<'a, 'cw, 'cs> {
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
     /// The body's METER, charged here when the accepted move authors a
-    /// `MoveGates::meter_cost`. `None` for a body that carries no `BodyMana` —
-    /// nothing requires the component, so a bare fixture legitimately lacks it,
-    /// and `afford_meter` has already read that as "free" rather than "broke".
+    /// `MoveGates::meter_cost`. `None` for a body that carries no `BodyMana`,
+    /// which `afford_meter` has already refused any priced move.
     meter: Option<bevy::prelude::Mut<'a, ambition_platformer2d_core::BodyMana>>,
     /// The B-REVERSE WINDOW this accepted move opens, the gesture history it
     /// opens on, and THE LATERAL SIGN THAT BOUGHT THE PRESS. `None` when the
@@ -2820,16 +2819,14 @@ fn permitted_while_held(spec: &ambition_entity_catalog::MoveSpec, held: bool) ->
 /// shark appeared. A meter test applied at the effect would do exactly that
 /// again, so this is asked where the move is still refusable.
 ///
-/// ⚠ A BODY WITH NO METER IS A BARE FIXTURE, NOT A BODY THAT CANNOT PAY —
-/// `BodyMana` is required by nothing, so a test body legitimately lacks it. Same
-/// reading as [`afford_recovery`]'s `None`: no meter to spend and none to run
-/// out of. ⛔ Any move that costs nothing is affordable to everyone, and that
-/// arm is taken FIRST so a free move never consults a meter at all.
+/// A body with no meter cannot pay a positive cost: a missing resource is never
+/// affordable. A move that costs nothing is affordable to everyone, and that arm
+/// is taken FIRST so a free move never consults a meter at all.
 fn afford_meter(spec: &ambition_entity_catalog::MoveSpec, meter_left: Option<f32>) -> bool {
     if spec.gates.meter_cost <= 0.0 {
         return true;
     }
-    meter_left.is_none_or(|left| left >= spec.gates.meter_cost)
+    meter_left.is_some_and(|left| left >= spec.gates.meter_cost)
 }
 
 /// The move a press actually gets: the one resolved, or the variant its author

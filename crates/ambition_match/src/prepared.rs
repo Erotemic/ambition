@@ -209,6 +209,10 @@ pub struct MatchRules {
     /// field — the roster's own doc records that collapse, and this pointer
     /// outlived it.
     pub health_pool: Option<i32>,
+    /// The capacity of the spendable meter this match gives every seat, which
+    /// the seat EARNS: it is built empty, so no fighter enters a match (or its
+    /// first frame) able to spend it. `None` keeps each body's own meter.
+    pub earned_meter_cap: Option<f32>,
     pub opens_suspended: bool,
     /// How long the opening ceremony holds the cast, in simulation ticks.
     ///
@@ -792,6 +796,13 @@ pub fn prepare_match(
                 rules.pool_over(baseline.max_health_over(seed.health.health.max.max(1))),
             ))
             .with_policy(death_policy);
+        // THE MATCH'S METER, built in its match shape: this capacity, empty.
+        if let Some(cap) = rules.earned_meter_cap {
+            seed.body.0.mana.meter = ambition_platformer2d_core::ResourceMeter {
+                current: 0.0,
+                ..ambition_platformer2d_core::ResourceMeter::new(cap, 0.0, 0.0)
+            };
+        }
         // THE AUTHORED KNOCKBACK WEIGHT, onto the seed for the same reason
         // the pool is: `into_components` projects `config.tuning.weight` onto
         // the combat-owned `CombatTuning` the damage paths read, so setting it

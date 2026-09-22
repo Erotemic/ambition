@@ -21,48 +21,9 @@ use ambition_platformer2d::engine_core as ae;
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Default)]
 pub struct SmashLimitFill(pub LimitMeterFill);
 
-/// Give every meter the match's cap, and empty it, BEFORE anything prices a move
-/// against it.
-///
-/// ⛔⛔ THIS EXISTS BECAUSE DYING WOULD OTHERWISE GRANT THE LIMIT. A stock loss
-/// keeps the body entity and calls `reset_body_clusters`, which does
-/// `*clusters.mana = BodyMana::default()` — a 100-point pool that starts FULL,
-/// since `ResourceMeter::new` sets `current` to `max`. That runs in
-/// `CombatSet::Settle`. The emptying used to live only in `fill_limit_meters`,
-/// which runs in `CombatSet::ContentFlavor` — AFTER `CombatSet::Trigger`, where a
-/// move's cost is checked. ⇒ For one frame a respawned fighter read 100/100
-/// against a Limit priced at the match's cap, and respawn protection permits a
-/// swing, so the comeback move was free on the frame after dying.
-///
-/// ⭐ IT FIXES THE CLASS, NOT THE RESPAWN. Any path that hands a body a fresh
-/// `BodyMana` — a respawn today, a possession or a spawn tomorrow — is corrected
-/// before costs are read, because this asks the same question `fill_limit_meters`
-/// asked and asks it a phase earlier.
-///
-/// ⚠ AND IT DOES NOT SPLIT THE THREE FILL SOURCES, which `fill_limit_meters`'
-/// own doc argues against: the clock, the hits and the authored fill stay
-/// together there. This is a one-time NORMALISATION of a meter wearing another
-/// rule's shape, and it answers no question about crossing the cap this frame.
-pub fn adopt_the_limit_cap(
-    rule: Option<Res<SmashLimitFill>>,
-    mut meters: Query<&mut ae::BodyMana>,
-) {
-    let Some(rule) = rule else {
-        return;
-    };
-    let cap = rule.0.cap;
-    if cap <= 0.0 {
-        return;
-    }
-    for mut mana in &mut meters {
-        if mana.meter.max != cap {
-            mana.meter.max = cap;
-            // A Limit starts EMPTY; a mana pool starts full. See the note in
-            // `fill_limit_meters` for the guard that found this the first time.
-            mana.meter.current = 0.0;
-        }
-    }
-}
+/// This ruleset's Limit. Its cap is also the match's `earned_meter_cap`, so a
+/// seat is BUILT with the meter this rule fills rather than adopted into it.
+pub const SMASH_LIMIT: LimitMeterFill = LimitMeterFill::JONS_BASELINE;
 
 /// Fill every seated fighter's meter from the clock and from the hits that
 /// landed this tick.
@@ -92,7 +53,8 @@ pub fn fill_limit_meters(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
     mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
-    mut meters: Query<&mut ae::BodyMana>,
+    // Seats only: the Limit is the match's meter, built on its seats.
+    mut meters: Query<&mut ae::BodyMana, bevy::prelude::With<ambition_platformer2d::actor::MatchSeat>>,
 ) {
     let Some(rule) = rule else {
         return;
@@ -103,28 +65,7 @@ pub fn fill_limit_meters(
     }
     let dt = time.sim_dt();
 
-    // ⭐ THE CAP IS THE RULE'S, NOT THE COMPONENT'S DEFAULT. `BodyMana::default()`
-    // is a 100-point meter; a match that declares a 60-point Limit means 60, and
-    // a fighter whose meter still says 100 would need 100 to spend a move priced
-    // at the cap. ⇒ Set once, here, where the rule is known.
     for mut mana in &mut meters {
-        // ⛔ THE ADOPTION MOVED OUT — see `adopt_the_limit_cap`. This branch is
-        // kept as a SAFETY NET for a meter that arrives between the two systems,
-        // not as the place adoption happens: by the time this runs, `Trigger`
-        // has already priced a move against the meter.
-        if mana.meter.max != fill.cap {
-            mana.meter.max = fill.cap;
-            // ⛔⛔ AND A LIMIT STARTS EMPTY. `BodyMana::default()` is a MANA POOL
-            // and a mana pool starts FULL — `ResourceMeter::new` sets `current`
-            // to `max` — so adopting the cap without this would open every match
-            // with every fighter's Limit already spendable. ⇒ Found by a guard
-            // that expected two seconds of clock to read 1.0 and got 60.0.
-            //
-            // ⚠ ONCE, on adoption, which is what the `max != cap` test buys: a
-            // fighter mid-match is not re-emptied by a system that runs every
-            // tick.
-            mana.meter.current = 0.0;
-        }
         if dt > 0.0 && fill.per_second > 0.0 {
             mana.meter.refill(fill.per_second * dt);
         }

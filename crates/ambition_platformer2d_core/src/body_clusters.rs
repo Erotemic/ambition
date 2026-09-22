@@ -926,13 +926,10 @@ pub fn announce_body_restarts(
 /// is the point: a reset restores engine-owned state, and anything an
 /// AUTHORITY OUTSIDE THE ENGINE decided is not that.
 ///
-/// ⚠ `BodyMana` is the THIRD field of this shape, and a census of `BodyMana`
-/// CONSTRUCTIONS missed it because the authority that shapes a meter is a
-/// mutator: `ambition_demo_smash`'s `adopt_the_limit_cap` writes `meter.max` and
-/// `meter.current` onto a live body, with no `BodyMana` literal to find. A
-/// Smash fighter's meter is a Limit — capped by the match, starting EMPTY —
-/// where a mana pool starts full, so a reset that defaulted the meter handed a
-/// respawning fighter a full one. See [`ResetMeter`].
+/// ⚠ `BodyMana` is the THIRD field of this shape. A Smash fighter's meter is a
+/// Limit — capped by the match, built EMPTY at seating — where a mana pool
+/// starts full, so a reset that defaulted the meter handed a respawning fighter
+/// a full one. See [`ResetMeter`].
 ///
 /// `BodyOffense` is still unclaimed: its only writer is a dev-tools editable,
 /// where losing an editor override on a reset is the intended behaviour.

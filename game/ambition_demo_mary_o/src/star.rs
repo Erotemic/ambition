@@ -74,6 +74,39 @@ pub fn begin_star_power(
     }
 }
 
+/// **THE QUASAR ENDS WHEN THE COURSE DOES.**
+///
+/// Reaching the pole is the end of the attempt, and an invincibility that
+/// outlives the attempt is a status the player cannot get rid of — it followed
+/// her through the victory walk and, because it is what `play_star_music`
+/// reads, it kept the star theme playing over the victory fanfare.
+///
+/// ⛔⛤ **THIS IS NOT A MUSIC FIX, AND WRITING ONE WOULD HAVE BEEN THE BUG.**
+/// `EncounterMusicRequest` has ONE priority slot and `claim_priority` is
+/// last-writer-wins — it compares nothing, so two live claimants resolve by
+/// whichever system happens to run second. Making victory win by ordering it
+/// after `play_star_music` would encode a semantic rank ("victory outranks a
+/// super state") in a Bevy system edge, where nothing names it and the next
+/// scheduling change silently reverses it.
+///
+/// Ending the QUASAR instead leaves exactly one claimant, so the music follows
+/// from the gameplay fact rather than from a race. It also answers the half a
+/// music fix could not: her *status* is reset too, which is what the player
+/// actually asked for.
+pub fn end_star_power_at_victory(
+    mut commands: Commands,
+    sequences: Query<&crate::flag::FlagSequence>,
+    empowered: Query<Entity, (With<Empowered>, With<PrimaryPlayer>)>,
+) {
+    let victory_running = sequences.iter().any(|sequence| sequence.active());
+    if !victory_running {
+        return;
+    }
+    for body in &empowered {
+        commands.entity(body).remove::<Empowered>();
+    }
+}
+
 /// The star's theme, on the same priority-music seam the death and victory
 /// beats use — claimed while it burns, released when it ends, so the level theme
 /// returns on its own with no restore bookkeeping here.
@@ -233,5 +266,60 @@ mod tests {
         let mut health = app.world_mut().get_mut::<BodyHealth>(body).unwrap();
         assert!(!health.health.damage(99), "the hit is refused");
         assert!(health.health.alive(), "so she is still standing");
+    }
+}
+
+#[cfg(test)]
+mod victory_tests {
+    use super::*;
+    use crate::flag::{FlagPhase, FlagSequence};
+
+    /// **VICTORY ENDS THE QUASAR, SO IT ALSO ENDS THE QUASAR'S MUSIC.**
+    ///
+    /// Reported 2026-09-21: reaching the flag left her quasar status running and
+    /// the star theme playing over the victory fanfare.
+    ///
+    /// ⛔ THE CONTROL IS THE POINT. `EncounterMusicRequest` has ONE priority slot
+    /// and `claim_priority` is last-writer-wins, so a test that only checked
+    /// "victory's track is playing" would pass on the broken build whenever the
+    /// victory system happened to run second. This asserts the GAMEPLAY fact —
+    /// the super-state is gone — which is what removes the second claimant
+    /// entirely, and separately that an idle flag leaves a burning quasar alone.
+    #[test]
+    fn reaching_the_flag_ends_her_quasar() {
+        for (phase, still_empowered, label) in [
+            (FlagPhase::Idle, true, "an idle flag must not touch her quasar"),
+            (
+                FlagPhase::Sliding { score: 400 },
+                false,
+                "sliding down the pole must end it",
+            ),
+            (
+                FlagPhase::Tallied { score: 400 },
+                false,
+                "and it stays ended through the tally",
+            ),
+        ] {
+            let mut app = App::new();
+            let body = app
+                .world_mut()
+                .spawn((
+                    PrimaryPlayer,
+                    Empowered::for_seconds(COSMIC_QUASAR_SUPER_STATE, 10.0),
+                ))
+                .id();
+            app.world_mut().spawn(FlagSequence {
+                phase,
+                ..Default::default()
+            });
+            app.add_systems(Update, end_star_power_at_victory);
+            app.update();
+
+            assert_eq!(
+                app.world().get::<Empowered>(body).is_some(),
+                still_empowered,
+                "{label}"
+            );
+        }
     }
 }

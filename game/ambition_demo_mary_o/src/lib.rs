@@ -1294,10 +1294,16 @@ pub fn install_mary_o_content(app: &mut App) {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
-                    // each form scales its own art to its own AUTHORED height
-                    // (16 units small, 32 grown) rather than sharing one scale —
-                    // the sheet's 1.4:1 pixel ratio cannot express a 1:2 world
-                    // proportion. See `powerups::GROWN_FORM_HEIGHT`.
+                    // ⚠ MEASURED 2026-09-21, and the numbers here were stale:
+                    // `form_world_per_pixel` ignores its argument and returns
+                    // the ONE shared scale, so the forms do NOT scale their art
+                    // independently. The scale is `SMALL_FORM_HEIGHT / <small
+                    // sheet's idle pixel height>` = 32/84, and each form's
+                    // world box then follows from its own art: small 56x84px ->
+                    // 21.3x32, grown 56x168px -> 21.3x64. Her grown CROUCH is
+                    // 32 — the same box small stands in, which is the SMB rule.
+                    // (`GROWN_FORM_HEIGHT` reaches only `with_canonical_height`,
+                    // which gameplay does not read; it is not her body height.)
                     .with_canonical_height(powerups::form_height(sheet))
                     .with_sprite_authored_body(powerups::form_world_per_pixel(sheet))
                     .with_voice(voice)
@@ -1917,6 +1923,11 @@ impl Plugin for MaryORulesPlugin {
         // phases, so the hit lands on the next frame either way.
         let after_the_star = (
             ambition_platformer2d::actors::features::empowerment::apply_contact_harm,
+            // Before the theme is decided, not after: victory ENDS the quasar,
+            // so by the time `play_star_music` looks there is one claimant
+            // rather than two racing for one slot. See
+            // `star::end_star_power_at_victory`.
+            star::end_star_power_at_victory,
             star::play_star_music,
         )
             .chain()
@@ -2093,13 +2104,34 @@ fn tick_level_clock(
     }
 }
 
-/// Spend one life when the local player attempt ends.
+/// End the local player's attempt: spend a life, and take back what the attempt
+/// earned her.
 ///
 /// Consume `ActorDiedMessage`, not respawn/reset counters: room loads, replays,
 /// and rebuilds also reset bodies but must not spend lives. Combat and terminal
 /// kernel hazards publish death; `SafeRespawn`, room replay, and room load do not.
 /// Death messages are drained even when no level state is present so an event
 /// cannot be charged to a later attempt.
+///
+/// ⛔⛤ **HER POWERS ARE ATTEMPT-SCOPED, AND NOTHING SAID SO — 2026-09-21.**
+/// `sandbox_reset` restores a great deal of body state on a death restart —
+/// motion, combat, health — but her form is not body state: `sync_grown_form`
+/// derives it from `WornEquipment`, which is PERSISTENT player state that room
+/// replay deliberately preserves. So the body was rebuilt small and the
+/// equipment immediately grew it back, and she restarted every attempt still
+/// holding the wand. Measured: after a real pit death and respawn,
+/// `form=mary_o_tall equipment=["star_wand"]`.
+///
+/// ⭐ THIS IS THE SEAM THAT CAN SAY IT, which is why it lives here rather than
+/// in a reset system. Being the place that already knows a DEATH happened — as
+/// opposed to a replay, a load or a rebuild, which must all leave her powers
+/// alone — is exactly the fact the reset machinery does not have. It already
+/// owns the other attempt-scoped facts beside it (`time_remaining`,
+/// `intro_card`); the power ladder is one more.
+///
+/// ⚠ BOTH POWER CLASSES, because they are held differently: the durable ladder
+/// is worn equipment, and the quasar has already been spent into a timed
+/// `Empowered` state that no longer has an equipment row to remove.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
@@ -2109,6 +2141,10 @@ fn spend_lives_on_death(
     mut deaths: bevy::prelude::MessageReader<
         ambition_platformer2d::combat::death_rules::ActorDiedMessage,
     >,
+    mut worn: bevy::prelude::Query<
+        &mut ambition_platformer2d::characters::equipment::WornEquipment,
+    >,
+    mut commands: bevy::prelude::Commands,
 ) {
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
@@ -2142,6 +2178,17 @@ fn spend_lives_on_death(
     // A fresh attempt gets a fresh card — it is how the player reads how many
     // lives that death cost them.
     level.intro_card = INTRO_CARD_SECONDS;
+    // And she starts it as small Mary-O. Clearing the worn set is what makes
+    // that true: `sync_grown_form` reads it, so emptying it is the whole form
+    // revert and writing a size here would be a second authority for her shape.
+    if let Ok(mut worn) = worn.get_mut(body) {
+        worn.rows.clear();
+    }
+    // The quasar was already spent out of the worn set into a timed state, so
+    // clearing the rows above cannot reach it.
+    commands
+        .entity(body)
+        .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
 }
 
 /// Running out of time is a death, so it goes out the same door.

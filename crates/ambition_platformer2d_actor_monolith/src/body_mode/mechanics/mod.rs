@@ -247,7 +247,30 @@ pub fn update_body_mode(
         }
 
         // Crouch only if this body can crouch; otherwise it stays Standing.
-        let target = if caps.can_crouch && down_held && on_ground {
+        //
+        // ⛔⛤ **LEAVING THE GROUND DOES NOT STAND YOU UP — 2026-09-21.** The
+        // ground test used to gate the whole crouch, so a crouched body that
+        // walked off a ledge with DOWN still held grew back to full height in
+        // mid-air. Measured in Mary-O world 1-2: grown and crouched she is 32
+        // tall, and on the first airborne tick she was `Standing` at 64 — the
+        // taller body then caught the platform edge she was stepping off and
+        // shoved her back onto it, which reads as "she refuses to walk off".
+        //
+        // ⭐ THE ART ALREADY EXPECTED THIS STATE. Sheets author a `crouch_jump`
+        // row — *"Crouching and airborne"* — so presentation had a pose the
+        // mechanics could never enter.
+        //
+        // ⚠ ENTERING a crouch still requires the ground: a STANDING body that
+        // presses down in mid-air does not shrink, because holding down in the
+        // air is fast-fall in the platform fighter and a mid-air hurtbox change
+        // is a different feature that nobody asked for. Only the CARRY across
+        // the transition changes, which is the SMB rule — walk off a ledge
+        // ducking and you are still ducking. Releasing down stands you up, and
+        // that expansion is still clearance-tested by
+        // `try_change_body_mode_clusters`, so this cannot push a body through a
+        // ceiling.
+        let carries_its_crouch = mode == ae::BodyMode::Crouching;
+        let target = if caps.can_crouch && down_held && (on_ground || carries_its_crouch) {
             ae::BodyMode::Crouching
         } else {
             ae::BodyMode::Standing

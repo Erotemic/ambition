@@ -6,7 +6,6 @@
 //! dismount build the same skirmisher/brute brain from the same config.
 
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::held_items::HeldItem;
 
 /// Rebuild a fallen rider's solo brain, on the dissolution the mount ANNOUNCES.
@@ -19,9 +18,9 @@ use ambition_combat::held_items::HeldItem;
 /// owns the reaction reacts.
 ///
 /// ⛔ THE REBUILD CANNOT TRAVEL WITH A MOUNT CARVE and that is why it moved.
-/// It reads `ActorConfig`, `IdentityKit` and `HeldItem` —
-/// character-runtime facts, every one — so a mount crate that called it would
-/// have to import the character runtime to dissolve a mount.
+/// It reads `ActorConfig` and `HeldItem` — character-runtime facts, both of
+/// them — so a mount crate that called it would have to import the character
+/// runtime to dissolve a mount.
 ///
 /// ⛔ A BOSS RIDER IS SKIPPED, unchanged: its identity is AUTHORED, not derived
 /// from a kit, so re-deriving a brain for it would be wrong (ADR 0020; Q19b).
@@ -74,7 +73,6 @@ pub fn rebuild_dismounted_rider_brains(
     riders: bevy::prelude::Query<(
         &ActorConfig,
         Option<&HeldItem>,
-        Option<&IdentityKit>,
         Option<&ambition_boss_encounter::BossConfig>,
         // ⛔⛤ IS THIS BODY A MATCH SEAT? See the skip below: a seat's brain is
         // the MATCH's decision, never a derivation from a kit.
@@ -82,7 +80,7 @@ pub fn rebuild_dismounted_rider_brains(
     )>,
 ) {
     for dismount in dismounts.read() {
-        let Ok((config, held_item, identity_kit, boss_config, match_seat)) =
+        let Ok((config, held_item, boss_config, match_seat)) =
             riders.get(dismount.rider)
         else {
             continue;
@@ -110,7 +108,7 @@ pub fn rebuild_dismounted_rider_brains(
         //   it with a hostile brute is exactly the failure that placeholder
         //   exists to prevent, waiting for the player's input to lapse.
         //
-        // `dismounted_rider_brain_and_action_set` chooses between a skirmisher
+        // `dismounted_rider_brain` chooses between a skirmisher
         // and a forced brute and consults no template at all. That is not a bug
         // in it — the module doc above says so in as many words, *"a spawn and a
         // dismount build the same skirmisher/brute brain from the same config"*.
@@ -155,31 +153,17 @@ pub fn rebuild_dismounted_rider_brains(
         if match_seat.is_some() {
             continue;
         }
-        // A body with no baseline keeps its repertoire rather than being given
-        // an empty one. The baseline feeds only the action set — the brain is
-        // chosen from the config and the held item — so absence costs the
-        // repertoire rebuild and nothing else.
-        let (brain, action_set) = match identity_kit {
-            Some(identity_kit) => {
-                let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain_and_action_set(
-                    config,
-                    identity_kit,
-                    held_item.map(|item| &item.spec),
-                );
-                (brain, Some(action_set))
-            }
-            None => (
-                ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain(
-                    config,
-                    held_item.map(|item| &item.spec),
-                ),
-                None,
-            ),
-        };
+        // ONLY THE BRAIN. A rider's repertoire is the projection of its
+        // identity, its worn equipment and its hand
+        // (`ambition_characters::repertoire`), and a mount dying moves none of
+        // those — so the set it lands with is the set it was riding with. This
+        // used to rebuild an action set from the identity baseline alone, which
+        // dropped any granted verb the rider was wearing.
+        let brain = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain(
+            config,
+            held_item.map(|item| &item.spec),
+        );
         commands.entity(dismount.rider).insert(brain);
-        if let Some(action_set) = action_set {
-            commands.entity(dismount.rider).insert(action_set);
-        }
     }
 }
 
@@ -233,7 +217,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
 
         let mut rider =
             app.world_mut()
-                .spawn((rider_config(), IdentityKit::default(), fighter_brain()));
+                .spawn((rider_config(), fighter_brain()));
         if seated {
             rider.insert(ambition_match::MatchSeat(1));
         }

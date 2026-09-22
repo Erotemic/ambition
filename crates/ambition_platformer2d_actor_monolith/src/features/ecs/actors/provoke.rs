@@ -5,7 +5,7 @@
 //! It reads and mutates the live cluster view (`crate::actor_clusters::ActorMut`),
 //! which is why it lives in the actor kernel and not in the spawn capability:
 //! the spawn crate builds brains and bodies from data; it never touches a live
-//! entity. The brain BUILDERS it calls (`aggressive_brain_and_action_set_for_enemy`)
+//! entity. The brain BUILDERS it calls (`aggressive_brain_for_enemy`)
 //! stay in `ambition_platformer2d_actor_spawn::brain_builders`, because the same
 //! builder answers a spawn and a provocation.
 
@@ -13,7 +13,6 @@ use super::*;
 use ambition_characters::brain::profile::BrainProfile;
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::components::ActorDisposition;
 use ambition_entity_catalog::placements::CharacterBrain;
 
@@ -66,14 +65,12 @@ fn rebuild_provoked_brain(
     commands: &mut Commands,
     entity: Entity,
     em: &mut crate::actor_clusters::ActorMut<'_>,
-    identity_kit: &IdentityKit,
-    held_item: Option<&HeldItem>,
+    repertoire: Option<&ambition_characters::brain::ActionSet>,
     chase: bool,
 ) {
-    let (brain, _) = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
+    let brain = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_for_enemy(
         em.config,
-        identity_kit,
-        held_item,
+        repertoire,
         em.abilities.abilities,
     );
     if chase {
@@ -102,8 +99,11 @@ pub fn provoke_actor_in_place(
     entity: Entity,
     em: &mut crate::actor_clusters::ActorMut<'_>,
     disposition: &mut ActorDisposition,
-    identity_kit: &IdentityKit,
-    held_item: Option<&HeldItem>,
+    // WHAT THE BODY CAN DO, read rather than rebuilt: provocation changes who
+    // is deciding, never the body's repertoire, so the brain choice consumes
+    // the live projection instead of folding a second answer from a subset of
+    // its inputs.
+    repertoire: Option<&ambition_characters::brain::ActionSet>,
     // It existed so a provoked body could be recognised by its encounter's dialogue id — one of
     // three prose spellings `hostile_brain_id_for_actor` guessed at — and a creature that publishes
     // its own provoked policy needs none of them. WHICH CHARACTER THIS BODY IS — the GAMEPLAY
@@ -155,7 +155,7 @@ pub fn provoke_actor_in_place(
         // the BRAIN is rebuilt from the new policy by the shared writer below,
         // which is also what protects a player-driven body from a silent
         // seizure — see the note further down.
-        rebuild_provoked_brain(commands, entity, em, identity_kit, held_item, chase);
+        rebuild_provoked_brain(commands, entity, em, repertoire, chase);
         return;
     }
     if disposition.is_peaceful() {
@@ -182,8 +182,7 @@ pub fn provoke_actor_in_place(
         let proj = provoked_projection(
             default_provoked_policy(),
             em.config,
-            identity_kit,
-            held_item,
+            repertoire,
             em.abilities.abilities,
         );
         // THE MIND CHANGES. THE BODY DOES NOT.
@@ -218,13 +217,14 @@ pub fn provoke_actor_in_place(
         // Measured: both seats opened as `Player(0)`/`Player(1)` and seat one flipped 28 frames
         // after its pad went quiet, which is when it traded its first blows.
         //
-        // The ACTION SET still lands: what a body fights with is part of what it
-        // is, and a provoked fighter should swing the archetype's kit. Only the
-        // driver is left alone. The archetype is recorded in `BrainBinding`
-        // below either way, so releasing control later resumes the provoked mode
+        // ONLY THE BRAIN LANDS. What a body fights with is a projection of its
+        // identity, its worn equipment and its hand, and getting angry moves
+        // none of those — this used to write the identity baseline plus the
+        // held item over the live set, which took a provoked body's granted
+        // verbs off it. The archetype is recorded in `BrainBinding` below
+        // either way, so releasing control later resumes the provoked mode
         // rather than the peaceful one.
         let provoked_brain = proj.brain;
-        let provoked_action_set = proj.action_set;
         commands.queue(move |world: &mut bevy::prelude::World| {
             let driven = world
                 .get::<ambition_characters::control::DrivingParticipant>(entity)
@@ -232,10 +232,8 @@ pub fn provoke_actor_in_place(
             let Ok(mut em) = world.get_entity_mut(entity) else {
                 return;
             };
-            if driven {
-                em.insert(provoked_action_set);
-            } else {
-                em.insert((provoked_brain, provoked_action_set));
+            if !driven {
+                em.insert(provoked_brain);
             }
         });
         // Record that this body is provoked into the ENGINE's default policy.
@@ -246,7 +244,7 @@ pub fn provoke_actor_in_place(
         //
         // `provoke()` carries nothing now.
         //
-        // Deferred so it lands with the `(brain, action_set)` insert; a no-op
+        // Deferred so it lands with the brain insert; a no-op
         // for anonymous NPCs/enemies that carry no binding.
         commands.queue(move |world: &mut bevy::prelude::World| {
             if let Some(mut binding) =
@@ -293,7 +291,6 @@ pub struct ProvokedArchetype {
     /// The `ActorConfig.brain` read-model marker for a provoked actor.
     pub config_brain: CharacterBrain,
     pub brain: Brain,
-    pub action_set: ambition_characters::brain::ActionSet,
 }
 
 // ⛔ THAT IS WHY THE FIRST MEASUREMENT SAID "NOT MECHANICAL". Reading
@@ -323,17 +320,15 @@ pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::C
 pub fn provoked_projection(
     brain_profile: BrainProfile,
     current_config: &ActorConfig,
-    identity_kit: &IdentityKit,
-    held_item: Option<&HeldItem>,
+    repertoire: Option<&ambition_characters::brain::ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
     // the POLICY is the provoked one; the BODY is the one that was struck.
     let mut hostile_config = current_config.clone();
     hostile_config.brain_profile = brain_profile;
-    let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
+    let brain = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_for_enemy(
         &hostile_config,
-        identity_kit,
-        held_item,
+        repertoire,
         body,
     );
     // that read-model is a SILHOUETTE, and it was being used as a hostility
@@ -351,7 +346,6 @@ pub fn provoked_projection(
     ProvokedArchetype {
         config_brain,
         brain,
-        action_set,
         brain_profile,
     }
 }

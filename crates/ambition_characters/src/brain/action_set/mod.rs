@@ -82,25 +82,6 @@ impl IdentityKit {
         }
     }
 
-    /// The live repertoire this baseline resolves to while holding `held_item`.
-    ///
-    /// Reconstruction roads -- provocation, a brain-command switch, a dismount,
-    /// the save mirror -- all need "the baseline plus what the body is holding",
-    /// and each one used to spell it against its own copy of the baseline
-    /// (`CombatKit::to_action_set`). Stating the overlay once beside the baseline
-    /// it overlays is what stops those roads disagreeing.
-    ///
-    /// WORN EQUIPMENT IS NOT FOLDED IN HERE, deliberately: grants are revocable
-    /// and `ambition_items`' `reconcile_equipment_grants` owns that derivation
-    /// from this same baseline. A caller that writes the result straight onto a
-    /// body wearing equipment drops its grants until that system next runs.
-    pub fn with_held_item(&self, held_item: Option<&HeldItemSpec>) -> ActionSet {
-        let mut actions = self.action_set.clone();
-        if let Some(item) = held_item {
-            item.apply_to_action_set(&mut actions);
-        }
-        actions
-    }
 }
 
 impl ActionSet {
@@ -201,18 +182,6 @@ impl HeldItemSpec {
 }
 
 impl HeldItemSpec {
-    /// Overlay the item's abilities on top of an archetype action set. The
-    /// item wins because weapons are the thing the actor is actually holding;
-    /// archetype rows remain useful for body-contact and fallback tuning.
-    pub fn apply_to_action_set(&self, actions: &mut ActionSet) {
-        if let Some(melee) = self.melee {
-            actions.melee = Some(melee);
-        }
-        if let Some(ranged) = &self.ranged {
-            actions.ranged = Some(ranged.clone());
-        }
-    }
-
     pub fn grants_ranged(&self) -> bool {
         self.ranged.is_some()
     }

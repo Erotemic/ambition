@@ -356,7 +356,7 @@ fn boss_spawn_attaches_brain_components() {
         combat.hit_flash, 0.0,
         "a freshly spawned boss is not blinking"
     );
-    assert!(kit.with_held_item(None).ranged.is_some());
+    assert!(kit.action_set.ranged.is_some());
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }
 

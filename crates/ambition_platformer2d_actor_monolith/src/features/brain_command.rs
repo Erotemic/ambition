@@ -11,9 +11,8 @@ use ambition_characters::actor::character_catalog::{
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::{ActionSet, Brain};
+use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::components::{ActorAggression, ActorDisposition};
 use ambition_combat::CombatCapabilities;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -252,9 +251,7 @@ pub fn apply_brain_commands(
         Option<&mut ActorConfig>,
         &ActorPose,
         Has<ambition_mount::Mounted>,
-        Option<&IdentityKit>,
         Option<&mut CombatCapabilities>,
-        Option<&mut ActionSet>,
         // The body's own verbs, for a default that is the character's
         // authored policy — the lowering asks what this body can actually do.
         Option<&ambition_platformer2d_core::BodyAbilities>,
@@ -282,9 +279,7 @@ pub fn apply_brain_commands(
         config,
         pose,
         mounted,
-        kit,
         caps,
-        action_set,
         body_abilities,
         worn,
     ) in &mut actors
@@ -349,26 +344,21 @@ pub fn apply_brain_commands(
                 prepared.as_deref(),
                 &brain,
                 config,
-                kit,
                 caps,
-                action_set,
                 character_profile,
             );
         }
     }
 }
 
-/// Restore the COMPLETE catalog-default actor mode after a live autonomous switch
+/// Restore the catalog-default actor mode after a live autonomous switch
 /// (`UsePreset` / `RestoreDefault`) — not just the live brain. A prior provocation
-/// may have installed hostile tuning / capabilities / action set / sprite override;
-/// "you are free" (and any catalog switch) must revert ALL of it so the peaceful
-/// actor is coherent LIVE, matching what a snapshot reconcile reconstructs from the
+/// may have installed hostile tuning / capabilities / sprite override; "you are
+/// free" (and any catalog switch) must revert all of it so the peaceful actor is
+/// coherent LIVE, matching what a snapshot reconcile reconstructs from the
 /// source. Uses the SHARED [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)
 /// projection, so live and reconcile can never drift. `config.brain` is derived
 /// from the live brain inside that projection.
-///
-/// When the actor carries no combat kit to rebuild the full mode from, this falls
-/// back to keeping only the `config.brain` read-model in sync (the prior behavior).
 fn apply_catalog_mode(
     catalog: &CharacterCatalog,
     // The prepared cast, so the peaceful projection asks the CHARACTER whether
@@ -376,9 +366,7 @@ fn apply_catalog_mode(
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
-    kit: Option<&IdentityKit>,
     caps: Option<Mut<CombatCapabilities>>,
-    action_set: Option<Mut<ActionSet>>,
     // See the `Some` arm below: a character that states its own policy states
     // its own BODY too, and this reconstruction is not for it.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
@@ -400,17 +388,13 @@ fn apply_catalog_mode(
         return;
     }
     let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
-    let Some(kit) = kit else {
-        if let Some(mut config) = config {
-            config.brain = crate::features::ecs::actors::config_brain_for(brain);
-        }
-        return;
-    };
+    // No `IdentityKit` gate: the baseline was needed only by the repertoire
+    // write that is gone, and a body without one still has tuning, capabilities
+    // and a read-model to restore.
     let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(
         catalog,
         prepared,
         character_id.as_deref(),
-        kit,
         brain,
     );
     if let Some(mut config) = config {
@@ -422,9 +406,11 @@ fn apply_catalog_mode(
     if let Some(mut caps) = caps {
         *caps = peaceful.capabilities;
     }
-    if let Some(mut action_set) = action_set {
-        *action_set = peaceful.action_set;
-    }
+    // THE REPERTOIRE IS NOT RESTORED HERE, because nothing took it away. What a
+    // body can do is the projection of its identity, its worn equipment and its
+    // hand, and neither a provocation nor a catalog switch moves any of them.
+    // This used to write the identity baseline over the live set, which dropped
+    // a granted verb and whatever the body was holding.
 }
 
 /// Drain [`ReleaseProvocation`]s ("you are free"): pacify each target (the

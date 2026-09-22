@@ -13,7 +13,7 @@ use ambition_characters::brain::action_set::{
 use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, OnHit, WornEquipment};
 use ambition_combat::moveset::{ActorMoveset, RANGED_VERB};
 
-use super::reconcile_equipment_grants;
+use super::reconcile_effective_repertoire;
 
 fn granting_row(id: &str, on_hit: Option<OnHit>) -> EquipmentRow {
     EquipmentRow {
@@ -48,7 +48,7 @@ fn app_with_body(worn: WornEquipment) -> (App, Entity) {
             worn,
         ))
         .id();
-    app.add_systems(Update, reconcile_equipment_grants);
+    app.add_systems(Update, reconcile_effective_repertoire);
     (app, body)
 }
 
@@ -178,7 +178,7 @@ fn revoking_a_grant_leaves_the_bodys_own_verb_intact() {
             WornEquipment::new(vec![granting_row("spark", None)]),
         ))
         .id();
-    app.add_systems(Update, reconcile_equipment_grants);
+    app.add_systems(Update, reconcile_effective_repertoire);
     app.update();
 
     // The grant overlays the identity's own arrow.

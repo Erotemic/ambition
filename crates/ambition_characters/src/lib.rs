@@ -30,6 +30,7 @@ pub mod load_demand;
 pub mod moveset_prefabs;
 pub mod perception;
 pub mod prepared;
+pub mod repertoire;
 #[cfg(any(test, feature = "test-support"))]
 pub mod prepared_fixtures;
 /// The `moveset` authored-content schema, owned by the character capability.

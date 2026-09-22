@@ -97,24 +97,24 @@ impl Plugin for ActionSchemePlugin {
         // from the immediate authorities directly), but keeping the cache
         // same-tick-honest means any observer reading `ActorActionScheme` sees the
         // same thing gameplay and the HUD do.
-        // The equipment reconcile sits BETWEEN the two: identity derives the
-        // baseline, equipment overlays its grants onto it, and only then is the
-        // scheme cached — so a verb gained (or lost) with a row shows up in the
-        // same tick's scheme rather than lagging a frame behind the kit.
+        // The repertoire reconcile sits BETWEEN the two: identity derives the
+        // baseline, worn equipment and the hand overlay it, and only then is the
+        // scheme cached — so a verb gained (or lost) shows up in the same tick's
+        // scheme rather than lagging a frame behind the kit.
         app.add_systems(
             sim,
             (
-                ambition_items::equipment::reconcile_equipment_grants
-                    .in_set(ambition_items::equipment::EquipmentGrantsReconciled)
+                ambition_items::equipment::reconcile_effective_repertoire
+                    .in_set(ambition_items::equipment::EffectiveRepertoireReconciled)
                     .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Persona),
                 // The routing markers follow whatever the moveset finally IS —
-                // after identity derived it and equipment overlaid its grants, so
-                // a ranged move granted by a row routes through the move timeline
+                // after identity derived it and the overlay folded in — so a
+                // ranged move granted by a row routes through the move timeline
                 // on the same tick it is granted.
                 ambition_combat::moveset::reconcile_moveset_routing_markers
-                    .after(ambition_items::equipment::EquipmentGrantsReconciled),
+                    .after(ambition_items::equipment::EffectiveRepertoireReconciled),
                 reconcile_action_schemes
-                    .after(ambition_items::equipment::EquipmentGrantsReconciled),
+                    .after(ambition_items::equipment::EffectiveRepertoireReconciled),
             )
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );

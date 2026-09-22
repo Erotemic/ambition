@@ -7,7 +7,7 @@
 //! auto-collects it, the way a mushroom / ring / heart is picked up by running
 //! into it. Its payload is an A3 [`EquipmentRow`], so collecting it just RECORDS
 //! the row in [`WornEquipment`]; any verb the row grants is derived from the worn
-//! set by `reconcile_equipment_grants`, the one place a body's granted actions
+//! set by `reconcile_effective_repertoire`, the one place a body's granted actions
 //! come from.
 //!
 //! This is deliberately generic: "a thing in the world you collect to gain a
@@ -204,7 +204,7 @@ pub fn collect_world_items(
         };
         match &item.payload {
             // Collecting RECORDS the row and nothing else. Any verb the row grants is applied by
-            // `reconcile_equipment_grants`, which derives the live action set + moveset from
+            // `reconcile_effective_repertoire`, which derives the live action set + moveset from
             // identity + worn equipment. Now there is exactly one derivation, and a hit that spends
             // a granting row revokes its verb on the same path this pickup granted it.
             WorldItemPayload::Equip(row) => match worn {

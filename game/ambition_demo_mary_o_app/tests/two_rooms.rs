@@ -392,7 +392,7 @@ fn run_state(app: &mut App) -> (i8, u32) {
 /// row. `WornEquipment` is the authority: the exclusive `mary_o_form` slot she
 /// wears IS her power state. Her tall sheet, her hurtbox and the HUD are all
 /// re-derived from it every frame by `sync_grown_form` and
-/// `reconcile_equipment_grants` — so asserting any of THOSE would be asserting
+/// `reconcile_effective_repertoire` — so asserting any of THOSE would be asserting
 /// the emitter's bookkeeping, and would pass on a body that arrived naked for as
 /// long as the deriving system had not yet run. The row is read off the body.
 ///

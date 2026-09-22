@@ -6,7 +6,6 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::HeldItem;
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
@@ -14,7 +13,6 @@ use ambition_characters::brain::{
 };
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
-use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
 /// The RULESET'S PROVOKED REPERTOIRE: what a body swings when it is provoked and
@@ -160,33 +158,33 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// [`enemy_default_brain`] so cove PirateHeavy variants remain peaceful until
 /// struck; this override gives them the same concrete heavy swing/capability
 /// once the hostility flag is set.
-pub fn aggressive_brain_and_action_set_for_enemy(
+pub fn aggressive_brain_for_enemy(
     enemy: &ActorConfig,
-    identity: &IdentityKit,
-    held_item: Option<&HeldItem>,
+    repertoire: Option<&ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
-) -> (Brain, ActionSet) {
-    let action_set = identity.with_held_item(held_item.map(|item| &item.spec));
-
-    // Held-item capability is the high-level behavior selector for explicitly
-    // aggressive actors: a ranged-only weapon wants a spacing brain, while a
-    // melee-capable actor should close and swing. If a future pirate is authored
-    // with a bow / bomb / pistol and no melee slot, this path becomes a
-    // Skirmisher without a Rust-side item-id branch. If it has an axe / sword /
-    // body melee slot, the grounded melee brain wins so point-blank targets are
-    // attacked instead of kited.
-    if action_set.ranged.is_some() && action_set.melee.is_none() {
-        return (
-            skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, &enemy.brain_profile, true),
-            action_set,
-        );
+) -> Brain {
+    // WHAT THE BODY CAN DO IS THE SELECTOR, and it is read rather than rebuilt.
+    // A body's repertoire is the projection of its identity, its worn equipment
+    // and its hand (`ambition_characters::repertoire`), maintained by the
+    // reconcile; provocation changes who is deciding, not what the body is
+    // holding, so this asks the live set instead of folding a second answer
+    // from a subset of those inputs.
+    //
+    // A ranged-only weapon wants a spacing brain; a melee-capable actor should
+    // close and swing. A pirate authored with a bow and no melee slot becomes a
+    // Skirmisher without a Rust-side item-id branch.
+    // `Option` so this stays a READ rather than a filter: a body that carries
+    // no repertoire component answers the same question as one whose repertoire
+    // is empty, which is the brain below rather than a skirmisher.
+    let ranged_only = repertoire.is_some_and(|set| set.ranged.is_some() && set.melee.is_none());
+    if ranged_only {
+        return skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, &enemy.brain_profile, true);
     }
 
     if let Some(min_aggro) = enemy.brain_profile.provoke_forced_brute_min_aggro {
-        let brain = forced_hostile_melee_brute_brain(enemy, min_aggro);
-        return (brain, action_set);
+        return forced_hostile_melee_brute_brain(enemy, min_aggro);
     }
-    (enemy_default_brain(enemy, body), action_set)
+    enemy_default_brain(enemy, body)
 }
 
 fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) -> Brain {
@@ -285,46 +283,20 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     })
 }
 
-/// Build the explicitly-hostile solo behavior a rider receives when its mount dies.
+/// The solo brain a rider receives when its mount dies.
 ///
-/// This is intentionally not `enemy_default_brain`: PirateRaider's default is
+/// A dismount is a BRAIN transition and nothing else: falling off a shark does
+/// not change the rider's identity, its worn equipment or what is in its hand,
+/// so its repertoire is already what it will be on the ground. This reads the
+/// config and the held item and consults no kit.
+///
+/// A rider still holding a ranged item keeps a ranged-capable brain so the
+/// weapon stays live after the shark dies — the item is the authority, so
+/// changing it in data changes this path with no second Rust branch.
+///
+/// It is deliberately not `enemy_default_brain`: PirateRaider's default is
 /// Smash, which has tighter grounded observation requirements, and PirateHeavy's
-/// default is peaceful. Dismount means "fall off and fight," so the builder
-/// installs an aggressive MeleeBrute brain plus a melee-only action set.
-pub fn dismounted_rider_brain_and_action_set(
-    rider: &ActorConfig,
-    identity: &IdentityKit,
-    held_item: Option<&ambition_characters::brain::HeldItemSpec>,
-) -> (Brain, ActionSet) {
-    // Rebuild the rider's solo action set from its DURABLE identity baseline
-    // plus its live held item — the same inputs the spawn projection used,
-    // queried off the entity so the runtime dismount never re-reads the roster
-    // enum.
-    // ⛔ NO REDISCOVERY, AND NO INVENTION. This used to reach back into the
-    // prepared registry when the rebuilt set had no melee, and then fall through
-    // to `default_fighting_kit()` when that missed. Both were answers to a
-    // question preparation had already answered: the rider's `IdentityKit` IS
-    // its authored repertoire, so asking the registry again could only agree or
-    // be wrong, and the engine swipe underneath it handed a rider whose
-    // character authors no swing somebody else's.
-    //
-    // A rider that authored no melee comes down without one. That is what its
-    // character says.
-    let action_set = identity.with_held_item(held_item);
-
-    (dismounted_rider_brain(rider, held_item), action_set)
-}
-
-/// The brain half alone, for a rider whose repertoire baseline is absent.
-///
-/// Split out so a dismount can rebuild the BRAIN without inventing a
-/// repertoire: the choice below reads the config and the held item and consults
-/// no kit at all, which is why the two halves separate cleanly.
-///
-/// If the dismounted rider still has a ranged held item, keep using a
-/// ranged-capable brain so the weapon remains live after the shark dies. This
-/// preserves the item as the authority: remove / change the held item in data
-/// and this path changes without another Rust branch.
+/// default is peaceful. Dismount means "fall off and fight".
 pub fn dismounted_rider_brain(
     rider: &ActorConfig,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,

@@ -36,7 +36,7 @@ use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::engine_core::BodyBaseSize;
-use ambition_platformer2d::items::equipment::reconcile_equipment_grants;
+use ambition_platformer2d::items::equipment::reconcile_effective_repertoire;
 use ambition_platformer2d::platformer::markers::ControlledSubject;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::{
@@ -138,7 +138,7 @@ impl Loop {
             (
                 bonk_power_blocks,
                 collect_world_items,
-                reconcile_equipment_grants,
+                reconcile_effective_repertoire,
                 sync_grown_form,
                 walk_by_default_run_while_held,
                 tick_spark_cooldown,

@@ -498,11 +498,12 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 /// state machine, in place and permanently — activation is one-shot and never rebinds — so a
 /// human's fighter became a CPU mid-fight and the couch test read it as input crosstalk.
 ///
-///  what a provocation may do to a driven body: change its RELATIONSHIP, land
-/// its action set (what a body fights with is part of what it is), and record
-/// the autonomous source that will resume when control is released
+/// What a provocation may do to a driven body: change its RELATIONSHIP and
+/// record the autonomous source that will resume when control is released
 /// (`a_released_character_returns_to_its_own_policy_not_the_provoked_one` is the
-/// other end of that thread).
+/// other end of that thread). It may NOT touch the body's repertoire — that is a
+/// projection of identity, worn equipment and the hand, and getting angry moves
+/// none of them.
 #[test]
 fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     use ambition_characters::actor::character_catalog::{
@@ -527,6 +528,20 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     app.world_mut()
         .entity_mut(driven)
         .insert(DrivingParticipant(PlayerSlot::PRIMARY));
+    // A repertoire nothing about this body's identity would produce, so an
+    // overwrite from the identity baseline is visible as itself. It marks the
+    // SPECIAL slot rather than an attack slot: the provoked brain choice reads
+    // melee/ranged, and a fixture that changed which brain is installed would
+    // be measuring the poison below instead of the overwrite.
+    let carried = ActionSet {
+        special: Some(ambition_characters::brain::SpecialActionSpec::Special(
+            "carried_marker".to_string(),
+        )),
+        ..ActionSet::default()
+    };
+    for body in [driven, free] {
+        app.world_mut().entity_mut(body).insert(carried.clone());
+    }
 
     for body in [driven, free] {
         app.world_mut().write_message(ActorStimulus::Challenged {
@@ -569,11 +584,15 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
         "the relationship still changes; leaving the driver alone is not the \
          same as ignoring the provocation"
     );
-    assert!(
-        app.world().get::<ActionSet>(driven).is_some(),
-        "and the provoked kit still lands — what a body fights with is part of \
-         what it is, and only the driver is left alone"
-    );
+    for (body, who) in [(driven, "driven"), (free, "undriven")] {
+        assert_eq!(
+            app.world().get::<ActionSet>(body),
+            Some(&carried),
+            "provocation rewrote the {who} body's repertoire; it is a projection \
+             of identity, worn equipment and the hand, and a stimulus moves none \
+             of them"
+        );
+    }
     assert_eq!(
         app.world().get::<BrainBinding>(driven).map(|b| &b.source),
         Some(&AutonomousSource::ProvokedDefault),

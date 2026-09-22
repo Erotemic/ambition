@@ -1124,7 +1124,7 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
 /// C3: the ONE persona construction consults the prepared registry.
 ///
 /// A worn body's `ActionSet`, moveset and `IdentityKit` are built together here, and
-/// `reconcile_equipment_grants` then overlays equipment onto that baseline.
+/// `reconcile_effective_repertoire` then overlays equipment onto that baseline.
 ///
 /// The fix is that this construction reads the registry itself, so the prepared
 /// moves ARE the identity baseline — which is what makes the equipment overlay
@@ -1194,7 +1194,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     assert!(
         identity.moveset.moves.iter().any(|m| m.id == "swat"),
         "and it must be the IDENTITY BASELINE, because that is what \
-         `reconcile_equipment_grants` re-derives the live kit from — a baseline \
+         `reconcile_effective_repertoire` re-derives the live kit from — a baseline \
          that disagreed with the body's moveset is how a granted move gets erased \
          and how a revoked one cannot be taken back"
     );
@@ -1304,7 +1304,7 @@ fn wear(
     assert_eq!(
         identity.action_set, action_set,
         "the identity BASELINE and the live set disagreed at publication — \
-         `reconcile_equipment_grants` re-derives from the baseline, so this is \
+         `reconcile_effective_repertoire` re-derives from the baseline, so this is \
          how a granted verb gets erased and a revoked one cannot be taken back"
     );
     (action_set, moveset)

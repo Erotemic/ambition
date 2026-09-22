@@ -18,7 +18,6 @@
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
-use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::CombatCapabilities;
 use ambition_entity_catalog::placements::CharacterBrain;
 
@@ -33,7 +32,6 @@ pub(crate) struct PeacefulConfig {
     pub(crate) tuning: ActorTuning,
     pub(crate) brain_profile: BrainProfile,
     pub(crate) capabilities: CombatCapabilities,
-    pub(crate) action_set: ambition_characters::brain::ActionSet,
     pub(crate) config_brain: CharacterBrain,
 }
 
@@ -42,7 +40,6 @@ pub(crate) fn peaceful_config(
     // THE PREPARED CAST, asked FIRST — see below.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     character_id: Option<&str>,
-    identity: &IdentityKit,
     resolved_brain: &Brain,
 ) -> PeacefulConfig {
     // THIS READ `body_kind: Floating` AND NOTHING ELSE, which is the one rule the invariant
@@ -107,11 +104,6 @@ pub(crate) fn peaceful_config(
         tuning,
         brain_profile: BrainProfile::default(),
         capabilities: CombatCapabilities::default(),
-        // Body CAPABILITY: the peaceful autonomous brain never presses attack, but
-        // a possessing player can still throw the baseline's punch/swing — the
-        // same repertoire the spawn plan installs, read from the one place that
-        // holds it.
-        action_set: identity.action_set.clone(),
         config_brain,
     }
 }
@@ -170,7 +162,6 @@ mod tests {
         let proj = crate::features::ecs::actors::provoked_projection(
             crate::features::ecs::actors::default_provoked_policy(),
             &config,
-            &IdentityKit::default(),
             None,
             ambition_platformer2d_core::AbilitySet::default(),
         );
@@ -223,7 +214,6 @@ mod tests {
             brain_profile: _,
             config_brain: _,
             brain: _,
-            action_set: _,
         } = proj;
     }
 }
@@ -289,7 +279,7 @@ mod peaceful_flight_tests {
         // it really does say this body floats — so an empty-catalog fixture, or a
         // resolver that answered `false` for everything, could not fake this pair.
         let unprepared =
-            peaceful_config(&catalog, None, Some("pca"), &IdentityKit::default(), &brain);
+            peaceful_config(&catalog, None, Some("pca"), &brain);
         assert!(
             unprepared.tuning.is_aerial,
             "the fixture catalog must genuinely say `Floating`, or the test below \
@@ -300,7 +290,6 @@ mod peaceful_flight_tests {
             &catalog,
             Some(&cast),
             Some("pca"),
-            &IdentityKit::default(),
             &brain,
         );
         assert!(
@@ -358,7 +347,6 @@ mod peaceful_body_authority_tests {
             &CharacterCatalog::empty(),
             Some(&prepared),
             Some("wanderer"),
-            &IdentityKit::default(),
             &ambition_characters::brain::Brain::stand_still(),
         );
         assert_eq!(
@@ -382,7 +370,6 @@ mod peaceful_body_authority_tests {
             &CharacterCatalog::empty(),
             Some(&prepared),
             Some("nobody_registered_this"),
-            &IdentityKit::default(),
             &ambition_characters::brain::Brain::stand_still(),
         );
         assert_eq!(

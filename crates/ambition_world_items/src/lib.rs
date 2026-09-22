@@ -10,7 +10,7 @@
 //! ⛔ **WHAT IT DELIBERATELY DOES NOT OWN.** What a collected item MEANS is an
 //! `EquipmentRow` recorded on [`WornEquipment`](ambition_characters::equipment::WornEquipment);
 //! the verbs that row grants are derived elsewhere by
-//! `reconcile_equipment_grants`, which is the one place a body's granted actions
+//! `reconcile_effective_repertoire`, which is the one place a body's granted actions
 //! come from and stays in the actor kernel. How the item is DRAWN is an art id —
 //! an `Option<String>` this crate never resolves — that a game maps through its
 //! own `WorldItemArt`. So a collectible's presence, motion and collection are

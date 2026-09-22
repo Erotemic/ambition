@@ -8,8 +8,7 @@
 
 use bevy::prelude::*;
 
-use super::{sync_actor_components_from_cluster, HeldItem};
-use ambition_characters::brain::action_set::IdentityKit;
+use super::sync_actor_components_from_cluster;
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
 };
@@ -29,8 +28,9 @@ pub fn apply_actor_stimuli(
         (
             Entity,
             &mut ActorAggression,
-            &IdentityKit,
-            Option<&HeldItem>,
+            // The body's live repertoire, which is what the provoked brain
+            // choice reads.
+            Option<&ambition_characters::brain::ActionSet>,
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
@@ -54,8 +54,7 @@ pub fn apply_actor_stimuli(
         let Ok((
             entity,
             mut aggression,
-            identity_kit,
-            held_item,
+            repertoire,
             _interaction,
             mut identity,
             mut disposition,
@@ -103,8 +102,7 @@ pub fn apply_actor_stimuli(
             entity,
             &mut em,
             &mut disposition,
-            identity_kit,
-            held_item,
+            repertoire,
             worn.map(ambition_characters::actor::WornCharacter::id),
             prepared.as_deref(),
             // Chase immediately when challenged (the duel is on), or when a

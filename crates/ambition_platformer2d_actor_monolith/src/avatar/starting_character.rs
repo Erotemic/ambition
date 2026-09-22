@@ -274,7 +274,6 @@ pub fn apply_worn_character_overlay(
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
-    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
     match_kit: Option<&ActionSet>,
@@ -296,24 +295,20 @@ pub fn apply_worn_character_overlay(
             .unwrap_or(character_id)
             .to_string(),
     );
-    wear_kit(kit, action_set, moveset, identity, combat_kit)
+    wear_kit(kit, action_set, moveset, identity)
 }
 
 /// Write a resolved [`WornKit`] onto a body's components.
 ///
 /// The kernel decides nothing here: what the kit IS was resolved below it, and
 /// this is the one place that publishes it, so the identity baseline, the
-/// moveset and the durable `CombatKit` are written together and agree.
+/// moveset and the live action set are written together and agree.
 fn wear_kit(
     kit: WornKit,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
-    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
 ) -> RangedExecution {
-    if let Some(combat_kit) = combat_kit {
-        *combat_kit = kit.combat_kit;
-    }
     *identity = kit.identity;
     *moveset = ActorMoveset(kit.moveset);
     *action_set = kit.action_set;
@@ -379,11 +374,6 @@ pub fn apply_worn_character_gameplay(
         &mut ActionSet,
         Option<&mut ActorMoveset>,
         &mut ambition_characters::brain::action_set::IdentityKit,
-        // The DURABLE capability baseline, on the bodies that carry one — a
-        // seated fighter does, the plain player bundle does not. It is published
-        // WITH the identity kit rather than beside it, because a second baseline
-        // updated separately is a second baseline that can be stale.
-        Option<&mut ambition_combat::components::CombatKit>,
         Ref<ambition_platformer2d_core::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
         // re-wear initializes destination-private state inside the new
@@ -419,7 +409,6 @@ pub fn apply_worn_character_gameplay(
         mut action_set,
         mut moveset,
         mut identity,
-        mut combat_kit,
         abilities,
         mut motion_model,
         mut health,
@@ -467,7 +456,6 @@ pub fn apply_worn_character_gameplay(
                 &mut action_set,
                 moveset_slot,
                 &mut identity,
-                combat_kit.as_deref_mut(),
                 id,
                 abilities.abilities,
                 // The kit this MATCH gave the seat, when this body is in one.
@@ -625,7 +613,6 @@ pub fn apply_worn_character_gameplay(
                     &mut action_set,
                     moveset_slot,
                     &mut identity,
-                    combat_kit.as_deref_mut(),
                 );
                 if let Some(built) = minted.take() {
                     commands.entity(entity).try_insert(built);

@@ -528,7 +528,9 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
 fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
     let mut app = app_with_cast();
     let e = spawn_provoked_character_first(&mut app, "villager");
-    app.world_mut().entity_mut(e).insert(CombatKit::default());
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::brain::action_set::IdentityKit::default());
 
     send(
         &mut app,

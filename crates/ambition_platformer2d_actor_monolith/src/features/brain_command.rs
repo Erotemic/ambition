@@ -13,7 +13,8 @@ use ambition_characters::actor::character_catalog::{
 use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::{ActionSet, Brain};
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_combat::components::{ActorAggression, ActorDisposition, CombatKit};
+use ambition_characters::brain::action_set::IdentityKit;
+use ambition_combat::components::{ActorAggression, ActorDisposition};
 use ambition_combat::CombatCapabilities;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
@@ -251,7 +252,7 @@ pub fn apply_brain_commands(
         Option<&mut ActorConfig>,
         &ActorPose,
         Has<ambition_mount::Mounted>,
-        Option<&CombatKit>,
+        Option<&IdentityKit>,
         Option<&mut CombatCapabilities>,
         Option<&mut ActionSet>,
         // The body's own verbs, for a default that is the character's
@@ -375,7 +376,7 @@ fn apply_catalog_mode(
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
-    kit: Option<&CombatKit>,
+    kit: Option<&IdentityKit>,
     caps: Option<Mut<CombatCapabilities>>,
     action_set: Option<Mut<ActionSet>>,
     // See the `Some` arm below: a character that states its own policy states

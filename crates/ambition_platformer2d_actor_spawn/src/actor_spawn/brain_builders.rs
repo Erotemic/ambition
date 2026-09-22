@@ -14,7 +14,7 @@ use ambition_characters::brain::{
 };
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
-use ambition_combat::components::CombatKit;
+use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
 /// Fallback fighting kit for bodies whose character authors no repertoire.
@@ -25,9 +25,9 @@ use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 ///
 /// TODO(compat-remove): delete this fallback once every adopter supplies an
 /// explicit ruleset or character fighting kit.
-pub(crate) fn default_fighting_kit() -> CombatKit {
-    CombatKit {
-        innate_melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+pub(crate) fn default_fighting_kit() -> ActionSet {
+    ActionSet {
+        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
             ambition_characters::brain::SwipeSpec {
                 windup_s: 0.28,
                 active_s: 0.08,
@@ -36,8 +36,8 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
                 reach_px: 28.0,
             },
         )),
-        innate_ranged: None,
-        innate_special: None,
+        ranged: None,
+        special: None,
         move_style: ambition_characters::brain::MoveStyleSpec::Walk,
     }
 }
@@ -52,13 +52,6 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
 //
 // ⇒ what a body fights with comes from its CHARACTER, through the one persona
 // writer (`grant_prepared_character_body`).
-
-pub(super) fn action_set_from_combat_kit(
-    kit: &CombatKit,
-    held_item: Option<&HeldItem>,
-) -> ActionSet {
-    kit.to_action_set(held_item.map(|item| &item.spec))
-}
 
 /// Deterministic RNG seed for a fighter brain.
 ///
@@ -160,11 +153,11 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// once the hostility flag is set.
 pub fn aggressive_brain_and_action_set_for_enemy(
     enemy: &ActorConfig,
-    kit: &CombatKit,
+    identity: &IdentityKit,
     held_item: Option<&HeldItem>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> (Brain, ActionSet) {
-    let action_set = action_set_from_combat_kit(kit, held_item);
+    let action_set = identity.with_held_item(held_item.map(|item| &item.spec));
 
     // Held-item capability is the high-level behavior selector for explicitly
     // aggressive actors: a ranged-only weapon wants a spacing brain, while a
@@ -291,17 +284,17 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub fn dismounted_rider_brain_and_action_set(
     rider: &ActorConfig,
-    kit: &CombatKit,
+    identity: &IdentityKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
     // **The prepared cast**, so a rider that fell off can be asked what IT
     // swings rather than borrowing `pirate_raider`'s. See below.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> (Brain, ActionSet) {
-    // Rebuild the rider's solo action set from its DURABLE stored combat
-    // kit (`innate_melee` / `innate_ranged` / `move_style`) plus its live
-    // held item — the same inputs the spawn projection used, queried off
-    // the entity so the runtime dismount never re-reads the roster enum.
-    let mut action_set = kit.to_action_set(held_item);
+    // Rebuild the rider's solo action set from its DURABLE identity baseline
+    // plus its live held item — the same inputs the spawn projection used,
+    // queried off the entity so the runtime dismount never re-reads the roster
+    // enum.
+    let mut action_set = identity.with_held_item(held_item);
     if action_set.melee.is_none() {
         // This reached straight for `pirate_raider`'s melee — the THIRD reader of the provocation
         // matcher's archetypes, and the one a placement census could not see because it counts
@@ -320,19 +313,31 @@ pub fn dismounted_rider_brain_and_action_set(
             // getting — `default_fighting_kit` is pinned equal to `combatant`'s
             // melee (P3.24) — so this is the same swing with the lie removed,
             // and it stops depending on a row at all.
-            .or_else(|| default_fighting_kit().innate_melee);
+            .or_else(|| default_fighting_kit().melee);
     }
 
-    // If the dismounted rider still has a ranged held item, keep using a
-    // ranged-capable brain so the weapon remains live after the shark dies.
-    // This preserves the item as the authority: remove / change the held item
-    // in data and this path changes without another Rust branch.
-    let brain = if held_item.is_some_and(|item| item.grants_ranged()) {
+    (dismounted_rider_brain(rider, held_item), action_set)
+}
+
+/// The brain half alone, for a rider whose repertoire baseline is absent.
+///
+/// Split out so a dismount can rebuild the BRAIN without inventing a
+/// repertoire: the choice below reads the config and the held item and consults
+/// no kit at all, which is why the two halves separate cleanly.
+///
+/// If the dismounted rider still has a ranged held item, keep using a
+/// ranged-capable brain so the weapon remains live after the shark dies. This
+/// preserves the item as the authority: remove / change the held item in data
+/// and this path changes without another Rust branch.
+pub fn dismounted_rider_brain(
+    rider: &ActorConfig,
+    held_item: Option<&ambition_characters::brain::HeldItemSpec>,
+) -> Brain {
+    if held_item.is_some_and(|item| item.grants_ranged()) {
         skirmisher_brain_from_tuning(&rider.id, &rider.tuning, &rider.brain_profile, true)
     } else {
         forced_hostile_melee_brute_brain(rider, 540.0)
-    };
-    (brain, action_set)
+    }
 }
 
 fn skirmisher_brain_from_tuning(

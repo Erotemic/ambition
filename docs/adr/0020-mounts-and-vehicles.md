@@ -136,10 +136,18 @@ explodes the rider should suffer enough damage to die too." Default `death_impac
 is none (clean dismount).
 
 On dismount the rider unwelds, restores its own gravity, and reverts to its own
-brain/kit. The runtime already derives the dismounted brain from the rider's
-durable combat kit + live held item ("the item is the authority"), so a
-gun-carrying rider keeps its weapon after the mount dies and an unarmed one falls
-to a melee brute.
+brain/kit. The runtime derives the dismounted brain from the rider's live held
+item ("the item is the authority"), so a gun-carrying rider keeps its weapon
+after the mount dies and an unarmed one falls to a melee brute.
+
+The repertoire half reads the rider's **`IdentityKit`** — its pre-equipment
+baseline — and not a second durable copy. It said "durable combat kit" until
+2026-09-21, when `CombatKit` was deleted as a duplicate of that baseline. The
+same change removed a fail-open here: the rebuild defaulted the kit when it was
+absent, and it was absent on the PLAYER, so a human rider's repertoire was
+rebuilt from an empty baseline (and then from the engine's fallback swipe) on the
+way down. A rider whose baseline is unknown now keeps the repertoire it has and
+still gets its brain back.
 
 ## Authoring: two linked LDtk entities (the mount action pre-applied)
 

@@ -1350,20 +1350,23 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
     );
 }
 
-/// A seated fighter's DURABLE capability baseline matches its identity.
+/// A seated fighter's pre-equipment baseline matches the identity it wears.
 ///
-/// `ActionSet` is the hot per-frame resolver; `CombatKit` is the durable source
-/// of the same capability — its own doc calls it "what the actor can do
-/// innately". Several subsystems rebuild an `ActionSet` from it rather than
-/// reading the live one (a brain command's `apply_catalog_mode`, the mount pair,
-/// autonomous reconciliation).
+/// `ActionSet` is the hot per-frame resolver; `IdentityKit.action_set` is the
+/// baseline several subsystems rebuild one FROM rather than reading the live set
+/// (a brain command's `apply_catalog_mode`, the mount pair, autonomous
+/// reconciliation, the save mirror).
 ///
-/// Seating seeds it from `ActionSet::default()` — empty, matching what an enemy
-/// spawn does before its archetype fills one in — and the persona writer then
-/// installed the real action set, moveset and identity kit and left the durable
-/// one at the placeholder. A seated fighter could act through its live
-/// `ActionSet` and then lose its innate attacks the moment anything rebuilt them
-/// from the stale baseline.
+/// Seating seeded a placeholder and the persona writer then installed the real
+/// action set, moveset and identity kit — so a seated fighter could act through
+/// its live `ActionSet` and lose its innate attacks the moment anything rebuilt
+/// them from the stale baseline.
+///
+/// ⭐ THIS ARM SURVIVED THE `CombatKit` DELETION AND CHANGED SUBJECT. It used to
+/// assert the second baseline agreed with the live set; that copy is gone, so it
+/// now asserts the SURVIVING baseline does. The failure it catches is the same
+/// one, and the fixture is why it can catch anything: the character AUTHORS a
+/// melee, so an empty baseline is distinguishable from a correct one.
 #[test]
 fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
     let mut app = seating_app();
@@ -1398,7 +1401,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::brain::ActionSet,
-        &ambition_combat::components::CombatKit,
+        &ambition_characters::brain::action_set::IdentityKit,
         &ambition_characters::actor::WornCharacter,
     )>();
     let (live, durable, _) = bodies
@@ -1411,8 +1414,8 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
          cannot exist"
     );
     assert_eq!(
-        durable.innate_melee, live.melee,
-        "the durable capability baseline disagrees with the identity the body is \
+        durable.action_set.melee, live.melee,
+        "the pre-equipment baseline disagrees with the identity the body is \
          actually wearing, so anything that rebuilds this fighter's kit from it — \
          a brain command, a mount, autonomous reconciliation — disarms it"
     );

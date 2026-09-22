@@ -11,7 +11,7 @@ use ambition_characters::brain::{
 use ambition_characters::control::ActorControl;
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorIdentity, AggressionMode, CombatKit,
+    ActorAggression, ActorDisposition, ActorIdentity, AggressionMode,
 };
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
@@ -342,7 +342,7 @@ fn boss_spawn_attaches_brain_components() {
         &ActorDisposition,
         &BodyHealth,
         &BodyCombat,
-        &CombatKit,
+        &ambition_characters::brain::action_set::IdentityKit,
         &ActorAggression,
     )>();
     let (identity, disposition, health, combat, kit, aggression) = shared_q
@@ -356,7 +356,7 @@ fn boss_spawn_attaches_brain_components() {
         combat.hit_flash, 0.0,
         "a freshly spawned boss is not blinking"
     );
-    assert!(kit.can_ranged(None));
+    assert!(kit.with_held_item(None).ranged.is_some());
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }
 

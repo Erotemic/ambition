@@ -166,9 +166,6 @@ pub struct PreparedSeat {
     /// See [`Self::identity_kit`]. The repertoire this seat actually has:
     /// the character's, overlaid with the match's own override.
     pub action_set: ambition_characters::brain::ActionSet,
-    /// See [`Self::identity_kit`]. Derived from [`Self::action_set`] by the same
-    /// overlay call, so it can never describe a different repertoire.
-    pub combat_kit: ambition_combat::components::CombatKit,
     /// Effective ability set after match guarantees and permissions are applied.
     /// Kit derivation must use this resolved set.
     pub effective_abilities: Option<ambition_platformer2d_core::AbilitySet>,
@@ -849,7 +846,6 @@ pub fn prepare_match(
             match_kit: participant.action_set.clone(),
             identity_kit: worn.identity,
             action_set: worn.action_set,
-            combat_kit: worn.combat_kit,
             effective_abilities: seat_abilities,
             // THE BODY, RESOLVED BESIDE THE VERBS — and it has to be, or
             // the stage grants a verb whose window never opens. See

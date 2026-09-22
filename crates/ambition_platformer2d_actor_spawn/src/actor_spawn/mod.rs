@@ -66,7 +66,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::BossPatternTimer;
 use ambition_combat::components::{
-    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb, CombatKit,
+    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
@@ -430,7 +430,6 @@ pub(super) struct EnemyActorSpawnPlan {
     aggression: ambition_combat::components::ActorAggression,
     brain: ambition_characters::brain::Brain,
     action_set: ambition_characters::brain::ActionSet,
-    combat_kit: ambition_combat::CombatKit,
     held_item: Option<ambition_characters::brain::HeldItemSpec>,
     /// The archetype's data-driven signature move repertoire, if any (§A1, Path B).
     moveset: Option<ambition_entity_catalog::MovesetContract>,
@@ -450,7 +449,6 @@ impl EnemyActorSpawnPlan {
         // `grant_prepared_character_body` moments later, so nothing at all is both the honest
         // answer and the only one.
         let action_set = ambition_characters::brain::ActionSet::peaceful();
-        let combat_kit = ambition_combat::CombatKit::default();
         let held_item = None;
         // A character's signature moves AND its basic melee/ranged fold into ONE
         // moveset — the melee subsumption (§A1 / §3a): a plain swing is an
@@ -478,7 +476,6 @@ impl EnemyActorSpawnPlan {
             aggression: ambition_combat::components::ActorAggression::hostile(),
             brain,
             action_set,
-            combat_kit,
             held_item,
             moveset,
         }
@@ -534,7 +531,10 @@ impl EnemyActorSpawnPlan {
                             self.feature_aabb.half_size,
                             facing,
                         ),
-                        self.combat_kit,
+                        ambition_characters::brain::action_set::IdentityKit::of(
+                            self.action_set.clone(),
+                            self.moveset.clone().unwrap_or_default(),
+                        ),
                         self.aggression,
                         combat,
                     )
@@ -602,7 +602,6 @@ pub(super) struct NpcActorSpawnPlan {
         ambition_characters::actor::character_catalog::AuthoredBrainContext,
     )>,
     action_set: ambition_characters::brain::ActionSet,
-    combat_kit: ambition_combat::CombatKit,
     aggression: ambition_combat::components::ActorAggression,
 }
 
@@ -666,10 +665,9 @@ impl NpcActorSpawnPlan {
                     None
                 }
             },
-        }
-        .map(ambition_combat::components::CombatKit::from_action_set);
-        let combat_kit = match authored_kit {
-            Some(kit) => kit,
+        };
+        let provoked_baseline = match authored_kit {
+            Some(kit) => kit.clone(),
             //  it is what a body that authored NO kit fights with once
             // provoked. A Hall NPC authors `peaceful`, so without this it would
             // have nothing to swing — the same gap Smash's generic fighter floor
@@ -740,8 +738,7 @@ impl NpcActorSpawnPlan {
             // throw its authored punch/swing when a player DRIVES it — while its peaceful
             // autonomous brain simply never presses attack, so it still ambles harmlessly on
             // its own.
-            action_set: combat_kit.to_action_set(None),
-            combat_kit,
+            action_set: provoked_baseline,
             aggression: ambition_combat::components::ActorAggression::retaliates_when_hit(
                 self::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
@@ -801,7 +798,10 @@ impl NpcActorSpawnPlan {
                         self.feature_aabb.half_size,
                         facing,
                     ),
-                    self.combat_kit,
+                    ambition_characters::brain::action_set::IdentityKit::of(
+                        self.action_set.clone(),
+                        npc_moveset.clone().unwrap_or_default(),
+                    ),
                     self.aggression,
                     combat,
                 )
@@ -1111,9 +1111,9 @@ pub fn spawn_boss_with_overrides_into(
         move_style: ambition_characters::brain::MoveStyleSpec::Walk,
         ..Default::default()
     };
-    let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     // §A1: the boss's `BodyHealth` HP authority spawns from the scratch
     // (`into_components` below); the snapshot builds only the read-models.
+    let boss_baseline = boss_action_set.clone();
     let boss_combat = ambition_characters::actor::BodyCombat::default();
     let (boss_identity, boss_disposition) = boss_component_snapshot(boss.as_ref());
     let boss_facing = boss.kin.facing;
@@ -1159,7 +1159,6 @@ pub fn spawn_boss_with_overrides_into(
         boss_identity,
         boss_disposition,
         boss_combat,
-        boss_combat_kit,
         ActorAggression::hostile(),
     ));
     // Data-driven attack MOVESET: EVERY boss strike — geometry AND content-technique
@@ -1183,6 +1182,18 @@ pub fn spawn_boss_with_overrides_into(
         // trigger reads (BossAttackState is now the projected read-model).
         ambition_characters::brain::BossAttackIntent::default(),
         boss_capability,
+    ));
+    // A boss's pre-equipment baseline is the pair it resolved: the capability
+    // repertoire above and the moveset derived from it. It used to carry a
+    // `CombatKit` copy of the first half, which `sync_boss_actor_components`
+    // then rewrote from the LIVE set every frame — a baseline that followed its
+    // own overlay, so a granted verb could never be revoked.
+    scope.insert(ambition_characters::brain::action_set::IdentityKit::of(
+        boss_baseline,
+        boss_attack_moves
+            .as_ref()
+            .map(|moveset| moveset.0.clone())
+            .unwrap_or_default(),
     ));
     if let Some(moveset) = boss_attack_moves {
         scope.insert(moveset);

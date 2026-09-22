@@ -1,4 +1,4 @@
-//! Actor combat components: identity/disposition/target, combat kit +
+//! Actor combat components: identity/disposition/target,
 //! aggression, health, attack/combat state, cooldowns, and boss phase state.
 
 use super::super::*;
@@ -231,64 +231,6 @@ impl Default for ActorTarget {
             entity: None,
             pos: ae::Vec2::ZERO,
         }
-    }
-}
-
-/// Data/authored combat capabilities for an actor.
-///
-/// `ActionSet` remains the hot per-frame resolver consumed by the brain/action
-/// pipeline. `CombatKit` is the durable ECS/gameplay source of capability: what
-/// the actor can do innately, before current held-item overlays are applied.
-/// That distinction lets a peaceful NPC carry a sword/bow/bomb without being
-/// aggressive yet, and lets aggression changes re-enable attacks without
-/// swapping the actor's identity or archetype.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct CombatKit {
-    pub innate_melee: Option<ambition_characters::brain::MeleeActionSpec>,
-    pub innate_ranged: Option<ambition_characters::brain::RangedActionSpec>,
-    /// The innate SPECIAL, and it has to be here for the same reason the other
-    /// two are.
-    ///
-    /// Three production paths reconstruct a live `ActionSet` from this baseline
-    /// (autonomous/peaceful reconciliation, brain command-mode changes, and mount/dismount),
-    /// and each of them silently revoked a character's special the first time it ran.
-    pub innate_special: Option<ambition_characters::brain::SpecialActionSpec>,
-    pub move_style: ambition_characters::brain::MoveStyleSpec,
-}
-
-impl CombatKit {
-    pub fn from_action_set(actions: &ambition_characters::brain::ActionSet) -> Self {
-        Self {
-            innate_melee: actions.melee,
-            innate_ranged: actions.ranged.clone(),
-            innate_special: actions.special.clone(),
-            move_style: actions.move_style,
-        }
-    }
-
-    pub fn to_action_set(
-        &self,
-        held_item: Option<&ambition_characters::brain::HeldItemSpec>,
-    ) -> ambition_characters::brain::ActionSet {
-        let mut actions = ambition_characters::brain::ActionSet {
-            melee: self.innate_melee,
-            ranged: self.innate_ranged.clone(),
-            special: self.innate_special.clone(),
-            move_style: self.move_style,
-            ..Default::default()
-        };
-        if let Some(item) = held_item {
-            item.apply_to_action_set(&mut actions);
-        }
-        actions
-    }
-
-    pub fn can_melee(&self, held_item: Option<&ambition_characters::brain::HeldItemSpec>) -> bool {
-        self.to_action_set(held_item).melee.is_some()
-    }
-
-    pub fn can_ranged(&self, held_item: Option<&ambition_characters::brain::HeldItemSpec>) -> bool {
-        self.to_action_set(held_item).ranged.is_some()
     }
 }
 
@@ -779,46 +721,8 @@ impl bevy::ecs::entity::MapEntities for ActorAggression {
 }
 
 #[cfg(test)]
-mod combat_kit_tests {
+mod actor_disposition_tests {
     use super::*;
-    use ambition_characters::brain::{
-        ActionSet, MeleeActionSpec, MoveStyleSpec, SpecialActionSpec, SwipeSpec,
-    };
-
-    /// The durable baseline must survive a round trip, all of it.
-    ///
-    /// `CombatKit` is documented as *the durable ECS/gameplay source of
-    /// capability*, and three production paths rebuild a live `ActionSet` from
-    /// it (autonomous/peaceful reconciliation, brain command-mode changes,
-    /// mount/dismount). It carried melee, ranged and move style — and silently
-    /// dropped `special`, because `to_action_set` filled the rest of the struct
-    /// with `..Default::default()`.
-    ///
-    /// Asserting the whole round trip is the only shape that catches the NEXT field somebody adds
-    /// to `ActionSet` and forgets here.
-    #[test]
-    fn the_durable_kit_round_trips_every_capability_including_the_special() {
-        let authored = ActionSet {
-            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                windup_s: 0.1,
-                active_s: 0.1,
-                recover_s: 0.1,
-                damage: 3,
-                reach_px: 40.0,
-            })),
-            ranged: None,
-            move_style: MoveStyleSpec::Walk,
-            special: Some(SpecialActionSpec::Special("bubble_shield".to_string())),
-        };
-
-        let restored = CombatKit::from_action_set(&authored).to_action_set(None);
-
-        assert_eq!(
-            restored, authored,
-            "a capability was lost crossing the durable baseline; the brain would \
-             stop using it while the moveset still contained it"
-        );
-    }
 
     /// The state a platform fighter is in for most of a round.
     ///

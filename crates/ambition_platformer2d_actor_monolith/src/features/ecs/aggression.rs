@@ -9,8 +9,9 @@
 use bevy::prelude::*;
 
 use super::{sync_actor_components_from_cluster, HeldItem};
+use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
+    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
 };
 use ambition_combat::events::ActorStimulus;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -28,7 +29,7 @@ pub fn apply_actor_stimuli(
         (
             Entity,
             &mut ActorAggression,
-            &CombatKit,
+            &IdentityKit,
             Option<&HeldItem>,
             Option<&ActorInteraction>,
             &mut ActorIdentity,
@@ -53,7 +54,7 @@ pub fn apply_actor_stimuli(
         let Ok((
             entity,
             mut aggression,
-            combat_kit,
+            identity_kit,
             held_item,
             _interaction,
             mut identity,
@@ -102,7 +103,7 @@ pub fn apply_actor_stimuli(
             entity,
             &mut em,
             &mut disposition,
-            combat_kit,
+            identity_kit,
             held_item,
             worn.map(ambition_characters::actor::WornCharacter::id),
             prepared.as_deref(),

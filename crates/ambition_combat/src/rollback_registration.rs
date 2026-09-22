@@ -200,7 +200,6 @@ where
         OWNER,
         "boss.death_animation",
     );
-    registrar.rollback_component_clone::<crate::components::CombatKit>(OWNER, "combat.kit");
     registrar.rollback_component_clone::<crate::components::DamageableVolumes>(
         OWNER,
         "feature.damageable_volumes",

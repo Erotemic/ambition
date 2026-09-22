@@ -6,7 +6,7 @@
 //! dismount build the same skirmisher/brute brain from the same config.
 
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_combat::components::CombatKit;
+use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::held_items::HeldItem;
 
 /// Rebuild a fallen rider's solo brain, on the dissolution the mount ANNOUNCES.
@@ -19,7 +19,7 @@ use ambition_combat::held_items::HeldItem;
 /// owns the reaction reacts.
 ///
 /// ⛔ THE REBUILD CANNOT TRAVEL WITH A MOUNT CARVE and that is why it moved.
-/// It reads `ActorConfig`, `CombatKit`, `HeldItem` and the prepared cast —
+/// It reads `ActorConfig`, `IdentityKit`, `HeldItem` and the prepared cast —
 /// character-runtime facts, every one — so a mount crate that called it would
 /// have to import the character runtime to dissolve a mount.
 ///
@@ -77,7 +77,7 @@ pub fn rebuild_dismounted_rider_brains(
     riders: bevy::prelude::Query<(
         &ActorConfig,
         Option<&HeldItem>,
-        Option<&CombatKit>,
+        Option<&IdentityKit>,
         Option<&ambition_boss_encounter::BossConfig>,
         // ⛔⛤ IS THIS BODY A MATCH SEAT? See the skip below: a seat's brain is
         // the MATCH's decision, never a derivation from a kit.
@@ -85,7 +85,7 @@ pub fn rebuild_dismounted_rider_brains(
     )>,
 ) {
     for dismount in dismounts.read() {
-        let Ok((config, held_item, combat_kit, boss_config, match_seat)) =
+        let Ok((config, held_item, identity_kit, boss_config, match_seat)) =
             riders.get(dismount.rider)
         else {
             continue;
@@ -158,15 +158,35 @@ pub fn rebuild_dismounted_rider_brains(
         if match_seat.is_some() {
             continue;
         }
-        // A rider always carries a CombatKit; fall back defensively.
-        let kit = combat_kit.cloned().unwrap_or_default();
-        let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain_and_action_set(
-            config,
-            &kit,
-            held_item.map(|item| &item.spec),
-            prepared.as_deref(),
-        );
-        commands.entity(dismount.rider).insert((brain, action_set));
+        // ⛔ A BODY WITH NO BASELINE KEEPS ITS REPERTOIRE, it does not get an
+        // empty one. This read `combat_kit.cloned().unwrap_or_default()`, and the
+        // component it defaulted was absent on the PLAYER — so the fail-open was
+        // the live path for a human rider, rebuilding her live `ActionSet` from an
+        // all-`None` kit on the way down. The baseline feeds only the action set
+        // (the brain is chosen from the config and the held item), so absence
+        // costs the repertoire rebuild and nothing else.
+        let (brain, action_set) = match identity_kit {
+            Some(identity_kit) => {
+                let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain_and_action_set(
+                    config,
+                    identity_kit,
+                    held_item.map(|item| &item.spec),
+                    prepared.as_deref(),
+                );
+                (brain, Some(action_set))
+            }
+            None => (
+                ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain(
+                    config,
+                    held_item.map(|item| &item.spec),
+                ),
+                None,
+            ),
+        };
+        commands.entity(dismount.rider).insert(brain);
+        if let Some(action_set) = action_set {
+            commands.entity(dismount.rider).insert(action_set);
+        }
     }
 }
 
@@ -220,7 +240,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
 
         let mut rider =
             app.world_mut()
-                .spawn((rider_config(), CombatKit::default(), fighter_brain()));
+                .spawn((rider_config(), IdentityKit::default(), fighter_brain()));
         if seated {
             rider.insert(ambition_match::MatchSeat(1));
         }
@@ -281,6 +301,80 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
              nothing. ⚠ The two arms differ ONLY in the `MatchSeat`, and the \
              brain they start on is identical — so neither can pass by accident \
              of what it was holding."
+        );
+    }
+
+    /// **A RIDER WITH NO REPERTOIRE BASELINE KEEPS THE ONE IT HAS.**
+    ///
+    /// The rebuild read `combat_kit.cloned().unwrap_or_default()` under the
+    /// comment *"a rider always carries a CombatKit; fall back defensively"* —
+    /// and the component it defaulted was ABSENT ON THE PLAYER, measured: a
+    /// worn player body carries `IdentityKit` and `ActionSet` and no durable kit
+    /// at all. So for a human rider the "defensive" branch was the ONLY branch,
+    /// and coming off a mount rebuilt her live `ActionSet` from an all-`None`
+    /// baseline — every verb she was holding, gone, permanently.
+    ///
+    /// ⭐ THE FIXTURE IS THE POINT: this rider carries a live melee and NO
+    /// baseline, which is the shape the invention used to overwrite. A body whose
+    /// baseline is genuinely unknown must keep what it has; inventing an empty
+    /// one is not a safe default, it is a disarm.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is restoring any `unwrap_or_default()`
+    /// on the baseline. POISONED, and the measured failure is worse than `None`:
+    /// the empty baseline falls through `action_set.melee.is_none()` into
+    /// `default_fighting_kit()`, so the rider came down holding a STRANGER'S
+    /// swipe — damage 1 / reach 28 where its own was damage 4 / reach 44. Two
+    /// fail-opens in series, the second wearing the first's output as its input.
+    #[test]
+    fn a_rider_with_no_baseline_is_not_handed_an_empty_one() {
+        let mut app = App::new();
+        app.add_message::<MountDied>();
+        app.add_systems(Update, rebuild_dismounted_rider_brains);
+
+        let live = ambition_characters::brain::ActionSet {
+            melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+                ambition_characters::brain::SwipeSpec {
+                    windup_s: 0.2,
+                    active_s: 0.1,
+                    recover_s: 0.2,
+                    damage: 4,
+                    reach_px: 44.0,
+                },
+            )),
+            ..Default::default()
+        };
+        // No `IdentityKit`: the player's shape, measured.
+        let rider = app
+            .world_mut()
+            .spawn((rider_config(), live.clone(), fighter_brain()))
+            .id();
+        let mount = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(MountDied { mount, rider });
+        app.update();
+
+        let after = app
+            .world()
+            .entity(rider)
+            .get::<ambition_characters::brain::ActionSet>()
+            .expect("the rider still has a repertoire");
+        assert_eq!(
+            after.melee, live.melee,
+            "a dismount rebuilt this rider's repertoire from an INVENTED empty \
+             baseline and took its swing away; a body whose baseline is absent \
+             must be left holding what it had"
+        );
+        // AND THE BRAIN STILL COMES BACK, or the arm above passes by the system
+        // having skipped the rider entirely — which is the same rebuild-never-ran
+        // failure `an_unseated_rider_still_gets_a_brain_back` exists to catch.
+        assert_eq!(
+            app.world()
+                .entity(rider)
+                .get::<Brain>()
+                .expect("the rider still has a brain")
+                .label(),
+            "melee_brute",
+            "the repertoire was preserved by skipping the whole rebuild, so this \
+             says nothing about the invention — the brain half must still run"
         );
     }
 }

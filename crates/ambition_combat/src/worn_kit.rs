@@ -17,7 +17,6 @@ use ambition_characters::prepared::{
 };
 use ambition_entity_catalog::MovesetContract;
 
-use crate::components::CombatKit;
 use crate::moveset::{apply_player_robot_slash_sfx, build_actor_moveset};
 
 /// What a body carries once it wears a character.
@@ -28,9 +27,6 @@ pub struct WornKit {
     /// The un-granted baseline the brain reads: the action set and the moveset
     /// it was built beside, before equipment and granted verbs overlay them.
     pub identity: IdentityKit,
-    /// The durable innate baseline capabilities are reconstructed from. Built
-    /// from the same action set, so the two can never disagree.
-    pub combat_kit: CombatKit,
     /// HOW the resolved persona fires. The kernel's ECS derive synchronizes the
     /// charge marker and its mutable state from this.
     pub execution: RangedExecution,
@@ -112,7 +108,6 @@ impl WornKit {
             }
         };
         Self {
-            combat_kit: CombatKit::from_action_set(&set),
             identity: IdentityKit::of(set.clone(), derived.clone()),
             moveset: derived,
             action_set: set,
@@ -243,6 +238,9 @@ mod tests {
             .moveset
             .verbs
             .contains_key(ambition_entity_catalog::RANGED_VERB));
-        assert_eq!(kit.combat_kit, CombatKit::from_action_set(&kit.action_set));
+        // The baseline this body will rebuild from IS the set it wears — one
+        // resolution, published once. (The line here asserted that a second
+        // `CombatKit` copy agreed with it; the copy is gone.)
+        assert_eq!(kit.identity.action_set, kit.action_set);
     }
 }

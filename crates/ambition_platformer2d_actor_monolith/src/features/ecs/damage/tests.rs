@@ -725,7 +725,7 @@ fn spawn_talkable_npc_with_threshold(
             FeatureId::new("alice"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             aggression,
-            ambition_combat::components::CombatKit::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
             seed.into_components(),
             ambition_platformer2d_core::movement::MotionModel::default(),
             ambition_combat::components::ActorInteraction {

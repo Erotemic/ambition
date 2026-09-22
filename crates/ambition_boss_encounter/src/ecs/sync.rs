@@ -8,7 +8,7 @@ use ambition_sprite_sheet::ActorSpriteMetrics;
 // the reason a carve estimate needs more than an import count. Measured by
 // deleting it: everything it actually supplied was bevy's prelude and
 // `WorldTime`, and NO monolith vocabulary at all.
-use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
+use ambition_combat::components::{ActorDisposition, ActorIdentity};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
@@ -55,20 +55,15 @@ pub fn sync_boss_actor_components(
         (
             crate::BossClusterRef,
             &BossAttackState,
-            &ambition_characters::brain::ActionSet,
-            &mut CombatKit,
             &mut ActorIdentity,
             &mut ActorDisposition,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (feature, _attack_state, action_set, mut combat_kit, mut identity, mut disposition) in
-        &mut bosses
-    {
+    for (feature, _attack_state, mut identity, mut disposition) in &mut bosses {
         // AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at all.
         let (next_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
-        *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
     }

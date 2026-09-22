@@ -81,9 +81,10 @@ fn realize_seat(
             )
         }
     };
-    // Likewise: derived beside the action set by the ONE overlay call, so the two
-    // can never describe different repertoires.
-    let combat_kit = seat.combat_kit.clone();
+    // The seat's pre-equipment baseline, resolved once during preparation. It
+    // travels in the actor bundle rather than in a tuple beside it, so the body
+    // cannot exist for an instant without the repertoire it was seated with.
+    let identity_kit = seat.identity_kit.clone();
     let cluster = seed.into_components();
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
     let body = commands
@@ -118,7 +119,7 @@ fn realize_seat(
                         seat.body_px / 2.0,
                         facing,
                     ),
-                    combat_kit,
+                    identity_kit,
                     ambition_combat::components::ActorAggression::hostile(),
                     combat,
                 )
@@ -129,11 +130,7 @@ fn realize_seat(
                 Name::new(seat.definition.display_name.clone()),
                 // This was an empty contract with the persona derive expected to fill it on the
                 // body's first tick.
-                (
-                    ambition_combat::moveset::ActorMoveset(seat.moveset.clone()),
-                    // AND THE IDENTITY KIT — grant three.
-                    seat.identity_kit.clone(),
-                ),
+                ambition_combat::moveset::ActorMoveset(seat.moveset.clone()),
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component.

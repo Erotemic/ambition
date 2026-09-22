@@ -118,7 +118,9 @@ fn spawn_victory_npc_entity(
             &[],
         );
     seed.kin.facing = -1.0;
-    let combat_kit = ambition_combat::components::CombatKit::default();
+    // A victory NPC swings nothing and wears nothing: its repertoire baseline
+    // is empty, and saying so is the honest answer rather than a default kit.
+    let identity_kit = ambition_characters::brain::action_set::IdentityKit::default();
     let facing = seed.kin.facing;
     // Dialogue is a SHARED actor capability — carried on `ActorInteraction` so the
     // interact / proximity systems (which key off the component, not an NPC type
@@ -150,7 +152,7 @@ fn spawn_victory_npc_entity(
                 target: ambition_combat::components::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
                 motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
-                combat_kit,
+                identity_kit,
                 aggression: ambition_combat::components::ActorAggression::passive(),
                 combat,
                 damageable_volumes: DamageableVolumes::default(),

@@ -13,7 +13,8 @@ use super::*;
 use ambition_characters::brain::profile::BrainProfile;
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_combat::components::{ActorDisposition, CombatKit};
+use ambition_characters::brain::action_set::IdentityKit;
+use ambition_combat::components::ActorDisposition;
 use ambition_entity_catalog::placements::CharacterBrain;
 
 /// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
@@ -65,13 +66,13 @@ fn rebuild_provoked_brain(
     commands: &mut Commands,
     entity: Entity,
     em: &mut crate::actor_clusters::ActorMut<'_>,
-    combat_kit: &CombatKit,
+    identity_kit: &IdentityKit,
     held_item: Option<&HeldItem>,
     chase: bool,
 ) {
     let (brain, _) = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
         em.config,
-        combat_kit,
+        identity_kit,
         held_item,
         em.abilities.abilities,
     );
@@ -101,7 +102,7 @@ pub fn provoke_actor_in_place(
     entity: Entity,
     em: &mut crate::actor_clusters::ActorMut<'_>,
     disposition: &mut ActorDisposition,
-    combat_kit: &CombatKit,
+    identity_kit: &IdentityKit,
     held_item: Option<&HeldItem>,
     // It existed so a provoked body could be recognised by its encounter's dialogue id — one of
     // three prose spellings `hostile_brain_id_for_actor` guessed at — and a creature that publishes
@@ -154,7 +155,7 @@ pub fn provoke_actor_in_place(
         // the BRAIN is rebuilt from the new policy by the shared writer below,
         // which is also what protects a player-driven body from a silent
         // seizure — see the note further down.
-        rebuild_provoked_brain(commands, entity, em, combat_kit, held_item, chase);
+        rebuild_provoked_brain(commands, entity, em, identity_kit, held_item, chase);
         return;
     }
     if disposition.is_peaceful() {
@@ -181,7 +182,7 @@ pub fn provoke_actor_in_place(
         let proj = provoked_projection(
             default_provoked_policy(),
             em.config,
-            combat_kit,
+            identity_kit,
             held_item,
             em.abilities.abilities,
         );
@@ -322,7 +323,7 @@ pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::C
 pub fn provoked_projection(
     brain_profile: BrainProfile,
     current_config: &ActorConfig,
-    combat_kit: &CombatKit,
+    identity_kit: &IdentityKit,
     held_item: Option<&HeldItem>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
@@ -331,7 +332,7 @@ pub fn provoked_projection(
     hostile_config.brain_profile = brain_profile;
     let (brain, action_set) = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
         &hostile_config,
-        combat_kit,
+        identity_kit,
         held_item,
         body,
     );

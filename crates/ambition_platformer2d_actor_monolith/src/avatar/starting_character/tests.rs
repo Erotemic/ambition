@@ -1181,7 +1181,6 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut action_set,
         &mut moveset,
         &mut identity,
-        None,
         "hero",
         ambition_platformer2d_core::AbilitySet::default(),
         // No match: this fixture is testing the AUTHORED persona.
@@ -1218,7 +1217,6 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut action_set,
         &mut moveset,
         &mut identity,
-        None,
         "monk",
         ambition_platformer2d_core::AbilitySet::default(),
         // No match: this fixture is testing the AUTHORED persona.
@@ -1291,7 +1289,6 @@ fn wear(
         &mut action_set,
         &mut moveset,
         &mut identity,
-        None,
         id,
         // A BODY THAT MAY ACT, and this was `AbilitySet::default()` — which is `basic()`, whose
         // `attack` and `shield` are BOTH false. Every persona these tests derive is a fighter;
@@ -2751,7 +2748,6 @@ fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
         &mut action_set,
         &mut moveset,
         &mut identity,
-        None,
         "no_such_character",
         ambition_platformer2d_core::AbilitySet::default(),
         None,

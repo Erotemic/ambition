@@ -8,8 +8,9 @@
 use super::*;
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
-    BossDeathAnimation, BossPhase, CombatKit, FeatureId,
+    BossDeathAnimation, BossPhase, FeatureId,
 };
+use ambition_characters::brain::action_set::IdentityKit;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
@@ -66,7 +67,7 @@ pub fn sync_ecs_actors_with_save(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut ActorAggression,
-            &CombatKit,
+            &IdentityKit,
             Option<&HeldItem>,
             // Talkable actors (NPCs) carry the interaction payload + a persisted
             // `npc_<id>_hostile` provoke flag.
@@ -101,7 +102,7 @@ pub fn sync_ecs_actors_with_save(
         mut identity,
         mut disposition,
         mut aggression,
-        combat_kit,
+        identity_kit,
         held_item,
         interaction,
         mut cq,
@@ -149,7 +150,7 @@ pub fn sync_ecs_actors_with_save(
                 entity,
                 &mut em,
                 &mut disposition,
-                combat_kit,
+                identity_kit,
                 held_item,
                 worn.map(ambition_characters::actor::WornCharacter::id),
                 prepared.as_deref(),

@@ -9,6 +9,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;
+use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::components::*;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -85,7 +86,10 @@ pub struct EnemyActorBundle {
     /// integrated actor carries exactly one policy from spawn; absence is not
     /// an axis-swept fallback.
     pub motion_model: ambition_platformer2d_core::movement::MotionModel,
-    pub combat_kit: CombatKit,
+    /// The body's pre-equipment repertoire: what its identity alone grants,
+    /// before held items or worn grants overlay it. The live `ActionSet` is
+    /// derived from this pair, so a revoked grant disappears with the row.
+    pub identity_kit: IdentityKit,
     pub aggression: ActorAggression,
     // Health (`BodyHealth`) spawns with the actor CLUSTER (`into_components`), the
     // one health authority — not on this combat bundle.
@@ -115,7 +119,7 @@ impl EnemyActorBundle {
         disposition: ActorDisposition,
         faction: ActorFaction,
         pose: ActorPose,
-        combat_kit: CombatKit,
+        identity_kit: IdentityKit,
         aggression: ActorAggression,
         combat: BodyCombat,
     ) -> Self {
@@ -127,7 +131,7 @@ impl EnemyActorBundle {
             target: ActorTarget::default(),
             pose,
             motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
-            combat_kit,
+            identity_kit,
             aggression,
             combat,
             damageable_volumes: DamageableVolumes::default(),

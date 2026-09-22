@@ -39,7 +39,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
             disposition,
             combat,
             ActorAggression::default(),
-            CombatKit::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
             ActorInteraction {
                 interactable,
                 talk_radius: 64.0,

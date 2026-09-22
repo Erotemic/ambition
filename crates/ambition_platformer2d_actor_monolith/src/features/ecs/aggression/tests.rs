@@ -57,7 +57,7 @@ fn spawn_actor_from_seed(
             FeatureId::new(id),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             aggression,
-            CombatKit::default(),
+            ambition_characters::brain::action_set::IdentityKit::default(),
             seed.into_components(),
             ActorInteraction {
                 interactable,

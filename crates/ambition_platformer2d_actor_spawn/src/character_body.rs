@@ -184,7 +184,8 @@ pub fn grant_prepared_character_body(
             // as player two. Phase A made the answer identical; giving
             // seated bodies `IdentityKit` and `BodyAbilities` makes the WRITER
             // identical, which is the half that stops it happening again.
-            if let Some(moveset) = prepared.kit.projectable_moveset().cloned() {
+            let projected_moveset = prepared.kit.projectable_moveset().cloned();
+            if let Some(moveset) = projected_moveset.clone() {
                 // The routing markers are NOT set here. They are derived from the
                 // live `ActorMoveset` by `reconcile_moveset_routing_markers` —
                 // deriving them is what makes them right for the persona path too,
@@ -192,9 +193,18 @@ pub fn grant_prepared_character_body(
                 scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
             if let Some(action_set) = prepared.kit.action_set().cloned() {
-                let combat_kit =
-                    ambition_combat::components::CombatKit::from_action_set(&action_set);
-                scope.insert((action_set, combat_kit));
+                // ⭐ THE BASELINE AND THE LIVE SET, FROM ONE RESOLUTION — which is
+                // the `IdentityKit` half the comment above says closes this seam.
+                // It wrote a `CombatKit` copy instead, so a seated body's
+                // pre-equipment repertoire lived in a component the worn road did
+                // not write and the equipment derivation does not read.
+                scope.insert((
+                    ambition_characters::brain::action_set::IdentityKit::of(
+                        action_set.clone(),
+                        projected_moveset.unwrap_or_default(),
+                    ),
+                    action_set,
+                ));
             }
         }
         // The rest is what the persona derive does not own on ANY path: the

@@ -4255,7 +4255,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
     let mut query = world.query::<(
         &MatchSeat,
         &ambition_platformer2d::combat::moveset::ActorMoveset,
-        Option<&ambition_platformer2d::combat::components::CombatKit>,
+        Option<&ambition_platformer2d::characters::brain::action_set::IdentityKit>,
     )>();
     let mut rows: Vec<(usize, String)> = query
         .iter(world)
@@ -4270,11 +4270,11 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
                 resolved.push(format!("{label}={id}"));
             }
             // THE SECOND ROUTE, and the report is wrong without it. A
-            // moveset is one road to a swing; `CombatKit::innate_melee` is the
-            // other — the preset swipe an action set carries — and a body with
-            // an empty timeline table can still hit somebody through it. Reading
-            // only the first would report "this fighter cannot attack" off a
-            // measurement that never asked.
+            // moveset is one road to a swing; the identity baseline's own melee
+            // is the other — the preset swipe an action set carries — and a body
+            // with an empty timeline table can still hit somebody through it.
+            // Reading only the first would report "this fighter cannot attack"
+            // off a measurement that never asked.
             (
                 seat.0,
                 format!(
@@ -4282,9 +4282,9 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
                     seat.0,
                     moveset.0.moves.len(),
                     kit.map(|kit| (
-                        kit.innate_melee.is_some(),
-                        kit.innate_ranged.is_some(),
-                        kit.innate_special.is_some()
+                        kit.action_set.melee.is_some(),
+                        kit.action_set.ranged.is_some(),
+                        kit.action_set.special.is_some()
                     )),
                     resolved.join(" ")
                 ),

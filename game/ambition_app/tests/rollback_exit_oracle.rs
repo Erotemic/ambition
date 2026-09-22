@@ -557,10 +557,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored animation spec; immutable at runtime",
         ),
         (
-            "ambition_combat::components::actors::CombatKit",
-            "authored kit; immutable at runtime",
-        ),
-        (
             "ambition_combat::components::features::BreakableFeature",
             "authored breakable payload; the mutable half is its broken flag",
         ),

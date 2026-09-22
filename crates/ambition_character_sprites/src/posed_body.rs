@@ -78,22 +78,17 @@ pub fn sync_sprite_posed_bodies(
                 }
             }
         }
-        // The pose says how big the body IS; the MODE says what it is doing
-        // with it, and the box is the composition of the two.
-        //
-        // writing `geometry.collision` straight into `kin.size` silently undid every stance.
-        // The crouch is applied ONCE, on the tick the mode changes — `body_mode::mechanics`
-        // does `if mode == target { continue }` and `try_change_body_mode_clusters`
-        // early-returns on an unchanged mode — so nothing re-asserts the shorter box
-        // afterwards, while THIS pass runs every tick. A body on this seam crouched for one
-        // tick and then stood back up inside its own crouch, with `BodyModeState` still saying
-        // `Crouching`.
+        // The pose says how big the body IS; the MODE says what it is doing with
+        // it, and the box is the composition of the two. The stance must be
+        // re-applied here rather than left to the transition: the transition
+        // writes the shorter box once, on the tick the mode changes, while this
+        // pass writes every tick — so publishing `geometry.collision` alone
+        // would stand a crouching body back up inside its own crouch.
         //
         // `BodyMode::shape` is the same function the stance transition uses, so
-        // the two cannot disagree about what crouching means — and applying it
-        // to the POSE's rectangle rather than to `base_size` is what keeps this
-        // right for a body whose silhouette changes shape: a boxed snake that
-        // crouched would otherwise crouch from its sprawled height.
+        // the two cannot disagree about what crouching means. It applies to the
+        // POSE's rectangle, not to `base_size`, so a body whose silhouette
+        // changes shape crouches from the height it is actually showing.
         let posed_collision = body_mode.map_or(geometry.collision, |mode| {
             mode.body_mode.shape(geometry.collision).size
         });
@@ -121,16 +116,9 @@ pub fn sync_sprite_posed_bodies(
         // Written in the same instant as the box rather than through `Commands`:
         // both facts come from ONE `geometry`, so one mechanism is simpler than
         // two. `try_insert` remains for a body that has no `ActorRenderSize` yet,
-        // where there is nothing to write into.
-        //
-        // ⚠ THIS IS A TIDY, NOT A FIX, AND THE DIFFERENCE COST ME A TEST. I wrote
-        // it believing the deferred insert made the drawn size lag the collision
-        // box by a frame -- the shape of Jon's 2026-09-06 Mary-O report. Then the
-        // poison did not fire: an observer ordered after this system sees the
-        // flushed value, because ordering between systems inserts a SYNC POINT.
-        // ⇒ A `Commands` write is not late for any consumer that is ordered after
-        // it, which is every consumer that matters. The deferred write was never
-        // the defect, and the Mary-O misalignment remains unexplained.
+        // where there is nothing to write into. Neither spelling is late for a
+        // consumer ordered after this system — that ordering is itself a sync
+        // point.
         match render_size {
             Some(mut existing) if existing.0 != geometry.render => {
                 existing.0 = geometry.render;

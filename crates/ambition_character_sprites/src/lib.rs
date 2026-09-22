@@ -24,11 +24,20 @@ pub use posed_body::{
 
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin};
 
-use ambition_platformer2d_shared_tangle::schedule::{SimScheduleExt, WorldPrepSet};
+use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, SimScheduleExt};
 
-/// Installs [`sync_sprite_posed_bodies`] before movement integration. Bodies
-/// opt in through `SpritePosedBody`; pose-pinning rules run after movement, so
-/// geometry follows the pose on the next tick by design.
+/// Installs [`sync_sprite_posed_bodies`] in the SILHOUETTE phase. Bodies opt in
+/// through `SpritePosedBody`; pose-pinning rules run after movement, so geometry
+/// follows the pose on the next tick by design.
+///
+/// The phase is load-bearing, not tidiness. `update_body_mode` decides crouch or
+/// stand by testing the body's own `BodyKinematics`/`BodyBaseSize` for clearance,
+/// so a sheet-authored body must already be wearing its sheet's box when that
+/// decision runs. Published later, the decision reads the spawn placeholder
+/// instead, and a proposed box equal to the current one takes
+/// `try_change_body_mode_clusters`'s spatial-subset fast path, which skips the
+/// overlap test: a body stands up through a ceiling it does not fit under, and
+/// the solver spends every tick ejecting it.
 pub struct SpritePosedBodyPlugin;
 
 impl Plugin for SpritePosedBodyPlugin {
@@ -36,7 +45,7 @@ impl Plugin for SpritePosedBodyPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            sync_sprite_posed_bodies.in_set(WorldPrepSet::BeforeIntegrate),
+            sync_sprite_posed_bodies.in_set(PlayerInputSet::CharacterProjection),
         );
         // Pay the file-root index at Startup instead of on the first punch. See
         // `attack_hitbox::warm_file_root_registry` for the 189ms frame this cost.

@@ -37,3 +37,4 @@ mod the_transform_beat_reads_real_art;
 mod two_rooms;
 mod weaker_form_refusal;
 mod an_attempt_and_its_powers;
+mod crouch_clearance_probe;

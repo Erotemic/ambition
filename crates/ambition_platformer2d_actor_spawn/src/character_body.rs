@@ -233,7 +233,25 @@ pub fn grant_prepared_character_body(
         // app-side system in the Mary-O snake matching on a display name. So body
         // geometry was still declared through a second seam, which is the problem
         // `register_character` exists to delete.
+        //
+        // The STANDING geometry goes with it, in the same batch: the body's
+        // identity box (`BodyBaseSize`, what a reset restores and a stance
+        // divides by) and the quad it is drawn with, all from the sheet's `Idle`
+        // pose. The pose pass then projects only the pose the body is SHOWING.
         if let Some(posed) = posed_body_for(prepared) {
+            if let Some(standing) = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                &posed.target,
+                ambition_sprite_sheet::character::CharacterAnim::Idle,
+                posed.world_per_pixel,
+            ) {
+                scope.insert((
+                    ambition_platformer2d_core::BodyBaseSize {
+                        base_size: standing.collision,
+                    },
+                    ambition_combat::components::ActorRenderSize(standing.render),
+                    ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
+                ));
+            }
             scope.insert(posed);
         }
         // The MOTION MODEL, on the same path and for the X9 reason.

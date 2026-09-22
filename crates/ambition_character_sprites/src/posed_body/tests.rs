@@ -122,6 +122,9 @@ fn the_resize_holds_the_feet() {
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
+            // Published with the posed body when it is granted.
+            ActorRenderSize(geometry(CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
             ActorAnimOverride(CharacterAnim::ShellIdle),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(0.0, ground_y - walking.collision.y * 0.5),
@@ -171,6 +174,9 @@ fn a_stance_survives_the_per_tick_resync() {
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
+            // Published with the posed body when it is granted.
+            ActorRenderSize(geometry(CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
@@ -209,6 +215,9 @@ fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
+            // Published with the posed body when it is granted.
+            ActorRenderSize(geometry(CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics::default(),
         ))
         .id();
@@ -253,6 +262,9 @@ fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32)
         .world_mut()
         .spawn((
             SpritePosedBody::new(SNAKE, SCALE),
+            // Published with the posed body when it is granted.
+            ActorRenderSize(geometry(CharacterAnim::Idle).render),
+            ActorSpriteOffset(geometry(CharacterAnim::Idle).sprite_offset),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(0.0, ground - standing.collision.y * 0.5),
                 vel: ae::Vec2::ZERO,

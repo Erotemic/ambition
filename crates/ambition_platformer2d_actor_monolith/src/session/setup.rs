@@ -284,10 +284,11 @@ pub fn simulation_world(
             .max_health(worn_id)
             .unwrap_or(DEFAULT_PLAYER_HEALTH),
     });
-    // The authored BOX, on the exploration player. `SpriteAuthored` needs nothing here — its
-    // per-pose projection reaches every body on every path — so this is the `Explicit` case,
-    // which was seating-only until now.
-    if let Some(size) = physical.as_ref().and_then(|p| p.explicit_size()) {
+    // The authored BOX, on the exploration player, built at the size it stands in:
+    // an `Explicit` character's box, or a `SpriteAuthored` character's standing
+    // rectangle. The pose pass projects poses from there; it does not size the
+    // body into existence.
+    if let Some(size) = physical.as_ref().and_then(|p| p.standing_size()) {
         initial_scratch.kinematics.size = size;
         initial_scratch.base_size.base_size = size;
     }

@@ -840,6 +840,21 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
         posed.world_per_pixel, 2.5,
         "and the authored scale, which is the whole of what this field says"
     );
+    // The standing identity box arrives WITH the posed body, from the sheet's
+    // `Idle` pose; the pose pass projects poses and does not restore it.
+    let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+        "robot",
+        ambition_sprite_sheet::character::CharacterAnim::Idle,
+        2.5,
+    )
+    .expect("the baked `robot` sheet resolves a posed body");
+    assert_eq!(
+        app.world()
+            .get::<ambition_platformer2d_core::BodyBaseSize>(body)
+            .map(|base| base.base_size),
+        Some(standing.collision),
+        "the granted body does not stand in its sheet's Idle box",
+    );
 
     // And it is RETRACTED on a change of identity, like every other grant this
     // system makes — otherwise a body that becomes a plain character keeps

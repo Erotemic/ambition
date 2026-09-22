@@ -147,6 +147,10 @@ pub struct PhysicalBaseline {
     /// one. `SpriteAuthored` is absent here on purpose: it is not a size, it is a
     /// policy, and its authority is the per-pose projection.
     explicit_size: Option<Vec2>,
+    /// The standing box a `SpriteAuthored` character's art measures: its
+    /// sheet's `Idle` rectangle at the authored scale, from the same
+    /// `posed_body_geometry` call the pose pass projects every pose through.
+    sprite_standing_size: Option<Vec2>,
 }
 
 impl PhysicalBaseline {
@@ -161,6 +165,17 @@ impl PhysicalBaseline {
                     Some(Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0))
                 }
                 Some(BodySource::SpriteAuthored { .. }) | None => None,
+            },
+            sprite_standing_size: match (prepared.body.as_ref(), prepared.sheet.as_deref()) {
+                (Some(BodySource::SpriteAuthored { world_per_pixel }), Some(sheet)) => {
+                    ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                        sheet,
+                        ambition_sprite_sheet::character::CharacterAnim::Idle,
+                        *world_per_pixel,
+                    )
+                    .map(|standing| standing.collision)
+                }
+                _ => None,
             },
         }
     }
@@ -180,6 +195,13 @@ impl PhysicalBaseline {
     /// to spawn. `None` means the caller's own placeholder stands.
     pub fn explicit_size(&self) -> Option<Vec2> {
         self.explicit_size
+    }
+
+    /// The box a body wearing this character STANDS in when it is built: the
+    /// authored size, or the sprite-authored standing box. `None` means the
+    /// caller's own placeholder stands.
+    pub fn standing_size(&self) -> Option<Vec2> {
+        self.explicit_size.or(self.sprite_standing_size)
     }
 
     /// The authored mass, when there is one.

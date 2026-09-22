@@ -31,19 +31,20 @@ pub use ambition_sprite_sheet::character::sheets::{
 /// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad
 /// offset equal to what its sheet says about the pose it is showing.
 ///
+/// A projection of the pose only. The standing identity box (`BodyBaseSize`)
+/// and the initial quad are published with `SpritePosedBody` itself, when a
+/// character's body is granted, so nothing here constructs or restores them.
+///
 /// Runs in the sim so the box is authoritative in a headless build, and writes
 /// nothing when the geometry is unchanged — the common case, since a pose holds
 /// for many ticks and `ActorRenderSize` feeds a change-detecting render index.
 pub fn sync_sprite_posed_bodies(
-    mut commands: Commands,
     mut bodies: Query<(
-        Entity,
         &SpritePosedBody,
         Option<&ActorAnimOverride>,
         &mut ae::BodyKinematics,
-        Option<&mut ae::BodyBaseSize>,
-        Option<&mut ActorRenderSize>,
-        Option<&ActorSpriteOffset>,
+        &mut ActorRenderSize,
+        &mut ActorSpriteOffset,
         // The STANCE, which composes with the pose rather than competing with
         // it. Absent  a body that never body-modes, and the pose IS the box.
         Option<&ae::BodyModeState>,
@@ -53,31 +54,11 @@ pub fn sync_sprite_posed_bodies(
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     zones: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityZones>>,
 ) {
-    for (entity, posed, pinned, mut kin, base_size, render_size, offset, body_mode) in &mut bodies {
+    for (posed, pinned, mut kin, mut render_size, mut offset, body_mode) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
         };
-        // The STANDING box is this sheet's `Idle` rectangle, and it is a
-        // different fact from the box above: `size` is the pose showing NOW, and
-        // `base_size` is what the body returns to — the denominator of every
-        // stance ratio, and what a reset restores `size` to. Leaving it at the
-        // spawn placeholder meant a sheet-authored body came back from a reset
-        // wearing a box it had never had, and read as crouching forever to
-        // anything dividing by it.
-        //
-        // Only the identity authority may write it (`reset_body_clusters`
-        // restores, never redefines), and for a body whose geometry IS its art
-        // that authority is this pass.
-        if let Some(mut base) = base_size {
-            if let Some(standing) =
-                posed_body_geometry(&posed.target, CharacterAnim::Idle, posed.world_per_pixel)
-            {
-                if base.base_size != standing.collision {
-                    base.base_size = standing.collision;
-                }
-            }
-        }
         // The pose says how big the body IS; the MODE says what it is doing with
         // it, and the box is the composition of the two. The stance must be
         // re-applied here rather than left to the transition: the transition
@@ -113,22 +94,8 @@ pub fn sync_sprite_posed_bodies(
             // body through the ground it is standing on.
             ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir);
         }
-        // Written in the same instant as the box rather than through `Commands`:
-        // both facts come from ONE `geometry`, so one mechanism is simpler than
-        // two. `try_insert` remains for a body that has no `ActorRenderSize` yet,
-        // where there is nothing to write into. Neither spelling is late for a
-        // consumer ordered after this system — that ordering is itself a sync
-        // point.
-        match render_size {
-            Some(mut existing) if existing.0 != geometry.render => {
-                existing.0 = geometry.render;
-            }
-            None => {
-                commands
-                    .entity(entity)
-                    .try_insert(ActorRenderSize(geometry.render));
-            }
-            Some(_) => {}
+        if render_size.0 != geometry.render {
+            render_size.0 = geometry.render;
         }
         // The stance moved the body's CENTRE without moving its FEET, and the
         // quad is placed relative to that centre — so the placement owes the
@@ -143,10 +110,8 @@ pub fn sync_sprite_posed_bodies(
         // are published from here, by the one pass that knows both.
         let stance_shift = gravity_dir * ((geometry.collision - posed_collision) * 0.5);
         let sprite_offset = geometry.sprite_offset - stance_shift;
-        if offset.map(|o| o.0) != Some(sprite_offset) {
-            commands
-                .entity(entity)
-                .try_insert(ActorSpriteOffset(sprite_offset));
+        if offset.0 != sprite_offset {
+            offset.0 = sprite_offset;
         }
     }
 }

@@ -254,6 +254,9 @@ pub fn pin_grounded_at_rest(app: &mut App, body: Entity, pos: Vec2) {
     };
     ambition_platformer2d::engine_core::movement::constrain_body_pose(
         &mut kin,
+        // A fixture placement is not travel; the sample stops ending here, so
+        // readers fall back to the live pose.
+        None,
         pos,
         Vec2::ZERO,
     );

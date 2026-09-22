@@ -581,7 +581,7 @@ pub fn run_flag_sequence(
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
-    mut bodies: Query<&mut ae::BodyKinematics>,
+    mut bodies: Query<(&mut ae::BodyKinematics, Option<&mut ae::SweepSample>)>,
     mut holds: Query<&mut ambition_platformer2d::characters::control::ControlHolds>,
     // Her body mode, so the pole can say she is CLIMBING and let the animation
     // picker choose the clip.
@@ -593,7 +593,7 @@ pub fn run_flag_sequence(
     let Ok(mut sequence) = sequences.single_mut() else {
         return;
     };
-    let Ok(mut kin) = bodies.get_mut(entity) else {
+    let Ok((mut kin, mut sweep)) = bodies.get_mut(entity) else {
         return;
     };
     // The pole owns the body from the grab to the tally. The engine's `ScriptedControl` blanks at
@@ -633,7 +633,7 @@ pub fn run_flag_sequence(
     // still while her position jumped — which is why she appeared to translate
     // rather than slide and walk. `constrain_body_pose` has taken an imposed
     // velocity all along; the sequence simply was not telling it anything.
-    ae::movement::constrain_body_pose(&mut kin, drive.pos, drive.vel);
+    ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), drive.pos, drive.vel);
     // Walking off is to the RIGHT, so she should be looking that way.
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();

@@ -215,6 +215,7 @@ pub fn update_vortex_wells(
     mut actors: Query<
         (
             &mut BodyKinematics,
+            Option<&mut ae::SweepSample>,
             &ActorFaction,
             Option<&ambition_characters::actor::BodyHealth>,
             // The world's hands are off this body — it is not a target either.
@@ -253,7 +254,7 @@ pub fn update_vortex_wells(
         let Ok((entity, mut well)) = wells.get_mut(entity) else {
             continue;
         };
-        for (mut kin, faction, health, out_of_play, driver) in &mut actors {
+        for (mut kin, mut sweep, faction, health, out_of_play, driver) in &mut actors {
             // ⛔⛔ THE EFFECTIVE FACTION, NOT THE AUTHORED ONE. Possession keeps a
             // possessed NPC's `ActorFaction::Enemy` on purpose and moves its
             // allegiance through the driving relationship, so a raw `!= Enemy`
@@ -277,7 +278,7 @@ pub fn update_vortex_wells(
                 // The well is an external kinematic constraint (ADR 0024 authority):
                 // it carries the body toward the center by this tick's pull delta.
                 let delta = kin.pos.lerp(well.center, factor) - kin.pos;
-                ae::movement::carry_body(&mut kin, delta);
+                ae::movement::carry_body(&mut kin, sweep.as_deref_mut(), delta);
             }
         }
         well.remaining_s -= dt;

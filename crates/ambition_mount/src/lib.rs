@@ -401,6 +401,8 @@ pub fn sync_riders_to_mounts(
             &mut ae::ActorSurfaceState,
             &mut ae::BodyGroundState,
             &ambition_characters::actor::BodyHealth,
+            // The travelled path the saddle pin ends.
+            Option<&mut ae::SweepSample>,
         ),
         Without<MountSlot>,
     >,
@@ -426,6 +428,7 @@ pub fn sync_riders_to_mounts(
         mut rider_surface,
         mut rider_ground,
         rider_health,
+        mut rider_sweep,
     ) in &mut riders
     {
         let Ok((mountable, mount_frame, mount_kin, mount_health)) = mounts.get(riding.mount) else {
@@ -453,6 +456,7 @@ pub fn sync_riders_to_mounts(
         // the mount owns the rider's pose while mounted.
         ae::movement::constrain_body_pose(
             &mut rider_kin,
+            rider_sweep.as_deref_mut(),
             mount_kin.pos + rider_local,
             ae::Vec2::ZERO,
         );

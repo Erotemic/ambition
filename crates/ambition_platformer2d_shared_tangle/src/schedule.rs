@@ -470,7 +470,7 @@ pub enum WorldPrepSet {
 ///
 /// ⚠ DELIBERATELY A ONE-MEMBER SET, and that is load-bearing rather than
 /// tidiness: the obvious alternative — spanning this system and
-/// `update_ecs_hazards` beside it in the chain — would make `.after(set)`
+/// `advance_hazards` beside it in the chain — would make `.after(set)`
 /// STRICTER than the `.after(rebuild_feature_ecs_world_overlay)` it replaced,
 /// because consumers would newly wait for hazards too. One member makes the swap
 /// exactly equivalent, which is what allowed it without a judgement call about

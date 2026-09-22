@@ -42,7 +42,7 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
                 ambition_platformer2d_actor_monolith::world::gated_lock_walls::sync_authored_gated_lock_walls,
             )
                 .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
-                .before(ambition_combat::hazards::update_ecs_hazards)
+                .before(ambition_combat::hazards::HazardTickSet)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
                 ),

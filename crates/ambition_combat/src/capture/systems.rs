@@ -2357,9 +2357,10 @@ fn pose_captives(
         &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
+        Option<&mut ae::SweepSample>,
     )>,
 ) {
-    for (held, mut kin, mut surface, mut ground, aabb) in &mut captives {
+    for (held, mut kin, mut surface, mut ground, aabb, mut sweep) in &mut captives {
         let Ok((captor_kin, captor_frame)) = captors.get(held.captor) else {
             // The captor is gone. Releasing is the RELEASE path's job, not this
             // one's — a constraint system that also dissolved relationships
@@ -2378,7 +2379,7 @@ fn pose_captives(
             held.hold_offset_local.y,
         );
         let pos = captor_kin.pos + frame.to_world(local);
-        ae::movement::constrain_body_pose(&mut kin, pos, captor_kin.vel);
+        ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, captor_kin.vel);
         // Gravity is SUSPENDED, not deleted — `CapturedBy::prior_gravity_scale`
         // holds what to give back.
         surface.gravity_scale = 0.0;
@@ -2428,6 +2429,7 @@ pub fn maintain_existing_capture_pose(
         &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
+        Option<&mut ae::SweepSample>,
     )>,
 ) {
     pose_captives(captors, captives);
@@ -2457,6 +2459,7 @@ pub fn finalize_new_capture_pose(
         &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&mut crate::components::CenteredAabb>,
+        Option<&mut ae::SweepSample>,
     )>,
 ) {
     pose_captives(captors, captives);

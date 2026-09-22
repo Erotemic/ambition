@@ -50,7 +50,7 @@ const EVICT_MARGIN: f32 = 1.0;
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<&PlacedPortal>,
-    mut bodies: Query<&mut BodyKinematics, With<PortalBody>>,
+    mut bodies: Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>), With<PortalBody>>,
 ) {
     // A HOSTED aperture riding its face (CC6) is the same portal in motion,
     // not a close: compare against where host-carried motion says it should
@@ -83,10 +83,10 @@ pub fn evict_straddlers_on_portal_change(
 /// on, just past the plane.
 fn evict_for_plane(
     plane: PortalAperture,
-    bodies: &mut Query<&mut BodyKinematics, With<PortalBody>>,
+    bodies: &mut Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>), With<PortalBody>>,
 ) {
     let n = plane.frame.normal;
-    for mut kin in bodies.iter_mut() {
+    for (mut kin, mut sweep) in bodies.iter_mut() {
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
         if !pp::straddles(body, &plane) {
             continue;
@@ -101,12 +101,12 @@ fn evict_for_plane(
         if d >= 0.0 {
             let push = half_n - d + EVICT_MARGIN;
             if push > 0.0 {
-                ambition_platformer2d_core::movement::carry_body(&mut kin, n * push);
+                ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), n * push);
             }
         } else {
             let push = half_n + d + EVICT_MARGIN;
             if push > 0.0 {
-                ambition_platformer2d_core::movement::carry_body(&mut kin, -n * push);
+                ambition_platformer2d_core::movement::carry_body(&mut kin, sweep.as_deref_mut(), -n * push);
             }
         }
     }

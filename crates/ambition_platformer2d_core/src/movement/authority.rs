@@ -184,21 +184,38 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
 /// portal-close straddle eviction). Contacts, attachment, and velocity are
 /// deliberately untouched — a carried body is still supported/held; the next
 /// kernel step re-resolves contact from the carried pose.
-pub fn carry_body(kinematics: &mut crate::body_clusters::BodyKinematics, delta: Vec2) {
+///
+/// The body really went there, so the travelled path goes there too: the
+/// sample's end moves with it (see [`SweepSample::ending_at`]).
+pub fn carry_body(
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    sweep: Option<&mut SweepSample>,
+    delta: Vec2,
+) {
     kinematics.pos += delta;
+    if let Some(sweep) = sweep {
+        sweep.curr += delta;
+    }
 }
 
 /// External kinematic PIN: hold the body at an absolute pose with an imposed
 /// velocity (a mount's saddle, a scripted end-of-level slide). The constraint
 /// owner is the body's motion authority while engaged; like [`carry_body`] it
 /// does not fabricate or clear contact facts.
+///
+/// The path ends at the pin: a held body travelled from where this step began
+/// to where its holder put it, and that is the segment a path reader tests.
 pub fn constrain_body_pose(
     kinematics: &mut crate::body_clusters::BodyKinematics,
+    sweep: Option<&mut SweepSample>,
     pos: Vec2,
     vel: Vec2,
 ) {
     kinematics.pos = pos;
     kinematics.vel = vel;
+    if let Some(sweep) = sweep {
+        sweep.curr = pos;
+    }
 }
 
 /// THE FROZEN TICK — the fifth authority: what may change a body the kernel
@@ -606,22 +623,35 @@ mod tests {
         assert_eq!(clusters.kinematics.vel, Vec2::ZERO);
     }
 
+    /// Contacts are left alone, and the travelled path follows the body: after
+    /// either authority the sample still ends where the body is, from where the
+    /// step began, so a path reader sees one segment rather than none.
     #[test]
-    fn carry_and_constraint_leave_contact_facts_alone() {
+    fn carry_and_constraint_leave_contact_facts_alone_and_extend_the_path() {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(50.0, 50.0), AbilitySet::default());
         scratch.ground.on_ground = true;
+        let mut sample = SweepSample {
+            prev: Vec2::new(40.0, 50.0),
+            curr: Vec2::new(50.0, 50.0),
+            vel: Vec2::ZERO,
+            half: Vec2::splat(8.0),
+        };
         let clusters = scratch.as_mut();
-        carry_body(clusters.kinematics, Vec2::new(3.0, 0.0));
+        carry_body(clusters.kinematics, Some(&mut sample), Vec2::new(3.0, 0.0));
         assert_eq!(clusters.kinematics.pos, Vec2::new(53.0, 50.0));
         assert!(clusters.ground.on_ground, "a carried body stays supported");
+        assert!(sample.ending_at(clusters.kinematics.pos).is_some(), "the carry extends the path");
         constrain_body_pose(
             clusters.kinematics,
+            Some(&mut sample),
             Vec2::new(80.0, 40.0),
             Vec2::new(0.0, 5.0),
         );
         assert_eq!(clusters.kinematics.pos, Vec2::new(80.0, 40.0));
         assert_eq!(clusters.kinematics.vel, Vec2::new(0.0, 5.0));
         assert!(clusters.ground.on_ground);
+        assert!(sample.ending_at(clusters.kinematics.pos).is_some(), "the pin ends the path");
+        assert_eq!(sample.prev, Vec2::new(40.0, 50.0), "from where the step began");
     }
 }

@@ -138,7 +138,7 @@ pub use ecs::{
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
-    update_ecs_hazards, ActorConstructionContext, ActorSteering, ChallengeRequested,
+    advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested,
     EncounterRewardSyncPlugin, FactionRelations, FeatureWorldOverlaySet, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
@@ -960,7 +960,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
                     .in_set(crate::world::overlay::FeatureWorldOverlaySet),
-                update_ecs_hazards.in_set(ambition_combat::hazards::HazardTickSet),
+                advance_hazards.in_set(ambition_combat::hazards::HazardTickSet),
                 // Actor targeting/decision, movement, read-model projection, and contact
                 // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
@@ -1224,6 +1224,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             apply_actor_contact_damage
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
                 .before(tick_npc_idle_barks),
+        );
+        // Hazard contacts observe settled poses and this tick's travelled path,
+        // against where the hazard moved to this tick.
+        app.add_systems(
+            sim,
+            apply_hazard_contacts
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
+                .after(ambition_combat::hazards::HazardTickSet),
         );
         // Same set, same schedule, same guarantee that every game gets it — but the registration
         // lives with the system, so this crate does not depend on the crate that owns it.

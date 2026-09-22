@@ -157,10 +157,7 @@ fn portal_sweep_sample(
     kin: &BodyKinematics,
     sweep: Option<&ae::SweepSample>,
 ) -> Option<SweptSample> {
-    let sweep = sweep?;
-    if (sweep.curr - kin.pos).length_squared() > 1.0 {
-        return None;
-    }
+    let sweep = sweep?.ending_at(kin.pos)?;
     Some(SweptSample {
         pos: sweep.prev,
         vel: sweep.vel,

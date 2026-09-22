@@ -210,9 +210,9 @@ impl BodyKinematics {
 pub struct SweepSample {
     /// Position at simulation-phase entry (the TRUE segment start).
     pub prev: Vec2,
-    /// Position at simulation-phase exit. May differ from the body's
-    /// CURRENT `pos` on frames where a later system teleported it — the
-    /// sample is the traveled path, not the endpoint.
+    /// Where the travelled path ends. The kernel writes it at phase exit and
+    /// every post-kernel movement authority keeps it on the body; it differs
+    /// from the live `pos` only after a raw teleport (see [`Self::ending_at`]).
     pub curr: Vec2,
     /// Velocity at `prev` (the motion that produced the path).
     pub vel: Vec2,
@@ -224,6 +224,30 @@ impl SweepSample {
     /// The segment's displacement (`curr − prev`).
     pub fn delta(&self) -> Vec2 {
         self.curr - self.prev
+    }
+
+    /// This sample as the path that ends where the body IS, or `None`.
+    ///
+    /// Every post-kernel movement authority says what it does to the path:
+    /// [`crate::movement::carry_body`] and [`crate::movement::constrain_body_pose`]
+    /// extend it to where they put the body, and
+    /// [`crate::movement::reconcile_transit`] collapses it. A body standing
+    /// anywhere else was moved by something that did not — a raw teleport — so
+    /// the sample is still a true record of the step but not the path to here,
+    /// and a reader must not splice it onto the live pose.
+    pub fn ending_at(&self, live_pos: Vec2) -> Option<&Self> {
+        ((self.curr - live_pos).length_squared() <= 1.0).then_some(self)
+    }
+
+    /// Did the travelled path touch `target`? `prev → curr` swept with `half`,
+    /// read as one fact; the endpoint overlap included.
+    pub fn touches(&self, target: crate::Aabb) -> bool {
+        crate::cast::aabb_path_contacts(self.curr, self.half, self.delta(), target)
+    }
+
+    /// The body's box at the end of the path.
+    pub fn end_aabb(&self) -> crate::Aabb {
+        crate::Aabb::new(self.curr, self.half)
     }
 }
 

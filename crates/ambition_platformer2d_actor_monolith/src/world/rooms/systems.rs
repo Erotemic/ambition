@@ -159,10 +159,14 @@ pub fn detect_room_transition_system(
     // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
     // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
     // that did not move produces a zero-length sample and the test degrades to
-    // the overlap it always was.
-    let delta = sweep.map(|sample| sample.delta()).unwrap_or_default();
+    // the overlap it always was. The path is read whole — its own end box and
+    // segment — and only when it ends where the body is; otherwise the body is
+    // tested where it stands.
+    let (path_end, delta) = sweep
+        .and_then(|sample| sample.ending_at(kin.pos))
+        .map_or((kin.aabb(), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
     let wants_interact = slot_gestures.primary().buffered();
-    let Some(zone) = room_set.transition_for_player(kin.aabb(), delta, wants_interact) else {
+    let Some(zone) = room_set.transition_for_player(path_end, delta, wants_interact) else {
         // `warn_once`: a stuck body re-enters this branch every tick, and the
         // situation is a standing one — the first report is the whole message.
         // and it costs nothing on the normal path: it runs only after the

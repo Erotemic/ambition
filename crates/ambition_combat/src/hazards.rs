@@ -6,8 +6,7 @@
 use super::util::hazard_sfx_id;
 use super::*;
 
-/// Tick ECS-authored hazards and publish player damage through Bevy messages.
-/// The set `update_ecs_hazards` runs in.
+/// The set `advance_hazards` runs in.
 ///
 /// two `ambition_content` plugins (`bosses`, `intro`) order against this
 /// function by name across a crate boundary. Same shape as
@@ -18,18 +17,52 @@ use super::*;
 /// out of the actor kernel on 2026-09-03, partly BECAUSE this comment and its
 /// twin in `ambition_damage` had to describe it in prose.
 ///
-/// ONE member, so `.before(HazardTickSet)` is exactly the
-/// `.before(update_ecs_hazards)` it replaces. The system sits inside a long
-/// chained tuple in the monolith's feature group; a set spanning its neighbours
-/// would change what a consumer waits for.
+/// ONE member, so `.before(HazardTickSet)` orders against hazard MOTION only.
+/// Contacts are a separate system in `WorldPrepSet::ContactDamage`, because they
+/// observe the bodies' settled poses and this tick's travelled path.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct HazardTickSet;
 
-pub fn update_ecs_hazards(
+/// Advance every hazard's patrol and publish its volume.
+pub fn advance_hazards(
     world_time: Res<WorldTime>,
+    mut hazards: Query<(&mut CenteredAabb, &mut HazardFeature), With<FeatureSimEntity>>,
+) {
+    // Sim clock: patrolling damage volumes must slow in bullet-time
+    // so the player can route around them. ADR 0010.
+    let dt = world_time.sim_dt();
+    for (mut aabb, mut feature) in &mut hazards {
+        let hazard = &mut feature.hazard;
+        hazard.update(dt);
+        aabb.center = hazard.pos;
+        aabb.half_size = hazard.size * 0.5;
+    }
+}
+
+/// Did this body touch `target` this tick? The live footprint overlapping it,
+/// or the tick's travelled path crossing it.
+///
+/// CC2 (the sweep law): a fast body (dash, Sanic run) must not tunnel a thin
+/// spike between frames. The path is the §3.1 SweepSample read whole —
+/// `prev → curr` swept with the shape it was taken in — and only when it ends
+/// where the body is: a body a raw teleport moved has no path to here, and one
+/// with no sample travelled nothing. Splicing a stale delta onto the live box
+/// would invent a segment the body never took.
+fn body_touches(
+    hurtbox: &CenteredAabb,
+    live_pos: Option<ae::Vec2>,
+    sweep: Option<&ae::SweepSample>,
+    target: ae::Aabb,
+) -> bool {
+    ae::cast::aabb_path_contacts(hurtbox.center, hurtbox.half_size, ae::Vec2::ZERO, target)
+        || live_pos
+            .and_then(|pos| sweep?.ending_at(pos))
+            .is_some_and(|path| path.touches(target))
+}
+
+/// Publish hazard damage for every body the hazard touched.
+pub fn apply_hazard_contacts(
     mut hit_events: MessageWriter<HitEvent>,
-    // `Without<FeatureSimEntity>` keeps this read of the player's published
-    // `CenteredAabb` (§A6) provably disjoint from the mutable hazard query.
     player: Query<
         (
             Entity,
@@ -52,11 +85,11 @@ pub fn update_ecs_hazards(
     // Every OTHER body with a published footprint burns too (fable review
     // §A4): hazards are relational-agnostic world danger — an NPC
     // in lava takes the hit, a boss can be lured into spikes. Deliberately NOT
-    // faction-gated (unified-actors guardrail 4). `Without<HazardFeature>`
-    // keeps this read provably disjoint from the mutable hazard query.
+    // faction-gated (unified-actors guardrail 4).
     actor_victims: Query<
         (
             Entity,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
             Option<&ae::SweepSample>,
             &CenteredAabb,
             &ambition_platformer2d_core::BodyMotionFacts,
@@ -70,39 +103,16 @@ pub fn update_ecs_hazards(
             Without<HazardFeature>,
         ),
     >,
-    mut hazards: Query<
-        (&FeatureName, &mut CenteredAabb, &mut HazardFeature),
-        With<FeatureSimEntity>,
-    >,
+    hazards: Query<&HazardFeature, With<FeatureSimEntity>>,
 ) {
-    // Sim clock: patrolling damage volumes must slow in bullet-time
-    // so the player can route around them. ADR 0010.
-    let dt = world_time.sim_dt();
-    if player.is_empty() {
-        // No players yet (pre-spawn); tick hazard motion but skip the
-        // damage check so the patrol path still advances.
-        for (_name, mut aabb, mut feature) in &mut hazards {
-            let hazard = &mut feature.hazard;
-            hazard.update(dt);
-            aabb.center = hazard.pos;
-            aabb.half_size = hazard.size * 0.5;
-        }
-        return;
-    }
-    for (_name, mut aabb, mut feature) in &mut hazards {
-        let hazard = &mut feature.hazard;
-        hazard.update(dt);
-        aabb.center = hazard.pos;
-        aabb.half_size = hazard.size * 0.5;
+    for feature in &hazards {
+        let hazard = &feature.hazard;
         if !hazard.active() {
             continue;
         }
         // Iterate every player so each overlapping player takes damage
         // independently — a future co-op build wants hazards to bite
         // every player in the volume, not implicitly the primary one.
-        // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
-        // hazard hits). Single-player behavior preserved because the
-        // iterator has exactly one entity today.
         for (
             player_entity,
             kin,
@@ -115,26 +125,13 @@ pub fn update_ecs_hazards(
             resolved_frame,
         ) in &player
         {
-            // CC2 (the sweep law): a hazard touch is path-dependent — a fast body
-            // (dash, Sanic run) must not tunnel through a thin spike between
-            // frames. The path is the §3.1 SweepSample — the kernel's TRUE
-            // integrated segment, which excludes teleports (blink/respawn/
-            // portal) by construction, so a blink OVER spikes is not a graze.
-            // A body with no sample travelled nothing, and a zero delta is the
-            // overlap test; reconstructing `vel·dt` would invent a straight line
-            // through whatever the solver actually stopped it on.
-            let delta = sweep.map(|s| s.delta()).unwrap_or_default();
             if !crate::util::body_vulnerable(
                 victim_health.health.invulnerable,
                 facts.evading(),
                 shield,
                 combat,
-            ) || !ae::cast::aabb_path_contacts(
-                hurtbox.center,
-                hurtbox.half_size,
-                delta,
-                hazard.aabb(),
-            ) {
+            ) || !body_touches(hurtbox, Some(kin.pos), sweep, hazard.aabb())
+            {
                 continue;
             }
             let pos = kin.pos;
@@ -170,12 +167,7 @@ pub fn update_ecs_hazards(
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
         // Knockback is left to the victim consumer (actor knockback rides the
         // resolver, not the event — see §A2).
-        for (victim, sweep, hurtbox, facts, shield, combat, health) in &actor_victims {
-            // CC2: every body sweeps the same way (relativity principle) — an
-            // actor lured onto spikes at speed can't tunnel them either. The
-            // §3.1 sample is the path; anything without one — a bare headless
-            // hurtbox, a body that has not stepped yet — stays discrete.
-            let delta = sweep.map(|s| s.delta()).unwrap_or(ae::Vec2::ZERO);
+        for (victim, kin, sweep, hurtbox, facts, shield, combat, health) in &actor_victims {
             if health.current() <= 0
                 || !crate::util::body_vulnerable(
                     health.health.invulnerable,
@@ -183,12 +175,7 @@ pub fn update_ecs_hazards(
                     shield,
                     combat,
                 )
-                || !ae::cast::aabb_path_contacts(
-                    hurtbox.center,
-                    hurtbox.half_size,
-                    delta,
-                    hazard.aabb(),
-                )
+                || !body_touches(hurtbox, kin.map(|k| k.pos), sweep, hazard.aabb())
             {
                 continue;
             }

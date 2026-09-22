@@ -469,7 +469,7 @@ fn update_body_simulation_inner(
                 // the solid moves the grabbed body, and the stored contact moves
                 // with it or the next tick re-pins the body to where the ledge
                 // used to be.
-                authority::carry_body(clusters.kinematics, delta);
+                authority::carry_body(clusters.kinematics, clusters.sweep.as_deref_mut(), delta);
                 if let Some(grab) = state.ledge_grab.as_mut() {
                     grab.contact.anchor += delta;
                     grab.contact.climb_target += delta;

@@ -122,7 +122,7 @@ pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,
 };
 pub use falling_chest::update_ecs_falling_chests;
-pub use hazards::{update_ecs_hazards, HazardTickSet};
+pub use hazards::{advance_hazards, apply_hazard_contacts, HazardTickSet};
 pub use held_items::HeldItem;
 pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,

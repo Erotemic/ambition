@@ -57,9 +57,6 @@ pub fn update_ecs_hazards(
     actor_victims: Query<
         (
             Entity,
-            // `Option`: every real body carries kinematics (→ swept), but a bare
-            // headless/test hurtbox without it falls back to the discrete check.
-            Option<&ambition_platformer2d_core::BodyKinematics>,
             Option<&ae::SweepSample>,
             &CenteredAabb,
             &ambition_platformer2d_core::BodyMotionFacts,
@@ -123,9 +120,10 @@ pub fn update_ecs_hazards(
             // frames. The path is the §3.1 SweepSample — the kernel's TRUE
             // integrated segment, which excludes teleports (blink/respawn/
             // portal) by construction, so a blink OVER spikes is not a graze.
-            // Bodies without a sample keep the historical `vel·dt`
-            // approximation (delete the fallback when every mover writes one).
-            let delta = sweep.map(|s| s.delta()).unwrap_or(kin.vel * dt);
+            // A body with no sample travelled nothing, and a zero delta is the
+            // overlap test; reconstructing `vel·dt` would invent a straight line
+            // through whatever the solver actually stopped it on.
+            let delta = sweep.map(|s| s.delta()).unwrap_or_default();
             if !crate::util::body_vulnerable(
                 victim_health.health.invulnerable,
                 facts.evading(),
@@ -172,16 +170,12 @@ pub fn update_ecs_hazards(
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
         // Knockback is left to the victim consumer (actor knockback rides the
         // resolver, not the event — see §A2).
-        for (victim, kin, sweep, hurtbox, facts, shield, combat, health) in &actor_victims {
+        for (victim, sweep, hurtbox, facts, shield, combat, health) in &actor_victims {
             // CC2: every body sweeps the same way (relativity principle) — an
             // actor lured onto spikes at speed can't tunnel them either. The
-            // §3.1 sample (the true integrated segment) wins; a body without
-            // one keeps the historical `vel·dt` approximation; a bare hurtbox
-            // stays discrete.
-            let delta = sweep
-                .map(|s| s.delta())
-                .or_else(|| kin.map(|k| k.vel * dt))
-                .unwrap_or(ae::Vec2::ZERO);
+            // §3.1 sample is the path; anything without one — a bare headless
+            // hurtbox, a body that has not stepped yet — stays discrete.
+            let delta = sweep.map(|s| s.delta()).unwrap_or(ae::Vec2::ZERO);
             if health.current() <= 0
                 || !crate::util::body_vulnerable(
                     health.health.invulnerable,

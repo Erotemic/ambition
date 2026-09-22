@@ -124,9 +124,8 @@ pub fn detect_room_transition_system(
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Use the movement kernel's `SweepSample` for boundary crossings because collision may zero
-    // velocity at time of impact.
-    // TODO(compat-remove): once every mover publishes `SweepSample`, remove the `vel * dt`
-    // fallback for bodies without one.
+    // velocity at time of impact — which is exactly when `vel * dt` lies, so a body without a
+    // sample travelled nothing rather than a straight line.
     bodies: Query<
         (
             &ambition_platformer2d_core::BodyKinematics,
@@ -139,7 +138,6 @@ pub fn detect_room_transition_system(
     // controlled later, after a possession change.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
-    world_time: Res<WorldTime>,
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
@@ -162,9 +160,7 @@ pub fn detect_room_transition_system(
     // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
     // that did not move produces a zero-length sample and the test degrades to
     // the overlap it always was.
-    let delta = sweep
-        .map(|sample| sample.delta())
-        .unwrap_or_else(|| kin.vel * world_time.sim_dt());
+    let delta = sweep.map(|sample| sample.delta()).unwrap_or_default();
     let wants_interact = slot_gestures.primary().buffered();
     let Some(zone) = room_set.transition_for_player(kin.aabb(), delta, wants_interact) else {
         // `warn_once`: a stuck body re-enters this branch every tick, and the

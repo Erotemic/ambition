@@ -240,8 +240,15 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 
     // The body has already SHOT PAST the zone this frame: it ends at x = 200
     // (clear of the x = 100 band, half-width 12) having entered from x = 40, so
-    // its velocity places the band squarely on its swept path. A discrete
-    // endpoint check at x = 200 would see no overlap and miss the exit.
+    // the band sits squarely on its travelled path. A discrete endpoint check at
+    // x = 200 would see no overlap and miss the exit.
+    //
+    // The path is given as the body's `SweepSample`, which is what a real body
+    // carries. It used to be given only as a VELOCITY, and the detector
+    // reconstructed the segment as `vel · dt` — so this arm proved the reader
+    // could sweep a reconstruction and never touched the sample road at all.
+    // `a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into`
+    // below is the case that distinguishes them.
     let dt = 1.0 / 60.0;
     let end = ae::Vec2::new(200.0, 100.0);
     let start = ae::Vec2::new(40.0, 100.0);
@@ -257,6 +264,12 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             vel,
             size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
+        },
+        ae::SweepSample {
+            prev: start,
+            curr: end,
+            vel,
+            half: ae::Vec2::new(12.0, 20.0),
         },
     ));
 

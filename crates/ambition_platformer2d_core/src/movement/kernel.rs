@@ -598,8 +598,12 @@ pub(crate) fn apply_world_hazard_gate(
 /// to disagree with it: velocity at phase entry does not describe a step that a
 /// collision resolve shortened, so that arm would report a hazard on a path the
 /// body never travelled. A body with no sample is a body nothing swept, and the
-/// endpoint is the only thing actually known about it. `SweepSample`'s
-/// `TODO(compat-remove)` is the plan to delete this arm outright.
+/// endpoint is the only thing actually known about it — and that is a
+/// permanent shape, not a migration residue: the fighter brain's recovery
+/// planner runs this kernel over a scratch body that is not an entity, so a
+/// sampleless mover will always exist. The ECS hazard and room-transition
+/// readers one layer up DID rebuild the segment this paragraph forbids; they
+/// no longer do.
 ///
 /// Teleports need no exclusion of their own: the sample is captured from
 /// simulation-phase entry to phase exit, so a later system's blink or room

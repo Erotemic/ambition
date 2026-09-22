@@ -130,25 +130,36 @@ fn a_non_player_body_touching_a_hazard_takes_the_hit_too() {
 /// CC2 (the sweep law): a body leaps ACROSS a hazard in one frame, ending
 /// CLEAR of it. The old discrete endpoint overlap missed the tunnel; the
 /// swept path catches it. This is the tunneling class §7.6 retires.
+///
+/// The frame is COLLISION-SHORTENED on purpose: the body crossed the spikes and
+/// then hit the wall behind them, so its velocity is zero by the time hazards
+/// run. `vel · dt` describes no movement at all here, and the only record of
+/// the 200 px it walked is the kernel's `SweepSample`. A fixture whose velocity
+/// still reproduces its own path cannot tell the two apart and passes whichever
+/// one the reader picks.
 #[test]
 fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
     let mut app = app_with_hazard_system();
-    {
-        let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        wt.scaled_dt = 0.1;
-        wt.raw_dt = 0.1;
-    }
     let end = ae::Vec2::new(160.0, 100.0);
-    // vel * dt = 200 px this frame → the path started at x = -40, crossing
-    // the hazard at x = 100, and ENDED clear at x = 160.
+    let start = end - ae::Vec2::new(200.0, 0.0);
     app.world_mut().spawn((
         PlayerEntity,
         BodyKinematics {
             pos: end,
-            vel: ae::Vec2::new(2000.0, 0.0),
+            // ZERO: the wall took it at time-of-impact, as `zero_axis_vel` does.
+            vel: ae::Vec2::ZERO,
             size: ae::Vec2::new(28.0, 46.0),
             facing: 1.0,
             ..Default::default()
+        },
+        // The path opened at x = -40, crossed the hazard at x = 100 and ENDED
+        // clear at x = 160. The kernel's record is the whole of what is known
+        // about it; the reader rebuilds nothing.
+        ae::SweepSample {
+            prev: start,
+            curr: end,
+            vel: ae::Vec2::new(2000.0, 0.0),
+            half: ae::Vec2::new(14.0, 23.0),
         },
         ae::CenteredAabb::from_center_size(end, ae::Vec2::new(28.0, 46.0)),
         BodyBaseSize {

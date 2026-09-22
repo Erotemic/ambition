@@ -22,8 +22,12 @@ room/seed/tick diagnostic. Do not replace these mechanisms merely to unify names
 Hazard contact already reads the current path, and the wrapper writes its sample
 before invoking the gate. `SimPhaseReach::Completed` preserves the original gate
 population; sample writing still occurs on zero-dt and early-return paths so a
-stale path is not reused. Missing samples retain the existing endpoint-only
-compatibility arm. Moving the gate without preserving those populations would
+stale path is not reused. Missing samples retain the endpoint-only arm, which is
+permanent rather than compatibility: the fighter brain's recovery planner runs
+the kernel over a scratch body that is not an entity, so a sampleless mover
+always exists. What went instead were the ECS readers one layer up — hazard
+contact and room-transition entry — which rebuilt a segment from `vel * dt`,
+the second motion model the gate's own doc forbids. Moving the gate without preserving those populations would
 reopen a resolved defect. Source and regression home:
 `crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`.
 

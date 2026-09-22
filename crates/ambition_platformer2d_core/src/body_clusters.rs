@@ -15,8 +15,10 @@ use crate::Vec2;
 pub struct BodyClustersMut<'a> {
     pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
-    /// Per-tick motion record written by simulation. When absent, swept
-    /// readers fall back to the `vel * dt` approximation.
+    /// Per-tick motion record written by simulation. `Option` because a mover
+    /// is not always an entity: the fighter brain's recovery planner runs this
+    /// kernel over a scratch body, which records nothing because nothing reads
+    /// it. Absent means NO PATH, never a reconstructed one.
     pub sweep: Option<&'a mut SweepSample>,
     pub base_size: &'a mut BodyBaseSize,
     pub ground: &'a mut BodyGroundState,
@@ -196,8 +198,14 @@ impl BodyKinematics {
 /// simulation kernel from phase entry (`prev`) to phase exit (`curr`). Teleports
 /// outside the simulation phase therefore never become swept motion.
 ///
-/// TODO(compat-remove): require `SweepSample` on swept movers and remove reader
-/// fallbacks that reconstruct motion from `vel * dt`.
+/// OPTIONAL ON THE WRITER SIDE, AND IT STAYS THAT WAY. The fighter brain's
+/// recovery planner runs this same movement kernel over a SCRATCH body to ask
+/// whether it can get back to the stage; that body is not an entity and has no
+/// path for anyone to read. A mover is not always an entity.
+///
+/// Readers are the other half, and they no longer substitute: a body with no
+/// sample travelled nothing this tick, which degrades to the overlap test it
+/// always was. A missing path is not a straight line.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct SweepSample {
     /// Position at simulation-phase entry (the TRUE segment start).

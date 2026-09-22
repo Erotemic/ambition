@@ -209,12 +209,17 @@ fn a_teleport_across_the_hazard_is_not_traversal() {
     );
 }
 
-/// THE COMPATIBILITY ARM, pinned deliberately. A body with no `SweepSample` is
-/// tested at its endpoint and nothing else — the gate does NOT rebuild a
-/// segment from `vel * dt`, because a second motion model beside the kernel's
-/// is free to disagree with it. `SweepSample`'s `TODO(compat-remove)` is the
-/// plan to delete this arm; when it goes, this case should go red and be
-/// removed with it rather than quietly re-tuned.
+/// PINNED, AND PERMANENT. A body with no `SweepSample` is tested at its
+/// endpoint and nothing else — the gate does NOT rebuild a segment from
+/// `vel * dt`, because a second motion model beside the kernel's is free to
+/// disagree with it.
+///
+/// This doc used to call the arm temporary and name `SweepSample`'s
+/// `TODO(compat-remove)` as the plan to delete it. That plan assumed every
+/// swept mover could be made to carry the component; the fighter brain's
+/// recovery planner runs this kernel over a SCRATCH body that is not an entity
+/// at all, so the sampleless case is a permanent shape rather than a migration
+/// residue. The ECS readers that DID rebuild a segment are the half that went.
 #[test]
 fn a_body_with_no_sample_is_tested_at_its_endpoint_only() {
     let world = hazard_world();

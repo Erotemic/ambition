@@ -17,13 +17,22 @@ use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTem
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
-/// Fallback fighting kit for bodies whose character authors no repertoire.
+/// The RULESET'S PROVOKED REPERTOIRE: what a body swings when it is provoked and
+/// its character authored none.
 ///
 /// Exploration provocation and platform-fighter fallback kits intentionally have
 /// different tuning; these defaults belong to session/ruleset policy, not body
 /// identity.
 ///
-/// TODO(compat-remove): delete this fallback once every adopter supplies an
+/// ⚠ IT HAS ONE CALLER NOW, and that is the difference from what this doc used
+/// to describe as a "fallback". The other was the mount dismount, which reached
+/// here whenever a rebuilt set had no melee — so a rider whose character
+/// authors no swing was handed this one silently, on a road that had already
+/// rediscovered the registry trying to avoid it. Both are deleted; a rider now
+/// comes down with what its identity grants. What remains is a single explicit
+/// `match` on the peaceful-NPC road, where the absence is resolved in the open.
+///
+/// TODO(compat-remove): delete this default once every adopter supplies an
 /// explicit ruleset or character fighting kit.
 pub(crate) fn default_fighting_kit() -> ActionSet {
     ActionSet {
@@ -286,35 +295,22 @@ pub fn dismounted_rider_brain_and_action_set(
     rider: &ActorConfig,
     identity: &IdentityKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
-    // **The prepared cast**, so a rider that fell off can be asked what IT
-    // swings rather than borrowing `pirate_raider`'s. See below.
-    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> (Brain, ActionSet) {
     // Rebuild the rider's solo action set from its DURABLE identity baseline
     // plus its live held item — the same inputs the spawn projection used,
     // queried off the entity so the runtime dismount never re-reads the roster
     // enum.
-    let mut action_set = identity.with_held_item(held_item);
-    if action_set.melee.is_none() {
-        // This reached straight for `pirate_raider`'s melee — the THIRD reader of the provocation
-        // matcher's archetypes, and the one a placement census could not see because it counts
-        // levels rather than code. A rider whose character authors a swing was being handed a
-        // stranger's on the way down.
-        action_set.melee = prepared
-            .zip(rider.sprite_character_id.as_deref())
-            .and_then(|(registry, character)| {
-                registry.get(character)?.kit.action_set()?.melee.clone()
-            })
-            // `spec_for_brain` cannot fail, so every dismounted rider whose character authored
-            // no swing has been given `combatant`'s ever since, silently, while this code read
-            // as though it were handing out a pirate's.
-            //
-            // the engine's default fighting kit is what it was ACTUALLY
-            // getting — `default_fighting_kit` is pinned equal to `combatant`'s
-            // melee (P3.24) — so this is the same swing with the lie removed,
-            // and it stops depending on a row at all.
-            .or_else(|| default_fighting_kit().melee);
-    }
+    // ⛔ NO REDISCOVERY, AND NO INVENTION. This used to reach back into the
+    // prepared registry when the rebuilt set had no melee, and then fall through
+    // to `default_fighting_kit()` when that missed. Both were answers to a
+    // question preparation had already answered: the rider's `IdentityKit` IS
+    // its authored repertoire, so asking the registry again could only agree or
+    // be wrong, and the engine swipe underneath it handed a rider whose
+    // character authors no swing somebody else's.
+    //
+    // A rider that authored no melee comes down without one. That is what its
+    // character says.
+    let action_set = identity.with_held_item(held_item);
 
     (dismounted_rider_brain(rider, held_item), action_set)
 }

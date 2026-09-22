@@ -555,7 +555,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     seed.config.tuning.flight_direct_velocity = true;
     // A floating boss: is_aerial forces flight into the body's movement kit.
     seed.body =
-        ambition_body_seed::ActorBody::from_kit(ae::AbilitySet::NONE, true, seed.kin.size);
+        ambition_body_seed::ActorBody::from_abilities(ambition_body_seed::ActorBody::default_actor_abilities(), true, seed.kin.size);
     let behavior = BossBehaviorProfile::clockwork_warden();
     // World: a wall at x=400 blocks any rightward chase past it.
     let world = ae::World::new(

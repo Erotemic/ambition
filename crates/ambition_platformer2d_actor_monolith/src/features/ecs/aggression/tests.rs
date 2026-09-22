@@ -338,7 +338,7 @@ fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
 /// motor outputs don't apply — discard them and steer a 2D velocity"*). `cfg.can_fly` gates only
 /// the hybrid TAKE-OFF/LANDING toggle, which is exactly right: a baseline flyer never toggles, it
 /// simply flies. And `can_fly` itself is read off the body's own `AbilitySet`
-/// (`smash_cfg_from_spec`), which `ActorBody::from_kit` forces true for an aerial body.
+/// (`smash_cfg_from_spec`), which `ActorBody::from_abilities` sets for an aerial body.
 ///
 /// The brain read that half-body as aerial (`gravity_scale <= 0.001 || fly_enabled`) while the
 /// integrator read it as grounded (`fly_enabled` alone) — so it really did freeze, from the

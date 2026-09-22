@@ -19,7 +19,7 @@ use ambition_combat::held_items::HeldItem;
 /// owns the reaction reacts.
 ///
 /// ⛔ THE REBUILD CANNOT TRAVEL WITH A MOUNT CARVE and that is why it moved.
-/// It reads `ActorConfig`, `IdentityKit`, `HeldItem` and the prepared cast —
+/// It reads `ActorConfig`, `IdentityKit` and `HeldItem` —
 /// character-runtime facts, every one — so a mount crate that called it would
 /// have to import the character runtime to dissolve a mount.
 ///
@@ -71,9 +71,6 @@ pub fn rebuild_dismounted_rider_brains(
     mut dismounts: bevy::prelude::MessageReader<
         ambition_platformer2d_shared_tangle::body::MountDied,
     >,
-    // The prepared cast, so a dismounted rider swings its own weapon rather
-    // than borrowing an archetype's.
-    prepared: Option<bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     riders: bevy::prelude::Query<(
         &ActorConfig,
         Option<&HeldItem>,
@@ -171,7 +168,6 @@ pub fn rebuild_dismounted_rider_brains(
                     config,
                     identity_kit,
                     held_item.map(|item| &item.spec),
-                    prepared.as_deref(),
                 );
                 (brain, Some(action_set))
             }

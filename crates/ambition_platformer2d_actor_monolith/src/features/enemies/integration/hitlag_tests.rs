@@ -48,11 +48,11 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
     seed.kin.vel = ae::Vec2::ZERO;
     seed.kin.facing = 1.0;
     seed.surface.gravity_scale = 1.0;
-    seed.body = ActorBody::from_kit(
-        ae::AbilitySet {
+    seed.body = ActorBody::from_abilities(
+        ActorBody::default_actor_abilities().union(ae::AbilitySet {
             move_horizontal: true,
             ..ae::AbilitySet::NONE
-        },
+        }),
         false,
         seed.kin.size,
     );

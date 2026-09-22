@@ -60,46 +60,61 @@ pub struct ActorMotionPath(pub Option<PathMotion>);
 #[derive(Clone, Debug)]
 pub struct ActorBody(pub ae::BodyClusterScratch);
 
-impl Default for ActorBody {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ActorBody {
-    /// A fresh actor movement body with the locomotion-only ability mask (no
-    /// capability verbs). Used for the `Default` impl + bodies with no kit.
-    pub fn new() -> Self {
-        Self(ae::BodyClusterScratch::new_with_abilities(
-            ae::Vec2::ZERO,
-            Self::locomotion_abilities(),
-        ))
-    }
-
-    /// Build a combat body's live movement abilities from the shared locomotion
-    /// base plus its authored kit. Aerial bodies start with flight enabled and
-    /// every combat body carries the attack capability; policy/moveset state
-    /// decides whether it actually attacks. `base_size` is required identity
-    /// state used when resetting the body.
-    pub fn from_kit(kit: ae::AbilitySet, is_aerial: bool, base_size: ae::Vec2) -> Self {
-        let mut abilities = Self::locomotion_abilities().union(kit);
+    /// Build an actor movement body from a RESOLVED ability set.
+    ///
+    /// ⛔ THIS CONFERS NOTHING, and that is the whole point. It was
+    /// `from_kit`, which did `locomotion_abilities().union(kit)` and then
+    /// `abilities.attack = true` — so a character's authored set could only be
+    /// WIDENED by it. `npc_puppy_slug` authors `{ move_horizontal: true,
+    /// ..AbilitySet::NONE }` and was handed a jump, a double jump and an attack;
+    /// the perfect cellular automaton's own comment says *"It has no double
+    /// jump, no fast fall, no dodge and no ledge grab"* and it had a double jump.
+    /// A union cannot express a refusal, so authored data could not decline the
+    /// floor.
+    ///
+    /// That also made [`ActionSet::gated_by`]'s attack term dead for every actor
+    /// body: the gate asks `abilities.attack`, and the constructor had just
+    /// forced it true.
+    ///
+    /// ⚠ `is_aerial` STILL DECIDES FLIGHT, and it is not a conferral: it is the
+    /// character's own answer, resolved from its `body_kind` /
+    /// `baseline_free_flight` before it reaches here. A floating body flies
+    /// because it floats.
+    ///
+    /// `base_size` is required identity state used when resetting the body.
+    pub fn from_abilities(
+        abilities: ae::AbilitySet,
+        is_aerial: bool,
+        base_size: ae::Vec2,
+    ) -> Self {
+        let mut abilities = abilities;
         abilities.fly = is_aerial || abilities.fly;
-        // Attack is capability; the moveset and brain decide whether it is exercised.
-        abilities.attack = true;
         let mut scratch = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
         scratch.flight.fly_enabled = is_aerial;
         scratch.base_size.base_size = base_size;
         Self(scratch)
     }
 
-    /// Shared grounded locomotion floor. Character-specific verbs are layered on
-    /// by [`Self::from_kit`]; reset remains disabled for actor bodies.
-    pub fn locomotion_abilities() -> ae::AbilitySet {
+    /// The RULESET'S DEFAULT ACTOR BODY: what a character that states no
+    /// abilities of its own is given.
+    ///
+    /// This is the set `from_kit` used to union into everybody, plus the
+    /// `attack` it forced. Named and applied only where the authored answer is
+    /// ABSENT, so it is a default rather than a floor — a character that states
+    /// its own set now gets exactly that set, and can decline any of these.
+    ///
+    /// `reset` is off for an actor body: only a controlled body resets itself.
+    pub fn default_actor_abilities() -> ae::AbilitySet {
         ae::AbilitySet {
             move_horizontal: true,
             jump: true,
             variable_jump: true,
             double_jump: true,
+            // CAPABILITY, not policy: the moveset and the brain decide whether a
+            // body that MAY attack ever does. A character that should not be
+            // able to at all says so in its own set.
+            attack: true,
             reset: false,
             ..ae::AbilitySet::basic()
         }
@@ -513,7 +528,17 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
-            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
+            // ⚠ THIS ROAD DOES NOT ASK THE CHARACTER. It passed
+            // `AbilitySet::NONE` and the constructor's union turned that into
+            // the floor, so the default was arriving disguised as an authored
+            // answer. Naming it changes nothing today and makes the gap
+            // visible: a catalog NPC that authors an ability set is not read
+            // here (`new_character_in` is the road that reads one).
+            body: ActorBody::from_abilities(
+                ActorBody::default_actor_abilities(),
+                is_aerial,
+                collision_size,
+            ),
             caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
             // This is the road for a placement that names no character it can
@@ -761,8 +786,11 @@ impl ActorClusterSeed {
             // a seat is unaffected: `seat_abilities` still intersects, and a
             // character that authored nothing still gets `NONE` here and the
             // mode's set there.
-            body: ActorBody::from_kit(
-                abilities.unwrap_or(ae::AbilitySet::NONE),
+            // THE CHARACTER'S OWN SET, OR THE RULESET'S DEFAULT — never both.
+            // `unwrap_or(NONE)` fed a union that could only widen, so a
+            // character that authored a narrow body got the default anyway.
+            body: ActorBody::from_abilities(
+                abilities.unwrap_or_else(ActorBody::default_actor_abilities),
                 is_aerial,
                 collision_size,
             ),
@@ -1314,7 +1342,70 @@ mod tests {
     // that rule has no code left to govern. Every registered character can build its own body
     // and every shipped placement names one, so a body is built from a character or from an
     // archetype and never from one patched over the other.
+
+    /// **A BODY CONSTRUCTOR MAY NOT WIDEN WHAT A CHARACTER AUTHORED.**
+    ///
+    /// `from_kit` resolved a body as `locomotion_abilities().union(kit)` with
+    /// `attack` then forced true. A union cannot express a refusal, so every
+    /// authored `false` on a floor bit was unreachable: `npc_puppy_slug` authors
+    /// `{ move_horizontal: true, ..AbilitySet::NONE }` and got a jump, a double
+    /// jump and an attack; the perfect cellular automaton's own comment says
+    /// *"It has no double jump, no fast fall, no dodge and no ledge grab"* while
+    /// its body had one.
+    ///
+    /// It also made [`ActionSet::gated_by`]'s attack term dead for actors — the
+    /// gate asks `abilities.attack` and the constructor had just set it.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is reintroducing a union or a forced
+    /// field in [`ActorBody::from_abilities`]; it fails naming the bit that came
+    /// back.
+    #[test]
+    fn an_authored_body_is_not_widened_by_the_constructor() {
+        // The slug's own authored set, verbatim: it walks and does nothing else.
+        let slug = ae::AbilitySet {
+            move_horizontal: true,
+            ..ae::AbilitySet::NONE
+        };
+        let built = ActorBody::from_abilities(slug, false, ae::Vec2::new(16.0, 16.0))
+            .0
+            .abilities
+            .abilities;
+
+        assert!(
+            built.move_horizontal,
+            "fixture: the authored ability must SURVIVE, or this arm cannot tell \
+             a constructor that widens from one that discards"
+        );
+        assert!(
+            !built.jump && !built.double_jump && !built.attack,
+            "the constructor conferred a capability this character declined \
+             (jump={}, double_jump={}, attack={}) — an authored body cannot be \
+             widened, or authoring a narrow creature is impossible",
+            built.jump,
+            built.double_jump,
+            built.attack,
+        );
+    }
+
+    /// And the DEFAULT still reaches a character that states nothing, which is
+    /// the arm that stops the one above passing on a constructor that simply
+    /// discards its argument.
+    #[test]
+    fn a_character_that_states_nothing_gets_the_rulesets_default_body() {
+        let default = ActorBody::default_actor_abilities();
+        assert!(
+            default.move_horizontal && default.jump && default.double_jump && default.attack,
+            "the ruleset default cannot act, so an unauthored body is now inert \
+             rather than defaulted"
+        );
+        assert!(
+            !default.reset,
+            "only a controlled body resets itself; an actor taking `reset` from \
+             `basic()` is the floor leaking back in"
+        );
+    }
 }
 
 #[cfg(test)]
 mod npc_flight_tests;
+

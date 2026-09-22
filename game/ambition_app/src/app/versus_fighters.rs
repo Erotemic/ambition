@@ -217,6 +217,18 @@ pub const VERSUS_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
     ambition_platformer2d::engine_core::AbilitySet {
         attack: true,
         fast_fall: true,
+        // ⭐ STATED, NOT INHERITED — and it used to be inherited from a place no
+        // authoring could see. `basic()` leaves this false, and a duelist still
+        // double-jumped because `ActorBody::from_kit` unioned a locomotion floor
+        // into every actor body after the character had spoken. That union is
+        // gone (a union cannot express a refusal, so no character could decline
+        // it), which would have taken this fighter's second jump with it.
+        //
+        // Writing it here keeps the duel exactly as it plays and puts the bit
+        // where it can be read and declined — the same reason the note above
+        // gives for leaving `reset` and `interact` riding in from `basic()`
+        // rather than tidying them: behaviour-neutral, or not worth making.
+        double_jump: true,
         ..ambition_platformer2d::engine_core::AbilitySet::basic()
     };
 

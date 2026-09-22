@@ -362,6 +362,12 @@ pub enum PlayerInputSet {
     /// constructed from it. Its own phase because the dependency is real:
     /// [`Self::Persona`] treats what this projects as its baseline.
     CharacterProjection,
+    /// Body geometry follows the character the body now is: the collision box,
+    /// quad and offset a sheet-authored body wears are derived from the
+    /// `SpritePosedBody` that [`Self::CharacterProjection`] inserts, so on a
+    /// recharacterization tick they must be derived AFTER it lands, and before
+    /// anything decides crouch or stand against them.
+    PosedGeometry,
     /// The canonical persona derive: action set, moveset and identity kit built
     /// together, with equipment grants overlaid. The phase most external code
     /// wants to order against, and the one that was hardest to name before.

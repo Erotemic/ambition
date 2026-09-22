@@ -26,7 +26,9 @@ use bevy::prelude::{App, IntoScheduleConfigs, Plugin};
 
 use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, SimScheduleExt};
 
-/// Installs [`sync_sprite_posed_bodies`] in the SILHOUETTE phase. Bodies opt in
+/// Installs [`sync_sprite_posed_bodies`] in [`PlayerInputSet::PosedGeometry`],
+/// after the character projection that decides which `SpritePosedBody` a body
+/// has. Bodies opt in
 /// through `SpritePosedBody`; pose-pinning rules run after movement, so geometry
 /// follows the pose on the next tick by design.
 ///
@@ -45,7 +47,7 @@ impl Plugin for SpritePosedBodyPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            sync_sprite_posed_bodies.in_set(PlayerInputSet::CharacterProjection),
+            sync_sprite_posed_bodies.in_set(PlayerInputSet::PosedGeometry),
         );
         // Pay the file-root index at Startup instead of on the first punch. See
         // `attack_hitbox::warm_file_root_registry` for the 189ms frame this cost.

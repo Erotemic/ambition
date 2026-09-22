@@ -110,6 +110,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         (
             PlayerInputSet::Device,
             PlayerInputSet::CharacterProjection,
+            PlayerInputSet::PosedGeometry,
             PlayerInputSet::Persona,
             PlayerInputSet::Brain,
         )

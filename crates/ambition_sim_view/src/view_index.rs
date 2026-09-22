@@ -662,7 +662,7 @@ pub fn rebuild_feature_view_index(
 
 /// Materialized per-actor identity facts the renderer needs to BIND and SIZE an actor sprite,
 /// keyed by [`FeatureId`] — the STATIC half of the actor read-model (display name,
-/// sprite-override label, sandbag flag, explicit render-quad size). These facts are static per
+/// art identity, sandbag flag, explicit render-quad size). These facts are static per
 /// actor, so the rebuild re-clones only on a genuine change (otherwise it just refreshes the
 /// mark-and-sweep generation — no per-`String` churn as the sim steps).
 #[derive(Clone, Debug, PartialEq)]
@@ -671,7 +671,6 @@ pub struct ActorRenderView {
     /// Catalog identity used for art lookup. It is independent of the actor's
     /// display name.
     pub sprite_character_id: Option<String>,
-    pub sprite_override_name: Option<String>,
     pub is_sandbag: bool,
     pub render_size: Option<ae::Vec2>,
     pub dream_seed: Option<f32>,
@@ -727,7 +726,6 @@ impl ActorRenderIndex {
         id: &str,
         name: &str,
         sprite_character_id: Option<&str>,
-        override_name: Option<&str>,
         is_sandbag: bool,
         render_size: Option<ae::Vec2>,
         dream_seed: Option<f32>,
@@ -737,7 +735,6 @@ impl ActorRenderIndex {
             let v = &slot.0;
             let unchanged = v.name == name
                 && v.sprite_character_id.as_deref() == sprite_character_id
-                && v.sprite_override_name.as_deref() == override_name
                 && v.is_sandbag == is_sandbag
                 && v.render_size == render_size
                 && v.dream_seed == dream_seed;
@@ -748,7 +745,6 @@ impl ActorRenderIndex {
             slot.0 = ActorRenderView {
                 name: name.to_string(),
                 sprite_character_id: sprite_character_id.map(str::to_string),
-                sprite_override_name: override_name.map(str::to_string),
                 is_sandbag,
                 render_size,
                 dream_seed,
@@ -762,8 +758,7 @@ impl ActorRenderIndex {
                 ActorRenderView {
                     name: name.to_string(),
                     sprite_character_id: sprite_character_id.map(str::to_string),
-                    sprite_override_name: override_name.map(str::to_string),
-                    is_sandbag,
+                        is_sandbag,
                     render_size,
                     dream_seed,
                 },
@@ -787,9 +782,8 @@ pub fn rebuild_actor_render_index(
     for (a, render_size) in &actors {
         index.upsert(
             a.feature_id.as_str(),
-            &a.config.name,
+            &a.identity.name,
             a.config.sprite_character_id.as_deref(),
-            a.config.sprite_override_npc_name.as_deref(),
             a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,
@@ -1218,22 +1212,19 @@ mod view_index_tests {
             "a",
             "Goblin",
             None,
-            None,
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
             None,
         );
-        idx.upsert("b", "Dummy", None, Some("sandbag_sheet"), true, None, None);
+        idx.upsert("b", "Dummy", None, true, None, None);
         idx.end_rebuild();
         assert_eq!(idx.len(), 2);
         let a = idx.get("a").expect("a present");
         assert_eq!(a.name, "Goblin");
         assert_eq!(a.render_size, Some(ae::Vec2::new(10.0, 20.0)));
         assert!(!a.is_sandbag);
-        assert!(a.sprite_override_name.is_none());
         let b = idx.get("b").expect("b present");
         assert!(b.is_sandbag);
-        assert_eq!(b.sprite_override_name.as_deref(), Some("sandbag_sheet"));
         assert!(b.render_size.is_none());
 
         // Frame 2: "a" survives UNCHANGED (refreshed in place); "b" despawns → swept.
@@ -1241,7 +1232,6 @@ mod view_index_tests {
         idx.upsert(
             "a",
             "Goblin",
-            None,
             None,
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
@@ -1257,7 +1247,6 @@ mod view_index_tests {
         idx.upsert(
             "a",
             "Goblin",
-            None,
             None,
             false,
             Some(ae::Vec2::new(30.0, 40.0)),

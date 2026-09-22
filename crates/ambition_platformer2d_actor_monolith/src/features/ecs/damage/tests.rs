@@ -47,7 +47,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     );
     enemy.health =
         ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
-    let (identity, disposition, combat) = enemy_component_snapshot(&enemy);
+    let (disposition, combat) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -59,7 +59,6 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             // Keep the shared damage fixture structurally representative so
             // body-generic contact resolution can see it as a `StrikeVictim`.
             ambition_combat::components::ActorFaction::Enemy,
-            identity,
             disposition,
             combat,
         ))
@@ -706,7 +705,7 @@ fn spawn_talkable_npc_with_threshold(
         &interactable,
         &[],
     );
-    let (identity, disposition, combat) = ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(
+    let (disposition, combat) = ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(
         &seed,
         ambition_combat::components::ActorDisposition::Peaceful,
     );
@@ -732,7 +731,6 @@ fn spawn_talkable_npc_with_threshold(
                 interactable,
                 talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
-            identity,
             disposition,
             combat,
         ))
@@ -1392,7 +1390,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
     // movement capability gates whether the pipeline RAISES the guard; the
     // resolver itself only reads the resulting `shield.active`.)
     enemy.body.0.shield.active = shield_raised;
-    let (identity, disposition, combat) = enemy_component_snapshot(&enemy);
+    let (disposition, combat) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -1400,7 +1398,6 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
             ambition_platformer2d_core::movement::MotionModel::default(),
-            identity,
             disposition,
             combat,
         ))

@@ -859,20 +859,16 @@ pub fn upgrade_actor_sprites(
         let Some(actor) = actor_render.get(&visual.id) else {
             continue;
         };
-        // Resolution order, shared by every actor: an authored sprite-override
-        // label (a fighting-flipped NPC keeps its own sheet — the Kernel Guide
-        // migration is the one that leaves it blank so kernel→goblin keeps its
-        // visual gag), then the actor's ART IDENTITY, then its display name.
+        // Resolution order, shared by every actor: the actor's ART IDENTITY,
+        // then its display name.
         //
         // the display name stays LAST rather than being deleted. A direct
         // `EnemySpawn` with no id still resolves by name — intro raiders pick up
         // their sheet without a duplicate enemy-side registry entry.
-        let override_name = actor.sprite_override_name.as_deref();
         let art_identity = actor.sprite_character_id.as_deref();
         let actor_name = Some(actor.name.as_str());
-        let named = override_name
+        let named = art_identity
             .and_then(|n| assets.characters.sheet(n))
-            .or_else(|| art_identity.and_then(|n| assets.characters.sheet(n)))
             .or_else(|| actor_name.and_then(|n| assets.characters.sheet(n)));
         let Some(character_asset) = named else {
             // An actor whose own sheet does not resolve draws the marked placeholder rectangle,
@@ -885,7 +881,7 @@ pub fn upgrade_actor_sprites(
             if kind_bound {
                 continue;
             }
-            if let Some(missed) = override_name.or(actor_name) {
+            if let Some(missed) = actor_name {
                 if warned_sprite_names.insert(missed.to_string()) {
                     // Name what the table actually knows, so a TYPO and an
                     // undecoded sheet stop reading as the same problem.

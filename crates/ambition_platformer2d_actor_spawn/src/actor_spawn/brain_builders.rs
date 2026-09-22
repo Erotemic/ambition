@@ -12,6 +12,7 @@ use ambition_characters::brain::{
     WandererCfg,
 };
 use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::components::ActorIdentity;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
@@ -33,18 +34,16 @@ use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 /// entity ids. Characters that explicitly preserve mirror symmetry instead mix
 /// difficulty with the character id, giving twins the same initial stream; they
 /// still diverge naturally once their observations differ.
-fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
+fn fighter_cognition_seed(enemy: &ActorConfig, id: &str, level: u8) -> u64 {
     // A participant id is `"<character>#seat<n>"`; the character alone is what is
     // left when the seat is dropped. Falling back to the whole id keeps a body
     // that carries no seat suffix (a room spawn) on a stream of its own rather
     // than silently joining a shared one.
     let identity = if enemy.preserves_mirror_symmetry {
-        enemy
-            .id
-            .split_once('#')
-            .map_or(enemy.id.as_str(), |(character, _seat)| character)
+        id.split_once('#')
+            .map_or(id, |(character, _seat)| character)
     } else {
-        enemy.id.as_str()
+        id
     };
     // MIX, not add: `seed_from_id` is a 32-bit FNV-1a, so shifting it into the
     // high half and folding the level in below keeps two nearby levels of one
@@ -55,6 +54,8 @@ fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
 /// Build the enemy's default `Brain` from its resolved controller profile.
 pub fn enemy_default_brain(
     enemy: &ActorConfig,
+    // Who the body is: per-actor streams and jitter are keyed on its id.
+    identity: &ActorIdentity,
     // **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
     // [`smash_cfg_from_spec`]: a driver may only consider what this body can
     // actually do, so the same profile on a different body produces a driver
@@ -70,7 +71,7 @@ pub fn enemy_default_brain(
             );
             let state = ambition_characters::brain::fighter::FighterState::new(
                 &cfg,
-                fighter_cognition_seed(enemy, level),
+                fighter_cognition_seed(enemy, &identity.id, level),
             );
             Brain::StateMachine(StateMachineCfg::Fighter {
                 cfg: Box::new(cfg),
@@ -80,18 +81,18 @@ pub fn enemy_default_brain(
         CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
         }),
-        CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy),
-        CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy),
-        CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
-        CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
+        CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy, &identity.id),
+        CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy, &identity.id),
+        CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy, &identity.id),
+        CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy, &identity.id),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
             cfg: smash_cfg_from_spec(&enemy.brain_profile, &enemy.tuning, body),
             state: SmashState {
-                rng_seed: seed_from_id(&enemy.id) as u64,
+                rng_seed: seed_from_id(&identity.id) as u64,
                 ..Default::default()
             },
         }),
-        CharacterBrainTemplate::Aerial => aerial_brain_for_enemy(enemy),
+        CharacterBrainTemplate::Aerial => aerial_brain_for_enemy(enemy, &identity.id),
     }
 }
 
@@ -99,9 +100,9 @@ pub fn enemy_default_brain(
 /// parrot). Per-actor jitter keeps a flock from diving in lockstep. Shares
 /// `StateMachineCfg::Aerial` with the peaceful catalog bird — only
 /// `aggressiveness` differs.
-fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+fn aerial_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     let t = &enemy.tuning;
-    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let jitters = five_f32s_from_seed(seed_from_id(id));
     let cruise_speed = t.chase_speed * (0.55 + 0.25 * jitters.0);
     let dive_speed = (t.chase_speed * (1.7 + 0.5 * jitters.1)).max(360.0);
     // Dive altitude / range: a bit of spread so two parrots stack their dives.
@@ -126,6 +127,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// once the hostility flag is set.
 pub fn aggressive_brain_for_enemy(
     enemy: &ActorConfig,
+    identity: &ActorIdentity,
     repertoire: Option<&ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> Brain {
@@ -144,18 +146,18 @@ pub fn aggressive_brain_for_enemy(
     // is empty, which is the brain below rather than a skirmisher.
     let ranged_only = repertoire.is_some_and(|set| set.ranged.is_some() && set.melee.is_none());
     if ranged_only {
-        return skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, &enemy.brain_profile, true);
+        return skirmisher_brain_from_tuning(&identity.id, &enemy.tuning, &enemy.brain_profile, true);
     }
 
     if let Some(min_aggro) = enemy.brain_profile.provoke_forced_brute_min_aggro {
-        return forced_hostile_melee_brute_brain(enemy, min_aggro);
+        return forced_hostile_melee_brute_brain(enemy, &identity.id, min_aggro);
     }
-    enemy_default_brain(enemy, body)
+    enemy_default_brain(enemy, identity, body)
 }
 
-fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) -> Brain {
+fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, id: &str, min_aggro_radius: f32) -> Brain {
     let t = &enemy.tuning;
-    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let jitters = five_f32s_from_seed(seed_from_id(id));
     let aggro_radius =
         enemy.brain_profile.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
     let chase_speed = t.chase_speed * (0.9 + 0.2 * jitters.1);
@@ -171,9 +173,9 @@ fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) 
     })
 }
 
-pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     let t = &enemy.tuning;
-    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let jitters = five_f32s_from_seed(seed_from_id(id));
     let aggro_radius = enemy.brain_profile.aggro_radius * (0.8 + 0.4 * jitters.0);
     let chase_speed = t.chase_speed * (0.85 + 0.3 * jitters.1);
     let attack_range = enemy.brain_profile.attack_range * (0.9 + 0.2 * jitters.2);
@@ -188,18 +190,18 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     })
 }
 
-pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     skirmisher_brain_from_tuning(
-        &enemy.id,
+        id,
         &enemy.tuning,
         &enemy.brain_profile,
         enemy.tuning.is_hostile,
     )
 }
 
-fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+fn sniper_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     let t = &enemy.tuning;
-    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let jitters = five_f32s_from_seed(seed_from_id(id));
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
     let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
@@ -215,9 +217,9 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     })
 }
 
-fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
+fn charge_crash_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     let t = &enemy.tuning;
-    let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
+    let jitters = five_f32s_from_seed(seed_from_id(id));
     let aggro_radius = enemy.brain_profile.aggro_radius * (0.85 + 0.3 * jitters.0);
     let cruise_speed = t.chase_speed * (0.85 + 0.25 * jitters.1);
     let charge_speed = (cruise_speed * (2.0 + 0.4 * jitters.2)).max(360.0);
@@ -265,12 +267,13 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// default is peaceful. Dismount means "fall off and fight".
 pub fn dismounted_rider_brain(
     rider: &ActorConfig,
+    identity: &ActorIdentity,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
 ) -> Brain {
     if held_item.is_some_and(|item| item.grants_ranged()) {
-        skirmisher_brain_from_tuning(&rider.id, &rider.tuning, &rider.brain_profile, true)
+        skirmisher_brain_from_tuning(&identity.id, &rider.tuning, &rider.brain_profile, true)
     } else {
-        forced_hostile_melee_brute_brain(rider, 540.0)
+        forced_hostile_melee_brute_brain(rider, &identity.id, 540.0)
     }
 }
 
@@ -383,10 +386,14 @@ mod cognition_stream_tests {
 
     /// A CPU fighter seat, as `PreparedSeat` builds one: the participant id is
     /// `"<character>#seat<n>"` — the body's identity, not its costume's.
-    fn seat(character: &str, seat_index: usize, level: u8, mirrors: bool) -> ActorConfig {
-        ActorConfig {
-            id: format!("{character}#seat{seat_index}"),
-            name: character.to_string(),
+    fn seat(
+        character: &str,
+        seat_index: usize,
+        level: u8,
+        mirrors: bool,
+    ) -> (ActorIdentity, ActorConfig) {
+        let identity = ActorIdentity::new(format!("{character}#seat{seat_index}"), character);
+        let config = ActorConfig {
             tuning: ActorTuning::default(),
             brain_profile: BrainProfile {
                 template: CharacterBrainTemplate::Fighter,
@@ -394,17 +401,17 @@ mod cognition_stream_tests {
                 ..Default::default()
             },
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            sprite_override_npc_name: None,
             sprite_character_id: Some(character.to_string()),
             preserves_mirror_symmetry: mirrors,
-        }
+        };
+        (identity, config)
     }
 
     /// The stream a seat's fighter brain is actually built on — asked through the
     /// real builder, not through the seed helper, so the test constrains the
     /// composition and not an internal function.
-    fn stream_for(config: &ActorConfig) -> u64 {
-        match enemy_default_brain(config, ambition_platformer2d_core::AbilitySet::NONE) {
+    fn stream_for((identity, config): &(ActorIdentity, ActorConfig)) -> u64 {
+        match enemy_default_brain(config, identity, ambition_platformer2d_core::AbilitySet::NONE) {
             Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => state.noise,
             other => panic!("expected a fighter brain, got {other:?}"),
         }
@@ -531,9 +538,9 @@ mod cognition_stream_tests {
     #[test]
     fn an_unsuffixed_body_is_not_special_cased_into_sharing() {
         let mut room_body = seat("npc_emmy_noether", 0, 6, true);
-        room_body.id = "npc_emmy_noether_lab_copy".to_string();
+        room_body.0.id = "npc_emmy_noether_lab_copy".to_string();
         let mut other_room_body = room_body.clone();
-        other_room_body.id = "npc_emmy_noether_hall_copy".to_string();
+        other_room_body.0.id = "npc_emmy_noether_hall_copy".to_string();
         assert_ne!(
             stream_for(&room_body),
             stream_for(&other_room_body),
@@ -556,8 +563,8 @@ mod cognition_stream_tests {
                 cfg: mirror_cfg, ..
             }),
         ) = (
-            enemy_default_brain(&ordinary, ambition_platformer2d_core::AbilitySet::NONE),
-            enemy_default_brain(&mirroring, ambition_platformer2d_core::AbilitySet::NONE),
+            enemy_default_brain(&ordinary.1, &ordinary.0, ambition_platformer2d_core::AbilitySet::NONE),
+            enemy_default_brain(&mirroring.1, &mirroring.0, ambition_platformer2d_core::AbilitySet::NONE),
         )
         else {
             panic!("both seats must build fighter brains");

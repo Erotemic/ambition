@@ -429,7 +429,7 @@ fn spawn_fighter(
     // default is -1, which had both fighters swinging left and produced exactly
     // one hit in a two-attacker exchange.
     seed.kin.facing = facing;
-    let (identity, disposition, combat) = ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot(&seed);
+    let (disposition, combat) = ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot(&seed);
     app.world_mut()
         .spawn((
             (
@@ -439,7 +439,7 @@ fn spawn_fighter(
                 seed.into_components(),
                 ambition_platformer2d_core::movement::MotionModel::default(),
             ),
-            (identity, disposition, combat, faction),
+            (disposition, combat, faction),
             // §7.6 → gameplay: the character's own authored moveset and silhouette are NOT inserted
             // here. `project_prepared_character_definitions` puts them on the body from the
             // registry, which is C3 — the join the plan is for. Deleting it is what makes this test

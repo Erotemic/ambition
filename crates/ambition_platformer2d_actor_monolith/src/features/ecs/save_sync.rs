@@ -7,7 +7,7 @@
 
 use super::*;
 use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
+    ActorAggression, ActorDisposition, ActorInteraction, AggressionMode,
     BossDeathAnimation, BossPhase, FeatureId,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
@@ -63,7 +63,6 @@ pub fn sync_ecs_actors_with_save(
     mut actors: Query<
         (
             Entity,
-            &mut ActorIdentity,
             &mut ActorDisposition,
             &mut ActorAggression,
             // The body's live repertoire, which is what the provoked brain
@@ -99,7 +98,6 @@ pub fn sync_ecs_actors_with_save(
         .map(|(entity, _)| entity);
     for (
         entity,
-        mut identity,
         mut disposition,
         mut aggression,
         repertoire,
@@ -110,7 +108,7 @@ pub fn sync_ecs_actors_with_save(
     ) in &mut actors
     {
         let practice_target = body_combat.training_dummy;
-        let id = cq.as_actor_mut().config.id.clone();
+        let id = cq.as_actor_mut().identity.id.clone();
         // ⛔⛔ ONLY A POLICY THAT WRITES A FLAG MAY READ ONE, and this asked the
         // flag of every actor alive. The death path writes `enemy_<id>_dead` for
         // `DeadStaysDead` and `enemy_<id>_dead_until_rest` for `OnRest` and NOTHING
@@ -165,13 +163,10 @@ pub fn sync_ecs_actors_with_save(
         // and never write flags, so the guards are belt-and-suspenders.)
         {
             let em = cq.as_actor_mut();
-            if !em.config.id.starts_with("encounter:") && !practice_target && dead_on_load {
+            if !em.identity.id.starts_with("encounter:") && !practice_target && dead_on_load {
                 em.health.health.current = 0;
             }
         }
-
-        let em = cq.as_actor_mut();
-        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 

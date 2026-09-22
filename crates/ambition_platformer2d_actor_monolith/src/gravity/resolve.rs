@@ -179,12 +179,9 @@ mod tests {
         let mut tuning = ambition_combat::actor_tuning::ActorTuning::default();
         tuning.movement.gravity = 800.0;
         let config = ActorConfig {
-            id: "aerial".into(),
-            name: "aerial".into(),
             tuning,
             brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            sprite_override_npc_name: None,
             sprite_character_id: None,
             // A fixture body, not a seated CPU twin.
             preserves_mirror_symmetry: false,

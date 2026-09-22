@@ -391,7 +391,6 @@ fn interact_buffered_starts_npc_dialogue() {
         CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         seed.into_components(),
         interaction,
-        ambition_combat::components::ActorIdentity::new("guide", "Guide"),
         ambition_combat::components::ActorDisposition::Peaceful,
     ));
 

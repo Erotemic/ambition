@@ -71,6 +71,7 @@ fn rebuild_provoked_brain(
 ) {
     let brain = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_for_enemy(
         em.config,
+        em.identity,
         repertoire,
         em.abilities.abilities,
     );
@@ -183,6 +184,7 @@ pub fn provoke_actor_in_place(
         let proj = provoked_projection(
             default_provoked_policy(),
             em.config,
+            em.identity,
             repertoire,
             em.abilities.abilities,
         );
@@ -321,6 +323,7 @@ pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::C
 pub fn provoked_projection(
     brain_profile: BrainProfile,
     current_config: &ActorConfig,
+    identity: &ambition_combat::components::ActorIdentity,
     repertoire: Option<&ambition_characters::brain::ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
@@ -329,6 +332,7 @@ pub fn provoked_projection(
     hostile_config.brain_profile = brain_profile;
     let brain = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_for_enemy(
         &hostile_config,
+        identity,
         repertoire,
         body,
     );

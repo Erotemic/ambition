@@ -38,6 +38,7 @@ pub fn resolve_npc_brain(
     // `BrainProfile` can have it lowered against its OWN top speed rather than
     // against a preset's absolute numbers (§4.7).
     body: &ambition_combat::actor_tuning::ActorConfig,
+    identity: &ambition_combat::components::ActorIdentity,
     abilities: ambition_platformer2d_core::AbilitySet,
     // ⭐⭐ THE MEASUREMENT KNOBS, AS A VALUE THE CALLER HANDS DOWN. This function
     // used to call `ambition_dev_tools::brain_override::forced_profile()` and
@@ -99,7 +100,7 @@ pub fn resolve_npc_brain(
         let mut config = body.clone();
         config.brain_profile = *profile;
         return (
-            super::brain_builders::enemy_default_brain(&config, abilities),
+            super::brain_builders::enemy_default_brain(&config, identity, abilities),
             Some((BrainBinding::from_character_profile(), authored)),
         );
     }
@@ -115,7 +116,7 @@ pub fn resolve_npc_brain(
             let mut config = body.clone();
             config.brain_profile = profile;
             return (
-                super::brain_builders::enemy_default_brain(&config, abilities),
+                super::brain_builders::enemy_default_brain(&config, identity, abilities),
                 Some((BrainBinding::from_character_profile(), authored)),
             );
         }

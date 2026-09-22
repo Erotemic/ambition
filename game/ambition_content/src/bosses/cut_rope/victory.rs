@@ -129,7 +129,7 @@ fn spawn_victory_npc_entity(
         interactable: interactable.clone(),
         talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
     };
-    let (identity, disposition, combat) =
+    let (disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(
             &seed,
             ambition_combat::components::ActorDisposition::Peaceful,
@@ -146,7 +146,6 @@ fn spawn_victory_npc_entity(
                     CUT_ROPE_VICTORY_NPC_NAME,
                     CenteredAabb::from_aabb(aabb),
                 ),
-                identity,
                 disposition,
                 faction: ambition_combat::components::ActorFaction::Npc,
                 target: ambition_combat::components::ActorTarget::default(),

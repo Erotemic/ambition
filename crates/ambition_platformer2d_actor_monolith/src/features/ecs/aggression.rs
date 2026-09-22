@@ -8,9 +8,8 @@
 
 use bevy::prelude::*;
 
-use super::sync_actor_components_from_cluster;
 use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
+    ActorAggression, ActorDisposition, ActorInteraction, AggressionMode,
 };
 use ambition_combat::events::ActorStimulus;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -32,7 +31,6 @@ pub fn apply_actor_stimuli(
             // choice reads.
             Option<&ambition_characters::brain::ActionSet>,
             Option<&ActorInteraction>,
-            &mut ActorIdentity,
             &mut ActorDisposition,
             crate::actor_clusters::ActorClusterQueryData,
             // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
@@ -56,7 +54,6 @@ pub fn apply_actor_stimuli(
             mut aggression,
             repertoire,
             _interaction,
-            mut identity,
             mut disposition,
             mut cq,
             worn,
@@ -109,7 +106,6 @@ pub fn apply_actor_stimuli(
             // damage source is known.
             challenged || source.is_some(),
         );
-        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 

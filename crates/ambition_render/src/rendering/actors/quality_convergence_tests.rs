@@ -139,7 +139,6 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         ambition_sim_view::ActorRenderView {
             sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
-            sprite_override_name: None,
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
@@ -356,7 +355,6 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
             // preferred the label this would find nothing and draw the
             // placeholder, which is the bug.
             name: "A Label Nobody Registered".to_string(),
-            sprite_override_name: None,
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
@@ -402,7 +400,6 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
         ambition_sim_view::ActorRenderView {
             sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
-            sprite_override_name: None,
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
@@ -718,7 +715,6 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
         let actor_view = |render_size| ambition_sim_view::ActorRenderView {
             sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
-            sprite_override_name: None,
             is_sandbag: false,
             render_size: Some(render_size),
             dream_seed: None,

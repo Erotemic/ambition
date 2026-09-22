@@ -644,6 +644,10 @@ mod default_profile_tests {
         registry
     }
 
+    fn test_identity() -> ambition_combat::components::ActorIdentity {
+        ambition_combat::components::ActorIdentity::new("probe", "Probe")
+    }
+
     /// A minimal body for the two parameters `resolve_npc_brain` needs only when
     /// a character's default is its own `BrainProfile`.
     fn test_body() -> ambition_combat::actor_tuning::ActorConfig {
@@ -676,6 +680,7 @@ mod default_profile_tests {
             &npc(None),
             0.0,
             &test_body(),
+            &test_identity(),
             ambition_platformer2d_core::AbilitySet::NONE,
             &ambition_characters::brain::AuthoredBrainOverride::default(),
         );
@@ -713,6 +718,7 @@ mod default_profile_tests {
                 &npc(None),
                 0.0,
                 &test_body(),
+                &test_identity(),
                 ambition_platformer2d_core::AbilitySet::NONE,
                 &ambition_characters::brain::AuthoredBrainOverride::default(),
             );
@@ -734,6 +740,7 @@ mod default_profile_tests {
             &npc(Some("stand_still")),
             0.0,
             &test_body(),
+            &test_identity(),
             ambition_platformer2d_core::AbilitySet::NONE,
             &ambition_characters::brain::AuthoredBrainOverride::default(),
         );
@@ -768,6 +775,7 @@ mod default_profile_tests {
                 &npc(None),
                 0.0,
                 &test_body(),
+                &test_identity(),
                 ambition_platformer2d_core::AbilitySet::NONE,
                 forced,
             )

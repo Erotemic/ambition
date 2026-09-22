@@ -56,6 +56,11 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
 /// the fixture roster said that creature was. The rows are deleted (AC6) and a
 /// body's policy comes from the character that states it — which is what these
 /// tests were always really asserting about.
+/// Who the fixture body is; the brain builders key per-actor streams on it.
+fn fixture_identity() -> ambition_combat::components::ActorIdentity {
+    ambition_combat::components::ActorIdentity::new("test", "Fixture Body")
+}
+
 fn body_driven_by(
     template: ambition_characters::brain::CharacterBrainTemplate,
 ) -> (ActorConfig, ambition_platformer2d_core::AbilitySet) {
@@ -412,24 +417,24 @@ fn enemy_default_brain_picks_the_family_its_policy_names() {
 
     let (sandbag, abilities) = body_driven_by(Template::StandStill);
     assert!(matches!(
-        enemy_default_brain(&sandbag, abilities),
+        enemy_default_brain(&sandbag, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
     let (diver, abilities) = body_driven_by(Template::ChargeCrash);
     assert!(matches!(
-        enemy_default_brain(&diver, abilities),
+        enemy_default_brain(&diver, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
     let (brute, abilities) = body_driven_by(Template::MeleeBrute);
     assert!(matches!(
-        enemy_default_brain(&brute, abilities),
+        enemy_default_brain(&brute, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
     ));
 
     let (striker, abilities) = body_driven_by(Template::Smash);
-    match enemy_default_brain(&striker, abilities) {
+    match enemy_default_brain(&striker, &fixture_identity(), abilities) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
             assert!((cfg.chase_speed - 155.0).abs() < 0.01);
@@ -451,7 +456,7 @@ fn enemy_default_brain_picks_the_family_its_policy_names() {
 fn a_body_forced_hostile_swings_when_its_kit_can() {
     let (enemy, abilities) =
         body_driven_by(ambition_characters::brain::CharacterBrainTemplate::MeleeBrute);
-    let mut brain = enemy_default_brain(&enemy, abilities);
+    let mut brain = enemy_default_brain(&enemy, &fixture_identity(), abilities);
     match &mut brain {
         Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
             cfg.aggressiveness = 1.0;

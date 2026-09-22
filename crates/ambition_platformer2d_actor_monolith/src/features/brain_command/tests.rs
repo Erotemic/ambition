@@ -417,10 +417,12 @@ fn app_with_cast() -> App {
     app
 }
 
+fn villager() -> ambition_combat::components::ActorIdentity {
+    ambition_combat::components::ActorIdentity::new("villager", "Villager")
+}
+
 fn character_first_config(brain_profile: ambition_characters::brain::BrainProfile) -> ActorConfig {
     ActorConfig {
-        id: "villager".into(),
-        name: "Villager".into(),
         tuning: ambition_combat::actor_tuning::ActorTuning {
             // deliberately NOT the generic peaceful seed
             // (`max_run_speed: MAX_RUN_SPEED`): this is the body its character
@@ -432,7 +434,6 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         },
         brain_profile,
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        sprite_override_npc_name: None,
         sprite_character_id: Some("npc_villager".into()),
         // A fixture body, not a seated CPU twin.
         preserves_mirror_symmetry: false,
@@ -455,6 +456,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
             // The live mind matches the live policy: this body IS fighting.
             crate::features::ecs::character_policy::brain_from_profile(
                 &character_first_config(provoked_policy()),
+                &villager(),
                 provoked_policy(),
                 Default::default(),
             ),
@@ -462,6 +464,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
             AuthoredBrainContext::from_placement(0.0, 0.0),
             ActorPose::from_parts(ae::Vec2::ZERO, ae::Vec2::splat(8.0), 1.0),
             character_first_config(provoked_policy()),
+            villager(),
             ambition_characters::actor::WornCharacter::new("npc_villager"),
         ))
         .id()

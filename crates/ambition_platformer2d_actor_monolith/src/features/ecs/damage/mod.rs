@@ -16,9 +16,9 @@ use bevy::prelude::{
 };
 
 use super::damage_drops::drop_currency_coin;
-use super::{sync_actor_components_from_cluster, BodyCombat};
+use super::BodyCombat;
 use ambition_combat::components::{
-    ActorDisposition, ActorIdentity, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
+    ActorDisposition, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
 };
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::{approximately_same_aabb, midpoint};
@@ -403,7 +403,6 @@ pub fn apply_feature_hit_events(
             Entity,
             &FeatureId,
             &CenteredAabb,
-            &mut ActorIdentity,
             &ActorDisposition,
             &mut BodyCombat,
             // Provoke accumulator (shared aggression component). `Option` so
@@ -694,7 +693,6 @@ pub fn apply_feature_hit_events(
             actor_entity,
             id,
             aabb,
-            mut identity,
             disposition,
             mut combat,
             mut aggression,
@@ -798,7 +796,6 @@ pub fn apply_feature_hit_events(
             ) {
                 actor_hit_this_event = true;
                 landed_keys.push(format!("{prefix}:{}", id.as_str()));
-                sync_actor_components_from_cluster(&em, &mut identity);
             }
         }
         let mut boss_hit_this_event = false;

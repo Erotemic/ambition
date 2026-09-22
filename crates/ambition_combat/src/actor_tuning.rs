@@ -246,16 +246,15 @@ mod authority_split_tests {
     }
 }
 
-/// Authored configuration + identity for an actor (any disposition). Archetype-
-/// free by construction: the named roster enum is resolved at spawn and projected
-/// into generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
+/// Authored configuration for an actor (any disposition). Archetype-free by
+/// construction: the named roster enum is resolved at spawn and projected into
+/// generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
 /// component), so neither the per-frame integration nor the runtime brain
-/// rebuilds (provoke, dismount) call back into the content roster. `spawn` records
-/// the authored baseline `reset_to_spawn` restores.
+/// rebuilds (provoke, dismount) call back into the content roster.
+///
+/// WHO the body is lives on [`crate::components::ActorIdentity`], not here.
 #[derive(Component, Clone, Debug)]
 pub struct ActorConfig {
-    pub id: String,
-    pub name: String,
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
     pub tuning: ActorTuning,
@@ -264,10 +263,6 @@ pub struct ActorConfig {
     /// reconstruct a brain without naming the roster enum.
     pub brain_profile: BrainProfile,
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// LDtk display name of the original NPC when this enemy was spawned
-    /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
-    /// uses the default enemy sprite.
-    pub sprite_override_npc_name: Option<String>,
     /// Sprite-catalog identity: the catalog `character_id` this actor's sprite
     /// resolves to. `Some` for catalog characters (player, named NPCs/enemies,
     /// content actors); `None` for a body that renders from a kind-default

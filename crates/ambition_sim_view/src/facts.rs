@@ -546,7 +546,10 @@ pub fn rebuild_dynamic_feature_views(
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
             &ambition_combat::components::ActorDisposition,
-            Option<&ambition_combat::actor_tuning::ActorConfig>,
+            Option<(
+                &ambition_combat::actor_tuning::ActorConfig,
+                &ambition_combat::components::ActorIdentity,
+            )>,
         ),
         With<ambition_combat::components::EncounterMob>,
     >,
@@ -555,7 +558,10 @@ pub fn rebuild_dynamic_feature_views(
             &ambition_combat::components::FeatureId,
             &ambition_combat::components::CenteredAabb,
             &ambition_combat::components::ActorDisposition,
-            Option<&ambition_combat::actor_tuning::ActorConfig>,
+            Option<(
+                &ambition_combat::actor_tuning::ActorConfig,
+                &ambition_combat::components::ActorIdentity,
+            )>,
         ),
         With<ambition_combat::components::RuntimeStagedActor>,
     >,
@@ -616,12 +622,12 @@ pub fn rebuild_dynamic_feature_views(
         // distinction the skip was abusing existence to express, and the
         // post-boss arm below has always used it that way. Two arms disagreed
         // with a third in the same function.
-        let Some(config) = config else {
+        let Some((config, identity)) = config else {
             continue;
         };
         view.0.push(DynamicFeatureFact {
             id: id.as_str().to_string(),
-            label: config.name.clone(),
+            label: identity.name.clone(),
             family: "Encounter mob",
             pos: aabb.center,
             size: aabb.size(),
@@ -638,12 +644,12 @@ pub fn rebuild_dynamic_feature_views(
     for (id, aabb, disposition, config) in &staged_actors {
         // The same correction as the arm above: a staged actor that is not
         // fighting is still a body somebody has to be able to see.
-        let Some(config) = config else {
+        let Some((config, identity)) = config else {
             continue;
         };
         view.0.push(DynamicFeatureFact {
             id: id.as_str().to_string(),
-            label: config.name.clone(),
+            label: identity.name.clone(),
             family: "Staged actor",
             pos: aabb.center,
             size: aabb.size(),
@@ -905,14 +911,11 @@ mod tests {
         app.add_systems(Update, rebuild_dynamic_feature_views);
 
         let config = ActorConfig {
-            id: "smash_ride_shark".into(),
-            name: "Burning Flying Shark".into(),
             tuning: Default::default(),
             brain_profile: Default::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "burning_flying_shark".into(),
             ),
-            sprite_override_npc_name: None,
             sprite_character_id: Some("npc_burning_flying_shark".into()),
             preserves_mirror_symmetry: false,
         };
@@ -924,6 +927,10 @@ mod tests {
             CenteredAabb::new(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(48.0, 22.0)),
             ActorDisposition::Peaceful,
             config,
+            ambition_combat::components::ActorIdentity::new(
+                "smash_ride_shark",
+                "Burning Flying Shark",
+            ),
         ));
         app.update();
 

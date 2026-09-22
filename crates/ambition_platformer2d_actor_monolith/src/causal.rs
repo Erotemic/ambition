@@ -150,10 +150,8 @@ pub fn record_movement_operations(
 pub fn record_body_control_frame(
     log: Option<ResMut<CausalRecording>>,
     bodies: Query<(
-        // The READ-MODEL, not `ActorConfig`. `sync_actor_read_model` copies
-        // `config.id` into it verbatim, so the join with the brain's fact holds
-        // — and an observer reading the read-model instead of the authored
-        // cluster is the same discipline the render side follows.
+        // The body's one identity: the brain's published `subject` is this
+        // same `ActorIdentity::id`, so the join holds by construction.
         &ambition_combat::components::ActorIdentity,
         &BodyKinematics,
         &BodyGroundState,

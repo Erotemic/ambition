@@ -634,10 +634,9 @@ pub fn declare_registered_characters(
 ///
 /// Four of them stand in `intro_escape_shaft`, in the sequence a stranger plays first .
 ///
-/// `Added` rather than `Changed`. An actor's config is rebuilt every tick
-/// as a read-model (`sync_actor_read_models` restores its reaction timers over a
-/// fresh value), so `Changed` here would re-request the whole room's cast every
-/// frame. The identity is decided at construction and does not drift, so asking
+/// `Added` rather than `Changed`. The actor cluster view borrows `ActorConfig`
+/// mutably every tick, which marks it changed whether or not anything moved, so
+/// `Changed` here would re-request the whole room's cast every frame. The identity is decided at construction and does not drift, so asking
 /// once when the component appears is both sufficient and the only affordable
 /// option.
 pub fn demand_actor_character_sheets(

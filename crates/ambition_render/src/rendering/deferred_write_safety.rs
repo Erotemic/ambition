@@ -496,7 +496,6 @@ mod character_sprite_passes {
         let identity = || ambition_sim_view::ActorRenderView {
             sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
-            sprite_override_name: None,
             is_sandbag: false,
             render_size: None,
             dream_seed: None,

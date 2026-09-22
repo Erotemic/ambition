@@ -72,6 +72,7 @@ pub fn rebuild_dismounted_rider_brains(
     >,
     riders: bevy::prelude::Query<(
         &ActorConfig,
+        &ambition_combat::components::ActorIdentity,
         Option<&HeldItem>,
         Option<&ambition_boss_encounter::BossConfig>,
         // ⛔⛤ IS THIS BODY A MATCH SEAT? See the skip below: a seat's brain is
@@ -80,7 +81,7 @@ pub fn rebuild_dismounted_rider_brains(
     )>,
 ) {
     for dismount in dismounts.read() {
-        let Ok((config, held_item, boss_config, match_seat)) =
+        let Ok((config, identity, held_item, boss_config, match_seat)) =
             riders.get(dismount.rider)
         else {
             continue;
@@ -161,6 +162,7 @@ pub fn rebuild_dismounted_rider_brains(
         // dropped any granted verb the rider was wearing.
         let brain = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain(
             config,
+            identity,
             held_item.map(|item| &item.spec),
         );
         commands.entity(dismount.rider).insert(brain);
@@ -175,10 +177,10 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
     use ambition_platformer2d_shared_tangle::body::MountDied;
     use bevy::prelude::*;
 
-    fn rider_config() -> ActorConfig {
-        ActorConfig {
-            id: "seat_fighter#seat1".into(),
-            name: "Seat Fighter".into(),
+    /// The rider's config and identity, spawned together as the cluster
+    /// bundle would.
+    fn rider_config() -> (ActorConfig, ambition_combat::components::ActorIdentity) {
+        let config = ActorConfig {
             tuning: ActorTuning::default(),
             // ⭐ THE MATCH'S POLICY, which is what a smash seat carries: the
             // duel measured `template: Fighter` on the admiral's `ActorConfig`
@@ -190,10 +192,12 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "smash_duelist_l9".into(),
             ),
-            sprite_override_npc_name: None,
             sprite_character_id: Some("npc_pirate_admiral".into()),
             preserves_mirror_symmetry: false,
-        }
+        };
+        let identity =
+            ambition_combat::components::ActorIdentity::new("seat_fighter#seat1", "Seat Fighter");
+        (config, identity)
     }
 
     fn fighter_brain() -> Brain {

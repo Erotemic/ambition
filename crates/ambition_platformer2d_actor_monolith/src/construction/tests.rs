@@ -389,11 +389,11 @@ fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
     let grudges: Vec<bool> = app
         .world_mut()
         .query::<(
-            &ambition_combat::actor_tuning::ActorConfig,
+            &ambition_combat::components::ActorIdentity,
             &ambition_combat::components::ActorAggression,
         )>()
         .iter(app.world())
-        .filter(|(config, _)| config.id.starts_with("duel_"))
+        .filter(|(identity, _)| identity.id.starts_with("duel_"))
         .map(|(_, aggression)| aggression.grudge.is_some())
         .collect();
     assert_eq!(grudges.len(), 2, "both duellists spawned");
@@ -3765,10 +3765,13 @@ fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests
 
     let rows: Vec<(String, Option<String>)> = app
         .world_mut()
-        .query::<&ambition_combat::actor_tuning::ActorConfig>()
+        .query::<(
+            &ambition_combat::components::ActorIdentity,
+            &ambition_combat::actor_tuning::ActorConfig,
+        )>()
         .iter(app.world())
-        .filter(|c| c.id.starts_with("duel_"))
-        .map(|c| (c.name.clone(), c.sprite_character_id.clone()))
+        .filter(|(identity, _)| identity.id.starts_with("duel_"))
+        .map(|(identity, c)| (identity.name.clone(), c.sprite_character_id.clone()))
         .collect();
 
     assert_eq!(rows.len(), 2, "both staged fighters spawned");

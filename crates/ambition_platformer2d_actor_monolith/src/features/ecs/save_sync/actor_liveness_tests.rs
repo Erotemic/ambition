@@ -29,13 +29,12 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
         &interactable,
         &[],
     );
-    let (identity, disposition, combat) =
+    let (disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
             FeatureId::new(id),
-            identity,
             disposition,
             combat,
             ActorAggression::default(),

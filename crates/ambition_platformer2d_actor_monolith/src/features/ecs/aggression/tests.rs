@@ -40,7 +40,7 @@ fn spawn_actor_from_seed(
     interactable: ambition_interaction::Interactable,
     strikes: i32,
 ) -> bevy::prelude::Entity {
-    let (identity, disposition, combat) =
+    let (disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     // Provoke accumulator lives on `ActorAggression` now.
     let aggression = ActorAggression {
@@ -63,7 +63,6 @@ fn spawn_actor_from_seed(
                 interactable,
                 talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
-            identity,
             disposition,
             combat,
         ))

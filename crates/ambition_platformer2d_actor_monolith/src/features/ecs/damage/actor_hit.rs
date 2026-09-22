@@ -208,7 +208,7 @@ pub(crate) fn apply_actor_hit(
                 // asks.
                 if aggression.provoked() {
                     writers.set_flag.write(SetFlagRequested {
-                        id: super::super::super::npcs::npc_flag_id(&em.config.id),
+                        id: super::super::super::npcs::npc_flag_id(&em.identity.id),
                         on: true,
                     });
                     writers.vfx.write(VfxMessage::SpeechBubble {
@@ -227,7 +227,7 @@ pub(crate) fn apply_actor_hit(
                         color: [0.84, 0.95, 1.0, 0.82],
                         kind: ParticleKind::Spark,
                     });
-                    banner.show(format!("{} turns hostile", em.config.name), 2.6);
+                    banner.show(format!("{} turns hostile", em.identity.name), 2.6);
                 } else {
                     writers.vfx.write(VfxMessage::SpeechBubble {
                         pos: bark_anchor,
@@ -368,7 +368,7 @@ pub(crate) fn apply_actor_hit(
                     )
                 })
                 .or_else(|| {
-                    combat_banter.and_then(|reg| reg.pick_hit_bark(&em.config.name, strikes))
+                    combat_banter.and_then(|reg| reg.pick_hit_bark(&em.identity.name, strikes))
                 });
             if let Some(line) = line {
                 writers.vfx.write(VfxMessage::SpeechBubble {
@@ -590,7 +590,7 @@ pub(crate) fn apply_actor_hit(
             // tested rather than inferred from the order of an `if`-chain"* — and the chain went on
             // inferring it. Asking the decision makes the extraction load-bearing instead of
             // decorative.
-            banner.show(format!("{} fell out of the world", em.config.name), 2.2);
+            banner.show(format!("{} fell out of the world", em.identity.name), 2.2);
         } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
             // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
@@ -598,13 +598,13 @@ pub(crate) fn apply_actor_hit(
                 kill_disposition(&event.source, em.config.tuning.respawn)
             {
                 em.status.respawn_timer = respawn_s;
-                banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
+                banner.show(format!("{} dropped; respawning", em.identity.name), 2.6);
             } else {
-                banner.show(format!("defeated {}", em.config.name), 2.6);
+                banner.show(format!("defeated {}", em.identity.name), 2.6);
                 // Whose death this loot fell out of. Resolved once for both
                 // drops below: each states it as its provenance, and without it
                 // no render family claims the pickup.
-                let parent = super::drop_parent(writers, actor_entity, "actor", &em.config.id);
+                let parent = super::drop_parent(writers, actor_entity, "actor", &em.identity.id);
                 // Earn-side: a defeated enemy drops a collectible coin so the
                 // player can fund the merchant / ability shop from combat, and
                 // ~1 in 4 enemy kinds also drops a heart (combat sustain).
@@ -613,7 +613,7 @@ pub(crate) fn apply_actor_hit(
                         &mut writers.commands,
                         session_scope,
                         parent,
-                        &em.config.id,
+                        &em.identity.id,
                         em.kin.pos,
                         ENEMY_BOUNTY,
                     );
@@ -642,17 +642,17 @@ pub(crate) fn apply_actor_hit(
                         authored_sheets,
                         prepared,
                         session_scope,
-                        &em.config.id,
+                        &em.identity.id,
                         em.kin.pos,
                         offspring,
                     );
                 }
-                if let (true, Some(parent)) = (id_drops_health(&em.config.id), &parent) {
+                if let (true, Some(parent)) = (id_drops_health(&em.identity.id), &parent) {
                     drop_health_pickup(
                         &mut writers.commands,
                         session_scope,
                         parent,
-                        &em.config.id,
+                        &em.identity.id,
                         em.kin.pos + ae::Vec2::new(18.0, 0.0),
                         ENEMY_HEALTH_DROP,
                     );
@@ -680,14 +680,14 @@ pub(crate) fn apply_actor_hit(
                 // Persist the death per the authored policy (ADR 0022).
                 // `encounter:*` ids keep their own state machine; `InPlace`
                 // is unreachable here (the timer arm above returned).
-                if !em.config.id.starts_with("encounter:") {
+                if !em.identity.id.starts_with("encounter:") {
                     // ⭐ NAMED WHERE IT LIVES: `RespawnPolicy` is
                     // `ambition_entity_catalog`'s; `crate::features` only republished it.
                     // ⭐ THE POLICY PICKS THE FLAG IN ONE PLACE. This match used to
                     // live here and the load path spelled the same two flags again
                     // — four literals for two facts, in two files.
                     let flag_id =
-                        crate::features::enemy_death_flag(em.config.tuning.respawn, &em.config.id);
+                        crate::features::enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
                     if let Some(id) = flag_id {
                         writers.set_flag.write(SetFlagRequested { id, on: true });
                     }

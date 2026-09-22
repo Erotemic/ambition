@@ -43,7 +43,7 @@ fn realize_seat(
     // cross-model change preserves every shared body fact and initializes only
     // the destination solver's private state.
     let motion_model = seed.config.tuning.motion_model();
-    let (identity, _seed_disposition, combat) =
+    let (_seed_disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives
     // follows the authored brain, and a local-input seat authors `Passive` — `apply_actor_hit`
@@ -76,6 +76,7 @@ fn realize_seat(
             // that forbids shielding reaches for a verb the body does not have.
             ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain(
                 &seed.config,
+                &seed.identity,
                 seat.effective_abilities
                     .unwrap_or(seed.body.0.abilities.abilities),
             )
@@ -111,7 +112,6 @@ fn realize_seat(
                         seat.definition.display_name.clone(),
                         centered,
                     ),
-                    identity,
                     disposition,
                     seat.faction,
                     ambition_combat::components::ActorPose::from_parts(

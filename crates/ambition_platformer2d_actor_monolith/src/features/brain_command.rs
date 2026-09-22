@@ -155,7 +155,7 @@ fn apply_brain_selection(
     // The body, for a default that is the character's own `BrainProfile`:
     // §4.7 pairs a policy's normalized effort with the body's own top speed, so
     // the lowering cannot happen without one.
-    profile_body: Option<&ActorConfig>,
+    profile_body: Option<(&ActorConfig, &ambition_combat::components::ActorIdentity)>,
     // The character's own policy, resolved by IDENTITY — see
     // [`character_policy`](crate::features::ecs::character_policy). `None` only
     // where no cast can answer, and then the body's current policy stands in.
@@ -173,7 +173,7 @@ fn apply_brain_selection(
             ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile
         )
     {
-        let Some(config) = profile_body else {
+        let Some((config, identity)) = profile_body else {
             warn!(
                 target: "crate::brain_command",
                 "BrainCommand RestoreDefault for {}: its character's own policy is the                  default, but the body carries no ActorConfig to lower it against;                  command rejected",
@@ -200,7 +200,7 @@ fn apply_brain_selection(
             return false;
         };
         *brain =
-            crate::features::ecs::character_policy::brain_from_profile(config, profile, abilities);
+            crate::features::ecs::character_policy::brain_from_profile(config, identity, profile, abilities);
         binding.restore_default();
         return true;
     }
@@ -249,6 +249,7 @@ pub fn apply_brain_commands(
         &mut BrainBinding,
         Option<&AuthoredBrainContext>,
         Option<&mut ActorConfig>,
+        Option<&ambition_combat::components::ActorIdentity>,
         &ActorPose,
         Has<ambition_mount::Mounted>,
         Option<&mut CombatCapabilities>,
@@ -277,6 +278,7 @@ pub fn apply_brain_commands(
         mut binding,
         authored,
         config,
+        identity,
         pose,
         mounted,
         caps,
@@ -333,7 +335,7 @@ pub fn apply_brain_commands(
                 &mut binding,
                 &ctx,
                 kind,
-                config.as_deref(),
+                config.as_deref().zip(identity),
                 character_profile,
                 abilities,
             );
@@ -383,7 +385,6 @@ fn apply_catalog_mode(
         if let Some(mut config) = config {
             config.brain_profile = profile;
             config.brain = crate::features::ecs::actors::config_brain_for(brain);
-            config.sprite_override_npc_name = None;
         }
         return;
     }
@@ -401,7 +402,6 @@ fn apply_catalog_mode(
         config.tuning = peaceful.tuning;
         config.brain_profile = peaceful.brain_profile;
         config.brain = peaceful.config_brain;
-        config.sprite_override_npc_name = None;
     }
     if let Some(mut caps) = caps {
         *caps = peaceful.capabilities;

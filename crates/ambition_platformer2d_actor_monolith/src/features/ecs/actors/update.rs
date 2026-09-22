@@ -128,7 +128,7 @@ pub(crate) fn observe_actor_decision_inputs(
             body.as_ref().is_some_and(|body| body.health.alive()),
             body.as_ref()
                 .map(|body| super::crowd_observation::ObservedBody {
-                    id: body.config.id.as_str(),
+                    id: body.identity.id.as_str(),
                     pos: body.kin.pos,
                     kind: body.config.tuning.crowd_kind(),
                     faction: faction.copied(),
@@ -500,7 +500,7 @@ pub fn tick_actor_brains(
                     continue;
                 }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = decision_facts.crowd.crowding(&body.config.id);
+                    let crowding = decision_facts.crowd.crowding(&body.identity.id);
                     let capture = ambition_combat::capture::systems::CaptureFacts::resolve(
                         this_actor_entity,
                         &captives,
@@ -957,7 +957,7 @@ pub(crate) fn integrate_actor_body(
     // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
     // moves; the ECS resolves steering intent.
     if matches!(motion_model, MotionModel::AdhesiveCrawler(_)) {
-        if let Some(neighbor) = steering.neighbor_by_id.get(&em.config.id).copied() {
+        if let Some(neighbor) = steering.neighbor_by_id.get(&em.identity.id).copied() {
             if crawler_neighbor_blocks(
                 em.kin.pos,
                 em.kin.size,
@@ -1484,42 +1484,6 @@ pub fn integrate_sim_bodies(
         if let Some(surface) = surface_upright.as_mut() {
             surface.up = riding_up;
         }
-    }
-}
-
-/// PHASE — sync the actor identity read-model.
-///
-/// Every combat fact it wrote turned out to be a duplicate of an authority the reader could ask
-/// directly: liveness (`BodyHealth`), melee (`BodyMelee`), the sandbag flag (authored, set at
-/// construction), and three fields nobody read at all. So the query loses `ActorDisposition`,
-/// `BodyCombat` and `Has<ActiveCombatant>` — the last of which existed ONLY to choose between a
-/// peaceful and a hostile rebuild that no longer happens.
-///
-/// It changes no control and moves no body. Runs after `integrate_sim_bodies`.
-pub fn sync_actor_read_model(
-    mut actors: Query<
-        (
-            &mut ActorIdentity,
-            Option<crate::actor_clusters::ActorClusterQueryData>,
-        ),
-        (
-            With<FeatureSimEntity>,
-            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            // POLICY (§A1): a boss mirrors its read-model through its OWN chain-1
-            // `sync_boss_actor_components` (which ALSO carries boss-specific encounter
-            // fields — phase, timers), so it is excluded here to avoid a double sync.
-            // Same non-swarm-orchestration policy as `tick_actor_brains` /
-            // `integrate_boss_bodies`: the boss runs its own chain-1, deliberately.
-            Without<ambition_boss_encounter::BossConfig>,
-        ),
-    >,
-) {
-    for (mut identity, clusters) in &mut actors {
-        let Some(mut cq) = clusters else {
-            continue;
-        };
-        let em = cq.as_actor_mut();
-        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 
@@ -2264,10 +2228,10 @@ fn build_enemy_brain_snapshot(
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like
-        // the kit above. `config.id` is the id the rest of the actor system
-        // already names this body by (targets, crowding, slot requests), so an
-        // explanation joins against the same identity everything else uses.
-        subject: Some(body.config.id.clone()),
+        // the kit above. `ActorIdentity::id` is the id the rest of the actor
+        // system already names this body by (targets, crowding, slot requests),
+        // so an explanation joins against the same identity everything else uses.
+        subject: Some(body.identity.id.clone()),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a
@@ -2343,27 +2307,6 @@ fn build_enemy_brain_snapshot(
     }
 }
 
-/// Keep the actor's `ActorIdentity` read-model in step with its cluster.
-///
-///  that is the change-amplification answer stated as code: adding a reaction timer to
-/// `BodyCombat` now requires no edit here, and none in the boss road either.
-///
-/// identity is rebuilt only when it actually differs. This runs per actor per
-/// frame, and an unconditional rebuild is a string clone plus a spurious
-/// change-detection tick for every actor in the room.
-pub fn sync_actor_components_from_cluster(
-    em: &crate::actor_clusters::ActorMut<'_>,
-    identity: &mut ActorIdentity,
-) {
-    if identity.id != em.config.id
-        || identity.name != em.config.name
-        || identity.sprite_override_npc_name != em.config.sprite_override_npc_name
-    {
-        *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
-            .with_sprite_override(em.config.sprite_override_npc_name.clone());
-    }
-}
-
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
@@ -2398,7 +2341,7 @@ pub fn tick_npc_idle_barks(
     npcs: Query<
         (
             &ambition_platformer2d_core::BodyKinematics,
-            &ambition_combat::actor_tuning::ActorConfig,
+            &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
@@ -2447,7 +2390,7 @@ pub fn tick_npc_idle_barks(
         ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
         _ => (12.0, 8_000),
     };
-    for (kin, config, combat, interaction, disposition, health) in &npcs {
+    for (kin, identity, combat, interaction, disposition, health) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.hit_flash > 0.0 || !health.alive() {
@@ -2467,21 +2410,21 @@ pub fn tick_npc_idle_barks(
         // ⚠ FIRST SIGHTING STILL COSTS ONE JOIN, deliberately: an NPC with no
         // line never got a timer before, and giving every NPC one would grow
         // this map with entries that can never fire.
-        let Some(timer) = state.timers.get_mut(&config.id) else {
+        let Some(timer) = state.timers.get_mut(&identity.id) else {
             if super::super::npcs::npc_ambient_bark_line(
                 catalog,
                 prepared_cast.as_deref(),
                 &interaction.interactable,
                 situation,
-                *state.rotations.get(&config.id).unwrap_or(&0),
+                *state.rotations.get(&identity.id).unwrap_or(&0),
             )
             .is_none()
             {
                 continue;
             }
             state.timers.insert(
-                config.id.clone(),
-                npc_idle_bark_jitter(&config.id, 0, bark_base_s, bark_span_ms) - dt,
+                identity.id.clone(),
+                npc_idle_bark_jitter(&identity.id, 0, bark_base_s, bark_span_ms) - dt,
             );
             continue;
         };
@@ -2489,7 +2432,7 @@ pub fn tick_npc_idle_barks(
         if *timer > 0.0 {
             continue;
         }
-        let rotation = *state.rotations.get(&config.id).unwrap_or(&0);
+        let rotation = *state.rotations.get(&identity.id).unwrap_or(&0);
         let Some(line) = super::super::npcs::npc_ambient_bark_line(
             catalog,
             prepared_cast.as_deref(),
@@ -2505,10 +2448,10 @@ pub fn tick_npc_idle_barks(
             text: line.to_string(),
         });
         let next = rotation.wrapping_add(1);
-        state.rotations.insert(config.id.clone(), next);
+        state.rotations.insert(identity.id.clone(), next);
         state.timers.insert(
-            config.id.clone(),
-            npc_idle_bark_jitter(&config.id, next, bark_base_s, bark_span_ms),
+            identity.id.clone(),
+            npc_idle_bark_jitter(&identity.id, next, bark_base_s, bark_span_ms),
         );
     }
 }

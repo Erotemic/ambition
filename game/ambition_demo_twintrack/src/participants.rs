@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::{ActorConfig, ActorFaction, SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d::actor::{ActorFaction, ActorIdentity, SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::relativity2d::{
@@ -266,14 +266,14 @@ pub(crate) fn adopt_the_laboratory_twin(
     // rather than at zero — see the `ProperTimeElapsed` line below.
     coordinate_time: Query<&ambition_platformer2d::relativity2d::SpacetimeCoordinateTime2d>,
     already: Query<(), With<LaboratoryTwin>>,
-    candidates: Query<(Entity, &ActorConfig), Without<LaboratoryTwin>>,
+    candidates: Query<(Entity, &ActorIdentity), Without<LaboratoryTwin>>,
 ) {
     if !already.is_empty() {
         return;
     }
     let Some((body, _)) = candidates
         .iter()
-        .find(|(_, config)| config.id == LAB_TWIN_FEATURE_ID)
+        .find(|(_, identity)| identity.id == LAB_TWIN_FEATURE_ID)
     else {
         return;
     };

@@ -435,8 +435,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         (
             "ambition_combat::actor_tuning::ActorConfig",
             "MUTATED AT RUNTIME (checked 2026-08-29): `apply_catalog_mode` writes\
-             `brain_profile`, `brain` and `sprite_override_npc_name` on a controller\
-             change — wants a value projection",
+             `tuning`, `brain_profile` and `brain` on a controller change — wants a\
+             value projection",
         ),
         (
             "ambition_platformer2d_shared_tangle::body::SpawnBaseline",

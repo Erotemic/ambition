@@ -13,7 +13,7 @@ use ambition_combat::actor_tuning::ActorConfig;
 use ambition_platformer2d_core::BodyKinematics;
 use bevy::ecs::query::QueryData;
 
-use ambition_combat::components::BodyMelee;
+use ambition_combat::components::{ActorIdentity, BodyMelee};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
@@ -45,6 +45,7 @@ pub struct ActorMut<'a> {
     pub health: &'a mut ambition_characters::actor::BodyHealth,
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut BodyMelee,
+    pub identity: &'a ActorIdentity,
     pub config: &'a mut ActorConfig,
     pub spawn: &'a mut SpawnBaseline,
     pub motion: &'a mut ActorMotionPath,
@@ -117,6 +118,9 @@ pub struct ActorClusterQueryData {
     pub health: &'static mut ambition_characters::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut BodyMelee,
+    /// Who this body is. Required, not `Option`: the cluster bundle
+    /// materializes it, so a body without one was never constructed.
+    pub identity: &'static ActorIdentity,
     pub config: &'static mut ActorConfig,
     /// Where this body started, and what it started as.
     ///
@@ -170,6 +174,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             health: &mut self.health,
             surface: &mut self.surface,
             attack: &mut self.attack,
+            identity: self.identity,
             config: &mut self.config,
             spawn: &mut self.spawn,
             motion: &mut self.motion,
@@ -223,6 +228,7 @@ impl SeedActorMut for ActorClusterSeed {
             health: &mut self.health,
             surface: &mut self.surface,
             attack: &mut self.attack,
+            identity: &self.identity,
             config: &mut self.config,
             spawn: &mut self.spawn,
             motion: &mut self.motion,

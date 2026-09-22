@@ -443,7 +443,11 @@ impl EnemyActorSpawnPlan {
         feature_aabb: CenteredAabb,
         enemy: ambition_body_seed::ActorClusterSeed,
     ) -> Self {
-        let brain = self::brain_builders::enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
+        let brain = self::brain_builders::enemy_default_brain(
+            &enemy.config,
+            &enemy.identity,
+            enemy.body.0.abilities.abilities,
+        );
         // A CHARACTER-FIRST BODY HAS NO ARCHETYPE TO ASK — and as of AC6 there is no other kind
         // of body. The kit that actually reaches such a body arrives from
         // `grant_prepared_character_body` moments later, so nothing at all is both the honest
@@ -513,7 +517,7 @@ impl EnemyActorSpawnPlan {
     pub(super) fn spawn_into(self, scope: &mut RootScope) {
         let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
-        let (identity, disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
+        let (disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         scope.insert_session_scoped((
                     Name::new(self.entity_name),
@@ -523,7 +527,6 @@ impl EnemyActorSpawnPlan {
                             &self.feature_name,
                             self.feature_aabb,
                         ),
-                        identity,
                         disposition,
                         self.faction,
                         ActorPose::from_parts(
@@ -702,6 +705,7 @@ impl NpcActorSpawnPlan {
             // The seed is already built, so the body a `BrainProfile` default
             // would be paced against is right here.
             &seed.config,
+            &seed.identity,
             seed.body.0.abilities.abilities,
             forced_brains,
         );
@@ -771,7 +775,7 @@ impl NpcActorSpawnPlan {
             interactable: self.interactable,
             talk_radius: self::npc_policy::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, combat) = self::conversion::actor_component_snapshot(
+        let (disposition, combat) = self::conversion::actor_component_snapshot(
             &self.seed,
             ambition_combat::components::ActorDisposition::Peaceful,
         );
@@ -793,7 +797,6 @@ impl NpcActorSpawnPlan {
                 Name::new(self.entity_name),
                 EnemyActorBundle::new(
                     FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
-                    identity,
                     disposition,
                     ambition_combat::components::ActorFaction::Npc,
                     ActorPose::from_parts(
@@ -949,15 +952,12 @@ fn boss_actor_cluster(
     };
     let weight = tuning.weight;
     let actor_config = ambition_combat::actor_tuning::ActorConfig {
-        id: config.id.clone(),
-        name: config.name.clone(),
         tuning,
         brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        sprite_override_npc_name: None,
         sprite_character_id: None,
         // A boss drives a `BossPattern`, never the fighter brain the trait picks
         // a stream for, and there is only ever one of it.

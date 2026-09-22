@@ -4,17 +4,16 @@
 use super::super::*;
 use ambition_characters::actor::control::{BlockReason, IntentOutcome};
 
-/// Actor-specific authored/runtime identity.
+/// Who an actor is: its stable id and display name.
 ///
-/// `FeatureId` remains the canonical entity lookup key. This component exposes
-/// actor-facing identity directly so rendering, save sync, and debug systems do
-/// not have to pattern-match through the behavior runtime to ask who the actor
-/// is or which authored NPC sheet a hostile actor should keep using.
+/// The ONE runtime owner of both. It is materialized with the body's cluster
+/// (`ActorClusterSeed::into_components`, or a boss's spawn) and nothing writes
+/// it afterwards, so there is no second copy for a per-tick pass to reconcile.
+/// `FeatureId` remains the canonical entity lookup key.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct ActorIdentity {
     pub id: String,
     pub name: String,
-    pub sprite_override_npc_name: Option<String>,
 }
 
 impl ActorIdentity {
@@ -22,13 +21,7 @@ impl ActorIdentity {
         Self {
             id: id.into(),
             name: name.into(),
-            sprite_override_npc_name: None,
         }
-    }
-
-    pub fn with_sprite_override(mut self, name: Option<String>) -> Self {
-        self.sprite_override_npc_name = name;
-        self
     }
 
     pub fn id(&self) -> &str {

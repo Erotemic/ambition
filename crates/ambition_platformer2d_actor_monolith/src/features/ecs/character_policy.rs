@@ -26,10 +26,11 @@ pub(crate) fn character_autonomous_profile(
 /// The temporary config clone keeps the policy being lowered and the body's tuning in one input.
 pub(crate) fn brain_from_profile(
     config: &ActorConfig,
+    identity: &ambition_combat::components::ActorIdentity,
     profile: BrainProfile,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> Brain {
     let mut body = config.clone();
     body.brain_profile = profile;
-    crate::features::ecs::enemy_default_brain(&body, abilities)
+    crate::features::ecs::enemy_default_brain(&body, identity, abilities)
 }

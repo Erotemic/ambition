@@ -14,7 +14,7 @@
 // that surfaced it from the reusable actor crate.
 use ambition_characters::actor::BodyCombat;
 
-use ambition_combat::components::{ActorDisposition, ActorIdentity};
+use ambition_combat::components::ActorDisposition;
 
 // It began as a matcher over an id, a display name and a dialogue node — *does any of them
 // contain "pirate"* — and handed the struck body a whole archetype.
@@ -28,11 +28,12 @@ use ambition_combat::components::{ActorDisposition, ActorIdentity};
 
 /// Build the read-model mirror components for an actor cluster seed at the given
 /// disposition. Peaceful actors get a peaceful `BodyCombat`; hostile actors
-/// the full hostile combat state.
+/// the full hostile combat state. `ActorIdentity` is not among them: the seed
+/// materializes it with the cluster.
 pub fn actor_component_snapshot(
     seed: &ambition_body_seed::ActorClusterSeed,
     disposition: ActorDisposition,
-) -> (ActorIdentity, ActorDisposition, BodyCombat) {
+) -> (ActorDisposition, BodyCombat) {
     // THE SEED'S OWN, not a rebuild (AC6.2). This constructed a fresh
     // `BodyCombat` and filled its one authored flag from
     // `ActorTuning::is_sandbag` — a copy of the character's `practice_target`
@@ -46,19 +47,13 @@ pub fn actor_component_snapshot(
     // read-model sync — and the disposition gate that sync applied is
     // deliberately gone: a body authored as a training dummy is one whether or
     // not it currently reads as hostile.
-    let combat = seed.combat.clone();
-    (
-        ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
-            .with_sprite_override(seed.config.sprite_override_npc_name.clone()),
-        disposition,
-        combat,
-    )
+    (disposition, seed.combat.clone())
 }
 
 /// Hostile spawn read-models (the common case for authored enemies).
 pub fn enemy_component_snapshot(
     enemy: &ambition_body_seed::ActorClusterSeed,
-) -> (ActorIdentity, ActorDisposition, BodyCombat) {
+) -> (ActorDisposition, BodyCombat) {
     actor_component_snapshot(enemy, ActorDisposition::Hostile)
 }
 

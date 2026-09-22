@@ -72,10 +72,9 @@ mod summon;
 pub mod spawn_static;
 mod target_volumes;
 
-pub use actors::sync_actor_components_from_cluster;
 pub use actors::{
     apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
-    snapshot_body_contact, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
+    snapshot_body_contact, sync_actor_poses_from_feature_aabbs,
     tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion, MomentumMotion,
     MotionModel,
 };

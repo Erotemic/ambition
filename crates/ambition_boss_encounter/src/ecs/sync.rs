@@ -33,10 +33,6 @@ pub struct BossSpriteMetricsApplied;
 /// targeting, HUD, and held-item work from needing to pattern-match directly on `BossFeature` for
 /// ordinary combat facts. IT NO LONGER RETURNS A `BodyCombat` (AC3.2).
 ///
-/// a citation is only as correct as the thing it cites. The comment here
-/// said "the same rule as `sync_actor_components_from_cluster`" and it was
-/// accurate; the rule it named was wrong.
-///
 /// The liveness the caller now writes in place is the last derived fact this
 /// produced, and AC3.1.A deletes even that.
 pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, ActorDisposition) {
@@ -50,21 +46,22 @@ pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, Acto
 /// attack state. Boss integration remains in [`update_ecs_bosses`]; this system
 /// only mirrors generic combat facts into components shared with NPC/enemy
 /// actors.
+///
+/// `ActorIdentity` is not among them: it is written once, at spawn, from the
+/// same `BossConfig` this would read, and neither changes afterwards.
 pub fn sync_boss_actor_components(
     mut bosses: Query<
         (
             crate::BossClusterRef,
             &BossAttackState,
-            &mut ActorIdentity,
             &mut ActorDisposition,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (feature, _attack_state, mut identity, mut disposition) in &mut bosses {
+    for (feature, _attack_state, mut disposition) in &mut bosses {
         // AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at all.
-        let (next_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
-        *identity = next_identity;
+        let (_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
         *disposition = next_disposition;
     }
 }
@@ -256,8 +253,8 @@ mod boss_combat_rebuild_contract {
     ///
     /// the original of this guard recorded a propagated error.
     /// `boss_component_snapshot` rebuilt `BodyCombat` and restored a list of
-    /// timers *"the same rule as `sync_actor_components_from_cluster`"* — an
-    /// accurate citation of a wrong rule, so both roads forgot
+    /// timers by the same rule the actor road used — an accurate citation of a
+    /// wrong rule, so both roads forgot
     /// `landing_lag_timer` and a boss landing out of an authored aerial had its
     /// lag erased on the next frame.
     ///

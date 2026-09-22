@@ -26,7 +26,7 @@ use ambition_platformer2d_core::BodyKinematics;
 use bevy::prelude::Component;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_combat::components::BodyMelee;
+use ambition_combat::components::{ActorIdentity, BodyMelee};
 use ambition_combat::path_motion::PathMotion;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
@@ -134,6 +134,9 @@ pub struct ActorClusterSeed {
     pub combat: ambition_characters::actor::BodyCombat,
     pub surface: ActorSurfaceState,
     pub attack: BodyMelee,
+    /// Who this body is. Materialized by [`Self::into_components`] in the same
+    /// bundle as everything else, so no body exists without it.
+    pub identity: ActorIdentity,
     pub config: ActorConfig,
     /// The body a reset hands back — position, authored size, authored gravity
     /// scale. ⛔ IT IS NOT PART OF `ActorConfig`: a mount dissolving a dead
@@ -255,6 +258,7 @@ pub type ActorClusterBundle = (
     AncillaryMovementBundle,
     ambition_combat::CombatCapabilities,
     ambition_combat::CombatTuning,
+    ActorIdentity,
 );
 impl ActorClusterSeed {
     /// Put this un-spawned body somewhere, once.
@@ -509,13 +513,11 @@ impl ActorClusterSeed {
                 size: collision_size,
                 gravity_scale,
             },
+            identity: ActorIdentity::new(id, name),
             config: ActorConfig {
-                id: id.into(),
-                name: name.into(),
                 tuning,
                 brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
-                sprite_override_npc_name: None,
                 // Peaceful actors already resolved their catalog id above.
                 sprite_character_id: character_id.map(String::from),
                 // this road takes no `CharacterBodyBlueprint`, so no authored
@@ -746,13 +748,11 @@ impl ActorClusterSeed {
                 size: collision_size,
                 gravity_scale,
             },
+            identity: ActorIdentity::new(id, display_name),
             config: ActorConfig {
-                id: id.into(),
-                name: display_name.to_string(),
                 tuning,
                 brain_profile,
                 brain: config_brain.clone(),
-                sprite_override_npc_name: None,
                 // the CHARACTER, stated rather than resolved from a display
                 // name. A seat knows exactly which character it is seating.
                 sprite_character_id: Some(character_id.to_string()),
@@ -830,6 +830,7 @@ impl ActorClusterSeed {
             AncillaryMovementBundle::from_scratch(self.body.0),
             self.caps,
             combat_tuning,
+            self.identity,
         )
     }
 }

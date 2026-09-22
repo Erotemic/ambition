@@ -4,7 +4,6 @@
 //!   tick_actor_brains      — snapshot + brain → frame-local decision output
 //!   publish_actor_decision_frames — decision output → `ActorControl`
 //!   integrate_sim_bodies   — reads that `ActorControl` → moves `BodyKinematics`
-//!   sync_actor_read_model  — mirrors integrated state onto the read-model comps
 //!   apply_actor_contact_damage — observes post-move overlap → HitEvent
 //!
 //! `ActorControl` is the seam between the brain phase and the movement phase. These

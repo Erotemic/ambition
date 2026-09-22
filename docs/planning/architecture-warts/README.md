@@ -46,7 +46,6 @@ to the motivating example.
 | W013 | CONFIRMED | boss presentation | `BossPatternTimer` is documented as a presentation-side mirror of the boss runtime timer. A sync system writes it and rollback registers it, but production code has no reader. | Delete the mirror if no consumer remains. If presentation needs it later, derive it through the view layer instead of making it gameplay rollback state. |
 | W014 | CONFIRMED | actor AI state | `ActorStatus::ai_mode` is written by enemy integration and provocation and is rollback encoded, but production code has no read of the field. The same component also owns the respawn countdown. | Delete the unused projection or give it a real owner. Keep respawn lifecycle separate from an AI read-model. |
 | W015 | CONFIRMED | respawn policy | Encounter and boss-spawn roads encode "never auto-respawn" as `respawn_timer = 999_999.0` even though `RespawnPolicy` already exists elsewhere. | Represent the lifecycle policy explicitly. Do not encode policy as a very large timer. |
-| W016 | STRUCTURAL | actor identity | `ActorConfig` owns `id`, `name`, and `sprite_override_npc_name`. `ActorIdentity` owns the same facts. `sync_actor_components_from_cluster` copies config into identity when they differ. Both components are rollback registered. | Choose one authority. Make the other representation derived and non-authoritative, or remove the duplicate fields. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
 | W018 | CONFIRMED | combat tuning | `CombatTuning::attack_cooldown_mult` is populated from `BrainProfile::attack_cooldown_mult`, but production combat has no read of the projection. The brain profile remains the live policy source. | Remove the duplicate field or move the consumer to one explicit owner. |
 | W019 | CONFIRMED | actor pose | `ActorPose::feet` is derived from center and half-size at construction. Production code has no `.feet` read, but snapshot code stores it. | Remove the unused field and snapshot bytes unless a real consumer is introduced. |
@@ -55,9 +54,7 @@ to the motivating example.
 | W022 | STRUCTURAL | combat component ownership | `BodyMelee::ranged_cooldown` is the live ranged fire-rate floor. It is actively used by ranged acceptance and prompts even though the owner type is `BodyMelee`. | Move ranged cooldown state to a weapon/ranged/action owner without changing the one-body fire-rate invariant. |
 | W023 | STRUCTURAL | combat/presentation boundary | `BodyCombat::hit_flash` is a visual flash timer, but gameplay and AI use it as a recent-hit signal for bark suppression and hostility/behavior gates. | Introduce a semantic recent-hit/reaction fact if gameplay needs one. Keep visual flash lifetime as presentation state. |
 | W024 | STRUCTURAL | projectile intent | `ActorFireRequest::speed` is still a live input to projectile spawn, while its own TODO says speed is redundant with resolved `RangedActionSpec`. `dir_to_world` also accepts unresolved `ScreenSpace`, logs that the result is wrong under rotated gravity, and then uses the screen vector as world space. | Make one speed authority. Make unresolved screen-space direction invalid at the gameplay seam instead of continuing with a known-wrong fallback. |
-| W025 | STRUCTURAL | combat capability fallback | `default_fighting_kit()` gives a generic melee kit to bodies whose character authored no repertoire. Peaceful NPC construction and dismounted-rider logic can therefore gain an attack because content omitted one. The source says this default belongs to session/ruleset policy and has a `TODO(compat-remove)`. | Require an explicit character or ruleset fighting kit. Absence of authored combat should not silently invent a capability. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
-| W027 | STRUCTURAL | ability defaults | `ActorBody::new()` says it creates a locomotion-only mask with no capability verbs, but `locomotion_abilities()` enables double jump and inherits `interact` from `AbilitySet::basic()`. `ActorBody::from_kit()` also forces `attack = true` for every combat body. | Make the base capability contract match its name. Author or ruleset-select verbs that are not universal locomotion. |
 | W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyMana`, `BodyOffense`, `BodyLifetime`, and `BodyComboTrace` part of what structurally counts as a complete body. Mana has an active migration plan; the other passengers do not. | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
 
 ## Detailed evidence notes
@@ -97,14 +94,9 @@ and many movement function signatures. The production reader outside the write
 path is `game/ambition_app/src/app/hud.rs`. This is more than an unused field: a
 diagnostic feature changes the required shape of every body.
 
-### W016 and W017 — actor projections have become authority containers
+### W017 — actor tuning has become an authority container
 
-`ActorIdentity` describes itself as an actor-facing read-model. The actor update
-road compares it to `ActorConfig` and clones `id`, `name`, and sprite override
-when they differ. The rollback registry includes both `actor.identity` and
-`actor.config`.
-
-`ActorTuning` is broader. Its exhaustive test groups fields into reusable
+`ActorTuning` is broad. Its exhaustive test groups fields into reusable
 character facts, controller policy, placement/session facts, presentation facts,
 and mutable runtime state. That test is useful as a census, but it also shows
 that the type does not have one semantic owner.
@@ -126,18 +118,11 @@ hostility paths. A visual duration therefore controls semantic behavior. A
 future visual-timing adjustment can change AI/dialogue behavior without an
 explicit gameplay policy change.
 
-### W025-W027 — missing authoring can grant behavior
+### W026 — missing authoring can grant behavior
 
-The current source has three related fallback shapes:
-
-- `default_fighting_kit()` supplies melee when no repertoire was authored;
-- `default_provoked_policy()` supplies a hostile brain when no explicit policy
-  was selected;
-- `ActorBody` grants double jump, interaction, and attack through defaults even
-  where comments describe a locomotion-only or kit-derived capability set.
-
-These can be valid product rules, but they should be ruleset/content decisions.
-They should not be accidental consequences of missing data.
+`default_provoked_policy()` supplies a hostile brain when no explicit policy was
+selected. That can be a valid product rule, but it should be a ruleset/content
+decision rather than an accidental consequence of missing data.
 
 ## Already-owned related work
 

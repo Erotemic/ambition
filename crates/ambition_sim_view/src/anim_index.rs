@@ -33,6 +33,7 @@ pub struct ActorSpriteData {
     pub status: &'static ActorStatus,
     pub health: &'static ambition_characters::actor::BodyHealth,
     pub combat: &'static ambition_characters::actor::BodyCombat,
+    pub identity: &'static ambition_combat::components::ActorIdentity,
     pub config: &'static ActorConfig,
     pub attack: &'static BodyMelee,
     pub ground: &'static ambition_platformer2d_core::BodyGroundState,

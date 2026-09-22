@@ -68,7 +68,8 @@ impl FeatureRenderedBundle {
 #[derive(Bundle)]
 pub struct EnemyActorBundle {
     pub base: FeatureRenderedBundle,
-    pub identity: ActorIdentity,
+    // No `ActorIdentity` here: it is materialized with the cluster
+    // (`ActorClusterSeed::into_components`), which every caller also spawns.
     pub disposition: ActorDisposition,
     /// Combat-side faction tag (`ActorFaction::Enemy` for encounter
     /// mobs, `ActorFaction::Npc` for peaceful actors). Future
@@ -115,7 +116,6 @@ impl EnemyActorBundle {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         base: FeatureRenderedBundle,
-        identity: ActorIdentity,
         disposition: ActorDisposition,
         faction: ActorFaction,
         pose: ActorPose,
@@ -125,7 +125,6 @@ impl EnemyActorBundle {
     ) -> Self {
         Self {
             base,
-            identity,
             disposition,
             faction,
             target: ActorTarget::default(),

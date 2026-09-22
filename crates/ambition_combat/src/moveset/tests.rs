@@ -4465,6 +4465,11 @@ fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
     tilt.id = "wearer_tilt".into();
     wearer.verbs.insert("attack_forward".into(), tilt.id.clone());
     wearer.moves.push(tilt);
+    // And a ranged move of its own, which a melee-only axe replaces with none.
+    let mut shot = swat();
+    shot.id = "wearer_shot".into();
+    wearer.verbs.insert(RANGED_VERB.into(), shot.id.clone());
+    wearer.moves.push(shot);
     let identity = ambition_characters::brain::action_set::IdentityKit::of(
         ambition_characters::brain::ActionSet::peaceful(),
         wearer,
@@ -4481,6 +4486,10 @@ fn a_melee_weapon_in_hand_answers_with_its_own_swing() {
     assert!(
         forward.is_some() && forward.as_deref() != Some("wearer_tilt"),
         "a forward press while holding the axe reached {forward:?}, not the axe's swing",
+    );
+    assert!(
+        live.moveset.move_for_verb(RANGED_VERB).is_none() && live.action_set.ranged.is_none(),
+        "holding a melee-only axe left the wearer's ranged move executable",
     );
     app.world_mut().entity_mut(armed).insert((
         ActorMoveset(live.moveset),

@@ -11,7 +11,7 @@
 //! without the other leaves a body whose verbs and whose move timelines
 //! disagree, which is why this returns the pair.
 
-use ambition_entity_catalog::{is_melee_verb, MovesetContract};
+use ambition_entity_catalog::{is_melee_verb, is_ranged_verb, MovesetContract};
 
 use crate::brain::action_set::{ActionSet, IdentityKit};
 use crate::brain::HeldItemSpec;
@@ -80,8 +80,13 @@ pub fn effective_repertoire(
     // the character authored cannot answer a press the weapon owns. A hand that
     // brings no melee releases nothing: its Attack press is spent by the item's
     // own road, and the wearer's verbs are what keep that slot offered.
+    //
+    // A HELD ITEM IS THE WHOLE RANGED VOCABULARY, whatever it brings: its shot
+    // replaces the wearer's, and an item with none leaves the body without one,
+    // exactly as `ActionSet.ranged` says.
+    let holding = matches!(hand, Hand::Holding(_));
     let weapon_in_hand = matches!(hand, Hand::Holding(spec) if spec.melee.is_some());
-    let moveset = if !weapon_in_hand
+    let moveset = if !holding
         && action_set.melee == identity.action_set.melee
         && action_set.ranged == identity.action_set.ranged
     {
@@ -89,7 +94,10 @@ pub fn effective_repertoire(
     } else {
         let mut base = identity.moveset.clone();
         if weapon_in_hand {
-            release_melee_verbs(&mut base);
+            release_verbs(&mut base, is_melee_verb);
+        }
+        if holding {
+            release_verbs(&mut base, is_ranged_verb);
         }
         build_actor_moveset(
             Some(&base),
@@ -105,15 +113,15 @@ pub fn effective_repertoire(
     }
 }
 
-/// Unbind every melee verb, and drop the moves only those verbs used.
-fn release_melee_verbs(contract: &mut MovesetContract) {
+/// Unbind every verb in `family`, and drop the moves only those verbs used.
+fn release_verbs(contract: &mut MovesetContract, family: fn(&str) -> bool) {
     let released: Vec<String> = contract
         .verbs
         .iter()
-        .filter(|(verb, _)| is_melee_verb(verb))
+        .filter(|(verb, _)| family(verb))
         .map(|(_, id)| id.clone())
         .collect();
-    contract.verbs.retain(|verb, _| !is_melee_verb(verb));
+    contract.verbs.retain(|verb, _| !family(verb));
     let verbs = &contract.verbs;
     contract
         .moves

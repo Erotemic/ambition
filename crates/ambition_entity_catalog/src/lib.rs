@@ -4057,6 +4057,11 @@ pub fn is_melee_verb(verb: &str) -> bool {
         || verb == SMASH_VERB
         || verb.starts_with("smash_")
 }
+
+/// The ranged verb family: the base and any variant of it.
+pub fn is_ranged_verb(verb: &str) -> bool {
+    verb == RANGED_VERB || verb.starts_with("ranged_")
+}
 /// The canonical verb id a body's signature special binds to in its moveset.
 /// `special_pressed` resolves the facing-relative directional `special` chain;
 /// a body only has a real special when its moveset authors a matching

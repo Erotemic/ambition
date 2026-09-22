@@ -666,15 +666,18 @@ impl NpcActorSpawnPlan {
                 }
             },
         };
-        let provoked_baseline = match authored_kit {
-            Some(kit) => kit.clone(),
-            //  it is what a body that authored NO kit fights with once
-            // provoked. A Hall NPC authors `peaceful`, so without this it would
-            // have nothing to swing — the same gap Smash's generic fighter floor
-            // filled for a seat whose character stated no repertoire, and the
-            // reason both are one concept.
-            None => self::brain_builders::default_fighting_kit(),
-        };
+        // A PLACEMENT THAT NAMES NO CHARACTER AND AN ID NOBODY WROTE DOWN ARE THE
+        // SAME FACT: nothing authored this body's repertoire, so it has none.
+        //
+        // This used to install an engine swipe here, and its comment claimed a
+        // Hall NPC needed it — but a Hall NPC authors `peaceful`, which takes the
+        // `Some` arm and yields the empty set, so the default never covered the
+        // case it named. Measured 2026-09-22: all 163 `NpcSpawn` placements in
+        // the six shipped world files name a character, and every one of those
+        // 129 ids authors a `default_action_set`.
+        let provoked_baseline = authored_kit
+            .cloned()
+            .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
         let (mut seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,

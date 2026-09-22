@@ -15,40 +15,6 @@ use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 use ambition_combat::variation::{five_f32s_from_seed, seed_from_id};
 
-/// The RULESET'S PROVOKED REPERTOIRE: what a body swings when it is provoked and
-/// its character authored none.
-///
-/// Exploration provocation and platform-fighter fallback kits intentionally have
-/// different tuning; these defaults belong to session/ruleset policy, not body
-/// identity.
-///
-/// ⚠ IT HAS ONE CALLER NOW, and that is the difference from what this doc used
-/// to describe as a "fallback". The other was the mount dismount, which reached
-/// here whenever a rebuilt set had no melee — so a rider whose character
-/// authors no swing was handed this one silently, on a road that had already
-/// rediscovered the registry trying to avoid it. Both are deleted; a rider now
-/// comes down with what its identity grants. What remains is a single explicit
-/// `match` on the peaceful-NPC road, where the absence is resolved in the open.
-///
-/// TODO(compat-remove): delete this default once every adopter supplies an
-/// explicit ruleset or character fighting kit.
-pub(crate) fn default_fighting_kit() -> ActionSet {
-    ActionSet {
-        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
-            ambition_characters::brain::SwipeSpec {
-                windup_s: 0.28,
-                active_s: 0.08,
-                recover_s: 0.32,
-                damage: 1,
-                reach_px: 28.0,
-            },
-        )),
-        ranged: None,
-        special: None,
-        move_style: ambition_characters::brain::MoveStyleSpec::Walk,
-    }
-}
-
 // The constant is `ambition_characters:actor:DEFAULT_UNAUTHORED_BODY_HEALTH` now — the pool a
 // body gets when no authority describes it, asked at construction — and provocation no longer
 // writes health at all.
@@ -614,6 +580,9 @@ mod cognition_stream_tests {
 // template → brain-family mapping is pinned off a CHARACTER's profile by
 // `enemy_default_brain_picks_the_family_its_policy_names` in the spawn tests.
 
-// ⇒ the row is gone and the constant is unchanged, so the decision is made:
-// `default_fighting_kit()` is the only authority on what a provoked body swings.
+// ⇒ the row is gone and the constant is unchanged. The KIT half of it went
+// further: a body must be DRIVEN by some policy, because "no policy" is not a
+// state a driven body can be in, but "no repertoire" is an ordinary state and
+// needs no engine answer at all. `default_fighting_kit()` is deleted; a body
+// nobody described swings nothing.
 

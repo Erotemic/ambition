@@ -18,10 +18,11 @@ use ambition_entity_catalog::placements::CharacterBrain;
 
 /// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
 ///
-/// the twin of [`default_fighting_kit`] one authority over: that one answers
-/// *what does it swing*, this one answers *how does it fight*. They were the two
-/// halves the `combatant` archetype row was doing at once, and separating them
-/// is what lets the row die — a body is not a policy, and neither is a kit.
+/// It answers *how does it fight*, and NOTHING answers *what does it swing* —
+/// the two halves the `combatant` archetype row did at once. Separating them is
+/// what let the row die, and the asymmetry is the point: a driven body must be
+/// driven by some policy, so an absent one needs an engine answer, while a body
+/// that authored no repertoire simply has none.
 ///
 /// `an_engine_default_provoked_policy_matches_the_combatant_row` pins the numbers against the
 /// row while the row survives; when it goes, the constant stands alone and nothing has to

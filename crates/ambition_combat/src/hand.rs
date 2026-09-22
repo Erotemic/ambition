@@ -52,9 +52,7 @@ pub struct RepertoireQuery {
     pub held: Option<&'static HeldItem>,
     pub gun: GunSlot,
     pub action_set: &'static mut ActionSet,
-    /// `Option` because a body with no move timelines carries none; its
-    /// `ActionSet` is then the whole derivation.
-    pub moveset: Option<&'static mut ActorMoveset>,
+    pub moveset: &'static mut ActorMoveset,
 }
 
 impl RepertoireQueryItem<'_, '_> {
@@ -62,9 +60,7 @@ impl RepertoireQueryItem<'_, '_> {
     pub fn refold(&mut self, hand: Hand<'_>) {
         let rebuilt = effective_repertoire(self.identity, self.worn, hand);
         *self.action_set = rebuilt.action_set;
-        if let Some(moveset) = self.moveset.as_deref_mut() {
-            *moveset = ActorMoveset(rebuilt.moveset);
-        }
+        *self.moveset = ActorMoveset(rebuilt.moveset);
     }
 
     /// Re-derive for the hand as the components say it is now.
@@ -111,13 +107,11 @@ pub fn refold_in_world_with_held(world: &mut World, body: Entity, held: Option<&
         hand(held, gun_active),
     );
     let mut entity = world.entity_mut(body);
-    let Some(mut action_set) = entity.get_mut::<ActionSet>() else {
+    if !entity.contains::<ActionSet>() || !entity.contains::<ActorMoveset>() {
         return false;
-    };
-    *action_set = rebuilt.action_set;
-    if let Some(mut moveset) = entity.get_mut::<ActorMoveset>() {
-        *moveset = ActorMoveset(rebuilt.moveset);
     }
+    *entity.get_mut::<ActionSet>().expect("checked above") = rebuilt.action_set;
+    *entity.get_mut::<ActorMoveset>().expect("checked above") = ActorMoveset(rebuilt.moveset);
     true
 }
 

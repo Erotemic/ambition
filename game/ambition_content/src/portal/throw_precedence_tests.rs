@@ -80,6 +80,7 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
         },
         ambition_characters::brain::ActionSet::default(),
         ambition_characters::brain::action_set::IdentityKit::default(),
+        ambition_combat::moveset::ActorMoveset::default(),
         control,
     ));
     if matches!(carrying, Carrying::Item | Carrying::Both) {

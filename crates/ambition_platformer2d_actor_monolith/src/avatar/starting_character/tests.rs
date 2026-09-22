@@ -166,7 +166,14 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     // Spawn wearing the momentum speedster.
     let e = app
@@ -237,7 +244,14 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let entity = app
         .world_mut()
         .spawn((
@@ -306,7 +320,14 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let e = app
         .world_mut()
         .spawn((
@@ -361,7 +382,14 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let e = app
         .world_mut()
         .spawn((
@@ -420,7 +448,14 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let e = app
         .world_mut()
         .spawn((
@@ -497,7 +532,14 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let e = app
         .world_mut()
         .spawn((
@@ -600,7 +642,14 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let e = app
         .world_mut()
         .spawn((
@@ -667,7 +716,14 @@ fn an_unknown_ids_kit_refreshes_when_body_abilities_change() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
     let entity = app
         .world_mut()
         .spawn((
@@ -1672,7 +1728,14 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
         )
         .with_action_set(authored.clone()),
     ));
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -1747,7 +1810,14 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
         canonical_height: None,
     };
     app.insert_resource(prepared(heavy));
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -1951,7 +2021,14 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -2068,7 +2145,14 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -2140,7 +2224,14 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -2252,7 +2343,14 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     app.add_plugins(MinimalPlugins);
     app.insert_resource(CharacterCatalog::empty());
     app.insert_resource(registry);
-    app.add_systems(Update, apply_worn_character_gameplay);
+    app.add_systems(
+        Update,
+        (
+            apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
+        )
+            .chain(),
+    );
 
     let body = app
         .world_mut()
@@ -2306,144 +2404,6 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
         "the reloaded definition authors neither, and the body kept the values \
          the deleted lines had given it — an author editing a RON file would \
          see nothing happen and conclude hot reload does not work"
-    );
-}
-
-/// A worn body with NO moveset must still get its persona — and get a moveset.
-#[test]
-fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
-    use ambition_characters::brain::ActionSet;
-    use ambition_combat::moveset::ActorMoveset;
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
-
-    // The same full body as the derive tests above, MINUS the moveset.
-    let e = app
-        .world_mut()
-        .spawn((
-            WornCharacter::new("sanic"),
-            MotionModel::default(),
-            Name::new("unset"),
-            ActionSet::default(),
-            ambition_platformer2d_core::BodyKinematics::default(),
-            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
-                    ambition_platformer2d_core::Vec2::ZERO,
-                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
-                ),
-            ),
-        ))
-        .id();
-    assert!(
-        app.world().get::<ActorMoveset>(e).is_none(),
-        "the fixture's whole point is a body that carries none",
-    );
-    app.update();
-
-    assert_eq!(
-        app.world().get::<Name>(e).unwrap().as_str(),
-        "Sanic",
-        "the persona must be applied; 'unset' here means the missing moveset \
-         filtered the whole body out of the derive",
-    );
-    assert!(
-        matches!(
-            app.world().get::<MotionModel>(e),
-            Some(MotionModel::SurfaceMomentum(_))
-        ),
-        "and its movement identity with it",
-    );
-    assert!(
-        app.world().get::<ActorMoveset>(e).is_some(),
-        "absence means BUILD one, not skip: the overlay states a repertoire \
-         unconditionally, so the body must end up somewhere to put it",
-    );
-}
-
-/// The minted moveset carries the character's ACTUAL repertoire.
-///
-/// A reviewer flagged a double-mint hazard in the repair above: both branches of
-/// `apply_worn_character_gameplay` minted their own moveset when the body
-/// carried none, and `Commands` insertion is DEFERRED — so two branches running
-/// in one update would each observe `None`, queue two inserts, and the second
-/// would silently discard the first's derivation.
-///
-/// Two mints are now unrepresentable however the control flow is later rearranged.
-///
-/// and this test does NOT prove that, which is worth stating plainly. I
-/// wrote it as a falsifier and it failed to falsify twice. A goblin cannot
-/// express the scenario at all — an ordinary authored character fails the
-/// unknown-id gate, so the ability branch never runs for it. And for
-/// the protagonist, which does pass that gate, BOTH branches derive the same
-/// non-empty kit from the same persisted `AbilitySet`, so a discarded first
-/// derivation is indistinguishable from a kept one by any assertion on the
-/// result. A falsifier that passes under its own poison is not a falsifier, and
-/// naming that here is cheaper than the next reader re-deriving it.
-///
-/// What it DOES pin: the minted component carries a real derived repertoire
-/// rather than the empty default, and a later ability change refines that same
-/// component in place. "An `ActorMoveset` exists" — the first test's assertion —
-/// is satisfied by an empty one, and an empty one is exactly what a clobber
-/// would leave.
-#[test]
-fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
-    use ambition_characters::brain::ActionSet;
-    use ambition_combat::moveset::ActorMoveset;
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    install_test_catalog(&mut app);
-    app.add_systems(Update, apply_worn_character_gameplay);
-
-    let e = app
-        .world_mut()
-        .spawn((
-            WornCharacter::new("player"),
-            MotionModel::default(),
-            Name::new("unset"),
-            ActionSet::default(),
-            ambition_platformer2d_core::BodyKinematics::default(),
-            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
-                    ambition_platformer2d_core::Vec2::ZERO,
-                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
-                ),
-            ),
-        ))
-        .id();
-    app.update();
-
-    let minted = app
-        .world()
-        .get::<ActorMoveset>(e)
-        .expect("the body must have been given one");
-    assert!(
-        !minted.0.moves.is_empty(),
-        "the protagonist's sandbox kit derives a non-empty repertoire — an \
-         EMPTY one here means the component was minted and then replaced by a \
-         second empty mint, which is what `is_some()` cannot see",
-    );
-
-    // And a later ability change refreshes the SAME component rather than
-    // minting beside it — the body carries one now, so there is nothing to mint.
-    let before = minted.0.moves.len();
-    {
-        let mut abilities = app
-            .world_mut()
-            .get_mut::<ambition_platformer2d_core::BodyAbilities>(e)
-            .expect("the movement bundle carries one");
-        abilities.abilities.attack = false;
-    }
-    app.update();
-    assert!(
-        app.world().get::<ActorMoveset>(e).unwrap().0.moves.len() < before,
-        "disabling the melee must shrink the repertoire in place; an unchanged \
-         count means the ability branch wrote somewhere other than the body",
     );
 }
 

@@ -547,7 +547,9 @@ impl EnemyActorSpawnPlan {
         // Data-driven signature moves: the body carries its authored repertoire as
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
         // edge through the shared moveset runtime (§A1, Path B).
-        if let Some(moveset) = self.moveset {
+        {
+            // Every repertoire-bearing body carries its moveset, empty or not.
+            let moveset = self.moveset.unwrap_or_default();
             // A body whose moveset carries the `"attack"` verb melees through the
             // moveset (the only melee path): mark it `MovesetMelee` so its
             // `BodyMelee` read-model is projected from the live move.
@@ -844,7 +846,8 @@ impl NpcActorSpawnPlan {
                 ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
             ));
         }
-        if let Some(moveset) = npc_moveset {
+        {
+            let moveset = npc_moveset.unwrap_or_default();
             let has_attack = moveset
                 .verbs
                 .contains_key(ambition_combat::moveset::ATTACK_VERB);
@@ -1200,9 +1203,7 @@ pub fn spawn_boss_with_overrides_into(
             .map(|moveset| moveset.0.clone())
             .unwrap_or_default(),
     ));
-    if let Some(moveset) = boss_attack_moves {
-        scope.insert(moveset);
-    }
+    scope.insert(boss_attack_moves.unwrap_or_default());
     scope.insert(boss_actor_cluster);
     // The coarse render footprint the shared integrator publishes the CenteredAabb
     // from (R1.1). Required by `integrate_boss_bodies`' query, so a boss without it

@@ -75,6 +75,7 @@ fn grid_app() -> App {
         PrimaryPlayer,
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
+        ambition_platformer2d::combat::moveset::ActorMoveset::default(),
         BodyMana::default(),
     ));
     app.update();

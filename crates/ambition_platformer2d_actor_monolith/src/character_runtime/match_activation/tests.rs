@@ -126,6 +126,7 @@ fn seating_app() -> App {
             // is chained after seating so the body exists before the derive looks
             // for it.
             crate::avatar::apply_worn_character_gameplay,
+            ambition_combat::hand::reconcile_effective_repertoire,
         )
             .chain(),
     );

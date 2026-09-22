@@ -199,12 +199,13 @@ pub fn grant_prepared_character_body(
                 );
                 let live =
                     ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
-                if projected_moveset.is_some() {
-                    // The routing markers are NOT set here. They are derived from
-                    // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
-                    scope.insert(ambition_combat::moveset::ActorMoveset(live.moveset));
-                }
-                scope.insert((identity, live.action_set));
+                // The routing markers are NOT set here. They are derived from
+                // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
+                scope.insert((
+                    identity,
+                    live.action_set,
+                    ambition_combat::moveset::ActorMoveset(live.moveset),
+                ));
             } else if let Some(moveset) = projected_moveset {
                 scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             }

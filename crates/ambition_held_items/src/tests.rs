@@ -33,6 +33,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
             },
             ActionSet::default(),
             ambition_characters::brain::action_set::IdentityKit::default(),
+            ambition_combat::moveset::ActorMoveset::default(),
             ambition_characters::control::ActorControl::default(),
             // `fire_held_ranged_system` reads the resolved frame (ADR 0024).
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
@@ -464,6 +465,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
             },
             ActionSet::default(),
             ambition_characters::brain::action_set::IdentityKit::default(),
+            ambition_combat::moveset::ActorMoveset::default(),
             ambition_characters::control::ActorControl::default(),
         ))
         .id();
@@ -1684,6 +1686,7 @@ mod multi_seat {
                 },
                 ActionSet::default(),
                 ambition_characters::brain::action_set::IdentityKit::default(),
+                ambition_combat::moveset::ActorMoveset::default(),
                 ambition_characters::control::ActorControl::default(),
                 ambition_characters::control::DrivingParticipant(
                     ambition_characters::control::PlayerSlot(slot),

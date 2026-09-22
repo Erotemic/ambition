@@ -278,14 +278,44 @@ pub fn apply_worn_character_overlay(
     base_abilities: ambition_platformer2d_core::AbilitySet,
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
+    let execution = wear_character(
+        catalog,
+        registry,
+        name,
+        identity,
+        character_id,
+        base_abilities,
+        match_kit,
+    );
+    // Construction: nothing is worn or held yet, so the live pair is the
+    // identity's own fold, published with it.
+    let live = ambition_characters::repertoire::effective_repertoire(
+        identity,
+        None,
+        ambition_characters::repertoire::Hand::Empty,
+    );
+    *action_set = live.action_set;
+    *moveset = ActorMoveset(live.moveset);
+    execution
+}
+
+/// Put `character_id` on a body: its display name and its identity baseline.
+///
+/// Writes only the fold's INPUT. The live `ActionSet` + `ActorMoveset` are
+/// `reconcile_effective_repertoire`'s to derive from this baseline together
+/// with worn equipment and the hand, so a body re-wearing a character while
+/// holding something is never published empty-handed.
+pub fn wear_character(
+    catalog: &CharacterCatalog,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+    name: &mut Name,
+    identity: &mut ambition_characters::brain::action_set::IdentityKit,
+    character_id: &str,
+    base_abilities: ambition_platformer2d_core::AbilitySet,
+    match_kit: Option<&ActionSet>,
+) -> RangedExecution {
     let kit = WornKit::resolve(catalog, registry, character_id, base_abilities, match_kit);
-    // ⭐ THE DISPLAY NAME IS RESOLVED HERE, NOT CARRIED THROUGH `WornKit` (A6).
-    // The per-field census found `display_name` sitting inside `ambition_combat`'s
-    // otherwise clean execution slice {`authored_moveset`, `kit`,
-    // `ranged_execution`} — one presentation field among mechanical ones. It had
-    // exactly ONE reader: this line. And this function already holds both inputs
-    // the fallback needs, so moving it costs no plumbing and adds no interface.
-    // ⇒ Prepared name, else the catalog's, else the id itself, so an unknown id is
+    // Prepared name, else the catalog's, else the id itself, so an unknown id is
     // shown as the id and the problem stays visible.
     *name = Name::new(
         registry
@@ -295,23 +325,7 @@ pub fn apply_worn_character_overlay(
             .unwrap_or(character_id)
             .to_string(),
     );
-    wear_kit(kit, action_set, moveset, identity)
-}
-
-/// Write a resolved [`WornKit`] onto a body's components.
-///
-/// The kernel decides nothing here: what the kit IS was resolved below it, and
-/// this is the one place that publishes it, so the identity baseline, the
-/// moveset and the live action set are written together and agree.
-fn wear_kit(
-    kit: WornKit,
-    action_set: &mut ActionSet,
-    moveset: &mut ActorMoveset,
-    identity: &mut ambition_characters::brain::action_set::IdentityKit,
-) -> RangedExecution {
     *identity = kit.identity;
-    *moveset = ActorMoveset(kit.moveset);
-    *action_set = kit.action_set;
     kit.execution
 }
 
@@ -367,12 +381,13 @@ pub fn apply_worn_character_gameplay(
     // degraded one.
     roster: Option<Res<ambition_match::MatchParticipantRoster>>,
     mut commands: Commands,
-    mut worn: Query<(
+    // The repertoire-bearing bodies: the live pair this system does not write
+    // is the fold's, and a body without it has nothing for the fold to publish.
+    mut worn: Query<
+        (
         Entity,
         Ref<WornCharacter>,
         &mut Name,
-        &mut ActionSet,
-        Option<&mut ActorMoveset>,
         &mut ambition_characters::brain::action_set::IdentityKit,
         Ref<ambition_platformer2d_core::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
@@ -400,14 +415,14 @@ pub fn apply_worn_character_gameplay(
             Option<&ambition_match::MatchSeat>,
             Has<ambition_characters::actor::RecharacterizeBody>,
         ),
-    )>,
+        ),
+        (With<ActionSet>, With<ActorMoveset>),
+    >,
 ) {
     for (
         entity,
         character,
         mut name,
-        mut action_set,
-        mut moveset,
         mut identity,
         abilities,
         mut motion_model,
@@ -427,9 +442,6 @@ pub fn apply_worn_character_gameplay(
         // or the body lacks a baseline. Identity changes request recharacterization
         // explicitly rather than relying on Bevy change ticks.
         let stale_cast = baseline.is_none_or(|baseline| baseline.generation != generation);
-        // Mint at most one missing moveset before deferred branch inserts, then
-        // transfer it with `take()` at the branch that owns the insertion.
-        let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
 
         // NOT `character.is_changed()`. A body is re-derived because
         // somebody ASKED (`RecharacterizeBody`), or because the cast it was
@@ -445,16 +457,10 @@ pub fn apply_worn_character_gameplay(
                 .try_remove::<ambition_characters::actor::RecharacterizeBody>();
         }
         if recharacterize || stale_cast {
-            let moveset_slot = match moveset.as_deref_mut() {
-                Some(existing) => existing,
-                None => minted.as_mut().expect("minted when the body carried none"),
-            };
-            let execution = apply_worn_character_overlay(
+            let execution = wear_character(
                 &catalog,
                 registry.as_deref(),
                 &mut name,
-                &mut action_set,
-                moveset_slot,
                 &mut identity,
                 id,
                 abilities.abilities,
@@ -463,13 +469,6 @@ pub fn apply_worn_character_gameplay(
                 // authored persona, which is every other body in every game.
                 match_kit_for_seat(roster.as_deref(), seat),
             );
-            // INSERT, never a conditional write: the body did not carry the
-            // component, so there is nothing to write into. `try_insert` because
-            // a session teardown on this frame leaves a dead entity behind.
-            // `take` so a later exit cannot queue a second insert.
-            if let Some(built) = minted.take() {
-                commands.entity(entity).try_insert(built);
-            }
             sync_charge_projectile_capability(
                 &mut commands,
                 entity,
@@ -596,27 +595,16 @@ pub fn apply_worn_character_gameplay(
             // Only an UNKNOWN id rebuilds from abilities now — `HostCode` was
             // the other half of this condition and no longer exists.
             if !catalog.knows(id) {
-                // Same rule as the re-derive above: absence means "build one",
-                // into the SAME binding minted at the top of this iteration.
-                let moveset_slot = match moveset.as_deref_mut() {
-                    Some(existing) => existing,
-                    None => minted.as_mut().expect("minted when the body carried none"),
-                };
-                let execution = wear_kit(
-                    WornKit::resolve(
-                        &catalog,
-                        registry.as_deref(),
-                        id,
-                        abilities.abilities,
-                        match_kit_for_seat(roster.as_deref(), seat),
-                    ),
-                    &mut action_set,
-                    moveset_slot,
-                    &mut identity,
+                // The baseline only; the fold re-derives the live pair from it.
+                let kit = WornKit::resolve(
+                    &catalog,
+                    registry.as_deref(),
+                    id,
+                    abilities.abilities,
+                    match_kit_for_seat(roster.as_deref(), seat),
                 );
-                if let Some(built) = minted.take() {
-                    commands.entity(entity).try_insert(built);
-                }
+                *identity = kit.identity;
+                let execution = kit.execution;
                 sync_charge_projectile_capability(
                     &mut commands,
                     entity,

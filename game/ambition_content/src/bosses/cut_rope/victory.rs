@@ -162,6 +162,7 @@ fn spawn_victory_npc_entity(
             cluster_bundle,
             ambition_characters::brain::Brain::stand_still(),
             ambition_characters::brain::ActionSet::peaceful(),
+            ambition_combat::moveset::ActorMoveset::default(),
             ActorControl::default(),
             interaction,
         ))

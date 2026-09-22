@@ -295,9 +295,8 @@ pub fn project_prepared_character_definitions(
         // Looked up by the recorded id, so the removal is exactly what this system granted and
         // never something the spawn seeded.
         //
-        // Do not retract `ActorMoveset`: `apply_worn_character_gameplay` requires
-        // the component as a query column and replaces its value wholesale for worn bodies.
-        // the same tick this runs.
+        // Do not retract `ActorMoveset`: every repertoire-bearing body carries one,
+        // and the repertoire fold replaces its value wholesale.
         if let Some(previous) = projected {
             previous.granted.retract(&mut EntityScope::new(&mut commands, entity));
         }

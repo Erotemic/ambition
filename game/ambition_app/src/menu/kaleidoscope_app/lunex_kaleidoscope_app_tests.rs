@@ -102,6 +102,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
             PrimaryPlayer,
             ActionSet::default(),
             ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
+            ambition_platformer2d::combat::moveset::ActorMoveset::default(),
             BodyMana::default(),
         ))
         .id()
@@ -964,6 +965,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         PrimaryPlayer,
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
+        ambition_platformer2d::combat::moveset::ActorMoveset::default(),
         BodyMana::default(),
     ));
     app.update();

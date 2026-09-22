@@ -1107,7 +1107,10 @@ impl MovePlayback {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+/// A body's live move timelines. Every repertoire-bearing body carries one —
+/// an empty contract is a body with no timelines — so the derived
+/// `ActionSet` + `ActorMoveset` pair is always published whole.
+#[derive(Component, Debug, Clone, Default)]
 #[require(crate::stale::BodyStaleMoves)]
 pub struct ActorMoveset(pub MovesetContract);
 

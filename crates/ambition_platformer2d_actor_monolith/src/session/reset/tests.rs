@@ -49,6 +49,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 ambition_characters::brain::ActionSet::default(),
                 ambition_characters::brain::action_set::IdentityKit::default(),
+                ambition_combat::moveset::ActorMoveset::default(),
                 ambition_combat::held_items::HeldItem::new(ambition_held_items::axe_spec()),
             ))
             .id();

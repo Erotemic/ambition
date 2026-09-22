@@ -114,7 +114,9 @@ impl Plugin for AbilitySimulationPlugin {
                 ranged::volley::fire_volley_system.in_set(GameplayGated),
                 ranged::beam::fire_beam_system.in_set(GameplayGated),
                 ranged::vortex::fire_vortex_system.in_set(GameplayGated),
-                ranged::vortex::update_vortex_wells.in_set(GameplayGated),
+                ranged::vortex::update_vortex_wells
+                    .in_set(GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry),
                 ranged::sentry::fire_sentry_system.in_set(GameplayGated),
                 ranged::sentry::update_sentries.in_set(GameplayGated),
                 traversal::dive::fire_dive_system.in_set(GameplayGated),

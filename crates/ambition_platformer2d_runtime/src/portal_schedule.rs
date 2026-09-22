@@ -91,6 +91,8 @@ impl Plugin for PortalSchedulePlugin {
             PortalSet::Transit
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
                 .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                // Portal CCD reads the settled path, after every carry.
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Crossing)
                 .run_if(gameplay_allowed),
         );
     }

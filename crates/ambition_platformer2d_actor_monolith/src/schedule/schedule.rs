@@ -169,6 +169,18 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
 
+    // The travelled-path contract: carries, then the readers of the settled path.
+    app.configure_sets(
+        sim,
+        (
+            ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry,
+            ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Contacts,
+            ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Crossing,
+        )
+            .chain()
+            .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+    );
+
     // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the
     // engine registers nothing into it, and a host that registers nothing gets
     // the chain with the slot collapsed.

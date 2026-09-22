@@ -18,8 +18,8 @@ use super::*;
 /// twin in `ambition_damage` had to describe it in prose.
 ///
 /// ONE member, so `.before(HazardTickSet)` orders against hazard MOTION only.
-/// Contacts are a separate system in `WorldPrepSet::ContactDamage`, because they
-/// observe the bodies' settled poses and this tick's travelled path.
+/// Contacts are a separate system in `BodyPathSet::Contacts`, because they read
+/// the tick's settled travelled path.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct HazardTickSet;
 

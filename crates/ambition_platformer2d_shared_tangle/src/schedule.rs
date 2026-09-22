@@ -434,6 +434,31 @@ pub enum RoomTransitionSet {
     Reset,
 }
 
+/// The travelled-path contract, inside
+/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`]: when a body's
+/// `SweepSample` is the whole of this tick's travel, and who reads it then.
+///
+/// Integration and the constraints after it ([`WorldPrepSet`]) run a phase
+/// earlier. A movement authority in THIS phase that moves a body along a path —
+/// a carry or a pull (`carry_body`, `constrain_body_pose`) — joins
+/// [`Self::Carry`]. Once `Carry` has run the path is settled:
+///
+/// - [`Self::Contacts`] reads it as travel that can touch something (hazards);
+/// - [`Self::Crossing`] reads it as travel through a boundary (portal CCD), and
+///   a crossing may then collapse the sample, which is why it comes last. Room
+///   boundaries are read in `RoomTransition`, a phase later.
+///
+/// A HELD pose written after these readers — a new captive snapped into its
+/// captor's hands in `Combat`, a scripted slide in `GameplayEffects` — is not
+/// travel this contract observes: the holder owns where that body is, and the
+/// next tick's path starts from it.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum BodyPathSet {
+    Carry,
+    Contacts,
+    Crossing,
+}
+
 /// Movement-order anchors inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
 /// Consumers can state whether they run before or after body integration.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]

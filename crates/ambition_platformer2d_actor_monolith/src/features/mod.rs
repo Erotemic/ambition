@@ -1224,12 +1224,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
                 .before(tick_npc_idle_barks),
         );
-        // Hazard contacts observe settled poses and this tick's travelled path,
-        // against where the hazard moved to this tick.
+        // Hazard contacts read the settled path (`BodyPathSet`), against where
+        // the hazard moved to this tick.
         app.add_systems(
             sim,
             apply_hazard_contacts
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Contacts)
                 .after(ambition_combat::hazards::HazardTickSet),
         );
         // Same set, same schedule, same guarantee that every game gets it — but the registration

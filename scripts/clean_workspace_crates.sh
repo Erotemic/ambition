@@ -20,7 +20,9 @@
 # next build. The only cost is that the next EDIT to a given crate recompiles it
 # whole instead of incrementally.
 #
-# Contrast with the other two sweepers, which cut along a different axis:
+# Contrast with the other sweepers, which cut along a different axis:
+#   scripts/sweep_target_lru.py      delete units unused for N days; runs no
+#                                    cargo, so it is safe on a full disk.
 #   scripts/sweep_target.py          mark-and-sweep: keep named live graphs,
 #   scripts/sweep_cargo_target.sh    delete what is unreachable (deps included).
 # Use those to reclaim without disturbing the graph you are building. Use this

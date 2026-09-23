@@ -73,13 +73,14 @@ DECLARED: dict[str, str] = {
         "shape `Q132`'s scoping rule names. ONE production caller today: "
         "`game/ambition_app/src/app/dev_runtime.rs:626`"
     ),
-    "game/ambition_demo_mary_o/src/lib.rs": (
-        "`MaryODemoContentPlugin`, a direct-entry demo content layer. ⚠ NO "
-        "production caller: `add_demo_content` is installed only by tests, and "
-        "neither `ambition_demo_mary_o_app` nor `ambition_app` adds it"
-    ),
-    "game/ambition_demo_sanic/src/lib.rs": (
-        "the Sanic equivalent, and the same shape — installed by tests only"
+    "crates/ambition_platformer2d_provider/src/lifecycle.rs": (
+        "`install_direct_session_root`, the one road for a direct-entry demo "
+        "(Mary-O's and Sanic's demo content layers, which used to hand-build "
+        "their roots) to mint a build-time root from prepared content. ⚠ It "
+        "cannot coexist with another root because it ASSERTS both conditions "
+        "that would make one: it refuses a shell-gated App (a shell activation "
+        "mints its own root) and refuses an App that already holds a "
+        "`SessionRoot`"
     ),
 }
 

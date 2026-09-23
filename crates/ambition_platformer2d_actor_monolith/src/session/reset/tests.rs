@@ -616,6 +616,13 @@ fn a_reset_whose_start_room_is_refused_wipes_nothing() {
          Nothing was wiped, and every teardown domain keyed on that message just \
          tore down a session that is still running"
     );
+    // ⛔ A refused receipt is as consumed as an admitted one; nothing but its
+    // owner ends a publication, so a reset that retired only on success leaks.
+    assert_eq!(
+        crate::world::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "the refused reset's publication receipt is still standing"
+    );
 }
 
 /// Reset must restore the moving platform from the start room's

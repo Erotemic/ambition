@@ -266,10 +266,11 @@ pub fn grant_prepared_character_body(
             generation,
             granted: GrantedBodyFacts::of(prepared, movement_tuning),
         });
-        // Only bodies without `WornCharacter` use this grant path; worn personas
-        // are projected by `apply_worn_character_gameplay`.
-        // TODO(compat-remove): give tuning-identified staged bodies a real worn
-        // identity, then remove this secondary kit writer.
+        // CONSTRUCTION writes the kit; `apply_worn_character_gameplay` writes it
+        // again only on a real transition (a re-wear, a stale cast). Both read
+        // `PreparedKit::baseline` and the character's `ranged_execution`, so the
+        // two writers cannot disagree about what a character wears — see
+        // `a_moves_only_character_is_granted_and_reworn_as_one_kit`.
         if kit == KitOwnership::Grant {
             // The prepared baseline — the same one `WornKit::resolve` returns —
             // for every character, authored action set or not. A character that

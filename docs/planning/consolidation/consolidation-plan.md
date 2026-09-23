@@ -797,9 +797,9 @@ Replay and checkpoint restore are NOT separate roads: both record a
 | road | build | commit | retirement |
 |---|---|---|---|
 | activation | `spawn_contents` | deferred finalize in `PreparedCandidateSession::adopt` | `SessionScopeRetired` sweep |
-| transition / replay / checkpoint | `replace_live_world` | `finalize_room_transition` (+ checkpoint's restore) | `RoomResident` via `apply_world_replacement` |
-| New Game | `replace_live_world` | its own verdict closures | `RoomScopedEntity` + encounters + transient sweep (wider by design) |
-| LDtk dev reload | `replace_live_world` | three dev verdict closures | `RoomResident` |
+| transition / replay / checkpoint | `replace_live_world` | `settle_publication` in `finalize_room_transition` (+ checkpoint's restore) | `RoomResident` via `apply_world_replacement` |
+| New Game | `replace_live_world` | `settle_publication` (refusal arm logs ABANDONED) | `RoomScopedEntity` + encounters + transient sweep (wider by design) |
+| LDtk dev reload | `replace_live_world` | `settle_publication`; the status line reports its returned verdict | `RoomResident` |
 
 ⇒ **THE DUPLICATION IS THE VERDICT SKELETON, not the materializer**: "read the
 verdict, apply this policy's effects, retire the receipt" is written four
@@ -809,6 +809,19 @@ DEFECT FOUND AND CLOSED:** New Game replaced the live room without consulting
 `PendingLifecycleCommit`, the slot every other in-session road takes; it now
 stays armed until the slot is free (`a_reset_waits_while_another_lifecycle_
 operation_owns_the_world`).
+
+⭐ **THE VERDICT SKELETON IS ONE PRIMITIVE FOR THE THREE ROADS THAT WAIT ON
+A ROOM VERDICT — 2026-09-23.** `rooms::settle_publication(world, handle,
+on_published, on_refused)` reads THIS publication's verdict once, runs the
+matching arm and retires the receipt on both arms. The two ordering rules
+every owner used to state in a comment — retire after every reader, and
+retire a refusal too — are now the function body, so a new road cannot
+forget either. The reset's early-return reader plus a trailing retire
+closure, and the dev reload's four queued closures, are gone. ⛔
+**Activation is deliberately NOT on it:** `adopt` finalizes, then promotes or
+discards a whole candidate session, which is a different transaction rather
+than a second spelling of this one. ⚠ The outgoing-roster query is still
+written three times; that is the remaining duplication on this row.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

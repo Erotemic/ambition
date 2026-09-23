@@ -36,7 +36,7 @@ pub use systems::{
     tick_portal_phases_system, ActiveRoomMetadataSynced,
 };
 pub use transaction::{
-    finalize_room_publication, outstanding_publications, publication_succeeded,
+    finalize_room_publication, outstanding_publications, publication_succeeded, settle_publication,
     publications_holding_frozen_effects,
     retire_publication, ActiveContentBinding,
     LastConstructionVerification,

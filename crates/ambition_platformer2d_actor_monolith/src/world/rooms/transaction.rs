@@ -144,6 +144,31 @@ pub fn retire_publication(world: &mut World, publication: PublicationHandle) {
     }
 }
 
+/// Settle a publication this caller owns: read its verdict ONCE, run the arm
+/// that verdict selects, then retire the receipt. Returns whether it published.
+///
+/// The owner roads (room transition, New Game, the LDtk dev reload) each wrote
+/// this skeleton by hand, and each had to remember two orderings its own
+/// comments warned about: retirement comes after EVERY reader, and it happens
+/// on the refusal branch too, so an arm that returns early cannot leak the
+/// receipt. Here both are structure. Call it where the verdict exists — from a
+/// command queued behind the commit, or an exclusive system after the flush.
+pub fn settle_publication(
+    world: &mut World,
+    publication: PublicationHandle,
+    on_published: impl FnOnce(&mut World),
+    on_refused: impl FnOnce(&mut World),
+) -> bool {
+    let published = publication_succeeded(world, publication);
+    if published {
+        on_published(world);
+    } else {
+        on_refused(world);
+    }
+    retire_publication(world, publication);
+    published
+}
+
 /// Everything a VERIFIED room publication owes the world outside its own
 /// candidate population, frozen at the verdict and consumed at finalization.
 ///

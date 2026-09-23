@@ -908,6 +908,14 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
         "⛔ A REFUSED WORLD RELOAD TORE DOWN THE ROLLBACK TIMELINE OF THE WORLD \
          IT LEFT STANDING"
     );
+    // ⛔ A refused receipt is as consumed as an admitted one. The committed arm
+    // above counts receipts; without this one, an owner that retired only on
+    // success would pass every test on this road.
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "⛔ A REFUSED WORLD RELOAD'S PUBLICATION RECEIPT IS STILL STANDING"
+    );
 }
 
 /// ⛔⛤ **A10'S ACCEPTANCE CRITERION AT SESSION SCOPE: A CANDIDATE SESSION THE

@@ -606,23 +606,12 @@ pub(super) fn reload_ldtk_world_from_disk(
     // ⚠ **THEY READ THIS PUBLICATION'S OWN VERDICT.** The reload holds the
     // handle `replace_live_world` returned, so the question is *"did MY
     // publication succeed"* rather than *"did the last room with this name"*.
-    //
-    // ⭐ Queued rather than written: the closure runs when this frame's commands
-    // apply, which is after `transaction::close` has recorded its verdict — the
-    // same flush, in queue order, so there is no window and nothing to poll.
     let candidate_index = candidate_index;
     let committed_identity = committed_content.identity();
     let committed_epoch = committed_content.epoch();
     let committed_content = committed_content;
-    commands.queue(move |world: &mut bevy::prelude::World| {
+    let commit_generation = move |world: &mut bevy::prelude::World| {
         use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
-        // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
-        // name".** `LastConstructionVerification` is last-writer-wins and cannot
-        // tell two operations on one room apart, and it was nevertheless deciding
-        // whether the session's content generation could advance.
-        if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
-            return;
-        }
         // ⛔ THE LOCAL ROLLBACK BASELINE IS REBASED ONLY BY A RELOAD THAT
         // HAPPENED. The `PostUpdate` owner stops the live session and releases
         // ownership; the session owner then starts a new one with the same policy
@@ -658,7 +647,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         {
             *content = committed_content;
         }
-    });
+    };
 
     // ⛔⛤ **AND SO DOES EVERY OTHER EFFECT OF THIS RELOAD — MOVED BEHIND THE
     // VERDICT 2026-09-14 ON REVIEW.** The body transit, the mechanical transient
@@ -675,11 +664,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     let safe_player_pos = transaction.safe_player_pos;
     let air_jumps = tuning.air_jumps;
     let published_spec = construction_plan.spec().clone();
-    commands.queue(move |world: &mut bevy::prelude::World| {
-        if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
-            return;
-        }
-
+    let rehome_and_dress = move |world: &mut bevy::prelude::World| {
         // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
         // momentum kept for a same-spot reload, contacts/attachment reconciled
         // against the replaced geometry.
@@ -751,22 +736,15 @@ pub(super) fn reload_ldtk_world_from_disk(
             assets.as_ref(),
         );
         queue.apply(world);
-    });
+    };
 
-    // ⛔⛤ **THE OWNER RETIRES ITS OWN RECEIPT — 2026-09-14 ON REVIEW.** Nothing
-    // else ends a publication any more: `begin_publication` used to reap every
-    // finished one, so whether this reload's verdict was still readable depended
-    // on whether an unrelated room had begun publishing. Queued LAST, after both
-    // readers above, and unconditionally — a refused receipt is as consumed as an
-    // admitted one.
     // ⛔⛤ **AND THE DEVELOPER-FACING STATUS IS AN EFFECT LIKE ANY OTHER.** It is
     // the only one a human reads, so a reload that was refused and still said
     // *"world reload applied to 'X' (#3)"* is the failure mode that makes every
-    // other guarantee on this road unobservable. Queued behind THIS publication's
-    // verdict, before the receipt is retired.
+    // other guarantee on this road unobservable. It reports THIS publication's
+    // verdict, which `settle_publication` returns.
     let status_room = active_room.clone();
-    commands.queue(move |world: &mut bevy::prelude::World| {
-        let published = ambition_platformer2d::actors::rooms::publication_succeeded(world, publication);
+    let report_status = move |world: &mut bevy::prelude::World, published: bool| {
         // The REASONS are cosmetic and come from the last verification record;
         // the DECISION above comes from this publication's own verdict. If that
         // record is about some other room, the message says only what is certain.
@@ -808,10 +786,29 @@ pub(super) fn reload_ldtk_world_from_disk(
             };
             ldtk_reload.mark_failed(reasons);
         }
-    });
+    };
 
+    // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
+    // name".** `LastConstructionVerification` is last-writer-wins and cannot
+    // tell two operations on one room apart, and it was nevertheless deciding
+    // whether the session's content generation could advance. Settling it runs
+    // the effects only on success and retires the receipt on both arms — nothing
+    // else ends a publication, so an unretired refusal would leak.
+    //
+    // ⭐ Queued rather than written: the closure runs when this frame's commands
+    // apply, which is after `transaction::close` has recorded its verdict — the
+    // same flush, in queue order, so there is no window and nothing to poll.
     commands.queue(move |world: &mut bevy::prelude::World| {
-        ambition_platformer2d::actors::rooms::retire_publication(world, publication);
+        let published = ambition_platformer2d::actors::rooms::settle_publication(
+            world,
+            publication,
+            |world| {
+                commit_generation(world);
+                rehome_and_dress(world);
+            },
+            |_| {},
+        );
+        report_status(world, published);
     });
 
     Ok(active_room)

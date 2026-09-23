@@ -642,24 +642,26 @@ pub fn finalize_room_transition(
     world: &mut bevy::prelude::World,
     staged: &StagedRoomTransition,
 ) -> bool {
-    let published = rooms::publication_succeeded(world, staged.publication);
-    if published {
-        let mut state: bevy::ecs::system::SystemState<RoomTransitionFinalize> =
-            bevy::ecs::system::SystemState::new(world);
-        {
-            // The same argument the confirmed host makes about
-            // `RoomTransitionApplication`: these are the parameters
-            // `RoomTransitionPlugin` installs, and a composition that could not
-            // fetch them could not have produced the publication being finalized.
-            let mut finalize = state
-                .get_mut(world)
-                .expect("RoomTransitionFinalize params are the ones RoomTransitionPlugin installs");
-            finalize.apply_crossing(staged);
-        }
-        state.apply(world);
-    }
-    rooms::retire_publication(world, staged.publication);
-    published
+    rooms::settle_publication(
+        world,
+        staged.publication,
+        |world| {
+            let mut state: bevy::ecs::system::SystemState<RoomTransitionFinalize> =
+                bevy::ecs::system::SystemState::new(world);
+            {
+                // The same argument the confirmed host makes about
+                // `RoomTransitionApplication`: these are the parameters
+                // `RoomTransitionPlugin` installs, and a composition that could not
+                // fetch them could not have produced the publication being finalized.
+                let mut finalize = state.get_mut(world).expect(
+                    "RoomTransitionFinalize params are the ones RoomTransitionPlugin installs",
+                );
+                finalize.apply_crossing(staged);
+            }
+            state.apply(world);
+        },
+        |_| {},
+    )
 }
 
 /// The bodies a room transition can relocate, bundled into one `SystemParam` to

@@ -456,27 +456,17 @@ pub fn process_new_game_reset_request(
         None,
     );
 
-    // ⛔⛤ **AND THE RECEIPT IS RETIRED BY ITS OWNER, IN ITS OWN STATEMENT.** A
-    // separate trailing closure rather than a line at the end of the reader
-    // below, because the reader RETURNS EARLY on a refusal — and a retirement
-    // that only happens on one branch is a leak on the other. Queued after every
-    // reader of this publication, so "the last reader has run" is an ordering
-    // this road states rather than one a future reader has to remember.
-    let retire = publication;
+    // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
+    // name".** `LastConstructionVerification` is last-writer-wins and cannot
+    // tell two operations on one room apart; a reset that wiped the save on
+    // somebody else's success is the shape that makes possible. Settling it
+    // retires the receipt on both arms.
+    let refused_room_id = start_room_id.clone();
     commands.queue(move |world: &mut World| {
-        // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
-        // name".** `LastConstructionVerification` is last-writer-wins and cannot
-        // tell two operations on one room apart; a reset that wiped the save on
-        // somebody else's success is the shape that makes possible.
-        if !crate::world::rooms::publication_succeeded(world, publication) {
-            bevy::log::error!(
-                target: "ambition_platformer2d::reset",
-                "sandbox reset ABANDONED: the start room `{start_room_id}` failed \
-                 construction verification, so nothing was wiped and the running \
-                 session is untouched."
-            );
-            return;
-        }
+        crate::world::rooms::settle_publication(
+            world,
+            publication,
+            move |world| {
         info!(
             target: "ambition_platformer2d::reset",
             "sandbox reset committed — wiping save, registries, and runtime"
@@ -599,10 +589,16 @@ pub fn process_new_game_reset_request(
         {
             banner.show("SANDBOX RESET", 3.0);
         }
-    });
-
-    commands.queue(move |world: &mut World| {
-        crate::world::rooms::retire_publication(world, retire);
+            },
+            move |_| {
+                bevy::log::error!(
+                    target: "ambition_platformer2d::reset",
+                    "sandbox reset ABANDONED: the start room `{refused_room_id}` failed \
+                     construction verification, so nothing was wiped and the running \
+                     session is untouched."
+                );
+            },
+        );
     });
 }
 

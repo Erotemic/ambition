@@ -17,7 +17,7 @@
 //! the reusable `ambition_render` binder installs the sprite from the same
 //! identity. Presentation reads the same session-owned identity rather than process state.
 
-use bevy::ecs::change_detection::{DetectChanges, Ref};
+use bevy::ecs::change_detection::Ref;
 use bevy::ecs::system::{Commands, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
@@ -270,27 +270,9 @@ fn sync_worn_motion_model_preserving_state(
 /// The gameplay overlay a body derives from wearing `character_id`.
 ///
 /// This is the single resolver used by both spawn and runtime re-wear. Every
-/// field it writes is a deterministic function of the identity plus the body's
-/// persisted `AbilitySet`, never of the prior ActionSet or moveset:
-///
-/// - a SEATED body: the match's kit wins outright, before the catalog or the
-///   prepared cast is consulted at all;
-/// - a prepared [`PreparedKit::Authored`] character: its resolved action set,
-///   gated by the body's abilities;
-/// - a prepared [`PreparedKit::Unauthored`] one: the host kit, built from
-///   `base_abilities`;
-/// - no prepared row at all: the catalog's preset when it knows the id — a
-///   malformed missing preset receives a safe peaceful kit rather than host
-///   privileges — and otherwise the compatibility kit, with the body named
-///   after the id so the problem is visible.
-///
-/// The last two bullets are ONE rule seen through two registries, which is why
-/// the ability-only refresh below can gate on catalog membership alone:
-/// preparation only reaches `Unauthored` for an id the catalog does not know,
-/// or with no catalog to ask.
-///
-/// [`PreparedKit::Authored`]: ambition_characters::prepared::PreparedKit::Authored
-/// [`PreparedKit::Unauthored`]: ambition_characters::prepared::PreparedKit::Unauthored
+/// field it writes is a deterministic function of the identity (and, for a
+/// seat, the match's kit) — never of the body's abilities or its prior kit.
+/// See [`WornKit::resolve`] for the arms.
 ///
 /// Returns HOW the resolved persona fires ([`RangedExecution`]); the ECS derive
 /// system synchronizes the charge marker and its mutable state from that.
@@ -302,18 +284,9 @@ pub fn apply_worn_character_overlay(
     moveset: &mut ActorMoveset,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
-    base_abilities: ambition_platformer2d_core::AbilitySet,
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
-    let execution = wear_character(
-        catalog,
-        registry,
-        name,
-        identity,
-        character_id,
-        base_abilities,
-        match_kit,
-    );
+    let execution = wear_character(catalog, registry, name, identity, character_id, match_kit);
     // Construction: nothing is worn or held yet, so the live pair is the
     // identity's own fold, published with it.
     let live = ambition_characters::repertoire::effective_repertoire(
@@ -338,10 +311,9 @@ pub fn wear_character(
     name: &mut Name,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
-    base_abilities: ambition_platformer2d_core::AbilitySet,
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
-    let kit = WornKit::resolve(catalog, registry, character_id, base_abilities, match_kit);
+    let kit = WornKit::resolve(catalog, registry, character_id, match_kit);
     // Prepared name, else the catalog's, else the id itself, so an unknown id is
     // shown as the id and the problem stays visible.
     *name = Name::new(
@@ -416,7 +388,6 @@ pub fn apply_worn_character_gameplay(
         Ref<WornCharacter>,
         &mut Name,
         &mut ambition_characters::brain::action_set::IdentityKit,
-        Ref<ambition_platformer2d_core::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
         // re-wear initializes destination-private state inside the new
         // variant value; no cluster is touched (ADR 0024).
@@ -451,7 +422,6 @@ pub fn apply_worn_character_gameplay(
         character,
         mut name,
         mut identity,
-        abilities,
         mut motion_model,
         mut health,
         mass,
@@ -490,7 +460,6 @@ pub fn apply_worn_character_gameplay(
                 &mut name,
                 &mut identity,
                 id,
-                abilities.abilities,
                 // The kit this MATCH gave the seat, when this body is in one.
                 // A body with no `MatchSeat` is not in a match and keeps its
                 // authored persona, which is every other body in every game.
@@ -616,29 +585,6 @@ pub fn apply_worn_character_gameplay(
                 displaced,
             });
             continue;
-        }
-
-        if abilities.is_changed() {
-            // Only an UNKNOWN id rebuilds from abilities now — `HostCode` was
-            // the other half of this condition and no longer exists.
-            if !catalog.knows(id) {
-                // The baseline only; the fold re-derives the live pair from it.
-                let kit = WornKit::resolve(
-                    &catalog,
-                    registry.as_deref(),
-                    id,
-                    abilities.abilities,
-                    match_kit_for_seat(roster.as_deref(), seat),
-                );
-                *identity = kit.identity;
-                let execution = kit.execution;
-                sync_charge_projectile_capability(
-                    &mut commands,
-                    entity,
-                    execution,
-                    has_projectile_state,
-                );
-            }
         }
     }
 }

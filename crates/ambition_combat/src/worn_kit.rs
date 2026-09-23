@@ -33,20 +33,27 @@ pub struct WornKit {
 }
 
 impl WornKit {
-    /// Resolve the kit `character_id` puts on a body whose own capabilities are
-    /// `base_abilities`.
+    /// Resolve the kit `character_id` puts on a body. The body's abilities are
+    /// not an input: what the character IS does not depend on what this body may
+    /// currently do (that is the per-frame action scheme's question).
     ///
     /// - a prepared `Authored` row: its action set AS AUTHORED, with the moveset
     ///   preparation derived — the same answer the spawn grant writes. Authored
     ///   repertoire is what a character IS; what a ruleset currently permits it
     ///   to use is the per-frame action scheme over `BodyAbilities`, not a
     ///   narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23);
-    /// - a prepared `Unauthored` row: the host-code kit built from the body,
-    ///   firing through the charge path;
+    /// - a prepared `Unauthored` row: no action-set verbs, only the moves the
+    ///   character authored — again the spawn grant's answer;
     /// - an unprepared catalog row: the catalog's default action set, or a safe
-    ///   peaceful kit when that row's preset does not resolve (malformed
-    ///   content is reported, never promoted to host privileges);
-    /// - an unknown id: the host-code compatibility kit.
+    ///   peaceful kit when that row's preset does not resolve;
+    /// - an unknown id: a peaceful kit, reported.
+    ///
+    /// ⛔ NO ROAD INVENTS THE HOST PROTAGONIST'S KIT. An id nobody wrote down, or a
+    /// character that authored no action set, used to be handed the swipe, bolt,
+    /// bubble shield and charged shot built from the body's abilities — a
+    /// plausible answer where the required authority (an authored repertoire) was
+    /// absent. No shipped character reaches either arm; a character that should
+    /// fight authors its kit.
     ///
     /// A MATCH OUTRANKS THE PERSONA, and only a match: `match_kit` is a rule of
     /// the stage the fighter stands on, not another opinion about who the
@@ -58,7 +65,6 @@ impl WornKit {
         catalog: &CharacterCatalog,
         registry: Option<&PreparedCharacterRegistry>,
         character_id: &str,
-        base_abilities: ambition_platformer2d_core::AbilitySet,
         match_kit: Option<&ActionSet>,
     ) -> Self {
         let prepared = registry.and_then(|registry| registry.get(character_id));
@@ -83,8 +89,8 @@ impl WornKit {
                     }),
                 ),
                 Some(PreparedKit::Unauthored { authored_moveset }) => {
-                    let set = default_player_action_set(base_abilities);
-                    let execution = RangedExecution::ChargedProjectile;
+                    let set = ActionSet::peaceful();
+                    let execution = RangedExecution::MovesetVerb;
                     let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
                     (set, derived, execution)
                 }
@@ -97,14 +103,12 @@ impl WornKit {
                              default_action_set does not resolve; installing a safe peaceful kit"
                         );
                     } else if !catalog_knows_it {
-                        bevy::log::warn_once!(
+                        bevy::log::error!(
                             "worn character id '{character_id}' is not in the catalog; wearing \
-                             the code-side compatibility kit and showing the id as the display \
-                             name"
+                             a peaceful kit and showing the id as the display name"
                         );
                     }
-                    let (set, execution) =
-                        resolve_playable_action_set(catalog_knows_it, authored, base_abilities);
+                    let (set, execution) = resolve_playable_action_set(authored);
                     let derived = derive_persona_moveset(&set, execution, None);
                     (set, derived, execution)
                 }
@@ -147,28 +151,14 @@ pub fn derive_persona_moveset(
     overlay_authored_moves(derived, authored)
 }
 
-/// Resolve a playable action set for an id the prepared registry does not hold.
-///
-/// A known row whose preset does not resolve is malformed content: the startup
-/// validator reports it, and the runtime stays peaceful rather than granting the
-/// host kit. Only an UNKNOWN id gets the compatibility fallback — a defined
-/// answer for an id nobody wrote down.
-pub fn resolve_playable_action_set(
-    catalog_knows_it: bool,
-    authored: Option<ActionSet>,
-    base_abilities: ambition_platformer2d_core::AbilitySet,
-) -> (ActionSet, RangedExecution) {
-    if catalog_knows_it {
-        (
-            authored.unwrap_or_else(ActionSet::peaceful),
-            RangedExecution::MovesetVerb,
-        )
-    } else {
-        (
-            default_player_action_set(base_abilities),
-            RangedExecution::ChargedProjectile,
-        )
-    }
+/// Resolve a playable action set for an id the prepared registry does not hold:
+/// the catalog row's preset, or a peaceful kit when there is none — a malformed
+/// row (the startup validator reports it) or an id nobody wrote down.
+pub fn resolve_playable_action_set(authored: Option<ActionSet>) -> (ActionSet, RangedExecution) {
+    (
+        authored.unwrap_or_else(ActionSet::peaceful),
+        RangedExecution::MovesetVerb,
+    )
 }
 
 /// The host-code action set, derived from a body's `AbilitySet`:
@@ -212,38 +202,25 @@ mod tests {
     /// gain the host protagonist's code kit: the fallback is deliberately inert.
     #[test]
     fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
-        let (set, execution) = resolve_playable_action_set(
-            true,
-            None,
-            ambition_platformer2d_core::AbilitySet::sandbox_all(),
-        );
+        let (set, execution) = resolve_playable_action_set(None);
         assert!(set.melee.is_none());
         assert!(set.ranged.is_none());
         assert!(set.special.is_none());
         assert_eq!(execution, RangedExecution::MovesetVerb);
     }
 
-    /// An id nobody wrote down wears the host kit and is shown as itself.
+    /// ⛔ AN ID NOBODY WROTE DOWN IS NOT HANDED THE PROTAGONIST'S KIT. It used to
+    /// wear a swipe, a bolt, a bubble shield and the charge path built from the
+    /// body's abilities — a plausible answer where no authored repertoire
+    /// existed. It is peaceful now, and reported.
     #[test]
-    fn an_unknown_id_wears_the_host_kit_under_its_own_name() {
+    fn an_unknown_id_wears_nothing_it_did_not_author() {
         let catalog = CharacterCatalog::empty();
-        let kit = WornKit::resolve(
-            &catalog,
-            None,
-            "nobody",
-            ambition_platformer2d_core::AbilitySet::sandbox_all(),
-            None,
-        );
-        assert_eq!(kit.execution, RangedExecution::ChargedProjectile);
-        assert!(kit.action_set.melee.is_some());
-        // The charge path owns the ranged press: no ranged move is derived.
-        assert!(!kit
-            .moveset
-            .verbs
-            .contains_key(ambition_entity_catalog::RANGED_VERB));
-        // The baseline this body will rebuild from IS the set it wears — one
-        // resolution, published once. (The line here asserted that a second
-        // `CombatKit` copy agreed with it; the copy is gone.)
+        let kit = WornKit::resolve(&catalog, None, "nobody", None);
+        assert_eq!(kit.execution, RangedExecution::MovesetVerb);
+        assert!(kit.action_set.melee.is_none(), "an unknown id was handed a swipe");
+        assert!(kit.action_set.ranged.is_none(), "an unknown id was handed a bolt");
+        assert!(kit.action_set.special.is_none(), "an unknown id was handed a special");
         assert_eq!(kit.identity.action_set, kit.action_set);
     }
 }

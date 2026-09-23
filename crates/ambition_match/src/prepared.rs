@@ -831,9 +831,6 @@ pub fn prepare_match(
             catalog,
             Some(registry),
             participant.character.as_str(),
-            // NOT `seed.body.0.abilities.abilities` — that is the pre-mask set,
-            // and deriving the kit against it is exactly the ordering §3 names.
-            seat_abilities.unwrap_or(seed.body.0.abilities.abilities),
             participant.action_set.as_ref(),
         );
         // See `MatchRules::body_over`.

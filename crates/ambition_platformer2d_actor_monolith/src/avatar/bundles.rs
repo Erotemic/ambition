@@ -280,11 +280,6 @@ impl PlayerSimulationBundle {
         // HOW THIS BODY FIRES, handed back to the caller.
         ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {
-        // The body's code-side capability set — the source of the protagonist's
-        // kit, captured before `scratch` folds into the movement bundle so the
-        // overlay can rebuild the code kit deterministically (an id the catalog
-        // does not know falls back to it).
-        let base_abilities = scratch.abilities.abilities;
         let mut bundle = Self::from_scratch(scratch, health);
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
@@ -296,7 +291,6 @@ impl PlayerSimulationBundle {
             &mut bundle.moveset,
             &mut bundle.identity_kit,
             character_id,
-            base_abilities,
             // A from-scratch bundle predates the match as well as the world: if
             // this body is later seated, the per-frame derivation reaches it
             // with the roster's kit on its first tick.
@@ -323,7 +317,7 @@ mod tests {
     // module's production code names one.
     use ambition_characters::actor::Health;
     use ambition_characters::brain::action_set::RangedStyle;
-    use ambition_characters::brain::{MeleeActionSpec, RangedActionSpec};
+    use ambition_characters::brain::RangedActionSpec;
 
     fn player_scratch() -> ae::BodyClusterScratch {
         crate::avatar::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
@@ -427,11 +421,11 @@ mod tests {
 
     #[test]
     fn unknown_character_id_still_spawns_a_controllable_player() {
-        // A stale / unknown id keeps the player fully playable: the KIT falls back
-        // to the defined code kit (rebuilt from the body's abilities), and it
-        // still holds the primary seat. The NAME becomes the id itself — a legible
-        // diagnostic, never a stale prior name. The sprite falls back to the
-        // colored rectangle presentation-side.
+        // A stale / unknown id still spawns a body that holds the primary seat and
+        // moves. The NAME becomes the id itself — a legible diagnostic, never a
+        // stale prior name. ⛔ The KIT is not invented: an id nobody wrote down
+        // wears nothing it did not author (it used to be handed the protagonist's
+        // swipe, bolt and shield, built from the body's abilities).
         let catalog = catalog();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             &catalog,
@@ -447,9 +441,10 @@ mod tests {
             "not_a_real_character",
             "an unknown id names the body after the id (deterministic diagnostic)"
         );
-        assert!(matches!(
-            bundle.action_set.melee,
-            Some(MeleeActionSpec::Swipe(_))
-        ));
+        assert!(
+            bundle.action_set.melee.is_none() && bundle.action_set.special.is_none(),
+            "an unknown id was handed verbs nobody authored: {:?}",
+            bundle.action_set
+        );
     }
 }

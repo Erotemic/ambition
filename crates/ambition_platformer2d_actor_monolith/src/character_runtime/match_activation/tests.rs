@@ -2533,21 +2533,16 @@ fn a_seated_fighter_carries_its_authored_mass() {
     );
 }
 
-/// A seated fighter whose character takes the HOST kit still gets one.
-/// (Phase B remainder)
+/// A seated fighter whose character authors no kit is SEATED, and wears nothing
+/// it did not author.
 ///
-/// `PreparedKit::Unauthored` is the one case a per-character value cannot hold: the
-/// host's code-side kit is built from the BODY's own `AbilitySet`. While the
-/// projection was the writer for seated bodies it could not build that — it has
-/// no body abilities — so a seated fighter resolving to `Unauthored` got nothing.
-///
-/// Phase B routed seated bodies through `apply_worn_character_gameplay`, which
-/// DOES have the abilities. This asserts that actually closed the hole rather than
-/// merely making it plausible: a registered character with no authored action set
-/// and no catalog row resolves to `Unauthored`, and the seated body must still
-/// come out able to act.
+/// ⛔ It used to be handed the host protagonist's kit, built from the body's
+/// abilities — a plausible answer where the required authority (an authored
+/// repertoire) was absent. The structural half still matters: the fighter must
+/// reach the persona writer at all, or it would wear a character and derive
+/// nothing.
 #[test]
-fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
+fn a_seated_fighter_that_authors_no_kit_is_seated_without_an_invented_one() {
     let mut app = seating_app();
     // No authored action set, and the empty catalog has no row for it — the two
     // conditions that make `finalize_character` choose `PreparedKit::Unauthored`.
@@ -2564,22 +2559,14 @@ fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
         &ambition_characters::brain::ActionSet,
-        &ambition_combat::moveset::ActorMoveset,
     )>();
-    let (_, action_set, moveset) = bodies
+    let (_, action_set) = bodies
         .iter(world)
         .next()
         .expect("the fighter must be seated at all");
     assert!(
-        action_set.melee.is_some(),
-        "a seated fighter on the host kit has no melee, so its brain will never \
-         press attack — the kit is built from the BODY's abilities and only the \
-         persona derive can see those"
-    );
-    assert!(
-        !moveset.0.moves.is_empty(),
-        "and it has no moves to play even if it did press: an action set without \
-         a timeline is a capability the body cannot perform"
+        action_set.melee.is_none() && action_set.special.is_none(),
+        "a seated fighter that authored no kit was handed one: {action_set:?}"
     );
 }
 

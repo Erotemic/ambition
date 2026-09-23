@@ -635,7 +635,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 /// the prior character's kit or name.
 #[test]
 fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
-    use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use ambition_characters::brain::ActionSet;
     use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
@@ -686,112 +686,9 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     );
     let set = app.world().get::<ActionSet>(e).unwrap();
     assert!(
-        matches!(set.melee, Some(MeleeActionSpec::Swipe(_)))
-            && matches!(
-                set.ranged,
-                Some(RangedActionSpec {
-                    style: RangedStyle::Bolt,
-                    ..
-                })
-            ),
-        "an unknown id falls back to the defined code kit, not the stale pistol"
-    );
-}
-
-/// The kit an id the catalog does not know receives is derived from the body's
-/// mutable ability source, so changing that source must refresh the effective
-/// kit even when the worn identity does not change. This is the
-/// live-dev/progression edge the identity-only filter missed.
-///
-/// ⚠ THE FIXTURE PROPERTY THAT PUTS THIS ON THAT BRANCH IS THE ID: `"player"`
-/// is in no catalog row, and `install_test_catalog` installs the SHIPPED
-/// catalog. Wear anything that catalog knows and the ability branch never runs,
-/// so this test silently stops testing what it names.
-#[test]
-fn an_unknown_ids_kit_refreshes_when_body_abilities_change() {
-    use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
-    use ambition_combat::moveset::ActorMoveset;
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    install_test_catalog(&mut app);
-    app.add_systems(
-        Update,
-        (
-            apply_worn_character_gameplay,
-            ambition_combat::hand::reconcile_effective_repertoire,
-        )
-            .chain(),
-    );
-    let entity = app
-        .world_mut()
-        .spawn((
-            WornCharacter::new("player"),
-            MotionModel::default(),
-            Name::new("unset"),
-            ActionSet::default(),
-            ActorMoveset(Default::default()),
-            ambition_platformer2d_core::BodyKinematics::default(),
-            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
-                    ambition_platformer2d_core::Vec2::ZERO,
-                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
-                ),
-            ),
-        ))
-        .id();
-    app.update();
-
-    let initial = app.world().get::<ActionSet>(entity).unwrap();
-    assert!(matches!(initial.melee, Some(MeleeActionSpec::Swipe(_))));
-    assert!(matches!(
-        initial.ranged,
-        Some(RangedActionSpec {
-            style: RangedStyle::Bolt,
-            ..
-        })
-    ));
-    assert!(initial.special.is_some());
-
-    {
-        let mut abilities = app
-            .world_mut()
-            .get_mut::<ambition_platformer2d_core::BodyAbilities>(entity)
-            .unwrap();
-        abilities.abilities.attack = false;
-        abilities.abilities.pogo = false;
-        abilities.abilities.shield = false;
-    }
-    app.update();
-
-    let refreshed = app.world().get::<ActionSet>(entity).unwrap();
-    assert!(
-        refreshed.melee.is_none(),
-        "Changed<BodyAbilities> removes the now-disabled melee"
-    );
-    assert!(
-        matches!(
-            refreshed.ranged,
-            Some(RangedActionSpec {
-                style: RangedStyle::Bolt,
-                ..
-            })
-        ),
-        "an unrelated enabled ability remains in the rebuilt host kit"
-    );
-    assert!(
-        refreshed.special.is_none(),
-        "Changed<BodyAbilities> removes the now-disabled bubble shield"
-    );
-    assert!(
-        app.world()
-            .get::<ActorMoveset>(entity)
-            .unwrap()
-            .0
-            .moves
-            .is_empty(),
-        "the derived moveset refreshes with the ActionSet"
+        set.melee.is_none() && set.ranged.is_none() && set.special.is_none(),
+        "an unknown id wears nothing it did not author — neither the stale pistol \
+         nor an invented host kit: {set:?}"
     );
 }
 
@@ -1238,7 +1135,6 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut moveset,
         &mut identity,
         "hero",
-        ambition_platformer2d_core::AbilitySet::default(),
         // No match: this fixture is testing the AUTHORED persona.
         None,
     );
@@ -1274,7 +1170,6 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         &mut moveset,
         &mut identity,
         "monk",
-        ambition_platformer2d_core::AbilitySet::default(),
         // No match: this fixture is testing the AUTHORED persona.
         None,
     );
@@ -1346,14 +1241,6 @@ fn wear(
         &mut moveset,
         &mut identity,
         id,
-        // A BODY THAT MAY ACT, and this was `AbilitySet::default()` — which is `basic()`, whose
-        // `attack` and `shield` are BOTH false. Every persona these tests derive is a fighter;
-        // production gives a fighter a body that fights.
-        ambition_platformer2d_core::AbilitySet {
-            attack: true,
-            shield: true,
-            ..ambition_platformer2d_core::AbilitySet::basic()
-        },
         // No match: this fixture is testing the AUTHORED persona.
         None,
     );
@@ -2709,7 +2596,6 @@ fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
         &mut moveset,
         &mut identity,
         "no_such_character",
-        ambition_platformer2d_core::AbilitySet::default(),
         None,
     );
 
@@ -2762,14 +2648,10 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
         .expect("an authored kit");
     registry.insert_prepared(finalized.prepared);
 
-    // The body a room actor is built on when it authors no abilities.
-    let actor_body = ambition_body_seed::ActorBody::default_actor_abilities();
-    assert!(!actor_body.shield, "the control: this body lacks the shield bit");
     let derived = ambition_combat::worn_kit::WornKit::resolve(
         &CharacterCatalog::empty(),
         Some(&registry),
         "brute",
-        actor_body,
         None,
     );
     assert_eq!(

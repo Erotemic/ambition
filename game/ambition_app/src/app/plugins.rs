@@ -682,10 +682,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            // It mutates `BodyMana`, which is rollback-registered (`body.mana`), and it was running
-            // here in `Update` at render rate -- outside the rollback schedule entirely. It now
-            // runs in the engine's FeatureCollection phase, so every composition regenerates mana
-            // and a rewind resimulates it.
+            // Mana regen is not here: it writes the body's rollback-registered
+            // resource bank, so it runs in the engine's FeatureCollection phase
+            // where a rewind resimulates it.
             ambition_platformer2d::render::hud::spawn_player_hud,
             ambition_platformer2d::render::hud::update_player_hud,
             // Ambition's built-in HP/MP/$ row hides whenever the active game

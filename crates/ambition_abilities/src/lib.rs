@@ -44,6 +44,7 @@
 //! fixture and wrong for the game — the game installs the kernel too.
 
 pub mod ability_cooldown;
+pub mod mana;
 pub mod ranged;
 pub mod thrown;
 pub mod traversal;

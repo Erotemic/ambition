@@ -332,17 +332,6 @@ snapshot_pod!(crate::player_state::ResourceMeter {
     decay_rate: f32,
 });
 
-impl SnapshotState for crate::body_clusters::BodyMana {
-    fn encode(&self, out: &mut Vec<u8>) {
-        self.meter.encode(out);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::body_clusters::BodyMana {
-            meter: crate::player_state::ResourceMeter::decode(r)?,
-        })
-    }
-}
-
 /// The bank's layout travels in its snapshot: a restored value is decoded with
 /// the declarations it was stored under, and a decode that would build an
 /// invalid layout or an out-of-range level is refused rather than clamped.

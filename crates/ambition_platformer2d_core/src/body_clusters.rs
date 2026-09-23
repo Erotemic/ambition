@@ -7,7 +7,7 @@
 
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
-use crate::player_state::{BodyMode, ResourceMeter};
+use crate::player_state::BodyMode;
 use crate::world::{ClimbableContact, WaterContact};
 use crate::Vec2;
 
@@ -32,7 +32,6 @@ pub struct BodyClustersMut<'a> {
     pub shield: &'a mut BodyShieldState,
     pub body_mode: &'a mut BodyModeState,
     pub env_contact: &'a mut BodyEnvironmentContact,
-    pub mana: &'a mut BodyMana,
     /// The body's resource bank, when something declared one for it. Absent is
     /// a body that holds no resource — a complete composition.
     pub resources: Option<&'a mut crate::resources::ActorResources>,
@@ -63,7 +62,6 @@ pub struct BodyClusterQueryData {
     pub shield: &'static mut BodyShieldState,
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
-    pub mana: &'static mut BodyMana,
     pub resources: Option<&'static mut crate::resources::ActorResources>,
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
@@ -94,7 +92,6 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             shield: &mut *self.shield,
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
-            mana: &mut *self.mana,
             resources: self.resources.as_deref_mut(),
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
@@ -931,10 +928,11 @@ pub fn announce_body_restarts(
 /// is the point: a reset restores engine-owned state, and anything an
 /// AUTHORITY OUTSIDE THE ENGINE decided is not that.
 ///
-/// ⚠ `BodyMana` is the THIRD field of this shape. A Smash fighter's meter is a
-/// Limit — capped by the match, built EMPTY at seating — where a mana pool
-/// starts full, so a reset that defaulted the meter handed a respawning fighter
-/// a full one. See [`ResetMeter`].
+/// ⚠ A body's RESOURCES were the third field of this shape: a Smash fighter's
+/// Limit is built EMPTY at seating where a Mana pool starts full, so a reset
+/// that picked one start handed a respawning fighter the wrong one. The reset no
+/// longer picks: every banked resource returns to the start it was DECLARED
+/// with (`ActorResources::reset_to_start`).
 ///
 /// `BodyOffense` is still unclaimed: its only writer is a dev-tools editable,
 /// where losing an editor override on a reset is the intended behaviour.
@@ -951,30 +949,11 @@ pub enum ResetFacing {
     Toward(f32),
 }
 
-/// What a reset does to the body's resource meter.
-///
-/// A reset restores the body; it does not get to decide what the meter IS. Its
-/// `max` and rates are owned by whoever declared the resource — a match's Limit
-/// cap, a character's pool — and none of those authorities is this function.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ResetMeter {
-    /// Leave the meter untouched, values and shape alike.
-    Keep,
-    /// Refill to the meter's OWN max, keeping that max and its rates. This is
-    /// what every road that is not running a Limit means, and for a body whose
-    /// max is the default pool it is the old `BodyMana::default()` exactly.
-    Full,
-    /// Empty it, keeping its max and rates — a meter that is EARNED rather than
-    /// spent down, which is what a Limit is.
-    Empty,
-}
-
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     spawn: Vec2,
     facing: ResetFacing,
-    meter: ResetMeter,
     air_jumps_default: u8,
 ) {
     use crate::movement::{ComboMark, MovementOp};
@@ -1030,13 +1009,6 @@ pub fn reset_body_clusters(
     *clusters.shield = BodyShieldState::default();
     *clusters.body_mode = BodyModeState::default();
     *clusters.env_contact = BodyEnvironmentContact::default();
-    // The meter's SHAPE survives the reset; only its value is the reset's
-    // business, and which value is the caller's. See `ResetMeter`.
-    match meter {
-        ResetMeter::Keep => {}
-        ResetMeter::Full => clusters.mana.meter.current = clusters.mana.meter.max,
-        ResetMeter::Empty => clusters.mana.meter.current = 0.0,
-    }
     // Every declared resource returns to the start it was BUILT with: one
     // baseline for spawn and reset, so neither can hand back a value the other
     // would not.
@@ -1175,21 +1147,6 @@ pub struct BodyModeState {
 pub struct BodyEnvironmentContact {
     pub water: Option<WaterContact>,
     pub climbable: Option<ClimbableContact>,
-}
-
-/// Generic spendable meter the player draws on for charge attacks /
-/// special abilities.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct BodyMana {
-    pub meter: ResourceMeter,
-}
-
-impl Default for BodyMana {
-    fn default() -> Self {
-        Self {
-            meter: ResourceMeter::new(100.0, 0.0, 0.0),
-        }
-    }
 }
 
 /// Offensive scaling knobs.
@@ -1336,7 +1293,6 @@ pub struct BodyClusterScratch {
     pub shield: BodyShieldState,
     pub body_mode: BodyModeState,
     pub env_contact: BodyEnvironmentContact,
-    pub mana: BodyMana,
     /// See [`BodyClustersMut::resources`].
     pub resources: Option<crate::resources::ActorResources>,
     pub offense: BodyOffense,
@@ -1379,9 +1335,6 @@ impl BodyClusterScratch {
             shield: BodyShieldState::default(),
             body_mode: BodyModeState::default(),
             env_contact: BodyEnvironmentContact::default(),
-            mana: BodyMana {
-                meter: ResourceMeter::new(100.0, 0.0, 0.0),
-            },
             resources: None,
             offense: BodyOffense {
                 damage_multiplier: 1,
@@ -1436,7 +1389,6 @@ impl BodyClusterScratch {
             shield: &mut self.shield,
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
-            mana: &mut self.mana,
             resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
@@ -1484,7 +1436,6 @@ impl BodyClusterScratch {
             shield: &mut self.shield,
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
-            mana: &mut self.mana,
             resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
@@ -1528,7 +1479,6 @@ mod reset_tests {
             &mut clusters,
             Vec2::new(64.0, 352.0),
             ResetFacing::Keep,
-            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1571,7 +1521,6 @@ mod reset_tests {
             &mut clusters,
             spawn,
             ResetFacing::Keep,
-            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1604,7 +1553,6 @@ mod reset_tests {
             &mut clusters,
             spawn,
             ResetFacing::Keep,
-            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
 
@@ -1629,7 +1577,7 @@ mod reset_tests {
         let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let generous = crate::movement::DEFAULT_TUNING.air_jumps + 3;
         let (model, mut clusters) = scratch.parts();
-        reset_body_clusters(model, &mut clusters, Vec2::ZERO, ResetFacing::Keep, ResetMeter::Full, generous);
+        reset_body_clusters(model, &mut clusters, Vec2::ZERO, ResetFacing::Keep, generous);
         assert_eq!(
             scratch.jump.air_jumps_available, generous,
             "the reset restored the engine default over the tuning the caller \
@@ -1674,7 +1622,6 @@ mod reset_tests {
                     &mut clusters,
                     Vec2::ZERO,
                     asked,
-                    ResetMeter::Full,
                     crate::movement::DEFAULT_TUNING.air_jumps,
                 );
             }
@@ -1701,7 +1648,6 @@ mod reset_tests {
             &mut clusters,
             Vec2::new(10.0, 20.0),
             ResetFacing::Keep,
-            ResetMeter::Full,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
         assert!(scratch.lifetime.restart_pending);

@@ -116,7 +116,7 @@ pub fn fire_dive_system(
         if held.spec.id != DIVE_ID {
             continue;
         }
-        if !clusters.mana.meter.try_spend(DIVE_MANA_COST) {
+        if !crate::mana::spend(clusters.resources.as_deref_mut(), DIVE_MANA_COST) {
             continue;
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).

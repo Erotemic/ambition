@@ -13,7 +13,6 @@ use ambition_combat::held_items::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 /// Held-item id of the volley gauntlet.
@@ -95,7 +94,7 @@ pub fn fire_volley_system(
         &BodyKinematics,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
     )>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
@@ -113,7 +112,7 @@ pub fn fire_volley_system(
             continue;
         }
         // Costs mana — out of mana, no volley.
-        if !mana.meter.try_spend(VOLLEY_MANA_COST) {
+        if !crate::mana::spend(mana.as_deref_mut(), VOLLEY_MANA_COST) {
             continue;
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).

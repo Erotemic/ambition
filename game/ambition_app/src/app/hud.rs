@@ -27,7 +27,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_platformer2d::engine_core::BodyWallState,
             &'static ambition_platformer2d::engine_core::BodyDashState,
             &'static ambition_platformer2d::engine_core::BodyJumpState,
-            &'static ambition_platformer2d::engine_core::BodyMana,
+            Option<&'static ambition_platformer2d::engine_core::resources::ActorResources>,
             &'static ambition_platformer2d::engine_core::BodyModeState,
             // The movement policy: the locomotion label + the debug ledge
             // readout (climb progress) come from the model — this dev HUD
@@ -157,7 +157,8 @@ pub(super) fn update_hud(
     let player_on_ground = hud_ground.on_ground;
     let player_dash_charges = hud_dash.charges_available;
     let player_air_jumps = hud_jump.air_jumps_available;
-    let player_mana_current = hud_mana.meter.current as i32;
+    let player_mana_current = ambition_platformer2d::abilities::mana::level(hud_mana)
+        .map_or_else(|| "-".to_owned(), |mana| (mana.current as i32).to_string());
     let player_hitstun = hud_combat.hitstun_timer;
     let player_invuln = hud_combat.damage_invuln_timer;
     let player_hitstop = hud_combat.hitstop_timer;

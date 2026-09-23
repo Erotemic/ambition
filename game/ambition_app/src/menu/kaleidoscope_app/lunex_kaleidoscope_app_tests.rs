@@ -6,7 +6,6 @@ use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
 use ambition_platformer2d::characters::brain::ActionSet;
-use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
 
@@ -103,7 +102,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
             ActionSet::default(),
             ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
             ambition_platformer2d::combat::moveset::ActorMoveset::default(),
-            BodyMana::default(),
+            ambition_platformer2d::abilities::mana::bank(),
         ))
         .id()
 }
@@ -966,7 +965,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
         ambition_platformer2d::combat::moveset::ActorMoveset::default(),
-        BodyMana::default(),
+        ambition_platformer2d::abilities::mana::bank(),
     ));
     app.update();
 

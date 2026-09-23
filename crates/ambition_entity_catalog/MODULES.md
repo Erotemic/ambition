@@ -11,6 +11,7 @@
 | [`brain_profile_ref`](src/brain_profile_ref.rs) | Naming a shared autonomous-controller policy, in the two forms an authored reference and a resolved identity need to be. |
 | [`hazard`](src/hazard.rs) | **WHAT AN AUTHORED TECHNIQUE PUTS IN THE WORLD THAT CAN HURT SOMEBODY**, and the laws by which it gets there. |
 | [`launch`](src/launch.rs) | **THE LAUNCH LAW, AND THE ONLY COPY OF IT.** |
+| [`mana`](src/mana.rs) | The main game's Mana, as authored data: its identity, its pool and its refill rate. |
 | [`move_section`](src/move_section.rs) | The move family's own artifact section — fast-iteration packet I2, step 1/3. |
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 | [`smash_bolt`](src/smash_bolt.rs) | Authored payload for the steerable bolt technique. |
@@ -34,7 +35,7 @@
 | [`smash_trapdoor`](src/smash_trapdoor.rs) | Authored payload for entering and leaving the submerged body mode. |
 | [`smash_vitality`](src/smash_vitality.rs) | Authored payload for changing the mover's own health. |
 
-_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

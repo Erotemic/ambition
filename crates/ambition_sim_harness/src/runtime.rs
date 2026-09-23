@@ -491,7 +491,10 @@ impl Platformer2dSimHarness {
         let dash = cluster.as_ref().map(|c| &*c.dash);
         let flight = cluster.as_ref().map(|c| &*c.flight);
         let body_mode = cluster.as_ref().map(|c| &*c.body_mode);
-        let mana = cluster.as_ref().map(|c| &*c.mana);
+        let mana = cluster
+            .as_ref()
+            .and_then(|c| c.resources)
+            .and_then(|bank| bank.level_of(&ambition_platformer2d::actor::mana::MANA));
         let lifetime = cluster.as_ref().map(|c| &*c.lifetime);
         AgentObservation {
             tick: self.tick,
@@ -511,8 +514,8 @@ impl Platformer2dSimHarness {
             blink_aiming: facts.is_some_and(|f| f.blink_aiming),
             hp: health.current,
             hp_max: health.max,
-            mana: mana.map(|m| m.meter.current as i32).unwrap_or(0),
-            mana_max: mana.map(|m| m.meter.max as i32).unwrap_or(0),
+            mana: mana.map(|m| m.current as i32).unwrap_or(0),
+            mana_max: mana.map(|m| m.max as i32).unwrap_or(0),
             time_alive: lifetime.map(|l| l.time_alive).unwrap_or(0.0),
             resets: lifetime.map(|l| l.resets).unwrap_or(0),
             body_mode: format!(

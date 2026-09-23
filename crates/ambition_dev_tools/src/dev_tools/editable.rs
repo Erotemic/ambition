@@ -902,7 +902,7 @@ pub struct PlayerStatsSyncSnapshot {
     health: i32,
     max_health: i32,
     // ⛔⛤ **THE MANA AND OFFENSE FIELDS ARE NEW, AND THEIR ABSENCE WAS A DEFECT
-    // NOBODY HAD NAMED.** The combined system wrote `BodyMana.meter` and
+    // NOBODY HAD NAMED.** The combined system wrote the Mana meter and
     // `BodyOffense.damage_multiplier` from the inspector **UNCONDITIONALLY**, on
     // every run, with no change test at all — so inside `GgrsSchedule` that was a
     // per-ADVANCE write of canonical state from a live developer resource,
@@ -960,7 +960,7 @@ pub fn propose_player_stats_edits(
 /// 2026-09-13.** `sync_player_stats_with_inspector` did three jobs at once:
 /// inspector→body (health/max_health when the user moved them), body→inspector
 /// (the `else` branch, *"so the F3 panel shows truth"*), and an UNCONDITIONAL
-/// inspector→body write of `BodyMana.meter` and `BodyOffense.damage_multiplier`.
+/// inspector→body write of the Mana level and `BodyOffense.damage_multiplier`.
 /// Registered into `app.sim_schedule()` — `GgrsSchedule` under the rollback host
 /// — every one of those writes landed inside the rollback window, and the last
 /// one landed on every single ADVANCE.
@@ -981,7 +981,7 @@ pub fn publish_player_stats_edits(
     mut snapshot: ResMut<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         (
-            &mut ambition_platformer2d_core::BodyMana,
+            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
             &mut ambition_platformer2d_core::BodyOffense,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -1027,10 +1027,10 @@ pub fn publish_player_stats_edits(
             health.health.current = stats.health.clamp(0, health.health.max.max(1));
         }
     }
-    // Mana lives on `Player::mana` (engine `ResourceMeter`); the inspector
+    // Mana is the body's banked `abilities::mana::MANA` level; the inspector
     // surfaces i32 fields for player-friendly editing and the conversion happens
-    // at this boundary. Combat tuning and invincibility live on `Player`
-    // (engine-side) so per-player state is engine state, not sandbox state.
+    // at this boundary. A body that holds no Mana is not given any by an edit —
+    // the pool is the experience's declaration, not the inspector's.
     //
     // ⛔⛤ **FIELD-CONDITIONAL, AND IT WAS UNCONDITIONAL UNTIL 2026-09-14.** These
     // three writes fired on EVERY admitted proposal of this domain, whatever the
@@ -1057,10 +1057,14 @@ pub fn publish_player_stats_edits(
     let user_changed_mana = stats.mana != snapshot.mana || stats.max_mana != snapshot.max_mana;
     let user_changed_offense = stats.slash_damage != snapshot.slash_damage;
     let max_mana = stats.max_mana.max(0);
-    if let Ok((mut mana, mut offense)) = player_q.single_mut() {
-        if user_changed_mana {
-            mana.meter.max = max_mana as f32;
-            mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
+    if let Ok((mut resources, mut offense)) = player_q.single_mut() {
+        if let Some(mana) = resources
+            .as_deref_mut()
+            .and_then(|bank| bank.level_of_mut(&ambition_entity_catalog::mana::MANA))
+            .filter(|_| user_changed_mana)
+        {
+            mana.max = max_mana as f32;
+            mana.current = stats.mana.clamp(0, max_mana) as f32;
         }
         if user_changed_offense {
             offense.damage_multiplier = stats.slash_damage.max(1);
@@ -1096,7 +1100,7 @@ pub fn mirror_player_stats_into_the_inspector(
     >,
     live_q: Query<
         (
-            &ambition_platformer2d_core::BodyMana,
+            Option<&ambition_platformer2d_core::resources::ActorResources>,
             &ambition_platformer2d_core::BodyOffense,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -1119,9 +1123,11 @@ pub fn mirror_player_stats_into_the_inspector(
     // saw" true for every field this domain publishes — and updating `stats` and
     // `snapshot` TOGETHER is what stops ordinary gameplay mana consumption from
     // looking like a proposal.
-    if let Ok((mana, offense)) = live_q.single() {
-        stats.mana = mana.meter.current.round() as i32;
-        stats.max_mana = mana.meter.max.round() as i32;
+    if let Ok((resources, offense)) = live_q.single() {
+        // A body without Mana reads 0/0 — the panel's i32 fields have no absent.
+        let mana = resources.and_then(|bank| bank.level_of(&ambition_entity_catalog::mana::MANA));
+        stats.mana = mana.map_or(0, |mana| mana.current.round() as i32);
+        stats.max_mana = mana.map_or(0, |mana| mana.max.round() as i32);
         stats.slash_damage = offense.damage_multiplier;
         snapshot.mana = stats.mana;
         snapshot.max_mana = stats.max_mana;
@@ -1479,7 +1485,11 @@ mod player_stats_domain_tests {
             ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(5),
             ),
-            ambition_platformer2d_core::BodyMana::default(),
+            ambition_platformer2d_core::resources::ActorResources::declared(&[
+                ambition_entity_catalog::mana::POOL,
+            ])
+            .expect("valid")
+            .expect("declared"),
             ambition_platformer2d_core::BodyOffense::default(),
         ));
         // The first update establishes the baseline and must change nothing.
@@ -1505,11 +1515,12 @@ mod player_stats_domain_tests {
     fn live_mana_and_offense(app: &mut App) -> (f32, i32) {
         let world = app.world_mut();
         let mut query = world.query_filtered::<(
-            &ambition_platformer2d_core::BodyMana,
+            &ambition_platformer2d_core::resources::ActorResources,
             &ambition_platformer2d_core::BodyOffense,
         ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
-        let (mana, offense) = query.single(world).expect("the fixture has a player body");
-        (mana.meter.current, offense.damage_multiplier)
+        let (bank, offense) = query.single(world).expect("the fixture has a player body");
+        let mana = bank.level_of(&ambition_entity_catalog::mana::MANA).expect("the fixture holds Mana");
+        (mana.current, offense.damage_multiplier)
     }
 
     /// ⛔⛤ **EDITING ONE FIELD MUST NOT REPUBLISH THE OTHERS — FOUND BY THE GPT
@@ -1540,12 +1551,15 @@ mod player_stats_domain_tests {
         {
             let world = app.world_mut();
             let mut query = world.query_filtered::<(
-                &mut ambition_platformer2d_core::BodyMana,
+                &mut ambition_platformer2d_core::resources::ActorResources,
                 &mut ambition_platformer2d_core::BodyOffense,
             ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
-            let (mut mana, mut offense) = query.single_mut(world).expect("player body");
-            mana.meter.max = 100.0;
-            mana.meter.current = 31.0;
+            let (mut bank, mut offense) = query.single_mut(world).expect("player body");
+            let mana = bank
+                .level_of_mut(&ambition_entity_catalog::mana::MANA)
+                .expect("the fixture holds Mana");
+            mana.max = 100.0;
+            mana.current = 31.0;
             offense.damage_multiplier = 7;
         }
         // Let the mirror carry that into the panel, so the inspector is telling
@@ -1640,12 +1654,15 @@ mod player_stats_domain_tests {
         {
             let world = app.world_mut();
             let mut query = world.query_filtered::<
-                &mut ambition_platformer2d_core::BodyMana,
+                &mut ambition_platformer2d_core::resources::ActorResources,
                 ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
             >();
-            let mut mana = query.single_mut(world).expect("player body");
-            mana.meter.max = 100.0;
-            mana.meter.current = 31.0;
+            let mut bank = query.single_mut(world).expect("player body");
+            let mana = bank
+                .level_of_mut(&ambition_entity_catalog::mana::MANA)
+                .expect("the fixture holds Mana");
+            mana.max = 100.0;
+            mana.current = 31.0;
         }
 
         // ⛔ THE PREMISE: the edit really is still staged, and the panel really

@@ -231,29 +231,15 @@ pub fn apply_player_heal_requests(
     }
 }
 
-/// Mana regenerated per second (clamped to the meter max) when a composition
-/// states no policy of its own.
-const MANA_REGEN_PER_SEC: f32 = 14.0;
-
-/// **How fast a driven body's `BodyMana` refills, as the RULESET's statement.**
+/// **How fast a driven body's Mana refills, as the COMPOSITION's statement.**
 ///
-/// ⛔⛔ THIS EXISTS BECAUSE TWO RULESETS WROTE ONE METER AND NEITHER KNEW. The
-/// platformer regenerates mana so it is "a genuine spendable resource" for charge
-/// attacks; the smash ruleset uses the SAME `BodyMana` as a Limit meter with its
-/// own authored fill (`LimitMeterFill` — a slow clock plus damage on both sides).
-/// A composition carrying both got both: a fighter accrued `14.0 + per_second`,
-/// so Jon's 60-point Limit authored to take 120 s of clock reached its cap in
-/// about 4.1 s, and a locally-driven fighter had a different economy from an
-/// otherwise identical undriven one.
-///
-/// ⭐ A POLICY RESOURCE RATHER THAN A GATE ON `DrivingParticipant`, deliberately.
-/// Gating on drivenness preserves the leak for driven bodies and merely hides the
-/// asymmetry; what was actually wrong is that the FILL RATE had no owner. Now the
-/// composition says it once, the same shape `RespawnInterval` and
-/// `SmashLimitFill` already use.
-///
-/// ⚠ ABSENT MEANS [`MANA_REGEN_PER_SEC`], so every composition that never heard
-/// of this behaves exactly as it did.
+/// ⛔⛔ ABSENT MEANS NO REFILL. This once defaulted to the platformer's own
+/// 14/s when a composition stated nothing, and a Smash stage had to insert a
+/// zero to keep that invented rate out of its Limit, which then shared the one
+/// meter. Mana is now a named resource a body holds only when its experience
+/// declared the pool, and the rate belongs to the same declaration: the
+/// Ambition provider states `ambition_abilities::mana::REGEN_PER_SEC` beside
+/// the pool it gives the home body.
 ///
 /// ⭐⭐ **AND IT IS THE ONLY ONE OF ITS KIND — swept 2026-09-05, so nobody has to
 /// wonder.** Two questions were asked of the whole tree:
@@ -273,16 +259,9 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
 pub struct PlayerManaRegen(pub f32);
 
-impl Default for PlayerManaRegen {
-    fn default() -> Self {
-        Self(MANA_REGEN_PER_SEC)
-    }
-}
-
-/// Mana slowly regenerates so it's a genuine spendable resource. Uses
-/// `ResourceMeter::refill` (clamped) rather than the meter's own `regen_rate`
-/// field so we don't change `BodyMana::default` (and any test that relies on
-/// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
+/// Mana slowly regenerates, at the composition's stated rate, so it is a
+/// genuine spendable resource. Clamped at the pool's max and scaled by sim dt,
+/// so bullet-time / pause slow it with the world.
 ///
 /// Refills every DRIVEN body's mana — the bodies actually spending it on charge
 /// attacks and held abilities — so possessing an actor regenerates that actor's
@@ -295,7 +274,7 @@ impl Default for PlayerManaRegen {
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
     driven: ambition_held_items::DrivenBodies,
-    mut manas: Query<&mut ambition_platformer2d_core::BodyMana>,
+    mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     policy: Option<Res<PlayerManaRegen>>,
 ) {
@@ -303,10 +282,10 @@ pub fn regen_player_mana(
     if dt <= 0.0 {
         return;
     }
-    // ⛔ THE RULESET'S RATE, and ZERO IS A REAL ANSWER — a ruleset that owns this
-    // meter for something else (a Limit) says so here rather than fighting the
-    // refill every tick. Absent, the platformer's own rate applies unchanged.
-    let per_second = policy.map(|p| p.0).unwrap_or(MANA_REGEN_PER_SEC);
+    // The composition's rate; a composition that states none refills nothing.
+    let Some(per_second) = policy.map(|p| p.0) else {
+        return;
+    };
     if per_second <= 0.0 {
         return;
     }
@@ -316,8 +295,12 @@ pub fn regen_player_mana(
         subjects.extend(primary.single().ok());
     }
     for subject in subjects {
-        if let Ok(mut mana) = manas.get_mut(subject) {
-            mana.meter.refill(per_second * dt);
+        if let Some(mana) = banks
+            .get_mut(subject)
+            .ok()
+            .and_then(|bank| bank.into_inner().level_of_mut(&ambition_abilities::mana::MANA))
+        {
+            mana.refill(per_second * dt);
         }
     }
 }

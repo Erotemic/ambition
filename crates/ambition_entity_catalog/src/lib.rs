@@ -37,6 +37,8 @@ pub mod hazard;
 /// The move family's artifact section: its kind, its own version, and the codec
 /// that turns a move table into a payload the content envelope can carry.
 pub mod launch;
+/// The main game's Mana: identity, pool and rate. See the module doc.
+pub mod mana;
 pub mod move_section;
 
 // ⛔ RE-EXPORTED AT THE CRATE ROOT, because these three names were crate-root

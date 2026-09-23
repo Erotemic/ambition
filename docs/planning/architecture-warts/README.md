@@ -31,7 +31,6 @@ to the motivating example.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
-| W001 | TRACKED | actor resources | Every body still carries `BodyMana`, and Smash still uses it as Limit. | Do not create a second task here. `docs/planning/engine/composable-actor-resources.md` owns removal of universal Mana and separation of Mana from Limit. |
 | W002 | CONFIRMED | boss behavior | `BossPatternCfg::self_dodge_amp` and `self_dodge_freq` are authored for GNU-ton, but the active self-dodge branch in `ambition_boss_encounter::pattern::tick` only reads `movement_timer` and applies no movement. | Implement the advertised dodge or delete the authoring fields and content value. Add a behavior witness. |
 | W003 | CONFIRMED | boss encounter schema | `transition_to_phase2_hp`, `stagger_seconds`, `stagger_threshold`, and `stagger_window_seconds` are authored in all shipped boss encounter RON files, but production Rust has no consumer for the four values. | Implement the encounter semantics or delete the fields from the schema and shipped data. |
 | W004 | CONFIRMED | melee authoring | `LungeSpec::step_px` and `SlamSpec::hop_height_px` are authored fields, but `MeleeActionSpec::timeline` explicitly drops them when it builds the current moveset path. | Carry the self-motion data into the move runtime or delete the unsupported controls. |
@@ -55,7 +54,7 @@ to the motivating example.
 | W023 | STRUCTURAL | combat/presentation boundary | `BodyCombat::hit_flash` is a visual flash timer, but gameplay and AI use it as a recent-hit signal for bark suppression and hostility/behavior gates. | Introduce a semantic recent-hit/reaction fact if gameplay needs one. Keep visual flash lifetime as presentation state. |
 | W024 | STRUCTURAL | projectile intent | `ActorFireRequest::speed` is still a live input to projectile spawn, while its own TODO says speed is redundant with resolved `RangedActionSpec`. `dir_to_world` also accepts unresolved `ScreenSpace`, logs that the result is wrong under rotated gravity, and then uses the screen vector as world space. | Make one speed authority. Make unresolved screen-space direction invalid at the gameplay seam instead of continuing with a known-wrong fallback. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
-| W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyMana`, `BodyOffense`, `BodyLifetime`, and `BodyComboTrace` part of what structurally counts as a complete body. Mana has an active migration plan; the other passengers do not. | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
+| W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyOffense`, `BodyLifetime`, and `BodyComboTrace` part of what structurally counts as a complete body. (Mana left the shape 2026-09-23: it is a declared resource in the optional bank.) | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
 
 ## Detailed evidence notes
 
@@ -128,8 +127,8 @@ decision rather than an accidental consequence of missing data.
 
 Do not duplicate these campaigns in this index:
 
-- Universal `BodyMana` and the Mana/Limit alias are owned by
-  `docs/planning/engine/composable-actor-resources.md` and its queue row.
+- Actor resources (the former universal `BodyMana` and its Mana/Limit alias)
+  are owned by `docs/planning/engine/composable-actor-resources.md`.
 - Known rollback-presence and deterministic-ingress defects remain in their
   existing owner documents and decision rows. This page is intentionally about
   local semantic debt that those indexes do not cover.

@@ -130,6 +130,14 @@ const WAIVED: &[(&str, &str)] = &[
          cannot reach the frame that wrote it, and a session whose body policy \
          changed mid-flight would be a different session",
     ),
+    (
+        "ambition_platformer2d_actor_monolith::avatar::starting_character::HomeBodyResources",
+        "the same activation input for what the home body HOLDS: the prepared \
+         bank the experience declared, on the session root beside \
+         `InitialBodyPolicy`, read only by `simulation_world` when it builds the \
+         body. The live bank it seeds (the body's ActorResources) is registered \
+         component-canonical",
+    ),
     // ── Authored geometry and identity on world props ────────────────────────
     //
     // Same population change surfaced these: a shrine, a moving platform's visual
@@ -1921,11 +1929,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // written by a system. A rewind restoring it would restore the same number
     // it already holds.
     //
-    // ⛔ WHAT IS ROLLBACK STATE IS THE METER ITSELF (`BodyMana`,
-    // `component-canonical`), which is exactly the split the entry below draws.
+    // ⛔ WHAT IS ROLLBACK STATE IS THE METER ITSELF (the Mana level in the
+    // body's `ActorResources`, `component-canonical`), which is exactly the
+    // split the entry below draws.
     (
         "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
-        "the composition's mana refill rate: a policy no system writes during play; the meter it fills (BodyMana) is registered component-canonical",
+        "the composition's mana refill rate: a policy no system writes during play; the meter it fills (the Mana level in a body's ActorResources) is registered component-canonical",
     ),
     (
         "ambition_demo_smash::limit::SmashLimitFill",

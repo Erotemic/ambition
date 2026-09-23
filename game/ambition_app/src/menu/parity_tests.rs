@@ -510,7 +510,6 @@ mod dispatch_parity {
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
     use ambition_platformer2d::actors::avatar::PlayerHealRequested;
     use ambition_platformer2d::characters::brain::ActionSet;
-    use ambition_platformer2d::engine_core::BodyMana;
     use ambition_platformer2d::input::MenuControlFrame;
     use ambition_platformer2d::inventory_ui::InventoryUiState;
     use ambition_platformer2d::menu::backend::InventoryUiBackend;
@@ -577,7 +576,7 @@ mod dispatch_parity {
             ActionSet::default(),
             ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
             ambition_platformer2d::combat::moveset::ActorMoveset::default(),
-            BodyMana::default(),
+            ambition_platformer2d::abilities::mana::bank(),
         ));
         app.update();
         app

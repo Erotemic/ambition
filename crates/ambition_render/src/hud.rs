@@ -5,9 +5,9 @@
 //! debug/quest text HUD (`app/hud.rs`) — this is the player-facing status
 //! widget that's always on screen.
 //!
-//! Mana is a real spendable resource: the sim's
-//! the player mana regeneration system refills the `BodyMana`
-//! meter over time so charge attacks / the fireball (which already spend it
+//! Mana is a real spendable resource where the experience declared it: the
+//! player mana regeneration system refills the body's banked Mana
+//! over time so charge attacks / the fireball (which already spend it
 //! via the projectile spawner) draw it down and it recovers. Money is fed by
 //! `PickupKind::Currency` collection crediting the body wallet. This module
 //! is a pure consumer of the sim-built
@@ -272,7 +272,7 @@ pub fn update_player_hud(
         node.width = Val::Percent(hp_frac * 100.0);
     }
     if let Ok(mut node) = fills.p1().single_mut() {
-        node.width = Val::Percent(facts.mana_fraction * 100.0);
+        node.width = Val::Percent(facts.mana.map_or(0.0, |mana| mana.fraction()) * 100.0);
     }
     if let Ok(mut text) = labels.p0().single_mut() {
         set_text_if_changed(
@@ -281,7 +281,12 @@ pub fn update_player_hud(
         );
     }
     if let Ok(mut text) = labels.p1().single_mut() {
-        set_text_if_changed(&mut text, format!("MP {}", facts.mana_current as i32));
+        let label = match facts.mana {
+            Some(mana) => format!("MP {}", mana.current as i32),
+            // A body that holds no Mana reads as such, not as an empty pool.
+            None => "MP -".to_owned(),
+        };
+        set_text_if_changed(&mut text, label);
     }
     if let Ok(mut text) = labels.p2().single_mut() {
         set_text_if_changed(&mut text, format!("${}", facts.balance));
@@ -423,8 +428,10 @@ mod tests {
             present: true,
             hp_current: 3,
             hp_max: 10,
-            mana_current: 12.0,
-            mana_fraction: 0.2,
+            mana: Some(ambition_platformer2d_core::resources::ResourceLevel {
+                current: 12.0,
+                max: 60.0,
+            }),
             balance: 7,
         });
 

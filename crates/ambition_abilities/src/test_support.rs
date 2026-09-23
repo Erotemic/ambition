@@ -51,6 +51,8 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
                 "test_primary_player",
             ),
             ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
+            // The pool the Ambition home body is built holding.
+            crate::mana::bank(),
         ))
         .id();
     // Ability systems now key on the controlled subject, not a `PrimaryPlayer`
@@ -60,10 +62,28 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
 }
 
 /// A primary player holding `held_item_id` at an explicit `pos` / `facing`, with
-/// NO `BodyMana` — the minimal bundle the traversal-ability tests (blink /
+/// NO Mana — the minimal bundle the traversal-ability tests (blink /
 /// grapple / mark-recall) spawn. One definition so the body/`BodyBaseSize`
 /// bundle can't drift across those modules; each caller passes only the pos /
 /// facing it cares about.
+/// Set `body`'s Mana level; the body must hold Mana.
+pub fn set_mana(app: &mut App, body: Entity, current: f32) {
+    let mut bank = app
+        .world_mut()
+        .get_mut::<ambition_platformer2d_core::resources::ActorResources>(body)
+        .expect("the fixture body holds a bank");
+    bank.level_of_mut(&crate::mana::MANA)
+        .expect("the fixture body holds Mana")
+        .current = current;
+}
+
+/// `body`'s current Mana; the body must hold Mana.
+pub fn mana(app: &App, body: Entity) -> f32 {
+    crate::mana::level(app.world().get(body))
+        .expect("the fixture body holds Mana")
+        .current
+}
+
 pub fn spawn_primary_player_holding_at(
     app: &mut App,
     held_item_id: &str,
@@ -138,6 +158,10 @@ pub fn spawn_seated_body_holding(
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
             ),
+            // Its own pool, as a seat whose experience declared one — the
+            // population question these fixtures ask is who FIRES, not who
+            // was declared Mana.
+            crate::mana::bank(),
         ))
         .id()
 }

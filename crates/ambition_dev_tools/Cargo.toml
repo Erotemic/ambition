@@ -15,6 +15,8 @@ crate-type = ["rlib"]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # BodyHealth / Health for the player-stats inspector sync.
 ambition_characters = { path = "../ambition_characters" }
+# The Mana resource id the player-stats inspector reads and edits.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # PrimaryPlayerOnly (With<PlayerEntity> + With<PrimaryPlayer>) query filter.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # platform_paths::data_dir_root for the developer.ron on-disk location.

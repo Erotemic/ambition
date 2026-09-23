@@ -17,6 +17,9 @@ test-support = []
 
 [dependencies]
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_resource_spec = { path = "../ambition_resource_spec" }
+# The Mana declaration (authored data) the spend rules here read.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_characters = { path = "../ambition_characters" }

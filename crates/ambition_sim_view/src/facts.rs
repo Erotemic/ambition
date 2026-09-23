@@ -14,7 +14,8 @@ use bevy::prelude::*;
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::{BodyKinematics, BodyMana};
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -29,22 +30,22 @@ pub struct PlayerHudFacts {
     pub present: bool,
     pub hp_current: i32,
     pub hp_max: i32,
-    pub mana_current: f32,
-    pub mana_fraction: f32,
+    /// `None` for a body that holds no Mana.
+    pub mana: Option<ResourceLevel>,
     pub balance: i32,
 }
 
 pub fn rebuild_player_hud_facts(
     mut facts: ResMut<PlayerHudFacts>,
     controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<(&BodyHealth, &BodyMana, Option<&BodyWallet>)>,
+    bodies: Query<(&BodyHealth, Option<&ActorResources>, Option<&BodyWallet>)>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let subject = controlled
         .as_deref()
         .and_then(|subject| subject.0)
         .or_else(|| primary.single().ok());
-    let Some((health, mana, wallet)) = subject.and_then(|e| bodies.get(e).ok()) else {
+    let Some((health, resources, wallet)) = subject.and_then(|e| bodies.get(e).ok()) else {
         facts.present = false;
         return;
     };
@@ -52,8 +53,7 @@ pub fn rebuild_player_hud_facts(
         present: true,
         hp_current: health.current(),
         hp_max: health.max(),
-        mana_current: mana.meter.current,
-        mana_fraction: mana.meter.fraction(),
+        mana: ambition_abilities::mana::level(resources),
         balance: wallet.map(|wallet| wallet.balance).unwrap_or(0),
     };
 }
@@ -962,14 +962,16 @@ mod tests {
             PlayerEntity,
             PrimaryPlayer,
             BodyHealth::new(Health::new(20)),
-            BodyMana::default(),
+            ActorResources::declared(&[ambition_abilities::mana::POOL])
+                .expect("valid")
+                .expect("declared"),
             BodyWallet { balance: 42 },
         ));
         let mut actor_hp = BodyHealth::new(Health::new(10));
         actor_hp.damage(7);
         let actor = app
             .world_mut()
-            .spawn((actor_hp, BodyMana::default(), BodyWallet { balance: 7 }))
+            .spawn((actor_hp, BodyWallet { balance: 7 }))
             .id();
         app.world_mut()
             .insert_resource(ControlledSubject(Some(actor)));
@@ -983,6 +985,11 @@ mod tests {
             "HUD facts must snapshot the POSSESSED body's health"
         );
         assert_eq!(facts.balance, 7, "money is a body stat");
+        assert_eq!(
+            facts.mana, None,
+            "the possessed body holds no Mana, so the HUD must not show the \
+             home avatar's pool as if it were this body's"
+        );
     }
 
     #[test]

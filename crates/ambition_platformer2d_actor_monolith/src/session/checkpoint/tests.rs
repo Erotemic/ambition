@@ -2,7 +2,7 @@ use super::*;
 
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::ActorControl;
-use ambition_platformer2d_core::{BodyBaseSize, BodyKinematics, BodyMana, Vec2};
+use ambition_platformer2d_core::{BodyBaseSize, BodyKinematics, Vec2};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 
@@ -74,7 +74,6 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
                 max: 5,
                 invulnerable: Default::default(),
             }),
-            BodyMana::default(),
         ))
         .id();
     app.world_mut().spawn(HealShrine {

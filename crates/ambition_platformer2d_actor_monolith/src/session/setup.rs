@@ -54,6 +54,8 @@ pub struct SimulationSetup<'a> {
     /// actor nobody owns — the camera follows it and input drives it while the
     /// fighter the player chose stands somewhere else.
     pub initial_body: &'a crate::avatar::InitialBodyPolicy,
+    /// What the home body holds, when there is one.
+    pub home_body_resources: &'a crate::avatar::HomeBodyResources,
     /// The prepared cast, when this composition registered one.
     ///
     /// `None` is the ordinary case for a composition that registers no
@@ -127,6 +129,7 @@ pub fn simulation_world(
         room_set,
         tuning,
         initial_body,
+        home_body_resources,
         prepared_characters,
         placement_lowering,
         content_staging,
@@ -353,6 +356,11 @@ pub fn simulation_world(
     // And the applied-template stamp, with an EMPTY displacement: nothing was
     // taken from a body that was BUILT as this character.
     crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
+    // What the body holds, from the same prepared bank a reset returns it to
+    // the start of. Absent is the answer for an experience that declared none.
+    if let Some(bank) = home_body_resources.bank() {
+        commands.entity(player).insert(bank.clone());
+    }
     commands
         .entity(player)
         .insert(ambition_body_seed::PersonaBaseline {

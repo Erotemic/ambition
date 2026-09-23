@@ -2215,11 +2215,6 @@ fn place_respawning_fighters(
             ambition_platformer2d::engine_core::ResetFacing::Toward(
                 stage_centre().x - placement.x,
             ),
-            // The Limit is not this argument's: the reset returns every
-            // resource in the body's bank to its declared start, and the Limit
-            // is declared EMPTY — a respawned fighter cannot buy the comeback
-            // move on the frame after dying.
-            ambition_platformer2d::engine_core::ResetMeter::Full,
             // This demo's fighters run the engine's default air game; a stage
             // that tuned it would pass its own number here, which is the point
             // of the parameter.

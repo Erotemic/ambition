@@ -2,7 +2,6 @@ use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_platformer2d::settings_menu::settings::SettingsOptionId;
 use ambition_platformer2d::characters::brain::ActionSet;
-use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::items::Item;
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
@@ -76,7 +75,7 @@ fn grid_app() -> App {
         ActionSet::default(),
         ambition_platformer2d::characters::brain::action_set::IdentityKit::default(),
         ambition_platformer2d::combat::moveset::ActorMoveset::default(),
-        BodyMana::default(),
+        ambition_platformer2d::abilities::mana::bank(),
     ));
     app.update();
     app

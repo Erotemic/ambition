@@ -656,7 +656,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// became a DECLARED-DERIVED mirror of the clock in `77aee7ae4` (the clock
 /// heads the tick; `SimDt` is rebuilt from it), so it stopped feeding the
 /// checksum at v202. This bump is the first to cover that change.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 203;
+/// ⛔⛤ 203 -> 204: MANA JOINED THE BANK AND ITS OWN ROW LEFT. `body.mana`
+/// (`BodyMana`, a `ResourceMeter` every body carried) is gone: Mana is a
+/// declared resource in `body.resources` now, held only by a body whose
+/// experience declared the pool (`composable-actor-resources.md`, step 2).
+/// One row fewer, and a body that holds no Mana writes no Mana bytes.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 204;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

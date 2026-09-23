@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_support::spawn_primary_player_holding;
-use ambition_platformer2d_core::{BodyKinematics, BodyMana};
+use ambition_platformer2d_core::BodyKinematics;
 
 fn test_app() -> App {
     let mut app = App::new();
@@ -124,11 +124,7 @@ fn dive_costs_mana_and_is_blocked_when_empty() {
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, capture_hits.after(fire_dive_system));
     let player = spawn_primary_player_holding(&mut app, DIVE_ID);
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 5.0;
+    crate::test_support::set_mana(&mut app, player, 5.0);
     app.world_mut()
         .get_mut::<ActorControl>(player)
         .unwrap()
@@ -146,11 +142,7 @@ fn dive_costs_mana_and_is_blocked_when_empty() {
         "and no lunge either"
     );
 
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 100.0;
+    crate::test_support::set_mana(&mut app, player, 100.0);
     app.update();
     assert_eq!(
         app.world().resource::<CapturedHits>().0.len(),

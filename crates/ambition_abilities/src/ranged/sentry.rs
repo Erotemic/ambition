@@ -19,7 +19,6 @@ use ambition_characters::control::ActorControl;
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -63,14 +62,14 @@ pub struct Sentry {
 /// Body-generic: gated on the body's own resolved intent ([`ActorControl`], the
 /// same frame an NPC brain writes) and iterating every wielder, so a
 /// possessed/robot body holding the gauntlet deploys through this exact path.
-/// `BodyMana` is the implicit gate (player-only today).
+/// Mana is the gate: a body holds it only when its experience declared the pool.
 pub fn fire_sentry_system(
     mut wielders: Query<(
         Entity,
         &ActorControl,
         &BodyKinematics,
         &HeldItem,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         Option<&SessionScopedEntity>,
         // The deployer's combat side, copied onto the turret. `Option` because a
         // body without one is a fixture, not something production seats.
@@ -132,7 +131,7 @@ pub fn fire_sentry_system(
             deployer,
             counter.next(),
         ));
-        if !mana.meter.try_spend(SENTRY_MANA_COST) {
+        if !crate::mana::spend(mana.as_deref_mut(), SENTRY_MANA_COST) {
             continue;
         }
         // G1: the turret INHERITS its summoner's presentation source, so the
@@ -423,7 +422,7 @@ mod tests {
             .entity_mut(deployer)
             .remove::<ambition_platformer2d_shared_tangle::sim_id::SimId>();
 
-        let before = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        let before = crate::test_support::mana(&app, deployer);
         // ⛔ ANTI-VACUITY: the deployer must be able to AFFORD the sentry, or
         // "no turret" is the mana gate speaking and this arm proves nothing.
         assert!(
@@ -446,7 +445,7 @@ mod tests {
             "a deployer with no SimId deployed a turret anyway, so the unnameable \
              road is still reachable"
         );
-        let after = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        let after = crate::test_support::mana(&app, deployer);
         assert_eq!(
             after, before,
             "the refusal charged the deployer for a turret it did not get — the \
@@ -461,7 +460,7 @@ mod tests {
     fn the_same_deployer_with_its_identity_does_deploy() {
         let mut app = test_app();
         let deployer = spawn_primary_player_holding(&mut app, SENTRY_ID);
-        let before = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        let before = crate::test_support::mana(&app, deployer);
         app.world_mut()
             .get_mut::<ActorControl>(deployer)
             .unwrap()
@@ -471,7 +470,7 @@ mod tests {
 
         let mut turrets = app.world_mut().query::<&Sentry>();
         assert_eq!(turrets.iter(app.world()).count(), 1, "one turret deployed");
-        let after = app.world().get::<BodyMana>(deployer).unwrap().meter.current;
+        let after = crate::test_support::mana(&app, deployer);
         assert!(
             after < before,
             "a deploy that happened did not spend mana, so the meter is not the \

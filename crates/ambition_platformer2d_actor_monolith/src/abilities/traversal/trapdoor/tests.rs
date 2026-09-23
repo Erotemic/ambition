@@ -83,7 +83,6 @@ fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude
             ae::BodyShieldState::default(),
             ae::BodyModeState::default(),
             ae::BodyEnvironmentContact::default(),
-            ae::BodyMana::default(),
             ae::BodyOffense::default(),
             ae::BodyActionBuffer::default(),
             ae::BodyLifetime::default(),

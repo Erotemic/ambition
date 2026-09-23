@@ -30,15 +30,16 @@ fn interacting_at_the_shrine_heals_to_full() {
                 max: 5,
                 invulnerable: Default::default(),
             }),
-            BodyMana::default(),
+            ambition_abilities::mana::bank(),
         ))
         .id();
     // Drain mana so we can see it refill.
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .try_spend(40.0);
+    assert!(ambition_abilities::mana::spend(
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::resources::ActorResources>(player)
+            .as_deref_mut(),
+        40.0
+    ));
     app.world_mut().spawn(HealShrine {
         pos: Vec2::new(100.0, 100.0),
         half_extent: Vec2::new(22.0, 40.0),
@@ -54,9 +55,9 @@ fn interacting_at_the_shrine_heals_to_full() {
 
     let health = *app.world().get::<BodyHealth>(player).unwrap();
     assert_eq!(health.current(), health.max(), "health should be full");
-    let mana = app.world().get::<BodyMana>(player).unwrap().meter;
+    let mana = ambition_abilities::mana::level(app.world().get(player)).expect("held");
     assert!(
-        mana.is_full(),
+        mana.current == mana.max,
         "mana should be refilled, got {}",
         mana.current
     );
@@ -89,7 +90,6 @@ fn no_heal_without_interact_or_when_not_touching() {
                 max: 5,
                 invulnerable: Default::default(),
             }),
-            BodyMana::default(),
         ))
         .id();
     // A shrine far away.
@@ -152,7 +152,6 @@ fn two_driven_bodies_resting_at_a_shrine_both_heal_and_write_one_checkpoint() {
                     max: 5,
                     invulnerable: Default::default(),
                 }),
-                BodyMana::default(),
                 DrivingParticipant(PlayerSlot(slot)),
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
             ))
@@ -255,7 +254,6 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
             max: 5,
             invulnerable: Default::default(),
         }),
-        BodyMana::default(),
     ));
 
     // The body a participant is actually driving — a possessed vessel — resting
@@ -278,7 +276,6 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
                 max: 5,
                 invulnerable: Default::default(),
             }),
-            BodyMana::default(),
             DrivingParticipant(PlayerSlot::PRIMARY),
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("vessel"),
         ))
@@ -377,7 +374,6 @@ fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
                 max: 5,
                 invulnerable: Default::default(),
             }),
-            BodyMana::default(),
         ))
         .id();
     app.world_mut().spawn(HealShrine {

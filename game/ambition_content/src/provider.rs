@@ -48,6 +48,14 @@ impl AmbitionPreparedWorld {
                 active_room,
                 self.starting_character.clone(),
             )
+            // Ambition's player holds Mana: the pool its held abilities spend.
+            // Declared here, on the home body, so no other body has it.
+            .with_home_body_resources(
+                ambition_platformer2d_runtime::demo_fixture::HomeBodyResources::declared(&[
+                    ambition_platformer2d::abilities::mana::POOL,
+                ])
+                .expect("one declared pool is a valid layout"),
+            )
             .with_installed_ldtk_index(self.ldtk_index.clone())
         } else {
             PreparedPlatformerSource::for_match(
@@ -124,6 +132,12 @@ impl Plugin for AmbitionExperiencePlugin {
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, ambition_session_world);
+        // The refill rate for the Mana this experience declares. Inert for every
+        // body that holds no Mana, so composing this beside other experiences
+        // changes nothing of theirs.
+        app.insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(
+            ambition_platformer2d::abilities::mana::REGEN_PER_SEC,
+        ));
     }
 }
 

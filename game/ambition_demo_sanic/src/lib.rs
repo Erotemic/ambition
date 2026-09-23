@@ -1017,6 +1017,9 @@ fn sanic_setup(
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
     >,
+    home_body_resources: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::HomeBodyResources,
+    >,
     character_catalog: bevy::prelude::Res<
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
@@ -1049,6 +1052,7 @@ fn sanic_setup(
             // facility, and construction needs only the set.
             tuning: &tuning,
             initial_body: &initial_body,
+            home_body_resources: &home_body_resources,
             prepared_characters: prepared_characters.as_deref(),
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,

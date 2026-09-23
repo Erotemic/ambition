@@ -15,7 +15,9 @@
 use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
-use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
+use ambition_platformer2d_actor_monolith::avatar::{
+    HomeBodyResources, InitialBodyPolicy, StartingCharacter,
+};
 use ambition_platformer2d_world::rooms::{
     ActiveRoomMetadata, LiveRoomInstance, RoomMusicRequest, RoomSet,
 };
@@ -54,6 +56,8 @@ pub struct PreparedPlatformerSource {
     /// [`InitialBodyPolicy`]; a match experience declares
     /// [`InitialBodyPolicy::NoInitialBody`] and realizes its own cast.
     initial_body: InitialBodyPolicy,
+    /// What the home body holds. See [`HomeBodyResources`].
+    home_body_resources: HomeBodyResources,
     /// The active-area index an authoring FORMAT installed, if any. `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
@@ -76,6 +80,7 @@ impl PreparedPlatformerSource {
             geometry,
             active_room,
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
+            home_body_resources: HomeBodyResources::default(),
             starting_character,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
@@ -109,9 +114,18 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: catalog_default,
             initial_body: InitialBodyPolicy::NoInitialBody,
+            home_body_resources: HomeBodyResources::default(),
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
+    }
+
+    /// Declare the resources the home body is built holding — the
+    /// experience's answer, read once when the body is constructed.
+    #[must_use]
+    pub fn with_home_body_resources(mut self, resources: HomeBodyResources) -> Self {
+        self.home_body_resources = resources;
+        self
     }
 
     /// Install an authoring format's active-area index onto this definition.
@@ -179,6 +193,7 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
+            home_body_resources: self.home_body_resources.clone(),
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: self.installed_ldtk_index.clone(),
         }
@@ -221,6 +236,7 @@ impl PreparedPlatformerSource {
             active_room: self.active_room.clone(),
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
+            home_body_resources: self.home_body_resources.clone(),
             requests: PlatformerSessionRequests::default(),
         }
     }
@@ -253,6 +269,7 @@ pub struct PlatformerSessionWorld {
     pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
     pub initial_body: InitialBodyPolicy,
+    pub home_body_resources: HomeBodyResources,
     pub requests: PlatformerSessionRequests,
 }
 

@@ -6298,7 +6298,7 @@
         }
       ],
       "classification": "resolved 2026-09-22",
-      "consolidation_hypothesis": "Mana is still `BodyMana` on every body and `ResetMeter` still answers for it; the Mana step of `composable-actor-resources.md` moves it into the bank and deletes both.",
+      "consolidation_hypothesis": "None outstanding. Mana moved into the bank as a declared resource of the Ambition home body, and `BodyMana` and `ResetMeter` are deleted (`composable-actor-resources.md` Step 2, 2026-09-23).",
       "why_it_exists": "the reset returns every banked resource to its declared start, and a seat is BUILT with the match's Limit (2026-09-22, bank 2026-09-23)",
       "metric_tags": [],
       "duplicate_authority_state": "RESOLVED"

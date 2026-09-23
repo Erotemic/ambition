@@ -66,11 +66,7 @@ fn no_beam_without_attack_or_item() {
 fn beam_costs_mana_and_is_blocked_when_empty() {
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, BEAM_ID);
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 5.0;
+    crate::test_support::set_mana(&mut app, player, 5.0);
     app.world_mut()
         .get_mut::<ActorControl>(player)
         .unwrap()
@@ -79,14 +75,10 @@ fn beam_costs_mana_and_is_blocked_when_empty() {
     app.update();
     assert_eq!(hitboxes(&mut app).len(), 0, "no beam when mana < cost");
 
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 100.0;
+    crate::test_support::set_mana(&mut app, player, 100.0);
     app.update();
     assert_eq!(hitboxes(&mut app).len(), 1, "fires once there's mana");
-    let mana = app.world().get::<BodyMana>(player).unwrap().meter.current;
+    let mana = crate::test_support::mana(&app, player);
     assert!(
         (mana - (100.0 - BEAM_MANA_COST)).abs() < 0.01,
         "mana dropped by the cost: {mana}"
@@ -171,4 +163,30 @@ fn two_driven_bodies_each_fire_their_own_beam() {
         centers.iter().any(|&x| x > 100.0 && x < 500.0) && centers.iter().any(|&x| x > 900.0),
         "each beam should reach forward of its OWN body; got {centers:?}"
     );
+}
+
+/// ⛔ ABSENCE IS NEVER AFFORDABLE. A body that holds no Mana — a possessed
+/// enemy, a body from an experience that declared no pool — cannot fire a Mana
+/// ability, however much it would cost. The control is the same body WITH its
+/// pool firing, so the refusal is the missing resource speaking.
+#[test]
+fn a_body_that_holds_no_mana_cannot_fire_the_beam() {
+    let mut app = test_app();
+    let player = spawn_primary_player_holding(&mut app, BEAM_ID);
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .melee_pressed = true;
+    app.world_mut()
+        .entity_mut(player)
+        .remove::<ambition_platformer2d_core::resources::ActorResources>();
+    app.update();
+    assert_eq!(hitboxes(&mut app).len(), 0, "a body without Mana fired anyway");
+
+    app.world_mut()
+        .entity_mut(player)
+        .insert(crate::mana::bank());
+    app.update();
+    assert_eq!(hitboxes(&mut app).len(), 1, "the control: the same body with its pool fires");
 }

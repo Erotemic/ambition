@@ -24,7 +24,6 @@ use bevy::prelude::*;
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
@@ -89,7 +88,7 @@ pub fn fire_beam_system(
         &HeldItem,
         &BodyKinematics,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
@@ -107,7 +106,7 @@ pub fn fire_beam_system(
             continue;
         }
         // Costs mana — out of mana, no beam (the sandbox's fast regen tops it back up).
-        if !mana.meter.try_spend(BEAM_MANA_COST) {
+        if !crate::mana::spend(mana.as_deref_mut(), BEAM_MANA_COST) {
             continue;
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).

@@ -47,8 +47,8 @@ pub use body_clusters::{
     BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime,
     BodyLineAnchor,
-    BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
-    RecoveryRefresh, ResetFacing, ResetMeter, SweepSample, DEFAULT_RECOVERY_CHARGES,
+    BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
+    RecoveryRefresh, ResetFacing, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };
 pub use rollback_registration::register_rollback_state;
 // TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove

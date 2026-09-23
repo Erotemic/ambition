@@ -152,12 +152,14 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_combat",
+ "ambition_entity_catalog",
  "ambition_held_items",
  "ambition_items",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_projectiles",
+ "ambition_resource_spec",
  "ambition_sfx",
  "ambition_time",
  "ambition_vfx",
@@ -540,6 +542,7 @@ name = "ambition_dev_tools"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_entity_catalog",
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -900,6 +903,7 @@ dependencies = [
  "ambition_portal2d",
  "ambition_projectiles",
  "ambition_registry_core",
+ "ambition_resource_spec",
  "ambition_sfx",
  "ambition_sim_view",
  "ambition_sprite_sheet",

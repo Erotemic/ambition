@@ -556,8 +556,6 @@ pub fn process_new_game_reset_request(
                 &mut clusters,
                 spawn,
                 ae::ResetFacing::Toward(1.0),
-                // A room reset hands the pool back full.
-                ae::ResetMeter::Full,
                 air_jumps,
             );
             anim.reset();

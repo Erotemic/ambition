@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
-    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
+    BodyLedgeState, BodyLifetime, BodyModeState, BodyOffense, BodyShieldState,
     BodyWallState,
 };
 
@@ -69,7 +69,6 @@ pub struct ActorMut<'a> {
     pub shield: &'a mut BodyShieldState,
     pub body_mode: &'a mut BodyModeState,
     pub env_contact: &'a mut BodyEnvironmentContact,
-    pub mana: &'a mut BodyMana,
     pub resources: Option<&'a mut ambition_platformer2d_core::resources::ActorResources>,
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
@@ -98,7 +97,6 @@ impl<'a> ActorMut<'a> {
             shield: &mut *self.shield,
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
-            mana: &mut *self.mana,
             resources: self.resources.as_deref_mut(),
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
@@ -155,7 +153,6 @@ pub struct ActorClusterQueryData {
     pub shield: &'static mut BodyShieldState,
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
-    pub mana: &'static mut BodyMana,
     pub resources: Option<&'static mut ambition_platformer2d_core::resources::ActorResources>,
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
@@ -196,7 +193,6 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             shield: &mut self.shield,
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
-            mana: &mut self.mana,
             resources: self.resources.as_deref_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
@@ -252,7 +248,6 @@ impl SeedActorMut for ActorClusterSeed {
             shield: &mut body.shield,
             body_mode: &mut body.body_mode,
             env_contact: &mut body.env_contact,
-            mana: &mut body.mana,
             resources: body.resources.as_mut(),
             offense: &mut body.offense,
             action_buffer: &mut body.action_buffer,

@@ -31,7 +31,6 @@ fn step_axis_player(
             &mut clusters,
             world.spawn,
             ae::ResetFacing::Keep,
-            ae::ResetMeter::Full,
             ae::DEFAULT_TUNING.air_jumps,
         );
     }

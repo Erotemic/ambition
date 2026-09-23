@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v203
+ggrs-rollback-schema-v204
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -92,7 +92,6 @@ body.health	component-canonical	BodyHealth	bevy_ggrs canonical codec snapshot + 
 body.jump	component-canonical	BodyJumpState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.kinematics	component-canonical	BodyKinematics	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.lifetime	component-canonical	BodyLifetime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.mana	component-canonical	BodyMana	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.offense	component-canonical	BodyOffense	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.resources	component-canonical	ActorResources	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

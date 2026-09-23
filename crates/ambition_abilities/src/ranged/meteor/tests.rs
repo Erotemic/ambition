@@ -50,11 +50,7 @@ fn no_meteor_without_attack_or_item() {
 fn meteor_costs_mana_and_is_blocked_when_empty() {
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, METEOR_ID);
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 5.0;
+    crate::test_support::set_mana(&mut app, player, 5.0);
     app.world_mut()
         .get_mut::<ActorControl>(player)
         .unwrap()
@@ -65,11 +61,7 @@ fn meteor_costs_mana_and_is_blocked_when_empty() {
         live_projectile_bodies(&mut app).is_empty(),
         "no meteors when mana < cost"
     );
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 100.0;
+    crate::test_support::set_mana(&mut app, player, 100.0);
     app.update();
     assert_eq!(
         live_projectile_bodies(&mut app).len(),

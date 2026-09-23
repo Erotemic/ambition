@@ -90,6 +90,7 @@ mod falling_sand_room;
 mod fb6_shadow_fidelity;
 mod first_room_art;
 mod frozen_belief_does_not_resurrect;
+mod the_home_body_holds_the_mana_it_declared;
 mod fly_to_the_hall_of_characters;
 mod fuzz_random_walker;
 mod gameplay_presentation_ggrs;

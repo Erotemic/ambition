@@ -104,6 +104,33 @@ pub enum InitialBodyPolicy {
     NoInitialBody,
 }
 
+/// What the session's home body HOLDS, as the experience declared it — the
+/// resources it is built with and resets to (Ambition's Mana pool, say).
+///
+/// Empty is a complete answer: a home body that holds nothing. It sits beside
+/// [`InitialBodyPolicy`] on the session root for the same reason that does —
+/// an activation input the experience authors, read once when the body is
+/// built — and is a separate component because a match, which builds no home
+/// body, has nothing to say here.
+///
+/// It holds the PREPARED bank, so a bad declaration is refused where the
+/// experience wrote it and setup only clones a finished answer.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct HomeBodyResources(Option<ambition_platformer2d_core::resources::ActorResources>);
+
+impl HomeBodyResources {
+    pub fn declared(
+        declarations: &[ambition_resource_spec::ResourceDeclaration],
+    ) -> Result<Self, ambition_platformer2d_core::resources::ResourceLayoutError> {
+        ambition_platformer2d_core::resources::ActorResources::declared(declarations).map(Self)
+    }
+
+    /// The bank the home body is built holding, at its declared start.
+    pub fn bank(&self) -> Option<&ambition_platformer2d_core::resources::ActorResources> {
+        self.0.as_ref()
+    }
+}
+
 impl Default for InitialBodyPolicy {
     fn default() -> Self {
         Self::SpawnCharacter(StartingCharacter::default())

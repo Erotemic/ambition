@@ -1226,7 +1226,7 @@ whichever meter its caster carried; and Smash had to insert
 **New single authority.**
 
 ```text
-ResourceId / ResourceCost / ResourceDeclaration   ambition_entity_catalog::resources
+ResourceId / ResourceCost / ResourceDeclaration   ambition_resource_spec (leaf)
   |  (content-safe; identity = FNV-1a digest of the authored name)
 MatchRules::resources  (Smash: SMASH_LIMIT.declaration() — cap 60, EMPTY)
   |  seat preparation: ActorResources::declared(...) onto the seed
@@ -1259,13 +1259,58 @@ a walk over other state. `ResourceSlot` handles carry their layout id, so a
 handle prepared against another layout reads nothing. Whether hot capability
 systems should cache slots per layout is the open 0D measurement.
 
-**Still open — step 2 (Mana).** `BodyMana` remains on every body as the main
-game's Mana: the Mana abilities, `regen_player_mana` (which still invents a
-rate when `PlayerManaRegen` is absent), the shrine, the mana cell, the HUD,
-`sim_view` facts, the harness observation and the dev stats panel. Step 2
-declares Mana where the main game composes its player, moves those consumers
-onto the bank, and deletes `BodyMana`, `ResetMeter` and `ResourceMeter`'s body
-use.
+### Step 2 landed 2026-09-23 — Mana is a declared resource of the home body
+
+**Old authorities.** `BodyMana` sat on EVERY body — the movement bundle built
+it full at 100 — so a body held Mana merely by existing, and a possessed enemy
+or a Smash seat could spend it. `regen_player_mana` invented a 14/s rate when
+no composition stated one. Reset took a `ResetMeter::{Keep, Full, Empty}` the
+CALLER chose, a second answer to what the body resets to beside its declared
+start. The dev panel, HUD, `sim_view` and harness read the component directly
+and reported a body without a pool as an empty one.
+
+**New single authority.**
+
+```text
+ambition_abilities::mana::{MANA, POOL (100, Full), REGEN_PER_SEC}
+  |  the Ambition provider (AmbitionPreparedWorld::prepared_source)
+PreparedPlatformerSource::with_home_body_resources(HomeBodyResources::declared(&[POOL]))
+  |  validated once there; carried on the session root beside InitialBodyPolicy
+simulation_world: the player is spawned and the prepared bank inserted in the
+  same command flush (no frame without it)
+  |
+the body's ActorResources (`body.resources`) — the same bank the Limit lives in
+  reset: reset_body_clusters -> reset_to_start, the SAME declaration
+```
+
+The seven Mana abilities, the shrine, the mana cell, the dev panel and the
+regen reach the `MANA` level by name through `mana::spend`/`mana::level`; a
+body without it pays nothing and is refused. `PlayerManaRegen` has no default
+— Ambition's plugin states the rate, and a composition that states none
+refills nothing. Read models carry `Option`: the HUD prints `MP -` for a body
+that holds no Mana rather than `MP 0`.
+
+**Deleted.** `BodyMana` (component, default, snapshot codec, `body.mana`
+rollback row — schema 203 -> 204), `ResetMeter` and the reset's `meter`
+parameter, the monolith's `MANA_REGEN_PER_SEC` fallback, and the mana fields of
+the body clusters, the scratch and the movement bundle.
+
+**Behaviour change, deliberate.** Only the Ambition home body holds Mana. A
+possessed body, an NPC, a Sanic or Mary-O avatar and a Smash seat hold none, so
+the Mana abilities are refused on them and the HUD shows no pool. A mana cell
+used by a body without Mana is kept, not consumed.
+
+**Tests.** `a_body_that_holds_no_mana_cannot_fire_the_beam` (absence refused,
+the same body with its pool fires); `no_stated_rate_refills_nothing_and_no_pool_gains_mana`;
+`hud_facts_track_the_controlled_body` now asserts a possessed body without Mana
+publishes `None`; the Smash A/B asserts every seat's layout is exactly
+`{smash.limit}`, and its control GIVES each seat a drained pool beside the
+Limit in one bank, so the equality is measured with the two resources
+co-resident.
+
+**Still `ResourceMeter`.** `ambition_platformer2d_core::player_state::ResourceMeter`
+survives only as the value type of other non-body meters; the body no longer
+holds one.
 
 ### Classification, measured 2026-09-23 (Phase 2 step 1 and Phase 3's first step)
 

@@ -131,7 +131,9 @@ pub mod demo_fixture {
     pub use ambition_boss_encounter::BossCatalog;
     pub use ambition_characters::prepared::PreparedCharacterRegistry;
     pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
-    pub use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
+    pub use ambition_platformer2d_actor_monolith::avatar::{
+        HomeBodyResources, InitialBodyPolicy, StartingCharacter,
+    };
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;

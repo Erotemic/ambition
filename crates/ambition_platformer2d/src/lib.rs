@@ -242,6 +242,10 @@ pub mod actor {
     pub use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, SpawnScopedExt};
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
+    /// What a body holds: its declared resources, read by name.
+    pub use ambition_platformer2d_core::resources::{ActorResources, ResourceLevel};
+    /// The main game's Mana declaration — the name a reader asks a bank for.
+    pub use ambition_entity_catalog::mana;
     /// The query filter for "the body this player already has", which a game
     /// needs to re-dress it — see `WornCharacter` and the seating contract.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;

@@ -19,7 +19,6 @@ use ambition_combat::held_items::HeldItem;
 use ambition_combat::components::ActorFaction;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
@@ -63,7 +62,7 @@ pub fn fire_vortex_system(
         &BodyKinematics,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         Option<&SessionScopedEntity>,
         // The caster's identity and its own mint stream. `Option` because a
         // fixture body carries neither; production bodies are named by
@@ -112,7 +111,7 @@ pub fn fire_vortex_system(
             caster,
             counter.next(),
         ));
-        if !mana.meter.try_spend(VORTEX_MANA_COST) {
+        if !crate::mana::spend(mana.as_deref_mut(), VORTEX_MANA_COST) {
             continue;
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).

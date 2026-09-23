@@ -15,7 +15,6 @@ use ambition_combat::held_items::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";
@@ -38,9 +37,10 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 ///
 /// Body-generic: the trigger reads the body's own resolved intent
 /// ([`ActorControl`], the same frame an NPC brain writes) rather than the
-/// player's raw input, and iterates every wielder. `BodyMana` is the implicit
-/// gate (player-only today), so a possessed/robot body that gains mana + this
-/// gauntlet slams through this exact path — no player-casing.
+/// player's raw input, and iterates every wielder. Mana is the gate, and a
+/// body holds Mana only when its experience declared the pool, so any body that
+/// holds Mana and this gauntlet slams through this exact path — no
+/// player-casing.
 pub fn fire_shockwave_system(
     mut wielders: Query<(
         Entity,
@@ -48,7 +48,7 @@ pub fn fire_shockwave_system(
         &HeldItem,
         &BodyKinematics,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
@@ -61,7 +61,7 @@ pub fn fire_shockwave_system(
             continue;
         }
         // Costs mana — out of mana, no slam (the sandbox's fast regen tops it back up).
-        if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
+        if !crate::mana::spend(mana.as_deref_mut(), SHOCKWAVE_MANA_COST) {
             continue;
         }
         // The body's per-tick resolved frame (ADR 0024 frame law).

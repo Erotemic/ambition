@@ -108,6 +108,9 @@ fn fixture_setup(
     initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_runtime::demo_fixture::InitialBodyPolicy,
     >,
+    home_body_resources: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_runtime::demo_fixture::HomeBodyResources,
+    >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     prepared_characters: Option<
         Res<ambition_platformer2d_runtime::demo_fixture::PreparedCharacterRegistry>,
@@ -131,6 +134,7 @@ fn fixture_setup(
             room_set: &room_set,
             tuning: &tuning,
             initial_body: &initial_body,
+            home_body_resources: &home_body_resources,
             prepared_characters: prepared_characters.as_deref(),
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,

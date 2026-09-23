@@ -27,7 +27,6 @@ use bevy::prelude::*;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
 /// A healing / save-point shrine the player can `Interact` with.
@@ -61,7 +60,7 @@ pub fn heal_save_shrine_system(
         &ActorControl,
         &BodyKinematics,
         &mut BodyHealth,
-        &mut BodyMana,
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
     )>,
     // ⚠ THE STARTUP-FRAME FALLBACK SUBJECT, and nothing else. Before a seat is
     // attached there is no driven body at all, and the primary avatar is the
@@ -112,7 +111,7 @@ pub fn heal_save_shrine_system(
     // multi-seat conversion.
     let mut checkpoint_written = false;
     for subject in subjects {
-        let Ok((control, kin, mut health, mut mana)) = bodies.get_mut(subject) else {
+        let Ok((control, kin, mut health, mut bank)) = bodies.get_mut(subject) else {
             continue;
         };
         if !control.0.interact_pressed {
@@ -126,7 +125,13 @@ pub fn heal_save_shrine_system(
             continue;
         }
         health.reset(); // health to full
-        mana.meter.refill_full(); // mana to full
+        // Mana to full, for a body that holds it.
+        if let Some(mana) = bank
+            .as_deref_mut()
+            .and_then(|bank| bank.level_of_mut(&ambition_abilities::mana::MANA))
+        {
+            mana.refill(mana.max);
+        }
         if checkpoint_written {
             // Healed, and the session already has its checkpoint for this tick.
             continue;

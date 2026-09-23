@@ -422,6 +422,7 @@ ambition_conversation = { path = "../ambition_conversation" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_resource_spec = { path = "../ambition_resource_spec" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
 # Every production module that named this crate — the encounter loader and its system, the gated

@@ -118,6 +118,11 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
 
 /// Limit gained by the fullest meter over `WINDOW` ticks of the same fight, and
 /// the Mana the seats' drained pools gained over the same window.
+///
+/// ⚠ A seat holds no Mana — the match declares only the Limit — so the
+/// instrument GIVES each seat a drained pool beside its Limit, at the Limit's
+/// live level. That is the harder case for the claim: the refill's resource and
+/// the Limit share one bank, and the refill must still reach only its own.
 fn gained_over_the_window(regen: Option<f32>) -> (f32, usize, f32) {
     let mut app = a_live_match(regen);
     let seats: Vec<Entity> = app
@@ -126,20 +131,30 @@ fn gained_over_the_window(regen: Option<f32>) -> (f32, usize, f32) {
         .iter(app.world())
         .collect();
     for seat in &seats {
-        app.world_mut()
-            .get_mut::<ambition_platformer2d::engine_core::BodyMana>(*seat)
-            .expect("a seat carries a mana pool")
-            .meter
+        let held = app
+            .world()
+            .get::<ActorResources>(*seat)
+            .expect("a seat holds the match's bank")
+            .clone();
+        let mut declarations = held.layout().declarations().to_vec();
+        declarations.push(ambition_platformer2d::abilities::mana::POOL);
+        let mut both = ActorResources::declared(&declarations)
+            .expect("the Limit and Mana are distinct resources")
+            .expect("declared");
+        *both.level_of_mut(&LIMIT).expect("kept") =
+            held.level_of(&LIMIT).expect("a seat holds the Limit");
+        both.level_of_mut(&ambition_platformer2d::abilities::mana::MANA)
+            .expect("added")
             .current = 0.0;
+        app.world_mut().entity_mut(*seat).insert(both);
     }
     let mana = |app: &App| -> f32 {
         seats
             .iter()
             .filter_map(|seat| {
-                app.world()
-                    .get::<ambition_platformer2d::engine_core::BodyMana>(*seat)
+                ambition_platformer2d::abilities::mana::level(app.world().get(*seat))
             })
-            .map(|mana| mana.meter.current)
+            .map(|mana| mana.current)
             .sum()
     };
     let (before, seated) = meters(&mut app);
@@ -175,8 +190,28 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
          asking an empty world"
     );
 
-    // Every seat is BUILT with the match's Limit, not adopted into it.
+    // Every seat is BUILT with the match's Limit, not adopted into it — and
+    // with NOTHING ELSE: a fighter holds no Mana merely by being a body.
     let mut app = a_live_match(None);
+    let layouts: Vec<Vec<String>> = app
+        .world_mut()
+        .query_filtered::<Option<&ActorResources>, With<MatchSeat>>()
+        .iter(app.world())
+        .map(|bank| {
+            bank.map(|bank| {
+                bank.layout()
+                    .declarations()
+                    .iter()
+                    .map(|declared| declared.resource.name().to_owned())
+                    .collect()
+            })
+            .unwrap_or_default()
+        })
+        .collect();
+    assert!(
+        !layouts.is_empty() && layouts.iter().all(|held| held == &[LIMIT.name()]),
+        "a seat holds something besides the match's Limit: {layouts:?}",
+    );
     let caps: Vec<Option<f32>> = app
         .world_mut()
         .query_filtered::<Option<&ActorResources>, With<MatchSeat>>()

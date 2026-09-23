@@ -74,24 +74,16 @@ fn shockwave_costs_mana_and_is_blocked_when_empty() {
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, SHOCKWAVE_ID);
     // Mana below the cost → the slam is blocked.
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 5.0;
+    crate::test_support::set_mana(&mut app, player, 5.0);
     press_attack(&mut app, player);
     app.update();
     assert_eq!(shockwave_count(&mut app), 0, "no slam when mana < cost");
 
     // Refill and fire → one slam, and mana drops by exactly the cost.
-    app.world_mut()
-        .get_mut::<BodyMana>(player)
-        .unwrap()
-        .meter
-        .current = 100.0;
+    crate::test_support::set_mana(&mut app, player, 100.0);
     app.update();
     assert_eq!(shockwave_count(&mut app), 1, "fires once there's mana");
-    let mana = app.world().get::<BodyMana>(player).unwrap().meter.current;
+    let mana = crate::test_support::mana(&app, player);
     assert!(
         (mana - (100.0 - SHOCKWAVE_MANA_COST)).abs() < 0.01,
         "mana dropped by the cost: {mana}"

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::held_items::{empty_hand, equip_held_spec, held_spec_for_item, item_in_hand};
 use ambition_platformer2d::combat::held_items::HeldItem;
-use ambition_platformer2d::engine_core::BodyMana;
+use ambition_platformer2d::engine_core::resources::ActorResources;
 use ambition_platformer2d::items::{Inventory, Item, ItemCategory, OwnedItems};
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
@@ -141,7 +141,7 @@ impl PrimaryHand<'_, '_> {
 
 /// The player-mana query shape shared by every menu-effect dispatch.
 pub(crate) type MenuEffectManaQuery<'w, 's> =
-    Query<'w, 's, &'static mut BodyMana, (With<PlayerEntity>, With<PrimaryPlayer>)>;
+    Query<'w, 's, &'static mut ActorResources, (With<PlayerEntity>, With<PrimaryPlayer>)>;
 
 /// TEST SEAM: the primary player's hand, read from a bare `World` (the fact
 /// tests used to read off `OwnedItems::equipped`).
@@ -254,9 +254,14 @@ pub(crate) fn apply_menu_action(
             }
         }
         MenuAction::UseConsumable(Item::ManaCell) => {
-            if owned.take(Item::ManaCell, 1) > 0 {
-                if let Ok(mut mana) = mana_q.single_mut() {
-                    mana.meter.refill(MANA_CELL_RESTORE);
+            // A body that holds no Mana keeps the cell: there is nothing for it
+            // to restore.
+            let Ok(mut bank) = mana_q.single_mut() else {
+                return;
+            };
+            if let Some(mana) = bank.level_of_mut(&ambition_platformer2d::abilities::mana::MANA) {
+                if owned.take(Item::ManaCell, 1) > 0 {
+                    mana.refill(MANA_CELL_RESTORE);
                 }
             }
         }

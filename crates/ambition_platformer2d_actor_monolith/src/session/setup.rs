@@ -288,8 +288,15 @@ pub fn simulation_world(
     // an `Explicit` character's box, or a `SpriteAuthored` character's standing
     // rectangle. The pose pass projects poses from there; it does not size the
     // body into existence.
+    //
+    // The IDENTITY box is only the explicit one. A sprite character's standing
+    // box is granted by `grant_prepared_character_body` below, which records
+    // the box it displaced so a later change of character can put it back;
+    // seeding the sprite box here would make that record the sprite box too.
     if let Some(size) = physical.as_ref().and_then(|p| p.standing_size()) {
         initial_scratch.kinematics.size = size;
+    }
+    if let Some(size) = physical.as_ref().and_then(|p| p.explicit_size()) {
         initial_scratch.base_size.base_size = size;
     }
     // HOW THIS BODY FIRES, resolved by the overlay the bundle already runs

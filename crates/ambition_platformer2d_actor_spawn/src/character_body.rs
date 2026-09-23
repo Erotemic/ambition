@@ -14,7 +14,7 @@ use ambition_platformer2d_shared_tangle::construction::EntityScope;
 ///
 /// TODO(character-projection): record displaced moveset values as well as granted
 /// values so removing an authored moveset can restore the body's prior one.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub struct ProjectedCharacterKit {
     pub id: String,
     /// The cast this body's projected kit was derived from.
@@ -30,11 +30,27 @@ pub struct ProjectedCharacterKit {
 /// until it is retracted too. That is the whole reason it is a struct rather than
 /// three fields: the coupling is real, so it should be enforced rather than
 /// remembered.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct GrantedBodyFacts {
     pub hurtboxes: bool,
     pub movement_tuning: bool,
-    pub posed_body: bool,
+    /// A sprite-authored body: the posed-body marker AND the standing geometry
+    /// granted with it, carrying what that geometry displaced.
+    pub posed_body: Option<DisplacedGeometry>,
+}
+
+/// The geometry a sprite-authored grant replaced, captured in the grant's own
+/// batch. `None` = the body did not carry that component, so retraction
+/// removes it rather than inventing a value.
+///
+/// The standing box is identity: a reset restores the collider from it and a
+/// stance divides it. Removing only the marker left the outgoing character's
+/// box on a body that no longer wears its art.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DisplacedGeometry {
+    pub base_size: Option<ambition_platformer2d_core::Vec2>,
+    pub render_size: Option<ambition_platformer2d_core::Vec2>,
+    pub sprite_offset: Option<ambition_platformer2d_core::Vec2>,
 }
 
 impl GrantedBodyFacts {
@@ -52,7 +68,8 @@ impl GrantedBodyFacts {
         Self {
             hurtboxes: prepared.hurtboxes.is_some(),
             movement_tuning: movement_tuning.is_some(),
-            posed_body: posed_body_for(prepared).is_some(),
+            // Filled by the grant's capture edit, which reads the body.
+            posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
         }
     }
 
@@ -61,7 +78,14 @@ impl GrantedBodyFacts {
     /// Removing only what THIS system granted is what keeps it from fighting the
     /// worn path, which owns the movement-feel marker for a body whose feel came
     /// from the CATALOG — a case this system cannot see and must not overwrite.
-    pub fn retract(self, scope: &mut EntityScope) {
+    ///
+    /// Retracting a sprite body puts back the geometry it displaced and stands
+    /// the live collider in that box (under the body's current stance), feet
+    /// planted against `gravity_dir`: no pose pass runs for the body once its
+    /// marker is gone, so the retraction is the last writer of its shape. An
+    /// incoming sprite character's grant, later in the same batch, re-captures
+    /// the restored values and replaces them.
+    pub fn retract(self, scope: &mut EntityScope, gravity_dir: ambition_platformer2d_core::Vec2) {
         // Exhaustive on purpose: a new fact does not compile until it is handled.
         let Self {
             hurtboxes,
@@ -74,8 +98,39 @@ impl GrantedBodyFacts {
         if movement_tuning {
             scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
         }
-        if posed_body {
+        if let Some(displaced) = posed_body {
             scope.remove::<ambition_sprite_sheet::character::SpritePosedBody>();
+            let DisplacedGeometry {
+                base_size,
+                render_size,
+                sprite_offset,
+            } = displaced;
+            match base_size {
+                Some(base_size) => {
+                    scope.insert(ambition_platformer2d_core::BodyBaseSize { base_size });
+                    scope.queue_entity_edit(move |mut body| {
+                        let stance = body
+                            .get::<ambition_platformer2d_core::BodyModeState>()
+                            .map_or(base_size, |mode| mode.body_mode.shape(base_size).size);
+                        if let Some(mut kin) = body.get_mut::<ambition_platformer2d_core::BodyKinematics>() {
+                            if kin.size != stance {
+                                ambition_platformer2d_core::resize_feet_planted(&mut kin, stance, gravity_dir);
+                            }
+                        }
+                    });
+                }
+                None => {
+                    scope.remove::<ambition_platformer2d_core::BodyBaseSize>();
+                }
+            }
+            match render_size {
+                Some(size) => scope.insert(ambition_combat::components::ActorRenderSize(size)),
+                None => scope.remove::<ambition_combat::components::ActorRenderSize>(),
+            };
+            match sprite_offset {
+                Some(offset) => scope.insert(ambition_combat::components::ActorSpriteOffset(offset)),
+                None => scope.remove::<ambition_combat::components::ActorSpriteOffset>(),
+            };
         }
     }
 }
@@ -90,13 +145,25 @@ impl GrantedBodyFacts {
 /// rather than producing a body that silently never poses.
 fn posed_body_for(
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
-) -> Option<ambition_sprite_sheet::character::SpritePosedBody> {
+) -> Option<(
+    ambition_sprite_sheet::character::SpritePosedBody,
+    ambition_sprite_sheet::character::sheets::PosedBodyGeometry,
+)> {
     match prepared.body.as_ref()? {
         ambition_characters::actor::definition::BodySource::SpriteAuthored { world_per_pixel } => {
-            Some(ambition_sprite_sheet::character::SpritePosedBody::new(
+            let posed = ambition_sprite_sheet::character::SpritePosedBody::new(
                 prepared.sheet.as_deref()?,
                 *world_per_pixel,
-            ))
+            );
+            // The marker and its standing geometry are granted together or not
+            // at all: a sheet with no `Idle` rectangle has nothing to stand in,
+            // and the pose pass could not project it either.
+            let standing = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                &posed.target,
+                ambition_sprite_sheet::character::CharacterAnim::Idle,
+                posed.world_per_pixel,
+            )?;
+            Some((posed, standing))
         }
         ambition_characters::actor::definition::BodySource::Explicit { .. } => None,
     }
@@ -238,20 +305,32 @@ pub fn grant_prepared_character_body(
         // identity box (`BodyBaseSize`, what a reset restores and a stance
         // divides by) and the quad it is drawn with, all from the sheet's `Idle`
         // pose. The pose pass then projects only the pose the body is SHOWING.
-        if let Some(posed) = posed_body_for(prepared) {
-            if let Some(standing) = ambition_sprite_sheet::character::sheets::posed_body_geometry(
-                &posed.target,
-                ambition_sprite_sheet::character::CharacterAnim::Idle,
-                posed.world_per_pixel,
-            ) {
-                scope.insert((
-                    ambition_platformer2d_core::BodyBaseSize {
-                        base_size: standing.collision,
-                    },
-                    ambition_combat::components::ActorRenderSize(standing.render),
-                    ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
-                ));
-            }
+        if let Some((posed, standing)) = posed_body_for(prepared) {
+            // What this grant displaces, read in the batch before it is
+            // replaced, onto the record `retract` reads.
+            scope.queue_entity_edit(|mut body| {
+                let displaced = DisplacedGeometry {
+                    base_size: body
+                        .get::<ambition_platformer2d_core::BodyBaseSize>()
+                        .map(|base| base.base_size),
+                    render_size: body
+                        .get::<ambition_combat::components::ActorRenderSize>()
+                        .map(|size| size.0),
+                    sprite_offset: body
+                        .get::<ambition_combat::components::ActorSpriteOffset>()
+                        .map(|offset| offset.0),
+                };
+                if let Some(mut kit) = body.get_mut::<ProjectedCharacterKit>() {
+                    kit.granted.posed_body = Some(displaced);
+                }
+            });
+            scope.insert((
+                ambition_platformer2d_core::BodyBaseSize {
+                    base_size: standing.collision,
+                },
+                ambition_combat::components::ActorRenderSize(standing.render),
+                ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
+            ));
             scope.insert(posed);
         }
         // The MOTION MODEL, on the same path and for the X9 reason.

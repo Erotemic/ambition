@@ -822,9 +822,19 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     app.register_character(shaped);
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo").with_sheet("robot"));
 
+    // The body's own box before any character owned its geometry, distinct
+    // from both the engine default and the sheet's, so "put back" is visible.
+    let own_box = ambition_platformer2d_core::Vec2::new(40.0, 60.0);
     let body = app
         .world_mut()
-        .spawn(ambition_characters::actor::WornCharacter::new("serpent"))
+        .spawn((
+            ambition_characters::actor::WornCharacter::new("serpent"),
+            ambition_platformer2d_core::BodyBaseSize { base_size: own_box },
+            ambition_platformer2d_core::BodyKinematics {
+                size: own_box,
+                ..Default::default()
+            },
+        ))
         .id();
     settle(&mut app);
 
@@ -856,6 +866,14 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
         "the granted body does not stand in its sheet's Idle box",
     );
 
+    // The art's pose owns the live collider while the character is worn. This
+    // fixture runs no pose pass, so stand the body in that pose by hand; the
+    // retraction below must undo it.
+    app.world_mut()
+        .get_mut::<ambition_platformer2d_core::BodyKinematics>(body)
+        .expect("the fixture body has kinematics")
+        .size = standing.collision;
+
     // And it is RETRACTED on a change of identity, like every other grant this
     // system makes — otherwise a body that becomes a plain character keeps
     // resolving its box off the previous one's art.
@@ -869,5 +887,33 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
             .is_none(),
         "the previous character's posed body survived an identity change, so the \
          body keeps deriving its collision box from art it no longer wears"
+    );
+    // ...and so is every geometry fact granted WITH it: the box it displaced
+    // comes back, and what the body never carried goes.
+    let world = app.world();
+    assert_eq!(
+        world
+            .get::<ambition_platformer2d_core::BodyBaseSize>(body)
+            .map(|base| base.base_size),
+        Some(own_box),
+        "the body still stands in the previous character's Idle box after the \
+         character that owned it left: only the marker was retracted",
+    );
+    assert_eq!(
+        world
+            .get::<ambition_platformer2d_core::BodyKinematics>(body)
+            .map(|kin| kin.size),
+        Some(own_box),
+        "the live collider kept the previous character's pose, and no pose pass \
+         runs for it any more",
+    );
+    assert!(
+        world
+            .get::<ambition_combat::components::ActorRenderSize>(body)
+            .is_none()
+            && world
+                .get::<ambition_combat::components::ActorSpriteOffset>(body)
+                .is_none(),
+        "the previous character's quad survived on a body that never carried one",
     );
 }

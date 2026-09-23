@@ -393,6 +393,27 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         self
     }
 
+    /// Queue an edit that may READ several of this entity's components and
+    /// write the ones it already has, applied in command order.
+    ///
+    /// For a write whose value depends on what another write in the same batch
+    /// is about to replace — recording what a grant displaces. The edit gets an
+    /// [`EntityMut`](bevy::ecs::world::EntityMut), which can neither add nor
+    /// remove components nor reach the world, so it keeps the scope's limits.
+    /// A despawned entity is a no-op.
+    pub fn queue_entity_edit(
+        &mut self,
+        edit: impl FnOnce(bevy::ecs::world::EntityMut<'_>) + Send + 'static,
+    ) -> &mut Self {
+        let entity = self.entity;
+        self.commands.queue(move |world: &mut World| {
+            if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                edit(entity_mut.into());
+            }
+        });
+        self
+    }
+
     /// Queue a mutation of ONE component on this entity, CREATING it first when
     /// it is absent.
     ///

@@ -23,8 +23,9 @@ pub enum BaselineBoundary {
     ///
     /// geometry does not apply here, and that is a narrowing rather than an omission. A
     /// character whose silhouette must follow it onto every body authors
-    /// [`BodySource::SpriteAuthored`], whose per-pose projection already reaches every body on
-    /// every path; [`BodySource::Explicit`] is a construction-time size and says so.
+    /// [`BodySource::SpriteAuthored`], whose standing geometry the prepared-body grant installs
+    /// and retracts with the character (restoring what it displaced), and whose per-pose
+    /// projection follows it; [`BodySource::Explicit`] is a construction-time size and says so.
     Replacement,
 }
 

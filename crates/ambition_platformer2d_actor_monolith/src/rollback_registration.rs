@@ -317,7 +317,14 @@ where
             projected.id.hash(&mut hasher);
             projected.granted.hurtboxes.hash(&mut hasher);
             projected.granted.movement_tuning.hash(&mut hasher);
-            projected.granted.posed_body.hash(&mut hasher);
+            projected
+                .granted
+                .posed_body
+                .map(|displaced| {
+                    [displaced.base_size, displaced.render_size, displaced.sprite_offset]
+                        .map(|v| v.map(|v| (v.x.to_bits(), v.y.to_bits())))
+                })
+                .hash(&mut hasher);
             hasher.finish() ^ projected.generation.get().rotate_left(32)
         },
     );

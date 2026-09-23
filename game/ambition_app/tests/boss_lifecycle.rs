@@ -787,3 +787,50 @@ fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, kin)| bevy::prelude::Vec2::new(kin.pos.x, kin.pos.y))
 }
+
+/// A placement the save already records Cleared loads as a corpse and STAYS one:
+/// it never becomes visible and never replays its death animation.
+///
+/// ⛔ The encounter driver zeroes a cleared boss's HP on its first tick, and the
+/// presentation pass starts the death animation on the edge "was Active, is now
+/// dead" — so a boss that is cleared before it was ever seen needs its
+/// `BossPhase` to read `Defeated` by the time that edge is looked at, or a boss
+/// the player beat an hour ago dies again on screen every time they walk in.
+#[test]
+fn a_boss_cleared_before_it_spawns_never_replays_its_death() {
+    use ambition_platformer2d::combat::components::{BossDeathAnimation, BossPhase};
+
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    sim.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .set_boss("pre_cleared", PersistedEncounterState::Cleared);
+    spawn_mockingbird(&mut sim, "pre_cleared");
+
+    let mut observed = 0;
+    for frame in 0..90 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut q = world.query::<(
+            &BossConfig,
+            &ambition_platformer2d::characters::actor::BodyHealth,
+            &BossDeathAnimation,
+            &BossPhase,
+        )>();
+        let Some((_, health, death, phase)) =
+            q.iter(world).find(|(config, ..)| config.id == "pre_cleared")
+        else {
+            continue;
+        };
+        observed += 1;
+        assert!(
+            !death.visible(health.alive()),
+            "frame {frame}: the pre-cleared boss is visible (alive={}, death animation \
+             {:.2}s left, phase {phase:?}) — it is dying again on screen",
+            health.alive(),
+            death.remaining_s,
+        );
+    }
+    assert!(observed > 0, "the pre-cleared boss was never spawned, so nothing was checked");
+}

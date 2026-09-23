@@ -803,3 +803,86 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
          key from a binder that never re-runs"
     );
 }
+
+/// ⛔ The refresh rebinds the character a sprite was bound FROM. A body no
+/// binder stamped has none, and naming one for it (this defaulted to
+/// `player_robot_v3`) gave an unworn shell a character's sheet.
+#[test]
+fn the_refresh_binds_nothing_onto_a_body_no_binder_stamped() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Medium));
+    let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &half);
+    let mut assets = GameAssets::default();
+    assets.characters.publish(PLAYER_ID, half);
+    app.insert_resource(assets);
+    app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
+
+    let unmarked = app
+        .world_mut()
+        .spawn((PlayerVisual, ambition_sim_view::BodyPoseView::default()))
+        .id();
+    // The control: the same body, stamped, IS bound — so the refusal above is
+    // the missing stamp speaking, not a fixture the pass cannot reach.
+    let marked = app
+        .world_mut()
+        .spawn((
+            PlayerVisual,
+            ambition_sim_view::BodyPoseView::default(),
+            PlayerSpriteCharacter {
+                id: PLAYER_ID.to_string(),
+            },
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<BoundSpriteQuality>(unmarked).is_none(),
+        "an unstamped body was bound a sheet nobody chose for it"
+    );
+    assert!(
+        app.world().get::<BoundSpriteQuality>(marked).is_some(),
+        "the control: a stamped body is refreshed"
+    );
+}
+
+/// A pose mid-swap carries the previous identity's geometry, so the refresh
+/// must not finalize from it; it binds once the pose settles.
+#[test]
+fn the_refresh_waits_for_a_settled_pose() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Medium));
+    let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &half);
+    let mut assets = GameAssets::default();
+    assets.characters.publish(PLAYER_ID, half);
+    app.insert_resource(assets);
+    app.add_systems(Update, super::refresh_player_sprites_for_resident_quality);
+
+    let body = app
+        .world_mut()
+        .spawn((
+            PlayerVisual,
+            ambition_sim_view::BodyPoseView {
+                geometry: ambition_sim_view::PoseGeometry::Pending,
+                ..Default::default()
+            },
+            PlayerSpriteCharacter {
+                id: PLAYER_ID.to_string(),
+            },
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<BoundSpriteQuality>(body).is_none(),
+        "the refresh finalized a binding from a pending pose"
+    );
+    app.world_mut()
+        .get_mut::<ambition_sim_view::BodyPoseView>(body)
+        .unwrap()
+        .geometry = ambition_sim_view::PoseGeometry::Settled;
+    app.update();
+    assert!(
+        app.world().get::<BoundSpriteQuality>(body).is_some(),
+        "the control: the same body binds once its pose settles"
+    );
+}

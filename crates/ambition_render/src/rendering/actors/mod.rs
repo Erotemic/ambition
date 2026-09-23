@@ -241,7 +241,19 @@ pub fn bind_worn_character_presentation(
         // fallback rectangle below) and remains eligible: it carries no
         // `CharacterAnimator`, so `has_sheet` is false and the next pass rebinds
         // for real. The first final basis is the authored basis.
-        let sheet_bind = asset.zip(base_size);
+        //
+        // ⛔ AND A POSE IS NOT ENOUGH: its geometry must be the WORN identity's.
+        // On the tick a form swap is decided the pose already names the new
+        // form while carrying the old one's box and offset
+        // (`ambition_sim_view::PoseGeometry`). A body in that window keeps the
+        // binding it has — which still matches the geometry it actually has —
+        // and a body with none draws the provisional rectangle. The final bind
+        // happens on the tick the geometry is settled.
+        let settled = base_size.filter(|pose| pose.geometry.is_settled());
+        if base_size.is_some() && settled.is_none() && has_sheet {
+            continue;
+        }
+        let sheet_bind = asset.zip(settled);
         if already_bound && (has_sheet || sheet_bind.is_none()) {
             continue;
         }
@@ -1072,15 +1084,20 @@ pub fn refresh_player_sprites_for_resident_quality(
         return;
     };
     for (entity, pose, bound_quality, character) in &players {
-        // Rebind the sheet of whichever character the sprite was originally
-        // bound from. If an old test fixture lacks the marker, fall back to the
-        // content default id used by the base sandbox catalog.
-        let start_id = character
-            .map(|c| c.id.as_str())
-            .unwrap_or("player_robot_v3");
+        // Rebind the sheet of whichever character the sprite was bound from. A
+        // body no binder stamped has no sheet to refresh: naming one for it
+        // (this once defaulted to `player_robot_v3`) invents an identity.
+        let Some(start_id) = character.map(|c| c.id.as_str()) else {
+            continue;
+        };
         let Some(asset) = assets.characters.sheet(start_id) else {
             continue;
         };
+        // A pose mid-swap carries the previous identity's geometry; the worn
+        // binder rebinds once it settles, and this pass must not finalize first.
+        if !pose.geometry.is_settled() {
+            continue;
+        }
         // Cheapest first: a body already built from this realization's tier is
         // current, and that is almost every body on almost every frame.
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {

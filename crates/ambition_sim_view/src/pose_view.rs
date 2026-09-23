@@ -156,6 +156,67 @@ pub struct BodyPoseView {
     /// Where to draw that quad, relative to the body centre — the companion
     /// to `authored_render` and gated on the same `SpritePosedBody`.
     pub authored_offset: Option<ambition_platformer2d_core::Vec2>,
+    /// Whether `size`, `base_size` and the authored quad belong to the
+    /// identity the body WEARS. See [`PoseGeometry`].
+    pub geometry: PoseGeometry,
+}
+
+/// Whether a pose's geometry is the worn identity's, or the one before it.
+///
+/// ⛔ A pose can name one character and carry another's body. A form swap is
+/// decided late in the tick (`sync_grown_form`, `FeatureInteraction`) and the
+/// prepared body for the new identity is granted at the head of the NEXT one
+/// (`CharacterProjection`), so the pose published in between reads
+/// `mary_o_tall` with the small form's standing box and offset. A presentation
+/// that finalizes from that snapshot keeps the wrong offset for the life of the
+/// binding, because its one-time basis is keyed on the identity and the
+/// identity does not change again when the geometry lands.
+///
+/// Settled is read off the body, not inferred: the kernel stamps
+/// `ProjectedCharacterKit` with the id and cast generation of the prepared
+/// body it granted, so the geometry is the worn identity's exactly when that
+/// stamp names it — or when the worn identity has no prepared body, and the
+/// body as constructed is the whole answer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PoseGeometry {
+    /// The geometry is the worn identity's.
+    #[default]
+    Settled,
+    /// The body wears an identity whose prepared body has not been granted
+    /// yet; the geometry here is the previous identity's. A presentation may
+    /// keep drawing what it has, or draw provisionally, but must not finalize.
+    Pending,
+}
+
+impl PoseGeometry {
+    pub fn of(
+        worn: Option<&ambition_characters::actor::WornCharacter>,
+        granted: Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+        registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+    ) -> Self {
+        let Some(worn) = worn else {
+            return Self::Settled;
+        };
+        let prepared = registry.map(|r| (r.get(worn.id()).is_some(), r.generation()));
+        let settled = match (granted, prepared) {
+            (Some(kit), Some((has, generation))) => {
+                has && kit.id == worn.id() && kit.generation == generation
+            }
+            (Some(kit), None) => kit.id == worn.id(),
+            // Nothing granted: settled only if there is nothing to grant.
+            (None, Some((has, _))) => !has,
+            (None, None) => true,
+        };
+        if settled {
+            Self::Settled
+        } else {
+            Self::Pending
+        }
+    }
+
+    pub fn is_settled(self) -> bool {
+        self == Self::Settled
+    }
 }
 
 impl Default for BodyPoseView {
@@ -188,6 +249,7 @@ impl Default for BodyPoseView {
             smash_charge: None,
             authored_render: None,
             authored_offset: None,
+            geometry: PoseGeometry::Settled,
         }
     }
 }
@@ -204,6 +266,8 @@ pub fn rebuild_body_pose_views(
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    // The cast a granted body is compared against. See `PoseGeometry`.
+    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut bodies: Query<
         (
             (
@@ -271,6 +335,9 @@ pub fn rebuild_body_pose_views(
                 // A ledge tether's latched anchor, published by whichever ruleset
                 // owns the mechanic. See `BodyPoseView::line_anchor`.
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
+                // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
+                Option<&ambition_characters::actor::WornCharacter>,
+                Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -327,6 +394,8 @@ pub fn rebuild_body_pose_views(
             respawn_grace,
             playback,
             line_anchor,
+            worn,
+            granted,
             pose,
         ),
     ) in &mut bodies
@@ -497,6 +566,7 @@ pub fn rebuild_body_pose_views(
             authored_offset: sheet_authored_body
                 .then(|| authored_offset.map(|o| o.0))
                 .flatten(),
+            geometry: PoseGeometry::of(worn, granted, registry.as_deref()),
         };
         match pose {
             Some(mut pose) => *pose = next,

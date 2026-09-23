@@ -48,7 +48,7 @@ pub use local_view::{
 };
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
-    rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, LaunchedBodiesView,
+    rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
 };
 pub use presented_pose::{

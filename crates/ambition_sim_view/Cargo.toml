@@ -30,6 +30,9 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "input",
 ] }
+# `ProjectedCharacterKit`, the kernel's record of which prepared character a
+# body's geometry was granted from — what `BodyPoseView::geometry` reads.
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 # `WorldItem` / `ItemMotion` for the item facts this view publishes; the two
 # moved out of the actor monolith in D33.
 ambition_world_items = { path = "../ambition_world_items" }

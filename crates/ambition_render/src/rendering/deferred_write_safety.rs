@@ -561,14 +561,21 @@ mod character_sprite_passes {
         assets.characters.publish("player_robot_v3", sheet);
         app.insert_resource(assets);
 
+        // Marked as bound to the published sheet: the refresh rebinds the
+        // character a sprite was bound FROM, and a body with no mark has none.
+        let bound = || crate::rendering::actors::PlayerSpriteCharacter {
+            id: "player_robot_v3".to_string(),
+        };
         app.world_mut().spawn((
             PlayerVisual,
             ambition_sim_view::BodyPoseView::default(),
+            bound(),
             Doomed,
         ));
         app.world_mut().spawn((
             PlayerVisual,
             ambition_sim_view::BodyPoseView::default(),
+            bound(),
             Witness,
         ));
 

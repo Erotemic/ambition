@@ -288,40 +288,25 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
     );
 }
 
-/// ⛔⛔ A FORM CHANGE AND ITS RESIZE LAND ON DIFFERENT FRAMES, so the baseline
-/// ends up describing the box the body LEFT. This pins that, and pins that it is
-/// deliberately not repaired.
+/// ⛔⛔ A FORM CHANGE AND ITS RESIZE LAND ON DIFFERENT FRAMES, and the binder
+/// finalizes on the second one.
 ///
-/// MEASURED ORDERING (2026-09-05). `sync_sprite_posed_bodies` resizes a
-/// sheet-authored body in `WorldPrepSet::BeforeIntegrate`, inside phase
-/// `WorldPrep` (2). Mary-O's `sync_grown_form` SWAPS the identity in phase
-/// `FeatureInteraction` (9). ⇒ On the frame she grows, the binder rebinds
-/// against the box she is leaving; the new box lands next frame, when the
-/// identity is stable again and the skip never looks.
+/// MEASURED ON THE REAL DEMO (2026-09-23). Mary-O's `sync_grown_form` swaps the
+/// identity in `FeatureInteraction`; the prepared body for the new form is
+/// granted at the head of the next tick. The pose published in between read
+/// `mary_o_tall` at base 21x32, offset -19.8 — the small form's — and settled
+/// a tick later at 21x64, offset -4.6. The binder keyed on identity alone, so
+/// it rebound on the swap frame and spent `CharacterAnimator::render_basis`,
+/// which is initialized once, on the form she was leaving.
 ///
-/// ⭐⭐ I "FIXED" THIS AND REVERTED IT, and the reason is the useful part.
-/// Re-seeding the baseline whenever it disagreed with `base_size` was wrong
-/// twice over:
-///
-/// * It repairs nothing observable. Every body whose size changes with its form
-///   is sheet-authored — Mary-O's forms author `BodySource::SpriteAuthored`
-///   (`game/ambition_demo_mary_o/src/lib.rs:1302`), which gives them
-///   `SpritePosedBody` and therefore `BodyPoseView::authored_render`. In
-///   `sync_visuals` the `authored_render` branch is taken BEFORE the baseline
-///   branch and never reads the baseline, so a stale `standing_collision` does
-///   not reach the screen for exactly the bodies that go stale.
-/// * It breaks the one consumer that IS live. The bodies that read the baseline
-///   are the dev menu's live body-profile experiment, and there a ratio other
-///   than one is the POINT — the baseline is deliberately the size at bind time
-///   so the art shows the deviation. Re-seeding makes the ratio one and the
-///   experiment stops showing anything.
-///
-/// ⇒ Stale here is unobservable for the bodies that change size and load-bearing
-/// for the bodies that read it. This test therefore asserts the CURRENT
-/// behaviour, so the next person who spots the staleness finds this note instead
-/// of spending the afternoon I spent.
+/// ⇒ The pose says whether its geometry is the worn identity's
+/// (`BodyPoseView::geometry`). On the swap frame the body keeps the binding it
+/// has, which still matches the body it has; the final bind waits for the
+/// settled pose. This replaces a test that pinned the stale baseline as
+/// deliberate: that argument was about RE-SEEDING on a size change, and the
+/// basis — not the baseline — is what the stale bind actually burned.
 #[test]
-fn a_form_change_leaves_the_baseline_describing_the_box_it_left() {
+fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
     let mut app = App::new();
     app.insert_resource(two_character_assets());
     app.add_systems(Update, super::bind_worn_character_presentation);
@@ -343,27 +328,46 @@ fn a_form_change_leaves_the_baseline_describing_the_box_it_left() {
         .id();
     app.update();
 
-    // The frame she grows: the identity swaps, and the body still holds the size
-    // WorldPrep gave it earlier in this same frame.
+    // The frame she grows: the identity swaps and the pose still carries the
+    // form she is leaving — which it says.
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("goblin");
-    app.update();
-
-    // The next frame: WorldPrep resizes her to the form she is now wearing.
     app.world_mut()
         .get_mut::<ambition_sim_view::BodyPoseView>(body)
         .unwrap()
-        .base_size = tall;
+        .geometry = ambition_sim_view::PoseGeometry::Pending;
+    app.update();
+    assert_eq!(
+        app.world().get::<PlayerSpriteCharacter>(body).map(|c| c.id.as_str()),
+        Some("robot"),
+        "the binder finalized the new identity from the geometry of the old one"
+    );
+    assert!(
+        app.world().get::<CharacterAnimator>(body).is_some(),
+        "the body stopped being drawn while its new geometry was pending"
+    );
+
+    // The next frame: her new body is granted and the pose settles.
+    {
+        let mut pose = app
+            .world_mut()
+            .get_mut::<ambition_sim_view::BodyPoseView>(body)
+            .unwrap();
+        pose.base_size = tall;
+        pose.geometry = ambition_sim_view::PoseGeometry::Settled;
+    }
     app.update();
 
+    assert_eq!(
+        app.world().get::<PlayerSpriteCharacter>(body).map(|c| c.id.as_str()),
+        Some("goblin"),
+    );
     let baseline = app
         .world()
         .get::<super::PlayerSpriteBaseline>(body)
         .expect("a bound body records a sprite baseline");
     assert_eq!(
-        baseline.standing_collision, small,
-        "the baseline still describes the pre-growth box, and nothing re-seeds \
-         it — see this test's doc for why that is correct rather than merely \
-         tolerated"
+        baseline.standing_collision, tall,
+        "the new form was bound against the box it LEFT"
     );
 }
 

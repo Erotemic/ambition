@@ -1214,6 +1214,41 @@ free.
 
 ## Phase 3 — migrate Mana and Limit ownership
 
+### Classification, measured 2026-09-23 (Phase 2 step 1 and Phase 3's first step)
+
+Taken by grepping production `crates/` and `game/` for `BodyMana`, `.mana`,
+`meter_cost`, excluding test modules. ⚠ A consumer list is a census, not a
+proof: re-derive it before migrating rather than trusting this table.
+
+**Positive `meter_cost` authors — which resource each price actually means:**
+
+| Move | Author | Where it plays | The resource it means |
+|---|---|---|---|
+| goblin `air_down_b` (charged dive), 60, `when_refused` → uncharged | `game/ambition_content/src/goblin_moveset.rs` | main-game enemy AND the Smash roster | ⛔ AMBIGUOUS — Limit in a match; in exploration, whatever `BodyMana` the seed handed it (full 100, no regen for a non-driven body), so it can dive charged once per life. The price names no resource, so the ruleset silently decides. |
+| George `bivalence`, 60 (= `LimitMeterFill::JONS_BASELINE.cap`), `when_refused` → `bivalence_unmetered` | `game/ambition_demo_smash/src/george_booul_moveset.rs` | Smash | Limit |
+
+**Production `BodyMana` consumers:**
+
+| Consumer | Site | Classification |
+|---|---|---|
+| `dive`, `meteor`, `beam`, `volley`, `shockwave`, `vortex`, `sentry` spend | `crates/ambition_abilities/src/{traversal/dive,ranged/*}.rs` | true Mana capability (main-game abilities); fixed per-ability constants |
+| `regen_player_mana` | `ambition_platformer2d_actor_monolith/src/avatar/systems.rs` | Mana regen policy — ⛔ refills EVERY driven body at `MANA_REGEN_PER_SEC` when `PlayerManaRegen` is absent, so a Limit seat is kept from Mana regen only by Smash inserting that resource (`ambition_demo_smash/src/lib.rs`). Absence of a policy invents one. |
+| shrine refill (`refill_full`) | `ambition_platformer2d_actor_monolith/src/shrine.rs` | Mana (main-game rest) |
+| mana-cell item | `game/ambition_app/src/menu/effects.rs` | Mana (main-game item) |
+| Limit fill/decay/hit/block | `game/ambition_demo_smash/src/limit.rs` (`fill_limit_meters`-family) | Limit capability |
+| authored `FILL_METER` technique | `game/ambition_demo_smash/src/limit.rs` (`apply_authored_meter_fills`) | ⛔ AMBIGUOUS — a technique that fills "the" meter, i.e. Limit on a seat and Mana anywhere else |
+| move-cost afford / pay | `ambition_combat/src/moveset/mod.rs` (`afford_meter`, the pay site) | authored ability cost (Phase 2) |
+| seat seed Limit shape | `ambition_match/src/prepared.rs` | Limit construction (dd7b16f) |
+| reset | `ambition_platformer2d_core` `reset_body_clusters` (`ResetMeter::{Keep,Full,Empty}`) | generic resource lifecycle — the caller names the value |
+| HUD line, `sim_view` facts (`mana_current`/`mana_fraction`), sim-harness observation | `game/ambition_app/src/app/hud.rs`, `ambition_sim_view/src/facts.rs`, `ambition_sim_harness/src/runtime.rs` | inspection (read models) |
+| dev stats panel (`EditablePlayerStats.mana/max_mana`) | `ambition_dev_tools/src/dev_tools/editable.rs` | developer edit authority over Mana |
+
+⇒ Two prices and one technique name no resource and are resolved by the
+ruleset in force; one regen policy is invented by absence. Those four are the
+concrete Phase 2/3 targets; everything else is already a Mana-or-Limit
+consumer with a single meaning.
+
+
 Classify every production `BodyMana` consumer before changing it.
 
 Each consumer must become one of:

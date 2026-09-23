@@ -260,6 +260,14 @@ pub type ActorClusterBundle = (
     ambition_combat::CombatTuning,
     ActorIdentity,
 );
+
+/// The death policy of an NPC PLACEMENT: permanent (ADR 0022 — an NPC is a unique
+/// named person, whatever mob-tier policy the archetype it provokes into authors).
+/// Named so the constructor that pins it and the reader that asks whether a saved
+/// death applies to it cannot state two answers.
+pub const NPC_PLACEMENT_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
+    ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead;
+
 impl ActorClusterSeed {
     /// Put this un-spawned body somewhere, once.
     ///
@@ -407,7 +415,7 @@ impl ActorClusterSeed {
             // `ActorTuning::adopting_archetype` field (cite-ok: naming the dead
             // field is the point); respawn moved onto the
             // placement in `8fec52282` and the field went with it.)
-            respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
+            respawn: NPC_PLACEMENT_RESPAWN,
             ..Default::default()
         };
         // `config.brain` (the integrator-facing `CharacterBrain` read-model, which

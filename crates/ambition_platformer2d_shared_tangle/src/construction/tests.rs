@@ -45,6 +45,7 @@ impl ConstructionDomain for Toy {
     /// fixture.
     type Relation = ToyRelation;
     type Services = Services;
+    type CommitFacts = ();
 
     fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
         RecipeDispatch {
@@ -679,6 +680,7 @@ fn commit_into(
             scope: &scope,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services,
+            facts: &(),
         };
         plan.commit(&mut ctx)
     };
@@ -700,6 +702,7 @@ fn construct_one_into(
             scope: &scope,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services,
+            facts: &(),
         };
         plan.construct_one(sim_id, &mut ctx)
     };
@@ -955,6 +958,7 @@ fn a_subset_that_encloses_a_relation_wires_it() {
             scope: &scope,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &(),
         };
         plan.commit_subset(&plan.planned_ids(), &mut ctx)
             .expect("the whole roster encloses every relation")
@@ -1241,6 +1245,7 @@ fn rebuilding_a_closure_rewires_relations_onto_the_new_generations() {
             scope: &plan_scope,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &(),
         };
         plan.commit_subset(&closure, &mut ctx)
             .expect("a closed subset is never cut")
@@ -1336,6 +1341,7 @@ mod drifting {
         type Parameters = ();
         type Relation = ();
         type Services = ();
+        type CommitFacts = ();
 
         fn dispatch(_: &Self::Parameters) -> RecipeDispatch<Self> {
             DISPATCHES.fetch_add(1, Ordering::SeqCst);
@@ -1421,6 +1427,7 @@ fn commit_runs_the_constructor_preparation_resolved_not_a_fresh_one() {
             scope: &plan_scope,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &(),
         };
         plan.commit(&mut ctx)
     };
@@ -2378,6 +2385,7 @@ fn rebuilding_a_relation_closure_rewires_it() {
             scope: &scope_value,
             session: crate::lifecycle::SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &(),
         };
         plan.commit_subset(&closure, &mut ctx)
             .expect("the closure encloses the relation, so it cannot be refused")
@@ -2443,6 +2451,7 @@ fn candidate_world(plan: &ConstructionPlan<Toy>) -> (World, ConstructionReceipt)
             &mut world,
             crate::lifecycle::SessionSpawnScope::UNSCOPED,
             &services,
+            &(),
         )
         .expect("the filter is installed, so the commit is not refused");
     (world, receipt)
@@ -2532,6 +2541,7 @@ fn retiring_a_candidate_does_not_disturb_the_published_world() {
             &mut world,
             crate::lifecycle::SessionSpawnScope::UNSCOPED,
             &services,
+            &(),
         )
         .expect("filter installed");
     assert_eq!(
@@ -2571,6 +2581,7 @@ fn an_inactive_commit_is_refused_when_the_filter_was_never_installed() {
         &mut world,
         crate::lifecycle::SessionSpawnScope::UNSCOPED,
         &services,
+        &(),
     );
     assert_eq!(refused, Err(super::InactiveCommitRefused::FilterNotInstalled));
     assert_eq!(
@@ -2641,7 +2652,7 @@ fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_th
     // CANDIDATE ROOT, so detecting it REQUIRES seeing one, and the poison bites.
     SABOTAGE.with(|s| s.set(Sabotage::OverwriteProvenance));
     let receipt = candidate_plan
-        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services, &())
         .expect("filter installed");
     SABOTAGE.with(|s| s.set(Sabotage::None));
 
@@ -2721,7 +2732,7 @@ fn an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation
     super::register_inactive_candidate_filter(&mut world);
     SABOTAGE.with(|s| s.set(Sabotage::SpawnExtraAuthoritativeRoot));
     let receipt = plan
-        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services, &())
         .expect("filter installed");
     SABOTAGE.with(|s| s.set(Sabotage::None));
 

@@ -269,6 +269,8 @@ pub fn apply_summon_effects(
                 scope: &scope,
                 session: session_scope,
                 services: &services,
+                // A summoned minion is a runtime occurrence the save never names.
+                facts: &crate::construction::PersistedFates::unrecorded(),
             };
             plan.commit(&mut ctx);
         }

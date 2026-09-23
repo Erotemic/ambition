@@ -51,9 +51,26 @@ impl PlacementRecord {
     }
 }
 
+/// The context type a caller hands its placement interpreters, and the facts a
+/// COMMIT supplies beside it.
+///
+/// ⛔ TWO LIFETIMES, TWO FIELDS. The context is frozen with the plan (catalogs,
+/// sheets, the cast). The commit facts are read when a commit is requested,
+/// because a frozen plan is committed again — a replay, a reconstitution — after
+/// the world has moved on, and a placement must be built in the state the world
+/// is in THEN (a body the save says died starts dead). The world IR stays
+/// content-free: it names neither.
+pub trait LoweringContext: Send + Sync + 'static {
+    type CommitFacts: Send + Sync + 'static;
+}
+
+impl LoweringContext for () {
+    type CommitFacts = ();
+}
+
 /// Room-load context handed to placement interpreters. It wraps exactly the
 /// facts a lowering function needs today and can grow by explicit need.
-pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
+pub struct LoweringCtx<'w, 's, 'a, C: LoweringContext + ?Sized = ()> {
     /// The entity this placement POPULATES, the session that owns it, and the
     /// only way to write to either. Allocated by the caller — the construction
     /// executor for planned rows — so identity, provenance, and transaction
@@ -73,6 +90,8 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
     /// generic and content-free; callers choose the context type needed by
     /// their lowering interpreters.
     pub context: &'a C,
+    /// What is true of this commit — see [`LoweringContext`].
+    pub facts: &'a C::CommitFacts,
 }
 
 pub type LoweringFn<C = ()> = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
@@ -83,7 +102,7 @@ pub type LoweringFn<C = ()> = for<'w, 's, 'a> fn(&PlacementRecord, &mut Lowering
 /// authored record, so commit does not repeat registry lookup and cannot discover
 /// a missing interpreter after the outgoing room has begun to retire.
 #[derive(Clone)]
-struct PlannedPlacement<C: Send + Sync + 'static> {
+struct PlannedPlacement<C: LoweringContext> {
     record: PlacementRecord,
     lower: LoweringFn<C>,
 }
@@ -94,13 +113,13 @@ struct PlannedPlacement<C: Send + Sync + 'static> {
 /// single lowering authority into an inspectable artifact that normal activation,
 /// transitions, reset, hot reload, and restore can execute identically.
 #[derive(Clone)]
-pub struct PlacementLoweringPlan<C: Send + Sync + 'static = ()> {
+pub struct PlacementLoweringPlan<C: LoweringContext = ()> {
     room_id: String,
     paths: Vec<(String, ae::KinematicPath)>,
     placements: Vec<PlannedPlacement<C>>,
 }
 
-impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
+impl<C: LoweringContext> PlacementLoweringPlan<C> {
     pub fn room_id(&self) -> &str {
         &self.room_id
     }
@@ -119,6 +138,7 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
         commands: &mut Commands<'w, 's>,
         session_scope: SessionSpawnScope,
         context: &C,
+        facts: &C::CommitFacts,
     ) {
         for planned in &self.placements {
             let root = commands.spawn_empty().id();
@@ -127,6 +147,7 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
                 room_id: &self.room_id,
                 paths: &self.paths,
                 context,
+                facts,
             };
             (planned.lower)(&planned.record, &mut ctx);
         }
@@ -169,12 +190,12 @@ impl std::error::Error for PlacementLoweringError {}
 /// Registry from authored placement kind to the simulation/content interpreter
 /// that lowers the record into live room-scoped entities.
 #[derive(Resource, Clone)]
-pub struct PlacementLoweringRegistry<C: Send + Sync + 'static = ()> {
+pub struct PlacementLoweringRegistry<C: LoweringContext = ()> {
     interpreters: HashMap<PlacementKind, PlacementLoweringEntry<C>>,
 }
 
 #[derive(Clone)]
-struct PlacementLoweringEntry<C: Send + Sync + 'static> {
+struct PlacementLoweringEntry<C: LoweringContext> {
     meta: ambition_registry_core::RegistrationMeta,
     lower: LoweringFn<C>,
 }
@@ -187,7 +208,7 @@ struct PlacementLoweringEntry<C: Send + Sync + 'static> {
 /// owner/source/schema but a DIFFERENT lowering function is a CONFLICT, and it
 /// has to stay one: two interpreters under one `PlacementKind` is the ambiguity
 /// this registry exists to refuse.
-impl<C: Send + Sync + 'static> PartialEq for PlacementLoweringEntry<C> {
+impl<C: LoweringContext> PartialEq for PlacementLoweringEntry<C> {
     fn eq(&self, other: &Self) -> bool {
         self.meta == other.meta && std::ptr::fn_addr_eq(self.lower, other.lower)
     }
@@ -221,7 +242,7 @@ impl std::fmt::Display for PlacementLoweringRegistrationError {
 }
 impl std::error::Error for PlacementLoweringRegistrationError {}
 
-impl<C: Send + Sync + 'static> Default for PlacementLoweringRegistry<C> {
+impl<C: LoweringContext> Default for PlacementLoweringRegistry<C> {
     fn default() -> Self {
         Self {
             interpreters: HashMap::new(),
@@ -229,7 +250,7 @@ impl<C: Send + Sync + 'static> Default for PlacementLoweringRegistry<C> {
     }
 }
 
-impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
+impl<C: LoweringContext> PlacementLoweringRegistry<C> {
     pub fn try_register(
         &mut self,
         kind: PlacementKind,
@@ -372,7 +393,7 @@ impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
     }
 }
 
-pub trait PlacementLoweringAppExt<C: Send + Sync + 'static> {
+pub trait PlacementLoweringAppExt<C: LoweringContext> {
     fn register_placement_interpreter(
         &mut self,
         kind: PlacementKind,
@@ -383,7 +404,7 @@ pub trait PlacementLoweringAppExt<C: Send + Sync + 'static> {
     ) -> &mut Self;
 }
 
-impl<C: Send + Sync + 'static> PlacementLoweringAppExt<C> for App {
+impl<C: LoweringContext> PlacementLoweringAppExt<C> for App {
     fn register_placement_interpreter(
         &mut self,
         kind: PlacementKind,

@@ -8,10 +8,9 @@
 //! provoked NPC loading hostile, and a persisted non-respawning enemy death staying
 //! dead — and neither had a witness at app level.
 //!
-//! ⚠ THE MIRROR RUNS EVERY SIM TICK, NOT AT LOAD, and its own source says so
-//! (`save_sync.rs`: "which runs EVERY SIM TICK, not at load"). So this does not
-//! need a room reload to observe it, and a test written around a reload would be
-//! testing the reload.
+//! ⚠ The provoked-NPC half still runs as a mirror, every sim tick, so its test
+//! needs no reload. The persisted-DEATH half is construction now — see the
+//! second test, which is written around a rebuild because that is the mechanism.
 //!
 //! ⛔ DO NOT REPLACE THIS WITH A PRESENCE ASSERTION. A marker resource the
 //! installer registers would go green while the flip stayed untested, which is
@@ -100,55 +99,52 @@ fn a_save_flag_makes_a_talkable_npc_hostile_without_a_room_reload() {
     );
 }
 
-/// The mirror's OTHER half: a persisted death stays dead.
+/// A persisted death is BUILT, not mirrored: the room a replay rebuilds carries the
+/// body in the state the save records, from the first frame it exists.
 ///
 /// ⛔⛔ THE SUBJECT IS SCARCE AND THAT IS THE FINDING BEHIND THIS ROOM CHOICE.
 /// A placement that authors NO respawn policy takes `UNDESCRIBED_BODY_RESPAWN`,
 /// which is `OnRoomReenter` — a policy that writes no flag on death and reads
-/// none on load. So the persisted-death arm is unreachable from most of the
-/// world. MEASURED 2026-09-07 over every shipped `.ldtk`
+/// none on load. MEASURED 2026-09-07 over every shipped `.ldtk`
 /// (`scripts/measure_persisting_enemy_placements.py`): exactly two rooms author a
 /// persisting policy, `pirate_sky_lookout` (4) and `pirate_sky_arena` (3), all of
-/// them `OnRest` — and NOTHING in the shipped world authors `DeadStaysDead`,
-/// despite it being the enum's `#[default]`.
+/// them `OnRest`. ⚠ So the flag here is the `OnRest` spelling,
+/// `enemy_<id>_dead_until_rest`.
 ///
-/// ⚠ SO THE FLAG HERE IS THE `OnRest` SPELLING, `enemy_<id>_dead_until_rest`, and
-/// a test written against `enemy_<id>_dead` would fail in this room for a reason
-/// that has nothing to do with the mirror.
+/// ⚠ This used to assert the body was zeroed ONE TICK after the flag was set,
+/// in place — the mechanism then was a save mirror re-applying every flag every
+/// sim tick. Construction now reads the record when a commit is requested
+/// (`construction::PersistedFates`), so the witness is a rebuild.
 #[test]
-fn a_persisted_on_rest_death_zeroes_the_body_on_the_next_tick() {
+fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
     let mut sim = crate::common::fixed_60hz_room_sim("pirate_sky_lookout");
     sim.step_n(base(), 120);
 
-    let alive: Vec<(Entity, String)> = {
-        let mut query = sim
-            .world_mut()
-            .query::<(
-                Entity,
-                &ActorIdentity,
-                &BodyHealth,
-                &ambition_platformer2d::actor::ActorConfig,
-            )>();
+    let on_rest_bodies = |sim: &mut ambition_app::Platformer2dSimHarness| -> Vec<(Entity, String, i32)> {
+        let mut query = sim.world_mut().query::<(
+            Entity,
+            &ActorIdentity,
+            &BodyHealth,
+            &ambition_platformer2d::actor::ActorConfig,
+        )>();
         let world = sim.world();
         query
             .iter(world)
-            .filter(|(_, identity, health, config)| {
+            .filter(|(_, identity, _, config)| {
                 identity.id.starts_with("EnemySpawn")
-                    && health.health.current > 0
                     && matches!(
                         config.tuning.respawn,
                         ambition_platformer2d::actors::features::RespawnPolicy::OnRest
                     )
             })
-            .map(|(entity, identity, _, _)| (entity, identity.id.clone()))
+            .map(|(entity, identity, health, _)| (entity, identity.id.clone(), health.health.current))
             .collect()
     };
-    // ⚠ ANTI-VACUITY: this room is chosen for its `OnRest` placements. If it
-    // stops authoring live ones, everything below is about an empty set.
-    let (body, id) = alive
-        .first()
-        .cloned()
-        .expect("pirate_sky_lookout authors live EnemySpawn placements");
+    // ⚠ ANTI-VACUITY: this room is chosen for its `OnRest` placements.
+    let (body, id, hp_before) = on_rest_bodies(&mut sim)
+        .into_iter()
+        .find(|(_, _, hp)| *hp > 0)
+        .expect("pirate_sky_lookout authors live OnRest EnemySpawn placements");
 
     let flag = format!(
         "enemy_{id}{}",
@@ -158,19 +154,32 @@ fn a_persisted_on_rest_death_zeroes_the_body_on_the_next_tick() {
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .data_mut()
         .set_flag(flag.clone(), true);
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
 
-    sim.step_n(base(), 1);
-
-    let health = sim
-        .world()
-        .get::<BodyHealth>(body)
-        .expect("the body is still in the world")
-        .health
-        .current;
-    assert_eq!(
-        health, 0,
-        "the save carries `{flag}` and {id} still has {health} health one tick \
-         later. `install_save_mirror` is what makes a persisted death survive; \
-         deleting its call leaves every other app test green."
+    let mut rebuilt_frames = 0;
+    for frame in 0..60 {
+        sim.step(base());
+        let Some((entity, _, hp)) = on_rest_bodies(&mut sim)
+            .into_iter()
+            .find(|(_, other, _)| *other == id)
+        else {
+            continue;
+        };
+        if entity == body {
+            continue;
+        }
+        rebuilt_frames += 1;
+        assert_eq!(
+            hp, 0,
+            "frame {frame}: the save carries `{flag}` and the rebuilt {id} exists with \
+             {hp} HP (it had {hp_before} before) — the room was built alive and left \
+             for something else to correct",
+        );
+    }
+    assert!(
+        rebuilt_frames > 0,
+        "the replay never rebuilt {id}, so nothing about construction was checked"
     );
 }

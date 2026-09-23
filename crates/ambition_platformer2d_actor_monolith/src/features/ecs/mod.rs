@@ -144,7 +144,7 @@ pub use pickups::{
     PickupMagnetize,
 };
 pub use save_sync::{
-    install_save_mirror, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
+    install_save_mirror, sync_ecs_actors_with_save,
     sync_ecs_switches_from_save,
 };
 pub use spawn::{

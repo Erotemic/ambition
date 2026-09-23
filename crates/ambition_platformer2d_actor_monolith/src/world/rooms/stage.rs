@@ -140,12 +140,16 @@ pub(crate) fn construct_room_candidate(
             return;
         }
         let mut queue = bevy::ecs::world::CommandQueue::default();
+        // Read HERE, on the world this commit lands in — not with the plan, which
+        // a replay commits again after the save has moved.
+        let facts = crate::construction::PersistedFates::of_world(world);
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);
             let receipt = features::spawn_room_feature_entities_from_plan(
                 &mut inner,
                 &plan,
                 session_scope,
+                &facts,
             );
             // no platform VISUAL is spawned here any more. The commit installs
             // platform STATE (the receipt counts it); the picture is reconciled
@@ -335,9 +339,14 @@ impl RoomConstructionPlan {
 
     /// Rebuild one authored authoritative root through this plan's frozen
     /// interpreter/catalog decisions.
-    pub fn respawn_authoritative_entity(&self, commands: &mut Commands, authored_id: &str) -> bool {
+    pub fn respawn_authoritative_entity(
+        &self,
+        commands: &mut Commands,
+        facts: &crate::construction::PersistedFates,
+        authored_id: &str,
+    ) -> bool {
         self.features
-            .respawn_authoritative_entity(commands, self.session_scope, authored_id)
+            .respawn_authoritative_entity(commands, self.session_scope, facts, authored_id)
     }
 
     /// Rebuild one PLANNED root by its stable identity — the only form that can
@@ -346,10 +355,11 @@ impl RoomConstructionPlan {
     pub fn respawn_authoritative_sim_id(
         &self,
         commands: &mut Commands,
+        facts: &crate::construction::PersistedFates,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
         self.features
-            .respawn_authoritative_sim_id(commands, self.session_scope, sim_id)
+            .respawn_authoritative_sim_id(commands, self.session_scope, facts, sim_id)
     }
 
     pub fn session_scope(&self) -> SessionSpawnScope {

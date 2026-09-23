@@ -1,26 +1,18 @@
-//! Mirror persisted save state onto ECS-owned feature actors, bosses,
-//! and switches.
+//! Mirror persisted save state onto ECS-owned feature actors and switches.
 //!
-//! These systems run at room-load time so authored entities reflect
-//! flags carried in the AmbitionGameSave (provoked NPCs, dead enemies,
-//! cleared bosses, flipped switches) before gameplay resumes.
+//! ⚠ A persisted DEATH and a CLEARED boss are not mirrored: construction builds
+//! those bodies in their recorded state (`construction::PersistedFates`, read
+//! when the commit is requested). What remains here is the provoked-NPC flip —
+//! census row DUP-PERSISTED-FATE — and the switch projection.
 
 use super::*;
 use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorInteraction, AggressionMode,
-    BossDeathAnimation, BossPhase, FeatureId,
+    ActorAggression, ActorDisposition, ActorInteraction, AggressionMode, FeatureId,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
-/// Install the save mirror: both halves, in order, in `ProgressionSet::SaveMirror`.
-///
-/// ⭐ ONE SAVE-SYNC OVER THE UNIFIED ACTOR CLUSTER (enemies + persisted-hostile
-/// NPCs flip in place), then the bosses. The order is a fact about these two
-/// functions and nothing else: they read the same `AmbitionGameSave` and write
-/// overlapping actor state, and both live in this file. A composition that wrote
-/// the `.chain()` itself would be re-deciding, every time, something only this
-/// module can be wrong about.
+/// Install the save mirror in `ProgressionSet::SaveMirror`.
 ///
 /// ⭐ THE SET IS NAMEABLE HERE. `ProgressionSet` is in
 /// `ambition_platformer2d_shared_tangle`, which this crate already depends on, so
@@ -36,17 +28,11 @@ pub fn install_save_mirror(
     use bevy::prelude::IntoScheduleConfigs;
     app.add_systems(
         schedule,
-        (sync_ecs_actors_with_save, sync_ecs_bosses_with_save)
-            .chain()
-            .in_set(ambition_platformer2d_shared_tangle::schedule::ProgressionSet::SaveMirror),
+        sync_ecs_actors_with_save.in_set(ambition_platformer2d_shared_tangle::schedule::ProgressionSet::SaveMirror),
     );
 }
 
-/// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
-///
-/// Provoked NPCs load as hostile actors, and persisted non-respawning enemy
-/// deaths stay dead across room reloads. Dynamic encounter mobs are ignored
-/// because their lifecycle belongs to encounter state.
+/// Flip an NPC the save says was provoked hostile, in place.
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     // The prepared cast, so a provoked body can take its own CHARACTER's
@@ -77,10 +63,6 @@ pub fn sync_ecs_actors_with_save(
             // WHICH CHARACTER THIS BODY IS — gameplay identity, not the
             // sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
-            // Is this body a practice target — the authored flag lives on
-            // `BodyCombat` and only there (AC6.2); it used to be read off a
-            // second copy in `ActorTuning`.
-            &ambition_characters::actor::BodyCombat,
         ),
         With<FeatureSimEntity>,
     >,
@@ -104,38 +86,9 @@ pub fn sync_ecs_actors_with_save(
         interaction,
         mut cq,
         worn,
-        body_combat,
     ) in &mut actors
     {
-        let practice_target = body_combat.training_dummy;
         let id = cq.as_actor_mut().identity.id.clone();
-        // ⛔⛔ ONLY A POLICY THAT WRITES A FLAG MAY READ ONE, and this asked the
-        // flag of every actor alive. The death path writes `enemy_<id>_dead` for
-        // `DeadStaysDead` and `enemy_<id>_dead_until_rest` for `OnRest` and NOTHING
-        // for the other two — so a body under `OnRoomReenter` or `InPlace` was
-        // having its liveness decided by a record its own kind never keeps.
-        //
-        // ⭐⭐ WHICH IS HOW ONE DEATH KILLED EVERY LATER SUMMON. A summoned body
-        // shares ONE `config.id` with every instance ever made of it (the pirate's
-        // recovery shark is always `smash_ride_shark`), so the first one that died
-        // under the old default wrote a flag that this sweep — which runs EVERY SIM
-        // TICK, not at load — then applied to all its successors, zeroing the pool
-        // on their first tick. Declining to WRITE the flag fixes tomorrow's saves;
-        // declining to READ it is what rescues the ones already carrying it.
-        let persists_its_death = matches!(
-            cq.as_actor_mut().config.tuning.respawn,
-            ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead
-                | ambition_entity_catalog::placements::RespawnPolicy::OnRest
-        );
-        // ⚠ THE READ IS WIDER THAN THE WRITE, ON PURPOSE. A death writes exactly
-        // one flag (`crate::features::enemy_death_flag`), but a placement
-        // re-authored from `OnRest` to `DeadStaysDead` after the save was written
-        // would then be read with the wrong one and come back to life. Both flags
-        // are consulted, and both are spelled by the module that owns them.
-        let dead_on_load = persists_its_death
-            && (data.flag(&crate::features::enemy_dead_flag(&id))
-                || data.flag(&crate::features::enemy_dead_until_rest_flag(&id)));
-
         if interaction.is_some() && data.flag(&super::super::npcs::npc_flag_id(&id)) {
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster
             // swap), keeping its entity + sprite.
@@ -153,49 +106,6 @@ pub fn sync_ecs_actors_with_save(
                 false,
             );
         }
-
-        // Liveness applies to EVERY persistent actor, hostile-flagged or not
-        // (ADR 0022). The old shape only reached the dead-flag for provoked
-        // NPCs and bare enemies — a killed UNPROVOKED peaceful NPC fell
-        // through both branches and respawned alive on every room load.
-        // Zeroing HP is the single liveness authority — `alive()` reads it.
-        // (`encounter:*` keeps its own state machine; sandbags are InPlace
-        // and never write flags, so the guards are belt-and-suspenders.)
-        {
-            let em = cq.as_actor_mut();
-            if !em.identity.id.starts_with("encounter:") && !practice_target && dead_on_load {
-                em.health.health.current = 0;
-            }
-        }
-    }
-}
-
-/// Mirror persisted boss-cleared state onto ECS-owned boss actors.
-pub fn sync_ecs_bosses_with_save(
-    save: Res<ambition_persistence::save::AmbitionGameSave>,
-    mut bosses: Query<
-        (
-            ambition_boss_encounter::BossClusterQueryData,
-            &mut ambition_characters::actor::BodyHealth,
-            Option<&mut BossDeathAnimation>,
-            Option<&mut BossPhase>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    for (feature, mut health, death_anim, phase) in &mut bosses {
-        // R4: "cleared" is keyed to this PLACEMENT, not the archetype. Shared
-        // predicate (`boss_is_cleared`) with the per-tick encounter driver so
-        // they can't drift.
-        if ambition_boss_encounter::boss_is_cleared(&save, &feature.config) {
-            health.health.current = 0;
-            if let Some(mut death_anim) = death_anim {
-                death_anim.clear();
-            }
-            if let Some(mut phase) = phase {
-                *phase = BossPhase::Defeated;
-            }
-        }
     }
 }
 
@@ -212,7 +122,5 @@ pub fn sync_ecs_switches_from_save(
     }
 }
 
-#[cfg(test)]
-mod actor_liveness_tests;
 #[cfg(test)]
 mod switch_save_tests;

@@ -60,6 +60,7 @@ impl ConstructionDomain for GravityZoneConstruction {
     type Parameters = GravityZoneConstructionParams;
     type Relation = GravityZoneConstructionRelation;
     type Services = ();
+    type CommitFacts = ();
 
     fn dispatch(_parameters: &Self::Parameters) -> RecipeDispatch<Self> {
         RecipeDispatch {

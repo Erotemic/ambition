@@ -148,6 +148,15 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// here is captured before the plan commits, so execution has no fallible
     /// lookup left.
     type Services;
+    /// Read-only facts a recipe needs that are true of the COMMIT, not of the plan.
+    ///
+    /// ⛔ NOT [`Self::Services`]. A frozen plan is committed again — a room
+    /// reconstitution, a replay — after the world has moved on, so a fact the
+    /// world keeps changing (what the durable save says about a placement) would
+    /// be stale if it were frozen with the plan. It is captured when the commit
+    /// is requested, beside [`ConstructionExecCtx::session`], and the recipe
+    /// builds the body in that state instead of a later pass correcting it.
+    type CommitFacts: Send + Sync + 'static;
 
     /// Resolve what builds this row: its recipe identity and its executor,
     /// from one exhaustive match.
@@ -243,6 +252,8 @@ pub struct ConstructionRootCtx<'w, 's, 'a, D: ConstructionDomain> {
     /// Gameplay-session ownership, captured when this commit was requested.
     pub session: crate::lifecycle::SessionSpawnScope,
     pub services: &'a D::Services,
+    /// What is true of this commit — see [`ConstructionDomain::CommitFacts`].
+    pub facts: &'a D::CommitFacts,
 }
 
 impl<'w, 's, 'a, D: ConstructionDomain> ConstructionRootCtx<'w, 's, 'a, D> {
@@ -1509,6 +1520,8 @@ pub struct ConstructionExecCtx<'w, 's, 'a, D: ConstructionDomain> {
     /// catalogs — once per entity during a reconstruction sweep.
     pub session: crate::lifecycle::SessionSpawnScope,
     pub services: &'a D::Services,
+    /// What is true of this commit — see [`ConstructionDomain::CommitFacts`].
+    pub facts: &'a D::CommitFacts,
 }
 
 /// Everything wiring ONE declared relation may touch: its two endpoints, and
@@ -1967,6 +1980,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         world: &mut World,
         session: crate::lifecycle::SessionSpawnScope,
         services: &D::Services,
+        facts: &D::CommitFacts,
     ) -> Result<ConstructionReceipt, InactiveCommitRefused> {
         if !inactive_candidate_filter_installed(world) {
             return Err(InactiveCommitRefused::FilterNotInstalled);
@@ -1979,6 +1993,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 scope: &self.scope,
                 session,
                 services,
+                facts,
             };
             // ⛔⛤ **HIDDEN AT MINT, NOT AFTER THE FLUSH.** This used to call
             // `commit`, apply the queue — making every candidate entity real and
@@ -2158,6 +2173,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             scope: ctx.scope,
             session: ctx.session,
             services: ctx.services,
+            facts: ctx.facts,
         };
         (planned.construct)(&planned.parameters, &mut root_ctx);
         root

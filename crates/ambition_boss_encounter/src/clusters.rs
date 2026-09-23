@@ -350,9 +350,10 @@ impl BossClusterScratch {
 /// (`config.id`), NOT the archetype — so the same archetype reused at another
 /// placement is not pre-marked defeated. The single definition of the "cleared"
 /// predicate FOR THE ECS ROAD -- everything holding a `BossConfig`: the
-/// room-load save-sync (`sync_ecs_bosses_with_save`), the per-tick encounter
-/// driver (`update_boss_encounters`, twice), and the cut-rope victory NPC
-/// (`victory.rs`) -- so the skip-check cannot drift between them.
+/// per-tick encounter driver (`update_boss_encounters`, twice) and the cut-rope
+/// victory NPC (`victory.rs`) -- and it delegates to [`placement_is_cleared`],
+/// which construction asks before a `BossConfig` exists, so the skip-check and
+/// the build-it-defeated decision cannot drift apart.
 ///
 /// ⛔ IT IS NOT THE ONLY READING OF THE FACT, AND DO NOT MAKE IT ONE. The
 /// authored-condition road (`conditions::cleared`, the `boss.cleared(...)` a
@@ -367,10 +368,34 @@ pub fn boss_is_cleared(
     save: &ambition_persistence::save::AmbitionGameSave,
     config: &BossConfig,
 ) -> bool {
+    placement_is_cleared(save.data(), &config.id)
+}
+
+/// The same predicate before a `BossConfig` exists — for the roads that decide
+/// how to BUILD a placement (a construction commit, a programmatic spawn), which
+/// hold its id and not yet a body.
+pub fn placement_is_cleared(
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
+    placement_id: &str,
+) -> bool {
     matches!(
-        save.data().boss(&config.id),
+        save.boss(placement_id),
         ambition_persistence::save_data::PersistedEncounterState::Cleared
     )
+}
+
+/// Which boss placements the durable save records Cleared, as a system
+/// parameter — so a spawner that must not name the save can still build a
+/// cleared placement defeated rather than alive.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ClearedBossPlacements<'w> {
+    save: bevy::prelude::Res<'w, ambition_persistence::save::AmbitionGameSave>,
+}
+
+impl ClearedBossPlacements<'_> {
+    pub fn is_cleared(&self, placement_id: &str) -> bool {
+        placement_is_cleared(self.save.data(), placement_id)
+    }
 }
 
 #[cfg(any(test, feature = "test-support"))]
@@ -380,6 +405,13 @@ pub mod test_support {
     //! field updates them all at once instead of drifting per-module.
     use super::super::{ActorPhaseState, PhaseTrigger};
     use super::*;
+
+    /// Install the durable save [`ClearedBossPlacements`] reads, empty — what a
+    /// fixture composing a spawner needs so it builds under the same authority
+    /// production does, without naming the persistence crate.
+    pub fn install_empty_save(app: &mut bevy::prelude::App) {
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    }
 
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
     /// entity-local `ActorPhaseState` carrying `triggers` (empty  never phases

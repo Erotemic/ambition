@@ -152,6 +152,22 @@ pub enum SpawnActorKind {
     },
 }
 
+/// What the durable record says about a body at the moment it is built.
+///
+/// The CALLER resolves it — the actor kernel from the save it captured for the
+/// commit, the programmatic road from the boss domain's reader — because this
+/// crate never reads the save. The body is BUILT in this state: a placement the
+/// save says died, or a boss placement it says was cleared, starts as the corpse
+/// it was left as, rather than alive for a tick until something noticed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecordedFate {
+    /// Nothing recorded says otherwise, so the body starts as authored.
+    AsAuthored,
+    /// The record says this body died (or its boss encounter was cleared) and
+    /// stays that way.
+    Dead,
+}
+
 /// Install the programmatic actor-spawn seam: its message, and its drainer in
 /// `CombatSet::Materialize`.
 ///
@@ -210,6 +226,7 @@ pub fn apply_spawn_actor_requests(
     // all, and that is exactly the state is about.
     prepared: Option<bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
+    cleared: ambition_boss_encounter::ClearedBossPlacements,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
     // Collect (feature id, entity, grudge-target id) for the Enemy spawns this batch
@@ -231,6 +248,13 @@ pub fn apply_spawn_actor_requests(
         // A refused request (`None`) produced NO entity and must not join the
         // grudge batch either — otherwise a phantom id resolves and stamps
         // `ActorAggression` onto nothing.
+        // A staged ENEMY is built from `EnemySpawnSpec::new`, whose respawn policy
+        // is `UNDESCRIBED_BODY_RESPAWN` — a policy that writes no death record —
+        // so only a boss placement can have a recorded fate on this road.
+        let fate = match req.kind {
+            SpawnActorKind::Boss { .. } if cleared.is_cleared(&req.id) => RecordedFate::Dead,
+            _ => RecordedFate::AsAuthored,
+        };
         let Some(entity) = spawn_staged_actor(
             &mut commands,
             &character_catalog,
@@ -239,6 +263,7 @@ pub fn apply_spawn_actor_requests(
             &boss_catalog,
             session_scope,
             req,
+            fate,
         ) else {
             continue;
         };
@@ -268,6 +293,7 @@ pub(crate) fn spawn_staged_actor(
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     req: &SpawnActorRequest,
+    fate: RecordedFate,
 ) -> Option<bevy::ecs::entity::Entity> {
     // The programmatic path does not lower through the planner, so it cannot
     // mint a giant's host + two hand rows — refuse a giant-class spec like
@@ -304,6 +330,7 @@ pub(crate) fn spawn_staged_actor(
         prepared,
         boss_catalog,
         req,
+        fate,
     );
     Some(root)
 }
@@ -317,6 +344,8 @@ pub fn spawn_staged_actor_into(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     req: &SpawnActorRequest,
+    // Applies to whichever body the request builds.
+    fate: RecordedFate,
 ) {
     let aabb = ae::Aabb::new(req.pos, req.half_size);
     match &req.kind {
@@ -332,6 +361,7 @@ pub fn spawn_staged_actor_into(
                 boss_catalog,
                 &authored,
                 overrides,
+                fate,
             );
         }
         SpawnActorKind::Enemy { brain, character } => {
@@ -377,6 +407,7 @@ pub fn spawn_staged_actor_into(
                 &authored,
                 &[],
                 req.faction,
+                fate,
             );
             scope.insert(ambition_combat::components::RuntimeStagedActor);
         }
@@ -1019,6 +1050,7 @@ pub fn spawn_boss_with_overrides_into(
         ambition_entity_catalog::placements::BossBrain,
     >,
     overrides: &BossOverrides,
+    fate: RecordedFate,
 ) {
     let mut boss = BossClusterScratch::new(
         boss_catalog,
@@ -1045,6 +1077,14 @@ pub fn spawn_boss_with_overrides_into(
         boss.config.behavior.id,
         boss.as_ref().combat_size(),
     );
+    // A cleared placement is built as the corpse it was left as. The encounter
+    // driver re-seeds HP from the profile on its first tick and zeroes it again
+    // for a cleared placement, so what this decides is the presentation start:
+    // `BossPhase::Defeated`, which is what stops `update_ecs_bosses` reading
+    // "was Active, is now dead" and replaying the death on screen.
+    if fate == RecordedFate::Dead {
+        boss.health.health.current = 0;
+    }
     let initial_phase = BossPhase::from_alive(boss.health.alive());
     let feature_aabb = CenteredAabb::from_center_size(boss.kin.pos, boss.as_ref().render_size());
     // BossPattern brain owns boss intent. The cfg snapshots the
@@ -1451,6 +1491,16 @@ pub fn spawn_runtime_minion_into(
     }
 }
 
+/// The respawn policy an authored enemy placement is built with: its own, or the
+/// engine's answer for a placement that states none. ONE resolution, read by the
+/// constructor and by whoever resolves the placement's [`RecordedFate`], so the
+/// two cannot disagree about whether this body keeps a death record.
+pub fn placement_respawn(
+    spec: &ambition_platformer2d_world::rooms::EnemySpawnSpec,
+) -> ambition_entity_catalog::placements::RespawnPolicy {
+    spec.respawn.unwrap_or(UNDESCRIBED_BODY_RESPAWN)
+}
+
 /// Populate an ordinary enemy onto a preallocated construction root. Giant
 /// limbs are explicit construction rows and use the giant host/limb paths.
 #[allow(clippy::too_many_arguments)]
@@ -1472,6 +1522,7 @@ pub fn spawn_enemy_with_faction_into(
     >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: ambition_combat::components::ActorFaction,
+    fate: RecordedFate,
 ) {
     // The authored placement, lowered to the one plan every surface will
     // lower to (see `spawn::character_spawn_plan`). It owns the two questions
@@ -1566,7 +1617,13 @@ pub fn spawn_enemy_with_faction_into(
         // happens to name" — is what AC6 deleted, and it was reached by a lookup
         // that could not fail. It answered `OnRoomReenter` for every body that
         // got this far, which is what `UNDESCRIBED_BODY_RESPAWN` says on purpose.
-        enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(UNDESCRIBED_BODY_RESPAWN);
+        enemy.config.tuning.respawn = placement_respawn(&authored.payload);
+        // A placement the save says died is built dead: zero HP is the single
+        // liveness authority (`alive()` reads it), and a persisting policy never
+        // revives on its own.
+        if fate == RecordedFate::Dead {
+            enemy.health.health.current = 0;
+        }
         // So the giant GNU, a mount whose authored profile states it never seeks anybody, was
         // handed its hostility back one line after construction resolved it correctly. A
         // placement may still overrule, which is what a disposition is for.
@@ -1923,6 +1980,8 @@ pub fn spawn_interactable_into(
     // The developer brain knobs, as a VALUE. See `resolve_npc_brain`: the sim
     // reads a session-owned override the dev tool writes, never the dev crate.
     forced_brains: &ambition_characters::brain::AuthoredBrainOverride,
+    // Applies to an NPC body; a switch or a door has no recorded fate.
+    fate: RecordedFate,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(interactable.aabb);
     if matches!(
@@ -1938,7 +1997,7 @@ pub fn spawn_interactable_into(
         // SFX keying, and the `id_for_display_name` sprite-size lookup) depends
         // on this being the display name.
         let label = npc_display_label(catalog, interactable, authored_name);
-        NpcActorSpawnPlan::peaceful(
+        let mut plan = NpcActorSpawnPlan::peaceful(
             catalog,
             authored_sheets,
             prepared,
@@ -1950,8 +2009,13 @@ pub fn spawn_interactable_into(
             interactable.clone(),
             paths,
             forced_brains,
-        )
-        .spawn_into(&mut scope.reborrow());
+        );
+        // A person the save says was killed is built dead (ADR 0022), whether or
+        // not they were ever provoked.
+        if fate == RecordedFate::Dead {
+            plan.seed.health.health.current = 0;
+        }
+        plan.spawn_into(&mut scope.reborrow());
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = ambition_encounter::SwitchActivation::parse_custom(payload) {
             scope.insert_session_scoped((
@@ -2196,6 +2260,7 @@ mod runtime_giant_refusal_tests {
         );
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         app.init_resource::<ambition_boss_encounter::BossCatalog>();
+        ambition_boss_encounter::test_support::install_empty_save(&mut app);
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();
         app.add_systems(Update, apply_spawn_actor_requests);

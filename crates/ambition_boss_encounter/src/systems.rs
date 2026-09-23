@@ -169,8 +169,8 @@ pub fn update_boss_encounters(
 
         // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —
         // a cleared placement renders defeated and is otherwise inert. Shared
-        // predicate (`boss_is_cleared`) with the room-load save-sync so they
-        // can't drift.
+        // predicate (`boss_is_cleared`) with construction, which builds a
+        // cleared placement defeated, so the two can't drift.
         if crate::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {

@@ -112,6 +112,10 @@ impl ActorPlacementContext {
     }
 }
 
+impl ambition_platformer2d_world::placements::LoweringContext for ActorPlacementContext {
+    type CommitFacts = crate::construction::PersistedFates;
+}
+
 pub type LoweringCtx<'w, 's, 'a> =
     ambition_platformer2d_world::placements::LoweringCtx<'w, 's, 'a, ActorPlacementContext>;
 pub type LoweringFn = ambition_platformer2d_world::placements::LoweringFn<ActorPlacementContext>;

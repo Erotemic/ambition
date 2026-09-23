@@ -26,7 +26,7 @@ fn prepare_lane<D>(
     registry: &ambition_platformer2d_shared_tangle::construction::ConstructionRegistry<D>,
 ) -> Result<ConstructionPlan<D>, ambition_platformer2d_shared_tangle::construction::ConstructionError>
 where
-    D: ConstructionDomain<Services = ()>,
+    D: ConstructionDomain<Services = (), CommitFacts = ()>,
 {
     ConstructionPlan::prepare_in_lane(
         scope,
@@ -58,13 +58,14 @@ fn commit_lane<D>(
     domain_name: &'static str,
 ) -> ConstructionReceipt
 where
-    D: ConstructionDomain<Services = ()>,
+    D: ConstructionDomain<Services = (), CommitFacts = ()>,
 {
     let mut ctx = ConstructionExecCtx {
         commands,
         scope: plan.scope(),
         session,
         services: &(),
+        facts: &(),
     };
     // ⛔ EVERY LANE, ALWAYS — see `RoomFeatureConstructionPlan::spawn`.
     let receipt = plan.commit_hidden(&mut ctx);
@@ -108,7 +109,7 @@ fn respawn_from_lane<D>(
     domain_name: &'static str,
 ) -> Option<bool>
 where
-    D: ConstructionDomain<Services = ()>,
+    D: ConstructionDomain<Services = (), CommitFacts = ()>,
 {
     plan.get(sim_id)?;
     let closure = plan.relation_closure(&BTreeSet::from([sim_id.clone()]));
@@ -117,6 +118,7 @@ where
         scope: plan.scope(),
         session,
         services: &(),
+        facts: &(),
     };
     Some(match plan.commit_subset(&closure, &mut ctx) {
         Ok(_) => true,

@@ -49,6 +49,7 @@ impl ConstructionDomain for PortalGunConstruction {
     type Parameters = PortalGunConstructionParams;
     type Relation = PortalGunConstructionRelation;
     type Services = ();
+    type CommitFacts = ();
 
     fn dispatch(_parameters: &Self::Parameters) -> RecipeDispatch<Self> {
         RecipeDispatch {
@@ -180,6 +181,7 @@ mod tests {
                 scope: plan.scope(),
                 session: SessionSpawnScope::UNSCOPED,
                 services: &(),
+                facts: &(),
             };
             plan.commit(&mut ctx)
         };

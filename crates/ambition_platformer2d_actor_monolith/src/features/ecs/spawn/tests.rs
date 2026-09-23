@@ -188,7 +188,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         // marker it counts is found by an ORDINARY query, and this rig never
         // calls `register_inactive_candidate_filter`, so the `InactiveCandidate`
         // stamp is inert here and the query sees its subject.
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded());
     });
     app.update();
 
@@ -302,6 +302,7 @@ fn boss_spawn_attaches_brain_components() {
             &ambition_boss_encounter::test_boss_catalog(),
             &authored,
             &ambition_boss_encounter::BossOverrides::default(),
+            ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
         );
     });
     app.update();
@@ -584,6 +585,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             &authored.name,
             &[],
             &ambition_characters::brain::AuthoredBrainOverride::default(),
+            ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
         );
     };
     app.add_systems(Update, spawn);
@@ -602,6 +604,73 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
          raw LDtk identifier here means the catalog join was dropped)",
         identity.name(),
     );
+}
+
+/// A person the save says was killed is BUILT dead — zero HP from the batch that
+/// creates the body, not a live body a later pass zeroes.
+#[test]
+fn an_npc_with_a_recorded_death_is_built_dead() {
+    use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
+
+    for (fate, expect_alive) in [
+        (ambition_platformer2d_actor_spawn::RecordedFate::Dead, false),
+        (ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored, true),
+    ] {
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
+            "NpcSpawn-guide",
+            "NpcSpawn",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(32.0, 48.0)),
+            InteractableSpec::new(
+                "Talk",
+                InteractionKindSpec::Npc {
+                    character_id: Some("npc_architect".to_string()),
+                    dialogue_id: Some("hall_architect".to_string()),
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: Some("stand_still".to_string()),
+                },
+            ),
+        );
+        let spawn = move |mut commands: Commands,
+                          catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >| {
+            let root = commands.spawn_empty().id();
+            ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                    &mut commands,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                ),
+                &catalog,
+                &Default::default(),
+                &Default::default(),
+                &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                &authored.name,
+                &[],
+                &ambition_characters::brain::AuthoredBrainOverride::default(),
+                fate,
+            );
+        };
+        app.add_systems(Update, spawn);
+        app.update();
+
+        let mut q = app
+            .world_mut()
+            .query::<(&ActorIdentity, &ambition_characters::actor::BodyHealth)>();
+        let (_, health) = q
+            .iter(app.world())
+            .next()
+            .expect("spawn_interactable should spawn an NPC actor");
+        assert_eq!(
+            health.alive(),
+            expect_alive,
+            "{fate:?}: the NPC was built with {} HP",
+            health.health.current
+        );
+    }
 }
 
 /// Guard against inferring gameplay identity from presentation identity.
@@ -710,6 +779,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -788,6 +858,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -915,6 +986,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -1065,6 +1137,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -1208,6 +1281,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -1273,6 +1347,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );
@@ -1330,6 +1405,7 @@ mod authored_enemy_reads_its_character {
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
         );

@@ -1124,10 +1124,11 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        facts: &crate::construction::PersistedFates,
         authored_id: &str,
     ) -> bool {
         let planned_id = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(authored_id);
-        self.respawn_authoritative_sim_id(commands, session_scope, &planned_id)
+        self.respawn_authoritative_sim_id(commands, session_scope, facts, &planned_id)
     }
 
     /// Rebuild one PLANNED authoritative root by its stable identity — the form
@@ -1152,6 +1153,7 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        facts: &crate::construction::PersistedFates,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
         if self.construction.get(sim_id).is_some() {
@@ -1163,6 +1165,7 @@ impl RoomFeatureConstructionPlan {
                 scope: self.construction.scope(),
                 session: session_scope,
                 services: &self.construction_services,
+                facts,
             };
             return match self.construction.commit_subset(&closure, &mut ctx) {
                 Ok(_) => true,
@@ -1205,6 +1208,7 @@ impl RoomFeatureConstructionPlan {
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        facts: &crate::construction::PersistedFates,
     ) -> RoomFeatureConstructionReceipt {
         // ⛔⛤ **A ROOM NO LONGER RESETS `FactionRelations` — 2026-09-15 AUDIT,
         // FINDING 1's SECOND MANIFESTATION.** This line ran on EVERY room spawn,
@@ -1235,6 +1239,7 @@ impl RoomFeatureConstructionPlan {
                 scope: self.construction.scope(),
                 session: session_scope,
                 services: &self.construction_services,
+                facts,
             };
             self.construction.commit_hidden(&mut ctx)
         };
@@ -1268,8 +1273,9 @@ pub(crate) fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,
+    facts: &crate::construction::PersistedFates,
 ) -> RoomFeatureConstructionReceipt {
-    plan.spawn(commands, session_scope)
+    plan.spawn(commands, session_scope, facts)
 }
 
 /// Spawn one hostile actor for an encounter wave.

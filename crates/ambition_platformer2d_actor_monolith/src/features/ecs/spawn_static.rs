@@ -350,6 +350,7 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
+    let fate = ctx.facts.npc_fate(&authored.id);
     ambition_platformer2d_actor_spawn::spawn_interactable_into(
         &mut ctx.scope.reborrow(),
         &ctx.context.characters,
@@ -364,6 +365,7 @@ pub(crate) fn lower_interactable_placement(
         &authored.name,
         ctx.paths,
         &ctx.context.forced_brains,
+        fate,
     );
 }
 

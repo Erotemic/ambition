@@ -309,6 +309,7 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
             &mut commands,
             &plan,
             SessionSpawnScope::UNSCOPED,
+            &crate::construction::PersistedFates::unrecorded(),
         );
         *sink.lock().unwrap() = Some(receipt.construction().committed_ids());
     });
@@ -556,6 +557,7 @@ fn rebuilding_one_planned_entity_reproduces_its_identity_and_provenance() {
         let rebuilt = plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
+            &crate::construction::PersistedFates::unrecorded(),
             "pickup_a",
         );
         assert!(rebuilt, "the planned ground item is rebuildable by id");
@@ -592,6 +594,7 @@ fn rebuilding_an_unplanned_id_reports_failure() {
     assert!(!plan.respawn_authoritative_entity(
         &mut commands_queue,
         SessionSpawnScope::UNSCOPED,
+        &crate::construction::PersistedFates::unrecorded(),
         "never_authored",
     ));
 }
@@ -994,6 +997,7 @@ fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
         *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
+            &crate::construction::PersistedFates::unrecorded(),
             "duel_red",
         ));
     });
@@ -1034,6 +1038,7 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
         *sink.lock().unwrap() = Some(plan.respawn_authoritative_entity(
             &mut commands,
             SessionSpawnScope::UNSCOPED,
+            &crate::construction::PersistedFates::unrecorded(),
             "pickup_a",
         ));
     });
@@ -1131,6 +1136,7 @@ fn every_parameter_variant_constructs_its_root() {
             scope: &scope,
             session: SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &crate::construction::PersistedFates::unrecorded(),
         };
         plan.commit(&mut ctx);
     }
@@ -1548,6 +1554,7 @@ fn commit_bare(plan: &ActorConstructionPlan) -> (World, ConstructionReceipt, Tra
             scope: &scope,
             session: SessionSpawnScope::UNSCOPED,
             services: &services,
+            facts: &crate::construction::PersistedFates::unrecorded(),
         };
         plan.commit(&mut ctx)
     };
@@ -2727,7 +2734,7 @@ fn reconstructing_from_any_giant_cluster_member_rebuilds_all_three_fresh() {
 
         let rebuilt = {
             let mut commands = world.commands();
-            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, seed)
+            plan.respawn_authoritative_sim_id(&mut commands, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded(), seed)
         };
         assert!(rebuilt, "the closure of `{seed}` rebuilds");
         world.flush();
@@ -3186,7 +3193,7 @@ fn a_boss_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, "warden")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded(), "warden")
     };
     assert!(rebuilt, "the planned boss row rebuilds");
     world.flush();
@@ -3348,7 +3355,7 @@ fn a_placement_respawns_through_the_planner() {
     world.despawn(old);
     let rebuilt = {
         let mut commands = world.commands();
-        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, "ring_1")
+        plan.respawn_authoritative_entity(&mut commands, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded(), "ring_1")
     };
     assert!(rebuilt, "the planned placement row rebuilds");
     world.flush();

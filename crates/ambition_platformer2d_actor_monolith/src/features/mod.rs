@@ -134,7 +134,7 @@ pub use ecs::{
     snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
     sync_actor_poses_from_feature_aabbs,
     sync_boss_encounter_phase,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
+    sync_ecs_actors_with_save, sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,

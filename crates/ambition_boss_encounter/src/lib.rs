@@ -64,7 +64,7 @@ pub use catalog::{
 #[cfg(any(test, feature = "test-support"))]
 pub use clusters::test_support;
 pub use clusters::{
-    boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
+    boss_is_cleared, placement_is_cleared, BossClusterQueryData, ClearedBossPlacements, BossClusterRef, BossClusterScratch, BossConfig,
     BossEncounter, BossMut, BossOverrides, BossRef,
 };
 pub use encounter_entity::{

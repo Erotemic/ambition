@@ -224,6 +224,111 @@ pub struct ActorConstructionServices {
     pub boss_catalog: BossCatalog,
 }
 
+/// What the durable save says about the authored bodies a commit builds.
+///
+/// ⛔ A COMMIT FACT, NOT A PLAN FACT (see `ConstructionDomain::CommitFacts`). A
+/// room plan is committed again by a replay or a reconstitution after the save
+/// has moved, so the answer is read when THAT commit is requested and the body
+/// is built in it — a placement the save says died starts dead, a cleared boss
+/// starts defeated. These used to be built alive and corrected by a save mirror
+/// running every sim tick.
+#[derive(Clone, Debug)]
+pub struct PersistedFates {
+    save: Option<ambition_persistence::save_data::AmbitionGameSaveData>,
+}
+
+impl PersistedFates {
+    pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
+        Self {
+            save: Some(save.clone()),
+        }
+    }
+
+    /// A commit no durable record reaches: a summon, whose occurrence the save
+    /// never names, or a fixture with no save installed.
+    pub fn unrecorded() -> Self {
+        Self { save: None }
+    }
+
+    /// Read off the world the commit is about to be applied to.
+    pub fn of_world(world: &World) -> Self {
+        world
+            .get_resource::<ambition_persistence::save::AmbitionGameSave>()
+            .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
+    }
+
+    /// An authored enemy placement: dead iff its policy keeps a death record and
+    /// the save holds one.
+    ///
+    /// ⚠ THE READ IS WIDER THAN THE WRITE, ON PURPOSE. A death writes exactly
+    /// one flag (`crate::features::enemy_death_flag`), but a placement
+    /// re-authored from `OnRest` to `DeadStaysDead` after the save was written
+    /// would be read with the wrong one and come back to life, so both are
+    /// consulted — for a policy that keeps a record at all.
+    pub fn enemy_fate(
+        &self,
+        authored: &ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
+        >,
+    ) -> ambition_platformer2d_actor_spawn::RecordedFate {
+        self.enemy_fate_under(
+            &authored.id,
+            ambition_platformer2d_actor_spawn::placement_respawn(&authored.payload),
+        )
+    }
+
+    fn enemy_fate_under(
+        &self,
+        id: &str,
+        policy: ambition_entity_catalog::placements::RespawnPolicy,
+    ) -> ambition_platformer2d_actor_spawn::RecordedFate {
+        let keeps_a_record = crate::features::enemy_death_flag(policy, id).is_some();
+        let recorded = self.save.as_ref().is_some_and(|save| {
+            save.flag(&crate::features::enemy_dead_flag(id))
+                || save.flag(&crate::features::enemy_dead_until_rest_flag(id))
+        });
+        if keeps_a_record && recorded {
+            ambition_platformer2d_actor_spawn::RecordedFate::Dead
+        } else {
+            ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored
+        }
+    }
+
+    /// An NPC placement, under the one policy every NPC placement is built with.
+    pub fn npc_fate(&self, id: &str) -> ambition_platformer2d_actor_spawn::RecordedFate {
+        self.enemy_fate_under(id, ambition_body_seed::NPC_PLACEMENT_RESPAWN)
+    }
+
+    /// A boss placement: dead iff the save records it Cleared.
+    pub fn boss_fate(&self, placement_id: &str) -> ambition_platformer2d_actor_spawn::RecordedFate {
+        if self
+            .save
+            .as_ref()
+            .is_some_and(|save| ambition_boss_encounter::placement_is_cleared(save, placement_id))
+        {
+            ambition_platformer2d_actor_spawn::RecordedFate::Dead
+        } else {
+            ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored
+        }
+    }
+
+    /// Whichever body a staged request builds. A staged enemy carries
+    /// `EnemySpawnSpec::new`'s undescribed policy, which is asked rather than
+    /// assumed to keep no record.
+    fn staged_fate(&self, request: &SpawnActorRequest) -> ambition_platformer2d_actor_spawn::RecordedFate {
+        match request.kind {
+            SpawnActorKind::Boss { .. } => self.boss_fate(&request.id),
+            SpawnActorKind::Enemy { .. } => self.enemy_fate_under(
+                &request.id,
+                ambition_platformer2d_actor_spawn::UNDESCRIBED_BODY_RESPAWN,
+            ),
+        }
+    }
+}
+
+#[cfg(test)]
+mod persisted_fate_tests;
+
 /// The actor construction domain.
 pub struct ActorConstruction;
 
@@ -231,6 +336,7 @@ impl ConstructionDomain for ActorConstruction {
     type Parameters = ActorConstructionParams;
     type Relation = ActorRelation;
     type Services = ActorConstructionServices;
+    type CommitFacts = PersistedFates;
 
     /// ONE match: each arm names both the recipe identity and the function that
     /// builds it, so the label and the behaviour cannot drift apart. Adding a
@@ -575,6 +681,7 @@ fn construct_staged_actor(
         unreachable!("dispatch pairs this fn with StagedActor parameters")
     };
     let services = ctx.services;
+    let fate = ctx.facts.staged_fate(request);
     ambition_platformer2d_actor_spawn::spawn_staged_actor_into(
         &mut ctx.root_scope(),
         &services.context.characters,
@@ -584,6 +691,7 @@ fn construct_staged_actor(
         &services.context.prepared,
         &services.boss_catalog,
         request,
+        fate,
     );
 }
 
@@ -626,6 +734,7 @@ fn construct_giant_host(
     else {
         unreachable!("dispatch pairs this fn with GiantHost parameters")
     };
+    let fate = ctx.facts.enemy_fate(authored);
     // ⭐ THE HOST IS AN ORDINARY ENEMY BODY PLUS THE LIMB ROUTING STATE, and
     // saying so here is the point of the move. This was `populate_giant_host_into`
     // in `features/ecs/spawn_actors.rs` — a five-line wrapper whose only caller in <!-- cite-ok: records a path that is GONE; naming it is the point -->
@@ -642,6 +751,7 @@ fn construct_giant_host(
         authored,
         paths,
         *faction,
+        fate,
     );
     ctx.insert((
         ambition_characters::actor::limb::LimbIntents::default(),
@@ -657,6 +767,7 @@ fn construct_giant_hand(
     let ActorConstructionParams::GiantHand { authored } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
     };
+    let fate = ctx.facts.enemy_fate(authored);
     //  THE SAME ROAD THE HOST TAKES, and that is load-bearing history: the
     // hand used to be built from an ARCHETYPE row while the giant beside it was
     // built from its character, so two limbs of one creature came down two
@@ -672,6 +783,7 @@ fn construct_giant_hand(
         authored,
         &[],
         ambition_combat::components::ActorFaction::Enemy,
+        fate,
     );
 }
 
@@ -683,6 +795,7 @@ fn construct_authored_enemy(
     let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
     };
+    let fate = ctx.facts.enemy_fate(authored);
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
         &mut ctx.root_scope(),
         &services.context.characters,
@@ -692,6 +805,7 @@ fn construct_authored_enemy(
         authored,
         paths,
         ambition_combat::components::ActorFaction::Enemy,
+        fate,
     );
 }
 
@@ -703,11 +817,13 @@ fn construct_authored_boss(
     let ActorConstructionParams::AuthoredBoss { authored } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
+    let fate = ctx.facts.boss_fate(&authored.id);
     ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(
         &mut ctx.root_scope(),
         &services.boss_catalog,
         authored,
         &ambition_boss_encounter::BossOverrides::default(),
+        fate,
     );
 }
 
@@ -745,11 +861,13 @@ fn construct_placement(
     };
     // Every read is bound BEFORE `root_scope`, which borrows the whole context.
     let room_id = ctx.scope.room().unwrap_or("").to_string();
+    let facts = ctx.facts;
     let mut lowering = crate::world::placements::LoweringCtx {
         scope: ctx.root_scope(),
         room_id: &room_id,
         paths,
         context: &services.context,
+        facts,
     };
     lower(record, &mut lowering);
 }

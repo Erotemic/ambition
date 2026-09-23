@@ -794,6 +794,48 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     );
 }
 
+/// A SEATED CHARGER CAN CHARGE. How a character fires is its own fact
+/// (`ranged_execution`), and under `ChargedProjectile` its derived moves leave
+/// the ranged press to the charge path — so a seat that carries that kit but
+/// not the charge capability owns a ranged button that does nothing. The seat
+/// is built with the capability; a `MovesetVerb` fighter beside it gets none.
+#[test]
+fn a_seated_charger_is_built_able_to_charge_and_a_verb_fighter_is_not() {
+    use ambition_characters::brain::{ChargesProjectiles, RangedExecution};
+
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("charger", "Charger", "demo")
+            .with_ranged_execution(RangedExecution::ChargedProjectile),
+    );
+    app.register_character(CharacterDefinition::new("verb", "Verb", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("charger"), cpu("verb")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut seated = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Has<ChargesProjectiles>,
+        Has<ambition_projectiles::PlayerProjectileState>,
+    )>();
+    let mut found: Vec<(String, bool, bool)> = seated
+        .iter(world)
+        .map(|(worn, marker, state)| (worn.id().to_string(), marker, state))
+        .collect();
+    found.sort();
+    assert_eq!(
+        found,
+        vec![
+            ("charger".to_string(), true, true),
+            ("verb".to_string(), false, false),
+        ],
+        "(id, ChargesProjectiles, PlayerProjectileState) per seat"
+    );
+}
+
 /// FORCING A CRAWLER INTO A FIGHTER SEAT GIVES YOU A CRAWLER.
 ///
 /// a Puppy Slug into Smash … movement input → uses Puppy Slug's actual authored

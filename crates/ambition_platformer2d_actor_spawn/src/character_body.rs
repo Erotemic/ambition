@@ -188,6 +188,30 @@ pub enum KitOwnership {
     CallerResolved,
 }
 
+/// Put a body's ranged execution on it as components: the charge capability
+/// and its per-body state under `ChargedProjectile`, neither under
+/// `MovesetVerb`, whose ranged press is an ordinary move.
+///
+/// Existing charge state is kept, so re-granting the same character does not
+/// drop a charge in progress.
+pub fn install_ranged_execution(
+    scope: &mut EntityScope,
+    execution: ambition_characters::brain::RangedExecution,
+) {
+    if execution.charges_projectiles() {
+        scope.insert(ambition_characters::brain::ChargesProjectiles);
+        scope.queue_component_upsert(
+            ambition_projectiles::PlayerProjectileState::default,
+            |_| {},
+        );
+    } else {
+        scope.remove::<(
+            ambition_characters::brain::ChargesProjectiles,
+            ambition_projectiles::PlayerProjectileState,
+        )>();
+    }
+}
+
 /// Put every fact a prepared character owns onto a body, as ONE batch.
 ///
 /// the ONE place a prepared definition becomes a body, and that is the
@@ -276,6 +300,13 @@ pub fn grant_prepared_character_body(
             } else if let Some(moveset) = projected_moveset {
                 scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
+        }
+        // HOW THIS BODY FIRES goes with the kit it fires. The persona derive
+        // installs it on the bodies it owns; a road that owns its own kit gets it
+        // here, from the CHARACTER even when a match supplied the action set,
+        // because a borrowed set does not change how the borrower fires.
+        if kit != KitOwnership::PersonaDerive {
+            install_ranged_execution(scope, prepared.ranged_execution);
         }
         // The rest is what the persona derive does not own on ANY path: the
         // authored silhouette, the movement feel, and the motion model — body

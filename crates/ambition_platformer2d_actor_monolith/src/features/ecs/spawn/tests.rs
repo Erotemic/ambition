@@ -1073,9 +1073,51 @@ mod authored_enemy_reads_its_character {
         );
     }
 
+    /// A ROOM'S CHARGER CAN CHARGE. A character that fires through the charge
+    /// path has derived moves that leave the ranged press to it, so a room body
+    /// built with that kit and without the charge capability holds a ranged
+    /// button that does nothing. The control authors no charge and gets none.
+    #[test]
+    fn a_built_charger_can_charge_and_a_verb_body_cannot() {
+        let charges = |execution| {
+            let mut app = spawn_raider(|definition| definition.with_ranged_execution(execution));
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<(
+                bevy::prelude::Has<ambition_characters::brain::ChargesProjectiles>,
+                bevy::prelude::Has<ambition_projectiles::PlayerProjectileState>,
+            ), bevy::prelude::With<ambition_characters::actor::WornCharacter>>();
+            q.single(world).expect("the placement built one body")
+        };
+        assert_eq!(
+            charges(ambition_characters::brain::RangedExecution::ChargedProjectile),
+            (true, true),
+            "(ChargesProjectiles, PlayerProjectileState) on a charger"
+        );
+        assert_eq!(
+            charges(ambition_characters::brain::RangedExecution::MovesetVerb),
+            (false, false),
+            "(ChargesProjectiles, PlayerProjectileState) on a verb body"
+        );
+    }
+
     /// The held-item id on the body a complete character builds, if any.
     fn spawn_held_item(item: Option<&'static str>) -> Option<String> {
-        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        let mut app = spawn_raider(|definition| match item {
+            Some(item) => definition.with_held_item(item),
+            None => definition,
+        });
+        let world = app.world_mut();
+        let mut q = world.query::<&ambition_combat::held_items::HeldItem>();
+        q.iter(world).next().map(|held| held.spec.id.clone())
+    }
+
+    /// Build one complete raider character from a room placement.
+    fn spawn_raider(
+        author: impl FnOnce(
+            ambition_characters::actor::definition::CharacterDefinition,
+        ) -> ambition_characters::actor::definition::CharacterDefinition,
+    ) -> App {
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_raider",
             "Cove Raider",
             "test",
@@ -1085,9 +1127,7 @@ mod authored_enemy_reads_its_character {
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         });
-        if let Some(item) = item {
-            definition = definition.with_held_item(item);
-        }
+        let mut definition = author(definition);
         definition.vitals.max_health = Some(4);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
@@ -1142,10 +1182,7 @@ mod authored_enemy_reads_its_character {
             },
         );
         app.update();
-
-        let world = app.world_mut();
-        let mut q = world.query::<&ambition_combat::held_items::HeldItem>();
-        q.iter(world).next().map(|held| held.spec.id.clone())
+        app
     }
 
     /// A complete character is built from its definition rather than patched

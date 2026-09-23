@@ -21,6 +21,7 @@ ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_vfx = { path = "../ambition_vfx" }
 bevy = { version = "0.19.1", default-features = false }

@@ -32,7 +32,20 @@ Usage::
     scripts/sweep_target_lru.py --apply --ensure-free 40
         # ...and if the disk still has under 40 GiB free, empty every profile
 
-Refuses to touch a profile whose cargo build lock another process holds.
+⛔ SAFETY, each a rule this repository learned before this script existed
+(`clean_workspace_crates.sh` carries the history):
+
+* ``--apply`` REFUSES when ``target/`` is on a virtiofs worktree and not bound
+  onto local disk (``scripts/setup/target_bindmount.sh --check``). Unbound,
+  ``target/`` exposes the shadowed duplicate underneath the mount point, and
+  reclaiming that is a maintainer's decision, not a sweep's.
+* The profile's ``.cargo-lock`` is OPENED FOR APPEND — created when absent —
+  and exclusively locked before the first delete, and held through the last.
+  Probing it, or skipping a profile that has no lock file yet, lets a cargo
+  that starts in between build underneath the deletion.
+* ``incremental/`` sessions are rustc's, named ``<crate>-<suffix>`` with a
+  suffix that is NOT a cargo unit hash, so each is its own reclaim unit, aged
+  like any other.
 """
 
 from __future__ import annotations
@@ -51,9 +64,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Cargo's own per-unit directories under a profile. Anything else there —
-# top-level hardlinked binaries, captures, logs — is not grouped and is kept.
-UNIT_DIRS = ("deps", ".fingerprint", "build", "examples", "incremental")
+# Cargo's own per-unit directories under a profile, grouped by unit hash.
+# Anything else there — top-level hardlinked binaries, captures, logs — is not
+# grouped and is kept.
+UNIT_DIRS = ("deps", ".fingerprint", "build", "examples")
+# rustc's incremental cache: one entry per crate session directory, keyed by
+# its own path because its suffix is not a cargo unit hash.
+INCREMENTAL_DIR = "incremental"
 
 # `<name>-<16 hex>` optionally followed by an extension chain.
 HASHED = re.compile(r"^(?P<stem>.+)-(?P<hash>[0-9a-f]{16})(?P<ext>\..*)?$")
@@ -112,6 +129,12 @@ def profile_units(profile: Path) -> dict[str, Unit]:
             unit.paths.append(entry)
             unit.last_used = max(unit.last_used, latest)
             unit.size += size
+    incremental = profile / INCREMENTAL_DIR
+    if incremental.is_dir():
+        for entry in incremental.iterdir():
+            key = f"{INCREMENTAL_DIR}/{entry.name}"
+            latest, size = _stat_tree(entry)
+            units[key] = Unit(key, [entry], latest, size)
     return units
 
 
@@ -127,11 +150,12 @@ def profiles(target: Path) -> list[Path]:
 
 @contextlib.contextmanager
 def build_lock(profile: Path):
-    """Hold cargo's build lock for the profile, or yield False if it is busy."""
+    """Hold cargo's build lock for the profile, or yield False if it is busy.
+
+    Opened for APPEND so an absent lock file is created: cargo's own `flock` on
+    the same path then waits for us, whichever of the two arrived first.
+    """
     lock_path = profile / ".cargo-lock"
-    if not lock_path.exists():
-        yield True
-        return
     with open(lock_path, "a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -144,6 +168,28 @@ def build_lock(profile: Path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
+def bind_refusal(target: Path) -> str | None:
+    """Why an apply must not touch `target`, or None.
+
+    Only the repository's own `target/` can be a shadowed bind point; a
+    `CARGO_TARGET_DIR` elsewhere is the caller's own directory.
+    """
+    if target.resolve() != (REPO / "target").resolve():
+        return None
+    check = REPO / "scripts" / "setup" / "target_bindmount.sh"
+    if not check.exists():
+        return None
+    result = subprocess.run(["bash", str(check), "--check"], capture_output=True, text=True)
+    if result.returncode == 0:
+        return None
+    return (
+        f"{result.stderr.strip()}\n\nREFUSING: target/ is not bound onto local disk "
+        "(target_bindmount.sh --check exited "
+        f"{result.returncode}). An unbound target exposes the shadowed duplicate, "
+        "which is not a sweep's to reclaim. Run: scripts/setup/target_bindmount.sh"
+    )
+
+
 def remove(path: Path) -> None:
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path, ignore_errors=True)
@@ -153,8 +199,8 @@ def remove(path: Path) -> None:
 
 
 def empty_profile(profile: Path) -> None:
-    """Everything under the profile, keeping the directory itself — which may be
-    a mount point (this repo bind-mounts `target/debug`)."""
+    """Everything under the profile, keeping the directory itself and its lock
+    file — the caller holds that lock while this runs."""
     for entry in profile.iterdir():
         if entry.name == ".cargo-lock":
             continue
@@ -178,7 +224,9 @@ def sweep(target: Path, days: float, apply: bool, now: float | None = None) -> t
     removed_units = removed_bytes = 0
     skipped: list[str] = []
     for profile in profiles(target):
-        with build_lock(profile) as held:
+        # A report deletes nothing, so it takes no lock and writes no file.
+        lock = build_lock(profile) if apply else contextlib.nullcontext(True)
+        with lock as held:
             if not held:
                 skipped.append(str(profile))
                 continue
@@ -214,6 +262,10 @@ def main() -> int:
     ).stdout.strip()
     if "noatime" in mount.split(","):
         print("⚠ target/ is on a noatime mount: last use degrades to build age")
+
+    if args.apply and (refusal := bind_refusal(target)):
+        print(refusal, file=sys.stderr)
+        return 2
 
     before = free_gib(target)
     units, size, skipped = sweep(target, args.days, args.apply)

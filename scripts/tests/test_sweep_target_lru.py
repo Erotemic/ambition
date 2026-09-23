@@ -71,6 +71,8 @@ def test_only_a_wholly_unused_unit_is_removed(tmp_path):
     lru.sweep(tmp_path, days=7, apply=True, now=now)
     remaining = sorted(p.relative_to(profile).as_posix() for p in profile.rglob("*") if p.is_file())
     assert remaining == [
+        # Created by the apply, which locks the profile even when cargo never had.
+        ".cargo-lock",
         f".fingerprint/split-{SPLIT}/lib-split",
         "ambition_game_bin",
         f"deps/libbevy-{LIVE}.rlib",
@@ -99,3 +101,97 @@ def test_emptying_a_profile_keeps_the_directory(tmp_path):
     lru.empty_profile(profile)
     assert profile.is_dir()
     assert list(profile.iterdir()) == []
+
+
+def test_the_lock_is_held_through_every_delete_even_when_no_lock_file_existed(tmp_path):
+    """⛔ THE RACE THIS REPOSITORY ALREADY FIXED ONCE (clean_workspace_crates.sh,
+    2026-09-17) AND THIS SCRIPT REINTRODUCED: a profile with no `.cargo-lock`
+    took no lock, so a cargo starting meanwhile could create it, acquire it and
+    build underneath the deletion. Every delete must happen while a competitor
+    CANNOT take the lock."""
+    lru = _module()
+    now = time.time()
+    profile = _tree(tmp_path, now)
+    lock = profile / ".cargo-lock"
+    assert not lock.exists(), "premise: the profile starts with no lock file"
+
+    competitor_got_it: list[bool] = []
+    real_remove = lru.remove
+
+    def watched_remove(path):
+        with open(lock, "a") as competitor:
+            try:
+                fcntl.flock(competitor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                competitor_got_it.append(True)
+                fcntl.flock(competitor, fcntl.LOCK_UN)
+            except BlockingIOError:
+                competitor_got_it.append(False)
+        real_remove(path)
+
+    lru.remove = watched_remove
+    units, _, _ = lru.sweep(tmp_path, days=7, apply=True, now=now)
+    assert units == 1 and competitor_got_it, "premise: something was deleted"
+    assert not any(competitor_got_it), "a delete ran while another process could take cargo's lock"
+
+
+def test_a_dry_run_writes_nothing(tmp_path):
+    lru = _module()
+    profile = _tree(tmp_path, time.time())
+    lru.sweep(tmp_path, days=7, apply=False)
+    assert not (profile / ".cargo-lock").exists(), "a report created the lock file"
+
+
+def test_an_unbound_repo_target_refuses_to_apply(monkeypatch):
+    """⛔ On virtiofs an unbound `target/` exposes the shadowed duplicate under the
+    mount point; reclaiming it is the maintainer's call. The refusal is the
+    canonical `target_bindmount.sh --check`, consulted for the repo's own target
+    and only there."""
+    lru = _module()
+    calls = []
+
+    class Result:
+        returncode = 2
+        stderr = "not bound"
+
+    def fake_run(argv, **_):
+        calls.append(argv)
+        return Result()
+
+    monkeypatch.setattr(lru.subprocess, "run", fake_run)
+    assert lru.bind_refusal(lru.REPO / "target") is not None
+    assert calls and calls[0][-1] == "--check"
+    calls.clear()
+    assert lru.bind_refusal(pathlib.Path("/somewhere/else/target")) is None
+    assert not calls, "a CARGO_TARGET_DIR elsewhere is not a bind point"
+
+
+def test_main_refuses_before_touching_anything(tmp_path, monkeypatch):
+    lru = _module()
+    now = time.time()
+    profile = _tree(tmp_path, now)
+    monkeypatch.setenv("CARGO_TARGET_DIR", str(tmp_path))
+    monkeypatch.setattr(lru, "bind_refusal", lambda target: "REFUSING")
+    monkeypatch.setattr(sys, "argv", ["sweep", "--apply", "--ensure-free", "1e9"])
+    assert lru.main() == 2
+    assert (profile / "deps" / f"libglam-{OLD}.rlib").exists()
+    assert (profile / "ambition_game_bin").exists(), "--ensure-free emptied a refused target"
+
+
+def test_a_rustc_incremental_session_is_its_own_unit(tmp_path):
+    """rustc names sessions `<crate>-<suffix>` with a suffix that is NOT a cargo
+    unit hash (e.g. `aipg_client-cn2ostj37iq8`), so the artifact regex cannot see
+    them — and `incremental/` is routinely the largest part of a profile."""
+    lru = _module()
+    now = time.time()
+    profile = tmp_path / "debug"
+    _touch(profile / "deps" / f"libx-{LIVE}.rlib", 0, now)
+    stale = profile / "incremental" / "aipg_client-cn2ostj37iq8"
+    fresh = profile / "incremental" / "ambition_core-1a2b3c4d5e6f7"
+    for session, age in ((stale, 30), (fresh, 0)):
+        _touch(session / "s-h0abc-1xyz" / "dep-graph.bin", age, now)
+        stamp = now - age * 86400
+        os.utime(session / "s-h0abc-1xyz", (stamp, stamp))
+        os.utime(session, (stamp, stamp))
+    units, size, _ = lru.sweep(tmp_path, days=7, apply=True, now=now)
+    assert (units, size) == (1, 10)
+    assert not stale.exists() and fresh.exists()

@@ -125,6 +125,9 @@ pub struct FeatureHitWriters<'w, 's> {
     /// an ability pickup each have to state their parent's identity or no render
     /// family will claim them — see `damage_drops::dynamic_drop_origin`.
     pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// Which character a struck body IS right now, by entity — the gameplay
+    /// identity a bark speaks in, which a runtime re-wear changes.
+    pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
 }
 
 impl FeatureHitWriters<'_, '_> {

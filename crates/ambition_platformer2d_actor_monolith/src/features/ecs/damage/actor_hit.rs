@@ -349,12 +349,19 @@ pub(crate) fn apply_actor_hit(
                 ambition_damage::BodyHitResolution::Damaged { died: true, .. }
             ) && em.health.policy().kills_at_max());
         if should_bark && !killed {
-            // Catalog-first: the actor seed carries the stable authored
-            // character id through spawn. Display names remain presentation and
-            // are never reverse-resolved into identity.
-            let line = em
-                .config
-                .sprite_character_id
+            // WHO IS SPEAKING is the body's worn character, which a runtime
+            // re-wear (a transformation, a power-up form) changes; the sprite id
+            // the seed carried answers only for a body that wears nothing — the
+            // precedence `ActorConfig::sprite_character_id` documents. Display
+            // names remain presentation and are never reverse-resolved.
+            let speaker = writers
+                .worn
+                .get(actor_entity)
+                .ok()
+                .map(ambition_characters::actor::WornCharacter::id)
+                .map(str::to_owned)
+                .or_else(|| em.config.sprite_character_id.clone());
+            let line = speaker
                 .as_deref()
                 .and_then(|cid| {
                     catalog.bark_line(

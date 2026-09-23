@@ -54,10 +54,9 @@ pub mod stocks_match;
 pub mod ecs;
 pub(crate) mod enemies;
 pub(crate) mod npcs;
-/// The one spelling of the persisted-hostile NPC flag — see [`npcs::npc_flag_id`].
-pub use npcs::{
-    npc_flag_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
-};
+/// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
+/// `crate::fate_flags::npc_flag_id`, below both features and construction.
+pub use npcs::{npc_talked_flag, record_npc_provocations, NpcProvocationChanged};
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
@@ -162,9 +161,6 @@ pub(crate) use ecs::{
 // Callers name `_core`; the SDK keeps its own one-hop alias.
 pub use ambition_entity_catalog::placements::RespawnPolicy;
 pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
-pub use enemies::{
-    enemy_dead_flag, enemy_dead_until_rest_flag, enemy_death_flag, ENEMY_DEAD_UNTIL_REST_SUFFIX,
-};
 pub(crate) use enemies::ActorMutIntegrationExt;
 #[cfg(test)]
 pub(crate) use enemies::SeedActorIntegrationTestExt;

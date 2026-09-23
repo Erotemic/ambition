@@ -715,7 +715,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
         app.world()
             .resource::<AmbitionGameSave>()
             .data()
-            .flag(&crate::features::npc_flag_id("alice"))
+            .flag(&crate::fate_flags::npc_flag_id("alice"))
     }
 
     // The player challenges: live AND durable.

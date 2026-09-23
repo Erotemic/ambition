@@ -64,21 +64,6 @@ use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCata
 use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
 
-/// The save flag that says this NPC was provoked and stays hostile TO THE
-/// PLAYER.
-///
-/// ⭐ ONE SPELLING. Room construction reads it (`PersistedFates::npc_fate`) and
-/// [`record_npc_provocations`] writes it; anything else that needs to name the
-/// fact — a test, a dev tool — asks here rather than re-deriving the format,
-/// because a second `format!` for the same flag is a rename waiting to go
-/// silently one-sided.
-///
-/// ⚠ It is a boolean with no faction in it, and construction rebuilds the person
-/// with `Grudge::Faction(Player)`. So it MEANS "persistently hostile to the
-/// player", and only a provocation the player caused may set it.
-pub fn npc_flag_id(id: &str) -> String {
-    format!("npc_{id}_hostile")
-}
 
 /// A talkable NPC's durable provocation changed: the player provoked it (a
 /// strike past its threshold, or a `<<challenge>>`), or a `<<restore_brain>>`
@@ -108,7 +93,7 @@ pub fn record_npc_provocations(
         super::ecs::effect_bus::write_flag(
             &mut save,
             &mut quests,
-            npc_flag_id(&change.id),
+            crate::fate_flags::npc_flag_id(&change.id),
             change.provoked,
         );
     }

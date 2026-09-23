@@ -215,6 +215,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/encounter_rewards.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
@@ -222,7 +223,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
-        "game/ambition_content/src/falling_sand_sim.rs",
         "game/ambition_content/src/quest.rs",
     ),
     "GameAssets": (
@@ -347,6 +347,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs",
         "crates/ambition_platformer2d_actor_monolith/src/quest/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -1333,32 +1334,23 @@ ADJUDICATED: dict[str, str] = {
         "systems."
     ),
     "FallingSandRoomState": (
-        "CORRECT — ONE ROOM-CHANGE BOUNDARY PLUS THREE PER-FIELD OWNERS, read "
-        "field by field rather than system by system, because the struct has "
-        "five fields and the file-granular count says nothing about which. "
+        "CORRECT — ONE ROOM-CHANGE BOUNDARY PLUS TWO PER-FIELD OWNERS, read "
+        "field by field rather than system by system, because the file-granular "
+        "count says nothing about which of its four fields a writer touches. "
         "`sync_falling_sand_room_state` (`ambition_content/src/falling_sand_sim.rs`) "
         "is the boundary: on a change of active room id it writes "
-        "`last_room_id`, `active_room`, clears `seeded_boundaries` and RE-DERIVES "
-        "`spouts` — `FallingSandSpoutState::from_save(save.data())` on entry, "
-        "`default()` otherwise. The three others each own one field: "
-        "`seed_falling_sand_room_boundaries` "
-        "(`ambition_content/src/falling_sand.rs`) sets `seeded_boundaries` once "
-        "and is guarded by it, `grant_room_swim_controls` owns `swim_snapshot`, "
-        "and `capture_falling_sand_switch_interactions` owns `spouts` through "
-        "`state.spouts.toggle(..)`. ⇒ The only field two systems write is "
-        "`seeded_boundaries`, and they write it as a SET and a CLEAR, which is a "
+        "`last_room_id` and `active_room` and clears `seeded_boundaries`. "
+        "`seed_falling_sand_room_boundaries` (`ambition_content/src/falling_sand.rs`) "
+        "sets `seeded_boundaries` once and is guarded by it, and "
+        "`grant_room_swim_controls` owns `swim_snapshot`. ⇒ The only field two "
+        "systems write is `seeded_boundaries`, as a SET and a CLEAR, which is a "
         "latch and its boundary.\n"
-        "    ⛔ AND THE REAL SECOND AUTHORITY IS NOT IN THIS RESOURCE, WHICH IS "
-        "WHY THE CENSUS COULD NOT SEE IT. `spouts` mirrors a DURABLE fact: the "
-        "toggle writes `save.data_mut().set_switch(&id, on)` on every activation, "
-        "and the boundary reads it back with `from_save` on the next entry. The "
-        "system's own comment says why the mirror exists — *\"without this write "
-        "the save's switch flag stays whatever the encounter pipeline set it to "
-        "(which is 'true on first activation' only when the switch's `action` is "
-        "`ResetEncounter`)\"* — so the save's switch flag has TWO writers, one of "
-        "which exists to compensate for the other's conditionality. That is a "
-        "duplicate authority over `AmbitionGameSave`, not over this resource, and "
-        "it is what a falling-sand spout fixture would settle."
+        "    ⭐ THE SECOND AUTHORITY THIS ROW USED TO NAME IS GONE (2026-09-23, "
+        "`DUP-SWITCH-STATE`). The struct carried a `spouts` copy of the save's "
+        "switch flags, toggled by a capture system that also re-wrote the flag "
+        "the switch drain had already toggled. The field, its toggle and the "
+        "capture system are deleted; the room reads `FallingSandSpoutState::"
+        "from_save` where it needs the spouts."
     ),
     "YarnPresentationCue": (
         "CORRECT ABOUT THE VALUE, AND IT NAMES WHAT IT DOES NOT COVER. Two "
@@ -1722,22 +1714,26 @@ ADJUDICATED: dict[str, str] = {
         "duplicate of this arm."
     ),
     "QuestRegistry": (
-        "CORRECT — AN APPEND-ONLY QUEUE WITH FIVE PRODUCERS AND ONE DRAIN, AND "
-        "THE SPLIT IS THE COMPILER'S RULE SINCE 2026-09-18. Eight files, nine "
+        "CORRECT — AN APPEND-ONLY QUEUE WITH SIX PRODUCERS AND ONE DRAIN, AND "
+        "THE SPLIT IS THE COMPILER'S RULE SINCE 2026-09-18. Nine files, ten "
         "sites, and `--shared-targets` separates them cleanly rather than by "
-        "argument: FOUR files reach only `push_event` "
+        "argument: FIVE files reach only `push_event` "
         "(`ambition_boss_encounter/src/systems.rs::update_boss_encounters`, "
         "`ambition_encounter_features/src/systems.rs::{drive_wave_encounters, "
         "apply_wave_encounter_effects}`, "
         "`actor_monolith/src/features/ecs/effect_bus.rs::{apply_flag_effects, "
         "apply_quest_effects}`, "
-        "`actor_monolith/src/quest/mod.rs::push_room_entered_quest_events`); TWO "
+        "`actor_monolith/src/quest/mod.rs::push_room_entered_quest_events`, "
+        "`actor_monolith/src/features/npcs.rs::record_npc_provocations` — which "
+        "writes an NPC's durable provocation flag through `effect_bus::write_flag`, "
+        "the same save-plus-`FlagSet` write `apply_flag_effects` makes, added "
+        "2026-09-23); TWO "
         "reach only `quests` — `apply_quest_advance_events` "
         "(`ambition_persistence/src/quest/registry.rs`), the one reducer, and "
         "`populate_quest_registry` (`game/ambition_content/src/quest.rs`), which "
         "installs the authored DEFINITIONS; and TWO replace the whole resource, "
         "`process_new_game_reset_request` and `SessionScopedResources::reset`. ⇒ "
-        "Five appenders cannot disagree about a value, and order is preserved "
+        "Six appenders cannot disagree about a value, and order is preserved "
         "because the drain is `std::mem::take` of one `Vec` consumed in "
         "insertion order.\n"
         "    ⛤ AND THE ENFORCEMENT WAS MISSING, WHICH IS THE ONLY THING THIS "
@@ -2196,7 +2192,12 @@ ADJUDICATED: dict[str, str] = {
         "through `app.sim_schedule()`, the divergence set is empty, and "
         "`resources_crossing_the_rewind_boundary.py` reports this type DOES NOT "
         "CROSS the rewind boundary. ⇒ The 18 writer FILES are no longer a "
-        "rollback finding at all; what keeps this unadjudicated is the split "
+        "rollback finding at all (2026-09-23: `falling_sand_sim.rs` LEFT — the "
+        "spout capture that re-wrote a switch flag the drain had already toggled "
+        "is deleted, `DUP-SWITCH-STATE` — and `features/npcs.rs` ARRIVED: "
+        "`record_npc_provocations` is the one writer of `npc_<id>_hostile`, which "
+        "room construction builds from, `DUP-PERSISTED-FATE`); what keeps this "
+        "unadjudicated is the split "
         "`queue.md`'s ROLLBACK-BAG-DESYNC row records as deliberately deferred — "
         "is `AmbitionGameSave` both simulation authority and disk "
         "representation? Until that is answered, 18 files writing one resource "

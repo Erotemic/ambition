@@ -347,10 +347,10 @@ fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
             .resource_mut::<ambition_persistence::save::AmbitionGameSave>();
         let data = save.data_mut();
         data.set_flag(
-            &crate::features::enemy_dead_until_rest_flag("rests_away"),
+            &crate::fate_flags::enemy_dead_until_rest_flag("rests_away"),
             true,
         );
-        data.set_flag(&crate::features::enemy_dead_flag("stays_dead"), true);
+        data.set_flag(&crate::fate_flags::enemy_dead_flag("stays_dead"), true);
         data.set_flag("a_door_the_player_opened", true);
     }
 
@@ -392,13 +392,13 @@ fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
         .resource::<ambition_persistence::save::AmbitionGameSave>();
     let data = save.data();
     assert!(
-        !data.flag(&crate::features::enemy_dead_until_rest_flag("rests_away")),
+        !data.flag(&crate::fate_flags::enemy_dead_until_rest_flag("rests_away")),
         "resting left the `until rest` death record standing, so an `OnRest` \
          placement never comes back and the policy is a synonym for \
          `DeadStaysDead`"
     );
     assert!(
-        data.flag(&crate::features::enemy_dead_flag("stays_dead")),
+        data.flag(&crate::fate_flags::enemy_dead_flag("stays_dead")),
         "resting revived a `DeadStaysDead` body, which is the opposite defect: a \
          rest that clears everything looks identical to a correct one until \
          somebody kills the thing that is supposed to stay killed"

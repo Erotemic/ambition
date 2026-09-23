@@ -19,7 +19,7 @@ fn a_killed_unprovoked_npc_is_built_dead() {
     let fates = fates(|save| {
         // The kill hook wrote the DeadStaysDead flag; the NPC was never
         // provoked, so its `npc_<id>_hostile` flag is absent.
-        save.set_flag(crate::features::enemy_dead_flag("kernel_guide"), true);
+        save.set_flag(crate::fate_flags::enemy_dead_flag("kernel_guide"), true);
     });
     assert_eq!(fates.npc_fate("kernel_guide"), RecordedFate::Dead);
     assert_eq!(
@@ -34,14 +34,14 @@ fn a_killed_unprovoked_npc_is_built_dead() {
 #[test]
 fn a_provoked_npc_is_built_provoked_unless_it_is_dead() {
     let provoked = fates(|save| {
-        save.set_flag(crate::features::npc_flag_id("kernel_guide"), true);
+        save.set_flag(crate::fate_flags::npc_flag_id("kernel_guide"), true);
     });
     assert_eq!(provoked.npc_fate("kernel_guide"), RecordedFate::Provoked);
     assert_eq!(provoked.npc_fate("other_guide"), RecordedFate::AsAuthored);
 
     let dead_and_provoked = fates(|save| {
-        save.set_flag(crate::features::npc_flag_id("kernel_guide"), true);
-        save.set_flag(crate::features::enemy_dead_flag("kernel_guide"), true);
+        save.set_flag(crate::fate_flags::npc_flag_id("kernel_guide"), true);
+        save.set_flag(crate::fate_flags::enemy_dead_flag("kernel_guide"), true);
     });
     assert_eq!(dead_and_provoked.npc_fate("kernel_guide"), RecordedFate::Dead);
 }
@@ -59,7 +59,7 @@ fn a_provoked_npc_is_built_provoked_unless_it_is_dead() {
 #[test]
 fn a_body_that_never_persists_its_death_ignores_a_flag_bearing_its_name() {
     let fates = fates(|save| {
-        save.set_flag(crate::features::enemy_dead_flag("guide"), true);
+        save.set_flag(crate::fate_flags::enemy_dead_flag("guide"), true);
     });
     assert_eq!(
         fates.enemy_fate_under("guide", RespawnPolicy::OnRoomReenter),
@@ -78,7 +78,7 @@ fn a_body_that_never_persists_its_death_ignores_a_flag_bearing_its_name() {
 #[test]
 fn a_persisting_body_honours_either_death_record() {
     let fates = fates(|save| {
-        save.set_flag(crate::features::enemy_dead_until_rest_flag("sentry"), true);
+        save.set_flag(crate::fate_flags::enemy_dead_until_rest_flag("sentry"), true);
     });
     assert_eq!(
         fates.enemy_fate_under("sentry", RespawnPolicy::DeadStaysDead),

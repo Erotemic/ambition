@@ -683,7 +683,7 @@ pub(crate) fn apply_actor_hit(
                     // live here and the load path spelled the same two flags again
                     // — four literals for two facts, in two files.
                     let flag_id =
-                        crate::features::enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
+                        crate::fate_flags::enemy_death_flag(em.config.tuning.respawn, &em.identity.id);
                     if let Some(id) = flag_id {
                         writers.set_flag.write(SetFlagRequested { id, on: true });
                     }

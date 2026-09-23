@@ -665,6 +665,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// talkable NPC's durable provocation is announced by the transitions that own
 /// it (the flip, the release) and recorded in the same tick, so a resimulated
 /// tick re-announces it rather than replaying an abandoned branch's.
+/// ⚠ 205 ALSO COVERS A CODEC CHANGE THAT SHIPPED UNBUMPED: `290296f2e` made
+/// `ActorAggression` encode a one-byte grudge-faction tag (`Grudge::Faction`
+/// survives a rewind; a body grudge is carried by the entity map), which moved
+/// the bytes under v204. v205 is the first version that names that encoding.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 205;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and

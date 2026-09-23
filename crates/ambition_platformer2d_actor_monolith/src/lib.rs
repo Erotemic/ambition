@@ -115,6 +115,7 @@ pub mod world_facts;
 /// combat timing that rides it. Kernel vocabulary: every per-tick actor system
 /// reads it, so it lives here and not in the spawn capability that builds bodies.
 pub mod actor_clusters;
+pub mod fate_flags;
 pub mod features;
 pub use dev::trace;
 pub use world::rooms;

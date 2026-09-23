@@ -212,14 +212,28 @@ impl ActorResources {
         self.level_mut(slot)
     }
 
-    /// Every term affordable. A term naming a resource this body does not hold
-    /// is unaffordable: absence is never free.
+    /// Every resource's TOTAL affordable. A term naming a resource this body
+    /// does not hold is unaffordable: absence is never free.
+    ///
+    /// ⛔ ONE RESOURCE, ONE TOTAL. Terms naming the same resource are summed
+    /// before the comparison. Checked one term at a time against the same level,
+    /// `[60 fuel, 60 fuel]` passes against a 100-fuel pool and [`Self::pay`] then
+    /// drains 120 — a price spending more than the body holds.
     pub fn can_pay(&self, costs: &[ResourceCost]) -> bool {
-        costs.iter().all(|cost| {
-            cost.amount >= 0.0
-                && self
-                    .level_of(&cost.resource)
-                    .is_some_and(|level| level.current + 1e-6 >= cost.amount)
+        let mut totals: Vec<(&ResourceId, f32)> = Vec::with_capacity(costs.len());
+        for cost in costs {
+            // Also refuses NaN, which no comparison below would.
+            if !(cost.amount >= 0.0) {
+                return false;
+            }
+            match totals.iter_mut().find(|(resource, _)| **resource == cost.resource) {
+                Some((_, total)) => *total += cost.amount,
+                None => totals.push((&cost.resource, cost.amount)),
+            }
+        }
+        totals.iter().all(|(resource, total)| {
+            self.level_of(resource)
+                .is_some_and(|level| level.current + 1e-6 >= *total)
         })
     }
 
@@ -277,6 +291,21 @@ mod tests {
         ])
         .expect("valid")
         .expect("declared")
+    }
+
+    /// Two terms of one resource are ONE price of their sum: each alone fits the
+    /// pool, together they do not, so nothing is paid.
+    #[test]
+    fn repeated_terms_for_one_resource_are_priced_as_their_total() {
+        let mut bank = bank();
+        let split = [ResourceCost::new(FUEL, 60.0), ResourceCost::new(FUEL, 60.0)];
+        assert!(!bank.can_pay(&split), "120 fuel priced as two 60s passed against 100");
+        assert!(!bank.pay(&split));
+        assert_eq!(bank.level_of(&FUEL).map(|level| level.current), Some(100.0));
+
+        let fits = [ResourceCost::new(FUEL, 40.0), ResourceCost::new(FUEL, 60.0)];
+        assert!(bank.pay(&fits), "exactly the pool, split in two, is affordable");
+        assert_eq!(bank.level_of(&FUEL).map(|level| level.current), Some(0.0));
     }
 
     #[test]

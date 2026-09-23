@@ -622,7 +622,13 @@ pub fn propose_developer_body_profile(
     // every frame would make the dev tool authoritative over legitimate
     // gameplay-driven body-size changes — and would stop the rollback baseline
     // every frame for an edit nobody made.
-    if *last_proposed == Some(developer.player_body_profile) {
+    //
+    // Before the first proposal the baseline is the UNCHOSEN profile, not
+    // nothing: a developer who never touched the selector has admitted no size,
+    // and treating the default as an edit stamped the engine's default box over
+    // every prepared character body on its first tick.
+    let unchosen = PlayerBodyProfile::default();
+    if last_proposed.unwrap_or(unchosen) == developer.player_body_profile {
         return;
     }
     *last_proposed = Some(developer.player_body_profile);

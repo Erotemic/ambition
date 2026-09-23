@@ -365,15 +365,31 @@ pub fn simulation_world(
         );
     }
 
-    // Movement identity travels WITH the worn character. Every body already
-    // carries one explicit policy; the App-local catalog selects or refreshes
-    // that policy without using component absence as an axis-swept sentinel.
-    crate::avatar::apply_worn_motion_model(
-        character_catalog,
-        commands,
-        player,
-        starting_character.effective_id(default_character_id),
-    );
+    // THE PREPARED BODY, granted at construction like every other character
+    // body: the posed silhouette, authored hurtboxes, movement feel and motion
+    // model land with the player, in one batch, rather than on its first tick
+    // from the re-template pass. The kit is the worn derive's. A character with
+    // no prepared definition keeps the catalog's movement identity.
+    match prepared_characters.and_then(|registry| registry.get(worn_id).map(|p| (registry, p))) {
+        Some((registry, prepared)) => {
+            ambition_platformer2d_actor_spawn::grant_prepared_character_body(
+                &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
+                    commands, player,
+                ),
+                prepared,
+                registry.generation(),
+                ambition_platformer2d_actor_spawn::KitOwnership::PersonaDerive,
+                prepared.movement_tuning,
+                ambition_characters::repertoire::Hand::Empty,
+            );
+        }
+        None => crate::avatar::apply_worn_motion_model(
+            character_catalog,
+            commands,
+            player,
+            starting_character.effective_id(default_character_id),
+        ),
+    }
 
     // The player entity is returned to the caller (the provider session builder
     // or the direct-entry startup system). Presentation discovers this home

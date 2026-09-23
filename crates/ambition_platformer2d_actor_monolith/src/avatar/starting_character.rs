@@ -598,13 +598,8 @@ pub fn apply_worn_character_gameplay(
 pub struct WornControlGateSet;
 
 pub fn gate_worn_player_control(
-    catalog: Res<CharacterCatalog>,
-    // The prepared cast, so this gate can ask a CHARACTER how it fires.
-    // See the charge gate below for why the catalog alone stopped being enough.
-    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut players: Query<
         (
-            &WornCharacter,
             &ActionSet,
             // The body's live combat/ability authorities — the SAME inputs the
             // control-prompt read-model derives its labels from. The gate resolves
@@ -626,13 +621,15 @@ pub fn gate_worn_player_control(
             // by IDENTITY, not by racing the item systems in schedule order.
             Has<ambition_combat::held_items::HeldItem>,
         ),
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        (
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<WornCharacter>,
+        ),
     >,
 ) {
     use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
 
     for (
-        worn,
         actions,
         abilities,
         moveset,
@@ -676,20 +673,10 @@ pub fn gate_worn_player_control(
         // bubble-shield special, so a special MAY raise a guard — it is simply no
         // longer the only way any body has.
 
-        // Use the identity as the same-tick source of truth.
-        //
-        // the question is HOW THIS CHARACTER FIRES, which is now an authored
-        // fact: `ranged_execution`. The unknown-id arm stays — an id nobody
-        // authored still gets the compat charge kit, and it must not be gated off
-        // a kit it was just handed.
-        let catalog_knows_it = catalog.knows(worn.id());
-        let allows_charge_projectiles = prepared
-            .as_deref()
-            .and_then(|prepared| prepared.get(worn.id()))
-            .map_or(!catalog_knows_it, |prepared| {
-                prepared.ranged_execution.charges_projectiles()
-            });
-        if !allows_charge_projectiles || !has_charge_marker {
+        // HOW THIS BODY FIRES is its `ChargesProjectiles` marker, installed
+        // from the character's `ranged_execution` by every road that builds or
+        // re-wears it; a body without it has no charge path to feed.
+        if !has_charge_marker {
             control.0.projectile_pressed = false;
             control.0.projectile_held = false;
             control.0.projectile_released = false;

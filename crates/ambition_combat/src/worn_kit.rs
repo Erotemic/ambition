@@ -13,7 +13,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{
-    overlay_authored_moves, PreparedCharacterRegistry, PreparedKit,
+    overlay_authored_moves, PreparedCharacterRegistry,
 };
 use ambition_entity_catalog::MovesetContract;
 
@@ -37,13 +37,11 @@ impl WornKit {
     /// not an input: what the character IS does not depend on what this body may
     /// currently do (that is the per-frame action scheme's question).
     ///
-    /// - a prepared `Authored` row: its action set AS AUTHORED, with the moveset
-    ///   preparation derived — the same answer the spawn grant writes. Authored
+    /// - a prepared row: its `PreparedKit::baseline` and its own
+    ///   `ranged_execution` — the answer the spawn grant writes. Authored
     ///   repertoire is what a character IS; what a ruleset currently permits it
     ///   to use is the per-frame action scheme over `BodyAbilities`, not a
     ///   narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23);
-    /// - a prepared `Unauthored` row: no action-set verbs, only the moves the
-    ///   character authored — again the spawn grant's answer;
     /// - an unprepared catalog row: the catalog's default action set, or a safe
     ///   peaceful kit when that row's preset does not resolve;
     /// - an unknown id: a peaceful kit, reported.
@@ -77,22 +75,11 @@ impl WornKit {
             let derived = derive_persona_moveset(kit, execution, authored);
             (kit.clone(), derived, execution)
         } else {
-            match prepared.map(|prepared| &prepared.kit) {
-                Some(PreparedKit::Authored {
-                    action_set,
-                    moveset,
-                }) => (
-                    action_set.clone(),
-                    moveset.clone(),
-                    prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-                        prepared.ranged_execution
-                    }),
-                ),
-                Some(PreparedKit::Unauthored { authored_moveset }) => {
-                    let set = ActionSet::peaceful();
-                    let execution = RangedExecution::MovesetVerb;
-                    let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
-                    (set, derived, execution)
+            match prepared {
+                // The prepared baseline, exactly as the spawn grant writes it.
+                Some(prepared) => {
+                    let (set, moveset) = prepared.kit.baseline();
+                    (set, moveset, prepared.ranged_execution)
                 }
                 None => {
                     let catalog_knows_it = catalog.knows(character_id);

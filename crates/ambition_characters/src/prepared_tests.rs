@@ -441,43 +441,73 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
     );
 }
 
-/// A body cannot end up with two owners of one press.
+/// WHO OWNS THE RANGED PRESS FOLLOWS `ranged_execution`, not whether an action
+/// set was authored. A character with no action set used to be assumed to wear
+/// the host's charge kit, so its authored ranged verbs were revoked even though
+/// nothing charges any more; a charger WITH an action set kept a derived
+/// `ranged` verb beside the charge path, and one tap fired twice.
 ///
-/// The whole verb FAMILY, not the base alone: `directional_verb_chain` resolves
-/// a press through `ranged_air_forward` → `ranged_forward` → `ranged_air` →
-/// `ranged`, so a suffixed binding owns that direction's press exactly as the
-/// base owns the neutral one. Watching only `"ranged"` would leave the same
-/// double-fire in the air.
+/// The whole verb FAMILY goes when it goes: `directional_verb_chain` resolves a
+/// press through `ranged_air_forward` → `ranged_forward` → `ranged_air` →
+/// `ranged`, so watching only `"ranged"` would leave the double-fire in the air.
 #[test]
-fn a_host_code_kit_cannot_also_carry_an_authored_ranged_verb() {
-    let hybrid = CharacterDefinition::new("gunner", "Gunner", "demo").with_moveset(moveset_with(
-        &[
-            ("attack", "swing"),
-            ("ranged", "bolt"),
-            ("ranged_air", "bolt"),
-            ("ranged_forward", "bolt"),
-        ],
-        vec![
-            slash("swing", "swing", "hit"),
-            slash("bolt", "swing", "hit"),
-        ],
-    ));
-
-    // No catalog and no authored action set: the host-code kit, whose charge
-    // path owns the ranged press.
-    let prepared = prepare_and_finalize_for_test(hybrid, &CharacterBindings::default()).prepared;
-    let PreparedKit::Unauthored { authored_moveset } = &prepared.kit else {
-        panic!("expected the host-code kit, got {:?}", prepared.kit);
+fn the_ranged_press_belongs_to_the_moveset_or_the_charge_path_by_execution() {
+    use crate::brain::RangedExecution;
+    let moves_only = || {
+        CharacterDefinition::new("gunner", "Gunner", "demo").with_moveset(moveset_with(
+            &[
+                ("attack", "swing"),
+                ("ranged", "bolt"),
+                ("ranged_air", "bolt"),
+                ("ranged_forward", "bolt"),
+            ],
+            vec![slash("swing", "swing", "hit"), slash("bolt", "swing", "hit")],
+        ))
     };
-    let verbs = &authored_moveset.as_ref().expect("authored moveset").verbs;
-
-    assert!(
-        !verbs.keys().any(|verb| verb.starts_with("ranged")),
-        "the host kit owns the ranged press, so no ranged verb may survive: {verbs:?}"
+    let ranged_verbs = |definition: CharacterDefinition| {
+        let prepared =
+            prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared;
+        let (set, moveset) = prepared.kit.baseline();
+        assert_eq!(set, crate::brain::ActionSet::peaceful(), "no action set was authored");
+        assert_eq!(moveset.verbs.get("attack").map(String::as_str), Some("swing"));
+        let mut verbs: Vec<String> = moveset
+            .verbs
+            .keys()
+            .filter(|verb| verb.starts_with("ranged"))
+            .cloned()
+            .collect();
+        verbs.sort();
+        verbs
+    };
+    assert_eq!(
+        ranged_verbs(moves_only()),
+        vec!["ranged", "ranged_air", "ranged_forward"],
+        "a `MovesetVerb` character keeps the ranged verbs it authored"
     );
-    // Everything else the author wrote is untouched — this revokes one press,
-    // it does not discard the moveset.
-    assert_eq!(verbs.get("attack").map(String::as_str), Some("swing"));
+    assert!(
+        ranged_verbs(moves_only().with_ranged_execution(RangedExecution::ChargedProjectile))
+            .is_empty(),
+        "a charger's charge path owns the press, so no ranged verb may survive"
+    );
+
+    // An AUTHORED action set with a ranged preset: derived under the execution.
+    let armed = |execution| {
+        let set = crate::brain::ActionSet {
+            ranged: Some(crate::brain::RangedActionSpec::bolt(600.0, 1)),
+            ..crate::brain::ActionSet::peaceful()
+        };
+        let definition = CharacterDefinition::new("robot", "Robot", "demo")
+            .with_action_set(set)
+            .with_ranged_execution(execution);
+        let prepared =
+            prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared;
+        prepared.kit.baseline().1.verbs.contains_key("ranged")
+    };
+    assert!(armed(RangedExecution::MovesetVerb));
+    assert!(
+        !armed(RangedExecution::ChargedProjectile),
+        "a charger's derived kit binds `ranged` beside the charge path — one tap fires twice"
+    );
 }
 
 /// A cast has a version, so a derivation can know it went stale. (X4)

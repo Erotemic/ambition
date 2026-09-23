@@ -1413,6 +1413,11 @@ pub enum ActionRequest {
         held: bool,
         /// Falling edge: projectile button released this tick.
         released: bool,
+        /// A ranged INTENT with no button edge this tick — how an autonomous
+        /// driver says "shoot" (`ActorControlFrame::fire` alone). The charge
+        /// path owns this body's ranged press, so it serves the intent as a
+        /// tap; a human's release carries `released` and is not an intent.
+        intent: bool,
     },
 }
 

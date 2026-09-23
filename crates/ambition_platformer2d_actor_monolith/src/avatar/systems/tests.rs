@@ -183,10 +183,14 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
     ));
 }
 
-/// End-to-end: player releases the projectile charge →
+/// End-to-end: player releases the projectile button →
 /// tick_controlled_brains fills frame.fire → resolver emits a
 /// Ranged action message with the player's Bolt spec. Pins
 /// the ranged side of the seam alongside the melee test below.
+///
+/// The body does NOT charge: a charging body's ranged intent belongs to the
+/// charge path, and the resolver emitting a bolt for it as well was the
+/// protagonist's two-projectiles-per-tap defect.
 #[test]
 fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     use ambition_characters::brain::{
@@ -220,7 +224,11 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
         ambition_characters::actor::Health::new(10),
     );
     app.world_mut()
-        .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)));
+        .spawn((bundle, Transform::from_xyz(40.0, 60.0, 0.0)))
+        .remove::<(
+            ambition_characters::brain::ChargesProjectiles,
+            ambition_projectiles::PlayerProjectileState,
+        )>();
     app.add_systems(
         Update,
         (

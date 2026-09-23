@@ -361,17 +361,25 @@ pub fn emit_brain_action_messages(
         &ActionSet,
         &crate::actor::ActorPose,
         bevy::prelude::Has<MovesetRanged>,
+        bevy::prelude::Has<ChargesProjectiles>,
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, action_set, pose, moveset_ranged) in &actors {
+    for (entity, control, action_set, pose, moveset_ranged, charges) in &actors {
         for request in action_set::resolve(action_set, &control.0, pose.origin()) {
             // A body whose ranged shot is a moveset `"ranged"` move fires through the
             // move's timed event (`MoveEventKind::Ranged`), not this flat
             // `frame.fire → Ranged` path — skip the flat emission so it doesn't fire
             // TWICE (the moveset subsumes ranged just as it did melee/specials). The
             // move's fire event re-emits an identical `Ranged` request downstream.
-            if moveset_ranged && matches!(request, action_set::ActionRequest::Ranged { .. }) {
+            //
+            // A CHARGE body's ranged intent belongs to the charge path
+            // (`emit_player_projectile_tick_messages` hands it over as a press,
+            // a release, or an autonomous tap), so it is skipped here for the
+            // same reason: one intent, one owner.
+            if (moveset_ranged || charges)
+                && matches!(request, action_set::ActionRequest::Ranged { .. })
+            {
                 continue;
             }
             writer.write(ActorActionMessage {
@@ -443,6 +451,10 @@ pub fn emit_player_projectile_tick_messages(
                 press: frame.projectile_pressed,
                 held: frame.projectile_held,
                 released: frame.projectile_released,
+                intent: frame.fire.is_some()
+                    && !frame.projectile_pressed
+                    && !frame.projectile_held
+                    && !frame.projectile_released,
             },
             move_instance: None,
         });

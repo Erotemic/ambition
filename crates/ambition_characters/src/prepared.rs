@@ -111,11 +111,9 @@ struct PreparedCharacterOverrides {
 /// Where a prepared character's fighting kit comes from.
 ///
 /// The one honest answer to "what does this character reach for", decided ONCE
-/// at finalization instead of re-decided by each construction path.
-///
-/// Two variants and not one, because exactly one case is genuinely undecidable before a body
-/// exists: the host's code-side protagonist kit is built from that body's own persisted
-/// `AbilitySet`, so no per-character value can hold it.
+/// at finalization instead of re-decided by each construction path. Both
+/// variants resolve to one [`Self::baseline`]; the variant is provenance —
+/// whether an action set was authored — not a decision left to a body.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PreparedKit {
     /// Content decided: this action set, these moves.
@@ -127,13 +125,9 @@ pub enum PreparedKit {
         action_set: crate::brain::ActionSet,
         moveset: MovesetContract,
     },
-    /// No catalog action set exists, so the body's runtime `AbilitySet` builds
-    /// the host-side kit. This remains valid for hosts whose protagonist kit
-    /// depends on runtime progression rather than a catalog row; a shipped
-    /// catalog character reaching this arm indicates missing content.
-    ///
-    /// `authored_moveset` is still honored when timelines exist without an
-    /// authored action set.
+    /// No action set was authored: the body wears a peaceful set and exactly
+    /// the moves the character authored, already filtered for who owns the
+    /// ranged press under its `ranged_execution`.
     Unauthored {
         authored_moveset: Option<MovesetContract>,
     },
@@ -302,7 +296,22 @@ impl PreparedKit {
         }
     }
 
-    /// The moveset to put on a body that is not building the host kit itself.
+    /// The kit a body wearing this character starts from — the ONE answer the
+    /// spawn grant and the persona derive both consume.
+    pub fn baseline(&self) -> (crate::brain::ActionSet, MovesetContract) {
+        match self {
+            Self::Authored {
+                action_set,
+                moveset,
+            } => (action_set.clone(), moveset.clone()),
+            Self::Unauthored { authored_moveset } => (
+                crate::brain::ActionSet::peaceful(),
+                authored_moveset.clone().unwrap_or_default(),
+            ),
+        }
+    }
+
+    /// The moves this character carries, when it carries any.
     pub fn projectable_moveset(&self) -> Option<&MovesetContract> {
         match self {
             Self::Authored { moveset, .. } => Some(moveset),
@@ -1612,16 +1621,15 @@ fn finalize_character(
         provoked_profile_ref,
     } = overrides;
 
-    // THE KIT. Three outcomes, and which one a character gets is decided here
-    // once rather than by whichever construction path reaches it first.
-    // Captured BEFORE the fold consumes it: `derive_moveset` substitutes a
-    // derivation when this is `None`, and the substitution is exactly the thing
-    // downstream needs to tell apart from the real answer.
+    // THE KIT. Decided here once rather than by whichever construction path
+    // reaches it first, and derived under the character's own `ranged_execution`
+    // so every road that wears it inherits one answer to who owns the ranged
+    // press.
     let authored_moveset = moveset.clone();
     let kit = match action_set {
         // The definition authored capabilities. Nothing else gets a vote.
         Some(set) => PreparedKit::Authored {
-            moveset: derive_moveset(&set, moveset),
+            moveset: derive_moveset(&id, &set, moveset, ranged_execution),
             action_set: set,
         },
         //  the question is "does the catalog know this id" (AC6.3). It was
@@ -1642,43 +1650,16 @@ fn finalize_character(
                     ActionSet::peaceful()
                 });
             PreparedKit::Authored {
-                moveset: derive_moveset(&set, moveset),
+                moveset: derive_moveset(&id, &set, moveset, ranged_execution),
                 action_set: set,
             }
         }
-        //  AN ID THE CATALOG DOES NOT KNOW, or no catalog at all — the
-        // two states that remain now that no row can select the host kit by
-        // name. Both mean the same thing to a body: nobody authored a kit, so
-        // build one from what this body can do.
-        //  AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.
-        //
-        // A character can reach this arm — authoring no action set, so the
-        // HOST builds one from the body — and still bring its own timelines;
-        // `authored_moveset` exists precisely for that. If that
-        // moveset declares the `ranged` verb, the same press is owned twice:
-        // by the legacy charge-projectile path this kit installs, and by the
-        // moveset's ranged verb. That is the exact double-ownership
-        // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
-        // the one door it does not watch.
-        //
-        //  and REPORTING it was not enough, which is the second half of the same finding.
-        // Invalid ownership must not reach a body at all.
+        // An id the catalog does not know, or no catalog at all: nobody authored
+        // an action set. The body wears a peaceful set and exactly the moves the
+        // character authored — nothing is decided later by a body.
         _ => PreparedKit::Unauthored {
-            authored_moveset: moveset.map(|mut moveset| {
-                let revoked = revoke_host_owned_ranged(&mut moveset);
-                if !revoked.is_empty() {
-                    bevy::log::error!(
-                        "character `{id}` authored NO action set — so the host builds its \
-                             kit from the body — AND authored the ranged verb(s) {revoked:?}. \
-                             That host kit owns the ranged press through its \
-                             charge-projectile path, so one press would have fired both; those \
-                             verb bindings are DROPPED and the charge path keeps the press. To own \
-                             the verb from content instead, author an action set — that makes the \
-                             character `Authored`, and its moveset owns ranged outright"
-                    );
-                }
-                moveset
-            }),
+            authored_moveset: moveset
+                .map(|moveset| owned_by_execution(&id, moveset, ranged_execution)),
         },
     };
 
@@ -1851,7 +1832,7 @@ fn resolve_named_profile(
     }
 }
 
-/// Take the ranged press away from a moveset whose body wears the host kit.
+/// Take the ranged press away from a moveset whose body fires through the charge path.
 ///
 /// Returns the verb bindings removed, in sorted order, for the caller to name.
 ///
@@ -1868,7 +1849,7 @@ fn resolve_named_profile(
 /// reachability argument, which is the more expensive mistake. It keeps its cues
 /// in the derived inventory, so the session loads a sound it will not play —
 /// cheap, and honest about what the author wrote.
-fn revoke_host_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
+fn revoke_charge_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
     let base = ambition_entity_catalog::RANGED_VERB;
     let prefix = format!("{base}_");
     let revoked: Vec<String> = moveset
@@ -1899,8 +1880,10 @@ fn revoke_host_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
 /// authored moveset, so there is no second declaration to collide with. A
 /// persona that authored its moves still overrides everything derived.
 fn derive_moveset(
+    id: &str,
     action_set: &crate::brain::ActionSet,
     authored: Option<MovesetContract>,
+    execution: crate::brain::RangedExecution,
 ) -> MovesetContract {
     //  THE LOW CRATE'S, not this monolith's. This read
     // `crate::combat::moveset::build_actor_moveset`, and `ambition_combat`
@@ -1909,17 +1892,45 @@ fn derive_moveset(
     // down. The derivation lives in `crate::moveset_prefabs` now;
     // `ambition_combat` re-exports it, so its own call sites are unchanged.
     //
-    // The ranged preset IS the ranged verb here, whatever the definition's
-    // `ranged_execution` says: a body that fires through the host's charge path
-    // is worn through `ambition_combat::worn_kit`, which selects by execution.
+    // Under `ChargedProjectile` the charge path owns the ranged press, so the
+    // ranged preset derives no move — the same rule the worn-kit compiler
+    // applies to a borrowed match set (`ambition_combat::worn_kit`).
+    let ranged = match execution {
+        crate::brain::RangedExecution::ChargedProjectile => None,
+        crate::brain::RangedExecution::MovesetVerb => action_set.ranged.as_ref(),
+    };
     let derived = crate::moveset_prefabs::build_actor_moveset(
         None,
         action_set.melee.as_ref(),
-        action_set.ranged.as_ref(),
+        ranged,
         action_set.special.as_ref(),
     )
     .unwrap_or_default();
-    overlay_authored_moves(derived, authored)
+    owned_by_execution(id, overlay_authored_moves(derived, authored), execution)
+}
+
+/// Enforce who owns the ranged press on a finished moveset: under
+/// `ChargedProjectile` the charge path does, so any authored `ranged` verb
+/// binding is dropped (reported) rather than letting one press fire twice.
+/// Under `MovesetVerb` the moveset owns ranged and nothing is touched.
+fn owned_by_execution(
+    id: &str,
+    mut moveset: MovesetContract,
+    execution: crate::brain::RangedExecution,
+) -> MovesetContract {
+    if execution.charges_projectiles() {
+        let revoked = revoke_charge_owned_ranged(&mut moveset);
+        if !revoked.is_empty() {
+            bevy::log::error!(
+                "character `{id}` fires through the charge path \
+                 (`ranged_execution: ChargedProjectile`) AND authored the ranged verb(s) \
+                 {revoked:?}; one press would have fired both, so those verb bindings are \
+                 DROPPED and the charge path keeps the press. Author `MovesetVerb` to own \
+                 ranged from the moveset instead"
+            );
+        }
+    }
+    moveset
 }
 
 /// AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it.

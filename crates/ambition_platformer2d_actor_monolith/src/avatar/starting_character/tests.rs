@@ -818,9 +818,11 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     }
     app.insert_resource(registry);
 
+    // Each body carries the charge marker exactly when its character charges —
+    // the state every construction and re-wear road installs from
+    // `ranged_execution`, and the one fact the gate reads.
     let spawn = |app: &mut App, id: &str| {
-        app.world_mut()
-            .spawn((
+        let mut body = app.world_mut().spawn((
                 ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 WornCharacter::new(id),
                 MotionModel::default(),
@@ -831,10 +833,12 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
                     ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(600.0, 1)),
                     ..ActionSet::default()
                 },
-                ambition_characters::brain::ChargesProjectiles,
                 ActorControl(charge_frame()),
-            ))
-            .id()
+            ));
+        if id == "gunner" {
+            body.insert(ambition_characters::brain::ChargesProjectiles);
+        }
+        body.id()
     };
     let gunner = spawn(&mut app, "gunner");
     let swordfighter = spawn(&mut app, "swordfighter");
@@ -2661,5 +2665,78 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
     assert!(
         derived.action_set.special.is_some(),
         "the authored special was stripped by the body's abilities"
+    );
+}
+
+/// A CHARACTER THAT AUTHORED ONLY MOVES IS ONE KIT ON BOTH ROADS.
+///
+/// The spawn grant used to put its authored moves on the body as a live
+/// `ActorMoveset` over the seed's EMPTY `IdentityKit` (so the next repertoire
+/// fold erased them), and the persona derive hard-coded `MovesetVerb` for it
+/// while the grant installed the character's own `ranged_execution` — a
+/// moves-only charger was born charging and lost it on the first re-wear. Both
+/// roads now consume `PreparedKit::baseline` and the character's execution.
+#[test]
+fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
+    use ambition_characters::prepared_fixtures::{moveset_with, slash};
+    let definition =
+        ambition_characters::actor::definition::CharacterDefinition::new("lobber", "Lobber", "demo")
+            .with_moveset(moveset_with(&[("attack", "swing")], vec![slash("swing", "swing", "hit")]))
+            .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
+    let prepared = crate::character_runtime::prepare_and_finalize_for_test(
+        definition,
+        &ambition_characters::prepared::CharacterBindings::default(),
+    )
+    .prepared;
+    assert!(
+        prepared.kit.action_set().is_none(),
+        "the premise is a character that authored no action set"
+    );
+
+    let mut app = bevy::app::App::new();
+    let body = app
+        .world_mut()
+        .spawn(ambition_characters::brain::action_set::IdentityKit::default())
+        .id();
+    let granted = prepared.clone();
+    app.add_systems(bevy::app::Update, move |mut commands: Commands| {
+        ambition_platformer2d_actor_spawn::grant_prepared_character_body(
+            &mut ambition_platformer2d_shared_tangle::construction::EntityScope::new(
+                &mut commands,
+                body,
+            ),
+            &granted,
+            Default::default(),
+            ambition_platformer2d_actor_spawn::KitOwnership::Grant,
+            None,
+            ambition_characters::repertoire::Hand::Empty,
+        );
+    });
+    app.update();
+
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    registry.insert_prepared(prepared);
+    let reworn =
+        ambition_combat::worn_kit::WornKit::resolve(&CharacterCatalog::empty(), Some(&registry), "lobber", None);
+
+    let world = app.world();
+    let identity = world
+        .get::<ambition_characters::brain::action_set::IdentityKit>(body)
+        .expect("the grant writes an identity baseline");
+    assert!(
+        identity.moveset.verbs.contains_key("attack"),
+        "the granted baseline lost the authored moves, so the next fold erases them"
+    );
+    assert_eq!(
+        (&identity.action_set, &identity.moveset),
+        (&reworn.identity.action_set, &reworn.identity.moveset),
+        "the spawn grant and the persona derive disagree about what `lobber` wears"
+    );
+    assert_eq!(
+        world
+            .get::<ambition_characters::brain::ChargesProjectiles>(body)
+            .is_some(),
+        reworn.execution.charges_projectiles(),
+        "the grant and the re-wear disagree about how `lobber` fires"
     );
 }

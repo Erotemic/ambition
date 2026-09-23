@@ -379,3 +379,33 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
         local_offset
     );
 }
+
+/// An autonomous driver says "shoot" with `ActorControlFrame::fire` alone — no
+/// button edges. On a charge body the charge path owns the ranged press, so it
+/// serves that intent as a tap: one uncharged Fireball. Without this a CPU
+/// wearing a charging character has no ranged attack at all, because its kit
+/// binds no `ranged` verb for the moveset to answer.
+#[test]
+fn an_autonomous_fire_intent_on_a_charge_body_fires_one_fireball() {
+    let mut app = min_app();
+    let body = super::primary_player_entity(&mut app);
+    // Nobody drives it, so the player brain does not rewrite its control frame.
+    app.world_mut()
+        .entity_mut(body)
+        .remove::<ambition_characters::control::DrivingParticipant>();
+    app.world_mut()
+        .get_mut::<ambition_characters::control::ActorControl>(body)
+        .expect("the body carries a control frame")
+        .0
+        .fire = Some(ambition_characters::actor::control::ActorFireRequest::world_space(
+        bevy::prelude::Vec2::X,
+        0.0,
+    ));
+    advance_time(&mut app, 0.016);
+    app.update();
+    assert_eq!(
+        crate::projectile::tests::projectile_kinds(&mut app),
+        vec![Some(ProjectileKind::Fireball)],
+        "one fire intent is one uncharged shot"
+    );
+}

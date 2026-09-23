@@ -159,6 +159,7 @@ pub fn charge_projectile_input(
                 press,
                 held,
                 released,
+                intent,
             } => Some((
                 msg.actor,
                 PlayerProjectileTickInfo {
@@ -167,6 +168,7 @@ pub fn charge_projectile_input(
                     press,
                     held,
                     released,
+                    intent,
                 },
             )),
             _ => None,
@@ -278,6 +280,20 @@ pub fn charge_projectile_input(
                     &mut spawn_projectiles,
                 ) as u32;
             }
+        } else if tick_info.intent && state.charging.is_none() && state.unlocked.fireball {
+            // An autonomous driver's "shoot" is a tap: an uncharged Fireball.
+            // The spawner's refire cooldown paces a driver that asks every tick.
+            fired_this_frame += try_fire_projectile(
+                &mut state,
+                body_entity,
+                ambition_projectiles::ProjectileKind::Fireball,
+                origin,
+                direction,
+                damage_mult,
+                0,
+                &mut events,
+                &mut spawn_projectiles,
+            ) as u32;
         }
 
         // Mirror projectile state onto the player's animation flags. `aim`
@@ -357,6 +373,7 @@ struct PlayerProjectileTickInfo {
     press: bool,
     held: bool,
     released: bool,
+    intent: bool,
 }
 
 /// Set containing the unified in-flight projectile step for all allegiances.

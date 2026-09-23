@@ -271,35 +271,26 @@ pub fn grant_prepared_character_body(
         // TODO(compat-remove): give tuning-identified staged bodies a real worn
         // identity, then remove this secondary kit writer.
         if kit == KitOwnership::Grant {
-            // That made two writers for one question, on two paths, and they answered
-            // it differently: this one wrote what the definition AUTHORED, while the
-            // worn path resolved authored-vs-catalog first. A character that authored
-            // no action set therefore fought as the worn player and stood empty-handed
-            // as player two. Phase A made the answer identical; giving
-            // seated bodies `IdentityKit` and `BodyAbilities` makes the WRITER
-            // identical, which is the half that stops it happening again.
-            let projected_moveset = prepared.kit.projectable_moveset().cloned();
-            if let Some(action_set) = prepared.kit.action_set().cloned() {
-                // THE BASELINE AND THE LIVE PAIR, FROM ONE RESOLUTION: the live
-                // `ActionSet` + `ActorMoveset` are the repertoire fold of this
-                // identity and the hand, so a body granted while holding
-                // something is not written empty-handed and folded again later.
-                let identity = ambition_characters::brain::action_set::IdentityKit::of(
-                    action_set,
-                    projected_moveset.clone().unwrap_or_default(),
-                );
-                let live =
-                    ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
-                // The routing markers are NOT set here. They are derived from
-                // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
-                scope.insert((
-                    identity,
-                    live.action_set,
-                    ambition_combat::moveset::ActorMoveset(live.moveset),
-                ));
-            } else if let Some(moveset) = projected_moveset {
-                scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
-            }
+            // The prepared baseline — the same one `WornKit::resolve` returns —
+            // for every character, authored action set or not. A character that
+            // authored only moves used to get them as a live `ActorMoveset` over
+            // the seed's EMPTY `IdentityKit`, so the next repertoire fold erased
+            // them.
+            let (action_set, moveset) = prepared.kit.baseline();
+            // THE BASELINE AND THE LIVE PAIR, FROM ONE RESOLUTION: the live
+            // `ActionSet` + `ActorMoveset` are the repertoire fold of this
+            // identity and the hand, so a body granted while holding
+            // something is not written empty-handed and folded again later.
+            let identity =
+                ambition_characters::brain::action_set::IdentityKit::of(action_set, moveset);
+            let live = ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
+            // The routing markers are NOT set here. They are derived from
+            // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
+            scope.insert((
+                identity,
+                live.action_set,
+                ambition_combat::moveset::ActorMoveset(live.moveset),
+            ));
         }
         // HOW THIS BODY FIRES goes with the kit it fires. The persona derive
         // installs it on the bodies it owns; a road that owns its own kit gets it

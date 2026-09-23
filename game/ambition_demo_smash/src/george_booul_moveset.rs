@@ -525,7 +525,10 @@ pub fn george_booul_moveset() -> MovesetContract {
             // ⚠ EXACTLY THE CAP (`LimitMeterFill::JONS_BASELINE.cap`), which is
             // how "available when the meter is full" is spelled here — nothing
             // new decides it, `afford_meter` refuses anything less.
-            meter_cost: 60.0,
+            costs: vec![ambition_resource_spec::ResourceCost::new(
+                ambition_entity_catalog::smash_limit::LIMIT,
+                60.0,
+            )],
             // ⚠ BOUND TO NO VERB, like the goblin's fallback: `move_by_id`
             // searches every move the contract carries, so this needs an id and a
             // place in `moves`, not a press of its own.
@@ -1535,8 +1538,8 @@ mod limit_payoff_tests {
             top_damage(&payoff),
             top_damage(&unmetered),
         );
-        assert_eq!(
-            unmetered.gates.meter_cost, 0.0,
+        assert!(
+            unmetered.gates.costs.is_empty(),
             "the fallback must be free; a priced fallback is refused by the same \
              affordance that refused the payoff, and the press dies"
         );
@@ -1549,9 +1552,12 @@ mod limit_payoff_tests {
     #[test]
     fn the_price_is_the_whole_meter() {
         assert_eq!(
-            spec("bivalence").gates.meter_cost,
-            ambition_entity_catalog::smash_limit::LimitMeterFill::JONS_BASELINE.cap,
-            "the payoff must cost exactly the match's Limit cap"
+            spec("bivalence").gates.costs,
+            vec![ambition_resource_spec::ResourceCost::new(
+                ambition_entity_catalog::smash_limit::LIMIT,
+                ambition_entity_catalog::smash_limit::LimitMeterFill::JONS_BASELINE.cap,
+            )],
+            "the payoff must cost exactly the match's Limit cap, in Limit"
         );
     }
 

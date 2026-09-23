@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v202",
+    "version": "ggrs-rollback-schema-v203",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -54,6 +54,7 @@
       "body.lifetime\tcomponent-canonical\tBodyLifetime",
       "body.mana\tcomponent-canonical\tBodyMana",
       "body.offense\tcomponent-canonical\tBodyOffense",
+      "body.resources\tcomponent-canonical\tActorResources",
       "body.shield\tcomponent-canonical\tBodyShieldState",
       "body.sim_id_counter\tcomponent-canonical\tSimIdCounter",
       "body.sweep_sample\tcomponent-canonical\tSweepSample",
@@ -136,7 +137,6 @@
       "resource.session_checkpoint_outcomes\tresource-clone-custom-checksum\tSessionCheckpointOutcomes\tbevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation",
       "resource.session_match_ordinal\tresource-canonical-custom-checksum\tSessionMatchOrdinal\tbevy_ggrs canonical codec snapshot + checksum over the count of matches this session has activated only, excluding the host-local session stamp",
       "resource.session_startup_resume\tresource-clone-custom-checksum\tSessionStartupResume\tbevy_ggrs clone snapshot + which session generation startup resolution reached, and which operation it routed",
-      "resource.sim_dt\tresource-canonical\tSimDt\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.sim_tick\tresource-canonical\tSimTick\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.slot_interaction_state\tresource-canonical\tSlotInteractionState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.stocks_match_settled\tresource-canonical-custom-checksum\tStocksMatchSettled\tbevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match ordinal, excluding the host-local session and activation-tick stamps",
@@ -247,6 +247,7 @@
     "ambition_platformer2d_core::player_state::BodyMode",
     "ambition_platformer2d_core::player_state::ResourceMeter",
     "ambition_platformer2d_core::reference_frame::GameplayFramePolicy",
+    "ambition_platformer2d_core::resources::ActorResources",
     "ambition_platformer2d_shared_tangle::construction::SpawnOrigin",
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
     "ambition_platformer2d_shared_tangle::gravity::BaseGravity",

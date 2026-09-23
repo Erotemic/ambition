@@ -67,6 +67,17 @@ def test_a_write_that_reads_its_own_value_is_an_accumulation(tmp_path):
     assert set(guard.carrying(root)) == {"tick"}
 
 
+def test_a_method_sharing_the_bindings_name_is_not_a_self_read(tmp_path):
+    """`sim_dt.dt = world_time.sim_dt()` writes the mirror wholesale; the
+    right-hand side names ANOTHER value's method that happens to share the
+    binding's name."""
+    root = _tree(
+        tmp_path,
+        _one("pub fn tick(mut sim_dt: ResMut<Mirror>) { sim_dt.dt = clock.sim_dt(); }"),
+    )
+    assert guard.carrying(root) == {}
+
+
 def test_a_rollback_registered_type_is_not_this_guard_s_business(tmp_path):
     """A registered accumulator rewinds with the timeline, which is the fix."""
     root = _tree(

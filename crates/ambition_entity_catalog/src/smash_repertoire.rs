@@ -25,7 +25,7 @@ const GROUNDED: MoveGates = MoveGates {
     // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
     // directly above: what a move COSTS is the move's own statement. Free
     // here, and discarded by the same destructure that discards `recovery`.
-    meter_cost: 0.0,
+    costs: Vec::new(),
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -59,7 +59,7 @@ const AIRBORNE: MoveGates = MoveGates {
     // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
     // directly above: what a move COSTS is the move's own statement. Free
     // here, and discarded by the same destructure that discards `recovery`.
-    meter_cost: 0.0,
+    costs: Vec::new(),
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -82,7 +82,7 @@ const EITHER: MoveGates = MoveGates {
     // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
     // directly above: what a move COSTS is the move's own statement. Free
     // here, and discarded by the same destructure that discards `recovery`.
-    meter_cost: 0.0,
+    costs: Vec::new(),
     // A posture says nothing about being HELD. Whether a move refuses to
     // start from a saddle is that move's own statement -- `call_the_shark`
     // makes it -- and a stance default answering for every move would be
@@ -441,7 +441,7 @@ impl SmashRepertoire {
                 // ⛔ THE MOVE'S OWN, same side of the line as `recovery`: a stance
                 // template cannot know what a move costs, and one that answered
                 // would zero every authored price.
-                meter_cost: _,
+                costs: _,
                 // ⛔ THE MOVE'S OWN, and necessarily the same side as the price it
                 // answers for. A posture template that supplied a fallback would
                 // hand every move on that stance the same one, and a stance
@@ -493,7 +493,7 @@ mod tests {
                 // ⛔ AND A POSTURE KNOWS NOTHING ABOUT A METER EITHER, for the reason
                 // directly above: what a move COSTS is the move's own statement. Free
                 // here, and discarded by the same destructure that discards `recovery`.
-                meter_cost: 0.0,
+                costs: Vec::new(),
                 // A posture says nothing about being HELD. Whether a move refuses to
                 // start from a saddle is that move's own statement -- `call_the_shark`
                 // makes it -- and a stance default answering for every move would be

@@ -201,6 +201,7 @@ ambition_encounter = { path = "../ambition_encounter" }
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_resource_spec = { path = "../ambition_resource_spec" }
 # ⛔⛔ `default-features = false`, AND IT IS LOAD-BEARING. The host crate's own
 # default is `render`, because building that crate alone should build the
 # WINDOWED face its description promises. Taking that default here would put

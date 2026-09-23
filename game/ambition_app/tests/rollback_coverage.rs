@@ -1905,8 +1905,9 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // demo inserts it once in `build` and no system writes it, so there is no
     // tick at which its value differs from the tick before.
     //
-    // ⛔ WHAT IS ROLLBACK STATE IS THE METER IT FILLS — `BodyMana`, registered
-    // `component-canonical` in the baseline, so a fighter's CURRENT charge
+    // ⛔ WHAT IS ROLLBACK STATE IS THE METER IT FILLS — the Limit slot of the
+    // seat's `ActorResources`, registered `component-canonical` in the
+    // baseline, so a fighter's CURRENT charge
     // rewinds with everything else. The rule for how fast it fills does not,
     // because a resimulation reads the same rule and refills identically.
     //
@@ -1917,20 +1918,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // HOW FAST A DRIVEN BODY'S MANA REFILLS, as the composition's statement.
     //
     // ⭐ SAME SHAPE AS THE TWO ABOVE: inserted once at plugin build, never
-    // written by a system. It exists because two rulesets were both filling one
-    // `BodyMana` — the platformer's 14/s regen and the smash Limit's authored
-    // rules — and the rate had no owner. A rewind restoring it would restore the
-    // same number it already holds.
+    // written by a system. A rewind restoring it would restore the same number
+    // it already holds.
     //
     // ⛔ WHAT IS ROLLBACK STATE IS THE METER ITSELF (`BodyMana`,
     // `component-canonical`), which is exactly the split the entry below draws.
     (
         "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
-        "the composition's mana refill rate: ROUTE-SCOPED — the smash ruleset declares it on entering its stage and gives the prior owner's value back on leaving, from a system in `Update` and never inside the rollback schedule; the meter it fills (BodyMana) is registered component-canonical",
+        "the composition's mana refill rate: a policy no system writes during play; the meter it fills (BodyMana) is registered component-canonical",
     ),
     (
         "ambition_demo_smash::limit::SmashLimitFill",
-        "authored fill rules, ROUTE-SCOPED for the same reason the mana rate above is: inserted on entering the smash stage and given back on leaving, from a system in `Update` outside the rollback schedule. ⛔ It was inserted at PLUGIN BUILD until 2026-09-06, which meant the two systems reading it walked every `BodyMana` in whatever app composed the ruleset. The charge it seeds (BodyMana) is registered component-canonical",
+        "authored fill rules, ROUTE-SCOPED: inserted on entering the smash stage and given back on leaving, from a system in `Update` outside the rollback schedule. The Limit it fills (a seat's ActorResources) is registered component-canonical",
     ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),

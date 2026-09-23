@@ -144,6 +144,7 @@ name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
  "ambition_geometry",
+ "ambition_resource_spec",
  "bevy_ecs",
  "bevy_math",
  "parry2d",
@@ -204,6 +205,13 @@ dependencies = [
 [[package]]
 name = "ambition_registry_core"
 version = "0.1.0"
+
+[[package]]
+name = "ambition_resource_spec"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ambition_sprite_fx"

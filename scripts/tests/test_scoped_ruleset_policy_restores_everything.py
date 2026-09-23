@@ -96,8 +96,12 @@ def test_the_guard_found_a_prior_snapshot_to_check() -> None:
         f"the reference instance is gone; found {sorted(names)}"
     )
     fields = {f for _, name, fs, _ in structs if name == "SmashPresentationPrior" for f in fs}
-    assert len(fields) >= 4, (
-        f"only {len(fields)} fields parsed from the reference snapshot "
-        f"({sorted(fields)}); it held four when this was written, so the field "
-        "parser has stopped matching rather than the struct having shrunk"
+    # The EXACT set, not a floor: a floor passes a parser that silently drops
+    # one field. The Smash `mana` prior left on 2026-09-23 with the route-scoped
+    # `PlayerManaRegen(0.0)` it restored — the Limit is its own named resource,
+    # so nothing of Smash's needs the Mana rate zeroed.
+    assert fields == {"cone", "limit", "transit"}, (
+        f"parsed {sorted(fields)} from the reference snapshot, which holds "
+        "`cone`, `limit` and `transit` — either the parser stopped matching a "
+        "field or the struct changed and this list must follow it"
     )

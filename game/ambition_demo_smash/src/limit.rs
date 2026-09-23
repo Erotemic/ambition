@@ -3,26 +3,32 @@
 //! ⭐⭐ FOUR SOURCES, ONE METER, AND NONE OF THEM IS A NEW AUTHORITY. Time comes
 //! from `WorldTime`, damage from `ResolvedBodyHit` (which now carries the amount
 //! that actually landed), and a move-driven fill from an ordinary technique. The
-//! meter is `BodyMana`, which was already rollback-canonical and already what
-//! `MoveGates::meter_cost` spends. ⇒ This system decides nothing about what a
-//! meter IS; it decides what goes into one.
+//! meter is the `smash_limit::LIMIT` slot of a body's `ActorResources`, which a
+//! Limit-priced move spends. ⇒ This system decides nothing about what a meter
+//! IS; it decides what goes into one.
 //!
-//! ⛔ AND IT DOES NOT DECIDE WHO HAS ONE. `LimitMeterFill::default()` fills
-//! nothing, so a match that declares no Limit gets exactly the behaviour every
-//! match had before this existed.
+//! ⛔ AND IT DOES NOT DECIDE WHO HAS ONE. A body holds a Limit only because the
+//! match declared one for its seats; every other body — Ambition's player, a
+//! room's enemies — has no Limit slot, and nothing here can reach it.
 
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::entity_catalog::smash_limit::{FillMeterParams, LimitMeterFill, FILL_METER};
-use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::resources::{ActorResources, ResourceLevel};
+use ambition_platformer2d::entity_catalog::smash_limit::{
+    FillMeterParams, LimitMeterFill, FILL_METER, LIMIT,
+};
+
+fn limit_of(bank: &mut ActorResources) -> Option<&mut ResourceLevel> {
+    bank.level_of_mut(&LIMIT)
+}
 
 /// The match's Limit rule. A game that never inserts one fills nothing.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Default)]
 pub struct SmashLimitFill(pub LimitMeterFill);
 
-/// This ruleset's Limit. Its cap is also the match's `earned_meter_cap`, so a
-/// seat is BUILT with the meter this rule fills rather than adopted into it.
+/// This ruleset's Limit. Its declaration is also the match's seat resource, so
+/// a seat is BUILT with the meter this rule fills rather than adopted into it.
 pub const SMASH_LIMIT: LimitMeterFill = LimitMeterFill::JONS_BASELINE;
 
 /// Fill every seated fighter's meter from the clock and from the hits that
@@ -53,8 +59,7 @@ pub fn fill_limit_meters(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut hits: MessageReader<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>,
     mut blocks: MessageReader<ambition_platformer2d::combat::hitbox::BlockedBodyHit>,
-    // Seats only: the Limit is the match's meter, built on its seats.
-    mut meters: Query<&mut ae::BodyMana, bevy::prelude::With<ambition_platformer2d::actor::MatchSeat>>,
+    mut meters: Query<&mut ActorResources>,
 ) {
     let Some(rule) = rule else {
         return;
@@ -65,12 +70,14 @@ pub fn fill_limit_meters(
     }
     let dt = time.sim_dt();
 
-    for mut mana in &mut meters {
+    for mut bank in &mut meters {
+        let Some(limit) = limit_of(&mut bank) else {
+            continue;
+        };
         if dt > 0.0 && fill.per_second > 0.0 {
-            mana.meter.refill(fill.per_second * dt);
+            limit.refill(fill.per_second * dt);
         }
-        // ⛔ FILL FIRST, THEN DRAIN, which is the order `ResourceMeter::tick`
-        // itself documents ("regen first, then decay") and it matters when the
+        // ⛔ FILL FIRST, THEN DRAIN: it matters when the
         // two rates are equal: a meter authored to hold steady holds steady
         // instead of drifting by one frame's worth every tick.
         //
@@ -78,7 +85,7 @@ pub fn fill_limit_meters(
         // to be refilled past zero before a priced move became reachable again,
         // which is a debt nobody authored.
         if dt > 0.0 && fill.decay_per_second > 0.0 {
-            mana.meter.current = (mana.meter.current - fill.decay_per_second * dt).max(0.0);
+            limit.drain(fill.decay_per_second * dt);
         }
     }
 
@@ -87,15 +94,15 @@ pub fn fill_limit_meters(
         // zone, a hazard and a stage spike all resolve with no attacker, and a
         // meter that credited "somebody" for those would pay a fighter for the
         // stage killing their opponent.
-        if let Ok(mut mana) = meters.get_mut(hit.victim) {
-            mana.meter.refill(fill.taken(hit.damage));
+        if let Some(limit) = meters.get_mut(hit.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
+            limit.refill(fill.taken(hit.damage));
         }
         if let Some(attacker) = hit.attacker {
             // ⛔ AND NOT FOR HITTING YOURSELF. A self-damaging move — a recoil, a
             // hazard the caster walked into — would otherwise pay twice.
             if attacker != hit.victim {
-                if let Ok(mut mana) = meters.get_mut(attacker) {
-                    mana.meter.refill(fill.dealt(hit.damage));
+                if let Some(limit) = meters.get_mut(attacker).ok().and_then(|bank| limit_of(bank.into_inner())) {
+                    limit.refill(fill.dealt(hit.damage));
                 }
             }
         }
@@ -117,8 +124,8 @@ pub fn fill_limit_meters(
     // a fighter who blocks a stage spike blocked something. The defender is the
     // half this road always knows.
     for block in blocks.read() {
-        if let Ok(mut mana) = meters.get_mut(block.victim) {
-            mana.meter.refill(fill.blocked());
+        if let Some(limit) = meters.get_mut(block.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
+            limit.refill(fill.blocked());
         }
     }
 }
@@ -127,7 +134,7 @@ pub fn fill_limit_meters(
 /// that charges its own owner.
 pub fn apply_authored_meter_fills(
     mut actions: MessageReader<ActorActionMessage>,
-    mut meters: Query<&mut ae::BodyMana>,
+    mut meters: Query<&mut ActorResources>,
 ) {
     for message in actions.read() {
         let ambition_platformer2d::characters::brain::action_set::ActionRequest::Special {
@@ -146,8 +153,14 @@ pub fn apply_authored_meter_fills(
             warn!("a meter fill did not hydrate its params");
             continue;
         };
-        if let Ok(mut mana) = meters.get_mut(message.actor) {
-            mana.meter.refill(params.amount);
+        // A body that holds no Limit gains nothing: the technique names the
+        // Limit, not whichever meter its user happens to carry.
+        if let Some(limit) = meters
+            .get_mut(message.actor)
+            .ok()
+            .and_then(|bank| limit_of(bank.into_inner()))
+        {
+            limit.refill(params.amount);
         }
     }
 }

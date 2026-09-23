@@ -15,7 +15,15 @@ dependencies = [
 name = "ambition_entity_catalog"
 version = "0.1.0"
 dependencies = [
+ "ambition_resource_spec",
  "ron",
+ "serde",
+]
+
+[[package]]
+name = "ambition_resource_spec"
+version = "0.1.0"
+dependencies = [
  "serde",
 ]
 

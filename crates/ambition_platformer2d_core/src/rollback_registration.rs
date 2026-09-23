@@ -49,7 +49,8 @@ where
         .rollback_component_canonical::<bc::BodyActionBuffer>(OWNER, "body.action_buffer")
         .rollback_component_canonical::<bc::BodyBaseSize>(OWNER, "body.base_size")
         .rollback_component_canonical::<bc::SweepSample>(OWNER, "body.sweep_sample")
-        .rollback_component_canonical::<bc::BodyMana>(OWNER, "body.mana");
+        .rollback_component_canonical::<bc::BodyMana>(OWNER, "body.mana")
+        .rollback_component_canonical::<crate::resources::ActorResources>(OWNER, "body.resources");
 
     // Per-body state a live match lands on, and the body's own shape.
     registrar

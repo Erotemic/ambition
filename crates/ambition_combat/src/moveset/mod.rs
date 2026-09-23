@@ -2584,10 +2584,10 @@ struct StartingMove<'a, 'cw, 'cs> {
     shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
-    /// The body's METER, charged here when the accepted move authors a
-    /// `MoveGates::meter_cost`. `None` for a body that carries no `BodyMana`,
-    /// which `afford_meter` has already refused any priced move.
-    meter: Option<bevy::prelude::Mut<'a, ambition_platformer2d_core::BodyMana>>,
+    /// The body's resource bank, charged here when the accepted move authors
+    /// `MoveGates::costs`. `None` for a body that holds no resources, which
+    /// `afford_meter` has already refused any priced move.
+    meter: Option<bevy::prelude::Mut<'a, ambition_platformer2d_core::resources::ActorResources>>,
     /// The B-REVERSE WINDOW this accepted move opens, the gesture history it
     /// opens on, and THE LATERAL SIGN THAT BOUGHT THE PRESS. `None` when the
     /// move is not a special, or the match declares no special turn — see
@@ -2673,14 +2673,14 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     // drift apart. `afford_meter` has already refused the move if the body could
     // not pay, exactly as `afford_recovery` did above.
     //
-    // ⛔ `try_spend` RATHER THAN A BARE SUBTRACTION, so the meter cannot go
-    // negative if these two ever disagree — and its bool is deliberately
-    // discarded: the affordance question was asked and answered while the move
-    // was still refusable, and re-answering it here, after the teardown, could
-    // only produce the silent failure this design exists to avoid.
-    if spec.gates.meter_cost > 0.0 {
-        if let Some(mut meter) = meter {
-            let _ = meter.meter.try_spend(spec.gates.meter_cost);
+    // ⛔ `pay` RATHER THAN A BARE SUBTRACTION, so no term can go negative if
+    // these two ever disagree — and its bool is deliberately discarded: the
+    // affordance question was asked and answered while the move was still
+    // refusable, and re-answering it here, after the teardown, could only
+    // produce the silent failure this design exists to avoid.
+    if !spec.gates.costs.is_empty() {
+        if let Some(mut bank) = meter {
+            let _ = bank.pay(&spec.gates.costs);
         }
     }
     // ⭐⭐ THE ONE LINE THAT SAYS A MOVE HAPPENED, and it is here because this is
@@ -2819,14 +2819,14 @@ fn permitted_while_held(spec: &ambition_entity_catalog::MoveSpec, held: bool) ->
 /// shark appeared. A meter test applied at the effect would do exactly that
 /// again, so this is asked where the move is still refusable.
 ///
-/// A body with no meter cannot pay a positive cost: a missing resource is never
-/// affordable. A move that costs nothing is affordable to everyone, and that arm
-/// is taken FIRST so a free move never consults a meter at all.
-fn afford_meter(spec: &ambition_entity_catalog::MoveSpec, meter_left: Option<f32>) -> bool {
-    if spec.gates.meter_cost <= 0.0 {
-        return true;
-    }
-    meter_left.is_some_and(|left| left >= spec.gates.meter_cost)
+/// A body that does not hold a named resource cannot pay for it: a missing
+/// resource is never affordable. A move that costs nothing is affordable to
+/// everyone and never consults a bank at all.
+fn afford_meter(
+    spec: &ambition_entity_catalog::MoveSpec,
+    bank: Option<&ambition_platformer2d_core::resources::ActorResources>,
+) -> bool {
+    ambition_platformer2d_core::resources::can_pay(bank, &spec.gates.costs)
 }
 
 /// The move a press actually gets: the one resolved, or the variant its author
@@ -3065,7 +3065,7 @@ pub fn trigger_moveset_moves(
     // for it. ⚠ The body tuple reached Bevy's sixteen once already and had to
     // nest a group to fit — see the gesture triple — so putting a fourth spend
     // where the other three live keeps that ceiling at arm's length as well.
-    mut meters: Query<&mut ambition_platformer2d_core::BodyMana>,
+    mut meters: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
     // Where the out-of-shield rule is authored: the body's own movement policy
     // carries its shield tuning. `None` for a bare test body, which then has no
     // rule and behaves exactly as it did.
@@ -3695,13 +3695,13 @@ pub fn trigger_moveset_moves(
             // around without meaning to — so it owes the same authored VARIANT
             // too. Same four affordances, same one-hop fallback, one function.
             let cancel_charges_left = jumps.get(entity).ok().map(|j| j.recovery_charges);
-            let cancel_meter_left = meters.get(entity).ok().map(|m| m.meter.current);
+            let cancel_bank = meters.get(entity).ok();
             let cancel_melee = melee.as_deref();
             let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| {
                 afford_recovery(candidate, cancel_charges_left)
                     && weapon_ready(candidate, cancel_melee)
                     && permitted_while_held(candidate, body_is_held)
-                    && afford_meter(candidate, cancel_meter_left)
+                    && afford_meter(candidate, cancel_bank)
             }) else {
                 continue;
             };
@@ -3825,13 +3825,13 @@ pub fn trigger_moveset_moves(
         let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
         // Read beside the recovery budget and for the same reason: both are
         // affordances, and both are asked while the move is still refusable.
-        let meter_left = meters.get(entity).ok().map(|m| m.meter.current);
+        let bank = meters.get(entity).ok();
         let melee_ready_against = melee.as_deref();
         let affordable = |candidate: &ambition_entity_catalog::MoveSpec| {
             afford_recovery(candidate, charges_left)
                 && permitted_while_held(candidate, body_is_held)
                 && weapon_ready(candidate, melee_ready_against)
-                && afford_meter(candidate, meter_left)
+                && afford_meter(candidate, bank)
         };
         if let Some(spec) = spec.and_then(|spec| accepted_or_variant(spec, &moveset.0, affordable))
         {

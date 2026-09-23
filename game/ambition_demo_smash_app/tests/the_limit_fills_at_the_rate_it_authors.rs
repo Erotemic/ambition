@@ -1,14 +1,15 @@
 //! The Limit meter fills at the rate the smash ruleset AUTHORS, in the shipped
 //! composition — not at the platformer's.
 //!
-//! ⛔⛔ TWO RULESETS WERE BOTH FILLING ONE `BodyMana`. The smash ruleset authors
+//! ⛔⛔ TWO RULESETS WERE ONCE BOTH FILLING ONE METER. The smash ruleset authors
 //! `LimitMeterFill` (Jon's baseline: a 60-point cap and 0.5/s of clock, so 120 s
 //! to fill from nothing). The platformer's `avatar::regen_player_mana` refills
 //! every DRIVEN body at 14.0/s so that mana is a spendable resource for charge
 //! attacks, and it is registered unconditionally in the monolith's
 //! `FeatureCollection` phase. A composition carrying both got both: about 4.1 s
 //! to a full Limit, and a different economy for a driven fighter than for an
-//! otherwise identical undriven one.
+//! otherwise identical undriven one. The Limit is now its own named resource in
+//! the seat's bank, so the Mana refill has nothing of the Limit's to reach.
 //!
 //! ⭐⭐ THIS TEST EXISTS BECAUSE THE UNIT TESTS COULD NOT SEE IT. `limit/tests.rs`
 //! installs the Limit systems directly and never composes the monolith's feature
@@ -20,7 +21,8 @@
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
-use ambition_platformer2d::engine_core::BodyMana;
+use ambition_platformer2d::engine_core::resources::ActorResources;
+use ambition_platformer2d::entity_catalog::smash_limit::LIMIT;
 use bevy::prelude::*;
 
 /// Two seconds of LIVE match at the demo's own tick.
@@ -29,12 +31,13 @@ const WINDOW: usize = 120;
 /// The platformer's own rate, forced back on for the control arm.
 const PLATFORMER_RATE: f32 = 14.0;
 
-/// The highest `BodyMana` in the world, and how many bodies carry one.
+/// The highest Limit in the world, and how many bodies hold one.
 fn meters(app: &mut App) -> (f32, usize) {
-    let mut query = app.world_mut().query::<&BodyMana>();
+    let mut query = app.world_mut().query::<&ActorResources>();
     let values: Vec<f32> = query
         .iter(app.world())
-        .map(|mana| mana.meter.current)
+        .filter_map(|bank| bank.level_of(&LIMIT))
+        .map(|limit| limit.current)
         .collect();
     let highest = values.iter().copied().fold(f32::MIN, f32::max);
     (highest, values.len())
@@ -113,74 +116,94 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     app
 }
 
-/// Limit gained by the fullest meter over `WINDOW` ticks of the same fight.
-fn gained_over_the_window(regen: Option<f32>) -> (f32, usize) {
+/// Limit gained by the fullest meter over `WINDOW` ticks of the same fight, and
+/// the Mana the seats' drained pools gained over the same window.
+fn gained_over_the_window(regen: Option<f32>) -> (f32, usize, f32) {
     let mut app = a_live_match(regen);
+    let seats: Vec<Entity> = app
+        .world_mut()
+        .query_filtered::<Entity, With<MatchSeat>>()
+        .iter(app.world())
+        .collect();
+    for seat in &seats {
+        app.world_mut()
+            .get_mut::<ambition_platformer2d::engine_core::BodyMana>(*seat)
+            .expect("a seat carries a mana pool")
+            .meter
+            .current = 0.0;
+    }
+    let mana = |app: &App| -> f32 {
+        seats
+            .iter()
+            .filter_map(|seat| {
+                app.world()
+                    .get::<ambition_platformer2d::engine_core::BodyMana>(*seat)
+            })
+            .map(|mana| mana.meter.current)
+            .sum()
+    };
     let (before, seated) = meters(&mut app);
+    let mana_before = mana(&app);
     for _ in 0..WINDOW {
         app.update();
     }
     let (after, _) = meters(&mut app);
-    (after - before, seated)
+    (after - before, seated, mana(&app) - mana_before)
 }
 
 /// ⛔⛔ AN A/B AGAINST THE SAME FIGHT, because the absolute number cannot answer
 /// a RATE question in a world where fighters are also hitting each other.
 ///
-/// My first version of this test asserted a ceiling on the gain and failed at
-/// **22.3 over two seconds** with the fix already in place — because Jon's
-/// authored damage sources (+2.0 and 0.2x per instance TAKEN, +1.0 and 0.1x
-/// DEALT) legitimately produce that much when two level-5 CPUs trade five hits.
-/// The threshold could not tell an authored fill from a leaked one.
+/// An absolute ceiling on the gain once failed at **22.3 over two seconds**
+/// with the fix in place — Jon's authored damage sources legitimately produce
+/// that much when two fighters trade hits. The simulation is deterministic, so
+/// the SAME match run twice differs only by the policy under test.
 ///
-/// ⇒ The simulation is deterministic, so the SAME match run twice differs only
-/// by the resource under test. That difference is the leak, isolated.
+/// ⭐ THE LIMIT IS NAMED, SO THE TWO ARMS — Mana refill off, and on at the
+/// platformer's rate — MUST AGREE EXACTLY: the refill has nothing of the
+/// Limit's to reach. ⛔ And an "equal" verdict is vacuous unless the refill
+/// demonstrably differs between the arms — so the control is the same seats'
+/// drained Mana pool, which only the second arm may fill.
 #[test]
 fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
-    let (shipped, seated) = gained_over_the_window(None);
+    let (still, seated, mana_still) = gained_over_the_window(Some(0.0));
     // ⛔ ANTI-VACUITY. A world with no metered body satisfies everything below
-    // forever, and it is what a match that never started looks like. It caught
-    // exactly that on this test's first run.
+    // forever, and it is what a match that never started looks like.
     assert!(
         seated >= 2,
-        "the live match composed {seated} bodies carrying a `BodyMana`; this \
-         guard is asking an empty world"
+        "the live match composed {seated} bodies holding a Limit; this guard is \
+         asking an empty world"
     );
 
     // Every seat is BUILT with the match's Limit, not adopted into it.
     let mut app = a_live_match(None);
-    let caps: Vec<f32> = app
+    let caps: Vec<Option<f32>> = app
         .world_mut()
-        .query_filtered::<&BodyMana, With<MatchSeat>>()
+        .query_filtered::<Option<&ActorResources>, With<MatchSeat>>()
         .iter(app.world())
-        .map(|mana| mana.meter.max)
+        .map(|bank| bank.and_then(|bank| bank.level_of(&LIMIT)).map(|limit| limit.max))
         .collect();
     assert!(
         !caps.is_empty()
             && caps
                 .iter()
-                .all(|cap| *cap == ambition_demo_smash::limit::SMASH_LIMIT.cap),
-        "a seat's meter capacity is not the match's Limit: {caps:?}",
+                .all(|cap| *cap == Some(ambition_demo_smash::limit::SMASH_LIMIT.cap)),
+        "a seat does not hold the match's Limit at its cap: {caps:?}",
     );
 
-    let (leaking, _) = gained_over_the_window(Some(PLATFORMER_RATE));
-    // Two seconds of 14.0/s is 28 points of Limit that nobody authored.
-    let leak = leaking - shipped;
+    let (refilled, _, mana_refilled) = gained_over_the_window(Some(PLATFORMER_RATE));
     assert!(
-        leak > 10.0,
-        "forcing the platformer's {PLATFORMER_RATE}/s back on changed the Limit \
-         gained by only {leak} ({leaking} against {shipped}). This CONTROL is \
-         what makes the assertion below meaningful: if the two arms agree, the \
-         policy resource is not reaching `regen_player_mana` at all and this \
-         test proves nothing about the shipped build."
+        mana_refilled - mana_still > 10.0,
+        "control: the platformer's {PLATFORMER_RATE}/s refill against none moved the \
+         seats' drained Mana by only {} ({mana_refilled} against {mana_still}), so \
+         the refill is not reaching these bodies and the equality below proves \
+         nothing",
+        mana_refilled - mana_still
     );
-    assert!(
-        shipped < leaking,
-        "the shipped composition gained {shipped} and the leaking one {leaking}. \
-         The smash ruleset states `PlayerManaRegen(0.0)` precisely so the \
-         platformer's refill — which exists to make mana spendable for charge \
-         attacks — does not also fill an authored Limit. Jon's 60-point meter is \
-         written to take 120 s of clock; with the leak it fills in about four."
+    assert_eq!(
+        refilled, still,
+        "the platformer's Mana refill changed the Limit gained ({refilled} against \
+         {still}): something fills the Limit that does not name it"
     );
 }
 
@@ -234,17 +257,17 @@ fn probe_how_long_the_limit_takes() {
                 // their meter's own max says, because "current above cap" and
                 // "this body was never adopted" look identical from the outside.
                 let world = app.world_mut();
-                let mut q = world.query::<(
-                    &ambition_platformer2d::engine_core::BodyMana,
-                    Option<&MatchSeat>,
-                )>();
-                for (mana, seat) in q.iter(world) {
-                    if mana.meter.current > cap {
+                let mut q = world.query::<(&ActorResources, Option<&MatchSeat>)>();
+                for (bank, seat) in q.iter(world) {
+                    let Some(limit) = bank.level_of(&LIMIT) else {
+                        continue;
+                    };
+                    if limit.current > cap {
                         println!(
                             "[limit-probe] tick {tick}: seat {:?} reads {:.1} with max {:.1}",
                             seat.map(|s| s.0),
-                            mana.meter.current,
-                            mana.meter.max
+                            limit.current,
+                            limit.max
                         );
                     }
                 }
@@ -255,13 +278,9 @@ fn probe_how_long_the_limit_takes() {
         }
         {
             let world = app.world_mut();
-            let mut q = world.query::<(
-                Entity,
-                &ambition_platformer2d::engine_core::BodyMana,
-                &MatchSeat,
-            )>();
-            if let Some((entity, mana, _)) = q.iter(world).find(|(_, _, seat)| seat.0 == 0) {
-                let now = mana.meter.current;
+            let mut q = world.query::<(Entity, &ActorResources, &MatchSeat)>();
+            if let Some((entity, bank, _)) = q.iter(world).find(|(_, _, seat)| seat.0 == 0) {
+                let now = bank.level_of(&LIMIT).map_or(0.0, |limit| limit.current);
                 // ⛔ THE DISCRIMINATOR: did the ENTITY change? A new entity means
                 // the fighter was respawned fresh; the same entity means
                 // something RESET the meter in place. The fix differs.
@@ -376,14 +395,12 @@ fn leaving_the_stage_restores_another_owners_portal_config() {
     // `SmashLimitFill` failed NO test: the "declares nothing" arm asks an app
     // that never entered the stage, so it cannot see a rule that was declared
     // and then left standing. ⇒ A pair of arms for arrival is not a pair for
-    // DEPARTURE, and a resource whose readers walk every `BodyMana` is exactly
-    // the one that must not outlive the mode.
+    // DEPARTURE, and a rule for a mode must not outlive the mode.
     assert!(
         app.world()
             .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
             .is_none(),
-        "leaving Smash left its Limit rule standing, so every body in the binary \
-         keeps getting its mana re-capped and emptied by a mode nobody is in."
+        "leaving Smash left its Limit rule standing after the mode ended"
     );
 }
 
@@ -420,19 +437,13 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
          Ambition IS the portal game and would draw Smash's cones because Smash \
          happens to be linked."
     );
-    // ⛔⛔ AND THE THIRD ONE, WHICH REACHED FURTHER THAN EITHER. `SmashLimitFill`
-    // was inserted at PLUGIN BUILD, and the two systems that read it walk every
-    // `BodyMana` in the composing app — so Ambition's own player had its mana
-    // pool re-capped to the Limit's cap and emptied, by a rule for a mode it was
-    // not in. ⇒ Same lifetime error as the two above, one layer deeper: those
-    // changed how something LOOKS, this changed what a body HAS.
+    // ⛔⛔ AND THE LIMIT RULE: declared at plugin build, it would run for a
+    // mode nobody is in.
     assert!(
         app.world()
             .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
             .is_none(),
-        "composing Smash declared its Limit rule for the whole process, so every \
-         body in the binary gets its mana re-capped and emptied by a mode it \
-         never enters."
+        "composing Smash declared its Limit rule for the whole process"
     );
 }
 
@@ -442,17 +453,6 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
 #[test]
 fn the_stage_declares_the_rulesets_own_answers() {
     let app = a_live_match(None);
-    let policy = app
-        .world()
-        .get_resource::<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>()
-        .copied();
-    assert_eq!(
-        policy.map(|p| p.0),
-        Some(0.0),
-        "on the Smash stage the ruleset does not state its mana policy, so the \
-         platformer's 14.0/s applies to every driven fighter and the authored \
-         Limit is meaningless"
-    );
     let cone = app
         .world()
         .get_resource::<ambition_platformer2d::portal_presentation::PortalViewConeConfig>()

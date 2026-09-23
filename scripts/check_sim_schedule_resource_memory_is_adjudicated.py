@@ -74,7 +74,10 @@ def _grows(body: str, bind: str) -> list[str]:
         if re.search(rf"\b{esc}\b[\w\.\[\]0-9]*\.\s*{grower}\s*\(", body):
             hits.append(grower)
     for match in re.finditer(rf"\b{esc}\b([\w\.\[\]0-9]*)\s*=(?!=)([^;]*);", body):
-        if re.search(rf"\b{esc}\b", match.group(2)):
+        # Not after a `.`: `world_time.sim_dt()` names another value's method,
+        # not the binding `sim_dt`, and `x.dt = clock.sim_dt()` is a wholesale
+        # write.
+        if re.search(rf"(?<![\w.]){esc}\b", match.group(2)):
             hits.append("reads its own value")
             break
     return sorted(set(hits))

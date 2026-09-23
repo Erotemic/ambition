@@ -138,6 +138,7 @@ pub use ambition_encounter as encounter;
 /// reach it here rather than through `actors`, which IS the monolith.
 pub use ambition_encounter_features as encounter_features;
 pub use ambition_entity_catalog as entity_catalog;
+pub use ambition_resource_spec as resource_spec;
 pub use ambition_game_shell as game_shell;
 /// The PRESSED collectible: `GroundItem`, `ItemCustody`, the held specs and
 /// the pickup / use / throw / physics / residency chain it owns (D33,

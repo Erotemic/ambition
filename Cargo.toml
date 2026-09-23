@@ -35,6 +35,7 @@ members = [
     "crates/ambition_entity_catalog",
     "crates/ambition_geometry",
     "crates/ambition_projectile_spec",
+    "crates/ambition_resource_spec",
     "crates/ambition_encounter",
     "crates/ambition_encounter_features",
     "crates/ambition_vfx",

@@ -95,17 +95,24 @@ def test_the_composition_doc_quotes_the_baselines_real_count(baseline):
     no longer owed anyone.
 
     ⭐ SO IT FOLLOWS THE DOCUMENT'S CURRENT AUTHORITATIVE FIGURE instead of
-    resurrecting the old one. The fresh-measurements table now states the
-    closure as "N other workspace packages reachable" from the facade, and that
-    is the number a reader quotes. A guard that pins a sentence rather than a
-    CLAIM goes red for an edit and silent for a carve, which is backwards.
+    resurrecting the old one: the sentence that names the capability-footprint
+    sentinel and says how many other workspace packages it links. A guard that
+    pins a sentence rather than a CLAIM goes red for an edit and silent for a
+    carve, which is backwards.
 
     ⚠ This test WILL go red on the carve that moves the number, and that is the
     point -- the same trade as the coverage footer's gated-test count. The
     EQUALITY of the sub-lists is the doc's other claim and is guarded above.
     """
     doc = (REPO / "docs/planning/engine/capability-and-runtime-composition.md").read_text()
-    stated = re.search(r"(\d+) other workspace packages reachable", doc)
+    # ⛔ THE SENTINEL'S sentence, named by its subject. This read the first
+    # "N other workspace packages reachable" on the page, which is the FACADE
+    # closure's review-baseline record (51) — equal to the sentinel's count by
+    # coincidence until a leaf crate entered the sentinel's closure and not
+    # that record.
+    stated = re.search(
+        r"capability-footprint sentinel[^.]*?links (\d+) other\s+workspace packages", doc, re.S
+    )
     assert stated, (
         "the composition doc no longer states the closure it measured. If the "
         "figure moved to a different sentence, repoint this guard at it; if the "

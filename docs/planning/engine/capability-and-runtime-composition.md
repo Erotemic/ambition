@@ -69,8 +69,15 @@ irreducible set shrank by three; the total fell 41 → 40.
 
 ⓘ Reproduce: `python3 scripts/measure_foreign_system_ordering.py`,
 `python3 scripts/measure_carveable_installations.py`, and for the closure
-`cargo tree -e normal --no-default-features -p ambition_platformer2d` — 49 unique
-`ambition_*` names at HEAD, unchanged from the 2026-09-10 re-measure.
+`cargo tree -e normal --no-default-features -p ambition_platformer2d` — 50 unique
+`ambition_*` names at HEAD: the 2026-09-10 re-measure's 49 plus
+`ambition_resource_spec` (2026-09-23), a serde-only leaf the body floor links for
+the actor-resource vocabulary.
+
+The capability-footprint sentinel (`fixtures/minimal_game`) links 52 other
+workspace packages besides the facade — the `ambition_closure` of
+`scripts/baselines/capability-footprint-baseline.json`, a different subject
+from the facade closure above.
 
 ⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
 `300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed

@@ -33,6 +33,9 @@ pub struct BodyClustersMut<'a> {
     pub body_mode: &'a mut BodyModeState,
     pub env_contact: &'a mut BodyEnvironmentContact,
     pub mana: &'a mut BodyMana,
+    /// The body's resource bank, when something declared one for it. Absent is
+    /// a body that holds no resource — a complete composition.
+    pub resources: Option<&'a mut crate::resources::ActorResources>,
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub lifetime: &'a mut BodyLifetime,
@@ -61,6 +64,7 @@ pub struct BodyClusterQueryData {
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
     pub mana: &'static mut BodyMana,
+    pub resources: Option<&'static mut crate::resources::ActorResources>,
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub lifetime: &'static mut BodyLifetime,
@@ -91,6 +95,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
             mana: &mut *self.mana,
+            resources: self.resources.as_deref_mut(),
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
             lifetime: &mut *self.lifetime,
@@ -1032,6 +1037,12 @@ pub fn reset_body_clusters(
         ResetMeter::Full => clusters.mana.meter.current = clusters.mana.meter.max,
         ResetMeter::Empty => clusters.mana.meter.current = 0.0,
     }
+    // Every declared resource returns to the start it was BUILT with: one
+    // baseline for spawn and reset, so neither can hand back a value the other
+    // would not.
+    if let Some(resources) = clusters.resources.as_deref_mut() {
+        resources.reset_to_start();
+    }
     *clusters.offense = BodyOffense::default();
     *clusters.action_buffer = BodyActionBuffer::default();
     *clusters.lifetime = BodyLifetime {
@@ -1326,6 +1337,8 @@ pub struct BodyClusterScratch {
     pub body_mode: BodyModeState,
     pub env_contact: BodyEnvironmentContact,
     pub mana: BodyMana,
+    /// See [`BodyClustersMut::resources`].
+    pub resources: Option<crate::resources::ActorResources>,
     pub offense: BodyOffense,
     pub action_buffer: BodyActionBuffer,
     pub lifetime: BodyLifetime,
@@ -1369,6 +1382,7 @@ impl BodyClusterScratch {
             mana: BodyMana {
                 meter: ResourceMeter::new(100.0, 0.0, 0.0),
             },
+            resources: None,
             offense: BodyOffense {
                 damage_multiplier: 1,
             },
@@ -1423,6 +1437,7 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             mana: &mut self.mana,
+            resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             lifetime: &mut self.lifetime,
@@ -1470,6 +1485,7 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             mana: &mut self.mana,
+            resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             lifetime: &mut self.lifetime,
@@ -1481,6 +1497,50 @@ impl BodyClusterScratch {
 #[cfg(test)]
 mod reset_tests {
     use super::*;
+
+    /// A reset returns every banked resource to the start it was DECLARED with
+    /// — the baseline the body was built from — whatever the caller passes for
+    /// the unbanked meter. An earned resource (a Limit) comes back empty, so a
+    /// respawned fighter cannot spend on the frame after dying; a spent one
+    /// (a pool) comes back full.
+    #[test]
+    fn a_reset_returns_every_banked_resource_to_its_declared_start() {
+        use ambition_resource_spec::{ResourceDeclaration, ResourceId, ResourceStart};
+        const EARNED: ResourceId = ResourceId::from_static("test.earned");
+        const SPENT: ResourceId = ResourceId::from_static("test.spent");
+        let mut scratch = BodyClusterScratch::new_with_abilities(
+            Vec2::new(400.0, 400.0),
+            crate::abilities::AbilitySet::default(),
+        );
+        let mut bank = crate::resources::ActorResources::declared(&[
+            ResourceDeclaration::new(EARNED, 60.0, ResourceStart::Empty),
+            ResourceDeclaration::new(SPENT, 100.0, ResourceStart::Full),
+        ])
+        .expect("valid")
+        .expect("declared");
+        bank.level_of_mut(&EARNED).expect("held").refill(60.0);
+        bank.level_of_mut(&SPENT).expect("held").drain(70.0);
+        scratch.resources = Some(bank);
+
+        let (model, mut clusters) = scratch.parts();
+        reset_body_clusters(
+            model,
+            &mut clusters,
+            Vec2::new(64.0, 352.0),
+            ResetFacing::Keep,
+            ResetMeter::Full,
+            crate::movement::DEFAULT_TUNING.air_jumps,
+        );
+
+        let bank = scratch.resources.as_ref().expect("the reset keeps the bank");
+        assert_eq!(
+            bank.level_of(&EARNED).expect("held").current,
+            0.0,
+            "a full earned resource survived the reset: a respawned fighter can \
+             spend what it earned before dying"
+        );
+        assert_eq!(bank.level_of(&SPENT).expect("held").current, 100.0);
+    }
 
     /// A reset RESTORES the body to its base size; it does not REDEFINE what
     /// the base is.

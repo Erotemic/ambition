@@ -304,7 +304,7 @@ PYCODE
 This lower-bound traversal uses only direct nonoptional path entries in normal
 `[dependencies]`. It excludes external libraries, optional feature activation,
 build/dev/target-specific edges and inherited dependency features. Cargo's actual
-resolved profile can require more. The closure is **48 other workspace packages**
+resolved profile can require more. The closure is **49 other workspace packages**
 and the mandatory path does NOT include render — `ambition_render` is outside the
 graph entirely. This is not a size or speed benchmark. A9 requires real Cargo
 metadata/tree and external behavior fixtures.

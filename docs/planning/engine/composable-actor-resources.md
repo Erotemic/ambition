@@ -1214,6 +1214,59 @@ free.
 
 ## Phase 3 — migrate Mana and Limit ownership
 
+### Step 1 landed 2026-09-23 — the Limit is a named resource in a per-actor bank
+
+**Old authorities.** One `BodyMana` on every body served as BOTH the main
+game's Mana and a Smash seat's Limit. `MoveGates::meter_cost` priced moves in
+"the meter" without naming one, so the goblin's dive meant Limit in a match
+and a free once-per-life charge in exploration; `smash.fill_meter` filled
+whichever meter its caster carried; and Smash had to insert
+`PlayerManaRegen(0.0)` on its stage to keep the Mana refill out of the Limit.
+
+**New single authority.**
+
+```text
+ResourceId / ResourceCost / ResourceDeclaration   ambition_entity_catalog::resources
+  |  (content-safe; identity = FNV-1a digest of the authored name)
+MatchRules::resources  (Smash: SMASH_LIMIT.declaration() — cap 60, EMPTY)
+  |  seat preparation: ActorResources::declared(...) onto the seed
+seat realization: the bank leaves the seed and is inserted in the spawn flush
+  |
+ActorResources { layout: Arc<ResourceLayout>, levels: Vec<ResourceLevel> }
+  rollback: component-canonical `body.resources`, layout carried in the codec
+  reset:    reset_body_clusters -> reset_to_start (the SAME declared baseline)
+```
+
+A price is `MoveGates::costs: Vec<ResourceCost>`; `afford_meter` and the
+payment at move start both go through `ActorResources::can_pay`/`pay`, atomic
+over every term, and a term naming a resource the body does not hold is
+unaffordable. Both positive prices name `smash_limit::LIMIT`. The Limit fill
+systems and `smash.fill_meter` reach the Limit slot by name, so a body that
+holds no Limit gains nothing from them.
+
+**Deleted.** `MoveGates::meter_cost`; `MatchRules::earned_meter_cap`; Smash's
+route-scoped `PlayerManaRegen(0.0)` and its prior/give-back arm (nothing of the
+Limit's is reachable by the Mana refill any more).
+
+**Behaviour change, deliberate.** An exploration goblin holds no Limit, so its
+dive is always refused to the uncharged variant — the old once-per-life charged
+dive was the ambiguous price paid out of an unrelated Mana pool.
+
+**Access decision (0D/0F, not yet measured).** A resource is found by a binary
+search over the body's own canonically ordered layout (`ResourceLayout::slot`),
+at move acceptance and in each capability's system — never a name hash, never
+a walk over other state. `ResourceSlot` handles carry their layout id, so a
+handle prepared against another layout reads nothing. Whether hot capability
+systems should cache slots per layout is the open 0D measurement.
+
+**Still open — step 2 (Mana).** `BodyMana` remains on every body as the main
+game's Mana: the Mana abilities, `regen_player_mana` (which still invents a
+rate when `PlayerManaRegen` is absent), the shrine, the mana cell, the HUD,
+`sim_view` facts, the harness observation and the dev stats panel. Step 2
+declares Mana where the main game composes its player, moves those consumers
+onto the bank, and deletes `BodyMana`, `ResetMeter` and `ResourceMeter`'s body
+use.
+
 ### Classification, measured 2026-09-23 (Phase 2 step 1 and Phase 3's first step)
 
 Taken by grepping production `crates/` and `game/` for `BodyMana`, `.mana`,

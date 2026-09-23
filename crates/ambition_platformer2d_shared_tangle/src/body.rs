@@ -302,6 +302,20 @@ impl AncillaryMovementBundle {
     /// dropping its vestigial `kinematics` field (the body's authoritative
     /// [`BodyKinematics`] is spawned separately).
     pub fn from_scratch(scratch: ambition_platformer2d_core::BodyClusterScratch) -> Self {
+        let (bundle, resources) = Self::split_scratch(scratch);
+        assert!(
+            resources.is_none(),
+            "this scratch body declared resources, and a bundle cannot carry an \
+             optional component — spawn through `split_scratch` and insert the bank"
+        );
+        bundle
+    }
+
+    /// [`Self::from_scratch`], handing back the body's resource bank — which a
+    /// bundle cannot hold, because only a body that DECLARED resources has one.
+    pub fn split_scratch(
+        scratch: ambition_platformer2d_core::BodyClusterScratch,
+    ) -> (Self, Option<ambition_platformer2d_core::resources::ActorResources>) {
         let ambition_platformer2d_core::BodyClusterScratch {
             abilities,
             kinematics: _,
@@ -321,6 +335,7 @@ impl AncillaryMovementBundle {
             body_mode,
             env_contact,
             mana,
+            resources,
             offense,
             action_buffer,
             lifetime,
@@ -331,7 +346,7 @@ impl AncillaryMovementBundle {
         // gravity-relative baseline at the authored pose before its first
         // control/integration step.
         ground.invalidate();
-        Self {
+        let bundle = Self {
             ability_base: ambition_platformer2d_core::AbilityBase::new(abilities.abilities),
             abilities,
             sweep: Default::default(),
@@ -354,6 +369,7 @@ impl AncillaryMovementBundle {
             combo_trace,
             frame: Default::default(),
             motion_facts: Default::default(),
-        }
+        };
+        (bundle, resources)
     }
 }

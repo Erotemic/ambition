@@ -212,6 +212,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
+ "ambition_resource_spec",
  "ambition_sfx",
  "ambition_sprite_sheet",
  "ambition_time",
@@ -322,6 +323,7 @@ dependencies = [
 name = "ambition_entity_catalog"
 version = "0.1.0"
 dependencies = [
+ "ambition_resource_spec",
  "ron 0.11.0",
  "serde",
 ]
@@ -441,6 +443,7 @@ dependencies = [
  "ambition_input",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_resource_spec",
  "ambition_sprite_sheet",
  "bevy",
 ]
@@ -507,6 +510,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_projectiles",
+ "ambition_resource_spec",
  "ambition_sfx",
  "ambition_sim_view",
  "ambition_sprite_sheet",
@@ -585,6 +589,7 @@ name = "ambition_platformer2d_core"
 version = "0.1.0"
 dependencies = [
  "ambition_geometry",
+ "ambition_resource_spec",
  "bevy_ecs",
  "bevy_math",
  "parry2d",
@@ -719,6 +724,13 @@ dependencies = [
 [[package]]
 name = "ambition_registry_core"
 version = "0.1.0"
+
+[[package]]
+name = "ambition_resource_spec"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ambition_sfx"

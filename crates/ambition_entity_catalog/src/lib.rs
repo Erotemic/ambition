@@ -1840,54 +1840,32 @@ pub struct MoveGates {
     /// which is where every burst still comes from.
     #[serde(default)]
     pub recovery_route: Option<AuthoredRecoveryRoute>,
-    /// WHAT THIS MOVE COSTS THE BODY'S METER, in [`ambition_platformer2d_core::BodyMana`]
-    /// points. `0.0` is free, which is what every move authored before this
-    /// field existed still costs.
+    /// WHAT THIS MOVE COSTS, as terms that each NAME the resource they spend.
+    /// Empty is free, which is what every move authored before prices existed
+    /// still costs.
     ///
     /// ⭐ THE THIRD THING A MOVE CAN COST, beside [`Self::recovery`] and the
     /// weapon recharge, and it is authored here for the same reason they are:
     /// what a move costs is a property of the MOVE, and the only place every
     /// ruleset already agrees to look.
     ///
-    /// ⛔⛔ THE CHECK IS NOT HERE, AND CANNOT BE. [`Self::permits`] is called
-    /// from inside this crate — a DATA crate that must not learn to read body
-    /// state — so a meter test written there would need the catalog to depend on
-    /// the ECS. The refusal lives at ACCEPTANCE in `ambition_combat`, beside
-    /// `afford_recovery` and `permitted_while_held`, which is where the other
-    /// two costs are already refused. ⇒ This field is the AUTHORED half of a
-    /// rule whose enforcement is deliberately somewhere else, and that split is
-    /// the same one `recovery` already lives with.
+    /// ⛔⛔ A PRICE NAMES ITS RESOURCE. An unnamed "meter" cost was paid by
+    /// whatever meter the body happened to carry — a Limit on a match seat, a
+    /// Mana pool in exploration — so the ruleset in force silently decided what
+    /// the move meant. A body that does not hold a named resource cannot pay
+    /// for it: absence is never free.
     ///
-    /// ⚠ A COST IS NOT A FILL, and for a while nothing filled this at all: every
-    /// `BodyMana` in the workspace is `ResourceMeter::new(100.0, 0.0, 0.0)` —
-    /// regen ZERO — and the engine's only refill is the platformer's shrine,
-    /// which no smash stage has. ✔ **THE SMASH RULESET NOW FILLS IT** (Jon's
-    /// baseline, 2026-09-05: a slow clock, a little on damage dealt, more on
-    /// damage taken), so a priced move is earnable rather than a fixed number of
-    /// uses per life. ⛔ That is a RULESET's answer, not the engine's: a
-    /// composition that installs no fill rule still hands a priced move a meter
-    /// that never rises, and pricing a move there ships a special that works
-    /// until the starting charge runs out and then never again.
-    ///
-    /// ⛔⛔ AND THE ONE THING TO CHECK BEFORE PRICING A MOVE: DOES THAT FIGHTER
-    /// CARRY `BodyMana` AT ALL? Nothing REQUIRES the component — it is not a
-    /// `#[require]` of any body marker — so a body can legitimately lack it, and
-    /// `afford_meter` reads that absence as FREE rather than as broke (the same
-    /// reading `afford_recovery` gives a body with no jump cluster). ⇒ Pricing a
-    /// move on a meterless fighter costs nothing and refuses nothing: the exact
-    /// silent no-op this whole split exists to prevent, wearing the costume of a
-    /// working rule. ⚠ Stated as REASONING, not measurement: the movement
-    /// kernel's own `ActorClusterQueryData` takes `mana` NON-optionally, so a
-    /// body that moves must have one — but that is an inference about the
-    /// cluster query, not a test of the smash roster, and it should be turned
-    /// into a guard by whoever prices the first move.
+    /// ⛔ THE CHECK IS NOT HERE. [`Self::permits`] is called from inside this
+    /// DATA crate, which must not read body state; refusal and payment live at
+    /// ACCEPTANCE in `ambition_combat`, beside `afford_recovery`, on both the
+    /// trigger and cancel roads, and every term is paid or none is.
     #[serde(default)]
-    pub meter_cost: f32,
+    pub costs: Vec<ambition_resource_spec::ResourceCost>,
     /// The move to run INSTEAD when this one is refused at acceptance — the
     /// authored answer to a DEAD BUTTON.
     ///
     /// ⛔⛔ A REFUSAL IS SILENCE, AND SILENCE IS THE WORST OUTCOME A PRESS CAN
-    /// HAVE. `meter_cost` and its siblings refuse rather than no-op, which is
+    /// HAVE. `costs` and its siblings refuse rather than no-op, which is
     /// right — `MoveGates`' own doc above says a rule enforced after acceptance
     /// is "a silent failure with a comment". But a refused press with nothing
     /// behind it is still a button that does nothing, and a player cannot tell

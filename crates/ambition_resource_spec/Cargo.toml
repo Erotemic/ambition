@@ -1,0 +1,14 @@
+[package]
+name = "ambition_resource_spec"
+version = "0.1.0"
+edition = "2021"
+
+# The authored resource vocabulary, shared by content data
+# (`ambition_entity_catalog`'s move prices) and the body floor
+# (`ambition_platformer2d_core`'s resource bank) — neither of which may depend
+# on the other. A leaf: no workspace dependency, ever.
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+ron = { workspace = true }

@@ -27,7 +27,7 @@ pub(crate) fn grounded_only() -> MoveGates {
         // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
         // move's own statement, exactly as `recovery` is — see
         // `MoveGates::meter_cost`.
-        meter_cost: 0.0,
+        costs: Vec::new(),
         grounded: Some(true),
         // A GROUNDED ATTACK ROOTS ITS OWNER — the same statement
         // `SmashRepertoire`'s own `GROUNDED` makes, because these two constants
@@ -58,7 +58,7 @@ pub(crate) fn airborne_only() -> MoveGates {
         // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
         // move's own statement, exactly as `recovery` is — see
         // `MoveGates::meter_cost`.
-        meter_cost: 0.0,
+        costs: Vec::new(),
         grounded: Some(false),
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.

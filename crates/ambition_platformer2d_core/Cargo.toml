@@ -17,6 +17,9 @@ crate-type = ["rlib"]
 # `bevy_ecs` directly rather than the full `bevy` umbrella to keep this crate's
 # compile time small — everything rebuilds against it.
 ambition_geometry = { path = "../ambition_geometry" }
+# The authored resource vocabulary (`ResourceId`, costs, declarations): a leaf
+# with no workspace dependency, so the floor still bottoms out.
+ambition_resource_spec = { path = "../ambition_resource_spec" }
 bevy_ecs = { version = "0.19.1", default-features = false }
 bevy_math = { version = "0.19.1", features = ["serialize"] }
 parry2d = "0.26"

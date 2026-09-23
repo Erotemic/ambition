@@ -488,7 +488,13 @@ pub fn goblin_moveset() -> MovesetContract {
     let uncharged_dive = on_contact(uncharged_dive, "enemy.goblin.hit");
     let air_down_b = ambition_entity_catalog::MoveSpec {
         gates: ambition_entity_catalog::MoveGates {
-            meter_cost: 60.0,
+            // THE LIMIT, BY NAME. A goblin that holds no Limit — every goblin
+            // outside a Limit match — cannot pay, and its press gets the
+            // uncharged dive instead.
+            costs: vec![ambition_resource_spec::ResourceCost::new(
+                ambition_entity_catalog::smash_limit::LIMIT,
+                60.0,
+            )],
             // ⚠ BOUND TO NO VERB. `move_by_id` searches every move the contract
             // carries, not only the verb-bound ones, so the fallback needs an id
             // and a place in `moves` — not a press of its own.
@@ -743,11 +749,15 @@ mod tests {
             .expect("its air down-B is in the table");
         let cap = LimitMeterFill::JONS_BASELINE.cap;
         assert_eq!(
-            dive.gates.meter_cost, cap,
-            "the Limit dive costs {} against a cap of {cap} — below the cap it is \
-             a resource move you can use twice, above it is a move nobody can ever \
-             afford, and the meter stops filling at the cap either way",
-            dive.gates.meter_cost
+            dive.gates.costs,
+            vec![ambition_resource_spec::ResourceCost::new(
+                ambition_entity_catalog::smash_limit::LIMIT,
+                cap,
+            )],
+            "the Limit dive must cost exactly the cap of {cap}, in Limit — below \
+             the cap it is a resource move you can use twice, above it is a move \
+             nobody can ever afford, and the meter stops filling at the cap \
+             either way",
         );
 
         // ⛔ AND IT MUST HIT HARDER THAN THE MOVE IT REPLACES. A Limit that costs
@@ -770,7 +780,7 @@ mod tests {
         let priced: Vec<&str> = set
             .moves
             .iter()
-            .filter(|m| m.gates.meter_cost > 0.0)
+            .filter(|m| !m.gates.costs.is_empty())
             .map(|m| m.id.as_str())
             .collect();
         assert_eq!(

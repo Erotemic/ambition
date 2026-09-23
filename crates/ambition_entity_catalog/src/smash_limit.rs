@@ -8,11 +8,16 @@ use serde::{Deserialize, Serialize};
 /// charge the thing it later spends.
 pub const FILL_METER: &str = "smash.fill_meter";
 
+/// The Limit's resource identity. A price in Limit is payable only by a body
+/// that holds one, which is a body a Limit ruleset seated.
+pub const LIMIT: ambition_resource_spec::ResourceId =
+    ambition_resource_spec::ResourceId::from_static("smash.limit");
+
 /// Authored parameters of one meter fill.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FillMeterParams {
-    /// How much to add. Clamped at the meter's cap by `ResourceMeter::refill`.
+    /// How much to add. Clamped at the Limit's cap.
     pub amount: f32,
 }
 
@@ -35,7 +40,7 @@ pub struct LimitMeterFill {
     pub per_damage_taken: f32,
     /// Amount added for each successfully blocked strike. This is per strike because a blocked hit carries no damage amount to scale by.
     pub on_block: f32,
-    /// Amount subtracted per second. This policy lives here because `BodyMana` does not otherwise tick `ResourceMeter::decay_rate`.
+    /// Amount subtracted per second. Drain is fill policy, so it lives here beside the fill rates rather than in the resource's storage.
     #[serde(default)]
     pub decay_per_second: f32,
 }
@@ -55,6 +60,16 @@ impl LimitMeterFill {
         // The baseline keeps earned meter until it is spent.
         decay_per_second: 0.0,
     };
+
+    /// The Limit a seat is built with: this cap, EMPTY — it is earned, so no
+    /// fighter enters a match, or respawns, able to spend it.
+    pub fn declaration(&self) -> ambition_resource_spec::ResourceDeclaration {
+        ambition_resource_spec::ResourceDeclaration::new(
+            LIMIT,
+            self.cap,
+            ambition_resource_spec::ResourceStart::Empty,
+        )
+    }
 
     /// What one damage instance contributes to the fighter who DEALT it.
     pub fn dealt(&self, damage: i32) -> f32 {

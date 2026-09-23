@@ -645,7 +645,18 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `docs/planning/engine/open-world-runtime-and-residency.md` and not OW1: one
 /// index still selects one live room, and this identity lives on the session
 /// root because that is where the one live room lives.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 202;
+/// ⛔⛤ 202 -> 203: A BODY'S RESOURCES BECAME THEIR OWN ROW. One row enters:
+/// `body.resources`, `component-canonical`, `ActorResources` — the per-actor
+/// bank a Smash seat's Limit now lives in (`composable-actor-resources.md`,
+/// step 1). Real mechanical growth: the codec writes each slot's authored
+/// name, capacity, start and level, so a restore rebuilds the layout the
+/// values are read through, and the bytes feed the session checksum. A body
+/// that declared no resource carries no bank and writes nothing.
+/// ⚠ AND ONE ROW LEFT THE PEER CHECKSUM WITHOUT ITS OWN BUMP: `resource.sim_dt`
+/// became a DECLARED-DERIVED mirror of the clock in `77aee7ae4` (the clock
+/// heads the tick; `SimDt` is rebuilt from it), so it stopped feeding the
+/// checksum at v202. This bump is the first to cover that change.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 203;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

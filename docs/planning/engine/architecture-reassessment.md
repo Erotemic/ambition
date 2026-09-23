@@ -254,7 +254,7 @@ A boundary can be successful in one dimension and incomplete in another:
 | Compile-time closure | Is an absent capability absent from the selected normal dependency/feature closure? |
 | Public API | Can an external game use the supported path without internal re-exports and source knowledge? |
 
-The facade has at least 48 other workspace packages in its transitive,
+The facade has at least 49 other workspace packages in its transitive,
 nonoptional normal dependency graph. This is a conservative manifest traversal,
 not a resolved Cargo feature graph or binary measurement. ⛔ **THE NUMBER IS
 NOT THIS PAGE'S TO STATE**, and this sentence keeps it only because the argument

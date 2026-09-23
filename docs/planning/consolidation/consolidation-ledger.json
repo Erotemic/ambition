@@ -2157,6 +2157,29 @@
     {
       "dev_workspace_dependencies": [],
       "direct_bevy_dependency": false,
+      "direct_workspace_dependencies": [],
+      "nonblank_rust_loc": 161,
+      "package": "ambition_resource_spec",
+      "path": "crates/ambition_resource_spec",
+      "public_items_heuristic": 4,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 184,
+      "responsibility_clue": "The authored actor-resource vocabulary: `ResourceId` (a content digest of the authored name), `ResourceCost`, `ResourceDeclaration`, `ResourceStart`. A leaf shared by content data (move prices in `ambition_entity_catalog`) and the body floor (the resource bank in `ambition_platformer2d_core`), which may not depend on each other. Added 2026-09-23, after this ledger's `source_commit`; measured at its introduction.",
+      "reverse_workspace_dependencies": [
+        "ambition_combat",
+        "ambition_content",
+        "ambition_demo_smash",
+        "ambition_entity_catalog",
+        "ambition_match",
+        "ambition_platformer2d",
+        "ambition_platformer2d_core"
+      ],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 13
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": false,
       "direct_workspace_dependencies": [
         "ambition_input",
         "ambition_persistence"
@@ -6187,6 +6210,216 @@
         }
       ],
       "classification": "historical evidence, not current-state authority"
+    },
+    {
+      "id": "DUP-CHARACTER-KIT",
+      "category": "duplicate_truth_family",
+      "name": "A body's pre-equipment repertoire baseline",
+      "owner": "the second owner is deleted (2026-09-21)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The second owner is deleted (2026-09-21). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-CHARACTER-KIT` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The second owner is deleted (2026-09-21). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-CHARACTER-KIT` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-21",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-CHARACTER-KIT` row of `architecture-census.md`.",
+      "why_it_exists": "the second owner is deleted (2026-09-21)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-BODY-ABILITIES",
+      "category": "duplicate_truth_family",
+      "name": "What a body may do \u2014 the character's answer versus the constructor's",
+      "owner": "the constructor stopped answering (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The constructor stopped answering (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-BODY-ABILITIES` row of `architecture-census.md`.",
+      "source_paths": [
+        "game/ambition_app/src/app/versus_fighters.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The constructor stopped answering (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-BODY-ABILITIES` row of `architecture-census.md`.",
+          "sources": [
+            "game/ambition_app/src/app/versus_fighters.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-BODY-ABILITIES` row of `architecture-census.md`.",
+      "why_it_exists": "the constructor stopped answering (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-DISMOUNT-REPERTOIRE",
+      "category": "duplicate_truth_family",
+      "name": "What a fallen rider swings",
+      "owner": "the rediscovery and the invention are both deleted (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The rediscovery and the invention are both deleted (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-DISMOUNT-REPERTOIRE` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The rediscovery and the invention are both deleted (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-DISMOUNT-REPERTOIRE` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-DISMOUNT-REPERTOIRE` row of `architecture-census.md`.",
+      "why_it_exists": "the rediscovery and the invention are both deleted (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-RESET-METER",
+      "category": "duplicate_truth_family",
+      "name": "What a reset does to a body's resource meter",
+      "owner": "the reset returns every banked resource to its declared start, and a seat is BUILT with the match's Limit (2026-09-22, bank 2026-09-23)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The reset returns every banked resource to its declared start, and a seat is BUILT with the match's Limit (2026-09-22, bank 2026-09-23). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-RESET-METER` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The reset returns every banked resource to its declared start, and a seat is BUILT with the match's Limit (2026-09-22, bank 2026-09-23). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-RESET-METER` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "Mana is still `BodyMana` on every body and `ResetMeter` still answers for it; the Mana step of `composable-actor-resources.md` moves it into the bank and deletes both.",
+      "why_it_exists": "the reset returns every banked resource to its declared start, and a seat is BUILT with the match's Limit (2026-09-22, bank 2026-09-23)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-CROUCH-GEOMETRY",
+      "category": "duplicate_truth_family",
+      "name": "Which box a sheet-authored body is standing in when the stance decision reads it",
+      "owner": "the silhouette is published before the decision, not after it (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The silhouette is published before the decision, not after it (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-CROUCH-GEOMETRY` row of `architecture-census.md`.",
+      "source_paths": [
+        "game/ambition_demo_mary_o_app/tests/crouch_clearance_probe.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The silhouette is published before the decision, not after it (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-CROUCH-GEOMETRY` row of `architecture-census.md`.",
+          "sources": [
+            "game/ambition_demo_mary_o_app/tests/crouch_clearance_probe.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-CROUCH-GEOMETRY` row of `architecture-census.md`.",
+      "why_it_exists": "the silhouette is published before the decision, not after it (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-EFFECTIVE-REPERTOIRE",
+      "category": "duplicate_truth_family",
+      "name": "What a body can do right now",
+      "owner": "the fold is one function and the reconstruction roads stopped answering (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The fold is one function and the reconstruction roads stopped answering (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-EFFECTIVE-REPERTOIRE` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The fold is one function and the reconstruction roads stopped answering (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-EFFECTIVE-REPERTOIRE` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-EFFECTIVE-REPERTOIRE` row of `architecture-census.md`.",
+      "why_it_exists": "the fold is one function and the reconstruction roads stopped answering (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-UNDESCRIBED-REPERTOIRE",
+      "category": "duplicate_truth_family",
+      "name": "What a body swings when nobody authored a repertoire for it",
+      "owner": "the invention is deleted; the absence is the answer (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The invention is deleted; the absence is the answer (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-UNDESCRIBED-REPERTOIRE` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The invention is deleted; the absence is the answer (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-UNDESCRIBED-REPERTOIRE` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-UNDESCRIBED-REPERTOIRE` row of `architecture-census.md`.",
+      "why_it_exists": "the invention is deleted; the absence is the answer (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-TRAVELED-PATH",
+      "category": "duplicate_truth_family",
+      "name": "How far a body travelled this tick",
+      "owner": "one atomic path, kept by every authority that moves the body, read whole, at a named settlement point (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "One atomic path, kept by every authority that moves the body, read whole, at a named settlement point (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-TRAVELED-PATH` row of `architecture-census.md`.",
+      "source_paths": [
+        "crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "One atomic path, kept by every authority that moves the body, read whole, at a named settlement point (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-TRAVELED-PATH` row of `architecture-census.md`.",
+          "sources": [
+            "crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-TRAVELED-PATH` row of `architecture-census.md`.",
+      "why_it_exists": "one atomic path, kept by every authority that moves the body, read whole, at a named settlement point (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-BOSS-DISPOSITION",
+      "category": "duplicate_truth_family",
+      "name": "Whether a boss is hostile right now",
+      "owner": "construction sets the start, the runtime owns the rest (2026-09-22)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "Construction sets the start, the runtime owns the rest (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-BOSS-DISPOSITION` row of `architecture-census.md`.",
+      "source_paths": [],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Construction sets the start, the runtime owns the rest (2026-09-22). The full account -- the two owners, what was deleted, and the guard -- is the `DUP-BOSS-DISPOSITION` row of `architecture-census.md`.",
+          "sources": []
+        }
+      ],
+      "classification": "resolved 2026-09-22",
+      "consolidation_hypothesis": "None outstanding; see the `DUP-BOSS-DISPOSITION` row of `architecture-census.md`.",
+      "why_it_exists": "construction sets the start, the runtime owns the rest (2026-09-22)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
     }
   ]
 }

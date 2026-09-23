@@ -23,6 +23,7 @@ ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional =
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # Tier-0 authored-placement schema: DamageKind / DamageTeam / HazardRespawn.
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_resource_spec = { path = "../ambition_resource_spec" }
 # The moved combat kit (E2): lifecycle/gravity markers, breakable payloads,
 # effect messages, and the shared sim clock.
 ambition_interaction = { path = "../ambition_interaction" }

@@ -7261,6 +7261,34 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
     );
 }
 
+/// The one resource these fixtures price moves in.
+const TEST_METER: ambition_resource_spec::ResourceId =
+    ambition_resource_spec::ResourceId::from_static("test.meter");
+
+/// A price of `amount` in [`TEST_METER`]; zero is free.
+fn test_price(amount: f32) -> Vec<ambition_resource_spec::ResourceCost> {
+    if amount > 0.0 {
+        vec![ambition_resource_spec::ResourceCost::new(TEST_METER, amount)]
+    } else {
+        Vec::new()
+    }
+}
+
+/// A bank holding [`TEST_METER`] at `current` of 100.
+fn test_bank(current: f32) -> ambition_platformer2d_core::resources::ActorResources {
+    let mut bank = ambition_platformer2d_core::resources::ActorResources::declared(&[
+        ambition_resource_spec::ResourceDeclaration::new(
+            TEST_METER,
+            100.0,
+            ambition_resource_spec::ResourceStart::Empty,
+        ),
+    ])
+    .expect("valid")
+    .expect("declared");
+    bank.level_of_mut(&TEST_METER).expect("held").refill(current);
+    bank
+}
+
 /// ⛔⛔ A MOVE THAT COSTS METER IS REFUSED WHEN THE BODY CANNOT PAY — AND THE
 /// REFUSAL IS AT ACCEPTANCE, WHERE THE MOVE IS STILL REFUSABLE.
 ///
@@ -7278,7 +7306,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
 
     let priced = |cost: f32| MoveSpec {
         gates: MoveGates {
-            meter_cost: cost,
+            costs: test_price(cost),
             ..Default::default()
         },
         ..swat()
@@ -7293,20 +7321,34 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
     // ── the predicate, all four states: a fence needs both sides, a free move,
     // and a body with no meter at all.
     assert!(
-        super::afford_meter(&priced(30.0), Some(30.0)),
+        super::afford_meter(&priced(30.0), Some(&test_bank(30.0))),
         "exactly enough was refused — a cost has to be payable AT its price"
     );
     assert!(
-        !super::afford_meter(&priced(30.0), Some(29.9)),
+        !super::afford_meter(&priced(30.0), Some(&test_bank(29.9))),
         "a body short of the price got the move anyway, so the cost is decoration"
     );
     assert!(
-        super::afford_meter(&priced(0.0), Some(0.0)),
+        super::afford_meter(&priced(0.0), Some(&test_bank(0.0))),
         "a FREE move consulted the meter, so an empty fighter cannot jab"
     );
     assert!(
         !super::afford_meter(&priced(30.0), None),
         "a body with no meter paid a priced move: a missing resource read as free"
+    );
+    let other = ambition_platformer2d_core::resources::ActorResources::declared(&[
+        ambition_resource_spec::ResourceDeclaration::new(
+            ambition_resource_spec::ResourceId::from_static("test.other"),
+            100.0,
+            ambition_resource_spec::ResourceStart::Full,
+        ),
+    ])
+    .expect("valid")
+    .expect("declared");
+    assert!(
+        !super::afford_meter(&priced(30.0), Some(&other)),
+        "a body paid a price in a resource it does not hold, out of one it does: \
+         the price did not name what it spends"
     );
 
     // ── the wiring: two identical worlds that differ only in the meter.
@@ -7338,8 +7380,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         );
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
-        let mut mana = ambition_platformer2d_core::BodyMana::default();
-        mana.meter.current = meter;
+        let mana = test_bank(meter);
         let body = app
             .world_mut()
             .spawn((
@@ -7360,9 +7401,10 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         let started = app.world().get::<MovePlayback>(body).is_some();
         let left = app
             .world()
-            .get::<ambition_platformer2d_core::BodyMana>(body)
+            .get::<ambition_platformer2d_core::resources::ActorResources>(body)
             .expect("the body kept its meter")
-            .meter
+            .level_of(&TEST_METER)
+            .expect("held")
             .current;
         (started, left)
     };
@@ -7435,8 +7477,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         );
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
-        let mut mana = ambition_platformer2d_core::BodyMana::default();
-        mana.meter.current = meter;
+        let mana = test_bank(meter);
         // The move being cancelled OUT of: cancelable into "swat" for its whole
         // life, so the window is open on the tick the press lands.
         let playing = ambition_entity_catalog::authoring::cancelable(
@@ -7519,7 +7560,7 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         moves: vec![
             MoveSpec {
                 gates: MoveGates {
-                    meter_cost: 30.0,
+                    costs: test_price(30.0),
                     when_refused: fallback.map(str::to_string),
                     ..Default::default()
                 },
@@ -7532,7 +7573,7 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
             MoveSpec {
                 id: "swat_dear".to_string(),
                 gates: MoveGates {
-                    meter_cost: 100.0,
+                    costs: test_price(100.0),
                     ..Default::default()
                 },
                 ..swat()
@@ -7568,8 +7609,7 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
         );
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
-        let mut mana = ambition_platformer2d_core::BodyMana::default();
-        mana.meter.current = meter;
+        let mana = test_bank(meter);
         let mut body = app.world_mut().spawn((
             ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
             ae::BodyKinematics {
@@ -7608,9 +7648,10 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
             .filter(|id| id != "holding");
         let left = app
             .world()
-            .get::<ambition_platformer2d_core::BodyMana>(body)
+            .get::<ambition_platformer2d_core::resources::ActorResources>(body)
             .expect("the body kept its meter")
-            .meter
+            .level_of(&TEST_METER)
+            .expect("held")
             .current;
         (playing, left)
     };

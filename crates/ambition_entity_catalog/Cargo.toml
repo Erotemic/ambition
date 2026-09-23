@@ -15,3 +15,5 @@ crate-type = ["rlib"]
 # or a headless sim alike.
 serde = { workspace = true }
 ron = { workspace = true }
+# Move prices name a resource.
+ambition_resource_spec = { path = "../ambition_resource_spec" }

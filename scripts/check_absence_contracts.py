@@ -1097,14 +1097,29 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "resource-spec-is-a-floor",
+        "crate": "ambition_resource_spec",
+        "forbidden": "*",
+        "reason": (
+            "The authored resource identity, prices and declarations. Content "
+            "data and the body floor both speak it, so it can depend on neither "
+            "— and on nothing else, or core's second allowed edge stops being a "
+            "leaf and the floor grows a closure."
+        ),
+    },
+    {
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",
-        # the ONE edge, named. Core sits on the geometry kernel and on
-        # nothing else; `ambition_geometry` carries `forbidden: "*"` above, so
-        # the chain still bottoms out with no outward edge. Widening this list
-        # is how "the floor" becomes "roughly the floor".
-        "allowed": ["ambition_geometry"],
+        # the edges, named. Core sits on the geometry kernel and on the
+        # resource vocabulary, and on nothing else; BOTH carry `forbidden: "*"`,
+        # so the chain still bottoms out with no outward edge. The second edge
+        # exists because content data (`ambition_entity_catalog`'s move prices)
+        # and the body floor (core's resource bank) must share one resource
+        # identity and may not depend on each other. Widening this list for
+        # anything that is not itself a leaf is how "the floor" becomes
+        # "roughly the floor".
+        "allowed": ["ambition_geometry", "ambition_resource_spec"],
         "reason": (
             "The movement and body vocabulary every other crate is written in "
             "terms of. It depends on NO workspace crate except the geometry "

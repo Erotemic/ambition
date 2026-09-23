@@ -217,8 +217,8 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
-    // The Limit is the match's meter: every seat is built with its cap, empty.
-    roster.rules.earned_meter_cap = Some(crate::limit::SMASH_LIMIT.cap);
+    // The Limit is the match's resource: every seat is built holding it, empty.
+    roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
     // Every fighter gets the ruleset's FLOOR, keeps whatever of its own kit the
     // CEILING permits, and brings nothing else from its home game. The gap
     // between the two constants is exactly one verb, and it is the one Jon named:
@@ -2215,11 +2215,11 @@ fn place_respawning_fighters(
             ambition_platformer2d::engine_core::ResetFacing::Toward(
                 stage_centre().x - placement.x,
             ),
-            // ⛔ A LIMIT IS EARNED, SO DYING EMPTIES IT. A reset that handed
-            // back a FULL meter let a respawned fighter buy the comeback move
-            // for free on the frame after dying, since respawn protection
-            // permits a swing.
-            ambition_platformer2d::engine_core::ResetMeter::Empty,
+            // The Limit is not this argument's: the reset returns every
+            // resource in the body's bank to its declared start, and the Limit
+            // is declared EMPTY — a respawned fighter cannot buy the comeback
+            // move on the frame after dying.
+            ambition_platformer2d::engine_core::ResetMeter::Full,
             // This demo's fighters run the engine's default air game; a stage
             // that tuned it would pass its own number here, which is the point
             // of the parameter.
@@ -2579,28 +2579,15 @@ fn the_stage_always_plays_by_smash_rules(
     commands.insert_resource(smash_declared_combat_rules());
 }
 
-/// The Limit's meter is Smash's WHILE SMASH IS ON THE STAGE, and the engine's
-/// otherwise.
+/// Smash's Limit fill rule and presentation are Smash's WHILE SMASH IS ON THE
+/// STAGE, and the engine's otherwise.
 ///
-/// ⛔⛔ THIS WAS AN `insert_resource` IN `Plugin::build` AND THAT WAS A
-/// CROSS-EXPERIENCE REGRESSION. `ambition_app` installs
-/// `SmashExperiencePlugin` alongside Ambition, Sanic and Mary-O, so merely
-/// COMPOSING Smash set the mana rate to zero for the whole process: a player who
-/// launched the aggregate app and walked into ordinary Ambition got no mana
-/// regeneration at all, and `ambition_abilities` has real consumers — dive,
-/// meteor, vortex, beam, sentry, shockwave, volley. They never enter a Smash
-/// match. Smash being LINKED was enough.
-///
-/// ⭐ THE DECISION WAS RIGHT AND THE LIFETIME WAS WRONG. Smash's Limit still
-/// takes zero generic fill — gating on `DrivingParticipant` would keep the leak
-/// for exactly the bodies a 1v1 cares about — but "zero" is a claim about a
-/// RULESET that is running, not about a binary that can reach one. ⇒ Route
-/// scope, the same lifetime `the_stage_always_plays_by_smash_rules` above uses
-/// for the combat rules it declares.
-///
-/// ⚠ REMOVING IT RESTORES THE ENGINE'S OWN RATE, which is why
-/// `regen_player_mana` takes `Option<Res<PlayerManaRegen>>` and falls back to
-/// its constant. Absence is a real answer here, not a gap.
+/// ⛔⛔ A BUILD-TIME `insert_resource` HERE WAS A CROSS-EXPERIENCE REGRESSION.
+/// `ambition_app` installs `SmashExperiencePlugin` alongside Ambition, Sanic and
+/// Mary-O, so a global declared at plugin build applies to every experience in
+/// the process merely because Smash was LINKED. ⇒ Route scope, the same
+/// lifetime `the_stage_always_plays_by_smash_rules` above uses for the combat
+/// rules it declares.
 /// ⛔⛔ AND THE PORTAL PRESENTATION RIDES THE SAME LIFETIME, for the same reason
 /// found the same way. `PortalViewConeConfig` is a GLOBAL resource too, and
 /// Ambition is the portal game — declaring `Static` at plugin build would have
@@ -2621,22 +2608,15 @@ fn the_stage_always_plays_by_smash_rules(
 /// entering and leaving Smash silently reset someone else's settings.
 ///
 /// ⭐ `Option` PER FIELD, because ABSENCE IS A REAL PRIOR. A composition with no
-/// portal plugin has no cone config, and the platformer states no mana rate at
-/// all — `regen_player_mana` reads absence as its own default. Restoring `None`
+/// portal plugin has no cone config. Restoring `None`
 /// by REMOVING is how a body of state gets put back exactly as it was found,
 /// rather than replaced with a default that merely looks like it.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 struct SmashPresentationPrior {
-    mana: Option<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
     transit: Option<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
-    /// ⛔ THE LIMIT RULE IS STAGE STATE TOO, and it was the third instance in one
-    /// day of smash plugin state reaching the composing app. Inserted at plugin
-    /// BUILD, `fill_limit_meters` walked every
-    /// `BodyMana` in whatever app installed the ruleset — so Ambition's own
-    /// player had its mana pool re-capped and emptied by a rule for a mode it
-    /// was not in. Jon's `99ab15e32` and this morning's `PlayerManaRegen` were
-    /// the other two; three fixes and no guard is how a shape survives.
+    /// ⛔ THE LIMIT RULE IS STAGE STATE TOO: a fill rule declared for the whole
+    /// process would run in every experience composed beside Smash.
     limit: Option<crate::limit::SmashLimitFill>,
 }
 
@@ -2661,9 +2641,6 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     prior: Option<bevy::prelude::Res<SmashPresentationPrior>>,
-    mana: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
-    >,
     transit: Option<
         bevy::prelude::Res<
             ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection,
@@ -2684,14 +2661,11 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
 
     if on_stage && !declared {
         commands.insert_resource(SmashPresentationPrior {
-            mana: mana.map(|r| *r),
             transit: transit.map(|r| *r),
             cone: cone.map(|r| r.clone()),
             limit: limit.map(|r| *r),
         });
         commands.insert_resource(crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT));
-        commands
-            .insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0));
         // A viewer-dependent cone is undefined with no primary player, and a
         // seamless camera transit is a single-camera effect.
         commands.insert_resource(portal_view::PortalCameraContinuitySelection {
@@ -2703,12 +2677,6 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         });
     } else if !on_stage && declared {
         let prior = prior.expect("checked").clone();
-        match prior.mana {
-            Some(value) => commands.insert_resource(value),
-            None => commands
-                .remove_resource::<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>(
-                ),
-        }
         match prior.transit {
             Some(value) => commands.insert_resource(value),
             None => commands.remove_resource::<portal_view::PortalCameraContinuitySelection>(),

@@ -86,6 +86,10 @@ fn realize_seat(
     // travels in the actor bundle rather than in a tuple beside it, so the body
     // cannot exist for an instant without the repertoire it was seated with.
     let identity_kit = seat.identity_kit.clone();
+    // The resources the match declared for this seat. A bundle cannot carry an
+    // optional component, so the bank leaves the seed here and is inserted in
+    // the same command flush as the body it belongs to.
+    let resources = seed.body.0.resources.take();
     let cluster = seed.into_components();
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
     let body = commands
@@ -157,6 +161,9 @@ fn realize_seat(
             ),
         )
         .id();
+    if let Some(resources) = resources {
+        commands.entity(body).insert(resources);
+    }
     // THE AUTHORED MASS. Conditional: a character that authored none must
     // keep its archetype's rather than be overwritten with the ambient 1.0.
     // Health and geometry are already on the seed, so this is all the boundary

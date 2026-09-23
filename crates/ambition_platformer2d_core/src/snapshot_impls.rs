@@ -343,6 +343,59 @@ impl SnapshotState for crate::body_clusters::BodyMana {
     }
 }
 
+/// The bank's layout travels in its snapshot: a restored value is decoded with
+/// the declarations it was stored under, and a decode that would build an
+/// invalid layout or an out-of-range level is refused rather than clamped.
+impl SnapshotState for crate::resources::ActorResources {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let declarations = self.layout().declarations();
+        put_u32(out, declarations.len() as u32);
+        for (declaration, (_, current, max)) in declarations.iter().zip(self.checksum_terms()) {
+            crate::snapshot::put_str(out, declaration.resource.name());
+            put_f32(out, declaration.capacity);
+            put_bool(
+                out,
+                matches!(
+                    declaration.start,
+                    ambition_resource_spec::ResourceStart::Full
+                ),
+            );
+            put_f32(out, current);
+            put_f32(out, max);
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_resource_spec::{ResourceDeclaration, ResourceId, ResourceStart};
+        let len = r.u32()? as usize;
+        let mut declarations = Vec::with_capacity(len.min(64));
+        let mut levels = Vec::with_capacity(len.min(64));
+        for _ in 0..len {
+            let name = r.str()?;
+            let capacity = r.f32()?;
+            let start = if r.bool()? {
+                ResourceStart::Full
+            } else {
+                ResourceStart::Empty
+            };
+            let current = r.f32()?;
+            let max = r.f32()?;
+            if !(current.is_finite() && max.is_finite() && (0.0..=max).contains(&current)) {
+                return None;
+            }
+            let resource = ResourceId::new(name);
+            declarations.push(ResourceDeclaration::new(resource.clone(), capacity, start));
+            levels.push((resource, crate::resources::ResourceLevel { current, max }));
+        }
+        let mut bank = crate::resources::ActorResources::new(std::sync::Arc::new(
+            crate::resources::ResourceLayout::new(declarations).ok()?,
+        ));
+        for (resource, level) in levels {
+            *bank.level_of_mut(&resource)? = level;
+        }
+        Some(bank)
+    }
+}
+
 snapshot_unit_enum!(crate::reference_frame::GameplayFramePolicy {
     ControlledBodyLocal = 0,
     AccelerationFrame = 1,

@@ -20,9 +20,28 @@ fn app(fill: LimitMeterFill) -> App {
     app
 }
 
-/// A seat as the match builds it: the rule's cap, empty.
+/// A bank holding exactly these declarations.
+fn bank(declarations: &[ambition_platformer2d::resource_spec::ResourceDeclaration]) -> ActorResources {
+    ActorResources::declared(declarations)
+        .expect("valid")
+        .expect("declared")
+}
+
+/// A resource that is not the Limit: what an exploration body might hold.
+const OTHER: ambition_platformer2d::resource_spec::ResourceId =
+    ambition_platformer2d::resource_spec::ResourceId::from_static("test.mana");
+
+fn other_pool() -> ActorResources {
+    bank(&[ambition_platformer2d::resource_spec::ResourceDeclaration::new(
+        OTHER,
+        100.0,
+        ambition_platformer2d::resource_spec::ResourceStart::Full,
+    )])
+}
+
+/// A seat as the match builds it: the rule's Limit declaration, empty.
 fn fighter(app: &mut App) -> Entity {
-    let cap = app.world().resource::<SmashLimitFill>().0.cap;
+    let declaration = app.world().resource::<SmashLimitFill>().0.declaration();
     let seat = app
         .world_mut()
         .query::<&ambition_platformer2d::actor::MatchSeat>()
@@ -31,18 +50,26 @@ fn fighter(app: &mut App) -> Entity {
     app.world_mut()
         .spawn((
             ambition_platformer2d::actor::MatchSeat(seat),
-            ae::BodyMana {
-                meter: ae::ResourceMeter {
-                    current: 0.0,
-                    ..ae::ResourceMeter::new(cap, 0.0, 0.0)
-                },
-            },
+            bank(&[declaration]),
         ))
         .id()
 }
 
 fn meter(app: &App, who: Entity) -> f32 {
-    app.world().get::<ae::BodyMana>(who).expect("has a meter").meter.current
+    level(app, who, &LIMIT)
+}
+
+fn level(
+    app: &App,
+    who: Entity,
+    resource: &ambition_platformer2d::resource_spec::ResourceId,
+) -> f32 {
+    app.world()
+        .get::<ActorResources>(who)
+        .expect("has a bank")
+        .level_of(resource)
+        .expect("holds the resource")
+        .current
 }
 
 /// ⛔⛔ THE SHIPPED BASELINE MUST NOT MAKE GUARDING THE GREEDY PLAY.
@@ -283,9 +310,10 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     let holder = fighter(&mut fading);
     fading
         .world_mut()
-        .get_mut::<ae::BodyMana>(holder)
-        .expect("has a meter")
-        .meter
+        .get_mut::<ActorResources>(holder)
+        .expect("has a bank")
+        .level_of_mut(&LIMIT)
+        .expect("holds a Limit")
         .current = 30.0;
     for _ in 0..120 {
         fading.update();
@@ -368,24 +396,64 @@ fn a_decay_that_outruns_the_only_source_is_named_as_a_problem() {
 #[test]
 fn a_match_that_declares_no_limit_fills_nothing() {
     let mut app = app(LimitMeterFill::default());
-    // A seat carrying some other meter, full: nothing here may move it.
+    // A seat carrying some other resource, full: nothing here may move it.
     let who = app
         .world_mut()
-        .spawn((ambition_platformer2d::actor::MatchSeat(0), ae::BodyMana::default()))
+        .spawn((ambition_platformer2d::actor::MatchSeat(0), other_pool()))
         .id();
-    let before = meter(&app, who);
     for _ in 0..120 {
         app.update();
     }
-    // ⛔ UNCHANGED, NOT ZERO. With no Limit declared the system returns before
-    // touching anything, so the component keeps whatever it had — which for
-    // `BodyMana::default()` is a FULL 100-point mana pool. Asserting zero would
-    // be asserting that this system reached in and emptied a meter it was told
-    // nothing about.
+    // ⛔ UNCHANGED, NOT ZERO: asserting zero would be asserting that this
+    // system reached in and emptied a resource it was told nothing about.
     assert_eq!(
-        meter(&app, who),
-        before,
+        level(&app, who, &OTHER),
+        100.0,
         "a match with no Limit rule moved a meter anyway"
+    );
+}
+
+/// ⛔⛔ THE LIMIT IS REACHED BY NAME, NEVER AS "THE BODY'S METER". Before the
+/// Limit named itself, every source here filled whatever single meter a body
+/// carried — so a Limit technique cast outside a Limit match topped up an
+/// exploration Mana pool. A body that holds no Limit gains nothing, from any
+/// source, and its other resources do not move.
+#[test]
+fn a_body_that_holds_no_limit_gains_nothing_from_any_limit_source() {
+    let mut app = app(LimitMeterFill::JONS_BASELINE);
+    let limited = fighter(&mut app);
+    let mut drained = other_pool();
+    drained.level_of_mut(&OTHER).expect("held").drain(50.0);
+    let unlimited = app
+        .world_mut()
+        .spawn((ambition_platformer2d::actor::MatchSeat(1), drained))
+        .id();
+    for who in [limited, unlimited] {
+        app.world_mut().write_message(ActorActionMessage {
+            actor: who,
+            request: ActionRequest::Special {
+                spec: SpecialActionSpec::Special(FILL_METER.to_string()),
+                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                    &FillMeterParams { amount: 12.0 },
+                )
+                .expect("fill params serialize"),
+            },
+            move_instance: None,
+        });
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+    assert!(
+        meter(&app, limited) > 12.0,
+        "control: the seat that holds a Limit was not filled by the clock and the \
+         technique, so this fixture cannot tell a named fill from no fill"
+    );
+    assert_eq!(
+        level(&app, unlimited, &OTHER),
+        50.0,
+        "a Limit source filled a body's OTHER resource — the fill did not name \
+         what it fills"
     );
 }
 

@@ -255,6 +255,9 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                 sim,
                 release_narrative_inputs::<M>
                     .in_set(GameplaySimulationRoot)
+                    // Released against the tick the ledger recorded under,
+                    // before the clock names the next one.
+                    .before(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             .add_systems(Update, prune_narrative_inputs::<M>);

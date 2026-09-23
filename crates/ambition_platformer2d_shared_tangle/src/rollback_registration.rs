@@ -35,7 +35,14 @@ where
     registrar.require_rollback::<crate::body::BodyKinematics>(OWNER, "entity:body_kinematics");
     registrar
         .require_rollback::<crate::lifecycle::FeatureSimEntity>(OWNER, "entity:feature_sim_entity");
-    registrar.rollback_resource_canonical::<crate::time::SimDt>(OWNER, "resource.sim_dt");
+    // `WorldTime` is the canonical clock; this is its mirror, written at the
+    // head of every tick (`SimClockHead`) before any reader. Snapshotting both
+    // made two canonical answers to one fact.
+    registrar.declare_rollback_derived_resource::<crate::time::SimDt>(
+        OWNER,
+        "resource.sim_dt",
+        "mirrored from WorldTime::sim_dt at SimClockHead, ahead of every reader",
+    );
     registrar
         .rollback_resource_canonical::<crate::gravity::BaseGravity>(OWNER, "resource.base_gravity");
     registrar.rollback_resource_canonical::<crate::gravity::GravityField>(

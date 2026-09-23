@@ -52,6 +52,25 @@ half belongs on a page people read before they have the bug.
 
 ## P0 — architecture and correctness
 
+### SYNC-POINT-SENSITIVE-RESIM — a command sync point moves the death-reset replay
+
+**Owner:** rollback determinism. **Found 2026-09-22** while moving the clock
+into `SimClockHead`.
+
+Adding ONE schedule edge — `ensure_sim_id → mint_spawned_sim_ids →
+heal_projectile_owners` ordered `.before(SimClockHead)` — reddened
+`rollback_lifecycle_reset::{a_player_death_reset_survives_the_rollback_window,
+a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked}` with a
+GGRS sync-test mismatch, deterministically (three runs). The minting chain
+touches no clock state; the only thing the edge changes is WHERE Bevy applies
+that chain's `Commands`. `RollbackRestoreAudit` names the first diverging
+frame's RESIMULATION rows: `SessionCheckpointOperations` one higher on replay,
+`AcceptedCheckpointRestore` cleared on replay, `DeathInterlude`/`OutOfPlay`
+present only on replay, then bodies. ⇒ Some system on the death-reset →
+checkpoint road reads state whose value depends on command-application timing
+and is not restored — the edge is not the defect, it is the probe that found
+it. The edge was dropped (it had no reason to exist); the sensitivity remains.
+
 ### A10 — candidate world / last-good-world publication — ✅ DONE, DEMOLITION CLOSED 2026-09-16
 
 **Owner:** [construction and reconstitution](engine/construction-and-reconstitution.md).

@@ -80,6 +80,14 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .in_set(GameplaySimulationRoot),
     );
 
+    // THE CLOCK, ahead of every phase that reads this tick's time.
+    app.configure_sets(
+        sim,
+        ambition_platformer2d_shared_tangle::schedule::SimClockHead
+            .in_set(GameplaySimulationRoot)
+            .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+    );
+
     // Sub-sets inside CoreSimulation, ordered.
     //
     // CONTROL-SEAM ORDERING: `PlayerInput` runs BEFORE `WorldPrep`. This is the slot-input

@@ -456,7 +456,7 @@ resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionChe
 resource.session_checkpoint_outcomes	resource-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation
 resource.session_match_ordinal	resource-canonical-custom-checksum	SessionMatchOrdinal	bevy_ggrs canonical codec snapshot + checksum over the count of matches this session has activated only, excluding the host-local session stamp
 resource.session_startup_resume	resource-clone-custom-checksum	SessionStartupResume	bevy_ggrs clone snapshot + which session generation startup resolution reached, and which operation it routed
-resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sim_dt	derived	SimDt	mirrored from WorldTime::sim_dt at SimClockHead, ahead of every reader
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.stocks_match_settled	resource-canonical-custom-checksum	StocksMatchSettled	bevy_ggrs canonical codec snapshot + checksum over the verdict and the peer match ordinal, excluding the host-local session and activation-tick stamps

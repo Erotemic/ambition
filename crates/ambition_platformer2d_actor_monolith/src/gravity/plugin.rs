@@ -59,6 +59,13 @@ impl Plugin for GravityPlugin {
             )
             .expect("the gravity-zone construction schema cannot conflict with itself");
 
+        // Oscillation advances zones by THIS tick's dt, so the snapshot follows
+        // the clock.
+        app.configure_sets(
+            sim,
+            GravitySet::ZoneSnapshot
+                .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
+        );
         // Portal carve publishing pins `.after(collect_gravity_zones)` so the combined cadence
         // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves` chain
         // (cite-ok: that variant is gone -- `PortalSet::Carves` is what survived the split).

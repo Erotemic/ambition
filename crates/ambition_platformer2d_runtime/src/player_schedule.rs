@@ -49,7 +49,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(ambition_platformer2d_actor_monolith::SimDtMirrored),
             )
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::SimClockHead),
         );
 
         // Consume clock requests after every producer in the frame. `WorldTime` is still

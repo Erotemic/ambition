@@ -286,6 +286,21 @@ pub enum CombatSet {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct GameplayGated;
 
+/// The tick's CLOCK: advance the timeline, apply the time scale, publish
+/// `WorldTime` and its `SimDt` mirror. Inside [`GameplaySimulationRoot`] and
+/// ahead of [`Platformer2dSimulationPhaseMonolith::CoreSimulation`].
+///
+/// A system that reads time for THIS tick orders after it — the gravity-zone
+/// snapshot oscillates zones by `SimDt` ahead of the core phases, and with the
+/// clock inside `PlayerInput` it advanced them by the previous tick's dt. A
+/// system ahead of the core phases that reads the clock and does NOT belong to
+/// the new tick (narrative input released against the last tick) orders
+/// before it, explicitly: left unordered, a reader and the clock's writer would
+/// race. A system that touches no clock state needs no edge, and should not get
+/// one — each edge also moves a command sync point.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct SimClockHead;
+
 /// Umbrella for every gameplay-simulation phase in the sim schedule.
 /// Hosts with `SessionGatedSimulation` gate this whole set; direct/headless
 /// compositions without that marker remain always-on.

@@ -73,10 +73,6 @@ impl ActorBody {
     /// A union cannot express a refusal, so authored data could not decline the
     /// floor.
     ///
-    /// That also made [`ActionSet::gated_by`]'s attack term dead for every actor
-    /// body: the gate asks `abilities.attack`, and the constructor had just
-    /// forced it true.
-    ///
     /// ⚠ `is_aerial` STILL DECIDES FLIGHT, and it is not a conferral: it is the
     /// character's own answer, resolved from its `body_kind` /
     /// `baseline_free_flight` before it reaches here. A floating body flies
@@ -1361,9 +1357,6 @@ mod tests {
     /// jump and an attack; the perfect cellular automaton's own comment says
     /// *"It has no double jump, no fast fall, no dodge and no ledge grab"* while
     /// its body had one.
-    ///
-    /// It also made [`ActionSet::gated_by`]'s attack term dead for actors — the
-    /// gate asks `abilities.attack` and the constructor had just set it.
     ///
     /// ⚠ THE EDIT THAT MAKES THIS FALSE is reintroducing a union or a forced
     /// field in [`ActorBody::from_abilities`]; it fails naming the bit that came

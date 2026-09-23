@@ -2720,3 +2720,64 @@ fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
          placeholder or an empty name here hides a bad id instead of showing it"
     );
 }
+
+/// ⭐ SPAWN AND RE-WEAR ANSWER ONE QUESTION ONE WAY: what a worn character's
+/// kit IS.
+///
+/// A character-first room actor is built by the spawn grant, which writes the
+/// prepared kit as authored; the persona derive answers the same body on a cast
+/// reload or a `RecharacterizeBody`. The derive used to narrow an authored kit by
+/// the body's abilities (`special ⇐ shield`, `melee ⇐ attack`), so an actor
+/// authoring a special on the default actor body (`shield: false`) kept it at
+/// spawn and lost it on the first re-derive.
+///
+/// ⛔ Authored repertoire is what a character IS; progression gating is what a
+/// ruleset currently permits, and it lives in the per-frame action scheme over
+/// `BodyAbilities` — not in the kit.
+#[test]
+fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
+    use ambition_characters::brain::{MeleeActionSpec, SpecialActionSpec, SwipeSpec};
+    let authored = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.05,
+            active_s: 0.1,
+            recover_s: 0.2,
+            damage: 3,
+            reach_px: 40.0,
+        })),
+        special: Some(SpecialActionSpec::Special("ground_pound".to_string())),
+        ..ActionSet::default()
+    };
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        ambition_characters::actor::definition::CharacterDefinition::new("brute", "Brute", "demo")
+            .with_action_set(authored.clone()),
+        &ambition_characters::prepared::CharacterBindings::default(),
+    );
+    let granted = finalized
+        .prepared
+        .kit
+        .action_set()
+        .cloned()
+        .expect("an authored kit");
+    registry.insert_prepared(finalized.prepared);
+
+    // The body a room actor is built on when it authors no abilities.
+    let actor_body = ambition_body_seed::ActorBody::default_actor_abilities();
+    assert!(!actor_body.shield, "the control: this body lacks the shield bit");
+    let derived = ambition_combat::worn_kit::WornKit::resolve(
+        &CharacterCatalog::empty(),
+        Some(&registry),
+        "brute",
+        actor_body,
+        None,
+    );
+    assert_eq!(
+        derived.action_set, granted,
+        "the persona derive and the spawn grant disagree about what `brute` wears"
+    );
+    assert!(
+        derived.action_set.special.is_some(),
+        "the authored special was stripped by the body's abilities"
+    );
+}

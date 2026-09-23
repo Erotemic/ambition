@@ -36,8 +36,11 @@ impl WornKit {
     /// Resolve the kit `character_id` puts on a body whose own capabilities are
     /// `base_abilities`.
     ///
-    /// - a prepared `Authored` row: its action set, narrowed by `gated_by` to
-    ///   what is unlocked, with the moveset preparation derived;
+    /// - a prepared `Authored` row: its action set AS AUTHORED, with the moveset
+    ///   preparation derived — the same answer the spawn grant writes. Authored
+    ///   repertoire is what a character IS; what a ruleset currently permits it
+    ///   to use is the per-frame action scheme over `BodyAbilities`, not a
+    ///   narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23);
     /// - a prepared `Unauthored` row: the host-code kit built from the body,
     ///   firing through the charge path;
     /// - an unprepared catalog row: the catalog's default action set, or a safe
@@ -73,7 +76,7 @@ impl WornKit {
                     action_set,
                     moveset,
                 }) => (
-                    action_set.gated_by(base_abilities),
+                    action_set.clone(),
                     moveset.clone(),
                     prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
                         prepared.ranged_execution

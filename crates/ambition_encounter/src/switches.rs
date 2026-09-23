@@ -417,31 +417,13 @@ pub fn drain_switch_activations(
         // their sprite reads engaged; an unhandled action must not touch
         // persisted state at all.
         //
-        // ⛔⛔ IT IS NOT THE ONLY WRITER OF THE `switches` SAVE FAMILY, and this
-        // comment said so until 2026-09-05 — true of this function, false of
-        // the tree, and exactly what the author of a FOURTH writer would read
-        // first. Measured: `encounter_features`'s `apply_wave_encounter_effects`
-        // greens every switch of a completed encounter, and `content/src/falling_sand_sim.rs`
-        // writes the spout switches.
-        //
-        // ⛔⛔ AND THEY ARE NOT DISJOINT. An earlier version of this comment
-        // claimed the roads separated by ACTION KIND — inferred from the
-        // `_ => continue` below rather than measured, and wrong.
-        // `content/src/falling_sand_sim.rs` keys off the switch ID, not the
-        // action, and the four falling-sand spouts are authored
-        // `action: ResetEncounter` — the arm right below. ⇒ Both roads write
-        // `set_switch` for the same id on the same activation, and the content
-        // one says in place that it means to win: *"without this write the
-        // save's switch flag stays whatever the encounter pipeline set it to"*.
-        //
-        // ⚠ NOTHING ORDERS THEM. This system is `.in_set(SwitchActivationDrained)`,
-        // which is not placed in any simulation phase; the falling-sand reader is
-        // `.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects)`. Both
-        // are downstream of one `SwitchActivated` from `features/ecs/interact.rs`.
-        // Whichever runs last wins, and the executor's order is stable but
-        // arbitrary — so a behavioural test passes either way. Recorded in
-        // `world-facts-observations-and-memory.md`; the fix is an ordering edge
-        // and it is a content/engine boundary decision, not a local one.
+        // ⛔⛔ IT IS NOT THE ONLY WRITER OF THE `switches` SAVE FAMILY:
+        // `encounter_features`'s `apply_wave_encounter_effects` greens every
+        // switch of a completed encounter. But it is the only writer PER PRESS.
+        // The falling-sand room used to re-write its four spout switches (authored
+        // `ResetEncounter`, so this arm had already toggled them) from a spout
+        // copy of its own; the room now reads the save instead, and
+        // `a_spout_switch_toggles_once_per_press_and_the_switch_shows_it` pins it.
         let on = match &action {
             SwitchAction::ResetEncounter => {
                 let next = !save.data().switch(&activation.id);

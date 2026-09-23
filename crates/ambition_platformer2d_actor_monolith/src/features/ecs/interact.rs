@@ -16,7 +16,7 @@
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb, FeatureId, FeatureName,
 };
-use ambition_encounter::switches::{SwitchActivated, SwitchFeature, SwitchOn};
+use ambition_encounter::switches::{SwitchActivated, SwitchFeature};
 use ambition_persistence::quest::QuestAdvanceRequested;
 use ambition_platformer2d_core::AabbExt;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -91,14 +91,14 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<FeatureSimEntity>,
     >,
-    mut switches: Query<
-        (
-            &FeatureId,
-            &FeatureName,
-            &CenteredAabb,
-            &SwitchFeature,
-            &mut SwitchOn,
-        ),
+    // ⛔ NO `SwitchOn` HERE. Whether a switch is on is the SAVE's answer
+    // (`drain_switch_activations` performs the toggle) and `SwitchOn` is its
+    // projection (`sync_ecs_switches_from_save`, its one writer). This system
+    // latched it `true` on every press, which the projection overwrote a few
+    // sets later in the same chain — a dead write, and a wrong one for a
+    // toggle that had just turned the switch off.
+    switches: Query<
+        (&FeatureId, &FeatureName, &CenteredAabb, &SwitchFeature),
         With<FeatureSimEntity>,
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
@@ -233,14 +233,13 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (_id, name, aabb, switch, mut on) in &mut switches {
+        for (_id, name, aabb, switch) in &switches {
             if !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;
             }
             acting.consume_interact(subject);
             pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(format!("activated {}", name.0.as_str()), 2.6);
-            on.0 = true;
             switch_activated.write(SwitchActivated {
                 activation: switch.activation.clone(),
                 pos: aabb.center,

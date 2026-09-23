@@ -105,7 +105,17 @@ dated, not live):
 | durable fact family | route-readable? |
 |---|---|
 | `flags` | ✔ `world.flag_set` |
-⛔⛔ **TWO UNORDERED SYSTEMS WRITE THE SAME DURABLE SWITCH VALUE, and four
+✅ **RESOLVED 2026-09-23 BY DELETING ONE WRITER, not by ordering them.**
+`capture_falling_sand_switch_interactions` and the room's `spouts` copy are gone;
+the drain's `ResetEncounter` toggle is the one press-time writer, the room reads
+`FallingSandSpoutState::from_save`, and `SwitchOn` is projected from the save by
+`sync_ecs_switches_from_save` alone (the interaction's latch and
+`sync_falling_sand_switch_visuals` were deleted with it). Pinned by
+`a_spout_switch_toggles_once_per_press_and_the_switch_shows_it`
+(`game/ambition_app/tests/falling_sand_room.rs`). The history below is kept for
+the order derivation, which still describes the queue's cross-tick latency.
+
+⛔⛔ **(HISTORY) TWO UNORDERED SYSTEMS WRITE THE SAME DURABLE SWITCH VALUE, and four
 shipped switches sit on it. Measured 2026-09-05.**
 
 `ambition_encounter::switches::drain_switch_activations` is

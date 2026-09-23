@@ -986,6 +986,10 @@ call's first argument:
 |---|---|
 | `apply_flag_effects`, `apply_quest_advance_events`, `apply_wave_encounter_effects`, `capture_falling_sand_switch_interactions`, `celebrate_symmetry_attunement`, `count_the_dialogue_visit_when_a_conversation_opens`, `drain_switch_activations`, `drive_wave_encounters`, `grant_quest_completion_rewards`, `heal_save_shrine_system`, `persist_inventory_to_save`, `persist_minted_item_horizon_to_save`, `persist_occurrence_horizon_to_save`, `reset_cut_rope_attempt_on_replay`, `retire_rewards_for_rearmed_encounters`, `tick_active_cutscene`, `track_room_visits`, `update_boss_encounters` | `load_save_at_startup` (`Startup`) |
 
+⚠ 2026-09-23: `capture_falling_sand_switch_interactions` was DELETED (it was a
+second writer of the spout switch flags the drain already toggles), so a re-run
+finds 18 writers, 17 in the sim schedule. The row above is the 2026-09-18 census.
+
 ⛔⛤ **THIS TABLE READ "13 of the 19" AND NAMED SIX OUTSIDERS UNTIL 2026-09-18, AND
 EVERY ONE OF THE FIVE THAT LEFT THAT COLUMN LEFT FOR A DIFFERENT REASON.** The
 three `persist_*_to_save` mirrors and `track_room_visits` are registered in the

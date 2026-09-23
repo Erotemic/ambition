@@ -73,7 +73,6 @@ pub struct FallingSandRoomState {
     /// while still inside the room.
     pub swim_snapshot: Option<SwimSnapshot>,
     pub seeded_boundaries: bool,
-    pub spouts: FallingSandSpoutState,
 }
 
 /// Stored player swim state plus a marker so we can tell whether the
@@ -95,34 +94,17 @@ pub struct FallingSandSpoutState {
 }
 
 impl FallingSandSpoutState {
+    /// ⛔ THE SAVE IS THE ONE ANSWER to "is this spout open". The room kept its
+    /// own toggled copy beside it and re-wrote the save from that copy after the
+    /// switch drain had already toggled it — two writers of one durable fact.
+    /// The drain (`drain_switch_activations`, the spouts are authored
+    /// `ResetEncounter`) owns the toggle; every reader derives from the save.
     pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
         Self {
             sand: save.switch(SAND_SWITCH),
             water: save.switch(WATER_SWITCH),
             oil: save.switch(OIL_SWITCH),
             mixed: save.switch(MIXED_SWITCH),
-        }
-    }
-
-    pub fn toggle(&mut self, id: &str) -> bool {
-        match id {
-            SAND_SWITCH => {
-                self.sand = !self.sand;
-                true
-            }
-            WATER_SWITCH => {
-                self.water = !self.water;
-                true
-            }
-            OIL_SWITCH => {
-                self.oil = !self.oil;
-                true
-            }
-            MIXED_SWITCH => {
-                self.mixed = !self.mixed;
-                true
-            }
-            _ => false,
         }
     }
 }
@@ -248,11 +230,6 @@ impl Plugin for FallingSandSimPlugin {
                     .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                     .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
                     .in_set(FallingSandSimSet),
-            )
-            .add_systems(
-                sim,
-                capture_falling_sand_switch_interactions
-                    .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
             );
     }
 }
@@ -261,7 +238,6 @@ pub fn sync_falling_sand_room_state(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::world::rooms::RoomSet,
     >,
-    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut state: ResMut<FallingSandRoomState>,
 ) {
     let active_id = room_set.active_spec().id.as_str();
@@ -275,12 +251,6 @@ pub fn sync_falling_sand_room_state(
     state.last_room_id = Some(active_id.to_owned());
     state.active_room = active_room;
     state.seeded_boundaries = false;
-
-    if active_room {
-        state.spouts = FallingSandSpoutState::from_save(save.data());
-    } else {
-        state.spouts = FallingSandSpoutState::default();
-    }
 }
 
 /// Build the sand grid on room entry (walls seeded from the SAME authored
@@ -369,6 +339,7 @@ pub fn prepare_sand_world(
 /// Pour open sand mouths into the grid — the ONLY way sand matter enters.
 pub fn emit_sand_into_grid(
     state: Res<FallingSandRoomState>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut sand: ResMut<FallingSandWorld>,
     mut budget_warned: Local<bool>,
 ) {
@@ -378,7 +349,7 @@ pub fn emit_sand_into_grid(
     let Some(grid) = sand.grid.as_mut() else {
         return;
     };
-    for mouth in open_spouts(&state.spouts) {
+    for mouth in open_spouts(&FallingSandSpoutState::from_save(save.data())) {
         if mouth.particle_type != TYPE_SAND {
             continue;
         }
@@ -439,50 +410,6 @@ pub fn project_settled_sand(
         return;
     }
     overlay.gate_solids.extend(sand.ledger.blocks());
-}
-
-pub fn capture_falling_sand_switch_interactions(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
-    mut state: ResMut<FallingSandRoomState>,
-    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut effects: MessageReader<ambition_encounter::switches::SwitchActivated>,
-) {
-    if room_set.active_spec().id != ROOM_ID {
-        return;
-    }
-
-    for effect in effects.read() {
-        let ambition_encounter::switches::SwitchActivated { activation, .. } = effect;
-        if state.spouts.toggle(activation.id.as_str()) {
-            // Mirror the in-memory toggle into the save so the spout
-            // state survives a reset / room re-entry. Without this
-            // write the save's switch flag stays whatever the
-            // encounter pipeline set it to (which is "true on first
-            // activation" only when the switch's `action` is
-            // `ResetEncounter`).
-            let on = match activation.id.as_str() {
-                SAND_SWITCH => state.spouts.sand,
-                WATER_SWITCH => state.spouts.water,
-                OIL_SWITCH => state.spouts.oil,
-                MIXED_SWITCH => state.spouts.mixed,
-                _ => continue,
-            };
-            save.data_mut().set_switch(&activation.id, on);
-            bevy::log::info!(
-                "falling_sand_room: spout {} -> {} (state {:?})",
-                activation.id,
-                on,
-                state.spouts
-            );
-        } else {
-            bevy::log::debug!(
-                "falling_sand_room: ignoring switch activation id={:?} (not a spout switch)",
-                activation.id
-            );
-        }
-    }
 }
 
 pub fn grant_room_swim_controls(

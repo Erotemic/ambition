@@ -138,17 +138,6 @@ impl Plugin for FallingSandRoomPlugin {
                     .after(FallingSandSimSet)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
-            .add_systems(
-                sim,
-                // Visual sync must run *after* the toggle handler so
-                // SwitchOn reflects the spout state we just set —
-                // otherwise the engine's "switch is latching" semantics
-                // leave the sprite stuck green while the spout flips
-                // back off, which inverts the player's mental model.
-                sync_falling_sand_switch_visuals
-                    .after(crate::falling_sand_sim::capture_falling_sand_switch_interactions)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
-            )
             // `bevy_falling_sand` inits `ParticleSimulationRun` unconditionally,
             // so its chunk scan (`par_handle_movement_by_chunks` over the full
             // 32x32 map) burns CPU in every room of every game, particles or
@@ -478,44 +467,13 @@ fn emit_particle_rect(
     }
 }
 
-/// Force the falling-sand switch sprites' `SwitchOn` flag to track the
-/// spout state. The engine's default switch behaviour is one-way
-/// latching (`on.0 = true` on activation, never reset), which inverts
-/// the player's mental model once they toggle a spout closed: the
-/// sprite stays "on" (green) while the spout is actually off.
-fn sync_falling_sand_switch_visuals(
-    state: Res<FallingSandRoomState>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
-    mut switches: Query<(
-        &ambition_encounter::switches::SwitchFeature,
-        &mut ambition_encounter::switches::SwitchOn,
-    )>,
-) {
-    if !state.active_room || room_set.active_spec().id != ROOM_ID {
-        return;
-    }
-    for (switch, mut on) in &mut switches {
-        let desired = match switch.activation.id.as_str() {
-            SAND_SWITCH => state.spouts.sand,
-            WATER_SWITCH => state.spouts.water,
-            OIL_SWITCH => state.spouts.oil,
-            MIXED_SWITCH => state.spouts.mixed,
-            _ => continue,
-        };
-        if on.0 != desired {
-            on.0 = desired;
-        }
-    }
-}
-
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
     let room = room_set.active_spec();
@@ -526,17 +484,18 @@ fn sync_falling_sand_spout_nozzles(
         return;
     }
 
+    let spouts = FallingSandSpoutState::from_save(save.data());
     let mut desired = HashSet::<&'static str>::new();
-    if state.spouts.sand {
+    if spouts.sand {
         desired.insert(SAND_SWITCH);
     }
-    if state.spouts.water {
+    if spouts.water {
         desired.insert(WATER_SWITCH);
     }
-    if state.spouts.oil {
+    if spouts.oil {
         desired.insert(OIL_SWITCH);
     }
-    if state.spouts.mixed {
+    if spouts.mixed {
         desired.insert(MIXED_SWITCH);
     }
 
@@ -592,6 +551,7 @@ fn emit_falling_sand_spouts(
         ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     type_ids: Res<FallingSandTypeIds>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
@@ -604,18 +564,19 @@ fn emit_falling_sand_spouts(
     // One info-log per state transition (open/close) so the user can
     // verify in the console that the toggle reached this system. Sampled
     // on edges only — no per-frame spam.
-    if last_logged.as_ref() != Some(&state.spouts) {
+    let spouts = FallingSandSpoutState::from_save(save.data());
+    if last_logged.as_ref() != Some(&spouts) {
         let spout_grid_sand = world_to_particle_grid(&room.world, ae::Vec2::new(176.0, 90.0));
         bevy::log::info!(
             "falling_sand_room: emit pass — spouts={:?}, sand-spout-grid={:?}",
-            state.spouts,
+            spouts,
             spout_grid_sand
         );
-        *last_logged = Some(state.spouts);
+        *last_logged = Some(spouts);
     }
 
     let world = &room.world;
-    for mouth in open_spouts(&state.spouts) {
+    for mouth in open_spouts(&spouts) {
         // Sand mouths pour into the deterministic grid (sim half), never
         // into the external crate.
         if mouth.particle_type == TYPE_SAND {

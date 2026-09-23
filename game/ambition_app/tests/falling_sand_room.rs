@@ -146,3 +146,76 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
     let grid = sand.grid.as_ref().expect("still in the room");
     assert!(grid.conserved_with(&sand.ledger));
 }
+
+/// ⛔ ONE PRESS, ONE TOGGLE, AND THE SWITCH READS WHAT THE SPOUT DOES.
+///
+/// The room kept its own spout copy and wrote the save from it after the
+/// switch drain had already toggled the same flag, and a presentation system
+/// forced the sprite's `SwitchOn` from that copy because the interaction had
+/// latched it on. Now the save is the one answer: the drain toggles it,
+/// `SwitchOn` projects it, and the spouts read it. A second press must turn
+/// all three OFF — a latch, or a double toggle, leaves one of them on.
+#[test]
+fn a_spout_switch_toggles_once_per_press_and_the_switch_shows_it() {
+    use ambition_platformer2d::encounter::switches::{SwitchFeature, SwitchOn};
+
+    let mut sim = fixed_60hz_room_sim(ROOM_ID);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+
+    let observe = |sim: &mut ambition_app::Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let saved = world
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .switch(SAND_SWITCH);
+        let shown = world
+            .query::<(&SwitchFeature, &SwitchOn)>()
+            .iter(world)
+            .find(|(feature, _)| feature.activation.id == SAND_SWITCH)
+            .map(|(_, on)| on.0)
+            .expect("the authored sand switch exists");
+        (saved, shown)
+    };
+    assert_eq!(observe(&mut sim), (false, false), "the spout starts closed");
+
+    activate_authored_switch(&mut sim, SAND_SWITCH);
+    for _ in 0..5 {
+        sim.step(base());
+    }
+    assert_eq!(observe(&mut sim), (true, true), "one press opens it, and the switch shows it");
+    let poured = sim
+        .world_mut()
+        .resource::<FallingSandWorld>()
+        .grid
+        .as_ref()
+        .map(|grid| grid.emitted())
+        .expect("the room built its sand grid");
+    assert!(poured > 0, "the open spout pours");
+
+    activate_authored_switch(&mut sim, SAND_SWITCH);
+    for _ in 0..5 {
+        sim.step(base());
+    }
+    assert_eq!(
+        observe(&mut sim),
+        (false, false),
+        "a second press closes it, and the switch shows that too"
+    );
+    let settled_emission = sim
+        .world_mut()
+        .resource::<FallingSandWorld>()
+        .grid
+        .as_ref()
+        .map(|grid| grid.emitted())
+        .unwrap();
+    for _ in 0..5 {
+        sim.step(base());
+    }
+    assert_eq!(
+        sim.world_mut().resource::<FallingSandWorld>().grid.as_ref().map(|g| g.emitted()),
+        Some(settled_emission),
+        "a closed spout pours nothing more"
+    );
+}

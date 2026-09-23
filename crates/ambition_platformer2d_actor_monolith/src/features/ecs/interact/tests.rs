@@ -5,6 +5,19 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, NextState, Update};
 
+/// The switch ids this tick's interactions activated.
+///
+/// ⛔ NOT `SwitchOn`: that is the save's projection, written only by
+/// `sync_ecs_switches_from_save`. The interaction's own output is the
+/// `SwitchActivated` message; the toggle happens downstream when it is drained.
+fn activated(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<bevy::ecs::message::Messages<SwitchActivated>>()
+        .iter_current_update_messages()
+        .map(|m| m.activation.id.clone())
+        .collect()
+}
+
 fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) -> Entity {
     let scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
@@ -59,7 +72,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.add_message::<VfxMessage>();
     spawn_interaction_player(&mut app, center);
 
-    let switch = app
+    let _switch = app
         .world_mut()
         .spawn((
             FeatureSimEntity,
@@ -91,8 +104,8 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.update();
 
     assert!(
-        app.world().get::<SwitchOn>(switch).unwrap().0,
-        "a buffered interact on an adjacent switch should toggle it on"
+        activated(&app) == ["gate_switch"],
+        "a buffered interact on an adjacent switch should activate it"
     );
 }
 
@@ -144,7 +157,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.insert_resource(ControlledSubject(Some(subject)));
 
     // A switch next to the DRIVEN body...
-    let near_subject = app
+    let _near_subject = app
         .world_mut()
         .spawn((
             FeatureSimEntity,
@@ -161,7 +174,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
         .id();
 
     // ...and a decoy next to the vacated home avatar, which must NOT fire.
-    let near_home = app
+    let _near_home = app
         .world_mut()
         .spawn((
             FeatureSimEntity,
@@ -192,13 +205,11 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     );
     app.update();
 
-    assert!(
-        app.world().get::<SwitchOn>(near_subject).unwrap().0,
-        "interact should activate the switch next to the CONTROLLED body"
-    );
-    assert!(
-        !app.world().get::<SwitchOn>(near_home).unwrap().0,
-        "interact must NOT reach the switch next to the vacated home avatar"
+    assert_eq!(
+        activated(&app),
+        ["subject_switch"],
+        "interact should activate the switch next to the CONTROLLED body, and \
+         must NOT reach the switch next to the vacated home avatar"
     );
 }
 
@@ -502,12 +513,12 @@ fn the_interact_pose_lands_on_the_body_that_acted() {
     let home = spawn_interaction_player(&mut app, home_pos);
     let subject = spawn_driven_body(&mut app, subject_pos, 0);
     app.insert_resource(ControlledSubject(Some(subject)));
-    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+    spawn_switch(&mut app, "subject_switch", subject_pos);
 
     app.update();
 
     assert!(
-        app.world().get::<SwitchOn>(switch).unwrap().0,
+        activated(&app) == ["subject_switch"],
         "the interaction did not happen at all, so neither pose assertion below \
          could have failed"
     );
@@ -548,12 +559,12 @@ fn a_second_seat_spends_its_own_buffered_interact() {
 
     let subject = spawn_driven_body(&mut app, subject_pos, 1);
     app.insert_resource(ControlledSubject(Some(subject)));
-    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+    spawn_switch(&mut app, "subject_switch", subject_pos);
 
     app.update();
 
     assert!(
-        app.world().get::<SwitchOn>(switch).unwrap().0,
+        activated(&app) == ["subject_switch"],
         "seat 1's body was in reach with a live buffered press and nothing happened"
     );
     assert_eq!(
@@ -583,12 +594,12 @@ fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
 
     let subject = spawn_driven_body(&mut app, subject_pos, 1);
     app.insert_resource(ControlledSubject(Some(subject)));
-    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+    spawn_switch(&mut app, "subject_switch", subject_pos);
 
     app.update();
 
     assert!(
-        !app.world().get::<SwitchOn>(switch).unwrap().0,
+        activated(&app).is_empty(),
         "seat 0's press worked a switch that only seat 1's body was standing on"
     );
 
@@ -598,7 +609,7 @@ fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
     buffer_interact(&mut app, 1, 0.15);
     app.update();
     assert!(
-        app.world().get::<SwitchOn>(switch).unwrap().0,
+        activated(&app) == ["subject_switch"],
         "seat 1's own press did not work its own switch either, so the assertion \
          above proved nothing about WHOSE press was read"
     );
@@ -633,17 +644,12 @@ fn two_driven_bodies_each_flip_their_own_switch() {
 
     let _a = spawn_driven_body(&mut app, ae::Vec2::new(100.0, 100.0), 0);
     let _b = spawn_driven_body(&mut app, ae::Vec2::new(900.0, 100.0), 1);
-    let switch_a = spawn_switch(&mut app, "switch_a", ae::Vec2::new(100.0, 100.0));
-    let switch_b = spawn_switch(&mut app, "switch_b", ae::Vec2::new(900.0, 100.0));
+    spawn_switch(&mut app, "switch_a", ae::Vec2::new(100.0, 100.0));
+    spawn_switch(&mut app, "switch_b", ae::Vec2::new(900.0, 100.0));
 
     app.update();
 
-    assert!(
-        app.world().get::<SwitchOn>(switch_a).is_some_and(|on| on.0),
-        "seat a's switch stayed off"
-    );
-    assert!(
-        app.world().get::<SwitchOn>(switch_b).is_some_and(|on| on.0),
-        "seat b's switch stayed off"
-    );
+    let mut fired = activated(&app);
+    fired.sort();
+    assert_eq!(fired, ["switch_a", "switch_b"], "each seat activates its own switch");
 }

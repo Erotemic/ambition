@@ -3836,6 +3836,86 @@
       "metric_tags": []
     },
     {
+      "id": "DUP-SWITCH-STATE",
+      "category": "duplicate_truth_family",
+      "name": "Whether a switch is on",
+      "owner": "the save is the one answer; `SwitchOn` only projects it (2026-09-23)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "The save is the one answer and `SwitchOn` only projects it (2026-09-23). The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
+      "source_paths": [
+        "game/ambition_content/src/falling_sand_sim.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The save is the one answer and `SwitchOn` only projects it (2026-09-23). The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
+          "sources": [
+            "game/ambition_content/src/falling_sand_sim.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-23",
+      "consolidation_hypothesis": "See the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
+      "why_it_exists": "the save is the one answer; `SwitchOn` only projects it (2026-09-23)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
+      "id": "DUP-PERSISTED-FATE",
+      "category": "duplicate_truth_family",
+      "name": "Whether an authored body the save says is dead / provoked / cleared starts that way",
+      "owner": "deaths and cleared bosses are built at construction; the provoked-NPC flip is still a per-tick mirror (2026-09-23)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "Deaths and cleared bosses are built at construction from `PersistedFates`; the provoked-NPC flip is still a per-tick mirror in `sync_ecs_actors_with_save` (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
+      "source_paths": [
+        "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Deaths and cleared bosses are built at construction from `PersistedFates`; the provoked-NPC flip is still a per-tick mirror in `sync_ecs_actors_with_save` (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
+          "sources": [
+            "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
+          ]
+        }
+      ],
+      "classification": "open: the provoked-NPC flip",
+      "consolidation_hypothesis": "See the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
+      "why_it_exists": "deaths and cleared bosses are built at construction; the provoked-NPC flip is still a per-tick mirror (2026-09-23)",
+      "metric_tags": [
+        "suspect_duplicate_authority"
+      ],
+      "duplicate_authority_state": "OPEN_PRESSURE"
+    },
+    {
+      "id": "DUP-PRESENTATION-BINDING",
+      "category": "duplicate_truth_family",
+      "name": "Which art a body is finally bound to, and from which geometry",
+      "owner": "closed on every shipped road; two unreachable windows recorded (2026-09-23)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "Closed on every shipped road; two windows no shipped road reaches are recorded, not fixed (2026-09-23). The full account is the `DUP-PRESENTATION-BINDING` row of `architecture-census.md`.",
+      "source_paths": [
+        "crates/ambition_render/src/rendering/actors/mod.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Closed on every shipped road; two windows no shipped road reaches are recorded, not fixed (2026-09-23). The full account is the `DUP-PRESENTATION-BINDING` row of `architecture-census.md`.",
+          "sources": [
+            "crates/ambition_render/src/rendering/actors/mod.rs"
+          ]
+        }
+      ],
+      "classification": "resolved on shipped roads 2026-09-23",
+      "consolidation_hypothesis": "See the `DUP-PRESENTATION-BINDING` row of `architecture-census.md`.",
+      "why_it_exists": "closed on every shipped road; two unreachable windows recorded (2026-09-23)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
       "id": "DUP-LAUNCH-LAW",
       "category": "duplicate_truth_family",
       "name": "How far a hit launches its victim",

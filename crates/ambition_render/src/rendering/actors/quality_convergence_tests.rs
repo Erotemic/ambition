@@ -886,3 +886,64 @@ fn the_refresh_waits_for_a_settled_pose() {
         "the control: the same body binds once its pose settles"
     );
 }
+
+/// ⛔ An actor whose OWN art is declared but not resident yet is not drawn with
+/// whatever sheet its display name resolves. The actor binding is keyed on kind
+/// and collision size, which the arriving art does not change, so a substitute
+/// bound here would be kept. It waits on the placeholder, then binds its own.
+#[test]
+fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
+    const OWN_ART: &str = "probe_actor_art";
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Medium));
+    // The NAME resolves a resident sheet; the art identity is only declared.
+    let by_name = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &by_name);
+    let name_image = by_name.texture.id();
+    let mut assets = GameAssets::default();
+    assets.characters.publish(ACTOR_NAME, by_name);
+    assets.characters.declare(OWN_ART, OWN_ART);
+    app.insert_resource(assets);
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        a_feature_view(),
+    )]));
+    app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        ambition_sim_view::ActorRenderView {
+            sprite_character_id: Some(OWN_ART.to_string()),
+            name: ACTOR_NAME.to_string(),
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+        },
+    )]));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, super::upgrade_actor_sprites);
+    let body = app
+        .world_mut()
+        .spawn(FeatureVisual {
+            id: ACTOR_ID.to_string(),
+        })
+        .id();
+    app.update();
+    assert_ne!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(name_image),
+        "the actor was bound the sheet its NAME resolves while its own art was coming"
+    );
+
+    let own = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &own);
+    let own_image = own.texture.id();
+    app.world_mut()
+        .resource_mut::<GameAssets>()
+        .characters
+        .publish(OWN_ART, own);
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(own_image),
+        "the control: once its own art is resident the actor binds it"
+    );
+}

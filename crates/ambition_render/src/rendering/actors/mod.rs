@@ -879,9 +879,25 @@ pub fn upgrade_actor_sprites(
         // their sheet without a duplicate enemy-side registry entry.
         let art_identity = actor.sprite_character_id.as_deref();
         let actor_name = Some(actor.name.as_str());
-        let named = art_identity
-            .and_then(|n| assets.characters.sheet(n))
-            .or_else(|| actor_name.and_then(|n| assets.characters.sheet(n)));
+        // ⛔ AN ART IDENTITY WHOSE SHEET IS COMING IS WAITED FOR, NOT SUBSTITUTED.
+        // Sheets are materialized on demand, so a body can be drawn before its
+        // own art is resident. Falling through to the display name then bound
+        // whatever sheet that name happened to resolve, and the binding is keyed
+        // on kind and collision size — which the arriving art does not change —
+        // so the substitute stayed. A DECLARED identity keeps what it has (the
+        // placeholder, or its current realization) until its own sheet lands;
+        // only an identity no content declares still falls back to the name.
+        let own = art_identity.map(|n| assets.characters.sheet_state(n));
+        if own
+            .as_ref()
+            .is_some_and(|state| state.declared_character_id().is_some())
+        {
+            continue;
+        }
+        let named = match own {
+            Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(asset)) => Some(asset),
+            _ => actor_name.and_then(|n| assets.characters.sheet(n)),
+        };
         let Some(character_asset) = named else {
             // An actor whose own sheet does not resolve draws the marked placeholder rectangle,
             // everywhere, and the binding report names the id.

@@ -166,6 +166,9 @@ pub enum RecordedFate {
     /// The record says this body died (or its boss encounter was cleared) and
     /// stays that way.
     Dead,
+    /// The record says this person was provoked: they are built hostile, as a
+    /// live provocation would have left them.
+    Provoked,
 }
 
 /// Install the programmatic actor-spawn seam: its message, and its drainer in
@@ -633,6 +636,7 @@ pub(super) struct NpcActorSpawnPlan {
     )>,
     action_set: ambition_characters::brain::ActionSet,
     aggression: ambition_combat::components::ActorAggression,
+    disposition: ambition_combat::components::ActorDisposition,
 }
 
 impl NpcActorSpawnPlan {
@@ -776,7 +780,67 @@ impl NpcActorSpawnPlan {
             aggression: ambition_combat::components::ActorAggression::retaliates_when_hit(
                 self::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
+            disposition: ambition_combat::components::ActorDisposition::Peaceful,
         }
+    }
+
+    /// Build this person as the save remembers them: provoked.
+    ///
+    /// The mind a live provocation installs (`provoke_actor_in_place`): the
+    /// character's own provoked policy when it authors one, else the engine's
+    /// default through the same projection, recorded in the brain binding so a
+    /// rewind resolves the same policy. The body is untouched, as it is live.
+    ///
+    /// The grudge names a FACTION rather than the body that struck the blow:
+    /// that body is gone, and a room can be built before any player body
+    /// exists.
+    pub(super) fn provoke(&mut self, prepared: &ambition_characters::prepared::PreparedCharacterRegistry) {
+        let authored = npc_character_id(&self.interactable)
+            .and_then(|character| prepared.get(character))
+            .and_then(|character| {
+                Some((
+                    character.provoked_profile?,
+                    character.provoked_profile_id.clone()?,
+                ))
+            });
+        let abilities = self.seed.body.0.abilities.abilities;
+        match authored {
+            Some((profile, profile_id)) => {
+                self.seed.config.brain_profile = profile;
+                self.brain = self::brain_builders::aggressive_brain_for_enemy(
+                    &self.seed.config,
+                    &self.seed.identity,
+                    Some(&self.action_set),
+                    abilities,
+                );
+                if let Some((binding, _)) = self.brain_binding.as_mut() {
+                    binding.source =
+                        ambition_characters::actor::character_catalog::AutonomousSource::ProvokedProfile {
+                            profile: profile_id,
+                        };
+                }
+            }
+            None => {
+                let projection = self::brain_builders::provoked_projection(
+                    self::brain_builders::default_provoked_policy(),
+                    &self.seed.config,
+                    &self.seed.identity,
+                    Some(&self.action_set),
+                    abilities,
+                );
+                self.seed.config.brain_profile = projection.brain_profile;
+                self.seed.config.brain = projection.config_brain;
+                self.brain = projection.brain;
+                if let Some((binding, _)) = self.brain_binding.as_mut() {
+                    binding.provoke();
+                }
+            }
+        }
+        self.disposition = ambition_combat::components::ActorDisposition::Hostile;
+        self.aggression.mode = ambition_combat::components::AggressionMode::Hostile;
+        self.aggression.grudge = Some(ambition_combat::components::Grudge::Faction(
+            ambition_combat::components::ActorFaction::Player,
+        ));
     }
 
     #[allow(dead_code)]
@@ -802,10 +866,8 @@ impl NpcActorSpawnPlan {
             interactable: self.interactable,
             talk_radius: self::npc_policy::NPC_TALK_RADIUS,
         };
-        let (disposition, combat) = self::conversion::actor_component_snapshot(
-            &self.seed,
-            ambition_combat::components::ActorDisposition::Peaceful,
-        );
+        let (disposition, combat) =
+            self::conversion::actor_component_snapshot(&self.seed, self.disposition);
         // Uniform melee subsumption (§A1/§3a): a peaceful NPC carries its combat
         // kit's melee as body CAPABILITY (for possession / provocation), so fold it
         // into a moveset `"attack"` move like every hostile — a possessed peaceful
@@ -1436,7 +1498,7 @@ pub fn spawn_runtime_minion_into(
     //
     // ⭐⭐ SO ONE DEATH POISONED EVERY LATER SUMMON, PERMANENTLY. The pirate's
     // recovery shark spawns as `smash_ride_shark`; the first one that died wrote
-    // `enemy_smash_ride_shark_dead`, and `sync_ecs_actors_with_save` — which runs
+    // `enemy_smash_ride_shark_dead`, and the save mirror of the day — which ran
     // EVERY SIM TICK, not on load — then zeroed `health.current` on the first
     // tick of every shark summoned afterwards, in that save, for good. The rider
     // boarded a body that was alive when it was built and dead one tick later,
@@ -2012,8 +2074,10 @@ pub fn spawn_interactable_into(
         );
         // A person the save says was killed is built dead (ADR 0022), whether or
         // not they were ever provoked.
-        if fate == RecordedFate::Dead {
-            plan.seed.health.health.current = 0;
+        match fate {
+            RecordedFate::Dead => plan.seed.health.health.current = 0,
+            RecordedFate::Provoked => plan.provoke(prepared),
+            RecordedFate::AsAuthored => {}
         }
         plan.spawn_into(&mut scope.reborrow());
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {

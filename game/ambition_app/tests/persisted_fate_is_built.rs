@@ -1,20 +1,15 @@
 #![cfg(feature = "rl_sim")]
-//! A provoked NPC is still hostile after the save says so — the save mirror,
-//! witnessed in the shipped app.
+//! A body the save remembers is BUILT that way — dead, or provoked — by the
+//! construction that makes it, witnessed in the shipped app.
 //!
-//! ⛔⛔ MEASURED 2026-09-07 (`dev/installer_call_coverage.json`): deleting
-//! `install_save_mirror(app, sim)` from `progression_schedule.rs:69` left ALL 583
-//! `app_it` tests green. Two shipped behaviours ride that installer — a persisted
-//! provoked NPC loading hostile, and a persisted non-respawning enemy death staying
-//! dead — and neither had a witness at app level.
+//! ⛔⛔ MEASURED 2026-09-07 (`dev/installer_call_coverage.json`): deleting the
+//! save mirror's installer left ALL 583 `app_it` tests green, although two
+//! shipped behaviours rode it. Both are construction now
+//! (`construction::PersistedFates`), so both witnesses are a REBUILD: the
+//! mechanism is what a commit reads, not what a later tick corrects.
 //!
-//! ⚠ The provoked-NPC half still runs as a mirror, every sim tick, so its test
-//! needs no reload. The persisted-DEATH half is construction now — see the
-//! second test, which is written around a rebuild because that is the mechanism.
-//!
-//! ⛔ DO NOT REPLACE THIS WITH A PRESENCE ASSERTION. A marker resource the
-//! installer registers would go green while the flip stayed untested, which is
-//! the failure mode `queue.md` names for all six of these holes.
+//! ⛔ DO NOT REPLACE THESE WITH A PRESENCE ASSERTION. A marker the construction
+//! road inserts would go green while the fate stayed unbuilt.
 
 use crate::common::{base, fixed_60hz_sim};
 
@@ -38,15 +33,20 @@ fn talkable_actors(
         .collect()
 }
 
+/// A persisted provocation is BUILT: the room a replay rebuilds carries the
+/// person hostile from the first frame they exist, with a grudge against
+/// whoever plays — the body that struck the blow is gone, and at startup the
+/// room is built before any player body exists to name.
 #[test]
-fn a_save_flag_makes_a_talkable_npc_hostile_without_a_room_reload() {
+fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
+    use ambition_platformer2d::combat::components::{ActorDisposition, ActorFaction, Grudge};
+
     let mut sim = fixed_60hz_sim();
     sim.step_n(base(), 120);
 
-    let before = talkable_actors(&mut sim);
     // ⚠ ANTI-VACUITY: with no talkable actor in the room, every assertion below
     // is about an empty set and the test certifies nothing.
-    let (npc, id, mode) = before
+    let (npc, id, mode) = talkable_actors(&mut sim)
         .first()
         .cloned()
         .expect("the start room authors at least one talkable NPC to provoke");
@@ -64,42 +64,63 @@ fn a_save_flag_makes_a_talkable_npc_hostile_without_a_room_reload() {
         .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .data_mut()
         .set_flag(flag.clone(), true);
-
-    sim.step_n(base(), 1);
-
-    let after = talkable_actors(&mut sim)
-        .into_iter()
-        .find(|(entity, _, _)| *entity == npc)
-        .map(|(_, _, mode)| mode)
-        .expect("the NPC is still in the world");
-    assert_eq!(
-        after,
-        AggressionMode::Hostile,
-        "the save carries `{flag}` and {id} is still {after:?} one tick later. \
-         `install_save_mirror` is what mirrors that flag onto the live actor; \
-         deleting its call leaves every other app test green."
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
     );
 
-    // The grudge is the other half of the flip: a persisted-hostile NPC
-    // re-establishes it against the stable player slot, because the attacker
-    // entity that earned it does not survive a save round-trip.
-    let grudge = {
-        let mut query = sim.world_mut().query::<&ActorAggression>();
+    let mut rebuilt_frames = 0;
+    for frame in 0..60 {
+        sim.step(base());
+        let mut query = sim.world_mut().query_filtered::<(
+            Entity,
+            &ActorIdentity,
+            &ActorAggression,
+            &ActorDisposition,
+            Option<&ambition_platformer2d::characters::actor::character_catalog::BrainBinding>,
+        ), With<ActorInteraction>>();
         let world = sim.world();
-        query
-            .get(world, npc)
-            .expect("the NPC still carries its aggression")
-            .grudge
-    };
+        let Some((_, _, aggression, disposition, binding)) = query
+            .iter(world)
+            .find(|(entity, identity, _, _, _)| identity.id == id && *entity != npc)
+        else {
+            continue;
+        };
+        rebuilt_frames += 1;
+        assert_eq!(
+            (aggression.mode, *disposition, aggression.grudge),
+            (
+                AggressionMode::Hostile,
+                ActorDisposition::Hostile,
+                Some(Grudge::Faction(ActorFaction::Player)),
+            ),
+            "frame {frame}: the save carries `{flag}` and the rebuilt {id} is not the \
+             person it records (mode, disposition, grudge)",
+        );
+        // The binding is what a rewind resolves the provoked mind from, so a
+        // body built provoked must record it as a live provocation does.
+        let binding = binding.unwrap_or_else(|| {
+            panic!("{id} names a catalog character, so it carries a brain binding")
+        });
+        {
+            assert!(
+                binding.is_provoked()
+                    || matches!(
+                        binding.source,
+                        ambition_platformer2d::characters::actor::character_catalog::AutonomousSource::ProvokedProfile { .. }
+                    ),
+                "frame {frame}: {id} is built hostile but its brain binding says {:?}, \
+                 so a rewind would restore the peaceful mind",
+                binding.source
+            );
+        }
+    }
     assert!(
-        grudge.is_some(),
-        "{id} loaded hostile with NO grudge: a hostile mode with nothing to be \
-         hostile AT is a body that stands there, which is the bug the mirror's \
-         `stable_player_grudge` exists to avoid"
+        rebuilt_frames > 0,
+        "the replay never rebuilt {id}, so nothing about construction was checked"
     );
 }
 
-/// A persisted death is BUILT, not mirrored: the room a replay rebuilds carries the
+/// A persisted death is BUILT: the room a replay rebuilds carries the
 /// body in the state the save records, from the first frame it exists.
 ///
 /// ⛔⛔ THE SUBJECT IS SCARCE AND THAT IS THE FINDING BEHIND THIS ROOM CHOICE.

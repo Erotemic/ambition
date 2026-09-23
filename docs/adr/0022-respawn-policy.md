@@ -32,9 +32,11 @@ peaceful NPC fell through entirely.
    regardless of the mob-tier policy of the combat archetype the NPC borrows
    when provoked. (A future EnemySpawn LDtk field may override a single
    placement the same way.)
-4. **Liveness on load is universal.** `sync_ecs_actors_with_save` applies
-   the persisted death flag to EVERY persistent actor, provoked or not —
-   the fall-through branch shape is gone, and the missing test now exists.
+4. **Liveness on load is universal.** Construction builds EVERY persistent
+   actor in the state its death flag records, provoked or not
+   (`construction::PersistedFates`, read when a commit is requested; the
+   per-tick save mirror that did this is deleted) — the fall-through branch
+   shape is gone, and the missing test now exists.
 
 ## Current implications for agents
 

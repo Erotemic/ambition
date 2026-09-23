@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Which authored placements actually persist their death?
 
-⭐ THE QUESTION THIS EXISTS TO ANSWER. `sync_ecs_actors_with_save` zeroes a body's
-health on load when the save carries `enemy_<id>_dead` (`DeadStaysDead`) or
+⭐ THE QUESTION THIS EXISTS TO ANSWER. Construction builds a body dead
+(`construction::PersistedFates`) when the save carries `enemy_<id>_dead` (`DeadStaysDead`) or
 `enemy_<id>_dead_until_rest` (`OnRest`). Everything else writes NO flag and reads
 none. So "a persisted enemy death survives a room reload" is only a claim about
 placements that AUTHOR one of those two policies -- and a test that picks a room

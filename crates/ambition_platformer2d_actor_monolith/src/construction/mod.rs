@@ -294,9 +294,22 @@ impl PersistedFates {
         }
     }
 
-    /// An NPC placement, under the one policy every NPC placement is built with.
+    /// An NPC placement, under the one policy every NPC placement is built with:
+    /// dead if the save records a death, else provoked if it records a
+    /// provocation (`npc_<id>_hostile`, written when a live provocation lands).
     pub fn npc_fate(&self, id: &str) -> ambition_platformer2d_actor_spawn::RecordedFate {
-        self.enemy_fate_under(id, ambition_body_seed::NPC_PLACEMENT_RESPAWN)
+        use ambition_platformer2d_actor_spawn::RecordedFate;
+        match self.enemy_fate_under(id, ambition_body_seed::NPC_PLACEMENT_RESPAWN) {
+            RecordedFate::AsAuthored
+                if self
+                    .save
+                    .as_ref()
+                    .is_some_and(|save| save.flag(&crate::features::npc_flag_id(id))) =>
+            {
+                RecordedFate::Provoked
+            }
+            fate => fate,
+        }
     }
 
     /// A boss placement: dead iff the save records it Cleared.

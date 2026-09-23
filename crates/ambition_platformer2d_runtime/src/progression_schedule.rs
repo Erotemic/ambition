@@ -1,6 +1,6 @@
 //! Progression-phase schedule plugin.
 //!
-//! Boss-encounter advance, save→ECS actor/boss mirrors, quest event
+//! Boss-encounter advance, quest event
 //! pumping, room-metadata/music/portal sync, map-menu visit tracking,
 //! and the populate-from-LDtk-and-save registry refreshers all run in
 //! `Platformer2dSimulationPhaseMonolith::Progression`.
@@ -47,7 +47,6 @@ impl Plugin for ProgressionSchedulePlugin {
             (
                 ProgressionSet::BossAdvance,
                 ProgressionSet::BossHazards,
-                ProgressionSet::SaveMirror,
                 ProgressionSet::Quest,
                 ProgressionSet::WorldSync,
                 ProgressionSet::Map,
@@ -62,11 +61,6 @@ impl Plugin for ProgressionSchedulePlugin {
         // file still configures. The composition keeps the ORDERING; the
         // capability keeps its systems. See
         // `docs/planning/engine/decomposition.md`.
-        // The save mirror installs itself; this composition supplies only the
-        // schedule. Why the pair's ORDER and its `ProgressionSet::SaveMirror`
-        // membership are the monolith's facts rather than this file's is in
-        // `install_save_mirror`, beside the two functions.
-        ambition_platformer2d_actor_monolith::features::install_save_mirror(app, sim);
         app.add_systems(
             sim,
             (
@@ -133,7 +127,7 @@ impl Plugin for ProgressionSchedulePlugin {
             sim,
             ContentEncounterVictorySet
                 .after(ProgressionSet::BossHazards)
-                .before(ProgressionSet::SaveMirror),
+                .before(ProgressionSet::Quest),
         );
         app.configure_sets(
             sim,

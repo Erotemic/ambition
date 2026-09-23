@@ -99,7 +99,7 @@ pub(crate) fn peaceful_config(
     // `config.brain` (the integrator read-model) is DERIVED from the resolved
     // autonomous brain through the SHARED helper the spawn plan and runtime switch
     // both use, so the classification can never disagree with the actual brain.
-    let config_brain = crate::features::ecs::actors::config_brain_for(resolved_brain);
+    let config_brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(resolved_brain);
     PeacefulConfig {
         tuning,
         brain_profile: BrainProfile::default(),
@@ -156,8 +156,8 @@ mod tests {
         config.tuning.surface_walker = true;
 
         let before = config.clone();
-        let proj = crate::features::ecs::actors::provoked_projection(
-            crate::features::ecs::actors::default_provoked_policy(),
+        let proj = ambition_platformer2d_actor_spawn::brain_builders::provoked_projection(
+            ambition_platformer2d_actor_spawn::brain_builders::default_provoked_policy(),
             &config,
             &ambition_combat::components::ActorIdentity::new("npc", "Npc"),
             None,
@@ -175,7 +175,7 @@ mod tests {
         // THE POISON. Without this, deleting the whole projection passes.
         assert_eq!(
             proj.brain_profile,
-            crate::features::ecs::actors::default_provoked_policy(),
+            ambition_platformer2d_actor_spawn::brain_builders::default_provoked_policy(),
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );
@@ -196,7 +196,7 @@ mod tests {
         );
         assert_eq!(
             proj.config_brain,
-            crate::features::ecs::actors::config_brain_for(&proj.brain),
+            ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(&proj.brain),
             "the read-model disagrees with what deriving it from the actual brain \
              gives, so provocation has a second answer to a question one function \
              owns"
@@ -208,7 +208,7 @@ mod tests {
         // an EXHAUSTIVE destructure rather than a field read: adding a field
         // breaks this line, where reading four fields would silently ignore a
         // fifth.
-        let crate::features::ecs::actors::ProvokedArchetype {
+        let ambition_platformer2d_actor_spawn::brain_builders::ProvokedArchetype {
             brain_profile: _,
             config_brain: _,
             brain: _,

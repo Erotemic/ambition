@@ -1,7 +1,9 @@
 //! Provocation: a live peaceful body flips hostile IN PLACE.
 //!
 //! ⚠ ONE CONCERN: what happens to an ALREADY-SPAWNED actor when something
-//! provokes it — the runtime stimulus road and the save-load road share it.
+//! provokes it. A person the save remembers as provoked is not flipped here:
+//! construction builds them provoked through the same projection
+//! (`NpcActorSpawnPlan::provoke`).
 //! It reads and mutates the live cluster view (`crate::actor_clusters::ActorMut`),
 //! which is why it lives in the actor kernel and not in the spawn capability:
 //! the spawn crate builds brains and bodies from data; it never touches a live
@@ -10,39 +12,11 @@
 //! builder answers a spawn and a provocation.
 
 use super::*;
-use ambition_characters::brain::profile::BrainProfile;
-use ambition_characters::brain::Brain;
-use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
-use ambition_entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d_actor_spawn::brain_builders::{
+    default_provoked_policy, provoked_projection,
+};
 
-/// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
-///
-/// It answers *how does it fight*, and NOTHING answers *what does it swing* —
-/// the two halves the `combatant` archetype row did at once. Separating them is
-/// what let the row die, and the asymmetry is the point: a driven body must be
-/// driven by some policy, so an absent one needs an engine answer, while a body
-/// that authored no repertoire simply has none.
-///
-/// `an_engine_default_provoked_policy_matches_the_combatant_row` pins the numbers against the
-/// row while the row survives; when it goes, the constant stands alone and nothing has to
-/// change.
-///
-/// A stage that wants provoked bodies to fight differently says so there; nothing says so yet.
-///
-/// deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
-/// and using it here turned every provoked NPC — the kernel guide, a merchant —
-/// into a rock-thrower instead of a melee attacker like the pirates.
-pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile {
-    ambition_combat::actor_tuning::BrainProfile {
-        template: ambition_characters::brain::CharacterBrainTemplate::Smash,
-        aggro_radius: 460.0,
-        attack_range: 150.0,
-        patrol_effort: 0.6774,
-        chase_effort: 1.0,
-        ..Default::default()
-    }
-}
 
 /// Flip an actor hostile IN PLACE — no cluster swap, no entity churn.
 ///
@@ -51,8 +25,7 @@ pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile 
 /// caps) so the actor fights as that archetype, keeps its own sprite, resets HP
 /// to the hostile pool, and flips `ActorDisposition::Hostile` (the single source
 /// of truth — "enemy" is just hostile disposition now). An already-hostile actor
-/// just re-derives its aggressive brain (escalation). Shared by the runtime
-/// stimulus and save-load provoke paths.
+/// just re-derives its aggressive brain (escalation).
 /// Rebuild the driver from the policy the config now carries, for a body
 /// whose CHARACTER answered the provocation question.
 ///
@@ -259,98 +232,5 @@ pub fn provoke_actor_in_place(
     }
     if chase {
         em.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Chase;
-    }
-}
-
-// ⚠ AND THE RETURN TYPE HAD TO COME TOO, which the first attempt missed: moving
-// the function alone left it importing `ProvokedArchetype` from the module it had
-// just left, so the edge count did not move at all. **A function and the type it
-// returns are one unit for this purpose** — the second time in ten minutes that
-// one hop was not far enough.
-/// What provocation produces: a MIND and a KIT. Never a body.
-///
-/// The comment three lines above the code that did it already stated the correct invariant:
-/// *"provocation is one body, a different driver, a changed relationship. The body stays exactly as
-/// its character built it."* It was describing the OTHER branch.
-///
-///  what a provocation may change is the POLICY the body is driven by, the KIT
-/// it swings if it has none of its own, and its relationship to whoever struck
-/// it. Its speed, its locomotion, its capabilities and its silhouette are facts
-/// about the creature, and being hit is not an argument about any of them.
-///
-/// do not add a third. Every field on this struct is now a MIND or a KIT;
-/// a body fact reappearing here is the ontology growing back.
-///
-/// and the brain is lowered against the BODY's tuning now, not the
-/// archetype's — §4.7, a policy states normalized effort and the body states the
-/// speed. A provoked villager chases at a villager's top speed, which is the
-/// same sentence as the paragraph above with the consequence attached.
-///
-/// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
-/// reconstruction apply this exact projection, so a provoked actor is identical
-/// whether it was just challenged or rebuilt after a GGRS load.
-pub struct ProvokedArchetype {
-    pub brain_profile: BrainProfile,
-    /// The `ActorConfig.brain` read-model marker for a provoked actor.
-    pub config_brain: CharacterBrain,
-    pub brain: Brain,
-}
-
-// ⛔ THAT IS WHY THE FIRST MEASUREMENT SAID "NOT MECHANICAL". Reading
-// `provoked_projection` alone showed a genuine feature-layer dependency and I
-// recorded it as one; reading what THAT depended on showed a leaf. ⇒ A dependency
-// is only real if the thing it depends on is, and ONE HOP IS NOT FAR ENOUGH TO
-// TELL.
-/// The `ActorConfig.brain` read-model derived from a live autonomous brain, shared
-/// by the spawn plan, the runtime switch, and the post-restore reconcile so the
-/// classification can never disagree with the actual brain.
-pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::CharacterBrain {
-    use ambition_characters::brain::StateMachineCfg;
-    if matches!(brain, Brain::StateMachine(StateMachineCfg::Patrol { .. })) {
-        // The `path_id` is cosmetic in the read-model (no read site inspects it —
-        // the real path is a separate `ActorMotionPath`), so a derived one is None.
-        ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id: None }
-    } else {
-        ambition_entity_catalog::placements::CharacterBrain::Passive
-    }
-}
-
-/// The projection itself, from a POLICY rather than from a row.
-///
-/// the policy is pinned equal to the `combatant` row while that row survives
-/// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
-/// goes, this signature is already the one that stays.
-pub fn provoked_projection(
-    brain_profile: BrainProfile,
-    current_config: &ActorConfig,
-    identity: &ambition_combat::components::ActorIdentity,
-    repertoire: Option<&ambition_characters::brain::ActionSet>,
-    body: ambition_platformer2d_core::AbilitySet,
-) -> ProvokedArchetype {
-    // the POLICY is the provoked one; the BODY is the one that was struck.
-    let mut hostile_config = current_config.clone();
-    hostile_config.brain_profile = brain_profile;
-    let brain = ambition_platformer2d_actor_spawn::brain_builders::aggressive_brain_for_enemy(
-        &hostile_config,
-        identity,
-        repertoire,
-        body,
-    );
-    // that read-model is a SILHOUETTE, and it was being used as a hostility
-    // flag. `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
-    // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
-    // value to read correctly — and the only one to hand was an archetype name.
-    // Both branches ask their `BrainProfile` now, so nothing needs the name.
-    //
-    //  derived like every other road derives it (`config_brain_for`), which
-    // answers `Patrol` for a patrol brain and `Passive` otherwise. The live
-    // provoke and the reconstruction agreed on `Custom("combatant")` before and
-    // agree on the derived value now, which is this module's central claim.
-    let config_brain = config_brain_for(&brain);
-
-    ProvokedArchetype {
-        config_brain,
-        brain,
-        brain_profile,
     }
 }

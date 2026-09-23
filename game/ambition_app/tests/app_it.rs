@@ -154,7 +154,7 @@ mod rollback_seat_devices;
 mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
-mod save_mirror_flips_a_persisted_npc;
+mod persisted_fate_is_built;
 mod scheduler_perturbation;
 mod scripted_gameplay;
 mod staged_hit_lifecycle;

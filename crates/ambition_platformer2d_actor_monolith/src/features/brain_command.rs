@@ -384,7 +384,7 @@ fn apply_catalog_mode(
     if let Some(profile) = character_profile {
         if let Some(mut config) = config {
             config.brain_profile = profile;
-            config.brain = crate::features::ecs::actors::config_brain_for(brain);
+            config.brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain);
         }
         return;
     }

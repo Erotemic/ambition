@@ -420,9 +420,6 @@ pub enum ProgressionSet {
     /// scripts, death payloads, and the phase-transition feedback that closes
     /// the boss group.
     BossHazards,
-    /// Save → ECS mirrors for actors and bosses, once the encounter state they
-    /// mirror is settled.
-    SaveMirror,
     /// Push and apply quest events.
     Quest,
     /// Room metadata, music request and portal phase timers — the world catching

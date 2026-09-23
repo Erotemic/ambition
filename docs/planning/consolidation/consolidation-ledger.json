@@ -3865,29 +3865,27 @@
       "id": "DUP-PERSISTED-FATE",
       "category": "duplicate_truth_family",
       "name": "Whether an authored body the save says is dead / provoked / cleared starts that way",
-      "owner": "deaths and cleared bosses are built at construction; the provoked-NPC flip is still a per-tick mirror (2026-09-23)",
+      "owner": "construction builds every persisted fate; the save mirror is deleted (2026-09-23)",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "Deaths and cleared bosses are built at construction from `PersistedFates`; the provoked-NPC flip is still a per-tick mirror in `sync_ecs_actors_with_save` (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
+      "current_truth": "Deaths, cleared bosses and provocations are built at construction from `PersistedFates`; the save mirror is deleted (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Deaths and cleared bosses are built at construction from `PersistedFates`; the provoked-NPC flip is still a per-tick mirror in `sync_ecs_actors_with_save` (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
+          "claim": "Deaths, cleared bosses and provocations are built at construction from `PersistedFates`; the save mirror is deleted (2026-09-23). The full account is the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs"
           ]
         }
       ],
-      "classification": "open: the provoked-NPC flip",
+      "classification": "resolved 2026-09-23",
       "consolidation_hypothesis": "See the `DUP-PERSISTED-FATE` row of `architecture-census.md`.",
-      "why_it_exists": "deaths and cleared bosses are built at construction; the provoked-NPC flip is still a per-tick mirror (2026-09-23)",
-      "metric_tags": [
-        "suspect_duplicate_authority"
-      ],
-      "duplicate_authority_state": "OPEN_PRESSURE"
+      "why_it_exists": "construction builds every persisted fate; the save mirror is deleted (2026-09-23)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
     },
     {
       "id": "DUP-PRESENTATION-BINDING",

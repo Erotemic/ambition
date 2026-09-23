@@ -2409,7 +2409,7 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
 /// authored actor, in one room, that the player killed. A summon has no room, is
 /// built fresh on every press, and every instance shares ONE `config.id`. So the
 /// first recovery shark that ever died wrote `enemy_smash_ride_shark_dead`, and
-/// `sync_ecs_actors_with_save` — which runs EVERY SIM TICK, not on load — zeroed
+/// the save mirror of the day — which ran EVERY SIM TICK, not on load — zeroed
 /// the pool of every shark summoned afterwards on its first tick.
 ///
 /// ⛔⛔ AND IT IS INVISIBLE FROM THE LOG. Nothing hit the shark, so no `lethal

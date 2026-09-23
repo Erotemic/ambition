@@ -29,6 +29,23 @@ fn a_killed_unprovoked_npc_is_built_dead() {
     );
 }
 
+/// A provocation the save records builds that person provoked; a recorded
+/// death outranks it, because a dead person is not anybody's foe.
+#[test]
+fn a_provoked_npc_is_built_provoked_unless_it_is_dead() {
+    let provoked = fates(|save| {
+        save.set_flag(crate::features::npc_flag_id("kernel_guide"), true);
+    });
+    assert_eq!(provoked.npc_fate("kernel_guide"), RecordedFate::Provoked);
+    assert_eq!(provoked.npc_fate("other_guide"), RecordedFate::AsAuthored);
+
+    let dead_and_provoked = fates(|save| {
+        save.set_flag(crate::features::npc_flag_id("kernel_guide"), true);
+        save.set_flag(crate::features::enemy_dead_flag("kernel_guide"), true);
+    });
+    assert_eq!(dead_and_provoked.npc_fate("kernel_guide"), RecordedFate::Dead);
+}
+
 /// ⭐⭐ A BODY WHOSE KIND NEVER WRITES A FLAG MUST NOT READ ONE.
 ///
 /// The death path writes `enemy_<id>_dead` only for `DeadStaysDead` and

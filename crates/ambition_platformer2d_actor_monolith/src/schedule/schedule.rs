@@ -182,6 +182,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         sim,
         (
             ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry,
+            ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Constrain,
             ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Contacts,
             ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Crossing,
         )

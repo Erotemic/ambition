@@ -456,7 +456,11 @@ pub enum RoomTransitionSet {
 /// Integration and the constraints after it ([`WorldPrepSet`]) run a phase
 /// earlier. A movement authority in THIS phase that moves a body along a path —
 /// a carry or a pull (`carry_body`, `constrain_body_pose`) — joins
-/// [`Self::Carry`]. Once `Carry` has run the path is settled:
+/// [`Self::Carry`]. An authority whose effect DEPENDS on the pose the carries
+/// left — portal straddle eviction asks whether the body's current box
+/// straddles a closing plane — joins [`Self::Constrain`], after every carry:
+/// two carries commute, a carry and a pose test do not. Once `Constrain` has
+/// run the path is settled:
 ///
 /// - [`Self::Contacts`] reads it as travel that can touch something (hazards);
 /// - [`Self::Crossing`] reads it as travel through a boundary (portal CCD), and
@@ -470,6 +474,7 @@ pub enum RoomTransitionSet {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum BodyPathSet {
     Carry,
+    Constrain,
     Contacts,
     Crossing,
 }

@@ -820,8 +820,14 @@ forget either. The reset's early-return reader plus a trailing retire
 closure, and the dev reload's four queued closures, are gone. ⛔
 **Activation is deliberately NOT on it:** `adopt` finalizes, then promotes or
 discards a whole candidate session, which is a different transaction rather
-than a second spelling of this one. ⚠ The outgoing-roster query is still
-written three times; that is the remaining duplication on this row.
+than a second spelling of this one. ⚠ The outgoing-roster query appears
+three times, and MEASURED it is not a duplicate: each carries its own POLICY
+filter (`RoomResident` for transition and dev reload, the wider
+`RoomScopedEntity` for New Game by design), and what repeats is a one-line
+`(entity, has_physics)` projection. Unifying it would merge the retention
+difference this row's DEPENDENCIES section says must stay explicit. ⇒ No
+verdict-skeleton duplication remains on the roads that wait on a room
+verdict.
 
 ### INDEPENDENT TRUTHS INVOLVED
 

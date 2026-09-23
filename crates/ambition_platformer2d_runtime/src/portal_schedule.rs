@@ -4,7 +4,10 @@
 //! - Carves publish after gravity-zone collection and before core simulation.
 //! - Input warp runs after interaction input and before the primary frame is committed to
 //!   `SlotControls`.
-//! - Transit runs after body and ground-item integration so current-frame positions cross.
+//! - Frame (link resolution, straddler eviction) is a carry: it runs with the
+//!   other carries, before hazards read the travelled path.
+//! - Transit runs after body and ground-item integration so current-frame positions cross,
+//!   and after the path's contacts, because a crossing may collapse the path.
 
 use bevy::prelude::*;
 
@@ -78,6 +81,18 @@ impl Plugin for PortalSchedulePlugin {
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 )
+                .run_if(gameplay_allowed),
+        );
+
+        // Frame: eviction shoves a straddler off a moved or closed plane, which
+        // is travel — so it settles with the other carries, before hazard
+        // contacts read the path. Same host edges as Transit, which follows it.
+        app.configure_sets(
+            sim,
+            PortalSet::Frame
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Carry)
                 .run_if(gameplay_allowed),
         );
 

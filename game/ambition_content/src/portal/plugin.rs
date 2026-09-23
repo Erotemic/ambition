@@ -82,7 +82,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // CC6 host attachment: attribute placed portals to the identified
         // face they sit on, then re-derive each hosted aperture's frame from
         // its host every frame (§5-P2 step 2). Runs at the FRONT of
-        // `PortalSet::Transit`, before the crate's link/evict/transit chain
+        // `PortalSet::Frame`, before the crate's link/evict chain
         // (eviction must see the post-move apertures + their frame deltas),
         // and `Transit` is ordered after the platform sync via the encounter
         // schedule's chain, so the aperture reads this frame's host pose.
@@ -93,7 +93,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 crate::portal::host_adapter::refresh_hosted_portal_frames,
             )
                 .chain()
-                .in_set(PortalSet::Transit)
+                .in_set(PortalSet::Frame)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
         // The attribution latch is rollback state.

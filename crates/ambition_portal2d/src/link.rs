@@ -56,11 +56,11 @@ const DEAD_LINK_CHANNEL: u8 = 255;
 
 /// The set [`resolve_portal_links`] runs in.
 ///
-/// Link resolution is the FIRST thing in `PortalSet::Transit`: it turns authored
-/// link ids into channel pairs, and everything downstream in that set —
-/// aperture equalisation, straddler eviction, transit itself — reads the result.
+/// Link resolution is the FIRST thing in `PortalSet::Frame`: it turns authored
+/// link ids into channel pairs, and everything downstream — aperture
+/// equalisation, straddler eviction, transit itself — reads the result.
 /// A host adapter that must publish portal frames before resolution therefore
-/// needs a boundary INSIDE the set, which `PortalSet::Transit` cannot give it
+/// needs a boundary INSIDE the set, which `PortalSet::Frame` cannot give it
 /// (it is already in that set; pinning the parent would be a cycle).
 ///
 /// ONE member. `equalize_pair_apertures` is chained immediately after and is

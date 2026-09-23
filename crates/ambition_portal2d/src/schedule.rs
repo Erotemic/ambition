@@ -30,6 +30,12 @@ pub enum PortalSet {
     RoomReset,
     /// Temporary ability suppression while crossing a portal aperture.
     TransitGuards,
+    /// This tick's portal frames: link resolution, aperture equalisation, and
+    /// the eviction of any body straddling a plane that moved or closed. The
+    /// eviction CARRIES a body, so a host places this set with its other
+    /// carries — before anything reads the tick's travelled path — and
+    /// [`PortalSet::Transit`] always follows it.
+    Frame,
     /// PlacedPortal cooldown, body transit, item transit, and actor roll updates.
     Transit,
 }

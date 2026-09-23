@@ -193,6 +193,7 @@ impl Plugin for PortalSimulationPlugin {
         // Teleports run after actor and ground-item integration so this frame's
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
+        app.configure_sets(sim, PortalSet::Frame.before(PortalSet::Transit));
         app.add_systems(
             sim,
             (
@@ -203,9 +204,16 @@ impl Plugin for PortalSimulationPlugin {
                 crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
                 crate::equalize_pair_apertures,
                 // moved/closed under a straddler shoves it clear (vs ripping it
-                // in half). Runs first so transit never acts on a body the
-                // closing plane already evicted.
+                // in half), so transit never acts on a body the closing plane
+                // already evicted.
                 crate::evict_straddlers_on_portal_change,
+            )
+                .chain()
+                .in_set(PortalSet::Frame),
+        );
+        app.add_systems(
+            sim,
+            (
                 tick_portal_cooldowns,
                 portal_transit,
                 portal_teleport_ground_items,

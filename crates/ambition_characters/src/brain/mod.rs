@@ -410,6 +410,10 @@ pub struct MovesetRanged;
 /// Only the player carries it today; a possessed body that adopts the player's
 /// kit gets it too. Distinct from an actor's `ActionSet::ranged` slot, which an
 /// enemy/boss uses for its OWN (non-chargeable) projectiles.
+///
+/// ⚠ A CAPABILITY, NOT THE ROUTE: while the effective moveset carries a
+/// [`MovesetRanged`] move (a held ranged item), that move owns the press and
+/// the charge stream is not emitted.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ChargesProjectiles;
 
@@ -430,16 +434,26 @@ pub fn emit_player_projectile_tick_messages(
         Entity,
         &crate::control::ActorControl,
         Option<&ChargesProjectiles>,
+        bevy::prelude::Has<MovesetRanged>,
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, charges) in &actors {
+    for (entity, control, charges, moveset_ranged) in &actors {
         // Capability gate, not an identity gate: emit the charge-tick stream for
         // any actor that carries the chargeable-projectile ability — the player
         // today, a possessed body that adopts the player's kit tomorrow. (Was
         // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
         // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
         if charges.is_none() {
+            continue;
+        }
+        // ⛔ ONE PRESS, ONE OWNER, DECIDED ON THE EFFECTIVE REPERTOIRE. Charging
+        // is a CHARACTER fact, but the hand replaces the ranged slot after it:
+        // preparation revokes a charger's own `ranged` verb, so a `ranged` move
+        // in the live moveset is the held item's — and a held item is the whole
+        // ranged vocabulary. The move answers the press; the charge path does
+        // not hear it until the hand lets go.
+        if moveset_ranged {
             continue;
         }
         let frame = &control.0;

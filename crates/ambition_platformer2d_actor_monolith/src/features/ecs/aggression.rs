@@ -39,6 +39,10 @@ pub fn apply_actor_stimuli(
         ),
         With<FeatureSimEntity>,
     >,
+    // Whose side the provoker is on: only the PLAYER's provocation is durable,
+    // because that is the only grudge construction can rebuild.
+    factions: Query<&ambition_combat::components::ActorFaction>,
+    mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
 ) {
     for stimulus in stimuli.read().copied() {
         // A `Challenged` stimulus is the player's explicit consent to fight, so
@@ -53,7 +57,7 @@ pub fn apply_actor_stimuli(
             entity,
             mut aggression,
             repertoire,
-            _interaction,
+            interaction,
             mut disposition,
             mut cq,
             worn,
@@ -95,7 +99,23 @@ pub fn apply_actor_stimuli(
             .map(ambition_combat::components::Grudge::Body)
             .or(aggression.grudge);
 
+        let was_peaceful = disposition.is_peaceful();
         let mut em = cq.as_actor_mut();
+        // ⛔ THE DURABLE HALF OF THE SAME TRANSITION. Construction builds a
+        // person from the save's provocation fact, so a live flip that did not
+        // record it — a `<<challenge>>` did not — came back peaceful on the next
+        // room replay. Announced here because both roads (a strike past the
+        // threshold, a challenge) funnel into this flip.
+        if was_peaceful
+            && interaction.is_some()
+            && source.and_then(|source| factions.get(source).ok())
+                == Some(&ambition_combat::components::ActorFaction::Player)
+        {
+            provocations.write(crate::features::NpcProvocationChanged {
+                id: em.identity.id.clone(),
+                provoked: true,
+            });
+        }
         crate::features::ecs::actors::provoke_actor_in_place(
             &mut commands,
             entity,

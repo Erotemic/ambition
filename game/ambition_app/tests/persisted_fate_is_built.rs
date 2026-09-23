@@ -120,6 +120,81 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
     );
 }
 
+/// ⛔ A `<<challenge>>` IS A PROVOCATION THE REPLAY MUST REMEMBER.
+///
+/// Construction builds a person from the save's provocation fact, and only the
+/// damage road used to write it: a challenged NPC turned hostile live and came
+/// back PEACEFUL after a room replay. Driven through `ChallengeRequested`, the
+/// message the `<<challenge>>` command sends, naming the playing body as
+/// challenger — so the faction gate is answered by the real player body.
+#[test]
+fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
+    use ambition_platformer2d::combat::components::ActorDisposition;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+
+    let mut sim = fixed_60hz_sim();
+    sim.step_n(base(), 120);
+
+    let (npc, id, mode) = talkable_actors(&mut sim)
+        .first()
+        .cloned()
+        .expect("the start room authors at least one talkable NPC to challenge");
+    assert_ne!(mode, AggressionMode::Hostile, "{id} is hostile before the challenge");
+    let flag = ambition_platformer2d::actors::features::npc_flag_id(&id);
+    let npc_sim = sim
+        .world()
+        .get::<SimId>(npc)
+        .cloned()
+        .expect("a placed NPC carries a SimId");
+    let player_sim = {
+        let mut query = sim.world_mut().query_filtered::<&SimId, PrimaryPlayerOnly>();
+        query
+            .single(sim.world())
+            .cloned()
+            .expect("the shipped app plays exactly one primary body")
+    };
+    sim.world_mut()
+        .write_message(ambition_platformer2d::actors::features::ChallengeRequested {
+            target: npc_sim,
+            challenger: Some(player_sim),
+        });
+    // The challenge is ARMED and fires after its grace in `Playing`.
+    sim.step_n(base(), 60 * 3);
+    assert_eq!(
+        sim.world().get::<ActorDisposition>(npc).copied(),
+        Some(ActorDisposition::Hostile),
+        "premise: the challenge never flipped {id} live, so the replay says nothing"
+    );
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&flag),
+        "{id} was challenged and turned hostile, and the save does not carry `{flag}`"
+    );
+
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
+    let mut rebuilt = None;
+    for _ in 0..60 {
+        sim.step(base());
+        rebuilt = talkable_actors(&mut sim)
+            .into_iter()
+            .find(|(entity, other, _)| *other == id && *entity != npc);
+        if rebuilt.is_some() {
+            break;
+        }
+    }
+    let (_, _, rebuilt_mode) = rebuilt.expect("the replay never rebuilt the challenged NPC");
+    assert_eq!(
+        rebuilt_mode,
+        AggressionMode::Hostile,
+        "{id} was challenged, and the room replay rebuilt it peaceful"
+    );
+}
+
 /// A persisted death is BUILT: the room a replay rebuilds carries the
 /// body in the state the save records, from the first frame it exists.
 ///

@@ -82,6 +82,7 @@ fn run(app: &mut App, actor: bevy::prelude::Entity) {
 fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     // Already at the strike threshold (the damage system increments
     // strikes; this stimulus is the provocation that re-evaluates).
@@ -126,6 +127,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
         ..Default::default()
     });
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, tick_pending_challenges);
     let actor = app
         .world_mut()
@@ -171,6 +173,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
 fn npc_below_the_threshold_stays_peaceful() {
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
     run(&mut app, npc);
@@ -189,6 +192,7 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
     // is the gate the Perfect Cell-ular Automaton encounter rides on.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     app.world_mut().write_message(ActorStimulus::Challenged {
@@ -224,6 +228,7 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     // First stimulus: the peaceful→hostile flip builds the (combatant Smash)
@@ -349,6 +354,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_flying_npc(&mut app);
 
@@ -443,6 +449,7 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
 
@@ -513,6 +520,7 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
 
     let cast = npc_cast(Some(false), None);
@@ -613,6 +621,7 @@ fn an_unauthored_body_gets_the_undescribed_pool_before_anybody_hits_it() {
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
 
@@ -649,6 +658,7 @@ fn an_un_challenged_passive_npc_ignores_damage() {
     // crossing the retaliation threshold) arms the fight.
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
     // Force passive so DamagedBy is a no-op.
@@ -661,5 +671,109 @@ fn an_un_challenged_passive_npc_ignores_damage() {
         *app.world().get::<ActorDisposition>(npc).unwrap(),
         ActorDisposition::Peaceful,
         "a passive, un-challenged NPC stays peaceful under damage"
+    );
+}
+
+/// ⛔ THE SAVE'S PROVOCATION FACT IS WHAT A ROOM REPLAY BUILDS THE PERSON FROM,
+/// so every road that changes the live fact must change the durable one.
+///
+/// A `<<challenge>>` flipped the NPC hostile live and recorded nothing — only the
+/// damage road wrote `npc_<id>_hostile` — so a replay rebuilt the person
+/// peaceful. A `<<restore_brain>>` release pacified it live and left the flag
+/// set, so a replay rebuilt it hostile. And the flag carries no faction while
+/// construction rebuilds `Grudge::Faction(Player)`, so a provocation by anyone
+/// else must not set it.
+#[test]
+fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clears_it() {
+    use ambition_persistence::save::AmbitionGameSave;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    fn app_with_npc() -> (App, bevy::prelude::Entity) {
+        let mut app = App::new();
+        app.add_message::<ActorStimulus>();
+        app.add_message::<crate::features::NpcProvocationChanged>();
+        app.add_message::<crate::features::ReleaseProvocation>();
+        app.add_message::<crate::features::BrainCommand>();
+        app.insert_resource(AmbitionGameSave::default());
+        app.insert_resource(ambition_persistence::quest::QuestRegistry::default());
+        app.add_systems(
+            Update,
+            (
+                apply_actor_stimuli,
+                crate::features::apply_release_provocations,
+                crate::features::record_npc_provocations,
+            )
+                .chain(),
+        );
+        let npc = spawn_npc_with_strikes(&mut app, 0);
+        app.world_mut()
+            .entity_mut(npc)
+            .insert(SimId::placement("alice"));
+        (app, npc)
+    }
+    fn durable(app: &App) -> bool {
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .data()
+            .flag(&crate::features::npc_flag_id("alice"))
+    }
+
+    // The player challenges: live AND durable.
+    let (mut app, npc) = app_with_npc();
+    let player = app
+        .world_mut()
+        .spawn(ambition_combat::components::ActorFaction::Player)
+        .id();
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: Some(player),
+    });
+    app.update();
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "premise: the challenge flipped the NPC live"
+    );
+    assert!(
+        durable(&app),
+        "a challenged NPC turned hostile live and the save does not record it, \
+         so the next room replay rebuilds it peaceful"
+    );
+
+    // Released: live AND durable.
+    app.world_mut()
+        .write_message(crate::features::ReleaseProvocation::new(SimId::placement("alice")));
+    app.update();
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Peaceful,
+        "premise: the release pacified the NPC live"
+    );
+    assert!(
+        !durable(&app),
+        "a released NPC is peaceful live and the save still records it provoked, \
+         so the next room replay rebuilds it hostile"
+    );
+
+    // Provoked by somebody who is not the player: live, NOT durable.
+    let (mut app, npc) = app_with_npc();
+    let bandit = app
+        .world_mut()
+        .spawn(ambition_combat::components::ActorFaction::Enemy)
+        .id();
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: Some(bandit),
+    });
+    app.update();
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "premise: the NPC turned on the bandit live"
+    );
+    assert!(
+        !durable(&app),
+        "a grudge against a non-player was persisted as the flag construction \
+         rebuilds as a grudge against the PLAYER"
     );
 }

@@ -55,7 +55,9 @@ pub mod ecs;
 pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The one spelling of the persisted-hostile NPC flag — see [`npcs::npc_flag_id`].
-pub use npcs::{npc_flag_id, npc_talked_flag};
+pub use npcs::{
+    npc_flag_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
+};
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
@@ -186,6 +188,7 @@ pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_message::<npcs::NpcProvocationChanged>();
         let sim = app.sim_schedule();
         use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
         use bevy::prelude::IntoScheduleConfigs;
@@ -206,6 +209,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // consumes.
                 ecs::tick_pending_challenges.in_set(GameplayGated),
                 ecs::apply_actor_stimuli,
+                // After the flip that announces a provocation, and after the
+                // release that announces its end, so both land this tick.
+                npcs::record_npc_provocations
+                    .after(crate::features::apply_release_provocations),
                 ecs::effect_bus::apply_gameplay_sfx_effects,
             )
                 .chain()

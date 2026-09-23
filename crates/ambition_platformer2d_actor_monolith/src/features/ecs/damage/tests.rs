@@ -643,13 +643,19 @@ struct CapturedBubbles(usize);
 /// prevent, reproduced inside the poison itself. ⇒ Accumulate as they are
 /// written, which is what `CapturedBubbles` beside this already does.
 #[derive(bevy::prelude::Resource, Default)]
-struct CapturedHostileFlags(usize);
+struct CapturedHostileTurns(usize);
 
-fn capture_hostile_flags(
-    mut reader: bevy::prelude::MessageReader<SetFlagRequested>,
-    mut cap: bevy::prelude::ResMut<CapturedHostileFlags>,
+/// Counts ticks whose banner announces the turn — the damage road's own
+/// verdict on "this hit provoked". The DURABLE fact is recorded by the flip
+/// (`apply_actor_stimuli`), not here.
+fn capture_hostile_turns(
+    mut banner: bevy::prelude::ResMut<GameplayBanner>,
+    mut cap: bevy::prelude::ResMut<CapturedHostileTurns>,
 ) {
-    cap.0 += reader.read().filter(|m| m.on).count();
+    if banner.text.ends_with("turns hostile") {
+        cap.0 += 1;
+    }
+    banner.clear();
 }
 
 fn capture_bubbles(
@@ -2651,7 +2657,7 @@ mod bark_rate {
     }
 }
 
-/// ⛔⛔ THE HOSTILE FLAG MUST OBEY THE BODY'S OWN THRESHOLD, NOT A GLOBAL DEFAULT.
+/// ⛔⛔ THE HOSTILE TURN MUST OBEY THE BODY'S OWN THRESHOLD, NOT A GLOBAL DEFAULT.
 ///
 /// `ActorAggression::RetaliatesWhenHit { strike_threshold }` is per-body policy
 /// and canonical aggression resolution reads it. The damage road compared against
@@ -2665,7 +2671,7 @@ mod bark_rate {
 /// different facts. These use 5 and 1 — values no default produces — so the
 /// assertion can only pass by reading the field.
 #[test]
-fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
+fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
     fn hostile_flags_after(strikes: usize, strike_threshold: u8) -> usize {
         let mut app = App::new();
         app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -2673,10 +2679,10 @@ fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
         app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         register_hit_pipeline_messages(&mut app);
-        app.init_resource::<CapturedHostileFlags>();
+        app.init_resource::<CapturedHostileTurns>();
         app.add_systems(
             Update,
-            (apply_feature_hit_events, capture_hostile_flags).chain(),
+            (apply_feature_hit_events, capture_hostile_turns).chain(),
         );
 
         let body = spawn_talkable_npc_with_threshold(&mut app, 9, strike_threshold);
@@ -2709,7 +2715,7 @@ fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
             app.update();
         }
         let _ = body;
-        app.world().resource::<CapturedHostileFlags>().0
+        app.world().resource::<CapturedHostileTurns>().0
     }
 
     // ⛔ THE HIGH POISON. Three hits against a threshold of five: the default says
@@ -2728,7 +2734,7 @@ fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
          this test proves only that nothing ever fires"
     );
     // ⛔ THE LOW POISON, the inverse error: mechanics turn hostile on hit one
-    // while presentation and the save flag wait for three.
+    // while presentation waits for three.
     assert!(
         hostile_flags_after(1, 1) > 0,
         "an NPC authored to retaliate on the FIRST strike must be flagged hostile \

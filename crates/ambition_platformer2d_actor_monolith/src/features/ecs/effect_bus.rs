@@ -19,13 +19,23 @@ pub fn apply_flag_effects(
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
-        if effect.on {
-            quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
-                effect.id.clone(),
-            ));
-        }
-        save.data_mut().set_flag(effect.id.clone(), effect.on);
+        write_flag(&mut save, &mut quests, effect.id.clone(), effect.on);
     }
+}
+
+/// The one flag write: the save, plus `QuestAdvanceEvent::FlagSet` when the
+/// flag goes on. Shared by typed recorders that own a flag's meaning, so a
+/// flag set through one never skips the quest mirror the other provides.
+pub(crate) fn write_flag(
+    save: &mut ambition_persistence::save::AmbitionGameSave,
+    quests: &mut ambition_persistence::quest::QuestRegistry,
+    id: String,
+    on: bool,
+) {
+    if on {
+        quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(id.clone()));
+    }
+    save.data_mut().set_flag(id, on);
 }
 
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).

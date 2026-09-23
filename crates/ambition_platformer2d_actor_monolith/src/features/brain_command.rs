@@ -427,7 +427,14 @@ fn apply_catalog_mode(
 pub fn apply_release_provocations(
     mut releases: MessageReader<ReleaseProvocation>,
     mut brain_commands: MessageWriter<BrainCommand>,
-    mut actors: Query<(&SimId, &mut ActorDisposition, &mut ActorAggression)>,
+    mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
+    mut actors: Query<(
+        &SimId,
+        &mut ActorDisposition,
+        &mut ActorAggression,
+        Option<&ambition_combat::components::ActorIdentity>,
+        Option<&ambition_combat::components::ActorInteraction>,
+    )>,
 ) {
     let targets: BTreeSet<String> = releases
         .read()
@@ -436,9 +443,17 @@ pub fn apply_release_provocations(
     if targets.is_empty() {
         return;
     }
-    for (sim_id, mut disposition, mut aggression) in &mut actors {
+    for (sim_id, mut disposition, mut aggression, identity, interaction) in &mut actors {
         if !targets.contains(sim_id.as_str()) {
             continue;
+        }
+        // Durable authority: a freed person stays freed across a room replay,
+        // which rebuilds them from the save's provocation fact.
+        if let (Some(identity), Some(_)) = (identity, interaction) {
+            provocations.write(crate::features::NpcProvocationChanged {
+                id: identity.id.clone(),
+                provoked: false,
+            });
         }
         // Disposition authority: pacify.
         *aggression = ActorAggression::passive();

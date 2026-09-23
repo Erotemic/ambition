@@ -661,7 +661,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// declared resource in `body.resources` now, held only by a body whose
 /// experience declared the pool (`composable-actor-resources.md`, step 2).
 /// One row fewer, and a body that holds no Mana writes no Mana bytes.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 204;
+/// ⛔⛤ 204 -> 205: `message.npc_provocation_changed` is cleared on load. A
+/// talkable NPC's durable provocation is announced by the transitions that own
+/// it (the flip, the release) and recorded in the same tick, so a resimulated
+/// tick re-announces it rather than replaying an abandoned branch's.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 205;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

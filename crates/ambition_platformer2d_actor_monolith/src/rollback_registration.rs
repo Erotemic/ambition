@@ -612,6 +612,12 @@ where
         OWNER,
         "message.release_provocation",
     );
+    // Written and recorded inside one tick; a resimulated tick re-announces
+    // the transition that caused it.
+    registrar.clear_message_on_rollback::<crate::features::NpcProvocationChanged>(
+        OWNER,
+        "message.npc_provocation_changed",
+    );
     registrar.clear_message_on_rollback::<ambition_platformer2d_actor_spawn::SpawnActorRequest>(
         OWNER,
         "message.spawn_actor_request",

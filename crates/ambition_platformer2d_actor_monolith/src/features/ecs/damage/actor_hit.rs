@@ -201,16 +201,12 @@ pub(crate) fn apply_actor_hit(
             aggression.strikes = aggression.strikes.saturating_add(1);
             if let Some(interactable) = interactable {
                 // ⛔ WAS `aggression.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD`, a
-                // GLOBAL DEFAULT standing in for a per-body policy. The flag
-                // written here is persistent and the bark is what the player
-                // hears, so a disagreement with the mechanics is both saved and
-                // seen. `provoked()` is the same question aggression resolution
-                // asks.
+                // GLOBAL DEFAULT standing in for a per-body policy. The bark is
+                // what the player hears, so it asks the question aggression
+                // resolution asks. The DURABLE fact is not written here: the
+                // flip in `apply_actor_stimuli` records it for every road that
+                // provokes, which a hit is only one of.
                 if aggression.provoked() {
-                    writers.set_flag.write(SetFlagRequested {
-                        id: super::super::super::npcs::npc_flag_id(&em.identity.id),
-                        on: true,
-                    });
                     writers.vfx.write(VfxMessage::SpeechBubble {
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hostile_bark_line(

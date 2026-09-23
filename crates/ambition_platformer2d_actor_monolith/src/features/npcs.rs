@@ -64,14 +64,54 @@ use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCata
 use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
 
-/// The save flag that says this NPC was provoked and stays hostile.
+/// The save flag that says this NPC was provoked and stays hostile TO THE
+/// PLAYER.
 ///
-/// ⭐ ONE SPELLING. The save mirror reads it every sim tick and the provoke path
-/// writes it; anything else that needs to name the fact — a test, a dev tool —
-/// asks here rather than re-deriving the format, because a second `format!` for
-/// the same flag is a rename waiting to go silently one-sided.
+/// ⭐ ONE SPELLING. Room construction reads it (`PersistedFates::npc_fate`) and
+/// [`record_npc_provocations`] writes it; anything else that needs to name the
+/// fact — a test, a dev tool — asks here rather than re-deriving the format,
+/// because a second `format!` for the same flag is a rename waiting to go
+/// silently one-sided.
+///
+/// ⚠ It is a boolean with no faction in it, and construction rebuilds the person
+/// with `Grudge::Faction(Player)`. So it MEANS "persistently hostile to the
+/// player", and only a provocation the player caused may set it.
 pub fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")
+}
+
+/// A talkable NPC's durable provocation changed: the player provoked it (a
+/// strike past its threshold, or a `<<challenge>>`), or a `<<restore_brain>>`
+/// released it.
+///
+/// ⛔ The save flag is what room construction BUILDS the person from, so every
+/// road that changes the live fact must change the durable one too, or a room
+/// replay silently undoes it. The two transitions that own the fact —
+/// `apply_actor_stimuli`'s flip and `apply_release_provocations` — announce it
+/// here, and [`record_npc_provocations`] is the one writer of the flag, so
+/// aggression code never names a save key.
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
+pub struct NpcProvocationChanged {
+    /// The NPC's `ActorIdentity::id` — the placement identity construction
+    /// looks the fate up by.
+    pub id: String,
+    pub provoked: bool,
+}
+
+/// Record each [`NpcProvocationChanged`] as the NPC's persisted-hostile flag.
+pub fn record_npc_provocations(
+    mut changes: bevy::prelude::MessageReader<NpcProvocationChanged>,
+    mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut quests: bevy::prelude::ResMut<ambition_persistence::quest::QuestRegistry>,
+) {
+    for change in changes.read() {
+        super::ecs::effect_bus::write_flag(
+            &mut save,
+            &mut quests,
+            npc_flag_id(&change.id),
+            change.provoked,
+        );
+    }
 }
 
 /// The save flag that records the player has spoken to this dialogue's NPC.

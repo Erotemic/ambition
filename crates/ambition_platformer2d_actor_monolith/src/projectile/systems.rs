@@ -714,7 +714,7 @@ pub fn step_projectiles(
         // A grudge is live firer state, not launch provenance, so resolve it
         // from the current owner. If grudges gain a lifetime beyond the firer,
         // stamp the target's `SimId` on the projectile rather than an `Entity`.
-        let firer_grudge: Option<Entity> = owner_combat_data
+        let firer_grudge: Option<ambition_combat::components::Grudge> = owner_combat_data
             .and_then(|(_, agg, _)| agg)
             .and_then(|a| a.grudge);
         // Only a projectile with no named owner is indiscriminate. A temporarily

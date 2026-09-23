@@ -600,7 +600,7 @@ impl AttackerFacts<'_, '_> {
     /// The DAMAGE-side per-entity override: a specific body this one has decided
     /// to oppose, which lets a hit land on a same-faction target without
     /// re-tagging factions.
-    fn grudge(&self, owner: Entity) -> Option<Entity> {
+    fn grudge(&self, owner: Entity) -> Option<crate::components::Grudge> {
         self.aggression.get(owner).ok().and_then(|a| a.grudge)
     }
 

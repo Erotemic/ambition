@@ -327,8 +327,8 @@ snapshot_unit_enum!(crate::components::ActorDisposition {
     Hostile = 1,
 });
 
-/// Mutable aggression policy and provocation count. The `target` and `grudge`
-/// fields are entity-handle caches/relationships: target selection republishes
+/// Mutable aggression policy and provocation count. `target` and a BODY
+/// `grudge` are entity-handle caches/relationships: target selection republishes
 /// `target`, while content-staged batch reconstruction restores authored grudges.
 /// Encoding allocator-local `Entity` values would violate the stable-id contract.
 impl SnapshotCursor for crate::components::ActorAggression {
@@ -343,6 +343,22 @@ impl SnapshotCursor for crate::components::ActorAggression {
             AggressionMode::Hostile => put_u8(out, 2),
         }
         put_i32(out, self.strikes);
+        // A FACTION grudge names no entity, so unlike a body grudge it is
+        // stable state and is encoded.
+        use crate::components::{ActorFaction, Grudge};
+        match self.grudge {
+            None | Some(Grudge::Body(_)) => put_u8(out, 0),
+            Some(Grudge::Faction(faction)) => put_u8(
+                out,
+                match faction {
+                    ActorFaction::Player => 1,
+                    ActorFaction::Enemy => 2,
+                    ActorFaction::Npc => 3,
+                    ActorFaction::Boss => 4,
+                    ActorFaction::Neutral => 5,
+                },
+            ),
+        }
     }
 }
 

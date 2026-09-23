@@ -133,13 +133,13 @@ pub struct PerceptionBody {
     pub captured_for: f32,
     pub holding_captive: bool,
     pub pummels_landed: u8,
-    /// This viewer's per-entity GRUDGE, if any (`ActorAggression.grudge`). A grudge
+    /// This viewer's GRUDGE, if any (`ActorAggression.grudge`). A body grudge
     /// makes ONE exact body a foe even when it shares the viewer's faction — the
     /// mechanism behind two same-faction NPCs dueling. Carried here so
     /// `hostile_to_self` matches `select_actor_targets`' foe set (faction-hostile OR
     /// grudge), not faction alone; without it a grudge-duelist would perceive no
     /// target. `None` for a body with no personal feud.
-    pub grudge: Option<bevy::prelude::Entity>,
+    pub grudge: Option<ambition_combat::components::Grudge>,
     /// This viewer's match TEAM, when it is seated in one.
     ///
     /// perception resolved hostility from FACTION alone, and the damage rule
@@ -676,16 +676,19 @@ pub(crate) fn peer_is_visible_to_body(
 /// ⛔ EXTRACTED FOR THE SAME REASON AS THE FILTER ABOVE. This rule is the
 /// substantial one — three inputs and a precedence — and it is precisely what a
 /// hand-written "cheap" hostility check would get subtly wrong.
+fn grudge_names(body: &PerceptionBody, peer: &PerceptionPeer) -> bool {
+    body.grudge
+        .is_some_and(|grudge| grudge.names(peer.entity, peer.faction))
+}
+
 pub(crate) fn peer_is_hostile_to_body(
     body: &PerceptionBody,
     relations: &FactionRelations,
     peer: &PerceptionPeer,
 ) -> bool {
     match ambition_combat::targeting::team_allows_damage(body.team.as_ref(), peer.team.as_ref()) {
-        Some(allowed) => allowed || body.grudge == Some(peer.entity),
-        None => {
-            relations.is_hostile(body.faction, peer.faction) || body.grudge == Some(peer.entity)
-        }
+        Some(allowed) => allowed || grudge_names(body, peer),
+        None => relations.is_hostile(body.faction, peer.faction) || grudge_names(body, peer),
     }
 }
 

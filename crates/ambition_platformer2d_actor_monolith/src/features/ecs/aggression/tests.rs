@@ -104,7 +104,7 @@ fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     // different-faction (`can_damage`), which an Npc→Player hit already passes.
     assert_eq!(
         app.world().get::<ActorAggression>(npc).unwrap().grudge,
-        Some(attacker),
+        Some(ambition_combat::components::Grudge::Body(attacker)),
         "a provoked NPC holds a grudge against the entity that struck it"
     );
     assert!(

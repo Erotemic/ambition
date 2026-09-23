@@ -91,7 +91,9 @@ pub fn apply_actor_stimuli(
         // identity (the old in-place flip to `Enemy`). `None` source (a test, or a
         // hazard with no attacker) leaves the grudge unset → it fights along faction
         // lines only.
-        aggression.grudge = source.or(aggression.grudge);
+        aggression.grudge = source
+            .map(ambition_combat::components::Grudge::Body)
+            .or(aggression.grudge);
 
         let mut em = cq.as_actor_mut();
         crate::features::ecs::actors::provoke_actor_in_place(

@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::Grudge;
 use crate::components::{
     ActiveCombatant, ActorAggression, ActorDisposition, ActorFaction, ActorTarget, CenteredAabb,
 };
@@ -216,7 +217,7 @@ fn a_peaceful_npc_ignores_the_player_until_it_holds_a_grudge() {
     app.world_mut()
         .get_mut::<ActorAggression>(npc)
         .unwrap()
-        .grudge = Some(player);
+        .grudge = Some(Grudge::Body(player));
     app.update();
     let target = app.world().entity(npc).get::<ActorTarget>().unwrap();
     assert_eq!(
@@ -351,7 +352,7 @@ fn a_grudge_lands_a_hit_between_same_faction_bodies() {
     );
     // Same faction, grudge against THIS victim → lands.
     assert!(
-        damage_lands(ActorFaction::Npc, ActorFaction::Npc, ff, Some(rival), rival),
+        damage_lands(ActorFaction::Npc, ActorFaction::Npc, ff, Some(Grudge::Body(rival)), rival),
         "a grudge against the victim authorizes a same-faction hit"
     );
     // Grudge against someone ELSE → this victim still spared.
@@ -360,7 +361,7 @@ fn a_grudge_lands_a_hit_between_same_faction_bodies() {
             ActorFaction::Npc,
             ActorFaction::Npc,
             ff,
-            Some(bystander),
+            Some(Grudge::Body(bystander)),
             rival
         ),
         "a grudge against a different entity does not authorize hitting this one"
@@ -387,22 +388,22 @@ fn a_settled_grudge_dissolves_so_a_duel_ends_in_peace() {
     app.world_mut()
         .get_mut::<ActorAggression>(a)
         .unwrap()
-        .grudge = Some(b);
+        .grudge = Some(Grudge::Body(b));
     app.world_mut()
         .get_mut::<ActorAggression>(b)
         .unwrap()
-        .grudge = Some(a);
+        .grudge = Some(Grudge::Body(a));
     app.add_systems(Update, dissolve_settled_grudges);
 
     // Both alive → grudges persist (the fight is on).
     app.update();
     assert_eq!(
         app.world().get::<ActorAggression>(a).unwrap().grudge,
-        Some(b)
+        Some(Grudge::Body(b))
     );
     assert_eq!(
         app.world().get::<ActorAggression>(b).unwrap().grudge,
-        Some(a)
+        Some(Grudge::Body(a))
     );
 
     // Defeat B (drain its health to 0).
@@ -428,7 +429,7 @@ fn damage_lands_is_a_strict_superset_of_can_damage() {
     let ff = FriendlyFire { enabled: false };
     let mut app = App::new();
     let some = app.world_mut().spawn_empty().id();
-    for grudge in [None, Some(some)] {
+    for grudge in [None, Some(Grudge::Body(some))] {
         assert!(
             damage_lands(ActorFaction::Enemy, ActorFaction::Player, ff, grudge, some),
             "a cross-faction hit always lands (grudge={grudge:?})"
@@ -717,7 +718,7 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
         Some(&blue),
         Some(&blue),
         no_ff,
-        Some(victim),
+        Some(Grudge::Body(victim)),
         victim,
     ));
 
@@ -1036,4 +1037,71 @@ fn an_exact_tie_is_decided_by_stable_identity_not_by_entity_id() {
         ],
     );
     assert!(anonymous_loses.y > 0.0);
+}
+
+/// A FACTION grudge names whoever stands for that faction — a provocation read
+/// back from the save, recorded before any player body exists. It follows
+/// control the way the matrix does (a possessed body fights as `Player`), and
+/// it names nobody of another faction.
+#[test]
+fn a_faction_grudge_names_every_body_of_that_effective_faction_and_no_other() {
+    let mut app = App::new();
+    let home = app.world_mut().spawn_empty().id();
+    let possessed = app.world_mut().spawn_empty().id();
+    let villager = app.world_mut().spawn_empty().id();
+    let grudge = Some(Grudge::Faction(ActorFaction::Player));
+    let driver = DrivingParticipant(PlayerSlot::PRIMARY);
+    let relation = |candidate, faction, driver| {
+        combat_relation(
+            None,
+            ActorFaction::Npc,
+            None,
+            None,
+            grudge,
+            candidate,
+            faction,
+            driver,
+            None,
+        )
+    };
+    assert_eq!(relation(home, ActorFaction::Player, None), CombatRelation::Foe);
+    assert_eq!(
+        relation(possessed, ActorFaction::Enemy, Some(&driver)),
+        CombatRelation::Foe,
+        "a body a player drives fights as Player, so the grudge names it"
+    );
+    assert_eq!(
+        relation(villager, ActorFaction::Npc, None),
+        CombatRelation::Ally,
+        "a grudge against players names no villager"
+    );
+}
+
+/// A faction outlives any one of its bodies: a downed player does not settle a
+/// faction grudge, and only the holder's own death does.
+#[test]
+fn a_faction_grudge_is_settled_by_its_holder_not_by_a_downed_foe() {
+    let mut app = App::new();
+    let holder = app
+        .world_mut()
+        .spawn((
+            alive(),
+            ActorAggression {
+                grudge: Some(Grudge::Faction(ActorFaction::Player)),
+                ..ActorAggression::hostile()
+            },
+        ))
+        .id();
+    let mut downed = alive();
+    downed.damage(10);
+    app.world_mut().spawn((downed, PlayerEntity));
+    app.add_systems(Update, dissolve_settled_grudges);
+    app.update();
+    assert_eq!(
+        app.world().get::<ActorAggression>(holder).unwrap().grudge,
+        Some(Grudge::Faction(ActorFaction::Player))
+    );
+    app.world_mut().get_mut::<BodyHealth>(holder).unwrap().damage(10);
+    app.update();
+    assert_eq!(app.world().get::<ActorAggression>(holder).unwrap().grudge, None);
 }

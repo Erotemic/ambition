@@ -179,13 +179,17 @@ pub fn combat_relation(
     attacker_faction: ActorFaction,
     attacker_driver: Option<&ambition_characters::control::DrivingParticipant>,
     attacker_team: Option<&MatchTeam>,
-    attacker_grudge: Option<Entity>,
+    attacker_grudge: Option<crate::components::Grudge>,
     candidate: Entity,
     candidate_faction: ActorFaction,
     candidate_driver: Option<&ambition_characters::control::DrivingParticipant>,
     candidate_team: Option<&MatchTeam>,
 ) -> CombatRelation {
-    if attacker_grudge == Some(candidate) {
+    // Against the EFFECTIVE faction, so a faction grudge follows control the way
+    // the matrix arm below does.
+    if attacker_grudge.is_some_and(|grudge| {
+        grudge.names(candidate, effective_faction(candidate_faction, candidate_driver))
+    }) {
         return CombatRelation::Foe;
     }
     if let Some(different_team) = team_allows_damage(attacker_team, candidate_team) {
@@ -210,10 +214,11 @@ pub fn damage_lands(
     attacker: ActorFaction,
     victim: ActorFaction,
     friendly_fire: FriendlyFire,
-    attacker_grudge: Option<Entity>,
+    attacker_grudge: Option<crate::components::Grudge>,
     victim_entity: Entity,
 ) -> bool {
-    can_damage(attacker, victim, friendly_fire) || attacker_grudge == Some(victim_entity)
+    can_damage(attacker, victim, friendly_fire)
+        || attacker_grudge.is_some_and(|grudge| grudge.names(victim_entity, victim))
 }
 
 /// [`damage_lands`], with a TEAM relation taking precedence when both bodies
@@ -228,7 +233,7 @@ pub fn damage_lands_between(
     attacker_team: Option<&MatchTeam>,
     victim_team: Option<&MatchTeam>,
     friendly_fire: FriendlyFire,
-    attacker_grudge: Option<Entity>,
+    attacker_grudge: Option<crate::components::Grudge>,
     victim_entity: Entity,
 ) -> bool {
     // the damage side of [`combat_relation`], and it must not grow a second
@@ -532,12 +537,16 @@ pub fn dissolve_settled_grudges(
     healths: Query<&BodyHealth>,
 ) {
     for (self_health, mut aggression) in &mut actors {
-        let Some(foe) = aggression.grudge else {
+        let Some(grudge) = aggression.grudge else {
             continue;
         };
         let self_down = self_health.current() == 0;
-        // An absent foe entity (despawned) counts as gone, so a grudge never dangles.
-        let foe_down = healths.get(foe).map(|h| h.current() == 0).unwrap_or(true);
+        // An absent foe entity (despawned) counts as gone, so a grudge never
+        // dangles. A faction outlives any one of its bodies, so only the holder's
+        // own death settles a faction grudge.
+        let foe_down = grudge
+            .body()
+            .is_some_and(|foe| healths.get(foe).map(|h| h.current() == 0).unwrap_or(true));
         if self_down || foe_down {
             aggression.grudge = None;
         }

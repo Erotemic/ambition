@@ -321,7 +321,7 @@ fn release_provocation_pacifies_and_restores_default() {
     {
         let mut aggr = ActorAggression::hostile();
         aggr.target = Some(foe);
-        aggr.grudge = Some(foe);
+        aggr.grudge = Some(ambition_combat::components::Grudge::Body(foe));
         aggr.strikes = 5;
         app.world_mut()
             .entity_mut(e)

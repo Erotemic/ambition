@@ -243,15 +243,44 @@ pub struct ActorAggression {
     /// per-family status component, so the provoke accumulator survives the
     /// NPC→one-actor cluster merge and the in-place hostile flip.
     pub strikes: i32,
-    /// Per-actor grudge: a SPECIFIC entity this actor has decided to oppose
-    /// beyond its `FactionRelations` baseline (set when provoked — the attacker
-    /// that struck it past its threshold). Targeting treats a grudge entity as a
-    /// foe just like a relational faction-foe, so a provoked NPC chases its
-    /// attacker without mutating its `ActorFaction` identity. `None` = no grudge;
-    /// the actor fights purely along faction lines. Grudges only form against
-    /// real attackers — with friendly-fire off, `can_damage` blocks ally-on-ally
-    /// hits, so no spurious `DamagedBy` stimulus (and no grudge) ever forms.
-    pub grudge: Option<Entity>,
+    /// Per-actor grudge: whom this actor has decided to oppose beyond its
+    /// `FactionRelations` baseline (see [`Grudge`]). Targeting treats whoever it
+    /// names as a foe just like a relational faction-foe, so a provoked NPC
+    /// chases its attacker without mutating its `ActorFaction` identity. `None` =
+    /// no grudge; the actor fights purely along faction lines. Grudges only form
+    /// against real attackers — with friendly-fire off, `can_damage` blocks
+    /// ally-on-ally hits, so no spurious `DamagedBy` stimulus (and no grudge)
+    /// ever forms.
+    pub grudge: Option<Grudge>,
+}
+
+/// Whom one actor opposes personally.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Grudge {
+    /// One body: the attacker that provoked it, or an authored feud.
+    Body(Entity),
+    /// Every body standing for a faction. A provocation read back from the save
+    /// is this: the body that struck the blow is gone, and the room is built
+    /// before any player body exists to name.
+    Faction(ActorFaction),
+}
+
+impl Grudge {
+    /// Does this grudge name `entity`, whose EFFECTIVE faction is `faction`?
+    pub fn names(self, entity: Entity, faction: ActorFaction) -> bool {
+        match self {
+            Self::Body(body) => body == entity,
+            Self::Faction(opposed) => opposed == faction,
+        }
+    }
+
+    /// The one body this grudge names, if it names one.
+    pub fn body(self) -> Option<Entity> {
+        match self {
+            Self::Body(body) => Some(body),
+            Self::Faction(_) => None,
+        }
+    }
 }
 
 impl ActorAggression {
@@ -707,7 +736,7 @@ impl bevy::ecs::entity::MapEntities for ActorAggression {
         if let Some(entity) = self.target.as_mut() {
             *entity = mapper.get_mapped(*entity);
         }
-        if let Some(entity) = self.grudge.as_mut() {
+        if let Some(Grudge::Body(entity)) = self.grudge.as_mut() {
             *entity = mapper.get_mapped(*entity);
         }
     }

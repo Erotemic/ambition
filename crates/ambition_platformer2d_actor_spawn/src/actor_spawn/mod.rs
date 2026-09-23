@@ -438,7 +438,7 @@ pub(super) fn wire_staged_grudges(
         commands
             .entity(*entity)
             .insert(ambition_combat::components::ActorAggression {
-                grudge: Some(foe),
+                grudge: Some(ambition_combat::components::Grudge::Body(foe)),
                 ..ambition_combat::components::ActorAggression::hostile()
             });
     }

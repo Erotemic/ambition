@@ -1172,7 +1172,7 @@ fn wire_grudge(_relation: &ActorRelation, ctx: &mut RelationWiring<'_, '_, '_>) 
     let to = ctx.to_entity();
     ctx.from()
         .insert(ambition_combat::components::ActorAggression {
-            grudge: Some(to),
+            grudge: Some(ambition_combat::components::Grudge::Body(to)),
             ..ambition_combat::components::ActorAggression::hostile()
         });
 }
@@ -1191,10 +1191,11 @@ fn verify_grudge(
 ) -> RelationCheck {
     match world.get::<ambition_combat::components::ActorAggression>(from) {
         None => RelationCheck::NotInstalled,
-        Some(aggression) => match aggression.grudge {
+        Some(aggression) => match aggression.grudge.map(|grudge| grudge.body()) {
             None => RelationCheck::NotInstalled,
-            Some(found) if found == to => RelationCheck::Installed,
-            found => RelationCheck::WrongTarget { found },
+            Some(Some(found)) if found == to => RelationCheck::Installed,
+            // A faction grudge is not the body relation this row wired.
+            Some(found) => RelationCheck::WrongTarget { found },
         },
     }
 }

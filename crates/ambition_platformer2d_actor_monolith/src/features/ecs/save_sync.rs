@@ -93,7 +93,7 @@ pub fn sync_ecs_actors_with_save(
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster
             // swap), keeping its entity + sprite.
             aggression.mode = AggressionMode::Hostile;
-            aggression.grudge = stable_player_grudge;
+            aggression.grudge = stable_player_grudge.map(ambition_combat::components::Grudge::Body);
             let mut em = cq.as_actor_mut();
             crate::features::ecs::actors::provoke_actor_in_place(
                 &mut commands,

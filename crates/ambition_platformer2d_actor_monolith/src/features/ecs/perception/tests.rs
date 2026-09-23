@@ -181,7 +181,7 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
     assert!(view.nearest_hostile().is_none());
 
     // Grudge against that exact entity → it becomes the perceived hostile.
-    viewer.grudge = Some(foe_entity);
+    viewer.grudge = Some(ambition_combat::components::Grudge::Body(foe_entity));
     let view = build_world_view(
         &viewer,
         std::slice::from_ref(&foe),
@@ -201,7 +201,7 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         "nearest_hostile resolves the grudge opponent (the duel mechanism)"
     );
     // A grudge against a DIFFERENT entity does not implicate this peer.
-    viewer.grudge = Some(other_entity);
+    viewer.grudge = Some(ambition_combat::components::Grudge::Body(other_entity));
     let view = build_world_view(
         &viewer,
         std::slice::from_ref(&foe),
@@ -1344,7 +1344,7 @@ fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
 
     let rival = bevy::prelude::Entity::from_raw_u32(77).expect("a valid test entity");
     let mut viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
-    viewer.grudge = Some(rival);
+    viewer.grudge = Some(ambition_combat::components::Grudge::Body(rival));
 
     // Same faction as the viewer, and no faction hostility is configured.
     let mut foe = peer(

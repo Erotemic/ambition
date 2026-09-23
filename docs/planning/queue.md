@@ -71,6 +71,25 @@ checkpoint road reads state whose value depends on command-application timing
 and is not restored — the edge is not the defect, it is the probe that found
 it. The edge was dropped (it had no reason to exist); the sensitivity remains.
 
+⚠ **RE-MEASURED 2026-09-23 AT `5b9cabf10`: THE EDGE NO LONGER REDDENS ANYTHING,
+AND THE AUDIT ROWS ABOVE WERE PARTLY THE AUDIT'S OWN DEFECT.** With the edge
+re-applied, all five `rollback_lifecycle_reset` tests pass (the two death tests
+run 2400 frames under `rollback_health` each frame). Separately,
+`RollbackRestoreAudit` keyed its saved censuses by frame number ALONE, and a
+lifecycle rebase restarts the frame count at zero — so the rebased timeline's
+frame N was compared against the replaced timeline's frame N, and every
+per-tick type (`SimTick`, `WorldTime`, bodies, checkpoint counters) read as a
+resimulation divergence. Fixed: the audit drops its frame-keyed history when
+`ConfirmedFrameBoundary::session` changes
+(`a_rebased_timeline_is_not_compared_against_the_one_it_replaced`). With the
+fix and the edge, a 400-frame audited death run reports no divergence.
+⇒ The sync-test mismatch recorded above was real at the time (a GGRS checksum,
+not the audit) and is not reproduced after `b7265b0ea`/`f2813e3e4` changed the
+schedule and the player's abilities; whether those FIXED the sensitivity or only
+moved the death off the frame that exposed it is not known. Kept open as a
+lead, not a reproduced defect: the next probe is any edge that moves a sync
+point on the death → checkpoint road, audited with the fixed instrument.
+
 ### A10 — candidate world / last-good-world publication — ✅ DONE, DEMOLITION CLOSED 2026-09-16
 
 **Owner:** [construction and reconstitution](engine/construction-and-reconstitution.md).

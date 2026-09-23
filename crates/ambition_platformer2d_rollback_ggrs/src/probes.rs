@@ -793,6 +793,12 @@ pub struct RollbackRestoreAudit {
     written_outside_the_rewinding_schedule: BTreeSet<&'static str>,
     /// How many times [`record_live_census`] had a saved census to compare with.
     pub live_comparisons: usize,
+    /// The session generation the frame-keyed history above belongs to.
+    ///
+    /// ⛔ A lifecycle rebase restarts the frame count at zero, so a history keyed
+    /// by frame alone compares the new timeline's frame N against the old one's
+    /// and reports every per-tick type as a resimulation divergence.
+    timeline: Option<u64>,
 }
 
 impl RollbackRestoreAudit {
@@ -800,6 +806,19 @@ impl RollbackRestoreAudit {
         Self {
             enabled: true,
             ..Default::default()
+        }
+    }
+
+    /// Drop the frame-keyed history when the session generation changes. The
+    /// tallies and the divergences already found are kept: they describe the
+    /// run, not one timeline.
+    fn enter_timeline(&mut self, session: u64) {
+        if self.timeline != Some(session) {
+            self.timeline = Some(session);
+            self.saved.clear();
+            self.resaved.clear();
+            self.last_saved = None;
+            self.after_the_advance = None;
         }
     }
 
@@ -957,6 +976,10 @@ pub fn record_saved_census(world: &mut World) {
         return;
     };
     let census = probes.census_all(world);
+    let session = current_rollback_session(world);
+    if let Some(mut audit) = world.get_resource_mut::<RollbackRestoreAudit>() {
+        audit.enter_timeline(session);
+    }
     let previous = world
         .get_resource::<RollbackRestoreAudit>()
         .and_then(|audit| audit.saved.get(&frame).cloned());
@@ -1087,7 +1110,9 @@ pub fn compare_restored_census(world: &mut World) {
         return;
     };
     let restored = probes.census_all(world);
+    let session = current_rollback_session(world);
     if let Some(mut audit) = world.get_resource_mut::<RollbackRestoreAudit>() {
+        audit.enter_timeline(session);
         audit.loads += 1;
     }
     let Some(saved) = world
@@ -1124,6 +1149,14 @@ pub fn compare_restored_census(world: &mut World) {
 }
 
 /// The frame bevy_ggrs is currently saving or loading.
+/// The generation of the installed session; `0` for a host with no boundary,
+/// which has exactly one timeline.
+fn current_rollback_session(world: &World) -> u64 {
+    world
+        .get_resource::<ambition_platformer2d_core::ConfirmedFrameBoundary>()
+        .map_or(0, |boundary| boundary.session)
+}
+
 fn current_rollback_frame(world: &World) -> Option<i32> {
     world
         .get_resource::<bevy_ggrs::RollbackFrameCount>()
@@ -1137,6 +1170,47 @@ mod tests {
 
     #[derive(Component, Clone)]
     struct Owner(Entity);
+
+    #[derive(Resource)]
+    struct Tally(u64);
+
+    /// Save frame 0 holding `first`, then save frame 0 again holding `second`
+    /// under session `resaved_under`; the divergences the second save reported.
+    fn resave_frame_zero(first: u64, second: u64, resaved_under: u64) -> usize {
+        let mut world = World::new();
+        let mut probes = RollbackChecksumProbes::default();
+        probes.register(ChecksumProbe::new("Tally", |world| {
+            census_resource_with::<Tally>(world, |tally| tally.0)
+        }));
+        world.insert_resource(probes);
+        world.insert_resource(RollbackRestoreAudit::enabled());
+        world.insert_resource(bevy_ggrs::RollbackFrameCount(0));
+        world.insert_resource(ambition_platformer2d_core::ConfirmedFrameBoundary {
+            current: 0,
+            confirmed: -1,
+            session: 1,
+        });
+        world.insert_resource(Tally(first));
+        record_saved_census(&mut world);
+        world.insert_resource(Tally(second));
+        world
+            .resource_mut::<ambition_platformer2d_core::ConfirmedFrameBoundary>()
+            .session = resaved_under;
+        record_saved_census(&mut world);
+        world.resource::<RollbackRestoreAudit>().divergences.len()
+    }
+
+    /// A rebase restarts frames at zero; the new timeline's frame 0 is not a
+    /// resimulation of the old one's.
+    #[test]
+    fn a_rebased_timeline_is_not_compared_against_the_one_it_replaced() {
+        assert_eq!(
+            resave_frame_zero(1, 2, 1),
+            1,
+            "control: within one session a changed resave IS a divergence"
+        );
+        assert_eq!(resave_frame_zero(1, 2, 2), 0);
+    }
 
     /// A value probe over an entity reference actually sees a wrong target.
     ///

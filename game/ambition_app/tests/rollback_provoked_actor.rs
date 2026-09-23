@@ -159,9 +159,10 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     assert_eq!(
         world.get::<Brain>(body).map(|brain| brain.label()),
         Some("stand_still"),
-        "the provoked MIND did not survive — `Brain` is a rollback cursor, and \
+        "the provoked MIND did not survive. GGRS stores the whole `Brain` (its \
+         cursor codec is only the checksum projection), and \
          `reconcile_brain_bindings` deliberately skips a source with no active \
-         preset, so nothing else was going to put it back"
+         preset, so the snapshot is the only thing that puts it back"
     );
     assert_eq!(
         world

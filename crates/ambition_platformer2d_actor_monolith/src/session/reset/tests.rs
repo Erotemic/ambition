@@ -335,8 +335,61 @@ fn min_app_that_can_hide_a_candidate(filter: bool) -> App {
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_message::<ambition_time::time_control::ClockResetRequest>();
     app.add_message::<NewGameResetCommitted>();
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, process_new_game_reset_request);
     app
+}
+
+/// ⛔ A RESET WAITS FOR THE LIFECYCLE OPERATION ALREADY IN FLIGHT.
+///
+/// A room transition out of the start room owns the pending slot while its
+/// room loads. A reset that published the start room underneath it left the
+/// transition's source index unchanged, so the transition committed on top of
+/// the fresh game and carried the player out of it. The reset now stays armed
+/// until the slot is free; the control is the same reset running once it is.
+#[test]
+fn a_reset_waits_while_another_lifecycle_operation_owns_the_world() {
+    use crate::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    let mut app = min_app();
+    let _ = app
+        .world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .record(
+            0,
+            LifecycleIntent::Transition(RoomTransitionIntent {
+                subject: ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
+                target_room: "elsewhere".into(),
+                arrival: ae::Vec2::ZERO,
+                edge_exit: true,
+                zone_sfx: None,
+            }),
+        );
+    app.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .set_flag("npc_kira_hostile", true);
+    app.world_mut()
+        .resource_mut::<NewGameResetRequested>()
+        .request();
+    app.update();
+    assert!(
+        app.world().resource::<AmbitionGameSave>().data().flag("npc_kira_hostile"),
+        "the reset ran while a transition owned the world"
+    );
+    assert!(
+        app.world().resource::<NewGameResetRequested>().request,
+        "the deferred reset was dropped rather than kept armed"
+    );
+
+    // The in-flight operation finishes; the same request now runs.
+    let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    app.update();
+    assert!(
+        !app.world().resource::<AmbitionGameSave>().data().flag("npc_kira_hostile"),
+        "the control: once the slot is free the armed reset runs"
+    );
 }
 
 /// Sanity: with no request, the processor leaves state alone.

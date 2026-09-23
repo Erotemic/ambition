@@ -313,8 +313,20 @@ pub fn process_new_game_reset_request(
     // `populate_encounter_registry` (which the cleared `specs_loaded` flag
     // re-arms) respawns them fresh from the empty save next frame.
     encounter_entities: Query<Entity, With<ambition_encounter::Encounter>>,
+    // ⛔ ONE LIFECYCLE OPERATION AT A TIME. Every other road that replaces the
+    // live room takes this slot; a reset that ignored it could publish the
+    // start room under a transition already loading OUT of the start room,
+    // whose staleness check then passes (same source index) and carries the
+    // freshly reset player into the room they were leaving. Read, not taken:
+    // the slot is rollback state and this runs outside the simulation.
+    pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
     if !request.request {
+        return;
+    }
+    // Deferred, not refused: the request stays armed and runs on the first
+    // frame nothing else owns the world, so the menu action is never lost.
+    if pending.peek().is_some() {
         return;
     }
     request.request = false;

@@ -784,6 +784,32 @@ what is measured is that the room MATERIALIZER is shared and at least one commit
 wrapper is genuinely separate. The row's premise survives on that evidence, and
 its size has NOT been re-derived.
 
+⭐ **ENUMERATED 2026-09-23.** The shared primitive is the private
+`spawn_contents_for` (`stage.rs`), under two public wrappers: `spawn_contents`
+(activation only) and `replace_live_world` (transition, New Game, LDtk dev
+reload — the last lives in `game/ambition_app/src/app/dev_runtime.rs`, which
+the paragraph above missed). EVERY room publication reaches
+`finalize_room_publication`; what differs is the owner code after the verdict.
+Replay and checkpoint restore are NOT separate roads: both record a
+`Transition` intent and ride the transition road. Content/pack reload is a
+`ShellCommand::ReplaceWith`, i.e. activation.
+
+| road | build | commit | retirement |
+|---|---|---|---|
+| activation | `spawn_contents` | deferred finalize in `PreparedCandidateSession::adopt` | `SessionScopeRetired` sweep |
+| transition / replay / checkpoint | `replace_live_world` | `finalize_room_transition` (+ checkpoint's restore) | `RoomResident` via `apply_world_replacement` |
+| New Game | `replace_live_world` | its own verdict closures | `RoomScopedEntity` + encounters + transient sweep (wider by design) |
+| LDtk dev reload | `replace_live_world` | three dev verdict closures | `RoomResident` |
+
+⇒ **THE DUPLICATION IS THE VERDICT SKELETON, not the materializer**: "read the
+verdict, apply this policy's effects, retire the receipt" is written four
+times (`finalize_room_transition`, the reset closures, the dev closures,
+`adopt`), and the outgoing-roster query three times. ⛔ **ONE ADMISSION
+DEFECT FOUND AND CLOSED:** New Game replaced the live room without consulting
+`PendingLifecycleCommit`, the slot every other in-session road takes; it now
+stays armed until the slot is free (`a_reset_waits_while_another_lifecycle_
+operation_owns_the_world`).
+
 ### INDEPENDENT TRUTHS INVOLVED
 
 room plan, lifecycle intent, checkpoint pinned inputs, new-game policy, generation candidate, session retention policy.

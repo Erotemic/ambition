@@ -14,7 +14,6 @@ use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{ActorAggression, ActorDisposition};
-use ambition_combat::CombatCapabilities;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -252,7 +251,6 @@ pub fn apply_brain_commands(
         Option<&ambition_combat::components::ActorIdentity>,
         &ActorPose,
         Has<ambition_mount::Mounted>,
-        Option<&mut CombatCapabilities>,
         // The body's own verbs, for a default that is the character's
         // authored policy — the lowering asks what this body can actually do.
         Option<&ambition_platformer2d_core::BodyAbilities>,
@@ -281,7 +279,6 @@ pub fn apply_brain_commands(
         identity,
         pose,
         mounted,
-        caps,
         body_abilities,
         worn,
     ) in &mut actors
@@ -341,71 +338,35 @@ pub fn apply_brain_commands(
             );
         }
         if changed {
-            apply_catalog_mode(
-                &catalog,
-                prepared.as_deref(),
-                &brain,
-                config,
-                caps,
-                character_profile,
-            );
+            apply_catalog_mode(&brain, config, character_profile);
         }
     }
 }
 
-/// Restore the catalog-default actor mode after a live autonomous switch
-/// (`UsePreset` / `RestoreDefault`) — not just the live brain. A prior provocation
-/// may have installed hostile tuning / capabilities / sprite override; "you are
-/// free" (and any catalog switch) must revert all of it so the peaceful actor is
-/// coherent LIVE, matching what a snapshot reconcile reconstructs from the
-/// source. Uses the SHARED [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)
-/// projection, so live and reconcile can never drift. `config.brain` is derived
-/// from the live brain inside that projection.
+/// Restore the peaceful MIND after a live autonomous switch (`UsePreset` /
+/// `RestoreDefault`): the policy value and the `config.brain` read-model a
+/// provocation replaced. Nothing else: provocation changes who is deciding and
+/// no body fact, so tuning and capabilities are exactly as construction built
+/// them and a re-derivation here could only overwrite them (it did — see
+/// [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)).
 fn apply_catalog_mode(
-    catalog: &CharacterCatalog,
-    // The prepared cast, so the peaceful projection asks the CHARACTER whether
-    // it flies before it asks the catalog's silhouette. See `peaceful_config`.
-    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
-    caps: Option<Mut<CombatCapabilities>>,
-    // See the `Some` arm below: a character that states its own policy states
-    // its own BODY too, and this reconstruction is not for it.
+    // See the `Some` arm below: a character that states its own policy is
+    // restored to THAT policy, not to the generic peaceful one.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
 ) {
-    // A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.
-    //
-    // the projection below is the peaceful-NPC seed: default capabilities and
-    // `brain_profile: BrainProfile::default()`. It is the correct answer for a
-    // catalog-default NPC, whose whole body IS that seed. Over a body whose
-    // character authored its kit it is a silent downgrade wearing a controller
-    // change — and the policy it zeroed was the field the CharacterProfile
-    // restoration then read back as the character's default.
+    let Some(mut config) = config else {
+        return;
+    };
     if let Some(profile) = character_profile {
-        if let Some(mut config) = config {
-            config.brain_profile = profile;
-            config.brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain);
-        }
+        config.brain_profile = profile;
+        config.brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain);
         return;
     }
-    let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
-    // No `IdentityKit` gate: the baseline was needed only by the repertoire
-    // write that is gone, and a body without one still has tuning, capabilities
-    // and a read-model to restore.
-    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(
-        catalog,
-        prepared,
-        character_id.as_deref(),
-        brain,
-    );
-    if let Some(mut config) = config {
-        config.tuning = peaceful.tuning;
-        config.brain_profile = peaceful.brain_profile;
-        config.brain = peaceful.config_brain;
-    }
-    if let Some(mut caps) = caps {
-        *caps = peaceful.capabilities;
-    }
+    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(brain);
+    config.brain_profile = peaceful.brain_profile;
+    config.brain = peaceful.config_brain;
     // THE REPERTOIRE IS NOT RESTORED HERE, because nothing took it away. What a
     // body can do is the projection of its identity, its worn equipment and its
     // hand, and neither a provocation nor a catalog switch moves any of them.
@@ -415,8 +376,8 @@ fn apply_catalog_mode(
 
 /// Drain [`ReleaseProvocation`]s ("you are free"): pacify each target (the
 /// disposition authority) and emit a [`BrainCommand::restore_default`] so
-/// [`apply_brain_commands`] restores its catalog-default source + complete peaceful
-/// config (the source authority). Ordered BEFORE `apply_brain_commands` so the
+/// [`apply_brain_commands`] restores its catalog-default source + peaceful mind
+/// (the source authority). Ordered BEFORE `apply_brain_commands` so the
 /// emitted command applies the same frame.
 ///
 /// Pacifying resets the aggression to fully passive (no grudge, no target, no

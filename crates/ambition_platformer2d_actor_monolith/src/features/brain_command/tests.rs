@@ -316,6 +316,21 @@ fn release_provocation_pacifies_and_restores_default() {
     );
 
     let e = spawn_npc(&mut app, "hall_npc", "npc_puppy_slug", 100.0);
+    // What construction built, in values no default produces: the release must
+    // hand these back untouched, because nothing on the provoke road changed them.
+    let built_tuning = ambition_combat::actor_tuning::ActorTuning {
+        patrol_speed: 105.0,
+        chase_speed: 210.0,
+        max_run_speed: 210.0,
+        ..Default::default()
+    };
+    app.world_mut().entity_mut(e).insert(ActorConfig {
+        tuning: built_tuning.clone(),
+        brain_profile: ambition_characters::brain::BrainProfile::default(),
+        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+        sprite_character_id: Some("npc_puppy_slug".into()),
+        preserves_mirror_symmetry: false,
+    });
     // Simulate a provoked actor: hostile disposition, a live grudge + target, and
     // (below) an override onto a hostile brain.
     let foe = app.world_mut().spawn_empty().id();
@@ -361,6 +376,12 @@ fn release_provocation_pacifies_and_restores_default() {
         app.world().get::<Brain>(e).unwrap().label(),
         "wanderer",
         "the live default brain is restored (not the hostile override)"
+    );
+    assert_eq!(
+        app.world().get::<ActorConfig>(e).unwrap().tuning,
+        built_tuning,
+        "the release rewrote the tuning the body was built with — a re-derived \
+         generic NPC over a body construction had already answered"
     );
 }
 

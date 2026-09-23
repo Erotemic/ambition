@@ -3888,6 +3888,34 @@
       "duplicate_authority_state": "RESOLVED"
     },
     {
+      "id": "DUP-RELEASE-MIND",
+      "category": "duplicate_truth_family",
+      "name": "What a released NPC's body is",
+      "owner": "release restores the mind and writes no body fact (2026-09-23)",
+      "status": "SOURCE_CONFIRMED",
+      "complexity": "ACCIDENTAL_COMPLEXITY",
+      "current_truth": "Release restores the mind and writes no body fact (2026-09-23). The full account is the `DUP-RELEASE-MIND` row of `architecture-census.md`.",
+      "source_paths": [
+        "crates/ambition_platformer2d_actor_monolith/src/features/brain_command.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs"
+      ],
+      "evidence": [
+        {
+          "status": "SOURCE_CONFIRMED",
+          "claim": "Release restores the mind and writes no body fact (2026-09-23). The full account is the `DUP-RELEASE-MIND` row of `architecture-census.md`.",
+          "sources": [
+            "crates/ambition_platformer2d_actor_monolith/src/features/brain_command.rs",
+            "crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs"
+          ]
+        }
+      ],
+      "classification": "resolved 2026-09-23",
+      "consolidation_hypothesis": "See the `DUP-RELEASE-MIND` row of `architecture-census.md`.",
+      "why_it_exists": "release restores the mind and writes no body fact (2026-09-23)",
+      "metric_tags": [],
+      "duplicate_authority_state": "RESOLVED"
+    },
+    {
       "id": "DUP-PRESENTATION-BINDING",
       "category": "duplicate_truth_family",
       "name": "Which art a body is finally bound to, and from which geometry",

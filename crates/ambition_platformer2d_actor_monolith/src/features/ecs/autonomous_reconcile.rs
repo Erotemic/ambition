@@ -12,99 +12,41 @@
 //!
 //!  what remains here is the LIVE half, which always did the work:
 //! [`provoked_projection`] (a mind and a kit, never a body) and
-//! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
+//! [`peaceful_config`] (the peaceful mind a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
-use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
-use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
-use ambition_combat::CombatCapabilities;
+use ambition_characters::brain::Brain;
+use ambition_combat::actor_tuning::BrainProfile;
 use ambition_entity_catalog::placements::CharacterBrain;
 
 
 
-/// Mirrors `ActorClusterSeed:new_peaceful_npc_in`: an undescribed-pool stroller with default
-/// brain-spec / capabilities, its authored combat kit as body-capability action set, and
-/// `is_aerial` from the CHARACTER's own locomotion — the catalog's silhouette only for a
-/// character nobody prepared (; see the body of [`peaceful_config`] for why that distinction is
-/// not cosmetic).
+/// What RELEASING a provocation restores: the mind, and nothing else.
+///
+/// ⛔⛤ THIS WAS A WHOLE-BODY MIRROR OF THE PEACEFUL-NPC SEED — tuning,
+/// capabilities, `is_aerial` — and every field of it was found wrong in turn
+/// (`is_aerial` from the silhouette, `max_run_speed` flat, a health pool) and
+/// patched one at a time, because a mirror of construction is a second answer
+/// to what construction already answered. The last one was measured in the
+/// shipped app (2026-09-23): a character-first NPC built at `patrol_speed 105`
+/// / `chase_speed 210` came back from `<<restore_brain>>` at the seed's flat
+/// 60 / 60. Provocation changes who is deciding and nothing about the body, so
+/// release has only the mind to undo and writes nothing else.
 pub(crate) struct PeacefulConfig {
-    pub(crate) tuning: ActorTuning,
     pub(crate) brain_profile: BrainProfile,
-    pub(crate) capabilities: CombatCapabilities,
     pub(crate) config_brain: CharacterBrain,
 }
 
-pub(crate) fn peaceful_config(
-    catalog: &CharacterCatalog,
-    // THE PREPARED CAST, asked FIRST — see below.
-    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    character_id: Option<&str>,
-    resolved_brain: &Brain,
-) -> PeacefulConfig {
-    // THIS READ `body_kind: Floating` AND NOTHING ELSE, which is the one rule the invariant
-    // list forbids by name: *do not reintroduce `body_kind => is_aerial` as authority*.
-    //
-    // The only Floating row with no prepared definition is `npc_snakes_on_a_cartesian_plane`,
-    // for which the catalog IS the right authority.
-    //
-    //  it now mirrors `new_peaceful_npc_in` for real, which is what this
-    // function's own doc has always claimed: the PREPARED character answers, and
-    // the catalog is the fallback for a character nobody registered.
-    let is_aerial = character_id
-        .map(|cid| {
-            prepared
-                .and_then(|registry| registry.get(cid))
-                .and_then(|prepared| prepared.locomotion)
-                .and_then(|locomotion| locomotion.baseline_free_flight)
-                .unwrap_or_else(|| {
-                    matches!(catalog.body_kind(cid), Some(CharacterBodyKind::Floating))
-                })
-        })
-        .unwrap_or(false);
-    // THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
-    // FIELDS BESIDE IT.
-    //
-    // This installed `max_health: DEFAULT_UNAUTHORED_BODY_HEALTH` and `max_run_speed:
-    // MAX_RUN_SPEED` flat, with a comment claiming it was *"the same undescribed-body pool the
-    // seed this mirrors installs"*. It is not: `new_peaceful_npc_in` reads the PREPARED
-    // character's blueprint for both (P1.10), and falls back to those constants only for a body
-    // nobody authored.
-    //
-    // So the population that could reach it is EMPTY today and springs the day somebody authors a
-    // body without a policy — which is an ordinary thing to author.
-    let authored_body = character_id
-        .and_then(|cid| prepared.and_then(|registry| registry.get(cid)))
-        .and_then(|prepared| prepared.body_blueprint().ok());
-    let tuning = ActorTuning {
-        // STILL FLAT, and that is not an oversight. How fast a body
-        // AMBLES is the controller's fact, not the body's — `new_peaceful_npc_in`
-        // hard-codes these two for the same reason. A character authoring
-        // `run_speed: 400.0` must not make its idle stroll a sprint.
-        patrol_speed: NPC_PATROL_SPEED,
-        chase_speed: NPC_PATROL_SPEED,
-        max_run_speed: authored_body
-            .as_ref()
-            .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
-                body.locomotion.run_speed
-            }),
-        is_aerial,
-        // STATED, matching the spawn seed this mirrors: an NPC placement is a
-        // person, so its death is permanent (ADR 0022). Rewinding a provoked
-        // actor back to peaceful must restore that policy, not a default that
-        // happens to agree.
-        respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
-        ..Default::default()
-    };
-    // `config.brain` (the integrator read-model) is DERIVED from the resolved
-    // autonomous brain through the SHARED helper the spawn plan and runtime switch
-    // both use, so the classification can never disagree with the actual brain.
-    let config_brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(resolved_brain);
+pub(crate) fn peaceful_config(resolved_brain: &Brain) -> PeacefulConfig {
     PeacefulConfig {
-        tuning,
         brain_profile: BrainProfile::default(),
-        capabilities: CombatCapabilities::default(),
-        config_brain,
+        // `config.brain` (the integrator read-model) is DERIVED from the
+        // resolved autonomous brain through the SHARED helper the spawn plan and
+        // runtime switch both use, so the classification can never disagree with
+        // the actual brain.
+        config_brain: ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(
+            resolved_brain,
+        ),
     }
 }
 
@@ -117,7 +59,7 @@ mod tests {
     // ⚠ TEST-ONLY: the production half of this module stopped naming `ActorConfig`
     // when `provoked_projection` moved to `actor_spawn::conversion`, so importing
     // it at file scope is an unused import in a release build.
-    use ambition_combat::actor_tuning::ActorConfig;
+    use ambition_combat::actor_tuning::{ActorConfig, ActorTuning};
 
     fn config_fixture() -> ActorConfig {
         ActorConfig {
@@ -217,165 +159,17 @@ mod tests {
 }
 
 #[cfg(test)]
-mod peaceful_flight_tests {
+mod peaceful_shape_tests {
     use super::*;
 
-    const FLOATING_CATALOG: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
-    action_set_presets: { "peaceful": (move_style: Walk) },
-    characters: {
-        "pca": (
-            display_name: "Automaton", spritesheet: "x.png", manifest: "x_spritesheet.ron",
-            tier: MainHall, body_kind: Floating, composition: None,
-            default_brain: "stand_still", default_action_set: "peaceful", tags: [],
-        ),
-    },
-)"#;
-
-    fn catalog() -> CharacterCatalog {
-        CharacterCatalog::from_data(
-            ambition_characters::actor::character_catalog::parse_catalog(FLOATING_CATALOG),
-        )
-    }
-
-    /// A character with the PCA's exact disagreement: a floating silhouette and
-    /// an authored refusal to fly.
-    fn grounded_floater() -> ambition_characters::prepared::PreparedCharacterRegistry {
-        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
-            "pca",
-            "Automaton",
-            "test",
-        )
-        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-            run_speed: 120.0,
-            baseline_free_flight: Some(false),
-            ..Default::default()
-        });
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            definition,
-            &ambition_characters::prepared::CharacterBindings::default(),
-        );
-        registry.insert_prepared(finalized.prepared);
-        registry
-    }
-
-    /// A SILHOUETTE IS NOT A CLAIM ABOUT FLIGHT — the one rule the invariant
-    /// list forbids reintroducing by name.
-    ///
-    /// `peaceful_config` read `body_kind: Floating` and nothing else, so a catalog switch back
-    /// to peaceful would have made the Perfect Cellular Automaton fly — a character whose own
-    /// definition says `baseline_free_flight: Some(false)`.
+    /// The release projection is a MIND. Every field of it is named here in an
+    /// exhaustive destructure, so a body fact cannot be added back without
+    /// editing this line — the provoke side pins the same shape.
     #[test]
-    fn a_prepared_characters_refusal_to_fly_outranks_a_floating_silhouette() {
-        let catalog = catalog();
-        let cast = grounded_floater();
-        let brain = Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill);
-
-        // THE POISON FIRST, because it is what makes the assertion below about
-        // PRECEDENCE. With no prepared cast the catalog is the only authority and
-        // it really does say this body floats — so an empty-catalog fixture, or a
-        // resolver that answered `false` for everything, could not fake this pair.
-        let unprepared =
-            peaceful_config(&catalog, None, Some("pca"), &brain);
-        assert!(
-            unprepared.tuning.is_aerial,
-            "the fixture catalog must genuinely say `Floating`, or the test below \
-             passes for the wrong reason"
-        );
-
-        let prepared = peaceful_config(
-            &catalog,
-            Some(&cast),
-            Some("pca"),
-            &brain,
-        );
-        assert!(
-            !prepared.tuning.is_aerial,
-            "the character authored `baseline_free_flight: Some(false)` and the \
-             catalog's silhouette overruled it — `body_kind => is_aerial` is the \
-             authority D89 deleted, and this is the PCA exactly"
-        );
-    }
-}
-
-#[cfg(test)]
-mod peaceful_body_authority_tests {
-    use super::*;
-
-    /// A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
-    /// AUTHORED.
-    ///
-    /// the trap this closes had an EMPTY population, and that is the reason to write the test
-    /// rather than a reason not to. `peaceful_config` hard-coded `max_run_speed:
-    /// MAX_RUN_SPEED` and the undescribed health pool while claiming to install *"the same
-    /// undescribed-body pool the seed this mirrors installs"* — and the seed it mirrors reads
-    /// the prepared character's blueprint for both (P1.10). A body without a policy is an
-    /// ordinary thing to author, and the day one exists the calm-down would have handed it the
-    /// player's top speed.
-    ///
-    /// two terms, both observed. The character's numbers survive, AND an
-    /// unauthored body still gets the shared defaults — otherwise "reads the
-    /// blueprint" could be satisfied by a projection that reads it for
-    /// everything and quietly changes what a catalog-only NPC becomes.
-    #[test]
-    fn calming_down_restores_the_characters_body_and_not_a_generic_one() {
-        use ambition_characters::actor::definition::CharacterDefinition;
-        use ambition_characters::actor::CharacterLocomotion;
-
-        const AUTHORED_RUN_SPEED: f32 = 63.0;
-        const AUTHORED_HEALTH: i32 = 9;
-
-        use crate::character_runtime::CharacterDefinitionAppExt;
-        let mut definition = CharacterDefinition::new("wanderer", "Wanderer", "test")
-            .with_locomotion(CharacterLocomotion {
-                run_speed: AUTHORED_RUN_SPEED,
-                ..Default::default()
-            });
-        definition.vitals.max_health = Some(AUTHORED_HEALTH);
-        let mut app = bevy::prelude::App::new();
-        app.register_character(definition);
-        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
-        let prepared = app
-            .world()
-            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
-            .clone();
-
-        let calmed = peaceful_config(
-            &CharacterCatalog::empty(),
-            Some(&prepared),
-            Some("wanderer"),
-            &ambition_characters::brain::Brain::stand_still(),
-        );
-        assert_eq!(
-            calmed.tuning.max_run_speed, AUTHORED_RUN_SPEED,
-            "a body that calmed down was handed the shared top speed instead of \
-             the one its character authored — a silent downgrade wearing a \
-             controller change, which is what the provoke side was split to stop"
-        );
-        // THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL (AC6.2). It
-        // asserted `calmed.tuning.max_health == AUTHORED_HEALTH`: the projection
-        // restored a pool onto `ActorConfig`, and `apply_catalog_mode` copied the
-        // whole tuning back over the live one. That copy never touched
-        // `BodyHealth`, so the number it restored was a mirror the respawn path
-        // read instead of the body's own pool. The projection has no pool to
-        // state now — a controller change cannot reach a body's health because
-        // there is nothing on this road that carries it.
-
-        // THE OTHER TERM: a body nobody authored still gets the shared
-        // defaults, so this is "ask the character" and not "ask anything".
-        let stranger = peaceful_config(
-            &CharacterCatalog::empty(),
-            Some(&prepared),
-            Some("nobody_registered_this"),
-            &ambition_characters::brain::Brain::stand_still(),
-        );
-        assert_eq!(
-            stranger.tuning.max_run_speed,
-            ambition_platformer2d_core::MAX_RUN_SPEED,
-            "a body no character describes stopped getting the undescribed \
-             default, so this projection is now answering for creatures nobody \
-             authored"
-        );
+    fn releasing_restores_a_mind_and_no_body_fact() {
+        let PeacefulConfig {
+            brain_profile: _,
+            config_brain: _,
+        } = peaceful_config(&Brain::stand_still());
     }
 }

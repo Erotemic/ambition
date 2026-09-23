@@ -155,6 +155,7 @@ mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
 mod persisted_fate_is_built;
+mod a_released_npc_is_the_person_it_was_built_as;
 mod scheduler_perturbation;
 mod scripted_gameplay;
 mod staged_hit_lifecycle;

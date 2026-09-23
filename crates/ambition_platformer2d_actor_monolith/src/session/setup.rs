@@ -241,8 +241,18 @@ pub fn simulation_world(
     // ⚠ `sandbox_all()` is what all four passed in practice —
     // `EditableAbilitySet::default()` IS `AbilitySet::sandbox_all()`, so this
     // preserves behaviour exactly for an untouched panel.
-    let base_abilities = character_catalog
-        .ability_set(starting_character.effective_id(default_character_id))
+    //
+    // The worn character answers first: what its prepared definition AUTHORS
+    // (`None` is no contribution, not `NONE`), then the catalog row's grants,
+    // then the host baseline. The persona derive only READS `BodyAbilities`, so
+    // an answer not given here is never given — the default V3 stood in
+    // `sandbox_all` (reset and grab included) while wearing a set that grants
+    // neither.
+    let worn_id = starting_character.effective_id(default_character_id);
+    let base_abilities = prepared_characters
+        .and_then(|registry| registry.get(worn_id))
+        .and_then(|prepared| prepared.abilities)
+        .or_else(|| character_catalog.ability_set(worn_id))
         .unwrap_or_else(ae::AbilitySet::sandbox_all);
     let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
     ae::refresh_movement_resources_clusters(
@@ -270,7 +280,6 @@ pub fn simulation_world(
     // The registry now folds the catalog row at its barrier, so consulting the prepared value is
     // strictly more informed than consulting the row — and a registered-only character (every
     // versus fighter) has no row to consult.
-    let worn_id = starting_character.effective_id(default_character_id);
     let physical = prepared_characters
         .and_then(|registry| registry.get(worn_id))
         .map(ambition_body_seed::PhysicalBaseline::of);

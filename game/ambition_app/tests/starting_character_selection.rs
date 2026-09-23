@@ -99,13 +99,14 @@ fn an_unselected_start_is_built_with_the_default_characters_authored_kit() {
     sim.step(AgentAction::default());
 
     let world = sim.world_mut();
-    let (worn, identity) = {
+    let (worn, identity, abilities) = {
         let mut q = world.query_filtered::<(
             &WornCharacter,
             &ambition_platformer2d::characters::brain::action_set::IdentityKit,
+            &ambition_platformer2d::engine_core::BodyAbilities,
         ), PrimaryPlayerOnly>();
-        let (worn, identity) = q.single(world).expect("primary player");
-        (worn.id().to_string(), identity.clone())
+        let (worn, identity, abilities) = q.single(world).expect("primary player");
+        (worn.id().to_string(), identity.clone(), abilities.abilities)
     };
     let registry = world
         .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
@@ -121,5 +122,20 @@ fn an_unselected_start_is_built_with_the_default_characters_authored_kit() {
         &identity.moveset, authored,
         "the unselected start wears `{worn}` but was built with moves that are not \
          its authored ones",
+    );
+    // And the verbs its body HAS are the ones it authored.
+    let authored_abilities = prepared.abilities.unwrap_or_else(|| {
+        panic!("the premise: the default character `{worn}` authors its abilities")
+    });
+    assert_ne!(
+        authored_abilities,
+        ambition_platformer2d::engine_core::AbilitySet::sandbox_all(),
+        "the premise: `{worn}`'s authored abilities differ from the host baseline, \
+         or this arm cannot tell the two roads apart",
+    );
+    assert_eq!(
+        abilities, authored_abilities,
+        "the unselected start wears `{worn}` but its body has the host baseline's \
+         abilities rather than the ones it authored",
     );
 }

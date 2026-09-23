@@ -47,8 +47,6 @@ pub struct SimulationSetup<'a> {
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,
-    /// Which catalog character the local player spawns as. `is_default()` (the
-    /// `player` protagonist) takes the untouched `from_scratch` path.
     /// Whether this session builds a home body, and who it wears if so.
     ///
     /// a MATCH experience declares `NoInitialBody`: it realizes its own cast
@@ -302,20 +300,21 @@ pub fn simulation_world(
     // HOW THIS BODY FIRES, resolved by the overlay the bundle already runs
     // and kept rather than discarded — see below.
     let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
-    let player_bundle = if starting_character.is_default() {
-        crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
-    } else {
-        crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
-            character_catalog,
-            initial_scratch,
-            player_health,
-            starting_character.character_id.as_str(),
-            // the prepared cast, which this function already held and the
-            // bundle was not given — see the parameter's own note.
-            prepared_characters,
-            &mut ranged,
-        )
-    };
+    // ONE road for every resolved id. An unselected start still wears the
+    // content default, and `PersonaBaseline` below says that persona was
+    // applied — so building the host-code kit here instead left the default
+    // character's authored repertoire unapplied, with the derive told it was
+    // current.
+    let player_bundle = crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
+        character_catalog,
+        initial_scratch,
+        player_health,
+        worn_id,
+        // the prepared cast, which this function already held and the
+        // bundle was not given — see the parameter's own note.
+        prepared_characters,
+        &mut ranged,
+    );
     // Session ownership is captured by the caller when world construction
     // is requested. Deferred command application cannot reassign this body to a
     // later activation. Historical startup/RL callers pass `UNSCOPED`.

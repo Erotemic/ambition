@@ -1597,6 +1597,10 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     struct Walk {
         room: Option<&'static str>,
         driven: bool,
+        /// The first step whose Attack press this walk makes. A grounded strike
+        /// roots the protagonist, so a walk pressing from step 0 never leaves
+        /// its spawn; a walk that only has to ARRIVE never presses at all.
+        presses_from: usize,
         carries: &'static str,
     }
 
@@ -1610,13 +1614,13 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     /// ⚠ `step % 10` is a PRESS AND A RELEASE, not a held button: the pickup and
     /// the fire both read an edge, and a permanently-held attack is one press
     /// followed by nothing.
-    fn advance(app: &mut App, step: usize, driven: bool) {
+    fn advance(app: &mut App, step: usize, driven: bool, presses_from: usize) {
         if driven {
             ambition_platformer2d::sim::drive_control_frame(
                 app.world_mut(),
                 ambition_platformer2d::engine_core::ControlFrame {
                     axis_x: 1.0,
-                    attack_pressed: step % 10 == 0,
+                    attack_pressed: step >= presses_from && step % 10 == 0,
                     ..Default::default()
                 },
             );
@@ -1634,6 +1638,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         Walk {
             room: None,
             driven: false,
+            presses_from: usize::MAX,
             carries: "the authored start room -- what pressing launch reaches",
         },
         // ⛔⛤ **DRIVEN SINCE 2026-09-17, AND THAT IS WHAT CARRIES
@@ -1645,12 +1650,15 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         Walk {
             room: Some("portal_lab"),
             driven: true,
+            // It only has to walk into the authored aperture.
+            presses_from: usize::MAX,
             carries: "fourteen authored `Portal` placements, and a ground-ground \
                       pair holding right walks into",
         },
         Walk {
             room: Some("basement_hazards"),
             driven: false,
+            presses_from: usize::MAX,
             carries: "three authored `DamageVolume` placements",
         },
         // ⛔⛤ **THE WALK THAT PRESSES AND CARRIES A GUN**, and it is the only way
@@ -1661,6 +1669,9 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         Walk {
             room: Some("portal_bridge"),
             driven: true,
+            // The step the body reaches the pickup: the press there takes the
+            // gun, and every later one fires it.
+            presses_from: 20,
             carries: "an authored `PortalGunSpawn` 86px to the player's right",
         },
         // ⛔⛤ **A BOSS DOES NOT HAVE TO DIE, WHICH IS WHY THIS WALK IS UNDRIVEN
@@ -1676,6 +1687,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         Walk {
             room: Some("basement_boss"),
             driven: false,
+            presses_from: usize::MAX,
             carries: "an authored `BossSpawn`, whose spawn inserts the row",
         },
     ];
@@ -1685,6 +1697,7 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
     for Walk {
         room,
         driven,
+        presses_from,
         carries,
     } in ROOMS
     {
@@ -1771,8 +1784,8 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         let mut here = std::collections::BTreeSet::new();
         for step in 0..=120usize {
             if step > 0 {
-                advance(&mut fresh, step - 1, *driven);
-                advance(&mut veteran, step - 1, *driven);
+                advance(&mut fresh, step - 1, *driven, *presses_from);
+                advance(&mut veteran, step - 1, *driven, *presses_from);
             }
             let ours = census(&mut fresh, &keep);
             let theirs = census(&mut veteran, &keep);

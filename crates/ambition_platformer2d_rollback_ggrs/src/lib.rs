@@ -166,11 +166,17 @@ impl Plugin for GgrsBackendPlugin {
         // and every per-tick-changing type would differ by construction. That
         // version reported `SimTick` and `BodyKinematics` as written outside the
         // rewinding schedule.
+        // And after the confirmed lifecycle commit: a room change executes
+        // outside the rewinding schedule ON PURPOSE and rebases the session, so
+        // no snapshot from before it can be restored. Its writes are the new
+        // baseline, not a desync candidate.
         // Costs nothing unless `RollbackRestoreAudit` is enabled, which it never
         // is in a shipping frame.
         .add_systems(
             bevy::prelude::PreUpdate,
-            probes::record_census_after_the_advance.after(RunGgrsSystems),
+            probes::record_census_after_the_advance
+                .after(RunGgrsSystems)
+                .after(crate::lifecycle_commit::commit_confirmed_lifecycle),
         )
         .add_systems(bevy::prelude::Last, probes::record_live_census)
         .add_systems(
